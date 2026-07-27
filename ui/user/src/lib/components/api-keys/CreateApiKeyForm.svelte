@@ -131,7 +131,6 @@
 					id="api-key-name"
 					type="text"
 					bind:value={name}
-					placeholder="My API Key"
 					class={twMerge(
 						'text-input-filled',
 						nameError && 'border-error focus:border-error focus:ring-error'
@@ -145,7 +144,7 @@
 					id="api-key-description"
 					type="text"
 					bind:value={description}
-					placeholder="What is this API key for?"
+					placeholder="What is this auth scope for?"
 					class="text-input-filled"
 				/>
 			</div>
@@ -161,23 +160,10 @@
 				/>
 				<p class="input-description">Leave empty for no expiration</p>
 			</div>
-
-			<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
-				<div id="api-key-scopes" class="input-label">API Scopes</div>
-				{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
-					<label class="bg-base-200 flex items-start gap-3 rounded-lg border border-base-400 p-3">
-						<input type="checkbox" bind:checked={capabilities[capability.key]} class="mt-1" />
-						<div class="flex flex-col gap-1">
-							<span class="text-sm font-medium">{capability.label}</span>
-							<span class="input-description">{capability.description}</span>
-						</div>
-					</label>
-				{/each}
-			</div>
 		</div>
 	</div>
 
-	<div class="paper flex flex-col gap-2 p-4">
+	<section class="paper flex flex-col gap-2 p-4">
 		<p>
 			<span class="text-lg font-semibold">MCP Servers</span>
 			{#if serverError}
@@ -185,8 +171,8 @@
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this API key can access. To create a capability-only key, leave this
-			empty and enable a capability above.
+			Select which MCP servers this agent auth scope can access. To create a capability-only scope,
+			leave this empty and enable a capability above.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})
@@ -250,7 +236,34 @@
 				{/each}
 			{/if}
 		</div>
-	</div>
+	</section>
+
+	<section class="paper gap-2 p-4">
+		<p class="text-lg font-semibold" id="api-key-scopes">API Scopes</p>
+		<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
+			{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
+				<label
+					class={twMerge(
+						'bg-base-200 flex items-center gap-3 rounded-lg border border-base-400 p-3',
+						capabilities[capability.key] && 'bg-primary/10 border-primary'
+					)}
+				>
+					<input
+						type="checkbox"
+						bind:checked={capabilities[capability.key]}
+						class={twMerge(
+							'checkbox checkbox-xs rounded-sm',
+							capabilities[capability.key] && 'checkbox-primary'
+						)}
+					/>
+					<div class="flex flex-col gap-0.5">
+						<span class="text-sm font-medium">{capability.label}</span>
+						<span class="input-description">{capability.description}</span>
+					</div>
+				</label>
+			{/each}
+		</div>
+	</section>
 
 	<div class="flex grow"></div>
 
@@ -265,7 +278,7 @@
 				{#if loading}
 					<Loading class="size-4" />
 				{:else}
-					Create API Key
+					Save
 				{/if}
 			</button>
 		</div>

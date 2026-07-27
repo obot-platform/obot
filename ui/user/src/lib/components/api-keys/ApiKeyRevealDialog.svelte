@@ -1,5 +1,5 @@
 <script lang="ts">
-	import CopyButton from '$lib/components/CopyButton.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { TriangleAlert, KeyRound, ExternalLink } from '@lucide/svelte';
 
@@ -48,13 +48,11 @@
 
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">Your API Key</p>
-				<div class="flex items-center gap-2">
-					<div class="bg-base-200 flex flex-1 items-center gap-2 rounded-md border px-3 py-2">
+				<CopyField value={keyValue} id="agent-auth-scope-key">
+					{#snippet preContent()}
 						<KeyRound class="text-muted-content size-4 shrink-0" />
-						<code class="flex-1 font-mono text-sm break-all">{keyValue}</code>
-					</div>
-					<CopyButton text={keyValue} buttonText="Copy" />
-				</div>
+					{/snippet}
+				</CopyField>
 			</div>
 
 			<p class="text-muted text-sm">

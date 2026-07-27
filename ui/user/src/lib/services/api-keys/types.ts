@@ -25,25 +25,25 @@ export const API_KEY_CAPABILITIES = [
 		key: 'canAccessAPI',
 		label: 'API access',
 		shortLabel: 'API',
-		description: 'Grants this key access to the Obot API using your user role permissions.'
+		description: 'Grants access to the Obot API using your user role permissions.'
 	},
 	{
 		key: 'canAccessLLMProxy',
 		label: 'LLM proxy access',
 		shortLabel: 'LLM',
-		description: 'Grants this key access to LLM proxy endpoints.'
+		description: 'Grants access to LLM proxy endpoints.'
 	},
 	{
 		key: 'canAccessSkills',
 		label: 'Skill access',
 		shortLabel: 'Skills',
-		description: 'Grants this key read-only access for skill discovery and downloads.'
+		description: 'Grants read-only access for skill discovery and downloads.'
 	},
 	{
 		key: 'canAccessDeviceScans',
 		label: 'Device scan access',
 		shortLabel: 'Scans',
-		description: 'Grants this key access to submit and read device scans.'
+		description: 'Grants access to submit and read device scans.'
 	}
 ] as const satisfies ReadonlyArray<{
 	key: APIKeyCapabilityKey;

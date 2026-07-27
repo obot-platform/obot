@@ -55,6 +55,7 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const title = $derived(apiKey?.name || 'Agent Auth Scope');
 </script>
 
 {#if apiKey}
@@ -66,12 +67,12 @@
 		<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
 			<div class="flex w-full items-center justify-between gap-4">
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{apiKey.name || 'API Key'}
+					{title}
 				</h1>
 				{#if apiKey.userId.toString() === profile.current.id}
 					<IconButton
 						variant="danger2"
-						tooltip={{ text: 'Delete API Key' }}
+						tooltip={{ text: `Delete ${title}` }}
 						disabled={saving}
 						onclick={() => (deletingApiKey = true)}
 					>
@@ -80,88 +81,61 @@
 				{/if}
 			</div>
 
-			<div
-				class="dark:bg-base-300 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
-			>
-				<div class="flex flex-col gap-6">
+			<section class="paper">
+				{#if apiKey.description}
 					<div class="flex flex-col gap-2">
-						{#if apiKey.description}
-							<label for="api-key-description" class="flex-1 text-sm font-light capitalize"
-								>Description</label
-							>
-							<input
-								id="api-key-description"
-								value={apiKey.description}
-								class="text-input-filled mt-0.5"
-								disabled
-							/>
-						{/if}
-					</div>
-
-					<div class="flex flex-col gap-2">
-						<label for="api-key-key" class="flex-1 text-sm font-light capitalize">Key</label>
-						<input
-							id="api-key-key"
-							value={apiKey.prefix}
-							class="text-input-filled mt-0.5"
-							disabled
-						/>
-					</div>
-
-					{#each API_KEY_CAPABILITIES as capability (capability.key)}
-						<div class="flex flex-col gap-2">
-							<label for={`api-key-${capability.key}`} class="flex-1 text-sm font-light capitalize">
-								{capability.label}
-							</label>
-							<input
-								id={`api-key-${capability.key}`}
-								value={apiKey[capability.key] ? 'Enabled' : 'Disabled'}
-								class="text-input-filled mt-0.5"
-								disabled
-							/>
-						</div>
-					{/each}
-
-					<div class="flex flex-col gap-2">
-						<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label
+						<label for="api-key-description" class="flex-1 text-sm font-light capitalize"
+							>Description</label
 						>
 						<input
-							id="api-key-created"
-							value={createdDisplay}
+							id="api-key-description"
+							value={apiKey.description}
 							class="text-input-filled mt-0.5"
 							disabled
 						/>
 					</div>
+				{/if}
 
-					<div class="flex flex-col gap-2">
-						<label for="api-key-last-used" class="flex-1 text-sm font-light capitalize"
-							>Last Used</label
-						>
-						<input
-							id="api-key-last-used"
-							value={lastUsedDisplay}
-							class="text-input-filled mt-0.5"
-							disabled
-						/>
-					</div>
-
-					<div class="flex flex-col gap-2">
-						<label for="api-key-expires" class="flex-1 text-sm font-light capitalize">Expires</label
-						>
-						<input
-							id="api-key-expires"
-							value={expiresDisplay}
-							class="text-input-filled mt-0.5"
-							disabled
-						/>
-					</div>
+				<div class="flex flex-col gap-2">
+					<label for="api-key-key" class="flex-1 text-sm font-light capitalize">Key</label>
+					<input id="api-key-key" value={apiKey.prefix} class="text-input-filled mt-0.5" disabled />
 				</div>
-			</div>
 
-			<div class="mt-4 flex flex-col gap-2">
-				<p>
-					<span class="text-lg font-semibold">Authorized Servers</span>
-				</p>
+				<div class="flex flex-col gap-2">
+					<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label>
+					<input
+						id="api-key-created"
+						value={createdDisplay}
+						class="text-input-filled mt-0.5"
+						disabled
+					/>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label for="api-key-last-used" class="flex-1 text-sm font-light capitalize"
+						>Last Used</label
+					>
+					<input
+						id="api-key-last-used"
+						value={lastUsedDisplay}
+						class="text-input-filled mt-0.5"
+						disabled
+					/>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					<label for="api-key-expires" class="flex-1 text-sm font-light capitalize">Expires</label>
+					<input
+						id="api-key-expires"
+						value={expiresDisplay}
+						class="text-input-filled mt-0.5"
+						disabled
+					/>
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-2">
+				<p class="text-lg font-semibold">MCP Servers</p>
 
 				{#if resolvedServers.length > 0 || isAllServers}
 					<Table
@@ -216,13 +190,50 @@
 				{:else}
 					<p class="text-muted">No servers authorized</p>
 				{/if}
-			</div>
+			</section>
+
+			<section class="paper gap-2 p-4">
+				<p class="text-lg font-semibold" id="api-key-scopes">API Scopes</p>
+				<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
+					{#each API_KEY_CAPABILITIES as capability (capability.key)}
+						<label
+							class={twMerge(
+								'bg-base-200 flex items-center gap-3 rounded-lg border border-base-400 p-3',
+								apiKey[capability.key] && 'bg-primary/10 border-primary'
+							)}
+						>
+							<input
+								type="checkbox"
+								bind:checked={apiKey[capability.key]}
+								class={twMerge(
+									'checkbox checkbox-xs rounded-sm',
+									apiKey[capability.key] && 'checkbox-primary'
+								)}
+								disabled
+							/>
+							<div class="flex flex-col gap-0.5">
+								<span class="text-sm font-medium">{capability.label}</span>
+								<span class="input-description">{capability.description}</span>
+							</div>
+						</label>
+					{/each}
+				</div>
+			</section>
+
+			<section class="flex flex-col gap-2">
+				<p class="text-lg font-semibold">API Keys</p>
+				<Table
+					data={[{ id: apiKey.id, prefix: apiKey.prefix }]}
+					fields={['prefix']}
+					headers={[{ title: 'Key', property: 'prefix' }]}
+				/>
+			</section>
 		</div>
 	</div>
 {/if}
 
 <Confirm
-	msg="Are you sure you want to delete this API key?"
+	msg={`Are you sure you want to delete "${title}"?`}
 	show={deletingApiKey}
 	onsuccess={onDelete}
 	oncancel={() => (deletingApiKey = false)}

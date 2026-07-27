@@ -101,7 +101,8 @@
 		Settings,
 		PanelLeftClose,
 		Brain,
-		LayoutGrid
+		LayoutGrid,
+		KeyRound
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -266,6 +267,13 @@
 					}
 				]
 			: []),
+		{
+			id: 'agent-auth-scope',
+			icon: KeyRound,
+			label: 'Agent Auth Scopes',
+			href: '/agent-auth-scopes',
+			collapsible: false
+		},
 		...(agentsFeatureEnabled
 			? [
 					{
@@ -430,7 +438,7 @@
 					{
 						id: 'user-management',
 						icon: Users,
-						label: 'User Management',
+						label: 'Auth Management',
 						disabled: !version.current.authEnabled,
 						collapsible: true,
 						noteIcon: !version.current.authEnabled ? LockOpen : undefined,
@@ -465,9 +473,9 @@
 								collapsible: false
 							},
 							{
-								id: 'api-keys',
-								href: '/admin/api-keys',
-								label: 'API Keys',
+								id: 'agent-auth-scopes',
+								href: '/admin/agent-auth-scopes',
+								label: 'Agent Auth Scopes',
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}

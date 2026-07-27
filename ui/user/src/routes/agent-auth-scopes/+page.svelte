@@ -2,6 +2,8 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ApiKeyRevealDialog from '$lib/components/api-keys/ApiKeyRevealDialog.svelte';
+	import CreateApiKeyForm from '$lib/components/api-keys/CreateApiKeyForm.svelte';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
@@ -11,8 +13,6 @@
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import { openUrl } from '$lib/utils';
-	import ApiKeyRevealDialog from './ApiKeyRevealDialog.svelte';
-	import CreateApiKeyForm from './CreateApiKeyForm.svelte';
 	import { Info, KeyRound, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -72,7 +72,10 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout title={showCreateNew ? 'Create API Key' : 'API Keys'} showBackButton={showCreateNew}>
+<Layout
+	title={showCreateNew ? 'Create Agent Auth Scope' : 'Agent Auth Scope'}
+	showBackButton={showCreateNew}
+>
 	{#if showCreateNew}
 		<div
 			class="h-full w-full"
@@ -86,10 +89,10 @@
 			{#if apiKeys.length === 0}
 				<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 					<KeyRound class="text-base-content/80 size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">No API keys</h4>
+					<h4 class="text-muted-content text-lg font-semibold">No Agent Auth Scopes</h4>
 					<p class="text-muted-content text-sm font-light">
-						Looks like you don't have any API keys yet! <br />
-						Click the "Create API Key" button above to get started.
+						Looks like you don't have any agent auth scopes yet! <br />
+						Click the "Create Agent Auth Scope" button above to get started.
 					</p>
 
 					<div class="notification-info mt-8">
@@ -99,26 +102,21 @@
 								<p class="text-sm font-semibold">What are these for?</p>
 							</div>
 							<p class="text-left text-sm font-light">
-								API keys allow programmatic access to MCP servers. Each key can only access the
-								servers you specify.
+								{@render description()}
 								<button class="text-link inline" onclick={showCreateForm}
-									>Create your first key</button
+									>Create your first auth scope</button
 								>
 							</p>
 						</div>
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted text-sm">
-					API keys allow programmatic access to MCP servers. Each key can only access the servers
-					you specify.
-				</p>
+				<p class="text-muted text-sm">{@render description()}</p>
 
 				<Table
 					data={tableData}
 					fields={[
 						'name',
-						'prefix',
 						'description',
 						'capabilitiesDisplay',
 						'mcpServerIds',
@@ -127,16 +125,13 @@
 						'expiresAt'
 					]}
 					headers={[
-						{ title: 'Name', property: 'name' },
-						{ title: 'Key', property: 'prefix' },
-						{ title: 'Description', property: 'description' },
 						{ title: 'Capabilities', property: 'capabilitiesDisplay' },
+						{ title: 'Last Used', property: 'lastUsedAt' },
 						{ title: 'Servers', property: 'mcpServerIds' },
 						{ title: 'Created', property: 'createdAt' },
-						{ title: 'Last Used', property: 'lastUsedAt' },
 						{ title: 'Expires', property: 'expiresAt' }
 					]}
-					sortable={['name', 'createdAt', 'lastUsedAt', 'expiresAt']}
+					sortable={['createdAt', 'lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
 					onClickRow={(d, isCtrlClick) => {
@@ -185,14 +180,14 @@
 		{#if !showCreateNew}
 			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
-				Create API Key
+				Create Auth Scope
 			</button>
 		{/if}
 	{/snippet}
 </Layout>
 
 <Confirm
-	msg={`Delete API key "${deletingKey?.name}"?`}
+	msg={`Delete "${deletingKey?.name}"?`}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDelete}
@@ -201,6 +196,12 @@
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
 
+{#snippet description()}
+	<b>Agent Auth Scope</b> lets you create reusable authorization scopes that define which MCP servers,
+	skills, and LLMs an agent can access. After defining a scope, you can generate API keys that enforce
+	those permissions, ensuring agents operate only within the capabilities you've authorized.
+{/snippet}
+
 <svelte:head>
-	<title>Obot | My API Keys</title>
+	<title>Obot | Agent Auth Keys</title>
 </svelte:head>

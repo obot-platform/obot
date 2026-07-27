@@ -8,7 +8,7 @@
 
 	let { data } = $props();
 	const { apiKey } = $derived(data);
-	let title = $derived(apiKey?.name ?? 'API Key');
+	let title = $derived(apiKey?.name || 'Agent Auth Scope');
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
@@ -19,7 +19,7 @@
 				apiKey={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
 				onDelete={async () => {
 					await ApiKeysService.deleteAnyApiKey(apiKey.id.toString());
-					goto('/keys', { replaceState: true });
+					goto('/admin/api-keys', { replaceState: true });
 				}}
 			/>
 		{/if}

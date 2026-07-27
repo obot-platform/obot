@@ -3,6 +3,8 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ApiKeyRevealDialog from '$lib/components/api-keys/ApiKeyRevealDialog.svelte';
+	import CreateApiKeyForm from '$lib/components/api-keys/CreateApiKeyForm.svelte';
 	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -13,8 +15,6 @@
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import { openUrl } from '$lib/utils';
-	import ApiKeyRevealDialog from '../../keys/ApiKeyRevealDialog.svelte';
-	import CreateApiKeyForm from '../../keys/CreateApiKeyForm.svelte';
 	import { KeyRound, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -79,7 +79,10 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout title={showCreateNew ? 'Create API Key' : 'API Keys'} showBackButton={showCreateNew}>
+<Layout
+	title={showCreateNew ? 'Create Agent Auth Scope' : 'Agent Auth Scopes'}
+	showBackButton={showCreateNew}
+>
 	{#if showCreateNew}
 		<div
 			class="h-full w-full"
@@ -93,20 +96,19 @@
 			{#if allApiKeys.length === 0}
 				<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">
 					<KeyRound class="text-muted-content size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">No API keys</h4>
+					<h4 class="text-muted-content text-lg font-semibold">No agent auth scopes</h4>
 					<p class="text-muted-content text-sm font-light">
-						Looks like there aren't any API keys in the system yet. <br />
-						Click the "Create API Key" button above to get started.
+						Looks like there aren't any agent auth scopes in the system yet. <br />
+						Click the "Create Agent Auth Scope" button above to get started.
 					</p>
 				</div>
 			{:else}
-				<p class="text-muted text-sm">View and manage all API keys across all users.</p>
+				<p class="text-muted text-sm">View and manage all Agent Auth Scopes across all users.</p>
 				<Table
 					data={allTableData}
 					fields={[
 						'userDisplay',
 						'name',
-						'prefix',
 						'description',
 						'capabilitiesDisplay',
 						'mcpServerIds',
@@ -115,10 +117,7 @@
 						'expiresAt'
 					]}
 					headers={[
-						{ title: 'User', property: 'userDisplay' },
-						{ title: 'Name', property: 'name' },
-						{ title: 'Key', property: 'prefix' },
-						{ title: 'Description', property: 'description' },
+						{ title: 'Created By', property: 'userDisplay' },
 						{ title: 'Capabilities', property: 'capabilitiesDisplay' },
 						{ title: 'Servers', property: 'mcpServerIds' },
 						{ title: 'Created', property: 'createdAt' },
@@ -132,6 +131,11 @@
 					onClickRow={(d, isCtrlClick) => {
 						const url = `/admin/api-keys/${d.id}`;
 						openUrl(url, isCtrlClick);
+					}}
+					columnMaxWidths={{
+						userDisplay: 200,
+						capabilitiesDisplay: 200,
+						description: 200
 					}}
 				>
 					{#snippet onRenderColumn(property, d)}
@@ -180,14 +184,14 @@
 		{#if !showCreateNew && !profile.current.isAdminReadonly?.()}
 			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
-				Create API Key
+				Create Agent Auth Scope
 			</button>
 		{/if}
 	{/snippet}
 </Layout>
 
 <Confirm
-	msg={`Delete API key "${deletingKey?.name}"?`}
+	msg={`Delete "${deletingKey?.name}"?`}
 	show={Boolean(deletingKey)}
 	{loading}
 	onsuccess={handleDeleteAnyKey}
@@ -197,5 +201,5 @@
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
 
 <svelte:head>
-	<title>Obot | API Keys</title>
+	<title>Obot | Agent Auth Scopes</title>
 </svelte:head>
