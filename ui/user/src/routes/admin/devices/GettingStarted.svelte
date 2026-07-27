@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MDMConfiguration } from '$lib/services';
@@ -55,6 +56,7 @@
 			</p>
 		{:else}
 			<button
+				id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.getStartedButton}
 				class="btn btn-primary flex items-center gap-2"
 				disabled={loading}
 				onclick={handleCreate}

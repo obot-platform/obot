@@ -2,6 +2,7 @@ import type { GuideHighlight, GuideListener } from '../types';
 
 export const SIDEBAR_MCP_CATALOG_LINK = 'sidebar-link-mcp-catalog';
 export const SIDEBAR_MCP_ACCESS_POLICIES_LINK = 'sidebar-link-mcp-access-policies';
+export const SIDEBAR_MCP_FILTERS_LINK = 'sidebar-link-filters';
 
 export const highlightMcpCatalogLink: GuideHighlight = {
 	selector: {

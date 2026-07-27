@@ -21,7 +21,8 @@ export function getNavigateToMCPCatalogStep(): GuideStep {
 			getExpandAdvancedPaneAction({
 				elementMissing: SIDEBAR_MCP_CATALOG_LINK,
 				highlight: highlightMcpCatalogLink,
-				listener: listenMcpCatalogLink
+				listener: listenMcpCatalogLink,
+				parentID: 'sidebar-collapse-mcp-server-management'
 			}),
 			{
 				highlight: {
@@ -43,7 +44,8 @@ export function getNavigateToMCPCatalogStep(): GuideStep {
 						getExpandAdvancedPaneAction({
 							elementMissing: SIDEBAR_MCP_CATALOG_LINK,
 							highlight: highlightMcpCatalogLink,
-							listener: listenMcpCatalogLink
+							listener: listenMcpCatalogLink,
+							parentID: 'sidebar-collapse-mcp-server-management'
 						})
 					]
 				}

@@ -8,7 +8,7 @@
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { MCP_FILTERS_FIELD_IDS, PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MCPFilter, type SystemMCPServerCatalogEntry } from '$lib/services';
 	import { profile } from '$lib/stores';
@@ -196,6 +196,8 @@
 		class="btn btn-block btn-primary w-full text-sm md:w-fit"
 		placement="bottom"
 		classes={{ popover: 'z-50' }}
+		id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
+		ariaLabel="Add New Filter"
 	>
 		{#snippet icon()}
 			<span class="flex items-center justify-center gap-1">
@@ -203,6 +205,7 @@
 			</span>
 		{/snippet}
 		<button
+			id={MCP_FILTERS_FIELD_IDS.createCustomBtn}
 			class="menu-button"
 			onclick={() => {
 				goto('/admin/filters?new=true');
@@ -211,6 +214,7 @@
 			Create Custom
 		</button>
 		<button
+			id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
 			class="menu-button"
 			disabled={systemCatalogEntries.length === 0}
 			onclick={() => {

@@ -2,6 +2,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { PAGE_TRANSITION_DURATION, PII_REDACT_TYPES, PII_BLOCK_TYPES } from '$lib/constants';
+	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
 	import { HttpError } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
@@ -539,6 +540,7 @@
 
 		<div
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4"
+			id={MCP_FILTERS_FIELD_IDS.basicDetails}
 		>
 			<div class="flex flex-col gap-6">
 				<div class="flex flex-col gap-2">
@@ -560,10 +562,12 @@
 
 				{#if !mcpSystemCatalogEntryId}
 					<div class="flex flex-col gap-2">
-						<label for="runtime-selector" class="text-sm font-light">Type</label>
+						<label for={MCP_FILTERS_FIELD_IDS.runtimeSelector} class="text-sm font-light"
+							>Type</label
+						>
 						<div class="w-full">
 							<Select
-								id="runtime-selector"
+								id={MCP_FILTERS_FIELD_IDS.runtimeSelector}
 								class="bg-base-200 dark:bg-base-200 dark:border-base-400 flex-1 border border-transparent shadow-inner"
 								options={runtimeOptions}
 								bind:selected={runtimeTypeSelect}
@@ -579,6 +583,7 @@
 		{#if !runtimeFormData}
 			<div
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-8 rounded-lg border border-transparent p-4 shadow-sm"
+				id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}
 			>
 				<div class="flex flex-col gap-2">
 					<label for="webhook-url" class="flex-1 text-sm font-light capitalize">
@@ -663,66 +668,68 @@
 				</div>
 			</div>
 		{:else if runtimeFormData}
-			{#if !isPrebuiltEntry}
-				{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
-					<NpxRuntimeForm
-						bind:config={runtimeFormData.npxConfig}
-						readonly={readonly || isPrebuiltEntry}
-						showRequired={showRuntimeRequired}
-						onFieldChange={handleUpdateRequired}
-					>
-						{@render toolNameForm()}
-					</NpxRuntimeForm>
-				{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
-					<UvxRuntimeForm
-						bind:config={runtimeFormData.uvxConfig}
-						readonly={readonly || isPrebuiltEntry}
-						showRequired={showRuntimeRequired}
-						onFieldChange={handleUpdateRequired}
-					>
-						{@render toolNameForm()}
-					</UvxRuntimeForm>
-				{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
-					<ContainerizedRuntimeForm
-						bind:config={runtimeFormData.containerizedConfig}
-						readonly={readonly || isPrebuiltEntry}
-						showRequired={showRuntimeRequired}
-						onFieldChange={handleUpdateRequired}
-					>
-						{@render toolNameForm()}
-					</ContainerizedRuntimeForm>
-				{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
-					<RemoteRuntimeForm
-						bind:config={runtimeFormData.remoteServerConfig}
-						variant="server"
-						readonly={readonly || isPrebuiltEntry}
-						showRequired={showRuntimeRequired}
-						onFieldChange={handleUpdateRequired}
-						isNewEntry={!initialFilterId}
-						disableStaticOAuth
-						disableHostnameOption
-					>
-						{@render toolNameForm()}
-					</RemoteRuntimeForm>
+			<div class="flex flex-col gap-4" id={MCP_FILTERS_FIELD_IDS.runtimeFormDetails}>
+				{#if !isPrebuiltEntry}
+					{#if runtimeFormData.runtime === 'npx' && runtimeFormData.npxConfig}
+						<NpxRuntimeForm
+							bind:config={runtimeFormData.npxConfig}
+							readonly={readonly || isPrebuiltEntry}
+							showRequired={showRuntimeRequired}
+							onFieldChange={handleUpdateRequired}
+						>
+							{@render toolNameForm()}
+						</NpxRuntimeForm>
+					{:else if runtimeFormData.runtime === 'uvx' && runtimeFormData.uvxConfig}
+						<UvxRuntimeForm
+							bind:config={runtimeFormData.uvxConfig}
+							readonly={readonly || isPrebuiltEntry}
+							showRequired={showRuntimeRequired}
+							onFieldChange={handleUpdateRequired}
+						>
+							{@render toolNameForm()}
+						</UvxRuntimeForm>
+					{:else if runtimeFormData.runtime === 'containerized' && runtimeFormData.containerizedConfig}
+						<ContainerizedRuntimeForm
+							bind:config={runtimeFormData.containerizedConfig}
+							readonly={readonly || isPrebuiltEntry}
+							showRequired={showRuntimeRequired}
+							onFieldChange={handleUpdateRequired}
+						>
+							{@render toolNameForm()}
+						</ContainerizedRuntimeForm>
+					{:else if runtimeFormData.runtime === 'remote' && runtimeFormData.remoteServerConfig}
+						<RemoteRuntimeForm
+							bind:config={runtimeFormData.remoteServerConfig}
+							variant="server"
+							readonly={readonly || isPrebuiltEntry}
+							showRequired={showRuntimeRequired}
+							onFieldChange={handleUpdateRequired}
+							isNewEntry={!initialFilterId}
+							disableStaticOAuth
+							disableHostnameOption
+						>
+							{@render toolNameForm()}
+						</RemoteRuntimeForm>
+					{/if}
 				{/if}
-			{/if}
 
-			{#if runtimeFormData.runtime !== 'remote'}
-				<CustomConfigurationForm
-					bind:config={runtimeFormData.env}
-					{readonly}
-					serverUserType="multiUser"
-					{isPrebuiltEntry}
-					overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
-					showRequired={showRuntimeRequired.env}
-				>
-					{#snippet overrideEnvTemplate({ config })}
-						{#if config.key === PII_BLOCK_TYPES && runtimeFormData}
-							<FilterFormTypeSelection bind:config={runtimeFormData.env} />
-						{/if}
-					{/snippet}
-				</CustomConfigurationForm>
-			{/if}
+				{#if runtimeFormData.runtime !== 'remote'}
+					<CustomConfigurationForm
+						bind:config={runtimeFormData.env}
+						{readonly}
+						serverUserType="multiUser"
+						{isPrebuiltEntry}
+						overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
+						showRequired={showRuntimeRequired.env}
+					>
+						{#snippet overrideEnvTemplate({ config })}
+							{#if config.key === PII_BLOCK_TYPES && runtimeFormData}
+								<FilterFormTypeSelection bind:config={runtimeFormData.env} />
+							{/if}
+						{/snippet}
+					</CustomConfigurationForm>
+				{/if}
+			</div>
 		{/if}
 
 		<div class="h-px bg-base-400 w-full my-4"></div>
@@ -767,7 +774,12 @@
 					>
 						Cancel
 					</button>
-					<button class="btn btn-primary text-sm" disabled={saving} onclick={handleSave}>
+					<button
+						id={MCP_FILTERS_FIELD_IDS.saveBtn}
+						class="btn btn-primary text-sm"
+						disabled={saving}
+						onclick={handleSave}
+					>
 						{#if saving}
 							<Loading class="size-4" />
 						{:else}

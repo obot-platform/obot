@@ -7,6 +7,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		children: Snippet<[{ toggle: (newOpenValue?: boolean) => void }]>;
 		class?: string;
 		classes?: {
@@ -22,6 +23,7 @@
 	}
 
 	let {
+		id,
 		children,
 		class: clazz,
 		classes,
@@ -41,6 +43,7 @@
 </script>
 
 <button
+	{id}
 	aria-label={ariaLabel}
 	class={twMerge('btn', !clazz?.includes('btn-block') && 'btn-ghost btn-square', clazz)}
 	use:ref
