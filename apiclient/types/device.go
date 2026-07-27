@@ -1,17 +1,17 @@
 package types
 
-// Device is an enrolled machine belonging to a MDM deployment. It is the API
+// Device is an enrolled machine belonging to a MDM configuration. It is the API
 // representation of a gateway device record (the registered public key is not
 // exposed).
 type Device struct {
-	ID              uint   `json:"id"`
-	DeviceID        string `json:"deviceID"`
-	MDMDeploymentID uint   `json:"mdmDeploymentID"`
-	Hostname        string `json:"hostname,omitempty"`
-	OS              string `json:"os,omitempty"`
-	OSVersion       string `json:"osVersion,omitempty"`
-	EnrolledAt      Time   `json:"enrolledAt"`
-	LastSeenAt      *Time  `json:"lastSeenAt,omitempty"`
+	ID                 uint   `json:"id"`
+	DeviceID           string `json:"deviceID"`
+	MDMConfigurationID uint   `json:"mdmConfigurationID"`
+	Hostname           string `json:"hostname,omitempty"`
+	OS                 string `json:"os,omitempty"`
+	OSVersion          string `json:"osVersion,omitempty"`
+	EnrolledAt         Time   `json:"enrolledAt"`
+	LastSeenAt         *Time  `json:"lastSeenAt,omitempty"`
 }
 
 type DeviceList List[Device]

@@ -1,8 +1,20 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Select from '$lib/components/Select.svelte';
+	import {
+		ALL_SOURCE_TYPES,
+		clearSourceScopedFilters,
+		COMMON_FILTER_KEYS,
+		eventTypeParamFromSourceTypes,
+		filterVisibleExportFields,
+		isExportFilterKeyVisible,
+		normalizeSourceTypes,
+		sourceTypeLabels,
+		sourceTypesFromEventTypeParam
+	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
+		type LLMAuditLogURLFilters,
 		type OrgUser,
 		type ScheduledAuditLogExport,
 		AdminService,
@@ -22,15 +34,18 @@
 		onSubmit: (result?: ScheduledAuditLogExport) => void;
 		mode?: 'create' | 'view' | 'edit';
 		initialData?: ScheduledAuditLogExport;
+		logType?: 'mcp' | 'llm';
 	}
 
-	let { onCancel, onSubmit, mode = 'create', initialData }: Props = $props();
+	let { onCancel, onSubmit, mode = 'create', initialData, logType = 'mcp' }: Props = $props();
 
 	let defaultTimezone = $state(Intl.DateTimeFormat().resolvedOptions().timeZone);
 	let showAdvancedOptions = $state(false);
 	let isViewMode = $derived(mode === 'view');
+	let defaultKeyPrefix = $derived(logType === 'llm' ? 'llm-audit-logs' : 'mcp-audit-logs');
 
-	// Form state
+	// Form state. Every log source starts selected so a new schedule covers everything by default;
+	// the user narrows it by unchecking.
 	let form = $state({
 		name: '',
 		enabled: true,
@@ -45,7 +60,13 @@
 			timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
 		},
 		retentionPeriodInDays: 30,
+		sourceTypes: [...ALL_SOURCE_TYPES] as string[],
 		filters: {
+			actor: '',
+			operation: '',
+			mcp_server: '',
+			tool: '',
+			client: '',
 			user_id: '',
 			mcp_id: '',
 			mcp_server_display_name: '',
@@ -57,8 +78,20 @@
 			client_ip: '',
 			response_status: '',
 			session_id: '',
+			user_agent: '',
+			client_session_id: '',
+			message_policy_triggered: '',
+			model_provider: '',
+			outcome: '',
+			request_path: '',
+			target_model: '',
+			agent_provider: '',
+			status: '',
+			tool_name: '',
+			tool_kind: '',
+			device_id: '',
 			query: ''
-		} as Partial<AuditLogURLFilters>
+		} as Partial<AuditLogURLFilters & LLMAuditLogURLFilters>
 	});
 
 	let creating = $state(false);
@@ -75,6 +108,7 @@
 			form.bucket = initialData.bucket || '';
 			form.keyPrefix = initialData.keyPrefix || '';
 			form.retentionPeriodInDays = initialData.retentionPeriodInDays || 30;
+			form.sourceTypes = normalizeSourceTypes(initialData.filters?.sourceTypes);
 
 			// Populate schedule if it exists
 			if (initialData.schedule) {
@@ -90,58 +124,114 @@
 			}
 
 			// Populate filters if they exist
-			if (initialData.filters) {
+			if (logType === 'llm' && initialData.llmFilters) {
+				const filters = initialData.llmFilters;
 				form.filters = {
-					user_id: initialData.filters.userIDs ? initialData.filters.userIDs.join(',') : '',
-					mcp_id: initialData.filters.mcpIDs ? initialData.filters.mcpIDs.join(',') : '',
-					mcp_server_display_name: initialData.filters.mcpServerDisplayNames
-						? initialData.filters.mcpServerDisplayNames.join(',')
+					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
+					model_provider: filters.modelProviders ? filters.modelProviders.join(',') : '',
+					target_model: filters.targetModels ? filters.targetModels.join(',') : '',
+					request_path: filters.requestPaths ? filters.requestPaths.join(',') : '',
+					response_status: filters.responseStatuses ? filters.responseStatuses.join(',') : '',
+					outcome: filters.outcomes ? filters.outcomes.join(',') : '',
+					user_agent: filters.userAgents ? filters.userAgents.join(',') : '',
+					client_session_id: filters.clientSessionIDs ? filters.clientSessionIDs.join(',') : '',
+					message_policy_triggered: filters.messagePolicyTriggered?.map(String).join(',') ?? '',
+					query: filters.query ?? ''
+				};
+				showAdvancedOptions = true;
+				return;
+			}
+
+			if (initialData.filters) {
+				const filters = initialData.filters;
+				form.filters = {
+					actor: filters.actors?.join(',') ?? '',
+					operation: filters.operations?.join(',') ?? '',
+					mcp_server: filters.mcpServers?.join(',') ?? '',
+					tool: filters.tools?.join(',') ?? '',
+					outcome: filters.outcomes?.join(',') ?? '',
+					client: filters.clients?.join(',') ?? '',
+					user_id: filters.userIDs ? filters.userIDs.join(',') : '',
+					mcp_id: filters.mcpIDs ? filters.mcpIDs.join(',') : '',
+					mcp_server_display_name: filters.mcpServerDisplayNames
+						? filters.mcpServerDisplayNames.join(',')
 						: '',
-					mcp_server_catalog_entry_name: initialData.filters.mcpServerCatalogEntryNames
-						? initialData.filters.mcpServerCatalogEntryNames.join(',')
+					mcp_server_catalog_entry_name: filters.mcpServerCatalogEntryNames
+						? filters.mcpServerCatalogEntryNames.join(',')
 						: '',
-					call_type: initialData.filters.callTypes ? initialData.filters.callTypes.join(',') : '',
-					call_identifier: initialData.filters.callIdentifiers
-						? initialData.filters.callIdentifiers.join(',')
-						: '',
-					response_status: initialData.filters.responseStatuses
-						? initialData.filters.responseStatuses.join(',')
-						: '',
-					session_id: initialData.filters.sessionIDs
-						? initialData.filters.sessionIDs.join(',')
-						: '',
-					client_name: initialData.filters.clientNames
-						? initialData.filters.clientNames.join(',')
-						: '',
-					client_version: initialData.filters.clientVersions
-						? initialData.filters.clientVersions.join(',')
-						: '',
-					client_ip: initialData.filters.clientIPs ? initialData.filters.clientIPs.join(',') : ''
+					call_type: filters.callTypes ? filters.callTypes.join(',') : '',
+					call_identifier: filters.callIdentifiers ? filters.callIdentifiers.join(',') : '',
+					response_status: filters.responseStatuses ? filters.responseStatuses.join(',') : '',
+					session_id: filters.sessionIDs ? filters.sessionIDs.join(',') : '',
+					client_name: filters.clientNames ? filters.clientNames.join(',') : '',
+					client_version: filters.clientVersions ? filters.clientVersions.join(',') : '',
+					client_ip: filters.clientIPs ? filters.clientIPs.join(',') : '',
+					agent_provider: filters.agentProviders?.join(',') ?? '',
+					status: filters.statuses?.join(',') ?? '',
+					tool_name: filters.toolNames?.join(',') ?? '',
+					tool_kind: filters.toolKinds?.join(',') ?? '',
+					device_id: filters.deviceIDs?.join(',') ?? '',
+					query: filters.query ?? ''
 				};
 				showAdvancedOptions = true;
 			}
 		} else if (mode === 'create') {
 			// Populate from URL parameters for create mode
 			const params = page.url.searchParams;
+			if (logType === 'mcp') {
+				// The audit-logs page omits event_type when no Source filter is applied; in that case
+				// the all-sources default stands.
+				const sourceTypes = sourceTypesFromEventTypeParam(params.get('event_type'));
+				if (sourceTypes) {
+					form.sourceTypes = sourceTypes;
+				}
+			}
 
-			const mappedField = {
-				user_ids: 'user_id',
-				mcp_ids: 'mcp_id',
-				mcp_server_display_names: 'mcp_server_display_name',
-				mcp_server_catalog_entry_names: 'mcp_server_catalog_entry_name',
-				call_types: 'call_type',
-				call_identifiers: 'call_identifier',
-				response_statuses: 'response_status',
-				session_ids: 'session_id',
-				client_names: 'client_name',
-				client_versions: 'client_version',
-				client_ips: 'client_ip'
-			} satisfies Record<string, keyof AuditLogURLFilters>;
+			const mappedField =
+				logType === 'llm'
+					? ({
+							user_id: 'user_id',
+							user_agent: 'user_agent',
+							client_session_id: 'client_session_id',
+							message_policy_triggered: 'message_policy_triggered',
+							model_provider: 'model_provider',
+							outcome: 'outcome',
+							request_path: 'request_path',
+							response_status: 'response_status',
+							target_model: 'target_model',
+							query: 'query'
+						} satisfies Record<string, keyof LLMAuditLogURLFilters>)
+					: ({
+							actor: 'actor',
+							operation: 'operation',
+							mcp_server: 'mcp_server',
+							tool: 'tool',
+							outcome: 'outcome',
+							client: 'client',
+							user_id: 'user_id',
+							mcp_id: 'mcp_id',
+							mcp_server_display_name: 'mcp_server_display_name',
+							mcp_server_catalog_entry_name: 'mcp_server_catalog_entry_name',
+							call_type: 'call_type',
+							call_identifier: 'call_identifier',
+							response_status: 'response_status',
+							session_id: 'session_id',
+							client_name: 'client_name',
+							client_version: 'client_version',
+							client_ip: 'client_ip',
+							agent_provider: 'agent_provider',
+							status: 'status',
+							tool_name: 'tool_name',
+							tool_kind: 'tool_kind',
+							device_id: 'device_id',
+							query: 'query'
+						} satisfies Record<string, keyof AuditLogURLFilters>);
 
 			let hasFilters = false;
 			for (const [key, value] of Object.entries(mappedField)) {
-				if (params.get(key)) {
-					form.filters[value] = params.get(key);
+				const param = params.get(key);
+				if (param) {
+					(form.filters as Record<string, string>)[value] = param;
 					hasFilters = true;
 				}
 			}
@@ -153,7 +243,13 @@
 		}
 	});
 
-	let filtersIds = [
+	let mcpFiltersIds = [
+		'actor',
+		'operation',
+		'mcp_server',
+		'tool',
+		'outcome',
+		'client',
 		'mcp_id',
 		'user_id',
 		'mcp_server_catalog_entry_name',
@@ -164,8 +260,25 @@
 		'client_ip',
 		'call_type',
 		'session_id',
-		'response_status'
+		'response_status',
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
 	];
+	let llmFiltersIds = [
+		'user_id',
+		'user_agent',
+		'client_session_id',
+		'message_policy_triggered',
+		'model_provider',
+		'outcome',
+		'request_path',
+		'response_status',
+		'target_model'
+	];
+	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
 	let filtersOptions: Record<string, string[]> = $state({});
@@ -179,8 +292,26 @@
 	});
 
 	$effect(() => {
+		const event_type = eventTypeParamFromSourceTypes(form.sourceTypes);
 		filtersIds.forEach((id) => {
-			UserService.listAuditLogFilterOptions(id).then((res) => {
+			if (logType === 'llm') {
+				AdminService.listLLMAuditLogFilterOptions(id).then((res) => {
+					filtersOptions[id] = res.options ?? [];
+				});
+				return;
+			}
+			// Only fetch options for the filters actually visible in the current source selection.
+			if (
+				!isExportFilterKeyVisible(
+					form.sourceTypes,
+					id,
+					commonScheduleFilterKeys,
+					mcpScheduleFilterKeys,
+					localScheduleFilterKeys
+				)
+			)
+				return;
+			UserService.listAuditLogFilterOptions(id, { event_type }).then((res) => {
 				filtersOptions[id] = res.options ?? [];
 			});
 		});
@@ -189,6 +320,11 @@
 	type AuditScheduleAdvancedFilterRow = {
 		fieldId: string;
 		filterKey:
+			| 'actor'
+			| 'operation'
+			| 'mcp_server'
+			| 'tool'
+			| 'client'
 			| 'user_id'
 			| 'mcp_id'
 			| 'mcp_server_display_name'
@@ -197,7 +333,19 @@
 			| 'response_status'
 			| 'session_id'
 			| 'client_ip'
-			| 'mcp_server_catalog_entry_name';
+			| 'mcp_server_catalog_entry_name'
+			| 'user_agent'
+			| 'client_session_id'
+			| 'message_policy_triggered'
+			| 'model_provider'
+			| 'outcome'
+			| 'request_path'
+			| 'target_model'
+			| 'agent_provider'
+			| 'status'
+			| 'tool_name'
+			| 'tool_kind'
+			| 'device_id';
 		label: string;
 		description: string;
 		options: { id: string; label: string }[];
@@ -205,7 +353,166 @@
 
 	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
 		const sameLabel = (d: string) => ({ id: d, label: d });
+		if (logType === 'llm') {
+			return [
+				{
+					fieldId: 'user_id',
+					filterKey: 'user_id',
+					label: 'Users',
+					description: 'Comma-separated user IDs',
+					options:
+						filtersOptions['user_id']?.map?.((d) => ({
+							id: d,
+							label: usersMap.get(d)?.displayName ?? d
+						})) ?? []
+				},
+				{
+					fieldId: 'model_provider',
+					filterKey: 'model_provider',
+					label: 'Model Providers',
+					description: 'Comma-separated model providers',
+					options: filtersOptions['model_provider']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'target_model',
+					filterKey: 'target_model',
+					label: 'Target Models',
+					description: 'Comma-separated target models',
+					options: filtersOptions['target_model']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'request_path',
+					filterKey: 'request_path',
+					label: 'Request Paths',
+					description: 'Comma-separated request paths',
+					options: filtersOptions['request_path']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'response_status',
+					filterKey: 'response_status',
+					label: 'Response Status',
+					description: 'Comma-separated HTTP status codes',
+					options: filtersOptions['response_status']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'outcome',
+					filterKey: 'outcome',
+					label: 'Outcomes',
+					description: 'Comma-separated outcomes',
+					options: filtersOptions['outcome']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'user_agent',
+					filterKey: 'user_agent',
+					label: 'User Agents',
+					description: 'Comma-separated user agents',
+					options: filtersOptions['user_agent']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'client_session_id',
+					filterKey: 'client_session_id',
+					label: 'Client Session IDs',
+					description: 'Comma-separated client session IDs',
+					options: filtersOptions['client_session_id']?.map?.(sameLabel) ?? []
+				},
+				{
+					fieldId: 'message_policy_triggered',
+					filterKey: 'message_policy_triggered',
+					label: 'Message Policy Action',
+					description: 'Filter by whether a message policy was triggered',
+					options:
+						filtersOptions['message_policy_triggered']?.map?.((value) => ({
+							id: value,
+							label: value === 'true' ? 'Triggered' : 'Not triggered'
+						})) ?? []
+				}
+			];
+		}
+
 		return [
+			// Common cross-source filters. Shown only when more than one log source is selected.
+			{
+				fieldId: 'actor',
+				filterKey: 'actor',
+				label: 'Actors',
+				description: 'Users and enrolled devices',
+				options:
+					filtersOptions['actor']?.map?.((d) => ({
+						id: d,
+						label: usersMap.get(d)?.displayName ?? d
+					})) ?? []
+			},
+			{
+				fieldId: 'tool',
+				filterKey: 'tool',
+				label: 'Tools',
+				description: 'Tools called (MCP call identifiers and local tool names)',
+				options: filtersOptions['tool']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'mcp_server',
+				filterKey: 'mcp_server',
+				label: 'MCP Servers',
+				description: 'MCP servers (and the parent server of local tool calls)',
+				options: filtersOptions['mcp_server']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'operation',
+				filterKey: 'operation',
+				label: 'Operations',
+				description: 'MCP operations; local tool calls are all tools/call',
+				options: filtersOptions['operation']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'outcome',
+				filterKey: 'outcome',
+				label: 'Outcomes',
+				description: 'success, failure, denied, timeout, or unknown',
+				options: filtersOptions['outcome']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'client',
+				filterKey: 'client',
+				label: 'Clients',
+				description: 'MCP clients and local-agent providers',
+				options: filtersOptions['client']?.map?.(sameLabel) ?? []
+			},
+			// Single-source filters. Shown only when exactly one log source is selected.
+			{
+				fieldId: 'agent_provider',
+				filterKey: 'agent_provider',
+				label: 'Agent Providers',
+				description: 'Local-agent providers',
+				options: filtersOptions['agent_provider']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'status',
+				filterKey: 'status',
+				label: 'Reported Statuses',
+				description: 'Local-agent statuses',
+				options: filtersOptions['status']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'tool_name',
+				filterKey: 'tool_name',
+				label: 'Tool Names',
+				description: 'Local tool names',
+				options: filtersOptions['tool_name']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'tool_kind',
+				filterKey: 'tool_kind',
+				label: 'Tool Kinds',
+				description: 'Local tool kinds',
+				options: filtersOptions['tool_kind']?.map?.(sameLabel) ?? []
+			},
+			{
+				fieldId: 'device_id',
+				filterKey: 'device_id',
+				label: 'Device IDs',
+				description: 'Enrolled device IDs',
+				options: filtersOptions['device_id']?.map?.(sameLabel) ?? []
+			},
 			{
 				fieldId: 'user_id',
 				filterKey: 'user_id',
@@ -289,15 +596,80 @@
 				throw new Error('Bucket name is required');
 			}
 
+			const split = (value: string | null | undefined): string[] =>
+				value
+					? value
+							.split(',')
+							.map((s) => s.trim())
+							.filter((s) => s.length > 0)
+					: [];
+			const splitNumbers = (value: string | null | undefined): number[] =>
+				split(value)
+					.map((s) => Number(s))
+					.filter((n) => !Number.isNaN(n));
+			const splitBooleans = (value: string | null | undefined): boolean[] =>
+				split(value).flatMap((item) =>
+					item === 'true' ? [true] : item === 'false' ? [false] : []
+				);
+
+			if (logType === 'llm') {
+				const request = {
+					name: form.name,
+					type: 'llm' as const,
+					bucket: form.bucket,
+					keyPrefix: form.keyPrefix,
+					enabled: form.enabled,
+					schedule: form.schedule,
+					retentionPeriodInDays: form.retentionPeriodInDays,
+					llmFilters: {
+						userIDs: split(form.filters.user_id),
+						modelProviders: split(form.filters.model_provider),
+						targetModels: split(form.filters.target_model),
+						requestPaths: split(form.filters.request_path),
+						responseStatuses: splitNumbers(form.filters.response_status),
+						outcomes: split(form.filters.outcome),
+						userAgents: split(form.filters.user_agent),
+						clientSessionIDs: split(form.filters.client_session_id),
+						messagePolicyTriggered: splitBooleans(form.filters.message_policy_triggered),
+						query: form.filters.query ?? ''
+					}
+				};
+
+				let result: ScheduledAuditLogExport | undefined = undefined;
+				if (mode === 'edit' && initialData?.id) {
+					result = (await AdminService.updateScheduledAuditLogExport(initialData.id, request, {
+						dontLogErrors: true
+					})) as ScheduledAuditLogExport;
+				} else {
+					result = (await AdminService.createScheduledAuditLogExport(request, {
+						dontLogErrors: true
+					})) as ScheduledAuditLogExport;
+				}
+				onSubmit(result);
+				return;
+			}
+
+			if (form.sourceTypes.length === 0) {
+				throw new Error('At least one log source must be selected');
+			}
+
 			// Prepare the request
 			const request = {
 				name: form.name,
+				type: 'mcp' as const,
 				bucket: form.bucket,
 				keyPrefix: form.keyPrefix,
 				enabled: form.enabled,
 				schedule: form.schedule,
 				retentionPeriodInDays: form.retentionPeriodInDays,
 				filters: {
+					sourceTypes: normalizeSourceTypes(form.sourceTypes),
+					actors: split(form.filters.actor),
+					operations: split(form.filters.operation),
+					mcpServers: split(form.filters.mcp_server),
+					tools: split(form.filters.tool),
+					outcomes: split(form.filters.outcome),
+					clients: split(form.filters.client),
 					userIDs: form.filters.user_id ? form.filters.user_id.split(',').map((s) => s.trim()) : [],
 					mcpIDs: form.filters.mcp_id ? form.filters.mcp_id.split(',').map((s) => s.trim()) : [],
 					mcpServerDisplayNames: form.filters.mcp_server_display_name
@@ -326,7 +698,13 @@
 						: [],
 					clientIPs: form.filters.client_ip
 						? form.filters.client_ip.split(',').map((s) => s.trim())
-						: []
+						: [],
+					agentProviders: split(form.filters.agent_provider),
+					statuses: split(form.filters.status),
+					toolNames: split(form.filters.tool_name),
+					toolKinds: split(form.filters.tool_kind),
+					deviceIDs: split(form.filters.device_id),
+					query: form.filters.query ?? ''
 				}
 			};
 
@@ -341,7 +719,7 @@
 				// Create new scheduled export
 				result = (await AdminService.createScheduledAuditLogExport(request, {
 					dontLogErrors: true
-				})) as typeof result;
+				})) as ScheduledAuditLogExport;
 			}
 			onSubmit(result);
 		} catch (err) {
@@ -356,6 +734,42 @@
 
 	const selectClasses = 'text-input-filled bg-base-200 dark:bg-base-100';
 	const selectRootClass = 'w-full md:max-w-xs';
+	const commonScheduleFilterKeys = new Set<string>(COMMON_FILTER_KEYS);
+	const mcpScheduleFilterKeys = new Set([
+		'mcp_id',
+		'mcp_server_display_name',
+		'mcp_server_catalog_entry_name',
+		'call_type',
+		'call_identifier',
+		'client_name',
+		'client_version',
+		'response_status'
+	]);
+	const localScheduleFilterKeys = new Set([
+		'agent_provider',
+		'status',
+		'tool_name',
+		'tool_kind',
+		'device_id'
+	]);
+	const visibleScheduleFilterRows = $derived(
+		filterVisibleExportFields(
+			form,
+			auditScheduleAdvancedFilterRows,
+			commonScheduleFilterKeys,
+			mcpScheduleFilterKeys,
+			localScheduleFilterKeys
+		)
+	);
+
+	function toggleSourceType(sourceType: string, checked: boolean) {
+		form.sourceTypes = normalizeSourceTypes(
+			checked
+				? [...form.sourceTypes, sourceType]
+				: form.sourceTypes.filter((value) => value !== sourceType)
+		);
+		clearSourceScopedFilters(form.filters);
+	}
 </script>
 
 <div class="paper">
@@ -421,14 +835,39 @@
 					class="text-input-filled"
 					id="keyPrefix"
 					bind:value={form.keyPrefix}
-					placeholder="Leave empty for default: mcp-audit-logs/YYYY/MM/DD/"
+					placeholder={`Leave empty for default: ${defaultKeyPrefix}/YYYY/MM/DD/`}
 					readonly={mode === 'view'}
 				/>
 				<p class="text-muted-content text-xs">
-					Path prefix within the bucket. If empty, defaults to "mcp-audit-logs/YYYY/MM/DD/" format
-					based on current date.
+					Path prefix within the bucket. If empty, defaults to "{defaultKeyPrefix}/YYYY/MM/DD/"
+					format based on current date.
 				</p>
 			</div>
+
+			{#if logType === 'mcp'}
+				<div class="flex flex-col gap-1">
+					<span class="text-sm font-medium">Log Sources</span>
+					<div class="flex flex-col gap-2 py-1">
+						{#each ALL_SOURCE_TYPES as sourceType (sourceType)}
+							<label class="flex items-center gap-2 text-sm">
+								<input
+									type="checkbox"
+									checked={form.sourceTypes.includes(sourceType)}
+									disabled={isViewMode}
+									onchange={(event) => toggleSourceType(sourceType, event.currentTarget.checked)}
+								/>
+								{sourceTypeLabels[sourceType]}
+							</label>
+						{/each}
+					</div>
+					{#if !isViewMode}
+						<p class="text-muted-content text-xs">
+							Which audit-log source(s) to export. Select both to include MCP and local-agent
+							tool-call logs in the same export. At least one source is required.
+						</p>
+					{/if}
+				</div>
+			{/if}
 		</div>
 
 		<!-- Schedule Configuration -->
@@ -646,6 +1085,21 @@
 						Leave filters empty to export all logs in each scheduled period
 					</p>
 
+					<div class="flex flex-col gap-1">
+						<label class="text-sm font-medium" for="query">Search Query</label>
+						<input
+							id="query"
+							class={selectClasses}
+							bind:value={form.filters.query}
+							placeholder="Search audit logs"
+							readonly={isViewMode}
+							disabled={isViewMode}
+						/>
+						<p class="text-muted-content text-xs">
+							Free-text search to apply to each exported audit-log period
+						</p>
+					</div>
+
 					{#snippet auditScheduleAdvancedFilterField(row: AuditScheduleAdvancedFilterRow)}
 						<div class="flex flex-col gap-1">
 							<label class="text-sm font-medium" for={row.fieldId}>{row.label}</label>
@@ -671,7 +1125,7 @@
 					{/snippet}
 
 					<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-						{#each auditScheduleAdvancedFilterRows as row (row.fieldId)}
+						{#each visibleScheduleFilterRows as row (row.fieldId)}
 							{@render auditScheduleAdvancedFilterField(row)}
 						{/each}
 					</div>

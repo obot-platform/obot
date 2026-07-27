@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -8,17 +9,37 @@ import (
 	"strings"
 	"testing"
 
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func TestRedactedHeaders(t *testing.T) {
 	headers := http.Header{
-		"Authorization": []string{"Bearer secret"},
-		"X-Api-Key":     []string{"secret"},
-		"Content-Type":  []string{"application/json"},
+		"Authorization":                               []string{"Bearer secret"},
+		"X-Api-Key":                                   []string{"secret"},
+		"Content-Type":                                []string{"application/json"},
+		"X-Ratelimit-Limit-Tokens":                    []string{"x-limit"},
+		"X-Ratelimit-Remaining-Tokens":                []string{"x-remaining"},
+		"X-Ratelimit-Reset-Tokens":                    []string{"x-reset"},
+		"Anthropic-Ratelimit-Input-Tokens-Limit":      []string{"input-limit"},
+		"Anthropic-Ratelimit-Input-Tokens-Remaining":  []string{"input-remaining"},
+		"Anthropic-Ratelimit-Input-Tokens-Reset":      []string{"input-reset"},
+		"Anthropic-Ratelimit-Output-Tokens-Limit":     []string{"output-limit"},
+		"Anthropic-Ratelimit-Output-Tokens-Remaining": []string{"output-remaining"},
+		"Anthropic-Ratelimit-Output-Tokens-Reset":     []string{"output-reset"},
+		"Anthropic-Ratelimit-Requests-Limit":          []string{"requests-limit"},
+		"Anthropic-Ratelimit-Requests-Remaining":      []string{"requests-remaining"},
+		"Anthropic-Ratelimit-Requests-Reset":          []string{"requests-reset"},
+		"Anthropic-Ratelimit-Tokens-Limit":            []string{"tokens-limit"},
+		"Anthropic-Ratelimit-Tokens-Remaining":        []string{"tokens-remaining"},
+		"Anthropic-Ratelimit-Tokens-Reset":            []string{"tokens-reset"},
+		"Anthropic-Ratelimit-Api-Key":                 []string{"sensitive-lookalike"},
 	}
 
 	got := redactedHeaders(headers)
@@ -28,10 +49,28 @@ func TestRedactedHeaders(t *testing.T) {
 	if !strings.Contains(string(got), "application/json") {
 		t.Fatalf("expected non-sensitive header to remain, got %s", got)
 	}
+	for _, value := range []string{
+		"x-limit", "x-remaining", "x-reset",
+		"input-limit", "input-remaining", "input-reset",
+		"output-limit", "output-remaining", "output-reset",
+		"requests-limit", "requests-remaining", "requests-reset",
+		"tokens-limit", "tokens-remaining", "tokens-reset",
+	} {
+		if !strings.Contains(string(got), value) {
+			t.Fatalf("expected rate-limit header value %q to remain, got %s", value, got)
+		}
+	}
+	if strings.Contains(string(got), "sensitive-lookalike") {
+		t.Fatalf("expected sensitive rate-limit lookalike to be redacted, got %s", got)
+	}
+	if shouldRedactHeader("ANTHROPIC-RATELIMIT-TOKENS-LIMIT") {
+		t.Fatal("expected rate-limit header matching to be case-insensitive")
+	}
 }
 
 func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses?stream=true", nil)
+	req.Header.Set("User-Agent", "PDi/JS 0.94.0")
 	recorder := newLLMAuditRecorder(req, nil, 5<<20)
 
 	if recorder.log.RequestPath != "/api/llm-provider/openai/v1/responses" {
@@ -40,104 +79,151 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	if recorder.log.RequestMethod != http.MethodPost {
 		t.Fatalf("expected request method, got %q", recorder.log.RequestMethod)
 	}
+	if recorder.log.UserAgent != "PDi/JS 0.94.0" {
+		t.Fatalf("expected raw user agent, got %q", recorder.log.UserAgent)
+	}
+}
+
+func TestLLMAuditRecorderCapturesOriginalAndPolicyModifiedRequestBodies(t *testing.T) {
+	recorder := &llmAuditRecorder{}
+	recorder.setRequestBody([]byte(`{"prompt":"original"}`))
+	recorder.setPolicyModifiedRequestBody([]byte(`{"prompt":"blocked"}`))
+
+	if got := string(recorder.log.RequestBody); got != `{"prompt":"original"}` {
+		t.Fatalf("expected original request body, got %q", got)
+	}
+	if got := string(recorder.log.PolicyModifiedRequestBody); got != `{"prompt":"blocked"}` {
+		t.Fatalf("expected policy-modified request body, got %q", got)
+	}
+	if !recorder.log.MessagePolicyTriggered {
+		t.Fatal("expected input policy trigger metadata")
+	}
 }
 
 func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 	for _, tt := range []struct {
-		name    string
-		err     error
-		outcome string
-		wantErr string
+		name           string
+		err            error
+		responseStatus int
+		outcome        string
+		wantErr        string
+		wantStatus     int
 	}{
 		{
 			name:    "success even if request context is canceled after response",
 			outcome: types.LLMAuditOutcomeSuccess,
 		},
 		{
-			name:    "actual context cancellation error",
-			err:     context.Canceled,
-			outcome: types.LLMAuditOutcomeCanceled,
-			wantErr: context.Canceled.Error(),
+			name:           "HTTP error response",
+			responseStatus: http.StatusForbidden,
+			outcome:        types.LLMAuditOutcomeError,
+			wantStatus:     http.StatusForbidden,
 		},
 		{
-			name:    "actual proxy error",
-			err:     errors.New("proxy failed"),
-			outcome: types.LLMAuditOutcomeError,
-			wantErr: "proxy failed",
+			name:       "actual context cancellation error",
+			err:        context.Canceled,
+			outcome:    types.LLMAuditOutcomeCanceled,
+			wantErr:    context.Canceled.Error(),
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "actual proxy error",
+			err:        errors.New("proxy failed"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "proxy failed",
+			wantStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "application HTTP error",
+			err:        apitypes.NewErrForbidden("model is not allowed"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "error code 403 (Forbidden): model is not allowed",
+			wantStatus: http.StatusForbidden,
+		},
+		{
+			name:       "wrapped application HTTP error",
+			err:        errors.Join(errors.New("request rejected"), apitypes.NewErrBadRequest("invalid model")),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    "request rejected\nerror code 400 (Bad Request): invalid model",
+			wantStatus: http.StatusBadRequest,
+		},
+		{
+			name:       "Kubernetes status error",
+			err:        apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "models"}, "missing"),
+			outcome:    types.LLMAuditOutcomeError,
+			wantErr:    `models.obot.obot.ai "missing" not found`,
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:           "recorded response status is preserved",
+			err:            errors.New("response body failed"),
+			responseStatus: http.StatusTooManyRequests,
+			outcome:        types.LLMAuditOutcomeError,
+			wantErr:        "response body failed",
+			wantStatus:     http.StatusTooManyRequests,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			recorder := &llmAuditRecorder{}
-			recorder.setOutcome(tt.err)
+			recorder.recordResponseStatus(tt.responseStatus)
+			recorder.setOutcomeAndResponseStatus(tt.err)
 			if recorder.log.Outcome != tt.outcome {
 				t.Fatalf("expected outcome %q, got %q", tt.outcome, recorder.log.Outcome)
 			}
 			if recorder.log.Error != tt.wantErr {
 				t.Fatalf("expected error %q, got %q", tt.wantErr, recorder.log.Error)
 			}
+			if recorder.log.ResponseStatus != tt.wantStatus {
+				t.Fatalf("expected response status %d, got %d", tt.wantStatus, recorder.log.ResponseStatus)
+			}
 		})
-	}
-}
-
-func TestParseLLMClientUserAgent(t *testing.T) {
-	for _, tt := range []struct {
-		userAgent string
-		client    string
-		version   string
-	}{
-		{userAgent: "claude-code/2.1.176", client: llmAuditClientClaudeCode, version: "2.1.176"},
-		{userAgent: "claude-cli/2.1.176 (external, cli)", client: llmAuditClientClaudeCode, version: "2.1.176"},
-		{userAgent: "codex_cli_rs/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1", client: llmAuditClientCodex, version: "0.142.4"},
-		{userAgent: "codex-tui/0.142.4 (Mac OS 26.5.1; arm64) ghostty/1.3.1 (codex-tui; 0.142.4)", client: llmAuditClientCodex, version: "0.142.4"},
-		{userAgent: "other-client/1.2.3", client: "other-client", version: "1.2.3"},
-		{userAgent: "opencode/brew/1.2.3", client: "opencode", version: "brew/1.2.3"},
-		{userAgent: "", client: "", version: ""},
-		{userAgent: "unknown-client", client: "unknown-client", version: ""},
-	} {
-		client, version := parseLLMClientUserAgent(tt.userAgent)
-		if client != tt.client || version != tt.version {
-			t.Fatalf("parseLLMClientUserAgent(%q) = %q/%q, want %q/%q", tt.userAgent, client, version, tt.client, tt.version)
-		}
 	}
 }
 
 func TestExtractLLMClientSessionID(t *testing.T) {
 	for _, tt := range []struct {
-		name          string
-		modelProvider string
-		body          string
-		want          string
+		name    string
+		dialect nanobottypes.Dialect
+		headers http.Header
+		body    string
+		want    string
 	}{
 		{
-			name:          "openai client metadata session id",
-			modelProvider: system.OpenAIModelProvider,
-			body:          `{"client_metadata":{"session_id":"openai-session"}}`,
-			want:          "openai-session",
+			name:    "Claude Code session header preferred over body",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			headers: http.Header{claudeCodeSessionIDHeader: []string{"header-session"}},
+			body:    `{"metadata":{"user_id":"{\"session_id\":\"body-session\"}"}}`,
+			want:    "header-session",
 		},
 		{
-			name:          "openai ignores codex metadata fallback",
-			modelProvider: system.OpenAIModelProvider,
-			body:          `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
+			name:    "OpenAI dialect client metadata session id",
+			dialect: nanobottypes.DialectOpenAIResponses,
+			body:    `{"client_metadata":{"session_id":"openai-session"}}`,
+			want:    "openai-session",
 		},
 		{
-			name:          "anthropic metadata user id session id",
-			modelProvider: system.AnthropicModelProvider,
-			body:          `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
-			want:          "claude-session",
+			name:    "OpenAI dialect ignores Codex metadata fallback",
+			dialect: nanobottypes.DialectOpenAIResponses,
+			body:    `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
 		},
 		{
-			name:          "anthropic malformed metadata user id",
-			modelProvider: system.AnthropicModelProvider,
-			body:          `{"metadata":{"user_id":"not-json"}}`,
+			name:    "Anthropic dialect metadata user id session id",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			body:    `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
+			want:    "claude-session",
 		},
 		{
-			name:          "wrong provider",
-			modelProvider: "other",
-			body:          `{"client_metadata":{"session_id":"ignored"}}`,
+			name:    "Anthropic dialect malformed metadata user id",
+			dialect: nanobottypes.DialectAnthropicMessages,
+			body:    `{"metadata":{"user_id":"not-json"}}`,
+		},
+		{
+			name: "unknown dialect",
+			body: `{"client_metadata":{"session_id":"ignored"}}`,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := extractLLMClientSessionID(tt.modelProvider, []byte(tt.body)); got != tt.want {
+			if got := extractLLMClientSessionID(tt.dialect, tt.headers, []byte(tt.body)); got != tt.want {
 				t.Fatalf("expected %q, got %q", tt.want, got)
 			}
 		})
@@ -191,10 +277,26 @@ func TestLLMResponseAccumulatorOpenAITerminalResponseWins(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.content.0.text").String() != "final" {
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "final" {
 		t.Fatalf("expected terminal response text, got %s", got)
 	}
 	if a.ResponseID() != "resp_123" {
+		t.Fatalf("expected response ID, got %q", a.ResponseID())
+	}
+}
+
+func TestLLMResponseAccumulatorBedrockOpenAI(t *testing.T) {
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockAPIKeyModelProvider, "/api/llm-proxy/aws-bedrock-api-key/openai/v1/responses")
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"response.created","response":{"id":"resp_bedrock","model":"openai.gpt-5.5","output":[]}}`,
+		`data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"hello"}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
+		t.Fatalf("expected Bedrock OpenAI text, got %s", got)
+	}
+	if a.ResponseID() != "resp_bedrock" {
 		t.Fatalf("expected response ID, got %q", a.ResponseID())
 	}
 }
@@ -206,7 +308,7 @@ func TestLLMResponseAccumulatorOpenAIPartialTextAndSplitLine(t *testing.T) {
 	a.Write([]byte(`lo"}` + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "output.0.content.0.text").String() != "hello" {
 		t.Fatalf("expected accumulated text, got %s", got)
 	}
 }
@@ -222,10 +324,10 @@ func TestLLMResponseAccumulatorOpenAIFunctionAndReasoning(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "output.0.arguments").String() != `{"q":"hi"}` {
+	if gjson.GetBytes(got, "output.0.arguments").String() != `{"q":"hi"}` {
 		t.Fatalf("expected function arguments, got %s", got)
 	}
-	if gjson.Get(got, "output.1.encrypted_content").String() != "secret" {
+	if gjson.GetBytes(got, "output.1.encrypted_content").String() != "secret" {
 		t.Fatalf("expected reasoning encrypted content, got %s", got)
 	}
 }
@@ -244,13 +346,30 @@ func TestLLMResponseAccumulatorAnthropicMessage(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "content.0.text").String() != "hello" {
+	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
 		t.Fatalf("expected anthropic text, got %s", got)
 	}
-	if gjson.Get(got, "usage.output_tokens").Int() != 5 {
+	if gjson.GetBytes(got, "usage.output_tokens").Int() != 5 {
 		t.Fatalf("expected usage, got %s", got)
 	}
 	if a.ResponseID() != "msg_123" {
+		t.Fatalf("expected message ID, got %q", a.ResponseID())
+	}
+}
+
+func TestLLMResponseAccumulatorBedrockAnthropic(t *testing.T) {
+	a := gatewayllmaudit.NewResponseAccumulator(system.AmazonBedrockModelProvider, "/api/llm-proxy/aws-bedrock/anthropic/v1/messages")
+	a.Write([]byte(strings.Join([]string{
+		`data: {"type":"message_start","message":{"id":"msg_bedrock","type":"message","role":"assistant","model":"claude","content":[]}}`,
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`,
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"hello"}}`,
+	}, "\n") + "\n"))
+
+	got := a.JSON()
+	if gjson.GetBytes(got, "content.0.text").String() != "hello" {
+		t.Fatalf("expected Bedrock Anthropic text, got %s", got)
+	}
+	if a.ResponseID() != "msg_bedrock" {
 		t.Fatalf("expected message ID, got %q", a.ResponseID())
 	}
 }
@@ -269,10 +388,10 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 	}, "\n") + "\n"))
 
 	got := a.JSON()
-	if gjson.Get(got, "content.0.input.q").String() != "hi" {
+	if gjson.GetBytes(got, "content.0.input.q").String() != "hi" {
 		t.Fatalf("expected tool input, got %s", got)
 	}
-	if gjson.Get(got, "content.1.thinking").String() != "ponder" || gjson.Get(got, "content.1.signature").String() != "sig" {
+	if gjson.GetBytes(got, "content.1.thinking").String() != "ponder" || gjson.GetBytes(got, "content.1.signature").String() != "sig" {
 		t.Fatalf("expected thinking/signature, got %s", got)
 	}
 }
@@ -280,12 +399,12 @@ func TestLLMResponseAccumulatorAnthropicToolAndThinking(t *testing.T) {
 func TestLLMResponseAccumulatorNonStreamAndEmpty(t *testing.T) {
 	a := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
 	a.Write([]byte(`{"id":"resp_plain","status":"completed"}`))
-	if got := a.JSON(); gjson.Get(got, "id").String() != "resp_plain" {
+	if got := a.JSON(); gjson.GetBytes(got, "id").String() != "resp_plain" {
 		t.Fatalf("expected plain JSON response, got %s", got)
 	}
 
 	empty := gatewayllmaudit.NewResponseAccumulator(system.OpenAIModelProvider)
-	if got := empty.JSON(); got != "{}" {
+	if got := empty.JSON(); !bytes.Equal(got, []byte(`{}`)) {
 		t.Fatalf("expected empty object, got %s", got)
 	}
 }
@@ -296,11 +415,11 @@ func TestLLMAuditRecorderStoresAggregatedResponseBody(t *testing.T) {
 	recorder.setModel(system.OpenAIModelProvider, "", "")
 	chunk := []byte(`data: {"type":"response.created","response":{"id":"resp_rec","output":[]}}` + "\n")
 	recorder.captureResponseChunk(chunk)
-	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider)
+	accumulator := gatewayllmaudit.NewResponseAccumulator(recorder.log.ModelProvider, recorder.log.RequestPath)
 	accumulator.Write(recorder.responseStream.Bytes())
 	recorder.log.ResponseBody = accumulator.JSON()
 
-	if gjson.Get(recorder.log.ResponseBody, "id").String() != "resp_rec" {
+	if gjson.GetBytes(recorder.log.ResponseBody, "id").String() != "resp_rec" {
 		t.Fatalf("expected aggregated response body, got %s", recorder.log.ResponseBody)
 	}
 }

@@ -1,19 +1,6 @@
 package types
 
-import (
-	"encoding/json"
-)
-
-// MCPAuditLog represents an audit log entry for MCP API calls
-type MCPAuditLog struct {
-	ID                       uint                              `json:"id"`
-	CreatedAt                Time                              `json:"createdAt"`
-	SourceType               AuditLogSourceType                `json:"sourceType"`
-	UserID                   string                            `json:"userID"`
-	ClientIP                 string                            `json:"clientIP"`
-	MCPFields                *MCPAuditLogFields                `json:"mcpFields,omitempty"`
-	LocalAgentToolCallFields *LocalAgentToolCallAuditLogFields `json:"localAgentToolCallFields,omitempty"`
-}
+import "encoding/json"
 
 type AuditLogSourceType string
 
@@ -31,120 +18,99 @@ const (
 	LocalAgentProviderCursor     LocalAgentProvider = "cursor"
 )
 
-type LocalAgentAuditLogStatus string
-
-const (
-	LocalAgentAuditLogStatusDenied    LocalAgentAuditLogStatus = "denied"
-	LocalAgentAuditLogStatusSucceeded LocalAgentAuditLogStatus = "succeeded"
-	LocalAgentAuditLogStatusFailed    LocalAgentAuditLogStatus = "failed"
-	LocalAgentAuditLogStatusTimeout   LocalAgentAuditLogStatus = "timeout"
-)
-
-type LocalAgentIdentityStatus string
-
-const (
-	LocalAgentIdentityStatusAuthenticatedUser LocalAgentIdentityStatus = "authenticated_user"
-	LocalAgentIdentityStatusAnonymousDevice   LocalAgentIdentityStatus = "anonymous_device"
-	LocalAgentIdentityStatusUnresolved        LocalAgentIdentityStatus = "unresolved"
-)
-
-type MCPAuditLogFields struct {
-	MCPID                     string          `json:"mcpID"`
-	APIKey                    string          `json:"apiKey,omitempty"`
-	PowerUserWorkspaceID      string          `json:"powerUserWorkspaceID,omitempty"`
-	MCPServerDisplayName      string          `json:"mcpServerDisplayName"`
-	MCPServerCatalogEntryName string          `json:"mcpServerCatalogEntryName"`
-	ClientInfo                ClientInfo      `json:"client"`
-	CallType                  string          `json:"callType"`
-	CallIdentifier            string          `json:"callIdentifier,omitempty"`
-	RequestMutated            bool            `json:"requestMutated"`
-	RequestBody               json.RawMessage `json:"requestBody,omitempty"`
-	MutatedRequestBody        json.RawMessage `json:"mutatedRequestBody,omitempty"`
-	ResponseMutated           bool            `json:"responseMutated"`
-	ResponseBody              json.RawMessage `json:"responseBody,omitempty"`
-	OriginalResponseBody      json.RawMessage `json:"originalResponseBody,omitempty"`
-	ResponseStatus            int             `json:"responseStatus"`
-	WebhookStatuses           []WebhookStatus `json:"webhookStatuses,omitempty"`
-	Error                     string          `json:"error,omitempty"`
-	ProcessingTimeMs          int64           `json:"processingTimeMs"`
-	SessionID                 string          `json:"sessionID,omitempty"`
-	ObotAuditCorrelationID    string          `json:"obotAuditCorrelationID,omitempty"`
-	RequestID                 string          `json:"requestID,omitempty"`
-	UserAgent                 string          `json:"userAgent,omitempty"`
-	RequestHeaders            json.RawMessage `json:"requestHeaders,omitempty"`
-	ResponseHeaders           json.RawMessage `json:"responseHeaders,omitempty"`
+// LocalAgentToolCallAuditLogInput is the client-reported portion of a completed local-agent tool
+// call. Server-owned values such as the actor, recording time, source IP, target resolution, and
+// payload visibility are deliberately absent.
+type LocalAgentToolCallAuditLogInput struct {
+	OccurredAt Time                                      `json:"occurredAt"`
+	Action     LocalAgentToolCallAuditLogAction          `json:"action"`
+	Target     LocalAgentToolCallAuditLogTarget          `json:"target"`
+	Outcome    LocalAgentToolCallAuditLogOutcome         `json:"outcome"`
+	Details    LocalAgentToolCallAuditLogReportedDetails `json:"details"`
 }
 
-// LocalAgentToolCallAuditLogManifest contains the client-reported fields common to request and response
-// local agent tool call audit logs.
-type LocalAgentToolCallAuditLogManifest struct {
-	AgentProvider LocalAgentProvider `json:"agentProvider"`
-	AgentVersion  string             `json:"agentVersion,omitempty"`
-	CLIName       string             `json:"cliName,omitempty"`
-	CLIVersion    string             `json:"cliVersion"`
+// LocalAgentToolCallAuditLogAction identifies the tool name reported by the agent runtime. The
+// protocol operation is always tools/call and is stamped by the server.
+type LocalAgentToolCallAuditLogAction struct {
+	Name string `json:"name"`
+	Kind string `json:"kind,omitempty"`
+}
 
-	Status      LocalAgentAuditLogStatus `json:"status"`
-	FailureType string                   `json:"failureType,omitempty"`
-	ObservedAt  Time                     `json:"observedAt"`
-	StartedAt   *Time                    `json:"startedAt,omitempty"`
-	DurationMs  int64                    `json:"durationMs,omitempty"`
-	Error       string                   `json:"error,omitempty"`
+// LocalAgentToolCallAuditLogTarget is an unresolved, client-reported target. TargetType must be
+// local_tool or mcp_tool. An MCP tool may include an mcp_server parent by name.
+type LocalAgentToolCallAuditLogTarget struct {
+	TargetType AuditLogTargetType                   `json:"targetType"`
+	Name       string                               `json:"name"`
+	Parent     *LocalAgentToolCallAuditLogTargetRef `json:"parent,omitempty"`
+}
 
+type LocalAgentToolCallAuditLogTargetRef struct {
+	TargetType AuditLogTargetType `json:"targetType"`
+	Name       string             `json:"name"`
+}
+
+// LocalAgentToolCallAuditLogOutcome uses the normalized read-side outcome vocabulary. Unknown is
+// not accepted for completed local-agent submissions.
+type LocalAgentToolCallAuditLogOutcome struct {
+	Status     AuditLogOutcomeStatus `json:"status"`
+	Reason     string                `json:"reason,omitempty"`
+	Error      string                `json:"error,omitempty"`
+	DurationMs int64                 `json:"durationMs,omitempty"`
+}
+
+type LocalAgentToolCallAuditLogReportedDetails struct {
+	StartedAt   *Time                                 `json:"startedAt,omitempty"`
+	Trace       LocalAgentToolCallAuditLogTrace       `json:"trace"`
+	Agent       LocalAgentToolCallAuditLogAgent       `json:"agent"`
+	Device      LocalAgentToolCallAuditLogDevice      `json:"device,omitzero"`
+	Environment LocalAgentToolCallAuditLogEnvironment `json:"environment,omitzero"`
+	Request     LocalAgentToolCallAuditLogPayload     `json:"request"`
+	Response    LocalAgentToolCallAuditLogPayload     `json:"response"`
+	RawEvent    json.RawMessage                       `json:"rawEvent"`
+}
+
+type LocalAgentToolCallAuditLogTrace struct {
 	IdempotencyKey string `json:"idempotencyKey"`
 	ToolUseID      string `json:"toolUseID,omitempty"`
 	SessionID      string `json:"sessionID,omitempty"`
 	TurnID         string `json:"turnID,omitempty"`
-
-	ToolName      string `json:"toolName"`
-	ToolKind      string `json:"toolKind,omitempty"`
-	MCPServerHint string `json:"mcpServerHint,omitempty"`
-	MCPToolName   string `json:"mcpToolName,omitempty"`
-
-	ObotAuditCorrelationID string `json:"obotAuditCorrelationID,omitempty"`
-
-	Model          string `json:"model,omitempty"`
-	ModelID        string `json:"modelID,omitempty"`
-	PermissionMode string `json:"permissionMode,omitempty"`
-
-	DeviceID          string `json:"deviceID,omitempty"`
-	Hostname          string `json:"hostname,omitempty"`
-	OS                string `json:"os,omitempty"`
-	Arch              string `json:"arch,omitempty"`
-	LocalUsername     string `json:"localUsername,omitempty"`
-	ReportedUserEmail string `json:"reportedUserEmail,omitempty"`
-
-	CWD           string   `json:"cwd,omitempty"`
-	GitRepoRoot   string   `json:"gitRepoRoot,omitempty"`
-	GitRemoteURLs []string `json:"gitRemoteURLs,omitempty"`
-	GitBranch     string   `json:"gitBranch,omitempty"`
-	GitCommitSHA  string   `json:"gitCommitSHA,omitempty"`
-
-	TranscriptPath string `json:"transcriptPath,omitempty"`
-
-	ToolInput      json.RawMessage `json:"toolInput"`
-	ToolOutput     json.RawMessage `json:"toolOutput"`
-	RawHookPayload json.RawMessage `json:"rawHookPayload"`
 }
 
-type LocalAgentToolCallAuditLogFields struct {
-	LocalAgentToolCallAuditLogManifest `json:",inline"`
-	IdentityStatus                     LocalAgentIdentityStatus `json:"identityStatus"`
+type LocalAgentToolCallAuditLogAgent struct {
+	Provider       LocalAgentProvider `json:"provider"`
+	Version        string             `json:"version,omitempty"`
+	CLIName        string             `json:"cliName,omitempty"`
+	CLIVersion     string             `json:"cliVersion"`
+	Model          string             `json:"model,omitempty"`
+	ModelID        string             `json:"modelID,omitempty"`
+	PermissionMode string             `json:"permissionMode,omitempty"`
+}
+
+// LocalAgentToolCallAuditLogDevice contains reported device context only. The authenticated device
+// ID and deployment ID are stamped by the server and cannot be supplied here.
+type LocalAgentToolCallAuditLogDevice struct {
+	Hostname      string `json:"hostname,omitempty"`
+	OS            string `json:"os,omitempty"`
+	Architecture  string `json:"architecture,omitempty"`
+	LocalUsername string `json:"localUsername,omitempty"`
+}
+
+type LocalAgentToolCallAuditLogEnvironment struct {
+	CWD               string   `json:"cwd,omitempty"`
+	GitRoot           string   `json:"gitRoot,omitempty"`
+	GitRemotes        []string `json:"gitRemotes,omitempty"`
+	GitBranch         string   `json:"gitBranch,omitempty"`
+	GitCommit         string   `json:"gitCommit,omitempty"`
+	ReportedUserEmail string   `json:"reportedUserEmail,omitempty"`
+	TranscriptPath    string   `json:"transcriptPath,omitempty"`
+}
+
+type LocalAgentToolCallAuditLogPayload struct {
+	Body json.RawMessage `json:"body"`
 }
 
 type LocalAgentToolCallAuditLogSubmitRequest struct {
-	Logs []LocalAgentToolCallAuditLogManifest `json:"logs"`
-}
-
-type MCPAuditLogResponse struct {
-	MCPAuditLogList `json:",inline"`
-	Total           int64 `json:"total"`
-	Limit           int   `json:"limit"`
-	Offset          int   `json:"offset"`
-}
-
-type ClientInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
+	Events []LocalAgentToolCallAuditLogInput `json:"events"`
 }
 
 type WebhookStatus struct {
@@ -156,9 +122,6 @@ type WebhookStatus struct {
 	Status  string `json:"status,omitempty"`
 	Message string `json:"message"`
 }
-
-// MCPAuditLogList represents a list of MCP audit logs
-type MCPAuditLogList List[MCPAuditLog]
 
 // MCPUsageStatItem represents usage statistics for MCP servers
 type MCPUsageStatItem struct {

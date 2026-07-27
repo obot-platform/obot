@@ -1,7 +1,6 @@
 package imagepullsecrets
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -223,7 +222,7 @@ func TestBasicRegistryManifestBasicAuth(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := testBasicRegistryCredentials(context.Background(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "grant", "secret", "team/app:1.0")
+	result, err := testBasicRegistryCredentials(t.Context(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "grant", "secret", "team/app:1.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -264,7 +263,7 @@ func TestBasicRegistryManifestBearerAuth(t *testing.T) {
 	defer server.Close()
 	serverURL = server.URL
 
-	result, err := testBasicRegistryCredentials(context.Background(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "grant", "secret", "team/app:1.0")
+	result, err := testBasicRegistryCredentials(t.Context(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "grant", "secret", "team/app:1.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -292,7 +291,7 @@ func TestBasicRegistryManifestBearerRejectsCrossRegistryRealm(t *testing.T) {
 	}))
 	defer registry.Close()
 
-	_, err := testBasicRegistryCredentials(context.Background(), registry.Client(), strings.TrimPrefix(registry.URL, "https://"), "username", "secret", "team/app:1.0")
+	_, err := testBasicRegistryCredentials(t.Context(), registry.Client(), strings.TrimPrefix(registry.URL, "https://"), "username", "secret", "team/app:1.0")
 	if err == nil {
 		t.Fatal("expected cross-registry token realm to be rejected")
 	}
@@ -322,7 +321,7 @@ func TestBasicRegistryManifestBearerRejectsHTTPRealm(t *testing.T) {
 	defer server.Close()
 	serverURL = server.URL
 
-	_, err := testBasicRegistryCredentials(context.Background(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "username", "secret", "team/app:1.0")
+	_, err := testBasicRegistryCredentials(t.Context(), server.Client(), strings.TrimPrefix(server.URL, "https://"), "username", "secret", "team/app:1.0")
 	if err == nil {
 		t.Fatal("expected http token realm to be rejected")
 	}
@@ -371,7 +370,7 @@ func TestDockerConfigJSONManifestAccess(t *testing.T) {
 		t.Fatalf("unexpected error building docker config: %v", err)
 	}
 
-	result, err := testDockerConfigJSONCredentials(context.Background(), server.Client(), configJSON, registry+"/team/app:1.0")
+	result, err := testDockerConfigJSONCredentials(t.Context(), server.Client(), configJSON, registry+"/team/app:1.0")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

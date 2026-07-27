@@ -17,10 +17,10 @@ import (
 type AppNotificationHandler struct{}
 
 func NewAppNotificationHandler() *AppNotificationHandler {
-	return &AppNotificationHandler{}
+	return nil
 }
 
-func (h *AppNotificationHandler) Get(req api.Context) error {
+func (*AppNotificationHandler) Get(req api.Context) error {
 	var notification v1.AppNotification
 	err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
@@ -38,7 +38,7 @@ func (h *AppNotificationHandler) Get(req api.Context) error {
 	return req.Write(converted)
 }
 
-func (h *AppNotificationHandler) Update(req api.Context) error {
+func (*AppNotificationHandler) Update(req api.Context) error {
 	var input types.AppNotification
 	if err := req.Read(&input); err != nil {
 		return err

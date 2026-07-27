@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
 	import { getUserRoleLabel } from '$lib/utils';
@@ -122,11 +123,12 @@
 </script>
 
 <ResponsiveDialog
+	id="add-user-group-dialog"
 	bind:this={addUserGroupDialog}
 	{onClose}
 	{onOpen}
 	title="Add User/Group"
-	class="h-full w-full overflow-visible md:h-[500px] md:max-w-md"
+	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
@@ -149,6 +151,7 @@
 			<div class="flex flex-col">
 				{#each filteredData ?? [] as item (item.id)}
 					<button
+						id={item.id === '*' ? MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption : undefined}
 						class={twMerge(
 							'dark:hover:bg-base-200 hover:bg-base-400 flex items-center gap-2 px-4 py-2 text-left',
 							selectedUsersMap.has(item.id) && 'bg-base-200/50'
@@ -202,6 +205,7 @@
 				Cancel
 			</button>
 			<button
+				id={MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn}
 				class="btn btn-primary w-full md:w-fit"
 				onclick={() => {
 					const users = selectedUsers.filter((user) => !isGroup(user)) as OrgUser[];

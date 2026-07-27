@@ -67,6 +67,17 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		return nil, err
 	}
 
+	mcpGateway, err := mcpgateway.NewHandler(
+		ctx,
+		services.MCPSessionManager,
+		mcpgateway.NewAuditLogHandler(services.GatewayClient),
+		services.ServerURL,
+		services.DSN,
+		services.MCPSecretBindingAllowedLabel)
+	if err != nil {
+		return nil, err
+	}
+
 	oauthChecker := oauth.NewMCPOAuthHandlerFactory(services.ServerURL, services.MCPSessionManager, services.StorageClient, services.GatewayClient, services.MCPOAuthTokenStorage, services.MCPSecretBindingAllowedLabel)
 
 	models := handlers.NewModelHandler(services.ModelAccessPolicyHelper)
@@ -75,6 +86,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	systemMCPCatalogs := handlers.NewSystemMCPCatalogHandler(services.DefaultSystemMCPCatalogPath, services.MCPSessionManager)
 	accessControlRules := handlers.NewAccessControlRuleHandler()
 	skillRepositories := handlers.NewSkillRepositoryHandler()
+	gitCredentials := handlers.NewGitCredentialHandler()
 	skillAccessRules := handlers.NewSkillAccessRuleHandler()
 	skills := handlers.NewSkillHandler(services.SkillAccessRuleHelper)
 	powerUserWorkspaces := handlers.NewPowerUserWorkspaceHandler(services.ServerURL, services.AccessControlRuleHelper, services.MCPSecretBindingAllowedLabel)
@@ -85,18 +97,21 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	messagePolicies := handlers.NewMessagePolicyHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
-	mdmDeployments := handlers.NewMDMDeploymentsHandler()
+	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
+	mdmAssets := handlers.NewMDMAssetHandler()
+	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
 	deviceEnroll := handlers.NewDeviceEnrollHandler()
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
+	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel)
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
-	mcpGateway := mcpgateway.NewHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
-	mcpAuditLogs := mcpgateway.NewAuditLogHandler()
+	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
+	llmAuditLogs := handlers.NewLLMAuditLogHandler()
 	auditLogExports := handlers.NewAuditLogExportHandler(services.GatewayClient)
-	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, oauthChecker, services.ServerURL, services.MCPSecretBindingAllowedLabel)
+	serverInstances := handlers.NewServerInstancesHandler(services.AccessControlRuleHelper, oauthChecker, services.MCPSessionManager, services.ServerURL)
 	systemMCPServers := handlers.NewSystemMCPServerHandler(services.MCPSessionManager, services.MCPSecretBindingAllowedLabel)
 	userDefaultRoleSettings := handlers.NewUserDefaultRoleSettingHandler()
 	setupHandler := setup.NewHandler(services.ServerURL, services.Bootstrapper)
@@ -341,11 +356,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("PUT /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/system-mcp-catalogs/{catalog_id}/entries/{entry_id}", systemMCPCatalogs.DeleteEntry)
 
-	// MCP Gateway Endpoints
-	// The first pattern handles the root path, the second handles all sub-paths
-	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
-	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
-
 	// Registry API
 	mux.HandleFunc("GET /v0.1/servers", registryHandler.ListServers)
 	mux.HandleFunc("GET /v0.1/servers/{serverName}/versions", registryHandler.ListServerVersions)
@@ -360,6 +370,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
+
+	// LLM Audit Logs
+	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
+	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)
+	mux.HandleFunc("GET /api/llm-audit-logs/detail/{audit_log_id}", llmAuditLogs.Get)
 
 	// Audit Log Exports
 	mux.HandleFunc("POST /api/audit-log-exports", auditLogExports.CreateAuditLogExport)
@@ -437,6 +452,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("DELETE /api/image-pull-secrets/{id}", imagePullSecretsHandler.Delete)
 	mux.HandleFunc("POST /api/image-pull-secrets/{id}/test", imagePullSecretsHandler.Test)
 	mux.HandleFunc("POST /api/image-pull-secrets/{id}/refresh", imagePullSecretsHandler.Refresh)
+	mux.HandleFunc("GET /api/git-credentials", gitCredentials.List)
+	mux.HandleFunc("POST /api/git-credentials", gitCredentials.Create)
+	mux.HandleFunc("GET /api/git-credentials/{id}", gitCredentials.Get)
+	mux.HandleFunc("PATCH /api/git-credentials/{id}", gitCredentials.Update)
+	mux.HandleFunc("DELETE /api/git-credentials/{id}", gitCredentials.Delete)
 
 	// MCP Capacity (admin only)
 	mcpCapacityHandler := handlers.NewMCPCapacityHandler(services.MCPSessionManager)
@@ -488,6 +508,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
+
+	// Local auth provider users
+	mux.HandleFunc("GET /api/local-auth/users", localAuth.List)
+	mux.HandleFunc("POST /api/local-auth/users", localAuth.Create)
+	mux.HandleFunc("POST /api/local-auth/users/{id}/password", localAuth.SetPassword)
+	mux.HandleFunc("DELETE /api/local-auth/users/{id}", localAuth.Delete)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)
@@ -545,18 +571,25 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/devices/clients", deviceScans.ListClients)
 	mux.HandleFunc("GET /api/devices/clients/{name}", deviceScans.GetClient)
 
-	// Device Deployments + enrollment keys (admin). A deployment can have
-	// multiple keys; deleting one only stops it from enrolling new devices.
-	mux.HandleFunc("POST /api/mdm/deployments", mdmDeployments.Create)
-	mux.HandleFunc("GET /api/mdm/deployments", mdmDeployments.List)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}", mdmDeployments.Get)
-	mux.HandleFunc("DELETE /api/mdm/deployments/{id}", mdmDeployments.Delete)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.ListEnrollmentKeys)
-	mux.HandleFunc("POST /api/mdm/deployments/{id}/enrollment-keys", mdmDeployments.CreateEnrollmentKey)
-	mux.HandleFunc("DELETE /api/mdm/deployments/{id}/enrollment-keys/{key_id}", mdmDeployments.DeleteEnrollmentKey)
-	mux.HandleFunc("GET /api/mdm/deployments/{id}/devices", mdmDeployments.ListDevices)
+	// MDM asset source and immutable bundles (admin, read-only except refresh).
+	mux.HandleFunc("GET /api/mdm/asset-source", mdmAssetSources.Get)
+	mux.HandleFunc("POST /api/mdm/asset-source/refresh", mdmAssetSources.Refresh)
+	mux.HandleFunc("GET /api/mdm/assets", mdmAssets.List)
 
-	// Device enrollment (authenticated by an enrollment token -> MDMDeployment principal)
+	// MDM configurations + enrollment keys (admin). A configuration can have
+	// multiple keys; deleting one only stops it from enrolling new devices.
+	mux.HandleFunc("POST /api/mdm/configurations", mdmConfigurations.Create)
+	mux.HandleFunc("GET /api/mdm/configurations", mdmConfigurations.List)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}", mdmConfigurations.Get)
+	mux.HandleFunc("PUT /api/mdm/configurations/{id}", mdmConfigurations.Update)
+	mux.HandleFunc("DELETE /api/mdm/configurations/{id}", mdmConfigurations.Delete)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.ListEnrollmentKeys)
+	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)
+	mux.HandleFunc("DELETE /api/mdm/configurations/{id}/enrollment-keys/{key_id}", mdmConfigurations.DeleteEnrollmentKey)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/devices", mdmConfigurations.ListDevices)
+	mux.HandleFunc("GET /api/mdm/configurations/{id}/download/{slug}", mdmConfigurations.DownloadArtifact)
+
+	// Device enrollment (authenticated by an enrollment token -> MDMConfiguration principal)
 	mux.HandleFunc("POST /api/mdm/enroll", deviceEnroll.Enroll)
 
 	// Available Models
@@ -598,16 +631,22 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	// Auth Provider tools
 	mux.HandleFunc("/oauth2/", services.ProxyManager.HandlerFunc)
 
-	// Well-known
-	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
-
-	// Obot OAuth
-	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
+	// MCP Gateway Endpoints
+	// The first pattern handles the root path, the second handles all sub-paths.
+	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
+	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
+	// This is a special path for internal MCP composite requests.
+	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer)
 
-	services.APIServer.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
+	// Well-known
+	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)
+	// Obot OAuth
+	oauth.SetupHandlers(oauthChecker, services.MCPOAuthTokenStorage, services.PersistentTokenServer, services.OAuthServerConfig, services.MCPSessionManager, services.AccessControlRuleHelper, services.ServerURL, services.MCPOAuthClientSecretExpiration, mux)
+
+	mux.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 
 	return services.APIServer, nil
 }

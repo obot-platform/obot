@@ -11,10 +11,10 @@ import (
 type DefaultModelAliasHandler struct{}
 
 func NewDefaultModelAliasHandler() *DefaultModelAliasHandler {
-	return &DefaultModelAliasHandler{}
+	return nil
 }
 
-func (d *DefaultModelAliasHandler) Create(req api.Context) error {
+func (*DefaultModelAliasHandler) Create(req api.Context) error {
 	var manifest types.DefaultModelAliasManifest
 	if err := req.Read(&manifest); err != nil {
 		return err
@@ -37,7 +37,7 @@ func (d *DefaultModelAliasHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertDefaultModelAlias(dma))
 }
 
-func (d *DefaultModelAliasHandler) GetByID(req api.Context) error {
+func (*DefaultModelAliasHandler) GetByID(req api.Context) error {
 	var dma v1.DefaultModelAlias
 	if err := req.Get(&dma, req.PathValue("id")); err != nil {
 		return err
@@ -45,7 +45,7 @@ func (d *DefaultModelAliasHandler) GetByID(req api.Context) error {
 	return req.Write(convertDefaultModelAlias(dma))
 }
 
-func (d *DefaultModelAliasHandler) List(req api.Context) error {
+func (*DefaultModelAliasHandler) List(req api.Context) error {
 	var dmaList v1.DefaultModelAliasList
 	if err := req.List(&dmaList); err != nil {
 		return err
@@ -58,7 +58,7 @@ func (d *DefaultModelAliasHandler) List(req api.Context) error {
 	return req.Write(types.DefaultModelAliasList{Items: resp})
 }
 
-func (d *DefaultModelAliasHandler) Update(req api.Context) error {
+func (*DefaultModelAliasHandler) Update(req api.Context) error {
 	var dma v1.DefaultModelAlias
 	if err := req.Get(&dma, req.PathValue("id")); err != nil {
 		return err
@@ -77,7 +77,7 @@ func (d *DefaultModelAliasHandler) Update(req api.Context) error {
 	return req.WriteCreated(convertDefaultModelAlias(dma))
 }
 
-func (d *DefaultModelAliasHandler) Delete(req api.Context) error {
+func (*DefaultModelAliasHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.DefaultModelAlias{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      req.PathValue("id"),

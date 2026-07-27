@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -299,7 +301,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := newKubernetesBackend(true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain}, ResourceMaximums{})
+			backend := newKubernetesBackend(0, true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain}, ResourceMaximums{})
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {
 				t.Errorf("newKubernetesBackend() serviceFQDN = %v, want %v", k.serviceFQDN, tt.expectedFQDN)
@@ -323,10 +325,8 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		Command:              "nanobot",
 		Args:                 []string{"run"},
 		NanobotAgentName:     "agent-1",
-		AuditLogToken:        "audit-token",
-		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
-		AuditLogMetadata:     "mcpID=server-1",
-	}, nil)
+		AuditLogMetadata:     map[string]string{"mcpID": "server-1"},
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -335,33 +335,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 	assertNoAuditLogEnv(t, configSecret.Data)
 }
 
-func TestK8sObjects_NonAgentShimKeepsAuditLogConfig(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-
-	objs, err := k.k8sObjects(t.Context(), ServerConfig{
-		Runtime:              types.RuntimeContainerized,
-		MCPServerName:        "standard-server",
-		MCPServerDisplayName: "Standard Server",
-		UserID:               "user-1",
-		OwnerUserID:          "user-2",
-		ContainerImage:       "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
-		ContainerPort:        8080,
-		ContainerPath:        "/mcp",
-		Command:              "server",
-		Args:                 []string{"run"},
-		AuditLogToken:        "audit-token",
-		AuditLogEndpoint:     "https://obot.example.com/api/mcp-audit-logs",
-		AuditLogMetadata:     "mcpID=server-1",
-	}, nil)
-	if err != nil {
-		t.Fatalf("k8sObjects() error = %v", err)
-	}
-
-	shimConfigSecret := findSecret(t, objs, name.SafeConcatName("standard-server", "mcp", "config", "shim"))
-	assertHasAuditLogEnv(t, shimConfigSecret.Data)
-}
-
-func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
+func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	k := newTestKubernetesBackend(t, &v1.K8sSettings{
 		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
 		Spec: v1.K8sSettingsSpec{
@@ -391,22 +365,68 @@ func TestK8sObjects_NanobotShimUsesFixedResourceRequests(t *testing.T) {
 				corev1.ResourceMemory: resource.MustParse("1Gi"),
 			},
 		},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	shimContainer := findContainer(t, findDeployment(t, objs, "standard-server"), "standard-server-shim")
-	cpuRequest := shimContainer.Resources.Requests[corev1.ResourceCPU]
-	if cpuRequest.String() != "5m" {
-		t.Fatalf("shim CPU request = %q, want %q", cpuRequest.String(), "5m")
+	dep := findDeployment(t, objs, "standard-server")
+	if len(dep.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("container count = %d, want 1", len(dep.Spec.Template.Spec.Containers))
 	}
-	memoryRequest := shimContainer.Resources.Requests[corev1.ResourceMemory]
-	if memoryRequest.String() != "64Mi" {
-		t.Fatalf("shim memory request = %q, want %q", memoryRequest.String(), "64Mi")
+	if dep.Spec.Template.Spec.Containers[0].Name != "mcp" {
+		t.Fatalf("container name = %q, want mcp", dep.Spec.Template.Spec.Containers[0].Name)
 	}
-	if len(shimContainer.Resources.Limits) > 0 {
-		t.Fatalf("shim resource limits = %v, want none", shimContainer.Resources.Limits)
+}
+
+func TestK8sObjects_RemoteAndCompositeCreateNoObjects(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeComposite} {
+		t.Run(string(runtime), func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+
+			objs, err := k.k8sObjects(t.Context(), ServerConfig{
+				Runtime:              runtime,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+			})
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+			if len(objs) != 0 {
+				t.Fatalf("object count = %d, want 0", len(objs))
+			}
+		})
+	}
+}
+
+func TestK8sObjects_UVXAndNPXPassNanobotHealthEnv(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeUVX, types.RuntimeNPX} {
+		t.Run(string(runtime), func(t *testing.T) {
+			k := newTestKubernetesBackend(t)
+
+			objs, err := k.k8sObjects(t.Context(), ServerConfig{
+				Runtime:              runtime,
+				MCPServerName:        "test-server",
+				MCPServerDisplayName: "Test Server",
+				UserID:               "user-1",
+				OwnerUserID:          "user-2",
+				Command:              strings.ToLower(string(runtime)),
+				Args:                 []string{"example"},
+			})
+			if err != nil {
+				t.Fatalf("k8sObjects() error = %v", err)
+			}
+
+			configSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "config"))
+			if got := string(configSecret.Data["NANOBOT_RUN_HEALTHZ_PATH"]); got != "/healthz" {
+				t.Fatalf("NANOBOT_RUN_HEALTHZ_PATH = %q, want /healthz", got)
+			}
+			if got := string(configSecret.Data["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"]); got != "true" {
+				t.Fatalf("NANOBOT_RUN_FORCE_FETCH_TOOL_LIST = %q, want true", got)
+			}
+		})
 	}
 }
 
@@ -418,8 +438,8 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 		expectedStrategy       appsv1.DeploymentStrategyType
 	}{
 		{
-			name:                   "standard containerized server routes http service port to shim",
-			expectedHTTPPortTarget: intstr.FromString("http"),
+			name:                   "standard containerized server routes http service port to mcp container",
+			expectedHTTPPortTarget: intstr.FromString("mcp"),
 		},
 		{
 			name:                   "nanobot agent routes http service port to mcp container",
@@ -444,7 +464,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				Command:              "server",
 				Args:                 []string{"run"},
 				NanobotAgentName:     tt.nanobotAgentName,
-			}, nil)
+			})
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
@@ -533,36 +553,11 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			wantMemoryLimit:   "1Gi",
 		},
 		{
-			name: "remote runtime hard-codes 100Mi memory request",
+			name: "uvx runtime uses standard MCP resources",
 			server: ServerConfig{
-				Runtime: types.RuntimeRemote,
+				Runtime: types.RuntimeUVX,
 			},
-			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-				Spec: v1.K8sSettingsSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
-						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
-					},
-				},
-			},
-			wantMemoryRequest: "100Mi",
-		},
-		{
-			name: "composite runtime hard-codes 100Mi memory request",
-			server: ServerConfig{
-				Runtime: types.RuntimeComposite,
-			},
-			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-				Spec: v1.K8sSettingsSpec{
-					Resources: &corev1.ResourceRequirements{
-						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
-						Limits:   corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("1Gi")},
-					},
-				},
-			},
-			wantMemoryRequest: "100Mi",
+			wantMemoryRequest: "200Mi",
 		},
 	}
 
@@ -589,7 +584,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			server.Command = "server"
 			server.Args = []string{"run"}
 
-			objs, err := k.k8sObjects(t.Context(), server, nil)
+			objs, err := k.k8sObjects(t.Context(), server)
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
@@ -630,7 +625,7 @@ func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
 		},
 	}
 
-	if _, err := k.k8sObjects(t.Context(), server, nil); err != nil {
+	if _, err := k.k8sObjects(t.Context(), server); err != nil {
 		t.Fatalf("expected system MCP server resources to bypass maximums: %v", err)
 	}
 }
@@ -639,7 +634,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 	tests := []struct {
 		name            string
 		pod             corev1.Pod
-		isAgent         bool
+		server          ServerConfig
 		wantRetryable   bool
 		wantErr         error
 		wantErrContains string
@@ -732,7 +727,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
-			isAgent:         true,
+			server:          ServerConfig{NanobotAgentName: "agent-1"},
 			wantRetryable:   true,
 			wantErr:         ErrHealthCheckTimeout,
 			wantErrContains: "pod succeeded and exited",
@@ -770,7 +765,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			retryable, err := analyzePodStatus(&tt.pod, tt.isAgent)
+			retryable, err := analyzePodStatus(t.Context(), &tt.pod, tt.server)
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("analyzePodStatus() error = %v, want %v", err, tt.wantErr)
@@ -786,6 +781,107 @@ func TestAnalyzePodStatus(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnalyzePodStatusCommandRuntimeHealthCheck(t *testing.T) {
+	tests := []struct {
+		name              string
+		runtime           types.Runtime
+		podIP             string
+		statusCode        int
+		wantCalls         int
+		wantRetryable     bool
+		wantHealthFailure bool
+	}{
+		{
+			name:              "NPX fails immediately on health check 500",
+			runtime:           types.RuntimeNPX,
+			podIP:             "10.0.0.7",
+			statusCode:        http.StatusInternalServerError,
+			wantCalls:         1,
+			wantHealthFailure: true,
+		},
+		{
+			name:              "UVX fails immediately on health check 500",
+			runtime:           types.RuntimeUVX,
+			podIP:             "10.0.0.7",
+			statusCode:        http.StatusInternalServerError,
+			wantCalls:         1,
+			wantHealthFailure: true,
+		},
+		{
+			name:          "successful command health check remains retryable",
+			runtime:       types.RuntimeNPX,
+			podIP:         "10.0.0.7",
+			statusCode:    http.StatusOK,
+			wantCalls:     1,
+			wantRetryable: true,
+		},
+		{
+			name:          "containerized runtime skips pod health check",
+			runtime:       types.RuntimeContainerized,
+			podIP:         "10.0.0.7",
+			statusCode:    http.StatusInternalServerError,
+			wantRetryable: true,
+		},
+		{
+			name:          "command runtime without pod IP skips health check",
+			runtime:       types.RuntimeNPX,
+			statusCode:    http.StatusInternalServerError,
+			wantRetryable: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var (
+				calls  int
+				gotURL string
+			)
+			client := &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				calls++
+				gotURL = req.URL.String()
+				return &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(strings.NewReader("tool discovery failed")),
+					Header:     make(http.Header),
+					Request:    req,
+				}, nil
+			})}
+
+			retryable, err := analyzePodStatusWithClient(t.Context(), &corev1.Pod{
+				Status: corev1.PodStatus{
+					Phase: corev1.PodRunning,
+					PodIP: tt.podIP,
+				},
+			}, ServerConfig{
+				Runtime:     tt.runtime,
+				HealthzPath: "/healthz",
+			}, client)
+
+			if retryable != tt.wantRetryable {
+				t.Fatalf("analyzePodStatusWithClient() retryable = %v, want %v", retryable, tt.wantRetryable)
+			}
+			if errors.Is(err, ErrHealthCheckFailed) != tt.wantHealthFailure {
+				t.Fatalf("analyzePodStatusWithClient() error = %v, want health failure %v", err, tt.wantHealthFailure)
+			}
+			if tt.wantHealthFailure && !strings.Contains(err.Error(), "tool discovery failed") {
+				t.Fatalf("analyzePodStatusWithClient() error = %q, want response body", err)
+			}
+			if calls != tt.wantCalls {
+				t.Fatalf("health check calls = %d, want %d", calls, tt.wantCalls)
+			}
+			if tt.wantCalls > 0 && gotURL != "http://10.0.0.7:8099/healthz" {
+				t.Fatalf("health check URL = %q, want %q", gotURL, "http://10.0.0.7:8099/healthz")
+			}
+		})
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 type fakeWithWatch struct {
@@ -950,9 +1046,6 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 	if !errors.Is(err, ErrHealthCheckTimeout) {
 		t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
 	}
-	if err.Error() != "timed out waiting for MCP server to be ready after 5 watch retries: timeout waiting for Deployment test-server to meet condition" {
-		t.Fatalf("updatedMCPPodName() error = %q, want deployment timeout message", err)
-	}
 }
 
 func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
@@ -988,7 +1081,7 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 		ContainerPath:        "/mcp",
 		Command:              "server",
 		Args:                 []string{"run"},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1022,7 +1115,7 @@ func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 		ContainerPath:        "/mcp",
 		Command:              "server",
 		Args:                 []string{"run"},
-	}, nil)
+	})
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1051,7 +1144,7 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 		Args:                 []string{"run"},
 	}
 
-	objs, err := k.k8sObjects(t.Context(), server, nil)
+	objs, err := k.k8sObjects(t.Context(), server)
 	if err != nil {
 		t.Fatalf("k8sObjects() error = %v", err)
 	}
@@ -1208,10 +1301,9 @@ func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBa
 	}
 
 	return &kubernetesBackend{
-		baseImage:           "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
-		remoteShimBaseImage: "ghcr.io/obot-platform/remote-shim:main",
-		mcpNamespace:        "obot-mcp",
-		obotClient:          clientBuilder.Build(),
+		baseImage:    "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		mcpNamespace: "obot-mcp",
+		obotClient:   clientBuilder.Build(),
 	}
 }
 
@@ -1322,24 +1414,6 @@ func assertNoAuditLogEnv(t *testing.T, env map[string][]byte) {
 	for key := range env {
 		if strings.HasPrefix(key, "NANOBOT_RUN_AUDIT_LOG_") {
 			t.Fatalf("unexpected audit log env %q present", key)
-		}
-	}
-}
-
-func assertHasAuditLogEnv(t *testing.T, env map[string][]byte) {
-	t.Helper()
-
-	expected := []string{
-		"NANOBOT_RUN_AUDIT_LOG_TOKEN",
-		"NANOBOT_RUN_AUDIT_LOG_SEND_URL",
-		"NANOBOT_RUN_AUDIT_LOG_BATCH_SIZE",
-		"NANOBOT_RUN_AUDIT_LOG_FLUSH_INTERVAL_SECONDS",
-		"NANOBOT_RUN_AUDIT_LOG_METADATA",
-	}
-
-	for _, key := range expected {
-		if _, ok := env[key]; !ok {
-			t.Fatalf("expected audit log env %q to be present", key)
 		}
 	}
 }

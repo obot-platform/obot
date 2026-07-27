@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -15,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -67,7 +67,13 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
+		return err
+	}
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs)
+	if err := validateCatalogGitCredentials(req, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs); err != nil {
 		return err
 	}
 
@@ -77,14 +83,16 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 			Namespace:    req.Namespace(),
 		},
 		Spec: v1.SystemMCPCatalogSpec{
-			DisplayName: manifest.DisplayName,
-			SourceURLs:  manifest.SourceURLs,
+			DisplayName:               manifest.DisplayName,
+			SourceURLs:                manifest.SourceURLs,
+			SourceURLGitCredentialIDs: manifest.SourceURLGitCredentialIDs,
 		},
 	}
 	if err := req.Create(&catalog); err != nil {
 		return fmt.Errorf("failed to create system catalog: %w", err)
 	}
 	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, nil)
+	removeSharedCredentialTokens(newTokens, manifest.SourceURLGitCredentialIDs)
 	if err := storeCatalogTokens(req, catalog.Name, newTokens, nil); err != nil {
 		return err
 	}
@@ -97,7 +105,13 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return fmt.Errorf("failed to read system catalog manifest: %w", err)
 	}
+	originalSourceURLs := slices.Clone(manifest.SourceURLs)
 	if err := validateSystemCatalogManifest(&manifest, h.defaultCatalogPath); err != nil {
+		return err
+	}
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLCredentials)
+	remapCatalogSourceValues(originalSourceURLs, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs)
+	if err := validateCatalogGitCredentials(req, manifest.SourceURLs, manifest.SourceURLGitCredentialIDs); err != nil {
 		return err
 	}
 
@@ -112,8 +126,10 @@ func (h *SystemMCPCatalogHandler) Update(req api.Context) error {
 	}
 
 	newTokens := mergeCatalogTokens(manifest.SourceURLs, manifest.SourceURLCredentials, existingCred.Secrets)
+	removeSharedCredentialTokens(newTokens, manifest.SourceURLGitCredentialIDs)
 	catalog.Spec.DisplayName = manifest.DisplayName
 	catalog.Spec.SourceURLs = manifest.SourceURLs
+	catalog.Spec.SourceURLGitCredentialIDs = manifest.SourceURLGitCredentialIDs
 	if err := req.Update(&catalog); err != nil {
 		return fmt.Errorf("failed to update system catalog: %w", err)
 	}
@@ -183,7 +199,7 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 
@@ -217,7 +233,7 @@ func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
-	if err := validation.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(req.Context(), manifest, validationOptions(h.sessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
@@ -285,7 +301,7 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 		if urlStr == "" {
 			continue
 		}
-		sourceID := validation.SourceIDForURL(urlStr)
+		sourceID := mcp.SourceIDForURL(urlStr)
 		if sourceID == "" {
 			return types.NewErrBadRequest("invalid catalog source URL %q", urlStr)
 		}
@@ -388,9 +404,10 @@ func convertSystemMCPCatalog(catalog v1.SystemMCPCatalog, tokenEnv map[string]st
 	return types.SystemMCPCatalog{
 		Metadata: MetadataFrom(&catalog),
 		SystemMCPCatalogManifest: types.SystemMCPCatalogManifest{
-			DisplayName:          catalog.Spec.DisplayName,
-			SourceURLs:           catalog.Spec.SourceURLs,
-			SourceURLCredentials: maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			DisplayName:               catalog.Spec.DisplayName,
+			SourceURLs:                catalog.Spec.SourceURLs,
+			SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+			SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
 		},
 		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
 		SyncErrors: catalog.Status.SyncErrors,

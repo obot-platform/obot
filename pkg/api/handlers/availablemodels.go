@@ -36,13 +36,11 @@ func (a *AvailableModelsHandler) List(req api.Context) error {
 
 	var oModels openai.ModelsList
 	for _, modelProvider := range modelProviders.Items {
-		convertedModelProvider, err := providers.ModelProviderStatus(modelProvider, nil, a.licenseProvider)
+		mps, err := providers.ModelProviderStatus(req.Context(), modelProvider, nil, a.licenseProvider)
 		if err != nil {
-			log.Warnf("failed to convert model provider %q: %v", modelProvider.Name, err)
-			continue
+			return err
 		}
-
-		if !convertedModelProvider.Configured {
+		if !mps.Configured {
 			continue
 		}
 

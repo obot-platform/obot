@@ -887,7 +887,9 @@
 						<button
 							class={twMerge(
 								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-								selectedSubview === 'models' && 'border-primary'
+								selectedSubview === 'models'
+									? 'border-primary'
+									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
 							)}
 							onclick={() => {
 								selectedSubview = 'models';
@@ -899,7 +901,9 @@
 						<button
 							class={twMerge(
 								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-								selectedSubview === 'users' && 'border-primary'
+								selectedSubview === 'users'
+									? 'border-primary'
+									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
 							)}
 							onclick={() => {
 								selectedSubview = 'users';

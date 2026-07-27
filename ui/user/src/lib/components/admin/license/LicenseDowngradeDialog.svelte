@@ -76,9 +76,9 @@
 		<div class="flex flex-col gap-4">
 			<p class="font-light">
 				To re-enable full access to existing functionality, please contact support at
-				<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a> to renew your license.
+				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
 			</p>
-			<a href="mailto:licensing@obot.ai" class="btn btn-primary">
+			<a href="mailto:info@obot.ai" class="btn btn-primary">
 				<Mail class="size-4" />
 				Contact Support
 			</a>

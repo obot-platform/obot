@@ -1,7 +1,6 @@
 package mcpservercatalogentry
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -61,6 +60,54 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
 	assert.True(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectCompositeDriftIgnoresCatalogOnlyComponentFields(t *testing.T) {
+	componentSnapshot := types.MCPServerCatalogEntryManifest{
+		Name:    "Catalog Component",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/component:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	}
+	compositeEntry := newMCPServerCatalogEntry("composite-entry", types.MCPServerCatalogEntryManifest{
+		Name:    "Composite Entry",
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{{
+				CatalogEntryID: "component-entry",
+				Manifest:       componentSnapshot,
+			}},
+		},
+	})
+	compositeEntry.Status.NeedsUpdate = true
+	componentEntry := newMCPServerCatalogEntry("component-entry", types.MCPServerCatalogEntryManifest{
+		EntryKey:       "catalog-only-entry-key",
+		Name:           "Catalog Component",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/component:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+
+	client := newFakeClient(compositeEntry, componentEntry)
+	err := (&Handler{}).DetectCompositeDrift(router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    compositeEntry,
+		Namespace: compositeEntry.Namespace,
+		Name:      compositeEntry.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
+	assert.False(t, updated.Status.NeedsUpdate)
 }
 
 func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
@@ -325,7 +372,7 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 	client := newFakeClient(entry, server1, server2, server3)
 	err := (&Handler{}).EnsureUserCount(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    entry,
 		Namespace: entry.Namespace,
 		Name:      entry.Name,

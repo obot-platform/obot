@@ -13,10 +13,10 @@ import (
 type AppPreferencesHandler struct{}
 
 func NewAppPreferencesHandler() *AppPreferencesHandler {
-	return &AppPreferencesHandler{}
+	return nil
 }
 
-func (h *AppPreferencesHandler) Get(req api.Context) error {
+func (*AppPreferencesHandler) Get(req api.Context) error {
 	var prefs v1.AppPreferences
 	err := req.Storage.Get(req.Context(), client.ObjectKey{
 		Namespace: req.Namespace(),
@@ -35,7 +35,7 @@ func (h *AppPreferencesHandler) Get(req api.Context) error {
 	return req.Write(converted)
 }
 
-func (h *AppPreferencesHandler) Update(req api.Context) error {
+func (*AppPreferencesHandler) Update(req api.Context) error {
 	var input types.AppPreferences
 	if err := req.Read(&input); err != nil {
 		return err

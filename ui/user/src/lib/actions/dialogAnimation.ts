@@ -1,3 +1,4 @@
+import { shouldDismissNonModalDialogOnEscape, shouldOpenDialogNonModal } from './openDialog.js';
 import type { Action } from 'svelte/action';
 
 type AnimationType = 'slide' | 'fade' | 'drawer';
@@ -71,10 +72,17 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 	};
 
 	const originalShowModal = node.showModal;
+	const originalShow = node.show;
 	const originalClose = node.close;
 
 	node.showModal = function () {
-		originalShowModal.call(node);
+		// Keep the guide panel interactive: modal dialogs inert the document and their
+		// ::backdrop covers the full viewport in the top layer.
+		if (shouldOpenDialogNonModal(node)) {
+			originalShow.call(node);
+		} else {
+			originalShowModal.call(node);
+		}
 
 		const backdrop = getBackdropElement();
 		if (!backdrop) return;
@@ -86,6 +94,13 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 			backdrop.style.removeProperty('opacity');
 		}
 	};
+
+	const onNonModalEscape = (e: KeyboardEvent) => {
+		if (e.key !== 'Escape' || !shouldDismissNonModalDialogOnEscape(node)) return;
+		e.preventDefault();
+		node.close();
+	};
+	window.addEventListener('keydown', onNonModalEscape);
 
 	// Override the dialog.close method
 	node.close = function () {
@@ -215,6 +230,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		},
 		destroy() {
 			observer.disconnect();
+			window.removeEventListener('keydown', onNonModalEscape);
 			node.showModal = originalShowModal;
 			node.close = originalClose;
 			node.removeAttribute('data-dialog-animated');

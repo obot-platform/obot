@@ -17,7 +17,23 @@ func MCPOAuthCredentialName(mcpServerName string) string {
 }
 
 func MCPConnectURL(serverURL, id string) string {
-	return fmt.Sprintf("%s/mcp-connect/%s", serverURL, id)
+	return mcpConnectURL(serverURL, "mcp-connect", id)
+}
+
+func LocalMCPConnectURL(id string, httpListenPort int) string {
+	return MCPConnectURL(fmt.Sprintf("http://localhost:%d", httpListenPort), id)
+}
+
+func MCPConnectCompositeURL(id string, httpListenPort int) string {
+	return mcpConnectURL(fmt.Sprintf("http://localhost:%d", httpListenPort), "mcp-connect-composite", id)
+}
+
+func mcpConnectURL(serverURL, path, id string) string {
+	return fmt.Sprintf("%s/%s/%s",
+		strings.TrimRight(serverURL, "/"),
+		strings.Trim(path, "/"),
+		strings.TrimLeft(id, "/"),
+	)
 }
 
 func NanobotAgentConnectURL(serverURL, id string) string {

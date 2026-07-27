@@ -251,6 +251,15 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: false,
 		},
 		{
+			name: "/.well-known is rejected by UI fallback",
+			path: "/.well-known/oauth-protected-resource",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: false,
+		},
+		{
 			name: "/v0.1 is rejected by UI fallback",
 			path: "/v0.1",
 			user: &user.DefaultInfo{

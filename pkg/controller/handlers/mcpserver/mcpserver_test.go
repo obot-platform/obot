@@ -1,15 +1,18 @@
 package mcpserver
 
 import (
-	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +21,7 @@ import (
 )
 
 func TestConfigurationHasDrifted(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
 	tests := []struct {
 		name           string
 		serverManifest types.MCPServerManifest
@@ -1005,7 +1009,14 @@ func TestConfigurationHasDrifted(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drifted, err := ConfigurationHasDrifted(tt.serverManifest, tt.entryManifest, false)
+			server := &v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "test-server"},
+				Spec: v1.MCPServerSpec{
+					UserID:   "test-user",
+					Manifest: tt.serverManifest,
+				},
+			}
+			drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, tt.entryManifest, false)
 
 			if tt.expectedError {
 				if err == nil {
@@ -1022,6 +1033,58 @@ func TestConfigurationHasDrifted(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
+	referenceManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{MCPHeader: types.MCPHeader{Key: "STATIC_ENV", Value: "stored-env"}},
+			{MCPHeader: types.MCPHeader{Key: "DYNAMIC_ENV"}},
+		},
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://api.example.com/mcp",
+			Headers: []types.MCPHeader{
+				{Key: "STATIC_HEADER", Value: "stored-header"},
+				{Key: "EXISTING_HEADER", Value: "configured"},
+			},
+		},
+	}
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared-server"},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "default",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "STATIC_ENV"}},
+					{MCPHeader: types.MCPHeader{Key: "DYNAMIC_ENV"}},
+				},
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://api.example.com/mcp",
+					Headers: []types.MCPHeader{
+						{Key: "STATIC_HEADER"},
+						{Key: "EXISTING_HEADER", Value: "configured"},
+					},
+				},
+			},
+		},
+	}
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: "default-shared-server",
+		Name:    server.Name,
+		Secrets: map[string]string{
+			"STATIC_ENV":    "stored-env",
+			"STATIC_HEADER": "stored-header",
+		},
+	}))
+
+	drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, referenceManifest, false)
+	require.NoError(t, err)
+	assert.False(t, drifted)
+	assert.Empty(t, server.Spec.Manifest.Env[0].Value)
+	assert.Empty(t, server.Spec.Manifest.RemoteConfig.Headers[0].Value)
 }
 
 func TestRuntimeSpecificDriftFunctions(t *testing.T) {
@@ -1274,7 +1337,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 	client := newFakeClient(t, entry, server)
 	err := (&Handler{}).DetectDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1282,7 +1345,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.True(t, updated.Status.NeedsUpdate)
 }
 
@@ -1313,7 +1376,7 @@ func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing
 	client := newFakeClient(t, entry, server)
 	err := (&Handler{}).DetectDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1321,7 +1384,7 @@ func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.True(t, updated.Status.NeedsUpdate)
 }
 
@@ -1353,7 +1416,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 	client := newFakeClient(t, entry, server)
 	err := (&Handler{}).DetectDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1361,7 +1424,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.False(t, updated.Status.NeedsUpdate)
 }
 
@@ -1406,7 +1469,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	client := newFakeClient(t, entry, server)
 	err := (&Handler{}).DetectDrift(router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1414,8 +1477,25 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.False(t, updated.Status.NeedsUpdate)
+}
+
+func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
+	server := newMCPServer("shared-server")
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest.Runtime = types.Runtime("invalid")
+	storageClient := newFakeClient(t, entry, server)
+
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    storageClient,
+		Ctx:       t.Context(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.EqualError(t, err, "unknown runtime type: invalid")
 }
 
 func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
@@ -1432,6 +1512,18 @@ func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryM
 			Manifest: manifest,
 		},
 	}
+}
+
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
 }
 
 func TestShouldSyncOAuthMetadata(t *testing.T) {
@@ -1490,7 +1582,7 @@ func TestShutdownIdleServersSetsLastRequestTimeForOlderServers(t *testing.T) {
 	client := newFakeClient(t, server)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1500,7 +1592,7 @@ func TestShutdownIdleServersSetsLastRequestTimeForOlderServers(t *testing.T) {
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.False(t, updated.Status.LastRequestTime.IsZero())
 	assert.WithinDuration(t, time.Now(), updated.Status.LastRequestTime.Time, 5*time.Second)
 }
@@ -1512,7 +1604,7 @@ func TestShutdownIdleServersSkipsRecentlyCreatedServersWithoutLastRequestTime(t 
 	client := newFakeClient(t, server)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1522,7 +1614,7 @@ func TestShutdownIdleServersSkipsRecentlyCreatedServersWithoutLastRequestTime(t 
 	require.NoError(t, err)
 
 	var updated v1.MCPServer
-	require.NoError(t, client.Get(context.Background(), router.Key(server.Namespace, server.Name), &updated))
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
 	assert.True(t, updated.Status.LastRequestTime.IsZero())
 }
 
@@ -1533,7 +1625,7 @@ func TestShutdownIdleServersSchedulesRetryUsingServerSpecificInterval(t *testing
 
 	req := router.Request{
 		Client:    newFakeClient(t, server),
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1557,7 +1649,7 @@ func TestShutdownIdleServersUsesAgentDefaultIdleInterval(t *testing.T) {
 
 	req := router.Request{
 		Client:    newFakeClient(t, server),
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1581,7 +1673,7 @@ func TestShutdownIdleServersUsesMultiUserDefaultIdleInterval(t *testing.T) {
 
 	req := router.Request{
 		Client:    newFakeClient(t, server),
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1605,7 +1697,7 @@ func TestShutdownIdleServersSkipsWhenShutdownDisabled(t *testing.T) {
 
 	req := router.Request{
 		Client:    newFakeClient(t, server),
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1630,7 +1722,7 @@ func TestEnsureMCPNetworkPolicyCreatesPolicy(t *testing.T) {
 	client := newFakeClient(t, server)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1640,7 +1732,7 @@ func TestEnsureMCPNetworkPolicyCreatesPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
 		"spec.mcpServerName": server.Name,
 	}))
 	require.Len(t, policies.Items, 1)
@@ -1663,7 +1755,7 @@ func TestEnsureMCPNetworkPolicyCreatesDenyAllPolicy(t *testing.T) {
 	client := newFakeClient(t, server)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1673,7 +1765,7 @@ func TestEnsureMCPNetworkPolicyCreatesDenyAllPolicy(t *testing.T) {
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
 		"spec.mcpServerName": server.Name,
 	}))
 	require.Len(t, policies.Items, 1)
@@ -1696,7 +1788,7 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {
 	client := newFakeClient(t, server, existing)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1706,7 +1798,7 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyWhenProviderDisabled(t *testing.T) {
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
 		"spec.mcpServerName": server.Name,
 	}))
 	require.Empty(t, policies.Items)
@@ -1724,7 +1816,7 @@ func TestEnsureMCPNetworkPolicySkipsNanobotAgentServer(t *testing.T) {
 	client := newFakeClient(t, server)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1734,7 +1826,7 @@ func TestEnsureMCPNetworkPolicySkipsNanobotAgentServer(t *testing.T) {
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
 		"spec.mcpServerName": server.Name,
 	}))
 	require.Empty(t, policies.Items)
@@ -1758,7 +1850,7 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyForUnsupportedRuntime(t *testing.T) 
 	client := newFakeClient(t, server, existing)
 	req := router.Request{
 		Client:    client,
-		Ctx:       context.Background(),
+		Ctx:       t.Context(),
 		Object:    server,
 		Namespace: server.Namespace,
 		Name:      server.Name,
@@ -1768,7 +1860,7 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyForUnsupportedRuntime(t *testing.T) 
 	require.NoError(t, err)
 
 	var policies v1.MCPNetworkPolicyList
-	require.NoError(t, client.List(context.Background(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+	require.NoError(t, client.List(t.Context(), &policies, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
 		"spec.mcpServerName": server.Name,
 	}))
 	require.Empty(t, policies.Items)

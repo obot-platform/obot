@@ -41,6 +41,10 @@ metadata:
   labels:
     {{- include "obot.labels" . | nindent 4 }}
 rules:
+  # access to leases for leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["secrets", "services", "persistentvolumeclaims", "configmaps"]
     verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]

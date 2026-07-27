@@ -146,6 +146,36 @@ func (in EmptyStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredential) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredential"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialReference) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialReference"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialReferences) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialReferences"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in GitCredentialStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GitCredentialStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupRoleChange) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GroupRoleChange"
 }
@@ -313,6 +343,41 @@ func (in MCPWebhookValidationSpec) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPWebhookValidationStatus) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPWebhookValidationStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAsset) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAsset"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSource) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSource"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSourceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSourceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MDMAssetSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MDMAssetSpec"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.

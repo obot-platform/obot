@@ -6,8 +6,9 @@
 
 	export type FilterInput = {
 		label: string;
+		multiple?: boolean;
 		tooltip?: string;
-		property: FilterKey;
+		property: string;
 		selected?: string | number | null;
 		default?: string | number | null;
 		options: FilterOption[];
@@ -18,7 +19,6 @@
 <script lang="ts">
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Select, { type SelectProps } from '$lib/components/Select.svelte';
-	import type { FilterKey } from './FiltersDrawer.svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -41,14 +41,18 @@
 
 	let options = $derived([...(filter?.options ?? [])].sort(optionsSort));
 
+	// Other active filters can make the configured default invalid, so only offer Reset when it is selectable.
+	const hasValidDefault = $derived(
+		filter.default !== undefined &&
+			filter.default !== null &&
+			options.some((option) => option.id === filter.default?.toString())
+	);
 	const value = $derived(
-		filter.selected === null ? (filter.default ?? '') : (filter.selected ?? '')
+		filter.selected === null && hasValidDefault ? (filter.default ?? '') : (filter.selected ?? '')
 	);
 
-	const hasDefaultValue = $derived(!!filter.default);
-
 	const shouldShowResetButton = $derived(
-		hasDefaultValue && filter.selected !== null && filter.default !== filter.selected
+		hasValidDefault && filter.selected !== null && filter.default !== filter.selected
 	);
 	const shouldShowClearButton = $derived(!!value);
 
@@ -89,7 +93,7 @@
 >
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-1">
-			<label for={filter.property} class="text-md font-light">
+			<label for={filter.property} class="text-md font-light capitalize">
 				By {filter.label}
 			</label>
 			{#if filter.tooltip}
@@ -126,7 +130,7 @@
 				filter.selected = v;
 			}
 		}
-		multiple
+		multiple={filter.multiple ?? true}
 		{onSelect}
 		position="top"
 	/>

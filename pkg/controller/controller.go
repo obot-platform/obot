@@ -11,9 +11,11 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
+	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
 	"github.com/obot-platform/obot/pkg/services"
@@ -36,6 +38,7 @@ type Controller struct {
 	services               *services.Services
 	providerHandler        *provider.Handler
 	mcpCatalogHandler      *mcpcatalog.Handler
+	mdmAssetSourceHandler  *mdmassetsource.Handler
 	modelInfoSourceHandler *modelinfosource.Handler
 	adminWorkspaceHandler  *adminworkspace.Handler
 	providerInstaller      networkPolicyProviderInstaller
@@ -82,12 +85,12 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate published artifact visibility: %w", err)
 	}
 
-	if err := deleteToolReferenceOwnedModels(ctx, c.services.StorageClient); err != nil {
-		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
+	if err := migrateAuditLogExportSourceTypes(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate audit-log export source types: %w", err)
 	}
 
-	if err := migrateMultiUserMCPServerManifestValuesToCredentials(ctx, c.services.StorageClient, c.services.GatewayClient); err != nil {
-		return fmt.Errorf("failed to migrate MCP server manifest values to credentials: %w", err)
+	if err := deleteToolReferenceOwnedModels(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
 	}
 
 	// Ensure PowerUserWorkspaces exist for all admin users on startup
@@ -258,6 +261,9 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 
 	if err := c.modelInfoSourceHandler.SetUpDefaultModelInfoSource(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default model info source: %w", err))
+	}
+	if err := c.mdmAssetSourceHandler.SetUpDefaultMDMAssetSource(ctx, client); err != nil {
+		panic(fmt.Errorf("failed to set up default MDM asset source: %w", err))
 	}
 
 	if err := c.mcpCatalogHandler.SetUpDefaultMCPCatalog(ctx, client); err != nil {
@@ -574,16 +580,48 @@ func (c *Controller) setupLocalK8sRoutes() {
 	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 }
 
+// ensureLocalAuthProvider creates or updates the AuthProvider resource for the built-in local
+// auth provider. It doesn't come from the provider registry like the others, because it runs
+// inside this process rather than as a daemon.
+func (c *Controller) ensureLocalAuthProvider(ctx context.Context) error {
+	if c.services.LocalAuthProvider == nil {
+		// Authentication is disabled, so there is nothing to log into.
+		return nil
+	}
+
+	authProvider := localauth.AuthProvider()
+
+	var existing v1.AuthProvider
+	if err := c.services.StorageClient.Get(ctx, kclient.ObjectKeyFromObject(authProvider), &existing); apierrors.IsNotFound(err) {
+		return c.services.StorageClient.Create(ctx, authProvider)
+	} else if err != nil {
+		return fmt.Errorf("failed to get local auth provider: %w", err)
+	}
+
+	if equality.Semantic.DeepEqual(existing.Spec, authProvider.Spec) {
+		return nil
+	}
+
+	existing.Spec = authProvider.Spec
+	return c.services.StorageClient.Update(ctx, &existing)
+}
+
 func (c *Controller) ensureAuthProvidersAndModelProviders(ctx context.Context) error {
+	if err := c.ensureLocalAuthProvider(ctx); err != nil {
+		return fmt.Errorf("failed to ensure local auth provider: %w", err)
+	}
+
 	var authProviders v1.AuthProviderList
 	if err := c.services.StorageClient.List(ctx, &authProviders); err != nil {
 		return fmt.Errorf("failed to list auth providers: %w", err)
 	}
 
-	// If there are no auth providers, then read the registry to get them populated and statuses set.
-	// This works around a problem where the controllers weren't shutting down properly, which caused
-	// a significant delay in startup when upgrading from v0.22.1.
-	if len(authProviders.Items) == 0 {
+	// If there are no auth providers from the registry, then read the registry to get them
+	// populated and statuses set. This works around a problem where the controllers weren't
+	// shutting down properly, which caused a significant delay in startup when upgrading from
+	// v0.22.1. The built-in local auth provider doesn't come from the registry, so it doesn't
+	// count towards this check.
+	if len(authProviders.Items) <= 1 {
 		if err := c.providerHandler.ReadFromRegistry(ctx, c.services.StorageClient); err != nil {
 			return fmt.Errorf("failed to read from registry: %w", err)
 		}

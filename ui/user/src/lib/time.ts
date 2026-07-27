@@ -304,6 +304,25 @@ export function formatLogTimestamp(time: Date | string, format: TimeDisplayForma
 		.replace(/,/g, '');
 }
 
+const auditLogTableTimestampFormatter = new Intl.DateTimeFormat('en-US', {
+	year: 'numeric',
+	month: '2-digit',
+	day: '2-digit',
+	hour: '2-digit',
+	minute: '2-digit',
+	second: '2-digit',
+	hourCycle: 'h23',
+	timeZoneName: 'short'
+});
+
+export function formatAuditLogTableTimestamp(time: Date | string) {
+	const parts = auditLogTableTimestampFormatter.formatToParts(new Date(time));
+	const value = (type: Intl.DateTimeFormatPartTypes) =>
+		parts.find((part) => part.type === type)?.value ?? '';
+
+	return `${value('year')}-${value('month')}-${value('day')} ${value('hour')}:${value('minute')}:${value('second')} ${value('timeZoneName')}`;
+}
+
 export function isRecent(created: string, withinMinutes = 1): boolean {
 	const diff = Date.now() - new Date(created).getTime();
 	return diff < withinMinutes * 60 * 1000;

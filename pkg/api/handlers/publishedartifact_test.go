@@ -3,7 +3,6 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -635,7 +634,7 @@ func TestPublishedArtifactCreate_InheritsSubjectsFromPreviousVersion(t *testing.
 	}
 
 	var artifact v1.PublishedArtifact
-	if err := storage.Get(context.Background(), kclient.ObjectKey{
+	if err := storage.Get(t.Context(), kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      artifactName,
 	}, &artifact); err != nil {

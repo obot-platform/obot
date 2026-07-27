@@ -345,3 +345,7 @@ export const isAgentEnabled = (defaultModelAliases?: DefaultModelAlias[]) =>
 	defaultModelAliases.length > 0 &&
 	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.Llm)?.model &&
 	!!defaultModelAliases.find((alias) => alias.alias === ModelAlias.LlmMini)?.model;
+
+export function isSafe<T = unknown>(value: T): value is NonNullable<T> {
+	return value !== undefined && value !== null;
+}

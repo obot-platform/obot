@@ -1,9 +1,9 @@
 {
   "upstreamRepo": "https://github.com/obot-platform/obot.git",
   "upstreamBranch": "main",
-  "upstreamHeadSha": "7c4a7031cf5180f2448237f9377f04854d275a3f",
-  "mergeBaseSha": "1d4b687e66fce41dd059e1005501623e021ac27f",
-  "upstreamObotVersion": "v0.23.3",
-  "syncBranch": "sync/upstream-20260712-7c4a703",
-  "syncTimestamp": "2026-07-12T03:38:08Z"
+  "upstreamHeadSha": "802c81619d1c9f31a1110a80019ecb0e375fc866",
+  "mergeBaseSha": "7c4a7031cf5180f2448237f9377f04854d275a3f",
+  "upstreamObotVersion": "v0.24.1",
+  "syncBranch": "sync/upstream-20260727-802c816",
+  "syncTimestamp": "2026-07-27T00:00:00Z"
 }

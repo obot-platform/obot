@@ -4,11 +4,11 @@ import {
 	transformTopToolCalls
 } from '$lib/components/admin/usage/utils';
 import type { DonutDatum } from '$lib/components/graph/DonutGraph.svelte';
-import type { AuditLogUsageStats, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
+import type { McpAuditLogUsageStats, MCPCatalogEntry, MCPCatalogServer } from '$lib/services';
 import { DEPLOYMENT_STATUS_ORDER, ENTRY_TYPE_GRAPH_META } from './constants';
 import type { TopServerUsageRow, TopToolCallRow } from './types';
 
-export function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): TopToolCallRow[] {
+export function topToolCallsFromStats(stats: McpAuditLogUsageStats | undefined): TopToolCallRow[] {
 	return transformTopToolCalls(stats).map((t) => ({
 		compositeKey: t.toolName,
 		toolLabel: t.toolName,
@@ -17,11 +17,11 @@ export function topToolCallsFromStats(stats: AuditLogUsageStats | undefined): To
 	}));
 }
 
-export function topServersFromStats(stats: AuditLogUsageStats | undefined): TopServerUsageRow[] {
+export function topServersFromStats(stats: McpAuditLogUsageStats | undefined): TopServerUsageRow[] {
 	return transformTopServerUsage(stats);
 }
 
-export function avgToolCallResponseTimeFromStats(stats: AuditLogUsageStats | undefined) {
+export function avgToolCallResponseTimeFromStats(stats: McpAuditLogUsageStats | undefined) {
 	return transformAvgToolCallResponseTime(stats);
 }
 

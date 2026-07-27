@@ -1,14 +1,13 @@
 package mcp
 
 import (
-	"context"
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -17,15 +16,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-// MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
-const MaxMCPServerStartupTimeout = 10 * time.Minute
+const (
+	// MaxMCPServerStartupTimeout is the maximum value allowed to be used in ServerConfig.StartupTimeout
+	MaxMCPServerStartupTimeout = 10 * time.Minute
+
+	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
+	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
+)
 
 type GlobalTokenStore interface {
 	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
-}
-
-type TokenService interface {
-	NewTokenWithClaims(context.Context, jwt.MapClaims) (*jwt.Token, string, error)
 }
 
 type Config struct {
@@ -68,25 +68,20 @@ type ServerConfig struct {
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
 
-	Issuer    string   `json:"issuer"`
 	Audiences []string `json:"audiences"`
 
-	AuthorizeEndpoint         string `json:"authorizeEndpoint"`
-	TokenExchangeEndpoint     string `json:"tokenExchangeEndpoint"`
-	JWKSEndpoint              string `json:"jwksEndpoint"`
 	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
 	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
 
-	AuditLogToken    string `json:"auditLogToken"`
-	AuditLogEndpoint string `json:"auditLogEndpoint"`
-	AuditLogMetadata string `json:"auditLogMetadata"`
+	AuditLogMetadata map[string]string `json:"auditLogMetadata"`
 
 	StartupTimeout time.Duration                `json:"startupTimeout,omitempty"`
 	Resources      *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Webhooks       []Webhook                    `json:"webhooks,omitempty"`
 }
 
-func (s ServerConfig) NeedsShim() bool {
-	return s.NanobotAgentName == ""
+func (s ServerConfig) IsNanobotAgentServer() bool {
+	return s.NanobotAgentName != ""
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
@@ -270,11 +265,13 @@ func configureCompositeRuntime(serverConfig ServerConfig) (ServerConfig, []strin
 	return serverConfig, nil, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
-	config, missing, err := ServerToServerConfig(mcpServer, audiences, issuer, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
+	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
 	if err != nil {
 		return config, missing, err
 	}
+
+	config.URL = system.MCPConnectCompositeURL(config.MCPServerName, httpListenPort)
 
 	overrides := make(map[string]types.ComponentServer, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
 	for _, component := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
@@ -311,7 +308,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		config.Components = append(config.Components, ComponentServer{
 			Name:       name,
-			URL:        system.MCPConnectURL(issuer, component.Name),
+			URL:        system.LocalMCPConnectURL(component.Name, httpListenPort),
 			Tools:      tools,
 			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,
@@ -338,7 +335,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		config.Components = append(config.Components, ComponentServer{
 			Name:       instance.Name,
-			URL:        system.MCPConnectURL(issuer, instance.Name),
+			URL:        system.LocalMCPConnectURL(instance.Name, httpListenPort),
 			Tools:      tools,
 			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
 			ToolPrefix: override.ToolPrefix,
@@ -358,7 +355,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 	return config, missing, err
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -406,13 +403,9 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 		MCPCatalogEntryName:       mcpServer.Spec.MCPServerCatalogEntryName,
 		MCPServerDisplayName:      displayName,
 		Runtime:                   mcpServer.Spec.Manifest.Runtime,
-		Issuer:                    issuer,
 		Audiences:                 audiences,
 		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
 		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
-		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
-		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
-		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
 		PassthroughHeaderNames:    passthroughHeaderNames,
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
@@ -422,9 +415,19 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 
 	if mcpServer.Spec.CompositeName == "" {
 		// Don't set these for component MCP servers. Audit logging is handled at the composite level for these.
-		serverConfig.AuditLogEndpoint = fmt.Sprintf("%s/api/mcp-audit-logs", issuer)
-		serverConfig.AuditLogToken = secretsCred["AUDIT_LOG_TOKEN"]
-		serverConfig.AuditLogMetadata = fmt.Sprintf("mcpID=%s,mcpServerCatalogEntryName=%s,powerUserWorkspaceID=%s,mcpServerDisplayName=%s", mcpServer.Name, mcpServer.Spec.MCPServerCatalogEntryName, powerUserWorkspaceID, displayName)
+		serverConfig.AuditLogMetadata = map[string]string{
+			"mcpID":                     mcpServer.Name,
+			"mcpServerCatalogEntryName": mcpServer.Spec.MCPServerCatalogEntryName,
+			"powerUserWorkspaceID":      powerUserWorkspaceID,
+			"mcpServerDisplayName":      displayName,
+			"userID":                    userID,
+			AuditLogIgnore:              strconv.FormatBool(mcpServer.Spec.NanobotAgentID != ""),
+		}
+	} else {
+		// Tell the audit logger to not store audit logs for component MCP servers
+		serverConfig.AuditLogMetadata = map[string]string{
+			AuditLogIgnore: "true",
+		}
 	}
 
 	var missingRequiredNames []string
@@ -484,7 +487,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, issuer, us
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
-func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, issuer string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -515,19 +518,18 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		MCPServerDisplayName:      displayName,
 		Runtime:                   systemServer.Spec.Manifest.Runtime,
 		Scope:                     fmt.Sprintf("%s-system", systemServer.Name),
-		Issuer:                    issuer,
 		Audiences:                 audiences,
 		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
 		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
-		TokenExchangeEndpoint:     fmt.Sprintf("%s/oauth/token", issuer),
-		JWKSEndpoint:              fmt.Sprintf("%s/oauth/jwks.json", issuer),
-		AuthorizeEndpoint:         fmt.Sprintf("%s/oauth/authorize", issuer),
-		AuditLogEndpoint:          fmt.Sprintf("%s/api/mcp-audit-logs", issuer),
-		AuditLogToken:             secretsCred["AUDIT_LOG_TOKEN"],
-		AuditLogMetadata:          fmt.Sprintf("mcpID=%s,mcpServerDisplayName=%s", systemServer.Name, displayName),
-		SystemMCPServer:           true,
-		StartupTimeout:            startupTimeout,
-		Resources:                 resources,
+		UserID:                    userID,
+		AuditLogMetadata: map[string]string{
+			"mcpID":                systemServer.Name,
+			"mcpServerDisplayName": displayName,
+			"userID":               userID,
+		},
+		SystemMCPServer: true,
+		StartupTimeout:  startupTimeout,
+		Resources:       resources,
 	}
 
 	var missingRequiredNames []string

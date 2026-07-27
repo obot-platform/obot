@@ -2,13 +2,9 @@ package controller
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"maps"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,6 +23,36 @@ func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client
 			if err := client.Update(ctx, &acRule); err != nil {
 				return err
 			}
+		}
+	}
+
+	return nil
+}
+
+// migrateAuditLogExportSourceTypes makes the implicit MCP source selection on legacy
+// scheduled MCP audit-log exports explicit. The export UI needs an explicit source selection
+// when editing a schedule, while old schedules predate sourceTypes entirely.
+func migrateAuditLogExportSourceTypes(ctx context.Context, client kclient.Client) error {
+	var schedules v1.ScheduledAuditLogExportList
+	if err := client.List(ctx, &schedules); err != nil {
+		return err
+	}
+
+	for i := range schedules.Items {
+		schedule := &schedules.Items[i]
+		if schedule.Spec.EffectiveType() != types.AuditLogTypeMCP {
+			continue
+		}
+		if schedule.Spec.Filters != nil && len(schedule.Spec.Filters.SourceTypes) > 0 {
+			continue
+		}
+
+		if schedule.Spec.Filters == nil {
+			schedule.Spec.Filters = &types.AuditLogExportFilters{}
+		}
+		schedule.Spec.Filters.SourceTypes = []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}
+		if err := client.Update(ctx, schedule); err != nil {
+			return fmt.Errorf("failed to migrate scheduled audit-log export %s: %w", schedule.Name, err)
 		}
 	}
 
@@ -90,50 +116,6 @@ func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) 
 				return fmt.Errorf("failed to delete ToolReference-owned model %s/%s: %w", model.Namespace, model.Name, err)
 			}
 			break
-		}
-	}
-
-	return nil
-}
-
-func migrateMultiUserMCPServerManifestValuesToCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client) error {
-	var servers v1.MCPServerList
-	if err := client.List(ctx, &servers); err != nil {
-		return err
-	}
-
-	for i := range servers.Items {
-		server := &servers.Items[i]
-		credCtx := mcpServerCredentialContext(*server)
-		if credCtx == "" {
-			continue
-		}
-
-		configValues, changed := extractAndClearMCPServerConfigValues(&server.Spec.Manifest)
-		if !changed {
-			continue
-		}
-
-		if len(configValues) > 0 {
-			if existingCred, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, server.Name); err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-				return fmt.Errorf("failed to find credential for MCP server %s: %w", server.Name, err)
-			} else if err == nil {
-				// Copy the new config values into the existing credential values so we don't lose any existing values that aren't in the manifest.
-				maps.Copy(existingCred.Secrets, configValues)
-				configValues = existingCred.Secrets
-			}
-
-			if err := gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
-				Context: credCtx,
-				Name:    server.Name,
-				Secrets: configValues,
-			}); err != nil {
-				return fmt.Errorf("failed to create credential for MCP server %s: %w", server.Name, err)
-			}
-		}
-
-		if err := client.Update(ctx, server); err != nil {
-			return fmt.Errorf("failed to clear manifest config values for MCP server %s: %w", server.Name, err)
 		}
 	}
 

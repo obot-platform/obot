@@ -10,8 +10,11 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,22 +24,14 @@ import (
 
 // mockFetcher implements the repositoryFetcher interface for testing.
 type mockFetcher struct {
-	fetchFn             func(ctx context.Context, repoURL, ref string) (*fetchedRepository, error)
-	materializeCommitFn func(ctx context.Context, repoURL, commitSHA string) (*fetchedRepository, error)
+	fetchFn func(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
 }
 
-func (m *mockFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetchedRepository, error) {
+func (m *mockFetcher) Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error) {
 	if m.fetchFn != nil {
-		return m.fetchFn(ctx, repoURL, ref)
+		return m.fetchFn(ctx, repoURL, token, ref)
 	}
 	return nil, fmt.Errorf("fetchFn not set")
-}
-
-func (m *mockFetcher) MaterializeCommit(ctx context.Context, repoURL, commitSHA string) (*fetchedRepository, error) {
-	if m.materializeCommitFn != nil {
-		return m.materializeCommitFn(ctx, repoURL, commitSHA)
-	}
-	return nil, fmt.Errorf("materializeCommitFn not set")
 }
 
 // newFakeClient creates a fake k8s client with the storage scheme and status subresources.
@@ -68,11 +63,9 @@ func newSkillRepository(name, namespace string) *v1.SkillRepository {
 			Namespace: namespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				RepoURL:     "https://github.com/owner/repo",
-				Ref:         "main",
-				DisplayName: "Test Repo",
-			},
+			RepoURL:     "https://github.com/owner/repo",
+			Ref:         "main",
+			DisplayName: "Test Repo",
 		},
 	}
 }
@@ -119,7 +112,7 @@ func createFetchedRepo(t *testing.T, skills map[string]string) *fetchedRepositor
 }
 
 func TestUpsertSkills(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("create from scratch", func(t *testing.T) {
 		c := newFakeClient(t)
@@ -229,7 +222,7 @@ func TestUpsertSkills(t *testing.T) {
 }
 
 func TestListSkillsForRepo(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("filters by repoID", func(t *testing.T) {
 		skills := []kclient.Object{
@@ -265,6 +258,7 @@ func TestListSkillsForRepo(t *testing.T) {
 
 func TestSync(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
+	gatewayClient := newTestGatewayClient(t)
 
 	t.Run("happy path", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -276,8 +270,9 @@ func TestSync(t *testing.T) {
 		})
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return fetched, nil
 				},
 			},
@@ -287,7 +282,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -299,7 +294,7 @@ func TestSync(t *testing.T) {
 
 		// Verify status
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.Empty(t, updated.Status.SyncError)
 		assert.Equal(t, "abc123def456", updated.Status.ResolvedCommitSHA)
 		assert.Equal(t, 2, updated.Status.DiscoveredSkillCount)
@@ -307,7 +302,7 @@ func TestSync(t *testing.T) {
 
 		// Verify skills created
 		var skills v1.SkillList
-		require.NoError(t, c.List(context.Background(), &skills, kclient.InNamespace("default")))
+		require.NoError(t, c.List(t.Context(), &skills, kclient.InNamespace("default")))
 		assert.Len(t, skills.Items, 2)
 
 		// Verify retry
@@ -321,8 +316,9 @@ func TestSync(t *testing.T) {
 
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
 					return nil, fmt.Errorf("should not be called")
 				},
@@ -333,7 +329,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -361,8 +357,9 @@ func TestSync(t *testing.T) {
 		})
 		fetchCalled := false
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					fetchCalled = true
 					return fetched, nil
 				},
@@ -373,7 +370,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -386,7 +383,7 @@ func TestSync(t *testing.T) {
 
 		// Verify annotation was cleared
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		_, hasAnnotation := updated.Annotations[v1.SkillRepositorySyncAnnotation]
 		assert.False(t, hasAnnotation, "sync annotation should be cleared after successful force sync")
 	})
@@ -396,8 +393,9 @@ func TestSync(t *testing.T) {
 		c := newFakeClient(t, repo)
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return nil, fmt.Errorf("network timeout")
 				},
 			},
@@ -407,7 +405,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -418,10 +416,96 @@ func TestSync(t *testing.T) {
 		require.NoError(t, err) // handler returns nil, records error in status
 
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.Contains(t, updated.Status.SyncError, "network timeout")
 		assert.False(t, updated.Status.IsSyncing)
 		assert.Equal(t, syncInterval, resp.Delay)
+	})
+
+	t.Run("failed force sync resumes hourly schedule", func(t *testing.T) {
+		repo := newSkillRepository("repo1", "default")
+		repo.Annotations = map[string]string{
+			v1.SkillRepositorySyncAnnotation: "true",
+		}
+		c := newFakeClient(t, repo)
+
+		fetchCalls := 0
+		h := &Handler{
+			gatewayClient: gatewayClient,
+			fetcher: &mockFetcher{
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+					fetchCalls++
+					return nil, fmt.Errorf("bad credentials")
+				},
+			},
+			now: func() time.Time { return fixedTime },
+		}
+
+		resp := &router.ResponseWrapper{}
+		err := h.Sync(router.Request{
+			Client:    c,
+			Object:    repo,
+			Ctx:       t.Context(),
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+			Key:       repo.Namespace + "/" + repo.Name,
+		}, resp)
+		require.NoError(t, err)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: repo.Namespace, Name: repo.Name}, &updated))
+		assert.Equal(t, 1, fetchCalls)
+		assert.Contains(t, updated.Status.SyncError, "bad credentials")
+		assert.False(t, updated.Status.IsSyncing)
+		assert.NotContains(t, updated.Annotations, v1.SkillRepositorySyncAnnotation)
+		assert.Equal(t, syncInterval, resp.Delay)
+
+		resp = &router.ResponseWrapper{}
+		err = h.Sync(router.Request{
+			Client:    c,
+			Object:    &updated,
+			Ctx:       t.Context(),
+			Namespace: updated.Namespace,
+			Name:      updated.Name,
+			Key:       updated.Namespace + "/" + updated.Name,
+		}, resp)
+		require.NoError(t, err)
+		assert.Equal(t, 1, fetchCalls)
+		assert.Equal(t, syncInterval, resp.Delay)
+	})
+
+	t.Run("legacy credential failure falls back to unauthenticated fetch", func(t *testing.T) {
+		repo := newSkillRepository("repo1", "default")
+		c := newFakeClient(t, repo)
+		failedGatewayClient := newTestGatewayClient(t)
+		require.NoError(t, failedGatewayClient.Close())
+
+		fetched := createFetchedRepo(t, map[string]string{"skill-a": "Skill A"})
+		fetchCalled := false
+		h := &Handler{
+			gatewayClient: failedGatewayClient,
+			fetcher: &mockFetcher{fetchFn: func(_ context.Context, _ string, token string, _ string) (*fetchedRepository, error) {
+				fetchCalled = true
+				assert.Empty(t, token)
+				return fetched, nil
+			}},
+			now: func() time.Time { return fixedTime },
+		}
+
+		err := h.Sync(router.Request{
+			Client:    c,
+			Object:    repo,
+			Ctx:       t.Context(),
+			Namespace: repo.Namespace,
+			Name:      repo.Name,
+			Key:       repo.Namespace + "/" + repo.Name,
+		}, &router.ResponseWrapper{})
+		require.NoError(t, err)
+		assert.True(t, fetchCalled)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: repo.Namespace, Name: repo.Name}, &updated))
+		assert.Empty(t, updated.Status.SyncError)
 	})
 
 	t.Run("build failure records error", func(t *testing.T) {
@@ -437,8 +521,9 @@ func TestSync(t *testing.T) {
 		require.NoError(t, os.Chmod(skillFile, 0o000))
 
 		h := &Handler{
+			gatewayClient: gatewayClient,
 			fetcher: &mockFetcher{
-				fetchFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 					return &fetchedRepository{
 						RepoRoot:  root,
 						CommitSHA: "abc123",
@@ -452,7 +537,7 @@ func TestSync(t *testing.T) {
 		req := router.Request{
 			Client:    c,
 			Object:    repo,
-			Ctx:       context.Background(),
+			Ctx:       t.Context(),
 			Namespace: repo.Namespace,
 			Name:      repo.Name,
 			Key:       repo.Namespace + "/" + repo.Name,
@@ -463,16 +548,28 @@ func TestSync(t *testing.T) {
 		require.NoError(t, err)
 
 		var updated v1.SkillRepository
-		require.NoError(t, c.Get(context.Background(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKey{Namespace: "default", Name: "repo1"}, &updated))
 		assert.NotEmpty(t, updated.Status.SyncError)
 		assert.False(t, updated.Status.IsSyncing)
 	})
 }
 
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
+}
+
 func TestClearIsSyncing(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("clears when true", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -510,7 +607,7 @@ func TestClearIsSyncing(t *testing.T) {
 }
 
 func TestClearSyncAnnotation(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("removes annotation", func(t *testing.T) {
 		repo := newSkillRepository("repo1", "default")
@@ -552,7 +649,7 @@ func TestClearSyncAnnotation(t *testing.T) {
 func TestRecordFailure(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	repo := newSkillRepository("repo1", "default")
 	c := newFakeClient(t, repo)
@@ -570,7 +667,7 @@ func TestRecordFailure(t *testing.T) {
 func TestRecordSuccess(t *testing.T) {
 	fixedTime := time.Date(2026, 3, 11, 12, 0, 0, 0, time.UTC)
 	h := &Handler{now: func() time.Time { return fixedTime }}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	repo := newSkillRepository("repo1", "default")
 	repo.Status.SyncError = "previous error"
@@ -591,7 +688,7 @@ func TestRecordSuccess(t *testing.T) {
 }
 
 func TestMaterializeSkillSource(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("missing repoURL", func(t *testing.T) {
 		skill := &v1.Skill{
@@ -601,7 +698,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				RelativePath: "my-skill",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing repoURL")
 	})
@@ -614,7 +711,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				RelativePath: "my-skill",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing commitSHA")
 	})
@@ -627,7 +724,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 				CommitSHA: "abc123",
 			},
 		}
-		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill)
+		_, _, err := materializeSkillSource(ctx, &mockFetcher{}, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "missing relativePath")
 	})
@@ -637,8 +734,12 @@ func TestMaterializeSkillSource(t *testing.T) {
 		skillDir := filepath.Join(root, "my-skill")
 		require.NoError(t, os.MkdirAll(skillDir, 0o755))
 
+		var gotRef string
+		var gotToken string
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, token, ref string) (*fetchedRepository, error) {
+				gotToken = token
+				gotRef = ref
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -651,17 +752,20 @@ func TestMaterializeSkillSource(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
+				RepoRef:      "main",
 				CommitSHA:    "abc123",
 				RelativePath: "my-skill",
 			},
 		}
 
-		fetched, path, err := materializeSkillSource(ctx, fetcher, skill)
+		fetched, path, err := materializeSkillSource(ctx, fetcher, skill, "private-token")
 		require.NoError(t, err)
 		defer fetched.Cleanup()
 		assert.DirExists(t, path)
 		absSkillDir, _ := filepath.Abs(skillDir)
 		assert.Equal(t, absSkillDir, path)
+		assert.Equal(t, "abc123", gotRef)
+		assert.Equal(t, "private-token", gotToken)
 	})
 
 	t.Run("relativePath is file not dir", func(t *testing.T) {
@@ -669,7 +773,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(root, "not-a-dir"), []byte("file"), 0o644))
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -687,7 +791,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "not a directory")
 	})
@@ -696,7 +800,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		root := t.TempDir()
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -714,7 +818,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 			},
 		}
 
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "escapes")
 	})
@@ -729,7 +833,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		fetcher := &mockFetcher{
-			materializeCommitFn: func(_ context.Context, _, _ string) (*fetchedRepository, error) {
+			fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
 				return &fetchedRepository{
 					RepoRoot:  root,
 					CommitSHA: "abc123",
@@ -751,7 +855,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		// absolute but does not resolve symlinks. materializeSkillSource calls
 		// os.Lstat on the joined path, so the symlink itself is inspected and
 		// should be reported with ModeSymlink, causing this test to fail as expected.
-		_, _, err := materializeSkillSource(ctx, fetcher, skill)
+		_, _, err := materializeSkillSource(ctx, fetcher, skill, "")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "symbolic link")
 	})

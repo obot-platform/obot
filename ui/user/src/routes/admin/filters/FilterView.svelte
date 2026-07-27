@@ -2,9 +2,9 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import FilterForm from '$lib/components/admin/FilterForm.svelte';
-	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
 	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
+	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -102,20 +102,19 @@
 					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
 				/>
 			{:else if selected === 'server-details'}
-				<div class="flex flex-col gap-6">
-					<McpServerK8sInfo
-						id={filter.id}
-						entity="webhook-validation"
-						mcpServerId={filter.id}
-						name={filter.name || ''}
-						connectedUsers={[]}
-						title="Details"
-						classes={{
+				<McpServerDetails
+					entity="webhook-validation"
+					entityId={filter.id}
+					serverId={filter.id}
+					readonly={profile.current.isAdminReadonly?.()}
+					connectedUsers={[]}
+					k8sOverrides={{
+						title: 'Details',
+						classes: {
 							title: 'text-lg font-semibold'
-						}}
-						readonly={profile.current.isAdminReadonly?.()}
-					/>
-				</div>
+						}
+					}}
+				/>
 			{:else if selected === 'audit-logs'}
 				<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
 					<AuditLogsPageContent mcpId={mcpServerId} mcpServerDisplayName={filter.name}>

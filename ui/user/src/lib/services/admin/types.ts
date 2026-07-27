@@ -98,16 +98,22 @@ export interface AppPreferencesManifest {
 
 // Audit log exports
 
+export type AuditLogType = 'mcp' | 'llm';
+
 export interface AuditLogExportInput {
 	name: string;
+	type?: AuditLogType;
 	bucket: string;
+	keyPrefix?: string;
 	startTime: string;
 	endTime: string;
-	filters: AuditLogExportFilters;
+	filters?: AuditLogExportFilters;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface AuditLogExport {
 	id: string;
 	name: string;
+	type: AuditLogType;
 	bucket: string;
 	keyPrefix?: string;
 	storageProvider: string;
@@ -119,9 +125,19 @@ export interface AuditLogExport {
 	exportSize?: number;
 	createdAt: string;
 	completedAt?: string;
-	filters: AuditLogExportFilterResponse;
+	filters?: AuditLogExportFilterResponse;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface AuditLogExportFilterResponse {
+	sourceTypes?: string[];
+	// Common cross-source filters (used when more than one source is selected).
+	actors?: string[];
+	operations?: string[];
+	mcpServers?: string[];
+	tools?: string[];
+	outcomes?: string[];
+	clients?: string[];
+	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];
@@ -133,9 +149,23 @@ export interface AuditLogExportFilterResponse {
 	clientNames?: string[];
 	clientVersions?: string[];
 	clientIPs?: string[];
+	agentProviders?: string[];
+	statuses?: string[];
+	toolNames?: string[];
+	toolKinds?: string[];
+	deviceIDs?: string[];
 	query?: string;
 }
 export type AuditLogExportFilters = {
+	sourceTypes?: string[];
+	// Common cross-source filters (used when more than one source is selected).
+	actors?: string[];
+	operations?: string[];
+	mcpServers?: string[];
+	tools?: string[];
+	outcomes?: string[];
+	clients?: string[];
+	// Single-source filters.
 	userIDs?: string[];
 	mcpIDs?: string[];
 	mcpServerDisplayNames?: string[];
@@ -147,19 +177,28 @@ export type AuditLogExportFilters = {
 	clientNames?: string[];
 	clientVersions?: string[];
 	clientIPs?: string[];
+	agentProviders?: string[];
+	statuses?: string[];
+	toolNames?: string[];
+	toolKinds?: string[];
+	deviceIDs?: string[];
 	query?: string;
 };
 export interface ScheduledAuditLogExportInput {
 	name: string;
+	type?: AuditLogType;
 	enabled: boolean;
 	schedule: Schedule;
 	bucket: string;
+	keyPrefix?: string;
 	retentionPeriodInDays: number;
-	filters: AuditLogExportFilters;
+	filters?: AuditLogExportFilters;
+	llmFilters?: LLMAuditLogExportFilters;
 }
 export interface ScheduledAuditLogExport {
 	id: string;
 	name: string;
+	type: AuditLogType;
 	enabled: boolean;
 	schedule: Schedule;
 	storageProvider: string;
@@ -170,8 +209,22 @@ export interface ScheduledAuditLogExport {
 	bucket: string;
 	keyPrefix: string;
 	retentionPeriodInDays: number;
-	filters: AuditLogExportFilterResponse;
+	filters?: AuditLogExportFilterResponse;
+	llmFilters?: LLMAuditLogExportFilters;
 }
+
+export type LLMAuditLogExportFilters = {
+	userIDs?: string[];
+	modelProviders?: string[];
+	targetModels?: string[];
+	requestPaths?: string[];
+	responseStatuses?: number[];
+	outcomes?: string[];
+	userAgents?: string[];
+	clientSessionIDs?: string[];
+	messagePolicyTriggered?: boolean[];
+	query?: string;
+};
 
 // Auth and file scanner providers
 
@@ -202,6 +255,13 @@ export interface BaseProvider {
 }
 export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';
+}
+
+// A user of the built-in local auth provider. Passwords are never returned by the API.
+export interface LocalAuthUser {
+	id: string;
+	email: string;
+	created: string;
 }
 
 // Devices
@@ -432,6 +492,35 @@ export interface ECRImagePullSecretConfig {
 export interface ImagePullSecretTestRequest {
 	image?: string;
 }
+
+// Git credentials
+
+export interface GitCredential {
+	id: string;
+	created?: string;
+	deleted?: string;
+	displayName: string;
+	host: string;
+	tokenConfigured: boolean;
+	uses: GitCredentialUses;
+}
+
+export interface GitCredentialUses {
+	skillRepositories: GitCredentialUse[];
+	mcpCatalogs: GitCredentialUse[];
+	systemMcpCatalogs: GitCredentialUse[];
+}
+
+export interface GitCredentialUse {
+	id: string;
+	displayName?: string;
+}
+
+export interface GitCredentialManifest {
+	displayName: string;
+	host: string;
+	token?: string;
+}
 export interface ImagePullSecretTestResponse {
 	success: boolean;
 	message?: string;
@@ -485,6 +574,57 @@ export interface LicenseManifest {
 	licenseKey: string;
 }
 
+// LLM audit logs
+
+export interface LLMAuditLog {
+	clientIP: string;
+	clientSessionID: string;
+	userAgent: string;
+	createdAt: string;
+	duration: number;
+	error?: string;
+	id: string;
+	messagePolicyTriggered: boolean;
+	inputTokens: number;
+	modelID: string;
+	modelProvider: string;
+	outcome: string;
+	outputTokens: number;
+	reasoningEffort: string;
+	policyModifiedRequestBody?: unknown;
+	requestBody?: unknown;
+	requestHeaders?: Record<string, string | string[]>;
+	requestID: string;
+	requestMethod: string;
+	requestPath: string;
+	responseBody?: unknown;
+	responseHeaders?: Record<string, string | string[]>;
+	responseID: string;
+	responseStatus: number;
+	targetModel: string;
+	userID: string;
+}
+
+export type LLMAuditLogURLFilters = {
+	client_session_id?: string | null;
+	end_time?: string | null;
+	hide_models_requests?: string | null;
+	limit?: number | null;
+	message_policy_triggered?: string | null;
+	model_provider?: string | null;
+	offset?: number | null;
+	outcome?: string | null;
+	query?: string | null;
+	request_path?: string | null;
+	response_status?: string | null;
+	sort_by?: string | null;
+	sort_order?: string | null;
+	start_time?: string | null;
+	target_model?: string | null;
+	user_agent?: string | null;
+	user_id?: string | null;
+};
+
 // MCP capacity
 
 export type CapacitySource = 'resourceQuota' | 'deployments';
@@ -505,6 +645,7 @@ export interface MCPCatalogManifest {
 	sourceURLs: string[];
 	allowedUserIDs: string[];
 	sourceURLCredentials?: Record<string, string>;
+	sourceURLGitCredentialIDs?: Record<string, string>;
 }
 export interface MCPCatalog extends MCPCatalogManifest {
 	id: string;
@@ -935,11 +1076,15 @@ export interface SkillRepository {
 	syncError?: string;
 	resolvedCommitSHA?: string;
 	discoveredSkillCount: number;
+	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
 }
 export interface SkillRepositoryManifest {
 	displayName: string;
 	repoURL: string;
 	ref: string;
+	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
 }
 export interface SkillAccessPolicyResource {
 	type: 'skill' | 'skillRepository' | 'selector';
@@ -993,6 +1138,7 @@ export interface SystemMCPCatalogManifest {
 	displayName: string;
 	sourceURLs: string[];
 	sourceURLCredentials?: Record<string, string>;
+	sourceURLGitCredentialIDs?: Record<string, string>;
 }
 export interface SystemMCPCatalog extends SystemMCPCatalogManifest {
 	id: string;
@@ -1132,4 +1278,112 @@ export interface TotalTokenUsage {
 }
 export interface TotalTokenUsageByUser extends TotalTokenUsage {
 	userID: string;
+}
+
+// MDM configurations — fleets that unattended devices enroll into. Saving
+// values renders one downloadable artifact for every platform/OS target.
+export interface MDMConfigurationArtifact {
+	instructions: string;
+	os: string;
+	platform: string;
+	slug: string;
+}
+
+export interface MDMConfiguration {
+	assetDigest?: string;
+	artifacts: MDMConfigurationArtifact[];
+	createdAt: string;
+	id: number;
+	isDefault: boolean;
+	// Version of the source bundle the saved artifacts were rendered from.
+	obotSentryVersion?: string;
+	values?: Record<string, unknown>;
+}
+
+export interface MDMConfigurationInput {
+	assetDigest?: string;
+	values?: Record<string, unknown>;
+}
+
+export interface MDMEnrollmentKey {
+	createdAt: string;
+	expiresAt?: string;
+	id: number;
+	lastUsedAt?: string;
+	name?: string;
+}
+
+export interface MDMEnrollmentKeyCreateResponse extends MDMEnrollmentKey {
+	enrollmentCredential: string;
+}
+
+export interface MDMDevice {
+	deviceID: string;
+	enrolledAt: string;
+	hostname?: string;
+	id: number;
+	lastSeenAt?: string;
+	mdmConfigurationID: number;
+	os?: string;
+	osVersion?: string;
+}
+
+// MDMAssetField is one property of the assets manifest's fields JSON
+// Schema. readOnly properties are supplied server-side and hidden ones
+// must not appear in forms; both annotations come from the manifest.
+export interface MDMAssetField {
+	default?: unknown;
+	description?: string;
+	enum?: (string | number)[];
+	hidden?: boolean;
+	maximum?: number;
+	minimum?: number;
+	readOnly?: boolean;
+	title?: string;
+	type?: string;
+}
+
+export interface MDMAssetPlatform {
+	id: string;
+	label: string;
+	icon?: string;
+}
+
+// MDMAssetConfiguration is one platform/OS target offered by a bundle.
+export interface MDMAssetConfiguration {
+	assets: string[];
+	description: string;
+	instructions: string;
+	os: string;
+	osLabel: string;
+	platform: string;
+	suggestedName: string;
+}
+
+export interface MDMAssetFields {
+	properties?: Record<string, MDMAssetField>;
+	required?: string[];
+}
+
+export interface MDMAssetSource {
+	id: string;
+	source?: string;
+	lastSyncTime?: string;
+	isSyncing: boolean;
+	syncError?: string;
+	latestDigest?: string;
+}
+
+export interface MDMAsset {
+	id: string;
+	digest: string;
+	schemaVersion: string;
+	obotSentryVersion: string;
+	configurations: MDMAssetConfiguration[];
+	fields: MDMAssetFields;
+	platforms: MDMAssetPlatform[];
+}
+
+export interface MDMAssetList {
+	items: MDMAsset[] | null;
 }

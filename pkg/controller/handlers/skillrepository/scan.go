@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const maxSkillMDBytes = 1024 * 1024
+
 func buildSkillsFromRepository(repoRoot string, repo *v1.SkillRepository, commitSHA string, indexedAt metav1.Time) ([]*v1.Skill, error) {
 	directories, err := discoverSkillDirectories(repoRoot)
 	if err != nil {
@@ -50,6 +52,9 @@ func discoverSkillDirectories(repoRoot string) ([]string, error) {
 	err := filepath.WalkDir(repoRoot, func(currentPath string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
+		}
+		if entry.IsDir() && entry.Name() == ".git" {
+			return filepath.SkipDir
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
 			if entry.IsDir() {

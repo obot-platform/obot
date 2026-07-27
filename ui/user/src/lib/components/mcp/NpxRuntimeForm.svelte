@@ -117,7 +117,7 @@
 	<p class="text-muted-content text-xs">Only STDIO entries are supported.</p>
 
 	<!-- Package field (required) -->
-	<div class="flex items-center gap-4">
+	<div class="flex items-center gap-4" id="npx-package-field">
 		<label
 			for="npx-package"
 			class={twMerge('text-sm font-light min-w-[76px]', showRequired?.package && 'error')}
@@ -128,7 +128,7 @@
 			class={twMerge('text-input-filled dark:bg-base-100 w-full', showRequired?.package && 'error')}
 			bind:value={config.package}
 			disabled={readonly}
-			placeholder="e.g. @modelcontextprotocol/server-filesystem"
+			placeholder="e.g. @modelcontextprotocol/server-everything"
 			onblur={() => {
 				if (config.package) {
 					config.package = config.package.trim();
@@ -174,7 +174,11 @@
 
 				{#if !readonly}
 					<div class="flex justify-end">
-						<button class="btn btn-secondary btn-sm flex items-center gap-1" onclick={addArgument}>
+						<button
+							type="button"
+							class="btn btn-secondary btn-sm flex items-center gap-1"
+							onclick={addArgument}
+						>
 							<Plus class="size-4" /> Argument
 						</button>
 					</div>

@@ -12,6 +12,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		class?: string;
 		classes?: {
 			header?: string;
@@ -32,6 +33,7 @@
 	}
 
 	let {
+		id,
 		onClickOutside,
 		onClose,
 		onOpen,
@@ -66,6 +68,7 @@
 		// Handle native dialog close (e.g., Escape key)
 		onClose?.();
 	}}
+	{id}
 >
 	<div
 		class={twMerge(
@@ -81,6 +84,7 @@
 				(!responsive.isMobile || disableMobileStyles) && 'p-4',
 				classes?.content ?? 'max-h-dvh min-h-fit'
 			)}
+			id={id ? `${id}-content` : undefined}
 		>
 			{#if titleContent || title}
 				<div class="flex flex-col gap-4">

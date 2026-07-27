@@ -16,6 +16,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
@@ -47,7 +48,12 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, authProvider)
+	authProviderStatus, err := providers.AuthProviderStatus(req.Context(), authProvider, nil, ap.license)
+	if err != nil {
+		return err
+	}
+
+	resp, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, authProvider, *authProviderStatus)
 	if err != nil {
 		return err
 	}
@@ -65,7 +71,12 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 
 	resp := make([]types.AuthProvider, 0, len(authProviders.Items))
 	for _, a := range authProviders.Items {
-		authProvider, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, a)
+		authProviderStatus, err := providers.AuthProviderStatus(req.Context(), a, nil, ap.license)
+		if err != nil {
+			return err
+		}
+
+		authProvider, err := ap.convertAuthProvider(req.Context(), req.GatewayClient, a, *authProviderStatus)
 		if err != nil {
 			log.Warnf("failed to convert auth provider %q: %v", a.Name, err)
 			continue
@@ -82,7 +93,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := ap.license.RequireEntitlements(authProvider.Spec.RequiredEntitlements); err != nil {
+	if err := ap.license.RequireEntitlements(req.Context(), authProvider.Spec.RequiredEntitlements); err != nil {
 		return err
 	}
 
@@ -201,6 +212,14 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	// Stop the auth provider so that the credential is completely removed from the system.
 	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
 
+	// The local auth provider keeps its sessions in Obot's database rather than in the sessions
+	// table the block below drops, so clear them out here.
+	if authProvider.Name == localauth.ProviderName {
+		if err := req.GatewayClient.DeleteAllLocalAuthSessions(req.Context()); err != nil {
+			return fmt.Errorf("failed to delete local auth sessions: %w", err)
+		}
+	}
+
 	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		if authProvider.Annotations == nil {
 			authProvider.Annotations = make(map[string]string, 1)
@@ -266,12 +285,7 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
 }
 
-func (ap *AuthProviderHandler) convertAuthProvider(ctx context.Context, gatewayClient *gateway.Client, authProvider v1.AuthProvider) (types.AuthProvider, error) {
-	authProviderStatus, err := providers.AuthProviderStatus(authProvider, nil, ap.license)
-	if err != nil {
-		return types.AuthProvider{}, fmt.Errorf("failed to get auth provider status: %w", err)
-	}
-
+func (ap *AuthProviderHandler) convertAuthProvider(ctx context.Context, gatewayClient *gateway.Client, authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus) (types.AuthProvider, error) {
 	manifest := authProvider.Spec.AuthProviderManifest
 	if authProvider.Name == GenericOAuthAuthProviderName && authProviderStatus.Configured {
 		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
@@ -288,7 +302,7 @@ func (ap *AuthProviderHandler) convertAuthProvider(ctx context.Context, gatewayC
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),
 		AuthProviderManifest: manifest,
-		AuthProviderStatus:   *authProviderStatus,
+		AuthProviderStatus:   authProviderStatus,
 	}, nil
 }
 

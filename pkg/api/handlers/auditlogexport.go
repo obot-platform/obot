@@ -3,9 +3,11 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/auditlogexport"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -14,10 +16,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// AuditLogExportHandler manages immediate and scheduled audit-log export resources and validates
+// their source/filter combinations before they are persisted.
 type AuditLogExportHandler struct {
 	credProvider *auditlogexport.CredentialProvider
 }
 
+// NewAuditLogExportHandler constructs an AuditLogExportHandler backed by gatewayClient.
 func NewAuditLogExportHandler(gatewayClient *gateway.Client) *AuditLogExportHandler {
 	return &AuditLogExportHandler{
 		credProvider: auditlogexport.NewCredentialProvider(gatewayClient),
@@ -44,9 +49,11 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 		},
 		Spec: v1.AuditLogExportSpec{
 			Name:                   createReq.Name,
+			Type:                   createReq.Type,
 			StartTime:              metav1.NewTime(createReq.StartTime.GetTime()),
 			EndTime:                metav1.NewTime(createReq.EndTime.GetTime()),
 			Filters:                createReq.Filters,
+			LLMFilters:             createReq.LLMFilters,
 			WithRequestAndResponse: req.UserIsAuditor(),
 			Bucket:                 createReq.Bucket,
 			KeyPrefix:              createReq.KeyPrefix,
@@ -62,6 +69,11 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 
 // ListAuditLogExports lists audit log exports
 func (h *AuditLogExportHandler) ListAuditLogExports(req api.Context) error {
+	exportType, err := normalizeAuditLogType(types.AuditLogType(req.URL.Query().Get("type")))
+	if err != nil {
+		return types.NewErrBadRequest("invalid audit log export type: %v", err)
+	}
+
 	var exports v1.AuditLogExportList
 	if err := req.Storage.List(req.Context(), &exports, &kclient.ListOptions{
 		Namespace: req.Namespace(),
@@ -71,6 +83,9 @@ func (h *AuditLogExportHandler) ListAuditLogExports(req api.Context) error {
 
 	result := make([]types.AuditLogExportResponse, 0, len(exports.Items))
 	for _, export := range exports.Items {
+		if export.Spec.EffectiveType() != exportType {
+			continue
+		}
 		result = append(result, h.convertExportToAPI(&export))
 	}
 
@@ -135,10 +150,12 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 		},
 		Spec: v1.ScheduledAuditLogExportSpec{
 			Name:                   createReq.Name,
+			Type:                   createReq.Type,
 			Enabled:                true,
 			Schedule:               h.convertSchedule(createReq.Schedule),
 			RetentionPeriodInDays:  createReq.RetentionPeriodInDays,
 			Filters:                createReq.Filters,
+			LLMFilters:             createReq.LLMFilters,
 			WithRequestAndResponse: req.UserIsAuditor(),
 			Bucket:                 createReq.Bucket,
 			KeyPrefix:              createReq.KeyPrefix,
@@ -154,6 +171,11 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 
 // ListScheduledAuditLogExports lists scheduled audit log exports
 func (h *AuditLogExportHandler) ListScheduledAuditLogExports(req api.Context) error {
+	exportType, err := normalizeAuditLogType(types.AuditLogType(req.URL.Query().Get("type")))
+	if err != nil {
+		return types.NewErrBadRequest("invalid audit log export type: %v", err)
+	}
+
 	var scheduledExports v1.ScheduledAuditLogExportList
 	if err := req.Storage.List(req.Context(), &scheduledExports, &kclient.ListOptions{
 		Namespace: req.Namespace(),
@@ -163,6 +185,9 @@ func (h *AuditLogExportHandler) ListScheduledAuditLogExports(req api.Context) er
 
 	result := make([]types.ScheduledAuditLogExportResponse, 0, len(scheduledExports.Items))
 	for _, export := range scheduledExports.Items {
+		if export.Spec.EffectiveType() != exportType {
+			continue
+		}
 		result = append(result, h.convertScheduledExportToAPI(&export))
 	}
 
@@ -214,6 +239,15 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	if !req.UserIsAuditor() && scheduledExport.Spec.WithRequestAndResponse {
 		return types.NewErrForbidden("you are not authorized to edit this scheduled export")
 	}
+	if updateReq.Type != nil {
+		exportType, err := normalizeAuditLogType(*updateReq.Type)
+		if err != nil {
+			return types.NewErrBadRequest("invalid audit log export type: %v", err)
+		}
+		if exportType != scheduledExport.Spec.EffectiveType() {
+			return types.NewErrBadRequest("audit log export type cannot be changed")
+		}
+	}
 
 	// Update the spec based on the request
 	if updateReq.Enabled != nil {
@@ -226,7 +260,16 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 		scheduledExport.Spec.RetentionPeriodInDays = *updateReq.RetentionPeriodInDays
 	}
 	if updateReq.Filters != nil {
-		scheduledExport.Spec.Filters = *updateReq.Filters
+		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeMCP {
+			return types.NewErrBadRequest("filters can only be set for MCP audit log exports")
+		}
+		scheduledExport.Spec.Filters = updateReq.Filters
+	}
+	if updateReq.LLMFilters != nil {
+		if scheduledExport.Spec.EffectiveType() != types.AuditLogTypeLLM {
+			return types.NewErrBadRequest("llmFilters can only be set for LLM audit log exports")
+		}
+		scheduledExport.Spec.LLMFilters = updateReq.LLMFilters
 	}
 	if updateReq.Bucket != nil {
 		scheduledExport.Spec.Bucket = *updateReq.Bucket
@@ -236,6 +279,11 @@ func (h *AuditLogExportHandler) UpdateScheduledAuditLogExport(req api.Context) e
 	}
 	if updateReq.Name != nil {
 		scheduledExport.Spec.Name = *updateReq.Name
+	}
+	if scheduledExport.Spec.EffectiveType() == types.AuditLogTypeMCP {
+		if err := validateAuditLogExportFilters(scheduledExport.Spec.Filters); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
 	}
 
 	if err := req.Storage.Update(req.Context(), &scheduledExport); err != nil {
@@ -386,18 +434,113 @@ func (h *AuditLogExportHandler) TestStorageCredentials(req api.Context) error {
 
 // Helper methods for conversions
 func (h *AuditLogExportHandler) validateExportRequest(req *types.AuditLogExportCreateRequest) error {
+	exportType, err := normalizeAuditLogType(req.Type)
+	if err != nil {
+		return err
+	}
+	req.Type = exportType
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
+	}
+	if req.Bucket == "" {
+		return fmt.Errorf("bucket is required")
 	}
 	if req.StartTime.GetTime().After(req.EndTime.GetTime()) {
 		return fmt.Errorf("start time must be before end time")
 	}
-	return nil
+	if exportType == types.AuditLogTypeLLM {
+		if req.Filters != nil {
+			return fmt.Errorf("filters can only be set for MCP audit log exports")
+		}
+		return nil
+	}
+	if req.LLMFilters != nil {
+		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
+	}
+	return validateAuditLogExportFilters(req.Filters)
 }
 
 func (h *AuditLogExportHandler) validateScheduledExportRequest(req *types.ScheduledAuditLogExportCreateRequest) error {
+	exportType, err := normalizeAuditLogType(req.Type)
+	if err != nil {
+		return err
+	}
+	req.Type = exportType
 	if req.Name == "" {
 		return fmt.Errorf("name is required")
+	}
+	if req.Bucket == "" {
+		return fmt.Errorf("bucket is required")
+	}
+	if exportType == types.AuditLogTypeLLM {
+		if req.Filters != nil {
+			return fmt.Errorf("filters can only be set for MCP audit log exports")
+		}
+		return nil
+	}
+	if req.LLMFilters != nil {
+		return fmt.Errorf("llmFilters can only be set for LLM audit log exports")
+	}
+	return validateAuditLogExportFilters(req.Filters)
+}
+
+func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
+	if filters == nil || len(filters.SourceTypes) == 0 {
+		return fmt.Errorf("sourceTypes must include at least one audit log source")
+	}
+
+	sources := auditlog.NormalizeSourceTypes(filters.SourceTypes)
+	for _, source := range sources {
+		if source != types.AuditLogSourceTypeMCP && source != types.AuditLogSourceTypeLocalAgentToolCall {
+			return fmt.Errorf("invalid source type %q", source)
+		}
+	}
+	multiSource := len(sources) > 1
+
+	// Common cross-source filters resolve to the right column per source and are the only filters
+	// offered when more than one source is selected.
+	hasCommonFilters := len(filters.Actors) > 0 || len(filters.Operations) > 0 ||
+		len(filters.MCPServers) > 0 || len(filters.Tools) > 0 ||
+		len(filters.Outcomes) > 0 || len(filters.Clients) > 0
+	hasMCPFilters := len(filters.MCPIDs) > 0 || len(filters.MCPServerDisplayNames) > 0 ||
+		len(filters.MCPServerCatalogEntryNames) > 0 || len(filters.CallTypes) > 0 ||
+		len(filters.CallIdentifiers) > 0 || len(filters.ClientNames) > 0 ||
+		len(filters.ClientVersions) > 0 || len(filters.ResponseStatuses) > 0
+	hasLocalFilters := len(filters.AgentProviders) > 0 || len(filters.Statuses) > 0 ||
+		len(filters.ToolNames) > 0 || len(filters.ToolKinds) > 0 || len(filters.DeviceIDs) > 0
+	// user_id, session_id, and client_ip live on both sources' rows but are drill-down filters, so
+	// like the source-specific fields they are only offered for a single-source selection; a
+	// multi-source export uses the common Actors filter (user OR device) instead.
+	hasSharedColumnFilters := len(filters.UserIDs) > 0 || len(filters.SessionIDs) > 0 || len(filters.ClientIPs) > 0
+
+	// Common cross-source filters and single-source filters are two distinct vocabularies keyed off
+	// the source selection; they can never be combined regardless of how many sources are selected.
+	if hasCommonFilters && (hasMCPFilters || hasLocalFilters || hasSharedColumnFilters) {
+		return fmt.Errorf("common filters cannot be combined with source-specific filters")
+	}
+
+	if multiSource {
+		// Selecting more than one source narrows the available filters to the common cross-source
+		// set; the single-source filters would silently drop the other source's rows at execution.
+		if hasMCPFilters || hasLocalFilters || hasSharedColumnFilters {
+			return fmt.Errorf("only common filters are allowed when exporting more than one audit log source")
+		}
+		return nil
+	}
+
+	// A single source is selected: the common cross-source filters don't apply here; only that
+	// source's filters are valid.
+	if hasCommonFilters {
+		return fmt.Errorf("common filters require selecting more than one audit log source")
+	}
+	if hasMCPFilters && hasLocalFilters {
+		return fmt.Errorf("MCP and local-agent-specific filters cannot be combined")
+	}
+	if hasMCPFilters && !slices.Contains(sources, types.AuditLogSourceTypeMCP) {
+		return fmt.Errorf("MCP-specific filters require source type %q", types.AuditLogSourceTypeMCP)
+	}
+	if hasLocalFilters && !slices.Contains(sources, types.AuditLogSourceTypeLocalAgentToolCall) {
+		return fmt.Errorf("local-agent-specific filters require source type %q", types.AuditLogSourceTypeLocalAgentToolCall)
 	}
 	return nil
 }
@@ -417,12 +560,14 @@ func (h *AuditLogExportHandler) convertExportToAPI(export *v1.AuditLogExport) ty
 	result := types.AuditLogExportResponse{
 		ID:              export.Name,
 		Name:            export.Spec.Name,
+		Type:            export.Spec.EffectiveType(),
 		StorageProvider: export.Status.StorageProvider,
 		Bucket:          export.Spec.Bucket,
 		KeyPrefix:       export.Spec.KeyPrefix,
 		StartTime:       types.Time{Time: export.Spec.StartTime.Time},
 		EndTime:         types.Time{Time: export.Spec.EndTime.Time},
 		Filters:         export.Spec.Filters,
+		LLMFilters:      export.Spec.LLMFilters,
 		State:           string(export.Status.State),
 		Error:           export.Status.Error,
 		ExportSize:      export.Status.ExportSize,
@@ -443,6 +588,7 @@ func (h *AuditLogExportHandler) convertExportToAPI(export *v1.AuditLogExport) ty
 func (h *AuditLogExportHandler) convertScheduledExportToAPI(export *v1.ScheduledAuditLogExport) types.ScheduledAuditLogExportResponse {
 	result := types.ScheduledAuditLogExportResponse{
 		ID:                    export.Name,
+		Type:                  export.Spec.EffectiveType(),
 		Bucket:                export.Spec.Bucket,
 		KeyPrefix:             export.Spec.KeyPrefix,
 		Name:                  export.Spec.Name,
@@ -450,11 +596,22 @@ func (h *AuditLogExportHandler) convertScheduledExportToAPI(export *v1.Scheduled
 		Schedule:              h.convertScheduleToAPI(export.Spec.Schedule),
 		RetentionPeriodInDays: export.Spec.RetentionPeriodInDays,
 		Filters:               export.Spec.Filters,
+		LLMFilters:            export.Spec.LLMFilters,
 	}
 	if export.Status.LastRunAt != nil {
 		result.LastRunAt = types.Time{Time: export.Status.LastRunAt.Time}
 	}
 	return result
+}
+
+func normalizeAuditLogType(exportType types.AuditLogType) (types.AuditLogType, error) {
+	if exportType == "" {
+		return types.AuditLogTypeMCP, nil
+	}
+	if exportType != types.AuditLogTypeMCP && exportType != types.AuditLogTypeLLM {
+		return "", fmt.Errorf("must be %q or %q", types.AuditLogTypeMCP, types.AuditLogTypeLLM)
+	}
+	return exportType, nil
 }
 
 func (h *AuditLogExportHandler) convertScheduleToAPI(schedule v1.Schedule) types.Schedule {

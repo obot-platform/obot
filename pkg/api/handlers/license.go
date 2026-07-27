@@ -43,7 +43,11 @@ func NewLicenseHandler(licenseProvider *license.Provider) *LicenseHandler {
 }
 
 func (h *LicenseHandler) Get(req api.Context) error {
-	return req.Write(h.status(req))
+	status, err := h.status(req)
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
 }
 
 func (h *LicenseHandler) Update(req api.Context) error {
@@ -66,7 +70,11 @@ func (h *LicenseHandler) Update(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.status(req))
+	status, err := h.status(req)
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
 }
 
 func (h *LicenseHandler) CheckLicense(req api.Context) error {
@@ -81,7 +89,11 @@ func (h *LicenseHandler) CheckLicense(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.status(req))
+	status, err := h.status(req)
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
 }
 
 // reserveManualLicenseCheck reserves a manual license check, returning the time at which it can be checked again and whether the reservation was successful.
@@ -118,16 +130,31 @@ func (h *LicenseHandler) Delete(req api.Context) error {
 		return err
 	}
 
-	return req.Write(h.status(req))
+	status, err := h.status(req)
+	if err != nil {
+		return err
+	}
+	return req.Write(status)
 }
 
-func (h *LicenseHandler) status(req api.Context) LicenseStatus {
-	licenseKey := h.licenseProvider.LicenseKey()
+func (h *LicenseHandler) status(req api.Context) (LicenseStatus, error) {
+	licenseKey, err := h.licenseProvider.LicenseKey(req.Context())
+	if err != nil {
+		return LicenseStatus{}, err
+	}
+	enterprise, err := h.licenseProvider.HasValidLicense(req.Context())
+	if err != nil {
+		return LicenseStatus{}, err
+	}
+	entitlements, err := h.licenseProvider.Entitlements(req.Context())
+	if err != nil {
+		return LicenseStatus{}, err
+	}
 	status := LicenseStatus{
 		LicenseKey:             displayLicenseKey(licenseKey, req.UserIsAdmin()),
 		Locked:                 h.licenseProvider.LicenseKeyViaConfiguration(),
-		Enterprise:             h.licenseProvider.HasValidLicense(),
-		Entitlements:           h.licenseProvider.Entitlements(),
+		Enterprise:             enterprise,
+		Entitlements:           entitlements,
 		ManualCheckAvailableAt: h.manualLicenseCheckAvailableAt(),
 	}
 
@@ -137,7 +164,7 @@ func (h *LicenseHandler) status(req api.Context) LicenseStatus {
 		status.Source = "database"
 	}
 
-	return status
+	return status, nil
 }
 
 func (h *LicenseHandler) manualLicenseCheckAvailableAt() *time.Time {

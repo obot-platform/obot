@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/gateway/azure"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -24,10 +25,11 @@ const (
 )
 
 type Helper struct {
-	indexer       gocache.Indexer
-	client        kclient.Client
-	dispatcher    *dispatcher.Dispatcher
-	gatewayClient *gateway.Client
+	indexer         gocache.Indexer
+	client          kclient.Client
+	dispatcher      *dispatcher.Dispatcher
+	gatewayClient   *gateway.Client
+	entraCredential azure.EntraCredentialCache
 }
 
 func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Client, dispatcher *dispatcher.Dispatcher, gatewayClient *gateway.Client) (*Helper, error) {

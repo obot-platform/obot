@@ -8,19 +8,18 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const deviceEnrollAuthPrefix = "ode1-"
-
 // DeviceEnrollmentAuthenticator authenticates device-enrollment credentials
-// (ode1-<deployment_id>-<key_id>-<secret>).
+// (ode1-<configuration_id>-<key_id>-<secret>).
 //
-// The resulting principal IS the MDMDeployment the credential belongs to:
-// its Name/UID is the deployment's namespaced identity (mdm-deployment:<id>)
+// The resulting principal IS the MDMConfiguration the credential belongs to:
+// its Name/UID is the configuration's namespaced identity (mdm-configuration:<id>)
 // and its capability group is DeviceEnroll, authorizing the enrollment endpoint.
-// The deployment id is stashed in Extra for the enroll handler to record on the
+// The configuration id is stashed in Extra for the enroll handler to record on the
 // device.
 //
 // This mirrors APIKeyAuthenticator, but yields a non-user principal — there is
@@ -40,7 +39,7 @@ func (a *DeviceEnrollmentAuthenticator) AuthenticateRequest(req *http.Request) (
 	// Only handle Bearer device-enrollment credentials; let other
 	// authenticators try the rest.
 	credential, ok := strings.CutPrefix(req.Header.Get("Authorization"), "Bearer ")
-	if !ok || !strings.HasPrefix(credential, deviceEnrollAuthPrefix) {
+	if !ok || !strings.HasPrefix(credential, system.DeviceEnrollmentPrefix+"-") {
 		return nil, false, nil
 	}
 
@@ -50,14 +49,14 @@ func (a *DeviceEnrollmentAuthenticator) AuthenticateRequest(req *http.Request) (
 		return nil, false, nil
 	}
 
-	principal := gtypes.MDMDeploymentPrincipalName(key.MDMDeploymentID)
+	principal := gtypes.MDMConfigurationPrincipalName(key.MDMConfigurationID)
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
 			Name:   principal,
 			UID:    principal,
 			Groups: []string{types.GroupDeviceEnroll, types.GroupAuthenticated},
 			Extra: map[string][]string{
-				"mdm_deployment_id": {fmt.Sprintf("%d", key.MDMDeploymentID)},
+				"mdm_configuration_id": {fmt.Sprintf("%d", key.MDMConfigurationID)},
 			},
 		},
 	}, true, nil

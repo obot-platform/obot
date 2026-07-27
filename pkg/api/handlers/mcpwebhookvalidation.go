@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/obot-platform/obot/pkg/wait"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -324,6 +323,10 @@ func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
 		return err
 	}
 
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support restart", systemServer.Name, systemServer.Spec.Manifest.Runtime)
+	}
+
 	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
@@ -389,6 +392,10 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return err
 	}
 
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support log retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
+	}
+
 	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
 		return err
 	}
@@ -417,6 +424,10 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 	systemServer, err := m.getSystemServerForWebhookValidation(req)
 	if err != nil {
 		return err
+	}
+
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
 	if err := checkEnabledAndConfigured(req.Context(), req.GatewayClient, systemServer); err != nil {
@@ -464,7 +475,7 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 	}
 
 	serverManifest := systemMCPServerManifestFromCatalogEntry(entry.Spec.Manifest, manifest.Disabled)
-	if err := validation.ValidateSystemMCPServerManifest(req.Context(), serverManifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
+	if err := mcp.ValidateSystemMCPServerManifest(req.Context(), serverManifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid system MCP server catalog entry manifest: %v", err)
 	}
 
@@ -503,7 +514,7 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 	return manifest
 }
 
-func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValidation *v1.MCPWebhookValidation, envVars map[string]string, options validation.Options) error {
+func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValidation *v1.MCPWebhookValidation, envVars map[string]string, options mcp.ValidationOptions) error {
 	manifest := webhookValidation.Spec.Manifest.SystemMCPServerManifest
 	if manifest == nil || manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
 		return nil
@@ -515,14 +526,14 @@ func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValid
 	}
 
 	manifest.RemoteConfig.URL = finalURL
-	if err := validation.ValidateSystemMCPServerManifest(ctx, *manifest, options); err != nil {
+	if err := mcp.ValidateSystemMCPServerManifest(ctx, *manifest, options); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	return nil
 }
 
-func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest, options validation.Options) error {
+func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest, options mcp.ValidationOptions) error {
 	var sources int
 	if m.URL != "" {
 		sources++
@@ -546,7 +557,7 @@ func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest
 		if m.ToolName == "" {
 			return fmt.Errorf("tool name is required when using system MCP server manifest")
 		}
-		if err := validation.ValidateSystemMCPServerManifest(ctx, *m.SystemMCPServerManifest, options); err != nil {
+		if err := mcp.ValidateSystemMCPServerManifest(ctx, *m.SystemMCPServerManifest, options); err != nil {
 			return fmt.Errorf("invalid system MCP server manifest: %w", err)
 		}
 	}

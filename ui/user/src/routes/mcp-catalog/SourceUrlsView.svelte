@@ -139,16 +139,26 @@
 		}
 
 		deleting = true;
+		const deletingURLs =
+			deletingSource.type === 'single' && deletingSource.source
+				? [deletingSource.source]
+				: selected;
+		const sourceURLGitCredentialIDs = { ...(catalog.sourceURLGitCredentialIDs ?? {}) };
+		for (const url of deletingURLs) {
+			delete sourceURLGitCredentialIDs[url];
+		}
 		let response;
 		if (deletingSource.type === 'single') {
 			response = await AdminService.updateMCPCatalog(catalog.id, {
 				...catalog,
-				sourceURLs: catalog.sourceURLs?.filter((url) => url !== deletingSource!.source)
+				sourceURLs: catalog.sourceURLs?.filter((url) => url !== deletingSource!.source),
+				sourceURLGitCredentialIDs
 			});
 		} else {
 			response = await AdminService.updateMCPCatalog(catalog.id, {
 				...catalog,
-				sourceURLs: catalog.sourceURLs?.filter((url) => !selected.includes(url))
+				sourceURLs: catalog.sourceURLs?.filter((url) => !selected.includes(url)),
+				sourceURLGitCredentialIDs
 			});
 		}
 		await onSync?.();

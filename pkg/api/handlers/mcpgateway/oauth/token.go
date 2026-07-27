@@ -232,8 +232,8 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	tknCtx := persistent.TokenContext{
 		Audience:              oauthAuthRequest.Spec.Resource,
 		OAuthScope:            oauthAuthRequest.Spec.Scope,
-		IssuedAt:              now,
-		ExpiresAt:             now.Add(tokenExpiration),
+		IssuedAt:              persistent.NewTime(now),
+		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                userID,
 		UserName:              user.Username,
 		UserEmail:             user.Email,
@@ -244,7 +244,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
 		MCPID:                 oauthAuthRequest.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
+	_, tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -276,7 +276,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
 		TokenType:    "bearer",
-		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt).Milliseconds() / 1000),
+		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
 }
@@ -336,10 +336,10 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
-		Scope:                 oauthToken.Spec.Scope,
+		OAuthScope:            oauthToken.Spec.Scope,
 		Audience:              oauthToken.Spec.Resource,
-		IssuedAt:              now,
-		ExpiresAt:             now.Add(tokenExpiration),
+		IssuedAt:              persistent.NewTime(now),
+		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                user.GetUID(),
 		UserName:              user.GetName(),
 		UserEmail:             auth.FirstExtraValue(user.GetExtra(), "email"),
@@ -349,7 +349,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
 		MCPID:                 oauthToken.Spec.MCPID,
 	}
-	tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
+	_, tkn, err := h.tokenService.NewToken(req.Context(), tknCtx)
 	if err != nil {
 		return fmt.Errorf("failed to create auth token: %w", err)
 	}
@@ -362,6 +362,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		},
 		Spec: v1.OAuthTokenSpec{
+			Scope:                 oauthToken.Spec.Scope,
 			Resource:              oauthToken.Spec.Resource,
 			ClientID:              oauthClient.Name,
 			UserID:                oauthToken.Spec.UserID,
@@ -380,7 +381,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
 		TokenType:    "bearer",
-		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt).Milliseconds() / 1000),
+		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
 }
@@ -419,6 +420,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		mcpID             string
 		userID            string
 		tokenCtx          *persistent.TokenContext
+		apiKey            *gwtypes.APIKey
 		apiKeyExpiresAt   *time.Time
 		mcpServer         *v1.MCPServer
 		mcpServerInstance *v1.MCPServerInstance
@@ -426,7 +428,8 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 	if subjectTokenType == tokenTypeAPIKey {
 		// Validate the API key
-		apiKey, err := req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
+		var err error
+		apiKey, err = req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
 		if err != nil {
 			log.Infof("Denied token exchange due to invalid API key subject token: client=%s", oauthClient.Name)
 			return types.NewErrBadRequest("%v", Error{
@@ -571,11 +574,51 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				if err != nil {
 					return err
 				}
+			} else if _, audienceID, ok := strings.Cut(resource, "/mcp-connect-composite/"); ok && audienceID != "" {
+				// Ensure this MCP server exists and is a composite MCP server.
+				var server v1.MCPServer
+				if err := req.Get(&server, audienceID); err != nil || server.Spec.Manifest.Runtime != types.RuntimeComposite {
+					return types.NewErrBadRequest("%v", Error{
+						Code:        ErrInvalidRequest,
+						Description: "failed to retrieve composite MCP server " + audienceID,
+					})
+				}
+
+				if apiKey != nil {
+					user, err := req.GatewayClient.UserByID(req.Context(), userID)
+					if err != nil {
+						return types.NewErrBadRequest("%v", Error{
+							Code:        ErrInvalidRequest,
+							Description: "invalid user",
+						})
+					}
+
+					expiresAt := time.Now().Add(tokenExpiration)
+					if apiKey.ExpiresAt != nil {
+						expiresAt = *apiKey.ExpiresAt
+					}
+					tokenCtx = &persistent.TokenContext{
+						Issuer:    h.baseURL,
+						Audience:  fmt.Sprintf("%s/mcp-connect-composite/%s", h.baseURL, audienceID),
+						MCPID:     audienceID,
+						IssuedAt:  persistent.NewTime(apiKey.CreatedAt),
+						ExpiresAt: persistent.NewTime(expiresAt),
+						UserID:    userID,
+						UserName:  user.Username,
+						UserEmail: user.Email,
+						Picture:   user.IconURL,
+					}
+				}
+
+				token, expiresAt, err = h.getTokenForCompositeConnectResource(req.Context(), subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, audienceID, audienceID)
+				if err != nil {
+					return err
+				}
 			} else {
 				// No component MCP ID in resource, return the original token
 				token = subjectToken
 				if tokenCtx != nil {
-					expiresAt = tokenCtx.ExpiresAt
+					expiresAt = tokenCtx.ExpiresAt.Time
 				} else if apiKeyExpiresAt != nil {
 					expiresAt = *apiKeyExpiresAt
 				} else {
@@ -598,10 +641,10 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	} else if mcpID == system.ObotMCPServerName {
 		now := time.Now()
 		expiresAt := now.Add(time.Hour)
-		token, err := h.tokenService.NewToken(req.Context(), persistent.TokenContext{
+		_, token, err := h.tokenService.NewToken(req.Context(), persistent.TokenContext{
 			Audience:   h.baseURL,
-			IssuedAt:   now,
-			ExpiresAt:  expiresAt,
+			IssuedAt:   persistent.NewTime(now),
+			ExpiresAt:  persistent.NewTime(expiresAt),
 			UserID:     userID,
 			UserGroups: []string{types.GroupAPI, types.GroupAuthenticated},
 			Namespace:  system.DefaultNamespace,
@@ -662,7 +705,25 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 // getTokenForConnectResource handles the special case of token exchange for /mcp-connect/{resourceMCPID} resources.
 // It returns the same API key if the subject token is an API key, or creates a new token with the appropriate audience if the subject token is a JWT.
 func (h *handler) getTokenForConnectResource(ctx context.Context, subjectTokenType, subjectToken string, apiKeyExpiresAt *time.Time, tokenCtx *persistent.TokenContext, resourceMCPID, audienceID string) (string, time.Time, error) {
-	if subjectTokenType == tokenTypeAPIKey {
+	if tokenCtx != nil {
+		tokenCtx.UserGroups = []string{types.GroupMCP, types.GroupAuthenticated}
+	}
+
+	return h.getTokenForMCPConnectResource(ctx, subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, audienceID, "mcp-connect")
+}
+
+// getTokenForCompositeConnectResource handles the special case of token exchange for /mcp-connect-composite/{resourceMCPID} resources.
+// It creates a new token with the appropriate audience and composite MCP groups.
+func (h *handler) getTokenForCompositeConnectResource(ctx context.Context, subjectTokenType, subjectToken string, apiKeyExpiresAt *time.Time, tokenCtx *persistent.TokenContext, resourceMCPID, audienceID string) (string, time.Time, error) {
+	if tokenCtx != nil {
+		// Only the group "composite-mcp" is allowed to access composite MCP resources
+		tokenCtx.UserGroups = []string{types.GroupCompositeMCP, types.GroupAuthenticated}
+	}
+	return h.getTokenForMCPConnectResource(ctx, subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, audienceID, "mcp-connect-composite")
+}
+
+func (h *handler) getTokenForMCPConnectResource(ctx context.Context, subjectTokenType, subjectToken string, apiKeyExpiresAt *time.Time, tokenCtx *persistent.TokenContext, resourceMCPID, audienceID, connectString string) (string, time.Time, error) {
+	if subjectTokenType == tokenTypeAPIKey && tokenCtx == nil {
 		// Pass the API key through to component servers for their own token exchange.
 		expiresAt := time.Now().Add(tokenExpiration)
 		if apiKeyExpiresAt != nil {
@@ -674,9 +735,9 @@ func (h *handler) getTokenForConnectResource(ctx context.Context, subjectTokenTy
 
 	// For JWTs, update the existing token context and create a new token.
 	tokenCtx.MCPID = resourceMCPID
-	tokenCtx.Audience = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audienceID)
+	tokenCtx.Audience = fmt.Sprintf("%s/%s/%s", h.baseURL, connectString, audienceID)
 
-	token, err := h.tokenService.NewToken(ctx, *tokenCtx)
+	_, token, err := h.tokenService.NewToken(ctx, *tokenCtx)
 	if err != nil {
 		log.Errorf("failed to create token for component MCP server %s: %v", resourceMCPID, err)
 		return "", time.Time{}, types.NewErrBadRequest("%v", Error{
@@ -685,7 +746,7 @@ func (h *handler) getTokenForConnectResource(ctx context.Context, subjectTokenTy
 		})
 	}
 
-	return token, tokenCtx.ExpiresAt, nil
+	return token, tokenCtx.ExpiresAt.Time, nil
 }
 
 // validateAPIKeyAccess checks if the API key has access to the specified MCP server.

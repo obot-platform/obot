@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"cmp"
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -87,7 +88,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
-	drifted, err := ConfigurationHasDrifted(server.Spec.Manifest, entry.Spec.Manifest, h.defaultDenyAllEgress)
+	drifted, err := ConfigurationHasDrifted(req.Ctx, h.gatewayClient, server, entry.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
 	}
@@ -261,9 +262,63 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 }
 
 // ConfigurationHasDrifted compares runtime config, env, resources, and multi-user config between a server
-// manifest and a catalog entry manifest. It handles the type difference between MCPServerManifest
-// and MCPServerCatalogEntryManifest by comparing only the fields common to both.
-func ConfigurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
+// and a catalog entry manifest. Static values omitted from the persisted server manifest are restored from
+// its gateway credential before comparison.
+func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client, server *v1.MCPServer, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
+	staticKeys := make(map[string]struct{})
+	for _, env := range entryManifest.Env {
+		if env.Value != "" {
+			staticKeys[env.Key] = struct{}{}
+		}
+	}
+	if entryManifest.RemoteConfig != nil {
+		for _, header := range entryManifest.RemoteConfig.Headers {
+			if header.Value != "" {
+				staticKeys[header.Key] = struct{}{}
+			}
+		}
+	}
+
+	serverManifest := server.Spec.Manifest
+	if len(staticKeys) > 0 {
+		credentialContext := server.Spec.UserID
+		if server.Spec.MCPCatalogID != "" {
+			credentialContext = server.Spec.MCPCatalogID
+		} else if server.Spec.PowerUserWorkspaceID != "" {
+			credentialContext = server.Spec.PowerUserWorkspaceID
+		}
+
+		credential, err := gatewayClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", credentialContext, server.Name)}, server.Name)
+		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return false, err
+		}
+
+		serverManifest.Env = slices.Clone(serverManifest.Env)
+		for i, env := range serverManifest.Env {
+			if _, ok := staticKeys[env.Key]; ok && env.Value == "" {
+				serverManifest.Env[i].Value = credential.Secrets[env.Key]
+			}
+		}
+
+		if serverManifest.RemoteConfig != nil {
+			remoteConfig := *serverManifest.RemoteConfig
+			remoteConfig.Headers = slices.Clone(remoteConfig.Headers)
+			serverManifest.RemoteConfig = &remoteConfig
+			for i, header := range serverManifest.RemoteConfig.Headers {
+				if _, ok := staticKeys[header.Key]; ok && header.Value == "" {
+					serverManifest.RemoteConfig.Headers[i].Value = credential.Secrets[header.Key]
+				}
+			}
+		}
+	}
+
+	return configurationHasDrifted(serverManifest, entryManifest, defaultDenyAllEgress)
+}
+
+// configurationHasDrifted compares only the fields common to MCPServerManifest and
+// MCPServerCatalogEntryManifest. It is also used for nested composite components,
+// which do not have their own MCPServer object or credential context.
+func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
 		return true, nil
@@ -485,6 +540,7 @@ func mcpEnvMatchesCatalog(serverField, entryField types.MCPEnv) bool {
 		entryField.SecretBinding = nil
 		entryField.Value = serverField.Value
 	}
+
 	return reflect.DeepEqual(serverField, entryField)
 }
 
@@ -548,7 +604,7 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 		}
 
 		// Compare manifests
-		drifted, err := ConfigurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
+		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
 		if err != nil || drifted {
 			return drifted, err
 		}
@@ -1033,7 +1089,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), h.baseURL, server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {
@@ -1159,11 +1215,12 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 	}
 
 	if since := time.Since(mcpServer.Status.LastRequestTime.Time); since > idleInterval {
-		if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
-			return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
-		}
-
+		// If the server is already idle, then no need to shutdown.
 		if !mcpServer.Status.Idle {
+			if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, mcpServer.Name); err != nil {
+				return fmt.Errorf("failed to shutdown idle server %s: %w", mcpServer.Name, err)
+			}
+
 			mcpServer.Status.Idle = true
 			if err := req.Client.Status().Update(req.Ctx, mcpServer); err != nil {
 				return fmt.Errorf("failed to update idle status for server %s: %w", mcpServer.Name, err)
@@ -1181,6 +1238,20 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 			// All objects are retried every 10 hours. If we should retry sooner, then trigger a retry.
 			resp.RetryAfter(retry)
 		}
+	}
+
+	return nil
+}
+
+// SetNonDeployServerStatus sets the deployment status for servers that don't have a corresponding deployment.
+func (h *Handler) SetNonDeployServerStatus(req router.Request, _ router.Response) error {
+	mcpServer := req.Object.(*v1.MCPServer)
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote || mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+		mcpServer.Status.DeploymentStatus = "Available"
+		mcpServer.Status.DeploymentAvailableReplicas = nil
+		mcpServer.Status.DeploymentReadyReplicas = nil
+		mcpServer.Status.DeploymentReplicas = nil
+		mcpServer.Status.DeploymentConditions = nil
 	}
 
 	return nil

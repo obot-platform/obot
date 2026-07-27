@@ -25,6 +25,62 @@ interface StoredSession {
 	initializeResult?: InitializationResult;
 }
 
+function formatBodyError(body: string): string {
+	const trimmed = body.trim();
+	if (!trimmed) {
+		return '';
+	}
+
+	try {
+		const parsed = JSON.parse(trimmed) as {
+			http_error?: unknown;
+			error?: unknown;
+			message?: unknown;
+		};
+		if (typeof parsed.http_error === 'string') {
+			return parsed.http_error;
+		}
+		if (typeof parsed.message === 'string') {
+			return parsed.message;
+		}
+		if (typeof parsed.error === 'string') {
+			return parsed.error;
+		}
+		if (parsed.error && typeof parsed.error === 'object' && 'message' in parsed.error) {
+			const message = (parsed.error as { message?: unknown }).message;
+			if (typeof message === 'string') {
+				return message;
+			}
+		}
+	} catch {
+		// The response body is already the best available detail.
+	}
+
+	return trimmed;
+}
+
+async function responseError(resp: Response, action: string): Promise<Error> {
+	const detail = formatBodyError(await resp.text());
+	const status = `${resp.status} ${resp.statusText}`.trim();
+	return new Error(
+		detail ? `${action} failed: ${status}: ${detail}` : `${action} failed: ${status}`
+	);
+}
+
+function formatJSONRPCError(error: NonNullable<JSONRPCResponse['error']>): string {
+	const message = error.message || `JSON-RPC error ${error.code}`;
+	if (error.data === undefined || error.data === null) {
+		return message;
+	}
+
+	const data = typeof error.data === 'string' ? error.data : JSON.stringify(error.data);
+	if (!data || message.includes(data)) {
+		return message;
+	}
+
+	return `${message}: ${data}`;
+}
+
 // This is a simple MCP client that works for specifically how nanobot will reply. It makes
 // certain assumptions about session support and non-SSE responses to POSTs.
 export class SimpleClient {
@@ -192,7 +248,7 @@ export class SimpleClient {
 				});
 
 				if (!initResp.ok) {
-					throw new Error(`Initialize failed: ${initResp.status} ${initResp.statusText}`);
+					throw await responseError(initResp, 'Initialize');
 				}
 
 				// Extract session ID from response header
@@ -204,7 +260,7 @@ export class SimpleClient {
 				// Parse response to check for errors
 				const initData = (await initResp.json()) as JSONRPCResponse;
 				if (initData.error) {
-					throw new Error(`Initialize error: ${initData.error}`);
+					throw new Error(`Initialize error: ${formatJSONRPCError(initData.error)}`);
 				}
 
 				// Store session ID and initialize result
@@ -234,9 +290,7 @@ export class SimpleClient {
 				});
 
 				if (!initializedResp.ok) {
-					throw new Error(
-						`Initialized notification failed: ${initializedResp.status} ${initializedResp.statusText}`
-					);
+					throw await responseError(initializedResp, 'Initialized notification');
 				}
 			} finally {
 				this.#initializationPromise = undefined;
@@ -290,9 +344,7 @@ export class SimpleClient {
 		}
 
 		if (!resp.ok) {
-			const text = await resp.text();
-			//logError(`reply: ${resp.status}: ${resp.statusText}: ${text}`);
-			throw new Error(text);
+			throw await responseError(resp, 'MCP reply');
 		}
 
 		try {
@@ -300,7 +352,7 @@ export class SimpleClient {
 			const data = (await resp.json()) as JSONRPCResponse;
 			if (data.error) {
 				//logError(data.error);
-				throw Error(`${data.error.message}: ${JSON.stringify(data.error)}`);
+				throw Error(formatJSONRPCError(data.error));
 			}
 		} catch (e) {
 			// If it's already an Error, rethrow it
@@ -367,15 +419,13 @@ export class SimpleClient {
 		}
 
 		if (!resp.ok) {
-			const text = await resp.text();
-			//logError(`exchange: ${resp.status}: ${resp.statusText}: ${text}`);
-			throw new Error(text);
+			throw await responseError(resp, method);
 		}
 
 		const data = (await resp.json()) as JSONRPCResponse;
 		if (data.error) {
 			//logError(data.error);
-			throw new Error(`${data.error.message}: ${JSON.stringify(data.error)}`);
+			throw new Error(formatJSONRPCError(data.error));
 		}
 
 		return data.result;

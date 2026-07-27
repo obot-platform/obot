@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -358,6 +359,7 @@
 </script>
 
 <div
+	id={CATALOG_SERVER_FIELD_IDS.compositeEntries}
 	class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
 >
 	<h4 class="text-md font-semibold">Component Entries</h4>
@@ -403,6 +405,7 @@
 							</IconButton>
 						{/if}
 						<IconButton
+							id={`${CATALOG_SERVER_FIELD_IDS.compositeEntryToolCollapseBtn}-${componentId}`}
 							tooltip={{ text: expanded[componentId] ? 'Collapse' : 'Expand' }}
 							onclick={() => (expanded[componentId] = !expanded[componentId])}
 						>
@@ -636,6 +639,7 @@
 
 	{#if !readonly}
 		<button
+			id={CATALOG_SERVER_FIELD_IDS.addCompositeEntryBtn}
 			type="button"
 			onclick={() => {
 				configuringEntry = undefined;

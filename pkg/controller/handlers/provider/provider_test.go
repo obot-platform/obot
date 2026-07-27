@@ -106,3 +106,37 @@ optionalConfigurationParameters:
 		t.Fatalf("expected model, github auth, and generic auth providers, foundModel=%v foundAuth=%v foundGenericAuth=%v", foundModel, foundAuth, foundGenericAuth)
 	}
 }
+
+func TestModelDialectPrefersMetadataDialect(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		metadata map[string]string
+		fallback string
+		want     string
+	}{
+		{
+			name:     "metadata dialect wins",
+			metadata: map[string]string{"dialect": "AnthropicMessages"},
+			fallback: "OpenAIResponses",
+			want:     "AnthropicMessages",
+		},
+		{
+			name:     "empty metadata dialect falls back",
+			metadata: map[string]string{"dialect": ""},
+			fallback: "OpenAIResponses",
+			want:     "OpenAIResponses",
+		},
+		{
+			name:     "missing metadata dialect falls back",
+			metadata: map[string]string{"usage": "llm"},
+			fallback: "OpenAIResponses",
+			want:     "OpenAIResponses",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := modelDialect(tc.metadata, tc.fallback); got != tc.want {
+				t.Fatalf("modelDialect() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

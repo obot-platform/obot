@@ -58,7 +58,7 @@
 		return options;
 	});
 	const selectClasses =
-		'bg-base-200 dark:bg-base-300 border border-base-300 dark:border-base-400 w-full shadow-inner';
+		'bg-base-200 dark:bg-base-100 border border-base-300 dark:border-base-400 w-full shadow-inner';
 
 	function setValueSource(source: ValueSource) {
 		valueSource = source;
@@ -72,6 +72,7 @@
 		if (!firstTarget || !firstKey) return;
 		field.value = '';
 		field.secretBinding = { name: firstTarget.name, key: firstKey };
+		field.sensitive = true;
 	}
 
 	function clearSecretBinding() {
@@ -86,6 +87,7 @@
 		if (!target || !key) return;
 		field.value = '';
 		field.secretBinding = { name: target.name, key };
+		field.sensitive = true;
 	}
 
 	function selectKey(key: string | number) {
@@ -93,6 +95,7 @@
 		if (!field.secretBinding) return;
 		field.value = '';
 		field.secretBinding = { ...field.secretBinding, key: String(key) };
+		field.sensitive = true;
 	}
 </script>
 

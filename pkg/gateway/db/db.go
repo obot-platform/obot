@@ -127,16 +127,24 @@ func (db *DB) AutoMigrate() (err error) {
 		types.DeviceScanPlugin{},
 		types.DeviceScanFile{},
 		types.DeviceScanClient{},
-		types.MDMDeployment{},
+		types.MDMAssetBundle{},
+		types.MDMConfiguration{},
+		types.MDMConfigurationArtifact{},
 		types.DeviceEnrollmentKey{},
 		types.Device{},
 		types.Credential{},
+		types.LocalAuthUser{},
+		types.LocalAuthSession{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}
 
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "mcp_audit_log_source_type_backfill", migrateMCPAuditLogSourceType); err != nil {
 		return fmt.Errorf("failed to migrate mcp_audit_log source type: %w", err)
+	}
+
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_legacy_local_agent_audit_log_columns", dropLegacyLocalAgentAuditLogColumns); err != nil {
+		return fmt.Errorf("failed to drop legacy local-agent audit log columns: %w", err)
 	}
 
 	// MIGRATION: replace mcp_server_instance with mcp_id as the new primary key.

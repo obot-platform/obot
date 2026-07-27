@@ -10,6 +10,12 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { User } from '@lucide/svelte';
 
+	interface Props {
+		onClose?: () => void;
+	}
+
+	let { onClose }: Props = $props();
+
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let toDelete = $state(false);
 	let toRevoke = $state(false);
@@ -47,9 +53,18 @@
 	function handleDisplay24HourFormatToggle(checked: boolean) {
 		userDeviceSettings.setTimeFormat(checked ? '24h' : '12h');
 	}
+
+	function handleDisplayGetStartedGuidesToggle(checked: boolean) {
+		userDeviceSettings.setShowAllGuides(checked);
+	}
 </script>
 
-<button class="dropdown-link" onclick={() => dialog?.open()}>
+<button
+	class="dropdown-link"
+	onclick={() => {
+		dialog?.open();
+	}}
+>
 	<User class="size-4" /> My Account
 </button>
 
@@ -58,6 +73,7 @@
 	title="My Account"
 	class="w-full max-w-lg"
 	classes={{ content: 'p-6' }}
+	{onClose}
 >
 	<img
 		src={profile.current.iconURL}
@@ -93,6 +109,21 @@
 			label=""
 			checked={userDeviceSettings.timeFormat === '24h'}
 			onChange={handleDisplay24HourFormatToggle}
+		/>
+	</div>
+	<hr />
+
+	<div class="flex flex-row items-center justify-between py-3">
+		<div class="flex flex-col gap-1">
+			<p>Display "Get Started" Guides</p>
+			<span class="text-sm font-light opacity-70">
+				When enabled, the "Get Started" guides will be displayed at the bottom right of the screen.
+			</span>
+		</div>
+		<Toggle
+			label=""
+			checked={userDeviceSettings.showAllGuides}
+			onChange={handleDisplayGetStartedGuidesToggle}
 		/>
 	</div>
 	<hr />

@@ -23,7 +23,8 @@
 		getServerTypeLabel,
 		getServerUrl,
 		hasMissingSecretBindingConfig,
-		isMultiUserServer
+		isMultiUserServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { profile, mcpServersAndEntries, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -67,6 +68,7 @@
 		onlyMyServers?: boolean;
 		servers?: MCPCatalogServer[];
 		skipLoadOnMount?: boolean;
+		serverPrefixPath?: string;
 	}
 
 	let {
@@ -85,7 +87,8 @@
 		noDataContent,
 		onlyMyServers,
 		servers: initialServers,
-		skipLoadOnMount
+		skipLoadOnMount,
+		serverPrefixPath
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -292,6 +295,10 @@
 		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
 	}
 
+	function canRestartServer(server: MCPCatalogServer) {
+		return server.configured && supportsMCPBackendDetails(server);
+	}
+
 	async function handleBulkUpdate() {
 		for (const serverId of Object.keys(selected)) {
 			const server = selected[serverId];
@@ -322,8 +329,7 @@
 		restarting = true;
 		try {
 			for (const id of Object.keys(selected)) {
-				if (!selected[id].configured) {
-					// skip unconfigured servers
+				if (!canRestartServer(selected[id])) {
 					continue;
 				}
 				if (selected[id].powerUserWorkspaceID) {
@@ -554,6 +560,10 @@
 		// Global multi-user server
 		return `/admin/mcp-catalog/s/${d.id}`;
 	}
+
+	function isRestartableServer(d: MCPCatalogServer) {
+		return d.manifest.runtime !== 'remote' && d.manifest.runtime !== 'composite';
+	}
 </script>
 
 <div class="flex flex-col gap-0.5">
@@ -604,7 +614,7 @@
 				onClickRow={(d, isCtrlClick) => {
 					setLastVisitedMcpServer(d);
 
-					const url = getServerUrl(d);
+					const url = getServerUrl(d, serverPrefixPath);
 					openUrl(url, isCtrlClick);
 				}}
 				{onFilter}
@@ -725,7 +735,7 @@
 										{/if}
 									</span>
 								</a>
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && supportsMCPBackendDetails(d)}
 									<button
 										class="menu-button"
 										onclick={(e) => {
@@ -811,7 +821,7 @@
 									</button>
 								{/if}
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if isRestartableServer(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button"
 										disabled={restarting}
@@ -887,8 +897,8 @@
 				{/snippet}
 
 				{#snippet tableSelectActions(currentSelected)}
-					{@const restartableCount = Object.values(currentSelected).filter(
-						(s) => s.configured
+					{@const restartableCount = Object.values(currentSelected).filter((s) =>
+						canRestartServer(s)
 					).length}
 					{@const upgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsUpdate && canTriggerUpdate(s)

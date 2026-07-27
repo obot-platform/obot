@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -57,7 +56,7 @@ func TestMCPSearchPaginatesAndWritesTable(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search", "github", "issues", "--limit", "3")
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot(server.URL), "search", "github", "issues", "--limit", "3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +90,7 @@ func TestMCPSearchJSONMode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search", "--json")
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot(server.URL), "search", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +122,7 @@ func TestMCPSearchJSONModeIncludesConfigurationURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search", "--json")
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot(server.URL), "search", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +147,7 @@ func TestMCPSearchEmptyResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search")
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot(server.URL), "search")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +172,7 @@ func TestMCPSearchRegistryAuthErrors(t *testing.T) {
 			}))
 			defer server.Close()
 
-			_, err := executeMCPTestCommand(mcpTestRoot(server.URL), "search")
+			_, err := executeMCPTestCommand(t, mcpTestRoot(server.URL), "search")
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -191,10 +190,11 @@ func mcpTestRoot(baseURL string) *Obot {
 	}}
 }
 
-func executeMCPTestCommand(root *Obot, args ...string) (string, error) {
+func executeMCPTestCommand(t *testing.T, root *Obot, args ...string) (string, error) {
+	t.Helper()
 	var stdout bytes.Buffer
 	cmd := cmd.Command(&MCP{root: root})
-	cmd.SetContext(context.Background())
+	cmd.SetContext(t.Context())
 	cmd.SetOut(&stdout)
 	cmd.SetArgs(args)
 	err := cmd.Execute()

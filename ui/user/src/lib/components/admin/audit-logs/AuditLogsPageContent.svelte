@@ -2,10 +2,11 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
+	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import AuditLogDetails from '$lib/components/admin/audit-logs/AuditLogDetails.svelte';
+	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -14,7 +15,7 @@
 		type OrgUser,
 		type AuditLogURLFilters,
 		AdminService,
-		type AuditLog,
+		type AuditLogEvent,
 		Group,
 		UserService
 	} from '$lib/services';
@@ -25,39 +26,32 @@
 	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import AuditLogsTable from './AuditLogs.svelte';
+	import AuditLogFilterPills from './AuditLogFilterPills.svelte';
+	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
+	import AuditLogsTable from './AuditLogsTable.svelte';
 	import {
 		aggregateAuditLogsByBucket,
 		toAuditLogTimelineChartRow,
 		type AuditLogTimelineChartRow
 	} from './timelineUtils';
-	import { X, ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
 	import type { Snippet } from 'svelte';
-	import { flip } from 'svelte/animate';
 	import { SvelteMap } from 'svelte/reactivity';
-	import { fade, slide } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		mcpId?: string | null;
-		id?: string | null;
 		mcpServerDisplayName?: string | null;
 		mcpServerCatalogEntryName?: string | null;
 		emptyContent?: Snippet;
 		entity?: 'workspace' | 'catalog';
 	}
 
-	let {
-		mcpServerDisplayName,
-		mcpServerCatalogEntryName,
-		mcpId,
-		id,
-		emptyContent,
-		entity = 'catalog'
-	}: Props = $props();
+	let { mcpServerDisplayName, mcpServerCatalogEntryName, mcpId, emptyContent }: Props = $props();
 
-	let auditLogsResponse = $state<PaginatedResponse<AuditLog>>();
+	let auditLogsResponse = $state<PaginatedResponse<AuditLogEvent>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
 
 	let pageIndexLocal = localState('@obot/auditlogs/page-index', 0, {
@@ -74,7 +68,7 @@
 	/** When there are more than this many results, defer timeline aggregation and table data to keep UI responsive. */
 	const DEFER_THRESHOLD = 500;
 	let displayTimelineData = $state<AuditLogTimelineChartRow[]>([]);
-	let displayTableData = $state<AuditLog[]>([]);
+	let displayTableData = $state<AuditLogEvent[]>([]);
 
 	$effect(() => {
 		const items = remoteAuditLogs;
@@ -120,67 +114,106 @@
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
-	let selectedAuditLog = $state<AuditLog & { user: string }>();
+	let selectedAuditLog = $state<AuditLogEvent & { user: string }>();
 	let rightSidebar = $state<HTMLDivElement>();
 	let showFilterConfirmDialog = $state(false);
 	let pendingExportType = $state<'export' | 'scheduled' | null>(null);
 
-	// Enforced filters for Basic users - they can only see their own audit logs
+	// Enforced filters for Basic users - they can only see their own audit logs. The unified `actor`
+	// filter matches user_id (or device_id), so pinning it to the user's own id restricts them to
+	// their own activity.
 	const enforcedFilters = $derived.by(() => {
 		if (isBasicUser(profile.current.groups) && profile.current?.id) {
-			return { user_id: profile.current.id };
+			return { actor: profile.current.id };
 		}
 		return {};
 	});
 
 	const enforcedFiltersKeys = $derived(new Set(Object.keys(enforcedFilters)));
 
-	// Supported filters for the audit logs
-	// These filters are used to filter the audit logs based on the URL parameters
-	// Ignore other params
 	type SupportedFilter = keyof AuditLogURLFilters;
-	const supportedFilters: SupportedFilter[] = [
-		'user_id',
-		'mcp_id',
-		'mcp_server_display_name',
-		'mcp_server_catalog_entry_name',
-		'call_type',
-		'call_identifier',
-		'client_name',
-		'client_version',
-		'client_ip',
-		'response_status',
-		'session_id',
-		'start_time',
-		'end_time'
+	const unifiedFilters: SupportedFilter[] = [
+		'event_type',
+		'actor',
+		'operation',
+		'mcp_server',
+		'tool',
+		'outcome',
+		'client',
+		'duration'
 	];
+	// When no Source (event_type) is selected, the backend returns every source the caller is
+	// authorized to read — both MCP and local-agent for admins/auditors, MCP only otherwise. The UI
+	// intentionally does not force a default so "no Source filter" means "all sources I can see".
+	const selectedEventTypes = $derived(page.url.searchParams.get('event_type') ?? '');
 
-	const defaultSearchParams: Partial<AuditLogURLFilters> = {
-		call_type: ['resources/read', 'tools/call', 'prompts/get'].join(',')
-	};
+	// In a server-scoped embedded view the MCP server is fixed, so the MCP Server filter is redundant.
+	const isServerScoped = $derived(
+		Boolean(mcpId || mcpServerDisplayName || mcpServerCatalogEntryName)
+	);
+
+	const forcedEventType = $derived(isServerScoped ? 'mcp_call' : '');
+	const visibleFilterKeys = $derived(
+		unifiedFilters.filter(
+			(key) => !(isServerScoped && (key === 'mcp_server' || key === 'event_type'))
+		)
+	);
+
+	// supportedFilters also carries the time-range params so they are read from the URL; the drawer
+	// itself only renders unifiedFilters (time is handled by the calendar).
+	const supportedFilters: SupportedFilter[] = [...unifiedFilters, 'start_time', 'end_time'];
+
+	// Duration filter presets (client-side). Each value encodes a millisecond range "min-max"; an
+	// empty bound is unbounded. Translated to processing_time_min/max before querying the backend.
+	const DURATION_BUCKETS: { value: string; label: string }[] = [
+		{ value: '0-1000', label: '< 1s' },
+		{ value: '1000-5000', label: '1–5s' },
+		{ value: '5000-30000', label: '5–30s' },
+		{ value: '30000-', label: '> 30s' }
+	];
+	function durationBucketLabel(value: string): string {
+		return DURATION_BUCKETS.find((bucket) => bucket.value === value)?.label ?? value;
+	}
+	function durationToProcessingParams(value: string): Partial<AuditLogURLFilters> {
+		const [minRaw, maxRaw] = String(value).split('-');
+		const params: Partial<AuditLogURLFilters> = {};
+		const min = Number(minRaw);
+		const max = Number(maxRaw);
+		if (minRaw && !Number.isNaN(min) && min > 0) params.processing_time_min = min;
+		if (maxRaw && !Number.isNaN(max) && max > 0) params.processing_time_max = max;
+		return params;
+	}
+
+	// Resolve an actor id to a display name when it is a known Obot user; device ids (and other
+	// non-user actors) are shown verbatim rather than as "Unknown User".
+	function actorDisplay(actorId: string): string {
+		return users.has(actorId) ? getUserDisplayName(users, actorId) : actorId;
+	}
+
+	function formatSingleFilterValue(key: string, value: string): string {
+		if (key === 'actor') return actorDisplay(value);
+		if (key === 'duration') return durationBucketLabel(value);
+		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
+		if (key === 'event_type') {
+			if (value === 'mcp_call') return 'Obot Gateway';
+			if (value === 'local_agent_tool_call') return 'Local Agent Hook';
+		}
+		return value;
+	}
+
+	// Default Operation filter applied on first load: focus on the operations that carry a meaningful
+	// payload (actual calls/reads/gets) rather than the list/discovery operations. This is only used
+	// when the `operation` param is absent from the URL. Clearing the filter sets the param to an
+	// empty string (isSafe('') is true), so the default is not re-applied once the user clears it.
+	const DEFAULT_OPERATION_FILTER = 'tools/call,resources/read,prompts/get';
 
 	const searchParamsAsArray: [SupportedFilter, string | undefined | null][] = $derived(
-		supportedFilters.map((d) => {
-			const hasSearchParam = page.url.searchParams.has(d);
-
-			const value = page.url.searchParams.get(d);
-			const isValueDefined = isSafe(value);
-
-			return [
-				d,
-				isValueDefined
-					? // Value is defined then decode and use it
-						decodeURIComponent(value)
-					: hasSearchParam
-						? // Value is not defined but has a search param then override with empty string
-							''
-						: // No search params return default value if exist otherwise return undefined
-							(defaultSearchParams[d]?.toString() ?? null)
-			];
+		buildSearchParamFiltersArray<AuditLogURLFilters>(supportedFilters, {
+			operation: DEFAULT_OPERATION_FILTER
 		})
 	);
 
-	// Extract search supported params from the URL and convert them to AuditLogURLFilters
+	// Extract supported search params from the URL and convert them to AuditLogURLFilters.
 	// This is used to filter the audit logs based on the URL parameters
 	const searchParamFilters = $derived.by<AuditLogURLFilters>(() => {
 		return searchParamsAsArray.reduce(
@@ -210,67 +243,31 @@
 	const propsFiltersKeys = $derived(new Set(Object.keys(propsFilters)));
 
 	// Keep only filters with defined values
-	const pillsSearchParamFilters = $derived.by(() => {
-		const base = searchParamsAsArray
-			// exclude start_time and end_time from pills filters
-			.filter(([key, value]) => !(key === 'start_time' || key === 'end_time') && isSafe(value))
-			.reduce(
-				(acc, [key, value]) => {
-					acc[key] = value as string | number;
-					return acc;
-				},
-				{} as Record<string, string | number>
-			) as Record<keyof AuditLogURLFilters, string>;
-
-		return (
-			Object.entries({ ...propsFilters, ...base, ...enforcedFilters })
-				.filter(([, value]) => !!value)
-				// Sort to prioritize props filter keys first, then alphabetically
-				.sort((a, b) => {
-					// If both keys are in propsFiltersKeys, sort alphabetically
-					if (propsFiltersKeys.has(a[0]) && propsFiltersKeys.has(b[0])) {
-						return a[0].localeCompare(b[0]);
-					}
-
-					// If only a is in propsFiltersKeys, it comes first
-					if (propsFiltersKeys.has(a[0])) {
-						return -1;
-					}
-
-					// If only b is in propsFiltersKeys, it comes first
-					if (propsFiltersKeys.has(b[0])) {
-						return 1;
-					}
-
-					// If neither are in propsFiltersKeys, sort alphabetically
-					return a[0].localeCompare(b[0]);
-				})
-				.reduce(
-					(acc, val) => {
-						acc[val[0] as keyof AuditLogURLFilters] = val[1] as string;
-						return acc;
-					},
-					{} as Record<string, string | number>
-				) as Record<keyof AuditLogURLFilters, string>
-		);
-	});
+	const pillsSearchParamFilters = $derived(
+		buildPillSearchParamFilters<AuditLogURLFilters>(
+			searchParamsAsArray,
+			{ ...propsFilters, ...enforcedFilters },
+			propsFiltersKeys
+		)
+	);
 
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
 	const showAuditExportActions = $derived(
-		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER)
+		!isServerScoped &&
+			(profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER))
 	);
 
 	// Filters to be used in the audit logs slideover
 	// Exclude filters that are set via props and not undefined
-	const auditLogsSlideoverFilters = $derived.by(() => {
+	const auditLogsSlideoverFilters = $derived.by<Partial<AuditLogURLFilters>>(() => {
 		const clone = { ...searchParamFilters };
 
 		for (const key of ['start_time', 'end_time']) {
 			delete clone[key as keyof AuditLogURLFilters];
 		}
 
-		return { ...clone, ...propsFilters, ...enforcedFilters };
+		return { ...clone, ...propsFilters, ...enforcedFilters } as Partial<AuditLogURLFilters>;
 	});
 
 	let timeRangeFilters = $derived.by(() => {
@@ -306,14 +303,21 @@
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 
 	// Base filters with time filters and query and pagination
-	const allFilters = $derived({
-		...pillsSearchParamFilters,
-		...propsFilters,
-		start_time: timeRangeFilters.startTime.toISOString(),
-		end_time: timeRangeFilters.endTime?.toISOString(),
-		limit: pageLimit,
-		offset: pageOffset,
-		query: query
+	const allFilters = $derived.by(() => {
+		// `duration` is a UI-only preset; translate it to the processing_time_min/max params the
+		// backend understands and drop the synthetic key before sending the request.
+		const { duration, ...rest } = pillsSearchParamFilters as Partial<AuditLogURLFilters>;
+		return {
+			...rest,
+			...propsFilters,
+			...(forcedEventType ? { event_type: forcedEventType } : {}),
+			...(duration ? durationToProcessingParams(String(duration)) : {}),
+			start_time: timeRangeFilters.startTime.toISOString(),
+			end_time: timeRangeFilters.endTime?.toISOString(),
+			limit: pageLimit,
+			offset: pageOffset,
+			query: query
+		};
 	});
 
 	afterNavigate(() => {
@@ -353,24 +357,16 @@
 		replaceState(page.url, { query: value });
 	}, 100);
 
-	function isSafe<T = unknown>(value: T) {
-		return value !== undefined && value !== null;
-	}
-
-	async function nextPage() {
+	// The fetch $effect below reacts to pageIndex (via allFilters.offset), so updating the page
+	// index is enough to reload the current page — no direct fetch call is needed here.
+	function nextPage() {
 		if (isReachedMax) return;
-
-		pageIndexLocal.current = Math.min(numberOfPages, pageIndex + 1);
-
-		fetchAuditLogs({ ...allFilters });
+		pageIndexLocal.current = Math.max(0, Math.min(numberOfPages - 1, pageIndex + 1));
 	}
 
-	async function prevPage() {
+	function prevPage() {
 		if (isReachedMin) return;
-
 		pageIndexLocal.current = Math.max(0, pageIndex - 1);
-
-		fetchAuditLogs({ ...allFilters });
 	}
 
 	async function fetchAuditLogs(filters: typeof searchParamFilters) {
@@ -380,34 +376,28 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof AuditLogURLFilters;
 
-		if (_key === 'mcp_server_display_name') return 'Server';
-		if (_key === 'mcp_server_catalog_entry_name') return 'Server Catalog Entry Name';
-		if (_key === 'mcp_id') return 'Server ID';
+		if (_key === 'event_type') return 'Source';
+		if (_key === 'actor') return 'Actor';
+		if (_key === 'operation') return 'Operation';
+		if (_key === 'mcp_server') return 'Identifier – MCP Server';
+		if (_key === 'tool') return 'Identifier – Tool';
+		if (_key === 'outcome') return 'Status';
+		if (_key === 'client') return 'Client';
+		if (_key === 'duration') return 'Duration';
 		if (_key === 'start_time') return 'Start Time';
 		if (_key === 'end_time') return 'End Time';
-		if (_key === 'user_id') return 'User';
-		if (_key === 'client_name') return 'Client Name';
-		if (_key === 'client_version') return 'Client Version';
-		if (_key === 'call_type') return 'Call Type';
-		if (_key === 'session_id') return 'Session ID';
-		if (_key === 'response_status') return 'Response Status';
-		if (_key === 'client_ip') return 'Client IP';
-
 		return key.replace(/_(\w)/g, ' $1');
 	}
 
+	// getFilterDisplayValue renders a full (possibly comma-joined) filter value; used by the export
+	// confirmation dialog. Pills call getFilterValue per single value instead.
 	function getFilterDisplayValue(key: string, value: string | number) {
-		if (key === 'user_id') {
-			if (typeof value === 'string') {
-				const array = value.split(',').map((v) => v.trim());
-
-				return array.map((v) => getUserDisplayName(users, v)).join(', ');
-			}
-
-			return getUserDisplayName(users, value + '');
-		}
-
-		return value + '';
+		return String(value)
+			.split(',')
+			.map((part) => part.trim())
+			.filter(Boolean)
+			.map((part) => formatSingleFilterValue(key, part))
+			.join(', ');
 	}
 
 	function getFilterValue(label: keyof AuditLogURLFilters, value: string | number) {
@@ -424,11 +414,7 @@
 			});
 		}
 
-		if (label === 'user_id') {
-			return getUserDisplayName(users, value + '');
-		}
-
-		return value + '';
+		return formatSingleFilterValue(label, String(value));
 	}
 
 	function handleRightSidebarClose() {
@@ -456,8 +442,9 @@
 	}
 
 	async function handleExportRequest(formType: 'export' | 'scheduled') {
-		// Check if there are any active filters
-		const hasActiveFilters = Object.keys(pillsSearchParamFilters).length > 0 || query;
+		// Check if there are any active filters. Intentionally skip carrying event_type over.
+		const hasActiveFilters =
+			Object.keys(pillsSearchParamFilters).some((key) => key !== 'event_type') || Boolean(query);
 		if (hasActiveFilters) {
 			// Show confirmation dialog
 			pendingExportType = formType;
@@ -483,9 +470,10 @@
 				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
 				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
 
-				// Add current filters (excluding time filters as they're handled separately)
+				// Add current filters (excluding time filters as they're handled separately, and
+				// event_type which is not carried over to the export view)
 				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
-					if (key !== 'start_time' && key !== 'end_time' && value) {
+					if (key !== 'start_time' && key !== 'end_time' && key !== 'event_type' && value) {
 						url.searchParams.set(key, value.toString());
 					}
 				});
@@ -510,11 +498,12 @@
 			url.searchParams.set('next', formType);
 
 			if (includeFilters) {
-				// Still add filters for when storage config is completed
+				// Still add filters for when storage config is completed (excluding event_type, which
+				// is not carried over to the export view)
 				url.searchParams.set('startTime', timeRangeFilters.startTime.toISOString());
 				url.searchParams.set('endTime', timeRangeFilters.endTime.toISOString());
 				Object.entries(pillsSearchParamFilters).forEach(([key, value]) => {
-					if (key !== 'start_time' && key !== 'end_time' && value) {
+					if (key !== 'start_time' && key !== 'end_time' && key !== 'event_type' && value) {
 						url.searchParams.set(key, value.toString());
 					}
 				});
@@ -535,21 +524,6 @@
 		}
 	}
 </script>
-
-{#if showLoadingSpinner}
-	<div
-		class="absolute inset-0 z-20 flex items-center justify-center"
-		in:fade={{ duration: 100 }}
-		out:fade|global={{ duration: 300, delay: 500 }}
-	>
-		<div
-			class="bg-base-400/50 border-base-400 text-primary dark:text-primary flex flex-col items-center gap-4 rounded-2xl border px-16 py-8 shadow-md backdrop-blur-[1px]"
-		>
-			<Loading class="size-32 stroke-1" />
-			<div class="text-2xl font-semibold">Loading logs...</div>
-		</div>
-	</div>
-{/if}
 
 <div class="flex flex-col justify-end gap-2 @container">
 	<div class="flex flex-col gap-4 @min-[768px]:flex-row">
@@ -625,21 +599,26 @@
 	{/if}
 </div>
 
-{#if auditLogsTotalItems > 0}
-	<!-- Timeline Graph (Placeholder) -->
+{#if showLoadingSpinner}
+	<div class="skeleton rounded-md h-71 mb-4"></div>
+	<AuditLogTableSkeleton />
+{:else if auditLogsTotalItems > 0}
 	<div
 		class="dark:bg-base-300 dark:border-base-400 bg-base-100 text-muted-content rounded-lg border border-transparent shadow-sm"
 	>
 		<h3 class="mb-6 px-4 pt-4 text-xs uppercase font-medium">Timeline</h3>
 		<div class="px-4">
 			{#if displayTimelineData.length > 0}
-				<div class="text-muted-content flex h-40 items-center justify-center rounded-md">
+				<div
+					id="mcp-audit-logs-timeline-chart"
+					class="text-muted-content flex h-40 items-center justify-center rounded-md"
+				>
 					<StackedTimeline
 						start={timeRangeFilters.startTime}
 						end={timeRangeFilters.endTime}
 						data={displayTimelineData}
-						categoryKey="callType"
-						dateKey="createdAt"
+						categoryKey="eventType"
+						dateKey="timestamp"
 						primaryValueKey={isTimelineAggregated ? 'count' : undefined}
 						secondaryValueKey={isTimelineAggregated ? '_secondary' : undefined}
 					/>
@@ -693,23 +672,25 @@
 	{#if displayTableData.length > 0}
 		<AuditLogsTable
 			data={displayTableData}
-			onSelectRow={async (d: AuditLog & { user: string }) => {
+			onSelectRow={async (d: AuditLogEvent) => {
 				showFilters = false;
 				rightSidebar?.showPopover();
+				const user =
+					d.actor.actorType === 'user' && d.actor.id ? getUserDisplayName(users, d.actor.id) : '';
 				// Fetch full audit log details with request/response bodies
 				try {
 					const fullDetails = await UserService.getAuditLog(d.id);
-					selectedAuditLog = { ...fullDetails, user: d.user };
+					selectedAuditLog = { ...fullDetails, user };
 				} catch (error) {
 					console.error('Failed to fetch audit log details:', error);
 					// Fallback to the cached data if fetch fails
-					selectedAuditLog = d;
+					selectedAuditLog = { ...d, user };
 				}
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
 			{emptyContent}
-		></AuditLogsTable>
+		/>
 	{:else if remoteAuditLogs.length > 0}
 		<div class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm font-light">
 			<Loading class="size-5 animate-spin" />
@@ -730,8 +711,9 @@
 <div
 	bind:this={rightSidebar}
 	popover
-	class="drawer-legacy {selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl'}"
+	class={twMerge('drawer-legacy', selectedAuditLog ? 'max-w-[85vw] min-w-lg' : 'md:w-lg lg:w-xl')}
 	style={selectedAuditLog ? 'width: 32rem' : ''}
+	id="mcp-audit-logs-details-sidebar"
 >
 	{#if selectedAuditLog}
 		{#if !responsive.isMobile && rightSidebar}
@@ -741,112 +723,54 @@
 				use:columnResize={{ column: rightSidebar, direction: 'right' }}
 			></div>
 		{/if}
-		<AuditLogDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
+		<AuditLogEventDetails onClose={handleRightSidebarClose} auditLog={selectedAuditLog} />
 	{/if}
 
 	{#if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
-			filters={{ ...auditLogsSlideoverFilters }}
+			filters={auditLogsSlideoverFilters}
+			getVisibleFilterKeys={() => visibleFilterKeys}
+			isFilterMultiSelect={(filterId) => filterId !== 'duration'}
 			isFilterDisabled={(filterId) =>
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
 			isFilterClearable={(filterId) =>
 				!propsFiltersKeys.has(filterId) && !enforcedFiltersKeys.has(filterId)}
 			getUserDisplayName={(...args) => getUserDisplayName(users, ...args)}
 			{getFilterDisplayLabel}
-			getDefaultValue={(filter) => defaultSearchParams[filter]}
+			getFilterOptionLabel={(key, value) => formatSingleFilterValue(key, value)}
 			endpoint={async (filterId: string, opts = {}) => {
-				const timeFilters = {
+				// Duration is a fixed set of client-side presets, not a distinct-value column.
+				if (filterId === 'duration') {
+					return { options: DURATION_BUCKETS.map((bucket) => bucket.value) };
+				}
+
+				// A `duration` selection among the other active filters must also narrow the option
+				// list, so translate it to the processing_time_min/max params the backend understands.
+				const { duration, ...rest } = opts as Partial<AuditLogURLFilters>;
+				return await UserService.listAuditLogFilterOptions(filterId, {
+					...rest,
+					...(duration ? durationToProcessingParams(String(duration)) : {}),
 					start_time: timeRangeFilters.startTime.toISOString(),
-					end_time: timeRangeFilters.endTime?.toISOString()
-				};
-				if (filterId !== 'mcp_id') {
-					return await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-				}
-
-				if (mcpId) {
-					const response = await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-
-					return { options: response?.options.filter((option) => option.endsWith(mcpId)) ?? [] };
-				}
-
-				if (!id || !mcpServerCatalogEntryName) {
-					return await UserService.listAuditLogFilterOptions(filterId, {
-						...opts,
-						...timeFilters
-					});
-				}
-
-				const items =
-					entity === 'catalog'
-						? await AdminService.listMCPServersForEntry(id, mcpServerCatalogEntryName)
-						: await UserService.listWorkspaceMCPServersForEntry(id, mcpServerCatalogEntryName);
-
-				const options = items?.map?.((item) => item.id) ?? [];
-
-				return { options };
+					end_time: timeRangeFilters.endTime?.toISOString(),
+					// In a server-scoped view the source is pinned to MCP; otherwise prefer the event
+					// type(s) currently selected in the drawer (passed via opts) so option lists update
+					// live as the user switches Source, falling back to the URL.
+					event_type: forcedEventType || String(opts.event_type ?? '') || selectedEventTypes
+				});
 			}}
 		/>
 	{/if}
 </div>
 
 {#snippet filters()}
-	{@const entries = Object.entries(pillsSearchParamFilters) as [keyof AuditLogURLFilters, string][]}
-	{@const hasFilters = !!entries.length}
-
-	{#if hasFilters}
-		<div
-			class="flex flex-wrap items-center gap-2"
-			in:slide={{ duration: 100 }}
-			out:slide={{ duration: 50 }}
-		>
-			{#each entries as [filterKey, filterValues] (filterKey)}
-				{@const displayLabel = getFilterDisplayLabel(filterKey)}
-				{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
-				{@const isClearable =
-					!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
-
-				<div class="filter-primary" animate:flip={{ duration: 100 }}>
-					<div class="text-xs font-semibold">
-						<span>{displayLabel}</span>
-						<span>:</span>
-						{#each values as value (value)}
-							{@const isMultiple = values.length > 1}
-
-							{#if isMultiple}
-								<span class="font-light">
-									<span>{getFilterValue(filterKey, value)}</span>
-								</span>
-
-								<span class="mx-1 font-bold last:hidden">OR</span>
-							{:else}
-								<span class="font-light">{getFilterValue(filterKey, value)}</span>
-							{/if}
-						{/each}
-					</div>
-
-					{#if isClearable}
-						<button
-							onclick={() => {
-								const url = page.url;
-								url.searchParams.set(filterKey, '');
-
-								goto(url, { noScroll: true });
-							}}
-						>
-							<X class="size-3" />
-						</button>
-					{/if}
-				</div>
-			{/each}
-		</div>
-	{/if}
+	<AuditLogFilterPills
+		{pillsSearchParamFilters}
+		{getFilterDisplayLabel}
+		{getFilterValue}
+		isFilterClearable={(filterKey) =>
+			!propsFiltersKeys.has(filterKey) && !enforcedFiltersKeys.has(filterKey)}
+	/>
 {/snippet}
 
 <!-- Filter Confirmation Dialog -->
@@ -859,12 +783,12 @@
 				in the export?
 			</p>
 
-			<!-- Show current filters -->
-			{#if Object.entries(pillsSearchParamFilters).length > 0 || query}
-				{@const entries = Object.entries(pillsSearchParamFilters) as [
-					keyof AuditLogURLFilters,
-					string
-				][]}
+			<!-- Show current filters. `event_type` (Source) is excluded since it is not carried over to
+			the export view. -->
+			{#if Object.keys(pillsSearchParamFilters).some((key) => key !== 'event_type') || query}
+				{@const entries = (
+					Object.entries(pillsSearchParamFilters) as [keyof AuditLogURLFilters, string][]
+				).filter(([key]) => key !== 'event_type')}
 				<div class="mb-4 rounded-md bg-gray-50 p-3 dark:bg-gray-800">
 					<h4 class="mb-2 text-xs font-medium text-muted-content">Active Filters:</h4>
 					<div class="text-muted-content space-y-1 text-xs">

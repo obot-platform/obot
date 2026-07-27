@@ -4,7 +4,7 @@ Deploying Obot to Google Kubernetes Engine follows the standard Helm workflow. A
 
 * GCP project
 * VPC Network
-* Google Cloud SQL instance running PostgreSQL 17+ with the pgvector extension enabled
+* Google Cloud SQL instance running PostgreSQL 17+
 * VPC Network Peering between your VPC Network and the Cloud SQL instance
 * (Optional) Google Cloud KMS key for encrypting sensitive information
 * (Optional) IAM role with necessary permissions if you're using Google Cloud KMS for encryption

@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,19 +22,25 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type ServerInstancesHandler struct {
-	acrHelper                 *accesscontrolrule.Helper
-	mcpOAuthChecker           MCPOAuthChecker
-	serverURL                 string
-	secretBindingAllowedLabel string
+// MCPInstanceResolver resolves an MCP server instance ID to the server and
+// config needed for an OAuth check. Satisfied by *mcp.SessionManager.
+type MCPInstanceResolver interface {
+	ServerForActionWithConnectIDAllowMissingConfig(ctx context.Context, id, userID string) (string, v1.MCPServer, mcp.ServerConfig, []string, error)
 }
 
-func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, serverURL, secretBindingAllowedLabel string) *ServerInstancesHandler {
+type ServerInstancesHandler struct {
+	acrHelper         *accesscontrolrule.Helper
+	mcpOAuthChecker   MCPOAuthChecker
+	mcpSessionManager MCPInstanceResolver
+	serverURL         string
+}
+
+func NewServerInstancesHandler(acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, mcpSessionManager MCPInstanceResolver, serverURL string) *ServerInstancesHandler {
 	return &ServerInstancesHandler{
-		acrHelper:                 acrHelper,
-		mcpOAuthChecker:           mcpOAuthChecker,
-		serverURL:                 serverURL,
-		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		acrHelper:         acrHelper,
+		mcpOAuthChecker:   mcpOAuthChecker,
+		mcpSessionManager: mcpSessionManager,
+		serverURL:         serverURL,
 	}
 }
 
@@ -233,7 +240,7 @@ func (h *ServerInstancesHandler) oauthURLForInstance(req api.Context) (string, e
 	// fully configured (e.g. required headers unset) so the probe never 500s on
 	// a half-set-up instance. For remote catalog servers (NeedsURL=false) this
 	// is identical to the strict path.
-	server, serverConfig, _, err := serverFromMCPServerInstance(req, instance, h.secretBindingAllowedLabel, true)
+	_, server, serverConfig, _, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), instance.Name, req.User.GetUID())
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve MCP server instance: %w", err)
 	}

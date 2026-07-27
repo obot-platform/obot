@@ -8,13 +8,13 @@
 	import Search from '$lib/components/Search.svelte';
 	import CreateAuditLogExportForm from '$lib/components/admin/audit-log-exports/CreateAuditLogExportForm.svelte';
 	import CreateScheduledExportForm from '$lib/components/admin/audit-log-exports/CreateScheduleForm.svelte';
+	import ExportsView from '$lib/components/admin/audit-log-exports/ExportsView.svelte';
+	import ScheduledExportsView from '$lib/components/admin/audit-log-exports/ScheduledExportsView.svelte';
 	import StorageCredentialsForm from '$lib/components/admin/audit-log-exports/StorageCredentialsForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type AuditLogExport, type ScheduledAuditLogExport } from '$lib/services';
 	import { profile } from '$lib/stores';
 	import { replaceState, goto } from '$lib/url';
-	import ExportsView from './ExportsView.svelte';
-	import ScheduledExportsView from './ScheduledExportsView.svelte';
 	import { Plus, Settings } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
@@ -35,7 +35,7 @@
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	let createdExport = $state<AuditLogExport | ScheduledAuditLogExport | null>(null);
+	let createdExport = $state<AuditLogExport | null>(null);
 
 	let setTimeoutIds: ReturnType<typeof setTimeout>[] = [];
 
@@ -49,12 +49,7 @@
 
 	afterNavigate(({ to }) => {
 		if (browser && to?.url) {
-			const formType = to.url.searchParams.get('form') as FormType;
-			if (!formType && showForm) {
-				showForm = null;
-			} else if (formType && !showForm) {
-				showForm = formType;
-			}
+			showForm = (to.url.searchParams.get('form') as FormType) || null;
 		}
 	});
 
@@ -84,7 +79,12 @@
 
 		const exp = exports.find((d) => d.id === createdExport?.id);
 
-		if (exp && (exp.state === createdExport?.state || exp.state === 'running')) {
+		if (
+			createdExport &&
+			exp &&
+			'state' in exp &&
+			(exp.state === createdExport.state || exp.state === 'running')
+		) {
 			cleanup();
 
 			const id = setTimeout(() => {
@@ -107,13 +107,17 @@
 				} else {
 					// No storage provider configured, redirect to storage form first
 					showForm = 'storage';
-					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+					goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
+						replaceState: false
+					});
 				}
 			} catch (error) {
 				// Error getting storage credentials, assume not configured and redirect to storage form
 				console.error('Failed to get storage credentials:', error);
 				showForm = 'storage';
-				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, { replaceState: false });
+				goto(`/admin/audit-logs/exports?form=storage&next=${formType}`, {
+					replaceState: false
+				});
 			}
 		} else {
 			// For storage form, proceed directly
@@ -128,13 +132,13 @@
 	}
 
 	async function handleFormSuccess(item?: AuditLogExport | ScheduledAuditLogExport) {
-		createdExport = item ? { ...item } : null;
+		createdExport = item && 'startTime' in item ? { ...item } : null;
 
 		showForm = null;
 
 		await goto('/admin/audit-logs/exports', { replaceState: false });
 
-		if (item) {
+		if (createdExport) {
 			const id = setTimeout(() => {
 				reloadAndCheckExportStatus();
 			}, 1000);

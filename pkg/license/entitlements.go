@@ -83,8 +83,16 @@ func (g *ProviderEntitlementGate) requiresProviderEntitlements(req *http.Request
 	return pattern != ""
 }
 
-// Missing returns the required entitlements that are unavailable from the current license.
-func (p *Provider) MissingEntitlements(requiredEntitlements []string) []string {
+// MissingEntitlements returns the required entitlements that are unavailable
+// from the current database/config license key.
+func (p *Provider) MissingEntitlements(ctx context.Context, requiredEntitlements []string) ([]string, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return nil, err
+	}
+	return p.missingEntitlements(requiredEntitlements), nil
+}
+
+func (p *Provider) missingEntitlements(requiredEntitlements []string) []string {
 	var missing []string
 	for _, entitlement := range requiredEntitlements {
 		if !p.hasEntitlement(entitlement) {
@@ -94,9 +102,12 @@ func (p *Provider) MissingEntitlements(requiredEntitlements []string) []string {
 	return missing
 }
 
-// Require returns Payment Required if any required entitlements are unavailable.
-func (p *Provider) RequireEntitlements(requiredEntitlements []string) error {
-	missing := p.MissingEntitlements(requiredEntitlements)
+// RequireEntitlements returns Payment Required if any required entitlements are unavailable.
+func (p *Provider) RequireEntitlements(ctx context.Context, requiredEntitlements []string) error {
+	missing, err := p.MissingEntitlements(ctx, requiredEntitlements)
+	if err != nil {
+		return fmt.Errorf("failed to refresh license entitlements: %w", err)
+	}
 	if len(missing) == 0 {
 		return nil
 	}
@@ -106,6 +117,10 @@ func (p *Provider) RequireEntitlements(requiredEntitlements []string) error {
 // ConfiguredProviderViolations returns any globally configured auth/model providers
 // that are currently missing required license entitlements.
 func (p *Provider) ConfiguredProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return nil, fmt.Errorf("failed to refresh license entitlements: %w", err)
+	}
+
 	modelProviderViolations, err := p.configuredModelProviderViolations(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check model provider license entitlements: %w", err)
@@ -130,7 +145,7 @@ func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kcli
 	var violations []ProviderViolation
 	for _, mp := range modelProviders.Items {
 		if mp.Status.Configured {
-			missingEntitlements := p.MissingEntitlements(mp.Spec.RequiredEntitlements)
+			missingEntitlements := p.missingEntitlements(mp.Spec.RequiredEntitlements)
 			if len(missingEntitlements) > 0 {
 				violations = append(violations, ProviderViolation{
 					Type:                 "modelProvider",
@@ -157,7 +172,7 @@ func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclie
 	var violations []ProviderViolation
 	for _, ap := range authProviders.Items {
 		if ap.Status.Configured {
-			missingEntitlements := p.MissingEntitlements(ap.Spec.RequiredEntitlements)
+			missingEntitlements := p.missingEntitlements(ap.Spec.RequiredEntitlements)
 			if len(missingEntitlements) > 0 {
 				violations = append(violations, ProviderViolation{
 					Type:                 "authProvider",

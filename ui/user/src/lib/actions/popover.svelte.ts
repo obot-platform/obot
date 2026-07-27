@@ -1,3 +1,4 @@
+import { getOpenGuidePanelWidth } from './openDialog.js';
 import {
 	type ComputePositionConfig,
 	type Placement,
@@ -310,9 +311,22 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 		if (!ref || !tooltip || shouldSkipAutoPosition()) return;
 
 		const offsetSize = options?.offset ?? 4;
+		// Treat the open guide panel as unavailable viewport so menus don't slide under it.
+		const guidePanelWidth = getOpenGuidePanelWidth();
+		const overflowPadding = {
+			top: offsetSize,
+			right: offsetSize + guidePanelWidth,
+			bottom: offsetSize,
+			left: offsetSize
+		};
+
 		const { x, y } = await computePosition(ref, tooltip, {
 			placement: options?.placement ?? 'bottom-end',
-			middleware: [flip(), shift({ padding: offsetSize }), offset(offsetSize)],
+			middleware: [
+				flip({ padding: overflowPadding }),
+				shift({ padding: overflowPadding }),
+				offset(offsetSize)
+			],
 			...options
 		});
 

@@ -20,19 +20,44 @@ func (e LogoutAllErr) Error() string {
 	return "logout all is not supported in the current configuration"
 }
 
-func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclient.Client, identities []types.Identity, sessionID string) error {
-	return c.deleteSessionsForUser(ctx, c.db.WithContext(ctx), storageClient, identities, sessionID)
+// DeleteSessionsForUser deletes the user's sessions across all of their identities. When
+// keepSessionID / keepLocalSessionID are non-empty, the caller's current session is preserved
+// (the "log out everywhere else" flow); when both are empty, every session is deleted (e.g. when
+// the user is being deleted).
+func (c *Client) DeleteSessionsForUser(ctx context.Context, storageClient kclient.Client, identities []types.Identity, sessionID, localSessionID string) error {
+	return c.deleteSessionsForUser(ctx, c.db.WithContext(ctx), storageClient, identities, sessionID, localSessionID)
 }
 
-func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storageClient kclient.Client, identities []types.Identity, sessionID string) error {
-	// Logout all sessions is only supported when using PostgreSQL.
-	if db.Name() != "postgres" {
-		return LogoutAllErr{}
-	}
-
+func (c *Client) deleteSessionsForUser(ctx context.Context, db *gorm.DB, storageClient kclient.Client, identities []types.Identity, sessionID, localSessionID string) error {
 	logger := gcontext.GetLogger(ctx)
 	var errs []error
+
+	// The local auth provider keeps its sessions in Obot's own database, so they can be deleted on
+	// any database backend, unlike the oauth2-proxy sessions handled below.
+	var external []types.Identity
 	for _, identity := range identities {
+		if identity.AuthProviderName == system.LocalAuthProvider && identity.AuthProviderNamespace == system.DefaultNamespace {
+			if err := c.DeleteLocalAuthSessionsForEmail(ctx, identity.Email, localSessionID); err != nil {
+				errs = append(errs, fmt.Errorf("failed to delete local auth sessions: %w", err))
+			} else {
+				logger.Infof("deleted sessions: provider=%s emailHash=%s", identity.AuthProviderName, hash.String(identity.Email))
+			}
+			continue
+		}
+
+		external = append(external, identity)
+	}
+
+	if len(external) == 0 {
+		return errors.Join(errs...)
+	}
+
+	// Logging out of the other providers' sessions is only supported when using PostgreSQL.
+	if db.Name() != "postgres" {
+		return errors.Join(append(errs, LogoutAllErr{})...)
+	}
+
+	for _, identity := range external {
 		if identity.AuthProviderName == "" || identity.AuthProviderNamespace == "" {
 			continue
 		}

@@ -1,7 +1,6 @@
 package client
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 
 func TestCreateAndValidateServiceAccountAPIKey(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := c.CreateServiceAccountAPIKey(ctx, serviceaccounts.NetworkPolicyProvider, time.Now().UTC())
 	if err != nil {
@@ -31,7 +30,7 @@ func TestCreateAndValidateServiceAccountAPIKey(t *testing.T) {
 
 func TestValidateServiceAccountAPIKeyRejectsRetiredKey(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := c.CreateServiceAccountAPIKey(ctx, serviceaccounts.NetworkPolicyProvider, time.Now().UTC())
 	if err != nil {
@@ -53,7 +52,7 @@ func TestValidateServiceAccountAPIKeyRejectsRetiredKey(t *testing.T) {
 
 func TestDeleteExpiredServiceAccountAPIKeys(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	created, err := c.CreateServiceAccountAPIKey(ctx, serviceaccounts.NetworkPolicyProvider, time.Now().UTC())
 	if err != nil {
@@ -86,7 +85,7 @@ func TestDeleteExpiredServiceAccountAPIKeys(t *testing.T) {
 
 func TestRetireOtherServiceAccountAPIKeys(t *testing.T) {
 	c := newTestClient(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	first, err := c.CreateServiceAccountAPIKey(ctx, serviceaccounts.NetworkPolicyProvider, time.Now().UTC().Add(-time.Hour))
 	if err != nil {
@@ -121,7 +120,7 @@ func TestRetireOtherServiceAccountAPIKeys(t *testing.T) {
 
 func TestValidateServiceAccountAPIKeyRejectsUnknownToken(t *testing.T) {
 	c := newTestClient(t)
-	if _, err := c.ValidateStorageServiceAccountToken(context.Background(), "osa1.bad.token"); err == nil {
+	if _, err := c.ValidateStorageServiceAccountToken(t.Context(), "osa1.bad.token"); err == nil {
 		t.Fatal("expected unknown token to be rejected")
 	} else if err != gorm.ErrRecordNotFound {
 		t.Fatalf("expected gorm.ErrRecordNotFound, got %v", err)

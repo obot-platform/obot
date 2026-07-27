@@ -14,7 +14,7 @@ import (
 type SkillAccessRuleHandler struct{}
 
 func NewSkillAccessRuleHandler() *SkillAccessRuleHandler {
-	return &SkillAccessRuleHandler{}
+	return nil
 }
 
 func (*SkillAccessRuleHandler) List(req api.Context) error {
@@ -40,8 +40,8 @@ func (*SkillAccessRuleHandler) Get(req api.Context) error {
 	return req.Write(convertSkillAccessRule(rule))
 }
 
-func (h *SkillAccessRuleHandler) Create(req api.Context) error {
-	manifest, err := h.readAndValidateManifest(req)
+func (*SkillAccessRuleHandler) Create(req api.Context) error {
+	manifest, err := readAndValidateManifest(req)
 	if err != nil {
 		return err
 	}
@@ -63,8 +63,8 @@ func (h *SkillAccessRuleHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertSkillAccessRule(rule))
 }
 
-func (h *SkillAccessRuleHandler) Update(req api.Context) error {
-	manifest, err := h.readAndValidateManifest(req)
+func (*SkillAccessRuleHandler) Update(req api.Context) error {
+	manifest, err := readAndValidateManifest(req)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (*SkillAccessRuleHandler) Delete(req api.Context) error {
 	})
 }
 
-func (h *SkillAccessRuleHandler) readAndValidateManifest(req api.Context) (*types.SkillAccessRuleManifest, error) {
+func readAndValidateManifest(req api.Context) (*types.SkillAccessRuleManifest, error) {
 	var manifest types.SkillAccessRuleManifest
 	if err := req.Read(&manifest); err != nil {
 		return nil, types.NewErrBadRequest("failed to read skill access rule manifest: %v", err)
@@ -101,14 +101,14 @@ func (h *SkillAccessRuleHandler) readAndValidateManifest(req api.Context) (*type
 		return nil, types.NewErrBadRequest("invalid skill access rule manifest: %v", err)
 	}
 
-	if err := h.validateReferencedResources(req, manifest.Resources); err != nil {
+	if err := validateReferencedResources(req, manifest.Resources); err != nil {
 		return nil, err
 	}
 
 	return &manifest, nil
 }
 
-func (*SkillAccessRuleHandler) validateReferencedResources(req api.Context, resources []types.SkillResource) error {
+func validateReferencedResources(req api.Context, resources []types.SkillResource) error {
 	for _, resource := range resources {
 		switch resource.Type {
 		case types.SkillResourceTypeSkill:

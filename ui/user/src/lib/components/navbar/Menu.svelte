@@ -6,6 +6,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		classes?: {
 			menu?: string;
 			button?: string;
@@ -24,6 +25,7 @@
 	}
 
 	let {
+		id,
 		onLoad,
 		icon,
 		header,
@@ -76,6 +78,7 @@
 </script>
 
 <button
+	{id}
 	use:ref
 	class={twMerge('btn btn-ghost btn-square z-20', classes?.button)}
 	onclick={() => {

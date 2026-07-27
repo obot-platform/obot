@@ -10,13 +10,15 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 )
 
+const oauthCheckClientScope = "Obot OAuth Check"
+
 type Client struct {
 	*nmcp.Client
-	ID     string
-	Config ServerConfig
 
 	jwt *jwt.Token
 }
@@ -29,8 +31,8 @@ func (c *Client) hasValidToken() bool {
 	return false
 }
 
-func (sm *SessionManager) ClientForMCPServerForOAuthCheck(ctx context.Context, clientScope string, serverConfig ServerConfig, opt nmcp.ClientOption) (*Client, error) {
-	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, false, opt)
+func (sm *SessionManager) ClientForMCPServerForOAuthCheck(ctx context.Context, serverConfig ServerConfig, opt nmcp.ClientOption) (*Client, error) {
+	return sm.clientForServerWithOptions(ctx, oauthCheckClientScope, serverConfig, opt)
 }
 
 func (sm *SessionManager) clientForServer(ctx context.Context, serverConfig ServerConfig) (*Client, error) {
@@ -44,26 +46,16 @@ func (sm *SessionManager) clientForServerWithScope(ctx context.Context, clientSc
 		clientName = "Obot Chat"
 	}
 
-	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, true, nmcp.ClientOption{
+	return sm.clientForServerWithOptions(ctx, clientScope, serverConfig, nmcp.ClientOption{
 		ClientName: clientName,
 	})
 }
 
-func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope string, serverConfig ServerConfig, transformRemote bool, opt nmcp.ClientOption) (*Client, error) {
-	config, err := sm.ensureDeployment(ctx, serverConfig, transformRemote)
-	if err != nil {
-		return nil, err
-	}
-
+func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, clientScope string, serverConfig ServerConfig, opt nmcp.ClientOption) (*Client, error) {
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	session, err := sm.loadSession(ctx, config, clientScope, opt)
-	if err != nil {
-		return nil, err
-	}
-
-	return session, nil
+	return sm.loadSession(ctx, serverConfig, clientScope, opt)
 }
 
 func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, clientScope string, clientOpts nmcp.ClientOption) (*Client, error) {
@@ -76,6 +68,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		sm.sessions.Store(server.MCPServerName, clientSessions)
 	}
 
+	isOAuthCheck := clientScope == oauthCheckClientScope
 	clientScope = clientID(server, clientScope)
 
 	existing, ok := clientSessions.Load(clientScope)
@@ -105,20 +98,21 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	var jwtToken *jwt.Token
 	// If the token storage is not set, then this is a client we use in our API.
 	// This needs authentication for it to work.
-	if clientOpts.TokenStorage == nil {
+	// If this is a system client, we don't need to authenticate because we are talking directly to the MCP server.
+	if clientOpts.TokenStorage == nil && server.UserID != "system" {
 		var (
 			token string
 			err   error
 		)
 
 		now := time.Now().Add(-time.Second)
-		// TODO(thedadams): This needs to be fixed before user information headers can be passed to the MCP server.
-		jwtToken, token, err = sm.tokenService.NewTokenWithClaims(ctx, jwt.MapClaims{
-			"aud":   utils.FirstSet(server.Audiences...),
-			"exp":   float64(now.Add(time.Hour + 15*time.Minute).Unix()),
-			"iat":   float64(now.Unix()),
-			"sub":   server.UserID,
-			"MCPID": server.MCPServerName,
+		jwtToken, token, err = sm.tokenService.NewToken(ctx, persistent.TokenContext{
+			Audience:   utils.FirstSet(server.Audiences...),
+			ExpiresAt:  persistent.NewTime(now.Add(time.Hour + 15*time.Minute)),
+			IssuedAt:   persistent.NewTime(now),
+			UserID:     server.UserID,
+			MCPID:      server.MCPServerName,
+			UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWT token for client: %w", err)
@@ -127,8 +121,13 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		headers.Set("Authorization", "Bearer "+token)
 	}
 
+	url := server.URL
+	if !isOAuthCheck && server.UserID != "system" {
+		url = sm.TransformObotHostname(system.MCPConnectURL(sm.baseURL, server.MCPServerName))
+	}
+
 	c, err := nmcp.NewClient(sm.sessionCtx, server.MCPServerDisplayName, nmcp.Server{
-		BaseURL: server.URL,
+		BaseURL: url,
 		Headers: headers,
 	}, clientOpts)
 	if err != nil {
@@ -136,9 +135,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	result := &Client{
-		ID:     clientScope,
 		Client: c,
-		Config: server,
 		jwt:    jwtToken,
 	}
 

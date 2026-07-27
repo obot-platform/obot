@@ -54,7 +54,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	extra := map[string][]string{
-		"email": {u.Email},
+		"email":              {u.Email},
+		"authorized_mcp_ids": apiKey.MCPServerIDs,
 	}
 
 	// Look up auth provider group memberships so that group-based access

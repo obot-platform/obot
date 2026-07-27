@@ -19,7 +19,8 @@
 		hasEditableConfiguration,
 		getMCPDisplayName,
 		hasSecretBinding,
-		isDeprecatedMCPServer
+		isDeprecatedMCPServer,
+		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, version } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -493,7 +494,9 @@
 		);
 		if (!launchResponse.success) {
 			launchError = launchResponse.message;
-			listLaunchLogs(configuredResponse.id);
+			if (supportsMCPBackendDetails(configuredResponse)) {
+				listLaunchLogs(configuredResponse.id);
+			}
 		}
 
 		if (!launchError) {
@@ -1053,7 +1056,12 @@
 	{/if}
 {/snippet}
 
-<ResponsiveDialog bind:this={connectDialog} animate="slide" onClose={handleOnClose}>
+<ResponsiveDialog
+	bind:this={connectDialog}
+	animate="slide"
+	onClose={handleOnClose}
+	id="connect-to-server-dialog"
+>
 	{#snippet titleContent()}
 		{@render dialogTitle(server || entry)}
 		<McpDeprecatedNotice {deprecated} />
@@ -1063,7 +1071,7 @@
 		{@const url = instance?.connectURL || server?.connectURL || entry?.connectURL}
 		{@const displayName = getMCPDisplayName(server, entry?.manifest?.name ?? '')}
 		{#if url}
-			<div class="flex flex-col gap-3 md:p-0 pb-0 p-4">
+			<div id="connection-url-container" class="flex flex-col gap-3 md:p-0 pb-0 p-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 				<CopyField
 					bind:this={connectionUrlField}

@@ -431,13 +431,9 @@
 
 		if (runtimeFormData) {
 			showRuntimeRequired = {}; // reset
-			const missingRequiredFields = validateRuntimeForm(
-				runtimeFormData as RuntimeFormData,
-				'multi',
-				true
-			);
-			if (Object.keys(missingRequiredFields).length > 0) {
-				showRuntimeRequired = missingRequiredFields;
+			const { required } = validateRuntimeForm(runtimeFormData as RuntimeFormData, 'filter', true);
+			if (Object.keys(required).length > 0) {
+				showRuntimeRequired = required;
 				return;
 			}
 		}
@@ -718,6 +714,7 @@
 					serverUserType="multiUser"
 					{isPrebuiltEntry}
 					overrideEnvField={[PII_REDACT_TYPES, PII_BLOCK_TYPES]}
+					showRequired={showRuntimeRequired.env}
 				>
 					{#snippet overrideEnvTemplate({ config })}
 						{#if config.key === PII_BLOCK_TYPES && runtimeFormData}

@@ -13,7 +13,7 @@ import (
 type ModelInfoSourceHandler struct{}
 
 func NewModelInfoSourceHandler() *ModelInfoSourceHandler {
-	return &ModelInfoSourceHandler{}
+	return nil
 }
 
 // Get returns the default ModelInfoSource.

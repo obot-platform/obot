@@ -8,12 +8,14 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/auditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/cleanup"
+	gitcredentialhandler "github.com/obot-platform/obot/pkg/controller/handlers/gitcredential"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpwebhookvalidation"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/model"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
@@ -27,17 +29,19 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Controller) setupRoutes() {
 	root := c.services.Router
 
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
-	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL, c.services.InternalServerURL)
+	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager)
 	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
-	skillRepository := skillrepository.New()
+	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
+	skillRepository := skillrepository.New(c.services.GatewayClient)
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
@@ -53,6 +57,7 @@ func (c *Controller) setupRoutes() {
 	oktaGroupMigrationHandler := oktagroupmigration.New()
 	projectHandler := project.New(c.services.GatewayClient)
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
+	gitCredentialHandler := gitcredentialhandler.New(c.services.GatewayClient)
 	modelHandler := model.NewHandler(c.services.GatewayClient)
 
 	// AuthProviders
@@ -64,6 +69,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelProvider{}).FinalizeFunc(v1.ModelProviderFinalizer, providers.CleanupModelProvider)
 
 	// Models
+	root.Type(&v1.Model{}).HandlerFunc(modelHandler.RemoveApplyUpdateAnnotation)
 	root.Type(&v1.Model{}).HandlerFunc(modelHandler.Cleanup)
 	root.Type(&v1.Model{}).HandlerFunc(modelHandler.EnsureModelInfo)
 	root.Type(&v1.Model{}).HandlerFunc(alias.AssignAlias)
@@ -83,6 +89,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)
 	root.Type(&v1.ModelInfo{}).HandlerFunc(cleanup.Cleanup)
 
+	// MDMAssetSource
+	root.Type(&v1.MDMAssetSource{}).Namespace(system.DefaultNamespace).Name(system.DefaultMDMAssetSource).HandlerFunc(mdmAssetSource.Sync)
+
 	// MCPCatalog
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
@@ -100,6 +109,10 @@ func (c *Controller) setupRoutes() {
 	// ImagePullSecret
 	root.Type(&v1.ImagePullSecret{}).FinalizeFunc(v1.ImagePullSecretFinalizer, imagePullSecretHandler.Cleanup)
 	root.Type(&v1.ImagePullSecret{}).HandlerFunc(imagePullSecretHandler.Reconcile)
+
+	// GitCredential
+	root.Type(&v1.GitCredential{}).HandlerFunc(gitCredentialHandler.SyncReferences)
+	root.Type(&v1.GitCredential{}).FinalizeFunc(v1.GitCredentialFinalizer, gitCredentialHandler.Cleanup)
 
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
@@ -134,6 +147,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SetNonDeployServerStatus)
 	root.Type(&v1.MCPServer{}).FinalizeFunc(v1.MCPServerFinalizer, credentialCleanup.RemoveMCPCredentials)
 
 	// MCPNetworkPolicy
@@ -214,6 +228,7 @@ func (c *Controller) setupRoutes() {
 
 	c.providerHandler = providers
 	c.mcpCatalogHandler = mcpCatalog
+	c.mdmAssetSourceHandler = mdmAssetSource
 	c.modelInfoSourceHandler = modelInfoSource
 	c.adminWorkspaceHandler = adminWorkspaceHandler
 }

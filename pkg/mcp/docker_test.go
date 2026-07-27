@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"errors"
 	"slices"
 	"testing"
 
@@ -48,6 +49,90 @@ func TestChooseMCPNetwork(t *testing.T) {
 	}
 	if got := chooseMCPNetwork("", ""); got != "bridge" {
 		t.Fatalf("default should be bridge, got %q", got)
+	}
+}
+
+func TestDockerBackendNetworkConfigUsesDetectedContainerNetwork(t *testing.T) {
+	localCalled := false
+
+	containerEnv, network, host, err := dockerBackendNetworkConfig(
+		func() (string, string, error) {
+			return "obot_default", "172.18.0.4", nil
+		},
+		func() (string, error) {
+			localCalled = true
+			return "192.168.1.4", nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !containerEnv {
+		t.Fatalf("expected containerEnv")
+	}
+	if network != "obot_default" {
+		t.Fatalf("expected detected network, got %q", network)
+	}
+	if host != "172.18.0.4" {
+		t.Fatalf("expected detected host, got %q", host)
+	}
+	if localCalled {
+		t.Fatalf("did not expect local IP detection to be called")
+	}
+}
+
+func TestDockerBackendNetworkConfigFallsBackToLocalIP(t *testing.T) {
+	tests := map[string]func() (string, string, error){
+		"container detection errors": func() (string, string, error) {
+			return "", "", errors.New("inspect failed")
+		},
+		"container detection has no IP": func() (string, string, error) {
+			return "obot_default", "", nil
+		},
+	}
+
+	for name, detectContainer := range tests {
+		t.Run(name, func(t *testing.T) {
+			containerEnv, network, host, err := dockerBackendNetworkConfig(
+				detectContainer,
+				func() (string, error) {
+					return "192.168.1.4", nil
+				},
+			)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if containerEnv {
+				t.Fatalf("did not expect containerEnv")
+			}
+			if network != "bridge" {
+				t.Fatalf("expected default network, got %q", network)
+			}
+			if host != "192.168.1.4" {
+				t.Fatalf("expected local host, got %q", host)
+			}
+		})
+	}
+}
+
+func TestDockerBackendNetworkConfigReturnsLocalIPError(t *testing.T) {
+	routeErr := errors.New("route failed")
+
+	_, _, _, err := dockerBackendNetworkConfig(
+		func() (string, string, error) {
+			return "", "", errors.New("inspect failed")
+		},
+		func() (string, error) {
+			return "", routeErr
+		},
+	)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+	if !errors.Is(err, routeErr) {
+		t.Fatalf("expected wrapped route error, got %v", err)
 	}
 }
 

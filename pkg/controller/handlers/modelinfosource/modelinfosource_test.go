@@ -95,7 +95,7 @@ func TestParseModelInfos_NoKnownProviders(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("skips recent sync", func(t *testing.T) {
 		called := false

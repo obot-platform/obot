@@ -13,7 +13,7 @@ import (
 type AccessControlRuleHandler struct{}
 
 func NewAccessControlRuleHandler() *AccessControlRuleHandler {
-	return &AccessControlRuleHandler{}
+	return nil
 }
 
 // List returns all access control rules for a catalog or workspace.
@@ -108,7 +108,7 @@ func (*AccessControlRuleHandler) Get(req api.Context) error {
 }
 
 // Create creates a new access control rule for a catalog or workspace.
-func (h *AccessControlRuleHandler) Create(req api.Context) error {
+func (*AccessControlRuleHandler) Create(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
@@ -152,11 +152,11 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 
 	// Validate that referenced resources exist in the same scope
 	if catalogID != "" {
-		if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
+		if err := validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
 			return err
 		}
 	} else {
-		if err := h.validateResourcesInWorkspace(req, manifest.Resources, workspaceID); err != nil {
+		if err := validateResourcesInWorkspace(req, manifest.Resources, workspaceID); err != nil {
 			return err
 		}
 	}
@@ -182,7 +182,7 @@ func (h *AccessControlRuleHandler) Create(req api.Context) error {
 }
 
 // Update updates an existing access control rule for a catalog or workspace.
-func (h *AccessControlRuleHandler) Update(req api.Context) error {
+func (*AccessControlRuleHandler) Update(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 	ruleID := req.PathValue("access_control_rule_id")
@@ -226,11 +226,11 @@ func (h *AccessControlRuleHandler) Update(req api.Context) error {
 
 	// Validate that referenced resources exist in the same scope
 	if catalogID != "" {
-		if err := h.validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
+		if err := validateResourcesInCatalog(req, manifest.Resources, catalogID); err != nil {
 			return err
 		}
 	} else {
-		if err := h.validateResourcesInWorkspace(req, manifest.Resources, workspaceID); err != nil {
+		if err := validateResourcesInWorkspace(req, manifest.Resources, workspaceID); err != nil {
 			return err
 		}
 	}
@@ -300,7 +300,7 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 }
 
 // validateResourcesInCatalog validates that referenced resources exist in the specified catalog
-func (*AccessControlRuleHandler) validateResourcesInCatalog(req api.Context, resources []types.Resource, catalogID string) error {
+func validateResourcesInCatalog(req api.Context, resources []types.Resource, catalogID string) error {
 	for _, resource := range resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:
@@ -332,7 +332,7 @@ func (*AccessControlRuleHandler) validateResourcesInCatalog(req api.Context, res
 }
 
 // validateResourcesInWorkspace validates that referenced resources exist in the specified workspace
-func (*AccessControlRuleHandler) validateResourcesInWorkspace(req api.Context, resources []types.Resource, workspaceID string) error {
+func validateResourcesInWorkspace(req api.Context, resources []types.Resource, workspaceID string) error {
 	for _, resource := range resources {
 		switch resource.Type {
 		case types.ResourceTypeMCPServerCatalogEntry:

@@ -20,6 +20,8 @@
 	export type InitSort = { property: string; order: 'asc' | 'desc' };
 	export type InitSortFn = (property: string, order: 'asc' | 'desc') => void;
 
+	const ACTIONS_MIN_WIDTH = 80;
+
 	interface Props<T> {
 		actions?: Snippet<[T]>;
 		classes?: {
@@ -289,6 +291,12 @@
 		selected = {};
 	}
 
+	function getColumnMinWidth(width: number, index: number, columnCount: number): number {
+		if (index === 0 && tableSelectActions) return 57;
+		if (actions && index === columnCount - 1) return Math.max(width, ACTIONS_MIN_WIDTH);
+		return Math.max(width * 0.3, 100);
+	}
+
 	function calculateConstrainedWidths(naturalWidths: number[], availableWidth: number): number[] {
 		const totalNaturalWidth = naturalWidths.reduce((sum, width) => sum + width, 0);
 
@@ -298,7 +306,7 @@
 		}
 
 		const minWidths = naturalWidths.map((width, index) =>
-			index === 0 && tableSelectActions ? 57 : Math.max(width * 0.3, 100)
+			getColumnMinWidth(width, index, naturalWidths.length)
 		);
 		const totalMinWidth = minWidths.reduce((sum, width) => sum + width, 0);
 
@@ -358,6 +366,7 @@
 		cells.forEach((cell, index) => {
 			let width = measureCellWidth(cell);
 
+			const isActionsColumn = actionsOffset > 0 && index === cells.length - 1;
 			const isFieldColumn =
 				index >= selectColOffset &&
 				index < cells.length - actionsOffset &&
@@ -370,9 +379,10 @@
 				} else {
 					width += calculateFieldPadding(fieldIndex);
 				}
-				if (columnMaxWidths?.[property] != null) {
-					width = Math.min(width, columnMaxWidths[property]);
-				}
+				width = columnMaxWidths?.[property] ?? width;
+			} else if (isActionsColumn) {
+				// Empty action cells measure near 0; always reserve space for the column filter control.
+				width = Math.max(width, ACTIONS_MIN_WIDTH);
 			}
 
 			naturalWidths.push(width);
@@ -610,9 +620,7 @@
 	>
 		{#if tableSelectActions && Object.keys(selected).length > 0}
 			<div class="flex w-full items-center">
-				<div class="shrink-0 p-2">
-					{@render selectAll()}
-				</div>
+				<div class="shrink-0 p-2">{@render selectAll()}</div>
 				<div class="text-muted-content px-4 py-2 text-left text-sm font-semibold">
 					{Object.keys(selected).length} of {totalSelectable} selected
 				</div>
@@ -639,7 +647,12 @@
 								/>
 							{/each}
 							{#if actions}
-								<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+								<col
+									style="width: {Math.max(
+										columnWidths[columnWidths.length - 1] ?? 0,
+										ACTIONS_MIN_WIDTH
+									)}px;"
+								/>
 							{/if}
 						</colgroup>
 					{/if}
@@ -673,7 +686,12 @@
 						/>
 					{/each}
 					{#if actions}
-						<col style="width: {columnWidths[columnWidths.length - 1] || 80}px;" />
+						<col
+							style="width: {Math.max(
+								columnWidths[columnWidths.length - 1] ?? 0,
+								ACTIONS_MIN_WIDTH
+							)}px;"
+						/>
 					{/if}
 				</colgroup>
 			{/if}
@@ -881,19 +899,21 @@
 				{@const actionHeaderClass = headerClasses?.find((hc) => hc.property === 'actions')?.class}
 				<th
 					class={twMerge(
-						'text-md text-muted-content float-right w-auto px-4 py-2 text-left font-medium',
+						'text-md text-muted-content w-auto px-4 py-2 font-medium',
 						actionHeaderClass
 					)}
 				>
-					<TableColumnFilter
-						{fields}
-						{headers}
-						{hiddenFieldIndices}
-						{disablePortal}
-						onVisibilityChange={handleColumnVisibilityChange}
-						onReset={handleColumnVisibilityReset}
-						showReset={userHiddenFieldIndices !== null}
-					/>
+					<div class="flex justify-end">
+						<TableColumnFilter
+							{fields}
+							{headers}
+							{hiddenFieldIndices}
+							{disablePortal}
+							onVisibilityChange={handleColumnVisibilityChange}
+							onReset={handleColumnVisibilityReset}
+							showReset={userHiddenFieldIndices !== null}
+						/>
+					</div>
 				</th>
 			{/if}
 		</tr>

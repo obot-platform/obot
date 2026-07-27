@@ -16,6 +16,7 @@
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
 	}}
 	title="Audit Logs"
+	subtitle="MCP Management"
 >
 	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex min-h-full flex-col gap-8 pb-8">
@@ -25,5 +26,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | Audit Logs</title>
+	<title>Obot | MCP Audit Logs</title>
 </svelte:head>

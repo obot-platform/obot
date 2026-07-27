@@ -3,7 +3,6 @@ package cli
 import (
 	"archive/zip"
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -50,7 +49,7 @@ func TestSkillsSearchCallsAPIWithQueryAndLimit(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "search", "github", "--limit", "7")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "search", "github", "--limit", "7")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +68,7 @@ func TestSkillsSearchEmptyResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "search")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "search")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +87,7 @@ func TestSkillsSearchJSONMode(t *testing.T) {
 	}))
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "search", "--json")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "search", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +110,7 @@ func TestSkillsInstallExactIDInstallsClaudeCode(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +130,7 @@ func TestSkillsInstallExactIDInstallsSharedAgents(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.agents/skills")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.agents/skills")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +145,7 @@ func TestSkillsInstallNoMatches(t *testing.T) {
 	server := skillInstallTestServer(t, nil)
 	defer server.Close()
 
-	_, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "missing", "--destination", "~/.claude/skills")
+	_, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "install", "missing", "--destination", "~/.claude/skills")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -164,7 +163,7 @@ func TestSkillsInstallRequiresDestination(t *testing.T) {
 	}})
 	defer server.Close()
 
-	_, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1")
+	_, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "install", "sk1")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -182,7 +181,7 @@ func TestSkillsInstallJSONMode(t *testing.T) {
 	}})
 	defer server.Close()
 
-	stdout, err := executeSkillsTestCommand(skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills", "--json")
+	stdout, err := executeSkillsTestCommand(t, skillsTestRoot(server.URL), "install", "sk1", "--destination", "~/.claude/skills", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,10 +221,12 @@ func skillsTestRoot(baseURL string) *Obot {
 	}}
 }
 
-func executeSkillsTestCommand(root *Obot, args ...string) (string, error) {
+func executeSkillsTestCommand(t *testing.T, root *Obot, args ...string) (string, error) {
+	t.Helper()
+
 	var stdout bytes.Buffer
 	cmd := cmd.Command(&Skills{root: root})
-	cmd.SetContext(context.Background())
+	cmd.SetContext(t.Context())
 	cmd.SetOut(&stdout)
 	cmd.SetArgs(args)
 	err := cmd.Execute()

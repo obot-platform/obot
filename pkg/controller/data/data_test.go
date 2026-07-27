@@ -1,7 +1,6 @@
 package data
 
 import (
-	"context"
 	"testing"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -22,7 +21,7 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 }
 
 func TestCreateDefaultSkillRepository(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("empty URL is no-op", func(t *testing.T) {
 		c := newFakeClient(t)

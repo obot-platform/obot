@@ -4,7 +4,6 @@ import (
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/fields"
-	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -30,13 +29,15 @@ func (in *SkillRepository) Get(field string) (value string) {
 		return in.Spec.RepoURL
 	case "spec.ref":
 		return in.Spec.Ref
+	case "spec.gitCredentialID":
+		return in.Spec.GitCredentialID
 	}
 
 	return ""
 }
 
 func (in *SkillRepository) FieldNames() []string {
-	return []string{"spec.repoURL", "spec.ref"}
+	return []string{"spec.repoURL", "spec.ref", "spec.gitCredentialID"}
 }
 
 func (in *SkillRepository) GetColumns() [][]string {
@@ -51,7 +52,10 @@ func (in *SkillRepository) GetColumns() [][]string {
 }
 
 type SkillRepositorySpec struct {
-	types.SkillRepositoryManifest `json:",inline"`
+	DisplayName     string `json:"displayName,omitempty"`
+	RepoURL         string `json:"repoURL,omitempty"`
+	Ref             string `json:"ref,omitempty"`
+	GitCredentialID string `json:"gitCredentialID,omitempty"`
 }
 
 type SkillRepositoryStatus struct {

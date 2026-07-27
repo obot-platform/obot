@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"testing"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -17,7 +16,7 @@ func TestGetModelFromReference_ReturnsNotFoundWhenNameAndTargetMiss(t *testing.T
 		WithScheme(storagescheme.Scheme).
 		Build()
 
-	_, err := getModelFromReference(context.Background(), client, "default", "missing-model")
+	_, err := getModelFromReference(t.Context(), client, "default", "missing-model")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
@@ -45,7 +44,7 @@ func TestGetModelFromReference_ReturnsModelByResourceName(t *testing.T) {
 		WithObjects(model).
 		Build()
 
-	got, err := getModelFromReference(context.Background(), client, "default", "openai-gpt-4.1-mini")
+	got, err := getModelFromReference(t.Context(), client, "default", "openai-gpt-4.1-mini")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -74,7 +73,7 @@ func TestGetModelFromReference_DoesNotFallbackToManifestNameOrTargetModel(t *tes
 		Build()
 
 	for _, ref := range []string{"manifest-name", "target-model-id"} {
-		_, err := getModelFromReference(context.Background(), client, "default", ref)
+		_, err := getModelFromReference(t.Context(), client, "default", ref)
 		if err == nil {
 			t.Fatalf("%s: expected error, got nil", ref)
 		}

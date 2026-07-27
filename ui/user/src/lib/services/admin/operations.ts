@@ -5,6 +5,7 @@ import { buildQueryString } from '$lib/url';
 import {
 	doDelete,
 	doGet,
+	doGetForResponse,
 	doPatch,
 	doPost,
 	doPut,
@@ -12,6 +13,7 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
+import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '../user/constants';
 import type {
 	ModelProvider,
 	MCPCatalogServer,
@@ -45,6 +47,7 @@ import type {
 	StorageCredentials,
 	AuditLogExport,
 	AuditLogExportInput,
+	AuditLogType,
 	ScheduledAuditLogExportInput,
 	K8sSettings,
 	ServerK8sSettings,
@@ -54,6 +57,8 @@ import type {
 	ImagePullSecretRefreshResponse,
 	ImagePullSecretTestRequest,
 	ImagePullSecretTestResponse,
+	GitCredential,
+	GitCredentialManifest,
 	MCPCompositeDeletionDependency,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
@@ -97,7 +102,18 @@ import type {
 	AppPreferencesManifest,
 	AppNotificationManifest,
 	License,
-	LicenseManifest
+	LicenseManifest,
+	LLMAuditLog,
+	LLMAuditLogURLFilters,
+	MDMAsset,
+	MDMAssetList,
+	MDMAssetSource,
+	MDMConfiguration,
+	MDMConfigurationInput,
+	MDMDevice,
+	MDMEnrollmentKey,
+	MDMEnrollmentKeyCreateResponse,
+	LocalAuthUser
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -181,13 +197,16 @@ export async function updateAppNotification(
 
 // Audit log exports
 
-export async function getAuditLogExports(opts?: { fetch?: Fetcher }) {
-	const response = (await doGet('/audit-log-exports', opts)) as PaginatedResponse<AuditLogExport>;
+export async function getAuditLogExports(type: AuditLogType = 'mcp', opts?: { fetch?: Fetcher }) {
+	const response = (await doGet(
+		`/audit-log-exports?type=${type}`,
+		opts
+	)) as PaginatedResponse<AuditLogExport>;
 	return response;
 }
 
 export async function getAuditLogExport(name: string, opts?: { fetch?: Fetcher }) {
-	const response = await doGet(`/audit-log-exports/${name}`, opts);
+	const response = (await doGet(`/audit-log-exports/${name}`, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -195,7 +214,7 @@ export async function createAuditLogExport(
 	request: AuditLogExportInput,
 	opts?: { fetch?: Fetcher }
 ) {
-	const response = await doPost('/audit-log-exports', request, opts);
+	const response = (await doPost('/audit-log-exports', request, opts)) as AuditLogExport;
 	return response;
 }
 
@@ -203,9 +222,12 @@ export async function deleteAuditLogExport(name: string, opts?: { signal?: Abort
 	await doDelete(`/audit-log-exports/${name}`, { signal: opts?.signal });
 }
 
-export async function getScheduledAuditLogExports(opts?: { fetch?: Fetcher }) {
+export async function getScheduledAuditLogExports(
+	type: AuditLogType = 'mcp',
+	opts?: { fetch?: Fetcher }
+) {
 	const response = (await doGet(
-		'/scheduled-audit-log-exports',
+		`/scheduled-audit-log-exports?type=${type}`,
 		opts
 	)) as PaginatedResponse<ScheduledAuditLogExport>;
 	return response;
@@ -223,7 +245,11 @@ export async function createScheduledAuditLogExport(
 	request: ScheduledAuditLogExportInput,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPost('/scheduled-audit-log-exports', request, opts);
+	const response = (await doPost(
+		'/scheduled-audit-log-exports',
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 
@@ -232,12 +258,48 @@ export async function updateScheduledAuditLogExport(
 	request: Partial<ScheduledAuditLogExportInput>,
 	opts?: { dontLogErrors?: boolean }
 ) {
-	const response = await doPatch(`/scheduled-audit-log-exports/${id}`, request, opts);
+	const response = (await doPatch(
+		`/scheduled-audit-log-exports/${id}`,
+		request,
+		opts
+	)) as ScheduledAuditLogExport;
 	return response;
 }
 
 export async function deleteScheduledAuditLogExport(name: string, opts?: { signal?: AbortSignal }) {
 	await doDelete(`/scheduled-audit-log-exports/${name}`, { signal: opts?.signal });
+}
+
+// LLM audit logs
+
+export async function getLLMAuditLog(id: string, opts?: { fetch?: Fetcher; signal?: AbortSignal }) {
+	const response = (await doGet(`/llm-audit-logs/detail/${id}`, opts)) as LLMAuditLog;
+	return response;
+}
+
+export async function listLLMAuditLogs(
+	filters?: LLMAuditLogURLFilters,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+) {
+	const queryString = buildQueryString(filters ?? {});
+	const response = (await doGet(
+		`/llm-audit-logs${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<LLMAuditLog>;
+	return response;
+}
+
+export async function listLLMAuditLogFilterOptions(
+	filter: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal } & Partial<LLMAuditLogURLFilters>
+) {
+	const { fetch: fetchFn, signal, ...filters } = opts ?? {};
+	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
+	const response = (await doGet(
+		`/llm-audit-logs/filter-options/${filter}${queryString ? `?${queryString}` : ''}`,
+		{ fetch: fetchFn, signal }
+	)) as { options: string[] };
+	return response;
 }
 
 // Auth providers
@@ -275,6 +337,33 @@ export async function deconfigureAuthProvider(
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
 	await doPost(`/auth-providers/${authProviderID}/deconfigure`, {}, opts);
+}
+
+// Local auth provider users
+
+export async function listLocalAuthUsers(opts?: { fetch?: Fetcher }): Promise<LocalAuthUser[]> {
+	const list = (await doGet('/local-auth/users', opts)) as ItemsResponse<LocalAuthUser>;
+	return list.items ?? [];
+}
+
+export async function createLocalAuthUser(
+	email: string,
+	password: string,
+	opts?: { fetch?: Fetcher }
+): Promise<LocalAuthUser> {
+	return (await doPost('/local-auth/users', { email, password }, opts)) as LocalAuthUser;
+}
+
+export async function setLocalAuthUserPassword(
+	id: string,
+	password: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/local-auth/users/${id}/password`, { password }, opts);
+}
+
+export async function deleteLocalAuthUser(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doDelete(`/local-auth/users/${id}`, opts);
 }
 
 // Bootstrap
@@ -494,6 +583,36 @@ export async function updateImagePullSecret(
 
 export async function deleteImagePullSecret(id: string, opts?: RequestOptions): Promise<void> {
 	await doDelete(`/image-pull-secrets/${id}`, opts);
+}
+
+// Git credentials
+
+export async function listGitCredentials(opts?: RequestOptions): Promise<GitCredential[]> {
+	const response = (await doGet('/git-credentials', opts)) as ItemsResponse<GitCredential>;
+	return response.items ?? [];
+}
+
+export async function getGitCredential(id: string, opts?: RequestOptions): Promise<GitCredential> {
+	return (await doGet(`/git-credentials/${id}`, opts)) as GitCredential;
+}
+
+export async function createGitCredential(
+	input: GitCredentialManifest,
+	opts?: RequestOptions
+): Promise<GitCredential> {
+	return (await doPost('/git-credentials', input, opts)) as GitCredential;
+}
+
+export async function updateGitCredential(
+	id: string,
+	input: GitCredentialManifest,
+	opts?: RequestOptions
+): Promise<GitCredential> {
+	return (await doPatch(`/git-credentials/${id}`, input, opts)) as GitCredential;
+}
+
+export async function deleteGitCredential(id: string, opts?: RequestOptions): Promise<void> {
+	await doDelete(`/git-credentials/${id}`, opts);
 }
 
 export async function testImagePullSecret(
@@ -1967,4 +2086,136 @@ export async function updateLicense(
 	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<License> {
 	return (await doPut('/license', manifest, opts)) as License;
+}
+
+// MDM configurations
+
+export async function listMDMConfigurations(opts?: {
+	fetch?: Fetcher;
+}): Promise<MDMConfiguration[]> {
+	const response = (await doGet('/mdm/configurations', opts)) as {
+		items: MDMConfiguration[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function createMDMConfiguration(
+	input: MDMConfigurationInput
+): Promise<MDMConfiguration> {
+	return (await doPost('/mdm/configurations', input, {
+		dontLogErrors: true
+	})) as MDMConfiguration;
+}
+
+export async function updateMDMConfiguration(
+	id: number,
+	input: MDMConfigurationInput
+): Promise<MDMConfiguration> {
+	return (await doPut(`/mdm/configurations/${id}`, input, {
+		dontLogErrors: true
+	})) as MDMConfiguration;
+}
+
+export async function deleteMDMConfiguration(id: number): Promise<void> {
+	await doDelete(`/mdm/configurations/${id}`);
+}
+
+export async function listMDMEnrollmentKeys(
+	configurationId: number,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMEnrollmentKey[]> {
+	const response = (await doGet(
+		`/mdm/configurations/${configurationId}/enrollment-keys`,
+		opts
+	)) as {
+		items: MDMEnrollmentKey[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function createMDMEnrollmentKey(
+	configurationId: number,
+	input: { name?: string; expiresAt?: string }
+): Promise<MDMEnrollmentKeyCreateResponse> {
+	return (await doPost(
+		`/mdm/configurations/${configurationId}/enrollment-keys`,
+		input
+	)) as MDMEnrollmentKeyCreateResponse;
+}
+
+export async function deleteMDMEnrollmentKey(
+	configurationId: number,
+	keyId: number
+): Promise<void> {
+	await doDelete(`/mdm/configurations/${configurationId}/enrollment-keys/${keyId}`);
+}
+
+export async function listMDMDevices(
+	configurationId: number,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMDevice[]> {
+	const response = (await doGet(`/mdm/configurations/${configurationId}/devices`, opts)) as {
+		items: MDMDevice[] | null;
+	};
+	return response.items ?? [];
+}
+
+export async function getMDMConfiguration(
+	id: number | string,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMConfiguration> {
+	return (await doGet(`/mdm/configurations/${id}`, opts)) as MDMConfiguration;
+}
+
+// parseContentDispositionFilename pulls the download filename out of a
+// Content-Disposition header, preferring the RFC 5987 filename* form.
+function parseContentDispositionFilename(header: string | null): string | undefined {
+	if (!header) return undefined;
+	const encoded = header.match(/filename\*=(?:UTF-8'')?([^;]+)/i);
+	if (encoded) {
+		try {
+			return decodeURIComponent(encoded[1].trim().replace(/^"|"$/g, ''));
+		} catch {
+			// Fall back to the plain filename form below.
+		}
+	}
+	const plain = header.match(/filename="?([^";]+)"?/i);
+	return plain ? plain[1].trim() : undefined;
+}
+
+export async function getMDMAssetSource(opts?: { fetch?: Fetcher }): Promise<MDMAssetSource> {
+	return (await doGet('/mdm/asset-source', {
+		...opts,
+		dontLogErrors: true
+	})) as MDMAssetSource;
+}
+
+export async function refreshMDMAssetSource(opts?: { fetch?: Fetcher }): Promise<void> {
+	await doPost('/mdm/asset-source/refresh', {}, opts);
+}
+
+export async function listMDMAssets(opts?: { fetch?: Fetcher }): Promise<MDMAsset[]> {
+	const response = (await doGet('/mdm/assets', {
+		...opts,
+		dontLogErrors: true
+	})) as MDMAssetList;
+	return response.items ?? [];
+}
+
+// Downloads one already-rendered artifact. The bundle carries no credentials;
+// an administrator supplies an enrollment key according to its instructions.
+export async function downloadMDMConfig(
+	configurationId: number,
+	slug: string,
+	reqOpts?: RequestOptions
+): Promise<{ blob: Blob; filename: string }> {
+	const resp = await doGetForResponse(
+		`/mdm/configurations/${configurationId}/download/${encodeURIComponent(slug)}`,
+		reqOpts
+	);
+	const blob = await resp.blob();
+	const filename =
+		parseContentDispositionFilename(resp.headers.get('content-disposition')) ??
+		`obot-sentry-config-${configurationId}.zip`;
+	return { blob, filename };
 }

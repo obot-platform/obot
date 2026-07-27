@@ -20,7 +20,7 @@ import {
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry
 } from '..';
-import { AiClient } from './constants';
+import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
 
 export interface MCPServerInfo extends MCPServer {
 	id?: string;
@@ -34,6 +34,11 @@ export function getMCPDisplayName(
 	fallback: string = ''
 ): string {
 	return (item && 'alias' in item && item?.alias) || item?.manifest.name || fallback;
+}
+
+export function supportsMCPBackendDetails(item?: { manifest?: { runtime?: string } }): boolean {
+	const runtime = item?.manifest?.runtime;
+	return runtime !== 'remote' && runtime !== 'composite';
 }
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
@@ -593,7 +598,9 @@ export async function convertCompositeInfoToLaunchFormData(
 	return { componentConfigs } as CompositeLaunchFormData;
 }
 
-export function getServerUrl(d: MCPCatalogServer) {
+export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
+	const prefix = prefixPath ?? '/mcp-catalog';
+	const adminPrefix = `/admin${prefix}`;
 	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
 	// Route by the server's actual user type, not by the presence of a catalog
 	// entry. Multi-user servers deployed from a catalog entry carry a
@@ -602,29 +609,28 @@ export function getServerUrl(d: MCPCatalogServer) {
 	// The single-user instance page fetches via /mcp-catalog/{id}, which only
 	// resolves servers that are not scoped to a catalog or workspace.
 	const isMulti = isMultiUserServer(d);
-
 	let url: string;
 	if (profile.current.hasAdminAccess?.()) {
 		if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/s/${d.id}/details`;
+					? `${adminPrefix}/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/s/${d.id}/details`;
 		} else if (isMulti) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/s/${d.id}`;
+					? `${adminPrefix}/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/s/${d.id}`;
 		} else {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `/admin/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+					? `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
 		url = isMulti
-			? `/mcp-catalog/s/${d.id}/details`
-			: `/mcp-catalog/c/${d.catalogEntryID}/instance/${d.id}/details`;
+			? `${prefix}/s/${d.id}/details`
+			: `${prefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
 	}
 	return url;
 }
@@ -693,12 +699,27 @@ export const getMcpServerDeploymentStatus = (
 	return { updateStatus, updatesAvailable, updateStatusTooltip };
 };
 
+function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['env']) {
+	if (!envs || type === 'composite') return true;
+
+	if (type === 'remote') {
+		return envs.every((env) => Boolean(env.key.trim()));
+	}
+
+	return envs.every(
+		(env) =>
+			Boolean(env.key.trim()) &&
+			(Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim()))
+	);
+}
+
 export const validateRuntimeForm = (
 	formData: RuntimeFormData,
-	type: LaunchServerType,
+	type: LaunchServerType | 'filter',
 	nameNotRequired: boolean = false
-): Record<string, boolean> => {
+): { required: Record<string, boolean>; invalid: Record<string, boolean> } => {
 	const missingFields: Record<string, boolean> = {};
+	const invalid: Record<string, boolean> = {};
 	if (
 		formData.startupTimeoutSeconds !== undefined &&
 		(!Number.isInteger(formData.startupTimeoutSeconds) || formData.startupTimeoutSeconds <= 0)
@@ -706,9 +727,22 @@ export const validateRuntimeForm = (
 		missingFields.startupTimeoutSeconds = true;
 	}
 
+	if (type !== 'filter') {
+		const shortDescription = formData.shortDescription?.trim();
+		if (!shortDescription) {
+			missingFields.shortDescription = true;
+		} else if (Array.from(shortDescription).length > MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH) {
+			invalid.shortDescription = true;
+		}
+	}
+
 	// Basic validation - name is required
 	if (!nameNotRequired && !formData.name.trim()) {
 		missingFields.name = true;
+	}
+
+	if (!validateEnvs(type, formData.env)) {
+		missingFields.env = true;
 	}
 
 	// Runtime-specific validation
@@ -758,7 +792,7 @@ export const validateRuntimeForm = (
 			break;
 	}
 
-	return missingFields;
+	return { required: missingFields, invalid };
 };
 
 export const convertCategoriesToMetadata = (
@@ -1020,6 +1054,10 @@ export async function restartMcpServer(
 	server: MCPCatalogServer,
 	catalogID?: string
 ): Promise<void> {
+	if (!supportsMCPBackendDetails(server)) {
+		throw new Error('This MCP server runtime does not support restart.');
+	}
+
 	if (isMultiUserServer(server)) {
 		if (server.powerUserWorkspaceID) {
 			await UserService.restartWorkspaceK8sServerDeployment(server.powerUserWorkspaceID, server.id);

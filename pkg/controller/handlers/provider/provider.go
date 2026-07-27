@@ -411,7 +411,7 @@ func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.AuthProviderStatus(*authProvider, cred.Secrets, licenseProvider)
+		providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -447,7 +447,7 @@ func SetModelProviderConfiguredStatus(ctx context.Context, gatewayClient *gatewa
 			cred.Secrets = make(map[string]string)
 		}
 
-		providerStatus, err := providers.ModelProviderStatus(*modelProvider, cred.Secrets, licenseProvider)
+		providerStatus, err := providers.ModelProviderStatus(ctx, *modelProvider, cred.Secrets, licenseProvider)
 		if err != nil {
 			return err
 		}
@@ -515,13 +515,11 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		if displayName == "" {
 			displayName = model.ID
 		}
-		models = append(models, &v1.Model{
+		dialect := modelDialect(model.Metadata, modelProvider.Spec.Dialect)
+		discovered := &v1.Model{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: modelProvider.Namespace,
 				Name:      modelName(modelProvider.Name, model.ID),
-				Annotations: map[string]string{
-					apply.AnnotationUpdate: "false",
-				},
 			},
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
@@ -531,10 +529,12 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 					ModelProvider: modelProvider.Name,
 					Active:        true,
 					Usage:         types.ModelUsage(model.Metadata["usage"]),
-					Dialect:       modelProvider.Spec.Dialect,
+					Dialect:       dialect,
 				},
 			},
-		})
+		}
+
+		models = append(models, discovered)
 	}
 
 	if err = apply.New(client).Apply(ctx, modelProvider, models...); err != nil {
@@ -543,6 +543,13 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 	log.Infof("Back-populated models for model provider: provider=%s models=%d", modelProvider.Name, len(models))
 
 	return nil
+}
+
+func modelDialect(metadata map[string]string, fallback string) string {
+	if dialect := metadata["dialect"]; dialect != "" {
+		return dialect
+	}
+	return fallback
 }
 
 func removeModelsForProvider(ctx context.Context, c kclient.Client, namespace, name string) error {

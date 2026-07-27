@@ -1,7 +1,15 @@
 export const ABORTED_THREAD_MESSAGE = 'thread was aborted, cancelling run';
 export const ABORTED_BY_USER_MESSAGE = 'aborted by user';
 
-export const UNAUTHORIZED_PATHS = new Set(['/', '/privacy-policy', '/terms-of-service', '/admin']);
+export const UNAUTHORIZED_PATHS = new Set([
+	'/',
+	'/privacy-policy',
+	'/terms-of-service',
+	'/admin',
+	// The local auth provider's login form: anonymous by definition, so a 401 from the layout's
+	// profile fetch must not bounce the user back to the provider list.
+	'/login/local'
+]);
 
 export const PAGE_TRANSITION_DURATION = 200;
 export const PAGE_SIZE = 50;
@@ -45,8 +53,12 @@ export const CommonAuthProviderIds = {
 	OKTA: 'okta-auth-provider',
 	ENTRA: 'entra-auth-provider',
 	AUTH0: 'auth0-auth-provider',
-	JUMPCLOUD: 'jumpcloud-auth-provider'
+	JUMPCLOUD: 'jumpcloud-auth-provider',
+	LOCAL: 'local-auth-provider'
 } as const;
+
+/** Matches localauth.MinPasswordLength on the server. */
+export const LOCAL_AUTH_MIN_PASSWORD_LENGTH = 12;
 
 export const BOOTSTRAP_USER_ID = 'bootstrap';
 
@@ -332,3 +344,74 @@ export const PII_FILTER_OPTION_VALUES = [
 	{ id: 'block', label: 'Block' },
 	{ id: 'redact', label: 'Redact' }
 ];
+
+export const OBOT_GUIDE_KEYS = {
+	COMPLETED: '@obot/completed-guide',
+	GUIDE: '@obot/seen-guide',
+	SHOW_ALL_GUIDES: '@obot/show-all-guides'
+} as const;
+
+export const AI_CLIENT_PREFERENCE_KEY = 'aiClientPreference';
+
+// IDs
+export const CATALOG_SERVER_FIELD_IDS = {
+	serverFormDetails: 'catalog-server-form-details',
+	name: 'catalog-server-name',
+	description: 'catalog-server-description-label',
+	descriptionHint: 'catalog-server-description-hint',
+	shortDescription: 'catalog-server-short-description',
+	shortDescriptionHint: 'catalog-server-short-description-hint',
+	shortDescriptionCount: 'catalog-server-short-description-count',
+	shortDescriptionError: 'catalog-server-short-description-error',
+	icon: 'catalog-server-icon',
+	serverType: 'catalog-server-tenancy-type-label',
+	serverTypeHint: 'catalog-server-tenancy-hint',
+	nameError: 'catalog-server-name-error',
+	formError: 'catalog-server-form-error',
+	tenancy: 'catalog-server-tenancy',
+	runtime: 'catalog-server-runtime',
+	runtimeConfiguration: 'catalog-server-runtime-configuration',
+	configuration: 'catalog-server-configuration',
+	addConfigurationBtn: 'catalog-server-add-configuration-btn',
+	env: 'catalog-server-env',
+	header: 'catalog-server-header',
+	headers: 'catalog-server-user-headers',
+	remoteURL: 'catalog-server-remote-url',
+	remoteAdvancedBtn: 'catalog-server-remote-advanced-btn',
+	remoteConnection: 'catalog-server-remote-connection',
+	remoteHeaders: 'catalog-server-remote-headers',
+	remoteStaticOAuth: 'catalog-server-remote-static-oauth',
+	compositeEntries: 'catalog-server-composite-entries',
+	addCompositeEntryBtn: 'catalog-server-add-composite-entry-btn',
+	submitBtn: 'catalog-server-form-submit',
+	cancelBtn: 'catalog-server-form-cancel',
+	removeConfigurationBtn: 'catalog-server-remove-configuration-btn',
+	compositeEntryChoice: 'catalog-server-composite-entry-choice',
+	compositeConfigureEntryToolsDialog: 'catalog-server-composite-entry-configure-tools',
+	compositeEntrySearchMcpServersDialog: 'search-mcp-servers-dialog',
+	compositeEntrySearchMcpServersConfirmBtn: 'search-mcp-servers-confirm-btn',
+	compositeEntrySearchMcpServersCancelBtn: 'search-mcp-servers-cancel-btn',
+	compositeEntrySkipBtn: 'composite-entry-choice-skip-btn',
+	compositeEntryConfigureToolsBtn: 'composite-entry-choice-configure-tools-btn',
+	compositeEntryConfigureToolsGetStartedBtn:
+		'composite-entry-choice-configure-tools-get-started-btn',
+	compositeEntryConfigureToolsToggleAll: 'composite-entry-choice-configure-tools-toggle-all',
+	compositeEntryConfigureToolsConfirmBtn: 'composite-entry-choice-configure-tools-confirm-btn',
+	compositeEntryToolCollapseBtn: 'composite-entry-tool-collapse-btn',
+	compositeEntryEditToolsDialog: 'composite-entry-edit-tools-dialog'
+};
+
+export const MCP_ACCESS_POLICY_FIELD_IDS = {
+	addPolicyBtn: 'mcp-access-policy-add-btn',
+	addPolicyEmptyBtn: 'mcp-access-policy-empty-add-btn',
+	name: 'mcp-access-policy-name',
+	usersGroupsSection: 'mcp-access-policy-users-groups-section',
+	addUserGroupBtn: 'mcp-access-policy-add-user-group-btn',
+	allUsersOption: 'mcp-access-policy-all-users-option',
+	userGroupConfirmBtn: 'mcp-access-policy-user-group-confirm-btn',
+	serversSection: 'mcp-access-policy-servers-section',
+	addServerBtn: 'mcp-access-policy-add-server-btn',
+	everythingOption: 'mcp-access-policy-everything-option',
+	serverConfirmBtn: 'mcp-access-policy-server-confirm-btn',
+	saveBtn: 'mcp-access-policy-save-btn'
+} as const;

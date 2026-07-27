@@ -16,16 +16,19 @@ func TestMissingAndRequire(t *testing.T) {
 		},
 	}
 
-	missing := provider.MissingEntitlements([]string{"ENTITLED", "MISSING"})
+	missing, err := provider.MissingEntitlements(t.Context(), []string{"ENTITLED", "MISSING"})
+	if err != nil {
+		t.Fatalf("Missing() error = %v, want nil", err)
+	}
 	if len(missing) != 1 || missing[0] != "MISSING" {
 		t.Fatalf("Missing() = %v, want [MISSING]", missing)
 	}
 
-	if err := provider.RequireEntitlements([]string{"ENTITLED"}); err != nil {
+	if err := provider.RequireEntitlements(t.Context(), []string{"ENTITLED"}); err != nil {
 		t.Fatalf("Require() error = %v, want nil", err)
 	}
 
-	err := provider.RequireEntitlements([]string{"MISSING"})
+	err = provider.RequireEntitlements(t.Context(), []string{"MISSING"})
 	var httpErr *types.ErrHTTP
 	if !errors.As(err, &httpErr) {
 		t.Fatalf("Require() error = %T, want *types.ErrHTTP", err)

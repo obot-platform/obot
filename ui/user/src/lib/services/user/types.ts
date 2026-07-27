@@ -105,130 +105,171 @@ export interface AppPreferences {
 
 // Audit logs
 
-export type AuditLogClient = {
-	name: string;
-	version: string;
+export type AuditLogEventType = 'mcp_call' | 'local_agent_tool_call';
+export type AuditLogTimestampSource = 'server' | 'client_reported';
+export type AuditLogActorType = 'user' | 'device' | 'credential' | 'unknown';
+export type AuditLogTargetType =
+	| 'mcp_server'
+	| 'mcp_tool'
+	| 'mcp_resource'
+	| 'mcp_prompt'
+	| 'local_tool';
+export type AuditLogOutcomeStatus = 'success' | 'failure' | 'denied' | 'timeout' | 'unknown';
+
+export type AuditLogTargetRef = {
+	targetType: AuditLogTargetType;
+	id?: string;
+	name?: string;
 };
-export type AuditLogSourceType = 'mcp' | 'local_agent_tool_call';
-export type LocalAgentToolCallAuditLogFields = {
-	agentProvider: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
-	agentVersion?: string;
-	cliName?: string;
-	cliVersion: string;
-	status: 'denied' | 'succeeded' | 'failed' | 'timeout' | string;
-	failureType?: string;
-	observedAt: string;
+
+export type AuditLogPayloadDetails = {
+	headers?: Record<string, string | string[]> | string;
+	body?: unknown;
+	mutatedBody?: unknown;
+	originalBody?: unknown;
+	mutated: boolean;
+};
+
+export type WebhookStatus = {
+	type?: string;
+	method?: string;
+	url?: string;
+	name?: string;
+	tool?: string;
+	status?: string;
+	message: string;
+};
+
+export type AuditLogDetails = {
+	trace?: {
+		sessionID?: string;
+		requestID?: string;
+		idempotencyKey?: string;
+		toolUseID?: string;
+		turnID?: string;
+	};
+	network?: { clientIP?: string };
+	client?: { name?: string; version?: string; userAgent?: string };
+	agent?: {
+		provider?: 'claude_code' | 'codex' | 'vscode' | 'cursor' | string;
+		version?: string;
+		cliName?: string;
+		cliVersion?: string;
+		model?: string;
+		modelID?: string;
+		permissionMode?: string;
+	};
+	device?: {
+		id?: string;
+		deploymentID?: number;
+		hostname?: string;
+		os?: string;
+		architecture?: string;
+		localUsername?: string;
+	};
+	scope?: { powerUserWorkspaceID?: string; mcpServerCatalogEntryName?: string };
+	environment?: {
+		cwd?: string;
+		gitRoot?: string;
+		gitRemotes?: string[];
+		gitBranch?: string;
+		gitCommit?: string;
+		reportedUserEmail?: string;
+		transcriptPath?: string;
+	};
+	request?: AuditLogPayloadDetails;
+	response?: AuditLogPayloadDetails;
+	webhookStatuses?: WebhookStatus[];
+	rawEvent?: unknown;
 	startedAt?: string;
-	idempotencyKey: string;
-	toolUseID?: string;
-	sessionID?: string;
-	turnID?: string;
-	toolName: string;
-	toolKind?: string;
-	mcpServerHint?: string;
-	mcpToolName?: string;
-	obotAuditCorrelationID?: string;
-	model?: string;
-	modelID?: string;
-	permissionMode?: string;
-	durationMs?: number;
-	error?: string;
-	deviceID?: string;
-	hostname?: string;
-	os?: string;
-	arch?: string;
-	localUsername?: string;
-	reportedUserEmail?: string;
-	identityStatus: 'authenticated_user' | 'anonymous_device' | 'unresolved' | string;
-	cwd?: string;
-	gitRepoRoot?: string;
-	gitRemoteURLs?: string[];
-	gitBranch?: string;
-	gitCommitSHA?: string;
-	transcriptPath?: string;
-	toolInput: unknown;
-	toolOutput: unknown;
-	rawHookPayload: unknown;
+	payloadRedacted: boolean;
 };
-export type MCPAuditLogFields = {
-	apiKey?: string;
-	userAgent?: string;
-	mcpServerDisplayName: string;
-	mcpServerCatalogEntryName?: string;
-	mcpID?: string;
-	powerUserWorkspaceID?: string;
-	client: AuditLogClient;
-	callType: string;
-	callIdentifier?: string;
-	responseStatus: number;
-	processingTimeMs: number;
-	requestHeaders?: Record<string, string | string[]>;
-	requestMutated: boolean;
-	requestBody?: unknown;
-	mutatedRequestBody?: unknown;
-	responseHeaders?: Record<string, string | string[]>;
-	responseMutated: boolean;
-	responseBody?: unknown;
-	originalResponseBody?: unknown;
-	webhookStatuses?: {
-		type?: string;
-		method?: string;
-		name?: string;
-		tool?: string;
-		url?: string;
-		status?: string;
-		message?: string;
-	}[];
-	error?: string;
-	sessionID?: string;
-	requestID?: string;
-};
-export interface AuditLog {
-	id: string;
-	createdAt: string;
-	sourceType?: AuditLogSourceType;
-	userID: string;
-	clientIP: string;
-	mcpFields?: MCPAuditLogFields;
-	localAgentToolCallFields?: LocalAgentToolCallAuditLogFields;
+
+export interface AuditLogEvent {
+	id: string | number;
+	timestamp: {
+		occurredAt: string;
+		recordedAt: string;
+		source: AuditLogTimestampSource;
+	};
+	eventType: AuditLogEventType;
+	actor: {
+		actorType: AuditLogActorType;
+		id?: string;
+		/** Redacted authentication credential identifier when the actor is a known user. */
+		credentialID?: string;
+	};
+	action: { operation: string; name?: string; kind?: string };
+	target: AuditLogTargetRef & { parent?: AuditLogTargetRef };
+	outcome: {
+		status: AuditLogOutcomeStatus;
+		httpStatus?: number;
+		reason?: string;
+		error?: string;
+		durationMs?: number;
+	};
+	/**
+	 * Source-independent short client label: the MCP client name or the local-agent provider.
+	 * Present in list responses so the table can render the Client column without fetching details.
+	 */
+	client?: string;
+	details?: AuditLogDetails;
 }
-export interface AuditLogToolCallStatItem {
+export interface McpAuditLogToolCallStatItem {
 	createdAt: string;
 	userID: string;
 	processingTimeMs: number;
 	responseStatus: number;
 	error: string;
 }
-export interface AuditLogToolCallStat {
+export interface McpAuditLogToolCallStat {
 	toolName: string;
 	callCount: number;
-	items?: AuditLogToolCallStatItem[];
+	items?: McpAuditLogToolCallStatItem[];
 }
-export interface AuditLogResourceReadStat {
+export interface McpAuditLogResourceReadStat {
 	resourceUri: string;
 	readCount: number;
 }
-export interface AuditLogPromptReadStat {
+export interface McpAuditLogPromptReadStat {
 	promptName: string;
 	readCount: number;
 }
-export interface AuthLogUsageStatItem {
+export interface McpAuthLogUsageStatItem {
 	mcpID: string;
 	mcpServerInstanceName: string;
 	mcpServerName: string;
 	mcpServerDisplayName: string;
-	toolCalls?: AuditLogToolCallStat[];
-	resourceReads?: AuditLogResourceReadStat[];
-	promptReads?: AuditLogPromptReadStat[];
+	toolCalls?: McpAuditLogToolCallStat[];
+	resourceReads?: McpAuditLogResourceReadStat[];
+	promptReads?: McpAuditLogPromptReadStat[];
 }
-export interface AuditLogUsageStats {
-	items: AuthLogUsageStatItem[];
+export interface McpAuditLogUsageStats {
+	items: McpAuthLogUsageStatItem[];
 	timeStart: string;
 	timeEnd: string;
 	totalCalls: number;
 	uniqueUsers: number;
 }
 export type AuditLogURLFilters = {
+	event_type?: string | null;
+
+	// Unified, source-agnostic filters used by the audit log UI. These map to the correct
+	// underlying column per source in the backend and can be combined across sources.
+	actor?: string | null; // matches an Obot user id or an enrolled device id
+	operation?: string | null; // MCP call type; local-agent tool calls are implicitly tools/call
+	mcp_server?: string | null; // MCP server (id/display name) or a local-agent row's MCP parent
+	tool?: string | null; // MCP call identifier or local-agent action name
+	outcome?: string | null; // normalized status: success/failure/denied/timeout/unknown
+	client?: string | null; // MCP client name or local-agent provider
+	// Duration is a client-side preset bucket ("minMs-maxMs"); the page translates it to the
+	// processing_time_min/max params below before querying the backend.
+	duration?: string | null;
+	processing_time_min?: number | null; // duration filter, milliseconds
+	processing_time_max?: number | null;
+
+	// Legacy source-specific filters. Used for audit log exports.
+	// MCP filters:
 	user_id?: string | null;
 	mcp_server_catalog_entry_name?: string | null;
 	mcp_server_display_name?: string | null;
@@ -239,6 +280,13 @@ export type AuditLogURLFilters = {
 	client_ip?: string | null;
 	call_type?: string | null; // tools/call, resources/read, prompts/get
 	session_id?: string | null;
+	// Local-agent tool-call filters
+	agent_provider?: string | null;
+	status?: string | null;
+	tool_name?: string | null;
+	tool_kind?: string | null;
+	device_id?: string | null;
+
 	start_time?: string | null; // RFC3339 format (e.g., "2024-01-01T00:00:00Z"
 	end_time?: string | null;
 	limit?: number | null;
@@ -246,6 +294,7 @@ export type AuditLogURLFilters = {
 	query?: string | null;
 	response_status?: string | null;
 };
+
 export type AuditLogFilters = {
 	userId?: string | null;
 	mcpServerCatalogEntryName?: string | null;
@@ -260,7 +309,7 @@ export type AuditLogFilters = {
 	sortBy?: string | null; // Field to sort by (e.g., "created_at", "user_id", "call_type")
 	sortOrder?: string | null; // Sort order: "asc" or "desc"
 };
-export type AuditLogUsageFilters = {
+export type McpAuditLogUsageFilters = {
 	mcp_id?: string;
 	mcp_server_catalog_entry_names?: string;
 	mcp_server_display_names?: string;
@@ -268,7 +317,7 @@ export type AuditLogUsageFilters = {
 	start_time?: string | null;
 	end_time?: string | null;
 };
-export type ServerOrInstanceAuditLogStatsFilters = {
+export type McpServerOrInstanceAuditLogStatsFilters = {
 	start_time?: string;
 	end_time?: string;
 };
@@ -703,6 +752,7 @@ export interface Model {
 	name: string;
 	displayName: string;
 	targetModel: string;
+	dialect?: string;
 	usage: string;
 	icon?: string;
 	iconDark?: string;

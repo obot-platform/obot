@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -64,7 +63,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 			continue
 		}
 
-		_, serverConfig, err := handlers.ServerForAction(req, componentServer.Name, h.oauthChecker.secretBindingAllowedLabel)
+		_, serverConfig, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), componentServer.Name, req.User.GetUID())
 		if err != nil {
 			return fmt.Errorf("failed to get server config: %w", err)
 		}

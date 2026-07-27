@@ -22,10 +22,11 @@ import (
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/git"
+	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -72,30 +73,13 @@ type Handler struct {
 	httpClient                *http.Client
 	gatewayClient             *gclient.Client
 	accessControlRuleHelper   *accesscontrolrule.Helper
-	remoteURLValidationConfig validation.Options
+	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
-}
-
-// revealCatalogCredential retrieves a stored PAT for the given source URL.
-// Returns an empty string if no credential is configured (not-found). Any other
-// error is logged so credential-store failures are visible in the sync status.
-func (h *Handler) revealCatalogCredential(ctx context.Context, catalogName, sourceURL string) string {
-	cred, err := h.gatewayClient.RevealCredential(ctx,
-		[]string{catalogName},
-		CatalogCredentialToolName,
-	)
-	if err != nil {
-		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-			log.Errorf("failed to retrieve credential for catalog %s source %s: %v", catalogName, sourceURL, err)
-		}
-		return ""
-	}
-	return cred.Secrets[sourceURL]
 }
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
-	validationOptions := validation.Options{
+	validationOptions := mcp.ValidationOptions{
 		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 	}
 	validationOptions.ResourceMaximums = mcpSessionManager.KubernetesResourceMaximums()
@@ -146,7 +130,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, mcpCatalog.Name, sourceURL)
+		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
+		if errors.Is(err, gitcredential.ErrLegacyCredential) {
+			log.Errorf("failed to retrieve legacy credential for catalog %s source %s, continuing without authentication: %v", mcpCatalog.Name, sourceURL, err)
+			err = nil
+		} else if err != nil {
+			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
+			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
@@ -220,7 +213,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 		entriesByName[entry.Name] = entry
 		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-			refs[sourceRef(validation.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
+			refs[sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
 		}
 	}
 
@@ -260,7 +253,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 				continue
 			}
 
-			target, err := resolveComponentSourceRef(refs, validation.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
+			target, err := resolveComponentSourceRef(refs, mcp.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -296,15 +289,15 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 
 		if changed {
-			if err := validation.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
+			if err := mcp.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
-			if err := validation.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
+			if err := mcp.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
-			if err := validation.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+			if err := mcp.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
@@ -387,7 +380,16 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
-		token := h.revealCatalogCredential(req.Ctx, systemCatalog.Name, sourceURL)
+		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
+		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
+		if errors.Is(err, gitcredential.ErrLegacyCredential) {
+			log.Errorf("failed to retrieve legacy credential for system catalog %s source %s, continuing without authentication: %v", systemCatalog.Name, sourceURL, err)
+			err = nil
+		} else if err != nil {
+			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
+			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
+			continue
+		}
 		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
 			log.Errorf("failed to read system catalog %s: %v", sourceURL, err)
@@ -452,7 +454,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		mcpManifest := systemCatalogEntryManifestToMCP(entry)
 		sanitizeCatalogEntryManifest(&mcpManifest)
 		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
-		if err := validation.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, validation.Options{}); err != nil {
+		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, mcp.ValidationOptions{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -519,7 +521,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	var entries []types.MCPServerCatalogEntryManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitRepoURL(sourceURL) {
+		if git.IsGitRepoURL(sourceURL) {
 			var err error
 			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
 			if err != nil {
@@ -627,16 +629,16 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		sanitizeCatalogEntryManifest(&entry)
-		if err := validation.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
+		if err := mcp.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
 		// secretBinding references are only allowed for git-managed entries.
-		if err := validation.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
+		if err := mcp.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
-		if err := validation.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
+		if err := mcp.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -650,7 +652,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if isGitRepoURL(sourceURL) {
+		if git.IsGitRepoURL(sourceURL) {
 			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
@@ -736,6 +738,34 @@ func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
 	if entry.ServerUserType == "" {
 		entry.ServerUserType = types.ServerUserTypeSingleUser
 	}
+}
+
+// isPathSafe checks if a file path is safe to read (not a symlink and within bounds).
+func isPathSafe(path, baseDir string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("failed to get file info: %w", err)
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("symbolic links are not allowed for security reasons")
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	absBaseDir, err := filepath.Abs(baseDir)
+	if err != nil {
+		return fmt.Errorf("failed to get absolute base directory: %w", err)
+	}
+
+	if !strings.HasPrefix(absPath, absBaseDir+string(filepath.Separator)) {
+		return fmt.Errorf("file path is outside the allowed directory")
+	}
+
+	return nil
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {

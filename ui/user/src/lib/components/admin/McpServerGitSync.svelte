@@ -1,7 +1,13 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import { AdminService, type MCPCatalog, type MCPCatalogManifest } from '$lib/services';
+	import {
+		AdminService,
+		type GitCredential,
+		type MCPCatalog,
+		type MCPCatalogManifest
+	} from '$lib/services';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { Info, TriangleAlert, X } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
@@ -10,9 +16,18 @@
 		defaultCatalog?: MCPCatalog;
 		defaultCatalogId?: string;
 		onSync?: () => void;
+		gitCredentials?: GitCredential[];
 	}
 
-	let { defaultCatalog, onSync, defaultCatalogId }: Props = $props();
+	type RepositoryCredentialType = 'none' | 'shared' | 'token';
+
+	const repositoryCredentialOptions = [
+		{ id: 'none', label: 'None' },
+		{ id: 'shared', label: 'Choose existing' },
+		{ id: 'token', label: 'Enter personal access token' }
+	];
+
+	let { defaultCatalog, onSync, defaultCatalogId, gitCredentials = [] }: Props = $props();
 
 	let saving = $state(false);
 	let sourceError = $state<string>();
@@ -20,6 +35,8 @@
 		index: number;
 		value: string;
 		token: string;
+		gitCredentialID: string;
+		credentialType: RepositoryCredentialType;
 		clearToken?: boolean;
 	}>();
 	let sourceDialog = $state<HTMLDialogElement>();
@@ -33,7 +50,9 @@
 		editingSource = {
 			index: -1,
 			value: '',
-			token: ''
+			token: '',
+			gitCredentialID: '',
+			credentialType: 'none'
 		};
 		sourceDialog?.showModal();
 	}
@@ -45,7 +64,13 @@
 		editingSource = {
 			index,
 			value: url,
-			token: ''
+			token: '',
+			gitCredentialID: defaultCatalog?.sourceURLGitCredentialIDs?.[url] ?? '',
+			credentialType: defaultCatalog?.sourceURLGitCredentialIDs?.[url]
+				? 'shared'
+				: hasSourceURLCredential(url)
+					? 'token'
+					: 'none'
 		};
 		sourceDialog?.showModal();
 	}
@@ -72,6 +97,20 @@
 			: undefined
 	);
 
+	const existingSourceHasCredential = $derived(
+		Boolean(
+			editingSource &&
+			editingSource.index >= 0 &&
+			editingSourceURL &&
+			(hasSourceURLCredential(editingSourceURL) ||
+				Boolean(defaultCatalog?.sourceURLGitCredentialIDs?.[editingSourceURL]))
+		)
+	);
+
+	const credentialLocked = $derived(
+		Boolean(editingSource && existingSourceHasCredential && !editingSource.clearToken)
+	);
+
 	const sourceURLChangedWithCredential = $derived(
 		Boolean(
 			editingSource &&
@@ -82,9 +121,50 @@
 			!editingSource.token
 		)
 	);
+	const credentialSelectionIncomplete = $derived(
+		Boolean(
+			editingSource &&
+			((editingSource.credentialType === 'shared' && !editingSource.gitCredentialID) ||
+				(editingSource.credentialType === 'token' &&
+					!editingSource.token.trim() &&
+					(editingSource.clearToken ||
+						editingSource.value !== editingSourceURL ||
+						!hasSourceURLCredential(editingSourceURL))))
+		)
+	);
+	const editingSourceHost = $derived(sourceHost(editingSource?.value ?? ''));
+	const gitCredentialOptions = $derived(
+		gitCredentials.map((credential) => ({
+			id: credential.id,
+			label: `${credential.displayName} (${credential.host})`,
+			disabled:
+				!credential.tokenConfigured ||
+				Boolean(editingSourceHost && editingSourceHost !== credential.host.toLowerCase())
+		}))
+	);
+
+	function sourceHost(value: string): string {
+		try {
+			return new URL(value.includes('://') ? value : `https://${value}`).host.toLowerCase();
+		} catch {
+			return '';
+		}
+	}
 
 	function handleSourceURLInput() {
-		if (!editingSource || editingSource.index < 0 || !editingSourceURL) {
+		if (!editingSource) {
+			return;
+		}
+
+		const selectedCredentialID = editingSource.gitCredentialID;
+		const selectedCredential = gitCredentials.find(
+			(credential) => credential.id === selectedCredentialID
+		);
+		const host = sourceHost(editingSource.value);
+		if (selectedCredential && host && host !== selectedCredential.host.toLowerCase()) {
+			editingSource.gitCredentialID = '';
+		}
+		if (editingSource.index < 0 || !editingSourceURL) {
 			return;
 		}
 
@@ -105,8 +185,21 @@
 	}
 </script>
 
+{#snippet tokenScopesTooltip()}
+	<div class="text-left">
+		<p>Required scopes:</p>
+		<ul class="list-disc pl-4">
+			<li>GitHub: repo</li>
+			<li>GitLab: read_repository + read_api</li>
+		</ul>
+		<p class="mt-2">
+			If no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.
+		</p>
+	</div>
+{/snippet}
+
 <dialog bind:this={sourceDialog} class="dialog">
-	<div class="dialog-container w-full max-w-md p-4">
+	<div class="dialog-container w-full max-w-md p-4 h-91.5 max-h-dvh flex flex-col">
 		{#if editingSource}
 			<h3 class="dialog-title">
 				{editingSource.index === -1 ? 'Add Source URL' : 'Edit Source URL'}
@@ -115,7 +208,7 @@
 				</IconButton>
 			</h3>
 
-			<div class="my-4 flex flex-col gap-1">
+			<div class="mb-4 flex flex-col gap-1">
 				<label for="catalog-source-name" class="flex flex-1 items-center gap-1 text-sm font-light">
 					Source URL
 					<span
@@ -136,56 +229,114 @@
 				/>
 			</div>
 
-			<div class="mb-4 flex flex-col gap-1">
-				<div class="flex items-center justify-between">
-					<label for="catalog-source-token" class="flex items-center gap-1 text-sm font-light">
-						Personal access token (optional)
-						<span
-							use:tooltip={{
-								text: 'Required scopes:\n• GitHub: repo\n• GitLab: read_repository + read_api\n\nIf no token is set, Obot falls back to the GITHUB_AUTH_TOKEN environment variable.',
-								classes: ['max-w-md', 'whitespace-pre-line'],
-								disablePortal: true
-							}}
-						>
-							<Info class="text-muted-content size-3.5" />
-						</span>
-					</label>
-					{#if editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index]) && !editingSource.clearToken}
+			<div class="mb-2 flex flex-col gap-1">
+				<div class="flex items-center justify-between gap-4">
+					<span id="catalog-source-credential-label" class="flex-1 text-sm font-light capitalize">
+						Credential
+					</span>
+					{#if credentialLocked}
 						<button
 							class="text-xs text-error hover:underline"
 							onclick={() => {
-								if (editingSource) {
-									editingSource.clearToken = true;
-									tokenExplicitlyCleared = true;
-								}
+								if (!editingSource) return;
+								editingSource.credentialType = 'none';
+								editingSource.gitCredentialID = '';
+								editingSource.token = '';
+								editingSource.clearToken = true;
+								tokenExplicitlyCleared = true;
 							}}
 						>
 							Clear token
 						</button>
 					{/if}
 				</div>
-				{#if !editingSource.clearToken && editingSource.index >= 0 && hasSourceURLCredential(defaultCatalog?.sourceURLs?.[editingSource.index])}
-					<input
-						id="catalog-source-token"
-						type="text"
-						readonly
-						aria-readonly="true"
-						data-1p-ignore
-						value={defaultCatalog?.sourceURLCredentials?.[
-							defaultCatalog?.sourceURLs?.[editingSource.index]
-						] ?? ''}
-						class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
-					/>
-				{:else}
-					<SensitiveInput
-						name="catalog-source-token"
-						placeholder={editingSource.clearToken
-							? 'Enter a new value or leave empty to clear'
-							: ''}
-						bind:value={editingSource.token}
-					/>
-				{/if}
+				<Select
+					id="catalog-source-credential-type"
+					class="bg-base-200"
+					options={repositoryCredentialOptions}
+					selected={editingSource.credentialType}
+					ariaLabelledby="catalog-source-credential-label"
+					disabled={credentialLocked}
+					onSelect={(option) => {
+						if (!editingSource || credentialLocked) return;
+						editingSource.credentialType = option.id as RepositoryCredentialType;
+						if (option.id === 'shared') {
+							editingSource.token = '';
+						} else if (option.id === 'token') {
+							editingSource.gitCredentialID = '';
+						} else {
+							editingSource.gitCredentialID = '';
+							editingSource.token = '';
+							if (hasSourceURLCredential(editingSourceURL)) {
+								editingSource.clearToken = true;
+								tokenExplicitlyCleared = true;
+							}
+						}
+					}}
+				/>
 			</div>
+
+			{#if editingSource.credentialType === 'shared'}
+				<div class="mb-4 flex flex-col gap-1">
+					<Select
+						id="catalog-source-git-credential"
+						class="bg-base-200"
+						options={gitCredentialOptions}
+						selected={editingSource.gitCredentialID}
+						searchPlaceholder=""
+						searchInDropdown
+						disabled={credentialLocked}
+						onSelect={(option) => {
+							if (!editingSource || credentialLocked) return;
+							editingSource.gitCredentialID = String(option.id);
+							editingSource.token = '';
+							editingSource.clearToken = false;
+						}}
+						onClear={!credentialLocked && editingSource.gitCredentialID
+							? () => {
+									if (editingSource) editingSource.gitCredentialID = '';
+								}
+							: undefined}
+					/>
+					<span class="text-muted-content text-xs">
+						Only credentials matching the source host can be selected.
+					</span>
+				</div>
+			{/if}
+
+			{#if editingSource.credentialType === 'token'}
+				<div class="mb-4 flex flex-col gap-1">
+					<label for="catalog-source-token" class="sr-only">Personal Access Token</label>
+					<div class="flex items-center gap-2 min-h-10">
+						{#if credentialLocked && hasSourceURLCredential(editingSourceURL)}
+							<input
+								id="catalog-source-token"
+								type="text"
+								readonly
+								aria-readonly="true"
+								data-1p-ignore
+								value={defaultCatalog?.sourceURLCredentials?.[editingSourceURL ?? ''] ?? ''}
+								class="text-sm text-muted-content w-full border-none bg-transparent p-0 outline-none focus:ring-0"
+							/>
+						{:else}
+							<SensitiveInput
+								name="catalog-source-token"
+								placeholder="Personal Access Token"
+								bind:value={editingSource.token}
+							/>
+						{/if}
+						<span
+							use:tooltip={{
+								snippet: tokenScopesTooltip,
+								classes: ['max-w-md'],
+								disablePortal: true
+							}}
+						>
+							<Info class="text-muted-content size-3.5" />
+						</span>
+					</div>
+				</div>
+			{/if}
 
 			{#if sourceError}
 				<div class="mb-4 flex flex-col gap-2 text-error">
@@ -202,13 +353,15 @@
 				</p>
 			{/if}
 
+			<div class="flex grow mb-4"></div>
+
 			<div class="flex w-full justify-end gap-2">
 				<button class="btn btn-secondary" disabled={saving} onclick={closeSourceDialog}
 					>Cancel</button
 				>
 				<button
 					class="btn btn-primary"
-					disabled={saving}
+					disabled={saving || credentialSelectionIncomplete}
 					onclick={async () => {
 						if (!editingSource || (!defaultCatalog && !defaultCatalogId)) {
 							return;
@@ -256,7 +409,12 @@
 								sourceURLCredentials[oldURL] = '';
 							}
 
-							if (editingSource.clearToken && !editingSource.token) {
+							if (
+								!editingSource.token &&
+								(editingSource.clearToken ||
+									(editingSource.credentialType !== 'token' &&
+										hasSourceURLCredential(oldURL, catalogToUse)))
+							) {
 								sourceURLCredentials[newURL] = '';
 							} else if (editingSource.token) {
 								sourceURLCredentials[newURL] = editingSource.token;
@@ -265,6 +423,19 @@
 							if (Object.keys(sourceURLCredentials).length > 0) {
 								updatingCatalog.sourceURLCredentials = sourceURLCredentials;
 							}
+
+							const sourceURLGitCredentialIDs = {
+								...(catalogToUse.sourceURLGitCredentialIDs ?? {})
+							};
+							if (oldURL && oldURL !== newURL) {
+								delete sourceURLGitCredentialIDs[oldURL];
+							}
+							if (editingSource.gitCredentialID) {
+								sourceURLGitCredentialIDs[newURL] = editingSource.gitCredentialID;
+							} else {
+								delete sourceURLGitCredentialIDs[newURL];
+							}
+							updatingCatalog.sourceURLGitCredentialIDs = sourceURLGitCredentialIDs;
 
 							const response = await AdminService.updateMCPCatalog(
 								catalogToUse.id,

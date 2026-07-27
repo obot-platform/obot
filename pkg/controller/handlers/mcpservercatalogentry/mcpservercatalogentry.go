@@ -139,7 +139,7 @@ func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ rou
 
 // DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
 // from their source catalog entries or multi-user servers
-func (*Handler) DetectCompositeDrift(req router.Request, _ router.Response) error {
+func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
@@ -164,7 +164,7 @@ func (*Handler) DetectCompositeDrift(req router.Request, _ router.Response) erro
 				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 			}
 
-			hasDrifted, err := mcpserver.ConfigurationHasDrifted(server.Spec.Manifest, component.Manifest, false)
+			hasDrifted, err := mcpserver.ConfigurationHasDrifted(req.Ctx, h.gatewayClient, &server, component.Manifest, false)
 			if err != nil {
 				return fmt.Errorf("failed to detect drift for multi-user server %s: %w", component.MCPServerID, err)
 			}
@@ -181,6 +181,16 @@ func (*Handler) DetectCompositeDrift(req router.Request, _ router.Response) erro
 					break
 				}
 				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
+			}
+
+			// We added the EntryKey field, but it really shouldn't affect drift detection here.
+			if component.Manifest.EntryKey == "" && componentEntry.Spec.Manifest.EntryKey != "" {
+				component.Manifest.EntryKey = componentEntry.Spec.Manifest.EntryKey
+			}
+
+			// Same for serverUserType
+			if component.Manifest.ServerUserType == "" && componentEntry.Spec.Manifest.ServerUserType != "" {
+				component.Manifest.ServerUserType = componentEntry.Spec.Manifest.ServerUserType
 			}
 
 			var (

@@ -1,7 +1,6 @@
 package apiclient
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,7 +27,7 @@ func TestListSkillsEncodesQueryParameters(t *testing.T) {
 	}))
 	defer server.Close()
 
-	result, err := (&Client{BaseURL: server.URL}).ListSkills(context.Background(), "github review", 25)
+	result, err := (&Client{BaseURL: server.URL}).ListSkills(t.Context(), "github review", 25)
 	require.NoError(t, err)
 	require.Len(t, result.Items, 1)
 	require.Equal(t, "sk1", result.Items[0].ID)
@@ -42,7 +41,7 @@ func TestListSkillsOmitsEmptyParameters(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := (&Client{BaseURL: server.URL}).ListSkills(context.Background(), "", 0)
+	_, err := (&Client{BaseURL: server.URL}).ListSkills(t.Context(), "", 0)
 	require.NoError(t, err)
 }
 
@@ -56,7 +55,7 @@ func TestGetSkillEscapesIDAndDecodesResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	skill, err := (&Client{BaseURL: server.URL}).GetSkill(context.Background(), "skill/with space")
+	skill, err := (&Client{BaseURL: server.URL}).GetSkill(t.Context(), "skill/with space")
 	require.NoError(t, err)
 	require.Equal(t, "skill/with space", skill.ID)
 	require.Equal(t, "reviewer", skill.Name)
@@ -73,7 +72,7 @@ func TestPreviewSkillReturnsRawBytes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	got, err := (&Client{BaseURL: server.URL}).PreviewSkill(context.Background(), "sk1")
+	got, err := (&Client{BaseURL: server.URL}).PreviewSkill(t.Context(), "sk1")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -89,7 +88,7 @@ func TestDownloadSkillReturnsRawBytes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	got, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
+	got, err := (&Client{BaseURL: server.URL}).DownloadSkill(t.Context(), "sk1")
 	require.NoError(t, err)
 	require.Equal(t, want, got)
 }
@@ -104,7 +103,7 @@ func TestDownloadSkillRejectsOversizedContentLength(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
+	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(t.Context(), "sk1")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "skill download exceeds maximum size")
 }
@@ -121,7 +120,7 @@ func TestDownloadSkillRejectsOversizedBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(context.Background(), "sk1")
+	_, err := (&Client{BaseURL: server.URL}).DownloadSkill(t.Context(), "sk1")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "skill download exceeds maximum size")
 }
@@ -142,7 +141,7 @@ func TestSkillHelpersPropagateHTTPErrors(t *testing.T) {
 	defer server.Close()
 
 	client := &Client{BaseURL: server.URL}
-	_, err := client.ListSkills(context.Background(), "anything", 10)
+	_, err := client.ListSkills(t.Context(), "anything", 10)
 	require.Error(t, err)
 
 	var httpErr *types.ErrHTTP

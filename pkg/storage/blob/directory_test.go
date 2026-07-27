@@ -2,7 +2,6 @@ package blob
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -40,7 +39,7 @@ func TestDirectoryStore_UploadAndDownload(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	content := []byte("hello, world")
 
 	if err := store.Upload(ctx, "bucket", "key.txt", bytes.NewReader(content)); err != nil {
@@ -68,7 +67,7 @@ func TestDirectoryStore_UploadNestedKey(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	content := []byte("nested content")
 
 	if err := store.Upload(ctx, "bucket", "published-artifacts/my-artifact/v1.zip", bytes.NewReader(content)); err != nil {
@@ -96,7 +95,7 @@ func TestDirectoryStore_DownloadNotFound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err = store.Download(context.Background(), "bucket", "nonexistent")
+	_, err = store.Download(t.Context(), "bucket", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for nonexistent key")
 	}
@@ -108,7 +107,7 @@ func TestDirectoryStore_Delete(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	if err := store.Upload(ctx, "bucket", "key.txt", bytes.NewReader([]byte("data"))); err != nil {
 		t.Fatalf("upload failed: %v", err)
 	}
@@ -129,7 +128,7 @@ func TestDirectoryStore_DeleteNotFound(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	err = store.Delete(context.Background(), "bucket", "nonexistent")
+	err = store.Delete(t.Context(), "bucket", "nonexistent")
 	if err == nil {
 		t.Fatal("expected error for deleting nonexistent key")
 	}
@@ -141,7 +140,7 @@ func TestDirectoryStore_PathTraversal(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	// Traversal in bucket
 	if err := store.Upload(ctx, "../escape", "key.txt", bytes.NewReader([]byte("bad"))); err == nil {
@@ -190,7 +189,7 @@ func TestDirectoryStore_Test(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if err := store.Test(context.Background()); err != nil {
+	if err := store.Test(t.Context()); err != nil {
 		t.Fatalf("test failed: %v", err)
 	}
 }
@@ -201,7 +200,7 @@ func TestDirectoryStore_UploadOverwrite(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 
 	if err := store.Upload(ctx, "bucket", "key.txt", bytes.NewReader([]byte("first"))); err != nil {
 		t.Fatalf("first upload failed: %v", err)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -71,7 +72,8 @@ func TestServerInstanceRedirectOAuthURLRedirectsOwnedInstance(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	err := (&ServerInstancesHandler{
-		mcpOAuthChecker: fixedOAuthChecker{url: "https://oauth.example.test/authorize?state=state-1"},
+		mcpOAuthChecker:   fixedOAuthChecker{url: "https://oauth.example.test/authorize?state=state-1"},
+		mcpSessionManager: fixedInstanceResolver{server: server},
 	}).RedirectOAuthURL(api.Context{
 		ResponseWriter: rec,
 		Request:        req,
@@ -82,6 +84,14 @@ func TestServerInstanceRedirectOAuthURLRedirectsOwnedInstance(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusFound, rec.Code)
 	assert.Equal(t, "https://oauth.example.test/authorize?state=state-1", rec.Header().Get("Location"))
+}
+
+type fixedInstanceResolver struct {
+	server v1.MCPServer
+}
+
+func (f fixedInstanceResolver) ServerForActionWithConnectIDAllowMissingConfig(context.Context, string, string) (string, v1.MCPServer, mcp.ServerConfig, []string, error) {
+	return f.server.Name, f.server, mcp.ServerConfig{}, nil, nil
 }
 
 type fixedOAuthChecker struct {

@@ -9,7 +9,6 @@ import (
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -66,7 +65,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				continue
 			}
 
-			_, componentConfig, err := handlers.ServerForAction(req, componentServer.Name, f.secretBindingAllowedLabel)
+			_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), componentServer.Name, req.User.GetUID())
 			if err != nil {
 				continue
 			}
@@ -123,15 +122,14 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			httpClientOptions.OAuthClientIDMetadataDocument = system.OAuthClientIDMetadataURL(f.baseURL)
 		}
 
-		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), "Obot OAuth Check", mcpServerConfig, nmcp.ClientOption{
+		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, nmcp.ClientOption{
 			ClientName:        "Obot MCP OAuth",
 			HTTPClientOptions: httpClientOptions,
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
 		} else {
-			// Best effort
-			_ = f.mcpSessionManager.CloseClient(req.Context(), mcpServerConfig, "Obot OAuth Check")
+			f.mcpSessionManager.CloseClient(mcpServerConfig, "Obot OAuth Check")
 			errChan <- nil
 		}
 	}()

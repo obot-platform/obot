@@ -8,6 +8,7 @@
 		UploadedFile,
 		UploadingFile
 	} from '$lib/services/nanobot/types';
+	import { errors } from '$lib/stores';
 	import MessageAttachments from './MessageAttachments.svelte';
 	import type MessageSlashPromptsType from './MessageSlashPrompts.svelte';
 	import MessageSlashPrompts from './MessageSlashPrompts.svelte';
@@ -104,9 +105,17 @@
 		e.preventDefault();
 		if (message.trim() && onSend) {
 			textareaRef?.focus();
-			onSend(message.trim(), selectedResources);
+			const submittedMessage = message.trim();
+			const submittedResources = selectedResources;
 			message = '';
 			selectedResources = [];
+			try {
+				await onSend(submittedMessage, submittedResources);
+			} catch (error) {
+				errors.append(error);
+				message = submittedMessage;
+				selectedResources = submittedResources;
+			}
 		}
 	}
 

@@ -2,31 +2,35 @@ package types
 
 // AuditLogExportCreateRequest represents a request to create an audit log export
 type AuditLogExportCreateRequest struct {
-	Name      string                `json:"name"`
-	StartTime Time                  `json:"startTime"`
-	EndTime   Time                  `json:"endTime"`
-	Filters   AuditLogExportFilters `json:"filters,omitempty"`
-	Bucket    string                `json:"bucket,omitempty"`
-	KeyPrefix string                `json:"keyPrefix,omitempty"`
+	Name       string                    `json:"name"`
+	Type       AuditLogType              `json:"type,omitempty"`
+	StartTime  Time                      `json:"startTime"`
+	EndTime    Time                      `json:"endTime"`
+	Filters    *AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	Bucket     string                    `json:"bucket"`
+	KeyPrefix  string                    `json:"keyPrefix,omitempty"`
 }
 
 // AuditLogExportResponse represents an audit log export
 type AuditLogExportResponse struct {
-	ID              string                `json:"id"`
-	Name            string                `json:"name"`
-	StorageProvider StorageProviderType   `json:"storageProvider"`
-	Bucket          string                `json:"bucket,omitempty"`
-	KeyPrefix       string                `json:"keyPrefix,omitempty"`
-	StartTime       Time                  `json:"startTime"`
-	EndTime         Time                  `json:"endTime"`
-	Filters         AuditLogExportFilters `json:"filters,omitempty"`
-	State           string                `json:"state"`
-	Error           string                `json:"error,omitempty"`
-	ExportSize      int64                 `json:"exportSize,omitempty"`
-	ExportPath      string                `json:"exportPath,omitempty"`
-	StartedAt       Time                  `json:"startedAt,omitempty"`
-	CompletedAt     Time                  `json:"completedAt,omitempty"`
-	CreatedAt       Time                  `json:"createdAt"`
+	ID              string                    `json:"id"`
+	Name            string                    `json:"name"`
+	Type            AuditLogType              `json:"type"`
+	StorageProvider StorageProviderType       `json:"storageProvider"`
+	Bucket          string                    `json:"bucket,omitempty"`
+	KeyPrefix       string                    `json:"keyPrefix,omitempty"`
+	StartTime       Time                      `json:"startTime"`
+	EndTime         Time                      `json:"endTime"`
+	Filters         *AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters      *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	State           string                    `json:"state"`
+	Error           string                    `json:"error,omitempty"`
+	ExportSize      int64                     `json:"exportSize,omitempty"`
+	ExportPath      string                    `json:"exportPath,omitempty"`
+	StartedAt       Time                      `json:"startedAt,omitempty"`
+	CompletedAt     Time                      `json:"completedAt,omitempty"`
+	CreatedAt       Time                      `json:"createdAt"`
 }
 
 // AuditLogExportListResponse represents a list of audit log exports
@@ -37,36 +41,42 @@ type AuditLogExportListResponse struct {
 
 // ScheduledAuditLogExportCreateRequest represents a request to create a scheduled audit log export
 type ScheduledAuditLogExportCreateRequest struct {
-	Name                  string                `json:"name"`
-	Bucket                string                `json:"bucket,omitempty"`
-	KeyPrefix             string                `json:"keyPrefix,omitempty"`
-	Schedule              Schedule              `json:"schedule"`
-	RetentionPeriodInDays int                   `json:"retentionPeriodInDays,omitempty"`
-	Filters               AuditLogExportFilters `json:"filters,omitempty"`
+	Name                  string                    `json:"name"`
+	Type                  AuditLogType              `json:"type,omitempty"`
+	Bucket                string                    `json:"bucket"`
+	KeyPrefix             string                    `json:"keyPrefix,omitempty"`
+	Schedule              Schedule                  `json:"schedule"`
+	RetentionPeriodInDays int                       `json:"retentionPeriodInDays,omitempty"`
+	Filters               *AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters            *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
 }
 
 // ScheduledAuditLogExportUpdateRequest represents a request to update a scheduled audit log export
 type ScheduledAuditLogExportUpdateRequest struct {
-	Name                  *string                `json:"name,omitempty"`
-	Enabled               *bool                  `json:"enabled,omitempty"`
-	Schedule              *Schedule              `json:"schedule,omitempty"`
-	RetentionPeriodInDays *int                   `json:"retentionPeriodInDays,omitempty"`
-	Filters               *AuditLogExportFilters `json:"filters,omitempty"`
-	Bucket                *string                `json:"bucket,omitempty"`
-	KeyPrefix             *string                `json:"keyPrefix,omitempty"`
+	Name                  *string                   `json:"name,omitempty"`
+	Type                  *AuditLogType             `json:"type,omitempty"`
+	Enabled               *bool                     `json:"enabled,omitempty"`
+	Schedule              *Schedule                 `json:"schedule,omitempty"`
+	RetentionPeriodInDays *int                      `json:"retentionPeriodInDays,omitempty"`
+	Filters               *AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters            *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	Bucket                *string                   `json:"bucket,omitempty"`
+	KeyPrefix             *string                   `json:"keyPrefix,omitempty"`
 }
 
 // ScheduledAuditLogExportResponse represents a scheduled audit log export
 type ScheduledAuditLogExportResponse struct {
-	ID                    string                `json:"id"`
-	Bucket                string                `json:"bucket"`
-	KeyPrefix             string                `json:"keyPrefix"`
-	Name                  string                `json:"name"`
-	Enabled               bool                  `json:"enabled"`
-	Schedule              Schedule              `json:"schedule"`
-	RetentionPeriodInDays int                   `json:"retentionPeriodInDays,omitempty"`
-	Filters               AuditLogExportFilters `json:"filters,omitempty"`
-	LastRunAt             Time                  `json:"lastRunAt,omitempty"`
+	ID                    string                    `json:"id"`
+	Type                  AuditLogType              `json:"type"`
+	Bucket                string                    `json:"bucket"`
+	KeyPrefix             string                    `json:"keyPrefix"`
+	Name                  string                    `json:"name"`
+	Enabled               bool                      `json:"enabled"`
+	Schedule              Schedule                  `json:"schedule"`
+	RetentionPeriodInDays int                       `json:"retentionPeriodInDays,omitempty"`
+	Filters               *AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters            *LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	LastRunAt             Time                      `json:"lastRunAt,omitempty"`
 }
 
 type Schedule struct {
@@ -87,6 +97,29 @@ type ScheduledAuditLogExportListResponse struct {
 
 // AuditLogExportFilters represents filters for audit log export
 type AuditLogExportFilters struct {
+	// SourceTypes selects which audit-log source(s) to export and is required: the API rejects an
+	// empty list. Pass multiple values (e.g. both mcp and local_agent_tool_call) to export more than
+	// one source in the same export. Legacy stored exports predating this field are normalized to the
+	// MCP-only default at execution time.
+	SourceTypes []AuditLogSourceType `json:"sourceTypes,omitempty"`
+
+	// Common cross-source filters. These resolve to the appropriate column per source and are the
+	// only filters allowed when more than one source is selected.
+
+	// Actors matches an Obot user ID or an enrolled device ID.
+	Actors []string `json:"actors,omitempty"`
+	// Operations is the MCP call type; local-agent tool calls are implicitly tools/call.
+	Operations []string `json:"operations,omitempty"`
+	// MCPServers is the MCP server (id/display name) or a local-agent row's MCP parent.
+	MCPServers []string `json:"mcpServers,omitempty"`
+	// Tools is the MCP call identifier or local-agent action name.
+	Tools []string `json:"tools,omitempty"`
+	// Outcomes is the normalized status: success/failure/denied/timeout/unknown.
+	Outcomes []string `json:"outcomes,omitempty"`
+	// Clients is the MCP client name or local-agent provider.
+	Clients []string `json:"clients,omitempty"`
+
+	// Single-source filters.
 	UserIDs                    []string `json:"userIDs,omitempty"`
 	MCPIDs                     []string `json:"mcpIDs,omitempty"`
 	MCPServerDisplayNames      []string `json:"mcpServerDisplayNames,omitempty"`
@@ -98,8 +131,38 @@ type AuditLogExportFilters struct {
 	ClientVersions             []string `json:"clientVersions,omitempty"`
 	ResponseStatuses           []string `json:"responseStatuses,omitempty"`
 	ClientIPs                  []string `json:"clientIPs,omitempty"`
-	Query                      string   `json:"query,omitempty"`
+
+	// Local-agent tool-call filters. Only applied when SourceTypes includes local_agent_tool_call.
+	AgentProviders []string `json:"agentProviders,omitempty"`
+	Statuses       []string `json:"statuses,omitempty"`
+	ToolNames      []string `json:"toolNames,omitempty"`
+	ToolKinds      []string `json:"toolKinds,omitempty"`
+	DeviceIDs      []string `json:"deviceIDs,omitempty"`
+
+	Query string `json:"query,omitempty"`
 }
+
+// LLMAuditLogExportFilters represents filters for LLM audit log export
+type LLMAuditLogExportFilters struct {
+	UserIDs                []string `json:"userIDs,omitempty"`
+	ModelProviders         []string `json:"modelProviders,omitempty"`
+	TargetModels           []string `json:"targetModels,omitempty"`
+	RequestPaths           []string `json:"requestPaths,omitempty"`
+	ResponseStatuses       []int    `json:"responseStatuses,omitempty"`
+	Outcomes               []string `json:"outcomes,omitempty"`
+	UserAgents             []string `json:"userAgents,omitempty"`
+	ClientSessionIDs       []string `json:"clientSessionIDs,omitempty"`
+	MessagePolicyTriggered []bool   `json:"messagePolicyTriggered,omitempty"`
+	Query                  string   `json:"query,omitempty"`
+}
+
+// AuditLogType identifies the source of logs exported by a unified audit log export resource.
+type AuditLogType string
+
+const (
+	AuditLogTypeMCP AuditLogType = "mcp"
+	AuditLogTypeLLM AuditLogType = "llm"
+)
 
 // StorageCredentialsTestRequest represents a request to test storage credentials
 type StorageCredentialsTestRequest struct {

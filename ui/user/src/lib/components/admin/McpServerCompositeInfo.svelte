@@ -89,10 +89,13 @@
 				{#if componentExists}
 					<button
 						onclick={(e) => {
+							const prefix = page.url.pathname.startsWith('/admin/mcp-deployments')
+								? 'mcp-deployments'
+								: 'mcp-catalog';
 							const isCtrlClick = e.metaKey || e.ctrlKey;
 							const url = componentServer.catalogEntryID
-								? `/admin/mcp-catalog/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
-								: `/admin/mcp-catalog/s/${componentServer.mcpServerID}/details`;
+								? `/admin/${prefix}/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
+								: `/admin/${prefix}/s/${componentServer.mcpServerID}/details`;
 
 							sessionStorage.setItem(
 								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,

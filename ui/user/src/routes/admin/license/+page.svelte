@@ -127,8 +127,8 @@
 						<Info class="size-6" />
 						<div>
 							Interested in purchasing a license or want to learn more? Contact support at <a
-								href="mailto:licensing@obot.ai"
-								class="text-link">licensing@obot.ai</a
+								href="mailto:info@obot.ai"
+								class="text-link">info@obot.ai</a
 							>.
 						</div>
 					</div>
@@ -139,8 +139,7 @@
 						<CircleAlert class="size-6" />
 						<div>
 							The license key is <b class="font-semibold">invalid</b>. Please contact support at
-							<a href="mailto:licensing@obot.ai" class="text-link">licensing@obot.ai</a> to renew your
-							license.
+							<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
 						</div>
 					</div>
 				</div>

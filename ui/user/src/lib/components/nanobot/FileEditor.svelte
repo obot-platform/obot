@@ -1,6 +1,7 @@
 <script lang="ts">
 	import RawEditor from '$lib/components/editor/RawEditor.svelte';
 	import { getLayout } from '$lib/context/nanobotLayout.svelte';
+	import { saveBlob } from '$lib/download';
 	import { formatBase64ToBlob } from '$lib/format';
 	import type { ResourceContents } from '$lib/services/nanobot/types';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
@@ -261,22 +262,10 @@
 	function downloadResourceContents() {
 		if (!resource || !canDownload) return;
 
-		const downloadName = resolveDownloadFilename(name);
-		let blob: Blob;
-
-		if (resource.blob) {
-			blob = formatBase64ToBlob(resource.blob, mimeType);
-		} else {
-			blob = new Blob([resource.text ?? ''], { type: mimeType });
-		}
-
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement('a');
-		a.href = url;
-		a.download = downloadName;
-		a.rel = 'noopener';
-		a.click();
-		URL.revokeObjectURL(url);
+		const blob = resource.blob
+			? formatBase64ToBlob(resource.blob, mimeType)
+			: new Blob([resource.text ?? ''], { type: mimeType });
+		saveBlob(blob, resolveDownloadFilename(name));
 	}
 
 	function getPanelDimensionsPx(): { width: number; minWidth: number; maxWidth: number } {

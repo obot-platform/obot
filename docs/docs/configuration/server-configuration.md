@@ -20,7 +20,13 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_SINGLE_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle single-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `24` (1 day) |
 | `OBOT_SERVER_MULTI_USER_IDLE_SERVER_SHUTDOWN_HOURS` | The interval in hours to check for idle multi-user MCP servers and shut them down. Set to `-1` to disable idle shutdown. | `168` (7 days) |
 | `NAH_THREADINESS` | Sets the number of concurrent threads that can run in the Obot controller. | `10` |
-| `KINM_DB_CONNECTIONS` | The number of connections in the database pool for kinm | `5` |
+| `KINM_DB_CONNECTIONS` | Sets both the maximum open and idle connection counts in the Kinm database pool. `KINM_DB_MAX_CONNECTIONS` and `KINM_DB_MAX_IDLE_CONNECTIONS` override the corresponding values. | `5` |
+| `KINM_DB_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the Kinm database pool. Overrides the idle connection count set by `KINM_DB_CONNECTIONS`. | `2` |
+| `KINM_DB_MAX_CONNECTIONS` | The maximum number of open connections in the Kinm database pool. Overrides the open connection count set by `KINM_DB_CONNECTIONS`. | `5` |
+| `KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the Kinm database pool, in seconds. | `180` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the PostgreSQL database pool used by authentication providers. | `2` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS` | The maximum number of open connections in the PostgreSQL database pool used by authentication providers. | `5` |
+| `OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the PostgreSQL database pool used by authentication providers, in seconds. | `180` |
 | `OBOT_SERVER_ENABLE_AUTHENTICATION` | Enables authentication for Obot | `false` |
 | `OBOT_SERVER_UNAUTHENTICATED_RATE_LIMIT` | Rate limit for unauthenticated requests (requests per second). Unauthenticated requests are tracked by source IP address. | `100` |
 | `OBOT_SERVER_AUTHENTICATED_RATE_LIMIT` | Rate limit for authenticated non-admin requests (requests per second). Authenticated requests are tracked by user ID. Admin users are exempt from rate limiting. | `200` |
@@ -33,19 +39,21 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS` | The number of days to retain MCP audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. Use the [audit log export](./audit-log-export.md) functionality to preserve logs beyond this period. | `90` |
 | `OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS` | The interval in seconds at which buffered MCP audit logs are flushed to the database. | `5` |
 | `OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE` | The number of MCP audit log entries written to the database in a single batch. | `1000` |
+| `OBOT_SERVER_LLMAUDIT_LOG_RETENTION_DAYS` | The number of days to retain LLM audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. | `90` |
+| `OBOT_SERVER_DISABLE_LLMAUDIT_LOG` | Disables collection and persistence of new LLM gateway audit logs. Existing logs remain available. | `false` |
 | `OBOT_SERVER_DEFAULT_MCPCATALOG_PATH` | The path to the default MCP catalog (accessible to all users). | - |
 | `OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH` | The path to the default System MCP catalog. | - |
+| `OBOT_SERVER_MDM_ASSET_SOURCE` | The source for MDM assets. Can be a local directory, a tar archive path, or an HTTP(S) tarball URL. | `https://github.com/obot-platform/obot-sentry/releases/download/v0.1.2/mdm-assets.tar.gz` |
 | `OBOT_SERVER_AUDIT_LOGS_MODE` | Configures the storage backend for audit logs in Obot. Can be 'off', 'disk', or 's3' | `off` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3BUCKET` | The name of the S3 bucket to store audit logs in. | - |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_S3ENDPOINT` | If config.OBOT_SERVER_AUDIT_LOGS_MODE is 's3' and you are not using AWS S3, this needs to be set to the S3 api endpoint of your provider. | - |
 | `OBOT_SERVER_AUDIT_LOGS_COMPRESS_FILE` | Controls whether or not to compress audit log files | `true` |
 | `OBOT_SERVER_AUDIT_LOGS_STORE_USE_PATH_STYLE` | Whether to use path style for S3 object names | - |
-| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.0` |
+| `OBOT_SERVER_MCPBASE_IMAGE` | Deploy MCP servers in the kubernetes cluster or using docker with this base image. | `ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.2` |
 | `OBOT_SERVER_MCPIMAGE_PULL_SECRETS` | Comma-separated Kubernetes secret names to use as static image pull secrets for every MCP server Deployment. When set, managed image pull secrets are disabled. See [Image Pull Secrets](./image-pull-secrets.md). | - |
 | `OBOT_SERVER_MCPSECRET_BINDING_ALLOWED_LABEL` | Kubernetes Secret label key required before a Secret can be selected or resolved by MCP secret bindings. Only label presence is checked; the label value is ignored. Secrets without this label are not shown as bindable targets in the admin UI and are treated as unavailable when Obot resolves a secret binding at runtime. | `obot.obot.ai/allow-secret-binding` |
-| `OBOT_SERVER_MCPREMOTE_SHIM_BASE_IMAGE` | Deploy MCP remote shim servers in the cluster using this base image. | `ghcr.io/obot-platform/nanobot:v0.0.88` |
-| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.88` |
-| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.0` |
+| `OBOT_SERVER_NANOBOT_AGENT_IMAGE` | Deploy the Nanobot agent in the cluster using this image. | `ghcr.io/obot-platform/nanobot-agent:v0.0.91` |
+| `OBOT_SERVER_MCPHTTPWEBHOOK_BASE_IMAGE` | Deploy MCP HTTP webhook servers in the cluster using this base image. | `ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.2` |
 | `OBOT_SERVER_MCPRUNTIME_BACKEND` | The runtime backend to use for running MCP servers: docker or kubernetes. | `kubernetes` in the helm chart, `docker` otherwise |
 | `OBOT_SERVER_MCPCLUSTER_DOMAIN` | The cluster domain to use for MCP services. Only matters if `OBOT_SERVER_MCPBASE_IMAGE` is set. | `cluster.local` |
 | `OBOT_SERVER_SERVICE_NAME` | The Kubernetes service name for the obot server. Automatically set by the helm chart when using kubernetes backend. Used to construct the internal service FQDN for token exchange endpoints. | - |

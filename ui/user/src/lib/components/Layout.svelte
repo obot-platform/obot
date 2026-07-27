@@ -1,4 +1,19 @@
 <script lang="ts" module>
+	import { type Component, type Snippet } from 'svelte';
+
+	type NavLink = {
+		id: string;
+		href?: string;
+		icon?: Component;
+		label: string;
+		disabled?: boolean;
+		collapsible?: boolean;
+		items?: NavLink[];
+		noteIcon?: Component;
+		note?: Snippet;
+		beta?: boolean;
+	};
+
 	const NAV_COLLAPSED_KEY = '@obot/layout/nav-collapsed';
 
 	const defaultNavCollapsed: Record<string, boolean> = {
@@ -44,7 +59,6 @@
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
 	import Bots from '$lib/icons/Bots.svelte';
-	import LogoIcon from '$lib/icons/LogoIcon.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import { Group } from '$lib/services';
 	import {
@@ -59,10 +73,11 @@
 	import { isAgentEnabled } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import Tour from './Tour.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
+	import GuidePanel from './guides/GuidePanel.svelte';
+	import Guide from './guides/Guides.svelte';
 	import BetaLogo from './navbar/BetaLogo.svelte';
 	import Profile from './navbar/Profile.svelte';
 	import IconButton from './primitives/IconButton.svelte';
@@ -78,7 +93,6 @@
 		BotMessageSquare,
 		PencilRuler,
 		LockOpen,
-		CircleQuestionMark,
 		Bot,
 		LayoutDashboard,
 		Notebook,
@@ -89,7 +103,7 @@
 		Brain,
 		LayoutGrid
 	} from '@lucide/svelte';
-	import { type Component, type Snippet, tick, untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -99,7 +113,7 @@
 
 	function isAdvancedPaneRoute(route: string): boolean {
 		return (
-			(route.includes('/admin') && route !== '/admin/dashboard') ||
+			route.includes('/admin') ||
 			['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage'].some((p) =>
 				route.startsWith(p)
 			)
@@ -138,19 +152,6 @@
 		getLayout: () => LayoutState;
 	};
 
-	type NavLink = {
-		id: string;
-		href?: string;
-		icon?: Component | typeof Server;
-		label: string;
-		disabled?: boolean;
-		collapsible?: boolean;
-		items?: NavLink[];
-		noteIcon?: Component | typeof CircleQuestionMark;
-		note?: Snippet;
-		beta?: boolean;
-	};
-
 	interface Props {
 		classes?: {
 			container?: string;
@@ -171,6 +172,7 @@
 		rightMenu?: Snippet;
 		leftMenu?: Snippet;
 		title?: string;
+		subtitle?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
 		leftSidebar?: Snippet;
@@ -192,6 +194,7 @@
 		main,
 		rightNavActions,
 		title,
+		subtitle,
 		showBackButton,
 		onBackButtonClick,
 		leftSidebar,
@@ -240,17 +243,6 @@
 	let hasAccessibleModels = $derived(accessibleModels.current.length > 0);
 
 	let defaultLinks = $derived<NavLink[]>([
-		...(profile.current.hasAdminAccess?.()
-			? [
-					{
-						id: 'mcp-dashboard',
-						icon: LayoutDashboard,
-						label: 'Dashboard',
-						href: '/admin/dashboard',
-						collapsible: false
-					}
-				]
-			: []),
 		{
 			id: 'mcp-servers',
 			icon: Server,
@@ -274,19 +266,6 @@
 					}
 				]
 			: []),
-		{
-			id: 'devices',
-			icon: Laptop,
-			label: 'Devices',
-			href: '/devices'
-		},
-		{
-			id: 'install-cli',
-			href: '/install-cli',
-			icon: LogoIcon,
-			label: 'Obot CLI',
-			collapsible: false
-		},
 		...(agentsFeatureEnabled
 			? [
 					{
@@ -329,6 +308,13 @@
 	let managementLinks = $derived<NavLink[]>(
 		profile.current.hasAdminAccess?.()
 			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/admin/dashboard',
+						collapsible: false
+					},
 					{
 						id: 'mcp-server-management',
 						icon: RadioTower,
@@ -421,39 +407,12 @@
 						collapsible: true,
 						items: [
 							{
-								id: 'device-overview',
-								href: '/admin/device-overview',
-								label: 'Dashboard',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
 								id: 'devices',
 								href: '/admin/devices',
 								label: 'Devices',
 								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-skills',
-								href: '/admin/device-skills',
-								label: 'Device Skills',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-mcps',
-								href: '/admin/device-mcp-servers',
-								label: 'Device MCP Servers',
-								disabled: isBootStrapUser,
-								collapsible: false
-							},
-							{
-								id: 'device-clients',
-								href: '/admin/device-clients',
-								label: 'Device Clients',
-								disabled: isBootStrapUser,
-								collapsible: false
+								collapsible: false,
+								beta: true
 							}
 						]
 					},
@@ -513,6 +472,13 @@
 								id: 'tokens',
 								href: '/admin/token-usage',
 								label: 'Token Usage',
+								disabled: isBootStrapUser,
+								collapsible: false
+							},
+							{
+								id: 'llm-audit-logs',
+								href: '/admin/llm-audit-logs',
+								label: 'Audit Logs',
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
@@ -577,53 +543,67 @@
 						]
 					}
 				]
-			: [
-					{
-						id: 'mcp-server-management',
-						icon: RadioTower,
-						label: 'MCP Management',
-						collapsible: true,
-						disabled: false,
-						items: [
-							...(isAtLeastPowerUser
-								? [
-										{
-											id: 'mcp-catalog',
-											href: '/mcp-catalog',
-											label: 'MCP Catalog',
-											disabled: false,
-											collapsible: false
-										},
-										...(isAtLeastPowerUserPlus
-											? [
-													{
-														id: 'mcp-access-policies',
-														href: '/mcp-access-policies',
-														label: 'MCP Access Policies',
-														disabled: false,
-														collapsible: false
-													}
-												]
-											: [])
-									]
-								: []),
-							{
-								id: 'audit-logs',
-								href: '/audit-logs',
-								label: 'Audit Logs',
-								disabled: false,
-								collapsible: false
-							},
-							{
-								id: 'usage',
-								href: '/usage',
-								label: 'Usage',
-								disabled: false,
-								collapsible: false
-							}
-						]
-					}
-				]
+			: isAtLeastPowerUser
+				? [
+						{
+							id: 'mcp-server-management',
+							icon: RadioTower,
+							label: 'MCP Management',
+							collapsible: true,
+							disabled: false,
+							items: [
+								...(isAtLeastPowerUser
+									? [
+											{
+												id: 'mcp-catalog',
+												href: '/mcp-catalog',
+												label: 'MCP Catalog',
+												disabled: false,
+												collapsible: false
+											},
+											...(isAtLeastPowerUserPlus
+												? [
+														{
+															id: 'mcp-access-policies',
+															href: '/mcp-access-policies',
+															label: 'MCP Access Policies',
+															disabled: false,
+															collapsible: false
+														}
+													]
+												: [])
+										]
+									: []),
+								{
+									id: 'audit-logs',
+									href: '/audit-logs',
+									label: 'Audit Logs',
+									disabled: false,
+									collapsible: false
+								},
+								{
+									id: 'usage',
+									href: '/usage',
+									label: 'Usage',
+									disabled: false,
+									collapsible: false
+								}
+							]
+						}
+					]
+				: []
+	);
+
+	function collectBetaHrefs(links: NavLink[]): string[] {
+		return links.flatMap((link) => [
+			...(link.beta && link.href ? [link.href] : []),
+			...(link.items ? collectBetaHrefs(link.items) : [])
+		]);
+	}
+
+	let betaRoutes = $derived(collectBetaHrefs([...defaultLinks, ...managementLinks]));
+	let isBetaRoute = $derived(
+		betaRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
 	);
 
 	$effect(() => {
@@ -656,7 +636,11 @@
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
 	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
-	const excludeConfigureBanner = ['/admin/model-providers', '/admin/auth-providers'];
+	const excludeConfigureBanner = [
+		...(version.current.agentsEnabled !== false ? ['/admin/model-providers'] : []),
+		'/admin/auth-providers',
+		'/admin/branding'
+	];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -720,14 +704,14 @@
 	});
 </script>
 
-<div class="flex min-h-dvh flex-col items-center">
-	<div class="relative flex w-full grow">
+<div class="flex min-h-dvh items-center">
+	<div class="relative flex min-w-0 grow">
 		{#if leftSidebar}
 			{@render leftSidebar()}
 		{:else if layout.sidebarOpen && !hideSidebar}
 			<div
 				class={twMerge(
-					'bg-base-100 dark:bg-base-200 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-[310px]',
+					'bg-base-100 dark:bg-base-200 flex max-h-dvh w-full min-w-dvw shrink-0 flex-col md:w-1/6 md:max-w-xl md:min-w-80.5',
 					classes?.sidebarRoot
 				)}
 				transition:slide={{ axis: 'x' }}
@@ -746,7 +730,11 @@
 				>
 					{#if showAdvancedPane}
 						<div class="flex flex-col gap-0.5 h-full" in:slide={{ axis: 'x', duration: 100 }}>
-							<button class="sidebar-link" onclick={() => (showAdvancedPane = false)}>
+							<button
+								id="back-to-app-btn"
+								class="sidebar-link"
+								onclick={() => (showAdvancedPane = false)}
+							>
 								<ChevronLeft class="size-5 text-muted-content" />
 								<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
 									Back to App
@@ -765,7 +753,11 @@
 							<div class="flex grow"></div>
 
 							{#if managementLinks.length > 0}
-								<button class="sidebar-link" onclick={() => (showAdvancedPane = true)}>
+								<button
+									id="advanced-pane-btn"
+									class="sidebar-link"
+									onclick={() => (showAdvancedPane = true)}
+								>
 									<Settings class="size-5 text-muted-content" />
 									<span class="uppercase text-xs font-semibold tracking-wide text-muted-content">
 										{profile.current.hasAdminAccess?.() ? 'Administration' : 'Advanced Settings'}
@@ -896,20 +888,21 @@
 	</div>
 
 	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
-		<div class="absolute bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
+		<div class="fixed bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
 				<PanelLeftOpen class="size-6" />
 			</IconButton>
 		</div>
 	{/if}
+
+	{#if !isBootStrapUser && !responsive.isMobile}
+		<GuidePanel />
+		<Guide />
+	{/if}
 </div>
 
 {#if isAdminRoute}
 	<SetupSplashDialog />
-{/if}
-
-{#if !isBootStrapUser}
-	<Tour />
 {/if}
 
 {#snippet layoutHeaderContent()}
@@ -928,14 +921,22 @@
 		</IconButton>
 	{/if}
 	{#if title}
-		<h1
-			class={twMerge(
-				'text-xl font-semibold md:w-full',
-				!layout.sidebarOpen && classes?.noSidebarTitle
-			)}
-		>
-			{title}
-		</h1>
+		<div class="flex flex-col md:w-full">
+			{#if subtitle}
+				<span class="text-xs font-light text-muted-content">{subtitle}</span>
+			{/if}
+			<h1
+				class={twMerge(
+					'text-xl font-semibold flex items-center gap-2',
+					!layout.sidebarOpen && classes?.noSidebarTitle
+				)}
+			>
+				{title}
+				{#if isBetaRoute}
+					<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+				{/if}
+			</h1>
+		</div>
 	{/if}
 {/snippet}
 
@@ -966,31 +967,20 @@
 		<div class="flex w-full items-center" id={link.id}>
 			{#if link.disabled}
 				<div class="sidebar-link disabled">
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
+					{@render linkContent(link)}
 				</div>
 			{:else if link.href}
 				<a
+					id={`sidebar-link-${link.id}`}
 					href={resolve(link.href as `/${string}`)}
 					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 					onclick={saveSidebarScroll}
 				>
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
-					{#if link.beta}
-						<span class="badge badge-primary badge-xs">Beta</span>
-					{/if}
+					{@render linkContent(link)}
 				</a>
 			{:else}
 				<div class="sidebar-link no-link">
-					{#if link.icon}
-						<link.icon class="size-5" />
-					{/if}
-					{link.label}
+					{@render linkContent(link)}
 				</div>
 			{/if}
 
@@ -1001,7 +991,11 @@
 			{/if}
 		</div>
 		{#if link.collapsible}
-			<button class="px-2" onclick={() => toggleNavCollapsed(link.id)}>
+			<button
+				id={`sidebar-collapse-${link.id}`}
+				class="px-2"
+				onclick={() => toggleNavCollapsed(link.id)}
+			>
 				{#if isNavCollapsed(link.id)}
 					<ChevronDown class="size-5" />
 				{:else}
@@ -1034,30 +1028,20 @@
 							></div>
 							{#if item.disabled}
 								<div class="sidebar-link disabled">
-									<div class="flex items-center gap-1 opacity-50">
-										{#if item.icon}
-											<item.icon class="size-4" />
-										{/if}
-										{item.label}
-									</div>
+									{@render linkContent(item)}
 								</div>
 							{:else if item.href}
 								<a
+									id={`sidebar-link-${item.id}`}
 									href={resolve(item.href as `/${string}`)}
 									class={twMerge('sidebar-link', isActive && 'bg-base-300')}
 									onclick={saveSidebarScroll}
 								>
-									{#if item.icon}
-										<item.icon class="size-4" />
-									{/if}
-									{item.label}
+									{@render linkContent(item)}
 								</a>
 							{:else}
 								<div class="sidebar-link disabled">
-									{#if item.icon}
-										<item.icon class="size-4" />
-									{/if}
-									{item.label}
+									{@render linkContent(item)}
 								</div>
 							{/if}
 							{#if item.noteIcon && item.note}
@@ -1070,6 +1054,16 @@
 				</div>
 			{/if}
 		</div>
+	{/if}
+{/snippet}
+
+{#snippet linkContent(link: NavLink)}
+	{#if link.icon}
+		<link.icon class="size-5" />
+	{/if}
+	{link.label}
+	{#if link.beta}
+		<span class="badge badge-primary badge-xs font-medium uppercase">Beta</span>
 	{/if}
 {/snippet}
 

@@ -33,8 +33,13 @@
 	let configError = $state('');
 	let loadingConfig = $state(false);
 	let savingConfig = $state(false);
+	let hasConfiguredComposite = $state(false);
 
 	const consent = $derived(currentConsent);
+	const isCompositeMCPServer = $derived(consent.mcpServer?.manifest.runtime === 'composite');
+	const requiresMCPConfiguration = $derived(
+		consent.mcpConfigRequired || (isCompositeMCPServer && !hasConfiguredComposite)
+	);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
 	const deprecated = $derived(isDeprecatedMCPServer(consent.mcpServer));
@@ -135,7 +140,7 @@
 	});
 
 	onMount(() => {
-		if (currentConsent.mcpConfigRequired) {
+		if (requiresMCPConfiguration) {
 			void loadMCPConfiguration(currentConsent);
 		}
 	});
@@ -231,6 +236,7 @@
 				if (isCompositeForm(configureForm)) {
 					const payload = convertCompositeLaunchFormDataToPayload(configureForm);
 					await UserService.configureCompositeMcpServer(consent.mcpServer.id, payload);
+					hasConfiguredComposite = true;
 				} else {
 					const payload = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 					if (configureForm.hostname && configureForm.url) {
@@ -286,20 +292,25 @@
 	<main class="paper w-full max-w-lg overflow-hidden p-0">
 		<BetaLogo class="self-center mt-6" />
 		<h1 class="text-xl font-semibold text-center px-4">
-			{consent.mcpConfigRequired
+			{requiresMCPConfiguration
 				? `Configure ${consent.mcpServerName || 'MCP server'}`
 				: `Authorize ${consent.clientName}`}
 		</h1>
 
-		{#if consent.mcpConfigRequired}
+		{#if requiresMCPConfiguration}
 			<section class="flex flex-col gap-5 p-4 py-0">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
-						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required configuration
-						before Obot can finish authorizing this connection.
+						{#if isCompositeMCPServer && !hasConfiguredComposite}
+							Configure <b class="font-semibold">{consent.mcpServerName || 'this MCP server'}</b> to choose
+							which composite servers to use before continuing.
+						{:else}
+							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required
+							configuration before Obot can finish authorizing this connection.
+						{/if}
 					</p>
 				</div>
 
@@ -404,13 +415,13 @@
 		<footer
 			class={twMerge(
 				'border-base-300 bg-base-100 dark:bg-base-200 flex justify-end gap-3 border-t p-3 max-sm:flex-col-reverse',
-				consent.mcpConfigRequired && 'border-t-0'
+				requiresMCPConfiguration && 'border-t-0'
 			)}
 		>
 			<form method="POST" action={resolve(consent.cancelURL as `/${string}`)}>
 				<button class="btn btn-text w-full" type="submit" disabled={savingConfig}>Cancel</button>
 			</form>
-			{#if consent.mcpConfigRequired}
+			{#if requiresMCPConfiguration}
 				<button
 					class="btn btn-primary flex w-full items-center gap-2"
 					type="button"

@@ -43,6 +43,9 @@ var (
 		"/api/system-mcp-catalogs/",
 		"GET /api/mcp-audit-logs",
 		"GET /api/mcp-audit-logs/",
+		"GET /api/llm-audit-logs",
+		"GET /api/llm-audit-logs/",
+		"GET /api/llm-audit-logs/filter-options/",
 		"GET /api/mcp-stats",
 		"GET /api/mcp-stats/",
 		"GET /debug/pprof/",
@@ -53,6 +56,8 @@ var (
 		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
+		"/api/local-auth/users",
+		"/api/local-auth/users/",
 		"/api/model-providers",
 		"/api/model-providers/",
 		"GET /api/bookstrap",
@@ -71,8 +76,11 @@ var (
 		"/api/devices/skills/",
 		"/api/devices/clients",
 		"/api/devices/clients/",
-		"/api/mdm/deployments",
-		"/api/mdm/deployments/",
+		"/api/mdm/configurations",
+		"/api/mdm/configurations/",
+		"/api/mdm/asset-source",
+		"/api/mdm/asset-source/",
+		"GET /api/mdm/assets",
 		"/api/available-models",
 		"/api/available-models/",
 		"/api/default-model-aliases",
@@ -94,6 +102,8 @@ var (
 		"/api/k8s-settings",
 		"/api/image-pull-secrets",
 		"/api/image-pull-secrets/",
+		"/api/git-credentials",
+		"/api/git-credentials/",
 		"/api/mcp-capacity",
 		"/api/audit-log-exports",
 		"/api/audit-log-exports/",
@@ -132,6 +142,9 @@ var (
 			"GET /api/admin-api-keys/{id}",
 			"GET /api/mcp-audit-logs",
 			"GET /api/mcp-audit-logs/",
+			"GET /api/llm-audit-logs",
+			"GET /api/llm-audit-logs/",
+			"GET /api/llm-audit-logs/filter-options/",
 			"GET /api/mcp-stats",
 			"GET /api/mcp-stats/",
 			"GET /api/mcp-capacity",
@@ -156,10 +169,16 @@ var (
 			"GET /api/image-pull-secrets/capability",
 			"GET /api/image-pull-secrets",
 			"GET /api/image-pull-secrets/",
+			"GET /api/git-credentials",
+			"GET /api/git-credentials/",
 			"POST /api/auth-providers/",
+			"GET /api/local-auth/users",
+			"GET /api/local-auth/users/",
 			"GET /api/workspaces/",
+			"/api/audit-log-exports",
 			"/api/audit-log-exports/",
 			"/api/scheduled-audit-log-exports",
+			"/api/scheduled-audit-log-exports/",
 			"/api/storage-credentials",
 			"/api/storage-credentials/",
 			"GET /api/skill-repositories",
@@ -206,15 +225,15 @@ var (
 			"GET /api/auth-providers",
 			"GET /api/auth-providers/{id}",
 
-			"GET /.well-known/",
+			"GET  /.well-known/",
 			"POST /oauth/register/{mcp_id}",
 			"POST /oauth/register",
-			"GET /oauth/authorize/{mcp_id}",
-			"GET /oauth/authorize",
+			"GET  /oauth/authorize/{mcp_id}",
+			"GET  /oauth/authorize",
 			"POST /oauth/token/{mcp_id}",
 			"POST /oauth/token",
-			"GET /oauth/jwks.json",
-			"GET /oauth/client-metadata.json",
+			"GET  /oauth/jwks.json",
+			"GET  /oauth/client-metadata.json",
 
 			// Allow any user to read stored images.
 			// This allows the UI to display custom images to unauthenticated users.
@@ -312,10 +331,13 @@ var (
 			// Clamp list results to SubmittedBy == req.User.GetUID()
 			"POST /api/devices/scans",
 			"GET /api/devices/scans",
+
+			// Credentials that can submit scans can also submit local agent tool call audit logs.
+			"POST /api/local-agent-audit-logs",
 		},
 
 		types.GroupDeviceEnroll: {
-			// A device enrollment token authenticates as its deployment and may
+			// A device enrollment token authenticates as its configuration and may
 			// only enroll a device — nothing else.
 			"POST /api/mdm/enroll",
 		},
@@ -396,25 +418,9 @@ type rule struct {
 
 func defaultRules(devMode bool, registryNoAuth bool) []rule {
 	var (
-		rules []rule
 		f     = (*fake)(nil)
+		rules = rulesFromStatic(staticRules)
 	)
-
-	for group := range staticRules {
-		rule := rule{
-			group: group,
-			mux:   http.NewServeMux(),
-		}
-		seen := map[string]struct{}{}
-		for _, url := range staticRules[group] {
-			if _, ok := seen[url]; ok {
-				continue
-			}
-			seen[url] = struct{}{}
-			rule.mux.Handle(url, f)
-		}
-		rules = append(rules, rule)
-	}
 
 	var registryRuleBasic, registryRuleMCPOAuth rule
 	if registryNoAuth {
@@ -455,6 +461,29 @@ func defaultRules(devMode bool, registryNoAuth bool) []rule {
 		}
 	}
 
+	return rules
+}
+
+func rulesFromStatic(static map[string][]string) []rule {
+	var (
+		f     = (*fake)(nil)
+		rules []rule
+	)
+	for group := range static {
+		rule := rule{
+			group: group,
+			mux:   http.NewServeMux(),
+		}
+		seen := map[string]struct{}{}
+		for _, url := range static[group] {
+			if _, ok := seen[url]; ok {
+				continue
+			}
+			seen[url] = struct{}{}
+			rule.mux.Handle(url, f)
+		}
+		rules = append(rules, rule)
+	}
 	return rules
 }
 

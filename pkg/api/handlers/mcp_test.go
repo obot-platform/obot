@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -17,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/validation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -162,7 +160,7 @@ func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
 	assert.True(t, types.IsNotFound(err), "expected not found error, got %v", err)
 
 	var updated v1.MCPServer
-	require.NoError(t, storage.Get(context.Background(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
 	assert.Empty(t, updated.Spec.Alias)
 }
 
@@ -195,7 +193,7 @@ func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaxim
 		Request:        httptest.NewRequest(http.MethodGet, "/mcp-connect/entry", nil),
 		Storage:        storage,
 		User:           testUser("user"),
-	}, "entry", "", validation.Options{
+	}, "entry", "", mcp.ValidationOptions{
 		ResourceMaximums: mcp.ResourceMaximums{
 			CPURequest: new(resource.MustParse("100m")),
 		},
@@ -204,7 +202,7 @@ func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaxim
 	assert.Contains(t, err.Error(), "resources.requests.cpu 250m exceeds configured maximum 100m")
 
 	var servers v1.MCPServerList
-	require.NoError(t, storage.List(context.Background(), &servers, kclient.InNamespace(system.DefaultNamespace)))
+	require.NoError(t, storage.List(t.Context(), &servers, kclient.InNamespace(system.DefaultNamespace)))
 	assert.Empty(t, servers.Items)
 }
 
@@ -1085,7 +1083,7 @@ func TestCreateServerRejectsMissingSecretBinding(t *testing.T) {
 	assert.Contains(t, err.Error(), "unavailable Kubernetes Secret")
 
 	var servers v1.MCPServerList
-	require.NoError(t, storage.List(context.Background(), &servers))
+	require.NoError(t, storage.List(t.Context(), &servers))
 	assert.Empty(t, servers.Items)
 }
 
@@ -1597,7 +1595,7 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
 				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
 			}
-			got, err := entryMissingAdminConfig(context.Background(), tt.client, ns, entry, "label")
+			got, err := entryMissingAdminConfig(t.Context(), tt.client, ns, entry, "label")
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFields, got.SecretBoundFields)
 			assert.Equal(t, tt.wantOAuth, got.StaticOAuth)

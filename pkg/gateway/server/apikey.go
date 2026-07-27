@@ -11,6 +11,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -280,24 +281,24 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 
 	hasWildcard := slices.Contains(apiKey.MCPServerIDs, "*")
 	if !req.ValidateOnly && !system.IsWebhookSystemMCPServerID(req.MCPID) {
-		// Check if this server is in the key's allowed list
-		// "*" is a special wildcard that grants access to all servers the user can access
-		if !hasWildcard && !slices.Contains(apiKey.MCPServerIDs, req.MCPID) {
-			// Check if this is a component server - if so, check the composite server ID
-			var mcpServer v1.MCPServer
-			if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: req.MCPID}, &mcpServer); err != nil || mcpServer.Spec.CompositeName == "" || !slices.Contains(apiKey.MCPServerIDs, mcpServer.Spec.CompositeName) {
-				pkgLog.Infof("Denied API key auth request: reason=api_key_scope_mismatch keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
-				return apiContext.Write(apiKeyAuthResponse{
-					Allowed: false,
-					Reason:  "API key does not have access to this MCP server",
-				})
-			}
+		hasAccess, err := authz.MCPIDIsAuthorized(apiContext.Context(), apiContext.Storage, apiKey.MCPServerIDs, strconv.FormatUint(uint64(apiKey.UserID), 10), req.MCPID)
+		if !hasAccess || err != nil {
+			pkgLog.Infof("Denied API key auth request: reason=api_key_scope_mismatch keyUserID=%d mcpID=%s", apiKey.UserID, req.MCPID)
+			return apiContext.Write(apiKeyAuthResponse{
+				Allowed: false,
+				Reason:  "API key does not have access to this MCP server",
+			})
 		}
 	}
 
-	pkgLog.Debugf("Authorized API key request: keyUserID=%d mcpID=%s wildcardScope=%v", apiKey.UserID, req.MCPID, hasWildcard)
+	pkgLog.Debugf("Authorized API key request: keyUserID=%d mcpID=%s wildcardScope=%v validateOnly=%v", apiKey.UserID, req.MCPID, hasWildcard, req.ValidateOnly)
 
-	err = apiContext.Write(apiKeyAuthResponse{
+	// Update key's last used time
+	if keyErr := apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey); keyErr != nil {
+		log.Errorf("failed to update API key last used time: %v", keyErr)
+	}
+
+	return apiContext.Write(apiKeyAuthResponse{
 		Allowed:           true,
 		Scopes:            apiKey.APIKeyScopes,
 		Subject:           fmt.Sprintf("%d", apiKey.UserID),
@@ -305,16 +306,4 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 		PreferredUsername: user.Username,
 		Email:             user.Email,
 	})
-
-	// Update key's last used time
-	if keyErr := s.updateKeyLastUsedTime(apiContext, apiKey); keyErr != nil {
-		log.Errorf("failed to update API key last used time: %v", keyErr)
-	}
-
-	return err
-}
-
-// updateKeyLastUsedTime updates the last used timestamp for an API key.
-func (s *Server) updateKeyLastUsedTime(apiContext api.Context, apiKey *types.APIKey) error {
-	return apiContext.GatewayClient.UpdateAPIKeyLastUsed(apiContext.Context(), apiKey)
 }

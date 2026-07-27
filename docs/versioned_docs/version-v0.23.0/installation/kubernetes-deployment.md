@@ -9,7 +9,7 @@ For a complete list of all available Helm chart configuration values, see [chart
 ## Prerequisites
 
 - **Helm**
-- **PostgreSQL 17+** with pgvector extension
+- **PostgreSQL 17+**
 - **Object storage or a persistent volume for published workflows** (for production)
 - **StorageClass** (for production)
 - **Encryption provider** (AWS KMS, GCP KMS, or Azure Key Vault recommended)

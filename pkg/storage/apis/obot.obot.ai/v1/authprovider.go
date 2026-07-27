@@ -1,9 +1,15 @@
 package v1
 
 import (
+	"slices"
+	"strconv"
+
+	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var _ fields.Fields = (*AuthProvider)(nil)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -13,6 +19,22 @@ type AuthProvider struct {
 
 	Spec   AuthProviderSpec   `json:"spec,omitempty"`
 	Status AuthProviderStatus `json:"status,omitempty"`
+}
+
+func (in *AuthProvider) Has(field string) (exists bool) {
+	return slices.Contains(in.FieldNames(), field)
+}
+
+func (in *AuthProvider) Get(field string) (value string) {
+	switch field {
+	case "status.configured":
+		return strconv.FormatBool(in.Status.Configured)
+	}
+	return ""
+}
+
+func (in *AuthProvider) FieldNames() []string {
+	return []string{"status.configured"}
 }
 
 func (in *AuthProvider) GetColumns() [][]string {

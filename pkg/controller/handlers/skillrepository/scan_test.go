@@ -8,7 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -119,6 +118,16 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, dirs, 2)
 	})
+
+	t.Run("git metadata skipped", func(t *testing.T) {
+		root := t.TempDir()
+		visible := createSkillDir(t, root, "visible", "visible", "visible")
+		createSkillDir(t, filepath.Join(root, ".git"), "hidden", "hidden", "hidden")
+
+		dirs, err := discoverSkillDirectories(root)
+		require.NoError(t, err)
+		assert.Equal(t, []string{visible}, dirs)
+	})
 }
 
 func testRepo(name, namespace string) *v1.SkillRepository {
@@ -132,10 +141,8 @@ func testRepo(name, namespace string) *v1.SkillRepository {
 			Namespace: namespace,
 		},
 		Spec: v1.SkillRepositorySpec{
-			SkillRepositoryManifest: types.SkillRepositoryManifest{
-				RepoURL: "https://github.com/owner/repo",
-				Ref:     "main",
-			},
+			RepoURL: "https://github.com/owner/repo",
+			Ref:     "main",
 		},
 	}
 }

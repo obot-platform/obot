@@ -12,25 +12,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 const (
 	defaultLLMAuditLogResponseCaptureLimit = 5 << 20 // 5MiB
-
-	llmAuditClientClaudeCode = "claude-code"
-	llmAuditClientCodex      = "codex"
-
-	llmAuditUserAgentClaudeCode = "claude-code"
-	llmAuditUserAgentClaudeCLI  = "claude-cli"
-	llmAuditUserAgentCodexCLI   = "codex_cli_rs"
-	llmAuditUserAgentCodexTUI   = "codex-tui"
+	claudeCodeSessionIDHeader              = "X-Claude-Code-Session-Id"
 )
 
 type llmAuditRecorder struct {
@@ -52,8 +48,6 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	if user != nil {
 		userID = user.GetUID()
 	}
-	clientName, clientVersion := parseLLMClientUserAgent(req.UserAgent())
-
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
@@ -64,8 +58,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 			RequestMethod:  req.Method,
 			RequestHeaders: redactedHeaders(req.Header),
 			RequestID:      requestID,
-			Client:         clientName,
-			ClientVersion:  clientVersion,
+			UserAgent:      req.UserAgent(),
 			ClientIP:       requestinfo.GetSourceIP(req),
 		},
 	}
@@ -84,21 +77,22 @@ func (r *llmAuditRecorder) setRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RequestBody = string(body)
+	r.log.RequestBody = body
 }
 
-func (r *llmAuditRecorder) setRedactedRequestBody(body []byte) {
+func (r *llmAuditRecorder) setPolicyModifiedRequestBody(body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.RedactedRequestBody = string(body)
+	r.log.PolicyModifiedRequestBody = body
+	r.log.MessagePolicyTriggered = len(body) > 0
 }
 
-func (r *llmAuditRecorder) setClientSessionID(modelProvider string, body []byte) {
+func (r *llmAuditRecorder) setClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) {
 	if r == nil {
 		return
 	}
-	r.log.ClientSessionID = extractLLMClientSessionID(modelProvider, body)
+	r.log.ClientSessionID = extractLLMClientSessionID(dialect, headers, body)
 }
 
 func (r *llmAuditRecorder) setReasoningEffort(modelProvider string, body []byte) {
@@ -114,6 +108,13 @@ func (r *llmAuditRecorder) recordResponse(resp *http.Response) {
 	}
 	r.log.ResponseStatus = resp.StatusCode
 	r.log.ResponseHeaders = redactedHeaders(resp.Header)
+}
+
+func (r *llmAuditRecorder) recordResponseStatus(status int) {
+	if r == nil {
+		return
+	}
+	r.log.ResponseStatus = status
 }
 
 func (r *llmAuditRecorder) captureResponseChunk(p []byte) {
@@ -149,26 +150,44 @@ func (r *llmAuditRecorder) finish(c *client.Client, err error) {
 	}
 	r.once.Do(func() {
 		r.log.Duration = time.Since(r.log.CreatedAt).Milliseconds()
-		r.setOutcome(err)
+		r.setOutcomeAndResponseStatus(err)
 		c.LogLLMAuditEntry(r.log, r.responseStream.Bytes())
 	})
 }
 
-func (r *llmAuditRecorder) setOutcome(err error) {
+func (r *llmAuditRecorder) setOutcomeAndResponseStatus(err error) {
 	if r == nil {
 		return
 	}
 	r.log.Outcome = types.LLMAuditOutcomeSuccess
 	r.log.Error = ""
+
+	if r.log.ResponseStatus >= http.StatusBadRequest {
+		r.log.Outcome = types.LLMAuditOutcomeError
+	}
+
 	if err == nil {
 		return
 	}
 	r.log.Error = err.Error()
+	r.log.Outcome = types.LLMAuditOutcomeError
 	if errors.Is(err, context.Canceled) {
 		r.log.Outcome = types.LLMAuditOutcomeCanceled
-		return
 	}
-	r.log.Outcome = types.LLMAuditOutcomeError
+
+	if r.log.ResponseStatus == 0 {
+		if errHTTP := (*apitypes.ErrHTTP)(nil); errors.As(err, &errHTTP) {
+			r.log.ResponseStatus = errHTTP.Code
+		} else if errStatus := (*apierrors.StatusError)(nil); errors.As(err, &errStatus) {
+			r.log.ResponseStatus = int(errStatus.ErrStatus.Code)
+		} else {
+			r.log.ResponseStatus = http.StatusInternalServerError
+		}
+
+		if r.log.ResponseStatus >= http.StatusBadRequest && r.log.Outcome != types.LLMAuditOutcomeCanceled {
+			r.log.Outcome = types.LLMAuditOutcomeError
+		}
+	}
 }
 
 type llmAuditResponseBody struct {
@@ -191,7 +210,7 @@ func (r *llmAuditResponseBody) Close() error {
 	return err
 }
 
-func redactedHeaders(headers http.Header) string {
+func redactedHeaders(headers http.Header) json.RawMessage {
 	out := make(http.Header, len(headers))
 	for k, values := range headers {
 		if shouldRedactHeader(k) {
@@ -201,42 +220,44 @@ func redactedHeaders(headers http.Header) string {
 		out[k] = append([]string(nil), values...)
 	}
 	b, _ := json.Marshal(out)
-	return string(b)
+	return b
 }
 
 func shouldRedactHeader(key string) bool {
 	k := strings.ToLower(key)
+	switch k {
+	case "x-ratelimit-limit-tokens",
+		"x-ratelimit-remaining-tokens",
+		"x-ratelimit-reset-tokens",
+		"anthropic-ratelimit-input-tokens-limit",
+		"anthropic-ratelimit-input-tokens-remaining",
+		"anthropic-ratelimit-input-tokens-reset",
+		"anthropic-ratelimit-output-tokens-limit",
+		"anthropic-ratelimit-output-tokens-remaining",
+		"anthropic-ratelimit-output-tokens-reset",
+		"anthropic-ratelimit-requests-limit",
+		"anthropic-ratelimit-requests-remaining",
+		"anthropic-ratelimit-requests-reset",
+		"anthropic-ratelimit-tokens-limit",
+		"anthropic-ratelimit-tokens-remaining",
+		"anthropic-ratelimit-tokens-reset":
+		return false
+	}
 	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")
 }
 
-func parseLLMClientUserAgent(userAgent string) (string, string) {
-	token, _, _ := strings.Cut(strings.TrimSpace(userAgent), " ")
-	if token == "" {
-		return "", ""
-	}
-	name, version, ok := strings.Cut(token, "/")
-	if !ok {
-		name = token
-		version = ""
+func extractLLMClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) string {
+	if sessionID := headers.Get(claudeCodeSessionIDHeader); sessionID != "" {
+		return sessionID
 	}
 
-	switch name {
-	case llmAuditUserAgentClaudeCode, llmAuditUserAgentClaudeCLI:
-		name = llmAuditClientClaudeCode
-	case llmAuditUserAgentCodexCLI, llmAuditUserAgentCodexTUI:
-		name = llmAuditClientCodex
-	}
-	return name, version
-}
-
-func extractLLMClientSessionID(modelProvider string, body []byte) string {
-	switch modelProvider {
-	case system.OpenAIModelProvider:
+	switch dialect {
+	case nanobottypes.DialectOpenAIResponses:
 		return gjson.GetBytes(body, "client_metadata.session_id").String()
-	case system.AnthropicModelProvider:
+	case nanobottypes.DialectAnthropicMessages:
 		userID := gjson.GetBytes(body, "metadata.user_id").String()
 		if !gjson.Valid(userID) {
 			return ""

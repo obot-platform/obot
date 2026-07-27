@@ -1,7 +1,6 @@
 package mcpcatalog
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicate source entry key "shared"`)
@@ -51,7 +50,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry key "bad::key" cannot contain ::`)
@@ -71,7 +70,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(context.Background(), "default", dir, "")
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `source entry key "Bad_Key" must be DNS-friendly`)

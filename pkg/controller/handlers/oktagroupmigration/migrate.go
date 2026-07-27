@@ -11,13 +11,13 @@ import (
 type Handler struct{}
 
 func New() *Handler {
-	return &Handler{}
+	return nil
 }
 
 // Migrate updates group subject IDs in AccessControlRule, SkillAccessRule, and ModelAccessPolicy CRDs
 // using the old -> new mapping stored in the OktaGroupMigration task object.
 // On success, the task object is deleted. On failure, the controller retries automatically.
-func (h *Handler) Migrate(req router.Request, _ router.Response) error {
+func (*Handler) Migrate(req router.Request, _ router.Response) error {
 	migration := req.Object.(*v1.OktaGroupMigration)
 
 	if err := migrateAccessControlRules(req, migration.Spec.IDMapping); err != nil {

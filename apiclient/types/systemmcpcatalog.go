@@ -1,9 +1,10 @@
 package types
 
 type SystemMCPCatalogManifest struct {
-	DisplayName          string            `json:"displayName"`
-	SourceURLs           []string          `json:"sourceURLs"`
-	SourceURLCredentials map[string]string `json:"sourceURLCredentials,omitempty"`
+	DisplayName               string            `json:"displayName"`
+	SourceURLs                []string          `json:"sourceURLs"`
+	SourceURLCredentials      map[string]string `json:"sourceURLCredentials,omitempty"`
+	SourceURLGitCredentialIDs map[string]string `json:"sourceURLGitCredentialIDs,omitempty"`
 }
 
 type SystemMCPServerType string

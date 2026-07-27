@@ -5,6 +5,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
+		id?: string;
 		text?: string;
 		class?: string;
 		tooltipText?: string;
@@ -17,6 +18,7 @@
 	}
 
 	let {
+		id,
 		text,
 		class: clazz = '',
 		tooltipText = 'Copy',
@@ -85,6 +87,7 @@
 
 {#if text}
 	<button
+		{id}
 		use:tooltip={disabled ? undefined : message}
 		onclick={() => copy()}
 		{disabled}

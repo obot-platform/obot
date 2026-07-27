@@ -156,17 +156,6 @@
 	});
 	let configurationReadonly = $derived(readonly || isCatalogEntryDeployedMultiUserServer(entry));
 
-	type ScrollState = {
-		hasMoreLeft: boolean;
-		hasMoreRight: boolean;
-		ref?: HTMLDivElement;
-	};
-	let rootScrollContainer = $state<ScrollState>({
-		hasMoreLeft: false,
-		hasMoreRight: false,
-		ref: undefined
-	});
-
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
 	let oauthURLs = $state<Record<string, string>>();
@@ -264,7 +253,10 @@
 				: [
 						{ label: 'Overview', view: 'overview' },
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
-						{ label: 'Tools', view: 'tools' }
+						{ label: 'Tools', view: 'tools' },
+						...(profile.current?.hasAdminAccess?.() && entry?.manifest?.runtime === 'remote'
+							? [{ label: 'Troubleshooting', view: 'troubleshooting' }]
+							: [])
 					];
 		return limitViews
 			? availableTabs.filter((tab) => limitViews.includes(tab.view))
@@ -382,13 +374,7 @@
 			users = data;
 		});
 
-		checkScrollPosition();
-		rootScrollContainer.ref?.addEventListener('scroll', checkScrollPosition);
-		window.addEventListener('resize', checkScrollPosition);
-
 		return () => {
-			rootScrollContainer.ref?.removeEventListener('scroll', checkScrollPosition);
-			window.removeEventListener('resize', checkScrollPosition);
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
 	});
@@ -428,26 +414,6 @@
 			item.serverUserType === 'multiUser' &&
 			!!item.catalogEntryID
 		);
-	}
-
-	function checkScrollPosition() {
-		if (!rootScrollContainer.ref) return;
-
-		const { scrollLeft, scrollWidth, clientWidth } = rootScrollContainer.ref;
-		rootScrollContainer.hasMoreLeft = scrollLeft > 0;
-		rootScrollContainer.hasMoreRight = scrollLeft < scrollWidth - clientWidth - 1; // -1 for rounding errors
-	}
-
-	function scrollLeft() {
-		if (rootScrollContainer.ref) {
-			rootScrollContainer.ref.scrollBy({ left: -200, behavior: 'smooth' });
-		}
-	}
-
-	function scrollRight() {
-		if (rootScrollContainer.ref) {
-			rootScrollContainer.ref.scrollBy({ left: 200, behavior: 'smooth' });
-		}
 	}
 
 	function handleSelectionChange(newSelection: string) {
@@ -582,6 +548,10 @@
 
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
+				oauthURLs = undefined;
+				oauthURL = undefined;
+				oauthDialog?.close();
+				configDialog?.close();
 			}
 		} catch (err) {
 			const errMessage = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -848,13 +818,12 @@
 			<OverflowContainer
 				class="scrollbar-none flex min-h-12 w-full items-center gap-2 overflow-x-auto"
 				style="scroll-behavior: smooth;"
-				{@attach (node: HTMLDivElement) => (rootScrollContainer.ref = node)}
 			>
-				{#snippet children({ x })}
+				{#snippet children({ x, hasMoreLeft, hasMoreRight, scrollLeft, scrollRight })}
 					{#if tabs.length > 0 && (entry?.id || server?.id)}
 						{#if x}
 							<button
-								disabled={!rootScrollContainer.hasMoreLeft}
+								disabled={!hasMoreLeft}
 								onclick={scrollLeft}
 								class="bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 							>
@@ -895,7 +864,7 @@
 
 						{#if x}
 							<button
-								disabled={!rootScrollContainer.hasMoreRight}
+								disabled={!hasMoreRight}
 								onclick={scrollRight}
 								class="bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
 							>
@@ -1118,7 +1087,6 @@
 				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
 				{mcpServerCatalogEntryName}
 				{mcpServerDisplayName}
-				{id}
 				{entity}
 			>
 				{#snippet emptyContent()}

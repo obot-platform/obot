@@ -1,6 +1,6 @@
-import type { AuditLogUsageStats } from '$lib/services';
+import type { McpAuditLogUsageStats } from '$lib/services';
 
-export function transformTopToolCalls(stats: AuditLogUsageStats | undefined) {
+export function transformTopToolCalls(stats: McpAuditLogUsageStats | undefined) {
 	const counts = new Map<string, { count: number; serverDisplayName: string }>();
 	for (const s of stats?.items ?? []) {
 		for (const call of s.toolCalls ?? []) {
@@ -22,7 +22,7 @@ export function transformTopToolCalls(stats: AuditLogUsageStats | undefined) {
 		.sort((a, b) => b.count - a.count);
 }
 
-export function transformTopServerUsage(stats: AuditLogUsageStats | undefined) {
+export function transformTopServerUsage(stats: McpAuditLogUsageStats | undefined) {
 	const counts = new Map<string, number>();
 	for (const s of stats?.items ?? []) {
 		const total = (s.toolCalls ?? []).reduce((sum, t) => sum + t.callCount, 0);
@@ -35,7 +35,7 @@ export function transformTopServerUsage(stats: AuditLogUsageStats | undefined) {
 		.sort((a, b) => b.count - a.count);
 }
 
-export function transformAvgToolCallResponseTime(stats: AuditLogUsageStats | undefined) {
+export function transformAvgToolCallResponseTime(stats: McpAuditLogUsageStats | undefined) {
 	const responseTimes = new Map<
 		string,
 		{ total: number; count: number; serverDisplayName: string }

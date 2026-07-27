@@ -1,7 +1,6 @@
 package oauth
 
 import (
-	"context"
 	"io"
 	"net/http"
 	"strconv"
@@ -95,7 +94,7 @@ func TestResolveClientIDMetadataDocument(t *testing.T) {
 		}, nil
 	})
 
-	client, err := h.resolveClientIDMetadataDocument(context.Background(), clientID)
+	client, err := h.resolveClientIDMetadataDocument(t.Context(), clientID)
 	if err != nil {
 		t.Fatalf("resolve metadata: %v", err)
 	}
@@ -112,7 +111,7 @@ func TestResolveClientIDMetadataDocument(t *testing.T) {
 		t.Fatalf("expected default application type web, got %q", client.Spec.Manifest.ApplicationType)
 	}
 
-	if _, err = h.resolveClientIDMetadataDocument(context.Background(), clientID); err != nil {
+	if _, err = h.resolveClientIDMetadataDocument(t.Context(), clientID); err != nil {
 		t.Fatalf("resolve cached metadata: %v", err)
 	}
 	if requests != 1 {
@@ -171,7 +170,7 @@ func TestResolveClientIDMetadataDocumentValidation(t *testing.T) {
 				}, nil
 			})
 
-			if _, err := h.resolveClientIDMetadataDocument(context.Background(), "https://client.example/oauth/client.json"); err == nil {
+			if _, err := h.resolveClientIDMetadataDocument(t.Context(), "https://client.example/oauth/client.json"); err == nil {
 				t.Fatal("expected validation error")
 			}
 		})
@@ -196,7 +195,7 @@ func TestResolveClientIDMetadataDocumentPrivateKeyJWT(t *testing.T) {
 		}, nil
 	})
 
-	client, err := h.resolveClientIDMetadataDocument(context.Background(), clientID)
+	client, err := h.resolveClientIDMetadataDocument(t.Context(), clientID)
 	if err != nil {
 		t.Fatalf("resolve metadata: %v", err)
 	}
@@ -225,7 +224,7 @@ func TestResolveClientIDMetadataDocumentNativeApplicationType(t *testing.T) {
 		}, nil
 	})
 
-	client, err := h.resolveClientIDMetadataDocument(context.Background(), clientID)
+	client, err := h.resolveClientIDMetadataDocument(t.Context(), clientID)
 	if err != nil {
 		t.Fatalf("resolve metadata: %v", err)
 	}
@@ -270,7 +269,7 @@ func TestFetchClientIDMetadataDocumentRejectsOversizedResponse(t *testing.T) {
 		}, nil
 	})
 
-	if _, _, err := h.fetchClientIDMetadataDocument(context.Background(), "https://client.example/oauth/client.json"); err == nil {
+	if _, _, err := h.fetchClientIDMetadataDocument(t.Context(), "https://client.example/oauth/client.json"); err == nil {
 		t.Fatal("expected oversized metadata error")
 	}
 }

@@ -6,7 +6,7 @@
 	import * as nanobotLayout from '$lib/context/nanobotLayout.svelte';
 	import type { ChatSession } from '$lib/services/nanobot/chat/index.svelte';
 	import type { Attachment, UploadedFile } from '$lib/services/nanobot/types';
-	import { responsive, profile } from '$lib/stores';
+	import { errors, responsive, profile } from '$lib/stores';
 	import { nanobotChat } from '$lib/stores/nanobotChat.svelte';
 	import { goto } from '$lib/url';
 	import { clampThreadContentReportedWidth, randomUUID } from '$lib/utils';
@@ -125,29 +125,39 @@
 						if (p.uri?.startsWith('blob:')) URL.revokeObjectURL(p.uri);
 					});
 
-					$nanobotChat?.api.createSession().then(async (session) => {
+					try {
+						const api = $nanobotChat?.api;
+						if (!api) {
+							throw new Error('Nanobot API not found');
+						}
+						const session = await api.createSession();
 						const uploadedAttachments: Attachment[] = await Promise.all(
 							toUpload.map((p) => session.uploadFile(p.file))
 						);
 						const allAttachments = [...uploadedAttachments, ...(attachments ?? [])];
-						session.sendMessage(message, allAttachments.length > 0 ? allAttachments : undefined);
+						await session.sendMessage(
+							message,
+							allAttachments.length > 0 ? allAttachments : undefined
+						);
 						const current = get(nanobotChat);
 						nanobotChat.set({
 							projectId,
 							chat: session,
 							sessionId: session.chatId,
-							api: $nanobotChat?.api,
+							api,
 							sessions: current?.sessions ?? [],
 							isThreadsLoading: current?.isThreadsLoading ?? false,
 							resources: current?.resources ?? []
 						});
 
-						goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
+						await goto(`/agent/p/${projectId}?tid=${session.chatId}`, {
 							replaceState: true,
 							noScroll: true,
 							keepFocus: true
 						});
-					});
+					} catch (error) {
+						errors.append(error);
+					}
 				},
 				messages: initialMessage
 					? [

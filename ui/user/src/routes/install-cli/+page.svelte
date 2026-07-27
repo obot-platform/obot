@@ -45,7 +45,7 @@
 	const setupCommand = $derived(`obot setup --url ${page.url.origin}`);
 </script>
 
-<Layout title="Obot CLI">
+<Layout title="Obot CLI" showBackButton>
 	<div class="w-full max-w-7xl mx-auto h-full @container/cli my-6">
 		<div class="paper">
 			<div class="flex flex-col @2xl/cli:flex-row items-center justify-center gap-8">
@@ -83,16 +83,25 @@
 					</div>
 				{/each}
 			</div>
-			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1">
+			<div class="p-8 @2xl/cli:pb-8 pb-0 flex flex-col gap-1" id="obot-cli-installation">
 				<h3 class="text-2xl font-bold">How to Install Obot CLI</h3>
 
-				{@render codesnippet('For MacOS, install through Homebrew:', installCommand)}
+				{@render codesnippet(
+					'For MacOS, install through Homebrew:',
+					installCommand,
+					'obot-cli-homebrew-install'
+				)}
 
-				{@render codesnippet('Then run the following command:', setupCommand)}
+				{@render codesnippet(
+					'Then run the following command:',
+					setupCommand,
+					'obot-cli-setup-command'
+				)}
 
 				<div class="flex flex-col">
 					<p class="text-sm">For more installation options, click below:</p>
 					<a
+						id="obot-cli-windows-installer"
 						href="https://github.com/obot-platform/obot/releases/latest"
 						class="btn btn-primary mb-3 my-2 w-fit self-center @lg/cli:self-start"
 						target="_blank"
@@ -133,10 +142,10 @@
 
 		<div class="divider"></div>
 
-		<div class="mt-12 flex flex-col gap-4">
+		<div class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
 			<h3 class="text-2xl font-bold">Obot CLI Commands</h3>
 
-			<div class="paper">
+			<div class="paper" id="obot-cli-command-setup">
 				{@render commandPreview('obot setup')}
 				<p>
 					Use <code class="inline-code">obot setup</code> to authenticate with Obot and install the Obot
@@ -144,7 +153,31 @@
 				</p>
 			</div>
 
-			<div class="paper">
+			<div class="paper" id="obot-cli-command-mcp">
+				{@render commandPreview('obot mcp')}
+				<p class="mb-2">
+					Use <code class="inline-code">obot mcp</code> to install and manage MCP servers. We
+					support Claude, Codex, and all clients that support
+					<code class="inline-code">~/.agents</code>, including:
+				</p>
+				{@render supportedClients('size-6')}
+
+				<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
+					<li>
+						<p class="mb-2">
+							Search Obot for installable MCP servers from your AI client using the following skill:
+						</p>
+						<div class="mb-2">
+							{@render slashCommandPreview(
+								'/obot-search-mcp-servers',
+								'Search Obot for installable MCP servers. (user)'
+							)}
+						</div>
+					</li>
+				</ul>
+			</div>
+
+			<div class="paper" id="obot-cli-command-skills">
 				{@render commandPreview('obot skills')}
 				<p>
 					Use <code class="inline-code">obot skills</code> to install and manage skills. We support
@@ -171,50 +204,18 @@
 					</li>
 				</ul>
 			</div>
-
-			<div class="paper">
-				{@render commandPreview('obot scan')}
-				<div>
-					<p class="mb-2">
-						Use <code class="inline-code">obot scan</code> to inventory your AI clients, skills, MCP servers,
-						and more.
-					</p>
-					<ul class="list-disc font-light flex flex-col gap-2 @lg/cli:px-8 px-4 text-sm">
-						<li>Crawls your home directory for MCP servers, skills, and plugins</li>
-						<li>Stable device identity for ongoing visibility</li>
-						<li>
-							<p class="mb-1">Supported AI Clients:</p>
-							{@render supportedClients('size-6')}
-						</li>
-						<li>
-							<p class="mb-2">After reviewing your scan results, submit via:</p>
-							<div class="command-preview">
-								<pre data-prefix="$" class="m-0"><code>obot scan --submit</code></pre>
-							</div>
-						</li>
-						<li>
-							<p class="mb-2">
-								Kick off a scan directly from your AI clients using the following skill:
-							</p>
-							{@render slashCommandPreview(
-								'/obot-scan',
-								'Scan local AI client configuration and submit it to Obot. (user)'
-							)}
-						</li>
-					</ul>
-				</div>
-			</div>
 		</div>
 	</div>
 </Layout>
 
-{#snippet codesnippet(step: string, command: string)}
+{#snippet codesnippet(step: string, command: string, id: string)}
 	<p class="text-sm">{step}</p>
 	<div class="relative mt-0.5 mb-4">
-		<pre class="pl-4 pr-22 py-2 m-0"><code>{command}</code></pre>
+		<pre class="pl-4 pr-22 py-2 m-0" {id}><code>{command}</code></pre>
 		<div class="absolute top-1/2 right-2 -translate-y-1/2">
 			<CopyButton
 				text={command}
+				id={`${id}-copy-button`}
 				classes={{ button: 'flex shrink-0 gap-2 text-xs text-white hover:text-primary' }}
 				showTextLeft
 			/>
@@ -261,8 +262,10 @@
 				><CheckIcon class="text-success size-4 inline" /> Connected Cursor and Claude Code</code
 			></pre>
 		<pre></pre>
-		<pre data-prefix="$"><code>obot scan</code></pre>
-		<pre data-prefix=">"><code>27 MCP servers and 14 skills discovered</code></pre>
+		<pre data-prefix="$"><code>obot mcp search</code></pre>
+		<pre data-prefix=">"><code
+				><CheckIcon class="text-success size-4 inline" /> 24 MCP servers available</code
+			></pre>
 		<pre></pre>
 		<pre data-prefix="$"><code>obot skills search</code></pre>
 		<pre data-prefix=">"><code

@@ -60,6 +60,22 @@ function handle401Redirect() {
 }
 
 export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
+	const resp = await doGetForResponse(path, opts);
+
+	if (opts?.blob) {
+		return await resp.blob();
+	}
+
+	if (opts?.text) {
+		return await resp.text();
+	}
+
+	return await resp.json();
+}
+
+// Returns a successful raw GET response so callers can consume both its body
+// and response headers, as required for file downloads.
+export async function doGetForResponse(path: string, opts?: GetOptions): Promise<Response> {
 	const f = opts?.fetch || fetch;
 	const resp = await f(baseURL + path, {
 		headers: {
@@ -85,15 +101,7 @@ export async function doGet(path: string, opts?: GetOptions): Promise<unknown> {
 		throw e;
 	}
 
-	if (opts?.blob) {
-		return await resp.blob();
-	}
-
-	if (opts?.text) {
-		return await resp.text();
-	}
-
-	return await resp.json();
+	return resp;
 }
 
 type ResponseHandler = (
@@ -107,11 +115,13 @@ export async function doDelete(
 	opts?: {
 		signal?: AbortSignal;
 		dontLogErrors?: boolean;
+		fetch?: typeof fetch;
 		responseHandler?: ResponseHandler;
 		keepalive?: boolean;
 	}
 ): Promise<unknown> {
-	const resp = await fetch(baseURL + path, {
+	const f = opts?.fetch || fetch;
+	const resp = await f(baseURL + path, {
 		method: 'DELETE',
 		headers: getAuthHeaders(),
 		...(opts?.keepalive ? { keepalive: true } : { signal: opts?.signal })
@@ -151,7 +161,7 @@ export async function handleResponse(
 		errors.items.push(e);
 		throw e;
 	}
-	if (resp.headers.get('Content-Type') === 'application/json') {
+	if (resp.headers.get('Content-Type')?.includes('application/json')) {
 		return resp.json();
 	}
 	return resp.text();

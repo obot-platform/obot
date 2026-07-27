@@ -1,10 +1,10 @@
 <script lang="ts">
+	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
 	import { hasSecretBinding } from '$lib/services/user/mcp';
-	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import SecretBindingPicker from './SecretBindingPicker.svelte';
+	import CustomConfigurationFieldset from './CustomConfigurationFieldset.svelte';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -18,6 +18,7 @@
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		overrideEnvField?: string[];
 		overrideEnvTemplate?: Snippet<[{ config: MCPCatalogEntryFieldManifest; index: number }]>;
+		showRequired?: boolean;
 	}
 
 	let {
@@ -28,7 +29,8 @@
 		isPrebuiltEntry,
 		secretBindingTargets,
 		overrideEnvField,
-		overrideEnvTemplate
+		overrideEnvTemplate,
+		showRequired
 	}: Props = $props();
 
 	// Separate secret-bound fields from user-configurable fields, preserving
@@ -46,13 +48,6 @@
 		...(secretBoundHeaders ?? []).map((item) => ({ item, source: 'header' as const }))
 	]);
 
-	function usesSecretBindingSource(field: {
-		secretBinding?: unknown;
-		secretBindingSource?: string;
-	}) {
-		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
-	}
-
 	const inputClass = 'text-input-filled bg-base-100 w-full shadow-none';
 </script>
 
@@ -60,6 +55,7 @@
 {#if !readonly || (readonly && userConfig.length > 0)}
 	<div
 		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+		id={CATALOG_SERVER_FIELD_IDS.configuration}
 	>
 		<h4 class="text-sm font-semibold">
 			{serverUserType === 'singleUser' ? 'User Supplied Configuration' : 'Configuration'}
@@ -113,136 +109,22 @@
 							{/if}
 						</p>
 
-						{#if serverUserType === 'singleUser'}
-							<p class="text-muted-content text-xs font-light">
-								The Name and Description fields will be displayed to the user when configuring this
-								server. The Key field will not.
-							</p>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-name-${i}`} class="text-sm font-light">Name</label>
-								<input
-									id={`env-name-${i}`}
-									class={inputClass}
-									bind:value={config![i].name}
-									disabled={readonly || isPrebuiltEntry}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-								<input
-									id={`env-description-${i}`}
-									class={inputClass}
-									bind:value={config![i].description}
-									disabled={readonly || isPrebuiltEntry}
-								/>
-							</div>
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-								<input
-									id={`env-key-${i}`}
-									class={inputClass}
-									bind:value={config![i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly || isPrebuiltEntry}
-								/>
-							</div>
-							<div class="flex gap-8">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={config![i].sensitive}
-										disabled={readonly || isPrebuiltEntry}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={config![i].required}
-										disabled={readonly || isPrebuiltEntry}
-									/>
-									<span class="text-sm">Required</span>
-								</label>
-							</div>
-						{:else}
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-key-${i}`} class="text-sm font-light">Key</label>
-								<input
-									id={`env-key-${i}`}
-									class={inputClass}
-									bind:value={config![i].key}
-									placeholder="e.g. CUSTOM_API_KEY"
-									disabled={readonly || isPrebuiltEntry}
-								/>
-								{#if isPrebuiltEntry && config![i].description}
-									<p class="text-muted-content text-xs font-light break-all">
-										{config![i].description}
-									</p>
-								{/if}
-							</div>
-							{#if !isPrebuiltEntry}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-description-${i}`} class="text-sm font-light">Description</label>
-									<input
-										id={`env-description-${i}`}
-										class={inputClass}
-										bind:value={config![i].description}
-										disabled={readonly}
-									/>
-								</div>
-							{/if}
-							{#if secretBindingTargets && !version.current.hideK8sDetails}
-								<SecretBindingPicker
-									bind:field={config![i]}
-									targets={secretBindingTargets}
-									{readonly}
-								/>
-							{/if}
-							{#if !usesSecretBindingSource(config![i])}
-								<div class="flex w-full flex-col gap-1">
-									<label for={`env-value-${i}`} class="text-sm font-light">Value</label>
-									{#if config![i].file}
-										<textarea
-											id={`env-value-${i}`}
-											class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
-											bind:value={config![i].value}
-											disabled={readonly}
-											rows={(config![i].value ?? '').split('\n').length + 1}
-										></textarea>
-									{:else}
-										<input
-											id={`env-value-${i}`}
-											class="text-input-filled bg-base-100 w-full shadow-none"
-											bind:value={config![i].value}
-											placeholder="e.g. 123abcdef456"
-											disabled={readonly}
-											type={config![i].sensitive ? 'password' : 'text'}
-										/>
-									{/if}
-								</div>
-							{/if}
-							<div class="flex w-full gap-4">
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={config![i].sensitive}
-										disabled={readonly || isPrebuiltEntry}
-									/>
-									<span class="text-sm">Sensitive</span>
-								</label>
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										bind:checked={config![i].required}
-										disabled={readonly || isPrebuiltEntry}
-									/>
-									<span class="text-sm">Required</span>
-								</label>
-							</div>
-						{/if}
+						<CustomConfigurationFieldset
+							id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
+							bind:data={config![i]}
+							{serverUserType}
+							{readonly}
+							{isPrebuiltEntry}
+							{secretBindingTargets}
+							classes={{
+								input: inputClass
+							}}
+							{showRequired}
+						/>
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
 						<IconButton
+							id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
 							variant="danger"
 							onclick={() => {
 								config!.splice(i, 1);
@@ -259,7 +141,9 @@
 		{#if !readonly && !isPrebuiltEntry}
 			<div class="flex justify-end">
 				<button
+					id={CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}
 					class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+					type="button"
 					onclick={() => {
 						if (config) {
 							config.push({

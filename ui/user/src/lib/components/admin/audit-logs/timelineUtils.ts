@@ -86,36 +86,30 @@ function getBucketStart(date: Date, kind: BucketKind): Date {
 
 /** One row per bucket per category for StackedTimeline with primaryValueKey="count", secondaryValueKey="_secondary". */
 export type AuditLogTimelineBucketRow = {
-	createdAt: string;
-	callType: string;
+	timestamp: string;
+	eventType: string;
 	count: number;
 	_secondary: 0;
 };
 
 export type AuditLogTimelineSourceRow = {
-	createdAt: string;
-	// Raw audit log API rows keep MCP-specific values under mcpFields.
-	mcpFields?: { callType?: string };
+	timestamp: { occurredAt: string };
+	eventType: string;
 };
 
 export type AuditLogTimelineChartRow = {
-	createdAt: string;
-	callType: string;
+	timestamp: string;
+	eventType: string;
 	count?: number;
 	_secondary?: 0;
 };
 
-function getAuditLogTimelineCallType(row: AuditLogTimelineSourceRow): string {
-	return row.mcpFields?.callType || 'unknown';
-}
-
 export function toAuditLogTimelineChartRow(
 	row: AuditLogTimelineSourceRow
 ): AuditLogTimelineChartRow {
-	// StackedTimeline reads a flat category key, so raw API rows are normalized before charting.
 	return {
-		createdAt: row.createdAt,
-		callType: getAuditLogTimelineCallType(row)
+		timestamp: row.timestamp.occurredAt,
+		eventType: row.eventType
 	};
 }
 
@@ -128,21 +122,21 @@ export function aggregateAuditLogsByBucket(
 	const kind = getBucketKind(rangeStart, rangeEnd);
 	const bucketToCategoryToCount = new Map<string, Map<string, number>>();
 	for (const row of logs) {
-		const bucketKey = getBucketStart(new Date(row.createdAt), kind).toISOString();
+		const bucketKey = getBucketStart(new Date(row.timestamp.occurredAt), kind).toISOString();
 		let byCat = bucketToCategoryToCount.get(bucketKey);
 		if (!byCat) {
 			byCat = new Map();
 			bucketToCategoryToCount.set(bucketKey, byCat);
 		}
-		const cat = getAuditLogTimelineCallType(row);
+		const cat = row.eventType;
 		byCat.set(cat, (byCat.get(cat) ?? 0) + 1);
 	}
 	const result: AuditLogTimelineBucketRow[] = [];
 	for (const [bucketKey, byCat] of bucketToCategoryToCount) {
-		for (const [callType, count] of byCat) {
+		for (const [eventType, count] of byCat) {
 			result.push({
-				createdAt: bucketKey,
-				callType,
+				timestamp: bucketKey,
+				eventType,
 				count,
 				_secondary: 0
 			});
@@ -150,10 +144,10 @@ export function aggregateAuditLogsByBucket(
 	}
 
 	result.sort((a, b) => {
-		if (a.createdAt === b.createdAt) {
-			return a.callType.localeCompare(b.callType);
+		if (a.timestamp === b.timestamp) {
+			return a.eventType.localeCompare(b.eventType);
 		}
-		return a.createdAt.localeCompare(b.createdAt);
+		return a.timestamp.localeCompare(b.timestamp);
 	});
 
 	return result;

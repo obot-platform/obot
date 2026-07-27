@@ -38,7 +38,7 @@ func TestMCPAuditLogMCPInitializesOnlyMCPRows(t *testing.T) {
 	localLog := MCPAuditLog{
 		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
 		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
-			AgentProvider:  string(types2.LocalAgentProviderCodex),
+			AgentProvider:  types2.LocalAgentProviderCodex,
 			IdempotencyKey: "entry-1",
 		},
 	}
@@ -54,7 +54,7 @@ func TestMCPAuditLogValidationRejectsBothFieldGroups(t *testing.T) {
 			MCPID: "mcp-1",
 		},
 		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
-			AgentProvider:  string(types2.LocalAgentProviderCodex),
+			AgentProvider:  types2.LocalAgentProviderCodex,
 			IdempotencyKey: "entry-1",
 		},
 	}
@@ -93,18 +93,21 @@ func TestMCPAuditLogValidationRequiresSelectedFieldGroup(t *testing.T) {
 }
 
 func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
-	observedAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
+	occurredAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
 	valid := LocalAgentToolCallAuditLogFields{
-		AgentProvider:  string(types2.LocalAgentProviderCodex),
+		OccurredAt:     occurredAt,
+		ActorType:      types2.AuditLogActorTypeUser,
+		ActorID:        "user-1",
+		ActionName:     "mcp__server__tool",
+		TargetType:     types2.AuditLogTargetTypeMCPTool,
+		TargetName:     "tool",
+		OutcomeStatus:  types2.AuditLogOutcomeStatusSuccess,
+		AgentProvider:  types2.LocalAgentProviderCodex,
 		CLIVersion:     "1.2.3",
-		Status:         string(types2.LocalAgentAuditLogStatusSucceeded),
-		ObservedAt:     observedAt,
 		IdempotencyKey: "entry-1",
-		ToolName:       "mcp__server__tool",
-		IdentityStatus: string(types2.LocalAgentIdentityStatusAuthenticatedUser),
-		ToolInput:      json.RawMessage(`{"arg":true}`),
-		ToolOutput:     json.RawMessage(`{"ok":true}`),
-		RawHookPayload: json.RawMessage(`{"native":true}`),
+		RequestBody:    json.RawMessage(`{"arg":true}`),
+		ResponseBody:   json.RawMessage(`{"ok":true}`),
+		RawEvent:       json.RawMessage(`{"native":true}`),
 	}
 
 	log := MCPAuditLog{
@@ -123,19 +126,22 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 	}
 
 	invalid = valid
-	invalid.ToolInput = nil
+	invalid.RequestBody = nil
 	log.LocalAgentToolCallFields = &invalid
 	if err := log.ValidateSourceFields(); err == nil {
 		t.Fatal("expected missing tool input validation error")
 	}
 
 	invalid = valid
-	invalid.ToolOutput = nil
+	invalid.ResponseBody = nil
 	log.LocalAgentToolCallFields = &invalid
 	if err := log.ValidateSourceFields(); err == nil {
 		t.Fatal("expected missing tool output validation error")
 	}
 
+	// An explicit JSON null counts as present, not missing. No-output terminal
+	// paths (failure/denial/timeout) submit an explicit null rather than
+	// omitting the field, so these must validate successfully.
 	for _, tt := range []struct {
 		name   string
 		update func(*LocalAgentToolCallAuditLogFields)
@@ -143,196 +149,127 @@ func TestMCPAuditLogValidationRequiresLocalAgentFields(t *testing.T) {
 		{
 			name: "null tool input",
 			update: func(local *LocalAgentToolCallAuditLogFields) {
-				local.ToolInput = json.RawMessage(`null`)
+				local.RequestBody = json.RawMessage(`null`)
 			},
 		},
 		{
 			name: "null tool output",
 			update: func(local *LocalAgentToolCallAuditLogFields) {
-				local.ToolOutput = json.RawMessage(`null`)
+				local.ResponseBody = json.RawMessage(`null`)
 			},
 		},
 		{
 			name: "null raw hook payload",
 			update: func(local *LocalAgentToolCallAuditLogFields) {
-				local.RawHookPayload = json.RawMessage(`null`)
+				local.RawEvent = json.RawMessage(`null`)
 			},
 		},
 		{
 			name: "whitespace padded null payload",
 			update: func(local *LocalAgentToolCallAuditLogFields) {
-				local.ToolInput = json.RawMessage(`  null  `)
+				local.RequestBody = json.RawMessage(`  null  `)
 			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			invalid := valid
-			tt.update(&invalid)
-			log.LocalAgentToolCallFields = &invalid
-			if err := log.ValidateSourceFields(); err == nil {
-				t.Fatal("expected missing JSON payload validation error")
+			accepted := valid
+			tt.update(&accepted)
+			log.LocalAgentToolCallFields = &accepted
+			if err := log.ValidateSourceFields(); err != nil {
+				t.Fatalf("expected explicit null payload to be accepted as present, got error: %v", err)
 			}
 		})
 	}
 
 	invalid = valid
-	invalid.IdentityStatus = ""
+	invalid.ActorType = ""
 	log.LocalAgentToolCallFields = &invalid
 	if err := log.ValidateSourceFields(); err == nil {
-		t.Fatal("expected missing identity status validation error")
+		t.Fatal("expected missing actor type validation error")
 	}
 
 	invalid = valid
-	invalid.IdentityStatus = "authenticated_robot"
+	invalid.ActorType = "robot"
 	log.LocalAgentToolCallFields = &invalid
 	if err := log.ValidateSourceFields(); err == nil {
-		t.Fatal("expected invalid identity status validation error")
+		t.Fatal("expected invalid actor type validation error")
+	}
+
+	invalid = valid
+	invalid.TargetType = types2.AuditLogTargetTypeLocalTool
+	invalid.TargetParentType = types2.AuditLogTargetTypeMCPServer
+	invalid.TargetParentName = "server"
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected local tool parent validation error")
+	}
+
+	invalid = valid
+	invalid.TargetParentType = types2.AuditLogTargetTypeMCPServer
+	invalid.TargetParentName = ""
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected incomplete MCP parent validation error")
+	}
+
+	invalid = valid
+	invalid.OccurredAt = time.Now().Add(2 * time.Hour)
+	log.LocalAgentToolCallFields = &invalid
+	if err := log.ValidateSourceFields(); err == nil {
+		t.Fatal("expected far-future occurredAt validation error")
+	}
+
+	// A timestamp slightly in the future (within the allowed clock skew) must still validate.
+	accepted := valid
+	accepted.OccurredAt = time.Now().Add(time.Minute)
+	log.LocalAgentToolCallFields = &accepted
+	if err := log.ValidateSourceFields(); err != nil {
+		t.Fatalf("expected near-future occurredAt within skew to be accepted, got error: %v", err)
 	}
 }
 
-func TestConvertMCPAuditLogUsesNestedMCPAPIFields(t *testing.T) {
+func TestNewLocalAgentToolCallAuditLogFromInput(t *testing.T) {
 	createdAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
-	log := MCPAuditLog{
-		ID:         1,
-		CreatedAt:  createdAt,
-		SourceType: types2.AuditLogSourceTypeMCP,
-		UserID:     "user-1",
-		ClientIP:   "127.0.0.1",
-		MCPFields: &MCPAuditLogFields{
-			APIKey:                    "key",
-			MCPID:                     "mcp-1",
-			PowerUserWorkspaceID:      "workspace-1",
-			MCPServerDisplayName:      "Server",
-			MCPServerCatalogEntryName: "catalog",
-			ClientName:                "client",
-			ClientVersion:             "1.0.0",
-			CallType:                  "tools/call",
-			CallIdentifier:            "tool",
-			RequestBody:               json.RawMessage(`{"input":true}`),
-			ResponseBody:              json.RawMessage(`{"ok":true}`),
-			ResponseStatus:            200,
-			ProcessingTimeMs:          42,
-			SessionID:                 "session-1",
-			ObotAuditCorrelationID:    "correlation-1",
-			ResponseReceived:          true,
-			RequestID:                 "request-1",
+	occurredAt := createdAt.Add(-time.Second)
+	startedAt := occurredAt.Add(-2 * time.Second)
+
+	log := NewLocalAgentToolCallAuditLogFromInput(types2.LocalAgentToolCallAuditLogInput{
+		OccurredAt: *types2.NewTime(occurredAt),
+		Action:     types2.LocalAgentToolCallAuditLogAction{Name: "mcp__server__tool", Kind: "mcp"},
+		Target: types2.LocalAgentToolCallAuditLogTarget{
+			TargetType: types2.AuditLogTargetTypeMCPTool,
+			Name:       "tool",
+			Parent: &types2.LocalAgentToolCallAuditLogTargetRef{
+				TargetType: types2.AuditLogTargetTypeMCPServer,
+				Name:       "server",
+			},
 		},
-		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{},
-	}
-
-	apiLog := ConvertMCPAuditLog(log)
-	if apiLog.SourceType != "mcp" {
-		t.Fatalf("expected source type mcp, got %q", apiLog.SourceType)
-	}
-	if apiLog.UserID != "user-1" || apiLog.ClientIP != "127.0.0.1" {
-		t.Fatalf("common API fields were not preserved: %#v", apiLog)
-	}
-	if apiLog.MCPFields == nil {
-		t.Fatal("expected nested MCP fields")
-	}
-	if apiLog.LocalAgentToolCallFields != nil {
-		t.Fatalf("expected no local-agent fields for MCP log: %#v", apiLog.LocalAgentToolCallFields)
-	}
-	if apiLog.MCPFields.MCPID != "mcp-1" || apiLog.MCPFields.CallIdentifier != "tool" || apiLog.MCPFields.ClientInfo.Name != "client" {
-		t.Fatalf("nested MCP API fields were not populated: %#v", apiLog.MCPFields)
-	}
-	if apiLog.MCPFields.ObotAuditCorrelationID != "correlation-1" {
-		t.Fatalf("expected MCP correlation ID to be preserved, got %q", apiLog.MCPFields.ObotAuditCorrelationID)
-	}
-}
-
-func TestConvertMCPAuditLogLocalAgentToolCallFields(t *testing.T) {
-	createdAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
-	startedAt := createdAt.Add(-2 * time.Second)
-	log := MCPAuditLog{
-		ID:         2,
-		CreatedAt:  createdAt,
-		SourceType: types2.AuditLogSourceTypeLocalAgentToolCall,
-		UserID:     "user-1",
-		ClientIP:   "127.0.0.1",
-		MCPFields:  &MCPAuditLogFields{},
-		LocalAgentToolCallFields: &LocalAgentToolCallAuditLogFields{
-			AgentProvider:          string(types2.LocalAgentProviderCodex),
-			CLIVersion:             "1.2.3",
-			Status:                 string(types2.LocalAgentAuditLogStatusSucceeded),
-			ObservedAt:             createdAt,
-			StartedAt:              &startedAt,
-			DurationMs:             2000,
-			IdempotencyKey:         "entry-1",
-			ToolUseID:              "tool-use-1",
-			SessionID:              "session-1",
-			TurnID:                 "turn-1",
-			ToolName:               "mcp__server__tool",
-			ToolKind:               "mcp",
-			MCPServerHint:          "server",
-			MCPToolName:            "tool",
-			ObotAuditCorrelationID: "correlation-1",
-			ToolInput:              json.RawMessage(`{"arg":true}`),
-			ToolOutput:             json.RawMessage(`{"ok":true}`),
-			RawHookPayload:         json.RawMessage(`{"native":true}`),
+		Outcome: types2.LocalAgentToolCallAuditLogOutcome{
+			Status: types2.AuditLogOutcomeStatusSuccess, Reason: "none",
+			DurationMs: 2000, Error: "error with /Users/alice/project",
 		},
-	}
-
-	apiLog := ConvertMCPAuditLog(log)
-	if apiLog.MCPFields != nil {
-		t.Fatalf("expected no MCP fields for local-agent log: %#v", apiLog.MCPFields)
-	}
-	local := apiLog.LocalAgentToolCallFields
-	if local == nil {
-		t.Fatal("expected local-agent fields")
-	}
-	if local.IdempotencyKey != "entry-1" || local.ToolName != "mcp__server__tool" || local.ObotAuditCorrelationID != "correlation-1" {
-		t.Fatalf("local-agent fields were not populated: %#v", local)
-	}
-	if local.StartedAt == nil || local.StartedAt.Time.UTC() != startedAt {
-		t.Fatalf("startedAt was not converted: %#v", local.StartedAt)
-	}
-}
-
-func TestNewLocalAgentToolCallAuditLogFromManifest(t *testing.T) {
-	createdAt := time.Date(2026, 6, 25, 12, 0, 0, 0, time.UTC)
-	observedAt := createdAt.Add(-time.Second)
-	startedAt := observedAt.Add(-2 * time.Second)
-
-	log := NewLocalAgentToolCallAuditLogFromManifest(types2.LocalAgentToolCallAuditLogManifest{
-		AgentProvider:          types2.LocalAgentProviderCodex,
-		AgentVersion:           "0.1.0",
-		CLIName:                "obot",
-		CLIVersion:             "1.2.3",
-		Status:                 types2.LocalAgentAuditLogStatusSucceeded,
-		FailureType:            "none",
-		ObservedAt:             *types2.NewTime(observedAt),
-		StartedAt:              types2.NewTime(startedAt),
-		DurationMs:             2000,
-		Error:                  "error with /Users/alice/project",
-		IdempotencyKey:         "entry-1",
-		ToolUseID:              "tool-use-1",
-		SessionID:              "session-1",
-		TurnID:                 "turn-1",
-		ToolName:               "mcp__server__tool",
-		ToolKind:               "mcp",
-		MCPServerHint:          "server",
-		MCPToolName:            "tool",
-		ObotAuditCorrelationID: "correlation-1",
-		Model:                  "gpt-5",
-		ModelID:                "model-1",
-		PermissionMode:         "default",
-		DeviceID:               "device-1",
-		Hostname:               "alice-macbook",
-		OS:                     "darwin",
-		Arch:                   "arm64",
-		LocalUsername:          "alice",
-		ReportedUserEmail:      "alice@example.com",
-		CWD:                    "/Users/alice/project",
-		GitRepoRoot:            "/Users/alice/project",
-		GitRemoteURLs:          []string{"git@github.com:acme/private-repo.git"},
-		GitBranch:              "alice/customer-fix",
-		GitCommitSHA:           "abc123",
-		TranscriptPath:         "/tmp/transcript.jsonl",
-		ToolInput:              json.RawMessage(`{"arg":true}`),
-		ToolOutput:             json.RawMessage(`{"ok":true}`),
-		RawHookPayload:         json.RawMessage(`{"native":true}`),
-	}, "user-1", "127.0.0.1", types2.LocalAgentIdentityStatusAuthenticatedUser, createdAt)
+		Details: types2.LocalAgentToolCallAuditLogReportedDetails{
+			StartedAt: types2.NewTime(startedAt),
+			Trace: types2.LocalAgentToolCallAuditLogTrace{
+				IdempotencyKey: "entry-1", ToolUseID: "tool-use-1", SessionID: "session-1", TurnID: "turn-1",
+			},
+			Agent: types2.LocalAgentToolCallAuditLogAgent{
+				Provider: types2.LocalAgentProviderCodex, Version: "0.1.0", CLIName: "obot", CLIVersion: "1.2.3",
+				Model: "gpt-5", ModelID: "model-1", PermissionMode: "default",
+			},
+			Device: types2.LocalAgentToolCallAuditLogDevice{
+				Hostname: "alice-macbook", OS: "darwin", Architecture: "arm64", LocalUsername: "alice",
+			},
+			Environment: types2.LocalAgentToolCallAuditLogEnvironment{
+				CWD: "/Users/alice/project", GitRoot: "/Users/alice/project",
+				GitRemotes: []string{"git@github.com:acme/private-repo.git"}, GitBranch: "alice/customer-fix",
+				GitCommit: "abc123", ReportedUserEmail: "alice@example.com", TranscriptPath: "/tmp/transcript.jsonl",
+			},
+			Request:  types2.LocalAgentToolCallAuditLogPayload{Body: json.RawMessage(`{"arg":true}`)},
+			Response: types2.LocalAgentToolCallAuditLogPayload{Body: json.RawMessage(`{"ok":true}`)},
+			RawEvent: json.RawMessage(`{"native":true}`),
+		},
+	}, types2.AuditLogActorTypeUser, "user-1", "127.0.0.1", 0, createdAt)
 
 	if log.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
 		t.Fatalf("expected local-agent source type, got %q", log.SourceType)
@@ -344,50 +281,23 @@ func TestNewLocalAgentToolCallAuditLogFromManifest(t *testing.T) {
 	if local == nil {
 		t.Fatal("expected local-agent fields")
 	}
-	if local.IdentityStatus != string(types2.LocalAgentIdentityStatusAuthenticatedUser) {
-		t.Fatalf("expected server-owned identity status, got %q", local.IdentityStatus)
+	if local.ActorType != types2.AuditLogActorTypeUser || local.ActorID != "user-1" {
+		t.Fatalf("expected server-owned actor, got type=%q id=%q", local.ActorType, local.ActorID)
 	}
-	if local.AgentProvider != string(types2.LocalAgentProviderCodex) ||
+	if local.AgentProvider != types2.LocalAgentProviderCodex ||
 		local.CLIVersion != "1.2.3" ||
-		local.ToolName != "mcp__server__tool" ||
+		local.ActionName != "mcp__server__tool" ||
 		local.CWD != "/Users/alice/project" ||
-		local.GitRemoteURLs[0] != "git@github.com:acme/private-repo.git" ||
-		string(local.ToolInput) != `{"arg":true}` ||
-		string(local.RawHookPayload) != `{"native":true}` {
+		local.GitRemotes[0] != "git@github.com:acme/private-repo.git" ||
+		string(local.RequestBody) != `{"arg":true}` ||
+		string(local.RawEvent) != `{"native":true}` {
 		t.Fatalf("client-supplied fields were not copied correctly: %#v", local)
 	}
-	if local.StartedAt == nil || !local.StartedAt.Equal(startedAt) || !local.ObservedAt.Equal(observedAt) {
+	if local.StartedAt == nil || !local.StartedAt.Equal(startedAt) || !local.OccurredAt.Equal(occurredAt) {
 		t.Fatalf("time fields were not converted correctly: %#v", local)
 	}
 	if err := log.ValidateSourceFields(); err != nil {
 		t.Fatalf("converted input should validate: %v", err)
-	}
-}
-
-func TestObotAuditCorrelationIDUsesSharedDatabaseColumn(t *testing.T) {
-	parsed, err := schema.Parse(&MCPAuditLog{}, &sync.Map{}, schema.NamingStrategy{})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var fieldPaths [][]string
-	for _, field := range parsed.Fields {
-		if field.DBName == "obot_audit_correlation_id" {
-			fieldPaths = append(fieldPaths, field.BindNames)
-		}
-	}
-	if len(fieldPaths) != 2 {
-		t.Fatalf("expected MCP and local-agent correlation fields to share one DB column name, got %#v", fieldPaths)
-	}
-
-	var dbNameCount int
-	for _, dbName := range parsed.DBNames {
-		if dbName == "obot_audit_correlation_id" {
-			dbNameCount++
-		}
-	}
-	if dbNameCount != 1 {
-		t.Fatalf("expected one database column for correlation ID, got %d in %#v", dbNameCount, parsed.DBNames)
 	}
 }
 
@@ -424,7 +334,7 @@ func TestLocalAgentErrorUsesSeparateDatabaseColumn(t *testing.T) {
 	if localError == nil {
 		t.Fatal("expected local_agent_error database column")
 	}
-	if got, want := localError.BindNames, []string{"LocalAgentToolCallFields", "Error"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	if got, want := localError.BindNames, []string{"LocalAgentToolCallFields", "OutcomeError"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("expected local_agent_error to bind to local-agent fields, got %#v", got)
 	}
 }

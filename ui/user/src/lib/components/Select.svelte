@@ -17,6 +17,7 @@
 		};
 		position?: 'top' | 'bottom';
 		placeholder?: string;
+		searchPlaceholder?: string;
 		clearAllLabel?: string;
 		onClear?: (option?: T, value?: string | number) => void;
 		onClearAll?: () => void;
@@ -26,6 +27,8 @@
 		buttonReadOnly?: boolean;
 		buttonTitle?: string;
 		displayCount?: boolean;
+		ariaLabelledby?: string;
+		ariaDescribedby?: string;
 	}
 </script>
 
@@ -49,6 +52,7 @@
 		classes,
 		position = 'bottom',
 		placeholder,
+		searchPlaceholder,
 		clearAllLabel,
 		onClear,
 		onClearAll,
@@ -57,7 +61,9 @@
 		searchInDropdown,
 		buttonReadOnly,
 		buttonTitle,
-		displayCount
+		displayCount,
+		ariaLabelledby,
+		ariaDescribedby
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -176,7 +182,9 @@
 					toggle();
 				}
 			}}
-			aria-label={placeholder}
+			aria-labelledby={ariaLabelledby}
+			aria-describedby={ariaDescribedby}
+			aria-label={ariaLabelledby ? undefined : placeholder}
 		>
 			{#if buttonReadOnly}
 				{#if buttonStartContent}
@@ -364,7 +372,7 @@
 			'min-w-0 flex-1 bg-inherit focus:ring-0 focus:outline-none',
 			!multiple && 'px-2 py-4'
 		)}
-		{placeholder}
+		placeholder={searchInDropdown ? (searchPlaceholder ?? placeholder) : placeholder}
 		bind:this={input}
 		bind:value={query}
 		{disabled}

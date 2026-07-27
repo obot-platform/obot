@@ -17,7 +17,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const hasAccess =
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
 	if (hasAccess && !showSetupHandoff) {
-		throw redirect(307, '/admin/dashboard');
+		throw redirect(
+			307,
+			profile?.isBootstrapUser?.() ? '/admin/auth-providers' : '/admin/dashboard'
+		);
 	}
 
 	return {

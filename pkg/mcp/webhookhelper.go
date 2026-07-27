@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/client-go/tools/cache"
@@ -25,7 +26,7 @@ type Webhook struct {
 	Name, DisplayName string
 	URL               string
 	ToolName          string
-	Definitions       []string
+	Definitions       types.MCPSelectors
 	MutateAllowed     bool
 }
 
@@ -92,7 +93,7 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 				DisplayName:   displayName,
 				URL:           url,
 				ToolName:      toolName,
-				Definitions:   res.Spec.Manifest.Selectors.Strings(),
+				Definitions:   res.Spec.Manifest.Selectors,
 				MutateAllowed: res.Spec.Manifest.AllowedToMutate,
 			})
 		}

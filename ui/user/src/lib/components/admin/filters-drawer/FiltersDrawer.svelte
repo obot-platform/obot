@@ -1,35 +1,46 @@
-<script module lang="ts">
-	export type FilterKey = Exclude<
-		keyof AuditLogURLFilters,
-		'query' | 'offset' | 'limit' | 'start_time' | 'end_time'
-	>;
-</script>
-
-<script lang="ts">
+<script lang="ts" generics="T extends Record<string, string | number | null | undefined>">
 	import { page } from '$app/state';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import {
-		UserService,
-		AUDIT_LOG_FILTER_OPTIONS_LIMIT,
-		type AuditLogURLFilters
-	} from '$lib/services';
+	import { UserService } from '$lib/services';
+	import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '$lib/services/user/constants';
 	import { goto } from '$lib/url';
 	import AuditFilter, { type FilterInput, type FilterOption } from './FilterField.svelte';
 	import { X } from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
-	type FilterOptionsEndpoint = typeof UserService.listAuditLogFilterOptions;
+	type FilterKey = Extract<
+		Exclude<
+			keyof T,
+			'query' | 'offset' | 'limit' | 'start_time' | 'end_time' | 'sort_by' | 'sort_order'
+		>,
+		string
+	>;
+
+	type FilterOptionsEndpoint = (
+		filterId: string,
+		filters?: Partial<T>
+	) => Promise<{ options: string[] } | undefined>;
 
 	interface Props {
-		filters?: Record<string, string | number | undefined | null>;
-		isFilterDisabled?: (key: keyof AuditLogURLFilters) => boolean;
-		isFilterClearable?: (key: keyof AuditLogURLFilters) => boolean;
+		filters?: Partial<T>;
+		isFilterDisabled?: (key: FilterKey) => boolean;
+		isFilterClearable?: (key: FilterKey) => boolean;
+		isFilterMultiSelect?: (key: FilterKey) => boolean;
 		// Used to filter server ids when selecting a multi instance server
-		filterOptions?: (option: string, filterId?: keyof AuditLogURLFilters) => boolean;
+		filterOptions?: (option: string, filterId?: FilterKey) => boolean;
 		onClose: () => void;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
 		getFilterDisplayLabel?: (key: string) => string;
-		getDefaultValue?: <T extends keyof AuditLogURLFilters>(filter: T) => AuditLogURLFilters[T];
+		getFilterOptionLabel?: (key: string, value: string) => string;
+		getDefaultValue?: <K extends FilterKey>(filter: K) => T[K] | undefined;
+		// Derives which filter fields to show from the current (live) filter selections. Lets the set
+		// of visible filters react to a controlling filter (e.g. event_type) without reopening the
+		// drawer. Defaults to the keys present in `filters`.
+		getVisibleFilterKeys?: (filters: Partial<T>) => string[];
+		// Filter keys whose value change should wipe the other (clearable) selections. Used so that
+		// switching event types clears filters that no longer apply to the new selection.
+		resetOnChangeKeys?: FilterKey[];
 		endpoint?: FilterOptionsEndpoint;
 	}
 
@@ -37,27 +48,55 @@
 		filters: externFilters,
 		isFilterDisabled,
 		isFilterClearable,
+		isFilterMultiSelect,
 		onClose,
 		getUserDisplayName,
 		getFilterDisplayLabel,
+		getFilterOptionLabel,
 		getDefaultValue,
+		getVisibleFilterKeys,
+		resetOnChangeKeys,
 		filterOptions,
-		endpoint = UserService.listAuditLogFilterOptions
+		endpoint = UserService.listAuditLogFilterOptions as FilterOptionsEndpoint
 	}: Props = $props();
 
-	const url = new URL(page.url);
+	let filters = $derived({ ...(externFilters ?? {}) } as Partial<T>);
 
-	let filters = $derived({ ...(externFilters ?? {}) });
+	// The filter fields to render. When `getVisibleFilterKeys` is provided this reacts to the current
+	// selections (e.g. showing source-specific filters once a single event type is chosen); otherwise
+	// it falls back to whatever keys were passed in.
+	let visibleFilterKeys = $derived(
+		(getVisibleFilterKeys?.(filters) ?? (Object.keys(filters ?? {}) as FilterKey[])) as FilterKey[]
+	);
+
+	// Every filter key that has been visible/present while this drawer has been open. Used on apply to
+	// clear params that no longer apply (e.g. a source-specific filter left over after switching event
+	// types) so they don't linger in the URL.
+	const seenFilterKeys = new SvelteSet<FilterKey>();
+	$effect(() => {
+		for (const key of Object.keys(filters ?? {}) as FilterKey[]) seenFilterKeys.add(key);
+		for (const key of visibleFilterKeys) seenFilterKeys.add(key);
+	});
+
+	// Reset the other clearable selections when a controlling filter changes value.
+	function wipeOtherFilters(exceptKey: FilterKey) {
+		for (const key of Object.keys(filters ?? {}) as FilterKey[]) {
+			if (key === exceptKey || resetOnChangeKeys?.includes(key)) continue;
+			if (isFilterClearable && !isFilterClearable(key)) continue;
+			(filters as Partial<T>)[key] = null as T[FilterKey];
+		}
+	}
 
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
 	let filtersOptions: FilterOptions = $state({} as FilterOptions);
 
 	type FilterInputs = Record<FilterKey, FilterInput>;
 	let filterInputs = $derived(
-		(Object.keys(filters ?? {}) as FilterKey[]).reduce((acc, filterId) => {
+		visibleFilterKeys.reduce((acc, filterId) => {
 			acc[filterId] = {
 				property: filterId,
 				label: getFilterDisplayLabel?.(filterId) ?? filterId.replace(/_(\w)/, ' $1'),
+				multiple: isFilterMultiSelect?.(filterId) ?? true,
 				get tooltip() {
 					const count = filtersOptions[filterId]?.length ?? 0;
 					return count >= AUDIT_LOG_FILTER_OPTIONS_LIMIT
@@ -65,15 +104,19 @@
 						: undefined;
 				},
 				get selected() {
-					return filters?.[filterId];
+					return filters?.[filterId] as string | number | null | undefined;
 				},
 				set selected(v) {
-					filters[filterId] = v;
+					const changed =
+						resetOnChangeKeys?.includes(filterId) && (filters as Partial<T>)[filterId] !== v;
+					(filters as Partial<T>)[filterId] = v as T[typeof filterId];
+					// Switching a controlling filter (e.g. event_type) invalidates the other selections.
+					if (changed) wipeOtherFilters(filterId);
 					// Force Component to react
-					filters = { ...filters };
+					filters = { ...filters } as Partial<T>;
 				},
 				get default() {
-					return getDefaultValue?.(filterId);
+					return getDefaultValue?.(filterId) as string | number | null | undefined;
 				},
 				get options() {
 					return filtersOptions[filterId];
@@ -89,13 +132,13 @@
 	const filterInputsAsArray = $derived(Object.values(filterInputs));
 
 	$effect(() => {
-		const processLog = async (filterId: keyof AuditLogURLFilters) => {
+		const processLog = async (filterId: FilterKey) => {
 			// Exclude the current filterId from the filters sent to the endpoint,
 			// so the backend can return all distinct values for this field
 			// given the *other* active filters.
 			const otherFilters = Object.fromEntries(
 				Object.entries(filters ?? {}).filter(([k]) => k !== filterId)
-			);
+			) as Partial<T>;
 			const response = await endpoint(filterId, otherFilters);
 
 			if (['user_id', 'user_ids'].includes(filterId)) {
@@ -114,7 +157,7 @@
 					?.filter((d) => filterOptions?.(d, filterId) ?? true)
 					?.map((d) => ({
 						id: d,
-						label: d
+						label: getFilterOptionLabel?.(filterId, d) ?? d
 					})) ?? []
 			);
 		};
@@ -131,12 +174,20 @@
 	});
 
 	async function handleApplyFilters() {
+		const url = new URL(page.url);
+
+		// Drop params for filters that are no longer visible (e.g. source-specific filters left over
+		// after switching event types) so they don't linger in the URL and reappear later.
+		const visible = new Set(filterInputsAsArray.map((filterInput) => filterInput.property));
+		for (const key of seenFilterKeys) {
+			if (!visible.has(key)) {
+				url.searchParams.delete(key);
+			}
+		}
+
 		for (const filterInput of filterInputsAsArray) {
 			if (filterInput.selected) {
-				url.searchParams.set(
-					filterInput.property,
-					encodeURIComponent(filterInput.selected.toString())
-				);
+				url.searchParams.set(filterInput.property, filterInput.selected.toString());
 			} else {
 				if (filterInput.selected === null) {
 					// Clear the search param
@@ -147,7 +198,6 @@
 				}
 			}
 		}
-
 		await goto(url, { noScroll: true });
 
 		onClose?.();
@@ -155,7 +205,7 @@
 
 	function handleClearAllFilters() {
 		filterInputsAsArray
-			.filter((filter) => (isFilterClearable ? isFilterClearable?.(filter.property) : true))
+			.filter((filterInput) => isFilterClearable?.(filterInput.property as FilterKey) ?? true)
 			.forEach((filterInput) => {
 				filterInput.selected = '';
 			});
@@ -184,7 +234,7 @@
 					// This code section is called only when user click clear all
 					// single clear value is handled inside the component
 					const key = filterInputsAsArray[index].property;
-					filterInputs[key].selected = '';
+					filterInputs[key as FilterKey].selected = '';
 				}}
 				onReset={() => {
 					filterInput.selected = null;

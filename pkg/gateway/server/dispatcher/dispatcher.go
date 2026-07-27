@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"maps"
 	"net/url"
+	"os"
 	"strings"
+	"sync"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -14,10 +16,16 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const PostgresConnectionEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+const (
+	postgresConnectionEnvVar      = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN"
+	postgresMaxIdleConnsEnvVar    = "OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS"
+	postgresMaxOpenConnsEnvVar    = "OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS"
+	postgresConnMaxLifetimeEnvVar = "OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS"
+)
 
 type Dispatcher struct {
 	sessionManager       *mcp.SessionManager
@@ -28,21 +36,30 @@ type Dispatcher struct {
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
+
+	builtinLock         sync.RWMutex
+	builtinAuthProvider map[string]url.URL
 }
 
 func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *client.Client, licenseProvider *license.Provider, serverURL, internalServerURL, postgresDSN string) *Dispatcher {
 	d := &Dispatcher{
-		sessionManager:    sessionManager,
-		client:            c,
-		gatewayClient:     gatewayClient,
-		licenseProvider:   licenseProvider,
-		serverURL:         serverURL,
-		internalServerURL: internalServerURL,
-		ports:             newPorts(),
+		sessionManager:      sessionManager,
+		client:              c,
+		gatewayClient:       gatewayClient,
+		licenseProvider:     licenseProvider,
+		serverURL:           serverURL,
+		internalServerURL:   internalServerURL,
+		ports:               newPorts(),
+		builtinAuthProvider: map[string]url.URL{},
 	}
 
 	if postgresDSN != "" {
-		d.authProviderExtraEnv = map[string]string{PostgresConnectionEnvVar: postgresDSN}
+		d.authProviderExtraEnv = map[string]string{
+			postgresConnectionEnvVar:      postgresDSN,
+			postgresMaxIdleConnsEnvVar:    os.Getenv(postgresMaxIdleConnsEnvVar),
+			postgresMaxOpenConnsEnvVar:    os.Getenv(postgresMaxOpenConnsEnvVar),
+			postgresConnMaxLifetimeEnvVar: os.Getenv(postgresConnMaxLifetimeEnvVar),
+		}
 	}
 
 	return d
@@ -52,8 +69,29 @@ func (d *Dispatcher) Close() {
 	d.closeDaemons()
 }
 
+// RegisterBuiltinAuthProvider registers an auth provider that runs inside the Obot process,
+// rather than as a daemon launched from the provider registry.
+func (d *Dispatcher) RegisterBuiltinAuthProvider(namespace, authProviderName string, u url.URL) {
+	d.builtinLock.Lock()
+	defer d.builtinLock.Unlock()
+
+	d.builtinAuthProvider[providerKeyForAuthProvider(namespace, authProviderName)] = u
+}
+
+func (d *Dispatcher) builtinAuthProviderURL(key string) (url.URL, bool) {
+	d.builtinLock.RLock()
+	defer d.builtinLock.RUnlock()
+
+	u, ok := d.builtinAuthProvider[key]
+	return u, ok
+}
+
 func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProviderName string) (url.URL, error) {
 	key := providerKeyForAuthProvider(namespace, authProviderName)
+
+	if u, ok := d.builtinAuthProviderURL(key); ok {
+		return u, nil
+	}
 
 	d.ports.daemonLock.RLock()
 	if port := d.ports.daemonPorts[key]; port != 0 {
@@ -154,6 +192,21 @@ func (d *Dispatcher) stopProvider(providerType, namespace, providerName string) 
 
 func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, error) {
 	var authProviders v1.AuthProviderList
+	// First check for an auth provider whose status field is configured.
+	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
+		Namespace:     system.DefaultNamespace,
+		FieldSelector: fields.SelectorFromSet(map[string]string{"status.configured": "true"}),
+	}); err != nil {
+		return "", fmt.Errorf("failed to list auth providers: %w", err)
+	}
+
+	for _, authProvider := range authProviders.Items {
+		if d.isAuthProviderConfigured(ctx, authProvider) {
+			return authProvider.Name, nil
+		}
+	}
+
+	// If no auth provider is configured, then check all of them in case the controller hasn't updated yet.
 	if err := d.client.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 	}); err != nil {

@@ -48,6 +48,7 @@
 				id={workspaceId}
 				entity="workspace"
 				connectOnly
+				limitViews={['overview', 'tools']}
 			/>
 		{/if}
 	</div>

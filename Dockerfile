@@ -77,6 +77,15 @@ COPY --from=bin --link /app/ui/user/build-node /ui
 
 ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV PATH=$PATH:/usr/bin
+
+ENV OBOT_SERVER_DEFAULT_MCPCATALOG_PATH=https://github.com/obot-platform/mcp-catalog
+ENV OBOT_SERVER_DEFAULT_SYSTEM_MCPCATALOG_PATH=https://github.com/obot-platform/system-mcp-catalog
+
+ENV POSTGRES_USER=obot
+ENV POSTGRES_PASSWORD=obot
+ENV POSTGRES_DB=obot
+ENV PGDATA=/data/postgresql
+
 ENV HOME=/data
 ENV XDG_CACHE_HOME=/data/cache
 ENV TERM=vt100

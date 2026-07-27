@@ -5,8 +5,8 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	validationpkg "github.com/obot-platform/obot/pkg/validation"
 )
 
 func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
@@ -77,7 +77,7 @@ func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateManifest(t.Context(), &tt.manifest, validationpkg.Options{})
+			err := validateManifest(t.Context(), &tt.manifest, mcp.ValidationOptions{})
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -134,7 +134,7 @@ func TestApplyRemoteURLTemplateToWebhookValidation(t *testing.T) {
 	err := applyRemoteURLTemplateToWebhookValidation(t.Context(), validation, map[string]string{
 		"HOST":  "example.com",
 		"SPACE": "abc123",
-	}, validationpkg.Options{})
+	}, mcp.ValidationOptions{})
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}

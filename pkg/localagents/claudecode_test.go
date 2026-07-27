@@ -1,7 +1,6 @@
 package localagents
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,7 +16,7 @@ func TestClaudeCodeDetectPresentFromConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result := ClaudeCode{home: home}.Detect(context.Background())
+	result := ClaudeCode{home: home}.Detect(t.Context())
 	if result.State != DetectionPresent {
 		t.Fatalf("State = %q, want %q; reason: %s", result.State, DetectionPresent, result.Reason)
 	}
@@ -29,7 +28,7 @@ func TestClaudeCodeDetectPresentFromConfig(t *testing.T) {
 func TestClaudeCodeDetectMissing(t *testing.T) {
 	t.Setenv("PATH", t.TempDir())
 
-	result := ClaudeCode{home: t.TempDir()}.Detect(context.Background())
+	result := ClaudeCode{home: t.TempDir()}.Detect(t.Context())
 	if result.State != DetectionMissing {
 		t.Fatalf("State = %q, want %q; reason: %s", result.State, DetectionMissing, result.Reason)
 	}
@@ -38,7 +37,7 @@ func TestClaudeCodeDetectMissing(t *testing.T) {
 func TestClaudeCodeInstallBootstrapWritesExpectedSkills(t *testing.T) {
 	home := t.TempDir()
 
-	result, err := NewClaudeCode().InstallBootstrap(context.Background(), home)
+	result, err := NewClaudeCode().InstallBootstrap(t.Context(), home)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +68,7 @@ func TestClaudeCodeInstallBootstrapOverwritesExistingContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := NewClaudeCode().InstallBootstrap(context.Background(), home); err != nil {
+	if _, err := NewClaudeCode().InstallBootstrap(t.Context(), home); err != nil {
 		t.Fatal(err)
 	}
 
@@ -99,7 +98,7 @@ func TestClaudeCodeInstallSkillWritesSanitizedDirectory(t *testing.T) {
 		},
 	}
 
-	result, err := NewClaudeCode().InstallSkill(context.Background(), home, skill)
+	result, err := NewClaudeCode().InstallSkill(t.Context(), home, skill)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +129,7 @@ func TestClaudeCodeInstallSkillReplacesExistingTarget(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := NewClaudeCode().InstallSkill(context.Background(), home, SkillArchive{
+	_, err := NewClaudeCode().InstallSkill(t.Context(), home, SkillArchive{
 		Name: "github-review",
 		Files: []SkillArchiveFile{
 			{
@@ -152,7 +151,7 @@ func TestClaudeCodeInstallSkillReplacesExistingTarget(t *testing.T) {
 func TestClaudeCodeInstallSkillRejectsUnsafeArchivePaths(t *testing.T) {
 	for _, relPath := range []string{"/tmp/escape", "../escape", "nested/../../escape"} {
 		t.Run(relPath, func(t *testing.T) {
-			_, err := NewClaudeCode().InstallSkill(context.Background(), t.TempDir(), SkillArchive{
+			_, err := NewClaudeCode().InstallSkill(t.Context(), t.TempDir(), SkillArchive{
 				Name: "safe-name",
 				Files: []SkillArchiveFile{
 					{RelPath: skillformat.SkillMainFile, Content: []byte("---\nname: safe-name\ndescription: Safe.\n---\n")},

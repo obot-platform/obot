@@ -95,7 +95,7 @@ func newCatalogGatewayClient(t *testing.T, storageClient kclient.WithWatch) *gat
 	require.NoError(t, db.AutoMigrate())
 
 	ctx, cancel := context.WithCancel(context.Background())
-	client := gatewayclient.New(ctx, db, storageClient, nil, nil, nil, time.Hour, 100, 1, 1, true)
+	client := gatewayclient.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 100, 1, 1, true)
 	t.Cleanup(func() {
 		cancel()
 		require.NoError(t, client.Close())

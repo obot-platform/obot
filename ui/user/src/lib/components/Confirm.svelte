@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { openDialog, shouldDismissNonModalDialogOnEscape } from '$lib/actions/openDialog';
 	import Loading from '$lib/icons/Loading.svelte';
 	import IconButton from './primitives/IconButton.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
@@ -20,6 +21,7 @@
 			icon?: string;
 			iconContainer?: string;
 			actions?: string;
+			note?: string;
 		};
 		title?: string;
 		type?: 'delete' | 'info';
@@ -52,11 +54,26 @@
 
 	$effect(() => {
 		if (show) {
-			dialog?.showModal();
+			if (dialog) openDialog(dialog);
 			dialog?.focus();
 		} else {
 			dialog?.close();
 		}
+	});
+
+	// Non-modal opens (guide-aware) do not get native Escape dismissal.
+	$effect(() => {
+		const node = dialog;
+		if (!node) return;
+
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || !shouldDismissNonModalDialogOnEscape(node)) return;
+			e.preventDefault();
+			oncancel();
+		};
+
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
 	});
 </script>
 
@@ -94,7 +111,7 @@
 				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
 
-			<div class="mb-4 self-center text-center font-light">
+			<div class={twMerge('mb-4 self-center text-center font-light', classes?.note)}>
 				{#if typeof note === 'string'}
 					<p>{note}</p>
 				{:else if note}
