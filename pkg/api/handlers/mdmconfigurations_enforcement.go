@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	types "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/enforcement"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -50,14 +51,20 @@ func normalizeEnforcementAllowlist(allowlist types.EnforcementAllowlist) (types.
 	for i, server := range allowlist.Servers {
 		normalized := types.AllowlistServer{
 			URL:      strings.TrimSpace(server.URL),
-			Hostname: strings.TrimSpace(server.Hostname),
+			Hostname: strings.ToLower(strings.TrimSpace(server.Hostname)),
+			// Connector keeps its case: it is a display name the admin reads back,
+			// and connectorMatches compares case-insensitively.
+			Connector: strings.TrimSpace(server.Connector),
 		}
 		if server.Package != nil {
 			// Source is deliberately left as-is: it is matched against a closed
 			// set of values, so a padded source stays an explicit error.
+			//
+			// The name is canonicalized with the same function the device uses on
+			// the name it resolves out of an MCP config.
 			normalized.Package = &types.AllowlistServerPackage{
 				Source:  server.Package.Source,
-				Name:    strings.TrimSpace(server.Package.Name),
+				Name:    enforcement.CanonicalPackageName(server.Package.Source, server.Package.Name),
 				Version: strings.TrimSpace(server.Package.Version),
 			}
 		}
@@ -107,8 +114,11 @@ func validateEnforcementAllowlist(allowlist types.EnforcementAllowlist) error {
 				return err
 			}
 		}
+		if strings.TrimSpace(server.Connector) != "" {
+			set++
+		}
 		if set != 1 {
-			return types.NewErrBadRequest("enforcement allowlist server entry %d must set exactly one of url, package, or hostname", i)
+			return types.NewErrBadRequest("enforcement allowlist server entry %d must set exactly one of url, package, hostname, or connector", i)
 		}
 		if server.Package != nil {
 			switch server.Package.Source {

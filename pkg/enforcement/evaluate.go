@@ -7,9 +7,19 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+const defaultUnresolvedReason = "the device could not determine what this tool call targets"
+
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
 // anything that does not positively match an allow rule is denied.
 func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decision {
+	if call.Unresolved {
+		reason := strings.TrimSpace(call.UnresolvedReason)
+		if reason == "" {
+			reason = defaultUnresolvedReason
+		}
+		return Decision{Allow: false, Reason: reason}
+	}
+
 	// Short-circuit: allow everything.
 	if allowlist.AllowEverything {
 		return Decision{Allow: true, Reason: "allow-everything toggle is enabled"}
@@ -42,7 +52,8 @@ func Evaluate(call NormalizedCall, allowlist types.EnforcementAllowlist) Decisio
 }
 
 // serverMatches reports whether the call's resolved server matches the single
-// dimension declared on the allowlist entry (URL, package, or hostname).
+// dimension declared on the allowlist entry (URL, package, hostname, or
+// connector).
 func serverMatches(call NormalizedCall, entry types.AllowlistServer) bool {
 	switch {
 	case entry.URL != "":
@@ -51,6 +62,8 @@ func serverMatches(call NormalizedCall, entry types.AllowlistServer) bool {
 		return packageMatches(entry.Package, call.Server.Package)
 	case entry.Hostname != "":
 		return hostnameMatches(entry.Hostname, callHostname(call))
+	case entry.Connector != "":
+		return connectorMatches(entry.Connector, call.Server.Connector)
 	default:
 		// A malformed entry with no dimension set matches nothing.
 		return false
@@ -155,6 +168,13 @@ func hostnameMatches(entryHost, callHost string) bool {
 		return false
 	}
 	return strings.EqualFold(entryHost, callHost)
+}
+
+func connectorMatches(entryConnector, callConnector string) bool {
+	if callConnector == "" {
+		return false
+	}
+	return strings.EqualFold(entryConnector, callConnector)
 }
 
 // callHostname returns the call's hostname, deriving it from the resolved URL

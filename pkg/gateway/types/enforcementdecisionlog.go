@@ -28,6 +28,14 @@ type EnforcementDecisionLog struct {
 	ServerPackageSource  string `json:"serverPackageSource,omitempty"`
 	ServerPackageName    string `json:"serverPackageName,omitempty"`
 	ServerPackageVersion string `json:"serverPackageVersion,omitempty"`
+	ServerConnector      string `json:"serverConnector,omitempty"`
+
+	// Unresolved records that the device could not establish what the call
+	// targeted, with UnresolvedReason naming the cause it reported. The row is
+	// always a deny; these distinguish "we could not identify this" from "this
+	// is identified and not allowlisted".
+	Unresolved       bool   `json:"unresolved,omitempty"`
+	UnresolvedReason string `json:"unresolvedReason,omitempty"`
 
 	// Decision is the evaluator verdict: types.EnforcementDecisionAllow or
 	// types.EnforcementDecisionDeny. Reason is the evaluator's human-readable

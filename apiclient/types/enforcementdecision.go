@@ -11,6 +11,10 @@ type EnforcementDecisionServer struct {
 	Package  *AllowlistServerPackage `json:"package,omitempty"`
 	Command  string                  `json:"command,omitempty"`
 	Hostname string                  `json:"hostname,omitempty"`
+	// Connector is the display name of a hosted agent-account connector, for
+	// servers that expose no local URL and no local command. It is the only
+	// local evidence of what such a server is.
+	Connector string `json:"connector,omitempty"`
 }
 
 // EnforcementDecisionRequest is the parameter-free normalized tool call a device
@@ -22,6 +26,13 @@ type EnforcementDecisionRequest struct {
 	Kind       string                    `json:"kind,omitempty"`
 	ServerName string                    `json:"serverName,omitempty"`
 	Server     EnforcementDecisionServer `json:"server,omitzero"`
+
+	// Unresolved is set by the device when it could not establish what the call
+	// targets (unsupported stdio runner, disallowed runner flag, MCP server
+	// absent from every config file). The device has already blocked the call;
+	// this exists so the decision log records why.
+	Unresolved       bool   `json:"unresolved,omitempty"`
+	UnresolvedReason string `json:"unresolvedReason,omitempty"`
 }
 
 type EnforcementDecisionResponse struct {
@@ -45,6 +56,13 @@ type EnforcementDecisionEvent struct {
 	Decision           string                     `json:"decision"`
 	Reason             string                     `json:"reason,omitempty"`
 	Server             *EnforcementDecisionServer `json:"server,omitempty"`
+
+	// Unresolved reports that the device could not establish what the call
+	// targeted, and UnresolvedReason is the specific cause it reported. Such a
+	// row is always a deny, so these exist to let the UI label it as "could not
+	// be identified" rather than "not allowlisted".
+	Unresolved       bool   `json:"unresolved,omitempty"`
+	UnresolvedReason string `json:"unresolvedReason,omitempty"`
 }
 
 type EnforcementDecisionEventList List[EnforcementDecisionEvent]

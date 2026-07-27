@@ -44,11 +44,16 @@ type EnforcementAllowlist struct {
 }
 
 // AllowlistServer allows MCP tool calls to one server. Exactly one of URL,
-// Package, or Hostname identifies the server.
+// Package, Hostname, or Connector identifies the server.
 type AllowlistServer struct {
 	URL      string                  `json:"url,omitempty"`
 	Package  *AllowlistServerPackage `json:"package,omitempty"`
 	Hostname string                  `json:"hostname,omitempty"`
+	// Connector allowlists a hosted account connector by display name, for
+	// agent-account connectors that expose no local URL or command. The device
+	// attests which connector a call targeted; this decides whether it is
+	// permitted. Matched case-insensitively.
+	Connector string `json:"connector,omitempty"`
 	// Tools limits the entry to these tool names; empty allows every tool on the server.
 	Tools []string `json:"tools,omitempty"`
 }

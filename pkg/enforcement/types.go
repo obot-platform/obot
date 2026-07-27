@@ -47,16 +47,25 @@ type NormalizedCall struct {
 	// ObotHosted is true when the resolved server maps to an Obot-hosted or
 	// system MCP server.
 	ObotHosted bool
+	// Unresolved reports that the device could not establish what the call
+	// targets, and UnresolvedReason names the specific cause. Such a call is
+	// denied ahead of every allowlist toggle: nothing can be said to match a
+	// target that was never identified.
+	Unresolved       bool
+	UnresolvedReason string
 }
 
 // ServerIdentity identifies a resolved MCP server. For an MCP call at most one
-// of URL / Package / Command is populated; Hostname is derived from URL when
-// present.
+// of URL / Package / Command / Connector is populated; Hostname is derived from
+// URL when present.
 type ServerIdentity struct {
 	URL      string
 	Package  *PackageIdentity
 	Command  string
 	Hostname string
+	// Connector is the display name of a hosted agent-account connector, which
+	// has no local URL and no local command.
+	Connector string
 }
 
 // PackageIdentity is the canonical package identity of a stdio MCP server that

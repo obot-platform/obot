@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -131,6 +132,185 @@ func TestEnforcementDecideDisabledEnforcementAllowsWithoutLogging(t *testing.T) 
 	}
 	if total != 0 {
 		t.Fatalf("logged %d decision rows, want 0 (enforcement disabled must not log)", total)
+	}
+}
+
+func TestEnforcementDecideDisabledEnforcementAllowsUnresolvedCall(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	config, err := gatewayClient.CreateMDMConfiguration(t.Context(), 1, &gtypes.MDMConfiguration{
+		EnforcementEnabled:   false,
+		EnforcementAllowlist: types.EnforcementAllowlist{},
+	})
+	if err != nil {
+		t.Fatalf("create MDM configuration: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:            "claude_code",
+		Tool:             "search",
+		Kind:             "mcp",
+		ServerName:       "linear",
+		Unresolved:       true,
+		UnresolvedReason: `stdio command "node" is not a supported package runner`,
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, config.ID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	resp := decodeDecisionResponse(t, rec)
+	if resp.Decision != types.EnforcementDecisionAllow {
+		t.Fatalf("decision = %q, want allow when enforcement is disabled (reason %q)", resp.Decision, resp.Reason)
+	}
+	assertNoEnforcementDecisions(t, gatewayClient)
+}
+
+func TestEnforcementDecideUnresolvedCallIsDeniedAndLabelled(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{AllowEverything: true})
+
+	const reason = `MCP server "linear" was not found in any Claude Code MCP configuration`
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:            "claude_code",
+		Tool:             "search_issues",
+		Kind:             "mcp",
+		ServerName:       "linear",
+		Server:           types.EnforcementDecisionServer{Command: "npx"},
+		Unresolved:       true,
+		UnresolvedReason: reason,
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	resp := decodeDecisionResponse(t, rec)
+	if resp.Decision != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny for an unresolved call even under allow-everything", resp.Decision)
+	}
+	if resp.Reason != reason {
+		t.Fatalf("response reason = %q, want the device's reason %q", resp.Reason, reason)
+	}
+
+	row := waitForEnforcementDecision(t, gatewayClient)
+	if !row.Unresolved {
+		t.Fatal("logged row is not marked unresolved")
+	}
+	if row.UnresolvedReason != reason {
+		t.Fatalf("logged unresolved reason = %q, want %q", row.UnresolvedReason, reason)
+	}
+	if row.Reason != reason {
+		t.Fatalf("logged decision reason = %q, want %q", row.Reason, reason)
+	}
+	// The partial identity is what makes the row actionable: the server name
+	// names the target and the executable says what was about to run.
+	if row.ServerName != "linear" {
+		t.Fatalf("logged server name = %q, want linear", row.ServerName)
+	}
+	if row.Server == nil || row.Server.Command != "npx" {
+		t.Fatalf("logged server = %+v, want the reported command npx", row.Server)
+	}
+}
+
+func TestEnforcementDecideResolvedCallIsNotMarkedUnresolved(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{AllowEverything: true})
+
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:  "claude_code",
+		Tool:   "search",
+		Kind:   "mcp",
+		Server: types.EnforcementDecisionServer{URL: "https://gitmcp.io/docs"},
+		// A stale reason with the flag unset must not label the row.
+		UnresolvedReason: "left over from an earlier attempt",
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionAllow {
+		t.Fatalf("decision = %q, want allow", got)
+	}
+
+	row := waitForEnforcementDecision(t, gatewayClient)
+	if row.Unresolved {
+		t.Fatal("logged row is marked unresolved for a resolved call")
+	}
+	if row.UnresolvedReason != "" {
+		t.Fatalf("logged unresolved reason = %q, want empty", row.UnresolvedReason)
+	}
+}
+
+func TestEnforcementDecideConnectorCallRoundTrips(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		entry     string
+		wantAllow bool
+	}{
+		{"exact display name", "claude.ai Linear", true},
+		{"case-insensitive", "CLAUDE.AI LINEAR", true},
+		{"different connector", "claude.ai Notion", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayClient := newEnforcementTestGatewayClient(t)
+			configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: tt.entry}},
+			})
+
+			rec := httptest.NewRecorder()
+			body := types.EnforcementDecisionRequest{
+				Agent:      "claude_code",
+				Tool:       "search_issues",
+				Kind:       "mcp",
+				ServerName: "claude_ai_linear",
+				Server:     types.EnforcementDecisionServer{Connector: "claude.ai Linear"},
+			}
+			if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+				t.Fatalf("decide: %v", err)
+			}
+
+			want := types.EnforcementDecisionDeny
+			if tt.wantAllow {
+				want = types.EnforcementDecisionAllow
+			}
+			if got := decodeDecisionResponse(t, rec).Decision; got != want {
+				t.Fatalf("decision = %q, want %q", got, want)
+			}
+
+			row := waitForEnforcementDecision(t, gatewayClient)
+			if row.Server == nil || row.Server.Connector != "claude.ai Linear" {
+				t.Fatalf("logged server = %+v, want the attested connector", row.Server)
+			}
+		})
+	}
+}
+
+func TestSanitizeUnresolvedReason(t *testing.T) {
+	long := strings.Repeat("a", maxUnresolvedReasonRunes+50)
+	multibyte := strings.Repeat("é", maxUnresolvedReasonRunes+50)
+
+	for _, tt := range []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"empty", "", ""},
+		{"whitespace only", "  \t\n ", ""},
+		{"trimmed", "  not a supported runner  ", "not a supported runner"},
+		{"kept whole", "npx flag --registry is not allowed", "npx flag --registry is not allowed"},
+		{"truncated", long, long[:maxUnresolvedReasonRunes]},
+		{"truncated on a rune boundary", multibyte, strings.Repeat("é", maxUnresolvedReasonRunes)},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeUnresolvedReason(tt.raw)
+			if got != tt.want {
+				t.Fatalf("sanitizeUnresolvedReason(%.40q…) = %.40q…, want %.40q…", tt.raw, got, tt.want)
+			}
+			if !utf8.ValidString(got) {
+				t.Fatalf("sanitizeUnresolvedReason produced invalid UTF-8")
+			}
+		})
 	}
 }
 

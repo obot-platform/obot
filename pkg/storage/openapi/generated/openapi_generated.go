@@ -797,7 +797,7 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "AllowlistServer allows MCP tool calls to one server. Exactly one of URL, Package, or Hostname identifies the server.",
+				Description: "AllowlistServer allows MCP tool calls to one server. Exactly one of URL, Package, Hostname, or Connector identifies the server.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"url": {
@@ -815,6 +815,13 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.Refere
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"connector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connector allowlists a hosted account connector by display name, for agent-account connectors that expose no local URL or command. The device attests which connector a call targeted; this decides whether it is permitted. Matched case-insensitively.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"tools": {
@@ -5264,6 +5271,19 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref comm
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
 						},
 					},
+					"unresolved": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unresolved reports that the device could not establish what the call targeted, and UnresolvedReason is the specific cause it reported. Such a row is always a deny, so these exist to let the UI label it as \"could not be identified\" rather than \"not allowlisted\".",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"unresolvedReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"id", "createdAt", "mdmConfigurationID", "decision"},
 			},
@@ -5385,6 +5405,19 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref co
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
 						},
 					},
+					"unresolved": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unresolved is set by the device when it could not establish what the call targets (unsupported stdio runner, disallowed runner flag, MCP server absent from every config file). The device has already blocked the call; this exists so the decision log records why.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"unresolvedReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"server"},
 			},
@@ -5448,6 +5481,13 @@ func schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref com
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"connector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connector is the display name of a hosted agent-account connector, for servers that expose no local URL and no local command. It is the only local evidence of what such a server is.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

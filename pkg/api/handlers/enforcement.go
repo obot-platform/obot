@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -116,6 +117,11 @@ func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.Enfo
 	entry.ServerURL = sanitizeServerURL(in.Server.URL)
 	entry.ServerHostname = serverHostname(in.Server)
 	entry.ServerCommand = sanitizeServerCommand(in.Server.Command)
+	entry.ServerConnector = in.Server.Connector
+	entry.Unresolved = in.Unresolved
+	if in.Unresolved {
+		entry.UnresolvedReason = sanitizeUnresolvedReason(in.UnresolvedReason)
+	}
 	if in.Server.Package != nil {
 		entry.ServerPackageSource = string(in.Server.Package.Source)
 		entry.ServerPackageName = in.Server.Package.Name
@@ -278,11 +284,14 @@ func presentEnforcementDecision(log gtypes.EnforcementDecisionLog) types.Enforce
 		ObotHosted:         log.ObotHosted,
 		Decision:           log.Decision,
 		Reason:             log.Reason,
+		Unresolved:         log.Unresolved,
+		UnresolvedReason:   log.UnresolvedReason,
 	}
 	server := types.EnforcementDecisionServer{
-		URL:      log.ServerURL,
-		Command:  log.ServerCommand,
-		Hostname: log.ServerHostname,
+		URL:       log.ServerURL,
+		Command:   log.ServerCommand,
+		Hostname:  log.ServerHostname,
+		Connector: log.ServerConnector,
 	}
 	if log.ServerPackageName != "" || log.ServerPackageSource != "" {
 		server.Package = &types.AllowlistServerPackage{
@@ -303,10 +312,15 @@ func normalizedCallFromRequest(in types.EnforcementDecisionRequest, obotHosted b
 		ServerName: in.ServerName,
 		ObotHosted: obotHosted,
 		Server: enforcement.ServerIdentity{
-			URL:      in.Server.URL,
-			Command:  in.Server.Command,
-			Hostname: in.Server.Hostname,
+			URL:       in.Server.URL,
+			Command:   in.Server.Command,
+			Hostname:  in.Server.Hostname,
+			Connector: in.Server.Connector,
 		},
+		Unresolved: in.Unresolved,
+	}
+	if in.Unresolved {
+		call.UnresolvedReason = sanitizeUnresolvedReason(in.UnresolvedReason)
 	}
 	if in.Server.Package != nil {
 		call.Server.Package = &enforcement.PackageIdentity{
@@ -374,6 +388,16 @@ func sanitizeServerCommand(raw string) string {
 		return ""
 	}
 	return fields[0]
+}
+
+const maxUnresolvedReasonRunes = 512
+
+func sanitizeUnresolvedReason(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if utf8.RuneCountInString(raw) <= maxUnresolvedReasonRunes {
+		return raw
+	}
+	return string([]rune(raw)[:maxUnresolvedReasonRunes])
 }
 
 // serverHostname returns the hostname the row should record: the explicit one if

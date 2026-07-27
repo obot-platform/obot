@@ -56,7 +56,8 @@ type EnforcementDecisionOptions struct {
 var enforcementDecisionQueryColumns = []string{
 	"agent", "tool", "kind", "server_name", "decision", "reason", "device_id", "client_ip",
 	"server_url", "server_hostname", "server_command", "server_package_source",
-	"server_package_name", "server_package_version",
+	"server_package_name", "server_package_version", "server_connector",
+	"unresolved_reason",
 }
 
 func (o EnforcementDecisionOptions) sortExpression() (string, error) {

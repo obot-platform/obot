@@ -189,6 +189,56 @@ func TestEvaluate(t *testing.T) {
 			wantAllow: false,
 		},
 
+		// Specific: connector matching.
+		{
+			name: "connector match by display name",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "search", Server: ServerIdentity{Connector: "claude.ai Linear"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "claude.ai Linear"}},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "connector match is case-insensitive",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "search", Server: ServerIdentity{Connector: "claude.ai Linear"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "CLAUDE.AI LINEAR"}},
+			},
+			wantAllow: true,
+		},
+		{
+			name: "connector mismatch",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "search", Server: ServerIdentity{Connector: "claude.ai Notion"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "claude.ai Linear"}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "connector entry does not match a call that resolved no connector",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "search", Server: ServerIdentity{URL: "https://mcp.linear.app/sse"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "claude.ai Linear"}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "connector entry scoped to specific tools",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "delete_issue", Server: ServerIdentity{Connector: "claude.ai Linear"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "claude.ai Linear", Tools: []string{"search_issues"}}},
+			},
+			wantAllow: false,
+		},
+		{
+			name: "shell call is NOT allowed by a matching connector entry",
+			call: NormalizedCall{Agent: AgentClaudeCode, Kind: KindShell, Tool: "bash", Server: ServerIdentity{Connector: "claude.ai Linear"}},
+			allowlist: types.EnforcementAllowlist{
+				Servers: []types.AllowlistServer{{Connector: "claude.ai Linear"}},
+			},
+			wantAllow: false,
+		},
+
 		// Specific: hostname matching.
 		{
 			name: "hostname match against explicit hostname",
@@ -324,5 +374,86 @@ func TestEvaluate(t *testing.T) {
 				t.Errorf("Evaluate() returned an empty reason")
 			}
 		})
+	}
+}
+
+func TestEvaluateUnresolvedIsDeniedUnderEveryAllowlistShape(t *testing.T) {
+	call := NormalizedCall{
+		Agent:            AgentClaudeCode,
+		Tool:             "search",
+		Kind:             KindMCP,
+		ServerName:       "linear",
+		Unresolved:       true,
+		UnresolvedReason: `stdio command "node" is not a supported package runner`,
+		Server:           ServerIdentity{Command: "node"},
+	}
+
+	for name, allowlist := range map[string]types.EnforcementAllowlist{
+		"empty":               {},
+		"allow everything":    {AllowEverything: true},
+		"builtin agent tools": {AllowAllBuiltinAgentTools: true},
+		"builtin agent mcp":   {AllowAllBuiltinAgentMCP: true},
+		"obot hosted mcp":     {AllowAllObotHostedMCP: true},
+		"every toggle at once": {
+			AllowEverything:           true,
+			AllowAllObotHostedMCP:     true,
+			AllowAllBuiltinAgentTools: true,
+			AllowAllBuiltinAgentMCP:   true,
+		},
+		"matching hostname entry":  {Servers: []types.AllowlistServer{{Hostname: "gitmcp.io"}}},
+		"matching connector entry": {Servers: []types.AllowlistServer{{Connector: "claude.ai Linear"}}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Evaluate(call, allowlist)
+			if got.Allow {
+				t.Fatalf("Evaluate() allowed an unresolved call (reason: %q)", got.Reason)
+			}
+			if got.Reason != call.UnresolvedReason {
+				t.Fatalf("Evaluate() Reason = %q, want the device's reason %q", got.Reason, call.UnresolvedReason)
+			}
+		})
+	}
+
+	// A non-MCP kind is never marked by the device as unresolved,
+	// but we'll test that situation here just in case.
+	shell := NormalizedCall{Agent: AgentCodex, Tool: "bash", Kind: KindShell, Unresolved: true, UnresolvedReason: "why not"}
+	if got := Evaluate(shell, types.EnforcementAllowlist{AllowAllBuiltinAgentTools: true}); got.Allow {
+		t.Fatalf("Evaluate() allowed an unresolved shell call (reason: %q)", got.Reason)
+	}
+}
+
+func TestEvaluateUnresolvedWithoutReasonStillExplainsItself(t *testing.T) {
+	for name, reason := range map[string]string{
+		"absent":          "",
+		"whitespace only": "  \t\n ",
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := Evaluate(
+				NormalizedCall{Agent: AgentCursor, Tool: "search", Kind: KindMCP, Unresolved: true, UnresolvedReason: reason},
+				types.EnforcementAllowlist{AllowEverything: true},
+			)
+			if got.Allow {
+				t.Fatalf("Evaluate() allowed an unresolved call (reason: %q)", got.Reason)
+			}
+			if got.Reason != defaultUnresolvedReason {
+				t.Fatalf("Evaluate() Reason = %q, want the generic fallback %q", got.Reason, defaultUnresolvedReason)
+			}
+		})
+	}
+}
+
+// TestEvaluateResolvedCallIgnoresAStaleReason proves the reason string alone
+// does not deny: only the flag does.
+func TestEvaluateResolvedCallIgnoresAStaleReason(t *testing.T) {
+	call := NormalizedCall{
+		Agent:            AgentClaudeCode,
+		Tool:             "search",
+		Kind:             KindMCP,
+		UnresolvedReason: "left over from an earlier attempt",
+		Server:           ServerIdentity{URL: "https://gitmcp.io/docs"},
+	}
+	allowlist := types.EnforcementAllowlist{Servers: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}}}
+	if got := Evaluate(call, allowlist); !got.Allow {
+		t.Fatalf("Evaluate() denied a resolved call carrying only a reason string (reason: %q)", got.Reason)
 	}
 }

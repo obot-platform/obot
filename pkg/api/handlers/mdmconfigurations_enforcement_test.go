@@ -194,10 +194,16 @@ func TestMDMConfigurationCreateWithoutEnforcementHasNoAllowlist(t *testing.T) {
 
 func TestMDMConfigurationCreateRejectsMalformedAllowlist(t *testing.T) {
 	cases := map[string]types.EnforcementAllowlist{
-		"two dimensions set": {Servers: []types.AllowlistServer{{URL: "https://a.example.com", Hostname: "a.example.com"}}},
-		"no dimension set":   {Servers: []types.AllowlistServer{{Tools: []string{"x"}}}},
-		"bad package source": {Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: "cargo", Name: "thing"}}}},
-		"package no name":    {Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM}}}},
+		"two dimensions set":       {Servers: []types.AllowlistServer{{URL: "https://a.example.com", Hostname: "a.example.com"}}},
+		"no dimension set":         {Servers: []types.AllowlistServer{{Tools: []string{"x"}}}},
+		"bad package source":       {Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: "cargo", Name: "thing"}}}},
+		"package no name":          {Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM}}}},
+		"connector and hostname":   {Servers: []types.AllowlistServer{{Connector: "claude.ai Linear", Hostname: "mcp.linear.app"}}},
+		"connector and url":        {Servers: []types.AllowlistServer{{Connector: "claude.ai Linear", URL: "https://mcp.linear.app/sse"}}},
+		"blank connector only":     {Servers: []types.AllowlistServer{{Connector: "  \t "}}},
+		"connector and package":    {Servers: []types.AllowlistServer{{Connector: "claude.ai Linear", Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "linear-mcp"}}}},
+		"all four dimensions":      {Servers: []types.AllowlistServer{{URL: "https://a.example.com", Hostname: "a.example.com", Connector: "c", Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "p"}}}},
+		"blank connector no other": {Servers: []types.AllowlistServer{{Connector: "", Tools: []string{"x"}}}},
 	}
 	for name, allowlist := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -255,6 +261,107 @@ func TestMDMConfigurationUpdateEnforcementRoundTripsCustomAllowlist(t *testing.T
 	stored := env.stored(t, base.ID)
 	assert.True(t, stored.EnforcementEnabled)
 	assert.Len(t, stored.EnforcementAllowlist.Servers, 4)
+}
+
+func TestMDMConfigurationEnforcementAcceptsConnectorDimension(t *testing.T) {
+	env := newMDMEnforcementTestEnv(t)
+
+	ctx, rec := env.create(t, types.MDMConfiguration{
+		EnforcementEnabled: true,
+		EnforcementAllowlist: types.EnforcementAllowlist{
+			Servers: []types.AllowlistServer{
+				{Connector: "  claude.ai Linear  ", Tools: []string{"search_issues"}},
+			},
+		},
+	})
+	require.NoError(t, env.handler.Create(ctx))
+	require.Equal(t, http.StatusCreated, rec.Code)
+
+	for label, allowlist := range map[string]types.EnforcementAllowlist{
+		"response": decodeMDMConfiguration(t, rec).EnforcementAllowlist,
+		"stored":   env.stored(t, decodeMDMConfiguration(t, rec).ID).EnforcementAllowlist,
+	} {
+		t.Run(label, func(t *testing.T) {
+			require.Len(t, allowlist.Servers, 1)
+			assert.Equal(t, "claude.ai Linear", allowlist.Servers[0].Connector)
+			assert.Equal(t, []string{"search_issues"}, allowlist.Servers[0].Tools)
+			assert.Empty(t, allowlist.Servers[0].URL)
+			assert.Nil(t, allowlist.Servers[0].Package)
+		})
+	}
+}
+
+func TestMDMConfigurationEnforcementCanonicalizesPackageNames(t *testing.T) {
+	for name, tt := range map[string]struct {
+		in   types.AllowlistServerPackage
+		want string
+	}{
+		"pypi underscores and dots": {
+			in:   types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourcePyPI, Name: " Mcp_Server.Git "},
+			want: "mcp-server-git",
+		},
+		"pypi dotted namespace": {
+			in:   types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourcePyPI, Name: "awslabs.core-mcp-server"},
+			want: "awslabs-core-mcp-server",
+		},
+		"npm uppercase scope": {
+			in:   types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "@Scope/Pkg"},
+			want: "@scope/pkg",
+		},
+		"npm separators preserved": {
+			in:   types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "Linear_MCP"},
+			want: "linear_mcp",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := newMDMEnforcementTestEnv(t)
+			pkg := tt.in
+			ctx, rec := env.create(t, types.MDMConfiguration{
+				EnforcementEnabled: true,
+				EnforcementAllowlist: types.EnforcementAllowlist{
+					Servers: []types.AllowlistServer{{Package: &pkg}},
+				},
+			})
+			require.NoError(t, env.handler.Create(ctx))
+			require.Equal(t, http.StatusCreated, rec.Code)
+
+			created := decodeMDMConfiguration(t, rec)
+			require.Len(t, created.EnforcementAllowlist.Servers, 1)
+			require.NotNil(t, created.EnforcementAllowlist.Servers[0].Package)
+			assert.Equal(t, tt.want, created.EnforcementAllowlist.Servers[0].Package.Name)
+
+			stored := env.stored(t, created.ID)
+			require.Len(t, stored.EnforcementAllowlist.Servers, 1)
+			require.NotNil(t, stored.EnforcementAllowlist.Servers[0].Package)
+			assert.Equal(t, tt.want, stored.EnforcementAllowlist.Servers[0].Package.Name)
+		})
+	}
+}
+
+func TestMDMConfigurationEnforcementCanonicalizationDoesNotHideABadSource(t *testing.T) {
+	env := newMDMEnforcementTestEnv(t)
+	ctx, _ := env.create(t, types.MDMConfiguration{
+		EnforcementEnabled: true,
+		EnforcementAllowlist: types.EnforcementAllowlist{
+			Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: "cargo", Name: "Some_Crate"}}},
+		},
+	})
+	requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+}
+
+func TestMDMConfigurationEnforcementLowercasesHostname(t *testing.T) {
+	env := newMDMEnforcementTestEnv(t)
+	ctx, rec := env.create(t, types.MDMConfiguration{
+		EnforcementEnabled: true,
+		EnforcementAllowlist: types.EnforcementAllowlist{
+			Servers: []types.AllowlistServer{{Hostname: "  GitMCP.IO  "}},
+		},
+	})
+	require.NoError(t, env.handler.Create(ctx))
+
+	created := decodeMDMConfiguration(t, rec)
+	require.Len(t, created.EnforcementAllowlist.Servers, 1)
+	assert.Equal(t, "gitmcp.io", created.EnforcementAllowlist.Servers[0].Hostname)
 }
 
 func TestMDMConfigurationUpdateEnforcementNormalizesAllowlist(t *testing.T) {
