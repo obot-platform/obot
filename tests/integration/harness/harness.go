@@ -36,9 +36,7 @@ func New(t *testing.T) *Harness {
 	h := &Harness{
 		BaseURL: url,
 		RunID:   newRunID(),
-		// No client-wide timeout: callers pass a context whose deadline governs
-		// each request. Launch can block for minutes while the container pulls
-		// and becomes healthy.
+		// Stream requests set their own deadline; ordinary requests set one per call.
 		HTTP: &http.Client{},
 	}
 
