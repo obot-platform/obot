@@ -592,7 +592,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	authProviderName, authProviderNamespace := req.AuthProviderNameAndNamespace()
 
-	if !req.UserIsAuthenticated() || req.User.GetName() == "bootstrap" || authProviderName == "bootstrap" || authProviderNamespace == "bootstrap" {
+	if !req.UserIsAuthenticated() || req.User.GetName() == system.BootstrapName || authProviderName == system.BootstrapName || authProviderNamespace == system.BootstrapName {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
 		log.Infof("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity: authRequest=%s", oauthAppAuthRequest.Name)
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, Error{
@@ -631,9 +631,9 @@ func (h *handler) oauthCallback(req api.Context) error {
 func authenticatedOAuthUser(req api.Context, oauthAppAuthRequest v1.OAuthAuthRequest, phase string) (authProviderName, authProviderNamespace string, ok bool) {
 	authProviderName, authProviderNamespace = req.AuthProviderNameAndNamespace()
 	if req.UserIsAuthenticated() &&
-		req.User.GetName() != "bootstrap" &&
-		authProviderName != "bootstrap" &&
-		authProviderNamespace != "bootstrap" {
+		req.User.GetName() != system.BootstrapName &&
+		authProviderName != system.BootstrapName &&
+		authProviderNamespace != system.BootstrapName {
 		return authProviderName, authProviderNamespace, true
 	}
 

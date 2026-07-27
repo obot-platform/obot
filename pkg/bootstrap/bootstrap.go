@@ -14,14 +14,12 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const (
-	ObotBootstrapCookie = "obot-bootstrap"
-	bootstrapUsername   = "bootstrap"
-)
+const ObotBootstrapCookie = "obot-bootstrap"
 
 type Bootstrap struct {
 	token, serverURL                  string
@@ -165,12 +163,14 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 	gatewayUser, err := b.gatewayClient.EnsureIdentityWithRole(
 		req.Context(),
 		&types.Identity{
-			ProviderUsername:     "bootstrap",
-			ProviderUserID:       "bootstrap",
-			HashedProviderUserID: hash.String("bootstrap"),
+			ProviderUsername:     system.BootstrapName,
+			ProviderUserID:       system.BootstrapName,
+			HashedProviderUserID: hash.String(system.BootstrapName),
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleOwner,
+		// Pass unlimited user limit because we always need to ensure the bootstrap user is created.
+		client.UserLimit{Unlimited: true},
 	)
 	if err != nil {
 		return nil, false, err
@@ -178,11 +178,11 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 
 	return &authenticator.Response{
 		User: &user.DefaultInfo{
-			Name:   "bootstrap",
+			Name:   system.BootstrapName,
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
 			Groups: types2.RoleOwner.Groups(),
 			Extra: map[string][]string{
-				"auth_provider_name": {"bootstrap"},
+				"auth_provider_name": {system.BootstrapName},
 			},
 		},
 	}, true, nil
@@ -302,7 +302,7 @@ func (b *Bootstrap) setupEnabled(ctx context.Context) (bool, error) {
 	}
 
 	for _, u := range ownerUsers {
-		if u.Username == bootstrapUsername || u.Email == "" {
+		if u.Username == system.BootstrapName || u.Email == "" {
 			continue
 		}
 

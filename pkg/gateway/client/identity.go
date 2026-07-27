@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 	"time"
@@ -34,6 +35,8 @@ var (
 		Resource: "identities",
 	}
 )
+
+const userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
 
 // FindIdentitiesForUser finds all identities for the given user.
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {
@@ -65,21 +68,22 @@ func (c *Client) UserHasIdentityForAuthProvider(ctx context.Context, userID uint
 }
 
 // EnsureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string) (*types.User, error) {
-	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)])
+func (c *Client) EnsureIdentity(ctx context.Context, id *types.Identity, timezone string, userLimit UserLimit) (*types.User, error) {
+	return c.EnsureIdentityWithRole(ctx, id, timezone, c.emailsWithExplicitRoles[strings.ToLower(id.Email)], userLimit)
 }
 
 // EnsureIdentityWithRole ensures the given identity exists in the database with the at least the given role, and returns the user associated with it.
 // If the user already exists with a superset of the given role, it will not be updated.
-func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role) (*types.User, error) {
+func (c *Client) EnsureIdentityWithRole(ctx context.Context, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, error) {
 	var (
 		user    *types.User
 		created bool
 	)
+
 	// Transaction #1: ensure the identity + user rows exist / are corrected, and read what we need.
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-		user, created, err = c.ensureIdentity(ctx, tx, id, timezone, role)
+		user, created, err = c.ensureIdentity(ctx, tx, id, timezone, role, userLimit)
 		return err
 	})
 	if err != nil {
@@ -146,7 +150,7 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 }
 
 // ensureIdentity ensures that the given identity exists in the database, and returns the user associated with it.
-func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role) (*types.User, bool, error) {
+func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Identity, timezone string, role types2.Role, userLimit UserLimit) (*types.User, bool, error) {
 	verified := slices.Contains(verifiedAuthProviders, fmt.Sprintf("%s/%s", id.AuthProviderNamespace, id.AuthProviderName))
 
 	email := id.Email
@@ -247,7 +251,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			if err = c.encryptUser(ctx, &u); err != nil {
 				return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
 			}
-			if err = tx.Create(&u).Error; err != nil {
+			if err = c.createUser(tx, &u, userLimit); err != nil {
 				return nil, false, err
 			}
 
@@ -330,7 +334,7 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 		if err := c.encryptUser(ctx, &u); err != nil {
 			return nil, false, fmt.Errorf("failed to encrypt user: %w", err)
 		}
-		if err := tx.Create(&u).Error; err != nil {
+		if err := c.createUser(tx, &u, userLimit); err != nil {
 			return nil, false, err
 		}
 
@@ -349,6 +353,54 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 	}
 
 	return user, created, nil
+}
+
+func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) error {
+	if userLimit.Unlimited {
+		return tx.Create(user).Error
+	}
+
+	if err := lockUserCreation(tx); err != nil {
+		return err
+	}
+
+	userCount, err := countUsersTowardLimit(tx)
+	if err != nil {
+		return fmt.Errorf("failed to count users: %w", err)
+	}
+	if userCount >= int64(userLimit.Maximum) {
+		return newUserLimitError(userLimit.Maximum)
+	}
+
+	return tx.Create(user).Error
+}
+
+func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
+	var userCount int64
+	err := tx.Model(new(types.User)).
+		Where("deleted_at IS NULL").
+		Where("hashed_username != ?", hash.String(system.BootstrapName)).
+		Count(&userCount).Error
+	return userCount, err
+}
+
+func lockUserCreation(tx *gorm.DB) error {
+	// PostgreSQL installations may have multiple Obot replicas, so serialize
+	// all operations that allocate user seats across them. SQLite operations
+	// acquire its write lock before calling this helper.
+	if tx.Name() == "postgres" {
+		if err := tx.Exec("SELECT pg_advisory_xact_lock(?)", userCreationAdvisoryLockID).Error; err != nil {
+			return fmt.Errorf("failed to lock user creation: %w", err)
+		}
+	}
+	return nil
+}
+
+func newUserLimitError(maximum int) error {
+	return types2.NewErrHTTP(
+		http.StatusPaymentRequired,
+		fmt.Sprintf("user limit of %d reached; delete an existing user or install a license that permits additional users", maximum),
+	)
 }
 
 // ensureIdentityProviderData fetches auth-provider data (the provider-native group lookup ID and

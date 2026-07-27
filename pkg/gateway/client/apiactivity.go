@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
 
@@ -35,7 +36,7 @@ func (c *Client) ActiveUsersByDate(ctx context.Context, start, end time.Time) ([
 		if err := tx.Model(new(types.APIActivity)).
 			Distinct("user_id").
 			Where("date >= ? AND date < ?", start, end).
-			Where("user_id != ?", "bootstrap").
+			Where("user_id != ?", system.BootstrapName).
 			Where("user_id != ?", "anonymous").
 			Where("user_id != ?", "").
 			Pluck("user_id", &ids).Error; err != nil {

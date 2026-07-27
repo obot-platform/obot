@@ -5,6 +5,7 @@ import (
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func renderedArtifact(platform, osName, content string) types.MDMConfigurationArtifact {
@@ -136,7 +137,7 @@ func TestCreateDeviceEnrollmentKeyIsSeparate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil)
+	key, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, system.BootstrapName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,7 +375,7 @@ func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil); err != nil {
+	if _, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, system.BootstrapName, nil); err != nil {
 		t.Fatal(err)
 	}
 	device, err := client.EnrollDevice(t.Context(), DeviceEnrollment{

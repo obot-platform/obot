@@ -3,12 +3,21 @@ package license
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	enterpriseUserLimitEntitlementPrefix = "OBOT_ENTERPRISE_"
+	userLimitEntitlementUsersSuffix      = "_USERS"
 )
 
 var entitlementPathsToGate = []string{
@@ -100,6 +109,60 @@ func (p *Provider) missingEntitlements(requiredEntitlements []string) []string {
 		}
 	}
 	return missing
+}
+
+// UserLimit returns the maximum number of users allowed by the current license.
+// OBOT_ENTERPRISE_AUTH_PROVIDERS grants unlimited users unless one or more
+// OBOT_ENTERPRISE_<number>_USERS entitlements define an additive limit.
+func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return gatewayclient.UserLimit{}, err
+	}
+
+	p.lock.RLock()
+	defer p.lock.RUnlock()
+
+	limit := gatewayclient.UserLimit{}
+	var isEnterpriseEdition bool
+	for entitlement := range p.entitlements {
+		code := string(entitlement)
+		if code == EnterpriseEditionEntitlement {
+			isEnterpriseEdition = true
+			continue
+		}
+
+		value, ok := strings.CutPrefix(code, enterpriseUserLimitEntitlementPrefix)
+		if !ok {
+			continue
+		}
+		value, ok = strings.CutSuffix(value, userLimitEntitlementUsersSuffix)
+		if !ok {
+			continue
+		}
+		if value == "" || strings.IndexFunc(value, func(r rune) bool {
+			return r < '0' || r > '9'
+		}) >= 0 {
+			continue
+		}
+
+		maximum, err := strconv.Atoi(value)
+		if err != nil || maximum <= 0 {
+			continue
+		}
+
+		if maximum > math.MaxInt-limit.Maximum {
+			limit.Maximum = math.MaxInt
+		} else {
+			limit.Maximum += maximum
+		}
+	}
+
+	limit.Unlimited = isEnterpriseEdition && limit.Maximum == 0
+	if limit.Maximum == 0 && !limit.Unlimited {
+		limit.Maximum = gatewayclient.DefaultUserLimit
+	}
+
+	return limit, nil
 }
 
 // RequireEntitlements returns Payment Required if any required entitlements are unavailable.

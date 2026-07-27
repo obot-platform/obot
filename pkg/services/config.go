@@ -890,7 +890,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
 		// Tunnel credentials are non-user principals and must be handled after
 		// the user decorator. Authorization restricts them to tunnel setup only.
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
@@ -939,7 +939,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+
+		// Tunnel authenticator
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 
 		// Persistent Token Auth

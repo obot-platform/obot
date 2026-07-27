@@ -19,6 +19,10 @@ import (
 const (
 	defaultAuditLogCleanupInterval = 24 * time.Hour
 	defaultAuditLogDeleteBatchSize = 1000
+
+	// DefaultUserLimit is the maximum number of users allowed when no
+	// license-derived user-limit provider is configured.
+	DefaultUserLimit = 100
 )
 
 type Client struct {

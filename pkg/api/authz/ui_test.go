@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -38,7 +39,7 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			name: "bootstrap user can access /admin/auth-providers",
 			path: "/admin/auth-providers",
 			user: &user.DefaultInfo{
-				Name:   "bootstrap",
+				Name:   system.BootstrapName,
 				Groups: types.RoleOwner.Groups(),
 			},
 			expected: true,

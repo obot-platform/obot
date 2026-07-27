@@ -16,6 +16,8 @@
 	let { data } = $props();
 
 	const communityEntitlement = 'OBOT_COMMUNITY_EDITION';
+	const enterpriseEntitlement = 'OBOT_ENTERPRISE_ENTERPRISE_EDITION';
+	const editionEntitlements = new Set([communityEntitlement, enterpriseEntitlement]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
 	let license = $state(untrack(() => data.license));
@@ -33,6 +35,11 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasValidLicense = $derived(Boolean(license?.enterprise));
 	let isCommunityEdition = $derived(license?.entitlements?.includes(communityEntitlement) ?? false);
+	let sortedEntitlements = $derived(
+		[...(license?.entitlements ?? [])].sort(
+			(a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b))
+		)
+	);
 	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
 	let showCommunityEnrollment = $derived(
 		Boolean(license && !hasValidLicense && !license.locked && !isAdminReadonly)
@@ -140,19 +147,17 @@
 		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	}
 
-	function convertUserFriendlyEntitlements(entitlements: string[]): string[] {
-		return entitlements.map((entitlement) => {
-			switch (entitlement) {
-				case communityEntitlement:
-					return 'Community Edition';
-				case 'OBOT_ENTERPRISE_AUTH_PROVIDERS':
-					return 'Auth Providers';
-				case 'OBOT_ENTERPRISE_MODEL_PROVIDERS':
-					return 'Model Providers';
-				default:
-					return entitlement;
-			}
-		});
+	function formatEntitlementName(entitlement: string): string {
+		if (entitlement === communityEntitlement) return 'Community Edition';
+		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
+		if (name === entitlement) return entitlement;
+
+		const words = name.split('_').filter(Boolean);
+		if (words.length === 0) return entitlement;
+
+		return words
+			.map((word) => (word.length <= 3 ? word : word.charAt(0) + word.slice(1).toLowerCase()))
+			.join(' ');
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -332,8 +337,15 @@
 						<p class="text-sm font-light">License Entitlements</p>
 						{#if license.entitlements}
 							<ul class="flex flex-wrap gap-2">
-								{#each convertUserFriendlyEntitlements(license.entitlements ?? []) as entitlement (entitlement)}
-									<li class="badge badge-soft badge-sm">{entitlement}</li>
+								{#each sortedEntitlements as entitlement (entitlement)}
+									<li
+										class={twMerge(
+											'badge badge-soft badge-sm',
+											editionEntitlements.has(entitlement) && 'badge-primary'
+										)}
+									>
+										{formatEntitlementName(entitlement)}
+									</li>
 								{/each}
 							</ul>
 						{:else}
