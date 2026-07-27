@@ -122,6 +122,17 @@ roleRef:
   name: obot-runtime-role
   apiGroup: rbac.authorization.k8s.io
 
+{{- if .Values.mcpNamespace.limitRange }}
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: obot-mcp-limitrange
+  namespace: {{ include "obot.config.mcpNamespace" . }}
+spec:
+  {{- toYaml .Values.mcpNamespace.limitRange | nindent 2 }}
+{{- end }}
+
 {{- if .Values.mcpNamespace.resourceQuota }}
 ---
 apiVersion: v1

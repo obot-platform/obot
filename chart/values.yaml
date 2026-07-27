@@ -298,6 +298,24 @@ mcpImagePullSecrets: []
 mcpNamespace:
   # mcpNamespace.name -- The namespace in which to deploy the MCP servers. Defaults to {{ .Release.Name }}-mcp
   name: ""
+  # mcpNamespace.limitRange -- Default per-container requests and limits applied
+  # to every pod in the mcp namespace. The server sets a memory request on the
+  # MCP containers it spawns but no limit, so without this a single MCP server
+  # is unbounded and can exhaust the node. `default` supplies the ceiling and
+  # `defaultRequest` the reservation, each only for a field the pod omits — a
+  # per-server override still wins. Set this before enabling resourceQuota on
+  # limits.*, which rejects any pod that declares none.
+  limitRange: {}
+    # limitRange:
+    #   limits:
+    #     - type: Container
+    #       default:
+    #         cpu: ""
+    #         memory: ""
+    #       defaultRequest:
+    #         cpu: ""
+    #         memory: ""
+
   # mcpNamespace.resourceQuota -- Define requests and limits for total resources available in the mcp namespace.
   resourceQuota: {}
     # resourceQuota:
