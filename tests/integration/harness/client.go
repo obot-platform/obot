@@ -14,6 +14,8 @@ import (
 	"time"
 )
 
+const requestTimeout = 2 * time.Minute
+
 // do issues an HTTP request to BaseURL+path and decodes a JSON response into
 // `out` if non-nil. It fails the test on transport errors or non-2xx
 // responses, with the response body included in the failure message.
@@ -29,7 +31,9 @@ func (h *Harness) do(t *testing.T, method, path string, body, out any) {
 		reqBody = bytes.NewReader(buf)
 	}
 
-	req, err := http.NewRequestWithContext(t.Context(), method, h.BaseURL+path, reqBody)
+	ctx, cancel := context.WithTimeout(t.Context(), requestTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, method, h.BaseURL+path, reqBody)
 	if err != nil {
 		t.Fatalf("build %s %s: %v", method, path, err)
 	}
@@ -129,7 +133,9 @@ func (h *Harness) ReadStreamUntil(t *testing.T, path string, expected []byte, bu
 // "should return 404 after delete").
 func (h *Harness) Status(t *testing.T, method, path string) int {
 	t.Helper()
-	status, err := h.status(t.Context(), method, path)
+	ctx, cancel := context.WithTimeout(t.Context(), requestTimeout)
+	defer cancel()
+	status, err := h.status(ctx, method, path)
 	if err != nil {
 		t.Fatalf("%s %s: %v", method, path, err)
 	}
