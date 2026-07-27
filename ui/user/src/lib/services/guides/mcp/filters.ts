@@ -23,7 +23,7 @@ export const steps: GuideStep[] = [
 	{
 		content: [
 			'**What is an MCP filter?**',
-			'An MCP filter is a way to add additional security policies to your MCP. They can be used for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed..'
+			'An MCP filter is a way to add additional security policies to your MCP. They can be used for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.'
 		]
 	},
 	{
@@ -98,7 +98,7 @@ export const steps: GuideStep[] = [
 						align: 'center',
 						title: 'Runtime Type',
 						description:
-							'Filters can be implemented via a MCP that exposes a filter tool or through a HTTP webhook. Select the appropriate runtime here.'
+							'Filters can be implemented via an MCP that exposes a filter tool or through an HTTP webhook. Select the appropriate runtime here.'
 					},
 					listener: {
 						id: MCP_FILTERS_FIELD_IDS.runtimeSelector,

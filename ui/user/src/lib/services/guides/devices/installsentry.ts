@@ -233,7 +233,7 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: ['Once scans have been sent through Obot Sentry, you can the view the results here.'],
+		content: ['Once scans have been sent through Obot Sentry, you can view the results here.'],
 		action: {
 			highlight: {
 				selector: {
@@ -244,7 +244,7 @@ export const steps: GuideStep[] = [
 					'View an overall summary of all the scans sent through Obot Sentry over a given time period.'
 			},
 			listener: {
-				id: 'overview-tab',
+				id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabOverview,
 				skipClickTargetOnNext: true,
 				action: {
 					highlight: {

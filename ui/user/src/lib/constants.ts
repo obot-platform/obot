@@ -426,7 +426,7 @@ export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
 	enrollmentConfigSetup: 'enrollment-config-setup',
 	enrollmentConfigSetupStep: 'enrollment-config-setup-step',
 	enrollmentKeysSection: 'enrollment-keys-section',
-	OPERATING_SYSTEM_STEP: 'devices-install-operating-system',
+	operatingSystemStep: 'devices-install-operating-system',
 	downloadStep: 'devices-install-download',
 	installInstructionsStep: 'devices-install-instructions',
 	agentSettingsButton: 'devices-agent-settings',
