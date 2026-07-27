@@ -73,7 +73,6 @@ COPY --chmod=0755 /tools/combine-envrc.sh /
 RUN /combine-envrc.sh && rm /combine-envrc.sh
 COPY --from=encryption-bins /bin/*-encryption-provider /bin/
 COPY --from=bin /app/bin/obot /bin/
-COPY --from=bin --link /app/ui/user/build-node /ui
 
 ENV PATH=$PATH:/usr/lib/libreoffice/program
 ENV PATH=$PATH:/usr/bin
