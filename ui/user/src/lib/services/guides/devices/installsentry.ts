@@ -20,7 +20,7 @@ const listenDevicesLink = {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'In order to discover and enforce policies for unmanaged MCP servers, you will need to install Obot Sentry on your devices.',
+			'In order to discover shadow AI and enforce policies for unmanaged MCP servers, you will need to install Obot Sentry on your devices.',
 			'**What is Obot Sentry?** Obot Sentry is a lightweight program designed to be used by MDMs for device scanning and agent hook configuration. You can learn more about it [here](https://github.com/obot-platform/obot-sentry).',
 			'To get set up, head to the Devices page.'
 		],
@@ -110,69 +110,35 @@ export const steps: GuideStep[] = [
 					listener: {
 						id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-1`,
 						skipClickTargetOnNext: true,
-						action: {
-							success: true
-						}
-					}
-				}
-			}
-		}
-	},
-	{
-		content: [
-			'Below is an instructional guide for installing Obot Sentry through Intune.',
-			{
-				videoUrl: 'https://youtu.be/NwuQlU5WpK0',
-				title: 'Installing Obot Sentry w/ Intune'
-			}
-		],
-		action: {
-			highlight: {
-				selector: {
-					id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`
-				},
-				side: 'top',
-				title: 'Installation Method',
-				description:
-					'Select the appropriate installation method for your devices. Manual installation requires you to manually install the Obot Sentry agent on each device. Microsoft Intune installation allows you to deploy the agent to your devices using Microsoft Intune.'
-			},
-			listener: {
-				id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`,
-				skipClickTargetOnNext: true,
-				action: {
-					highlight: {
-						selector: {
-							id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`
-						},
-						side: 'top',
-						title: 'Operating System',
-						description: 'Make sure to select the proper operating system for your devices.'
-					},
-					listener: {
-						id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`,
-						skipClickTargetOnNext: true,
+
 						action: {
 							highlight: {
 								selector: {
-									id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`
+									id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`
 								},
 								side: 'top',
-								title: 'OS/Type Specific Instructions',
+								title: 'Installation Method',
 								description:
-									'Depending on the installation type and OS selected, the instructions here will be different. Click here to go ahead and expand it.'
+									'Select the appropriate installation method for your devices. Manual installation requires you to manually install the Obot Sentry agent on each device. Microsoft Intune installation allows you to deploy the agent to your devices using Microsoft Intune.'
 							},
 							listener: {
-								id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`,
+								id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`,
+								skipClickTargetOnNext: true,
 								action: {
 									highlight: {
 										selector: {
-											id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection
+											id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`
 										},
 										side: 'top',
-										title: 'Enrollment Keys',
-										description:
-											"Once you've set up an enrollment key, its information will be displayed here. Generally, you'll only need a single enrollment key to register devices with, but if you need to rotate keys, you can create new enrollment keys from here.",
-										noDescendantInteraction: true
+										title: 'Operating System',
+										description: 'Make sure to select the proper operating system for your devices.'
+									},
+									listener: {
+										id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`,
+										skipClickTargetOnNext: true,
+										action: {
+											success: true
+										}
 									}
 								}
 							}
@@ -183,50 +149,35 @@ export const steps: GuideStep[] = [
 		}
 	},
 	{
-		content: ['You can also modify the agent settings or check for updates.'],
+		content: [
+			"For more detailed instructions, here's a video to walk through the steps with your MDM.",
+			{
+				videoUrl: 'https://youtu.be/NwuQlU5WpK0',
+				title: 'Installing Obot Sentry w/ Intune'
+			}
+		],
 		action: {
 			highlight: {
 				selector: {
-					id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.agentSettingsButton
+					id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`
 				},
-				side: 'left',
-				title: 'Agent Settings',
-				description: 'Click here to view the agent settings.'
+				side: 'top',
+				title: 'OS/Type Specific Instructions',
+				description:
+					'Depending on the installation type and OS selected, the instructions here will be different. Click here to go ahead and expand it.'
 			},
 			listener: {
-				id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.agentSettingsButton,
+				id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`,
 				action: {
-					elementExists: `mdm-field-scanIntervalMinutes-container`,
 					highlight: {
 						selector: {
-							id: `mdm-field-scanIntervalMinutes-container`
+							id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection
 						},
 						side: 'top',
-						title: 'Scan Interval',
+						title: 'Enrollment Keys',
 						description:
-							'You can modify how often the agent will submit a scan of a device. Note that if you modify the scan interval with existing setup, you will need to uninstall and reinstall for the changes to take effect. Make sure to follow uninstall instructions and remove old existing hooks to avoid potential audit log failures.',
+							"Once you've set up an enrollment key, its information will be displayed here. Generally, you'll only need a single enrollment key to register devices with, but if you need to rotate keys, you can create new enrollment keys from here.",
 						noDescendantInteraction: true
-					},
-					listener: {
-						id: `mdm-field-scanIntervalMinutes-container`,
-						skipClickTargetOnNext: true,
-						action: {
-							highlight: {
-								selector: {
-									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.checkForUpdatesButton
-								},
-								side: 'left',
-								title: 'Check for Updates',
-								description:
-									'To check for Obot Sentry updates, you can click here. If you upgrade and are using Intune, you will need to delete the old detection rule.'
-							},
-							listener: {
-								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.checkForUpdatesButton,
-								action: {
-									success: true
-								}
-							}
-						}
 					}
 				}
 			}
@@ -240,6 +191,7 @@ export const steps: GuideStep[] = [
 					id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabOverview
 				},
 				title: 'See Overall Results',
+				side: 'left',
 				description:
 					'View an overall summary of all the scans sent through Obot Sentry over a given time period.'
 			},
@@ -251,6 +203,7 @@ export const steps: GuideStep[] = [
 						selector: {
 							id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabDevices
 						},
+						side: 'left',
 						title: 'See Individual Device Scans',
 						description:
 							'Go here to view results of an individual device. See the more recent scan or view historical ones.'
