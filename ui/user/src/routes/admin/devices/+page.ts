@@ -10,7 +10,11 @@ import type {
 import type { PageLoad } from './$types';
 import { DEFAULT_WINDOW_MS } from './constants';
 
-export const load: PageLoad = async ({ url, fetch, parent }) => {
+export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
+	// Named so pages that rewrite this fleet's policy — the enforcement decisions
+	// page adds allowlist entries of its own — can mark this data stale.
+	depends('devices:data');
+
 	const { profile } = await parent();
 	const end = url.searchParams.get('end') ?? new Date().toISOString();
 	const start =

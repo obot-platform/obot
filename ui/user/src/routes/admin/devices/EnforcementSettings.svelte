@@ -53,8 +53,24 @@
 		untrack(() => (givenConfiguration.enforcementAllowlist?.servers?.length ?? 0) > 0)
 	);
 
+	// A fresh configuration can arrive while this form is mounted — saving here, or
+	// an allowlist entry added from the enforcement decisions page, both rewrite the
+	// same policy. Adopt it into the form too, or the table keeps rendering the
+	// allowlist as it stood at mount and the untouched form looks dirty against the
+	// new baseline. Unsaved edits win: they are never overwritten underneath the
+	// administrator.
 	$effect(() => {
-		configuration = givenConfiguration;
+		const incoming = givenConfiguration;
+		const hasUnsavedEdits = untrack(() => dirty);
+		configuration = incoming;
+		if (hasUnsavedEdits) return;
+		enabled = incoming.enforcementEnabled ?? false;
+		allowlist = cloneAllowlist(incoming.enforcementAllowlist);
+		seededNote = false;
+		// Expand the list if the incoming policy has entries, so a rule added
+		// elsewhere isn't hidden behind a collapsed section.
+		serversOpen =
+			untrack(() => serversOpen) || (incoming.enforcementAllowlist?.servers?.length ?? 0) > 0;
 	});
 
 	let servers = $derived(allowlist.servers ?? []);
@@ -291,10 +307,7 @@
 					(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
 			/>
 			<span class="flex flex-col gap-0.5">
-				<span class="flex items-center gap-1.5">
-					Everything
-					<TriangleAlert class="text-warning size-3.5" />
-				</span>
+				<span class="flex items-center gap-1.5"> Everything </span>
 				<span class="input-description"> Allows every tool call and ignores all other rules. </span>
 			</span>
 		</label>

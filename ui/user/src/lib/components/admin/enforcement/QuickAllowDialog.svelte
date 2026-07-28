@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidate } from '$app/navigation';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import {
 		allowlistServerKind,
@@ -78,6 +79,9 @@
 			});
 			applied = true;
 			onApplied();
+			// The devices page loads this same policy in its own load function, so its
+			// data is now stale.
+			await invalidate('devices:data');
 		} catch (error) {
 			saveError = parseErrorContent(error).message;
 		} finally {

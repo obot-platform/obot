@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import Select from '$lib/components/Select.svelte';
 	import {
 		ALLOWLIST_SERVER_KIND_LABELS,
 		allowlistServerKind,
@@ -18,6 +19,10 @@
 	let { onSubmit }: Props = $props();
 
 	const kinds: AllowlistServerKind[] = ['url', 'package', 'hostname', 'connector'];
+	const packageSourceOptions = Object.entries(PACKAGE_SOURCE_LABELS).map(([id, label]) => ({
+		id,
+		label
+	}));
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let editingIndex = $state<number>();
@@ -149,16 +154,16 @@
 			</div>
 		{:else if kind === 'package'}
 			<div class="flex flex-col gap-1">
-				<label for="allowlist-package-source" class="input-label">Registry</label>
-				<select
+				<span id="allowlist-package-source-label" class="input-label">Registry</span>
+				<Select
 					id="allowlist-package-source"
-					bind:value={packageSource}
-					class="text-input-filled w-fit"
-				>
-					{#each Object.entries(PACKAGE_SOURCE_LABELS) as [value, label] (value)}
-						<option {value}>{label}</option>
-					{/each}
-				</select>
+					class="bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
+					classes={{ root: 'w-40' }}
+					options={packageSourceOptions}
+					selected={packageSource}
+					ariaLabelledby="allowlist-package-source-label"
+					onSelect={(option) => (packageSource = option.id as AllowlistServerPackageSource)}
+				/>
 			</div>
 			<div class="flex flex-col gap-1">
 				<label for="allowlist-package-name" class="input-label">Package name</label>
@@ -205,13 +210,13 @@
 					id="allowlist-connector"
 					type="text"
 					bind:value={connector}
-					placeholder="GitHub"
+					placeholder="claude.ai Google Calendar"
 					class="text-input-filled"
 				/>
 				<span class="input-description">
-					The connector's display name, matched without regard to case. Use this for MCP
-					connectors that expose no local URL or command, such as claude.ai Connectors (i.e.
-					claude.ai Google Calendar).
+					The connector's display name, matched without regard to case. Use this for MCP connectors
+					that expose no local URL or command, such as claude.ai Connectors (i.e. claude.ai Google
+					Calendar). claude.ai Connectors always have the format "claude.ai &lt;name&gt;".
 				</span>
 			</div>
 		{/if}

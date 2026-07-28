@@ -30,6 +30,16 @@
 	let enrollmentKeys = $state<MDMEnrollmentKey[]>(untrack(() => initialEnrollmentKeys));
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 
+	// The copy taken above is owned locally so the create flow can install the
+	// configuration it just made, but the page reloads its data whenever the policy
+	// is rewritten elsewhere. Adopt what it hands down rather than sitting on a
+	// snapshot from mount.
+	$effect(() => {
+		if (initialConfiguration) {
+			configuration = initialConfiguration;
+		}
+	});
+
 	function handleCreate(created: MDMConfiguration) {
 		configuration = created;
 		enrollmentKeys = [];

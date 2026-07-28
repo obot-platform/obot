@@ -43,6 +43,14 @@
 
 	const quickAllowActions: QuickAllowAction[] = ['hostname', 'server', 'tool'];
 
+	let quickAllows = $derived(
+		quickAllowActions.map((action) => ({
+			action,
+			blocked: quickAllowBlockedReason(decision, action)
+		}))
+	);
+	let canQuickAllow = $derived(quickAllows.some(({ blocked }) => !blocked));
+
 	$effect(() => {
 		const id = initial.id;
 		if (!id) return;
@@ -176,7 +184,7 @@
 				</div>
 			</div>
 
-			{#if decision.decision === 'deny'}
+			{#if decision.decision === 'deny' && canQuickAllow}
 				<div class="flex flex-col gap-2">
 					<p class="text-base font-semibold">Allow this call going forward</p>
 					{#if readOnly}
@@ -188,8 +196,7 @@
 							Adds a rule to this fleet's enforcement allowlist.
 						</p>
 						<div class="flex flex-col gap-2">
-							{#each quickAllowActions as action (action)}
-								{@const blocked = quickAllowBlockedReason(decision, action)}
+							{#each quickAllows as { action, blocked } (action)}
 								<span use:tooltip={blocked ?? undefined} class="flex">
 									<button
 										class="btn btn-secondary w-full justify-start text-left text-sm"
@@ -200,7 +207,9 @@
 									</button>
 								</span>
 								{#if blocked}
-									<p class="text-muted-content -mt-1 text-xs font-light break-all">{blocked}</p>
+									<p class="text-muted-content -mt-1 text-xs font-light wrap-break-word">
+										{blocked}
+									</p>
 								{/if}
 							{/each}
 						</div>
