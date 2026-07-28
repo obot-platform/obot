@@ -46,7 +46,7 @@ func TestOAuthAuthorizationAppendsMCPIDToOAuthEndpoints(t *testing.T) {
 	if got.RegistrationEndpoint != "https://obot.example.com/oauth/register/test-mcp" {
 		t.Fatalf("registration_endpoint = %q", got.RegistrationEndpoint)
 	}
-	if got.Issuer != h.config.Issuer {
+	if got.Issuer != "https://obot.example.com/test-mcp" {
 		t.Fatalf("issuer = %q", got.Issuer)
 	}
 	if got.JWKSURI != h.config.JWKSURI {

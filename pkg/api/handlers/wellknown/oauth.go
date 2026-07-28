@@ -13,6 +13,7 @@ import (
 func (h *handler) oauthAuthorization(req api.Context) error {
 	config := h.config
 	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+		config.Issuer = appendPathSegment(config.Issuer, mcpID)
 		config.AuthorizationEndpoint = appendPathSegment(config.AuthorizationEndpoint, mcpID)
 		config.RegistrationEndpoint = appendPathSegment(config.RegistrationEndpoint, mcpID)
 		config.TokenEndpoint = appendPathSegment(config.TokenEndpoint, mcpID)
