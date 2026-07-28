@@ -106,26 +106,31 @@ func respondDecision(req api.Context, decision enforcement.Decision) error {
 
 // recordAndRespond stamps the normalized call onto the decision-log row, records
 // it (buffered/async), and returns the synchronous verdict to the device.
+//
+// The device-supplied strings are bounded here, on their way to storage only. The
+// verdict is decided from the values as they arrived (normalizedCallFromRequest):
+// truncating before evaluation would be a bypass, because a long URL cut mid-path
+// can land exactly on an allowlisted path prefix that the real URL only extended.
 func (h *EnforcementHandler) recordAndRespond(req api.Context, entry gtypes.EnforcementDecisionLog, in types.EnforcementDecisionRequest, decision enforcement.Decision) error {
 	entry.CreatedAt = time.Now().UTC()
-	entry.Agent = in.Agent
-	entry.Tool = in.Tool
-	entry.Kind = in.Kind
-	entry.ServerName = in.ServerName
+	entry.Agent = truncateRunes(in.Agent, maxIdentifierRunes)
+	entry.Tool = truncateRunes(in.Tool, maxIdentifierRunes)
+	entry.Kind = truncateRunes(in.Kind, maxIdentifierRunes)
+	entry.ServerName = truncateRunes(in.ServerName, maxIdentifierRunes)
 	entry.Decision = verdict(decision)
 	entry.Reason = decision.Reason
-	entry.ServerURL = sanitizeServerURL(in.Server.URL)
-	entry.ServerHostname = serverHostname(in.Server)
-	entry.ServerCommand = sanitizeServerCommand(in.Server.Command)
-	entry.ServerConnector = in.Server.Connector
+	entry.ServerURL = truncateRunes(sanitizeServerURL(in.Server.URL), maxServerURLRunes)
+	entry.ServerHostname = truncateRunes(serverHostname(in.Server), maxIdentifierRunes)
+	entry.ServerCommand = truncateRunes(sanitizeServerCommand(in.Server.Command), maxServerURLRunes)
+	entry.ServerConnector = truncateRunes(in.Server.Connector, maxIdentifierRunes)
 	entry.Unresolved = in.Unresolved
 	if in.Unresolved {
 		entry.UnresolvedReason = sanitizeUnresolvedReason(in.UnresolvedReason)
 	}
 	if in.Server.Package != nil {
-		entry.ServerPackageSource = string(in.Server.Package.Source)
-		entry.ServerPackageName = in.Server.Package.Name
-		entry.ServerPackageVersion = in.Server.Package.Version
+		entry.ServerPackageSource = truncateRunes(string(in.Server.Package.Source), maxIdentifierRunes)
+		entry.ServerPackageName = truncateRunes(in.Server.Package.Name, maxIdentifierRunes)
+		entry.ServerPackageVersion = truncateRunes(in.Server.Package.Version, maxIdentifierRunes)
 	}
 
 	req.GatewayClient.LogEnforcementDecision(entry)
@@ -312,9 +317,12 @@ func normalizedCallFromRequest(in types.EnforcementDecisionRequest, obotHosted b
 		ServerName: in.ServerName,
 		ObotHosted: obotHosted,
 		Server: enforcement.ServerIdentity{
-			URL:       in.Server.URL,
-			Command:   in.Server.Command,
-			Hostname:  in.Server.Hostname,
+			URL:     in.Server.URL,
+			Command: in.Server.Command,
+			// Hostname is left empty on purpose so the evaluator derives it from the
+			// URL. Honoring the device-reported value would let a report name a
+			// hostname its own URL contradicts, and a hostname allowlist entry would
+			// then match a call to somewhere else entirely. See serverHostname.
 			Connector: in.Server.Connector,
 		},
 		Unresolved: in.Unresolved,
@@ -390,22 +398,27 @@ func sanitizeServerCommand(raw string) string {
 	return fields[0]
 }
 
-const maxUnresolvedReasonRunes = 512
+const (
+	maxUnresolvedReasonRunes = 512
+	maxIdentifierRunes       = 256
+	maxServerURLRunes        = 2048
+)
 
 func sanitizeUnresolvedReason(raw string) string {
-	raw = strings.TrimSpace(raw)
-	if utf8.RuneCountInString(raw) <= maxUnresolvedReasonRunes {
-		return raw
-	}
-	return string([]rune(raw)[:maxUnresolvedReasonRunes])
+	return truncateRunes(strings.TrimSpace(raw), maxUnresolvedReasonRunes)
 }
 
-// serverHostname returns the hostname the row should record: the explicit one if
-// supplied, otherwise the host derived from the URL.
-func serverHostname(server types.EnforcementDecisionServer) string {
-	if server.Hostname != "" {
-		return server.Hostname
+// truncateRunes cuts s to at most max runes, never splitting one.
+func truncateRunes(s string, max int) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
 	}
+	return string([]rune(s)[:max])
+}
+
+// serverHostname returns the hostname the row should record, always derived from
+// the resolved URL.
+func serverHostname(server types.EnforcementDecisionServer) string {
 	if server.URL == "" {
 		return ""
 	}

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	types "github.com/obot-platform/obot/apiclient/types"
@@ -84,8 +86,74 @@ func normalizeEnforcementAllowlist(allowlist types.EnforcementAllowlist) (types.
 		servers = append(servers, normalized)
 	}
 
-	allowlist.Servers = servers
+	allowlist.Servers = mergeAllowlistServers(servers)
 	return allowlist, nil
+}
+
+// mergeAllowlistServers folds entries that identify the same server into one,
+// preserving first-appearance order.
+//
+// Normalization can make two entries identical that were not identical on the
+// wire — canonicalizing a package name, lowercasing a hostname — so without this
+// an allowlist accumulates rows that are duplicates only after the fact. They are
+// harmless to evaluate (the first match wins and every copy matches alike) but an
+// administrator cannot tell them apart to remove one, and the count shown in the
+// UI stops matching the number of distinct rules.
+//
+// Merging follows the evaluator: an entry with no tools allows every tool on the
+// server, so it absorbs one that names specific tools rather than the reverse.
+func mergeAllowlistServers(servers []types.AllowlistServer) []types.AllowlistServer {
+	if len(servers) < 2 {
+		return servers
+	}
+	out := make([]types.AllowlistServer, 0, len(servers))
+	index := make(map[string]int, len(servers))
+	for _, server := range servers {
+		key, ok := allowlistServerKey(server)
+		if !ok {
+			// No single dimension, so there is nothing to compare on. Keep it and let
+			// validateEnforcementAllowlist reject it by index.
+			out = append(out, server)
+			continue
+		}
+		at, seen := index[key]
+		if !seen {
+			index[key] = len(out)
+			out = append(out, server)
+			continue
+		}
+		// An existing entry that already allows every tool is the broadest possible
+		// rule for this server; nothing can widen it.
+		if len(out[at].Tools) == 0 {
+			continue
+		}
+		if len(server.Tools) == 0 {
+			out[at].Tools = nil
+			continue
+		}
+		for _, tool := range server.Tools {
+			if !slices.Contains(out[at].Tools, tool) {
+				out[at].Tools = append(out[at].Tools, tool)
+			}
+		}
+	}
+	return out
+}
+
+func allowlistServerKey(server types.AllowlistServer) (string, bool) {
+	switch {
+	case server.URL != "":
+		return "url:" + server.URL, server.Package == nil && server.Hostname == "" && server.Connector == ""
+	case server.Package != nil:
+		return fmt.Sprintf("package:%s:%s:%s", server.Package.Source, server.Package.Name, server.Package.Version),
+			server.Hostname == "" && server.Connector == ""
+	case server.Hostname != "":
+		return "hostname:" + strings.ToLower(server.Hostname), server.Connector == ""
+	case server.Connector != "":
+		return "connector:" + strings.ToLower(server.Connector), true
+	default:
+		return "", false
+	}
 }
 
 func enforcementAllowlistIsEmpty(allowlist types.EnforcementAllowlist) bool {

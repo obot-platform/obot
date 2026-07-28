@@ -570,3 +570,88 @@ func TestMDMConfigurationUpdateEnforcementOnEnableKeepsEmptyAllowlist(t *testing
 	assert.False(t, updated.EnforcementAllowlist.AllowAllObotHostedMCP)
 	assert.Empty(t, updated.EnforcementAllowlist.Servers)
 }
+
+func TestMDMConfigurationEnforcementFoldsEntriesThatNormalizeAlike(t *testing.T) {
+	for name, tt := range map[string]struct {
+		in   []types.AllowlistServer
+		want []types.AllowlistServer
+	}{
+		"npm alias spellings": {
+			in: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "mcp-server-time"}},
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "MCP-Server-Time"}},
+			},
+			want: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "mcp-server-time"}},
+			},
+		},
+		"pypi alias spellings": {
+			in: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourcePyPI, Name: "mcp-server-git"}},
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourcePyPI, Name: "Mcp_Server.Git"}},
+			},
+			want: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourcePyPI, Name: "mcp-server-git"}},
+			},
+		},
+		"hostname case": {
+			in:   []types.AllowlistServer{{Hostname: "gitmcp.io"}, {Hostname: "GitMCP.IO"}},
+			want: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		"connector case": {
+			in:   []types.AllowlistServer{{Connector: "claude.ai Linear"}, {Connector: "claude.ai LINEAR"}},
+			want: []types.AllowlistServer{{Connector: "claude.ai Linear"}},
+		},
+		// An entry allowing every tool is broader than one naming specific tools, so
+		// it absorbs it rather than the reverse — matching the evaluator, where an
+		// empty Tools list allows everything on the server.
+		"all-tools entry absorbs a tool-scoped one": {
+			in:   []types.AllowlistServer{{Hostname: "gitmcp.io"}, {Hostname: "gitmcp.io", Tools: []string{"fetch"}}},
+			want: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		"tool-scoped entry widened by an all-tools one": {
+			in:   []types.AllowlistServer{{Hostname: "gitmcp.io", Tools: []string{"fetch"}}, {Hostname: "gitmcp.io"}},
+			want: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		"tool lists are unioned": {
+			in: []types.AllowlistServer{
+				{Hostname: "gitmcp.io", Tools: []string{"fetch"}},
+				{Hostname: "gitmcp.io", Tools: []string{"fetch", "search"}},
+			},
+			want: []types.AllowlistServer{{Hostname: "gitmcp.io", Tools: []string{"fetch", "search"}}},
+		},
+		// A pinned version and an unpinned one are different rules: the evaluator
+		// compares versions as exact strings and treats "" as any version.
+		"a pinned version is a distinct entry": {
+			in: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "pkg"}},
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "pkg", Version: "1.0.0"}},
+			},
+			want: []types.AllowlistServer{
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "pkg"}},
+				{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM, Name: "pkg", Version: "1.0.0"}},
+			},
+		},
+		// Different dimensions never fold, even for the same underlying server.
+		"url and hostname stay separate": {
+			in:   []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}, {Hostname: "gitmcp.io"}},
+			want: []types.AllowlistServer{{URL: "https://gitmcp.io/docs"}, {Hostname: "gitmcp.io"}},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			env := newMDMEnforcementTestEnv(t)
+			ctx, rec := env.create(t, types.MDMConfiguration{
+				EnforcementEnabled:   true,
+				EnforcementAllowlist: types.EnforcementAllowlist{Servers: tt.in},
+			})
+			require.NoError(t, env.handler.Create(ctx))
+			require.Equal(t, http.StatusCreated, rec.Code)
+
+			created := decodeMDMConfiguration(t, rec)
+			assert.Equal(t, tt.want, created.EnforcementAllowlist.Servers)
+
+			stored := env.stored(t, created.ID)
+			assert.Equal(t, tt.want, stored.EnforcementAllowlist.Servers)
+		})
+	}
+}

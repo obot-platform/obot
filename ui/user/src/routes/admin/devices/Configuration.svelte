@@ -44,6 +44,7 @@
 		{assets}
 		{assetLoadError}
 		readOnly={isAdminReadonly}
+		onConfigurationUpdate={(updated) => (configuration = updated)}
 	/>
 {:else}
 	<GettingStarted readOnly={isAdminReadonly} onCreate={handleCreate} />

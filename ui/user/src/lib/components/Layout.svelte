@@ -413,6 +413,14 @@
 								disabled: isBootStrapUser,
 								collapsible: false,
 								beta: true
+							},
+							{
+								id: 'enforcement-decisions',
+								href: '/admin/enforcement-decisions',
+								label: 'Enforcement Decisions',
+								disabled: isBootStrapUser,
+								collapsible: false,
+								beta: true
 							}
 						]
 					},

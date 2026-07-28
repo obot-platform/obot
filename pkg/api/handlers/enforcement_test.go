@@ -861,3 +861,106 @@ func mustMarshal(t *testing.T, v any) []byte {
 	}
 	return b
 }
+
+func TestEnforcementDecideIgnoresDeviceReportedHostname(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+		Servers: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+	})
+
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:      "claude_code",
+		Tool:       "search",
+		Kind:       "mcp",
+		ServerName: "docs",
+		Server: types.EnforcementDecisionServer{
+			URL:      "https://evil.example.com/mcp",
+			Hostname: "gitmcp.io",
+		},
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny: a claimed hostname must not match an allowlist entry", got)
+	}
+	row := waitForEnforcementDecision(t, gatewayClient)
+	if row.Server == nil {
+		t.Fatal("logged row has no server identity")
+	}
+	if want := "evil.example.com"; row.Server.Hostname != want {
+		t.Fatalf("logged hostname = %q, want %q derived from the URL", row.Server.Hostname, want)
+	}
+}
+
+func TestEnforcementDecideBoundsDeviceSuppliedStrings(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+
+	huge := strings.Repeat("A", 200_000)
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent:      huge,
+		Tool:       huge,
+		Kind:       huge,
+		ServerName: huge,
+		Server: types.EnforcementDecisionServer{
+			URL:       "https://a.example.com/" + huge,
+			Command:   huge,
+			Connector: huge,
+			Package:   &types.AllowlistServerPackage{Source: "npm", Name: huge, Version: huge},
+		},
+		Unresolved:       true,
+		UnresolvedReason: huge,
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+
+	row := waitForEnforcementDecision(t, gatewayClient)
+	for _, f := range []struct {
+		name  string
+		value string
+		max   int
+	}{
+		{"agent", row.Agent, maxIdentifierRunes},
+		{"tool", row.Tool, maxIdentifierRunes},
+		{"kind", row.Kind, maxIdentifierRunes},
+		{"serverName", row.ServerName, maxIdentifierRunes},
+		{"unresolvedReason", row.UnresolvedReason, maxUnresolvedReasonRunes},
+		{"server.url", row.Server.URL, maxServerURLRunes},
+		{"server.connector", row.Server.Connector, maxIdentifierRunes},
+		{"server.package.name", row.Server.Package.Name, maxIdentifierRunes},
+		{"server.package.version", row.Server.Package.Version, maxIdentifierRunes},
+	} {
+		if n := utf8.RuneCountInString(f.value); n > f.max {
+			t.Errorf("%s stored %d runes, want at most %d", f.name, n, f.max)
+		}
+	}
+}
+
+func TestEnforcementDecideEvaluatesTheFullURLNotTheTruncatedOne(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	// The entry allows exactly one path, and its descendants.
+	allowed := "https://a.example.com/" + strings.Repeat("p", maxServerURLRunes)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{
+		Servers: []types.AllowlistServer{{URL: allowed}},
+	})
+
+	// A sibling path that shares the allowed path's first maxServerURLRunes runes
+	// but is a different path: truncation would make it match.
+	sibling := allowed + "-elsewhere"
+	rec := httptest.NewRecorder()
+	body := types.EnforcementDecisionRequest{
+		Agent: "claude_code", Tool: "search", Kind: "mcp", ServerName: "docs",
+		Server: types.EnforcementDecisionServer{URL: sibling},
+	}
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, gatewayClient, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny: the full URL is a sibling path, not a descendant", got)
+	}
+}
