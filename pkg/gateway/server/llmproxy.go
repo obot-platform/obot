@@ -22,7 +22,6 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -32,11 +31,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
-	"k8s.io/client-go/rest"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const tokenUsageTimePeriod = 24 * time.Hour
@@ -59,47 +54,6 @@ func init() {
 	if base := os.Getenv("ANTHROPIC_BASE_URL"); base != "" {
 		anthropicBaseURL = base
 	}
-}
-
-// getModelFromReference retrieves the model with a matching reference name.
-// The reference name must be any one of the following:
-// - The name of a default model alias
-// - The actual Kubernetes resource name of the model
-func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
-	if len(rest.IsValidPathSegmentName(modelReference)) != 0 {
-		// Let provider-specific routes resolve provider-native model IDs that cannot be Kubernetes names.
-		return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
-	}
-
-	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
-	if err != nil {
-		return nil, err
-	}
-
-	var respModel *v1.Model
-	switch m := m.(type) {
-	case *v1.DefaultModelAlias:
-		if m.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", modelReference)
-		}
-		var model v1.Model
-		if err := alias.Get(ctx, client, &model, namespace, m.Spec.Manifest.Model); err != nil {
-			return nil, err
-		}
-		respModel = &model
-	case *v1.Model:
-		respModel = m
-	}
-
-	if respModel != nil {
-		if !respModel.Spec.Manifest.Active {
-			return nil, fmt.Errorf("model %q is not active", respModel.Spec.Manifest.Name)
-		}
-
-		return respModel, nil
-	}
-
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
 }
 
 func envVarForModelProvider(modelProvider v1.ModelProvider) (string, error) {
@@ -974,10 +928,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if targetModel := extractModelFromBody(body); targetModel != "" {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
-		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
-		if apierrors.IsNotFound(err) {
-			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
-		}
+		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 		if err != nil {
 			return fmt.Errorf("failed to get model: %w", err)
 		}

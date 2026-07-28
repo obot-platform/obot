@@ -68,7 +68,7 @@ func TestResolveTargetModel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newModelHelper(t, tt.models)
 
-			got, err := h.ResolveTargetModel(tt.provider, tt.targetModel)
+			got, err := h.resolveTargetModel(tt.provider, tt.targetModel)
 			if tt.wantNotFound {
 				require.True(t, apierrors.IsNotFound(err), "expected NotFound, got %v", err)
 				return
