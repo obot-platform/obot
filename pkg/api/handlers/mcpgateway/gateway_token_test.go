@@ -94,6 +94,30 @@ func TestGatewayTokenUsesExactServerAudience(t *testing.T) {
 	require.WithinDuration(t, minted.IssuedAt.Add(gatewayTokenExpiration), minted.ExpiresAt.Time, time.Second)
 }
 
+func TestGatewayTokenUsesExactServerAudienceBelowBasePath(t *testing.T) {
+	server := mcp.ServerConfig{
+		MCPServerName: "ms1server",
+		Audiences: []string{
+			"https://studio.example.test/obot/mcp-connect/catalog-entry",
+			"https://studio.example.test/obot/mcp-connect/ms1server",
+		},
+	}
+	var minted persistent.TokenContext
+	handler := Handler{
+		mintToken: func(_ context.Context, tokenContext persistent.TokenContext) (string, error) {
+			minted = tokenContext
+			return "scoped-gateway-token", nil
+		},
+	}
+
+	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{UID: "42"}, server)
+
+	require.NoError(t, err)
+	require.Equal(t, "scoped-gateway-token", got)
+	require.Equal(t, "ms1server", minted.MCPID)
+	require.Equal(t, "https://studio.example.test/obot/mcp-connect/ms1server", minted.Audience)
+}
+
 func TestProxyReplacesInboundStudioBearerForNanobotAgent(t *testing.T) {
 	receivedAuthorization := make(chan string, 1)
 	nanobot := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, request *http.Request) {

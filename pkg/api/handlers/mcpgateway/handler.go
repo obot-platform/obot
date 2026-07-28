@@ -189,7 +189,7 @@ func gatewayAudience(server mcp.ServerConfig) (string, error) {
 	expectedPath := "/mcp-connect/" + server.MCPServerName
 	for _, audience := range server.Audiences {
 		parsed, err := url.Parse(audience)
-		if err == nil && strings.TrimRight(parsed.Path, "/") == expectedPath {
+		if err == nil && strings.HasSuffix(strings.TrimRight(parsed.Path, "/"), expectedPath) {
 			return audience, nil
 		}
 	}
