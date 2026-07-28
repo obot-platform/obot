@@ -408,12 +408,12 @@ func sanitizeUnresolvedReason(raw string) string {
 	return truncateRunes(strings.TrimSpace(raw), maxUnresolvedReasonRunes)
 }
 
-// truncateRunes cuts s to at most max runes, never splitting one.
-func truncateRunes(s string, max int) string {
-	if utf8.RuneCountInString(s) <= max {
+// truncateRunes cuts s to at most maximum runes, never splitting one.
+func truncateRunes(s string, maximum int) string {
+	if utf8.RuneCountInString(s) <= maximum {
 		return s
 	}
-	return string([]rune(s)[:max])
+	return string([]rune(s)[:maximum])
 }
 
 // serverHostname returns the hostname the row should record, always derived from
