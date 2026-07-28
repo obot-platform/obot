@@ -12,7 +12,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 
 		apiKeys = keys;
 	} catch (err) {
-		handleRouteError(err, '/keys', profile);
+		handleRouteError(err, '/agent-auth-scopes', profile);
 	}
 
 	return { apiKeys };

@@ -73,7 +73,7 @@
 </script>
 
 <Layout
-	title={showCreateNew ? 'Create Agent Auth Scope' : 'Agent Auth Scope'}
+	title={showCreateNew ? 'Create Agent Auth Scope' : 'Agent Auth Scopes'}
 	showBackButton={showCreateNew}
 >
 	{#if showCreateNew}
@@ -135,7 +135,7 @@
 					{initSort}
 					onSort={setSortUrlParams}
 					onClickRow={(d, isCtrlClick) => {
-						const url = `/keys/${d.id}`;
+						const url = `/agent-auth-scopes/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 				>

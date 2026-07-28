@@ -132,7 +132,7 @@
 					{initSort}
 					onSort={setSortUrlParams}
 					onClickRow={(d, isCtrlClick) => {
-						const url = `/admin/api-keys/${d.id}`;
+						const url = `/admin/agent-auth-scopes/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 					columnMaxWidths={{

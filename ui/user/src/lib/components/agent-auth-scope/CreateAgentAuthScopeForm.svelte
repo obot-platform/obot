@@ -172,7 +172,7 @@
 		</p>
 		<p class="input-description">
 			Select which MCP servers this agent auth scope can access. To create a capability-only scope,
-			leave this empty and enable a capability above.
+			leave this empty and enable a capability below.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
 					({#if selectedServerIds.has('*')}All Selected{:else}{selectedServerIds.size} Selected{/if})
