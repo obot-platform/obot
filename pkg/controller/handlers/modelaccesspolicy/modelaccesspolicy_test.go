@@ -7,6 +7,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,6 +21,22 @@ func TestPruneModels(t *testing.T) {
 			Name:      "m1-existing",
 			Namespace: "default",
 		},
+		Spec: v1.ModelSpec{
+			Manifest: types.ModelManifest{
+				Usage: types.ModelUsageLLM,
+			},
+		},
+	}
+	embeddingModel := &v1.Model{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "m1-embedding",
+			Namespace: "default",
+		},
+		Spec: v1.ModelSpec{
+			Manifest: types.ModelManifest{
+				Usage: types.ModelUsageEmbedding,
+			},
+		},
 	}
 
 	tests := []struct {
@@ -27,6 +44,7 @@ func TestPruneModels(t *testing.T) {
 		modelIDs   []string
 		wantIDs    []string
 		wantUpdate bool
+		custom     bool
 	}{
 		{
 			name:       "keeps wildcard suffix pattern matching no models",
@@ -60,9 +78,49 @@ func TestPruneModels(t *testing.T) {
 		},
 		{
 			name:       "no update when nothing is pruned",
-			modelIDs:   []string{"m1-existing", "obot://llm", "gpt-4o*"},
-			wantIDs:    []string{"m1-existing", "obot://llm", "gpt-4o*"},
+			modelIDs:   []string{"m1-existing", "obot://llm", "obot://llm-mini", "gpt-4o*"},
+			wantIDs:    []string{"m1-existing", "obot://llm", "obot://llm-mini", "gpt-4o*"},
 			wantUpdate: false,
+		},
+		{
+			name: "custom policy preserves invalid and non-llm resources",
+			modelIDs: []string{
+				"m1-existing",
+				"m1-embedding",
+				"m1-missing",
+				"not-a-model",
+				"obot://llm",
+				"obot://text-embedding",
+				"obot://image-generation",
+				"obot://vision",
+				"obot://unknown",
+			},
+			wantIDs: []string{
+				"m1-existing",
+				"m1-embedding",
+				"m1-missing",
+				"not-a-model",
+				"obot://llm",
+				"obot://text-embedding",
+				"obot://image-generation",
+				"obot://vision",
+				"obot://unknown",
+			},
+			wantUpdate: false,
+			custom:     true,
+		},
+		{
+			name: "default policy prunes non-llm models and aliases",
+			modelIDs: []string{
+				"m1-existing",
+				"m1-embedding",
+				"obot://llm",
+				"obot://text-embedding",
+				"obot://image-generation",
+				"obot://vision",
+			},
+			wantIDs:    []string{"m1-existing", "obot://llm"},
+			wantUpdate: true,
 		},
 	}
 
@@ -73,12 +131,17 @@ func TestPruneModels(t *testing.T) {
 				models = append(models, types.ModelResource{ID: id})
 			}
 
+			policyName := system.ModelAccessPolicyPrefix + "-default"
+			if tt.custom {
+				policyName = "custom-policy"
+			}
+
 			client := fake.NewClientBuilder().
 				WithScheme(storagescheme.Scheme).
-				WithObjects(existingModel, &v1.ModelAccessPolicy{
+				WithObjects(existingModel, embeddingModel, &v1.ModelAccessPolicy{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-policy",
-						Namespace: "default",
+						Name:      policyName,
+						Namespace: system.DefaultNamespace,
 					},
 					Spec: v1.ModelAccessPolicySpec{
 						Manifest: types.ModelAccessPolicyManifest{
@@ -91,7 +154,7 @@ func TestPruneModels(t *testing.T) {
 
 			// Fetch the stored policy so the handler updates it with a valid resource version
 			var policy v1.ModelAccessPolicy
-			key := kclient.ObjectKey{Namespace: "default", Name: "test-policy"}
+			key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: policyName}
 			require.NoError(t, client.Get(t.Context(), key, &policy))
 
 			initialVersion := policy.ResourceVersion

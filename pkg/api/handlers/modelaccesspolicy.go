@@ -5,6 +5,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,13 +48,9 @@ func (*ModelAccessPolicyHandler) Get(req api.Context) error {
 
 // Create creates a new model access policy.
 func (*ModelAccessPolicyHandler) Create(req api.Context) error {
-	var manifest types.ModelAccessPolicyManifest
-	if err := req.Read(&manifest); err != nil {
-		return types.NewErrBadRequest("failed to read model access policy manifest: %v", err)
-	}
-
-	if err := manifest.Validate(); err != nil {
-		return types.NewErrBadRequest("invalid model access policy manifest: %v", err)
+	manifest, err := readAndValidateModelAccessPolicyManifest(req)
+	if err != nil {
+		return err
 	}
 
 	policy := v1.ModelAccessPolicy{
@@ -77,13 +74,9 @@ func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 func (*ModelAccessPolicyHandler) Update(req api.Context) error {
 	policyID := req.PathValue("id")
 
-	var manifest types.ModelAccessPolicyManifest
-	if err := req.Read(&manifest); err != nil {
-		return types.NewErrBadRequest("failed to read model access policy manifest: %v", err)
-	}
-
-	if err := manifest.Validate(); err != nil {
-		return types.NewErrBadRequest("invalid model access policy manifest: %v", err)
+	manifest, err := readAndValidateModelAccessPolicyManifest(req)
+	if err != nil {
+		return err
 	}
 
 	var existing v1.ModelAccessPolicy
@@ -109,6 +102,26 @@ func (*ModelAccessPolicyHandler) Delete(req api.Context) error {
 			Namespace: req.Namespace(),
 		},
 	})
+}
+
+func readAndValidateModelAccessPolicyManifest(req api.Context) (types.ModelAccessPolicyManifest, error) {
+	var manifest types.ModelAccessPolicyManifest
+	if err := req.Read(&manifest); err != nil {
+		return manifest, types.NewErrBadRequest("failed to read model access policy manifest: %v", err)
+	}
+	if err := manifest.Validate(); err != nil {
+		return manifest, types.NewErrBadRequest("invalid model access policy manifest: %v", err)
+	}
+	if err := modelaccesspolicy.ValidateModelResources(
+		req.Context(),
+		req.Storage,
+		req.Namespace(),
+		manifest.Models,
+	); err != nil {
+		return manifest, types.NewErrBadRequest("invalid model access policy manifest: %v", err)
+	}
+
+	return manifest, nil
 }
 
 func convertModelAccessPolicy(policy v1.ModelAccessPolicy) types.ModelAccessPolicy {

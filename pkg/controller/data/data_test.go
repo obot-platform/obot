@@ -3,6 +3,7 @@ package data
 import (
 	"testing"
 
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,6 +19,32 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(objects...).
 		Build()
+}
+
+func TestDataCreatesDefaultModelAccessPolicyWithLLMAliases(t *testing.T) {
+	ctx := t.Context()
+	client := newFakeClient(t)
+
+	require.NoError(t, Data(ctx, client, "", ""))
+
+	var policy v1.ModelAccessPolicy
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.ModelAccessPolicyPrefix + "-default",
+	}, &policy))
+	assert.Equal(t, "Default Policy", policy.Spec.Manifest.DisplayName)
+	assert.Equal(t, []types.Subject{{
+		Type: types.SubjectTypeSelector,
+		ID:   "*",
+	}}, policy.Spec.Manifest.Subjects)
+	assert.Equal(t, []types.ModelResource{
+		{ID: "obot://llm"},
+		{ID: "obot://llm-mini"},
+	}, policy.Spec.Manifest.Models)
+
+	var aliases v1.DefaultModelAliasList
+	require.NoError(t, client.List(ctx, &aliases))
+	assert.Len(t, aliases.Items, 5)
 }
 
 func TestCreateDefaultSkillRepository(t *testing.T) {

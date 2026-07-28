@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
+	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,6 +41,10 @@ func Data(ctx context.Context, c kclient.Client, defaultSkillRepoURL, defaultSki
 			}
 		} else if err != nil {
 			return err
+		}
+
+		if !modelaccesspolicy.IsAllowedDefaultModelAlias(alias.Name) {
+			continue
 		}
 
 		// Build the default model access policy dynamically from default model aliases

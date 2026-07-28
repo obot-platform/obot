@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { getAdminModels } from '$lib/context/admin/models.svelte';
-	import { AdminService, type ModelProvider } from '$lib/services';
-	import { ModelUsage, ModelUsageLabels, type Model } from '$lib/services';
+	import { AdminService, ModelUsageLabels, type ModelProvider } from '$lib/services';
+	import { ModelUsage, type Model } from '$lib/services';
 	import { darkMode, profile } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
-	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
@@ -19,18 +18,20 @@
 	function filterOutModelsByProvider(models: Model[], providerID: string) {
 		return models
 			.filter((model) => model.modelProvider === providerID)
-			.sort((a, b) => a.name.localeCompare(b.name));
+			.sort((a, b) => {
+				const aIsLlm = a.usage === ModelUsage.LLM;
+				const bIsLlm = b.usage === ModelUsage.LLM;
+				if (aIsLlm !== bIsLlm) {
+					return aIsLlm ? -1 : 1;
+				}
+				return a.name.localeCompare(b.name);
+			});
 	}
 
 	const adminModels = getAdminModels();
 	const { provider, readonly }: Props = $props();
 	let modelsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let modelsByProvider = $derived(filterOutModelsByProvider(adminModels.items ?? [], provider.id));
-
-	const usageOptions = Object.entries(ModelUsage).map(([_key, value]) => ({
-		label: ModelUsageLabels[value],
-		id: value
-	}));
 </script>
 
 <IconButton
@@ -69,11 +70,14 @@
 				class="hidden"
 				disabled={readonly}
 			/>
-			<div class="default-scrollbar-thin h-[500px] overflow-y-auto px-4">
+			<div class="default-scrollbar-thin h-125 overflow-y-auto px-4">
 				<Table
 					data={modelsByProvider}
 					fields={['name', 'usage', 'active']}
 					classes={{ root: 'dark:bg-base-200' }}
+					setRowClasses={(row) => {
+						return row.usage !== ModelUsage.LLM ? 'text-muted-content' : '';
+					}}
 				>
 					{#snippet onRenderColumn(field, columnData)}
 						{#if field === 'active'}
@@ -93,23 +97,9 @@
 								disabled={readonly}
 							/>
 						{:else if field === 'usage'}
-							<Select
-								classes={{ root: 'w-full' }}
-								class="bg-base-200 dark:bg-base-200 dark:border-base-400 border border-transparent shadow-inner"
-								options={usageOptions}
-								selected={columnData.usage}
-								onSelect={(option) => {
-									AdminService.updateModel(columnData.id, {
-										...columnData,
-										usage: option.id as ModelUsage
-									});
-									const index = modelsByProvider.findIndex((m) => m.id === columnData.id);
-									if (index !== -1) {
-										modelsByProvider[index].usage = option.id as ModelUsage;
-									}
-								}}
-								disabled={readonly}
-							/>
+							<span class="badge badge-xs badge-secondary">
+								{ModelUsageLabels[columnData.usage as ModelUsage]}
+							</span>
 						{:else if field === 'name'}
 							{columnData.displayName ? columnData.displayName : columnData.name}
 						{:else}

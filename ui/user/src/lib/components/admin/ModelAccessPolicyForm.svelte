@@ -11,9 +11,9 @@
 		type OrgGroup,
 		ModelUsage,
 		ModelUsageLabels,
+		ModelAlias,
 		ModelAliasLabels,
 		type Model,
-		type ModelAlias,
 		UserService
 	} from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
@@ -24,7 +24,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchModels from './SearchModels.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { Plus, Trash2 } from '@lucide/svelte';
+	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -43,6 +43,7 @@
 	}: Props = $props();
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const llmModelWarning = 'Only LLM models are allowed.';
 	let modelAccessPolicy = $state(
 		untrack(
 			() =>
@@ -87,7 +88,7 @@
 	onMount(async () => {
 		const fetchedModels = await AdminService.listModels({ all: true });
 
-		models = fetchedModels;
+		models = fetchedModels.filter((m) => m.usage === ModelUsage.LLM);
 		loadingModels = false;
 	});
 
@@ -119,6 +120,7 @@
 		return aliasResources.map((resource) => {
 			const aliasName = resource.id.replace('obot://', '');
 			const model = aliasToModelMap.get(aliasName as ModelAlias);
+			const isAllowed = aliasName === ModelAlias.Llm || aliasName === ModelAlias.LlmMini;
 
 			return {
 				id: resource.id,
@@ -126,7 +128,8 @@
 				aliasLabel: ModelAliasLabels[aliasName as ModelAlias] || aliasName,
 				usage: model?.usage,
 				effectiveModelName: model?.displayName || model?.targetModel || 'Not configured',
-				isConfigured: !!model
+				isConfigured: !!model,
+				warning: isAllowed ? undefined : llmModelWarning
 			};
 		});
 	});
@@ -154,7 +157,8 @@
 				isConfigured: alias.isConfigured,
 				usage: alias.usage,
 				isPattern: false,
-				matchCount: 0
+				matchCount: 0,
+				warning: alias.warning
 			};
 		});
 
@@ -168,11 +172,16 @@
 			isAlias: false,
 			isConfigured: true,
 			isPattern: model.isPattern,
-			matchCount: model.matchCount
+			matchCount: model.matchCount,
+			warning: model.warning
 		}));
 
 		return [...aliasRows, ...regularRows];
 	});
+
+	let invalidModelResourceCount = $derived(
+		combinedModelsTableData.filter((model) => model.warning).length
+	);
 
 	$effect(() => {
 		// Prevent loading users and groups if rule has no subjects
@@ -290,19 +299,30 @@
 			}
 
 			const m = modelsMap.get(model.id);
+			let warning: string | undefined;
+			if (!m) {
+				warning = 'This model no longer exists.';
+			} else if (m.usage !== ModelUsage.LLM && m.usage !== ModelAlias.LlmMini) {
+				warning = llmModelWarning;
+			}
 			return {
 				id: model.id,
 				name: m?.displayName || m?.name || model.id,
 				usage: m?.usage,
 				provider: m?.modelProviderName || '-',
 				isPattern: false,
-				matchCount: 0
+				matchCount: 0,
+				warning
 			};
 		});
 	}
 
 	function validate(policy: typeof modelAccessPolicy) {
 		if (!policy) return false;
+
+		if (invalidModelResourceCount > 0) {
+			return false;
+		}
 
 		return (
 			policy.displayName.length > 0 &&
@@ -435,6 +455,15 @@
 					<Loading class="size-6" />
 				</div>
 			{:else}
+				{#if invalidModelResourceCount > 0}
+					<div class="notification-alert flex items-start gap-1" role="alert">
+						<TriangleAlert class="text-warning size-4 shrink-0" />
+						<p class="text-xs">
+							This policy contains invalid model(s). To update the policy, remove the invalid
+							models.
+						</p>
+					</div>
+				{/if}
 				<Table
 					data={combinedModelsTableData}
 					fields={['name', 'provider']}
@@ -483,6 +512,12 @@
 											{ModelUsageLabels[d.usage as ModelUsage] || d.usage}
 										</span>
 									{/if}
+								</div>
+							{/if}
+							{#if d.warning}
+								<div class="ml-2 text-warning flex items-center gap-1 text-xs">
+									<TriangleAlert class="size-3 shrink-0" />
+									<span>{d.warning}</span>
 								</div>
 							{/if}
 						{:else}

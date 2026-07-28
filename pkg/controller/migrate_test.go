@@ -24,6 +24,105 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 		Build()
 }
 
+func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {
+	ctx := t.Context()
+
+	t.Run("missing default policy is a no-op", func(t *testing.T) {
+		client := newFakeClient(t)
+		require.NoError(t, migrateDefaultModelAccessPolicyModels(ctx, client))
+	})
+
+	t.Run("cleans only the default policy and preserves custom policies", func(t *testing.T) {
+		defaultPolicyName := system.ModelAccessPolicyPrefix + "-default"
+		subjects := []types.Subject{{
+			Type: types.SubjectTypeGroup,
+			ID:   "custom-group",
+		}}
+		client := newFakeClient(t,
+			&v1.ModelAccessPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      defaultPolicyName,
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.ModelAccessPolicySpec{
+					Manifest: types.ModelAccessPolicyManifest{
+						DisplayName: "Customized Default Policy",
+						Subjects:    subjects,
+						Models: []types.ModelResource{
+							{ID: "obot://llm"},
+							{ID: "obot://text-embedding"},
+							{ID: "m1-custom"},
+							{ID: "obot://image-generation"},
+							{ID: "obot://llm-mini"},
+							{ID: "obot://vision"},
+							{ID: "custom-*"},
+						},
+					},
+				},
+			},
+			&v1.ModelAccessPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "custom-policy",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.ModelAccessPolicySpec{
+					Manifest: types.ModelAccessPolicyManifest{
+						Subjects: subjects,
+						Models: []types.ModelResource{
+							{ID: "obot://text-embedding"},
+							{ID: "obot://llm"},
+							{ID: "m1-missing"},
+							{ID: "not-a-model"},
+							{ID: "obot://unknown"},
+						},
+					},
+				},
+			},
+			&v1.Model{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "m1-custom",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.ModelSpec{
+					Manifest: types.ModelManifest{
+						Usage: types.ModelUsageLLM,
+					},
+				},
+			},
+		)
+
+		require.NoError(t, migrateDefaultModelAccessPolicyModels(ctx, client))
+		require.NoError(t, migrateDefaultModelAccessPolicyModels(ctx, client))
+
+		var defaultPolicy v1.ModelAccessPolicy
+		require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      defaultPolicyName,
+		}, &defaultPolicy))
+		assert.Equal(t, "Customized Default Policy", defaultPolicy.Spec.Manifest.DisplayName)
+		assert.Equal(t, subjects, defaultPolicy.Spec.Manifest.Subjects)
+		assert.Equal(t, []types.ModelResource{
+			{ID: "obot://llm"},
+			{ID: "m1-custom"},
+			{ID: "obot://llm-mini"},
+			{ID: "custom-*"},
+		}, defaultPolicy.Spec.Manifest.Models)
+
+		var customPolicy v1.ModelAccessPolicy
+		require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      "custom-policy",
+		}, &customPolicy))
+		assert.Equal(t, []types.ModelResource{
+			{ID: "obot://text-embedding"},
+			{ID: "obot://llm"},
+			{ID: "m1-missing"},
+			{ID: "not-a-model"},
+			{ID: "obot://unknown"},
+		}, customPolicy.Spec.Manifest.Models)
+	})
+}
+
 func TestMigratePublishedArtifactVisibility(t *testing.T) {
 	ctx := t.Context()
 

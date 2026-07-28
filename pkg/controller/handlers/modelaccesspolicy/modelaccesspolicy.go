@@ -3,14 +3,18 @@ package modelaccesspolicy
 import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	accesspolicy "github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// PruneModels ensures invalid and ineffectual model resources are removed from ModelAccessPolicies.
+// PruneModels ensures invalid and ineffectual model resources are removed from
+// the default ModelAccessPolicy. Custom policies are intentionally left intact
+// so their legacy resources remain visible for users to remediate.
 // This handler removes:
 // - Models that no longer exist
+// - Models and default aliases that are not LLM usage types
 // - Duplicates
 // - Explicit model references when a wildcard is present
 //
@@ -18,6 +22,10 @@ import (
 // they currently match no models, since they apply to future models as well.
 func PruneModels(req router.Request, _ router.Response) error {
 	policy := req.Object.(*v1.ModelAccessPolicy)
+	if policy.Namespace != system.DefaultNamespace ||
+		policy.Name != system.ModelAccessPolicyPrefix+"-default" {
+		return nil
+	}
 
 	var (
 		resources = make([]types.ModelResource, 0, len(policy.Spec.Manifest.Models))
@@ -36,36 +44,20 @@ func PruneModels(req router.Request, _ router.Response) error {
 			break
 		}
 
-		if alias, isAlias := resource.IsDefaultModelAliasRef(); isAlias {
-			if types.DefaultModelAliasTypeFromString(alias) != types.DefaultModelAliasTypeUnknown {
-				// Valid model alias type, keep
-				resources = append(resources, resource)
-			}
-
-			continue
-		}
-
-		if _, isPattern := resource.IsWildcardSuffix(); isPattern {
-			// Keep wildcard suffix patterns unconditionally; they're forward-looking
-			// and may match models that don't exist yet.
+		err := accesspolicy.ValidateModelResource(
+			req.Ctx,
+			req.Client,
+			policy.Namespace,
+			resource,
+		)
+		if err == nil {
 			resources = append(resources, resource)
 			continue
 		}
-
-		if !system.IsModelID(resource.ID) {
-			// Prune invalid model ID
+		if accesspolicy.IsInvalidModelResource(err) || apierrors.IsNotFound(err) {
 			continue
 		}
-
-		var model v1.Model
-		if err := req.Get(&model, policy.Namespace, resource.ID); apierrors.IsNotFound(err) {
-			// Prune missing model
-			continue
-		} else if err != nil {
-			return err
-		}
-
-		resources = append(resources, resource)
+		return err
 	}
 
 	if len(resources) == len(policy.Spec.Manifest.Models) {

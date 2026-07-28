@@ -101,7 +101,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 		}
 	}
 
-	// wildcardPolicy grants every model to every user.
+	// wildcardPolicy grants every eligible model to every user.
 	wildcardPolicy := &v1.ModelAccessPolicy{
 		ObjectMeta: metav1.ObjectMeta{Name: "p-wildcard", Namespace: "default"},
 		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
@@ -140,14 +140,23 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			want:     map[string]bool{"gpt-4o": true},
 		},
 		{
-			name: "wildcard policy reports allowAll without enumerating",
+			name: "wildcard policy enumerates only eligible model usages",
 			models: []*v1.Model{
 				newModel("m1-gpt-4o", provider, "gpt-4o", true),
 				newModel("m1-gpt-4o-mini", provider, "gpt-4o-mini", true),
+				newModel(
+					"m1-text-embedding",
+					provider,
+					"text-embedding-3-small",
+					true,
+					withUsage(types2.ModelUsageEmbedding),
+				),
 			},
-			policies:     []*v1.ModelAccessPolicy{wildcardPolicy},
-			want:         nil,
-			wantAllowAll: true,
+			policies: []*v1.ModelAccessPolicy{wildcardPolicy},
+			want: map[string]bool{
+				"gpt-4o":      true,
+				"gpt-4o-mini": true,
+			},
 		},
 		{
 			name: "filters allowed models by dialect",
@@ -182,9 +191,30 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 				newModel("m1-gpt-4o", provider, "gpt-4o", true),
 				newModel("m1-gpt-4o-mini", provider, "gpt-4o-mini", true),
 				newModel("m1-gpt-5", provider, "gpt-5", true),
+				newModel(
+					"m1-gpt-4o-embedding",
+					provider,
+					"gpt-4o-embedding",
+					true,
+					withUsage(types2.ModelUsageEmbedding),
+				),
 			},
 			policies: []*v1.ModelAccessPolicy{userPolicy("gpt-4o*")},
 			want:     map[string]bool{"gpt-4o": true, "gpt-4o-mini": true},
+		},
+		{
+			name: "legacy explicit non-llm model grants no access",
+			models: []*v1.Model{
+				newModel(
+					"m1-text-embedding",
+					provider,
+					"text-embedding-3-small",
+					true,
+					withUsage(types2.ModelUsageEmbedding),
+				),
+			},
+			policies: []*v1.ModelAccessPolicy{userPolicy("m1-text-embedding")},
+			want:     map[string]bool{},
 		},
 		{
 			name: "wildcard suffix pattern is case-sensitive",
@@ -309,6 +339,12 @@ func withDialect(dialect string) modelOpt {
 	}
 }
 
+func withUsage(usage types2.ModelUsage) modelOpt {
+	return func(m *v1.Model) {
+		m.Spec.Manifest.Usage = usage
+	}
+}
+
 func newModel(name, provider, targetModel string, active bool, opts ...modelOpt) *v1.Model {
 	m := &v1.Model{
 		ObjectMeta: metav1.ObjectMeta{
@@ -319,6 +355,7 @@ func newModel(name, provider, targetModel string, active bool, opts ...modelOpt)
 			TargetModel:   targetModel,
 			ModelProvider: provider,
 			Active:        active,
+			Usage:         types2.ModelUsageLLM,
 		}},
 	}
 	for _, opt := range opts {

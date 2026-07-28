@@ -6,7 +6,7 @@
 		ModelAlias,
 		type DefaultModelAlias
 	} from '$lib/services';
-	import { ModelUsageLabels, type ModelUsage, ModelAliasLabels } from '$lib/services/admin/types';
+	import { ModelUsage, ModelUsageLabels, ModelAliasLabels } from '$lib/services/admin/types';
 	import { sortModelProviders } from '$lib/sort';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -68,21 +68,20 @@
 
 	// Filter models based on exclude list and search
 	let filteredModels = $derived(
-		models
-			.filter((model) => !exclude?.includes(model.id))
-			.filter((model) => {
-				if (!search) return true;
-				if (patternPrefix !== null) {
-					// Preview exactly what the pattern grants: a case-sensitive prefix
-					// match on the provider-native target model, like the backend.
-					return (model.targetModel || '').startsWith(patternPrefix);
-				}
-				const lowerSearch = search.toLowerCase();
-				return (
-					(model.displayName || model.name).toLowerCase().includes(lowerSearch) ||
-					(model.modelProviderName || '').toLowerCase().includes(lowerSearch)
-				);
-			})
+		models.filter((model) => {
+			if (exclude?.includes(model.id)) return false;
+			if (!search) return true;
+			if (patternPrefix !== null) {
+				// Preview exactly what the pattern grants: a case-sensitive prefix
+				// match on the provider-native target model, like the backend.
+				return (model.targetModel || '').startsWith(patternPrefix);
+			}
+			const lowerSearch = search.toLowerCase();
+			return (
+				(model.displayName || model.name).toLowerCase().includes(lowerSearch) ||
+				(model.modelProviderName || '').toLowerCase().includes(lowerSearch)
+			);
+		})
 	);
 
 	// Group models by provider
@@ -124,7 +123,7 @@
 
 	// Prepare default aliases for display
 	let aliasDisplayData = $derived(
-		Object.values(ModelAlias).map((aliasName) => {
+		[ModelAlias.Llm, ModelAlias.LlmMini].map((aliasName) => {
 			const aliasId = `obot://${aliasName}`;
 			const aliasData = defaultModelAliases.find((a) => a.alias === aliasName);
 			const model = aliasData?.model ? modelsMap.get(aliasData.model) : undefined;
@@ -186,7 +185,7 @@
 	bind:this={addModelDialog}
 	{onClose}
 	{title}
-	class="h-full w-full overflow-visible md:h-[500px] md:max-w-md"
+	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">
