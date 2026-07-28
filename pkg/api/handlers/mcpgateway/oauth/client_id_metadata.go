@@ -50,23 +50,14 @@ func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clie
 
 	clientNamespace, clientName, ok := strings.Cut(clientID, ":")
 	if !ok {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClient,
-			Description: "client_id is invalid",
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrInvalidClient, "client_id is invalid", "")
 	}
 
 	var oauthClient v1.OAuthClient
 	if err := c.Get(ctx, kclient.ObjectKey{Namespace: clientNamespace, Name: clientName}, &oauthClient); apierrors.IsNotFound(err) {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClient,
-			Description: fmt.Sprintf("client_id does not exist: %s", clientID),
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrInvalidClient, fmt.Sprintf("client_id does not exist: %s", clientID), "")
 	} else if err != nil {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrServerError,
-			Description: fmt.Sprintf("failed to get OAuth client: %v", err),
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrServerError, fmt.Sprintf("failed to get OAuth client: %v", err), "")
 	}
 
 	return oauthClient, nil
@@ -74,10 +65,7 @@ func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clie
 
 func (h *handler) resolveClientIDMetadataDocument(ctx context.Context, clientID string) (v1.OAuthClient, error) {
 	if err := validateClientIDMetadataDocumentURL(clientID); err != nil {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClient,
-			Description: err.Error(),
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrInvalidClient, err.Error(), "")
 	}
 
 	if client, ok := h.getCachedClientMetadata(clientID); ok {
@@ -86,18 +74,12 @@ func (h *handler) resolveClientIDMetadataDocument(ctx context.Context, clientID 
 
 	doc, expiresAt, err := h.fetchClientIDMetadataDocument(ctx, clientID)
 	if err != nil {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClient,
-			Description: err.Error(),
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrInvalidClient, err.Error(), "")
 	}
 
 	client, err := h.oauthClientFromMetadataDocument(clientID, doc)
 	if err != nil {
-		return v1.OAuthClient{}, Error{
-			Code:        ErrInvalidClient,
-			Description: err.Error(),
-		}
+		return v1.OAuthClient{}, newOAuthError(ErrInvalidClient, err.Error(), "")
 	}
 
 	h.cacheClientMetadata(clientID, client, expiresAt)
