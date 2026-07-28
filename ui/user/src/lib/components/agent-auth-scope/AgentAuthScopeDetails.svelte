@@ -50,9 +50,7 @@
 		agentAuthScope ? formatTimeAgo(agentAuthScope.createdAt).relativeTime : ''
 	);
 	let lastUsedDisplay = $derived(
-		agentAuthScope?.lastUsedAt
-			? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime
-			: 'Never'
+		agentAuthScope?.lastUsedAt ? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime : 'Never'
 	);
 	let expiresDisplay = $derived(
 		agentAuthScope?.expiresAt ? formatTimeUntil(agentAuthScope.expiresAt).relativeTime : 'Never'
