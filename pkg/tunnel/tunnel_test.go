@@ -22,6 +22,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/rancher/remotedialer"
@@ -321,21 +322,16 @@ func TestTunnelLogsCorrelatedRequestAndResponse(t *testing.T) {
 	}))
 	defer target.Close()
 
+	testLogger, hook := logrustest.NewNullLogger()
+	testLogger.SetLevel(logrus.InfoLevel)
+	previousTunnelLog := tunnelLog
+	tunnelLog = logger.NewWithLogger(testLogger, nil)
+	defer func() {
+		tunnelLog = previousTunnelLog
+	}()
+
 	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
 	defer cleanup()
-
-	standardLogger := logrus.StandardLogger()
-	previousHooks := standardLogger.ReplaceHooks(make(logrus.LevelHooks))
-	previousOutput := standardLogger.Out
-	previousLevel := standardLogger.GetLevel()
-	standardLogger.SetOutput(io.Discard)
-	standardLogger.SetLevel(logrus.InfoLevel)
-	hook := logrustest.NewGlobal()
-	defer func() {
-		standardLogger.ReplaceHooks(previousHooks)
-		standardLogger.SetOutput(previousOutput)
-		standardLogger.SetLevel(previousLevel)
-	}()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/mcp?token=secret")
 	if err != nil {
@@ -1040,7 +1036,16 @@ func newConnectedTestTunnel(t *testing.T, name string) (*Manager, *http.Client, 
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	manager, server := newManagerTestServer(ctx, t)
-	connection, _, err := dial(ctx, server.URL, testTunnelToken(name))
+	token := testTunnelToken(name)
+	matcher, ok := newCredentialMatcher(token)
+	if !ok {
+		server.Close()
+		manager.Close()
+		cancel()
+		t.Fatalf("test tunnel token is invalid")
+	}
+	sessionKey := tunnelSessionKey(name, matcher.credentialID)
+	connection, _, err := dial(ctx, server.URL, token)
 	if err != nil {
 		server.Close()
 		manager.Close()
@@ -1051,13 +1056,9 @@ func newConnectedTestTunnel(t *testing.T, name string) (*Manager, *http.Client, 
 	go func() { serveErrors <- serveConnection(ctx, connection, name) }()
 
 	deadline := time.Now().Add(2 * time.Second)
-	for {
-		connected := localTunnelConnectionCount(manager, name) > 0
-		if connected {
-			break
-		}
+	for !manager.remoteDialer.HasSession(sessionKey) {
 		if time.Now().After(deadline) {
-			t.Fatal("tunnel did not register")
+			t.Fatal("tunnel session did not become ready")
 		}
 		time.Sleep(time.Millisecond)
 	}

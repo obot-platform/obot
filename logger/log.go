@@ -33,8 +33,13 @@ func Package() Logger {
 }
 
 func NewWithFields(fields logrus.Fields) Logger {
+	return NewWithLogger(logrus.StandardLogger(), fields)
+}
+
+// NewWithLogger creates a Logger backed by the provided logrus logger.
+func NewWithLogger(log *logrus.Logger, fields logrus.Fields) Logger {
 	return Logger{
-		log:    logrus.StandardLogger(),
+		log:    log,
 		fields: fields,
 	}
 }
