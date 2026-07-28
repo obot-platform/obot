@@ -121,14 +121,14 @@
 	<div class="paper p-4">
 		<div class="flex flex-col gap-6">
 			<div class="flex flex-col gap-2">
-				<label for="api-key-name" class="input-label">
+				<label for="agent-auth-scope-name" class="input-label">
 					Name
 					{#if nameError}
 						<span class="text-xs text-error">Name is required</span>
 					{/if}
 				</label>
 				<input
-					id="api-key-name"
+					id="agent-auth-scope-name"
 					type="text"
 					bind:value={name}
 					class={twMerge(
@@ -139,9 +139,9 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<label for="api-key-description" class="input-label">Description (Optional)</label>
+				<label for="agent-auth-scope-description" class="input-label">Description (Optional)</label>
 				<input
-					id="api-key-description"
+					id="agent-auth-scope-description"
 					type="text"
 					bind:value={description}
 					placeholder="What is this auth scope for?"
@@ -150,9 +150,9 @@
 			</div>
 
 			<div class="flex flex-col gap-2">
-				<label for="api-key-expires" class="input-label">Expiration Date (Optional)</label>
+				<label for="agent-auth-scope-expires" class="input-label">Expiration Date (Optional)</label>
 				<DatePicker
-					id="api-key-expires"
+					id="agent-auth-scope-expires"
 					bind:value={expiresAt}
 					onChange={(date) => (expiresAt = date)}
 					placeholder="No expiration"
@@ -239,8 +239,8 @@
 	</section>
 
 	<section class="paper gap-2 p-4">
-		<p class="text-lg font-semibold" id="api-key-scopes">API Scopes</p>
-		<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
+		<p class="text-lg font-semibold" id="agent-auth-scope-scopes">API Scopes</p>
+		<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 			{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 				<label
 					class={twMerge(

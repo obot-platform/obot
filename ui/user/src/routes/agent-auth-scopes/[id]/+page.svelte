@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import ApiKeyDetails from '$lib/components/api-keys/ApiKeyDetails.svelte';
+	import AgentAuthScopeDetails from '$lib/components/agent-auth-scope/AgentAuthScopeDetails.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
 	import { goto } from '$lib/url';
@@ -15,11 +15,11 @@
 <Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		{#if apiKey}
-			<ApiKeyDetails
-				apiKey={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
+			<AgentAuthScopeDetails
+				agentAuthScope={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
 				onDelete={async () => {
 					await ApiKeysService.deleteAnyApiKey(apiKey.id.toString());
-					goto('/keys', { replaceState: true });
+					goto('/agent-auth-scopes', { replaceState: true });
 				}}
 			/>
 		{/if}

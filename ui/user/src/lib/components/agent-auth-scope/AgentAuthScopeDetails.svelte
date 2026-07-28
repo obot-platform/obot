@@ -13,12 +13,12 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		apiKey?: APIKey & { prefix: string };
+		agentAuthScope?: APIKey & { prefix: string };
 		onDelete: () => void;
 	}
 
-	let { apiKey, onDelete }: Props = $props();
-	let deletingApiKey = $state(false);
+	let { agentAuthScope, onDelete }: Props = $props();
+	let deletingAgentAuthScope = $state(false);
 	let saving = $state(false);
 
 	let mcpServers = $derived(
@@ -30,11 +30,11 @@
 
 	let serverMap = $derived(new Map(mcpServers.map((s) => [s.id, s])));
 
-	let isAllServers = $derived(apiKey?.mcpServerIds?.includes('*') ?? false);
+	let isAllServers = $derived(agentAuthScope?.mcpServerIds?.includes('*') ?? false);
 
 	let resolvedServers = $derived.by(() => {
-		if (!apiKey?.mcpServerIds || isAllServers) return [];
-		return apiKey.mcpServerIds.map((id) => {
+		if (!agentAuthScope?.mcpServerIds || isAllServers) return [];
+		return agentAuthScope.mcpServerIds.map((id) => {
 			const server = serverMap.get(id);
 			return {
 				id,
@@ -46,19 +46,23 @@
 		});
 	});
 
-	let createdDisplay = $derived(apiKey ? formatTimeAgo(apiKey.createdAt).relativeTime : '');
+	let createdDisplay = $derived(
+		agentAuthScope ? formatTimeAgo(agentAuthScope.createdAt).relativeTime : ''
+	);
 	let lastUsedDisplay = $derived(
-		apiKey?.lastUsedAt ? formatTimeAgo(apiKey.lastUsedAt).relativeTime : 'Never'
+		agentAuthScope?.lastUsedAt
+			? formatTimeAgo(agentAuthScope.lastUsedAt).relativeTime
+			: 'Never'
 	);
 	let expiresDisplay = $derived(
-		apiKey?.expiresAt ? formatTimeUntil(apiKey.expiresAt).relativeTime : 'Never'
+		agentAuthScope?.expiresAt ? formatTimeUntil(agentAuthScope.expiresAt).relativeTime : 'Never'
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const title = $derived(apiKey?.name || 'Agent Auth Scope');
+	const title = $derived(agentAuthScope?.name || 'Agent Auth Scope');
 </script>
 
-{#if apiKey}
+{#if agentAuthScope}
 	<div
 		class="flex h-full w-full flex-col gap-4"
 		out:fly={{ x: 100, duration }}
@@ -69,12 +73,12 @@
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
 					{title}
 				</h1>
-				{#if apiKey.userId.toString() === profile.current.id}
+				{#if agentAuthScope.userId.toString() === profile.current.id}
 					<IconButton
 						variant="danger2"
 						tooltip={{ text: `Delete ${title}` }}
 						disabled={saving}
-						onclick={() => (deletingApiKey = true)}
+						onclick={() => (deletingAgentAuthScope = true)}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -82,14 +86,14 @@
 			</div>
 
 			<section class="paper">
-				{#if apiKey.description}
+				{#if agentAuthScope.description}
 					<div class="flex flex-col gap-2">
-						<label for="api-key-description" class="flex-1 text-sm font-light capitalize"
+						<label for="agent-auth-scope-description" class="flex-1 text-sm font-light capitalize"
 							>Description</label
 						>
 						<input
-							id="api-key-description"
-							value={apiKey.description}
+							id="agent-auth-scope-description"
+							value={agentAuthScope.description}
 							class="text-input-filled mt-0.5"
 							disabled
 						/>
@@ -97,14 +101,21 @@
 				{/if}
 
 				<div class="flex flex-col gap-2">
-					<label for="api-key-key" class="flex-1 text-sm font-light capitalize">Key</label>
-					<input id="api-key-key" value={apiKey.prefix} class="text-input-filled mt-0.5" disabled />
+					<label for="agent-auth-scope-key" class="flex-1 text-sm font-light capitalize">Key</label>
+					<input
+						id="agent-auth-scope-key"
+						value={agentAuthScope.prefix}
+						class="text-input-filled mt-0.5"
+						disabled
+					/>
 				</div>
 
 				<div class="flex flex-col gap-2">
-					<label for="api-key-created" class="flex-1 text-sm font-light capitalize">Created</label>
+					<label for="agent-auth-scope-created" class="flex-1 text-sm font-light capitalize"
+						>Created</label
+					>
 					<input
-						id="api-key-created"
+						id="agent-auth-scope-created"
 						value={createdDisplay}
 						class="text-input-filled mt-0.5"
 						disabled
@@ -112,11 +123,11 @@
 				</div>
 
 				<div class="flex flex-col gap-2">
-					<label for="api-key-last-used" class="flex-1 text-sm font-light capitalize"
+					<label for="agent-auth-scope-last-used" class="flex-1 text-sm font-light capitalize"
 						>Last Used</label
 					>
 					<input
-						id="api-key-last-used"
+						id="agent-auth-scope-last-used"
 						value={lastUsedDisplay}
 						class="text-input-filled mt-0.5"
 						disabled
@@ -124,9 +135,11 @@
 				</div>
 
 				<div class="flex flex-col gap-2">
-					<label for="api-key-expires" class="flex-1 text-sm font-light capitalize">Expires</label>
+					<label for="agent-auth-scope-expires" class="flex-1 text-sm font-light capitalize"
+						>Expires</label
+					>
 					<input
-						id="api-key-expires"
+						id="agent-auth-scope-expires"
 						value={expiresDisplay}
 						class="text-input-filled mt-0.5"
 						disabled
@@ -193,21 +206,21 @@
 			</section>
 
 			<section class="paper gap-2 p-4">
-				<p class="text-lg font-semibold" id="api-key-scopes">API Scopes</p>
-				<div class="flex flex-col gap-2" role="group" aria-labelledby="api-key-scopes">
+				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">API Scopes</p>
+				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
 					{#each API_KEY_CAPABILITIES as capability (capability.key)}
 						<label
 							class={twMerge(
 								'bg-base-200 flex items-center gap-3 rounded-lg border border-base-400 p-3',
-								apiKey[capability.key] && 'bg-primary/10 border-primary'
+								agentAuthScope[capability.key] && 'bg-primary/10 border-primary'
 							)}
 						>
 							<input
 								type="checkbox"
-								bind:checked={apiKey[capability.key]}
+								bind:checked={agentAuthScope[capability.key]}
 								class={twMerge(
 									'checkbox checkbox-xs rounded-sm',
-									apiKey[capability.key] && 'checkbox-primary'
+									agentAuthScope[capability.key] && 'checkbox-primary'
 								)}
 								disabled
 							/>
@@ -223,7 +236,7 @@
 			<section class="flex flex-col gap-2">
 				<p class="text-lg font-semibold">API Keys</p>
 				<Table
-					data={[{ id: apiKey.id, prefix: apiKey.prefix }]}
+					data={[{ id: agentAuthScope.id, prefix: agentAuthScope.prefix }]}
 					fields={['prefix']}
 					headers={[{ title: 'Key', property: 'prefix' }]}
 				/>
@@ -234,7 +247,7 @@
 
 <Confirm
 	msg={`Are you sure you want to delete "${title}"?`}
-	show={deletingApiKey}
+	show={deletingAgentAuthScope}
 	onsuccess={onDelete}
-	oncancel={() => (deletingApiKey = false)}
+	oncancel={() => (deletingAgentAuthScope = false)}
 />

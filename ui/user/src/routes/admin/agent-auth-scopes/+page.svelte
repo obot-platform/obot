@@ -3,9 +3,9 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import ApiKeyRevealDialog from '$lib/components/api-keys/ApiKeyRevealDialog.svelte';
-	import CreateApiKeyForm from '$lib/components/api-keys/CreateApiKeyForm.svelte';
-	import ServersLabel from '$lib/components/api-keys/ServersLabel.svelte';
+	import ApiKeyRevealDialog from '$lib/components/agent-auth-scope/ApiKeyRevealDialog.svelte';
+	import CreateAgentAuthScopeForm from '$lib/components/agent-auth-scope/CreateAgentAuthScopeForm.svelte';
+	import ServersLabel from '$lib/components/agent-auth-scope/ServersLabel.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService, type OrgUser, type APIKey } from '$lib/services';
@@ -89,7 +89,10 @@
 			in:fly={{ x: 100, delay: duration, duration }}
 			out:fly={{ x: -100, duration }}
 		>
-			<CreateApiKeyForm onCreate={handleCreate} onCancel={() => goto('/admin/api-keys')} />
+			<CreateAgentAuthScopeForm
+				onCreate={handleCreate}
+				onCancel={() => goto('/admin/agent-auth-scopes')}
+			/>
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
