@@ -80,19 +80,30 @@ func TestEvaluate(t *testing.T) {
 		// Coarse: built-in agent MCP.
 		{
 			name:      "builtin agent mcp allows a member of the set",
-			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "screenshot", ServerName: "computer-use"},
+			call:      NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "screenshot", ServerName: "computer-use"},
+			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
+			wantAllow: true,
+		},
+		{
+			// Two of Claude Code's five built-in names contain spaces and capitals, and
+			// no tool namespace preserves either, so the comparison falls back to the
+			// normalized name.
+			name:      "builtin agent mcp allows a member whose name no namespace preserves",
+			call:      NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "x", ServerName: "Claude_Preview"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
 			wantAllow: true,
 		},
 		{
 			name:      "builtin agent mcp denies a non-member server",
-			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "x", ServerName: "some-user-server"},
+			call:      NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "x", ServerName: "some-user-server"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
 			wantAllow: false,
 		},
 		{
+			// Codex has no built-in MCP servers: its computer-use is an ordinary
+			// configured entry installed by the ChatGPT app.
 			name:      "builtin agent mcp denies member name under a different agent",
-			call:      NormalizedCall{Agent: AgentClaudeCode, Kind: KindMCP, Tool: "x", ServerName: "computer-use"},
+			call:      NormalizedCall{Agent: AgentCodex, Kind: KindMCP, Tool: "x", ServerName: "computer-use"},
 			allowlist: types.EnforcementAllowlist{AllowAllBuiltinAgentMCP: true},
 			wantAllow: false,
 		},

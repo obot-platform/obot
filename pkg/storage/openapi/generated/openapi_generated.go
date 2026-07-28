@@ -5160,7 +5160,7 @@ func schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref common.R
 					},
 					"allowAllBuiltinAgentMcpServers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e. Codex computer-use)",
+							Description: "AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server — one that ships inside the agent rather than being configured by a user (i.e. Claude Code's workspace or claude-in-chrome)",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

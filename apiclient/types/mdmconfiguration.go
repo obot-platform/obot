@@ -37,7 +37,8 @@ type EnforcementAllowlist struct {
 	AllowEverything           bool `json:"allowEverything,omitempty"`
 	AllowAllObotHostedMCP     bool `json:"allowAllObotHostedMcpServers,omitempty"`
 	AllowAllBuiltinAgentTools bool `json:"allowAllBuiltinAgentTools,omitempty"`
-	// AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e. Codex computer-use)
+	// AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e.
+	// Claude Code's workspace or claude-in-chrome)
 	AllowAllBuiltinAgentMCP bool `json:"allowAllBuiltinAgentMcpServers,omitempty"`
 
 	Servers []AllowlistServer `json:"servers,omitempty"`
