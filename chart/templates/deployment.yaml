@@ -132,7 +132,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
-            {{- if gt (int .Values.replicaCount) 1 }}
             - name: OBOT_SERVER_TUNNEL_PEER_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -142,7 +141,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.uid
-            {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "obot.config.configMapName" . }}
