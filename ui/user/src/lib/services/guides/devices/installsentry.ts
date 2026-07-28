@@ -150,7 +150,7 @@ export const steps: GuideStep[] = [
 	},
 	{
 		content: [
-			"For more detailed instructions, here's a video to walk through the steps with your MDM.",
+			"For more detailed instructions, here's a video showing how to deploy Obot Sentry with Microsoft Intune.",
 			{
 				videoUrl: 'https://youtu.be/NwuQlU5WpK0',
 				title: 'Installing Obot Sentry w/ Intune'
