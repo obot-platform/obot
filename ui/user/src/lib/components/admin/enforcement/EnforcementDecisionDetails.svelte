@@ -243,8 +243,8 @@
 							<ShieldCheck class="size-4 shrink-0" />
 							<div class="flex flex-col gap-1">
 								<span class="text-xs">
-									A rule in the allowlist already covers this call, so there is nothing to
-									add. This decision was recorded before the rule existed.
+									A rule in the allowlist already covers this call, so there is nothing to add. This
+									decision was recorded before the rule existed.
 								</span>
 								{#if allowlistCheck?.allowlistReason}
 									<span class="text-xs font-light wrap-break-word">
