@@ -853,6 +853,84 @@ func assertNoEnforcementDecisions(t *testing.T, c *gatewayclient.Client) {
 	}
 }
 
+func assertEnforcementDecisionCount(t *testing.T, c *gatewayclient.Client, want int64) {
+	t.Helper()
+	time.Sleep(200 * time.Millisecond)
+	_, total, err := c.GetEnforcementDecisions(t.Context(), gatewayclient.EnforcementDecisionOptions{})
+	if err != nil {
+		t.Fatalf("list enforcement decisions: %v", err)
+	}
+	if total != want {
+		t.Fatalf("recorded %d enforcement decision row(s), want %d", total, want)
+	}
+}
+
+func newEnforcementAdminContext(t *testing.T, c *gatewayclient.Client, id string, rec *httptest.ResponseRecorder) api.Context {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/enforcement-decisions/allowlist-check/"+id, nil)
+	ctx := api.Context{
+		ResponseWriter: rec,
+		Request:        req,
+		GatewayClient:  c,
+		User: &user.DefaultInfo{
+			UID:    "42",
+			Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+		},
+	}
+	ctx.SetPathValue("id", id)
+	return ctx
+}
+
+func decodeAllowlistCheck(t *testing.T, rec *httptest.ResponseRecorder) types.EnforcementDecisionAllowlistCheck {
+	t.Helper()
+	var resp types.EnforcementDecisionAllowlistCheck
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode allowlist check: %v (body %s)", err, rec.Body.String())
+	}
+	return resp
+}
+
+// checkEnforcementAllowlist replays the recorded decision and returns the result.
+func checkEnforcementAllowlist(t *testing.T, c *gatewayclient.Client, id string) types.EnforcementDecisionAllowlistCheck {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	if err := newEnforcementTestHandler(t).CheckDecisionAllowlist(newEnforcementAdminContext(t, c, id, rec)); err != nil {
+		t.Fatalf("check decision allowlist: %v", err)
+	}
+	return decodeAllowlistCheck(t, rec)
+}
+
+func setEnforcementTestPolicy(t *testing.T, c *gatewayclient.Client, configID uint, enabled bool, allowlist types.EnforcementAllowlist) {
+	t.Helper()
+	if err := c.UpdateMDMConfigurationEnforcement(t.Context(), configID, enabled, allowlist, nil); err != nil {
+		t.Fatalf("update enforcement policy: %v", err)
+	}
+}
+
+// recordEnforcementDenyRow drives a real Decide against an empty allowlist so the
+// row under test carries the same sanitization and truncation as production data.
+func recordEnforcementDenyRow(t *testing.T, c *gatewayclient.Client, configID uint, body types.EnforcementDecisionRequest) types.EnforcementDecisionEvent {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	if err := newEnforcementTestHandler(t).Decide(newEnforcementDeviceContext(t, c, body, configID, rec)); err != nil {
+		t.Fatalf("decide: %v", err)
+	}
+	if got := decodeDecisionResponse(t, rec).Decision; got != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny for this fixture", got)
+	}
+	return waitForEnforcementDecision(t, c)
+}
+
+func enforcementTestMCPCall(url string) types.EnforcementDecisionRequest {
+	return types.EnforcementDecisionRequest{
+		Agent:      "claude_code",
+		Tool:       "search",
+		Kind:       "mcp",
+		ServerName: "docs",
+		Server:     types.EnforcementDecisionServer{URL: url},
+	}
+}
+
 func mustMarshal(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -860,6 +938,248 @@ func mustMarshal(t *testing.T, v any) []byte {
 		t.Fatalf("marshal: %v", err)
 	}
 	return b
+}
+
+func TestEnforcementCheckAllowlistFlipsToAllowAfterWidening(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+
+	if got := checkEnforcementAllowlist(t, gatewayClient, row.ID); got.AllowlistDecision != types.EnforcementDecisionDeny {
+		t.Fatalf("decision before widening = %q, want deny", got.AllowlistDecision)
+	}
+
+	setEnforcementTestPolicy(t, gatewayClient, configID, true, types.EnforcementAllowlist{
+		Servers: []types.AllowlistServer{{Hostname: "gitmcp.io"}},
+	})
+
+	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	if got.AllowlistDecision != types.EnforcementDecisionAllow {
+		t.Fatalf("decision after widening = %q, want allow (reason %q)", got.AllowlistDecision, got.AllowlistReason)
+	}
+	if got.ID != row.ID {
+		t.Fatalf("checked id = %q, want %q", got.ID, row.ID)
+	}
+	if !got.EnforcementEnabled {
+		t.Fatal("enforcementEnabled = false, want true")
+	}
+	if got.AllowlistReason == "" {
+		t.Fatal("allowlistReason is empty, want the evaluator's justification")
+	}
+}
+
+func TestEnforcementCheckAllowlistWritesNoDecisionRow(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+	assertEnforcementDecisionCount(t, gatewayClient, 1)
+
+	// Replay it both ways: still denied, and then allowed. Neither is a device
+	// telling us what it did, so neither belongs in the log.
+	checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	setEnforcementTestPolicy(t, gatewayClient, configID, true, types.EnforcementAllowlist{AllowEverything: true})
+	checkEnforcementAllowlist(t, gatewayClient, row.ID)
+
+	assertEnforcementDecisionCount(t, gatewayClient, 1)
+}
+
+func TestEnforcementCheckAllowlistStaysDenyWhenThePolicyIsUnchanged(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+
+	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	if got.AllowlistDecision != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny", got.AllowlistDecision)
+	}
+	if got.AllowlistReason != "no matching allowlist entry" {
+		t.Fatalf("reason = %q, want the evaluator's no-match reason", got.AllowlistReason)
+	}
+}
+
+// The check answers "does a rule cover this call?", which is not the same question
+// as "would this call get through?". Enforcement being switched off must never be
+// reported as a rule that covers the call.
+func TestEnforcementCheckAllowlistDisabledEnforcementStillReportsTheAllowlistVerdict(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+
+	setEnforcementTestPolicy(t, gatewayClient, configID, false, types.EnforcementAllowlist{})
+	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	if got.AllowlistDecision != types.EnforcementDecisionDeny {
+		t.Fatalf("decision with enforcement off and no rule = %q, want deny", got.AllowlistDecision)
+	}
+	if got.EnforcementEnabled {
+		t.Fatal("enforcementEnabled = true, want false")
+	}
+
+	setEnforcementTestPolicy(t, gatewayClient, configID, false, types.EnforcementAllowlist{AllowEverything: true})
+	got = checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	if got.AllowlistDecision != types.EnforcementDecisionAllow {
+		t.Fatalf("decision with enforcement off and allow-everything = %q, want allow", got.AllowlistDecision)
+	}
+	if got.EnforcementEnabled {
+		t.Fatal("enforcementEnabled = true, want false")
+	}
+}
+
+func TestEnforcementCheckAllowlistUnknownDecisionReturnsNotFound(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+
+	rec := httptest.NewRecorder()
+	err := newEnforcementTestHandler(t).CheckDecisionAllowlist(newEnforcementAdminContext(t, gatewayClient, "999999", rec))
+	if err == nil {
+		t.Fatal("check decision allowlist = nil error, want not found")
+	}
+	var httpErr *types.ErrHTTP
+	if !errors.As(err, &httpErr) {
+		t.Fatalf("error is %T, want *types.ErrHTTP: %v", err, err)
+	}
+	if httpErr.Code != http.StatusNotFound {
+		t.Fatalf("error HTTP code = %d, want %d (err: %v)", httpErr.Code, http.StatusNotFound, err)
+	}
+}
+
+func TestEnforcementCheckAllowlistRejectsAMalformedID(t *testing.T) {
+	for _, id := range []string{"", "abc", "1.5", "-1", "99999999999999999999"} {
+		t.Run(fmt.Sprintf("id=%q", id), func(t *testing.T) {
+			gatewayClient := newEnforcementTestGatewayClient(t)
+			rec := httptest.NewRecorder()
+			err := newEnforcementTestHandler(t).CheckDecisionAllowlist(newEnforcementAdminContext(t, gatewayClient, id, rec))
+			if err == nil {
+				t.Fatalf("check decision allowlist(%q) = nil error, want bad request", id)
+			}
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) {
+				t.Fatalf("error is %T, want *types.ErrHTTP: %v", err, err)
+			}
+			if httpErr.Code != http.StatusBadRequest {
+				t.Fatalf("error HTTP code = %d, want %d (err: %v)", httpErr.Code, http.StatusBadRequest, err)
+			}
+		})
+	}
+}
+
+// A call the device could not identify has nothing to match on, so no rule — not
+// even allow-everything — can cover it.
+func TestEnforcementCheckAllowlistUnresolvedRowStaysDeniedUnderAllowEverything(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	body := types.EnforcementDecisionRequest{
+		Agent:            "claude_code",
+		Tool:             "search",
+		Kind:             "mcp",
+		Unresolved:       true,
+		UnresolvedReason: "no MCP configuration matched the tool",
+	}
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, body)
+
+	setEnforcementTestPolicy(t, gatewayClient, configID, true, types.EnforcementAllowlist{AllowEverything: true})
+
+	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)
+	if got.AllowlistDecision != types.EnforcementDecisionDeny {
+		t.Fatalf("decision = %q, want deny for an unresolved call", got.AllowlistDecision)
+	}
+	if got.AllowlistReason != "no MCP configuration matched the tool" {
+		t.Fatalf("reason = %q, want the recorded unresolved reason", got.AllowlistReason)
+	}
+}
+
+func TestEnforcementCheckAllowlistMatchesAPackageRowAfterAllowlisting(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
+	body := types.EnforcementDecisionRequest{
+		Agent: "claude_code",
+		Tool:  "search",
+		Kind:  "mcp",
+		Server: types.EnforcementDecisionServer{
+			Package: &types.AllowlistServerPackage{
+				Source:  types.AllowlistServerPackageSourceNPM,
+				Name:    "@scope/server",
+				Version: "1.2.3",
+			},
+			Command: "npx -y @scope/server --api-key=sk-secret",
+		},
+	}
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, body)
+
+	setEnforcementTestPolicy(t, gatewayClient, configID, true, types.EnforcementAllowlist{
+		Servers: []types.AllowlistServer{{
+			Package: &types.AllowlistServerPackage{
+				Source: types.AllowlistServerPackageSourceNPM,
+				Name:   "@scope/server",
+			},
+		}},
+	})
+
+	if got := checkEnforcementAllowlist(t, gatewayClient, row.ID); got.AllowlistDecision != types.EnforcementDecisionAllow {
+		t.Fatalf("decision = %q, want allow (reason %q)", got.AllowlistDecision, got.AllowlistReason)
+	}
+}
+
+func TestNormalizedCallFromDecisionLog(t *testing.T) {
+	base := gtypes.EnforcementDecisionLog{
+		Agent:            "claude_code",
+		Tool:             "search",
+		Kind:             "mcp",
+		ServerName:       "docs",
+		ObotHosted:       true,
+		ServerURL:        "https://gitmcp.io/docs",
+		ServerHostname:   "gitmcp.io",
+		ServerCommand:    "npx",
+		ServerConnector:  "Google Calendar",
+		Unresolved:       true,
+		UnresolvedReason: "no MCP configuration matched the tool",
+	}
+
+	// ObotHosted comes from the argument, never the row: the caller recomputes it
+	// against Obot's current server URL.
+	call := normalizedCallFromDecisionLog(base, false)
+	if call.ObotHosted {
+		t.Fatal("ObotHosted = true, want the argument's false rather than the row's true")
+	}
+	if call.Agent != "claude_code" || call.Tool != "search" || call.Kind != "mcp" || call.ServerName != "docs" {
+		t.Fatalf("call identity not carried over: %+v", call)
+	}
+	if call.Server.URL != "https://gitmcp.io/docs" || call.Server.Command != "npx" {
+		t.Fatalf("server URL/command not carried over: %+v", call.Server)
+	}
+	// Unlike a device report, the stored hostname was derived from the URL, so it
+	// is honored rather than dropped.
+	if call.Server.Hostname != "gitmcp.io" {
+		t.Fatalf("Server.Hostname = %q, want the recorded hostname", call.Server.Hostname)
+	}
+	if call.Server.Connector != "Google Calendar" {
+		t.Fatalf("Server.Connector = %q, want the recorded connector", call.Server.Connector)
+	}
+	if !call.Unresolved || call.UnresolvedReason != "no MCP configuration matched the tool" {
+		t.Fatalf("unresolved state not carried over: %+v", call)
+	}
+	if call.Server.Package != nil {
+		t.Fatalf("Server.Package = %+v, want nil when the row records no package", call.Server.Package)
+	}
+
+	withPackage := base
+	withPackage.ServerPackageSource = string(types.AllowlistServerPackageSourceNPM)
+	withPackage.ServerPackageName = "@scope/server"
+	withPackage.ServerPackageVersion = "1.2.3"
+	call = normalizedCallFromDecisionLog(withPackage, true)
+	if call.Server.Package == nil {
+		t.Fatal("Server.Package = nil, want the recorded package identity")
+	}
+	if call.Server.Package.Source != types.AllowlistServerPackageSourceNPM ||
+		call.Server.Package.Name != "@scope/server" ||
+		call.Server.Package.Version != "1.2.3" {
+		t.Fatalf("package identity not carried over: %+v", call.Server.Package)
+	}
+
+	sourceOnly := base
+	sourceOnly.ServerPackageSource = string(types.AllowlistServerPackageSourcePyPI)
+	if normalizedCallFromDecisionLog(sourceOnly, false).Server.Package == nil {
+		t.Fatal("Server.Package = nil, want a package identity when only the source was recorded")
+	}
 }
 
 func TestEnforcementDecideIgnoresDeviceReportedHostname(t *testing.T) {

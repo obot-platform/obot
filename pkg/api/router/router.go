@@ -378,6 +378,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/enforcement/decisions", enforcement.Decide)
 	mux.HandleFunc("GET /api/enforcement-decisions", enforcement.ListDecisions)
 	mux.HandleFunc("GET /api/enforcement-decisions/filter-options/{filter}", enforcement.ListFilterOptions)
+	mux.HandleFunc("GET /api/enforcement-decisions/allowlist-check/{id}", enforcement.CheckDecisionAllowlist)
 	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
 
 	// LLM Audit Logs

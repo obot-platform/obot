@@ -105,6 +105,7 @@ import type {
 	LicenseManifest,
 	LLMAuditLog,
 	LLMAuditLogURLFilters,
+	EnforcementDecisionAllowlistCheck,
 	EnforcementDecisionEvent,
 	EnforcementDecisionURLFilters,
 	MDMAsset,
@@ -2199,6 +2200,16 @@ export async function getEnforcementDecision(
 		`/enforcement-decisions/${encodeURIComponent(id)}`,
 		opts
 	)) as EnforcementDecisionEvent;
+}
+
+export async function checkEnforcementDecisionAllowlist(
+	id: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<EnforcementDecisionAllowlistCheck> {
+	return (await doGet(
+		`/enforcement-decisions/allowlist-check/${encodeURIComponent(id)}`,
+		opts
+	)) as EnforcementDecisionAllowlistCheck;
 }
 
 export async function listEnforcementDecisionFilterOptions(

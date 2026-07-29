@@ -1462,6 +1462,15 @@ export interface EnforcementDecisionEvent {
 	unresolvedReason?: string;
 }
 
+// EnforcementDecisionAllowlistCheck is the server's answer to "would this
+// recorded call be allowed if it were made now?".
+export interface EnforcementDecisionAllowlistCheck {
+	allowlistDecision: EnforcementDecisionVerdict;
+	allowlistReason?: string;
+	enforcementEnabled: boolean;
+	id: string;
+}
+
 export type EnforcementDecisionURLFilters = {
 	// actor is the enrolled device that produced the decision.
 	actor?: string | null;

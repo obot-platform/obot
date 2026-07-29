@@ -103,6 +103,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                   schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig":                  schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist":                      schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionAllowlistCheck":         schema_obot_platform_obot_apiclient_types_EnforcementDecisionAllowlistCheck(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent":                  schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventList":              schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventList(ref),
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventResponse":          schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventResponse(ref),
@@ -5182,6 +5183,47 @@ func schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref common.R
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.AllowlistServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionAllowlistCheck(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionAllowlistCheck is the result of replaying a recorded decision against its fleet's current allowlist: would this call be allowed if it were made now? The decision log is append-only evidence of what devices were told, so asking this question records nothing.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"allowlistDecision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"allowlistReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "allowlistDecision", "enforcementEnabled"},
+			},
+		},
 	}
 }
 

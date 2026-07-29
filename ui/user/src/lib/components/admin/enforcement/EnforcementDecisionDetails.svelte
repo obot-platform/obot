@@ -10,11 +10,16 @@
 		type QuickAllowAction
 	} from '$lib/enforcement';
 	import { isAbortError } from '$lib/errors';
-	import { AdminService, type EnforcementDecisionEvent } from '$lib/services';
+	import Loading from '$lib/icons/Loading.svelte';
+	import {
+		AdminService,
+		type EnforcementDecisionAllowlistCheck,
+		type EnforcementDecisionEvent
+	} from '$lib/services';
 	import { userDeviceSettings } from '$lib/stores';
 	import { formatLogTimestamp } from '$lib/time';
 	import QuickAllowDialog from './QuickAllowDialog.svelte';
-	import { CircleAlert, X } from '@lucide/svelte';
+	import { CircleAlert, ShieldCheck, X } from '@lucide/svelte';
 
 	interface Props {
 		decision: EnforcementDecisionEvent;
@@ -35,6 +40,9 @@
 	let fetched = $state<EnforcementDecisionEvent>();
 	let fetchError = $state<string>();
 	let quickAllowDialog = $state<ReturnType<typeof QuickAllowDialog>>();
+	let allowlistCheck = $state<EnforcementDecisionAllowlistCheck>();
+	let allowlistCheckPending = $state(false);
+	let recheckToken = $state(0);
 
 	// Render the row we already have, then replace it with the fetched copy. The
 	// list and detail payloads are the same shape, so a failed refresh costs
@@ -50,6 +58,14 @@
 		}))
 	);
 	let canQuickAllow = $derived(quickAllows.some(({ blocked }) => !blocked));
+
+	let checkable = $derived(
+		initial.decision === 'deny' &&
+			quickAllowActions.some((action) => !quickAllowBlockedReason(initial, action))
+	);
+	let checkRequest = $derived(checkable ? { id: initial.id, token: recheckToken } : undefined);
+	let alreadyAllowed = $derived(allowlistCheck?.allowlistDecision === 'allow');
+	let checkingAllowlist = $derived(checkable && allowlistCheckPending);
 
 	$effect(() => {
 		const id = initial.id;
@@ -67,6 +83,35 @@
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
 				fetchError = err instanceof Error ? err.message : 'Failed to load decision details';
+			});
+
+		return () => controller.abort();
+	});
+
+	// Ask the backend whether the current allowlist already covers this call.
+	$effect(() => {
+		const request = checkRequest;
+		if (!request?.id) {
+			allowlistCheck = undefined;
+			allowlistCheckPending = false;
+			return;
+		}
+
+		const controller = new AbortController();
+		allowlistCheck = undefined;
+		allowlistCheckPending = true;
+
+		AdminService.checkEnforcementDecisionAllowlist(request.id, { signal: controller.signal })
+			.then((response) => {
+				if (controller.signal.aborted) return;
+				allowlistCheck = response;
+			})
+			.catch((err) => {
+				if (isAbortError(err) || controller.signal.aborted) return;
+			})
+			.finally(() => {
+				if (controller.signal.aborted) return;
+				allowlistCheckPending = false;
 			});
 
 		return () => controller.abort();
@@ -186,33 +231,57 @@
 
 			{#if decision.decision === 'deny' && canQuickAllow}
 				<div class="flex flex-col gap-2">
-					<p class="text-base font-semibold">Allow this call going forward</p>
-					{#if readOnly}
-						<p class="text-muted-content text-sm font-light">
-							Requires an administrator with write access.
-						</p>
-					{:else}
-						<p class="text-muted-content text-sm font-light">
-							Adds a rule to this fleet's enforcement allowlist.
-						</p>
-						<div class="flex flex-col gap-2">
-							{#each quickAllows as { action, blocked } (action)}
-								<span use:tooltip={blocked ?? undefined} class="flex">
-									<button
-										class="btn btn-secondary w-full justify-start text-left text-sm"
-										disabled={Boolean(blocked)}
-										onclick={() => quickAllowDialog?.open(decision, action)}
-									>
-										{QUICK_ALLOW_LABELS[action]}
-									</button>
-								</span>
-								{#if blocked}
-									<p class="text-muted-content -mt-1 text-xs font-light wrap-break-word">
-										{blocked}
-									</p>
-								{/if}
-							{/each}
+					{#if checkingAllowlist}
+						<p class="text-base font-semibold">Allow this call going forward</p>
+						<div class="text-muted-content flex items-center gap-2 text-sm font-light">
+							<Loading class="size-4" />
+							<span>Checking the current allowlist…</span>
 						</div>
+					{:else if alreadyAllowed}
+						<p class="text-base font-semibold">Already allowed</p>
+						<div class="notification-info flex items-start gap-2.5 p-2.5">
+							<ShieldCheck class="size-4 shrink-0" />
+							<div class="flex flex-col gap-1">
+								<span class="text-xs">
+									A rule in the allowlist already covers this call, so there is nothing to
+									add. This decision was recorded before the rule existed.
+								</span>
+								{#if allowlistCheck?.allowlistReason}
+									<span class="text-xs font-light wrap-break-word">
+										{allowlistCheck.allowlistReason}
+									</span>
+								{/if}
+							</div>
+						</div>
+					{:else}
+						<p class="text-base font-semibold">Allow this call going forward</p>
+						{#if readOnly}
+							<p class="text-muted-content text-sm font-light">
+								Requires an administrator with write access.
+							</p>
+						{:else}
+							<p class="text-muted-content text-sm font-light">
+								Adds a rule to this fleet's enforcement allowlist.
+							</p>
+							<div class="flex flex-col gap-2">
+								{#each quickAllows as { action, blocked } (action)}
+									<span use:tooltip={blocked ?? undefined} class="flex">
+										<button
+											class="btn btn-neutral w-full justify-start text-left disabled:opacity-50"
+											disabled={Boolean(blocked)}
+											onclick={() => quickAllowDialog?.open(decision, action)}
+										>
+											{QUICK_ALLOW_LABELS[action]}
+										</button>
+									</span>
+									{#if blocked}
+										<p class="text-muted-content -mt-1 text-xs font-light wrap-break-word">
+											{blocked}
+										</p>
+									{/if}
+								{/each}
+							</div>
+						{/if}
 					{/if}
 				</div>
 			{/if}
@@ -220,4 +289,11 @@
 	</div>
 </div>
 
-<QuickAllowDialog bind:this={quickAllowDialog} onApplied={onAllowlistUpdated} />
+<QuickAllowDialog
+	bind:this={quickAllowDialog}
+	onApplied={() => {
+		// Re-ask the server so this panel reflects the rule that was just added.
+		recheckToken += 1;
+		onAllowlistUpdated();
+	}}
+/>

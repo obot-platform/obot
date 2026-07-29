@@ -169,25 +169,70 @@ func (h *EnforcementHandler) ListDecisions(req api.Context) error {
 	})
 }
 
-// GetDecision handles GET /api/enforcement-decisions/{id} (admin-only).
-func (h *EnforcementHandler) GetDecision(req api.Context) error {
+// parseEnforcementDecisionID reads a decision id from the request path.
+func parseEnforcementDecisionID(req api.Context) (uint, error) {
 	id := req.PathValue("id")
 	if id == "" {
-		return types.NewErrBadRequest("missing enforcement decision id")
+		return 0, types.NewErrBadRequest("missing enforcement decision id")
 	}
 	parsed, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
-		return types.NewErrBadRequest("invalid enforcement decision id: %v", err)
+		return 0, types.NewErrBadRequest("invalid enforcement decision id: %v", err)
+	}
+	return uint(parsed), nil
+}
+
+// GetDecision handles GET /api/enforcement-decisions/{id} (admin-only).
+func (h *EnforcementHandler) GetDecision(req api.Context) error {
+	id, err := parseEnforcementDecisionID(req)
+	if err != nil {
+		return err
 	}
 
-	decision, err := req.GatewayClient.GetEnforcementDecision(req.Context(), uint(parsed))
+	decision, err := req.GatewayClient.GetEnforcementDecision(req.Context(), id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return types.NewErrNotFound("enforcement decision %s not found", id)
+		return types.NewErrNotFound("enforcement decision %d not found", id)
 	} else if err != nil {
 		return err
 	}
 
 	return req.Write(presentEnforcementDecision(*decision))
+}
+
+// CheckDecisionAllowlist handles GET /api/enforcement-decisions/allowlist-check/{id}
+// (admin-only). It replays a recorded decision against its fleet's current
+// allowlist. It records nothing in the decision log.
+func (h *EnforcementHandler) CheckDecisionAllowlist(req api.Context) error {
+	id, err := parseEnforcementDecisionID(req)
+	if err != nil {
+		return err
+	}
+
+	log, err := req.GatewayClient.GetEnforcementDecision(req.Context(), id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("enforcement decision %d not found", id)
+	} else if err != nil {
+		return err
+	}
+
+	policy, err := req.GatewayClient.GetMDMConfigurationEnforcement(req.Context(), log.MDMConfigurationID)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("MDM configuration %d not found", log.MDMConfigurationID)
+	} else if err != nil {
+		return err
+	}
+
+	decision := enforcement.Evaluate(
+		normalizedCallFromDecisionLog(*log, h.isObotHosted(log.ServerURL)),
+		policy.Allowlist,
+	)
+
+	return req.Write(types.EnforcementDecisionAllowlistCheck{
+		ID:                 strconv.FormatUint(uint64(log.ID), 10),
+		AllowlistDecision:  verdict(decision),
+		AllowlistReason:    decision.Reason,
+		EnforcementEnabled: policy.Enabled,
+	})
 }
 
 // enforcementDecisionFilters are the filter keys the decision-log UI may request
@@ -335,6 +380,32 @@ func normalizedCallFromRequest(in types.EnforcementDecisionRequest, obotHosted b
 			Source:  in.Server.Package.Source,
 			Name:    in.Server.Package.Name,
 			Version: in.Server.Package.Version,
+		}
+	}
+	return call
+}
+
+func normalizedCallFromDecisionLog(log gtypes.EnforcementDecisionLog, obotHosted bool) enforcement.NormalizedCall {
+	call := enforcement.NormalizedCall{
+		Agent:      log.Agent,
+		Tool:       log.Tool,
+		Kind:       log.Kind,
+		ServerName: log.ServerName,
+		ObotHosted: obotHosted,
+		Server: enforcement.ServerIdentity{
+			URL:       log.ServerURL,
+			Command:   log.ServerCommand,
+			Hostname:  log.ServerHostname,
+			Connector: log.ServerConnector,
+		},
+		Unresolved:       log.Unresolved,
+		UnresolvedReason: log.UnresolvedReason,
+	}
+	if log.ServerPackageName != "" || log.ServerPackageSource != "" {
+		call.Server.Package = &enforcement.PackageIdentity{
+			Source:  types.AllowlistServerPackageSource(log.ServerPackageSource),
+			Name:    log.ServerPackageName,
+			Version: log.ServerPackageVersion,
 		}
 	}
 	return call

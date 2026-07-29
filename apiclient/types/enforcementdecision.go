@@ -73,3 +73,14 @@ type EnforcementDecisionEventResponse struct {
 	Limit                        int   `json:"limit"`
 	Offset                       int   `json:"offset"`
 }
+
+// EnforcementDecisionAllowlistCheck is the result of replaying a recorded
+// decision against its fleet's current allowlist: would this call be allowed if
+// it were made now? The decision log is append-only evidence of what devices
+// were told, so asking this question records nothing.
+type EnforcementDecisionAllowlistCheck struct {
+	ID                 string `json:"id"`
+	AllowlistDecision  string `json:"allowlistDecision"`
+	AllowlistReason    string `json:"allowlistReason,omitempty"`
+	EnforcementEnabled bool   `json:"enforcementEnabled"`
+}
