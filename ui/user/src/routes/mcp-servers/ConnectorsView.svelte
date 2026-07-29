@@ -6,6 +6,7 @@
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
+	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import {
 		UserService,
@@ -27,7 +28,8 @@
 		isDeprecatedMCPServer,
 		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile, version } from '$lib/stores';
+	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
+	import { mcpServersAndEntries, mcpTunnelConnections, profile, version } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
 	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
 	import { CircleFadingArrowUp, Server } from '@lucide/svelte';
@@ -266,6 +268,10 @@
 				? instance.configured === false
 				: userConfiguredServers.some(requiresUserUpdate)}
 			{@const deprecated = isDeprecatedMCPServer(d.data)}
+			{@const tunnelDisconnected = isMcpTunnelDisconnected(
+				d.data,
+				mcpTunnelConnections.current.connections
+			)}
 			<div
 				class={twMerge(
 					'flex items-center justify-between gap-8 rounded-md p-3 bg-base-100 dark:bg-base-300 shadow-xs hover:bg-base-300 dark:hover:bg-base-400/75 cursor-pointer'
@@ -293,7 +299,9 @@
 						<div class="flex items-center gap-2">
 							<p>{d.name}</p>
 							<McpDeprecatedNotice {deprecated} />
-							{#if requiresUserAttention}
+							{#if tunnelDisconnected}
+								<McpTunnelDisconnectedStatus />
+							{:else if requiresUserAttention}
 								<span
 									use:tooltip={{
 										classes: ['border-primary', 'bg-primary/10', 'dark:bg-primary/50'],

@@ -6,6 +6,7 @@
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
+	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
@@ -32,7 +33,11 @@
 		hasEditableConfiguration,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import {
+		getMcpTunnelConnectionsKey,
+		isMcpTunnelDisconnected
+	} from '$lib/services/user/mcpTunnel';
+	import { mcpServersAndEntries, mcpTunnelConnections, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
 	import McpConnectUrlDialog from './McpConnectUrlDialog.svelte';
@@ -129,6 +134,9 @@
 				)
 			: sorted;
 	});
+	let tunnelConnectionsKey = $derived(
+		getMcpTunnelConnectionsKey(mcpTunnelConnections.current.connections)
+	);
 
 	let deploymentsNeedingAttentionByCatalogEntry = $derived(
 		new Set<string>(
@@ -263,6 +271,7 @@
 		{:else}
 			<Table
 				data={filteredTableData}
+				remeasureKey={tunnelConnectionsKey}
 				fields={profile.current.hasAdminAccess?.()
 					? ['name', 'type', 'users', 'created', 'source']
 					: ['name', 'created']}
@@ -302,6 +311,10 @@
 							!('missingKubernetesSecret' in d && d.missingKubernetesSecret)) ||
 						deploymentsNeedingAttentionByCatalogEntry.has(d.data.id)}
 					{@const deprecated = isDeprecatedMCPServer(d.data)}
+					{@const tunnelDisconnected = isMcpTunnelDisconnected(
+						d.data,
+						mcpTunnelConnections.current.connections
+					)}
 					{#if property === 'name'}
 						<div class="flex shrink-0 items-center gap-2">
 							<div class="icon">
@@ -313,6 +326,9 @@
 							</div>
 							<p class="flex items-center gap-2">
 								{d.name}
+								{#if tunnelDisconnected}
+									<McpTunnelDisconnectedStatus />
+								{/if}
 								{#if attentionRequired}
 									<span
 										use:tooltip={{

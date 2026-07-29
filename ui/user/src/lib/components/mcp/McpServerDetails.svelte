@@ -3,11 +3,13 @@
 	import { page } from '$app/state';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
+	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { Group, type MCPCatalogEntry, type MCPCatalogServer, type OrgUser } from '$lib/services';
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
-	import { profile } from '$lib/stores';
+	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
+	import { mcpTunnelConnections, profile } from '$lib/stores';
 	import { isOwnSingleUserServer } from '$lib/utils';
 	import Table from '../table/Table.svelte';
 	import { Info } from '@lucide/svelte';
@@ -57,6 +59,9 @@
 			DEFAULT_MCP_CATALOG_ID
 	);
 	let mcpServerId = $derived(serverId ?? server?.id);
+	let tunnelDisconnected = $derived(
+		isMcpTunnelDisconnected(server ?? catalogEntry, mcpTunnelConnections.current.connections)
+	);
 
 	function getAuditLogUrl(d: OrgUser) {
 		const id = serverId ?? server?.id;
@@ -91,6 +96,9 @@
 
 {#if server || mcpServerId}
 	<div class="flex flex-col gap-6">
+		{#if tunnelDisconnected}
+			<McpTunnelDisconnectedStatus detailed />
+		{/if}
 		{#if catalogEntry?.manifest.runtime === 'composite'}
 			<McpServerCompositeInfo
 				{mcpServerId}

@@ -28,7 +28,6 @@ var (
 	tunnelPeerResources   = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
-		"GET /api/tunnels",
 		"/api/mcp-tunnels",
 		"/api/mcp-tunnels/",
 		"/api/mcp-catalogs",
@@ -302,6 +301,10 @@ var (
 			"GET /api/default-k8s-settings",
 			"GET /api/license",
 			"GET /api/setup/oauth-complete",
+
+			// Users should be able to get the connected tunnel information
+			// so they can see which MCP servers that use the tunnel are available.
+			"GET /api/tunnels",
 		},
 
 		types.GroupPowerUserPlus: {
