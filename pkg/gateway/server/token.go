@@ -1,32 +1,37 @@
 package server
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
+	"net/url"
 	"time"
 
-	"github.com/google/uuid"
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	loggerpkg "github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type tokenRequestRequest struct {
-	ID                    string             `json:"id"`
-	Name                  string             `json:"name"`
-	Description           string             `json:"description"`
-	ProviderName          string             `json:"providerName"`
-	ProviderNamespace     string             `json:"providerNamespace"`
-	CompletionRedirectURL string             `json:"completionRedirectURL"`
-	NoExpiration          bool               `json:"noExpiration"`
-	Scopes                types.APIKeyScopes `json:"scopes"`
+	Name              string             `json:"name"`
+	Description       string             `json:"description"`
+	ProviderName      string             `json:"providerName"`
+	ProviderNamespace string             `json:"providerNamespace"`
+	NoExpiration      bool               `json:"noExpiration"`
+	Scopes            types.APIKeyScopes `json:"scopes"`
+}
+
+type tokenRequestResponse struct {
+	ID         string `json:"id"`
+	TokenPath  string `json:"token-path"`
+	DeviceCode string `json:"device-code"`
+}
+
+type verifyDeviceCodeRequest struct {
+	Code string `json:"code"`
 }
 
 type refreshTokenResponse struct {
@@ -34,11 +39,9 @@ type refreshTokenResponse struct {
 	ExpiresAt time.Time `json:"expiresAt,omitzero"`
 }
 
-var tokenLog = loggerpkg.Package()
-
 func (s *Server) getTokens(apiContext api.Context) error {
-	var tokens []types.AuthToken
-	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ?", apiContext.UserID()).Find(&tokens).Error; err != nil {
+	tokens, err := apiContext.GatewayClient.ListAuthTokens(apiContext.Context(), apiContext.UserID())
+	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
 	}
 	pkgLog.Infof("Listed auth tokens for user: userID=%d tokens=%d", apiContext.UserID(), len(tokens))
@@ -52,7 +55,7 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusBadRequest, "id path parameter is required")
 	}
 
-	if err := s.db.WithContext(apiContext.Context()).Where("user_id = ? AND id = ?", apiContext.UserID(), id).Delete(new(types.AuthToken)).Error; err != nil {
+	if err := apiContext.GatewayClient.DeleteAuthToken(apiContext.Context(), apiContext.UserID(), id); err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
@@ -84,23 +87,43 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	}
 
 	tokenReq := &types.TokenRequest{
-		ID:                    reqObj.ID,
-		Name:                  reqObj.Name,
-		Description:           reqObj.Description,
-		CompletionRedirectURL: reqObj.CompletionRedirectURL,
-		NoExpiration:          reqObj.NoExpiration,
-		Scopes:                reqObj.Scopes,
+		Name:         reqObj.Name,
+		Description:  reqObj.Description,
+		NoExpiration: reqObj.NoExpiration,
+		Scopes:       reqObj.Scopes,
 	}
 
-	if err := s.db.WithContext(apiContext.Context()).Create(tokenReq).Error; err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return types2.NewErrHTTP(http.StatusConflict, "token request already exists")
-		}
-		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
+	deviceCode, err := apiContext.GatewayClient.CreateDeviceTokenRequest(apiContext.Context(), tokenReq)
+	if err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, "failed to create token request")
 	}
 	pkgLog.Infof("Created token request for auth flow: tokenRequestID=%s provider=%s/%s noExpiration=%v", tokenReq.ID, reqObj.ProviderNamespace, reqObj.ProviderName, reqObj.NoExpiration)
 
-	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, reqObj.ID, reqObj.ProviderNamespace, reqObj.ProviderName)})
+	return apiContext.Write(tokenRequestResponse{
+		ID: tokenReq.ID,
+		TokenPath: fmt.Sprintf("%s/oauth2/start?rd=%s&obot-auth-provider=%s",
+			s.baseURL,
+			url.QueryEscape("/auth/device-code"),
+			url.QueryEscape(fmt.Sprintf("%s/%s", reqObj.ProviderNamespace, reqObj.ProviderName)),
+		),
+		DeviceCode: deviceCode,
+	})
+}
+
+func (s *Server) verifyDeviceCode(apiContext api.Context) error {
+	input := new(verifyDeviceCodeRequest)
+	if err := apiContext.Read(input); err != nil {
+		return types2.NewErrBadRequest("invalid request body: %v", err)
+	}
+
+	if err := apiContext.GatewayClient.AuthorizeTokenRequestByDeviceCode(apiContext.Context(), apiContext.UserID(), input.Code); err != nil {
+		if errors.Is(err, client.ErrInvalidOrExpiredDeviceCode) {
+			return types2.NewErrBadRequest("%s", client.ErrInvalidOrExpiredDeviceCode.Error())
+		}
+		return types2.NewErrHTTP(http.StatusInternalServerError, "failed to authorize device code")
+	}
+
+	return apiContext.Write(map[string]bool{"authorized": true})
 }
 
 func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
@@ -119,12 +142,15 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 		}
 	}
 
-	tokenReq := new(types.TokenRequest)
-	if err := s.db.WithContext(apiContext.Context()).Where("id = ?", id).First(tokenReq).Error; err != nil {
+	tokenReq, err := apiContext.GatewayClient.GetSetupTokenRequest(apiContext.Context(), id)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return types2.NewErrNotFound("token not found")
 		}
 		return types2.NewErrHTTP(http.StatusInternalServerError, err.Error())
+	}
+	if tokenReq.RequestExpiresAt.IsZero() || !time.Now().Before(tokenReq.RequestExpiresAt) {
+		return types2.NewErrNotFound("token not found")
 	}
 	pkgLog.Infof("Resolved token request redirect path: tokenRequestID=%s provider=%s/%s", tokenReq.ID, namespace, name)
 
@@ -132,23 +158,18 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 }
 
 func (s *Server) checkForToken(apiContext api.Context) error {
-	tr := new(types.TokenRequest)
-	if err := s.db.WithContext(apiContext.Context()).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("id = ?", apiContext.PathValue("id")).First(tr).Error; err != nil {
-			return err
-		}
-
-		if tr.Token != "" && !tr.TokenRetrieved {
-			return tx.Model(tr).Where("id = ?", tr.ID).Update("token_retrieved", true).Error
-		}
-		return nil
-	}); err != nil || tr.ID == "" {
+	tr, err := apiContext.GatewayClient.PollTokenRequest(apiContext.Context(), apiContext.PathValue("id"))
+	if err != nil || tr.ID == "" {
 		return types2.NewErrNotFound("not found")
 	}
 
 	if tr.Error != "" {
 		pkgLog.Infof("Token request completed with error: tokenRequestID=%s", tr.ID)
 		return apiContext.Write(map[string]any{"error": tr.Error})
+	}
+	if tr.Token == "" && !tr.RequestExpiresAt.IsZero() && !time.Now().Before(tr.RequestExpiresAt) {
+		pkgLog.Infof("Token request expired: tokenRequestID=%s", tr.ID)
+		return apiContext.Write(map[string]any{"error": "token request expired"})
 	}
 
 	if tr.Token == "" {
@@ -160,70 +181,4 @@ func (s *Server) checkForToken(apiContext api.Context) error {
 		Token:     tr.Token,
 		ExpiresAt: tr.ExpiresAt,
 	})
-}
-
-func (s *Server) createState(ctx context.Context, id string) (string, error) {
-	state := strings.ReplaceAll(uuid.NewString(), "-", "")
-
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		tr := new(types.TokenRequest)
-		if err := tx.Where("id = ?", id).First(tr).Error; err != nil {
-			return err
-		}
-
-		return tx.Model(tr).Updates(map[string]any{"state": state, "error": ""}).Error
-	}); err != nil {
-		return "", fmt.Errorf("failed to create state: %w", err)
-	}
-	pkgLog.Infof("Created OAuth state for token request: tokenRequestID=%s", id)
-
-	return state, nil
-}
-
-func (s *Server) verifyState(ctx context.Context, state string) (*types.TokenRequest, error) {
-	tr := new(types.TokenRequest)
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("state = ?", state).First(tr).Error; err != nil {
-			if tr.ID == "" {
-				return err
-			}
-			tr.Error = err.Error()
-		}
-
-		return tx.Model(tr).Clauses(clause.Returning{}).Updates(map[string]any{"state": "", "error": tr.Error}).Error
-	})
-	pkgLog.Infof("Verified OAuth state for token request: tokenRequestID=%s success=%v", tr.ID, err == nil)
-	return tr, err
-}
-
-// autoCleanupTokens will delete token requests that have been retrieved and are older than the cleanupTick.
-// It will also delete tokens that are older than 2 minutes that have not been retrieved.
-// Finally, tokens that are older than the expiration duration and deleted.
-func (s *Server) autoCleanupTokens(ctx context.Context) {
-	cleanupTick := 30 * time.Second
-	timer := time.NewTimer(cleanupTick)
-	defer timer.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-		}
-
-		var (
-			errs []error
-			now  = time.Now()
-		)
-		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			errs = append(errs, tx.Where("created_at < ?", now.Add(-2*time.Minute)).Where("token_retrieved = ?", false).Delete(new(types.TokenRequest)).Error)
-			errs = append(errs, tx.Where("token_retrieved = ?", true).Where("updated_at < ?", time.Now().Add(-cleanupTick)).Delete(new(types.TokenRequest)).Error)
-			errs = append(errs, tx.Where("no_expiration = ?", false).Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)
-			return errors.Join(errs...)
-		}); err != nil {
-			tokenLog.Errorf("error cleaning up state: error=%v", err)
-		}
-
-		timer.Reset(cleanupTick)
-	}
 }

@@ -57,6 +57,7 @@ func (s *Server) AddRoutes(mux *server.Server, tunnelBridge http.Handler) {
 	mux.HandleFunc("POST /api/token-request", s.tokenRequest)
 	mux.HandleFunc("GET /api/token-request/{id}", s.checkForToken)
 	mux.HandleFunc("GET /api/token-request/{id}/{namespace}/{name}", s.redirectForTokenRequest)
+	mux.HandleFunc("POST /api/token-request/verify", wrap(s.verifyDeviceCode))
 
 	mux.HandleFunc("GET /api/tokens", wrap(s.getTokens))
 	mux.HandleFunc("DELETE /api/tokens/{id}", wrap(s.deleteToken))

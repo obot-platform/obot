@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -31,7 +29,7 @@ type Server struct {
 	dailyUserOutputTokenLimit int
 }
 
-func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, messagePolicyHelper *messagepolicy.Helper, opts Options) (*Server, error) {
+func New(db *db.DB, tokenService *persistent.TokenService, modelProviderDispatcher *dispatcher.Dispatcher, acrHelper *accesscontrolrule.Helper, mapHelper *modelaccesspolicy.Helper, messagePolicyHelper *messagepolicy.Helper, opts Options) (*Server, error) {
 	s := &Server{
 		db:                        db,
 		baseURL:                   opts.Hostname,
@@ -44,8 +42,6 @@ func New(ctx context.Context, db *db.DB, tokenService *persistent.TokenService, 
 		dailyUserInputTokenLimit:  opts.DailyUserInputTokenLimit,
 		dailyUserOutputTokenLimit: opts.DailyUserOutputTokenLimit,
 	}
-
-	go s.autoCleanupTokens(ctx)
 
 	return s, nil
 }

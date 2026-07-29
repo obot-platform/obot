@@ -968,7 +968,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	gatewayOpts := gserver.Options(config.GatewayConfig)
-	gatewayServer, err := gserver.New(ctx, gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, msgPolicyHelper, gatewayOpts)
+	gatewayServer, err := gserver.New(gatewayDB, persistentTokenServer, providerDispatcher, acrHelper, mapHelper, msgPolicyHelper, gatewayOpts)
 	if err != nil {
 		return nil, err
 	}

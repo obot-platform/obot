@@ -91,6 +91,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runEnforcementDecisionPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runLLMAuditPersistenceLoop(ctx, c.llmAuditBatchSize, auditLogPersistenceInterval)
 	go c.runPendingStateCleanup(ctx)
+	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
 	go c.runMCPAuditLogCleanup(ctx, auditLogRetentionDays)
 	go c.runLLMAuditLogCleanup(ctx, llmAuditLogRetentionDays)

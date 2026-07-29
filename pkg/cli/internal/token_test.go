@@ -206,7 +206,7 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 				},
 			}}})
 		case "/api/token-request":
-			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+			writeDeviceLoginResponse(t, w, "server-request-id")
 		default:
 			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
 				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
@@ -293,7 +293,10 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			restoreBrowser := useOpenBrowser(t, func(string) error { return nil })
 			defer restoreBrowser()
 
-			var got createRequest
+			var (
+				got     createRequest
+				gotBody map[string]json.RawMessage
+			)
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				switch r.URL.Path {
 				case "/api/me":
@@ -312,10 +315,17 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 						},
 					}}})
 				case "/api/token-request":
-					if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+					if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
 						t.Fatalf("decode token request: %v", err)
 					}
-					_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+					body, err := json.Marshal(gotBody)
+					if err != nil {
+						t.Fatalf("encode token request: %v", err)
+					}
+					if err := json.Unmarshal(body, &got); err != nil {
+						t.Fatalf("decode typed token request: %v", err)
+					}
+					writeDeviceLoginResponse(t, w, "server-request-id")
 				default:
 					if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
 						_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
@@ -342,8 +352,8 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 			if got.ProviderNamespace != "default" {
 				t.Fatalf("providerNamespace = %q, want default", got.ProviderNamespace)
 			}
-			if got.ID == "" {
-				t.Fatal("expected generated token request ID")
+			if _, ok := gotBody["id"]; ok {
+				t.Fatal("token request body must not include an ID")
 			}
 			if got.Name != "CLI token" {
 				t.Fatalf("name = %q, want CLI token", got.Name)
@@ -403,7 +413,7 @@ func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
 				t.Fatalf("decode token request: %v", err)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+			writeDeviceLoginResponse(t, w, "server-request-id")
 		default:
 			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
 				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
@@ -532,7 +542,7 @@ func TestTokenRefreshesAPIKeyringTokenForMCPScope(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
 				t.Fatalf("decode token request: %v", err)
 			}
-			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+			writeDeviceLoginResponse(t, w, "server-request-id")
 		default:
 			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
 				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
@@ -589,12 +599,10 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 				},
 			}}})
 		case "/api/token-request":
-			_ = json.NewEncoder(w).Encode(map[string]string{"token-path": "https://example.com/login"})
+			writeDeviceLoginResponse(t, w, "returned-request-id")
+		case "/api/token-request/returned-request-id":
+			_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
 		default:
-			if strings.HasPrefix(r.URL.Path, "/api/token-request/") {
-				_ = json.NewEncoder(w).Encode(map[string]string{"Token": "new-token"})
-				return
-			}
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
 	}))
@@ -613,6 +621,9 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 	}
 	if !strings.Contains(output.String(), "Opening browser to https://example.com/login") {
 		t.Fatalf("expected browser login message in configured output writer, got %q", output.String())
+	}
+	if !strings.Contains(output.String(), "enter code 7KDM-PQ4W") {
+		t.Fatalf("expected device code in configured output writer, got %q", output.String())
 	}
 	if got := store.tokens[srv.URL]; got != "new-token" {
 		t.Fatalf("expected token stored by app URL, got %q", got)
@@ -752,6 +763,17 @@ func assertCreateRequestScopes(t *testing.T, got, want createRequest) {
 	}
 	if strings.Join(got.Scopes.MCPServerIDs, ",") != strings.Join(want.Scopes.MCPServerIDs, ",") {
 		t.Fatalf("MCPServerIDs = %v, want %v", got.Scopes.MCPServerIDs, want.Scopes.MCPServerIDs)
+	}
+}
+
+func writeDeviceLoginResponse(t *testing.T, w http.ResponseWriter, requestID string) {
+	t.Helper()
+	if err := json.NewEncoder(w).Encode(createResponse{
+		ID:         requestID,
+		TokenPath:  "https://example.com/login",
+		DeviceCode: "7KDM-PQ4W",
+	}); err != nil {
+		t.Fatalf("encode device login response: %v", err)
 	}
 }
 

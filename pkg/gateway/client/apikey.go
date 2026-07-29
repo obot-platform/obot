@@ -222,29 +222,46 @@ func (c *Client) HostedAgentAPIKeys(ctx context.Context, instanceID string) ([]t
 	return keys, nil
 }
 
-// CreateAPIKeyFromTokenRequest creates an API key from a token request.
-func (c *Client) CreateAPIKeyFromTokenRequest(ctx context.Context, userID uint, tr *types.TokenRequest) (*types.APIKeyCreateResponse, error) {
-	var expiresAt *time.Time
-	if !tr.NoExpiration {
-		expiresAt = new(time.Now().Add(expirationDur))
+// CreateAPIKeyFromSetupTokenRequest creates an API key from a token request.
+func (c *Client) CreateAPIKeyFromSetupTokenRequest(ctx context.Context, userID uint, tr *types.TokenRequest) (*types.APIKeyCreateResponse, error) {
+	if tr.Purpose != types.TokenRequestPurposeSetup {
+		return nil, fmt.Errorf("token request %q is not a setup request", tr.ID)
 	}
 
 	var resp *types.APIKeyCreateResponse
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
-
-		resp, err = c.createAPIKey(tx, userID, tr.Name, tr.Description, expiresAt, tr.Scopes)
-		if err != nil {
-			return err
-		}
-
-		if resp.ExpiresAt != nil {
-			tr.ExpiresAt = *resp.ExpiresAt
-		}
-		tr.Token = resp.Key
-
-		return tx.Updates(tr).Error
+		resp, err = c.createAPIKeyFromTokenRequest(tx, userID, tr)
+		return err
 	}); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *Client) createAPIKeyFromTokenRequest(tx *gorm.DB, userID uint, tr *types.TokenRequest) (*types.APIKeyCreateResponse, error) {
+	var expiresAt *time.Time
+	if !tr.NoExpiration {
+		expiresAt = new(time.Now().Add(expirationDur))
+	}
+
+	resp, err := c.createAPIKey(tx, userID, tr.Name, tr.Description, expiresAt, tr.Scopes)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.ExpiresAt != nil {
+		tr.ExpiresAt = *resp.ExpiresAt
+	} else {
+		tr.ExpiresAt = time.Time{}
+	}
+	tr.Token = resp.Key
+
+	if err := tx.Model(tr).Updates(map[string]any{
+		"expires_at": tr.ExpiresAt,
+		"token":      tr.Token,
+	}).Error; err != nil {
 		return nil, err
 	}
 

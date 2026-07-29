@@ -35,7 +35,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
-	state, err := s.createState(apiContext.Context(), apiContext.PathValue("id"))
+	state, err := apiContext.GatewayClient.CreateTokenRequestState(apiContext.Context(), apiContext.PathValue("id"))
 	if err != nil {
 		return fmt.Errorf("could not create state: %w", err)
 	}
@@ -79,12 +79,12 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
-	tr, err := s.verifyState(apiContext.Context(), apiContext.FormValue("state"))
+	tr, err := apiContext.GatewayClient.VerifyTokenRequestState(apiContext.Context(), apiContext.FormValue("state"))
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("invalid state: %v", err))
 	}
 
-	if _, err = apiContext.GatewayClient.CreateAPIKeyFromTokenRequest(apiContext.Context(), apiContext.UserID(), tr); err != nil {
+	if _, err = apiContext.GatewayClient.CreateAPIKeyFromSetupTokenRequest(apiContext.Context(), apiContext.UserID(), tr); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
 	pkgLog.Infof("Completed OAuth redirect and issued auth token: tokenRequestID=%s provider=%s/%s userID=%d", tr.ID, namespace, name, apiContext.UserID())

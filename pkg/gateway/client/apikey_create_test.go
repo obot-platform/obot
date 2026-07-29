@@ -14,6 +14,7 @@ func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T)
 
 	tr := &types.TokenRequest{
 		ID:          "token-request-1",
+		Purpose:     types.TokenRequestPurposeSetup,
 		Name:        "CLI login",
 		Description: "created by tests",
 		Scopes: types.APIKeyScopes{
@@ -29,7 +30,7 @@ func TestCreateAPIKeyFromTokenRequestCopiesScopesAndUpdatesRequest(t *testing.T)
 	}
 
 	before := time.Now()
-	resp, err := c.CreateAPIKeyFromTokenRequest(ctx, 7, tr)
+	resp, err := c.CreateAPIKeyFromSetupTokenRequest(ctx, 7, tr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +79,7 @@ func TestCreateAPIKeyFromTokenRequestNoExpiration(t *testing.T) {
 
 	tr := &types.TokenRequest{
 		ID:           "token-request-1",
+		Purpose:      types.TokenRequestPurposeSetup,
 		Name:         "CLI login",
 		NoExpiration: true,
 		Scopes:       types.APIKeyScopes{CanAccessAPI: true},
@@ -86,7 +88,7 @@ func TestCreateAPIKeyFromTokenRequestNoExpiration(t *testing.T) {
 		t.Fatalf("create token request: %v", err)
 	}
 
-	resp, err := c.CreateAPIKeyFromTokenRequest(ctx, 7, tr)
+	resp, err := c.CreateAPIKeyFromSetupTokenRequest(ctx, 7, tr)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +111,7 @@ func assertAPIKeyScopes(t *testing.T, got, want types.APIKeyScopes) {
 	if got.CanAccessAPI != want.CanAccessAPI ||
 		got.CanAccessLLMProxy != want.CanAccessLLMProxy ||
 		got.CanAccessSkills != want.CanAccessSkills ||
+		got.CanAccessDeviceScans != want.CanAccessDeviceScans ||
 		got.CanAccessPublishedArtifacts != want.CanAccessPublishedArtifacts ||
 		strings.Join(got.MCPServerIDs, ",") != strings.Join(want.MCPServerIDs, ",") {
 		t.Fatalf("APIKeyScopes = %+v, want %+v", got, want)

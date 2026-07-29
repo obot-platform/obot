@@ -339,7 +339,13 @@ export interface BootstrapStatus {
 	setupEnabled: boolean;
 }
 
-// Devices
+// Device code
+
+export interface DeviceCodeVerificationResponse {
+	authorized: boolean;
+}
+
+// Device scans
 
 // Device scans — payload shape matches apiclient/types/devicescan.go.
 export interface DeviceScan {

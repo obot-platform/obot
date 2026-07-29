@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/apiclient"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal/credentials"
@@ -193,8 +192,7 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		return "", err
 	}
 
-	uuid := uuid.NewString()
-	loginURL, err := create(ctx, baseURL, uuid, provider.ID, provider.Namespace, opts.Name, opts.Description, opts.NoExpiration, opts.Scopes)
+	login, err := create(ctx, baseURL, provider.ID, provider.Namespace, opts.Name, opts.Description, opts.NoExpiration, opts.Scopes)
 	if err != nil {
 		return "", fmt.Errorf("failed to create login request: %w", err)
 	}
@@ -219,20 +217,30 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 		}
 	}
 
-	fmt.Fprintln(w, "Opening browser to", loginURL, "for authentication.")
-	if err := openBrowser(loginURL); err != nil {
+	if nonInteractive {
+		fmt.Fprintln(w, "Opening browser to", login.TokenPath, "and enter code", color.CyanString(login.DeviceCode), "to authenticate.")
+	} else {
+		fmt.Fprintln(w, "First copy your one-time code:", color.CyanString(login.DeviceCode))
+		fmt.Fprintln(w, color.Set(color.Bold).Sprint("Press ENTER"), "to open", login.TokenPath, "in your browser.")
+
+		if err := enter(ctx); err != nil {
+			return "", err
+		}
+	}
+
+	if err := openBrowser(login.TokenPath); err != nil {
 		if nonInteractive {
 			return "", fmt.Errorf("failed to open browser: %w", err)
 		}
 
 		fmt.Fprintln(w, "Failed to open browser:", err.Error())
-		fmt.Fprintln(w, "To finish authenticating, paste", loginURL, "into your browser manually.")
+		fmt.Fprintln(w, "To finish authenticating, paste", login.TokenPath, "into your browser manually.")
 	}
 
 	ctx, timeoutCancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer timeoutCancel()
 
-	token, err = get(ctx, baseURL, uuid)
+	token, err = get(ctx, baseURL, login.ID)
 	if err != nil {
 		return "", fmt.Errorf("failed to get token: %w", err)
 	}
@@ -245,16 +253,17 @@ type createRequest struct {
 	Description       string             `json:"description,omitempty"`
 	ProviderName      string             `json:"providerName,omitempty"`
 	ProviderNamespace string             `json:"providerNamespace,omitempty"`
-	ID                string             `json:"id,omitempty"`
 	NoExpiration      bool               `json:"noExpiration,omitempty"`
 	Scopes            types.APIKeyScopes `json:"scopes"`
 }
 
 type createResponse struct {
-	TokenPath string `json:"token-path,omitempty"`
+	ID         string `json:"id"`
+	TokenPath  string `json:"token-path"`
+	DeviceCode string `json:"device-code"`
 }
 
-func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (string, error) {
+func create(ctx context.Context, baseURL, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (createResponse, error) {
 	apiScopes := types.APIKeyScopes{
 		CanAccessAPI:                slices.Contains(scopes, types2.APIKeyScopeAPI),
 		CanAccessSkills:             slices.Contains(scopes, types2.APIKeyScopeSkills),
@@ -269,36 +278,46 @@ func create(ctx context.Context, baseURL, uuid, providerName, providerNamespace,
 	if err := json.NewEncoder(&data).Encode(createRequest{
 		Name:              tokenName,
 		Description:       tokenDescription,
-		ID:                uuid,
 		ProviderName:      providerName,
 		ProviderNamespace: providerNamespace,
 		NoExpiration:      noExpiration,
 		Scopes:            apiScopes,
 	}); err != nil {
-		return "", err
+		return createResponse{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/token-request", &data)
 	if err != nil {
-		return "", err
+		return createResponse{}, err
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return createResponse{}, err
 	}
-	defer req.Body.Close()
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024*1024))
+		return createResponse{}, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, body)
+	}
 
 	var tokenResponse createResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
-		return "", err
+		return createResponse{}, err
 	}
 
+	if tokenResponse.ID == "" {
+		return createResponse{}, fmt.Errorf("no token request ID found in response to %s", req.URL)
+	}
 	if tokenResponse.TokenPath == "" {
-		return "", fmt.Errorf("no token found in response to %s", req.URL)
+		return createResponse{}, fmt.Errorf("no verification URL found in response to %s", req.URL)
+	}
+	if tokenResponse.DeviceCode == "" {
+		return createResponse{}, fmt.Errorf("no device code found in response to %s", req.URL)
 	}
 
-	return tokenResponse.TokenPath, nil
+	return tokenResponse, nil
 }
 
 func get(ctx context.Context, baseURL, uuid string) (string, error) {

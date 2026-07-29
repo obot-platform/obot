@@ -7,6 +7,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	TokenRequestPurposeDeviceLogin = "device-login"
+	TokenRequestPurposeSetup       = "setup"
+)
+
 type AuthToken struct {
 	ID                    string    `json:"id" gorm:"index:idx_id_hashed_token"`
 	UserID                uint      `json:"-" gorm:"index"`
@@ -23,6 +28,10 @@ type TokenRequest struct {
 	ID                    string `gorm:"primaryKey"`
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
+	Purpose               string    `gorm:"index"`
+	DeviceCodeDigest      *string   `gorm:"uniqueIndex"`
+	RequestExpiresAt      time.Time `gorm:"index"`
+	DeviceCodeVerifiedAt  *time.Time
 	State                 string `gorm:"index"`
 	Nonce                 string
 	Name                  string

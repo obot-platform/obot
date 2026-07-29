@@ -238,7 +238,7 @@ var (
 
 			"GET /api/token-request/{id}",
 			"POST /api/token-request",
-			"GET /api/token-request/{id}/{service}",
+			"GET /api/token-request/{id}/{namespace}/{name}",
 
 			"GET /api/oauth/start/{id}/{namespace}/{name}",
 
@@ -282,6 +282,7 @@ var (
 		},
 
 		types.GroupAPI: {
+			"POST /api/token-request/verify",
 			"POST /api/local-agent-audit-logs",
 			"GET /api/models",
 			"GET /api/model-providers",
