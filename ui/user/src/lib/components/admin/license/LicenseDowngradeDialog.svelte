@@ -83,7 +83,7 @@
 			<p class="font-light">
 				To re-enable access to existing functionality,
 				{#if hasModelProviderViolation}
-					obtain a free Community Edition license or
+					obtain a free Obot Community license or
 				{/if}
 				contact support at
 				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew an Enterprise license.

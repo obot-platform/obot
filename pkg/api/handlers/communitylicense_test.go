@@ -18,8 +18,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const communityEntitlement = "OBOT_COMMUNITY_EDITION"
-
 type fakeCommunityLicenseProvider struct {
 	lock              sync.Mutex
 	key               string
@@ -57,7 +55,7 @@ func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key stri
 	}
 	p.key = key
 	p.valid = true
-	p.entitlements = []string{communityEntitlement}
+	p.entitlements = []string{license.CommunityEntitlement}
 	return nil
 }
 
@@ -359,7 +357,7 @@ func TestCreateCommunityLicenseReplacesInvalidDatabaseKeyAndReturnsMaskedStatus(
 	if status.LicenseKey != "****12345678" || status.Source != "database" || !status.Enterprise {
 		t.Fatalf("status = %#v", status)
 	}
-	if len(status.Entitlements) != 1 || status.Entitlements[0] != communityEntitlement {
+	if len(status.Entitlements) != 1 || status.Entitlements[0] != license.CommunityEntitlement {
 		t.Fatalf("entitlements = %v", status.Entitlements)
 	}
 	responseBody := recorder.Body.String()

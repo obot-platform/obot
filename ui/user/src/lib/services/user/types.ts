@@ -877,6 +877,7 @@ export interface Version {
 	obot?: string;
 	authEnabled?: boolean;
 	enterprise?: boolean;
+	community?: boolean;
 	licenseEntitlements?: string[];
 	userCount?: number;
 	userLimit?: number;

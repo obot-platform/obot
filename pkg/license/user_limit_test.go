@@ -26,7 +26,7 @@ func TestProviderUserLimit(t *testing.T) {
 		},
 		{
 			name:         "enterprise edition grants unlimited users",
-			entitlements: []string{EnterpriseEditionEntitlement},
+			entitlements: []string{EnterpriseEntitlement},
 			want:         gatewayclient.UserLimit{Unlimited: true},
 		},
 		{
@@ -71,7 +71,7 @@ func TestProviderUserLimit(t *testing.T) {
 		{
 			name: "numeric user entitlements override enterprise edition unlimited users",
 			entitlements: []string{
-				EnterpriseEditionEntitlement,
+				EnterpriseEntitlement,
 				"OBOT_ENTERPRISE_100_USERS",
 				"OBOT_ENTERPRISE_50_USERS",
 			},
@@ -80,7 +80,7 @@ func TestProviderUserLimit(t *testing.T) {
 		{
 			name: "malformed numeric entitlements do not override enterprise edition unlimited users",
 			entitlements: []string{
-				EnterpriseEditionEntitlement,
+				EnterpriseEntitlement,
 				"OBOT_ENTERPRISE_0_USERS",
 				"OBOT_ENTERPRISE_NOT_A_NUMBER_USERS",
 			},

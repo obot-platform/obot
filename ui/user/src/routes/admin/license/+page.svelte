@@ -15,8 +15,8 @@
 
 	let { data } = $props();
 
-	const communityEntitlement = 'OBOT_COMMUNITY_EDITION';
-	const enterpriseEntitlement = 'OBOT_ENTERPRISE_ENTERPRISE_EDITION';
+	const communityEntitlement = 'OBOT_COMMUNITY';
+	const enterpriseEntitlement = 'OBOT_ENTERPRISE';
 	const editionEntitlements = new Set([communityEntitlement, enterpriseEntitlement]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
@@ -131,7 +131,7 @@
 			window.location.reload();
 		} catch (err) {
 			communityError =
-				parseErrorContent(err).message || 'Failed to obtain a Community Edition license.';
+				parseErrorContent(err).message || 'Failed to obtain an Obot Community license.';
 		} finally {
 			communitySaving = false;
 		}
@@ -148,7 +148,8 @@
 	}
 
 	function formatEntitlementName(entitlement: string): string {
-		if (entitlement === communityEntitlement) return 'Community Edition';
+		if (entitlement === communityEntitlement) return 'Obot Community';
+		if (entitlement === enterpriseEntitlement) return 'Obot Enterprise';
 		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
 		if (name === entitlement) return entitlement;
 
@@ -205,9 +206,9 @@
 			{#if showCommunityEnrollment}
 				<form class="paper flex flex-col gap-4" onsubmit={handleCommunitySubmit}>
 					<div class="flex flex-col gap-1">
-						<h2 class="text-xl font-semibold">Get Community Edition</h2>
+						<h2 class="text-xl font-semibold">Get Obot Community</h2>
 						<p class="text-muted-content text-sm font-light">
-							Register this installation for a free Community Edition license.
+							Register this installation for a free Obot Community license.
 						</p>
 					</div>
 

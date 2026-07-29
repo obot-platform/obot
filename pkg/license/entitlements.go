@@ -127,7 +127,7 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 	var isEnterpriseEdition bool
 	for entitlement := range p.entitlements {
 		code := string(entitlement)
-		if code == EnterpriseEditionEntitlement {
+		if code == EnterpriseEntitlement {
 			isEnterpriseEdition = true
 			continue
 		}

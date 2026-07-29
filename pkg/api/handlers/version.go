@@ -121,14 +121,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		return nil, err
 	}
 
-	enterpriseLicense := slices.Contains(entitlements, license.EnterpriseEditionEntitlement)
 	values := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   enterpriseLicense,
+		"enterprise":                   slices.Contains(entitlements, license.EnterpriseEntitlement),
+		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
 		"licenseEntitlements":          entitlements,
 		"userCount":                    userCount,
 		"engine":                       engine,

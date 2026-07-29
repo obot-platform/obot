@@ -22,7 +22,7 @@ type CommunityLicenseEnrollment struct {
 func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 	var input CommunityLicenseEnrollment
 	if err := req.Read(&input); err != nil {
-		return apitypes.NewErrBadRequest("invalid Community Edition enrollment request")
+		return apitypes.NewErrBadRequest("invalid Obot Community enrollment request")
 	}
 
 	input.Name = strings.TrimSpace(input.Name)
@@ -47,7 +47,7 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		return err
 	}
 	if !h.reserveCommunityEnrollment() {
-		return apitypes.NewErrAlreadyExists("a Community Edition enrollment request is already in progress")
+		return apitypes.NewErrAlreadyExists("an Obot Community enrollment request is already in progress")
 	}
 	defer h.releaseCommunityEnrollment()
 
@@ -61,7 +61,7 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		Company: input.Company,
 	})
 	if err != nil {
-		return apitypes.NewErrHTTP(http.StatusBadGateway, "failed to obtain a Community Edition license")
+		return apitypes.NewErrHTTP(http.StatusBadGateway, "failed to obtain an Obot Community license")
 	}
 
 	if err := h.licenseProvider.SetLicenseKey(req.Context(), issuedKey); err != nil {
@@ -69,9 +69,9 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 			return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 		}
 		if errors.Is(err, license.ErrInvalidLicense) {
-			return apitypes.NewErrHTTP(http.StatusBadGateway, "the issued Community Edition license is invalid")
+			return apitypes.NewErrHTTP(http.StatusBadGateway, "the issued Obot Community license is invalid")
 		}
-		return apitypes.NewErrHTTP(http.StatusInternalServerError, "failed to install the Community Edition license")
+		return apitypes.NewErrHTTP(http.StatusInternalServerError, "failed to install the Obot Community license")
 	}
 
 	status, err := h.status(req)

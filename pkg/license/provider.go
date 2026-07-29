@@ -29,8 +29,11 @@ const (
 	// EnterpriseAuthProvidersEntitlement is required to enable enterprise auth providers.
 	EnterpriseAuthProvidersEntitlement = "OBOT_ENTERPRISE_AUTH_PROVIDERS"
 
-	// EnterpriseEditionEntitlement is required to enable enterprise edition.
-	EnterpriseEditionEntitlement = "OBOT_ENTERPRISE_ENTERPRISE_EDITION"
+	// EnterpriseEntitlement is required to enable enterprise edition.
+	EnterpriseEntitlement = "OBOT_ENTERPRISE"
+
+	// CommunityEntitlement is required to enable community edition.
+	CommunityEntitlement = "OBOT_COMMUNITY"
 
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
