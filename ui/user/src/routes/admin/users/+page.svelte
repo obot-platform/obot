@@ -6,12 +6,13 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
+	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
-	import { profile } from '$lib/stores';
+	import { profile, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import {
@@ -21,7 +22,7 @@
 		setSortUrlParams,
 		setFilterUrlParams
 	} from '$lib/url.js';
-	import { getUserRoleLabel } from '$lib/utils';
+	import { getUserRoleLabel, validateVersionUserLimit } from '$lib/utils';
 	import { Handshake, Info, ShieldAlert } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
 	import { untrack } from 'svelte';
@@ -70,6 +71,7 @@
 		{ label: 'Basic User', id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	function closeUpdateRoleDialog() {
 		updateRoleDialog?.close();
@@ -179,6 +181,9 @@
 	<div class="mb-4" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			<div class="flex flex-col gap-2">
+				{#if isNearUserLimit}
+					<UserLimitNotice />
+				{/if}
 				<Search
 					value={query}
 					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"

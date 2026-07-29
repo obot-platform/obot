@@ -4,10 +4,12 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
-	import { errors, license as licenseStore, profile } from '$lib/stores';
+	import { errors, license as licenseStore, profile, version } from '$lib/stores';
+	import { validateVersionUserLimit } from '$lib/utils';
 	import { CircleAlert, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
@@ -17,6 +19,7 @@
 
 	const communityEntitlement = 'OBOT_COMMUNITY';
 	const enterpriseEntitlement = 'OBOT_ENTERPRISE';
+	const modelProvidersEntitlement = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
 	const editionEntitlements = new Set([communityEntitlement, enterpriseEntitlement]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
@@ -35,15 +38,16 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasValidLicense = $derived(Boolean(license?.enterprise));
 	let isCommunityEdition = $derived(license?.entitlements?.includes(communityEntitlement) ?? false);
-	let sortedEntitlements = $derived(
-		[...(license?.entitlements ?? [])].sort(
-			(a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b))
-		)
+	let visibleEntitlements = $derived(
+		[...(license?.entitlements ?? [])]
+			.filter((entitlement) => entitlement !== modelProvidersEntitlement)
+			.sort((a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b)))
 	);
 	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
 	let showCommunityEnrollment = $derived(
 		Boolean(license && !hasValidLicense && !license.locked && !isAdminReadonly)
 	);
+	let showUserLimitNotice = $derived(validateVersionUserLimit(version.current));
 
 	let communityName = $state('');
 	let communityEmail = $state('');
@@ -167,7 +171,9 @@
 <Layout title="License">
 	<div class="h-full w-full" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-4">
-			{#if showEnterpriseCTA}
+			{#if showUserLimitNotice}
+				<UserLimitNotice />
+			{:else if showEnterpriseCTA}
 				<div class="notification-info p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<Info class="size-6" />
@@ -210,6 +216,16 @@
 						<p class="text-muted-content text-sm font-light">
 							Register this installation for a free Obot Community license.
 						</p>
+					</div>
+
+					<div class="notification-info p-3 text-sm font-light">
+						<div>
+							<b class="font-medium">What is Community Edition?</b>
+							<p class="text-sm font-light">
+								Community Edition is a free license that allows you to use the full feature set of
+								Obot for your first 100 users/devices!
+							</p>
+						</div>
 					</div>
 
 					<div class="grid gap-4 md:grid-cols-2">
@@ -340,7 +356,7 @@
 						<p class="text-sm font-light">License Entitlements</p>
 						{#if license.entitlements}
 							<ul class="flex flex-wrap gap-2">
-								{#each sortedEntitlements as entitlement (entitlement)}
+								{#each visibleEntitlements as entitlement (entitlement)}
 									<li
 										class={twMerge(
 											'badge badge-soft badge-sm',

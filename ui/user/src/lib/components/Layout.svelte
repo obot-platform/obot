@@ -70,7 +70,7 @@
 		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { isAgentEnabled } from '$lib/utils';
+	import { isAgentEnabled, validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import ConfigureBanner from './admin/ConfigureBanner.svelte';
@@ -242,6 +242,10 @@
 	let isAtLeastPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 
 	let hasAccessibleModels = $derived(accessibleModels.current.length > 0);
+	let hasLicenseEntitlementViolations = $derived(
+		(version.current.licenseEntitlementViolations?.length ?? 0) > 0
+	);
+	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let defaultLinks = $derived<NavLink[]>([
 		{
@@ -825,8 +829,17 @@
 			<div class="sticky top-0 left-0 z-50 w-full">
 				{#if banner}
 					{@render banner()}
-				{:else if (version.current.licenseEntitlementViolations?.length ?? 0) > 0}
-					<LicenseViolationBanner />
+				{:else if hasLicenseEntitlementViolations || isNearUserLimit}
+					<LicenseViolationBanner warnUserLimit={isNearUserLimit}>
+						{#snippet fallback()}
+							{#if showAppNotificationBanner}
+								<AppNotificationBanner
+									data={appNotificationStore.current?.banner}
+									onDismiss={handleDismissBanner}
+								/>
+							{/if}
+						{/snippet}
+					</LicenseViolationBanner>
 				{:else if showAppNotificationBanner}
 					<AppNotificationBanner
 						data={appNotificationStore.current?.banner}
