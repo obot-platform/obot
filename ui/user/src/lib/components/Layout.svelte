@@ -336,17 +336,6 @@
 								disabled: isBootStrapUser,
 								collapsible: false
 							},
-							...(profile.current.isAdmin?.()
-								? [
-										{
-											id: 'mcp-tunnels',
-											href: '/admin/mcp-tunnels',
-											label: 'MCP Tunnels',
-											disabled: isBootStrapUser,
-											collapsible: false
-										}
-									]
-								: []),
 							{
 								id: 'mcp-access-policies',
 								href: '/admin/mcp-access-policies',
@@ -396,7 +385,18 @@
 										disabled: isBootStrapUser,
 										collapsible: false
 									}
-								: undefined
+								: undefined,
+							...(profile.current.isAdmin?.()
+								? [
+										{
+											id: 'mcp-tunnels',
+											href: '/admin/mcp-tunnels',
+											label: 'MCP Tunnels',
+											disabled: isBootStrapUser,
+											collapsible: false
+										}
+									]
+								: [])
 						].filter(Boolean) as NavLink[]
 					},
 					{

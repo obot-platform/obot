@@ -130,7 +130,11 @@
 				<Cable class="text-muted-content size-24 opacity-25" />
 				<h2 class="text-muted-content text-lg font-semibold">No MCP tunnels</h2>
 				<p class="text-muted-content text-sm font-light">
-					Create a tunnel to let Obot reach remote MCP servers on another network.
+					MCP tunnels let Obot securely connect to private MCP servers that are not directly
+					reachable from Obot's network. You run a lightweight <code class="font-mono"
+						>obot tunnel</code
+					>
+					process on the private network and it opens an authenticated outbound connection to Obot.
 				</p>
 				{#if !isReadonly}
 					<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={createTunnel}>
@@ -140,49 +144,58 @@
 				{/if}
 			</div>
 		{:else}
-			<Table
-				data={tableData}
-				fields={['displayName', 'status', 'allowedURLs']}
-				headers={[
-					{ title: 'Name', property: 'displayName' },
-					{ title: 'Status', property: 'status' },
-					{ title: 'Allowed URLs', property: 'allowedURLs' }
-				]}
-				filterable={['displayName', 'status']}
-				sortable={['displayName', 'status']}
-				noAutoHideFields={['displayName', 'status']}
-				onClickRow={(tunnel, isCtrlClick) =>
-					openUrl(`/admin/mcp-tunnels/${tunnel.id}`, isCtrlClick)}
-			>
-				{#snippet actions(tunnel)}
-					{#if !isReadonly}
-						<IconButton
-							variant="danger"
-							onclick={(event) => {
-								event.stopPropagation();
-								tunnelToDelete = tunnel;
-							}}
-							tooltip={{ text: 'Delete Tunnel' }}
-						>
-							<Trash2 class="size-4" />
-						</IconButton>
-					{/if}
-				{/snippet}
-				{#snippet onRenderColumn(property, tunnel)}
-					{#if property === 'status'}
-						<MCPTunnelConnectionStatus
-							connection={tunnel.connection}
-							known={tunnelConnections !== undefined}
-						/>
-					{:else if property === 'allowedURLs'}
-						<span class="line-clamp-2 break-all" title={tunnel.allowedURLs}>
-							{tunnel.allowedURLs}
-						</span>
-					{:else}
-						{String(tunnel[property as keyof typeof tunnel])}
-					{/if}
-				{/snippet}
-			</Table>
+			<div class="flex flex-col gap-6">
+				<p class="text-base-content/80 text-base">
+					MCP tunnels let Obot securely connect to private MCP servers that are not directly
+					reachable from Obot's network. You run a lightweight <code class="font-mono"
+						>obot tunnel</code
+					>
+					process on the private network and it opens an authenticated outbound connection to Obot.
+				</p>
+				<Table
+					data={tableData}
+					fields={['displayName', 'status', 'allowedURLs']}
+					headers={[
+						{ title: 'Name', property: 'displayName' },
+						{ title: 'Status', property: 'status' },
+						{ title: 'Allowed URLs', property: 'allowedURLs' }
+					]}
+					filterable={['displayName', 'status']}
+					sortable={['displayName', 'status']}
+					noAutoHideFields={['displayName', 'status']}
+					onClickRow={(tunnel, isCtrlClick) =>
+						openUrl(`/admin/mcp-tunnels/${tunnel.id}`, isCtrlClick)}
+				>
+					{#snippet actions(tunnel)}
+						{#if !isReadonly}
+							<IconButton
+								variant="danger"
+								onclick={(event) => {
+									event.stopPropagation();
+									tunnelToDelete = tunnel;
+								}}
+								tooltip={{ text: 'Delete Tunnel' }}
+							>
+								<Trash2 class="size-4" />
+							</IconButton>
+						{/if}
+					{/snippet}
+					{#snippet onRenderColumn(property, tunnel)}
+						{#if property === 'status'}
+							<MCPTunnelConnectionStatus
+								connection={tunnel.connection}
+								known={tunnelConnections !== undefined}
+							/>
+						{:else if property === 'allowedURLs'}
+							<span class="line-clamp-2 break-all" title={tunnel.allowedURLs}>
+								{tunnel.allowedURLs}
+							</span>
+						{:else}
+							{String(tunnel[property as keyof typeof tunnel])}
+						{/if}
+					{/snippet}
+				</Table>
+			</div>
 		{/if}
 	</div>
 
