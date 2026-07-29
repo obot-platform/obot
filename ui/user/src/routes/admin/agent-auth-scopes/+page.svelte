@@ -26,7 +26,7 @@
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
+	let initSort = $derived(getTableUrlParamsSort({ property: 'userDisplay', order: 'asc' }));
 
 	let usersMap = $derived(new Map(users.map((u) => [u.id, u])));
 

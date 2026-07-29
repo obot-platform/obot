@@ -23,7 +23,7 @@
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
-	let initSort = $derived(getTableUrlParamsSort({ property: 'createdAt', order: 'desc' }));
+	let initSort = $derived(getTableUrlParamsSort({ property: 'name', order: 'asc' }));
 
 	const tableData = $derived(
 		apiKeys.map((key) => ({
