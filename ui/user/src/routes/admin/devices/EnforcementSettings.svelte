@@ -2,6 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import Toggle from '$lib/components/Toggle.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import {
 		ALLOWLIST_SERVER_KIND_LABELS,
@@ -21,8 +22,17 @@
 		type MDMConfiguration
 	} from '$lib/services';
 	import AllowlistServerDialog from './AllowlistServerDialog.svelte';
-	import { Pencil, Plus, Save, ShieldCheck, Trash2, TriangleAlert } from '@lucide/svelte';
+	import {
+		ChevronDown,
+		Pencil,
+		Plus,
+		Save,
+		ShieldCheck,
+		Trash2,
+		TriangleAlert
+	} from '@lucide/svelte';
 	import { untrack } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	interface Props {
 		configuration: MDMConfiguration;
@@ -52,6 +62,9 @@
 	let serversOpen = $state(
 		untrack(() => (givenConfiguration.enforcementAllowlist?.servers?.length ?? 0) > 0)
 	);
+	// The rules only matter while enforcement is on, so they start collapsed when it
+	// is off. An administrator can still expand them to stage a policy first.
+	let rulesOpen = $state(untrack(() => givenConfiguration.enforcementEnabled ?? false));
 
 	// A fresh configuration can arrive while this form is mounted — saving here, or
 	// an allowlist entry added from the enforcement decisions page, both rewrite the
@@ -71,6 +84,7 @@
 		// elsewhere isn't hidden behind a collapsed section.
 		serversOpen =
 			untrack(() => serversOpen) || (incoming.enforcementAllowlist?.servers?.length ?? 0) > 0;
+		rulesOpen = untrack(() => rulesOpen) || enabled;
 	});
 
 	let servers = $derived(allowlist.servers ?? []);
@@ -115,6 +129,7 @@
 	// saved behind the administrator's back.
 	function handleToggle(next: boolean) {
 		enabled = next;
+		rulesOpen = next;
 		operationError = undefined;
 		errorIndex = undefined;
 		if (next && isAllowlistEmpty(allowlist)) {
@@ -147,6 +162,7 @@
 
 	function reset() {
 		enabled = configuration.enforcementEnabled ?? false;
+		rulesOpen = enabled;
 		allowlist = cloneAllowlist(configuration.enforcementAllowlist);
 		operationError = undefined;
 		errorIndex = undefined;
@@ -192,33 +208,39 @@
 
 <section class="paper gap-4">
 	<div class="flex flex-col gap-1">
-		<h3 class="text-lg font-semibold">Tool Call Enforcement</h3>
+		<div class="flex flex-wrap items-center gap-2">
+			<h3 class="text-lg font-semibold">Tool Call Enforcement</h3>
+			<span class="badge badge-warning badge-sm">Experimental</span>
+		</div>
 		<p class="text-muted-content text-sm font-light">
 			Control exactly which tool calls enrolled devices may execute. Calls that aren't allowed are
 			blocked on the device.
 		</p>
 	</div>
 
-	<label class="flex items-start gap-3 text-sm">
-		<input
-			type="checkbox"
-			class="mt-0.5"
-			checked={enabled}
+	<div class="flex items-start justify-between gap-3 text-sm">
+		<button
+			type="button"
+			class="flex grow cursor-pointer flex-col gap-0.5 text-left"
 			disabled={readOnly || saving}
-			onchange={(event) => handleToggle(event.currentTarget.checked)}
-		/>
-		<span class="flex flex-col gap-0.5">
-			<span class="flex flex-wrap items-center gap-1.5 font-medium">
-				Enforce tool calls on enrolled devices
-				<span class="badge badge-warning badge-sm">Experimental</span>
-			</span>
+			onclick={() => handleToggle(!enabled)}
+		>
+			<span class="font-medium">Enforce tool calls on enrolled devices</span>
 			<span class="input-description">
 				Installs enforcement hooks alongside Obot Sentry. Every tool call is checked against the
 				rules below before it runs. This feature is experimental and is not recommended for
 				production use — a misconfigured allowlist blocks real work on every enrolled device.
 			</span>
-		</span>
-	</label>
+		</button>
+		<div class="flex shrink-0 self-start pt-0.5">
+			<Toggle
+				label={enabled ? 'Disable tool call enforcement' : 'Enable tool call enforcement'}
+				checked={enabled}
+				disabled={readOnly || saving}
+				onChange={handleToggle}
+			/>
+		</div>
+	</div>
 
 	{#if toggleChanged && hasArtifacts}
 		<div class="notification-alert flex items-start gap-2.5 p-2.5">
@@ -237,7 +259,15 @@
 	{/if}
 
 	<div class="flex flex-col gap-3">
-		<span class="input-label">Allow</span>
+		<button
+			type="button"
+			class="flex w-fit cursor-pointer items-center gap-1.5"
+			aria-expanded={rulesOpen}
+			onclick={() => (rulesOpen = !rulesOpen)}
+		>
+			<ChevronDown class="size-4 transition-transform {rulesOpen ? '' : '-rotate-90'}" />
+			<span class="input-label">Allow</span>
+		</button>
 
 		{#if !enabled}
 			<p class="text-muted-content text-xs">
@@ -245,163 +275,184 @@
 			</p>
 		{/if}
 
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-0.5"
-				checked={allowlist.allowAllObotHostedMcpServers === true}
-				disabled={readOnly || saving || allowlist.allowEverything === true}
-				onchange={(event) =>
-					(allowlist = { ...allowlist, allowAllObotHostedMcpServers: event.currentTarget.checked })}
-			/>
-			<span class="flex flex-col gap-0.5">
-				<span>All Obot-hosted MCP servers</span>
-				<span class="input-description">Any MCP server hosted by this Obot instance.</span>
-			</span>
-		</label>
+		{#if rulesOpen}
+			<div class="flex flex-col gap-3" in:slide={{ axis: 'y' }}>
+				<label class="flex items-start gap-3 text-sm">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={allowlist.allowAllObotHostedMcpServers === true}
+						disabled={readOnly || saving || allowlist.allowEverything === true}
+						onchange={(event) =>
+							(allowlist = {
+								...allowlist,
+								allowAllObotHostedMcpServers: event.currentTarget.checked
+							})}
+					/>
+					<span class="flex flex-col gap-0.5">
+						<span>All Obot-hosted MCP servers</span>
+						<span class="input-description">Any MCP server hosted by this Obot instance.</span>
+					</span>
+				</label>
 
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-0.5"
-				checked={allowlist.allowAllBuiltinAgentTools === true}
-				disabled={readOnly || saving || allowlist.allowEverything === true}
-				onchange={(event) =>
-					(allowlist = { ...allowlist, allowAllBuiltinAgentTools: event.currentTarget.checked })}
-			/>
-			<span class="flex flex-col gap-0.5">
-				<span>All built-in agent tools</span>
-				<span class="input-description">
-					The agent's own tools, like reading files, writing files, and running shell commands.
-				</span>
-			</span>
-		</label>
+				<label class="flex items-start gap-3 text-sm">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={allowlist.allowAllBuiltinAgentTools === true}
+						disabled={readOnly || saving || allowlist.allowEverything === true}
+						onchange={(event) =>
+							(allowlist = {
+								...allowlist,
+								allowAllBuiltinAgentTools: event.currentTarget.checked
+							})}
+					/>
+					<span class="flex flex-col gap-0.5">
+						<span>All built-in agent tools</span>
+						<span class="input-description">
+							The agent's own tools, like reading files, writing files, and running shell commands.
+						</span>
+					</span>
+				</label>
 
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-0.5"
-				checked={allowlist.allowAllBuiltinAgentMcpServers === true}
-				disabled={readOnly || saving || allowlist.allowEverything === true}
-				onchange={(event) =>
-					(allowlist = {
-						...allowlist,
-						allowAllBuiltinAgentMcpServers: event.currentTarget.checked
-					})}
-			/>
-			<span class="flex flex-col gap-0.5">
-				<span>All built-in agent MCP servers</span>
-				<span class="input-description">
-					MCP servers that ship inside the coding agent itself.
-				</span>
-			</span>
-		</label>
+				<label class="flex items-start gap-3 text-sm">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={allowlist.allowAllBuiltinAgentMcpServers === true}
+						disabled={readOnly || saving || allowlist.allowEverything === true}
+						onchange={(event) =>
+							(allowlist = {
+								...allowlist,
+								allowAllBuiltinAgentMcpServers: event.currentTarget.checked
+							})}
+					/>
+					<span class="flex flex-col gap-0.5">
+						<span>All built-in agent MCP servers</span>
+						<span class="input-description">
+							MCP servers that ship inside the coding agent itself.
+						</span>
+					</span>
+				</label>
 
-		<label class="flex items-start gap-3 text-sm">
-			<input
-				type="checkbox"
-				class="mt-0.5"
-				checked={allowlist.allowEverything === true}
-				disabled={readOnly || saving}
-				onchange={(event) =>
-					(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
-			/>
-			<span class="flex flex-col gap-0.5">
-				<span class="flex items-center gap-1.5"> Everything </span>
-				<span class="input-description"> Allows every tool call and ignores all other rules. </span>
-			</span>
-		</label>
-	</div>
+				<label class="flex items-start gap-3 text-sm">
+					<input
+						type="checkbox"
+						class="mt-0.5"
+						checked={allowlist.allowEverything === true}
+						disabled={readOnly || saving}
+						onchange={(event) =>
+							(allowlist = { ...allowlist, allowEverything: event.currentTarget.checked })}
+					/>
+					<span class="flex flex-col gap-0.5">
+						<span class="flex items-center gap-1.5"> Everything </span>
+						<span class="input-description">
+							Allows every tool call and ignores all other rules.
+						</span>
+					</span>
+				</label>
 
-	<div
-		class="flex flex-col gap-3 {allowlist.allowEverything === true
-			? 'pointer-events-none opacity-50'
-			: ''}"
-	>
-		<div class="flex flex-wrap items-center justify-between gap-2">
-			<button
-				type="button"
-				class="flex items-center gap-1.5 text-sm font-medium"
-				aria-expanded={serversOpen}
-				onclick={() => (serversOpen = !serversOpen)}
-			>
-				Allowed MCP servers
-				<span class="badge badge-ghost badge-sm">{servers.length}</span>
-			</button>
-			{#if !readOnly}
-				<button
-					class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1"
-					disabled={saving || allowlist.allowEverything === true}
-					onclick={() => serverDialog?.open()}
+				<div
+					class="flex flex-col gap-3 {allowlist.allowEverything === true
+						? 'pointer-events-none opacity-50'
+						: ''}"
 				>
-					<Plus class="size-4" />
-					Add
-				</button>
-			{/if}
-		</div>
-
-		{#if allowlist.allowEverything === true}
-			<p class="text-muted-content text-xs">
-				All other rules are ignored while "Everything" is on.
-			</p>
-		{:else if serversOpen}
-			{#if servers.length === 0}
-				<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
-					<ShieldCheck class="text-muted-content size-12 opacity-50" />
-					<p class="text-muted-content max-w-md text-sm font-light">
-						No specific MCP servers allowed. Add one to allow calls to a server that isn't covered
-						by the rules above.
-					</p>
-				</div>
-			{:else}
-				<Table
-					data={tableData}
-					fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
-					headers={[
-						{ title: 'Server', property: 'serverDisplay' },
-						{ title: 'Type', property: 'typeDisplay' },
-						{ title: 'Tools', property: 'toolsDisplay' }
-					]}
-				>
-					{#snippet onRenderColumn(property, row)}
-						{#if property === 'serverDisplay'}
-							<span class="flex items-center gap-1.5 break-all">
-								{row.serverDisplay}
-								{#if errorIndex === row.index}
-									<span use:tooltip={'This entry was rejected'} role="img" aria-label="Rejected">
-										<TriangleAlert class="text-error size-4 shrink-0" />
-									</span>
-								{/if}
-							</span>
-						{:else if property === 'toolsDisplay'}
-							<span
-								use:tooltip={row.server.tools?.length ? row.server.tools.join(', ') : undefined}
-							>
-								{row.toolsDisplay}
-							</span>
-						{:else}
-							{row[property as 'typeDisplay']}
-						{/if}
-					{/snippet}
-					{#snippet actions(row)}
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<button
+							type="button"
+							class="flex items-center gap-1.5 text-sm font-medium"
+							aria-expanded={serversOpen}
+							onclick={() => (serversOpen = !serversOpen)}
+						>
+							Allowed MCP servers
+							<span class="badge badge-ghost badge-sm">{servers.length}</span>
+						</button>
 						{#if !readOnly}
-							<DotDotDot>
-								<button
-									class="menu-button"
-									onclick={() => serverDialog?.open(row.server, row.index)}
-								>
-									<Pencil class="size-4" />
-									Edit
-								</button>
-								<button class="menu-button text-error" onclick={() => (removingIndex = row.index)}>
-									<Trash2 class="size-4" />
-									Remove
-								</button>
-							</DotDotDot>
+							<button
+								class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1"
+								disabled={saving || allowlist.allowEverything === true}
+								onclick={() => serverDialog?.open()}
+							>
+								<Plus class="size-4" />
+								Add
+							</button>
 						{/if}
-					{/snippet}
-				</Table>
-			{/if}
+					</div>
+
+					{#if allowlist.allowEverything === true}
+						<p class="text-muted-content text-xs">
+							All other rules are ignored while "Everything" is on.
+						</p>
+					{:else if serversOpen}
+						{#if servers.length === 0}
+							<div class="my-4 flex flex-col items-center gap-2 self-center text-center">
+								<ShieldCheck class="text-muted-content size-12 opacity-50" />
+								<p class="text-muted-content max-w-md text-sm font-light">
+									No specific MCP servers allowed. Add one to allow calls to a server that isn't
+									covered by the rules above.
+								</p>
+							</div>
+						{:else}
+							<Table
+								data={tableData}
+								fields={['serverDisplay', 'typeDisplay', 'toolsDisplay']}
+								headers={[
+									{ title: 'Server', property: 'serverDisplay' },
+									{ title: 'Type', property: 'typeDisplay' },
+									{ title: 'Tools', property: 'toolsDisplay' }
+								]}
+							>
+								{#snippet onRenderColumn(property, row)}
+									{#if property === 'serverDisplay'}
+										<span class="flex items-center gap-1.5 break-all">
+											{row.serverDisplay}
+											{#if errorIndex === row.index}
+												<span
+													use:tooltip={'This entry was rejected'}
+													role="img"
+													aria-label="Rejected"
+												>
+													<TriangleAlert class="text-error size-4 shrink-0" />
+												</span>
+											{/if}
+										</span>
+									{:else if property === 'toolsDisplay'}
+										<span
+											use:tooltip={row.server.tools?.length
+												? row.server.tools.join(', ')
+												: undefined}
+										>
+											{row.toolsDisplay}
+										</span>
+									{:else}
+										{row[property as 'typeDisplay']}
+									{/if}
+								{/snippet}
+								{#snippet actions(row)}
+									{#if !readOnly}
+										<DotDotDot>
+											<button
+												class="menu-button"
+												onclick={() => serverDialog?.open(row.server, row.index)}
+											>
+												<Pencil class="size-4" />
+												Edit
+											</button>
+											<button
+												class="menu-button text-error"
+												onclick={() => (removingIndex = row.index)}
+											>
+												<Trash2 class="size-4" />
+												Remove
+											</button>
+										</DotDotDot>
+									{/if}
+								{/snippet}
+							</Table>
+						{/if}
+					{/if}
+				</div>
+			</div>
 		{/if}
 	</div>
 
