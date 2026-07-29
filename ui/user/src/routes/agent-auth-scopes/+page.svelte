@@ -4,7 +4,6 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ApiKeyRevealDialog from '$lib/components/agent-auth-scope/ApiKeyRevealDialog.svelte';
 	import CreateAgentAuthScopeForm from '$lib/components/agent-auth-scope/CreateAgentAuthScopeForm.svelte';
-	import ServersLabel from '$lib/components/agent-auth-scope/ServersLabel.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -115,23 +114,13 @@
 
 				<Table
 					data={tableData}
-					fields={[
-						'name',
-						'description',
-						'capabilitiesDisplay',
-						'mcpServerIds',
-						'createdAt',
-						'lastUsedAt',
-						'expiresAt'
-					]}
+					fields={['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 					headers={[
 						{ title: 'Capabilities', property: 'capabilitiesDisplay' },
 						{ title: 'Last Used', property: 'lastUsedAt' },
-						{ title: 'Servers', property: 'mcpServerIds' },
-						{ title: 'Created', property: 'createdAt' },
 						{ title: 'Expires', property: 'expiresAt' }
 					]}
-					sortable={['createdAt', 'lastUsedAt', 'expiresAt']}
+					sortable={['lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
 					onClickRow={(d, isCtrlClick) => {
@@ -148,14 +137,13 @@
 									{#each d.capabilitiesDisplay as capability (capability)}
 										<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
 									{/each}
+									{#if d.mcpServerIds.length}
+										<span class="badge badge-ghost badge-xs whitespace-nowrap">Servers</span>
+									{/if}
 								</div>
 							{:else}
 								<span class="text-muted">-</span>
 							{/if}
-						{:else if property === 'mcpServerIds'}
-							<ServersLabel mcpServerIds={d.mcpServerIds} />
-						{:else if property === 'createdAt'}
-							{d.createdAtDisplay}
 						{:else if property === 'lastUsedAt'}
 							{d.lastUsedAtDisplay}
 						{:else if property === 'expiresAt'}
@@ -197,9 +185,11 @@
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
 
 {#snippet description()}
-	<b>Agent Auth Scope</b> lets you create reusable authorization scopes that define which MCP servers,
-	skills, and LLMs an agent can access. After defining a scope, you can generate API keys that enforce
-	those permissions, ensuring agents operate only within the capabilities you've authorized.
+	<b>Agent Authorization Scope</b> defines policy-based authorization for agent access to MCP Servers,
+	Skills, LLMs, and the Obot API. Create authorization scopes that specify the resources and API capabilities
+	an agent can access, then issue API keys bound to those scopes. Each request is evaluated against the
+	assigned policy, providing centralized access control, consistent permission enforcement, and simplified
+	credential management across agent workloads.
 {/snippet}
 
 <svelte:head>

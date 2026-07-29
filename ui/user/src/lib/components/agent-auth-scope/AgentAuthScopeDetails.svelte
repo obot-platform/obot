@@ -1,14 +1,18 @@
 <script lang="ts">
-	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { API_KEY_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
-	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
+	import {
+		compileAvailableMcpServers,
+		getMCPDisplayName,
+		isDeprecatedMCPServer
+	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
+	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import { Server, Trash2 } from '@lucide/svelte';
+	import { KeyRound, Server, Trash2 } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -41,7 +45,8 @@
 				name: getMCPDisplayName(server, '(Deleted)'),
 				description: server?.manifest.description,
 				icon: server?.manifest.icon,
-				exists: !!server
+				exists: !!server,
+				deprecated: isDeprecatedMCPServer(server)
 			};
 		});
 	});
@@ -55,6 +60,20 @@
 	let expiresDisplay = $derived(
 		agentAuthScope?.expiresAt ? formatTimeUntil(agentAuthScope.expiresAt).relativeTime : 'Never'
 	);
+	let mcpServerData = $derived(
+		isAllServers
+			? [
+					{
+						id: 'all-mcp-servers',
+						name: 'All MCP Servers',
+						description: '',
+						icon: '',
+						exists: true,
+						deprecated: false
+					}
+				]
+			: resolvedServers
+	);
 
 	const duration = PAGE_TRANSITION_DURATION;
 	const title = $derived(agentAuthScope?.name || 'Agent Auth Scope');
@@ -66,141 +85,82 @@
 		out:fly={{ x: 100, duration }}
 		in:fly={{ x: 100, delay: duration }}
 	>
-		<div class="flex grow flex-col gap-4" out:fly={{ x: -100, duration }} in:fly={{ x: -100 }}>
-			<div class="flex w-full items-center justify-between gap-4">
-				<h1 class="flex items-center gap-4 text-2xl font-semibold">
-					{title}
-				</h1>
+		<div
+			class="flex grow flex-col gap-4 @container"
+			out:fly={{ x: -100, duration }}
+			in:fly={{ x: -100 }}
+		>
+			<section
+				class="paper p-4 flex-row flex-wrap @md:flex-nowrap items-center gap-4 justify-between"
+			>
+				<div class="flex items-center gap-4">
+					<div class="p-2 @md:p-4">
+						<KeyRound class="size-8" />
+					</div>
+					<div class="text-sm flex flex-col gap-0.5">
+						<h1 class="text-xl font-semibold">{title}</h1>
+						<p>{agentAuthScope.description}</p>
+						<p><b>Last Used:</b> {lastUsedDisplay}</p>
+						<p><b>Expires:</b> {expiresDisplay}</p>
+						<p class="text-muted-content font-light">
+							Created {createdDisplay}
+						</p>
+					</div>
+				</div>
 				{#if agentAuthScope.userId.toString() === profile.current.id}
-					<IconButton
-						variant="danger2"
-						tooltip={{ text: `Delete ${title}` }}
-						disabled={saving}
-						onclick={() => (deletingAgentAuthScope = true)}
-					>
-						<Trash2 class="size-4" />
-					</IconButton>
-				{/if}
-			</div>
-
-			<section class="paper">
-				{#if agentAuthScope.description}
-					<div class="flex flex-col gap-2">
-						<label for="agent-auth-scope-description" class="flex-1 text-sm font-light capitalize"
-							>Description</label
+					<div class="flex w-full @md:w-auto justify-end">
+						<IconButton
+							class=""
+							variant="danger2"
+							tooltip={{ text: `Delete ${title}` }}
+							disabled={saving}
+							onclick={() => (deletingAgentAuthScope = true)}
 						>
-						<input
-							id="agent-auth-scope-description"
-							value={agentAuthScope.description}
-							class="text-input-filled mt-0.5"
-							disabled
-						/>
+							<Trash2 class="size-4" />
+						</IconButton>
 					</div>
 				{/if}
-
-				<div class="flex flex-col gap-2">
-					<label for="agent-auth-scope-key" class="flex-1 text-sm font-light capitalize">Key</label>
-					<input
-						id="agent-auth-scope-key"
-						value={agentAuthScope.prefix}
-						class="text-input-filled mt-0.5"
-						disabled
-					/>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="agent-auth-scope-created" class="flex-1 text-sm font-light capitalize"
-						>Created</label
-					>
-					<input
-						id="agent-auth-scope-created"
-						value={createdDisplay}
-						class="text-input-filled mt-0.5"
-						disabled
-					/>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="agent-auth-scope-last-used" class="flex-1 text-sm font-light capitalize"
-						>Last Used</label
-					>
-					<input
-						id="agent-auth-scope-last-used"
-						value={lastUsedDisplay}
-						class="text-input-filled mt-0.5"
-						disabled
-					/>
-				</div>
-
-				<div class="flex flex-col gap-2">
-					<label for="agent-auth-scope-expires" class="flex-1 text-sm font-light capitalize"
-						>Expires</label
-					>
-					<input
-						id="agent-auth-scope-expires"
-						value={expiresDisplay}
-						class="text-input-filled mt-0.5"
-						disabled
-					/>
-				</div>
 			</section>
 
-			<section class="flex flex-col gap-2">
-				<p class="text-lg font-semibold">MCP Servers</p>
+			<section class="paper flex flex-col gap-2 p-4">
+				<p>
+					<span class="text-lg font-semibold">MCP Servers</span>
+				</p>
 
-				{#if resolvedServers.length > 0 || isAllServers}
-					<Table
-						data={isAllServers
-							? [
-									{
-										id: 'all-mcp-servers',
-										name: 'All MCP Servers',
-										description: '',
-										icon: '',
-										exists: true
-									}
-								]
-							: resolvedServers}
-						fields={['name']}
-						classes={{ row: 'px-0 py-0' }}
-					>
-						{#snippet onRenderColumn(property, d)}
-							{#if property === 'name'}
-								<div
-									class={twMerge(
-										'flex w-full items-center gap-3 px-4 py-3',
-										!d.exists && 'bg-warning/5'
-									)}
-								>
+				<ul
+					class="list-none bg-base-200 dark:bg-base-300 default-scrollbar-thin flex max-h-64 flex-col overflow-y-auto rounded-lg"
+				>
+					{#if mcpServerData.length === 0}
+						<li class="text-muted-content flex items-center justify-center py-8 text-sm">
+							No MCP servers
+						</li>
+					{:else}
+						{#each mcpServerData as server (server.id)}
+							<li class="flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors">
+								<div class="flex w-full items-center gap-3 overflow-hidden">
 									<div class="shrink-0">
-										{#if d.icon}
-											<img src={d.icon} alt={d.name} class="size-6" />
+										{#if server.icon}
+											<img src={server.icon} alt={server.name} class="size-6" />
 										{:else}
 											<Server class="text-muted-content size-6" />
 										{/if}
 									</div>
 									<div class="flex min-w-0 grow flex-col">
-										<p
-											class={twMerge(
-												'truncate text-sm',
-												!d.exists && 'text-muted-content font-light italic'
-											)}
-										>
-											{d.name}
-										</p>
-										{#if d.description}
+										<div class="flex items-center gap-2">
+											<p class="min-w-0 truncate text-sm">{server.name}</p>
+											<McpDeprecatedNotice deprecated={server.deprecated} />
+										</div>
+										{#if server.description}
 											<span class="text-muted-content line-clamp-1 text-xs">
-												{stripMarkdownToText(d.description)}
+												{stripMarkdownToText(server.description)}
 											</span>
 										{/if}
 									</div>
 								</div>
-							{/if}
-						{/snippet}
-					</Table>
-				{:else}
-					<p class="text-muted">No servers authorized</p>
-				{/if}
+							</li>
+						{/each}
+					{/if}
+				</ul>
 			</section>
 
 			<section class="paper gap-2 p-4">
@@ -209,7 +169,7 @@
 					{#each API_KEY_CAPABILITIES as capability (capability.key)}
 						<label
 							class={twMerge(
-								'bg-base-200 flex items-center gap-3 rounded-lg border border-base-400 p-3',
+								'bg-base-200 flex items-center gap-3 rounded-lg border border-transparent p-3',
 								agentAuthScope[capability.key] && 'bg-primary/10 border-primary'
 							)}
 						>
@@ -231,13 +191,13 @@
 				</div>
 			</section>
 
-			<section class="flex flex-col gap-2">
-				<p class="text-lg font-semibold">API Keys</p>
-				<Table
-					data={[{ id: agentAuthScope.id, prefix: agentAuthScope.prefix }]}
-					fields={['prefix']}
-					headers={[{ title: 'Key', property: 'prefix' }]}
-				/>
+			<section class="paper gap-2 p-4">
+				<p class="text-lg font-semibold" id="agent-auth-scope-keys">API Keys</p>
+				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
+					<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3 text-sm">
+						{agentAuthScope.prefix}
+					</div>
+				</div>
 			</section>
 		</div>
 	</div>

@@ -244,7 +244,7 @@
 			{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 				<label
 					class={twMerge(
-						'bg-base-200 flex items-center gap-3 rounded-lg border border-base-400 p-3',
+						'bg-base-200 flex items-center gap-3 rounded-lg border border-transparent p-3',
 						capabilities[capability.key] && 'bg-primary/10 border-primary'
 					)}
 				>
