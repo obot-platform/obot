@@ -265,7 +265,7 @@
 							</p>
 							<div class="flex flex-col gap-2">
 								{#each quickAllows as { action, blocked } (action)}
-									<span use:tooltip={blocked ?? undefined} class="flex">
+									<span use:tooltip={blocked ?? undefined} class="flex w-full max-w-sm">
 										<button
 											class="btn btn-secondary hover:bg-primary hover:text-primary-content w-full justify-center text-center disabled:opacity-50"
 											disabled={Boolean(blocked)}
