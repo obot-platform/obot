@@ -98,11 +98,15 @@ func ValidateReference(ctx context.Context, client kclient.Client, name, target 
 	}, &tunnel); err != nil {
 		return fmt.Errorf("failed to get MCP tunnel %q: %w", name, err)
 	}
+	tunnelName := tunnel.Spec.Manifest.DisplayName
+	if tunnelName == "" {
+		tunnelName = name
+	}
 	if err := tunnel.Spec.Manifest.Validate(); err != nil {
-		return fmt.Errorf("MCP tunnel %q is invalid: %w", name, err)
+		return fmt.Errorf("MCP tunnel %q is invalid: %w", tunnelName, err)
 	}
 	if !tunnel.Spec.Manifest.AllowsURL(target) {
-		return fmt.Errorf("MCP tunnel %q does not allow target %q", name, target)
+		return fmt.Errorf("MCP tunnel %q does not allow target %q", tunnelName, target)
 	}
 	return nil
 }

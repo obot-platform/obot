@@ -15,27 +15,41 @@ import (
 func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 	client := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithObjects(&v1.MCPTunnel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcptunnel-office",
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.MCPTunnelSpec{
-				Manifest: types.MCPTunnelManifest{
-					DisplayName: "Office",
-					AllowedURLs: []string{
-						"https://fixed.example.com/mcp",
-						"*.internal.example",
+		WithObjects(
+			&v1.MCPTunnel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mcptunnel-office",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPTunnelSpec{
+					Manifest: types.MCPTunnelManifest{
+						DisplayName: "Office",
+						AllowedURLs: []string{
+							"https://fixed.example.com/mcp",
+							"*.internal.example",
+						},
 					},
 				},
 			},
-		}).
+			&v1.MCPTunnel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "mcptunnel-legacy",
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPTunnelSpec{
+					Manifest: types.MCPTunnelManifest{
+						AllowedURLs: []string{"https://fixed.example.com/mcp"},
+					},
+				},
+			},
+		).
 		Build()
 
 	tests := []struct {
-		name     string
-		manifest types.MCPServerCatalogEntryManifest
-		wantErr  string
+		name           string
+		manifest       types.MCPServerCatalogEntryManifest
+		wantErr        string
+		notWantErrText string
 	}{
 		{
 			name: "allows exact fixed URL",
@@ -57,7 +71,8 @@ func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 				FixedURL:   "https://other.example.com/mcp",
 				TunnelName: "mcptunnel-office",
 			}),
-			wantErr: "does not allow target",
+			wantErr:        `MCP tunnel "Office" does not allow target`,
+			notWantErrText: "mcptunnel-office",
 		},
 		{
 			name: "rejects URL template",
@@ -74,6 +89,14 @@ func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 				TunnelName: "mcptunnel-missing",
 			}),
 			wantErr: "failed to get MCP tunnel",
+		},
+		{
+			name: "uses tunnel ID when display name is not set",
+			manifest: remoteCatalogTunnelManifest(types.RemoteCatalogConfig{
+				FixedURL:   "https://fixed.example.com/mcp",
+				TunnelName: "mcptunnel-legacy",
+			}),
+			wantErr: `MCP tunnel "mcptunnel-legacy" is invalid`,
 		},
 		{
 			name: "rejects padded tunnel name",
@@ -112,6 +135,9 @@ func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 			}
 			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 				t.Fatalf("error = %v, want error containing %q", err, tt.wantErr)
+			}
+			if tt.notWantErrText != "" && strings.Contains(err.Error(), tt.notWantErrText) {
+				t.Fatalf("error = %v, do not want error containing %q", err, tt.notWantErrText)
 			}
 		})
 	}
