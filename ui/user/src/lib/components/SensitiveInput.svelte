@@ -25,6 +25,7 @@
 		minlength?: number;
 		required?: boolean;
 		onkeydown?: (ev: KeyboardEvent) => void;
+		data1pIgnore?: boolean;
 	}
 
 	let {
@@ -44,7 +45,8 @@
 		autocomplete = 'new-password',
 		minlength,
 		required,
-		onkeydown
+		onkeydown,
+		data1pIgnore = true
 	}: Props = $props();
 
 	let showSensitive = $state(false);
@@ -193,7 +195,7 @@
 							bind:this={textareaElement}
 							class="w-full outline-none"
 							class:pointer-events-none={readonly}
-							data-1p-ignore
+							data-1p-ignore={data1pIgnore}
 							contenteditable="plaintext-only"
 							spellcheck="false"
 							role="textbox"
@@ -265,7 +267,7 @@
 						<textarea
 							bind:this={textareaElement}
 							class="scrollbar-none h-full w-full flex-1 bg-transparent outline-none"
-							data-1p-ignore
+							data-1p-ignore={data1pIgnore}
 							id={name}
 							{name}
 							{disabled}
@@ -299,7 +301,7 @@
 		</div>
 	{:else}
 		<input
-			data-1p-ignore
+			data-1p-ignore={data1pIgnore}
 			id={name}
 			{name}
 			class={twMerge(
@@ -328,6 +330,7 @@
 			use:tooltip={{ disablePortal: true, text: showSensitive ? 'Hide' : 'Reveal' }}
 		>
 			<button
+				aria-label={showSensitive ? 'Hide' : 'Reveal'}
 				type="button"
 				class="cursor-pointer transition-colors duration-150"
 				class:text-error={error}

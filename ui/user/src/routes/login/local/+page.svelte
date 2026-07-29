@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import Logo from '$lib/components/Logo.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 	import { CircleAlert } from '@lucide/svelte';
 
@@ -47,16 +48,15 @@
 			/>
 		</label>
 
-		<label class="flex flex-col gap-1 text-sm font-light" for="local-auth-password">
+		<label class="flex flex-col gap-1 text-sm font-light" for="password">
 			Password
-			<input
-				id="local-auth-password"
-				class="text-input-filled"
-				type="password"
+			<SensitiveInput
 				name="password"
+				class="text-input-filled"
 				autocomplete="current-password"
 				minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
 				required
+				data1pIgnore={false}
 			/>
 		</label>
 

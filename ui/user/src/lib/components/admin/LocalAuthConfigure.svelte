@@ -310,6 +310,7 @@
 								autocomplete="new-password"
 								minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
 								required
+								data1pIgnore={false}
 							/>
 							<span class="text-muted-content text-xs pt-0.5">
 								At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters. Share it with the user over a secure
