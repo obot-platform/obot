@@ -105,6 +105,19 @@ func (*MCPTunnelHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to get MCP tunnel: %w", err)
 	}
 
+	referencingEntries, err := listMCPTunnelCatalogEntries(req, tunnel.Name)
+	if err != nil {
+		return fmt.Errorf("failed to list MCP tunnel dependencies: %w", err)
+	}
+	disallowedReferences := disallowedMCPTunnelCatalogEntryReferences(referencingEntries, tunnel.Name, manifest)
+	if len(disallowedReferences) > 0 {
+		return types.NewErrBadRequest(
+			"MCP tunnel %q cannot be updated because allowedURLs would no longer allow targets used by MCP server catalog entries: %s",
+			mcpTunnelDisplayName(tunnel),
+			strings.Join(disallowedReferences, ", "),
+		)
+	}
+
 	tunnel.Spec.Manifest = manifest
 	if err := req.Update(&tunnel); err != nil {
 		return fmt.Errorf("failed to update MCP tunnel: %w", err)
@@ -123,14 +136,15 @@ func (h *MCPTunnelHandler) Delete(req api.Context) error {
 		return fmt.Errorf("failed to get MCP tunnel: %w", err)
 	}
 
-	references, err := listMCPTunnelCatalogEntryReferences(req, tunnel.Name)
+	referencingEntries, err := listMCPTunnelCatalogEntries(req, tunnel.Name)
 	if err != nil {
 		return fmt.Errorf("failed to list MCP tunnel dependencies: %w", err)
 	}
+	references := formatMCPTunnelCatalogEntryReferences(referencingEntries)
 	if len(references) > 0 {
 		return types.NewErrBadRequest(
 			"MCP tunnel %q cannot be deleted because it is used by MCP server catalog entries: %s",
-			tunnel.Name,
+			mcpTunnelDisplayName(tunnel),
 			strings.Join(references, ", "),
 		)
 	}
@@ -149,7 +163,14 @@ func (h *MCPTunnelHandler) Delete(req api.Context) error {
 	return req.Write(map[string]string{"deleted": tunnel.Name})
 }
 
-func listMCPTunnelCatalogEntryReferences(req api.Context, tunnelName string) ([]string, error) {
+func mcpTunnelDisplayName(tunnel v1.MCPTunnel) string {
+	if displayName := strings.TrimSpace(tunnel.Spec.Manifest.DisplayName); displayName != "" {
+		return displayName
+	}
+	return tunnel.Name
+}
+
+func listMCPTunnelCatalogEntries(req api.Context, tunnelName string) ([]v1.MCPServerCatalogEntry, error) {
 	var referencingEntries []v1.MCPServerCatalogEntry
 	seen := map[kclient.ObjectKey]struct{}{}
 	for _, fields := range []kclient.MatchingFields{
@@ -172,17 +193,64 @@ func listMCPTunnelCatalogEntryReferences(req api.Context, tunnelName string) ([]
 	slices.SortFunc(referencingEntries, func(a, b v1.MCPServerCatalogEntry) int {
 		return strings.Compare(a.Name, b.Name)
 	})
+	return referencingEntries, nil
+}
 
+func formatMCPTunnelCatalogEntryReferences(referencingEntries []v1.MCPServerCatalogEntry) []string {
 	references := make([]string, 0, len(referencingEntries))
 	for _, entry := range referencingEntries {
-		displayName := strings.TrimSpace(entry.Spec.Manifest.Name)
-		if displayName == "" || displayName == entry.Name {
-			references = append(references, entry.Name)
-		} else {
-			references = append(references, fmt.Sprintf("%q (%s)", displayName, entry.Name))
+		references = append(references, formatMCPTunnelCatalogEntryReference(entry))
+	}
+	return references
+}
+
+func disallowedMCPTunnelCatalogEntryReferences(referencingEntries []v1.MCPServerCatalogEntry, tunnelName string, manifest types.MCPTunnelManifest) []string {
+	var references []string
+	for _, entry := range referencingEntries {
+		for _, target := range catalogEntryManifestTunnelTargets(entry.Spec.Manifest, tunnelName) {
+			if !manifest.AllowsURL(target) {
+				references = append(references, fmt.Sprintf(
+					"%s (target %q)",
+					formatMCPTunnelCatalogEntryReference(entry),
+					target,
+				))
+			}
 		}
 	}
-	return references, nil
+	return references
+}
+
+func formatMCPTunnelCatalogEntryReference(entry v1.MCPServerCatalogEntry) string {
+	displayName := strings.TrimSpace(entry.Spec.Manifest.Name)
+	if displayName == "" || displayName == entry.Name {
+		return entry.Name
+	}
+	return fmt.Sprintf("%q (%s)", displayName, entry.Name)
+}
+
+func catalogEntryManifestTunnelTargets(manifest types.MCPServerCatalogEntryManifest, tunnelName string) []string {
+	switch manifest.Runtime {
+	case types.RuntimeRemote:
+		if manifest.RemoteConfig == nil || manifest.RemoteConfig.TunnelName != tunnelName {
+			return nil
+		}
+		if manifest.RemoteConfig.FixedURL != "" {
+			return []string{manifest.RemoteConfig.FixedURL}
+		}
+		if manifest.RemoteConfig.Hostname != "" {
+			return []string{manifest.RemoteConfig.Hostname}
+		}
+	case types.RuntimeComposite:
+		if manifest.CompositeConfig == nil {
+			return nil
+		}
+		var targets []string
+		for _, component := range manifest.CompositeConfig.ComponentServers {
+			targets = append(targets, catalogEntryManifestTunnelTargets(component.Manifest, tunnelName)...)
+		}
+		return targets
+	}
+	return nil
 }
 
 func catalogEntryManifestUsesTunnel(manifest types.MCPServerCatalogEntryManifest, tunnelName string) bool {

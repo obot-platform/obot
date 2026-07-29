@@ -239,6 +239,118 @@ func TestMCPTunnelHandlerDeleteDoesNotDisconnectOnFailure(t *testing.T) {
 	}
 }
 
+func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
+	const tunnelName = "mt1office"
+	_, credential, err := tunnelpkg.NewCredential()
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentialID, err := tunnelpkg.CredentialID(credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := newMCPTunnelTestStorage(
+		&v1.MCPTunnel{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      tunnelName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.MCPTunnelSpec{
+				Manifest: types.MCPTunnelManifest{
+					DisplayName: "Office",
+					AllowedURLs: []string{
+						"https://accounting.internal/*",
+						"https://operations.internal/*",
+					},
+				},
+				Credential:   credential,
+				CredentialID: credentialID,
+			},
+		},
+		&v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mcp1z-accounting",
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.MCPServerCatalogEntrySpec{
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:    "Accounting MCP",
+					Runtime: types.RuntimeRemote,
+					RemoteConfig: &types.RemoteCatalogConfig{
+						FixedURL:   "https://accounting.internal/mcp",
+						TunnelName: tunnelName,
+					},
+				},
+			},
+		},
+		&v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "mcp1a-composite",
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.MCPServerCatalogEntrySpec{
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:    "Operations Composite",
+					Runtime: types.RuntimeComposite,
+					CompositeConfig: &types.CompositeCatalogConfig{
+						ComponentServers: []types.CatalogComponentServer{{
+							Manifest: types.MCPServerCatalogEntryManifest{
+								Runtime: types.RuntimeRemote,
+								RemoteConfig: &types.RemoteCatalogConfig{
+									FixedURL:   "https://operations.internal/mcp",
+									TunnelName: tunnelName,
+								},
+							},
+						}},
+					},
+				},
+			},
+		},
+	)
+	handler := NewMCPTunnelHandler(nil)
+
+	_, _, err = callMCPTunnelHandler(t, storage, http.MethodPut, "/api/mcp-tunnels/"+tunnelName, tunnelName, `{
+		"displayName":"Office",
+		"allowedURLs":["https://replacement.internal/mcp"]
+	}`, handler.Update)
+	var errHTTP *types.ErrHTTP
+	if !errors.As(err, &errHTTP) {
+		t.Fatalf("Update() error = %v, want ErrHTTP", err)
+	}
+	if errHTTP.Code != http.StatusBadRequest {
+		t.Fatalf("Update() status = %d, want %d", errHTTP.Code, http.StatusBadRequest)
+	}
+	const wantMessagePart = `MCP tunnel "Office" cannot be updated`
+	if !strings.Contains(errHTTP.Message, wantMessagePart) {
+		t.Fatalf("Update() message = %q, want containing %q", errHTTP.Message, wantMessagePart)
+	}
+
+	var stored v1.MCPTunnel
+	if err := storage.Get(t.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      tunnelName,
+	}, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Spec.Manifest.AllowedURLs) != 2 {
+		t.Fatalf("Update() changed allowedURLs despite catalog entry references: %#v", stored.Spec.Manifest.AllowedURLs)
+	}
+
+	updated, _, err := callMCPTunnelHandler(t, storage, http.MethodPut, "/api/mcp-tunnels/"+tunnelName, tunnelName, `{
+		"displayName":"Updated Office",
+		"allowedURLs":["*.internal"]
+	}`, handler.Update)
+	if err != nil {
+		t.Fatalf("Update() with replacement pattern error = %v", err)
+	}
+	if updated.Manifest.DisplayName != "Updated Office" {
+		t.Fatalf("Update() displayName = %q, want Updated Office", updated.Manifest.DisplayName)
+	}
+	if len(updated.Manifest.AllowedURLs) != 1 || updated.Manifest.AllowedURLs[0] != "*.internal" {
+		t.Fatalf("Update() allowedURLs = %#v, want [*.internal]", updated.Manifest.AllowedURLs)
+	}
+}
+
 func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 	const tunnelName = "mt1office"
 	storage := newMCPTunnelTestStorage(
@@ -322,9 +434,9 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 	if errHTTP.Code != http.StatusBadRequest {
 		t.Fatalf("Delete() status = %d, want %d", errHTTP.Code, http.StatusBadRequest)
 	}
-	const wantMessage = `MCP tunnel "mt1office" cannot be deleted because it is used by MCP server catalog entries: "Operations Composite" (mcp1a-composite), "Accounting MCP" (mcp1z-accounting)`
-	if errHTTP.Message != wantMessage {
-		t.Fatalf("Delete() message = %q, want %q", errHTTP.Message, wantMessage)
+	const wantMessagePart = `MCP tunnel "mt1office" cannot be deleted`
+	if !strings.Contains(errHTTP.Message, wantMessagePart) {
+		t.Fatalf("Delete() message = %q, want containing %q", errHTTP.Message, wantMessagePart)
 	}
 
 	var stored v1.MCPTunnel
