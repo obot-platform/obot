@@ -1,0 +1,2 @@
+export const AUTH_SCOPE_DESCRIPTION =
+	'Agent Authorization Scope defines policy-based authorization for agent access to MCP Servers, Skills, LLMs, and the Obot API. Create authorization scopes that specify the resources and API capabilities an agent can access, then issue API keys bound to those scopes. Each request is evaluated against the assigned policy, providing centralized access control, consistent permission enforcement, and simplified credential management across agent workloads.';

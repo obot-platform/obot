@@ -8,6 +8,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService, type OrgUser, type APIKey } from '$lib/services';
+	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
 	import { getAPIKeyCapabilityLabels } from '$lib/services/api-keys/types';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
@@ -96,11 +97,7 @@
 	{:else}
 		<div class="flex flex-col gap-4">
 			<p class="text-sm">
-				<b>Agent Authorization Scope</b> defines policy-based authorization for agent access to MCP Servers,
-				Skills, LLMs, and the Obot API. Create authorization scopes that specify the resources and API
-				capabilities an agent can access, then issue API keys bound to those scopes. Each request is evaluated
-				against the assigned policy, providing centralized access control, consistent permission enforcement,
-				and simplified credential management across agent workloads.
+				{AUTH_SCOPE_DESCRIPTION}
 			</p>
 			{#if allApiKeys.length === 0}
 				<div class="mt-26 flex w-md flex-col items-center gap-4 self-center text-center">

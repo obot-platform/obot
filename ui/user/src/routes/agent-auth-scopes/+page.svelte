@@ -8,6 +8,7 @@
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { ApiKeysService } from '$lib/services';
+	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
 	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
@@ -101,7 +102,7 @@
 								<p class="text-sm font-semibold">What are these for?</p>
 							</div>
 							<p class="text-left text-sm font-light">
-								{@render description()}
+								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
 									>Create your first auth scope</button
 								>
@@ -110,7 +111,7 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted text-sm">{@render description()}</p>
+				<p class="text-muted text-sm">{AUTH_SCOPE_DESCRIPTION}</p>
 
 				<Table
 					data={tableData}
@@ -183,14 +184,6 @@
 />
 
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
-
-{#snippet description()}
-	<b>Agent Authorization Scope</b> defines policy-based authorization for agent access to MCP Servers,
-	Skills, LLMs, and the Obot API. Create authorization scopes that specify the resources and API capabilities
-	an agent can access, then issue API keys bound to those scopes. Each request is evaluated against the
-	assigned policy, providing centralized access control, consistent permission enforcement, and simplified
-	credential management across agent workloads.
-{/snippet}
 
 <svelte:head>
 	<title>Obot | Agent Auth Keys</title>
