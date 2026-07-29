@@ -267,7 +267,7 @@
 								{#each quickAllows as { action, blocked } (action)}
 									<span use:tooltip={blocked ?? undefined} class="flex">
 										<button
-											class="btn btn-neutral w-full justify-start text-left disabled:opacity-50"
+											class="btn btn-secondary hover:bg-primary hover:text-primary-content w-full justify-center text-center disabled:opacity-50"
 											disabled={Boolean(blocked)}
 											onclick={() => quickAllowDialog?.open(decision, action)}
 										>
