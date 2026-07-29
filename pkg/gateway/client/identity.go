@@ -368,8 +368,8 @@ func (c *Client) createUser(tx *gorm.DB, user *types.User, userLimit UserLimit) 
 	if err != nil {
 		return fmt.Errorf("failed to count users: %w", err)
 	}
-	if userCount >= int64(userLimit.Maximum) {
-		return newUserLimitError(userLimit.Maximum)
+	if userCount >= userLimit.Maximum {
+		return newUserLimitError()
 	}
 
 	return tx.Create(user).Error
@@ -396,10 +396,10 @@ func lockUserCreation(tx *gorm.DB) error {
 	return nil
 }
 
-func newUserLimitError(maximum int) error {
+func newUserLimitError() error {
 	return types2.NewErrHTTP(
 		http.StatusPaymentRequired,
-		fmt.Sprintf("user limit of %d reached; delete an existing user or install a license that permits additional users", maximum),
+		"Unable to provision your account. Please contact your administrator.",
 	)
 }
 

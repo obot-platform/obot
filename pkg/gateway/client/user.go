@@ -78,6 +78,14 @@ func (c *Client) Users(ctx context.Context, query types.UserQuery) ([]types.User
 	return users, nil
 }
 
+func (c *Client) UserCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := c.db.WithContext(ctx).Model(&types.User{}).Where("deleted_at IS NULL").Where("hashed_username != ?", hash.String(system.BootstrapName)).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 func (c *Client) User(ctx context.Context, username string) (*types.User, error) {
 	u := new(types.User)
 	if err := c.db.WithContext(ctx).Where("hashed_username = ? AND deleted_at IS NULL", hash.String(username)).First(u).Error; err != nil {

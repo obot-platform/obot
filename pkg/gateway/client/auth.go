@@ -97,7 +97,7 @@ func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) 
 // UserLimit describes the maximum number of users an installation may have.
 // Maximum is ignored when Unlimited is true.
 type UserLimit struct {
-	Maximum   int
+	Maximum   int64
 	Unlimited bool
 }
 

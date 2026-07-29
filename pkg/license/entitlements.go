@@ -38,14 +38,15 @@ var entitlementPathsToGate = []string{
 	"POST /api/devices/scans",
 }
 
-// ProviderViolation describes a configured provider that requires license entitlements
+// Violation describes a configured provider that requires license entitlements
 // that are not currently available.
-type ProviderViolation struct {
+type Violation struct {
 	Type                 string   `json:"type"`
 	Namespace            string   `json:"namespace"`
 	Name                 string   `json:"name"`
 	RequiredEntitlements []string `json:"requiredEntitlements"`
 	MissingEntitlements  []string `json:"missingEntitlements"`
+	Message              string   `json:"message"`
 }
 
 type ProviderMeta struct {
@@ -77,7 +78,7 @@ func (g *ProviderEntitlementGate) Check(req *http.Request) error {
 		return nil
 	}
 
-	violations, err := g.licenseProvider.ConfiguredProviderViolations(req.Context(), g.client)
+	violations, err := g.licenseProvider.configuredProviderViolations(req.Context(), g.client)
 	if err != nil {
 		return fmt.Errorf("failed to check provider license entitlements: %w", err)
 	}
@@ -145,13 +146,13 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 			continue
 		}
 
-		maximum, err := strconv.Atoi(value)
+		maximum, err := strconv.ParseInt(value, 10, 64)
 		if err != nil || maximum <= 0 {
 			continue
 		}
 
-		if maximum > math.MaxInt-limit.Maximum {
-			limit.Maximum = math.MaxInt
+		if maximum > math.MaxInt64-limit.Maximum {
+			limit.Maximum = math.MaxInt64
 		} else {
 			limit.Maximum += maximum
 		}
@@ -177,9 +178,37 @@ func (p *Provider) RequireEntitlements(ctx context.Context, requiredEntitlements
 	return types.NewErrHTTP(http.StatusPaymentRequired, fmt.Sprintf("missing required license entitlements: %v", missing))
 }
 
-// ConfiguredProviderViolations returns any globally configured auth/model providers
+// GetLicenseViolations returns all license violations for the configured auth/model providers and user limits.
+func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
+	violations, err := p.configuredProviderViolations(ctx, c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check configured provider license entitlements: %w", err)
+	}
+
+	userLimit, err := p.UserLimit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check user limit: %w", err)
+	}
+	if !userLimit.Unlimited {
+		userCount, err := p.gatewayClient.UserCount(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check user count: %w", err)
+		}
+
+		if userCount > userLimit.Maximum {
+			violations = append(violations, Violation{
+				Type:    "userLimit",
+				Message: fmt.Sprintf("user count (%d) exceeds maximum limit (%d)", userCount, userLimit.Maximum),
+			})
+		}
+	}
+
+	return violations, nil
+}
+
+// configuredProviderViolations returns any globally configured auth/model providers
 // that are currently missing required license entitlements.
-func (p *Provider) ConfiguredProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) configuredProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
 	if err := p.refresh(ctx, false); err != nil {
 		return nil, fmt.Errorf("failed to refresh license entitlements: %w", err)
 	}
@@ -197,7 +226,7 @@ func (p *Provider) ConfiguredProviderViolations(ctx context.Context, c kclient.C
 	return append(modelProviderViolations, authProviderViolations...), nil
 }
 
-func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
 	var modelProviders v1.ModelProviderList
 	if err := c.List(ctx, &modelProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
@@ -205,17 +234,18 @@ func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kcli
 		return nil, fmt.Errorf("failed to list model providers: %w", err)
 	}
 
-	var violations []ProviderViolation
+	var violations []Violation
 	for _, mp := range modelProviders.Items {
 		if mp.Status.Configured {
 			missingEntitlements := p.missingEntitlements(mp.Spec.RequiredEntitlements)
 			if len(missingEntitlements) > 0 {
-				violations = append(violations, ProviderViolation{
+				violations = append(violations, Violation{
 					Type:                 "modelProvider",
 					Namespace:            mp.Namespace,
 					Name:                 mp.Name,
 					RequiredEntitlements: mp.Spec.RequiredEntitlements,
 					MissingEntitlements:  missingEntitlements,
+					Message:              "missing required entitlements",
 				})
 			}
 		}
@@ -224,7 +254,7 @@ func (p *Provider) configuredModelProviderViolations(ctx context.Context, c kcli
 	return violations, nil
 }
 
-func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclient.Client) ([]ProviderViolation, error) {
+func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
 	var authProviders v1.AuthProviderList
 	if err := c.List(ctx, &authProviders, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
@@ -232,12 +262,12 @@ func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclie
 		return nil, fmt.Errorf("failed to list auth providers: %w", err)
 	}
 
-	var violations []ProviderViolation
+	var violations []Violation
 	for _, ap := range authProviders.Items {
 		if ap.Status.Configured {
 			missingEntitlements := p.missingEntitlements(ap.Spec.RequiredEntitlements)
 			if len(missingEntitlements) > 0 {
-				violations = append(violations, ProviderViolation{
+				violations = append(violations, Violation{
 					Type:                 "authProvider",
 					Namespace:            ap.Namespace,
 					Name:                 ap.Name,

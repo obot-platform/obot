@@ -134,7 +134,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitAcrossPostgresClients(t *testing
 	if rejected != 1 {
 		t.Fatalf("rejected concurrent PostgreSQL creations = %d, want 1", rejected)
 	}
-	requireIdentityUserLimitPaymentError(t, rejectErr, maximum)
+	requireIdentityUserLimitPaymentError(t, rejectErr)
 	if got := countIdentityUserLimitTestUsers(t, clientA, true); got != maximum {
 		t.Fatalf("users counted toward limit = %d, want %d", got, maximum)
 	}

@@ -101,7 +101,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.ConfiguredProviderViolations(ctx, v.StorageClient)
+	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -111,23 +111,26 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
-	if err != nil {
-		return nil, err
-	}
 	entitlements, err := v.LicenseProvider.Entitlements(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	userCount, err := v.GatewayClient.UserCount(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	enterpriseLicense := slices.Contains(entitlements, license.EnterpriseEditionEntitlement)
 	values := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   hasValidLicense,
+		"enterprise":                   enterpriseLicense,
 		"licenseEntitlements":          entitlements,
+		"userCount":                    userCount,
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
@@ -136,6 +139,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"hideK8sDetails":               v.HideK8sDetails,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
+	}
+
+	userLimit, err := v.LicenseProvider.UserLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !userLimit.Unlimited {
+		values["userLimit"] = userLimit.Maximum
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
@@ -151,7 +162,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	return values, nil
 }
 
-func missingEntitlements(violations []license.ProviderViolation) []string {
+func missingEntitlements(violations []license.Violation) []string {
 	seen := make(map[string]struct{})
 	for _, violation := range violations {
 		for _, entitlement := range violation.MissingEntitlements {

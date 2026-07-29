@@ -478,6 +478,7 @@ export interface LicenseEntitlementViolation {
 	name: string;
 	requiredEntitlements: string[];
 	missingEntitlements: string[];
+	message?: string;
 }
 
 // MCP catalog servers
@@ -877,6 +878,8 @@ export interface Version {
 	authEnabled?: boolean;
 	enterprise?: boolean;
 	licenseEntitlements?: string[];
+	userCount?: number;
+	userLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
 	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;
