@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	types "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -479,12 +478,18 @@ func sanitizeUnresolvedReason(raw string) string {
 	return truncateRunes(strings.TrimSpace(raw), maxUnresolvedReasonRunes)
 }
 
-// truncateRunes cuts s to at most maximum runes, never splitting one.
+// truncateRunes cuts s to at most maximum runes, never splitting one. It walks
+// byte offsets and stops at the cut instead of materializing a []rune, so an
+// oversized device-supplied string costs no allocation beyond the kept prefix.
 func truncateRunes(s string, maximum int) string {
-	if utf8.RuneCountInString(s) <= maximum {
-		return s
+	count := 0
+	for i := range s {
+		if count == maximum {
+			return s[:i]
+		}
+		count++
 	}
-	return string([]rune(s)[:maximum])
+	return s
 }
 
 // serverHostname returns the hostname the row should record, always derived from

@@ -314,6 +314,60 @@ func TestSanitizeUnresolvedReason(t *testing.T) {
 	}
 }
 
+// TestTruncateRunesDoesNotCopyOversizedInput pins the reason truncateRunes walks
+// byte offsets instead of converting to []rune: the device supplies these strings
+// and the body limit allows megabytes, so materializing a rune slice would let a
+// caller cost 4 bytes of scratch heap per input byte just to keep a 256-rune
+// prefix. The returned prefix is a substring, so the bound costs no allocation.
+func TestTruncateRunesDoesNotCopyOversizedInput(t *testing.T) {
+	oversized := strings.Repeat("a", 1<<20)
+
+	if got := truncateRunes(oversized, maxIdentifierRunes); got != oversized[:maxIdentifierRunes] {
+		t.Fatalf("truncateRunes returned %d runes, want %d", utf8.RuneCountInString(got), maxIdentifierRunes)
+	}
+
+	if allocs := testing.AllocsPerRun(100, func() {
+		_ = truncateRunes(oversized, maxIdentifierRunes)
+	}); allocs != 0 {
+		t.Fatalf("truncateRunes allocated %v times per call on an oversized input, want 0", allocs)
+	}
+}
+
+func TestTruncateRunes(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		raw     string
+		maximum int
+		want    string
+	}{
+		{"empty", "", 8, ""},
+		{"under the limit", "abc", 8, "abc"},
+		{"exactly at the limit", "abcd", 4, "abcd"},
+		{"over the limit", "abcdef", 4, "abcd"},
+		{"zero limit", "abc", 0, ""},
+		{"multibyte cut on a rune boundary", "héllo wörld", 4, "héll"},
+		{"multibyte kept whole", "日本語", 8, "日本語"},
+		{"multibyte cut mid-string", "日本語テキスト", 3, "日本語"},
+		// Runes, not grapheme clusters. Written decomposed on purpose: cutting
+		// between a base letter and its combining mark is still a valid-UTF-8
+		// cut, which is all an audit field needs.
+		{"combining marks are counted per rune", "e\u0301e\u0301", 3, "e\u0301e"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := truncateRunes(tt.raw, tt.maximum)
+			if got != tt.want {
+				t.Fatalf("truncateRunes(%q, %d) = %q, want %q", tt.raw, tt.maximum, got, tt.want)
+			}
+			if !utf8.ValidString(got) {
+				t.Fatalf("truncateRunes(%q, %d) produced invalid UTF-8: %q", tt.raw, tt.maximum, got)
+			}
+			if n := utf8.RuneCountInString(got); n > tt.maximum {
+				t.Fatalf("truncateRunes(%q, %d) returned %d runes", tt.raw, tt.maximum, n)
+			}
+		})
+	}
+}
+
 func TestEnforcementDecideUnknownConfigurationDenies(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 
