@@ -232,6 +232,8 @@
 								class="text-input-filled"
 								name="email"
 								type="email"
+								pattern="[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+"
+								title="Enter an email address with a valid domain, such as name@example.com."
 								autocomplete="email"
 								bind:value={communityEmail}
 								required

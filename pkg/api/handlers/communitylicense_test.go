@@ -192,6 +192,10 @@ func TestCreateCommunityLicenseValidatesAndNormalizesInput(t *testing.T) {
 			name: "invalid email",
 			body: `{"name":"Ada","email":"not-an-email"}`,
 		},
+		{
+			name: "email without domain suffix",
+			body: `{"name":"Ada","email":"s@t"}`,
+		},
 	}
 
 	for _, tt := range tests {

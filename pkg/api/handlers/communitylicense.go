@@ -38,6 +38,9 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 	if err != nil {
 		return apitypes.NewErrBadRequest("a valid email address is required")
 	}
+	if !hasEmailDomainSuffix(parsedEmail.Address) {
+		return apitypes.NewErrBadRequest("a valid email address is required")
+	}
 	input.Email = parsedEmail.Address
 
 	if err := h.communityEligibilityError(req.Context()); err != nil {
@@ -76,6 +79,24 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		return err
 	}
 	return req.Write(status)
+}
+
+func hasEmailDomainSuffix(address string) bool {
+	at := strings.LastIndexByte(address, '@')
+	if at <= 0 || at == len(address)-1 {
+		return false
+	}
+
+	labels := strings.Split(address[at+1:], ".")
+	if len(labels) < 2 {
+		return false
+	}
+	for _, label := range labels {
+		if label == "" {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *LicenseHandler) communityEligibilityError(ctx context.Context) error {
