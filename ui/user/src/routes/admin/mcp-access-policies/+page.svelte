@@ -127,14 +127,20 @@
 					</div>
 				{:else}
 					<div class="flex flex-col gap-2">
-						<h4 class="text-lg font-semibold">Admin Managed Access Policies</h4>
+						<h4 class="text-base font-semibold">Admin Managed Access Policies</h4>
 						{@render accessControlRuleTable('global')}
 					</div>
 
-					<div class="flex flex-col gap-2">
-						<h4 class="text-lg font-semibold">User Managed Access Policies</h4>
-						{@render accessControlRuleTable('user')}
-					</div>
+					<details
+						class="collapse bg-base-300 collapse-arrow border mb-2 w-full border-transparent"
+					>
+						<summary class="collapse-title font-semibold text-base"
+							>User Managed Access Policies</summary
+						>
+						<div class="collapse-content p-2 text-sm bg-base-200">
+							{@render accessControlRuleTable('user')}
+						</div>
+					</details>
 				{/if}
 			</div>
 		{/if}

@@ -47,7 +47,7 @@
 
 <Layout title="Obot CLI" showBackButton>
 	<div class="w-full max-w-7xl mx-auto h-full @container/cli my-6">
-		<div class="paper">
+		<section class="paper">
 			<div class="flex flex-col @2xl/cli:flex-row items-center justify-center gap-8">
 				<div class="max-w-md">
 					<Logo class="@2xl/cli:size-16 size-12 mb-1 mx-auto @2xl:mx-0" />
@@ -70,9 +70,9 @@
 					{@render mockupCode()}
 				</div>
 			</div>
-		</div>
+		</section>
 
-		<div class="flex flex-col @3xl/cli:flex-row my-12 items-center justify-center">
+		<section class="flex flex-col @3xl/cli:flex-row my-12 items-center justify-center">
 			<div class="grid grid-cols-4 gap-4 @2xl/cli:min-w-80">
 				{#each icons as icon (icon.id)}
 					<div
@@ -117,9 +117,9 @@
 					</div>
 				</div>
 			</div>
-		</div>
+		</section>
 
-		<div class="flex items-center justify-center mb-12">
+		<section class="flex items-center justify-center mb-12">
 			<div class="max-w-full w-2xl paper h-full gap-2 py-8">
 				<div
 					class="p-3 rounded-full dark:bg-base-300 bg-base-200 w-fit justify-center items-center flex self-center"
@@ -138,11 +138,11 @@
 					</li>
 				</ul>
 			</div>
-		</div>
+		</section>
 
 		<div class="divider"></div>
 
-		<div class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
+		<section class="mt-12 flex flex-col gap-4" id="obot-cli-commands">
 			<h3 class="text-2xl font-bold">Obot CLI Commands</h3>
 
 			<div class="paper" id="obot-cli-command-setup">
@@ -204,7 +204,7 @@
 					</li>
 				</ul>
 			</div>
-		</div>
+		</section>
 	</div>
 </Layout>
 

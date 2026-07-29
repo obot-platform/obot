@@ -101,7 +101,7 @@
 								<Info class="size-4 shrink-0" />
 								<p class="text-sm font-semibold">What are these for?</p>
 							</div>
-							<p class="text-left text-sm font-light">
+							<p class="whitespace-pre-line text-left text-sm font-light">
 								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
 									>Create your first auth scope</button
@@ -111,7 +111,7 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted text-sm">{AUTH_SCOPE_DESCRIPTION}</p>
+				<p class="text-muted whitespace-pre-line text-sm">{AUTH_SCOPE_DESCRIPTION}</p>
 
 				<Table
 					data={tableData}

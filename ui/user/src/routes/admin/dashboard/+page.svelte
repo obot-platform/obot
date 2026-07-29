@@ -321,91 +321,60 @@
 			{/if}
 		</div>
 
-		<div
-			class={twMerge(
-				'flex flex-col gap-4 col-span-12',
-				hasDeviceScans ? '@3xl:col-span-5' : '@3xl:col-span-8'
-			)}
-		>
-			{#if hasDeviceScans}
-				{@render serverActivityGraph()}
-				{@render topServerDeploymentList()}
-			{/if}
-
-			{#if loadingToolUsage}
-				<Skeleton type="card" class={hasDeviceScans ? 'h-81' : 'h-[400px]'} />
-			{:else}
-				<div in:fade={{ duration: 150 }} class="paper gap-1 w-full min-h-72">
-					<div class="flex flex-wrap items-center justify-between gap-4">
-						<h4 class="flex items-center gap-1 font-semibold">
-							Top Servers Used <span class="text-muted-content text-xs font-light"
-								>(Last 30 Days)</span
-							>
-						</h4>
-					</div>
-					<HorizontalBarGraph
-						data={topServerUsage.slice(0, maxServersToShow)}
-						labelKey="serverName"
-						valueKey="count"
-						formatValue={(value) => Math.round(value).toString()}
-						class={hasDeviceScans ? 'h-67.5' : 'h-[400px]'}
-					>
-						{#snippet tooltipContent(item)}
-							<div class="flex flex-col gap-0 text-xs">
-								<div class="text-muted-content text-xs">{item.label}</div>
-							</div>
-							<div class="text-base-content font-semibold">
-								{item.value} calls
-							</div>
-						{/snippet}
-					</HorizontalBarGraph>
-				</div>
-			{/if}
-
-			{#if !hasDeviceScans}
-				<div class={twMerge('grid grid-cols-12 gap-4 grow')}>
-					{@render popularTools()}
-					{@render toolAverageResponseTime()}
-				</div>
-			{/if}
-		</div>
 		{#if hasDeviceScans}
-			<div
-				class="col-span-12 @3xl:col-span-7 flex flex-col gap-4"
-				in:fly={{ x: 100, duration: 150 }}
-			>
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+				{@render serverActivityGraph()}
 				{#if loadingDeviceScanStats}
-					<Skeleton type="card" class="min-h-96.5 w-full" />
-					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-						<Skeleton type="card" class="min-h-72" />
-						<Skeleton type="card" class="min-h-72" />
-					</div>
+					<Skeleton type="card" class="min-h-72 h-full w-full" />
 				{:else}
-					<DeviceScanDonutCard
-						title="Top Device Skills"
-						buckets={deviceScanSkillBuckets}
-						totalGroups={totalDeviceScanSkillGroups}
-						emptyMsg="No skills observed yet."
-						class="h-fit"
-						classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
-					/>
-					<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
+						<DeviceScanDonutCard
+							title="Top Device Skills"
+							buckets={deviceScanSkillBuckets}
+							totalGroups={totalDeviceScanSkillGroups}
+							emptyMsg="No skills observed yet."
+							class="h-full"
+							classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
+						/>
+					</div>
+				{/if}
+			</div>
+
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
+				{@render topServerDeploymentList()}
+				{#if loadingDeviceScanStats}
+					<Skeleton type="card" class="min-h-72 h-full w-full" />
+					<Skeleton type="card" class="min-h-72 h-full w-full" />
+				{:else}
+					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 						<DeviceScanDonutCard
 							legendOnBottom
 							title="Device Clients"
 							buckets={deviceScanClientBuckets}
 							totalGroups={totalDeviceScanClientGroups}
 							emptyMsg="No clients observed yet."
+							class="h-full"
 						/>
+					</div>
+					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 						<DeviceScanDonutCard
 							legendOnBottom
 							title="Top Device MCP Servers"
 							buckets={deviceScanMcpBuckets}
 							totalGroups={totalDeviceScanMcpGroups}
 							emptyMsg="No MCP servers observed yet."
+							class="h-full"
 						/>
 					</div>
-					<div class="h-80 grow">
+				{/if}
+			</div>
+
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+				{@render toolUsageGraph()}
+				{#if loadingDeviceScanStats}
+					<Skeleton type="card" class="min-h-80 h-full w-full" />
+				{:else}
+					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
 						<DeviceScanTimelineCard
 							rangeStart={start}
 							rangeEnd={end}
@@ -415,35 +384,62 @@
 					</div>
 				{/if}
 			</div>
-		{:else}
-			<div
-				class="col-span-12 @3xl:col-span-4 flex flex-col gap-4"
-				in:fly={{ x: 100, duration: 150 }}
-			>
-				{@render serverActivityGraph()}
-				{@render topServerDeploymentList()}
-			</div>
-		{/if}
-		{#if hasDeviceScans}
-			<div class="col-span-12 grid grid-cols-12 gap-4">
+
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
 				{@render popularTools()}
 				{@render toolAverageResponseTime()}
+			</div>
+		{:else}
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+				{@render toolUsageGraph()}
+				{@render serverActivityGraph()}
+			</div>
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
+				{@render popularTools()}
+				{@render toolAverageResponseTime()}
+				{@render topServerDeploymentList()}
 			</div>
 		{/if}
 	</div>
 </Layout>
 
+{#snippet toolUsageGraph()}
+	{#if loadingToolUsage}
+		<Skeleton type="card" class="min-h-72 h-full w-full" />
+	{:else}
+		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-1 w-full">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<h4 class="flex items-center gap-1 font-semibold">
+					Top Servers Used <span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
+				</h4>
+			</div>
+			<HorizontalBarGraph
+				data={topServerUsage.slice(0, maxServersToShow)}
+				labelKey="serverName"
+				valueKey="count"
+				formatValue={(value) => Math.round(value).toString()}
+				class={hasDeviceScans ? 'h-67.5' : 'h-100'}
+			>
+				{#snippet tooltipContent(item)}
+					<div class="flex flex-col gap-0 text-xs">
+						<div class="text-muted-content text-xs">{item.label}</div>
+					</div>
+					<div class="text-base-content font-semibold">
+						{item.value} calls
+					</div>
+				{/snippet}
+			</HorizontalBarGraph>
+		</div>
+	{/if}
+{/snippet}
+
 {#snippet serverActivityGraph()}
 	{#if serverAndEntries.loading || loading}
-		<Skeleton type="card" class="h-[530px]" />
-		<div class="paper gap-1 flex grow">
-			<h4 class="flex items-center gap-2 font-semibold">Most Popular Servers</h4>
-			<Skeleton type="list" />
-		</div>
+		<Skeleton type="card" class="min-h-96 h-full w-full" />
 	{:else}
 		<div
 			in:fade={{ duration: 150 }}
-			class={twMerge('paper', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
+			class={twMerge('paper h-full', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
 		>
 			<h4 class="font-semibold">Server Activity</h4>
 			{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
@@ -487,7 +483,7 @@
 
 			<div
 				class={twMerge(
-					'flex flex-col items-center justify-center',
+					'flex flex-col items-center justify-center grow',
 					hasDeviceScans ? 'h-64' : 'h-80'
 				)}
 			>
@@ -520,7 +516,7 @@
 {/snippet}
 
 {#snippet topServerDeploymentList()}
-	<div in:fade={{ duration: 150 }} class="paper gap-1 flex grow">
+	<div in:fade={{ duration: 150 }} class="paper h-full gap-1">
 		<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
 		{#if mcpServersAndEntries.current.loading || loading}
 			<Skeleton type="list" />
@@ -565,7 +561,7 @@
 			</div>
 		{:else}
 			<p
-				class="text-xs text-muted-content pt-2 font-light text-center h-full flex items-center justify-center"
+				class="text-xs text-muted-content pt-2 font-light text-center h-full flex items-center justify-center grow"
 			>
 				No servers have been deployed yet.
 			</p>
@@ -655,12 +651,7 @@
 {/snippet}
 
 {#snippet popularTools()}
-	<div
-		class={twMerge(
-			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6 ',
-			!hasDeviceScans && 'h-full min-h-72'
-		)}
-	>
+	<div class="paper h-full min-h-72 gap-1 flex flex-col">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Recently Popular Tools
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
@@ -694,9 +685,7 @@
 				{/each}
 			</ul>
 		{/if}
-		{#if !hasDeviceScans}
-			<div class="flex grow min-h-0"></div>
-		{/if}
+		<div class="flex grow min-h-0"></div>
 		{#if topToolCalls.length > 0 && !isBootStrapUser}
 			<a
 				href={resolve('/admin/usage')}
@@ -709,12 +698,7 @@
 {/snippet}
 
 {#snippet toolAverageResponseTime()}
-	<div
-		class={twMerge(
-			'paper gap-1 col-span-12 flex flex-col @3xl:col-span-6',
-			!hasDeviceScans && 'h-full min-h-72'
-		)}
-	>
+	<div class="paper h-full min-h-72 gap-1 flex flex-col">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Tool Call Average Response Time
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
@@ -748,9 +732,7 @@
 				</ul>
 			</div>
 		{/if}
-		{#if !hasDeviceScans}
-			<div class="flex grow min-h-0"></div>
-		{/if}
+		<div class="flex grow min-h-0"></div>
 		{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
 			<a
 				href={resolve('/admin/usage')}

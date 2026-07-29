@@ -212,8 +212,8 @@
 >
 	<div class="w-full @container md:px-0 px-4">
 		<div id="download-skill-container">
-			<div class="divider mt-0">1. Download {selectedSkillToInstall?.displayName}</div>
-			<div class="md:p-0 pb-0 p-4">
+			<div class="divider md:mt-0">1. Download {selectedSkillToInstall?.displayName}</div>
+			<div class="md:p-0 md:pb-0 p-4">
 				<button
 					class="btn btn-primary btn-sm w-full"
 					onclick={() => handleDownloadSkill(selectedSkillToInstall)}

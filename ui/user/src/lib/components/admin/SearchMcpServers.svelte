@@ -179,7 +179,7 @@
 	bind:this={addMcpServerDialog}
 	{onClose}
 	{title}
-	class="h-full w-full overflow-visible md:h-125 md:max-w-md"
+	class="h-full w-full md:overflow-visible md:h-125 md:max-w-md"
 	classes={{ header: 'p-4 md:pb-0', content: 'min-h-inherit p-0' }}
 >
 	<div class="default-scrollbar-thin flex grow flex-col gap-4 overflow-y-auto pt-1">

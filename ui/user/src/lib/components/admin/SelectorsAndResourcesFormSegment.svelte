@@ -90,7 +90,7 @@
 </script>
 
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterSelectors}>
-	<div class="mb-2 flex items-center justify-between">
+	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">Selectors</h2>
 			<p class="text-muted-content text-sm">
@@ -125,7 +125,7 @@
 </div>
 
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterMcpServers}>
-	<div class="mb-2 flex items-center justify-between">
+	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">MCP Servers</h2>
 			<p class="text-muted-content text-sm">

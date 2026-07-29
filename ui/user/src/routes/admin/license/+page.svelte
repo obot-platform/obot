@@ -384,7 +384,6 @@
 						</div>
 					{/if}
 				</div>
-
 				<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
 					{#if license.licenseKey}
 						<button

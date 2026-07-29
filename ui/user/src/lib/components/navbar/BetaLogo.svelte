@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { responsive } from '$lib/stores';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -32,7 +33,7 @@
 		return { light: logos.light.default, dark: logos.dark.default };
 	});
 
-	const heightClass = $derived(variant === 'chat' ? 'h-[43px]' : 'h-12');
+	const heightClass = $derived(variant === 'chat' ? 'h-[43px]' : 'h-10');
 	const paddingClass = $derived(variant === 'chat' ? 'pl-[1px]' : '');
 	const imgClass = $derived(twMerge(heightClass, paddingClass));
 </script>

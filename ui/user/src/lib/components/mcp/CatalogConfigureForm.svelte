@@ -441,6 +441,7 @@
 				e.preventDefault();
 				handleSave();
 			}}
+			class="p-4 md:p-0"
 		>
 			<div class="my-4 flex flex-col gap-4">
 				<McpDeprecatedNotice {deprecated} variant="notification" />
@@ -809,27 +810,28 @@
 					{/if}
 				{/if}
 			</div>
-		</form>
-		<div class="flex justify-end gap-2">
-			{#if onCancel}
-				<button class="btn btn-secondary" onclick={onCancel} disabled={loading}>
-					{cancelText}
-				</button>
-			{/if}
-			<button
-				id="mcp-catalog-configure-submit-btn"
-				class="btn btn-primary"
-				type="submit"
-				form="mcp-catalog-configure-form"
-				disabled={loading || disableSave}
-			>
-				{#if loading}
-					<Loading class="size-4" />
-				{:else}
-					{submitText}
+
+			<div class="flex justify-end gap-2">
+				{#if onCancel}
+					<button class="btn btn-secondary" type="button" onclick={onCancel} disabled={loading}>
+						{cancelText}
+					</button>
 				{/if}
-			</button>
-		</div>
+				<button
+					id="mcp-catalog-configure-submit-btn"
+					class="btn btn-primary"
+					type="submit"
+					form="mcp-catalog-configure-form"
+					disabled={loading || disableSave}
+				>
+					{#if loading}
+						<Loading class="size-4" />
+					{:else}
+						{submitText}
+					{/if}
+				</button>
+			</div>
+		</form>
 	{/if}
 {/snippet}
 

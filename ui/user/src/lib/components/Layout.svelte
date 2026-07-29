@@ -103,7 +103,9 @@
 		PanelLeftClose,
 		Brain,
 		LayoutGrid,
-		KeyRound
+		KeyRound,
+		Menu,
+		X
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -754,8 +756,16 @@
 				transition:slide={{ axis: 'x' }}
 				bind:this={nav}
 			>
-				<div class="flex h-16 shrink-0 items-center px-2">
+				<div class="flex h-16 shrink-0 items-center justify-between px-2">
 					<BetaLogo variant={logoVariant} />
+					{#if responsive.isMobile}
+						<IconButton
+							tooltip={{ text: 'Close Menu', placement: 'left' }}
+							onclick={() => (layout.sidebarOpen = false)}
+						>
+							<X class="size-6" />
+						</IconButton>
+					{/if}
 				</div>
 
 				<div
@@ -792,7 +802,7 @@
 							{#if managementLinks.length > 0}
 								<button
 									id="advanced-pane-btn"
-									class="sidebar-link"
+									class="sidebar-link mb-2 md:mb-0"
 									onclick={() => (showAdvancedPane = true)}
 								>
 									<Settings class="size-5 text-muted-content" />
@@ -805,14 +815,16 @@
 					{/if}
 				</div>
 
-				<div class="flex justify-end px-3 py-2">
-					<IconButton
-						tooltip={{ text: 'Close Sidebar' }}
-						onclick={() => (layout.sidebarOpen = false)}
-					>
-						<PanelLeftClose class="size-6" />
-					</IconButton>
-				</div>
+				{#if !responsive.isMobile}
+					<div class="flex justify-end px-3 py-2">
+						<IconButton
+							tooltip={{ text: 'Close Sidebar' }}
+							onclick={() => (layout.sidebarOpen = false)}
+						>
+							<PanelLeftClose class="size-6" />
+						</IconButton>
+					</div>
+				{/if}
 			</div>
 			{#if !responsive.isMobile && !disableResize}
 				<div
@@ -857,7 +869,17 @@
 						{#if overrideLeftMenu}
 							{@render overrideLeftMenu()}
 						{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
-							<BetaLogo variant={logoVariant} />
+							<div class="flex items-center gap-1">
+								{#if responsive.isMobile}
+									<IconButton
+										tooltip={{ text: 'Open Menu', placement: 'right' }}
+										onclick={() => (layout.sidebarOpen = true)}
+									>
+										<Menu class="size-6" />
+									</IconButton>
+								{/if}
+								<BetaLogo variant={logoVariant} />
+							</div>
 						{/if}
 					{/snippet}
 					{#snippet centerContent()}
@@ -933,7 +955,7 @@
 		{/if}
 	</div>
 
-	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar}
+	{#if !layout.sidebarOpen && !hideSidebar && !leftSidebar && !responsive.isMobile}
 		<div class="fixed bottom-2 left-2 z-30" in:fade={{ delay: 300 }}>
 			<IconButton onclick={() => (layout.sidebarOpen = true)} tooltip={{ text: 'Open Sidebar' }}>
 				<PanelLeftOpen class="size-6" />

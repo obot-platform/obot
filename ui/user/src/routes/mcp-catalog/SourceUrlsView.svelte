@@ -31,6 +31,15 @@
 			?.map((url) => ({ id: url, url }))
 			?.filter((item) => item.url.toLowerCase().includes(query?.toLowerCase() ?? '')) ?? []
 	);
+
+	function isWebURL(value: string) {
+		try {
+			const url = new URL(value);
+			return url.protocol === 'https:' || url.protocol === 'http:';
+		} catch {
+			return false;
+		}
+	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -80,7 +89,14 @@
 			{#snippet onRenderColumn(property, d)}
 				{#if property === 'url'}
 					<div class="flex items-center gap-2">
-						<p>{d.url}</p>
+						{#if isWebURL(d.url)}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
+							<a href={d.url} target="_blank" rel="noopener noreferrer external" class="text-link">
+								{d.url}
+							</a>
+						{:else}
+							<p>{d.url}</p>
+						{/if}
 						{#if catalog?.syncErrors?.[d.url]}
 							<button
 								onclick={() => {

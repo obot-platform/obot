@@ -280,6 +280,7 @@
 
 		{#if onClear && !multiple}
 			<button
+				type="button"
 				class={twMerge(
 					clearBtnClasses,
 					'absolute top-1/2 right-12 -translate-y-1/2',
@@ -361,6 +362,7 @@
 			ev.stopImmediatePropagation();
 			onClearAll?.();
 		}}
+		type="button"
 	>
 		{clearAllLabel || 'Clear All'}
 	</button>
