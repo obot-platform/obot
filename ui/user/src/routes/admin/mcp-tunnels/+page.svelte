@@ -142,16 +142,14 @@
 		{:else}
 			<Table
 				data={tableData}
-				fields={['displayName', 'status', 'id', 'allowedURLs', 'token']}
+				fields={['displayName', 'status', 'allowedURLs']}
 				headers={[
 					{ title: 'Name', property: 'displayName' },
 					{ title: 'Status', property: 'status' },
-					{ title: 'Tunnel ID', property: 'id' },
-					{ title: 'Allowed URLs', property: 'allowedURLs' },
-					{ title: 'Secret Preview', property: 'token' }
+					{ title: 'Allowed URLs', property: 'allowedURLs' }
 				]}
-				filterable={['displayName', 'status', 'id', 'allowedURLs']}
-				sortable={['displayName', 'status', 'id']}
+				filterable={['displayName', 'status']}
+				sortable={['displayName', 'status']}
 				noAutoHideFields={['displayName', 'status']}
 				onClickRow={(tunnel, isCtrlClick) =>
 					openUrl(`/admin/mcp-tunnels/${tunnel.id}`, isCtrlClick)}
@@ -180,8 +178,6 @@
 						<span class="line-clamp-2 break-all" title={tunnel.allowedURLs}>
 							{tunnel.allowedURLs}
 						</span>
-					{:else if property === 'token' || property === 'id'}
-						<code class="text-xs">{String(tunnel[property as 'token' | 'id'])}</code>
 					{:else}
 						{String(tunnel[property as keyof typeof tunnel])}
 					{/if}
