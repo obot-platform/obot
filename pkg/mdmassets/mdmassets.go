@@ -27,6 +27,7 @@ import (
 	"slices"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -344,13 +345,14 @@ func (l *Loader) RenderStoredState(storedValues, serverURL string, enforcementEn
 func (l *Loader) Zip(w io.Writer, c types.MDMAssetConfiguration, values map[string]any, enforcementEnabled bool) error {
 	zw := zip.NewWriter(w)
 	context := l.renderContext(values, enforcementEnabled)
+	modified := time.Now().UTC()
 	for _, rel := range c.Assets {
 		name := path.Base(rel)
 		var err error
 		if strings.HasSuffix(name, ".tmpl") {
-			err = renderEntry(zw, l, rel, strings.TrimSuffix(name, ".tmpl"), context)
+			err = renderEntry(zw, l, rel, strings.TrimSuffix(name, ".tmpl"), context, modified)
 		} else {
-			err = copyInto(zw, l.files, rel, name)
+			err = copyInto(zw, l.files, rel, name, modified)
 		}
 		if err != nil {
 			_ = zw.Close()
@@ -374,13 +376,22 @@ func (l *Loader) renderTemplate(w io.Writer, rel string, values map[string]any) 
 	return nil
 }
 
+// createEntry adds name to the zip stamped with modified. The bundle discards
+// source modification times when it normalizes its input, so the download
+// supplies its own: zip.Writer.Create would leave FileHeader.Modified zero,
+// which encodes an invalid MS-DOS timestamp (month 0, day 0) that extractors
+// render as Nov 30 1979 or Dec 31 1600.
+func createEntry(zw *zip.Writer, name string, modified time.Time) (io.Writer, error) {
+	return zw.CreateHeader(&zip.FileHeader{Name: name, Method: zip.Deflate, Modified: modified})
+}
+
 // renderEntry renders the template asset at rel into the zip under name.
-func renderEntry(zw *zip.Writer, l *Loader, rel, name string, values map[string]any) error {
+func renderEntry(zw *zip.Writer, l *Loader, rel, name string, values map[string]any, modified time.Time) error {
 	var buf bytes.Buffer
 	if err := l.renderTemplate(&buf, rel, values); err != nil {
 		return err
 	}
-	f, err := zw.Create(name)
+	f, err := createEntry(zw, name, modified)
 	if err != nil {
 		return err
 	}
@@ -389,13 +400,13 @@ func renderEntry(zw *zip.Writer, l *Loader, rel, name string, values map[string]
 }
 
 // copyInto streams the file at rel into the zip under name.
-func copyInto(zw *zip.Writer, files fs.FS, rel, name string) error {
+func copyInto(zw *zip.Writer, files fs.FS, rel, name string, modified time.Time) error {
 	in, err := files.Open(rel)
 	if err != nil {
 		return fmt.Errorf("reading assets file %s: %w", name, err)
 	}
 	defer func() { _ = in.Close() }()
-	f, err := zw.Create(name)
+	f, err := createEntry(zw, name, modified)
 	if err != nil {
 		return err
 	}
