@@ -28,7 +28,7 @@ func IsInvalidModelResource(err error) bool {
 
 // IsAllowedModelUsage reports whether usage can be granted by a model access policy.
 func IsAllowedModelUsage(usage types.ModelUsage) bool {
-	return usage == types.ModelUsageLLM || usage == types.ModelUsage(types.DefaultModelAliasTypeLLMMini)
+	return usage == types.ModelUsageLLM
 }
 
 // IsAllowedDefaultModelAlias reports whether alias can be granted by a model access policy.
@@ -65,7 +65,7 @@ func ValidateModelResource(
 		if IsAllowedDefaultModelAlias(alias) {
 			return nil
 		}
-		return invalidModelUsage(resource.ID)
+		return invalidDefaultModelAlias(resource.ID)
 	}
 
 	if resource.IsWildcard() {
@@ -97,7 +97,17 @@ func ValidateModelResource(
 func invalidModelUsage(modelID string) error {
 	return &invalidModelResourceError{
 		message: fmt.Sprintf(
-			"model %q must have a usage type of %q or %q",
+			"model %q must have a usage type of %q",
+			modelID,
+			types.ModelUsageLLM,
+		),
+	}
+}
+
+func invalidDefaultModelAlias(modelID string) error {
+	return &invalidModelResourceError{
+		message: fmt.Sprintf(
+			"model %q must reference default model alias %q or %q",
 			modelID,
 			types.DefaultModelAliasTypeLLM,
 			types.DefaultModelAliasTypeLLMMini,

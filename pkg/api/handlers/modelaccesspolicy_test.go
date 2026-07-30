@@ -40,12 +40,12 @@ func TestReadAndValidateModelAccessPolicyManifest(t *testing.T) {
 		{
 			name:     "rejects non-llm model",
 			modelIDs: []string{"m1-embedding"},
-			wantErr:  `model "m1-embedding" must have a usage type of "llm" or "llm-mini"`,
+			wantErr:  `model "m1-embedding" must have a usage type of "llm"`,
 		},
 		{
 			name:     "rejects non-llm alias",
 			modelIDs: []string{"obot://vision"},
-			wantErr:  `model "obot://vision" must have a usage type of "llm" or "llm-mini"`,
+			wantErr:  `model "obot://vision" must reference default model alias "llm" or "llm-mini"`,
 		},
 		{
 			name:     "allows selectors",
@@ -112,7 +112,7 @@ func TestModelAccessPolicyHandlerUpdateRejectsPersistedNonLLMModel(t *testing.T)
 		Request:        request,
 		Storage:        storageClient,
 	})
-	require.ErrorContains(t, err, `model "m1-embedding" must have a usage type of "llm" or "llm-mini"`)
+	require.ErrorContains(t, err, `model "m1-embedding" must have a usage type of "llm"`)
 
 	var policy v1.ModelAccessPolicy
 	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKey{

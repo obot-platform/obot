@@ -34,14 +34,16 @@ func TestValidateModelResource(t *testing.T) {
 			resource: types.ModelResource{ID: "m1-llm"},
 		},
 		{
-			name:     "allows llm-mini model",
-			resource: types.ModelResource{ID: "m1-llm-mini"},
+			name:        "rejects llm-mini model usage",
+			resource:    types.ModelResource{ID: "m1-llm-mini"},
+			wantInvalid: true,
+			wantErr:     `model "m1-llm-mini" must have a usage type of "llm"`,
 		},
 		{
 			name:        "rejects embedding model",
 			resource:    types.ModelResource{ID: "m1-embedding"},
 			wantInvalid: true,
-			wantErr:     `model "m1-embedding" must have a usage type of "llm" or "llm-mini"`,
+			wantErr:     `model "m1-embedding" must have a usage type of "llm"`,
 		},
 		{
 			name:     "allows llm alias",
@@ -55,7 +57,7 @@ func TestValidateModelResource(t *testing.T) {
 			name:        "rejects embedding alias",
 			resource:    types.ModelResource{ID: "obot://text-embedding"},
 			wantInvalid: true,
-			wantErr:     `model "obot://text-embedding" must have a usage type of "llm" or "llm-mini"`,
+			wantErr:     `model "obot://text-embedding" must reference default model alias "llm" or "llm-mini"`,
 		},
 		{
 			name:     "allows wildcard",
