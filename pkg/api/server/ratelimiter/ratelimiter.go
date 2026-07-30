@@ -40,7 +40,7 @@ type Options struct {
 // It tracks limits for unauthenticated and authenticated users separately:
 // - Authenticated requests are tracked by user ID or name.
 // - Unauthenticated requests are tracked by IP address.
-// - Admins are exempt from rate limiting.
+// - Admins and internal tunnel bridge and peer requests are exempt from rate limiting.
 type RateLimiter struct {
 	unauthenticatedStore limiter.Store
 	authenticatedStore   limiter.Store
@@ -74,8 +74,10 @@ func New(opts Options) (*RateLimiter, error) {
 func (l *RateLimiter) ApplyLimit(u user.Info, rw http.ResponseWriter, req *http.Request) error {
 	groups := u.GetGroups()
 
-	if slices.Contains(groups, types.GroupAdmin) {
-		// Admins are exempt from rate limiting
+	if slices.Contains(groups, types.GroupAdmin) ||
+		slices.Contains(groups, types.GroupTunnelBridge) ||
+		slices.Contains(groups, types.GroupTunnelPeer) {
+		// Admins and internal tunnel bridge and peer requests are exempt from rate limiting.
 		return nil
 	}
 

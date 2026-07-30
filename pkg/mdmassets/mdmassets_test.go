@@ -32,7 +32,7 @@ func writeAssets(t *testing.T, schema string) string {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "windows", "intune", "obot-sentry.intunewin"), "fake-intunewin")
 	mustWrite(t, filepath.Join(dir, "windows", "intune", "INSTRUCTIONS.md.tmpl"),
-		"# Setup\nserver={{.serverURL}} interval={{.scanIntervalMinutes}} version={{.obotSentryVersion}}\n")
+		"# Setup\nserver={{.serverURL}} interval={{.scanIntervalMinutes}} version={{.obotSentryVersion}}\ninstall=hook-install{{if .enforcementEnabled}} --enforce{{end}}\n")
 	mustWrite(t, filepath.Join(dir, "macos", "obot-sentry.pkg"), "fake-pkg")
 	mustWrite(t, filepath.Join(dir, "macos", "INSTRUCTIONS.md.tmpl"), "# macOS setup\n")
 	mustWrite(t, filepath.Join(dir, "icons", "intune.svg"), "<svg/>")
@@ -209,7 +209,7 @@ func TestValidateTemplatesCatchesMissingRenderInput(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := loader.ValidateTemplates(configuration, completedValues(t, loader)); err == nil {
+	if err := loader.ValidateTemplates(configuration, completedValues(t, loader), false); err == nil {
 		t.Fatal("missing template input was not detected before download")
 	}
 }
@@ -299,7 +299,7 @@ func TestRenderInstructions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	instructions, err := l.RenderInstructions(c, completedValues(t, l))
+	instructions, err := l.RenderInstructions(c, completedValues(t, l), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestRenderAllProducesEveryTarget(t *testing.T) {
 	artifacts, err := l.RenderAll(map[string]any{
 		"serverURL":           "https://obot.example.com",
 		"scanIntervalMinutes": 30,
-	})
+	}, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -340,6 +340,39 @@ func TestRenderAllProducesEveryTarget(t *testing.T) {
 	}
 }
 
+// TestRenderEnforcementToggle pins that the enforcementEnabled render-context
+// value reaches templates so they can bake in the --enforce flag, and that it
+// is a render-context value (not a fields entry) immune to
+// additionalProperties:false — no bundle version has to declare it.
+func TestRenderEnforcementToggle(t *testing.T) {
+	l, err := NewFS(os.DirFS(writeAssets(t, SchemaVersion)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := l.Find("intune", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	values := map[string]any{"serverURL": "https://obot.example.com", "scanIntervalMinutes": 30}
+
+	enabled, err := l.RenderInstructions(c, values, true)
+	if err != nil {
+		t.Fatalf("render with enforcement enabled: %v", err)
+	}
+	if !strings.Contains(enabled, "install=hook-install --enforce") {
+		t.Errorf("enforcement-enabled instructions omit --enforce: %q", enabled)
+	}
+
+	disabled, err := l.RenderInstructions(c, values, false)
+	if err != nil {
+		t.Fatalf("render with enforcement disabled: %v", err)
+	}
+	if strings.Contains(disabled, "--enforce") || !strings.Contains(disabled, "install=hook-install\n") {
+		t.Errorf("enforcement-disabled instructions include --enforce: %q", disabled)
+	}
+}
+
 func TestRenderAllReturnsNoPartialArtifacts(t *testing.T) {
 	dir := writeAssets(t, SchemaVersion)
 	mustWrite(t, filepath.Join(dir, "macos", "INSTRUCTIONS.md.tmpl"), "oops={{.unknownField}}\n")
@@ -347,7 +380,7 @@ func TestRenderAllReturnsNoPartialArtifacts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	artifacts, err := l.RenderAll(map[string]any{"serverURL": "https://obot.example.com"})
+	artifacts, err := l.RenderAll(map[string]any{"serverURL": "https://obot.example.com"}, false)
 	if err == nil {
 		t.Fatal("broken final target rendered successfully")
 	}
@@ -376,7 +409,7 @@ func TestZip(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	if err := l.Zip(&buf, c, completedValues(t, l)); err != nil {
+	if err := l.Zip(&buf, c, completedValues(t, l), false); err != nil {
 		t.Fatalf("zip: %v", err)
 	}
 
@@ -405,7 +438,7 @@ func TestZipRejectsUnknownTemplateField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := l.Zip(&bytes.Buffer{}, c, completedValues(t, l)); err == nil {
+	if err := l.Zip(&bytes.Buffer{}, c, completedValues(t, l), false); err == nil {
 		t.Error("template referencing an unknown field should error")
 	}
 }

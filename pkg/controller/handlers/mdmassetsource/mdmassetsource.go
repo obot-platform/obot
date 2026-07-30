@@ -2,9 +2,7 @@ package mdmassetsource
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"time"
@@ -149,35 +147,17 @@ func (h *Handler) renderConfigurationsForLatest(ctx context.Context, digest stri
 }
 
 // renderConfiguration validates the configuration's stored values against the
-// bundle and renders every target, mirroring the values handling of the save
-// API: the caller-visible values stay sparse and the trusted server URL is
-// injected only for rendering.
+// bundle and renders every target from stored state (values + trusted server URL
+// + the enforcement toggle), reusing the same render-from-stored-state
+// implementation the enforcement-update handler uses.
 func (h *Handler) renderConfiguration(loader *mdmassets.Loader, digest string, configuration gatewaytypes.MDMConfiguration) (gatewaytypes.MDMConfiguration, error) {
-	values := map[string]any{}
-	if configuration.Values != "" {
-		if err := json.Unmarshal([]byte(configuration.Values), &values); err != nil {
-			return gatewaytypes.MDMConfiguration{}, fmt.Errorf("stored values are not valid JSON: %w", err)
-		}
-	}
-	delete(values, "serverURL")
-	renderValues := make(map[string]any, len(values)+1)
-	maps.Copy(renderValues, values)
-	renderValues["serverURL"] = h.serverURL
-	rendered, err := loader.RenderAll(renderValues)
-	if err != nil {
-		return gatewaytypes.MDMConfiguration{}, err
-	}
-	if len(rendered) == 0 {
-		return gatewaytypes.MDMConfiguration{}, fmt.Errorf("the bundle has no platform/OS configurations")
-	}
-
-	storedValues, err := json.Marshal(values)
+	rendered, normalizedValues, err := loader.RenderStoredState(configuration.Values, h.serverURL, configuration.EnforcementEnabled)
 	if err != nil {
 		return gatewaytypes.MDMConfiguration{}, err
 	}
 	configuration.AssetDigest = digest
 	configuration.ObotSentryVersion = loader.Manifest().ObotSentryVersion
-	configuration.Values = string(storedValues)
+	configuration.Values = normalizedValues
 	configuration.Artifacts = make([]gatewaytypes.MDMConfigurationArtifact, 0, len(rendered))
 	for _, artifact := range rendered {
 		configuration.Artifacts = append(configuration.Artifacts, gatewaytypes.MDMConfigurationArtifact{

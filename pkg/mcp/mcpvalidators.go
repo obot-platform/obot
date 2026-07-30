@@ -512,6 +512,16 @@ func (v RemoteValidator) ValidateSystemConfig(ctx context.Context, manifest type
 }
 
 func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.RemoteRuntimeConfig) error {
+	config.TunnelName = strings.TrimSpace(config.TunnelName)
+	if config.TunnelName != "" &&
+		(config.IsTemplate || strings.TrimSpace(config.URLTemplate) != "" || len(extractEnvRefs(config.URL)) > 0) {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "remoteConfig",
+			Message: "tunnelName cannot be used with a URL template",
+		}
+	}
+
 	config.URL = strings.TrimSpace(config.URL)
 	if config.URL == "" {
 		if !v.AllowMissingURL && !config.IsTemplate {
@@ -539,7 +549,7 @@ func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.
 				Message: "URL scheme must be either https or http",
 			}
 		}
-		if err := v.validateRemoteMCPURL(ctx, "url", config.URL); err != nil {
+		if err := v.validateRemoteMCPURL(ctx, "url", config.URL, config.TunnelName != ""); err != nil {
 			return err
 		}
 	}
@@ -570,6 +580,22 @@ func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config
 	hasFixedURL := strings.TrimSpace(config.FixedURL) != ""
 	hasHostname := strings.TrimSpace(config.Hostname) != ""
 	hasURLTemplate := strings.TrimSpace(config.URLTemplate) != ""
+	hasTunnel := strings.TrimSpace(config.TunnelName) != ""
+
+	if hasTunnel && hasURLTemplate {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "remoteConfig",
+			Message: "tunnelName cannot be used with urlTemplate",
+		}
+	}
+	if hasTunnel && len(extractEnvRefs(config.FixedURL)) > 0 {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   "remoteConfig",
+			Message: "tunnelName cannot be used with a URL template",
+		}
+	}
 
 	if !hasFixedURL && !hasHostname && !hasURLTemplate {
 		return types.RuntimeValidationError{
@@ -601,23 +627,10 @@ func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config
 
 	// Validate FixedURL format if provided
 	if hasFixedURL {
-		parsedURL, err := url.Parse(config.FixedURL)
-		if err != nil {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeRemote,
-				Field:   "fixedURL",
-				Message: fmt.Sprintf("invalid URL format: %v", err),
-			}
+		if err := validateRemoteURLFormat("fixedURL", config.FixedURL); err != nil {
+			return err
 		}
-
-		if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeRemote,
-				Field:   "fixedURL",
-				Message: "URL scheme must be either https or http",
-			}
-		}
-		if err := v.validateRemoteMCPURL(ctx, "fixedURL", config.FixedURL); err != nil {
+		if err := v.validateRemoteMCPURL(ctx, "fixedURL", config.FixedURL, hasTunnel); err != nil {
 			return err
 		}
 	}
@@ -655,7 +668,56 @@ func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config
 	return nil
 }
 
-func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL string) error {
+func validateRemoteURLFormat(field, rawURL string) error {
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   field,
+			Message: fmt.Sprintf("invalid URL format: %v", err),
+		}
+	}
+
+	if parsedURL.Scheme != "https" && parsedURL.Scheme != "http" {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeRemote,
+			Field:   field,
+			Message: "URL scheme must be either https or http",
+		}
+	}
+
+	return nil
+}
+
+func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL string, tunneled bool) error {
+	if tunneled {
+		// The tunnel client resolves and requests the target, so Obot's local
+		// network restrictions do not apply. The referenced MCPTunnel's
+		// AllowedURLs are validated separately against the target.
+		parsedURL, err := url.Parse(rawURL)
+		if err != nil {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   field,
+				Message: fmt.Sprintf("invalid URL format: %v", err),
+			}
+		}
+		if parsedURL.Hostname() == "" {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   field,
+				Message: "URL hostname is required",
+			}
+		}
+		if parsedURL.User != nil {
+			return types.RuntimeValidationError{
+				Runtime: types.RuntimeRemote,
+				Field:   field,
+				Message: "URL must not include user information",
+			}
+		}
+		return nil
+	}
 	if err := ValidateRemoteMCPURL(ctx, rawURL, v.RemoteMCPURLValidationConfig); err != nil {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
@@ -1234,6 +1296,10 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 }
 
 func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
+	if err := validateCatalogSyncedTunnelName(manifest, ""); err != nil {
+		return err
+	}
+
 	if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
 		return nil
 	}
@@ -1253,7 +1319,40 @@ func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntry
 	return nil
 }
 
+func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifest, fieldPrefix string) error {
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   fieldPrefix + "remoteConfig.tunnelName",
+			Message: "cannot be set on catalog-synced entries",
+		}
+	}
+
+	if manifest.CompositeConfig == nil {
+		return nil
+	}
+
+	for i, component := range manifest.CompositeConfig.ComponentServers {
+		if err := validateCatalogSyncedTunnelName(
+			component.Manifest,
+			fmt.Sprintf("%scompositeConfig.componentServers[%d].manifest.", fieldPrefix, i),
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest types.SystemMCPServerCatalogEntryManifest, options ValidationOptions) error {
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "remoteConfig.tunnelName",
+			Message: "tunnels are not supported for system MCP servers",
+		}
+	}
+
 	if manifest.SystemMCPServerType == types.SystemMCPServerTypeFilter {
 		if manifest.FilterConfig == nil {
 			return types.RuntimeValidationError{
@@ -1291,6 +1390,14 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 }
 
 func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options ValidationOptions) error {
+	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
+		return types.RuntimeValidationError{
+			Runtime: manifest.Runtime,
+			Field:   "remoteConfig.tunnelName",
+			Message: "tunnels are not supported for system MCP servers",
+		}
+	}
+
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}

@@ -43,6 +43,7 @@ type ServerConfig struct {
 
 	// Remote configuration.
 	URL                     string   `json:"url"`
+	TunnelName              string   `json:"tunnelName,omitempty"`
 	Headers                 []string `json:"headers"`
 	PassthroughHeaderNames  []string `json:"passthroughHeaderNames"`
 	PassthroughHeaderValues []string `json:"passthroughHeaderValues"`
@@ -231,8 +232,8 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 		return nil, fmt.Errorf("remote runtime requires remote config")
 	}
 
-	serverConfig.HealthzPath = "/healthz"
 	serverConfig.URL = remoteConfig.URL
+	serverConfig.TunnelName = remoteConfig.TunnelName
 	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
 
 	var missingRequiredNames []string
@@ -258,11 +259,6 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	}
 
 	return missingRequiredNames, nil
-}
-
-func configureCompositeRuntime(serverConfig ServerConfig) (ServerConfig, []string, error) {
-	serverConfig.HealthzPath = "/healthz"
-	return serverConfig, nil, nil
 }
 
 func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
@@ -454,7 +450,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeComposite:
-		return configureCompositeRuntime(serverConfig)
+		return serverConfig, missingRequiredNames, nil
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}

@@ -54,6 +54,8 @@
 		sectionSecondaryTitle?: string;
 		disablePortal?: boolean;
 		columnMaxWidths?: Record<string, number>;
+		/** Changing this value remeasures columns after asynchronously rendered cell content changes. */
+		remeasureKey?: string | number;
 		/** Field names that should not be auto-hidden when the table is too narrow. Users can still hide them manually. */
 		noAutoHideFields?: string[];
 	}
@@ -86,6 +88,7 @@
 		sectionSecondaryTitle,
 		disablePortal,
 		columnMaxWidths,
+		remeasureKey,
 		noAutoHideFields
 	}: Props<T> = $props();
 
@@ -605,8 +608,10 @@
 
 	$effect(() => {
 		if (tableData.length && dataTableRef && headerTableRef) {
+			const expectedRemeasureKey = remeasureKey;
 			// Use a small delay to ensure the table is fully rendered
 			setTimeout(() => {
+				if (expectedRemeasureKey !== remeasureKey) return;
 				measureColumnWidths();
 			}, 0);
 		}

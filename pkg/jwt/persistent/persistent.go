@@ -145,6 +145,9 @@ type TokenContext struct {
 
 	MCPID string
 
+	// This is used for requesting community license
+	InstallationID string `json:"installation_id,omitempty"`
+
 	// The following fields are for runs
 	Namespace     string
 	ModelProvider string
@@ -347,6 +350,9 @@ func (t *TokenService) NewToken(ctx context.Context, context TokenContext) (*jwt
 		context.Picture = ""
 	}
 	context.Issuer = t.serverURL
+	if context.IssuedAt.IsZero() {
+		context.IssuedAt = NewTime(time.Now().Add(-time.Second))
+	}
 
 	t.lock.RLock()
 	privateKey := t.privateKey

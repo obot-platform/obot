@@ -62,6 +62,29 @@ func cloneHeader(h http.Header) http.Header {
 	return out
 }
 
+type fullDuplexResponseWriter struct {
+	*countingResponseWriter
+	enabled bool
+}
+
+func (w *fullDuplexResponseWriter) EnableFullDuplex() error {
+	w.enabled = true
+	return nil
+}
+
+func TestHeadersResponseWriter_UnwrapsForResponseController(t *testing.T) {
+	t.Parallel()
+
+	underlying := &fullDuplexResponseWriter{countingResponseWriter: newCountingResponseWriter()}
+	rw := &headersResponseWriter{ResponseWriter: underlying}
+	if err := http.NewResponseController(rw).EnableFullDuplex(); err != nil {
+		t.Fatalf("EnableFullDuplex error: %v", err)
+	}
+	if !underlying.enabled {
+		t.Fatal("underlying response writer did not enable full duplex")
+	}
+}
+
 func TestHeadersResponseWriter_SetsSecurityHeadersAndContentType(t *testing.T) {
 	t.Parallel()
 

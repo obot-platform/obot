@@ -553,6 +553,35 @@ func TestServerToServerConfig_StaticHeaders_Remote(t *testing.T) {
 	}
 }
 
+func TestServerToServerConfig_RemoteTunnelName(t *testing.T) {
+	mcpServer := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL:        "http://127.0.0.1:8080/mcp",
+					TunnelName: "mcptunnel-office",
+				},
+			},
+		},
+	}
+	mcpServer.Name = "test-server"
+
+	config, missing, err := ServerToServerConfig(mcpServer, nil, "test-user-id", "test-scope", "test-catalog", nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(missing) != 0 {
+		t.Fatalf("expected no missing config, got %v", missing)
+	}
+	if config.URL != mcpServer.Spec.Manifest.RemoteConfig.URL {
+		t.Fatalf("URL = %q, want %q", config.URL, mcpServer.Spec.Manifest.RemoteConfig.URL)
+	}
+	if config.TunnelName != mcpServer.Spec.Manifest.RemoteConfig.TunnelName {
+		t.Fatalf("TunnelName = %q, want %q", config.TunnelName, mcpServer.Spec.Manifest.RemoteConfig.TunnelName)
+	}
+}
+
 func TestServerToServerConfig_WithPrefix(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	tests := []struct {

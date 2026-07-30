@@ -24,6 +24,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	obottunnel "github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1017,6 +1018,9 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 			if err := mcp.ValidateServerManifest(req.Context(), manifest, false, validationOptions); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because its MCP server manifest is invalid: %v", id, err)
 			}
+			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because its tunnel configuration is invalid: %v", id, err)
+			}
 
 			// Create a new MCP server for the user.
 			server := v1.MCPServer{
@@ -1180,6 +1184,7 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 
 	serverRemote.Headers = entryRemote.Headers
 	serverRemote.StaticOAuthRequired = entryRemote.StaticOAuthRequired
+	serverRemote.TunnelName = entryRemote.TunnelName
 	switch {
 	case entryRemote.Hostname != "":
 		serverRemote.Hostname = entryRemote.Hostname
@@ -1643,6 +1648,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := mcp.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, server.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
 	adminManagedSecretBindings := req.UserIsAdmin() && server.Spec.IsCatalogServer()
 	if adminManagedSecretBindings {
 		markAdminAddedSecretBindings(&server.Spec.Manifest, sourceCatalogEntryManifest)
@@ -1739,6 +1747,9 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 
 	if err := mcp.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
@@ -1890,7 +1901,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
-			if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, catalogEntry, url, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, catalogEntry, url, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return err
 			}
 
@@ -1918,6 +1929,9 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
 			if err := mcp.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+				return types.NewErrBadRequest("validation failed: %v", err)
+			}
+			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
@@ -2088,6 +2102,9 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 					component.Manifest.RemoteConfig = remoteConfig
 					if err := mcp.ValidateServerManifest(req.Context(), component.Manifest, false, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
+					}
+					if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, component.Manifest); err != nil {
+						return fmt.Errorf("failed to validate server tunnel configuration: %w", err)
 					}
 					server.Spec.Manifest = component.Manifest
 					server.Spec.NeedsURL = false
@@ -3776,7 +3793,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	if err := updateMCPServerURLFromCatalogEntry(req.Context(), &mcpServer, entry, input.URL, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, entry, input.URL, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return err
 	}
 
@@ -3792,7 +3809,7 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 	return req.Write(ConvertMCPServer(mcpServer, nil, m.serverURL, slug))
 }
 
-func updateMCPServerURLFromCatalogEntry(ctx context.Context, mcpServer *v1.MCPServer, entry v1.MCPServerCatalogEntry, inputURL string, opts mcp.ValidationOptions) error {
+func updateMCPServerURLFromCatalogEntry(ctx context.Context, client kclient.Client, mcpServer *v1.MCPServer, entry v1.MCPServerCatalogEntry, inputURL string, opts mcp.ValidationOptions) error {
 	if entry.Spec.Manifest.RemoteConfig == nil {
 		return types.NewErrBadRequest("the catalog entry for this server does not have remote configuration")
 	}
@@ -3821,10 +3838,15 @@ func updateMCPServerURLFromCatalogEntry(ctx context.Context, mcpServer *v1.MCPSe
 		mcpServer.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{}
 	}
 	mcpServer.Spec.Manifest.RemoteConfig.URL = inputURL
+	mcpServer.Spec.Manifest.RemoteConfig.Hostname = entry.Spec.Manifest.RemoteConfig.Hostname
+	mcpServer.Spec.Manifest.RemoteConfig.TunnelName = entry.Spec.Manifest.RemoteConfig.TunnelName
 	mcpServer.Spec.NeedsURL = false
 	mcpServer.Spec.PreviousURL = ""
 
 	if err := mcp.ValidateServerManifest(ctx, mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), opts); err != nil {
+		return err
+	}
+	if err := obottunnel.ValidateServerTunnelReferences(ctx, client, mcpServer.Spec.Manifest); err != nil {
 		return err
 	}
 
@@ -3892,6 +3914,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if err := mcp.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, candidate.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
 
 	// Shutdown the server, even if there is no credential
 	if err := m.removeMCPServer(req.Context(), server); err != nil {
@@ -3916,6 +3941,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 		// Validate again in case the catalog entry changed between retries.
 		if err := mcp.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			return types.NewErrBadRequest("validation failed: %v", err)
+		}
+		if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, latest.Spec.Manifest); err != nil {
 			return types.NewErrBadRequest("validation failed: %v", err)
 		}
 		return req.Update(&latest)
@@ -3947,23 +3975,29 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 			// Use the fixed URL from catalog entry.
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 				URL:                 entry.Spec.Manifest.RemoteConfig.FixedURL,
+				TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
 				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
 				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		} else if entry.Spec.Manifest.RemoteConfig.Hostname != "" {
 			// Check if the server's current URL matches the new hostname requirement.
 			if server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URL != "" {
-				hostnameMismatchErr := types.ValidateURLHostname(server.Spec.Manifest.RemoteConfig.URL, entry.Spec.Manifest.RemoteConfig.Hostname)
+				currentURL := server.Spec.Manifest.RemoteConfig.URL
+				hostnameMismatchErr := types.ValidateURLHostname(currentURL, entry.Spec.Manifest.RemoteConfig.Hostname)
 
 				server.Spec.NeedsURL = hostnameMismatchErr != nil
 				if server.Spec.NeedsURL {
-					server.Spec.PreviousURL = server.Spec.Manifest.RemoteConfig.URL
-					server.Spec.Manifest.RemoteConfig.URL = ""
+					server.Spec.PreviousURL = currentURL
+					currentURL = ""
+				} else {
+					server.Spec.PreviousURL = ""
 				}
 
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
+					URL:                 currentURL,
 					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
 					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
+					TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
 					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			} else {
@@ -3971,6 +4005,8 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 				server.Spec.NeedsURL = true
 				server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 					Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+					Hostname:            entry.Spec.Manifest.RemoteConfig.Hostname,
+					TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
 					StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 				}
 			}
@@ -3978,6 +4014,7 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
 				URLTemplate:         entry.Spec.Manifest.RemoteConfig.URLTemplate,
+				TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
 				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,
 			}
 		}
@@ -4004,6 +4041,9 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 		return err
 	}
 	if err := mcp.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 

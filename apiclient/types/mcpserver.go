@@ -72,6 +72,7 @@ type ContainerizedRuntimeConfig struct {
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
 	URL                 string      `json:"url"`                           // Required: Full URL to remote MCP server
+	TunnelName          string      `json:"tunnelName,omitempty"`          // Optional: MCPTunnel used to reach the remote MCP server
 	IsTemplate          bool        `json:"isTemplate"`                    // Optional: Whether the URL is a template
 	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
 	Hostname            string      `json:"hostname,omitempty"`            // Optional: Hostname constraint the URL conforms to
@@ -82,6 +83,7 @@ type RemoteRuntimeConfig struct {
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
 type RemoteCatalogConfig struct {
 	FixedURL            string      `json:"fixedURL,omitempty"`            // Fixed URL for all instances
+	TunnelName          string      `json:"tunnelName,omitempty"`          // Optional: MCPTunnel used to reach the remote MCP server
 	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
 	Hostname            string      `json:"hostname,omitempty"`            // Required hostname for user URLs
 	Headers             []MCPHeader `json:"headers,omitempty"`             // Optional
@@ -519,6 +521,7 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 		if m.RemoteConfig != nil {
 			catalogManifest.RemoteConfig = &RemoteCatalogConfig{
 				FixedURL:            m.RemoteConfig.URL,
+				TunnelName:          m.RemoteConfig.TunnelName,
 				URLTemplate:         m.RemoteConfig.URLTemplate,
 				Hostname:            m.RemoteConfig.Hostname,
 				Headers:             m.RemoteConfig.Headers,
@@ -628,7 +631,9 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		remoteConfig := &RemoteRuntimeConfig{}
+		remoteConfig := &RemoteRuntimeConfig{
+			TunnelName: catalogEntry.RemoteConfig.TunnelName,
+		}
 
 		switch {
 		case catalogEntry.RemoteConfig.FixedURL != "":

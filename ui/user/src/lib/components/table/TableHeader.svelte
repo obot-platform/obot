@@ -2,7 +2,7 @@
 	import popover from '$lib/actions/popover.svelte';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Select from '../Select.svelte';
-	import { ArrowDown, ArrowUp, CircleHelp, Funnel } from '@lucide/svelte';
+	import { ArrowDown, ArrowUp, CircleQuestionMark, Funnel } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -65,7 +65,7 @@
 	<span class="flex grow items-center justify-between gap-4">
 		{#if filterable}
 			<button
-				class="flex grow items-center gap-1 capitalize"
+				class="flex grow items-center gap-1 capitalize text-nowrap"
 				use:tooltip={{
 					text: `Filter by ${headerTitle ?? property}`,
 					classes: ['z-60'],
@@ -77,7 +77,7 @@
 				{headerTitle ?? property}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
-						<CircleHelp class="text-muted-content size-3.5" />
+						<CircleQuestionMark class="text-muted-content size-3.5" />
 					</div>
 				{/if}
 				<div
@@ -93,11 +93,11 @@
 				</div>
 			</button>
 		{:else}
-			<span class="flex items-center gap-1">
+			<span class="flex items-center gap-1 text-nowrap">
 				{headerTitle ?? property}
 				{#if headerTooltip}
 					<div use:tooltip={{ text: headerTooltip, classes: ['w-64', 'break-normal', 'z-[60]'] }}>
-						<CircleHelp class="text-muted-content size-3.5" />
+						<CircleQuestionMark class="text-muted-content size-3.5" />
 					</div>
 				{/if}
 			</span>

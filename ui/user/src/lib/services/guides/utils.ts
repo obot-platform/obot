@@ -9,7 +9,9 @@ import {
 	McpCustomHostedGuide,
 	McpCustomRemoteGuide,
 	McpCustomCompositeGuide,
-	McpAccessPolicyCreateGuide
+	McpAccessPolicyCreateGuide,
+	DevicesInstallSentryGuide,
+	McpFiltersGuide
 } from '.';
 import { isValid } from 'date-fns';
 
@@ -47,6 +49,20 @@ export function generateLessonItems() {
 								label: McpAccessPolicyCreateGuide.title,
 								description: McpAccessPolicyCreateGuide.description,
 								guide: McpAccessPolicyCreateGuide
+							}
+						]
+					: []),
+				...(profile.current.isAdmin?.()
+					? [
+							{
+								label: McpFiltersGuide.title,
+								description: McpFiltersGuide.description,
+								guide: McpFiltersGuide
+							},
+							{
+								label: DevicesInstallSentryGuide.title,
+								description: DevicesInstallSentryGuide.description,
+								guide: DevicesInstallSentryGuide
 							}
 						]
 					: [])

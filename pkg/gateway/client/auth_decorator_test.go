@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -21,7 +22,7 @@ func TestUserDecoratorPassesGenericOAuthIssuerAndEmailVerified(t *testing.T) {
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +41,7 @@ func TestUserDecoratorPassesGenericOAuthIssuerAndEmailVerified(t *testing.T) {
 				},
 			},
 		},
-	}, c)
+	}, c, unlimitedUserLimitProvider())
 
 	resp, ok, err := decorator.AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/", nil))
 	if err != nil {
@@ -72,7 +73,7 @@ func TestUserDecoratorRejectsInvalidEmailVerifiedValue(t *testing.T) {
 				},
 			},
 		},
-	}, c)
+	}, c, unlimitedUserLimitProvider())
 
 	resp, ok, err := decorator.AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/", nil))
 	if err == nil {
@@ -99,7 +100,7 @@ func TestUserDecoratorNoopsWithoutAuthProviderMetadata(t *testing.T) {
 				Extra: map[string][]string{},
 			},
 		},
-	}, c)
+	}, c, unlimitedUserLimitProvider())
 
 	resp, ok, err := decorator.AuthenticateRequest(httptest.NewRequest(http.MethodGet, "/", nil))
 	if err != nil {
@@ -126,4 +127,10 @@ func (s staticAuthenticator) AuthenticateRequest(*http.Request) (*authenticator.
 		return nil, false, nil
 	}
 	return s.response, true, nil
+}
+
+func unlimitedUserLimitProvider() UserLimitProvider {
+	return userLimitProviderFunc(func(context.Context) (UserLimit, error) {
+		return UserLimit{Unlimited: true}, nil
+	})
 }

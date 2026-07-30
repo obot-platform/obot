@@ -30,6 +30,9 @@ func (n *NoAuth) AuthenticateRequest(req *http.Request) (*authenticator.Response
 		},
 		req.Header.Get("X-Obot-User-Timezone"),
 		types2.RoleOwner|types2.RoleAuditor,
+		// Pass unlimited user limit because we always need to ensure this user is created.
+		// This user will only exist for unauthenticated setups.
+		client.UserLimit{Unlimited: true},
 	)
 	if err != nil {
 		return nil, false, err

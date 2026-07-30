@@ -56,6 +56,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -95,6 +96,8 @@ type Config struct {
 	EnableAuthentication bool     `usage:"Enable authentication" default:"false"`
 	AuthAdminEmails      []string `usage:"Emails of admin users"`
 	AuthOwnerEmails      []string `usage:"Emails of owner users"`
+	TunnelPeerID         string   `usage:"Unique Pod UID of this Obot replica for tunnel peering"`
+	TunnelPeerToken      string   `usage:"Shared internal credential for tunnel peering"`
 
 	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 
@@ -164,6 +167,7 @@ type Services struct {
 	DSN                   string
 	ServerURL             string
 	MCPSessionManager     *mcp.SessionManager
+	TunnelManager         *tunnel.Manager
 	OAuthServerConfig     handlers.OAuthAuthorizationServerConfig
 
 	// Global token storage client for MCP OAuth
@@ -202,6 +206,7 @@ type Services struct {
 	// secretBindings live. Nil on the docker backend.
 	LocalK8sClient            kclient.Client
 	LocalRouter               *router.Router
+	EveryReplicaRouter        *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
 	ServiceAccountIssuerError string
@@ -532,9 +537,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return apiKey.ServiceAccountName, nil
 	})
 
-	// Build local Kubernetes config for deployment monitoring (optional)
+	// Build local Kubernetes config for deployment monitoring and, when Obot
+	// has multiple replicas, EndpointSlice-based tunnel peer discovery.
 	var (
 		localK8sConfig            *rest.Config
+		tunnelPeerConfig          tunnel.PeerConfig
 		serviceAccountIssuerURL   string
 		serviceAccountIssuerError string
 	)
@@ -548,6 +555,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			serviceAccountIssuerError = err.Error()
 			pkgLog.Warnf("Failed to discover Kubernetes service account issuer URL: %v", err)
 		}
+
+		tunnelPeerConfig = tunnel.PeerConfig{
+			ID:               strings.TrimSpace(config.TunnelPeerID),
+			Token:            strings.TrimSpace(config.TunnelPeerToken),
+			ServiceName:      strings.TrimSpace(config.ServiceName),
+			ServiceNamespace: strings.TrimSpace(config.ServiceNamespace),
+		}
+		if err := tunnelPeerConfig.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid tunnel peer configuration: %w", err)
+		}
+	}
+
+	tunnelManager, err := tunnel.NewManager(ctx, fmt.Sprintf("http://127.0.0.1:%d", config.HTTPListenPort), storageClient, tunnelPeerConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize tunnel manager: %w", err)
 	}
 
 	// Parse Helm K8s settings - PSA settings and pod scheduling settings are handled separately
@@ -633,8 +655,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		apiLocalK8sClient kclient.WithWatch
 		localCacheClient  kclient.WithWatch
 		localRouter       *router.Router
+		tunnelPeerRouter  *router.Router
 	)
-	if localK8sConfig != nil {
+	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		apiLocalK8sClient, err = kclient.NewWithWatch(localK8sConfig, kclient.Options{Scheme: k8sscheme.Scheme})
 		if err != nil {
 			return nil, fmt.Errorf("failed to build local k8s client for API server: %w", err)
@@ -657,11 +680,23 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 		localCacheClient = localRouter.Backend()
 	}
+	if tunnelManager.Enabled() {
+		tunnelPeerRouter, err = nah.NewRouter("obot-tunnel-peers", &nah.Options{
+			RESTConfig:     localK8sConfig,
+			Scheme:         k8sscheme.Scheme,
+			Namespace:      tunnelManager.ServiceNamespace,
+			ElectionConfig: nil,
+			HealthzPort:    -1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create tunnel peer Kubernetes router: %w", err)
+		}
+	}
 
 	webhookHelper := mcp.NewWebhookHelper(mcpWebhookValidationInformer.GetIndexer(), config.Hostname)
 
 	mcpOAuthTokenStorage := mcpgateway.NewGlobalTokenStore(gatewayClient)
-	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace)
+	mcpSessionManager, err := mcp.NewSessionManager(ctx, config.EnableAuthentication, mcpOAuthTokenStorage, persistentTokenServer, config.Hostname, config.HTTPListenPort, mcp.Options(config.MCPConfig), webhookHelper, localK8sConfig, apiLocalK8sClient, localCacheClient, storageClient, gatewayClient, config.ServiceNamespace, tunnelManager)
 	if err != nil {
 		return nil, err
 	}
@@ -867,10 +902,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			authenticators = union.New(authenticators, oidcjwt.NewAuthenticator(oidcJWTCfg, oidcVerifier))
 		}
 		// Add gateway user info
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
 		if oidcJWTCfg.Enabled() {
 			authenticators = oidcjwt.NewRoleUplift(authenticators, oidcJWTCfg)
 		}
+		// Tunnel credentials are non-user principals and must be handled after
+		// the user decorator. Authorization restricts them to tunnel setup only.
+		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
 		// Must come after UserDecorator since it handles its own user lookup
 		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
@@ -916,7 +954,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// "Authentication Disabled" flow
 
 		// Add gateway user info if token auth worked
-		authenticators = client.NewUserDecorator(authenticators, gatewayClient)
+		authenticators = client.NewUserDecorator(authenticators, gatewayClient, licenseProvider)
+
+		// Tunnel authenticator
+		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
@@ -924,6 +965,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Add no auth authenticator
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
+
+	// Bridge requests use a non-user principal and can also carry the remote
+	// server's Authorization header, so recognize them before all user-facing
+	// authenticators and outside the user decorator.
+	authenticators = union.New(tunnelManager, authenticators)
 
 	auditLogger, err := audit.New(ctx, audit.Options(config.AuditConfig))
 	if err != nil {
@@ -988,6 +1034,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		Otel:                         otel,
 		AuditLogger:                  auditLogger,
 		MCPSessionManager:            mcpSessionManager,
+		TunnelManager:                tunnelManager,
 		OAuthServerConfig:            oauthServerConfig,
 		MCPOAuthTokenStorage:         mcpOAuthTokenStorage,
 		MCPSecretBindingAllowedLabel: secretBindingAllowedLabel,
@@ -1016,6 +1063,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		LocalK8sClient:                       apiLocalK8sClient,
 		LocalRouter:                          localRouter,
+		EveryReplicaRouter:                   tunnelPeerRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,

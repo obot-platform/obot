@@ -6,6 +6,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (s *Server) activeUsers(apiContext api.Context) error {
@@ -24,7 +25,7 @@ func (s *Server) activeUsers(apiContext api.Context) error {
 
 	items := make([]types2.User, 0, len(activeUsers))
 	for _, user := range activeUsers {
-		if user.Username != "bootstrap" && user.Email != "" { // Filter out the bootstrap admin
+		if user.Username != system.BootstrapName && user.Email != "" { // Filter out the bootstrap admin
 			items = append(items, *types.ConvertUser(&user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, ""))
 		}
 	}

@@ -478,6 +478,7 @@ export interface LicenseEntitlementViolation {
 	name: string;
 	requiredEntitlements: string[];
 	missingEntitlements: string[];
+	message?: string;
 }
 
 // MCP catalog servers
@@ -593,18 +594,20 @@ export interface MCPResourceRequirements {
 	limits?: MCPResourceRequests;
 }
 export interface RemoteRuntimeConfig {
-	url: string;
-	headers?: MCPSubField[];
 	fixedURL?: string;
+	headers?: MCPSubField[];
 	hostname?: string;
 	isTemplate?: boolean;
+	tunnelName?: string;
+	url: string;
 	urlTemplate?: string;
 }
 export interface RemoteCatalogConfig {
 	fixedURL?: string;
-	hostname?: string;
-	urlTemplate?: string;
 	headers?: MCPSubField[];
+	hostname?: string;
+	tunnelName?: string;
+	urlTemplate?: string;
 }
 export type ResourceRuntimeConfig = MCPResourceRequirements;
 export interface MultiUserConfig {
@@ -874,7 +877,10 @@ export interface Version {
 	obot?: string;
 	authEnabled?: boolean;
 	enterprise?: boolean;
+	community?: boolean;
 	licenseEntitlements?: string[];
+	userCount?: number;
+	userLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
 	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;

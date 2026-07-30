@@ -36,10 +36,7 @@ func (h *handler) register(req api.Context) error {
 	}
 
 	if err := handlers.ValidateClientConfig(&oauthClient, h.oauthConfig); err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: err.Error(),
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidClientMetadata, err.Error(), ""))
 	}
 
 	clientSecret, registrationToken, err := h.ensureTokenAndSecret(&oauthClient)
@@ -94,10 +91,7 @@ func (h *handler) updateClient(req api.Context) error {
 	oauthClient.Spec.Manifest = oauthClientManifest
 
 	if err := handlers.ValidateClientConfig(&oauthClient, h.oauthConfig); err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClientMetadata,
-			Description: err.Error(),
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidClientMetadata, err.Error(), ""))
 	}
 
 	clientSecret, registrationToken, err := h.updateClientIfNecessary(req.Context(), req.Storage, &oauthClient)

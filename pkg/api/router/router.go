@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/component-base/metrics/legacyregistry"
@@ -74,7 +75,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		mcpgateway.NewAuditLogHandler(services.GatewayClient),
 		services.ServerURL,
 		services.DSN,
-		services.MCPSecretBindingAllowedLabel)
+		services.MCPSecretBindingAllowedLabel,
+		services.TunnelManager,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +123,14 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	oauthClients := handlers.NewOAuthClientsHandler(services.OAuthServerConfig, services.ServerURL)
 	publishedArtifacts := handlers.NewPublishedArtifactHandler(services.ArtifactBlobStore, services.ArtifactBlobBucket)
 	imagePullSecretsHandler := handlers.NewImagePullSecretHandler(services.MCPRuntimeBackend, services.MCPImagePullSecrets, services.MCPServerNamespace, services.ServiceNamespace, services.ServiceAccountName, services.LocalK8sClient, services.ServiceAccountIssuerURL, services.ServiceAccountIssuerError)
-	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider)
+	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient))
+	tunnelHandler := handlers.NewTunnelHandler(services.TunnelManager)
+	mcpTunnelHandler := handlers.NewMCPTunnelHandler(services.TunnelManager)
+
+	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
+	if err != nil {
+		return nil, err
+	}
 
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
@@ -129,7 +139,24 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/license", licenseHandler.Get)
 	mux.HandleFunc("PUT /api/license", licenseHandler.Update)
 	mux.HandleFunc("POST /api/license", licenseHandler.CheckLicense)
+	mux.HandleFunc("POST /api/license/community", licenseHandler.CreateCommunityLicense)
 	mux.HandleFunc("DELETE /api/license", licenseHandler.Delete)
+
+	// Tunnel management (admin/owner only).
+	// /api/tunnels gives information about the connected tunnels
+	mux.HandleFunc("GET /api/tunnels", tunnelHandler.List)
+	// /api/mcp-tunnels gives information about the configured MCP tunnels
+	mux.HandleFunc("GET /api/mcp-tunnels", mcpTunnelHandler.List)
+	mux.HandleFunc("POST /api/mcp-tunnels", mcpTunnelHandler.Create)
+	mux.HandleFunc("GET /api/mcp-tunnels/{id}", mcpTunnelHandler.Get)
+	mux.HandleFunc("PUT /api/mcp-tunnels/{id}", mcpTunnelHandler.Update)
+	mux.HandleFunc("DELETE /api/mcp-tunnels/{id}", mcpTunnelHandler.Delete)
+	mux.HandleFunc("POST /api/mcp-tunnels/{id}/rotate-secret", mcpTunnelHandler.RotateSecret)
+
+	// A tunnel credential is authorized only for this websocket upgrade path.
+	mux.HandleFunc("GET /tunnel/connect", tunnelHandler.Connect)
+	// Obot replicas use a separate internal websocket upgrade path for tunnel peering.
+	mux.HandleFunc("GET /tunnel/peer", tunnelHandler.Peer)
 
 	// MCP Catalog Entries (user routes to access single-user and remote MCP servers from all sources)
 	mux.HandleFunc("GET /api/all-mcps/entries", mcp.ListEntriesFromAllSources)
@@ -372,6 +399,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
 
+	// Enforcement decisions
+	mux.HandleFunc("POST /api/enforcement/decisions", enforcement.Decide)
+	mux.HandleFunc("GET /api/enforcement-decisions", enforcement.ListDecisions)
+	mux.HandleFunc("GET /api/enforcement-decisions/filter-options/{filter}", enforcement.ListFilterOptions)
+	mux.HandleFunc("GET /api/enforcement-decisions/allowlist-check/{id}", enforcement.CheckDecisionAllowlist)
+	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
+
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
 	mux.HandleFunc("GET /api/llm-audit-logs/filter-options/{filter}", llmAuditLogs.ListFilterOptions)
@@ -583,6 +617,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mdm/configurations", mdmConfigurations.List)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}", mdmConfigurations.Get)
 	mux.HandleFunc("PUT /api/mdm/configurations/{id}", mdmConfigurations.Update)
+	mux.HandleFunc("PUT /api/mdm/configurations/{id}/enforcement", mdmConfigurations.UpdateEnforcement)
 	mux.HandleFunc("DELETE /api/mdm/configurations/{id}", mdmConfigurations.Delete)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.ListEnrollmentKeys)
 	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)
@@ -640,7 +675,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)
 
 	// Gateway APIs
-	services.GatewayServer.AddRoutes(services.APIServer)
+	services.GatewayServer.AddRoutes(services.APIServer, http.HandlerFunc(services.TunnelManager.ServeBridge))
 
 	// Well-known
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)

@@ -911,6 +911,11 @@
 		pointer-events: none;
 	}
 
+	.guide-panel-popover a {
+		color: var(--color-blue-500);
+		text-decoration: underline;
+	}
+
 	.guide-panel-popover:popover-open {
 		display: flex;
 	}

@@ -574,6 +574,12 @@ export interface LicenseManifest {
 	licenseKey: string;
 }
 
+export interface CommunityLicenseEnrollment {
+	name: string;
+	email: string;
+	company?: string;
+}
+
 // LLM audit logs
 
 export interface LLMAuditLog {
@@ -668,15 +674,17 @@ export interface MCPCatalogEntryFieldManifest {
 	secretBinding?: MCPSecretBinding;
 }
 export interface RemoteRuntimeConfigAdmin {
-	url: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+	tunnelName?: string;
+	url: string;
 }
 export interface RemoteCatalogConfigAdmin {
 	fixedURL?: string;
-	urlTemplate?: string;
-	hostname?: string;
 	headers?: MCPCatalogEntryFieldManifest[];
+	hostname?: string;
 	staticOAuthRequired?: boolean;
+	tunnelName?: string;
+	urlTemplate?: string;
 }
 export interface CompositeCatalogConfig {
 	componentServers: CatalogComponentServer[];
@@ -911,6 +919,27 @@ export interface OAuthToken {
 	refresh_token: string;
 	expires_in: number;
 	token_type: string;
+}
+
+// MCP tunnels
+
+export interface MCPTunnel {
+	created: string;
+	deleted?: string;
+	id: string;
+	links?: Record<string, string>;
+	manifest: MCPTunnelManifest;
+	metadata?: Record<string, string>;
+	token: string;
+	type?: string;
+}
+export interface MCPTunnelManifest {
+	allowedURLs?: string[];
+	description?: string;
+	displayName: string;
+}
+export interface TunnelConnection {
+	name: string;
 }
 
 // Message policies
@@ -1293,6 +1322,8 @@ export interface MDMConfiguration {
 	assetDigest?: string;
 	artifacts: MDMConfigurationArtifact[];
 	createdAt: string;
+	enforcementAllowlist?: EnforcementAllowlist;
+	enforcementEnabled?: boolean;
 	id: number;
 	isDefault: boolean;
 	// Version of the source bundle the saved artifacts were rendered from.
@@ -1302,6 +1333,8 @@ export interface MDMConfiguration {
 
 export interface MDMConfigurationInput {
 	assetDigest?: string;
+	// Omitting the allowlist on creation lets the server seed its default policy.
+	enforcementEnabled?: boolean;
 	values?: Record<string, unknown>;
 }
 
@@ -1387,3 +1420,100 @@ export interface MDMAsset {
 export interface MDMAssetList {
 	items: MDMAsset[] | null;
 }
+
+// Tool call enforcement — the allowlist attached to an MDMConfiguration decides
+// which tool calls devices enrolled in that fleet may execute. Anything that
+// does not positively match an allow rule is blocked.
+
+export type AllowlistServerPackageSource = 'npm' | 'pypi';
+
+export interface AllowlistServerPackage {
+	name: string;
+	source: AllowlistServerPackageSource;
+	// Empty accepts any version.
+	version?: string;
+}
+
+// Exactly one of url, package, hostname, or connector identifies the server.
+export interface AllowlistServer {
+	connector?: string;
+	hostname?: string;
+	package?: AllowlistServerPackage;
+	// Empty allows every tool on the server.
+	tools?: string[];
+	url?: string;
+}
+
+export interface EnforcementAllowlist {
+	allowAllBuiltinAgentMcpServers?: boolean;
+	allowAllBuiltinAgentTools?: boolean;
+	allowAllObotHostedMcpServers?: boolean;
+	// Allows every call and short-circuits every other rule.
+	allowEverything?: boolean;
+	servers?: AllowlistServer[];
+}
+
+export interface MDMConfigurationEnforcementInput {
+	enforcementAllowlist: EnforcementAllowlist;
+	enforcementEnabled: boolean;
+}
+
+// EnforcementDecisionServer is the target the device resolved a tool call to.
+export interface EnforcementDecisionServer {
+	// Raw stdio command. Recorded for context only — it is not an allowlist
+	// dimension, so a call identified only by its command cannot be allowlisted.
+	command?: string;
+	connector?: string;
+	hostname?: string;
+	package?: AllowlistServerPackage;
+	url?: string;
+}
+
+export type EnforcementDecisionVerdict = 'allow' | 'deny';
+
+export interface EnforcementDecisionEvent {
+	agent?: string;
+	clientIP?: string;
+	createdAt: string;
+	decision: EnforcementDecisionVerdict;
+	deviceID?: string;
+	id: string;
+	kind?: string;
+	mdmConfigurationID: number;
+	obotHosted?: boolean;
+	reason?: string;
+	server?: EnforcementDecisionServer;
+	serverName?: string;
+	tool?: string;
+	// The device could not establish what the call targeted, so it was blocked
+	// before any rule was consulted. Always paired with a deny.
+	unresolved?: boolean;
+	unresolvedReason?: string;
+}
+
+// EnforcementDecisionAllowlistCheck is the server's answer to "would this
+// recorded call be allowed if it were made now?".
+export interface EnforcementDecisionAllowlistCheck {
+	allowlistDecision: EnforcementDecisionVerdict;
+	allowlistReason?: string;
+	enforcementEnabled: boolean;
+	id: string;
+}
+
+export type EnforcementDecisionURLFilters = {
+	// actor is the enrolled device that produced the decision.
+	actor?: string | null;
+	agent?: string | null;
+	decision?: string | null;
+	end_time?: string | null;
+	kind?: string | null;
+	limit?: number | null;
+	mdm_configuration_id?: string | null;
+	offset?: number | null;
+	query?: string | null;
+	server?: string | null;
+	sort_by?: string | null;
+	sort_order?: string | null;
+	start_time?: string | null;
+	tool?: string | null;
+};

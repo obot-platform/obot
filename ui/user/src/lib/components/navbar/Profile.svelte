@@ -38,7 +38,6 @@
 		X,
 		CircleFadingArrowUp,
 		LayoutDashboard,
-		KeyRound,
 		BotMessageSquare,
 		Power,
 		LockOpen,
@@ -61,9 +60,6 @@
 	let inAdminRoute = $derived(page.url.pathname.includes('/admin'));
 	let showChatLink = $derived(
 		(!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/agent')) || inAdminRoute
-	);
-	let showApiKeysLink = $derived(
-		!page.url.pathname.startsWith('/o') && !page.url.pathname.startsWith('/agent')
 	);
 	let showMcpManagement = $derived(
 		['/o', '/profile', '/agent'].some((path) => page.url.pathname.startsWith(path))
@@ -252,11 +248,6 @@
 			{#if !impersonating}
 				{#if profile.current.email && !page.url.pathname.startsWith('/profile')}
 					<MyAccount onClose={() => menu?.toggle(false)} />
-				{/if}
-				{#if showApiKeysLink}
-					<a href={resolve('/keys')} role="menuitem" class="dropdown-link"
-						><KeyRound class="size-4" />My API Keys</a
-					>
 				{/if}
 				<button
 					class="dropdown-link"

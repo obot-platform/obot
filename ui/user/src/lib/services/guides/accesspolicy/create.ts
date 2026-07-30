@@ -22,7 +22,8 @@ export const steps: GuideStep[] = [
 			getExpandAdvancedPaneAction({
 				elementMissing: SIDEBAR_MCP_ACCESS_POLICIES_LINK,
 				highlight: highlightMcpAccessPoliciesLink,
-				listener: listenMcpAccessPoliciesLink
+				listener: listenMcpAccessPoliciesLink,
+				parentID: 'sidebar-collapse-mcp-server-management'
 			})
 		]
 	},

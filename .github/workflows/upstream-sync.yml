@@ -252,8 +252,8 @@ jobs:
               echo
             fi
             echo "### Upstream commits"
-            git log --no-merges --pretty=format:'- %h %s (%an)' \
-              "origin/${BASE_BRANCH}..upstream/${UPSTREAM_BRANCH}" | head -50
+            git log --no-merges --max-count=50 --pretty=format:'- %h %s (%an)' \
+              "origin/${BASE_BRANCH}..upstream/${UPSTREAM_BRANCH}"
             echo
           } > /tmp/pr-body.md
 

@@ -125,12 +125,11 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 				return
 			}
 
-			http.Error(rw, err.Error(), http.StatusUnauthorized)
-
 			// Check if this is a FetchUserGroupsError which indicates an auth provider configuration issue
-			var fetchGroupsErr *gclient.FetchUserGroupsError
-			if errors.As(err, &fetchGroupsErr) {
-				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", err.Error()), http.StatusInternalServerError)
+			if fetchGroupsErr, ok := errors.AsType[*gclient.FetchUserGroupsError](err); ok {
+				http.Error(rw, fmt.Sprintf("Authentication provider configuration error: %s. Please contact an administrator to fix the auth provider configuration.", fetchGroupsErr.Message), http.StatusInternalServerError)
+			} else {
+				http.Error(rw, err.Error(), http.StatusUnauthorized)
 			}
 
 			return
@@ -249,6 +248,10 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 type headersResponseWriter struct {
 	http.ResponseWriter
 	wroteHeader bool
+}
+
+func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func (w *headersResponseWriter) ensureHeaders(status int) {

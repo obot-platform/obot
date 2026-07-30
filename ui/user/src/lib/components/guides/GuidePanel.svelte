@@ -247,9 +247,9 @@
 			!reveal || reveal.contentCount < step.content.length || (hasButtons && !reveal.showButton);
 		if (revealIncomplete) {
 			revealGeneration += 1;
-			void animateStepReveal(guide.currentStep);
+			void animateStepReveal(guide.currentStep, { wait: true });
 		} else {
-			if (step.action) void handleStepAction(step.action);
+			if (step.action) void handleStepAction(step.action, { wait: true });
 			if (isLastStepComplete(guide.currentStep, step)) {
 				guideCompleted = true;
 			}
@@ -422,13 +422,13 @@
 		}
 	}
 
-	async function animateStepReveal(stepIndex: number) {
+	async function animateStepReveal(stepIndex: number, options?: { wait?: boolean }) {
 		const generation = revealGeneration;
 		const step = guide.stream[stepIndex];
 		if (!step) return;
 
 		if (step.action) {
-			void handleStepAction(step.action);
+			void handleStepAction(step.action, options);
 		}
 
 		const next = guide.revealed.slice(0, stepIndex);

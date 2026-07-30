@@ -25,6 +25,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRule":                         schema_obot_platform_obot_apiclient_types_AccessControlRule(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleList":                     schema_obot_platform_obot_apiclient_types_AccessControlRuleList(ref),
 		"github.com/obot-platform/obot/apiclient/types.AccessControlRuleManifest":                 schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                            schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogAction":                            schema_obot_platform_obot_apiclient_types_AuditLogAction(ref),
@@ -100,6 +102,14 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatList":                       schema_obot_platform_obot_apiclient_types_DeviceSkillStatList(ref),
 		"github.com/obot-platform/obot/apiclient/types.DeviceSkillStatResponse":                   schema_obot_platform_obot_apiclient_types_DeviceSkillStatResponse(ref),
 		"github.com/obot-platform/obot/apiclient/types.ECRImagePullSecretConfig":                  schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist":                      schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionAllowlistCheck":         schema_obot_platform_obot_apiclient_types_EnforcementDecisionAllowlistCheck(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent":                  schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventList":              schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventList(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEventResponse":          schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionRequest":                schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionResponse":               schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer":                 schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                   schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
 		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.FilterConfig":                              schema_obot_platform_obot_apiclient_types_FilterConfig(ref),
@@ -169,6 +179,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":            schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                          schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                      schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnel":                                 schema_obot_platform_obot_apiclient_types_MCPTunnel(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnelList":                             schema_obot_platform_obot_apiclient_types_MCPTunnelList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest":                         schema_obot_platform_obot_apiclient_types_MCPTunnelManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatItem":                          schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStats":                             schema_obot_platform_obot_apiclient_types_MCPUsageStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPUsageStatsList":                         schema_obot_platform_obot_apiclient_types_MCPUsageStatsList(ref),
@@ -184,6 +197,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MDMAssetSourceManifest":                    schema_obot_platform_obot_apiclient_types_MDMAssetSourceManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfiguration":                          schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref),
+		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationEnforcementRequest":        schema_obot_platform_obot_apiclient_types_MDMConfigurationEnforcementRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationList":                      schema_obot_platform_obot_apiclient_types_MDMConfigurationList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMConfigurationManifest":                  schema_obot_platform_obot_apiclient_types_MDMConfigurationManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MDMEnrollmentKey":                          schema_obot_platform_obot_apiclient_types_MDMEnrollmentKey(ref),
@@ -299,6 +313,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageCost":                            schema_obot_platform_obot_apiclient_types_TokenUsageCost(ref),
 		"github.com/obot-platform/obot/apiclient/types.TokenUsageList":                            schema_obot_platform_obot_apiclient_types_TokenUsageList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ToolOverride":                              schema_obot_platform_obot_apiclient_types_ToolOverride(ref),
+		"github.com/obot-platform/obot/apiclient/types.TunnelConnection":                          schema_obot_platform_obot_apiclient_types_TunnelConnection(ref),
+		"github.com/obot-platform/obot/apiclient/types.TunnelConnectionList":                      schema_obot_platform_obot_apiclient_types_TunnelConnectionList(ref),
 		"github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig":                          schema_obot_platform_obot_apiclient_types_UVXRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.User":                                      schema_obot_platform_obot_apiclient_types_User(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                    schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
@@ -368,6 +384,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.MCPServerList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerList(ref),
 		v1.MCPServerSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPServerSpec(ref),
 		v1.MCPServerStatus{}.OpenAPIModelName():                                                   schema_storage_apis_obotobotai_v1_MCPServerStatus(ref),
+		v1.MCPTunnel{}.OpenAPIModelName():                                                         schema_storage_apis_obotobotai_v1_MCPTunnel(ref),
+		v1.MCPTunnelList{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPTunnelList(ref),
+		v1.MCPTunnelSpec{}.OpenAPIModelName():                                                     schema_storage_apis_obotobotai_v1_MCPTunnelSpec(ref),
 		v1.MCPWebhookValidation{}.OpenAPIModelName():                                              schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref),
 		v1.MCPWebhookValidationList{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref),
 		v1.MCPWebhookValidationSpec{}.OpenAPIModelName():                                          schema_storage_apis_obotobotai_v1_MCPWebhookValidationSpec(ref),
@@ -780,6 +799,95 @@ func schema_obot_platform_obot_apiclient_types_AccessControlRuleManifest(ref com
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.Resource", "github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AllowlistServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AllowlistServer allows MCP tool calls to one server. Exactly one of URL, Package, Hostname, or Connector identifies the server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"),
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"connector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connector allowlists a hosted account connector by display name, for agent-account connectors that expose no local URL or command. The device attests which connector a call targeted; this decides whether it is permitted. Matched case-insensitively.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tools limits the entry to these tool names; empty allows every tool on the server.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Source is the registry the package is published to: npm | pypi.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name is the package name as published to Source.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Version pins an exact version; empty accepts any version.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"source", "name"},
+			},
+		},
 	}
 }
 
@@ -5035,6 +5143,411 @@ func schema_obot_platform_obot_apiclient_types_ECRImagePullSecretConfig(ref comm
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_EnforcementAllowlist(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowEverything": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllObotHostedMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllBuiltinAgentTools": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowAllBuiltinAgentMcpServers": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowAllBuiltinAgentMCP allows any call to a built-in agent MCP server (i.e. Claude Code's workspace or claude-in-chrome)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"servers": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServer"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionAllowlistCheck(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionAllowlistCheck is the result of replaying a recorded decision against its fleet's current allowlist: would this call be allowed if it were made now? The decision log is append-only evidence of what devices were told, so asking this question records nothing.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"allowlistDecision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"allowlistReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "allowlistDecision", "enforcementEnabled"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionEvent is the public, read-side shape of a recorded decision. It is the decision log's own event type.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"createdAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"mdmConfigurationID": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"deviceID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"clientIP": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"obotHosted": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
+						},
+					},
+					"unresolved": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unresolved reports that the device could not establish what the call targeted, and UnresolvedReason is the specific cause it reported. Such a row is always a deny, so these exist to let the UI label it as \"could not be identified\" rather than \"not allowlisted\".",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"unresolvedReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"id", "createdAt", "mdmConfigurationID", "decision"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionEventResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"),
+									},
+								},
+							},
+						},
+					},
+					"total": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"limit": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+					"offset": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"items", "total", "limit", "offset"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionRequest is the parameter-free normalized tool call a device submits to the decision endpoint. The fleet configuration is resolved from the authenticated device identity, never from this body.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"agent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"tool": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"server": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"),
+						},
+					},
+					"unresolved": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Unresolved is set by the device when it could not establish what the call targets (unsupported stdio runner, disallowed runner flag, MCP server absent from every config file). The device has already blocked the call; this exists so the decision log records why.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"unresolvedReason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"server"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"decision"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "EnforcementDecisionServer is the resolved target MCP server of a normalized tool call.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"package": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"),
+						},
+					},
+					"command": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"hostname": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"connector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Connector is the display name of a hosted agent-account connector, for servers that expose no local URL and no local command. It is the only local evidence of what such a server is.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ErrHTTP(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -8530,6 +9043,107 @@ func schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref common.R
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPTunnel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPTunnel is an admin-managed tunnel configuration.\n\nToken contains the complete bearer token only when the tunnel is created or its token is rotated. Other responses contain a non-secret preview.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"Metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.Metadata"),
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"),
+						},
+					},
+					"token": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"Metadata", "manifest", "token"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest", "github.com/obot-platform/obot/apiclient/types.Metadata"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTunnelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTunnel"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnel"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTunnelManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"allowedURLs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"displayName"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPUsageStatItem(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9306,12 +9920,24 @@ func schema_obot_platform_obot_apiclient_types_MDMConfiguration(ref common.Refer
 							},
 						},
 					},
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"enforcementAllowlist": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"),
+						},
+					},
 				},
-				Required: []string{"id", "isDefault", "createdAt", "artifacts"},
+				Required: []string{"id", "isDefault", "createdAt", "artifacts", "enforcementAllowlist"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist", "github.com/obot-platform/obot/apiclient/types.MDMConfigurationArtifact", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -9354,6 +9980,33 @@ func schema_obot_platform_obot_apiclient_types_MDMConfigurationArtifact(ref comm
 				Required: []string{"slug", "platform", "os", "instructions"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MDMConfigurationEnforcementRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enforcementEnabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"enforcementAllowlist": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"),
+						},
+					},
+				},
+				Required: []string{"enforcementAllowlist"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.EnforcementAllowlist"},
 	}
 }
 
@@ -12561,9 +13214,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							Format: "",
 						},
 					},
-					"urlTemplate": {
+					"tunnelName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Fixed URL for all instances",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"urlTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: MCPTunnel used to reach the remote MCP server",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -12617,9 +13277,16 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 							Format:  "",
 						},
 					},
-					"isTemplate": {
+					"tunnelName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Required: Full URL to remote MCP server",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"isTemplate": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Optional: MCPTunnel used to reach the remote MCP server",
 							Default:     false,
 							Type:        []string{"boolean"},
 							Format:      "",
@@ -14762,6 +15429,54 @@ func schema_obot_platform_obot_apiclient_types_ToolOverride(ref common.Reference
 				Required: []string{"name"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TunnelConnection(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "TunnelConnection describes a tunnel that is currently connected to this Obot installation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_TunnelConnectionList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.TunnelConnection"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.TunnelConnection"},
 	}
 }
 
@@ -17950,6 +18665,128 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 		},
 		Dependencies: []string{
 			v1.DeploymentCondition{}.OpenAPIModelName(), v1.OAuthMetadata{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.MCPTunnelSpec{}.OpenAPIModelName()),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPTunnelSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnelList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.MCPTunnel{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			v1.MCPTunnel{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_MCPTunnelSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"),
+						},
+					},
+					"credential": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"credentialID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"manifest", "credential", "credentialID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTunnelManifest"},
 	}
 }
 

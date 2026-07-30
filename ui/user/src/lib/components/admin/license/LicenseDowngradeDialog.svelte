@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import {
@@ -9,7 +10,7 @@
 	} from '$lib/services';
 	import { version, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { Mail } from '@lucide/svelte';
+	import { KeyRound, Mail } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -18,6 +19,11 @@
 
 	let downgrading = $state(false);
 	let error = $state('');
+	let hasModelProviderViolation = $derived(
+		version.current.licenseEntitlementViolations?.some(
+			(violation) => violation.type === 'modelProvider'
+		) ?? false
+	);
 
 	export function open() {
 		licenseViolationDialog?.open();
@@ -75,10 +81,24 @@
 	<div class="md:p-0 p-4">
 		<div class="flex flex-col gap-4">
 			<p class="font-light">
-				To re-enable full access to existing functionality, please contact support at
-				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
+				To re-enable access to existing functionality,
+				{#if hasModelProviderViolation}
+					obtain a free Obot Community license or
+				{/if}
+				contact support at
+				<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew an Enterprise license.
 			</p>
-			<a href="mailto:info@obot.ai" class="btn btn-primary">
+			{#if hasModelProviderViolation}
+				<a
+					href={resolve('/admin/license')}
+					class="btn btn-primary"
+					onclick={() => licenseViolationDialog?.close()}
+				>
+					<KeyRound class="size-4" />
+					Get Community License
+				</a>
+			{/if}
+			<a href="mailto:info@obot.ai" class="btn btn-secondary">
 				<Mail class="size-4" />
 				Contact Support
 			</a>

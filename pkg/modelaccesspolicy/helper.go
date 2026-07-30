@@ -8,12 +8,15 @@ import (
 
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/alias"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/rest"
 	gocache "k8s.io/client-go/tools/cache"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -224,7 +227,47 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider, dialect s
 	return allowed, false, nil
 }
 
-// ResolveTargetModel returns the active Model served by provider whose
+// ResolveModelReference resolves a model reference for provider. References may
+// be default model aliases, Model resource names, or provider-native target
+// model IDs. Alias and resource references take precedence over target IDs.
+func (h *Helper) ResolveModelReference(ctx context.Context, client kclient.Client, namespace, provider, reference string) (*v1.Model, error) {
+	if len(rest.IsValidPathSegmentName(reference)) != 0 {
+		return h.resolveTargetModel(provider, reference)
+	}
+
+	resolved, err := alias.GetFromScope(ctx, client, "Model", namespace, reference)
+	if apierrors.IsNotFound(err) {
+		return h.resolveTargetModel(provider, reference)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var model *v1.Model
+	switch resolved := resolved.(type) {
+	case *v1.DefaultModelAlias:
+		if resolved.Spec.Manifest.Model == "" {
+			return nil, fmt.Errorf("default model alias %q is not configured", reference)
+		}
+		model = new(v1.Model)
+		if err := alias.Get(ctx, client, model, namespace, resolved.Spec.Manifest.Model); err != nil {
+			return nil, err
+		}
+	case *v1.Model:
+		model = resolved
+	}
+
+	if model == nil {
+		return h.resolveTargetModel(provider, reference)
+	}
+	if !model.Spec.Manifest.Active {
+		return nil, fmt.Errorf("model %q is not active", model.Spec.Manifest.Name)
+	}
+
+	return model, nil
+}
+
+// resolveTargetModel returns the active Model served by provider whose
 // TargetModel matches targetModel, preferring the most recently created when
 // more than one matches. The lookup is served directly from the
 // (provider, targetModel) index, so it doesn't scan all of a provider's models.
@@ -232,7 +275,7 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider, dialect s
 // (e.g. "claude-sonnet-4-5") to a configured model. Returns a NotFound error if
 // no active model matches. The returned Model is owned by the informer cache;
 // treat it as read-only.
-func (h *Helper) ResolveTargetModel(provider, targetModel string) (*v1.Model, error) {
+func (h *Helper) resolveTargetModel(provider, targetModel string) (*v1.Model, error) {
 	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, modelProviderTargetKey(provider, targetModel))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get models for provider %q target %q: %w", provider, targetModel, err)

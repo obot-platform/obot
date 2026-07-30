@@ -46,6 +46,9 @@ const (
 	GroupLLM                = "llm"
 	GroupDeviceScans        = "device-scans"
 	GroupDeviceEnroll       = "device-enroll"
+	GroupTunnel             = "obot-tunnel"
+	GroupTunnelBridge       = "obot-tunnel-bridge"
+	GroupTunnelPeer         = "obot-tunnel-peer"
 )
 
 type Role int

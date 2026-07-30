@@ -9,6 +9,7 @@ import type {
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogServerManifest,
+	TunnelConnection,
 	ServerK8sSettings,
 	MCPServerOAuthCredentialRequest,
 	MCPServerOAuthCredentialStatus
@@ -59,6 +60,14 @@ import {
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
+
+export async function listTunnelConnections(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<TunnelConnection[]> {
+	const response = (await doGet('/tunnels', opts)) as ItemsResponse<TunnelConnection>;
+	return response.items ?? [];
+}
 
 // All MCP catalog entries
 

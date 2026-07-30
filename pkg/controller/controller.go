@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
+	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/serviceaccounts"
@@ -338,6 +339,13 @@ func (c *Controller) Start(ctx context.Context) error {
 			return fmt.Errorf("failed to start local Kubernetes router: %w", err)
 		}
 	}
+	// Tunnel peers are process-local, so this separate router intentionally has
+	// no leader election and runs its handler on every Obot replica.
+	if c.services.EveryReplicaRouter != nil {
+		if err := c.services.EveryReplicaRouter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start tunnel peer Kubernetes router: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -564,20 +572,23 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router
 func (c *Controller) setupLocalK8sRoutes() {
-	if c.services.LocalRouter == nil {
-		return
+	if c.services.LocalRouter != nil {
+		resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
+		deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
+		c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
+		c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
+
+		secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GatewayClient)
+		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
+		// Reconcile delete/update events for the provider token secret immediately,
+		// instead of waiting for the periodic service-account key rotation loop.
+		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 	}
 
-	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
-	deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
-	c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
-	c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
-
-	secretHandler := secret.New(c.services.MCPServerNamespace, c.services.GatewayClient)
-	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.MCPServerNamespace).HandlerFunc(secretHandler.UpdateNanobotAgentCreds)
-	// Reconcile delete/update events for the provider token secret immediately,
-	// instead of waiting for the periodic service-account key rotation loop.
-	c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
+	if c.services.EveryReplicaRouter != nil {
+		peerHandler := tunnelpeer.New(c.services.TunnelManager.ID, c.services.TunnelManager)
+		c.services.EveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
+	}
 }
 
 // ensureLocalAuthProvider creates or updates the AuthProvider resource for the built-in local

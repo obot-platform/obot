@@ -3,7 +3,9 @@ package client
 import (
 	"testing"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 func renderedArtifact(platform, osName, content string) types.MDMConfigurationArtifact {
@@ -135,7 +137,7 @@ func TestCreateDeviceEnrollmentKeyIsSeparate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	key, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil)
+	key, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, system.BootstrapName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -209,6 +211,160 @@ func TestUpdateMDMConfigurationRollsBackOnBadArtifacts(t *testing.T) {
 	}
 }
 
+func TestMDMConfigurationEnforcementColumnsPersistOnCreate(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers: []apitypes.AllowlistServer{
+				{Hostname: "gitmcp.io"},
+			},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !stored.EnforcementEnabled ||
+		!stored.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(stored.EnforcementAllowlist.Servers) != 1 ||
+		stored.EnforcementAllowlist.Servers[0].Hostname != "gitmcp.io" {
+		t.Fatalf("created configuration did not persist enforcement columns: %#v", stored)
+	}
+}
+
+// TestMDMConfigurationUpdatePreservesEnforcement verifies the general update
+// path leaves the enforcement policy untouched, while
+// UpdateMDMConfigurationEnforcement is the only path that changes it.
+func TestMDMConfigurationUpdatePreservesEnforcement(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers:               []apitypes.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A general update that even asks to clear enforcement must not change it.
+	stored, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored.Values = `{"interval":120}`
+	stored.EnforcementEnabled = false
+	stored.EnforcementAllowlist = apitypes.EnforcementAllowlist{}
+	if err := client.UpdateMDMConfiguration(t.Context(), stored); err != nil {
+		t.Fatal(err)
+	}
+
+	afterUpdate, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterUpdate.Values != `{"interval":120}` {
+		t.Fatalf("general update did not persist values: %q", afterUpdate.Values)
+	}
+	if !afterUpdate.EnforcementEnabled ||
+		!afterUpdate.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(afterUpdate.EnforcementAllowlist.Servers) != 1 {
+		t.Fatalf("general update unexpectedly modified enforcement: %#v", afterUpdate)
+	}
+
+	// The dedicated enforcement update is the path that changes the policy, and
+	// it atomically replaces the rendered artifacts in the same transaction.
+	if err := client.UpdateMDMConfigurationEnforcement(t.Context(), configuration.ID, false, apitypes.EnforcementAllowlist{AllowEverything: true}, []types.MDMConfigurationArtifact{
+		renderedArtifact("intune", "windows", "windows-zip-reenforced"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	afterEnforcement, err := client.GetMDMConfiguration(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterEnforcement.EnforcementEnabled ||
+		!afterEnforcement.EnforcementAllowlist.AllowEverything ||
+		afterEnforcement.EnforcementAllowlist.AllowAllObotHostedMCP ||
+		len(afterEnforcement.EnforcementAllowlist.Servers) != 0 {
+		t.Fatalf("enforcement update did not persist enforcement columns: %#v", afterEnforcement)
+	}
+	// The enforcement update must not disturb the asset-side columns.
+	if afterEnforcement.Values != `{"interval":120}` {
+		t.Fatalf("enforcement update unexpectedly changed values: %q", afterEnforcement.Values)
+	}
+	// The freshly rendered artifacts replaced the prior ones.
+	if len(afterEnforcement.Artifacts) != 1 || string(afterEnforcement.Artifacts[0].Content) != "windows-zip-reenforced" {
+		t.Fatalf("enforcement update did not replace rendered artifacts: %#v", afterEnforcement.Artifacts)
+	}
+}
+
+func TestGetMDMConfigurationEnforcement(t *testing.T) {
+	client := newTestClient(t)
+
+	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
+		AssetDigest:        "source-digest",
+		Values:             `{"interval":60}`,
+		EnforcementEnabled: true,
+		EnforcementAllowlist: apitypes.EnforcementAllowlist{
+			AllowAllObotHostedMCP: true,
+			Servers:               []apitypes.AllowlistServer{{Hostname: "gitmcp.io"}},
+		},
+		Artifacts: []types.MDMConfigurationArtifact{
+			renderedArtifact("intune", "windows", "windows-zip"),
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	policy, err := client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !policy.Enabled ||
+		!policy.Allowlist.AllowAllObotHostedMCP ||
+		len(policy.Allowlist.Servers) != 1 ||
+		policy.Allowlist.Servers[0].Hostname != "gitmcp.io" {
+		t.Fatalf("enforcement policy = %#v", policy)
+	}
+
+	// A disabled policy reads back as disabled rather than as an error.
+	if err := client.UpdateMDMConfigurationEnforcement(t.Context(), configuration.ID, false, apitypes.EnforcementAllowlist{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	policy, err = client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if policy.Enabled || policy.Allowlist.AllowAllObotHostedMCP || len(policy.Allowlist.Servers) != 0 {
+		t.Fatalf("enforcement policy after disable = %#v", policy)
+	}
+
+	if _, err := client.GetMDMConfigurationEnforcement(t.Context(), configuration.ID+1); err == nil {
+		t.Fatal("expected an error for a nonexistent configuration")
+	}
+}
+
 func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T) {
 	client := newTestClient(t)
 	configuration, err := client.CreateMDMConfiguration(t.Context(), 42, &types.MDMConfiguration{
@@ -219,7 +375,7 @@ func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, "bootstrap", nil); err != nil {
+	if _, err := client.CreateDeviceEnrollmentKey(t.Context(), configuration.ID, 42, system.BootstrapName, nil); err != nil {
 		t.Fatal(err)
 	}
 	device, err := client.EnrollDevice(t.Context(), DeviceEnrollment{

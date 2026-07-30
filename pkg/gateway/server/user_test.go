@@ -35,7 +35,7 @@ func TestGetCurrentUserContinuesWhenAuthProviderURLUnavailable(t *testing.T) {
 		ProviderUserID:        "studio-sub",
 		ProviderIssuer:        "https://studio.example.com/api/auth",
 		ProviderEmailVerified: &emailVerified,
-	}, "", apitypes.RoleBasic)
+	}, "", apitypes.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestGetCurrentUserIncludesRequestTimeAdminUplift(t *testing.T) {
 		ProviderUsername:      "alice@example.com",
 		ProviderUserID:        "studio-sub",
 		ProviderIssuer:        "https://studio.example.com/api/auth",
-	}, "", apitypes.RoleBasic)
+	}, "", apitypes.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}

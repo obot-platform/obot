@@ -15,6 +15,9 @@ const (
 	// pkg/localauth. It runs in-process instead of as a daemon from the provider registry.
 	LocalAuthProvider = "local-auth-provider"
 
+	// BootstrapName is the reserved name used for the bootstrap user and auth provider.
+	BootstrapName = "bootstrap"
+
 	OpenAIAPIKeyEnvVar    = "OPENAI_API_KEY"
 	AnthropicAPIKeyEnvVar = "ANTHROPIC_API_KEY"
 

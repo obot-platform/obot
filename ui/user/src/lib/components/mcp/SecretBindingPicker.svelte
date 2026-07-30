@@ -1,14 +1,16 @@
 <script lang="ts">
 	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
 	import Select from '../Select.svelte';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		field: MCPSubField;
 		targets: MCPAllowedSecretBindingTarget[];
 		readonly?: boolean;
+		showRequired?: boolean;
 	}
 
-	let { field = $bindable(), targets, readonly }: Props = $props();
+	let { field = $bindable(), targets, readonly, showRequired }: Props = $props();
 	type SecretBindingOption = { id: string; label: string; disabled?: boolean };
 	type ValueSource = 'value' | 'secret';
 	type SecretBindingField = MCPSubField & { secretBindingSource?: ValueSource };
@@ -44,6 +46,12 @@
 	const selectedTarget = $derived(
 		targets.find((target) => target.name === field.secretBinding?.name)
 	);
+	const missingSecret = $derived(
+		showRequired && valueSource === 'secret' && !field.secretBinding?.name
+	);
+	const missingKey = $derived(
+		showRequired && valueSource === 'secret' && !field.secretBinding?.key
+	);
 	const keyOptions = $derived.by(() => {
 		const options: SecretBindingOption[] = (selectedTarget?.keys ?? []).map((key) => ({
 			id: key,
@@ -59,6 +67,7 @@
 	});
 	const selectClasses =
 		'bg-base-200 dark:bg-base-100 border border-base-300 dark:border-base-400 w-full shadow-inner';
+	const errorClasses = 'border-error bg-error/20 ring-error focus:ring-1';
 
 	function setValueSource(source: ValueSource) {
 		valueSource = source;
@@ -122,10 +131,16 @@
 	{#if valueSource === 'secret'}
 		<div class="grid gap-3 md:grid-cols-2">
 			<div class="flex w-full flex-col gap-1">
-				<label for={`secret-binding-secret-${field.key}`} class="text-sm font-light">Secret</label>
+				<label
+					for={`secret-binding-secret-${field.key}`}
+					class:error={missingSecret}
+					class="text-sm font-light"
+				>
+					Secret
+				</label>
 				<Select
 					id={`secret-binding-secret-${field.key}`}
-					class={selectClasses}
+					class={twMerge(selectClasses, missingSecret && errorClasses)}
 					options={secretOptions}
 					selected={field.secretBinding?.name}
 					disabled={isReadonly || targets.length === 0}
@@ -135,10 +150,16 @@
 				/>
 			</div>
 			<div class="flex w-full flex-col gap-1">
-				<label for={`secret-binding-key-${field.key}`} class="text-sm font-light">Key</label>
+				<label
+					for={`secret-binding-key-${field.key}`}
+					class:error={missingKey}
+					class="text-sm font-light"
+				>
+					Key
+				</label>
 				<Select
 					id={`secret-binding-key-${field.key}`}
-					class={selectClasses}
+					class={twMerge(selectClasses, missingKey && errorClasses)}
 					options={keyOptions}
 					selected={field.secretBinding?.key}
 					disabled={isReadonly || keyOptions.length === 0}

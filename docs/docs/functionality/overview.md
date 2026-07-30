@@ -33,6 +33,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 ## Learn More
 
 - [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
+- [MCP Tunnels](./mcp-tunnels.md) - Connect the gateway to remote MCP servers on private networks
 - [MCP Access Policies](./mcp-access-policies.md) - Control which servers are available to which users and groups
 - [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
 - [Filters](/functionality/filters/) - Inspect and control MCP traffic

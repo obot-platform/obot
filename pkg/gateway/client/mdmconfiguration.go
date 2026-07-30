@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
@@ -77,6 +78,22 @@ func (c *Client) GetMDMConfiguration(ctx context.Context, id uint) (*types.MDMCo
 	return &configuration, nil
 }
 
+// GetMDMConfigurationEnforcement retrieves just the enforcement policy of a
+// configuration by ID.
+func (c *Client) GetMDMConfigurationEnforcement(ctx context.Context, id uint) (types.MDMConfigurationEnforcement, error) {
+	var configuration types.MDMConfiguration
+	if err := c.db.WithContext(ctx).
+		Select("enforcement_enabled", "enforcement_allowlist").
+		Where("id = ?", id).
+		First(&configuration).Error; err != nil {
+		return types.MDMConfigurationEnforcement{}, err
+	}
+	return types.MDMConfigurationEnforcement{
+		Enabled:   configuration.EnforcementEnabled,
+		Allowlist: configuration.EnforcementAllowlist,
+	}, nil
+}
+
 // UpdateMDMConfiguration updates a configuration and atomically replaces its
 // rendered artifacts in the same transaction.
 func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *types.MDMConfiguration) error {
@@ -94,6 +111,8 @@ func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *type
 		if err := tx.Select("id").Where("id = ?", configuration.ID).First(&types.MDMConfiguration{}).Error; err != nil {
 			return err
 		}
+		// Enforcement columns are intentionally excluded: the general update path
+		// never modifies the enforcement policy (see UpdateMDMConfigurationEnforcement).
 		result := tx.Model(&types.MDMConfiguration{}).
 			Where("id = ?", configuration.ID).
 			Select("AssetDigest", "ObotSentryVersion", "Values").
@@ -102,6 +121,34 @@ func (c *Client) UpdateMDMConfiguration(ctx context.Context, configuration *type
 			return fmt.Errorf("failed to update MDM configuration: %w", result.Error)
 		}
 		_, err := replaceMDMConfigurationArtifacts(tx, configuration.ID, artifacts)
+		return err
+	})
+}
+
+// UpdateMDMConfigurationEnforcement updates only the enforcement policy columns
+// of a configuration and atomically replaces its rendered artifacts in the same
+// transaction, mirroring UpdateMDMConfiguration. The device bundle bakes in the
+// enforcement toggle, so a toggle change must swap in freshly rendered
+// artifacts; a blank configuration (no pinned asset) passes no artifacts and
+// only its columns change.
+func (c *Client) UpdateMDMConfigurationEnforcement(ctx context.Context, id uint, enabled bool, allowlist types2.EnforcementAllowlist, artifacts []types.MDMConfigurationArtifact) error {
+	if id == 0 {
+		return fmt.Errorf("MDM configuration id is required")
+	}
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Select("id").Where("id = ?", id).First(&types.MDMConfiguration{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&types.MDMConfiguration{}).
+			Where("id = ?", id).
+			Select("enforcement_enabled", "enforcement_allowlist").
+			Updates(&types.MDMConfiguration{
+				EnforcementEnabled:   enabled,
+				EnforcementAllowlist: allowlist,
+			}).Error; err != nil {
+			return fmt.Errorf("failed to update MDM configuration enforcement: %w", err)
+		}
+		_, err := replaceMDMConfigurationArtifacts(tx, id, artifacts)
 		return err
 	})
 }

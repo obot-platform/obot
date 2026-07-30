@@ -23,7 +23,7 @@ func TestGenericOAuthLinksByEmailWhenIssuerTrustedAndEmailVerified(t *testing.T)
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestGenericOAuthLinksByEmailWhenIssuerTrustedAndEmailVerified(t *testing.T)
 		ProviderUserID:        "iss:https://issuer.example.com/\x00sub:alice",
 		ProviderIssuer:        "https://issuer.example.com/",
 		ProviderEmailVerified: &emailVerified,
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestGenericOAuthDoesNotLinkWhenEmailVerifiedFalse(t *testing.T) {
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestGenericOAuthDoesNotLinkWhenEmailVerifiedFalse(t *testing.T) {
 		ProviderUserID:        "iss:https://issuer.example.com/\x00sub:alice",
 		ProviderIssuer:        "https://issuer.example.com/",
 		ProviderEmailVerified: &emailVerified,
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestGenericOAuthLinksWhenEmailVerifiedAbsentAndTrustEnabled(t *testing.T) {
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestGenericOAuthLinksWhenEmailVerifiedAbsentAndTrustEnabled(t *testing.T) {
 		ProviderUsername:      "alice@example.com",
 		ProviderUserID:        "iss:https://issuer.example.com/\x00sub:alice",
 		ProviderIssuer:        "https://issuer.example.com/",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestGenericOAuthDoesNotLinkWhenTrustDisabled(t *testing.T) {
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestGenericOAuthDoesNotLinkWhenTrustDisabled(t *testing.T) {
 		ProviderUserID:        "iss:https://issuer.example.com/\x00sub:alice",
 		ProviderIssuer:        "https://issuer.example.com/",
 		ProviderEmailVerified: &emailVerified,
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestGenericOAuthDoesNotLinkWhenIssuerChanges(t *testing.T) {
 		AuthProviderNamespace: system.DefaultNamespace,
 		ProviderUsername:      "alice",
 		ProviderUserID:        "google-alice",
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +171,7 @@ func TestGenericOAuthDoesNotLinkWhenIssuerChanges(t *testing.T) {
 		ProviderUserID:        "iss:https://other-issuer.example.com/\x00sub:alice",
 		ProviderIssuer:        "https://other-issuer.example.com/",
 		ProviderEmailVerified: &emailVerified,
-	}, "")
+	}, "", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}

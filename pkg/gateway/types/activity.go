@@ -7,19 +7,6 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 )
 
-type LLMProxyActivity struct {
-	ID             uint
-	UserID         string
-	CreatedAt      time.Time
-	WorkflowID     string
-	WorkflowStepID string
-	AgentID        string
-	ProjectID      string
-	ThreadID       string
-	RunID          string
-	Path           string
-}
-
 type APIActivity struct {
 	ID     uint
 	UserID string

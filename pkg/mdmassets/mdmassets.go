@@ -222,21 +222,25 @@ func (l *Loader) CompleteValues(values map[string]any) error {
 }
 
 // renderContext is the validated values plus the loader-supplied
-// obotSentryVersion — added here rather than as a field because it is not
-// admin input and the fields schema (additionalProperties: false)
-// rejects unknown value keys.
-func (l *Loader) renderContext(values map[string]any) map[string]any {
-	context := make(map[string]any, len(values)+1)
+// obotSentryVersion and the caller-supplied enforcementEnabled toggle — added
+// here rather than as fields because neither is admin input and the fields
+// schema (additionalProperties: false) rejects unknown value keys.
+// enforcementEnabled follows the obotSentryVersion pattern precisely so
+// templates can branch on it (e.g. appending --enforce) without every bundle
+// version having to declare the field.
+func (l *Loader) renderContext(values map[string]any, enforcementEnabled bool) map[string]any {
+	context := make(map[string]any, len(values)+2)
 	maps.Copy(context, values)
 	context["obotSentryVersion"] = l.manifest.ObotSentryVersion
+	context["enforcementEnabled"] = enforcementEnabled
 	return context
 }
 
 // RenderInstructions renders the configuration's instructions template
 // with values into the markdown setup guide clients display.
-func (l *Loader) RenderInstructions(c types.MDMAssetConfiguration, values map[string]any) (string, error) {
+func (l *Loader) RenderInstructions(c types.MDMAssetConfiguration, values map[string]any, enforcementEnabled bool) (string, error) {
 	var buf bytes.Buffer
-	if err := l.renderTemplate(&buf, c.Instructions, l.renderContext(values)); err != nil {
+	if err := l.renderTemplate(&buf, c.Instructions, l.renderContext(values, enforcementEnabled)); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
@@ -245,8 +249,8 @@ func (l *Loader) RenderInstructions(c types.MDMAssetConfiguration, values map[st
 // ValidateTemplates executes every rendered asset against completed values
 // without copying binary assets. This catches missing template inputs before a
 // deployment is saved instead of deferring the failure until download.
-func (l *Loader) ValidateTemplates(c types.MDMAssetConfiguration, values map[string]any) error {
-	context := l.renderContext(values)
+func (l *Loader) ValidateTemplates(c types.MDMAssetConfiguration, values map[string]any, enforcementEnabled bool) error {
+	context := l.renderContext(values, enforcementEnabled)
 	for _, rel := range c.Assets {
 		if !strings.HasSuffix(path.Base(rel), ".tmpl") {
 			continue
@@ -269,7 +273,9 @@ type RenderedArtifact struct {
 
 // RenderAll completes and validates values once, then renders every target in
 // the immutable bundle. It returns no partial result if any target fails.
-func (l *Loader) RenderAll(values map[string]any) ([]RenderedArtifact, error) {
+// enforcementEnabled is threaded into every template's render context so
+// templates can bake in the tool-call enforcement toggle.
+func (l *Loader) RenderAll(values map[string]any, enforcementEnabled bool) ([]RenderedArtifact, error) {
 	completed := make(map[string]any, len(values))
 	maps.Copy(completed, values)
 	if err := l.CompleteValues(completed); err != nil {
@@ -278,12 +284,12 @@ func (l *Loader) RenderAll(values map[string]any) ([]RenderedArtifact, error) {
 
 	artifacts := make([]RenderedArtifact, 0, len(l.manifest.Configurations))
 	for _, configuration := range l.manifest.Configurations {
-		instructions, err := l.RenderInstructions(configuration, completed)
+		instructions, err := l.RenderInstructions(configuration, completed, enforcementEnabled)
 		if err != nil {
 			return nil, err
 		}
 		var content bytes.Buffer
-		if err := l.Zip(&content, configuration, completed); err != nil {
+		if err := l.Zip(&content, configuration, completed, enforcementEnabled); err != nil {
 			return nil, err
 		}
 		artifacts = append(artifacts, RenderedArtifact{
@@ -296,13 +302,48 @@ func (l *Loader) RenderAll(values map[string]any) ([]RenderedArtifact, error) {
 	return artifacts, nil
 }
 
+// RenderStoredState renders every target from a configuration's persisted
+// state, the single implementation shared by the asset-source controller (which
+// re-renders configurations onto a new bundle) and the enforcement-update
+// handler (which re-renders a configuration onto its own pinned bundle when the
+// enforcement toggle flips). It parses the stored values JSON (dropping any
+// serverURL, which is always injected fresh from trusted server state) and
+// renders against serverURL + enforcementEnabled. The returned values JSON is
+// the stored values re-marshaled without serverURL: the controller persists it
+// alongside the new bundle digest, while the enforcement path ignores it and
+// leaves the values column untouched.
+func (l *Loader) RenderStoredState(storedValues, serverURL string, enforcementEnabled bool) (artifacts []RenderedArtifact, normalizedValues string, err error) {
+	values := map[string]any{}
+	if storedValues != "" {
+		if err := json.Unmarshal([]byte(storedValues), &values); err != nil {
+			return nil, "", fmt.Errorf("stored values are not valid JSON: %w", err)
+		}
+	}
+	delete(values, "serverURL")
+	renderValues := make(map[string]any, len(values)+1)
+	maps.Copy(renderValues, values)
+	renderValues["serverURL"] = serverURL
+	rendered, err := l.RenderAll(renderValues, enforcementEnabled)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(rendered) == 0 {
+		return nil, "", fmt.Errorf("the bundle has no platform/OS configurations")
+	}
+	stored, err := json.Marshal(values)
+	if err != nil {
+		return nil, "", err
+	}
+	return rendered, string(stored), nil
+}
+
 // Zip writes the configuration's download to w: assets ending in .tmpl
 // are rendered as Go text/templates against values (suffix stripped),
 // everything else is copied verbatim. Names in the ZIP are base names
 // — the assemble step guarantees they don't collide.
-func (l *Loader) Zip(w io.Writer, c types.MDMAssetConfiguration, values map[string]any) error {
+func (l *Loader) Zip(w io.Writer, c types.MDMAssetConfiguration, values map[string]any, enforcementEnabled bool) error {
 	zw := zip.NewWriter(w)
-	context := l.renderContext(values)
+	context := l.renderContext(values, enforcementEnabled)
 	for _, rel := range c.Assets {
 		name := path.Base(rel)
 		var err error

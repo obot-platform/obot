@@ -15,6 +15,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,6 +95,7 @@ type SessionManager struct {
 	localK8sClient            kclient.Client
 	obotNamespace             string
 	secretBindingAllowedLabel string
+	tunnelManager             *tunnel.Manager
 
 	webhookHelper *WebhookHelper
 }
@@ -118,7 +120,7 @@ const streamableHTTPHealthcheckBody string = `{
     }
 }`
 
-func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string) (*SessionManager, error) {
+func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
 	var backend backend
 	resourceMaximums, err := ParseResourceMaximums(opts)
 	if err != nil {
@@ -185,6 +187,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		localK8sClient:            client,
 		obotNamespace:             obotNamespace,
 		secretBindingAllowedLabel: strings.TrimSpace(opts.MCPSecretBindingAllowedLabel),
+		tunnelManager:             tunnelManager,
 		remoteURLValidationConfig: RemoteMCPURLValidationConfig{
 			AllowLocalhostMCP: !opts.DisallowLocalhostMCP,
 			AllowPrivateIPMCP: !opts.DisallowPrivateIPMCP,
@@ -342,8 +345,10 @@ func (sm *SessionManager) ensureDeployment(ctx context.Context, server ServerCon
 			return ServerConfig{}, fmt.Errorf("MCP server %s needs to update its URL", server.MCPServerDisplayName)
 		}
 
-		if err := ValidateRemoteMCPURL(ctx, server.URL, sm.RemoteMCPURLValidationConfig()); err != nil {
-			return ServerConfig{}, err
+		if server.TunnelName == "" {
+			if err := ValidateRemoteMCPURL(ctx, server.URL, sm.RemoteMCPURLValidationConfig()); err != nil {
+				return ServerConfig{}, err
+			}
 		}
 	}
 

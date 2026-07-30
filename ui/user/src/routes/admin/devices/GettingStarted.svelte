@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type MDMConfiguration } from '$lib/services';
@@ -12,12 +13,17 @@
 	let { readOnly = false, onCreate }: Props = $props();
 	let loading = $state(false);
 	let createError = $state<string>();
+	let enforcementEnabled = $state(false);
 
 	async function handleCreate() {
 		loading = true;
 		createError = undefined;
 		try {
-			const created = await AdminService.createMDMConfiguration({});
+			// The allowlist is deliberately omitted: the server seeds its own default
+			// policy when a configuration is created with enforcement enabled.
+			const created = await AdminService.createMDMConfiguration(
+				enforcementEnabled ? { enforcementEnabled: true } : {}
+			);
 			onCreate(created);
 		} catch (error) {
 			createError = parseErrorContent(error).message;
@@ -54,7 +60,24 @@
 				An administrator with write access must create the initial configuration.
 			</p>
 		{:else}
+			<label class="flex w-full items-start gap-3 text-left text-sm">
+				<input type="checkbox" class="mt-0.5" bind:checked={enforcementEnabled} />
+				<span class="flex flex-col gap-0.5">
+					<span class="flex flex-wrap items-center gap-1.5 font-medium">
+						Enforce tool calls on enrolled devices
+						<span class="badge badge-warning badge-sm">Experimental</span>
+					</span>
+					<span class="input-description">
+						Blocks tool calls that aren't on the allowlist. Starts with Obot-hosted MCP servers and
+						built-in agent tools allowed. Requires installing the Obot Sentry package on your
+						devices. This feature is experimental and is not recommended for production use — a
+						misconfigured allowlist blocks real work on every enrolled device.
+					</span>
+				</span>
+			</label>
+
 			<button
+				id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.getStartedButton}
 				class="btn btn-primary flex items-center gap-2"
 				disabled={loading}
 				onclick={handleCreate}

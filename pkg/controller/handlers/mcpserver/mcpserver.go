@@ -447,7 +447,8 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 	}
 
 	if entryConfig.Hostname != serverConfig.Hostname ||
-		entryConfig.URLTemplate != serverConfig.URLTemplate {
+		entryConfig.URLTemplate != serverConfig.URLTemplate ||
+		entryConfig.TunnelName != serverConfig.TunnelName {
 		return true
 	}
 
@@ -1061,6 +1062,13 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	}
 
 	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
+		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
+	}
+	// OAuth metadata URLs can point back at the private target and bypass the
+	// tunnel. Leave discovery disabled for tunneled servers; ordinary MCP
+	// requests (including servers that do not require OAuth) still use the
+	// tunnel bridge.
+	if server.Spec.Manifest.RemoteConfig.TunnelName != "" {
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
 

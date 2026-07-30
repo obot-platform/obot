@@ -415,3 +415,35 @@ export const MCP_ACCESS_POLICY_FIELD_IDS = {
 	serverConfirmBtn: 'mcp-access-policy-server-confirm-btn',
 	saveBtn: 'mcp-access-policy-save-btn'
 } as const;
+
+export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
+	devicesLink: 'sidebar-link-devices',
+	configurationTab: 'devices-tab-configuration',
+	configurationDetails: 'devices-configuration-details',
+	getStartedButton: 'devices-configuration-get-started',
+	newEnrollmentKeyButton: 'enrollment-new-key-btn',
+	newEnrollmentKeyDialog: 'new-enrollment-key-dialog',
+	enrollmentKeyButton: 'enrollment-key-btn',
+	enrollmentConfigSetup: 'enrollment-config-setup',
+	enrollmentConfigSetupStep: 'enrollment-config-setup-step',
+	enrollmentKeysSection: 'enrollment-keys-section',
+	operatingSystemStep: 'devices-install-operating-system',
+	downloadStep: 'devices-install-download',
+	installInstructionsStep: 'devices-install-instructions',
+	agentSettingsButton: 'devices-agent-settings',
+	checkForUpdatesButton: 'devices-check-for-updates-button',
+	devicesTabOverview: 'devices-tab-overview',
+	devicesTabDevices: 'devices-tab-devices'
+};
+
+export const MCP_FILTERS_FIELD_IDS = {
+	addFilterBtn: 'filter-add-button',
+	createCustomBtn: 'filter-create-custom-button',
+	createBuiltInBtn: 'filter-create-built-in-button',
+	basicDetails: 'filter-basic-details',
+	runtimeFormDetails: 'filter-runtime-form-details',
+	filterSelectors: 'filter-selectors',
+	filterMcpServers: 'filter-mcp-servers',
+	runtimeSelector: 'filter-runtime-selector',
+	saveBtn: 'filter-save-btn'
+};

@@ -1,0 +1,58 @@
+{{- $name := include "obot.tunnelPeerName" . -}}
+{{- if and .Values.tunnelPeer.existingSecret .Values.tunnelPeer.token -}}
+{{- fail "tunnelPeer.existingSecret and tunnelPeer.token cannot both be set" -}}
+{{- end -}}
+{{- if not .Values.tunnelPeer.existingSecret }}
+{{- $existing := lookup "v1" "Secret" .Release.Namespace $name -}}
+{{- $token := "" -}}
+{{- if .Values.tunnelPeer.token -}}
+  {{- $token = .Values.tunnelPeer.token | b64enc -}}
+{{- end -}}
+{{- if $existing -}}
+  {{- $token = $token | default (index (default dict $existing.data) "OBOT_SERVER_TUNNEL_PEER_TOKEN") -}}
+{{- end -}}
+{{- if not $token -}}
+  {{- $token = randAlphaNum 64 | b64enc -}}
+{{- end -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+type: Opaque
+data:
+  OBOT_SERVER_TUNNEL_PEER_TOKEN: {{ $token | quote }}
+---
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "obot.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}

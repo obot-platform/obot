@@ -208,15 +208,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		return nil, nil, err
 	}
 	if resp.StatusCode > 399 {
-		data, _ := io.ReadAll(resp.Body)
-		msg := string(data)
-		if len(msg) == 0 {
-			msg = resp.Status
-		}
-		return nil, nil, &types.ErrHTTP{
-			Code:    resp.StatusCode,
-			Message: msg,
-		}
+		return nil, nil, errFromResponse(resp)
 	}
 	if log.IsDebug() && !slices.Contains(headerKV, "text/event-stream") {
 		var data string
@@ -233,6 +225,60 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		resp.Body = io.NopCloser(bytes.NewReader(dataBytes))
 	}
 	return req, resp, err
+}
+
+// maxErrorBodyBytes bounds how much of a non-2xx response body reaches an
+// ErrHTTP message.
+//
+// The body is not necessarily an API error document. A wrong base path, a
+// reverse proxy, or a load balancer answers with a whole HTML page, and callers
+// put these messages in front of people and models: obot-sentry's enforcement
+// hook renders one into the text it hands the agent, where an unbounded body
+// buried the instructions after it. 4 KiB holds every error this API produces.
+const maxErrorBodyBytes = 4 << 10
+
+// errFromResponse builds the error for a non-2xx response and closes its body.
+// Callers get no response on this path, so nothing else can close it.
+func errFromResponse(resp *http.Response) error {
+	defer resp.Body.Close()
+
+	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes+1))
+	truncated := len(data) > maxErrorBodyBytes
+	if truncated {
+		// A cut can split the last rune. Dropping the partial tail keeps a
+		// truncated text body from being reported as a binary one below.
+		data = trimPartialRune(data[:maxErrorBodyBytes])
+	}
+
+	if !utf8.Valid(data) {
+		return &types.ErrHTTP{
+			Code:    resp.StatusCode,
+			Message: fmt.Sprintf("[non-text response body, %d bytes read]", len(data)),
+		}
+	}
+
+	msg := strings.TrimSpace(string(data))
+	switch {
+	case msg == "":
+		msg = resp.Status
+	case truncated:
+		msg += "…"
+	}
+	return &types.ErrHTTP{Code: resp.StatusCode, Message: msg}
+}
+
+// trimPartialRune removes an incomplete UTF-8 sequence from the end of data.
+func trimPartialRune(data []byte) []byte {
+	for range utf8.UTFMax - 1 {
+		if len(data) == 0 {
+			return data
+		}
+		if r, size := utf8.DecodeLastRune(data); r != utf8.RuneError || size > 1 {
+			return data
+		}
+		data = data[:len(data)-1]
+	}
+	return data
 }
 
 func toObject[T any](resp *http.Response, obj T) (def T, _ error) {

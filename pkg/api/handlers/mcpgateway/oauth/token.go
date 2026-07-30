@@ -38,6 +38,8 @@ const (
 	tokenTypeJWT         = "urn:ietf:params:oauth:token-type:jwt"
 	tokenTypeAccessToken = "urn:ietf:params:oauth:token-type:access_token"
 	tokenTypeAPIKey      = "urn:obot:token-type:api-key"
+	obotErrorSource      = "Obot"
+	obotErrorPrefix      = obotErrorSource + ": "
 
 	ErrUnsupportedGrantType = ErrorCode("unsupported_grant_type")
 )
@@ -50,7 +52,7 @@ type TokenExchangeResponse struct {
 	ExpiresIn       int    `json:"expires_in"`
 }
 
-func (h *handler) token(req api.Context) error {
+func (h *handler) token(req api.Context) (err error) {
 	if err := req.ParseForm(); err != nil {
 		return types.NewErrBadRequest("failed to parse request body: %v", err)
 	}
@@ -79,10 +81,7 @@ func (h *handler) token(req api.Context) error {
 
 			clientID, err = url.QueryUnescape(clientID)
 			if err != nil {
-				return newOAuthErrHTTP(http.StatusBadRequest, Error{
-					Code:        ErrInvalidClient,
-					Description: "client_id is invalid",
-				})
+				return newOAuthErrHTTP(http.StatusBadRequest, newOAuthError(ErrInvalidClient, "client_id is invalid", ""))
 			}
 		}
 	} else {
@@ -104,7 +103,7 @@ func (h *handler) token(req api.Context) error {
 
 	client, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
-		if oauthErr, ok := errors.AsType[Error](err); ok {
+		if oauthErr, ok := errors.AsType[oauthError](err); ok {
 			if oauthErr.Code == ErrInvalidClient {
 				return newOAuthErrHTTP(http.StatusUnauthorized, oauthErr)
 			}
@@ -128,17 +127,11 @@ func (h *handler) token(req api.Context) error {
 
 	grantType := req.FormValue("grant_type")
 	if !slices.Contains(h.oauthConfig.GrantTypesSupported, grantType) {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: fmt.Sprintf("grant_type must be one of %s, not %s", strings.Join(h.oauthConfig.GrantTypesSupported, ", "), grantType),
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, fmt.Sprintf("grant_type must be one of %s, not %s", strings.Join(h.oauthConfig.GrantTypesSupported, ", "), grantType), ""))
 	}
 
 	if len(client.Spec.Manifest.GrantTypes) > 0 && !slices.Contains(client.Spec.Manifest.GrantTypes, grantType) || len(client.Spec.Manifest.GrantTypes) == 0 && grantType != "authorization_code" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidClient,
-			Description: "client is not allowed to use authorization_code grant type",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidClient, "client is not allowed to use authorization_code grant type", ""))
 	}
 	log.Debugf("Processing OAuth token request: client=%s/%s grantType=%s", client.Namespace, client.Name, grantType)
 
@@ -150,19 +143,13 @@ func (h *handler) token(req api.Context) error {
 	case "urn:ietf:params:oauth:grant-type:token-exchange":
 		return h.doTokenExchange(req, client, req.FormValue("resource"), req.FormValue("subject_token"), req.FormValue("subject_token_type"), req.FormValue("requested_token_type"))
 	default:
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: fmt.Sprintf("grant_type must be one of %s, not %s", strings.Join(h.oauthConfig.GrantTypesSupported, ", "), grantType),
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, fmt.Sprintf("grant_type must be one of %s, not %s", strings.Join(h.oauthConfig.GrantTypesSupported, ", "), grantType), ""))
 	}
 }
 
 func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClient, code, codeVerifier string) error {
 	if code == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "code is required",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code is required", ""))
 	}
 
 	var oauthAuthRequestList v1.OAuthAuthRequestList
@@ -174,18 +161,12 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		return err
 	}
 	if len(oauthAuthRequestList.Items) != 1 {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "code is invalid",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code is invalid", ""))
 	}
 
 	oauthAuthRequest := oauthAuthRequestList.Items[0]
 	if oauthAuthRequest.Spec.ClientID != oauthClient.Name {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "code is invalid",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code is invalid", ""))
 	}
 
 	// Authorization codes are one-time use
@@ -199,33 +180,21 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		case "S256":
 			hashedCodeVerifier := sha256.Sum256([]byte(codeVerifier))
 			if oauthAuthRequest.Spec.CodeChallenge != base64.RawURLEncoding.EncodeToString(hashedCodeVerifier[:]) {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "code_verifier is invalid",
-				})
+				return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code_verifier is invalid", ""))
 			}
 		case "plain":
 			if oauthAuthRequest.Spec.CodeChallenge != codeVerifier {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "code_verifier is invalid",
-				})
+				return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code_verifier is invalid", ""))
 			}
 		default:
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "code_challenge_method must be S256 or plain. ",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code_challenge_method must be S256 or plain.", ""))
 		}
 	}
 
 	userID := fmt.Sprintf("%d", oauthAuthRequest.Spec.UserID)
 	user, err := req.GatewayClient.UserByID(req.Context(), userID)
 	if err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "invalid user",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 	}
 
 	now := time.Now()
@@ -283,24 +252,15 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 
 func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, refreshToken string) error {
 	if refreshToken == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "refresh_token is required",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is required", ""))
 	}
 
 	var oauthToken v1.OAuthToken
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken)))}, &oauthToken); err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "refresh_token is invalid",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is invalid", ""))
 	}
 	if oauthToken.Spec.ClientID != oauthClient.Name {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "refresh_token is invalid",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is invalid", ""))
 	}
 
 	if err := req.Delete(&oauthToken); err != nil {
@@ -309,29 +269,17 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	user, err := req.GatewayClient.UserInfoByID(req.Context(), oauthToken.Spec.UserID)
 	if err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "invalid user",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 	}
 
 	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, user, oauthToken.Spec.MCPID)
 	if apierrors.IsNotFound(err) {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "invalid MCP server",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid MCP server", ""))
 	} else if err != nil {
-		return Error{
-			Code:        ErrServerError,
-			Description: fmt.Sprintf("failed to check access to MCP server: %v", err),
-		}
+		return newOAuthError(ErrServerError, fmt.Sprintf("failed to check access to MCP server: %v", err), "")
 	}
 	if !allowed {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "invalid MCP server",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid MCP server", ""))
 	}
 
 	now := time.Now()
@@ -388,32 +336,20 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, resource, subjectToken, subjectTokenType, requestedTokenType string) error {
 	if subjectToken == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "subject_token is required",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "subject_token is required", ""))
 	}
 
 	if subjectTokenType != tokenTypeJWT && subjectTokenType != tokenTypeAPIKey {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "subject_token_type must be urn:ietf:params:oauth:token-type:jwt or urn:obot:token-type:api-key",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "subject_token_type must be urn:ietf:params:oauth:token-type:jwt or urn:obot:token-type:api-key", ""))
 	}
 
 	// Validate optional requested_token_type parameter
 	if requestedTokenType != "" && requestedTokenType != tokenTypeAccessToken {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "requested_token_type must be urn:ietf:params:oauth:token-type:access_token",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "requested_token_type must be urn:ietf:params:oauth:token-type:access_token", ""))
 	}
 
 	if resource == "" {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "resource is required",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "resource is required", ""))
 	}
 
 	var (
@@ -432,28 +368,19 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		apiKey, err = req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
 		if err != nil {
 			log.Infof("Denied token exchange due to invalid API key subject token: client=%s", oauthClient.Name)
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "invalid API key",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid API key", ""))
 		}
 
 		// Get the MCP ID from the OAuth client
 		mcpID = oauthClient.Spec.MCPServerName
 		if mcpID == "" {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "OAuth client not associated with an MCP server",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "OAuth client not associated with an MCP server", ""))
 		}
 
 		// Check if API key has access to this MCP server
 		if err := validateAPIKeyAccess(req, apiKey, mcpID); err != nil {
 			log.Infof("Denied token exchange due to API key access restrictions: client=%s mcpID=%s", oauthClient.Name, mcpID)
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrAccessDenied,
-				Description: err.Error(),
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrAccessDenied, err.Error(), ""))
 		}
 
 		userID = fmt.Sprintf("%d", apiKey.UserID)
@@ -463,26 +390,17 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		var err error
 		tokenCtx, err = h.tokenService.DecodeToken(req.Context(), subjectToken)
 		if err != nil {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "invalid subject_token",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid subject_token", ""))
 		}
 
 		mcpID = tokenCtx.MCPID
 		if mcpID == "" {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "subject_token missing mcp_id claim",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "subject_token missing mcp_id claim", ""))
 		}
 
 		userID = tokenCtx.UserID
 		if userID == "" {
-			return types.NewErrBadRequest("%v", Error{
-				Code:        ErrInvalidRequest,
-				Description: "subject_token missing sub claim",
-			})
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "subject_token missing sub claim", ""))
 		}
 	}
 
@@ -491,18 +409,12 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		case system.IsMCPServerID(mcpID):
 			mcpServer = new(v1.MCPServer)
 			if err := req.Get(mcpServer, mcpID); err != nil {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "failed to retrieve MCP server " + mcpID,
-				})
+				return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve MCP server "+mcpID, ""))
 			}
 		case system.IsMCPServerInstanceID(mcpID):
 			mcpServerInstance = new(v1.MCPServerInstance)
 			if err := req.Get(mcpServerInstance, mcpID); err != nil {
-				return types.NewErrBadRequest("%v", Error{
-					Code:        ErrInvalidRequest,
-					Description: "failed to retrieve MCP server instance " + mcpID,
-				})
+				return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve MCP server instance "+mcpID, ""))
 			}
 		}
 	}
@@ -529,10 +441,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
 			})
 		} else if !apierrors.IsNotFound(err) {
-			return Error{
-				Code:        ErrInvalidRequest,
-				Description: fmt.Sprintf("failed to retrieve system MCP server %s: %v", resourceMCPID, err),
-			}
+			return newOAuthError(ErrInvalidRequest, fmt.Sprintf("failed to retrieve system MCP server %s: %v", resourceMCPID, err), "")
 		}
 	}
 
@@ -552,10 +461,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 					// Ensure this MCP server instance belongs to this composite MCP server.
 					var component v1.MCPServerInstance
 					if err := req.Get(&component, resourceMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrInvalidRequest,
-							Description: "failed to retrieve composite MCP server " + resourceMCPID,
-						})
+						return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve composite MCP server "+resourceMCPID, ""))
 					}
 
 					audienceID = component.Spec.MCPServerName
@@ -563,10 +469,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 					// Ensure this MCP server belongs to this composite MCP server.
 					var component v1.MCPServer
 					if err := req.Get(&component, resourceMCPID); err != nil || component.Spec.CompositeName != mcpServer.Name {
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrInvalidRequest,
-							Description: "failed to retrieve composite MCP server " + resourceMCPID,
-						})
+						return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve composite MCP server "+resourceMCPID, ""))
 					}
 				}
 
@@ -578,19 +481,13 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				// Ensure this MCP server exists and is a composite MCP server.
 				var server v1.MCPServer
 				if err := req.Get(&server, audienceID); err != nil || server.Spec.Manifest.Runtime != types.RuntimeComposite {
-					return types.NewErrBadRequest("%v", Error{
-						Code:        ErrInvalidRequest,
-						Description: "failed to retrieve composite MCP server " + audienceID,
-					})
+					return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve composite MCP server "+audienceID, ""))
 				}
 
 				if apiKey != nil {
 					user, err := req.GatewayClient.UserByID(req.Context(), userID)
 					if err != nil {
-						return types.NewErrBadRequest("%v", Error{
-							Code:        ErrInvalidRequest,
-							Description: "invalid user",
-						})
+						return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 					}
 
 					expiresAt := time.Now().Add(tokenExpiration)
@@ -667,10 +564,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	// Retrieve the OAuth configuration and token
 	config, token, err := store.GetTokenConfig(req.Context(), resource)
 	if err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "failed to retrieve token configuration",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve token configuration", ""))
 	}
 
 	if config == nil || token == nil {
@@ -680,10 +574,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	// Refresh the token if needed
 	tok, err := config.TokenSource(req.Context(), token).Token()
 	if err != nil {
-		return types.NewErrBadRequest("%v", Error{
-			Code:        ErrInvalidRequest,
-			Description: "failed to refresh token",
-		})
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to refresh token", ""))
 	}
 
 	// Store the refreshed token if it changed
@@ -739,11 +630,8 @@ func (h *handler) getTokenForMCPConnectResource(ctx context.Context, subjectToke
 
 	_, token, err := h.tokenService.NewToken(ctx, *tokenCtx)
 	if err != nil {
-		log.Errorf("failed to create token for component MCP server %s: %v", resourceMCPID, err)
-		return "", time.Time{}, types.NewErrBadRequest("%v", Error{
-			Code:        ErrServerError,
-			Description: "failed to create token",
-		})
+		log.Infof("Failed to create token for component MCP server: mcpID=%s error=%v", resourceMCPID, err)
+		return "", time.Time{}, types.NewErrBadRequest("%v", newOAuthError(ErrServerError, "failed to create token", ""))
 	}
 
 	return token, tokenCtx.ExpiresAt.Time, nil

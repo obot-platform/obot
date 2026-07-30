@@ -617,7 +617,7 @@ func TestGenericResponsesTransportHeaders(t *testing.T) {
 // TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
 // by llmTransformRequest for every (base URL, reqPath) combination the proxy
 // should support. Every reqPath is grounded in real source — either nanobot
-// (nanobot/pkg/llm/{anthropic,responses,completions,bifrost}/client.go) or the
+// (nanobot/pkg/llm/{anthropic,responses}/client.go) or the
 // official SDK each documented external coding tool uses.
 //
 // The expected paths are also what modifyResponse in llmproxy.go checks against
@@ -646,23 +646,9 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 		},
 		// nanobot/pkg/llm/client.go: OpenResponses uses the responses client
 		{
-			name:    "nanobot OpenResponses dialect (dispatch)",
+			name:    "nanobot OpenResponses dialect",
 			baseURL: "http://127.0.0.1:8080",
 			reqPath: "responses",
-			want:    "/v1/responses",
-		},
-		// nanobot/pkg/llm/completions/client.go → BaseURL + "/chat/completions"
-		{
-			name:    "nanobot OpenAIChatCompletions dialect (dispatch)",
-			baseURL: "http://127.0.0.1:8080",
-			reqPath: "chat/completions",
-			want:    "/v1/chat/completions",
-		},
-		// nanobot/pkg/llm/bifrost/client.go → BaseURL + "/v1/responses"
-		{
-			name:    "nanobot BifrostRequest dialect (dispatch)",
-			baseURL: "http://127.0.0.1:8080",
-			reqPath: "v1/responses",
 			want:    "/v1/responses",
 		},
 

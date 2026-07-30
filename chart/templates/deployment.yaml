@@ -19,6 +19,9 @@ spec:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
         checksum/internal-config: {{ include (print $.Template.BasePath "/internal-configmap.yaml") . | sha256sum }}
+        {{- if gt (int .Values.replicaCount) 1 }}
+        checksum/tunnel-peer-secret: {{ include (print $.Template.BasePath "/tunnel-peer.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -129,6 +132,15 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.serviceAccountName
+            - name: OBOT_SERVER_TUNNEL_PEER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "obot.tunnelPeerSecretName" . }}
+                  key: OBOT_SERVER_TUNNEL_PEER_TOKEN
+            - name: OBOT_SERVER_TUNNEL_PEER_ID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
           envFrom:
             - configMapRef:
                 name: {{ include "obot.config.configMapName" . }}

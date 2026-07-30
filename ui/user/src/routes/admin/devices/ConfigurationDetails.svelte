@@ -4,6 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -13,6 +14,7 @@
 		type MDMEnrollmentKey
 	} from '$lib/services';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
+	import EnforcementSettings from './EnforcementSettings.svelte';
 	import EnrollmentConfigDownload from './EnrollmentConfigDownload.svelte';
 	import EnrollmentKeyRevealDialog from './EnrollmentKeyRevealDialog.svelte';
 	import { KeyRound, Plus, Trash2 } from '@lucide/svelte';
@@ -26,6 +28,7 @@
 		assets: MDMAsset[];
 		assetLoadError?: string;
 		readOnly?: boolean;
+		onConfigurationUpdate?: (configuration: MDMConfiguration) => void;
 	}
 
 	let {
@@ -34,7 +37,8 @@
 		assetSource,
 		assets,
 		assetLoadError,
-		readOnly = false
+		readOnly = false,
+		onConfigurationUpdate
 	}: Props = $props();
 
 	let enrollmentKeys = $state<MDMEnrollmentKey[]>(untrack(() => initialEnrollmentKeys));
@@ -98,7 +102,7 @@
 	}
 </script>
 
-<div class="flex h-full w-full flex-col gap-6">
+<div class="flex h-full w-full flex-col gap-6" id="devices-configuration-details">
 	<EnrollmentConfigDownload
 		{configuration}
 		{assetSource}
@@ -109,7 +113,7 @@
 		onCreateEnrollmentKey={openCreateKeyDialog}
 	>
 		{#snippet enrollmentKeysSection()}
-			<section class="paper gap-4">
+			<section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection}>
 				<div class="flex flex-wrap items-start justify-between gap-3">
 					<div class="flex flex-col gap-1">
 						<h3 class="text-lg font-semibold">Enrollment Keys</h3>
@@ -121,6 +125,7 @@
 						<button
 							class="btn btn-secondary btn-sm flex shrink-0 items-center gap-1"
 							onclick={openCreateKeyDialog}
+							id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeyButton}
 						>
 							<Plus class="size-4" />
 							New Key
@@ -175,6 +180,12 @@
 			</section>
 		{/snippet}
 	</EnrollmentConfigDownload>
+
+	<EnforcementSettings
+		{configuration}
+		{readOnly}
+		onUpdate={(updated) => onConfigurationUpdate?.(updated)}
+	/>
 </div>
 
 <ResponsiveDialog bind:this={createKeyDialog} title="New Enrollment Key" class="w-full max-w-md">

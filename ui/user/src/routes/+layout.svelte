@@ -10,6 +10,7 @@
 		appPreferences,
 		version,
 		mcpServersAndEntries,
+		mcpTunnelConnections,
 		defaultModelAliases,
 		userDeviceSettings,
 		license,
@@ -93,6 +94,19 @@
 			pathname === '/mcp-servers';
 		if (profile.current.loaded) {
 			untrack(() => mcpServersAndEntries.initialize(isMcpCatalogRoute));
+		}
+	});
+
+	$effect(() => {
+		const pathname = page.url.pathname;
+		const usesMcpTunnelStatus =
+			pathname.startsWith('/mcp-servers') ||
+			pathname.startsWith('/mcp-catalog') ||
+			pathname.startsWith('/admin/mcp-catalog') ||
+			pathname.startsWith('/admin/mcp-deployments');
+
+		if (profile.current.loaded && usesMcpTunnelStatus) {
+			return mcpTunnelConnections.startPolling();
 		}
 	});
 </script>

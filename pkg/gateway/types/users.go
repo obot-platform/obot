@@ -9,6 +9,7 @@ import (
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 )
 
@@ -47,7 +48,7 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 	}
 
 	groups := effectiveRole.Groups()
-	if authProviderName == "bootstrap" {
+	if authProviderName == system.BootstrapName {
 		groups = []string{types2.GroupOwner, types2.GroupAdmin, types2.GroupBasic, types2.GroupAuthenticated}
 	}
 

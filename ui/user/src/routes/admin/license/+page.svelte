@@ -5,6 +5,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
 	import { errors, license as licenseStore, profile } from '$lib/stores';
 	import { CircleAlert, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
@@ -14,6 +15,9 @@
 
 	let { data } = $props();
 
+	const communityEntitlement = 'OBOT_COMMUNITY';
+	const enterpriseEntitlement = 'OBOT_ENTERPRISE';
+	const editionEntitlements = new Set([communityEntitlement, enterpriseEntitlement]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
 	let license = $state(untrack(() => data.license));
@@ -29,6 +33,23 @@
 	let updateError = $state('');
 	let updateLicenseTitle = $derived(license?.licenseKey ? 'Update License Key' : 'Add License Key');
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let hasValidLicense = $derived(Boolean(license?.enterprise));
+	let isCommunityEdition = $derived(license?.entitlements?.includes(communityEntitlement) ?? false);
+	let sortedEntitlements = $derived(
+		[...(license?.entitlements ?? [])].sort(
+			(a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b))
+		)
+	);
+	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
+	let showCommunityEnrollment = $derived(
+		Boolean(license && !hasValidLicense && !license.locked && !isAdminReadonly)
+	);
+
+	let communityName = $state('');
+	let communityEmail = $state('');
+	let communityCompany = $state('');
+	let communitySaving = $state(false);
+	let communityError = $state('');
 	let manualCheckAvailableAt = $derived(
 		license?.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
 	);
@@ -92,6 +113,30 @@
 		}
 	}
 
+	async function handleCommunitySubmit(event: SubmitEvent) {
+		event.preventDefault();
+		if (communitySaving) return;
+
+		communitySaving = true;
+		communityError = '';
+		try {
+			await AdminService.createCommunityLicense(
+				{
+					name: communityName.trim(),
+					email: communityEmail.trim(),
+					company: communityCompany.trim() || undefined
+				},
+				{ dontLogErrors: true }
+			);
+			window.location.reload();
+		} catch (err) {
+			communityError =
+				parseErrorContent(err).message || 'Failed to obtain an Obot Community license.';
+		} finally {
+			communitySaving = false;
+		}
+	}
+
 	function formatCooldown(ms: number) {
 		if (ms <= 0) return '';
 
@@ -102,17 +147,18 @@
 		return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 	}
 
-	function convertUserFriendlyEntitlements(entitlements: string[]): string[] {
-		return entitlements.map((entitlement) => {
-			switch (entitlement) {
-				case 'OBOT_ENTERPRISE_AUTH_PROVIDERS':
-					return 'Auth Providers';
-				case 'OBOT_ENTERPRISE_MODEL_PROVIDERS':
-					return 'Model Providers';
-				default:
-					return entitlement;
-			}
-		});
+	function formatEntitlementName(entitlement: string): string {
+		if (entitlement === communityEntitlement) return 'Obot Community';
+		if (entitlement === enterpriseEntitlement) return 'Obot Enterprise';
+		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
+		if (name === entitlement) return entitlement;
+
+		const words = name.split('_').filter(Boolean);
+		if (words.length === 0) return entitlement;
+
+		return words
+			.map((word) => (word.length <= 3 ? word : word.charAt(0) + word.slice(1).toLowerCase()))
+			.join(' ');
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -121,19 +167,20 @@
 <Layout title="License">
 	<div class="h-full w-full" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-4">
-			{#if license && !license.licenseKey}
+			{#if showEnterpriseCTA}
 				<div class="notification-info p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<Info class="size-6" />
 						<div>
-							Interested in purchasing a license or want to learn more? Contact support at <a
-								href="mailto:info@obot.ai"
-								class="text-link">info@obot.ai</a
+							Ready for advanced features and support? <a
+								href="https://obot.ai/contact-us/"
+								class="text-link">Contact us to upgrade to Enterprise Edition</a
 							>.
 						</div>
 					</div>
 				</div>
-			{:else if license && license.licenseKey && !license.enterprise}
+			{/if}
+			{#if license && license.licenseKey && !license.enterprise}
 				<div class="notification-alert p-3 text-sm font-light">
 					<div class="flex items-center gap-3">
 						<CircleAlert class="size-6" />
@@ -154,6 +201,75 @@
 						</div>
 					</div>
 				</div>
+			{/if}
+
+			{#if showCommunityEnrollment}
+				<form class="paper flex flex-col gap-4" onsubmit={handleCommunitySubmit}>
+					<div class="flex flex-col gap-1">
+						<h2 class="text-xl font-semibold">Get Obot Community</h2>
+						<p class="text-muted-content text-sm font-light">
+							Register this installation for a free Obot Community license.
+						</p>
+					</div>
+
+					<div class="grid gap-4 md:grid-cols-2">
+						<label class="flex flex-col gap-1 text-sm font-light" for="community-name">
+							Name
+							<input
+								id="community-name"
+								class="text-input-filled"
+								name="name"
+								type="text"
+								autocomplete="name"
+								bind:value={communityName}
+								required
+							/>
+						</label>
+
+						<label class="flex flex-col gap-1 text-sm font-light" for="community-email">
+							Email
+							<input
+								id="community-email"
+								class="text-input-filled"
+								name="email"
+								type="email"
+								pattern="[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+"
+								title="Enter an email address with a valid domain, such as name@example.com."
+								autocomplete="email"
+								bind:value={communityEmail}
+								required
+							/>
+						</label>
+
+						<label
+							class="flex flex-col gap-1 text-sm font-light md:col-span-2"
+							for="community-company"
+						>
+							Company <span class="text-muted-content text-xs">(optional)</span>
+							<input
+								id="community-company"
+								class="text-input-filled"
+								name="company"
+								type="text"
+								autocomplete="organization"
+								bind:value={communityCompany}
+							/>
+						</label>
+					</div>
+
+					{#if communityError}
+						<div in:slide={{ duration: 150, axis: 'y' }} class="alert alert-error alert-soft">
+							{communityError}
+						</div>
+					{/if}
+
+					<button class="btn btn-primary w-full sm:w-fit" type="submit" disabled={communitySaving}>
+						{#if communitySaving}
+							<LoaderCircle class="size-4 animate-spin" />
+						{/if}
+						{communitySaving ? 'Getting Community License...' : 'Get Community License'}
+					</button>
+				</form>
 			{/if}
 			<div class="paper flex flex-col gap-6">
 				{#if license}
@@ -224,8 +340,15 @@
 						<p class="text-sm font-light">License Entitlements</p>
 						{#if license.entitlements}
 							<ul class="flex flex-wrap gap-2">
-								{#each convertUserFriendlyEntitlements(license.entitlements ?? []) as entitlement (entitlement)}
-									<li class="badge badge-soft badge-sm">{entitlement}</li>
+								{#each sortedEntitlements as entitlement (entitlement)}
+									<li
+										class={twMerge(
+											'badge badge-soft badge-sm',
+											editionEntitlements.has(entitlement) && 'badge-primary'
+										)}
+									>
+										{formatEntitlementName(entitlement)}
+									</li>
 								{/each}
 							</ul>
 						{:else}

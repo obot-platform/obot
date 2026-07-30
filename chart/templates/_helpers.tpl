@@ -71,6 +71,25 @@ Set name of secret to use for credentials
 {{- end -}}
 
 {{/*
+Create the name of the Secret and RBAC resources used to peer tunnel servers.
+*/}}
+{{- define "obot.tunnelPeerName" -}}
+{{- $base := include "obot.fullname" . | trunc 51 | trimSuffix "-" -}}
+{{ printf "%s-tunnel-peer" $base }}
+{{- end -}}
+
+{{/*
+Return the Secret containing the tunnel peer token.
+*/}}
+{{- define "obot.tunnelPeerSecretName" -}}
+{{- if .Values.tunnelPeer.existingSecret -}}
+{{- .Values.tunnelPeer.existingSecret -}}
+{{- else -}}
+{{- include "obot.tunnelPeerName" . -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Set name of configmap to use for non-sensitive config
 */}}
 {{- define "obot.config.configMapName" -}}

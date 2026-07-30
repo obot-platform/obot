@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,14 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
+	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/pkg/version"
-	"gorm.io/gorm"
 )
 
 type SessionStore string
@@ -29,9 +27,7 @@ const (
 	SessionStoreDB     SessionStore = "db"
 	SessionStoreCookie SessionStore = "cookie"
 
-	installationIDPropertyKey   = "installation_id"
-	defaultUpgradeServerBaseURL = "https://upgrade-server.obot.ai"
-	updateCheckInterval         = 24 * time.Hour
+	updateCheckInterval = 24 * time.Hour
 )
 
 func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
@@ -69,15 +65,10 @@ type VersionHandler struct {
 }
 
 func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*VersionHandler, error) {
-	upgradeServerBaseURL := defaultUpgradeServerBaseURL
-	if os.Getenv("OBOT_UPGRADE_SERVER_URL") != "" {
-		upgradeServerBaseURL = os.Getenv("OBOT_UPGRADE_SERVER_URL")
-	}
-
 	v := &VersionHandler{
 		VersionHandlerOptions: opts,
 		sessionStore:          sessionStoreFromPostgresDSN(opts.PostgresDSN),
-		upgradeServerURL:      fmt.Sprintf("%s/check-upgrade", upgradeServerBaseURL),
+		upgradeServerURL:      upgrade.EndpointURL(upgrade.ServerBaseURL(), "check-upgrade"),
 	}
 
 	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
@@ -85,17 +76,12 @@ func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*Versio
 
 	// Don't start the upgrade check if explicitly disabled or if this is a development version.
 	if !opts.DisableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
-		p, err := opts.GatewayClient.GetProperty(ctx, installationIDPropertyKey)
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			p, err = opts.GatewayClient.SetProperty(ctx, installationIDPropertyKey, uuid.NewString())
-			if err != nil {
-				return nil, fmt.Errorf("failed to set installation ID property: %w", err)
-			}
-		} else if err != nil {
-			return nil, fmt.Errorf("failed to get installation ID property: %w", err)
+		installationID, err := upgrade.GetInstallationID(ctx, opts.GatewayClient)
+		if err != nil {
+			return nil, err
 		}
 
-		go v.startUpgradeCheck(ctx, p.Value, currentVersion, opts.Engine)
+		go v.startUpgradeCheck(ctx, installationID, currentVersion, opts.Engine)
 	}
 
 	return v, nil
@@ -115,7 +101,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		engine = mcp.RuntimeBackendKubernetes
 	}
 
-	violations, err := v.LicenseProvider.ConfiguredProviderViolations(ctx, v.StorageClient)
+	violations, err := v.LicenseProvider.GetLicenseViolations(ctx, v.StorageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -125,11 +111,12 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	latestVersion := v.latestVersion
 	v.upgradeLock.RUnlock()
 
-	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
+	entitlements, err := v.LicenseProvider.Entitlements(ctx)
 	if err != nil {
 		return nil, err
 	}
-	entitlements, err := v.LicenseProvider.Entitlements(ctx)
+
+	userCount, err := v.GatewayClient.UserCount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +127,10 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
-		"enterprise":                   hasValidLicense,
+		"enterprise":                   slices.Contains(entitlements, license.EnterpriseEntitlement),
+		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
 		"licenseEntitlements":          entitlements,
+		"userCount":                    userCount,
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
@@ -150,6 +139,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"hideK8sDetails":               v.HideK8sDetails,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
+	}
+
+	userLimit, err := v.LicenseProvider.UserLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !userLimit.Unlimited {
+		values["userLimit"] = userLimit.Maximum
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {
@@ -165,7 +162,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	return values, nil
 }
 
-func missingEntitlements(violations []license.ProviderViolation) []string {
+func missingEntitlements(violations []license.Violation) []string {
 	seen := make(map[string]struct{})
 	for _, violation := range violations {
 		for _, entitlement := range violation.MissingEntitlements {

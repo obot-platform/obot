@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
 	import type { MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
@@ -88,7 +89,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-2">
+<div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterSelectors}>
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">Selectors</h2>
@@ -123,7 +124,7 @@
 	{/if}
 </div>
 
-<div class="flex flex-col gap-2">
+<div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterMcpServers}>
 	<div class="mb-2 flex items-center justify-between">
 		<div class="flex flex-col gap-1">
 			<h2 class="text-lg font-semibold">MCP Servers</h2>

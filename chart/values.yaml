@@ -1,5 +1,12 @@
-# replicaCount -- The number of Obot server instances to run
+# replicaCount -- The number of Obot server instances to run.
+# When greater than one, the chart configures replicas to peer tunnel connections through the Obot Service.
 replicaCount: 1
+
+tunnelPeer:
+  # tunnelPeer.existingSecret -- An existing Secret containing OBOT_SERVER_TUNNEL_PEER_TOKEN. Use this or token for stable GitOps rendering. The chart creates and preserves a token when both are empty.
+  existingSecret: ""
+  # tunnelPeer.token -- The shared peer token stored in the chart-managed Secret. Set this to a stable secret value when manifests are rendered without live-cluster lookup (for example, with a GitOps renderer).
+  token: ""
 
 dev:
   # dev.useEmbeddedDb -- For development/testing use only, enables the use of an postgres database embedded in the obot container. Do not use in production.

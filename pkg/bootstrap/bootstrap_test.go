@@ -74,7 +74,7 @@ func ensureOwner(t *testing.T, c *client.Client, username, email, authProviderNa
 		AuthProviderNamespace: "default",
 		ProviderUsername:      username,
 		ProviderUserID:        username,
-	}, "", types2.RoleOwner); err != nil {
+	}, "", types2.RoleOwner, client.UserLimit{Unlimited: true}); err != nil {
 		t.Fatalf("failed to ensure owner identity: %v", err)
 	}
 }

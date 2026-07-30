@@ -60,6 +60,9 @@ import type {
 	GitCredential,
 	GitCredentialManifest,
 	MCPCompositeDeletionDependency,
+	MCPTunnel,
+	MCPTunnelManifest,
+	TunnelConnection,
 	GroupRoleAssignment,
 	GroupRoleAssignmentList,
 	MCPCapacityInfo,
@@ -103,12 +106,17 @@ import type {
 	AppNotificationManifest,
 	License,
 	LicenseManifest,
+	CommunityLicenseEnrollment,
 	LLMAuditLog,
 	LLMAuditLogURLFilters,
+	EnforcementDecisionAllowlistCheck,
+	EnforcementDecisionEvent,
+	EnforcementDecisionURLFilters,
 	MDMAsset,
 	MDMAssetList,
 	MDMAssetSource,
 	MDMConfiguration,
+	MDMConfigurationEnforcementInput,
 	MDMConfigurationInput,
 	MDMDevice,
 	MDMEnrollmentKey,
@@ -1355,6 +1363,45 @@ export async function exchangeMCPServerOAuthDebuggerToken(
 	return (await doPost(`/mcp-servers/${serverID}/oauth-debugger/token`, body, opts)) as OAuthToken;
 }
 
+// MCP tunnels
+
+export async function createMCPTunnel(
+	input: MCPTunnelManifest,
+	opts?: RequestOptions
+): Promise<MCPTunnel> {
+	return (await doPost('/mcp-tunnels', input, opts)) as MCPTunnel;
+}
+
+export async function deleteMCPTunnel(id: string, opts?: RequestOptions): Promise<void> {
+	await doDelete(`/mcp-tunnels/${id}`, opts);
+}
+
+export async function getMCPTunnel(id: string, opts?: RequestOptions): Promise<MCPTunnel> {
+	return (await doGet(`/mcp-tunnels/${id}`, opts)) as MCPTunnel;
+}
+
+export async function listMCPTunnels(opts?: RequestOptions): Promise<MCPTunnel[]> {
+	const response = (await doGet('/mcp-tunnels', opts)) as ItemsResponse<MCPTunnel>;
+	return response.items ?? [];
+}
+
+export async function listTunnelConnections(opts?: RequestOptions): Promise<TunnelConnection[]> {
+	const response = (await doGet('/tunnels', opts)) as ItemsResponse<TunnelConnection>;
+	return response.items ?? [];
+}
+
+export async function rotateMCPTunnelSecret(id: string, opts?: RequestOptions): Promise<MCPTunnel> {
+	return (await doPost(`/mcp-tunnels/${id}/rotate-secret`, {}, opts)) as MCPTunnel;
+}
+
+export async function updateMCPTunnel(
+	id: string,
+	input: MCPTunnelManifest,
+	opts?: RequestOptions
+): Promise<MCPTunnel> {
+	return (await doPut(`/mcp-tunnels/${id}`, input, opts)) as MCPTunnel;
+}
+
 // Message policies
 
 export async function listMessagePolicies(opts?: { fetch?: Fetcher }): Promise<MessagePolicy[]> {
@@ -2088,6 +2135,13 @@ export async function updateLicense(
 	return (await doPut('/license', manifest, opts)) as License;
 }
 
+export async function createCommunityLicense(
+	enrollment: CommunityLicenseEnrollment,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<License> {
+	return (await doPost('/license/community', enrollment, opts)) as License;
+}
+
 // MDM configurations
 
 export async function listMDMConfigurations(opts?: {
@@ -2165,6 +2219,62 @@ export async function getMDMConfiguration(
 	opts?: { fetch?: Fetcher }
 ): Promise<MDMConfiguration> {
 	return (await doGet(`/mdm/configurations/${id}`, opts)) as MDMConfiguration;
+}
+
+export async function updateMDMConfigurationEnforcement(
+	id: number,
+	input: MDMConfigurationEnforcementInput,
+	opts?: { fetch?: Fetcher }
+): Promise<MDMConfiguration> {
+	return (await doPut(`/mdm/configurations/${id}/enforcement`, input, opts)) as MDMConfiguration;
+}
+
+// Enforcement decisions
+
+export async function listEnforcementDecisions(
+	filters?: EnforcementDecisionURLFilters,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<PaginatedResponse<EnforcementDecisionEvent>> {
+	const queryString = buildQueryString(filters ?? {});
+	return (await doGet(
+		`/enforcement-decisions${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as PaginatedResponse<EnforcementDecisionEvent>;
+}
+
+export async function getEnforcementDecision(
+	id: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<EnforcementDecisionEvent> {
+	return (await doGet(
+		`/enforcement-decisions/${encodeURIComponent(id)}`,
+		opts
+	)) as EnforcementDecisionEvent;
+}
+
+export async function checkEnforcementDecisionAllowlist(
+	id: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<EnforcementDecisionAllowlistCheck> {
+	return (await doGet(
+		`/enforcement-decisions/allowlist-check/${encodeURIComponent(id)}`,
+		opts
+	)) as EnforcementDecisionAllowlistCheck;
+}
+
+export async function listEnforcementDecisionFilterOptions(
+	filter: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal } & Partial<EnforcementDecisionURLFilters>
+): Promise<{ options: string[] }> {
+	const { fetch: fetchFn, signal, ...filters } = opts ?? {};
+	const queryString = buildQueryString({
+		...filters,
+		limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT
+	});
+	return (await doGet(
+		`/enforcement-decisions/filter-options/${filter}${queryString ? `?${queryString}` : ''}`,
+		{ fetch: fetchFn, signal }
+	)) as { options: string[] };
 }
 
 // parseContentDispositionFilename pulls the download filename out of a

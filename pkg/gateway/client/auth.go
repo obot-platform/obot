@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -12,14 +13,16 @@ import (
 )
 
 type UserDecorator struct {
-	next   authenticator.Request
-	client *Client
+	next              authenticator.Request
+	client            *Client
+	userLimitProvider UserLimitProvider
 }
 
-func NewUserDecorator(next authenticator.Request, client *Client) *UserDecorator {
+func NewUserDecorator(next authenticator.Request, client *Client, userLimitProvider UserLimitProvider) *UserDecorator {
 	return &UserDecorator{
-		next:   next,
-		client: client,
+		next:              next,
+		client:            client,
+		userLimitProvider: userLimitProvider,
 	}
 }
 
@@ -56,7 +59,12 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		ProviderIssuer:        auth.FirstExtraValue(extra, "auth_provider_issuer"),
 		ProviderEmailVerified: emailVerified,
 	}
-	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"))
+	userLimit, err := u.resolveUserLimit(req.Context())
+	if err != nil {
+		return nil, false, err
+	}
+
+	gatewayUser, err := u.client.EnsureIdentity(req.Context(), identity, req.Header.Get("X-Obot-User-Timezone"), userLimit)
 	if err != nil {
 		return nil, false, err
 	}
@@ -79,4 +87,29 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		Groups: effectiveRole.Groups(),
 	}
 	return resp, true, nil
+}
+
+func (u UserDecorator) resolveUserLimit(ctx context.Context) (UserLimit, error) {
+	userLimit, err := u.userLimitProvider.UserLimit(ctx)
+	if err != nil {
+		return UserLimit{}, fmt.Errorf("failed to resolve user limit: %w", err)
+	}
+
+	if !userLimit.Unlimited && userLimit.Maximum <= 0 {
+		return UserLimit{}, fmt.Errorf("invalid user limit %d", userLimit.Maximum)
+	}
+
+	return userLimit, nil
+}
+
+// UserLimit describes the maximum number of users an installation may have.
+// Maximum is ignored when Unlimited is true.
+type UserLimit struct {
+	Maximum   int64
+	Unlimited bool
+}
+
+// UserLimitProvider resolves the current license-derived user limit.
+type UserLimitProvider interface {
+	UserLimit(context.Context) (UserLimit, error)
 }

@@ -47,7 +47,7 @@ func TestImportDirectoryProducesImmutableDatabaseBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	var download bytes.Buffer
-	if err := loader.Zip(&download, c, completedValues(t, loader)); err != nil {
+	if err := loader.Zip(&download, c, completedValues(t, loader), false); err != nil {
 		t.Fatal(err)
 	}
 	if got := zipEntries(t, download.Bytes())["obot-sentry.intunewin"]; got != "fake-intunewin" {

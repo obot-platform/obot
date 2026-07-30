@@ -23,7 +23,13 @@ const (
 )
 
 var (
+	tunnelResources       = newPathMatcher("GET /tunnel/connect")
+	tunnelBridgeResources = newPathMatcher("/tunnel/bridge/{target}")
+	tunnelPeerResources   = newPathMatcher("GET /tunnel/peer")
+
 	adminAndOwnerRules = []string{
+		"/api/mcp-tunnels",
+		"/api/mcp-tunnels/",
 		"/api/mcp-catalogs",
 		"/api/mcp-catalogs/",
 		"/api/model-info-source",
@@ -53,6 +59,7 @@ var (
 		"GET /debug/metrics",
 		"PUT /api/license",
 		"POST /api/license",
+		"POST /api/license/community",
 		"DELETE /api/license",
 		"/api/auth-providers",
 		"/api/auth-providers/",
@@ -78,6 +85,8 @@ var (
 		"/api/devices/clients/",
 		"/api/mdm/configurations",
 		"/api/mdm/configurations/",
+		"GET /api/enforcement-decisions",
+		"GET /api/enforcement-decisions/",
 		"/api/mdm/asset-source",
 		"/api/mdm/asset-source/",
 		"GET /api/mdm/assets",
@@ -188,6 +197,8 @@ var (
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violation-stats",
+			"GET /api/enforcement-decisions",
+			"GET /api/enforcement-decisions/",
 			"GET /api/devices/scan-stats",
 			"GET /api/devices/mcp-servers/",
 			"GET /api/devices/skills",
@@ -290,6 +301,10 @@ var (
 			"GET /api/default-k8s-settings",
 			"GET /api/license",
 			"GET /api/setup/oauth-complete",
+
+			// Users should be able to get the connected tunnel information
+			// so they can see which MCP servers that use the tunnel are available.
+			"GET /api/tunnels",
 		},
 
 		types.GroupPowerUserPlus: {
@@ -334,6 +349,9 @@ var (
 
 			// Credentials that can submit scans can also submit local agent tool call audit logs.
 			"POST /api/local-agent-audit-logs",
+
+			// Devices ask for a synchronous enforcement decision before running a tool call.
+			"POST /api/enforcement/decisions",
 		},
 
 		types.GroupDeviceEnroll: {
@@ -391,6 +409,32 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 }
 
 func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
+	// Tunnel credentials are deliberately non-user principals. Keep this check
+	// ahead of anyGroup and UI authorization so the credential cannot inherit
+	// baseline routes intended for ordinary users.
+	if slices.Contains(userInfo.GetGroups(), types.GroupTunnel) {
+		if req.Method != http.MethodGet {
+			return false
+		}
+		_, ok := tunnelResources.Match(req)
+		return ok
+	}
+	// Peer credentials are internal, non-user principals used only to connect
+	// remotedialer servers running on different Obot replicas.
+	if slices.Contains(userInfo.GetGroups(), types.GroupTunnelPeer) {
+		if req.Method != http.MethodGet {
+			return false
+		}
+		_, ok := tunnelPeerResources.Match(req)
+		return ok
+	}
+	// Bridge credentials are likewise internal, non-user principals. They may
+	// use any HTTP method, but only against one exact encoded bridge target.
+	if slices.Contains(userInfo.GetGroups(), types.GroupTunnelBridge) {
+		_, ok := tunnelBridgeResources.Match(req)
+		return ok
+	}
+
 	user := newUser(userInfo)
 	for _, r := range a.rules {
 		if r.group == anyGroup || slices.Contains(user.GetGroups(), r.group) {

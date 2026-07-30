@@ -249,6 +249,7 @@
 						<div class="flex flex-1 relative z-10">
 							{#each views as viewOption (viewOption.value)}
 								<button
+									id={`devices-tab-${viewOption.value}`}
 									class={twMerge(
 										'border-b-2 text-nowrap border-transparent px-8 py-2 transition-colors duration-400',
 										view === viewOption.value

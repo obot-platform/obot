@@ -72,7 +72,7 @@ func (s *Server) getUsers(apiContext api.Context) error {
 	validUsers := make([]types.User, 0, len(users))
 	userIDs := make([]uint, 0, len(users))
 	for _, user := range users {
-		if user.Username != "bootstrap" && user.Email != "" {
+		if user.Username != system.BootstrapName && user.Email != "" {
 			validUsers = append(validUsers, user)
 			userIDs = append(userIDs, user.ID)
 		}

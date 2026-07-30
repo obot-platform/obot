@@ -2,6 +2,7 @@
 	import { codeSnippetCopy } from '$lib/actions/codeSnippetCopy';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import { saveBlob } from '$lib/download';
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -383,6 +384,7 @@
 				{/if}
 				{#if latestAsset}
 					<IconButton
+						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.agentSettingsButton}
 						class="btn-sm {settingsOpen ? 'text-primary' : ''}"
 						tooltip={{ text: 'Agent settings' }}
 						aria-expanded={settingsOpen}
@@ -393,6 +395,7 @@
 				{/if}
 				{#if !readOnly}
 					<IconButton
+						id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.checkForUpdatesButton}
 						class="btn-sm"
 						tooltip={{ text: 'Check for updates' }}
 						disabled={checkingForUpdates || saving}
@@ -462,8 +465,14 @@
 			</div>
 		{/if}
 
-		<div class="divide-base-300 dark:divide-base-400 flex flex-col divide-y">
-			<div class="flex flex-wrap items-center justify-between gap-3 py-3">
+		<div
+			class="divide-base-300 dark:divide-base-400 flex flex-col divide-y"
+			id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetup}
+		>
+			<div
+				class="flex flex-wrap items-center justify-between gap-3 py-3"
+				id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-1`}
+			>
 				{@render setupStep(
 					'1',
 					'Generate an enrollment key',
@@ -485,7 +494,10 @@
 			</div>
 
 			{#if targetOptions.length > 0}
-				<div class="flex flex-wrap items-center justify-between gap-3 py-3">
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 py-3"
+					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`}
+				>
 					{@render setupStep(
 						'2',
 						'Select your installation method',
@@ -508,7 +520,10 @@
 					</div>
 				</div>
 
-				<div class="flex flex-wrap items-center justify-between gap-3 py-3">
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 py-3"
+					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`}
+				>
 					{@render setupStep(
 						'3',
 						'Select an operating system',
@@ -533,7 +548,10 @@
 					{/if}
 				</div>
 
-				<div class="flex flex-wrap items-center justify-between gap-3 py-3">
+				<div
+					class="flex flex-wrap items-center justify-between gap-3 py-3"
+					id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-4`}
+				>
 					{@render setupStep('4', 'Download the install artifacts', selectedTarget?.description)}
 					{#if selectedArtifact && !dirty}
 						<button
@@ -552,7 +570,10 @@
 
 				<details class="collapse collapse-arrow rounded-none">
 					<summary class="collapse-title min-h-0 px-0 py-3">
-						<div class="flex items-center gap-3 pr-8">
+						<div
+							class="flex items-center gap-3 pr-8"
+							id={`${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`}
+						>
 							{@render setupStep(
 								'5',
 								'Follow the instructions to install obot-sentry',
@@ -605,7 +626,7 @@
 		{/if}
 		{#each formFields as [fieldName, field] (fieldName)}
 			{@const problem = mdmFieldProblem(fieldName, field, values[fieldName], requiredFields)}
-			<div class="flex flex-col gap-1 text-sm">
+			<div class="flex flex-col gap-1 text-sm" id={`mdm-field-${fieldName}-container`}>
 				<label for={`mdm-field-${fieldName}`} class="input-label">{field.title ?? fieldName}</label>
 				{#if field.enum}
 					<select

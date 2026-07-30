@@ -272,6 +272,13 @@ func assertInvalidClientErr(t *testing.T, err error) {
 	if !strings.Contains(errHTTP.Message, `"error":"invalid_client"`) {
 		t.Fatalf("expected invalid_client error, got %s", errHTTP.Message)
 	}
+	var oauthErr oauthError
+	if err := json.Unmarshal([]byte(errHTTP.Message), &oauthErr); err != nil {
+		t.Fatalf("expected valid OAuth error JSON, got %q: %v", errHTTP.Message, err)
+	}
+	if !strings.HasPrefix(oauthErr.Description, obotErrorPrefix) {
+		t.Fatalf("expected Obot error marker, got %q", oauthErr.Description)
+	}
 }
 
 func signClientAssertion(t *testing.T, key *rsa.PrivateKey, kid, clientID, audience string) string {

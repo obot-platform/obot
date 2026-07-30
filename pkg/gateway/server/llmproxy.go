@@ -22,7 +22,6 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
-	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -32,10 +31,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const tokenUsageTimePeriod = 24 * time.Hour
@@ -60,144 +56,6 @@ func init() {
 	}
 }
 
-func (s *Server) dispatchLLMProxy(req api.Context) error {
-	body, err := readBody(req.Request)
-	if err != nil {
-		return fmt.Errorf("failed to read body: %w", err)
-	}
-
-	modelStr, ok := body["model"].(string)
-	if !ok {
-		return fmt.Errorf("missing model in body")
-	}
-
-	userID := req.User.GetUID()
-	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
-		req.Context(),
-		userID,
-		tokenUsageTimePeriod,
-		s.dailyUserInputTokenLimit,
-		s.dailyUserOutputTokenLimit,
-	); err != nil {
-		return err
-	} else if remainingUsage.IsDepleted() {
-		return types2.NewErrHTTP(http.StatusTooManyRequests, fmt.Sprintf("no tokens remaining (input tokens remaining: %d, output tokens remaining: %d)", remainingUsage.InputTokens, remainingUsage.OutputTokens))
-	}
-
-	m, err := getModelFromReference(req.Context(), req.Storage, req.Namespace(), modelStr)
-	if err != nil {
-		return fmt.Errorf("failed to get model: %w", err)
-	}
-
-	modelID := m.Name
-	modelProvider := m.Spec.Manifest.ModelProvider
-	model := m.Spec.Manifest.TargetModel
-
-	// Check if the user has permission to use this model
-	hasAccess, err := s.mapHelper.UserHasAccessToModel(req.User, modelID)
-	if err != nil {
-		return fmt.Errorf("failed to check model permission: %w", err)
-	}
-	if !hasAccess {
-		return types2.NewErrForbidden("user does not have permission to use model %q (%s)", model, modelID)
-	}
-
-	body["model"] = model
-
-	// Evaluate message policies.
-	var (
-		outputPolicies         []messagepolicy.ApplicablePolicy
-		conversationHistory    []messagepolicy.ConversationMessage
-		inputPolicyReplacement string
-	)
-	messagePolicyHelper := s.messagePolicyHelper
-	if shouldSkipMessagePolicyEnforcement(req.Request) {
-		messagePolicyHelper = nil
-	}
-	if messagePolicyHelper != nil {
-		outputPolicies, conversationHistory, inputPolicyReplacement, err = applyMessagePolicies(
-			req.Context(), messagePolicyHelper, req.User, req.GatewayClient, body, "", "",
-		)
-		if err != nil {
-			return err
-		}
-	}
-
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-
-	req.Request.Body = io.NopCloser(bytes.NewReader(b))
-	req.ContentLength = int64(len(b))
-
-	u, err := s.dispatcher.URLForModelProvider(req.Context(), req.Namespace(), modelProvider)
-	if err != nil {
-		return fmt.Errorf("failed to get model provider: %w", err)
-	}
-
-	if err = s.db.WithContext(req.Context()).Create(&types.LLMProxyActivity{
-		UserID: userID,
-		Path:   req.URL.Path,
-	}).Error; err != nil {
-		return fmt.Errorf("failed to create monitor: %w", err)
-	}
-
-	(&httputil.ReverseProxy{
-		Director: llmTransformRequest(u),
-		ModifyResponse: (&responseModifier{
-			user:                   req.User,
-			model:                  model,
-			modelProvider:          modelProvider,
-			client:                 req.GatewayClient,
-			tokenUsageTracker:      newTokenUsageTracker(*m),
-			mapHelper:              s.mapHelper,
-			inputPolicyReplacement: inputPolicyReplacement,
-			messagePolicyHelper:    messagePolicyHelper,
-			outputPolicies:         outputPolicies,
-			conversationHistory:    conversationHistory,
-		}).modifyResponse,
-	}).ServeHTTP(req.ResponseWriter, req.Request)
-
-	return nil
-}
-
-// getModelFromReference retrieves the model with a matching reference name.
-// The reference name must be any one of the following:
-// - The name of a default model alias
-// - The actual Kubernetes resource name of the model
-func getModelFromReference(ctx context.Context, client kclient.Client, namespace, modelReference string) (*v1.Model, error) {
-	m, err := alias.GetFromScope(ctx, client, "Model", namespace, modelReference)
-	if err != nil {
-		return nil, err
-	}
-
-	var respModel *v1.Model
-	switch m := m.(type) {
-	case *v1.DefaultModelAlias:
-		if m.Spec.Manifest.Model == "" {
-			return nil, fmt.Errorf("default model alias %q is not configured", modelReference)
-		}
-		var model v1.Model
-		if err := alias.Get(ctx, client, &model, namespace, m.Spec.Manifest.Model); err != nil {
-			return nil, err
-		}
-		respModel = &model
-	case *v1.Model:
-		respModel = m
-	}
-
-	if respModel != nil {
-		if !respModel.Spec.Manifest.Active {
-			return nil, fmt.Errorf("model %q is not active", respModel.Spec.Manifest.Name)
-		}
-
-		return respModel, nil
-	}
-
-	return nil, apierrors.NewNotFound(schema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "model"}, modelReference)
-}
-
 func envVarForModelProvider(modelProvider v1.ModelProvider) (string, error) {
 	for _, envVar := range modelProvider.Spec.RequiredConfigurationParameters {
 		if strings.HasSuffix(envVar.Name, "_MODEL_PROVIDER_API_KEY") {
@@ -206,16 +64,6 @@ func envVarForModelProvider(modelProvider v1.ModelProvider) (string, error) {
 	}
 
 	return "", fmt.Errorf("model provider %q does not have an API key", modelProvider.Name)
-}
-
-func readBody(r *http.Request) (map[string]any, error) {
-	defer r.Body.Close()
-	var m map[string]any
-	if err := json.NewDecoder(r.Body).Decode(&m); err != nil {
-		return nil, err
-	}
-
-	return m, nil
 }
 
 // extractModelFromBody extracts the model name from an arbitrary JSON payload or body,
@@ -1080,10 +928,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	if targetModel := extractModelFromBody(body); targetModel != "" {
 		audit.setModel(modelProvider.Name, "", targetModel)
 
-		model, err := getModelFromReference(req.Context(), req.Storage, modelProvider.Namespace, targetModel)
-		if apierrors.IsNotFound(err) {
-			model, err = l.mapHelper.ResolveTargetModel(modelProvider.Name, targetModel)
-		}
+		model, err := l.mapHelper.ResolveModelReference(req.Context(), req.Storage, modelProvider.Namespace, modelProvider.Name, targetModel)
 		if err != nil {
 			return fmt.Errorf("failed to get model: %w", err)
 		}

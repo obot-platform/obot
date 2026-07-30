@@ -326,6 +326,21 @@ func (in MCPServerStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPTunnel) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPTunnel"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPTunnelList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPTunnelList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPTunnelSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPTunnelSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPWebhookValidation) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPWebhookValidation"
 }

@@ -1,0 +1,16 @@
+# Backend dependency manifests
+/go.mod @obot-platform/obot-backend
+/go.sum @obot-platform/obot-backend
+/apiclient/go.mod @obot-platform/obot-backend
+/apiclient/go.sum @obot-platform/obot-backend
+/logger/go.mod @obot-platform/obot-backend
+/logger/go.sum @obot-platform/obot-backend
+
+# User UI dependency manifests
+/ui/user/package.json @obot-platform/obot-frontend
+/ui/user/pnpm-lock.yaml @obot-platform/obot-frontend
+/ui/user/pnpm-workspace.yaml @obot-platform/obot-frontend
+
+# Documentation dependency manifests
+/docs/package.json @obot-platform/obot-backend @obot-platform/obot-frontend
+/docs/package-lock.json @obot-platform/obot-backend @obot-platform/obot-frontend
