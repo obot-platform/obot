@@ -5,6 +5,8 @@ import (
 	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/x509"
+	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -15,17 +17,21 @@ import (
 )
 
 // DeviceEnrollHandler serves device enrollment.
-type DeviceEnrollHandler struct{}
+type DeviceEnrollHandler struct {
+	deviceLimitProvider gateway.DeviceLimitProvider
+}
 
-func NewDeviceEnrollHandler() *DeviceEnrollHandler {
-	return nil
+func NewDeviceEnrollHandler(deviceLimitProvider gateway.DeviceLimitProvider) *DeviceEnrollHandler {
+	return &DeviceEnrollHandler{
+		deviceLimitProvider: deviceLimitProvider,
+	}
 }
 
 // Enroll handles POST /api/mdm/enroll. The caller is authenticated by an
 // enrollment credential (the DeviceEnroll principal carries the configuration id
 // in Extra). It registers the device's identity key (trust-on-first-use; a
 // different key for an existing device is rejected).
-func (*DeviceEnrollHandler) Enroll(req api.Context) error {
+func (h *DeviceEnrollHandler) Enroll(req api.Context) error {
 	configurationID, ok := uintFromExtra(req.User.GetExtra(), "mdm_configuration_id")
 	if !ok {
 		return types.NewErrBadRequest("enrollment requires a device enrollment credential")
@@ -59,6 +65,14 @@ func (*DeviceEnrollHandler) Enroll(req api.Context) error {
 		return types.NewErrBadRequest("unsupported public key type %T: publicKey must be an ECDSA P-256/P-384/P-521 or Ed25519 key", pub)
 	}
 
+	deviceLimit, err := h.deviceLimitProvider.DeviceLimit(req.Context())
+	if err != nil {
+		return fmt.Errorf("failed to resolve device limit: %w", err)
+	}
+	if !deviceLimit.Unlimited && deviceLimit.Maximum <= 0 {
+		return fmt.Errorf("invalid device limit %d", deviceLimit.Maximum)
+	}
+
 	device, err := req.GatewayClient.EnrollDevice(req.Context(), gateway.DeviceEnrollment{
 		DeviceID:           in.DeviceID,
 		MDMConfigurationID: configurationID,
@@ -66,8 +80,11 @@ func (*DeviceEnrollHandler) Enroll(req api.Context) error {
 		Hostname:           in.Hostname,
 		OS:                 in.OS,
 		OSVersion:          in.OSVersion,
-	})
+	}, deviceLimit)
 	if err != nil {
+		if httpErr, ok := errors.AsType[*types.ErrHTTP](err); ok {
+			return httpErr
+		}
 		return types.NewErrBadRequest("%v", err)
 	}
 

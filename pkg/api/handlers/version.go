@@ -121,6 +121,11 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		return nil, err
 	}
 
+	deviceCount, err := v.GatewayClient.DeviceCount(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	values := map[string]any{
 		"upgradeAvailable":             upgradeAvailable,
 		"latestVersion":                latestVersion,
@@ -131,6 +136,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"community":                    slices.Contains(entitlements, license.CommunityEntitlement),
 		"licenseEntitlements":          entitlements,
 		"userCount":                    userCount,
+		"deviceCount":                  deviceCount,
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
@@ -147,6 +153,14 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	}
 	if !userLimit.Unlimited {
 		values["userLimit"] = userLimit.Maximum
+	}
+
+	deviceLimit, err := v.LicenseProvider.DeviceLimit(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !deviceLimit.Unlimited {
+		values["deviceLimit"] = deviceLimit.Maximum
 	}
 
 	if versions := os.Getenv("OBOT_SERVER_VERSIONS"); versions != "" {

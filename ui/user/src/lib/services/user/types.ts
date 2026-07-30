@@ -881,6 +881,8 @@ export interface Version {
 	licenseEntitlements?: string[];
 	userCount?: number;
 	userLimit?: number;
+	deviceCount?: number;
+	deviceLimit?: number;
 	licenseEntitlementViolations?: LicenseEntitlementViolation[];
 	missingLicenseEntitlements?: string[];
 	upgradeAvailable?: boolean;

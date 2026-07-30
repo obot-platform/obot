@@ -23,6 +23,10 @@ const (
 	// DefaultUserLimit is the maximum number of users allowed when no
 	// license-derived user-limit provider is configured.
 	DefaultUserLimit = 100
+
+	// DefaultDeviceLimit is the maximum number of devices allowed when no
+	// license-derived device-limit provider is configured.
+	DefaultDeviceLimit = 100
 )
 
 type Client struct {
@@ -45,6 +49,7 @@ type Client struct {
 	serviceAccountCacheLock sync.RWMutex
 	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
 	serviceAccountCacheTTL  time.Duration
+	deviceCreationLock      sync.Mutex
 	auditLogCleanupInterval time.Duration
 	auditLogDeleteBatchSize int
 	oktaGroupMigrationMu    sync.Mutex

@@ -382,7 +382,7 @@ func TestDeleteMDMConfigurationRemovesArtifactsAndKeysKeepsDevices(t *testing.T)
 		DeviceID:           "device-1",
 		MDMConfigurationID: configuration.ID,
 		PublicKey:          []byte("public-key"),
-	})
+	}, DeviceLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}

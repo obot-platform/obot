@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	enterpriseUserLimitEntitlementPrefix = "OBOT_ENTERPRISE_"
-	userLimitEntitlementUsersSuffix      = "_USERS"
+	enterpriseLimitEntitlementPrefix    = "OBOT_ENTERPRISE_"
+	userLimitEntitlementUsersSuffix     = "_USERS"
+	deviceLimitEntitlementDevicesSuffix = "_DEVICES"
 )
 
 var entitlementPathsToGate = []string{
@@ -113,17 +114,42 @@ func (p *Provider) missingEntitlements(requiredEntitlements []string) []string {
 }
 
 // UserLimit returns the maximum number of users allowed by the current license.
-// OBOT_ENTERPRISE_AUTH_PROVIDERS grants unlimited users unless one or more
+// OBOT_ENTERPRISE grants unlimited users unless one or more
 // OBOT_ENTERPRISE_<number>_USERS entitlements define an additive limit.
 func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, error) {
-	if err := p.refresh(ctx, false); err != nil {
+	maximum, unlimited, err := p.resourceLimit(ctx, userLimitEntitlementUsersSuffix, gatewayclient.DefaultUserLimit)
+	if err != nil {
 		return gatewayclient.UserLimit{}, err
+	}
+	return gatewayclient.UserLimit{
+		Maximum:   maximum,
+		Unlimited: unlimited,
+	}, nil
+}
+
+// DeviceLimit returns the maximum number of devices allowed by the current license.
+// OBOT_ENTERPRISE grants unlimited devices unless one or more
+// OBOT_ENTERPRISE_<number>_DEVICES entitlements define an additive limit.
+func (p *Provider) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
+	maximum, unlimited, err := p.resourceLimit(ctx, deviceLimitEntitlementDevicesSuffix, gatewayclient.DefaultDeviceLimit)
+	if err != nil {
+		return gatewayclient.DeviceLimit{}, err
+	}
+	return gatewayclient.DeviceLimit{
+		Maximum:   maximum,
+		Unlimited: unlimited,
+	}, nil
+}
+
+func (p *Provider) resourceLimit(ctx context.Context, entitlementSuffix string, defaultMaximum int64) (int64, bool, error) {
+	if err := p.refresh(ctx, false); err != nil {
+		return 0, false, err
 	}
 
 	p.lock.RLock()
 	defer p.lock.RUnlock()
 
-	limit := gatewayclient.UserLimit{}
+	var maximum int64
 	var isEnterpriseEdition bool
 	for entitlement := range p.entitlements {
 		code := string(entitlement)
@@ -132,11 +158,11 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 			continue
 		}
 
-		value, ok := strings.CutPrefix(code, enterpriseUserLimitEntitlementPrefix)
+		value, ok := strings.CutPrefix(code, enterpriseLimitEntitlementPrefix)
 		if !ok {
 			continue
 		}
-		value, ok = strings.CutSuffix(value, userLimitEntitlementUsersSuffix)
+		value, ok = strings.CutSuffix(value, entitlementSuffix)
 		if !ok {
 			continue
 		}
@@ -146,24 +172,24 @@ func (p *Provider) UserLimit(ctx context.Context) (gatewayclient.UserLimit, erro
 			continue
 		}
 
-		maximum, err := strconv.ParseInt(value, 10, 64)
-		if err != nil || maximum <= 0 {
+		entitlementMaximum, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || entitlementMaximum <= 0 {
 			continue
 		}
 
-		if maximum > math.MaxInt64-limit.Maximum {
-			limit.Maximum = math.MaxInt64
+		if entitlementMaximum > math.MaxInt64-maximum {
+			maximum = math.MaxInt64
 		} else {
-			limit.Maximum += maximum
+			maximum += entitlementMaximum
 		}
 	}
 
-	limit.Unlimited = isEnterpriseEdition && limit.Maximum == 0
-	if limit.Maximum == 0 && !limit.Unlimited {
-		limit.Maximum = gatewayclient.DefaultUserLimit
+	unlimited := isEnterpriseEdition && maximum == 0
+	if maximum == 0 && !unlimited {
+		maximum = defaultMaximum
 	}
 
-	return limit, nil
+	return maximum, unlimited, nil
 }
 
 // RequireEntitlements returns Payment Required if any required entitlements are unavailable.
@@ -178,7 +204,7 @@ func (p *Provider) RequireEntitlements(ctx context.Context, requiredEntitlements
 	return types.NewErrHTTP(http.StatusPaymentRequired, fmt.Sprintf("missing required license entitlements: %v", missing))
 }
 
-// GetLicenseViolations returns all license violations for the configured auth/model providers and user limits.
+// GetLicenseViolations returns all license violations for the configured auth/model providers and resource limits.
 func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) ([]Violation, error) {
 	violations, err := p.configuredProviderViolations(ctx, c)
 	if err != nil {
@@ -199,6 +225,24 @@ func (p *Provider) GetLicenseViolations(ctx context.Context, c kclient.Client) (
 			violations = append(violations, Violation{
 				Type:    "userLimit",
 				Message: fmt.Sprintf("user count (%d) exceeds maximum limit (%d)", userCount, userLimit.Maximum),
+			})
+		}
+	}
+
+	deviceLimit, err := p.DeviceLimit(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check device limit: %w", err)
+	}
+	if !deviceLimit.Unlimited {
+		deviceCount, err := p.gatewayClient.DeviceCount(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check device count: %w", err)
+		}
+
+		if deviceCount > deviceLimit.Maximum {
+			violations = append(violations, Violation{
+				Type:    "deviceLimit",
+				Message: fmt.Sprintf("device count (%d) exceeds maximum limit (%d)", deviceCount, deviceLimit.Maximum),
 			})
 		}
 	}

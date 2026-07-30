@@ -103,7 +103,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
 	mdmAssets := handlers.NewMDMAssetHandler()
 	mdmConfigurations := handlers.NewMDMConfigurationsHandler(services.ServerURL)
-	deviceEnroll := handlers.NewDeviceEnrollHandler()
+	deviceEnroll := handlers.NewDeviceEnrollHandler(services.LicenseProvider)
 	authProviders := handlers.NewAuthProviderHandler(services.ProviderDispatcher, services.PostgresDSN, services.LicenseProvider)
 	localAuth := handlers.NewLocalAuthHandler(services.LocalAuthProvider)
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
