@@ -28,11 +28,3 @@ export function isMcpTunnelDisconnected(
 
 	return !connections.some((connection) => connection.name === tunnelName);
 }
-
-export function getMcpTunnelDeploymentHealth(
-	item: TunnelAwareMCP | undefined,
-	connections: TunnelConnection[] | undefined,
-	deploymentStatus: string | undefined
-): string | undefined {
-	return isMcpTunnelDisconnected(item, connections) ? 'Tunnel Disconnected' : deploymentStatus;
-}

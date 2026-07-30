@@ -1,8 +1,4 @@
-import {
-	getMcpTunnelConnectionsKey,
-	getMcpTunnelDeploymentHealth,
-	isMcpTunnelDisconnected
-} from './mcpTunnel.ts';
+import { getMcpTunnelConnectionsKey, isMcpTunnelDisconnected } from './mcpTunnel.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -56,13 +52,5 @@ test('changes the table remeasurement key only when tunnel connectivity changes'
 	assert.notEqual(
 		getMcpTunnelConnectionsKey([{ name: 'mt1office' }]),
 		getMcpTunnelConnectionsKey([])
-	);
-});
-
-test('presents a disconnected deployment only through its health field', () => {
-	assert.equal(getMcpTunnelDeploymentHealth(remoteServer, [], 'Available'), 'Tunnel Disconnected');
-	assert.equal(
-		getMcpTunnelDeploymentHealth(remoteServer, [{ name: 'mt1office' }], 'Available'),
-		'Available'
 	);
 });

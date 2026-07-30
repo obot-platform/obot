@@ -28,7 +28,7 @@
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
-		getMcpTunnelDeploymentHealth
+		isMcpTunnelDisconnected
 	} from '$lib/services/user/mcpTunnel';
 	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -192,6 +192,10 @@
 				const compositeParentName = compositeParent ? getMCPDisplayName(compositeParent) : '';
 
 				const instance = instancesMap.get(deployment.id);
+				const tunnelDisconnected = isMcpTunnelDisconnected(
+					deployment,
+					mcpTunnelConnections.current.connections
+				);
 				const { updateStatus, updatesAvailable, updateStatusTooltip } =
 					instance?.configured === false
 						? {
@@ -221,11 +225,9 @@
 					updateStatus,
 					updatesAvailable,
 					updateStatusTooltip,
-					deploymentStatus: getMcpTunnelDeploymentHealth(
-						deployment,
-						mcpTunnelConnections.current.connections,
-						deployment.deploymentStatus
-					),
+					deploymentStatus: tunnelDisconnected
+						? 'Tunnel Disconnected'
+						: deployment.deploymentStatus,
 					missingKubernetesSecret: hasMissingSecretBindingConfig(
 						deployment.manifest,
 						deployment.missingRequiredEnvVars,
