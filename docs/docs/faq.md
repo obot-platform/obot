@@ -52,7 +52,7 @@ codex mcp add --url <MCP_SERVER_URL> --oauth-resource <MCP_SERVER_URL> <SERVER_N
 
 Make sure the `--oauth-resource` value matches the `--url` value exactly.
 
-For other clients that don't support specifying the OAuth `resource` parameter, you can create an [MCP API key](/functionality/api-keys/) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
+For other clients that don't support specifying the OAuth `resource` parameter, you can create an [agent authorization scope](./functionality/agent-auth-scopes.md) and use its API key instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
 
 ## Enterprise Access
 

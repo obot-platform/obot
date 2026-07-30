@@ -93,6 +93,15 @@ const config: Config = {
             to: "/concepts/obot-agent",
           },
         ],
+        createRedirects(existingPath) {
+          if (existingPath.endsWith("/functionality/agent-auth-scopes/")) {
+            return existingPath.replace(
+              "/functionality/agent-auth-scopes/",
+              "/functionality/api-keys/",
+            );
+          }
+          return undefined;
+        },
       },
     ],
   ],

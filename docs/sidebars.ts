@@ -35,7 +35,7 @@ const sidebars = {
 				"functionality/skill-access-policies",
 				"functionality/device-management",
 				"functionality/user-management",
-				"functionality/api-keys",
+				"functionality/agent-auth-scopes",
 				"functionality/branding",
 				"functionality/workflow-sharing",
 			],

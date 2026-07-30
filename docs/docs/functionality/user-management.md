@@ -27,9 +27,9 @@ Configure the default role assigned to new users when they first log in. Choose 
 
 For detailed role descriptions and permissions, see [User Roles](/configuration/user-roles/).
 
-## API Keys
+## Agent Authorization Scopes
 
-View and manage API keys for all users. Administrators can see which users have created API keys and delete any key if necessary. For details on how API keys work, see [API Keys](/functionality/api-keys/).
+View and manage agent authorization scopes for all users. Administrators can see which users have created agent authorization scopes and delete any if necessary. For details, see [Agent Authorization Scopes](./agent-auth-scopes.md).
 
 ## Auth Providers
 
