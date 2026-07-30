@@ -6,38 +6,7 @@ Obot does not require an organization to standardize on one AI client or model p
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  subgraph deviceLane["Device visibility"]
-    direction LR
-    workstations["<span style='display:inline-block;width:150px'><b>User workstations</b></span>"] --> sentry["<span style='display:inline-block;width:200px'><b>Obot Sentry</b><br/>Enrollment, inventory, and audit</span>"] --> devices["<span style='display:inline-block;width:200px'><b>Device Management (beta)</b><br/>Inventory and local tool-call audit</span>"]
-  end
-
-  subgraph modelLane["Model access"]
-    direction LR
-    modelClients["<span style='display:inline-block;width:150px'><b>AI clients</b></span>"] --> llm["<span style='display:inline-block;width:200px'><b>LLM gateway</b><br/>Model access, token usage, and audit</span>"] --> models["<span style='display:inline-block;width:200px'><b>Model providers</b><br/>OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI, and Generic Responses Compatible</span>"]
-  end
-
-  subgraph skillLane["Skill distribution"]
-    direction RL
-    git["<span style='display:inline-block;width:200px'><b>Git repositories</b><br/>Skill sources</span>"] --> skills["<span style='display:inline-block;width:200px'><b>Skills catalog</b><br/>Access policies</span>"] --> skillClients["<span style='display:inline-block;width:150px'><b>AI clients and<br/>Obot CLI</b></span>"]
-  end
-
-  subgraph mcpLane["MCP servers and tools"]
-    direction LR
-    mcpClients["<span style='display:inline-block;width:150px'><b>MCP clients</b></span>"] --> mcp["<span style='display:inline-block;width:200px'><b>MCP management</b><br/>Catalog, gateway, hosting, and filters</span>"] --> mcpServers["<span style='display:inline-block;width:200px'><b>MCP servers</b><br/>Hosted, remote, and composite</span>"]
-  end
-
-  classDef external fill:#F8FAFC,stroke:#64748B,color:#0F172A;
-  classDef platform fill:#EFF6FF,stroke:#3D8DFF,stroke-width:2px,color:#0F172A;
-
-  class modelClients,models,mcpClients,mcpServers,git,skillClients,workstations external;
-  class llm,mcp,skills,sentry,devices platform;
-  style modelLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style mcpLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style skillLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style deviceLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-```
+![Obot Platform architecture](docs/static/img/obot-platform-architecture.png)
 
 ## Core Capabilities
 

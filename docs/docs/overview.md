@@ -13,38 +13,7 @@ External clients such as Claude Code, Codex, Cursor, and VS Code connect to the 
 
 Obot provides several independent control and observation points:
 
-```mermaid
-flowchart LR
-  subgraph deviceLane["Device visibility"]
-    direction LR
-    workstations["<span style='display:inline-block;width:150px'><b>User workstations</b></span>"] --> sentry["<span style='display:inline-block;width:200px'><b>Obot Sentry</b><br/>Inventory, audit, and control</span>"] --> devices["<span style='display:inline-block;width:200px'><b>Device Management (beta)</b><br/>Inventory, audit, and tool-call control</span>"]
-  end
-
-  subgraph modelLane["Model access"]
-    direction LR
-    modelClients["<span style='display:inline-block;width:150px'><b>AI clients</b></span>"] --> llm["<span style='display:inline-block;width:200px'><b>LLM gateway</b><br/>Model access, token usage, and audit</span>"] --> models["<span style='display:inline-block;width:200px'><b>Model providers</b><br/>OpenAI, Anthropic, Amazon Bedrock, Azure OpenAI, and Generic Responses Compatible</span>"]
-  end
-
-  subgraph skillLane["Skill distribution"]
-    direction RL
-    git["<span style='display:inline-block;width:200px'><b>Git repositories</b><br/>Skill sources</span>"] --> skills["<span style='display:inline-block;width:200px'><b>Skills catalog</b><br/>Access policies</span>"] --> skillClients["<span style='display:inline-block;width:150px'><b>AI clients and<br/>Obot CLI</b></span>"]
-  end
-
-  subgraph mcpLane["MCP servers and tools"]
-    direction LR
-    mcpClients["<span style='display:inline-block;width:150px'><b>MCP clients</b></span>"] --> mcp["<span style='display:inline-block;width:200px'><b>MCP management</b><br/>Catalog, gateway, hosting, and filters</span>"] --> mcpServers["<span style='display:inline-block;width:200px'><b>MCP servers</b><br/>Hosted, remote, and composite</span>"]
-  end
-
-  classDef external fill:#F8FAFC,stroke:#64748B,color:#0F172A;
-  classDef platform fill:#EFF6FF,stroke:#3D8DFF,stroke-width:2px,color:#0F172A;
-
-  class modelClients,models,mcpClients,mcpServers,git,skillClients,workstations external;
-  class llm,mcp,skills,sentry,devices platform;
-  style modelLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style mcpLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style skillLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-  style deviceLane fill:#FFFFFF,stroke:#CBD5E1,color:#0F172A
-```
+![Obot Platform architecture](/img/obot-platform-architecture.png)
 
 You can use only the components that fit your environment. For example, local AI clients can use the LLM Gateway without using Obot-managed MCP servers, and Device Management can inventory clients whose model traffic does not pass through Obot.
 
@@ -92,7 +61,6 @@ Obot Sentry:
 - Periodically inventories supported AI clients and their configured MCP servers, skills, and plugins.
 - Installs managed audit hooks for Claude Code, Codex, Cursor, and VS Code.
 - Submits local tool-call events to the same audit system used for MCP activity.
-- Optionally blocks tool calls from Claude Code, Codex, and Cursor unless they match an administrator-defined allowlist.
 
 Administrators can generate manual installers or Microsoft Intune packages, issue and revoke enrollment keys, and inspect inventory by device, user, client, MCP server, or skill.
 
