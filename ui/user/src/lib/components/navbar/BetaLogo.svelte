@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { responsive } from '$lib/stores';
 	import appPreferences from '$lib/stores/appPreferences.svelte';
 	import { twMerge } from 'tailwind-merge';
 

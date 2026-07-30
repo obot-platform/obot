@@ -600,7 +600,7 @@
 	<div
 		bind:this={rightSidebar}
 		popover
-		class="drawer-legacy max-w-[85vw] min-w-lg"
+		class="drawer-legacy md:max-w-[85vw] md:min-w-lg min-w-full max-w-full"
 		style="width: 32rem"
 	>
 		{#if !responsive.isMobile && rightSidebar}

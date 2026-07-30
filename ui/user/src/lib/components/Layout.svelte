@@ -869,9 +869,10 @@
 						{#if overrideLeftMenu}
 							{@render overrideLeftMenu()}
 						{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
-							<div class="flex items-center gap-1">
+							<div class="flex items-center gap-1.5">
 								{#if responsive.isMobile}
 									<IconButton
+										class="w-fit"
 										tooltip={{ text: 'Open Menu', placement: 'right' }}
 										onclick={() => (layout.sidebarOpen = true)}
 									>
