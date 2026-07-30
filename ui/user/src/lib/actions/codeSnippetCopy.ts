@@ -100,7 +100,9 @@ export function codeSnippetCopy(node: HTMLElement) {
 			code,
 			onClick: (event) => {
 				event.preventDefault();
-				const text = block.code.textContent ?? '';
+				// Rendered fenced code blocks always end with a newline (`<code>cmd\n</code>`),
+				// which would paste as an extra line break, so drop trailing newlines.
+				const text = (block.code.textContent ?? '').replace(/\n+$/, '');
 				if (!text) {
 					return;
 				}
