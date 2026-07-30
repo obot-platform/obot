@@ -73,7 +73,7 @@ export const steps: GuideStep[] = [
 								selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn },
 								side: 'left',
 								title: 'Add User/Group',
-								description: 'You can add User & Groups here.'
+								description: 'You can add user and groups here.'
 							},
 							listener: {
 								id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn,

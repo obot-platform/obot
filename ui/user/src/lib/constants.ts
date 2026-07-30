@@ -434,7 +434,7 @@ export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
 	checkForUpdatesButton: 'devices-check-for-updates-button',
 	devicesTabOverview: 'devices-tab-overview',
 	devicesTabDevices: 'devices-tab-devices',
-	toolCallEnforcementSection: 'tool-call-enforcements-section'
+	toolCallEnforcementSection: 'tool-call-enforcement-section'
 };
 
 export const MCP_FILTERS_FIELD_IDS = {

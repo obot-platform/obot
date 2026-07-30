@@ -52,7 +52,7 @@ export const steps: GuideStep[] = [
 					id: MCP_FILTERS_FIELD_IDS.addFilterBtn
 				},
 				title: 'Add New Filter',
-				description: 'This where you can add a new MCP filter.',
+				description: 'This is where you can add a new MCP filter.',
 				side: 'left'
 			},
 			listener: {
