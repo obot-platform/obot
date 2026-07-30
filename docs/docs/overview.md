@@ -5,76 +5,110 @@ slug: /
 
 # Obot
 
-Obot is an open-source platform for organizations to manage and govern their internal AI ecosystems. It provides shared infrastructure for distributing AI capabilities, connecting clients to models and tools, managing identities and credentials, and recording activity across centrally hosted services and user workstations.
+Obot is an open-source platform for organizations to manage, secure, and govern their AI ecosystems. It provides shared infrastructure for connecting AI clients to models and tools, distributing approved MCP servers and skills, managing agent access and credentials, running hosted AI workloads, and recording activity across hosted services and user devices.
 
-External clients such as Claude Code, Codex, Cursor, and VS Code connect to the gateways and catalogs they need. Obot applies the organization's policies and records activity at those integration points.
+Obot does not require an organization to standardize on a single AI client, model provider, or tool ecosystem. Desktop agents and tools such as Claude Code, Codex, Cursor, VS Code, and other IDEs and CLIs can use the parts of the platform that apply to them.
 
-## Where Obot Operates
-
-Obot provides several independent control and observation points:
+## Architecture
 
 ![Obot Platform architecture](/img/obot-platform-architecture.png)
 
-You can use only the components that fit your environment. For example, local AI clients can use the LLM Gateway without using Obot-managed MCP servers, and Device Management can inventory clients whose model traffic does not pass through Obot.
+The Obot Platform connects AI activity on user devices with services managed by or proxied through Obot Server.
 
-## MCP Servers and Tools
+On user devices, desktop agents and tools connect to Obot gateways, while Obot Sentry scans, audits, and enforces policy on AI activity taking place on the device. The Obot CLI lets users and AI clients discover, install, and manage approved MCP servers and skills.
 
-Obot manages the definition, deployment, discovery, and use of MCP servers.
+Obot Server provides:
 
-- Host Node.js (`npx`), Python (`uvx`), and containerized MCP servers on Docker or Kubernetes.
-- Register remote MCP servers.
+- MCP and LLM gateways for controlled access to MCP servers and model providers.
+- Sandboxed execution for hosted MCP servers and agents.
+- Platform services for identity and access control, including permissions and secrets.
+- Correlated audit logs of AI activity across the platform.
+- MCP and Skills registries built on curated Git-backed catalogs.
+
+Obot integrates with remote MCP servers, LLM providers, S3-compatible object storage, Git providers, and [auth providers](configuration/auth-providers.md).
+
+## Core Capabilities
+
+### MCP Gateway
+
+The [MCP Gateway](concepts/mcp-gateway.md) is a single governed entry point to every MCP server a user is allowed to reach.
+
+- Proxy MCP servers, whether hosted by Obot or running outside it.
 - Create composite MCP servers that expose selected tools from multiple servers.
-- Manage catalogs through the UI or [Git-backed sources](configuration/mcp-server-gitops.md), and serve the standard [MCP Registry API](functionality/mcp-registry-api.md).
-- Grant access to servers and tools by user or identity-provider group with [MCP Access Policies](functionality/mcp-access-policies.md).
-- Handle MCP OAuth, user and shared credentials, Kubernetes [secret bindings](functionality/mcp-servers.md#kubernetes-secret-bindings), and token exchange.
-- Inspect, reject, or modify MCP requests and responses with [filters](functionality/filters.md).
-- Restrict the domains hosted MCP servers can reach through [MCP Server Egress Control](configuration/mcp-server-egress-control.md).
+- Control [server and tool access](functionality/mcp-access-policies.md) by user or identity-provider group.
+- Manage MCP OAuth, user and shared credentials, Kubernetes [secret bindings](functionality/mcp-servers.md#kubernetes-secret-bindings), and token exchange.
+- Inspect, reject, or modify MCP requests and responses with MCP or webhook [filters](functionality/filters.md).
 
-See [MCP Servers](functionality/mcp-servers.md) for deployment and configuration details. See [MCP Gateway](concepts/mcp-gateway.md) for how clients connect to servers through Obot.
+### LLM Gateway
 
-## Agent Skills
+The [LLM Gateway](functionality/llm-gateway.md) presents provider-compatible endpoints that AI clients use to reach approved models.
 
-Obot indexes [Agent Skills](functionality/skills.md) from Git repositories and makes them available according to [Skill Access Policies](functionality/skill-access-policies.md). Policies can grant a user or group access to individual skills, an entire source repository, or all configured skills.
+- Connect external AI clients to OpenAI, Anthropic, Amazon Bedrock, Azure, and Generic Responses Compatible providers.
+- Keep provider credentials in Obot instead of distributing them to individual users or clients.
+- Authenticate clients with scoped Obot API keys.
+- Restrict the models visible and callable by each user through [Model Access Policies](functionality/model-access-policies.md).
+- Record requests and responses, client and session metadata, token usage, and estimated model cost.
 
-Users and local AI clients use the Obot CLI to search the allowed catalog and install skills. Git credentials can be managed centrally and reused across skill repositories and MCP catalog sources.
+### Sandboxed MCP Servers and Agents
 
-## Model Access
+Obot can run agents and MCP servers itself, in isolated execution environments outside the main Obot Server process.
 
-The [LLM Gateway](functionality/llm-gateway.md) presents provider-compatible endpoints that external AI clients can use with scoped Obot API keys. Obot keeps the upstream provider credentials and applies [Model Access Policies](functionality/model-access-policies.md) before forwarding a request.
+- Host `npx`, `uvx`, and containerized [MCP servers](functionality/mcp-servers.md) as Docker containers or Kubernetes workloads.
+- Run hosted agents in the same isolated environments.
+- Apply [domain-based egress rules](configuration/mcp-server-egress-control.md) to hosted MCP servers through a configured network-policy provider.
 
-The gateway supports:
+### MCP and Skills Registries
 
-- OpenAI and Anthropic
-- Amazon Bedrock
-- Azure OpenAI and Microsoft Foundry
-- Generic Responses Compatible endpoints such as Ollama or LiteLLM
+The MCP and Skills Registries centralize the discovery, installation, and management of MCP servers and Agent Skills.
 
-The model list returned to a client contains only models that the authenticated user can call. Obot records request status, client and session metadata, token counts, and estimated model cost.
+- Curate MCP and Skills catalogs in Obot or index them from [Git-backed repositories](configuration/mcp-server-gitops.md).
+- Expose MCP catalogs through the standard [MCP Registry API](functionality/mcp-registry-api.md).
+- Publish approved MCP servers and [skills](functionality/skills.md) to users and AI clients.
+- Control access to individual entries, repositories, or complete catalogs with [MCP](functionality/mcp-access-policies.md) and [skill](functionality/skill-access-policies.md) access policies.
+- Reuse centrally managed Git credentials across MCP and Skills catalog sources.
+- Integrate with GitHub, GitLab, and other Git providers.
 
-## Device Inventory and Local AI Activity
+### Obot CLI and Skill
 
-[Device Management](functionality/device-management.md) is a beta capability built around [Obot Sentry](https://github.com/obot-platform/obot-sentry), a companion agent installed on user workstations.
+The [Obot CLI](installation/cli-setup.md) brings approved MCP servers and skills to users and their local AI clients, and the Obot skill teaches an agent to use the CLI itself.
 
-Obot Sentry:
+- Search for and install approved skills.
+- Search for approved MCP servers.
+- Run and manage skills from the command line.
+- Install the Obot skill so an agent can work with Obot on its own.
 
-- Enrolls a device with device-bound credentials.
-- Periodically inventories supported AI clients and their configured MCP servers, skills, and plugins.
-- Installs managed audit hooks for Claude Code, Codex, Cursor, and VS Code.
-- Submits local tool-call events to the same audit system used for MCP activity.
+### Obot Sentry
 
-Administrators can generate manual installers or Microsoft Intune packages, issue and revoke enrollment keys, and inspect inventory by device, user, client, MCP server, or skill.
+[Obot Sentry](https://github.com/obot-platform/obot-sentry) extends Obot governance to AI activity occurring directly on user devices. [Device Management](functionality/device-management.md) is currently beta.
 
-## Policies, Credentials, and Audit Data
+- Enroll devices with the Obot Platform.
+- Inventory installed AI clients, MCP servers, skills, and plugins.
+- Install hooks for Claude Code, Codex, Cursor, and VS Code.
+- Record local tool calls alongside activity passing through Obot gateways.
+- Support monitoring and enforcement policies for AI activity on managed devices.
+- Install manually or deploy through MDMs such as Microsoft Intune.
 
-Access policies for MCP servers, skills, and models use authenticated users and identity-provider groups. Obot can keep provider and shared-service credentials out of end-user client configuration, while per-user OAuth and configuration remain tied to the user.
+### Identity and Access Control
 
-[Audit Logs and Usage](functionality/audit-logs-and-usage.md) cover three types of activity:
+Obot governs who can reach each part of the platform, and with which credentials.
 
-- MCP requests and responses
-- Local tool calls submitted by Obot Sentry
-- LLM Gateway requests, outcomes, and token usage
+- Authenticate users through configured [identity providers](configuration/auth-providers.md).
+- Assign platform [roles and permissions](configuration/user-roles.md).
+- Control access to MCP servers, MCP tools, skills, models, and administrative APIs.
+- Apply policies based on individual users or identity-provider groups.
+- Issue scoped credentials for AI clients and agent workloads.
+- Restrict sensitive audit content to users with the appropriate role.
 
-Admins and Owners can inspect operational metadata. Only users with the Auditor role can access stored request and response content. MCP and local tool-call events use a normalized event format, and audit data can be exported once or on a schedule to Amazon S3, Google Cloud Storage, or Azure Blob Storage.
+### Audit Logs and Visibility
+
+Obot correlates activity across MCP servers, LLM providers, hosted workloads, and user devices.
+
+- Record MCP requests and responses.
+- Record LLM Gateway requests, responses, token usage, and model cost.
+- Record local AI-client tool calls captured by Obot Sentry.
+- Filter activity by user, server, tool, provider, model, client, device, or session.
+- Track MCP and LLM usage across users and resources.
+- Export [audit data](functionality/audit-logs-and-usage.md) once or on a schedule.
 
 ## Getting Started
 
