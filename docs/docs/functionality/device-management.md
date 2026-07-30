@@ -85,7 +85,7 @@ Tool call enforcement controls which tool calls Claude Code, Codex, and Cursor m
 Tool call enforcement is experimental and is not recommended for production use. Test the policy on non-production devices first. An incomplete allowlist or an unavailable Obot server can block users' work.
 :::
 
-Enforcement is fail-closed. A call is blocked when:
+Enforcement fails closed. A call is blocked when:
 
 - No allow rule matches it.
 - Obot Sentry cannot identify the MCP server targeted by the call.
