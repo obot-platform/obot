@@ -6,6 +6,7 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
+	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -28,7 +29,8 @@
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
-		isMcpTunnelDisconnected
+		isMcpTunnelDisconnected,
+		shouldShowMcpTunnelDisconnectedBadge
 	} from '$lib/services/user/mcpTunnel';
 	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -225,6 +227,7 @@
 					updateStatus,
 					updatesAvailable,
 					updateStatusTooltip,
+					tunnelDisconnected,
 					deploymentStatus: tunnelDisconnected
 						? 'Tunnel Disconnected'
 						: deployment.deploymentStatus,
@@ -677,6 +680,9 @@
 								{/if}
 							</p>
 							<McpDeprecatedNotice item={d} />
+							{#if shouldShowMcpTunnelDisconnectedBadge(d.tunnelDisconnected, doesSupportK8sUpdates)}
+								<McpTunnelDisconnectedStatus />
+							{/if}
 							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 								<div
 									class="text-warning"

@@ -1,4 +1,8 @@
-import { getMcpTunnelConnectionsKey, isMcpTunnelDisconnected } from './mcpTunnel.ts';
+import {
+	getMcpTunnelConnectionsKey,
+	isMcpTunnelDisconnected,
+	shouldShowMcpTunnelDisconnectedBadge
+} from './mcpTunnel.ts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -53,4 +57,10 @@ test('changes the table remeasurement key only when tunnel connectivity changes'
 		getMcpTunnelConnectionsKey([{ name: 'mt1office' }]),
 		getMcpTunnelConnectionsKey([])
 	);
+});
+
+test('shows the disconnected badge only when the health column is unavailable', () => {
+	assert.equal(shouldShowMcpTunnelDisconnectedBadge(true, false), true);
+	assert.equal(shouldShowMcpTunnelDisconnectedBadge(true, true), false);
+	assert.equal(shouldShowMcpTunnelDisconnectedBadge(false, false), false);
 });

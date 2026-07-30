@@ -28,3 +28,10 @@ export function isMcpTunnelDisconnected(
 
 	return !connections.some((connection) => connection.name === tunnelName);
 }
+
+export function shouldShowMcpTunnelDisconnectedBadge(
+	tunnelDisconnected: boolean,
+	hasHealthColumn: boolean
+): boolean {
+	return tunnelDisconnected && !hasHealthColumn;
+}
