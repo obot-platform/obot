@@ -4,6 +4,9 @@ title: LLM Gateway
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import ObotUrlExamples from '@site/src/components/ObotUrlExamples';
+
+<ObotUrlExamples>
 
 ## Overview
 
@@ -58,6 +61,8 @@ To use the gateway you need:
 3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](/installation/cli-setup/).
 
 ## Getting your API key
+
+The examples on this page use the URL configured under **Set Obot URL** in the navigation bar.
 
 Your API key for the gateway must include LLM proxy access. Print one with the CLI:
 
@@ -307,8 +312,6 @@ claude --model anthropic.claude-haiku-4-5
   </TabItem>
 </Tabs>
 
-For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
-
 `--model` is optional, but it is useful since Claude Code does not support model discovery with AWS Bedrock. The default models presented by Claude Code's model selector should be compatible with our Bedrock provider as long as the corresponding Bedrock model ID is enabled in Obot.
 
 For more details, see Claude Code's [Route Mantle through a gateway](https://code.claude.com/docs/en/amazon-bedrock#route-mantle-through-a-gateway) documentation.
@@ -339,8 +342,6 @@ claude --model my-claude-deployment
 
   </TabItem>
 </Tabs>
-
-For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in both the selected base URL and the `obot login` command.
 
 `ANTHROPIC_FOUNDRY_API_KEY` contains an Obot gateway token in this setup, not an Azure API key; Obot replaces it with the configured Azure credential before forwarding the request. The value passed to `--model` must be the exact Azure deployment name listed in the Anthropic-compatible Azure section on the Models page.
 
@@ -373,8 +374,6 @@ Codex works with the OpenAI passthrough. Because Codex uses the OpenAI **Respons
    env_key_instructions = "Set OBOT_API_KEY and restart to authenticate with the Obot LLM Gateway"
    supports_websockets = false
    ```
-
-   For a local deployment, use `base_url = "http://localhost:8080/api/llm-proxy/openai"`.
 
 2. Set your API key and start Codex:
 
@@ -434,8 +433,6 @@ supports_websockets = false
   </TabItem>
 </Tabs>
 
-For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
-
 ### Codex with Azure
 
 Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Add the configuration for your Azure authentication method to `~/.codex/config.toml`, replacing the example deployment name and Obot URL:
@@ -473,8 +470,6 @@ supports_websockets = false
   </TabItem>
 </Tabs>
 
-For a local Obot server, replace `https://obot.example.com` with `http://localhost:8080` in the selected base URL.
-
 See the Codex documentation for details:
 
 - [Configuration reference](https://developers.openai.com/codex/config-reference) (the `[model_providers]` keys)
@@ -500,3 +495,5 @@ See the Codex documentation for details:
 - [Claude Code: Route Mantle through a gateway](https://code.claude.com/docs/en/amazon-bedrock#route-mantle-through-a-gateway)
 - [AWS Bedrock Anthropic model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html) — check Anthropic model region availability
 - [Audit Log Export](/configuration/audit-log-export/) — export LLM gateway audit logs
+
+</ObotUrlExamples>
