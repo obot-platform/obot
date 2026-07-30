@@ -180,6 +180,7 @@
 						<div>
 							Ready for advanced features and support? <a
 								href="https://obot.ai/contact-us/"
+								target="_blank"
 								class="text-link">Contact us to upgrade to Enterprise Edition</a
 							>.
 						</div>

@@ -32,14 +32,15 @@
 	);
 	let userLimitText = $derived(
 		version.current.userLimit && version.current.userCount
-			? `(${version.current.userCount} / ${version.current.userLimit})`
+			? `(${version.current.userCount}/${version.current.userLimit})`
 			: ''
 	);
 
 	let showUserLimitBanner = $derived.by(() => {
-		if ((!warnUserLimit && !hasUserLimitViolation) || !profile.current.hasAdminAccess?.()) {
-			return false;
-		}
+		if (!profile.current.hasAdminAccess?.()) return false;
+		if (!warnUserLimit && !hasUserLimitViolation) return false;
+
+		if (hasUserLimitViolation) return true;
 		if (!dismissedAt.isReady) return false;
 
 		const saved = dismissedAt.current;
@@ -48,7 +49,6 @@
 		const profileCreatedMs = profile.current.created
 			? new Date(profile.current.created).getTime()
 			: undefined;
-		// Stay dismissed while the profile was created before the dismissal timestamp
 		if (
 			profileCreatedMs === undefined ||
 			Number.isNaN(profileCreatedMs) ||
@@ -71,21 +71,24 @@
 			<div class="flex items-center gap-4 md:gap-0.5 justify-center">
 				<ShieldAlert class="text-warning size-4 shrink-0" />
 				<p class="text-xs">
-					You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit. {userLimitText}
+					You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit.
+					{userLimitText} Upgrade to Obot Enterprise!
 				</p>
 			</div>
 			<div class="flex items-center gap-2">
 				<button class="btn btn-xs btn-warning" onclick={() => resolveLicenseDialog?.open()}>
 					Resolve
 				</button>
-				<button
-					class="btn btn-circle btn-ghost btn-xs w-fit h-fit p-0.5"
-					onclick={handleDismissUserLimitBanner}
-					type="button"
-					aria-label="Dismiss user limit banner"
-				>
-					<X class="size-3" />
-				</button>
+				{#if !hasUserLimitViolation}
+					<button
+						class="btn btn-circle btn-ghost btn-xs w-fit h-fit p-0.5"
+						onclick={handleDismissUserLimitBanner}
+						type="button"
+						aria-label="Dismiss user limit banner"
+					>
+						<X class="size-3" />
+					</button>
+				{/if}
 			</div>
 		</div>
 	</div>
