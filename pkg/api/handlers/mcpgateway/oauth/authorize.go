@@ -71,13 +71,29 @@ func newInvalidClientErr(statusCode int, description string) *types.ErrHTTP {
 func (e oauthError) toQuery() url.Values {
 	q := url.Values{}
 	q.Set("error", string(e.Code))
-	if e.Description != "" {
-		q.Set("error_description", e.Description)
+	if description := sanitizeOAuthErrorDescription(e.Description); description != "" {
+		q.Set("error_description", description)
 	}
 	if e.State != "" {
 		q.Set("state", e.State)
 	}
 	return q
+}
+
+func sanitizeOAuthErrorDescription(description string) string {
+	description = strings.Map(func(r rune) rune {
+		switch {
+		case r == '"':
+			return '\''
+		case r == '\\':
+			return '/'
+		case r == 0x20 || r == 0x21 || r >= 0x23 && r <= 0x5B || r >= 0x5D && r <= 0x7E:
+			return r
+		default:
+			return ' '
+		}
+	}, description)
+	return strings.Join(strings.Fields(description), " ")
 }
 
 func (h *handler) authorize(req api.Context) error {
