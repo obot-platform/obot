@@ -256,4 +256,4 @@ Administrators can delete any user's agent authorization scope:
 - **Rotate keys regularly**: Delete old keys and create new ones periodically
 - **Never share keys**: Each integration should have its own API key
 - **Delete unused keys**: Remove keys that are no longer needed
-- **Store securely**: Treat API keys like passwords—never commit them to version control or share them in plain text
+- **Store securely**: Treat API keys like passwords — never commit them to version control or share them in plain text
