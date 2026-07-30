@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/apiclient"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/cli/internal"
+	"github.com/obot-platform/obot/pkg/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/spf13/cobra"
 )
@@ -28,10 +29,28 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Short = "Manage MCP servers"
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
+	c.AddCommand(cmd.Command(&MCPValidate{}))
 }
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
+}
+
+type MCPValidate struct{}
+
+func (m *MCPValidate) Customize(cmd *cobra.Command) {
+	cmd.Use = "validate <path>..."
+	cmd.Short = "Validate MCP catalog entry files"
+	cmd.Args = cobra.MinimumNArgs(1)
+}
+
+func (m *MCPValidate) Run(cmd *cobra.Command, args []string) error {
+	summary, err := mcpcatalog.ValidatePaths(cmd.Context(), args)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "Validated %d catalog entries in %d files.\n", summary.Entries, summary.Files)
+	return nil
 }
 
 type MCPSearch struct {

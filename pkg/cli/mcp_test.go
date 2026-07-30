@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -180,6 +182,29 @@ func TestMCPSearchRegistryAuthErrors(t *testing.T) {
 				t.Fatalf("error = %v, want %q", err, tt.want)
 			}
 		})
+	}
+}
+
+func TestMCPValidate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	if err := os.WriteFile(path, []byte(`name: Test
+entryKey: test
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "Validated 1 catalog entries in 1 files.") {
+		t.Fatalf("unexpected output: %s", stdout)
 	}
 }
 

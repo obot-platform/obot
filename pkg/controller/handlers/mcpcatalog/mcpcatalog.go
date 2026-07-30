@@ -25,33 +25,19 @@ import (
 	"github.com/obot-platform/obot/pkg/git"
 	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
+	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	log              = logger.Package()
-	invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
-	multipleDashes   = regexp.MustCompile(`-{2,}`)
-)
-
-// sanitizeName lowercases the input, replaces any characters that are invalid
-// for RFC 1123 subdomain names with dashes, collapses consecutive dashes, and
-// trims leading/trailing dashes.
-func sanitizeName(n string) string {
-	n = strings.ToLower(n)
-	n = invalidNameChars.ReplaceAllString(n, "-")
-	n = multipleDashes.ReplaceAllString(n, "-")
-	return strings.Trim(n, "-")
-}
+var log = logger.Package()
 
 // CatalogCredentialToolName is the fixed tool name used for the single
 // credential that stores all source-URL tokens for a catalog. Each URL's
@@ -398,15 +384,11 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 
 		if changed {
-			if err := mcp.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-			if err := mcp.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-			if err := mcp.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
+			if err := catalogvalidation.ValidateManifest(ctx, entry.Spec.Manifest, catalogvalidation.ValidationOptions{
+				MCP:        h.remoteURLValidationConfig,
+				MCPBackend: h.mcpBackend,
+				GitManaged: entry.IsGitManaged(),
+			}); err != nil {
 				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
 				continue
 			}
@@ -553,7 +535,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 			delete(entry.Metadata, "categories")
 		}
 
-		cleanName := sanitizeName(entry.Name)
+		cleanName := catalogvalidation.SanitizeName(entry.Name)
 		if cleanName == "" {
 			err := fmt.Errorf("invalid system catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
 			errs = append(errs, err)
@@ -561,7 +543,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		}
 
 		mcpManifest := systemCatalogEntryManifestToMCP(entry)
-		sanitizeCatalogEntryManifest(&mcpManifest)
+		catalogvalidation.NormalizeManifest(&mcpManifest)
 		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
 		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, mcp.ValidationOptions{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
@@ -696,7 +678,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
-		cleanName := sanitizeName(entry.Name)
+		cleanName := catalogvalidation.SanitizeName(entry.Name)
 		if cleanName == "" {
 			err := fmt.Errorf("invalid catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
 			errs = append(errs, err)
@@ -704,15 +686,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
 
+		if err := catalogvalidation.ValidateSourceFields(entry); err != nil {
+			errs = append(errs, fmt.Errorf("%w; skipping catalog entry %q", err, catalogEntryName))
+			continue
+		}
 		if entry.EntryKey != "" {
-			if strings.Contains(entry.EntryKey, catalogReferenceSeparator) {
-				errs = append(errs, fmt.Errorf("source entry key %q cannot contain %s; skipping catalog entry %q", entry.EntryKey, catalogReferenceSeparator, catalogEntryName))
-				continue
-			}
-			if dnsErrs := kvalidation.IsDNS1123Subdomain(entry.EntryKey); len(dnsErrs) > 0 {
-				errs = append(errs, fmt.Errorf("source entry key %q must be DNS-friendly: %s; skipping catalog entry %q", entry.EntryKey, strings.Join(dnsErrs, "; "), catalogEntryName))
-				continue
-			}
 			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
 				errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
 				continue
@@ -737,17 +715,12 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
 		}
 
-		sanitizeCatalogEntryManifest(&entry)
-		if err := mcp.ValidateCatalogEntryManifest(ctx, entry, true, h.remoteURLValidationConfig); err != nil {
-			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
-			continue
-		}
-		// secretBinding references are only allowed for git-managed entries.
-		if err := mcp.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
-			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
-			continue
-		}
-		if err := mcp.ValidateTemplateReferencesCatalogEntry(entry); err != nil {
+		catalogvalidation.NormalizeManifest(&entry)
+		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{
+			MCP:        h.remoteURLValidationConfig,
+			MCPBackend: h.mcpBackend,
+			GitManaged: catalogEntry.IsGitManaged(),
+		}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -819,34 +792,6 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 		return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 	}
 	return entries, nil
-}
-
-func sanitizeCatalogEntryManifest(entry *types.MCPServerCatalogEntryManifest) {
-	for i, env := range entry.Env {
-		if env.Key == "" {
-			env.Key = env.Name
-		}
-		if filepath.Ext(env.Key) != "" {
-			env.Key = strings.ReplaceAll(env.Key, ".", "_")
-			env.File = true
-		}
-		env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-		entry.Env[i] = env
-	}
-
-	if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil {
-		for i, header := range entry.RemoteConfig.Headers {
-			if header.Key == "" {
-				header.Key = header.Name
-			}
-			header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-			entry.RemoteConfig.Headers[i] = header
-		}
-	}
-
-	if entry.ServerUserType == "" {
-		entry.ServerUserType = types.ServerUserTypeSingleUser
-	}
 }
 
 // isPathSafe checks if a file path is safe to read (not a symlink and within bounds).
