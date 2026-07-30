@@ -15,10 +15,12 @@
 	);
 </script>
 
-<div class="notification-alert p-3 text-sm font-light flex items-center gap-1.5">
-	<ShieldAlert class="size-4" />
-	You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit. {userLimitText}
-	<a href="https://obot.ai/contact-us/" class="text-link" target="_blank"
-		>Contact us to upgrade to Enterprise Edition</a
-	>
+<div class="notification-alert p-3 text-sm font-light flex items-center gap-2">
+	<ShieldAlert class="size-6" />
+	<div>
+		You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit. {userLimitText}
+		<a href="https://obot.ai/contact-us/" class="text-link" target="_blank"
+			>Contact us to upgrade to Enterprise Edition</a
+		>
+	</div>
 </div>
