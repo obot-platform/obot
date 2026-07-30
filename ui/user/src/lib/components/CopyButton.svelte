@@ -92,7 +92,11 @@
 		onclick={() => copy()}
 		{disabled}
 		onmouseenter={() => (buttonTextToShow = buttonText)}
-		class={twMerge(buttonText && 'btn btn-soft btn-primary', classes?.button)}
+		class={twMerge(
+			buttonText && 'btn btn-soft btn-primary',
+			'flex gap-1 text-xs items-center',
+			classes?.button
+		)}
 		type="button"
 	>
 		{#if showTextLeft}

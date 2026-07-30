@@ -97,7 +97,7 @@
 	<div>
 		<div class="mb-3 flex items-center justify-between gap-2">
 			<h4 class="text-sm font-semibold">{title}</h4>
-			<CopyButton text={value} />
+			<CopyButton showTextLeft text={value} />
 		</div>
 		<pre
 			class="default-scrollbar-thin dark:bg-base-400 bg-base-200 text-base-content max-h-80 overflow-auto rounded-md p-3 font-mono text-xs">{value ||

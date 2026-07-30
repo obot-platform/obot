@@ -89,7 +89,7 @@
 							<CircleAlert class="size-4" />
 							Last Error
 						</div>
-						<CopyButton text={statusMessage(details)} />
+						<CopyButton showTextLeft text={statusMessage(details)} />
 					</div>
 					<pre class="whitespace-pre-wrap wrap-break-word text-sm">{statusMessage(details)}</pre>
 				</div>

@@ -21,7 +21,10 @@
 		<div class="absolute top-2 right-2 z-10 opacity-0 transition-opacity group-hover:opacity-100">
 			<CopyButton
 				text={block.code}
-				classes={{ button: 'bg-base-100 dark:bg-base-200 rounded p-1.5' }}
+				showTextLeft
+				classes={{
+					button: 'bg-base-100 dark:bg-base-200 rounded p-1.5'
+				}}
 			/>
 		</div>
 		<pre class="default-scrollbar-thin overflow-x-auto p-3 pr-12 text-xs leading-relaxed my-0"><code

@@ -19,10 +19,10 @@
 </script>
 
 <script lang="ts">
-	import CopyButton from '$lib/components/CopyButton.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import type { MCPTunnel } from '$lib/services';
 	import { version } from '$lib/stores';
+	import CopyField from '../CopyField.svelte';
 	import { Container, KeyRound, Terminal, TriangleAlert } from '@lucide/svelte';
 
 	type CommandTab = 'docker' | 'cli';
@@ -82,15 +82,11 @@
 
 			<div class="flex flex-col gap-2">
 				<p class="text-sm font-medium">Tunnel Secret</p>
-				<div class="flex items-center gap-2">
-					<div
-						class="bg-base-200 flex min-w-0 flex-1 items-center gap-2 rounded-md border px-3 py-2"
-					>
-						<KeyRound class="text-muted-content size-4 shrink-0" />
-						<code class="flex-1 font-mono text-sm break-all">{tunnel.token}</code>
-					</div>
-					<CopyButton text={tunnel.token} buttonText="Copy" />
-				</div>
+				<CopyField value={tunnel.token} id="mcp-tunnel-secret">
+					{#snippet preContent()}
+						<KeyRound class="size-4" />
+					{/snippet}
+				</CopyField>
 			</div>
 
 			<div class="flex flex-col gap-2">
@@ -121,18 +117,16 @@
 						CLI
 					</button>
 				</div>
-				<div id="tunnel-command-panel" role="tabpanel" class="flex items-start gap-2">
-					<div
-						class="bg-base-200 flex min-w-0 flex-1 items-start gap-2 rounded-md border px-3 py-2"
-					>
-						{#if commandTab === 'docker'}
-							<Container class="text-muted-content mt-0.5 size-4 shrink-0" />
-						{:else}
-							<Terminal class="text-muted-content mt-0.5 size-4 shrink-0" />
-						{/if}
-						<code class="flex-1 font-mono text-sm break-all">{command}</code>
-					</div>
-					<CopyButton text={command} buttonText="Copy" />
+				<div id="tunnel-command-panel" role="tabpanel">
+					<CopyField value={command} id="mcp-tunnel-command" variant="code">
+						{#snippet preContent()}
+							{#if commandTab === 'docker'}
+								<Container class="size-4" />
+							{:else}
+								<Terminal class="size-4" />
+							{/if}
+						{/snippet}
+					</CopyField>
 				</div>
 			</div>
 		</div>
