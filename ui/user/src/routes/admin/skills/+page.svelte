@@ -21,6 +21,7 @@
 		clearUrlParams,
 		getTableUrlParamsFilters,
 		goto,
+		isWebURL,
 		setFilterUrlParams,
 		setUrlParamAndUpdateUrl
 	} from '$lib/url';
@@ -528,7 +529,18 @@
 				{#snippet onRenderColumn(property, d)}
 					{#if property === 'repoURL'}
 						<div class="flex items-center gap-2">
-							<p>{d.repoURL}</p>
+							{#if isWebURL(d.repoURL)}
+								<a
+									href={d.repoURL}
+									target="_blank"
+									rel="noopener noreferrer external"
+									class="text-link"
+								>
+									{d.repoURL}
+								</a>
+							{:else}
+								<p>{d.repoURL}</p>
+							{/if}
 							{#if d.syncError}
 								<button
 									onclick={(e) => {

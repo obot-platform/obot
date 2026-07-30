@@ -5,6 +5,7 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPCatalog } from '$lib/services';
+	import { isWebURL } from '$lib/url';
 	import { TriangleAlert, Link2, Pencil, Trash2 } from '@lucide/svelte';
 
 	interface Props {
@@ -31,15 +32,6 @@
 			?.map((url) => ({ id: url, url }))
 			?.filter((item) => item.url.toLowerCase().includes(query?.toLowerCase() ?? '')) ?? []
 	);
-
-	function isWebURL(value: string) {
-		try {
-			const url = new URL(value);
-			return url.protocol === 'https:' || url.protocol === 'http:';
-		} catch {
-			return false;
-		}
-	}
 </script>
 
 <div class="flex flex-col gap-2">
@@ -90,7 +82,6 @@
 				{#if property === 'url'}
 					<div class="flex items-center gap-2">
 						{#if isWebURL(d.url)}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external URL -->
 							<a href={d.url} target="_blank" rel="noopener noreferrer external" class="text-link">
 								{d.url}
 							</a>
