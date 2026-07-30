@@ -191,7 +191,7 @@ export const steps: GuideStep[] = [
 								side: 'top',
 								title: 'Tool Call Enforcement',
 								description:
-									'Here is where you can control which tool calls can be executed for your enrolled devices. Make sure to save your changes to have them take effect; the installation guide in step 5 will update appropriately.',
+									'Here is where you can control which tool calls can be executed for your enrolled devices, when enforcement is turned on. Make sure to save your changes to have them take effect.',
 								experimental: true
 							},
 							listener: {

@@ -17,7 +17,7 @@ Obot provides several independent control and observation points:
 flowchart LR
   subgraph deviceLane["Device visibility"]
     direction LR
-    workstations["<span style='display:inline-block;width:150px'><b>User workstations</b></span>"] --> sentry["<span style='display:inline-block;width:200px'><b>Obot Sentry</b><br/>Enrollment, inventory, and audit</span>"] --> devices["<span style='display:inline-block;width:200px'><b>Device Management (beta)</b><br/>Inventory and local tool-call audit</span>"]
+    workstations["<span style='display:inline-block;width:150px'><b>User workstations</b></span>"] --> sentry["<span style='display:inline-block;width:200px'><b>Obot Sentry</b><br/>Inventory, audit, and control</span>"] --> devices["<span style='display:inline-block;width:200px'><b>Device Management (beta)</b><br/>Inventory, audit, and tool-call control</span>"]
   end
 
   subgraph modelLane["Model access"]
@@ -92,6 +92,7 @@ Obot Sentry:
 - Periodically inventories supported AI clients and their configured MCP servers, skills, and plugins.
 - Installs managed audit hooks for Claude Code, Codex, Cursor, and VS Code.
 - Submits local tool-call events to the same audit system used for MCP activity.
+- Optionally blocks tool calls from Claude Code, Codex, and Cursor unless they match an administrator-defined allowlist.
 
 Administrators can generate manual installers or Microsoft Intune packages, issue and revoke enrollment keys, and inspect inventory by device, user, client, MCP server, or skill.
 

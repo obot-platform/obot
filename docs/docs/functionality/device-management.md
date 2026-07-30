@@ -2,7 +2,7 @@
 title: Device Management
 ---
 
-Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations.
+Device management gives administrators visibility into the AI clients, MCP servers, skills, and plugins configured on user workstations. It can also audit and control tool calls made by supported local AI clients.
 
 Device management is a **beta feature**.
 
@@ -10,12 +10,13 @@ Device management is a **beta feature**.
 
 Device management helps administrators:
 
-1. Install and configure [Obot Sentry](https://github.com/obot-platform/obot-sentry) on user workstations to enable device scanning and local agent audit logs.
+1. Install and configure [Obot Sentry](https://github.com/obot-platform/obot-sentry) on user workstations to enable device scanning, local agent audit logs, and optional tool call enforcement.
 2. Monitor device scan coverage across the organization.
 3. Review each device's latest inventory of AI clients, MCP servers, skills, and plugins.
 4. Drill into where a specific MCP server or skill appears across devices.
 5. Inspect scan history and compare previous submissions from a device.
 6. Review captured config and manifest files for a specific scan item.
+7. Define which tool calls supported local AI clients may run and review the resulting enforcement decisions.
 
 ## Devices
 
@@ -30,9 +31,11 @@ Under Device Management in the Obot Administration section, Devices contains the
 | Device MCP Servers | MCP servers observed across scanned devices, with drilldowns into affected devices and client configurations. |
 | Device Clients | AI clients observed across scanned devices, with drilldowns into associated users, MCP servers, and skills. |
 
+The **Enforcement Decisions** view under Device Management shows the tool calls that Obot Sentry allowed or blocked.
+
 ## Configuration
 
-The Configuration view sets up [Obot Sentry](https://github.com/obot-platform/obot-sentry), a lightweight agent that enrolls workstations with Obot and enables device scanning and local agent audit logs on enrolled devices.
+The Configuration view sets up [Obot Sentry](https://github.com/obot-platform/obot-sentry), a lightweight agent that enrolls workstations with Obot and enables device scanning, local agent audit logs, and optional tool call enforcement on enrolled devices.
 
 On first visit, select **Get Started** to create the device configuration, then follow the numbered install guide:
 
@@ -73,6 +76,73 @@ The available settings also vary by Obot Sentry release. The current release has
 | Scan interval (minutes) | How often each signed-in user's device submits a scan. Accepts 15–1440 minutes. | 60 |
 
 Use **Check for updates** to pick up new Obot Sentry releases. If an Update available badge appears, save the agent settings to rebuild your downloads with the new release.
+
+## Tool call enforcement
+
+Tool call enforcement controls which tool calls Claude Code, Codex, and Cursor may run on enrolled devices. Before a supported client runs a tool, Obot Sentry checks it against the allowlist for the device configuration. A call runs only when an allow rule matches it.
+
+:::warning Experimental feature
+Tool call enforcement is experimental and is not recommended for production use. Test the policy on non-production devices first. An incomplete allowlist or an unavailable Obot server can block users' work.
+:::
+
+Enforcement is fail-closed. A call is blocked when:
+
+- No allow rule matches it.
+- Obot Sentry cannot identify the MCP server targeted by the call.
+- Obot cannot be reached or cannot return a decision.
+- The device is not enrolled.
+
+Allowing a call through this policy does not approve it. The AI client's own permission prompts and controls still apply.
+
+Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
+
+### Configure enforcement
+
+In **Administration > Device Management > Devices**, open the **Configuration** view and find **Tool Call Enforcement**.
+
+1. Review the rules under **Allow**. When enforcement is enabled for the first time with an empty allowlist, Obot starts with Obot-hosted MCP servers, built-in agent tools, and built-in agent MCP servers allowed.
+2. Add any other MCP servers and tools your users need.
+3. Turn on **Enforce tool calls on enrolled devices**, then save the configuration.
+4. Download the updated install package and follow its included `INSTRUCTIONS.md` to apply the change to devices. The included instructions contain the setup steps for the selected operating system and deployment method.
+
+Changing the allowlist takes effect on devices that already have enforcement set up without reinstalling Obot Sentry. Turning enforcement off in Obot stops blocking immediately and stops recording new enforcement decisions. Follow the package's included instructions if you also want to remove enforcement from devices.
+
+### Allow rules
+
+The broad allow rules are:
+
+| Rule | What it allows |
+|------|----------------|
+| All Obot-hosted MCP servers | Any MCP server hosted by this Obot instance. |
+| All built-in agent tools | The client's own tools, such as reading and writing files, running shell commands, and starting tasks. |
+| All built-in agent MCP servers | MCP servers that ship as part of a supported AI client. |
+| Everything | Every call that Obot Sentry can identify. All other allow rules are ignored while this is selected. |
+
+You can also allow an individual MCP server by:
+
+| Identity | Matching behavior |
+|----------|-------------------|
+| URL | Matches the scheme, hostname, port, and URL path. A path also covers paths beneath it. |
+| Hostname | Matches every MCP server on that hostname, regardless of path or port. |
+| Package | Matches an npm package launched with `npx` or a Python package launched with `uvx`. You can allow any version or require a specific version. |
+| Connector | Matches a connector by display name, such as a claude.ai Connector. |
+
+For each server, leave **Tools** empty to allow all of its tools, or list the specific tool names to allow. Enforcement matches tool names, not the arguments passed to a tool.
+
+A local MCP server launched directly from an executable or script path does not provide a supported identity for the allowlist. Obot Sentry blocks calls to a server it cannot identify rather than treating its local command as trusted.
+
+### Review enforcement decisions
+
+Open **Administration > Device Management > Enforcement Decisions** to review calls checked while enforcement was enabled. The view shows allowed and blocked totals for the selected date range and supports searching and filtering by result, device, agent, tool type, MCP server, and tool.
+
+Open a decision to see:
+
+- Why the call was allowed or blocked.
+- The client, tool, and MCP server involved.
+- The server identity Obot Sentry found, when available.
+- The device that made the call.
+
+For an identified, blocked MCP call, an administrator can add an allow rule directly from the decision. Depending on the identity available, the rule can allow the hostname, all tools on that server, or only the tool in that decision. The new rule applies to matching calls from every device using the configuration; it does not change the historical decision.
 
 ## Overview
 
@@ -206,10 +276,14 @@ Reading submitted scan data is limited to users with administrative, owner, or a
 
 Admins and owners can delete an individual device scan from the scan detail page.
 
-Creating the device configuration, changing agent settings, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration tab but cannot make changes.
+Creating the device configuration, changing agent or enforcement settings, allowing a call from an enforcement decision, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration and Enforcement Decisions views but cannot make changes.
 
 ## Troubleshooting
 
 ### Server submission fails
 
 Check that the Obot server is reachable from the workstation and that the API key has permission to submit device scans.
+
+### A tool call is unexpectedly blocked
+
+Open **Enforcement Decisions**, select the blocked call, and review its reason and resolved target. Confirm that an allow rule covers the reported server identity and tool. If the call does not appear, or if Obot Sentry could not identify the server or reach Obot, consult the `INSTRUCTIONS.md` included in the device configuration download for platform-specific diagnostics.
