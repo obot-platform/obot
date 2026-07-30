@@ -162,7 +162,13 @@ func (h *handler) authorize(req api.Context) error {
 		}
 
 		if mcpID == "" {
-			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect/")
+			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect")
+			mcpID = strings.TrimPrefix(mcpID, "/")
+			// If the mcpID is "" or "/", then it's not a valid mcpID
+			if len(mcpID) == 0 {
+				redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "mcp_id parameter required", state))
+				return nil
+			}
 		} else if !strings.HasSuffix(u.Path, "/"+mcpID) {
 			redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, fmt.Sprintf("resource doesn't match mcp_id: %s", mcpID), state))
 			return nil
