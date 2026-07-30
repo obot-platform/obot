@@ -83,15 +83,15 @@ func countIdentityUserLimitTestLocalAuthUsers(t *testing.T, c *Client) int64 {
 	return count
 }
 
-func requireIdentityUserLimitPaymentError(t *testing.T, err error) {
+func requireIdentityUserLimitForbiddenError(t *testing.T, err error) {
 	t.Helper()
 
 	var httpErr *apitypes.ErrHTTP
 	if !errors.As(err, &httpErr) {
 		t.Fatalf("error = %T %v, want *types.ErrHTTP", err, err)
 	}
-	if httpErr.Code != http.StatusPaymentRequired {
-		t.Fatalf("HTTP status = %d, want %d", httpErr.Code, http.StatusPaymentRequired)
+	if httpErr.Code != http.StatusForbidden {
+		t.Fatalf("HTTP status = %d, want %d", httpErr.Code, http.StatusForbidden)
 	}
 }
 
@@ -108,7 +108,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimit(t *testing.T) {
 	}
 
 	_, err := ensureUserLimitTestIdentity(t.Context(), c, "user-3", "user-3@example.com", userLimit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 
 	if got := countIdentityUserLimitTestUsers(t, c, true); got != maximum {
 		t.Fatalf("users counted toward limit = %d, want %d", got, maximum)
@@ -145,7 +145,7 @@ func TestEnsureIdentityWithRoleAllowsExistingUserWhenOverLimit(t *testing.T) {
 	}
 
 	_, err = ensureUserLimitTestIdentity(t.Context(), c, "user-4", "user-4@example.com", limit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 	if got := countIdentityUserLimitTestUsers(t, c, true); got != 3 {
 		t.Fatalf("users counted toward limit = %d, want 3", got)
 	}
@@ -201,7 +201,7 @@ func TestEnsureIdentityWithRoleRecoversAfterUserDeletion(t *testing.T) {
 	}
 
 	_, err = ensureUserLimitTestIdentity(t.Context(), c, "user-2", "user-2@example.com", userLimit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 
 	if _, err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(first.ID), 10)); err != nil {
 		t.Fatalf("deleting first user: %v", err)
@@ -230,7 +230,7 @@ func TestEnsureIdentityWithRoleDoesNotCountBootstrapUser(t *testing.T) {
 	}
 
 	_, err := ensureUserLimitTestIdentity(t.Context(), c, "user-3", "user-3@example.com", userLimit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 }
 
 func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
@@ -266,7 +266,7 @@ func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 		ProviderUserID:        firstLocalEmail,
 		Email:                 firstLocalEmail,
 	}, "", apitypes.RoleBasic, userLimit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 
 	if _, err := c.DeleteUser(t.Context(), strconv.FormatUint(uint64(activeUser.ID), 10)); err != nil {
 		t.Fatalf("deleting active user: %v", err)
@@ -293,7 +293,7 @@ func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 		ProviderUserID:        secondLocalEmail,
 		Email:                 secondLocalEmail,
 	}, "", apitypes.RoleBasic, userLimit)
-	requireIdentityUserLimitPaymentError(t, err)
+	requireIdentityUserLimitForbiddenError(t, err)
 }
 
 func TestEnsureIdentityWithRoleAllowsUnlimitedUsers(t *testing.T) {
@@ -344,7 +344,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitConcurrently(t *testing.T) {
 		}
 
 		var httpErr *apitypes.ErrHTTP
-		if errors.As(err, &httpErr) && httpErr.Code == http.StatusPaymentRequired {
+		if errors.As(err, &httpErr) && httpErr.Code == http.StatusForbidden {
 			rejected++
 			continue
 		}
