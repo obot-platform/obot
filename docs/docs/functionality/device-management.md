@@ -94,6 +94,11 @@ Enforcement fails closed. A call is blocked when:
 
 Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
 
+:::important
+Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
+This will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
+:::
+
 ### Configure enforcement
 
 In **Administration > Device Management > Devices**, open the **Configuration** view and find **Tool Call Enforcement**.
