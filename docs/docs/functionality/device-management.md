@@ -92,8 +92,6 @@ Enforcement is fail-closed. A call is blocked when:
 - Obot cannot be reached or cannot return a decision.
 - The device is not enrolled.
 
-Allowing a call through this policy does not approve it. The AI client's own permission prompts and controls still apply.
-
 Local tool call auditing for Visual Studio Code continues to work, but Visual Studio Code does not currently support enforcement.
 
 ### Configure enforcement
@@ -115,7 +113,7 @@ The broad allow rules are:
 |------|----------------|
 | All Obot-hosted MCP servers | Any MCP server hosted by this Obot instance. |
 | All built-in agent tools | The client's own tools, such as reading and writing files, running shell commands, and starting tasks. |
-| All built-in agent MCP servers | MCP servers that ship as part of a supported AI client. |
+| All built-in agent MCP servers | MCP servers that ship as part of a supported AI client (currently supported only for Claude Code). |
 | Everything | Every call that Obot Sentry can identify. All other allow rules are ignored while this is selected. |
 
 You can also allow an individual MCP server by:
@@ -276,7 +274,7 @@ Reading submitted scan data is limited to users with administrative, owner, or a
 
 Admins and owners can delete an individual device scan from the scan detail page.
 
-Creating the device configuration, changing agent or enforcement settings, allowing a call from an enforcement decision, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration and Enforcement Decisions views but cannot make changes.
+Creating the device configuration, changing agent or enforcement settings, and managing enrollment keys require administrative or owner access. Auditors can view the Configuration and Enforcement Decisions views but cannot make changes.
 
 ## Troubleshooting
 
