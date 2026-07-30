@@ -9,7 +9,7 @@ export const highlightMcpCatalogLink: GuideHighlight = {
 		id: SIDEBAR_MCP_CATALOG_LINK
 	},
 	title: 'MCP Catalog',
-	description: 'Click here to view MCP server catalog.'
+	description: 'This is where you can find MCP servers to use in your workflows.'
 };
 
 export const listenMcpCatalogLink: GuideListener = {
@@ -24,7 +24,7 @@ export const highlightMcpAccessPoliciesLink: GuideHighlight = {
 		id: SIDEBAR_MCP_ACCESS_POLICIES_LINK
 	},
 	title: 'MCP Access Policies',
-	description: 'Click here to view MCP access policies.'
+	description: 'This is where you can manage MCP access policies.'
 };
 
 export const listenMcpAccessPoliciesLink: GuideListener = {
@@ -45,9 +45,9 @@ export const addCatalogEntryDescriptions = {
 
 export const obotCatalogEntryDescriptions = {
 	hosted:
-		'A hosted catalog entry provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Click here to get started.',
+		"A hosted catalog entry provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Let's continue through here.",
 	remote:
-		"A remote catalog entry lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Click here to get started.",
+		"A remote catalog entry lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Let's continue through here.",
 	composite:
-		'A composite catalog entry lets you combine multiple MCP servers into a single remote MCP server and expose only the tools you want users to access.'
+		"A composite catalog entry lets you combine multiple MCP servers into a single remote MCP server and expose only the tools you want users to access. Let's continue through here."
 };

@@ -7,7 +7,7 @@ const highlightDevicesLink = {
 		id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesLink
 	},
 	title: 'Devices',
-	description: 'Click here to manage devices and install Obot Sentry.'
+	description: 'This is where you can manage devices and install Obot Sentry.'
 };
 
 const listenDevicesLink = {
@@ -22,7 +22,7 @@ export const steps: GuideStep[] = [
 		content: [
 			'In order to discover shadow AI and enforce policies for unmanaged MCP servers, you will need to install Obot Sentry on your devices.',
 			'**What is Obot Sentry?** Obot Sentry is a lightweight program designed to be used by MDMs for device scanning and agent hook configuration. You can learn more about it [here](https://github.com/obot-platform/obot-sentry).',
-			'To get set up, head to the Devices page.'
+			"To get set up, let's head to the Devices page."
 		],
 		action: [
 			{
@@ -36,12 +36,12 @@ export const steps: GuideStep[] = [
 				listener: listenDevicesLink,
 				parentID: 'sidebar-collapse-device-management',
 				title: 'Expand Device Management',
-				description: 'Device Management is collapsed. Click here to expand it.'
+				description: 'This is the "Device Management" section. Let\'s expand it.'
 			})
 		]
 	},
 	{
-		content: ['Go to or set up the Obot Sentry configuration.'],
+		content: ['The "Configuration" tab contains all the information needed to set up Obot Sentry.'],
 		action: [
 			{
 				routeContains: '/admin/devices',
@@ -52,7 +52,7 @@ export const steps: GuideStep[] = [
 					},
 					side: 'left' as const,
 					title: 'Configure Managed Devices',
-					description: 'Click Get Started to create the initial managed-device configuration.'
+					description: 'Begin creating the initial managed-device configuration here.'
 				},
 				listener: {
 					id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.getStartedButton,
@@ -83,7 +83,7 @@ export const steps: GuideStep[] = [
 		]
 	},
 	{
-		content: ['The Configuration tab contains the Install Obot Sentry workflow.'],
+		content: ["We'll take you through the installation steps."],
 		action: {
 			highlight: {
 				selector: {
@@ -119,7 +119,7 @@ export const steps: GuideStep[] = [
 								side: 'top',
 								title: 'Installation Method',
 								description:
-									'Select the appropriate installation method for your devices. Manual installation requires you to manually install the Obot Sentry agent on each device. Microsoft Intune installation allows you to deploy the agent to your devices using Microsoft Intune.'
+									'Select the appropriate installation method for your devices here. Manual installation requires you to manually install the Obot Sentry agent on each device. Microsoft Intune installation allows you to deploy the agent to multiple devices across your organization.'
 							},
 							listener: {
 								id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-2`,
@@ -131,7 +131,8 @@ export const steps: GuideStep[] = [
 										},
 										side: 'top',
 										title: 'Operating System',
-										description: 'Make sure to select the proper operating system for your devices.'
+										description:
+											'Make sure to select the proper operating system for your devices here.'
 									},
 									listener: {
 										id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-3`,
@@ -164,7 +165,7 @@ export const steps: GuideStep[] = [
 				side: 'top',
 				title: 'OS/Type Specific Instructions',
 				description:
-					'Depending on the installation type and OS selected, the instructions here will be different. Click here to go ahead and expand it.'
+					"Depending on the installation type and OS selected, the instructions here will be different. Let's expand it for you."
 			},
 			listener: {
 				id: `${MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentConfigSetupStep}-5`,
@@ -178,13 +179,37 @@ export const steps: GuideStep[] = [
 						description:
 							"Once you've set up an enrollment key, its information will be displayed here. Generally, you'll only need a single enrollment key to register devices with, but if you need to rotate keys, you can create new enrollment keys from here.",
 						noDescendantInteraction: true
+					},
+					listener: {
+						id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection,
+						skipClickTargetOnNext: true,
+						action: {
+							highlight: {
+								selector: {
+									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection
+								},
+								side: 'top',
+								title: 'Tool Call Enforcement',
+								description:
+									'Here is where you can control which tool calls can be executed for your enrolled devices. Make sure to save your changes to have them take effect; the installation guide in step 5 will update appropriately.',
+								experimental: true
+							},
+							listener: {
+								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection,
+								action: {
+									success: true
+								}
+							}
+						}
 					}
 				}
 			}
 		}
 	},
 	{
-		content: ['Once scans have been sent through Obot Sentry, you can view the results here.'],
+		content: [
+			'Once Obot Sentry has been installed and configured on your devices, you can view the results and actions taken in these locations.'
+		],
 		action: {
 			highlight: {
 				selector: {
@@ -193,7 +218,7 @@ export const steps: GuideStep[] = [
 				title: 'See Overall Results',
 				side: 'left',
 				description:
-					'View an overall summary of all the scans sent through Obot Sentry over a given time period.'
+					'View an overall summary of all the scans sent through Obot Sentry over a given time period here.'
 			},
 			listener: {
 				id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabOverview,
@@ -212,7 +237,22 @@ export const steps: GuideStep[] = [
 						id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabDevices,
 						skipClickTargetOnNext: true,
 						action: {
-							success: true
+							highlight: {
+								selector: {
+									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementDecisionsLink
+								},
+								side: 'right',
+								title: 'Enforcement Decisions',
+								description:
+									'When enforcement is enabled and tool calls are made, any actions Obot Sentry takes against them will be recorded and viewable here.'
+							},
+							listener: {
+								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementDecisionsLink,
+								skipClickTargetOnNext: true,
+								action: {
+									success: true
+								}
+							}
 						}
 					}
 				}

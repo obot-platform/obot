@@ -40,6 +40,7 @@ export interface GuideHighlight {
 	side?: 'top' | 'right' | 'bottom' | 'left';
 	align?: 'start' | 'center' | 'end';
 	noDescendantInteraction?: boolean;
+	experimental?: boolean;
 }
 
 export interface GuideAction {

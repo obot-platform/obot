@@ -43,14 +43,16 @@ export const steps: GuideStep[] = [
 		]
 	},
 	{
-		content: ['Create and manage your MCP filters here. To start, click the "Add Filter" button.'],
+		content: [
+			"Create and manage your MCP filters here. We'll take you through creating a new MCP filter."
+		],
 		action: {
 			highlight: {
 				selector: {
 					id: MCP_FILTERS_FIELD_IDS.addFilterBtn
 				},
 				title: 'Add New Filter',
-				description: 'Click here to start adding a new MCP filter.',
+				description: 'This where you can add a new MCP filter.',
 				side: 'left'
 			},
 			listener: {
@@ -62,7 +64,7 @@ export const steps: GuideStep[] = [
 						},
 						title: 'Create Custom Filter',
 						description:
-							"Obot also supports out-of-the-box PII filtering, but for the sake of this guide, let's create a custom filter. Click here to get started.",
+							"Obot also supports out-of-the-box PII filtering, but for the sake of this guide, let's create a custom filter. Let's continue through here.",
 						side: 'left'
 					},
 					listener: {
@@ -85,7 +87,7 @@ export const steps: GuideStep[] = [
 				side: 'top',
 				align: 'center',
 				title: 'Basic Details',
-				description: 'Enter the basic details of the filter.'
+				description: 'This is where you can enter the basic details of the filter.'
 			},
 			listener: {
 				id: MCP_FILTERS_FIELD_IDS.basicDetails,
@@ -127,7 +129,7 @@ export const steps: GuideStep[] = [
 										align: 'center',
 										title: 'Selectors',
 										description:
-											'Specify which requests should be matched by this filter. These can be specified by methods or identifiers such as tool names.',
+											'This is where you specify which requests should be matched by this filter. These can be specified by methods or identifiers such as tool names.',
 										noDescendantInteraction: true
 									},
 									listener: {
@@ -142,7 +144,7 @@ export const steps: GuideStep[] = [
 												align: 'center',
 												title: 'MCP Servers',
 												description:
-													'Select the MCP servers that will be used to filter the tool calls.',
+													'Select the MCP servers that will be used to filter the tool calls here.',
 												noDescendantInteraction: true
 											},
 											listener: {

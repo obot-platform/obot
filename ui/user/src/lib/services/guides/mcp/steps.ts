@@ -62,7 +62,7 @@ export function getHighlightAddCatalogEntryStep(
 
 	return {
 		content: [
-			'Create and manage your MCP catalog entries here. To start, click the "Add Catalog Entry" button.'
+			`Create and manage your MCP catalog entries here. We'll take you through creating a new ${type} catalog entry.`
 		],
 		action: {
 			highlight: {
@@ -70,7 +70,8 @@ export function getHighlightAddCatalogEntryStep(
 					id: 'add-catalog-entry-button'
 				},
 				title: 'Add Catalog Entry',
-				description: 'Click here to start adding a new catalog entry.',
+				description:
+					'This is where you can create and select what type of catalog entry you want to create.',
 				side: 'left'
 			},
 			listener: {

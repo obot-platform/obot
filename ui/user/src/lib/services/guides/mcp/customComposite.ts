@@ -38,7 +38,8 @@ export const steps: GuideStep[] = [
 						side: 'top',
 						align: 'center',
 						title: 'Add Component Entry',
-						description: 'Click here to begin adding a component entry to the composite server.'
+						description:
+							'This is where you can start adding a component entry to the composite server.'
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.addCompositeEntryBtn,
@@ -50,7 +51,7 @@ export const steps: GuideStep[] = [
 								side: 'right',
 								title: 'Adding Component Entries',
 								description:
-									'Here you can search and select the component entries that you want to add to the composite server. Each component will have its own configuration and authentication requirements. Follow the wizard to complete the process.',
+									'After clicking "Add Component Entry", here is where you can search and select the component entries that you want to add to the composite server. Each component will have its own configuration and authentication requirements; simply follow the wizard to complete the process. Let\'s close this and continue.',
 								noDescendantInteraction: true
 							},
 							listener: {

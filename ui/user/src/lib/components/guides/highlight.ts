@@ -13,6 +13,7 @@ const ELEMENT_ANIMATION_WAIT_TIMEOUT_MS = 2000;
 
 export interface GuideHighlighterOptions {
 	allowClose?: boolean;
+	disableActiveInteraction?: boolean;
 	overlayClickBehavior?: Config['overlayClickBehavior'];
 	onDestroyed?: () => void;
 	onCloseClick?: () => void;
@@ -285,6 +286,7 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 		// Skip stage animation so overlay/popover exist before we reparent into an open dialog.
 		animate: false,
 		allowClose: options.allowClose ?? true,
+		disableActiveInteraction: options.disableActiveInteraction ?? false,
 		overlayClickBehavior: options.overlayClickBehavior ?? 'close',
 		overlayColor: darkMode.isDark ? 'rgba(0, 0, 0, 1)' : 'rgba(0, 0, 0, 0.35)',
 		stagePadding: 12,
@@ -328,6 +330,18 @@ export function createGuideHighlighter(options: GuideHighlighterOptions = {}): G
 				onPopoverRender: (popover) => {
 					if (generation !== highlightGeneration) return;
 					destroyHighlightObot();
+
+					if (highlightConfig.experimental) {
+						popover.title.style.display = 'flex';
+						popover.title.style.flexWrap = 'wrap';
+						popover.title.style.alignItems = 'center';
+						popover.title.style.gap = '0.5rem';
+
+						const badge = document.createElement('span');
+						badge.className = 'badge badge-warning badge-xs font-normal';
+						badge.textContent = 'Experimental';
+						popover.title.appendChild(badge);
+					}
 
 					if (side === 'left' || side === 'right') {
 						options.onObotVisibilityChange?.(false);

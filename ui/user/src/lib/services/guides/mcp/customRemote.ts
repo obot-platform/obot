@@ -24,7 +24,7 @@ export const steps: GuideStep[] = [
 				side: 'top',
 				align: 'center',
 				title: 'Remote Server URL',
-				description: 'Enter the full URL of the remote MCP Server.'
+				description: 'This is where you enter the full URL of the remote MCP Server.'
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.remoteURL,

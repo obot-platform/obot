@@ -80,6 +80,7 @@
 	onMount(() => {
 		highlighter = createGuideHighlighter({
 			allowClose: false,
+			disableActiveInteraction: true,
 			overlayClickBehavior: noop,
 			onObotVisibilityChange: (visible) => {
 				guide.showObotInPanel = visible;

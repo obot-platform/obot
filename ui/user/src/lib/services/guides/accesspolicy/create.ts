@@ -29,7 +29,7 @@ export const steps: GuideStep[] = [
 	},
 	{
 		content: [
-			'Create and manage your MCP access policies here. To start creating a new access policy, click the "Add Access Policy" button.'
+			"Create and manage your MCP access policies here. We'll take you through creating a new MCP access policy."
 		],
 		action: {
 			routeContains: 'mcp-access-policies',
@@ -37,7 +37,7 @@ export const steps: GuideStep[] = [
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn },
 				side: 'left',
 				title: 'Add Access Policy',
-				description: 'Click here to create a new MCP access policy.'
+				description: 'This is where you go to create a new MCP access policy.'
 			},
 			listener: {
 				id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn,
@@ -52,7 +52,7 @@ export const steps: GuideStep[] = [
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.name },
 				side: 'top',
 				title: 'Policy Name',
-				description: 'Enter a recognizable name for this access policy.'
+				description: 'This is where you enter a recognizable name for this access policy.'
 			},
 			listener: {
 				id: MCP_ACCESS_POLICY_FIELD_IDS.name,
@@ -62,7 +62,7 @@ export const steps: GuideStep[] = [
 						side: 'top',
 						title: 'Users & Groups',
 						description:
-							'Add the users and groups that should have access to the selected MCP servers.',
+							'Here is where you can add the users and groups that should have access to the selected MCP servers.',
 						noDescendantInteraction: true
 					},
 					listener: {
@@ -73,7 +73,7 @@ export const steps: GuideStep[] = [
 								selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn },
 								side: 'left',
 								title: 'Add User/Group',
-								description: 'Click here to add to User & Groups.'
+								description: 'You can add User & Groups here.'
 							},
 							listener: {
 								id: MCP_ACCESS_POLICY_FIELD_IDS.addUserGroupBtn,
@@ -82,7 +82,7 @@ export const steps: GuideStep[] = [
 										selector: { id: 'add-user-group-dialog-content' },
 										title: 'Adding Users/Groups',
 										description:
-											'This is where you can add who will be able to access the MCP servers.',
+											'Clicking it will open this dialog, where you can search who or what groups you want to add to the access policy.',
 										noDescendantInteraction: true
 									},
 									listener: {
@@ -94,7 +94,7 @@ export const steps: GuideStep[] = [
 												side: 'right',
 												title: 'Select A User/Group',
 												description:
-													"For now, let's select All Obot Users. This will grant access to everyone."
+													"For now, we'll select All Obot Users. This will grant access to everyone."
 											},
 											listener: {
 												id: MCP_ACCESS_POLICY_FIELD_IDS.allUsersOption,
@@ -103,7 +103,7 @@ export const steps: GuideStep[] = [
 														selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn },
 														side: 'top',
 														title: 'Confirm Selection',
-														description: 'Click here to apply your changes.'
+														description: 'Then you can apply your changes here.'
 													},
 													listener: {
 														id: MCP_ACCESS_POLICY_FIELD_IDS.userGroupConfirmBtn,
@@ -113,7 +113,7 @@ export const steps: GuideStep[] = [
 																side: 'top',
 																title: 'Servers',
 																description:
-																	'Select the servers that will be available to the selected users and groups.',
+																	'This is where you can select the servers that will be available to the selected users and groups.',
 																noDescendantInteraction: true
 															},
 															listener: {
@@ -124,7 +124,7 @@ export const steps: GuideStep[] = [
 																		selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn },
 																		side: 'left',
 																		title: 'Add Server',
-																		description: 'Click here to begin adding a server.'
+																		description: 'You can add a server from here.'
 																	},
 																	listener: {
 																		id: MCP_ACCESS_POLICY_FIELD_IDS.addServerBtn,
@@ -133,7 +133,7 @@ export const steps: GuideStep[] = [
 																				selector: { id: 'search-mcp-servers-dialog-content' },
 																				title: 'Adding A Server',
 																				description:
-																					'From here, you can search and add any servers that you want to make available to the selected users and groups.',
+																					'Clicking it will open this dialog, where you can search and add any servers that you want to make available to the selected users and groups.',
 																				noDescendantInteraction: true
 																			},
 																			listener: {
@@ -147,7 +147,7 @@ export const steps: GuideStep[] = [
 																						side: 'right',
 																						title: 'Add a Server',
 																						description:
-																							"For this guide, let's go ahead and add everything. You can choose to modify this later."
+																							"For this guide, we'll go ahead and add everything. You can choose to modify this later."
 																					},
 																					listener: {
 																						id: MCP_ACCESS_POLICY_FIELD_IDS.everythingOption,
@@ -158,7 +158,7 @@ export const steps: GuideStep[] = [
 																								},
 																								side: 'top',
 																								title: 'Confirm Changes',
-																								description: 'Click here to apply your changes.'
+																								description: 'Then you can apply your changes here.'
 																							},
 																							listener: {
 																								id: MCP_ACCESS_POLICY_FIELD_IDS.serverConfirmBtn,

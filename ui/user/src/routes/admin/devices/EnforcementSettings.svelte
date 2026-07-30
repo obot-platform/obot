@@ -4,6 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Toggle from '$lib/components/Toggle.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 	import {
 		ALLOWLIST_SERVER_KIND_LABELS,
 		allowlistServerKind,
@@ -206,7 +207,7 @@
 	}
 </script>
 
-<section class="paper gap-4">
+<section class="paper gap-4" id={MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection}>
 	<div class="flex flex-col gap-1">
 		<div class="flex flex-wrap items-center gap-2">
 			<h3 class="text-lg font-semibold">Tool Call Enforcement</h3>
