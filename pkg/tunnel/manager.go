@@ -203,6 +203,78 @@ type bridgeTarget struct {
 	URL        string `json:"url"`
 }
 
+type bridgeRoundTripper struct {
+	manager    *Manager
+	tunnelName string
+	transport  http.RoundTripper
+}
+
+func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	if request == nil || request.URL == nil {
+		return nil, errors.New("tunnel bridge request URL is required")
+	}
+
+	outbound := request.Clone(request.Context())
+	outbound.Header = request.Header.Clone()
+	if outbound.Header == nil {
+		outbound.Header = make(http.Header)
+	}
+
+	if !b.manager.isBridgeURLForTunnel(outbound.URL, b.tunnelName) {
+		bridgeURL, err := b.manager.BridgeURL(b.tunnelName, outbound.URL.String())
+		if err != nil {
+			return nil, fmt.Errorf("failed to prepare tunneled HTTP request: %w", err)
+		}
+		outbound.URL, err = url.Parse(bridgeURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse tunnel bridge URL: %w", err)
+		}
+		outbound.Host = ""
+	}
+
+	name, value := b.manager.BridgeAuthorization()
+	outbound.Header.Set(name, value)
+	return b.transport.RoundTrip(outbound)
+}
+
+// HTTPClient returns an HTTP client that routes every request through the
+// named tunnel. Redirects rewritten by the bridge remain on the same tunnel.
+func (m *Manager) HTTPClient(tunnelName string, timeout time.Duration) (*http.Client, error) {
+	if m == nil {
+		return nil, errors.New("tunnel manager is not configured")
+	}
+	if err := apitypes.ValidateTunnelName(tunnelName); err != nil {
+		return nil, err
+	}
+	return &http.Client{
+		Timeout: timeout,
+		Transport: &bridgeRoundTripper{
+			manager:    m,
+			tunnelName: tunnelName,
+			transport:  http.DefaultTransport,
+		},
+	}, nil
+}
+
+func (m *Manager) isBridgeURLForTunnel(targetURL *url.URL, tunnelName string) bool {
+	if targetURL == nil ||
+		!strings.EqualFold(targetURL.Scheme+"://"+targetURL.Host, m.bridgeBaseURL) ||
+		!strings.HasPrefix(targetURL.Path, bridgePathPrefix) {
+		return false
+	}
+
+	encoded := strings.TrimPrefix(targetURL.Path, bridgePathPrefix)
+	if encoded == "" || strings.Contains(encoded, "/") {
+		return false
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return false
+	}
+	var target bridgeTarget
+	return json.Unmarshal(payload, &target) == nil && target.TunnelName == tunnelName
+}
+
 // BridgeURL converts an ordinary HTTP(S) target and MCPTunnel name into an
 // internal URL on the gateway bridge.
 func (m *Manager) BridgeURL(tunnelName, rawURL string) (string, error) {

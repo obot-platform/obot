@@ -2,16 +2,25 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
 	"reflect"
 	"strings"
 	"testing"
 
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
+
+type oauthDebuggerRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f oauthDebuggerRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
 
 func TestOAuthDebuggerMetadata(t *testing.T) {
 	authServer := nmcp.AuthorizationServerMetadata{
@@ -244,6 +253,52 @@ func TestOAuthDebuggerCIMDClient(t *testing.T) {
 	}
 	if !reflect.DeepEqual(client.RedirectURIs, registration.RedirectURIs) {
 		t.Fatalf("expected redirect URIs %#v, got %#v", registration.RedirectURIs, client.RedirectURIs)
+	}
+}
+
+func TestRegisterOAuthDebuggerClientUsesProvidedHTTPClient(t *testing.T) {
+	registration := nmcp.ClientRegistrationMetadata{
+		ClientName:   "Obot MCP OAuth Debugger",
+		RedirectURIs: []string{"https://obot.example.com/oauth/mcp/callback"},
+	}
+	expected := types.OAuthClient{
+		ClientID:     "registered-client",
+		ClientSecret: "registered-secret",
+	}
+	called := false
+	httpClient := &http.Client{Transport: oauthDebuggerRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		called = true
+		if request.Method != http.MethodPost || request.URL.String() != "https://auth.internal.test/register" {
+			t.Errorf("registration request = %s %s", request.Method, request.URL)
+		}
+		if request.Header.Get("Content-Type") != "application/json" || request.Header.Get("Accept") != "application/json" {
+			t.Errorf("registration request headers = %#v", request.Header)
+		}
+		var actual nmcp.ClientRegistrationMetadata
+		if err := json.NewDecoder(request.Body).Decode(&actual); err != nil {
+			t.Errorf("decode registration request: %v", err)
+		} else if !reflect.DeepEqual(actual, registration) {
+			t.Errorf("registration request = %#v, want %#v", actual, registration)
+		}
+
+		body := strings.NewReader(string(mustJSON(t, expected)))
+		return &http.Response{
+			StatusCode: http.StatusCreated,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(body),
+			Request:    request,
+		}, nil
+	})}
+
+	actual, err := registerOAuthDebuggerClient(t.Context(), httpClient, "https://auth.internal.test/register", registration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("provided HTTP client was not used")
+	}
+	if !reflect.DeepEqual(actual, expected) {
+		t.Fatalf("registered client = %#v, want %#v", actual, expected)
 	}
 }
 

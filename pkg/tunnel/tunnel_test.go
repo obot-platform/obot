@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -564,6 +565,226 @@ func TestTunnelRoutesRequestsByName(t *testing.T) {
 		case <-time.After(time.Second):
 			t.Fatal("named tunnel client did not stop")
 		}
+	}
+}
+
+func TestHTTPClientRoutesOAuthDiscoveryThroughTunnel(t *testing.T) {
+	const targetBaseURL = "http://oauth.internal.test"
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	manager, server := newManagerTestServer(ctx, t)
+	defer manager.Close()
+	defer server.Close()
+
+	connection, _, err := dial(ctx, server.URL, testTunnelToken("office"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		requestsMu sync.Mutex
+		requests   = make(map[string]int)
+	)
+	forwardClient := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		requestsMu.Lock()
+		requests[request.Method+" "+request.URL.Path]++
+		requestsMu.Unlock()
+
+		status := http.StatusOK
+		header := make(http.Header)
+		body := ""
+		switch {
+		case request.Method == http.MethodPost && request.URL.Path == "/mcp":
+			status = http.StatusUnauthorized
+			header.Set("WWW-Authenticate", "Bearer")
+			body = "unauthorized"
+		case request.Method == http.MethodGet && request.URL.Path == "/.well-known/oauth-protected-resource/mcp":
+			status = http.StatusNotFound
+		case request.Method == http.MethodGet && request.URL.Path == "/.well-known/oauth-protected-resource":
+			body = `{"resource":"` + targetBaseURL + `","authorization_servers":["` + targetBaseURL + `/issuer"]}`
+		case request.Method == http.MethodGet && request.URL.Path == "/.well-known/oauth-authorization-server/issuer":
+			body = `{"issuer":"` + targetBaseURL + `/issuer","authorization_endpoint":"` + targetBaseURL +
+				`/authorize","token_endpoint":"` + targetBaseURL + `/token","registration_endpoint":"` +
+				targetBaseURL + `/register","response_types_supported":["code"]}`
+		default:
+			status = http.StatusNotFound
+		}
+		if body != "" {
+			header.Set("Content-Type", "application/json")
+		}
+		return &http.Response{
+			StatusCode:    status,
+			Header:        header,
+			Body:          io.NopCloser(strings.NewReader(body)),
+			ContentLength: int64(len(body)),
+			Request:       request,
+		}, nil
+	})}
+
+	serveErrors := make(chan error, 1)
+	go func() {
+		serveErrors <- serveConnectionWithClient(ctx, connection, "office", forwardClient)
+	}()
+	waitForTestCondition(t, 2*time.Second, func() bool {
+		return localTunnelConnectionCount(manager, "office") == 1
+	}, "tunnel session did not connect")
+
+	httpClient, err := manager.HTTPClient("office", 5*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	metadata, err := nmcp.GetOAuthMetadataWithClient(t.Context(), httpClient, nmcp.Server{
+		BaseURL: targetBaseURL + "/mcp",
+	}, "Obot Test MCP OAuth Client", "https://obot.example.com/oauth/mcp/callback")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var authServer nmcp.AuthorizationServerMetadata
+	if err := json.Unmarshal(metadata.AuthorizationServerMetadata, &authServer); err != nil {
+		t.Fatal(err)
+	}
+	if authServer.AuthorizationEndpoint != targetBaseURL+"/authorize" ||
+		authServer.TokenEndpoint != targetBaseURL+"/token" ||
+		authServer.RegistrationEndpoint != targetBaseURL+"/register" {
+		t.Fatalf("unexpected authorization server metadata: %#v", authServer)
+	}
+
+	requestsMu.Lock()
+	defer requestsMu.Unlock()
+	for _, request := range []string{
+		"POST /mcp",
+		"GET /.well-known/oauth-protected-resource/mcp",
+		"GET /.well-known/oauth-protected-resource",
+		"GET /.well-known/oauth-authorization-server/issuer",
+	} {
+		if requests[request] == 0 {
+			t.Errorf("OAuth discovery did not send %s through the tunnel", request)
+		}
+	}
+
+	cancel()
+	select {
+	case <-serveErrors:
+	case <-time.After(time.Second):
+		t.Fatal("tunnel client did not stop")
+	}
+}
+
+func TestHTTPClientRoutesRequestsAndRedirectsThroughBridge(t *testing.T) {
+	const (
+		tunnelName    = "office"
+		initialTarget = "https://oauth.internal.test/start"
+		finalTarget   = "https://oauth.internal.test/finish"
+	)
+
+	var (
+		manager     *Manager
+		seenTargets []string
+	)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		name, value := manager.BridgeAuthorization()
+		if request.Header.Get(name) != value {
+			t.Errorf("bridge authorization header = %q, want %q", request.Header.Get(name), value)
+		}
+		if request.Header.Get("X-Test") != "preserved" {
+			t.Errorf("original request header was not preserved: %#v", request.Header)
+		}
+		if !strings.HasPrefix(request.URL.Path, bridgePathPrefix) {
+			t.Errorf("request path = %q, want bridge path", request.URL.Path)
+			http.Error(w, "not a bridge request", http.StatusBadRequest)
+			return
+		}
+
+		payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(request.URL.Path, bridgePathPrefix))
+		if err != nil {
+			t.Errorf("decode bridge target: %v", err)
+			http.Error(w, "invalid bridge target", http.StatusBadRequest)
+			return
+		}
+		var target bridgeTarget
+		if err := json.Unmarshal(payload, &target); err != nil {
+			t.Errorf("unmarshal bridge target: %v", err)
+			http.Error(w, "invalid bridge target", http.StatusBadRequest)
+			return
+		}
+		if target.TunnelName != tunnelName {
+			t.Errorf("tunnel name = %q, want %q", target.TunnelName, tunnelName)
+		}
+		seenTargets = append(seenTargets, target.URL)
+
+		switch target.URL {
+		case initialTarget:
+			redirectURL, err := manager.BridgeURL(tunnelName, finalTarget)
+			if err != nil {
+				t.Errorf("build redirect bridge URL: %v", err)
+				http.Error(w, "failed to redirect", http.StatusInternalServerError)
+				return
+			}
+			http.Redirect(w, request, redirectURL, http.StatusFound)
+		case finalTarget:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "unexpected target", http.StatusBadRequest)
+		}
+	}))
+	defer server.Close()
+
+	var err error
+	manager, err = NewManager(t.Context(), server.URL, allowAllTunnelReader{}, PeerConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer manager.Close()
+
+	httpClient, err := manager.HTTPClient(tunnelName, 3*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if httpClient.Timeout != 3*time.Second {
+		t.Fatalf("client timeout = %v, want %v", httpClient.Timeout, 3*time.Second)
+	}
+
+	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, initialTarget, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("X-Test", "preserved")
+	response, err := httpClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("response status = %d, want %d", response.StatusCode, http.StatusNoContent)
+	}
+	if !slices.Equal(seenTargets, []string{initialTarget, finalTarget}) {
+		t.Fatalf("bridge targets = %#v, want initial and final targets", seenTargets)
+	}
+	if request.URL.String() != initialTarget {
+		t.Fatalf("original request URL mutated to %q", request.URL)
+	}
+	name, _ := manager.BridgeAuthorization()
+	if request.Header.Get(name) != "" {
+		t.Fatal("bridge authorization was added to original request")
+	}
+}
+
+func TestHTTPClientRejectsInvalidConfiguration(t *testing.T) {
+	var manager *Manager
+	if _, err := manager.HTTPClient("office", time.Second); err == nil {
+		t.Fatal("nil manager returned no error")
+	}
+
+	validManager, err := NewManager(t.Context(), "http://127.0.0.1:8080", allowAllTunnelReader{}, PeerConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer validManager.Close()
+	if _, err := validManager.HTTPClient("Office", time.Second); err == nil {
+		t.Fatal("invalid tunnel name returned no error")
 	}
 }
 

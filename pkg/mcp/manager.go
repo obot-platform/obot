@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -201,6 +202,18 @@ func (sm *SessionManager) MCPRuntimeBackend() string {
 
 func (sm *SessionManager) RemoteMCPURLValidationConfig() RemoteMCPURLValidationConfig {
 	return sm.remoteURLValidationConfig
+}
+
+// HTTPClientForServer returns an HTTP client that follows the server's
+// configured network path, including its tunnel when present.
+func (sm *SessionManager) HTTPClientForServer(server ServerConfig, timeout time.Duration) (*http.Client, error) {
+	if server.TunnelName == "" {
+		return &http.Client{Timeout: timeout}, nil
+	}
+	if sm.tunnelManager == nil {
+		return nil, fmt.Errorf("tunnel manager is not configured")
+	}
+	return sm.tunnelManager.HTTPClient(server.TunnelName, timeout)
 }
 
 func (sm *SessionManager) ResourceMaximums() ResourceMaximums {

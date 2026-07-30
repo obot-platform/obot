@@ -1064,20 +1064,15 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	if server.Spec.Manifest.Runtime != types.RuntimeRemote || server.Spec.Manifest.RemoteConfig == nil {
 		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
 	}
-	// OAuth metadata URLs can point back at the private target and bypass the
-	// tunnel. Leave discovery disabled for tunneled servers; ordinary MCP
-	// requests (including servers that do not require OAuth) still use the
-	// tunnel bridge.
-	if server.Spec.Manifest.RemoteConfig.TunnelName != "" {
-		return setOAuthMetadata(req, server, new(v1.OAuthMetadata), nil)
-	}
 
 	blockingConfig := h.mcpSessionManager.RemoteMCPURLValidationConfig()
 
-	if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, blockingConfig); err != nil {
-		// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
-		log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
-		return nil
+	if server.Spec.Manifest.RemoteConfig.TunnelName == "" {
+		if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, blockingConfig); err != nil {
+			// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
+			log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
+			return nil
+		}
 	}
 
 	if !shouldSyncOAuthMetadata(server, time.Now()) {
@@ -1104,12 +1099,23 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return nil
 	}
 
-	metadata, err := nmcp.GetOAuthMetadataWithBlockingConfig(req.Ctx, nmcp.Server{
+	oauthServer := nmcp.Server{
 		BaseURL: serverConfig.URL,
 		Headers: serverConfigHeaders(serverConfig),
-	}, "Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL),
-		!blockingConfig.AllowLocalhostMCP, !blockingConfig.AllowPrivateIPMCP, !blockingConfig.AllowLinkLocalMCP,
-	)
+	}
+	var metadata nmcp.OAuthMetadata
+	if serverConfig.TunnelName != "" {
+		httpClient, clientErr := h.mcpSessionManager.HTTPClientForServer(serverConfig, 5*time.Second)
+		if clientErr != nil {
+			return clientErr
+		}
+		metadata, err = nmcp.GetOAuthMetadataWithClient(req.Ctx, httpClient, oauthServer,
+			"Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL))
+	} else {
+		metadata, err = nmcp.GetOAuthMetadataWithBlockingConfig(req.Ctx, oauthServer,
+			"Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL),
+			!blockingConfig.AllowLocalhostMCP, !blockingConfig.AllowPrivateIPMCP, !blockingConfig.AllowLinkLocalMCP)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth metadata: %w", err)
 	}

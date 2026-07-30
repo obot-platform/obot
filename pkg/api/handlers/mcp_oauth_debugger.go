@@ -58,7 +58,11 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint, must configure static client ID and secret")
 		}
 
-		registered, err = registerOAuthDebuggerClient(req.Context(), authServer.RegistrationEndpoint, registration)
+		httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, 10*time.Second)
+		if err != nil {
+			return err
+		}
+		registered, err = registerOAuthDebuggerClient(req.Context(), httpClient, authServer.RegistrationEndpoint, registration)
 		if err != nil {
 			return err
 		}
@@ -166,7 +170,12 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 
 	conf := oauthDebuggerConfigFromPendingState(pendingState)
 
-	token, err := conf.Exchange(req.Context(), input.Code, oauth2.VerifierOption(pendingState.Verifier))
+	httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, 10*time.Second)
+	if err != nil {
+		return err
+	}
+	exchangeContext := context.WithValue(req.Context(), oauth2.HTTPClient, httpClient)
+	token, err := conf.Exchange(exchangeContext, input.Code, oauth2.VerifierOption(pendingState.Verifier))
 	if err != nil {
 		return fmt.Errorf("failed to exchange OAuth code: %w", err)
 	}
@@ -236,13 +245,12 @@ func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (nmcp.Authorizat
 	return authServer, nmcp.AuthServerMetadataToClientRegistration(authServer, "Obot MCP OAuth Debugger", system.MCPOAuthCallbackURL(m.serverURL), registration.Scope), nil
 }
 
-func registerOAuthDebuggerClient(ctx context.Context, registrationEndpoint string, registration nmcp.ClientRegistrationMetadata) (types.OAuthClient, error) {
+func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, registrationEndpoint string, registration nmcp.ClientRegistrationMetadata) (types.OAuthClient, error) {
 	b, err := json.Marshal(registration)
 	if err != nil {
 		return types.OAuthClient{}, err
 	}
 
-	httpClient := &http.Client{Timeout: 10 * time.Second}
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, registrationEndpoint, bytes.NewReader(b))
 	if err != nil {
 		return types.OAuthClient{}, err
