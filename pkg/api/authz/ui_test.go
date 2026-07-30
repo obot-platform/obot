@@ -2,51 +2,49 @@ package authz
 
 import (
 	"net/http"
-	"net/url"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func TestCheckUI_V2AdminAccess(t *testing.T) {
+func TestCheckUI(t *testing.T) {
 	tests := []struct {
 		name     string
+		method   string
 		path     string
+		pattern  string
 		user     user.Info
 		expected bool
 	}{
 		{
-			name: "admin user can access /admin/users",
-			path: "/admin/users",
+			name:    "regular user can access a UI route",
+			method:  http.MethodGet,
+			path:    "/mcp-servers",
+			pattern: "/",
 			user: &user.DefaultInfo{
-				Name:   "admin",
-				Groups: types.RoleAdmin.Groups(),
+				Name:   "user",
+				Groups: types.RoleBasic.Groups(),
 			},
 			expected: true,
 		},
 		{
-			name: "owner user can access /admin/users",
-			path: "/admin/users",
+			name:    "HEAD request can access a UI route",
+			method:  http.MethodHead,
+			path:    "/_app/immutable/app.js",
+			pattern: "/",
 			user: &user.DefaultInfo{
-				Name:   "owner",
-				Groups: types.RoleOwner.Groups(),
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
 			},
 			expected: true,
 		},
 		{
-			name: "bootstrap user can access /admin/auth-providers",
-			path: "/admin/auth-providers",
-			user: &user.DefaultInfo{
-				Name:   system.BootstrapName,
-				Groups: types.RoleOwner.Groups(),
-			},
-			expected: true,
-		},
-		{
-			name: "regular user cannot access /admin/users",
-			path: "/admin/users",
+			name:    "non-read request cannot use the UI fallback",
+			method:  http.MethodPost,
+			path:    "/somewhere",
+			pattern: "/",
 			user: &user.DefaultInfo{
 				Name:   "user",
 				Groups: types.RoleBasic.Groups(),
@@ -54,53 +52,54 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: false,
 		},
 		{
-			name: "unauthenticated user can access /admin",
-			path: "/admin",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: true,
-		},
-		{
-			name: "authenticated user can access /admin",
-			path: "/admin",
+			name:    "request without a selected route is rejected",
+			method:  http.MethodGet,
+			path:    "/somewhere",
+			pattern: "",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "unauthenticated user can access /admin/",
-			path: "/admin/",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: true,
-		},
-		{
-			name: "authenticated user can access /admin/",
-			path: "/admin/",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "unauthenticated user cannot access /admin/auth-providers",
-			path: "/admin/auth-providers",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
+				Groups: types.RoleBasic.Groups(),
 			},
 			expected: false,
 		},
 		{
-			name: "admin user can access regular UI paths",
-			path: "/",
+			name:    "explicit backend route cannot use the UI fallback",
+			method:  http.MethodGet,
+			path:    "/future-backend/123",
+			pattern: "GET /future-backend/{id}",
+			user: &user.DefaultInfo{
+				Name:   "user",
+				Groups: types.RoleBasic.Groups(),
+			},
+			expected: false,
+		},
+		{
+			name:    "unauthenticated user can access admin landing page",
+			method:  http.MethodGet,
+			path:    "/admin",
+			pattern: "/",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: true,
+		},
+		{
+			name:    "unauthenticated user can access admin assets",
+			method:  http.MethodGet,
+			path:    "/admin/assets/app.js",
+			pattern: "/",
+			user: &user.DefaultInfo{
+				Name:   "anonymous",
+				Groups: []string{UnauthenticatedGroup},
+			},
+			expected: true,
+		},
+		{
+			name:    "admin can access admin subroute",
+			method:  http.MethodGet,
+			path:    "/admin/users",
+			pattern: "/",
 			user: &user.DefaultInfo{
 				Name:   "admin",
 				Groups: types.RoleAdmin.Groups(),
@@ -108,170 +107,43 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "regular user can access regular UI paths",
-			path: "/",
+			name:    "owner can access admin subroute",
+			method:  http.MethodGet,
+			path:    "/admin/users",
+			pattern: "/",
 			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "unauthenticated user can access /chat",
-			path: "/",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: true,
-		},
-		{
-			name: "regular user can access /chat",
-			path: "/",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "admin user can access /chat",
-			path: "/chat",
-			user: &user.DefaultInfo{
-				Name:   "admin",
-				Groups: types.RoleAdmin.Groups(),
-			},
-			expected: true,
-		},
-		{
-			name: "unknown paths are allowed (handled by SvelteKit routing)",
-			path: "/legacy-admin",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "unknown paths with trailing slash are allowed",
-			path: "/legacy-admin/",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "unknown multi-segment paths are allowed",
-			path: "/unknown/path/here",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "/api is rejected",
-			path: "/api",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: false,
-		},
-		{
-			name: "/api/foo is rejected",
-			path: "/api/foo",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: false,
-		},
-		{
-			name: "/api/image/123 is allowed",
-			path: "/api/image/123",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{types.GroupAuthenticated},
-			},
-			expected: true,
-		},
-		{
-			name: "/debug/triggers is rejected for any authenticated user",
-			path: "/debug/triggers",
-			user: &user.DefaultInfo{
-				Name:   "user",
+				Name:   "owner",
 				Groups: types.RoleOwner.Groups(),
 			},
-			expected: false,
+			expected: true,
 		},
 		{
-			name: "/debug/triggers is rejected for unauthenticated users",
-			path: "/debug/triggers",
+			name:    "auditor can access admin subroute",
+			method:  http.MethodGet,
+			path:    "/admin/audit-logs",
+			pattern: "/",
+			user: &user.DefaultInfo{
+				Name:   "auditor",
+				Groups: types.RoleAuditor.Groups(),
+			},
+			expected: true,
+		},
+		{
+			name:    "regular user cannot access admin subroute",
+			method:  http.MethodGet,
+			path:    "/admin/users",
+			pattern: "/",
 			user: &user.DefaultInfo{
 				Name:   "user",
-				Groups: []string{UnauthenticatedGroup},
+				Groups: types.RoleBasic.Groups(),
 			},
 			expected: false,
 		},
 		{
-			name: "/debug/pprof/profile is rejected for any authenticated user",
-			path: "/debug/pprof/profile",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: types.RoleOwner.Groups(),
-			},
-			expected: false,
-		},
-		{
-			name: "/debug/pprof/profile is rejected for unauthenticated users",
-			path: "/debug/pprof/profile",
-			user: &user.DefaultInfo{
-				Name:   "user",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: false,
-		},
-		{
-			name: "/mcp-connect is rejected by UI fallback",
-			path: "/mcp-connect/ms1test",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: false,
-		},
-		{
-			name: "/oauth is rejected by UI fallback",
-			path: "/oauth/authorize",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: false,
-		},
-		{
-			name: "/.well-known is rejected by UI fallback",
-			path: "/.well-known/oauth-protected-resource",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: false,
-		},
-		{
-			name: "/v0.1 is rejected by UI fallback",
-			path: "/v0.1",
-			user: &user.DefaultInfo{
-				Name:   "anonymous",
-				Groups: []string{UnauthenticatedGroup},
-			},
-			expected: false,
-		},
-		{
-			name: "/v0.1/servers is rejected by UI fallback",
-			path: "/v0.1/servers",
+			name:    "unauthenticated user cannot access admin subroute",
+			method:  http.MethodGet,
+			path:    "/admin/auth-providers",
+			pattern: "/",
 			user: &user.DefaultInfo{
 				Name:   "anonymous",
 				Groups: []string{UnauthenticatedGroup},
@@ -280,21 +152,105 @@ func TestCheckUI_V2AdminAccess(t *testing.T) {
 		},
 	}
 
+	authorizer := &Authorizer{}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			authorizer := &Authorizer{
-				uiResources: newPathMatcher(uiResources...),
-			}
-
-			req := &http.Request{
-				Method: "GET",
-				URL:    &url.URL{Path: tt.path},
-			}
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			req.Pattern = tt.pattern
 
 			result := authorizer.checkUI(req, newUser(tt.user))
 			if result != tt.expected {
 				t.Errorf("checkUI() = %v, want %v", result, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCheckUIUsesServeMuxRouteSelection(t *testing.T) {
+	authorizer := &Authorizer{}
+	currentUser := newUser(&user.DefaultInfo{
+		Name:   "user",
+		Groups: types.RoleBasic.Groups(),
+	})
+
+	check := func(w http.ResponseWriter, req *http.Request) {
+		if !authorizer.checkUI(req, currentUser) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+
+	tests := []struct {
+		name            string
+		method          string
+		path            string
+		expectedStatus  int
+		expectedPattern string
+	}{
+		{
+			name:            "UI path selects fallback and is allowed",
+			method:          http.MethodGet,
+			path:            "/some/new/ui/path",
+			expectedStatus:  http.StatusNoContent,
+			expectedPattern: "/",
+		},
+		{
+			name:            "new backend route selects its own pattern and is rejected",
+			method:          http.MethodGet,
+			path:            "/future-backend/123",
+			expectedStatus:  http.StatusForbidden,
+			expectedPattern: "GET /future-backend/{id}",
+		},
+		{
+			name:            "POST to fallback is rejected",
+			method:          http.MethodPost,
+			path:            "/some/new/ui/path",
+			expectedStatus:  http.StatusForbidden,
+			expectedPattern: "/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var selectedPattern string
+			recorder := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+
+			recordPattern := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				selectedPattern = req.Pattern
+				check(w, req)
+			})
+			testMux := http.NewServeMux()
+			testMux.Handle("GET /future-backend/{id}", recordPattern)
+			testMux.Handle("/", recordPattern)
+			testMux.ServeHTTP(recorder, req)
+
+			if recorder.Code != tt.expectedStatus {
+				t.Errorf("status = %d, want %d", recorder.Code, tt.expectedStatus)
+			}
+			if selectedPattern != tt.expectedPattern {
+				t.Errorf("selected pattern = %q, want %q", selectedPattern, tt.expectedPattern)
+			}
+		})
+	}
+}
+
+func TestPublicImageAuthorizationDoesNotDependOnUIFallback(t *testing.T) {
+	authorizer := &Authorizer{
+		rules: defaultRules(false, false),
+	}
+	userInfo := &user.DefaultInfo{
+		Name:   "anonymous",
+		Groups: []string{UnauthenticatedGroup},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/image/image-123", nil)
+	req.Pattern = "GET /api/image/{id}"
+
+	if authorizer.checkUI(req, newUser(userInfo)) {
+		t.Fatal("API image route was incorrectly authorized as UI traffic")
+	}
+	if !authorizer.Authorize(req, userInfo) {
+		t.Fatal("public API image route was not authorized by the normal route rules")
 	}
 }

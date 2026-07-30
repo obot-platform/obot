@@ -383,7 +383,6 @@ type Authorizer struct {
 	uncached       kclient.Client
 	gatewayClient  *client.Client
 	apiResources   map[string]*pathMatcher
-	uiResources    *pathMatcher
 	acrHelper      *accesscontrolrule.Helper
 	skillHelper    *skillaccessrule.Helper
 	registryNoAuth bool
@@ -401,7 +400,6 @@ func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client,
 		uncached:       uncached,
 		gatewayClient:  gatewayClient,
 		apiResources:   apiBasedResources,
-		uiResources:    newPathMatcher(uiResources...),
 		acrHelper:      acrHelper,
 		skillHelper:    skillHelper,
 		registryNoAuth: registryNoAuth,

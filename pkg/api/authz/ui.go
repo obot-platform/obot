@@ -5,31 +5,12 @@ import (
 	"strings"
 )
 
-var uiResources = []string{
-	"GET /{$}",
-	"GET /admin/",
-	"GET /admin",
-	"GET /admin/assets/",
-	"GET /agent/images/",
-	"GET /landing/images/",
-	"GET /_app/",
-	"GET /{assistant}",
-	"GET /chat",
-	"GET /o/",
-	"GET /s/",
-	"GET /t/",
-	"GET /i/{code}",
-	"GET /user/images/",
-	"GET /api/image/{id}",
-	"GET /mcp-servers/",
-	"GET /mcp-registries/",
-	"GET /audit-logs",
-	"GET /usage",
-}
-
 func (a *Authorizer) checkUI(req *http.Request, user User) bool {
-	// Reject direct access to non-UI routes except for /api/image/{id}.
-	if req.URL.Path == "/api" || req.URL.Path == "/v0.1" || hasAnyPrefix(req.URL.Path, "/.well-known/", "/mcp-connect/", "/oauth/", "/debug/", "/tunnel/", "/v0.1/") || (strings.HasPrefix(req.URL.Path, "/api/") && !strings.HasPrefix(req.URL.Path, "/api/image/")) {
+	// The UI is registered as the "/" fallback on the main ServeMux. ServeMux
+	// sets Request.Pattern before invoking the selected handler, so checking the
+	// matched pattern prevents any explicitly registered backend route from
+	// being authorized as UI traffic.
+	if req.Pattern != "/" || (req.Method != http.MethodGet && req.Method != http.MethodHead) {
 		return false
 	}
 
@@ -48,16 +29,7 @@ func (a *Authorizer) checkUI(req *http.Request, user User) bool {
 		return user.IsAdmin || user.IsAuditor
 	}
 
-	// did not hit any above conditions, so allow access
-	// incorrect routes will handled by SvelteKit error page
+	// Did not hit any above conditions, so allow access.
+	// Incorrect routes will be handled by the SvelteKit error page.
 	return true
-}
-
-func hasAnyPrefix(path string, prefixes ...string) bool {
-	for _, prefix := range prefixes {
-		if strings.HasPrefix(path, prefix) {
-			return true
-		}
-	}
-	return false
 }
