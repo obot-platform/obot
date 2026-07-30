@@ -64,11 +64,13 @@ export interface AppPreferences {
 		logoIconError: string;
 		logoIconWarning: string;
 		logoDefault: string;
-		logoEnterprise: string;
 		logoChat: string;
+		logoEnterprise: string;
+		logoCommunity: string;
 		darkLogoDefault: string;
 		darkLogoChat: string;
 		darkLogoEnterprise: string;
+		darkLogoCommunity: string;
 	};
 	theme: {
 		backgroundColor: string;

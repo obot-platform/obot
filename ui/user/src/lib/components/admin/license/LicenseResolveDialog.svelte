@@ -96,7 +96,9 @@
 <ResponsiveDialog
 	bind:this={licenseViolationDialog}
 	title={warnUserLimit || violations.userLimit
-		? 'User Limit Reached'
+		? warnUserLimit
+			? 'Nearing User Limit'
+			: 'User Limit Reached'
 		: 'Missing or Invalid License'}
 	class="md:max-w-md"
 >
@@ -104,8 +106,10 @@
 		<div class="flex flex-col gap-4">
 			<p class="font-light text-center">
 				{#if warnUserLimit || violations.userLimit}
-					Lift the user limit and get additional support with an Obot Enterprise license! Contact
-					support at <a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to upgrade.
+					Unlock unlimited users and get support with Obot Enterprise! Contact us at <a
+						href="mailto:info@obot.ai"
+						class="text-link">info@obot.ai</a
+					> to upgrade.
 				{:else}
 					To re-enable access to existing functionality,
 					{#if violations.authProvider}

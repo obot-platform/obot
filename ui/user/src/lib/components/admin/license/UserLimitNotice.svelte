@@ -19,8 +19,13 @@
 	<ShieldAlert class="size-6" />
 	<div>
 		You're {hasUserLimitViolation ? 'at' : 'almost at'} the user limit. {userLimitText}
-		<a href="https://obot.ai/contact-us/" class="text-link" target="_blank"
-			>Contact us to upgrade to Enterprise Edition</a
+		<a
+			href="https://obot.ai/contact-us/"
+			class="text-link"
+			target="_blank"
+			rel="noopener noreferrer"
+		>
+			Contact us to upgrade to Obot Enterprise</a
 		>
 	</div>
 </div>

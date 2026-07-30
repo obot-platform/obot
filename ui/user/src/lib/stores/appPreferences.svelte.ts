@@ -13,11 +13,13 @@ export const DEFAULT_LOGOS = {
 		dark: {
 			chat: '/user/images/obot-chat-logo-blue-white-text.svg',
 			enterprise: '/user/images/obot-enterprise-logo-blue-white-text.svg',
+			community: '/user/images/obot-community-logo-blue-white-text.svg',
 			default: '/user/images/obot-logo-blue-white-text.svg'
 		},
 		light: {
 			chat: '/user/images/obot-chat-logo-blue-black-text.svg',
 			enterprise: '/user/images/obot-enterprise-logo-blue-black-text.svg',
+			community: '/user/images/obot-community-logo-blue-black-text.svg',
 			default: '/user/images/obot-logo-blue-black-text.svg'
 		}
 	}
@@ -45,11 +47,13 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			logoIconWarning: preferences?.logos?.logoIconWarning ?? DEFAULT_LOGOS.icon.warning,
 			logoDefault: preferences?.logos?.logoDefault ?? DEFAULT_LOGOS.beta.light.default,
 			logoEnterprise: preferences?.logos?.logoEnterprise ?? DEFAULT_LOGOS.beta.light.enterprise,
+			logoCommunity: DEFAULT_LOGOS.beta.light.community,
 			logoChat: preferences?.logos?.logoChat ?? DEFAULT_LOGOS.beta.light.chat,
 			darkLogoDefault: preferences?.logos?.darkLogoDefault ?? DEFAULT_LOGOS.beta.dark.default,
 			darkLogoChat: preferences?.logos?.darkLogoChat ?? DEFAULT_LOGOS.beta.dark.chat,
 			darkLogoEnterprise:
-				preferences?.logos?.darkLogoEnterprise ?? DEFAULT_LOGOS.beta.dark.enterprise
+				preferences?.logos?.darkLogoEnterprise ?? DEFAULT_LOGOS.beta.dark.enterprise,
+			darkLogoCommunity: DEFAULT_LOGOS.beta.dark.community
 		},
 		theme: {
 			backgroundColor: preferences?.theme?.backgroundColor ?? 'hsl(0 0 100)',

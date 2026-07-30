@@ -52,6 +52,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
+	import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
@@ -636,7 +637,12 @@
 	let isBetaRoute = $derived(
 		betaRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
 	);
-
+	let logoVariant = $derived.by(() => {
+		if (version.current.licenseEntitlements?.includes(COMMUNITY_ENTITLEMENT))
+			return 'community' as const;
+		if (version.current.enterprise) return 'enterprise' as const;
+		return 'default' as const;
+	});
 	$effect(() => {
 		if (responsive.isMobile) {
 			layout.sidebarOpen = false;
@@ -749,7 +755,7 @@
 				bind:this={nav}
 			>
 				<div class="flex h-16 shrink-0 items-center px-2">
-					<BetaLogo enterprise={version.current.enterprise} />
+					<BetaLogo variant={logoVariant} />
 				</div>
 
 				<div
@@ -851,7 +857,7 @@
 						{#if overrideLeftMenu}
 							{@render overrideLeftMenu()}
 						{:else if (!layout.sidebarOpen || hideSidebar) && !leftSidebar}
-							<BetaLogo />
+							<BetaLogo variant={logoVariant} />
 						{/if}
 					{/snippet}
 					{#snippet centerContent()}

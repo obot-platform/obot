@@ -448,3 +448,7 @@ export const MCP_FILTERS_FIELD_IDS = {
 	runtimeSelector: 'filter-runtime-selector',
 	saveBtn: 'filter-save-btn'
 };
+
+export const COMMUNITY_ENTITLEMENT = 'OBOT_COMMUNITY';
+export const ENTERPRISE_ENTITLEMENT = 'OBOT_ENTERPRISE';
+export const MODEL_PROVIDERS_ENTITLEMENT = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';

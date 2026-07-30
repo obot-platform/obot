@@ -13,7 +13,7 @@
 		class?: string;
 		unauthorized?: boolean;
 		hideProfileButton?: boolean;
-		chat?: boolean;
+		variant?: 'default' | 'chat' | 'community' | 'enterprise';
 	}
 
 	let {
@@ -24,7 +24,7 @@
 		class: klass,
 		unauthorized,
 		hideProfileButton,
-		chat
+		variant = 'default'
 	}: Props = $props();
 </script>
 
@@ -33,7 +33,7 @@
 		{#if leftContent}
 			{@render leftContent()}
 		{:else}
-			<BetaLogo {chat} />
+			<BetaLogo {variant} />
 		{/if}
 		<div class="flex grow items-center justify-center">
 			{#if centerContent}

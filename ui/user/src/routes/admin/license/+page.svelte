@@ -5,22 +5,23 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
+	import {
+		COMMUNITY_ENTITLEMENT,
+		ENTERPRISE_ENTITLEMENT,
+		MODEL_PROVIDERS_ENTITLEMENT
+	} from '$lib/constants';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
 	import { errors, license as licenseStore, profile, version } from '$lib/stores';
 	import { validateVersionUserLimit } from '$lib/utils';
-	import { CircleAlert, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
+	import { CircleAlert, ExternalLink, Info, LoaderCircle, RefreshCw } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
-
-	const communityEntitlement = 'OBOT_COMMUNITY';
-	const enterpriseEntitlement = 'OBOT_ENTERPRISE';
-	const modelProvidersEntitlement = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
-	const editionEntitlements = new Set([communityEntitlement, enterpriseEntitlement]);
+	const editionEntitlements = new Set([COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
 	let license = $state(untrack(() => data.license));
@@ -37,13 +38,15 @@
 	let updateLicenseTitle = $derived(license?.licenseKey ? 'Update License Key' : 'Add License Key');
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasValidLicense = $derived(Boolean(license?.enterprise));
-	let isCommunityEdition = $derived(license?.entitlements?.includes(communityEntitlement) ?? false);
+	let isCommunityEdition = $derived(
+		license?.entitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
+	);
 	let visibleEntitlements = $derived(
 		[...(license?.entitlements ?? [])]
-			.filter((entitlement) => entitlement !== modelProvidersEntitlement)
+			.filter((entitlement) => entitlement !== MODEL_PROVIDERS_ENTITLEMENT)
 			.sort((a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b)))
 	);
-	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
+	let showEnterpriseCTA = $derived(isCommunityEdition);
 	let showCommunityEnrollment = $derived(
 		Boolean(license && !hasValidLicense && !license.locked && !isAdminReadonly)
 	);
@@ -152,8 +155,8 @@
 	}
 
 	function formatEntitlementName(entitlement: string): string {
-		if (entitlement === communityEntitlement) return 'Obot Community';
-		if (entitlement === enterpriseEntitlement) return 'Obot Enterprise';
+		if (entitlement === COMMUNITY_ENTITLEMENT) return 'Obot Community';
+		if (entitlement === ENTERPRISE_ENTITLEMENT) return 'Obot Enterprise';
 		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
 		if (name === entitlement) return entitlement;
 
@@ -169,23 +172,71 @@
 </script>
 
 <Layout title="License">
-	<div class="h-full w-full" in:fade={{ duration }} out:fade={{ duration }}>
+	<div class="h-full w-full @container" in:fade={{ duration }} out:fade={{ duration }}>
 		<div class="flex flex-col gap-4">
 			{#if showUserLimitNotice}
 				<UserLimitNotice />
-			{:else if showEnterpriseCTA}
-				<div class="notification-info p-3 text-sm font-light">
-					<div class="flex items-center gap-3">
-						<Info class="size-6" />
-						<div>
-							Ready for advanced features and support? <a
-								href="https://obot.ai/contact-us/"
-								target="_blank"
-								class="text-link">Contact us to upgrade to Enterprise Edition</a
-							>.
-						</div>
+			{/if}
+			{#if showEnterpriseCTA}
+				<aside
+					class="relative overflow-hidden rounded-box border border-primary/25 bg-primary text-primary-content shadow-sm"
+					aria-labelledby="enterprise-cta-heading"
+				>
+					<div class="pointer-events-none absolute inset-0" aria-hidden="true">
+						<div
+							class="absolute inset-0 bg-linear-to-br from-white/15 via-transparent to-blue-950/25"
+						></div>
+						<div
+							class="absolute -top-10 -right-8 size-36 rounded-full border border-white/20"
+						></div>
+						<div class="absolute -top-4 -right-2 size-24 rounded-full border border-white/15"></div>
+						<div class="absolute -right-14 -bottom-16 size-44 rounded-full bg-white/10"></div>
+						<div
+							class="absolute top-1/2 -left-6 size-20 -translate-y-1/2 rounded-full border border-white/10"
+						></div>
+						<div
+							class="absolute inset-y-0 right-0 w-1/3 bg-linear-to-l from-white/10 to-transparent"
+						></div>
 					</div>
-				</div>
+
+					<div
+						class="relative flex flex-col gap-5 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8 sm:p-6"
+					>
+						<div class="flex min-w-0 items-center gap-4">
+							<div
+								class="flex size-16 shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm"
+							>
+								<img
+									src="/user/images/obot-icon-white.svg"
+									alt=""
+									width="48"
+									height="48"
+									class="size-12"
+									decoding="async"
+								/>
+							</div>
+							<div class="flex min-w-0 flex-col gap-1">
+								<h2 id="enterprise-cta-heading" class="text-lg font-semibold tracking-tight">
+									Upgrade to Obot Enterprise
+								</h2>
+								<p class="max-w-md text-sm font-light text-primary-content/85">
+									Need dedicated support and higher limits for your organization? Talk with our team
+									today!
+								</p>
+							</div>
+						</div>
+
+						<a
+							href="https://obot.ai/contact-us/"
+							target="_blank"
+							rel="noopener noreferrer"
+							class="btn btn-primary bg-white text-black transition-transform hover:scale-105"
+						>
+							Contact Us <ExternalLink class="size-4" aria-hidden="true" />
+							<span class="sr-only">(opens in a new tab)</span>
+						</a>
+					</div>
+				</aside>
 			{/if}
 			{#if license && license.licenseKey && !license.enterprise}
 				<div class="notification-alert p-3 text-sm font-light">
@@ -213,20 +264,11 @@
 			{#if showCommunityEnrollment}
 				<form class="paper flex flex-col gap-4" onsubmit={handleCommunitySubmit}>
 					<div class="flex flex-col gap-1">
-						<h2 class="text-xl font-semibold">Get Obot Community</h2>
+						<h2 class="text-xl font-semibold">Upgrade to Obot Community</h2>
 						<p class="text-muted-content text-sm font-light">
-							Register this installation for a free Obot Community license.
+							Get permanent, free access to Obot Community and additional authentication providers,
+							including Entra, Okta, JumpCloud, and Auth0, with a one-time registration.
 						</p>
-					</div>
-
-					<div class="notification-info p-3 text-sm font-light">
-						<div>
-							<b class="font-medium">What is Community Edition?</b>
-							<p class="text-sm font-light">
-								Community Edition is a free license that allows you to use the full feature set of
-								Obot for your first 100 users/devices!
-							</p>
-						</div>
 					</div>
 
 					<div class="grid gap-4 md:grid-cols-2">
@@ -284,99 +326,124 @@
 						{#if communitySaving}
 							<LoaderCircle class="size-4 animate-spin" />
 						{/if}
-						{communitySaving ? 'Getting Community License...' : 'Get Community License'}
+						{communitySaving ? 'Upgrading to Community Edition...' : 'Upgrade to Obot Community'}
 					</button>
 				</form>
 			{/if}
-			<div class="paper flex flex-col gap-6">
-				{#if license}
-					{#if license.licenseKey}
-						<div class="flex flex-col gap-1">
-							<div class="text-sm font-light">License Key</div>
-							<div class="font-mono text-sm text-muted-content">
-								{license.licenseKey}
+			<section class="paper flex flex-col @2xl:flex-row gap-6 items-start justify-between">
+				<div class="flex flex-col gap-6">
+					{#if license}
+						{#if license.licenseKey}
+							<div class="flex flex-col gap-1">
+								<div class="text-sm font-light">License Key</div>
+								<div class="font-mono text-sm text-muted-content">
+									{license.licenseKey}
+								</div>
 							</div>
+						{/if}
+						<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+							<div class="flex flex-col gap-1">
+								<p class="text-sm font-light">License Status</p>
+								<p
+									class={twMerge(
+										'text-sm',
+										license.licenseKey && 'uppercase font-medium',
+										license.licenseKey
+											? license.enterprise
+												? 'text-success'
+												: 'text-error'
+											: 'text-muted-content'
+									)}
+								>
+									{#if license.licenseKey}
+										{license.enterprise ? 'Active' : 'Invalid'}
+									{:else}
+										N/A <span class="text-xs font-light">(Open-Source)</span>
+									{/if}
+								</p>
+							</div>
+						</div>
+						<div class="flex flex-col gap-1">
+							<p class="text-sm font-light">License Entitlements</p>
+							{#if license.entitlements}
+								<ul class="flex flex-wrap gap-2">
+									{#each visibleEntitlements as entitlement (entitlement)}
+										<li
+											class={twMerge(
+												'badge badge-soft badge-sm',
+												editionEntitlements.has(entitlement) && 'badge-primary'
+											)}
+										>
+											{formatEntitlementName(entitlement)}
+										</li>
+									{/each}
+								</ul>
+							{:else}
+								-
+							{/if}
 						</div>
 					{/if}
-					<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-						<div class="flex flex-col gap-1">
-							<p class="text-sm font-light">License Status</p>
-							<p
-								class={twMerge(
-									'text-sm',
-									license.licenseKey && 'uppercase font-medium',
-									license.licenseKey
-										? license.enterprise
-											? 'text-success'
-											: 'text-error'
-										: 'text-muted-content'
-								)}
-							>
-								{#if license.licenseKey}
-									{license.enterprise ? 'Active' : 'Invalid'}
-								{:else}
-									N/A <span class="text-xs font-light">(Open-Source)</span>
-								{/if}
-							</p>
-						</div>
-						<div class="flex w-full flex-col gap-2 sm:w-fit sm:flex-row">
-							{#if license.licenseKey}
-								<button
-									class="btn btn-secondary w-full sm:w-fit"
-									onclick={handleRecheckLicense}
-									disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
-								>
-									{#if rechecking}
-										<LoaderCircle class="size-4 animate-spin" />
-									{:else}
-										<RefreshCw class="size-4" />
-									{/if}
-									{manualCheckCooldownMs > 0
-										? `Recheck in ${manualCheckCooldownLabel}`
-										: 'Recheck License'}
-								</button>
+				</div>
+
+				<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
+					{#if license.licenseKey}
+						<button
+							class="btn btn-secondary w-full sm:w-fit"
+							onclick={handleRecheckLicense}
+							disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
+						>
+							{#if rechecking}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								<RefreshCw class="size-4" />
 							{/if}
-							<div
-								use:tooltip={{
-									text: license.locked ? lockedLicenseMessage : undefined,
-									classes: ['text-xs']
-								}}
-								class="w-full sm:w-fit"
-							>
-								<button
-									class="btn btn-secondary w-full sm:w-fit"
-									onclick={handleOpenUpdateLicenseDialog}
-									disabled={license.locked || isAdminReadonly}
-								>
-									{updateLicenseTitle}
-								</button>
-							</div>
-						</div>
+							{manualCheckCooldownMs > 0
+								? `Recheck in ${manualCheckCooldownLabel}`
+								: 'Recheck License'}
+						</button>
+					{/if}
+					<div
+						use:tooltip={{
+							text: license.locked ? lockedLicenseMessage : undefined,
+							classes: ['text-xs']
+						}}
+						class="w-full sm:w-fit"
+					>
+						<button
+							class="btn btn-secondary w-full sm:w-fit"
+							onclick={handleOpenUpdateLicenseDialog}
+							disabled={license.locked || isAdminReadonly}
+						>
+							{updateLicenseTitle}
+						</button>
 					</div>
-					<div class="flex flex-col gap-1">
-						<p class="text-sm font-light">License Entitlements</p>
-						{#if license.entitlements}
-							<ul class="flex flex-wrap gap-2">
-								{#each visibleEntitlements as entitlement (entitlement)}
-									<li
-										class={twMerge(
-											'badge badge-soft badge-sm',
-											editionEntitlements.has(entitlement) && 'badge-primary'
-										)}
-									>
-										{formatEntitlementName(entitlement)}
-									</li>
-								{/each}
-							</ul>
-						{:else}
-							-
-						{/if}
-					</div>
-				{/if}
-			</div>
+				</div>
+			</section>
+
+			{#if version.current.userLimit}
+				<section class="paper flex-row justify-between py-4">
+					<p class="text-sm">User Limits</p>
+					{#if !hasValidLicense || isCommunityEdition}
+						<p class="text-sm">{version.current.userCount} / {version.current.userLimit}</p>
+					{:else}
+						<p class="text-sm text-muted-content">-</p>
+					{/if}
+				</section>
+			{/if}
+
+			{#if version.current.deviceLimit}
+				<section class="paper flex-row justify-between py-4">
+					<p class="text-sm">Device Limits</p>
+					{#if !hasValidLicense || isCommunityEdition}
+						<p class="text-sm">{version.current.deviceCount} / {version.current.deviceLimit}</p>
+					{:else}
+						<p class="text-sm text-muted-content">-</p>
+					{/if}
+				</section>
+			{/if}
 
 			{#if license && license.licenseKey}
-				<div class="paper gap-0">
+				<section class="paper gap-0">
 					<h4 class="font-semibold text-xl">Danger Zone</h4>
 					<p class="text-sm font-light">
 						Destructive actions that could cause irreversible changes. Proceed with caution.
@@ -405,7 +472,7 @@
 							</button>
 						</div>
 					</div>
-				</div>
+				</section>
 			{/if}
 		</div>
 	</div>
