@@ -50,19 +50,27 @@
 	}: Props = $props();
 
 	let showSensitive = $state(false);
-	let textareaElement = $state<HTMLElement>();
-	let formControl = $state<HTMLTextAreaElement>();
-	let maskedTextarea = $state<HTMLElement>();
+	let textareaElement = $state<HTMLTextAreaElement>();
 	let scrollableWrapper = $state<HTMLElement>();
 	let isResizing = $state(false);
 	let startY = $state(0);
 	let startHeight = $state(0);
+	let manuallyResized = $state(false);
+	let textareaScrollTop = $state(0);
+	let textareaScrollLeft = $state(0);
 	let validationFailed = $state(false);
 
 	$effect(() => {
 		void value;
-		if (validationFailed && formControl?.validity.valid) {
+		if (validationFailed && textareaElement?.validity.valid) {
 			validationFailed = false;
+		}
+	});
+
+	$effect(() => {
+		void value;
+		if (growable && !manuallyResized) {
+			resizeGrowableTextarea();
 		}
 	});
 
@@ -77,6 +85,7 @@
 		if (!scrollableWrapper) return;
 
 		isResizing = true;
+		manuallyResized = true;
 		startY = ev.clientY;
 		startHeight = scrollableWrapper.offsetHeight;
 
@@ -106,14 +115,27 @@
 		oninput?.();
 	}
 
-	function handleFocus(_: FocusEvent) {
-		onfocus?.();
+	function resizeGrowableTextarea() {
+		if (!textareaElement || !scrollableWrapper) return;
+
+		scrollableWrapper.style.height = 'auto';
+		textareaElement.style.height = 'auto';
+		scrollableWrapper.style.height = `${Math.max(60, textareaElement.scrollHeight)}px`;
+		textareaElement.style.height = '100%';
 	}
 
-	function handleGrowableInvalid(ev: Event) {
-		ev.preventDefault();
+	function handleTextareaScroll(ev: Event) {
+		const textarea = ev.currentTarget as HTMLTextAreaElement;
+		textareaScrollTop = textarea.scrollTop;
+		textareaScrollLeft = textarea.scrollLeft;
+	}
+
+	function handleTextareaInvalid() {
 		validationFailed = true;
-		textareaElement?.focus();
+	}
+
+	function handleFocus(_: FocusEvent) {
+		onfocus?.();
 	}
 
 	function toggleVisibility(ev: MouseEvent) {
@@ -127,26 +149,11 @@
 </script>
 
 {#snippet maskedValue()}
-	{#if !showSensitive && growable}
-		<!-- Masked overlay for growable contenteditable -->
-		<div class="pointer-events-none absolute inset-0 w-full">
+	{#if !showSensitive}
+		<div class="pointer-events-none absolute inset-0 w-full overflow-hidden">
 			<div
-				bind:this={maskedTextarea}
 				tabindex="-1"
-				class={twMerge(
-					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
-					klass
-				)}
-			>
-				{@html getMaskedValue(value)}
-			</div>
-		</div>
-	{:else if !showSensitive}
-		<!-- Masked overlay for non-growable textarea -->
-		<div class="pointer-events-none absolute inset-0 w-full overflow-auto">
-			<div
-				bind:this={maskedTextarea}
-				tabindex="-1"
+				style:transform={`translate(${-textareaScrollLeft}px, ${-textareaScrollTop}px)`}
 				class={twMerge(
 					'layer-1 w-full bg-transparent font-mono wrap-break-word whitespace-pre-wrap text-base-content',
 					klass
@@ -162,22 +169,6 @@
 	{#if textarea}
 		<div class="relative flex min-h-15 w-full flex-col leading-5">
 			{#if growable}
-				<textarea
-					bind:this={formControl}
-					id={name}
-					class="sr-only"
-					tabindex="-1"
-					{name}
-					{disabled}
-					{readonly}
-					{value}
-					{placeholder}
-					{autocomplete}
-					{minlength}
-					{required}
-					oninvalid={handleGrowableInvalid}
-					onfocus={() => textareaElement?.focus()}
-				></textarea>
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
@@ -191,45 +182,39 @@
 					)}
 				>
 					<div class="relative w-full flex-1">
-						<div
+						<textarea
 							bind:this={textareaElement}
-							class="w-full outline-none"
-							class:pointer-events-none={readonly}
+							class={twMerge(
+								'scrollbar-none h-full min-h-15 w-full resize-none bg-transparent outline-none',
+								manuallyResized ? 'overflow-auto' : 'overflow-hidden'
+							)}
 							data-1p-ignore={data1pIgnore}
-							contenteditable="plaintext-only"
+							id={name}
+							{name}
+							{disabled}
+							{readonly}
+							{placeholder}
+							{autocomplete}
+							{minlength}
+							{required}
 							spellcheck="false"
-							role="textbox"
-							tabindex="0"
-							aria-required={required || undefined}
 							aria-invalid={error || validationFailed || undefined}
-							onscroll={(ev) => {
-								if (!showSensitive && maskedTextarea) {
-									maskedTextarea.scrollTop = ev.currentTarget.scrollTop;
-									maskedTextarea.scrollLeft = ev.currentTarget.scrollLeft;
-								}
-							}}
-							bind:innerText={
+							onscroll={handleTextareaScroll}
+							oninvalid={handleTextareaInvalid}
+							bind:value={
 								() => value,
 								(v) => {
 									if (!readonly) {
-										value = v.trim();
+										value = v;
 										oninput?.();
 									}
 								}
 							}
 							onfocus={handleFocus}
 							{onkeydown}
-						></div>
+						></textarea>
 
 						{@render maskedValue()}
-
-						{#if placeholder && value.length === 0}
-							<div
-								class="pointer-events-none absolute inset-0 z-2 bg-transparent text-base-content"
-							>
-								{placeholder}
-							</div>
-						{/if}
 					</div>
 
 					<!-- Resize handle -->
@@ -259,7 +244,8 @@
 						'text-input-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
 						klass,
 						classes?.wrapper,
-						error && 'border-error bg-error/20 text-error ring-error focus:ring-1',
+						(error || validationFailed) &&
+							'border-error bg-error/20 text-error ring-error focus:ring-1',
 						!showSensitive ? 'hide' : ''
 					)}
 				>
@@ -277,16 +263,13 @@
 							{minlength}
 							{required}
 							spellcheck="false"
-							onscroll={(ev) => {
-								if (!showSensitive && maskedTextarea) {
-									maskedTextarea.parentElement!.scrollTop = ev.currentTarget.scrollTop;
-									maskedTextarea.parentElement!.scrollLeft = ev.currentTarget.scrollLeft;
-								}
-							}}
+							aria-invalid={error || validationFailed || undefined}
+							onscroll={handleTextareaScroll}
+							oninvalid={handleTextareaInvalid}
 							bind:value={
 								() => value,
 								(v) => {
-									value = v.trim();
+									value = v;
 									oninput?.();
 								}
 							}
@@ -347,12 +330,11 @@
 </div>
 
 <style>
-	.text-input-filled.base.hide textarea,
-	.text-input-filled.base.hide [contenteditable] {
+	.text-input-filled.base.hide textarea {
 		color: transparent;
 		caret-color: var(--color-base-content);
 	}
-	.text-input-filled.base.hide::selection {
+	.text-input-filled.base.hide textarea::selection {
 		background: highlight;
 		color: transparent;
 	}
