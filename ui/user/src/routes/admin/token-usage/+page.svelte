@@ -17,7 +17,7 @@
 		type TokenUsageWithCategory,
 		UserService
 	} from '$lib/services';
-	import { errors } from '$lib/stores';
+	import { errors, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { getUserDisplayName } from '$lib/utils';
 	import { aggregateTimelineDataByBucket, getUserLabels } from './utils';
@@ -883,7 +883,7 @@
 
 			<div class="relative mt-2 flex flex-col">
 				<div class="relative z-10 flex shrink-0 items-center justify-between">
-					<div class="flex shrink-0">
+					<div class="flex shrink-0 min-h-12">
 						<button
 							class={twMerge(
 								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
@@ -913,38 +913,27 @@
 							Users
 						</button>
 					</div>
-					<Select
-						class="bg-base-200 hover:bg-base-300 dark:bg-base-100 dark:hover:bg-base-200 mb-1.5 border border-transparent shadow-none md:w-64"
-						options={[
-							{ label: 'Sort by Name (A-Z)', id: 'sort_by_name' },
-							{ label: 'Sort by Name (Z-A)', id: 'sort_by_name_reverse' },
-							{
-								label: 'Sort by Total Tokens (Highest to Lower)',
-								id: 'sort_by_total_tokens'
-							},
-							{
-								label: 'Sort by Total Tokens (Lowest to Highest)',
-								id: 'sort_by_total_tokens_reverse'
-							}
-						]}
-						selected={subViewSortBy}
-						onSelect={(option) => {
-							subViewSortBy = option.id as SubViewSortBy;
-						}}
-						id="sub-view-sort-by-select"
+					{#if !responsive.isMobile}
+						{@render subViewSortBySelect()}
+					{/if}
+				</div>
+				<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+
+				<div class="flex flex-col gap-1 mt-2 mb-3">
+					{#if responsive.isMobile}
+						{@render subViewSortBySelect()}
+					{/if}
+
+					<Search
+						class="bg-base-100 dark:border-base-400 border border-transparent"
+						value={subViewSearchQuery}
+						onChange={(value) => (subViewSearchQuery = value)}
+						placeholder={`Search ${selectedSubview === 'models' ? 'models' : 'users'}...`}
 					/>
 				</div>
-				<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-1"></div>
-
-				<Search
-					class="bg-base-100 dark:border-base-400 mt-2 mb-3 border border-transparent"
-					value={subViewSearchQuery}
-					onChange={(value) => (subViewSearchQuery = value)}
-					placeholder={`Search ${selectedSubview === 'models' ? 'models' : 'users'}...`}
-				/>
 
 				{#if graphItems.length > 0}
-					<div class="min-h-[300px]">
+					<div class="min-h-75">
 						{#if !gridDataReady}
 							<div
 								class="text-muted-content flex items-center justify-center gap-2 py-12 text-sm"
@@ -1082,6 +1071,29 @@
 		</div>
 	</div>
 </Layout>
+
+{#snippet subViewSortBySelect()}
+	<Select
+		class="md:bg-base-200 md:hover:bg-base-300 md:dark:bg-base-100 md:dark:hover:bg-base-200 mb-1.5 md:border md:border-transparent md:shadow-none md:w-64!"
+		options={[
+			{ label: 'Sort by Name (A-Z)', id: 'sort_by_name' },
+			{ label: 'Sort by Name (Z-A)', id: 'sort_by_name_reverse' },
+			{
+				label: 'Sort by Total Tokens (Highest to Lower)',
+				id: 'sort_by_total_tokens'
+			},
+			{
+				label: 'Sort by Total Tokens (Lowest to Highest)',
+				id: 'sort_by_total_tokens_reverse'
+			}
+		]}
+		selected={subViewSortBy}
+		onSelect={(option) => {
+			subViewSortBy = option.id as SubViewSortBy;
+		}}
+		id="sub-view-sort-by-select"
+	/>
+{/snippet}
 
 {#snippet summary(title: string, value: number)}
 	<div class="flex min-w-0 flex-1 flex-col gap-1 py-2">
