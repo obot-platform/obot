@@ -6,7 +6,6 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
-	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -29,7 +28,7 @@
 	} from '$lib/services/user/mcp';
 	import {
 		getMcpTunnelConnectionsKey,
-		isMcpTunnelDisconnected
+		getMcpTunnelDeploymentHealth
 	} from '$lib/services/user/mcpTunnel';
 	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
@@ -193,10 +192,6 @@
 				const compositeParentName = compositeParent ? getMCPDisplayName(compositeParent) : '';
 
 				const instance = instancesMap.get(deployment.id);
-				const tunnelDisconnected = isMcpTunnelDisconnected(
-					deployment,
-					mcpTunnelConnections.current.connections
-				);
 				const { updateStatus, updatesAvailable, updateStatusTooltip } =
 					instance?.configured === false
 						? {
@@ -226,10 +221,11 @@
 					updateStatus,
 					updatesAvailable,
 					updateStatusTooltip,
-					tunnelDisconnected,
-					deploymentStatus: tunnelDisconnected
-						? 'Tunnel Disconnected'
-						: deployment.deploymentStatus,
+					deploymentStatus: getMcpTunnelDeploymentHealth(
+						deployment,
+						mcpTunnelConnections.current.connections,
+						deployment.deploymentStatus
+					),
 					missingKubernetesSecret: hasMissingSecretBindingConfig(
 						deployment.manifest,
 						deployment.missingRequiredEnvVars,
@@ -645,10 +641,6 @@
 					thead: classes?.tableHeader
 				}}
 				setRowClasses={(d) => {
-					if (d.tunnelDisconnected) {
-						return 'bg-error/5 hover:bg-error/10 border-error/20';
-					}
-
 					if (d.needsUpdate && d.needsK8sUpdate) {
 						return 'bg-orange-500/5 hover:bg-orange-500/10 border-orange-500/20';
 					}
@@ -683,9 +675,6 @@
 								{/if}
 							</p>
 							<McpDeprecatedNotice item={d} />
-							{#if d.tunnelDisconnected}
-								<McpTunnelDisconnectedStatus />
-							{/if}
 							{#if 'missingKubernetesSecret' in d && d.missingKubernetesSecret}
 								<div
 									class="text-warning"
