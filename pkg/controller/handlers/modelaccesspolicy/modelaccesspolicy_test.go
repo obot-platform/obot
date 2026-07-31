@@ -15,7 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestPruneModels(t *testing.T) {
+func TestPruneDefaultPolicy(t *testing.T) {
 	existingModel := &v1.Model{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "m1-existing",
@@ -158,7 +158,7 @@ func TestPruneModels(t *testing.T) {
 			require.NoError(t, client.Get(t.Context(), key, &policy))
 
 			initialVersion := policy.ResourceVersion
-			err := PruneModels(router.Request{
+			err := PruneDefaultPolicy(router.Request{
 				Client:    client,
 				Ctx:       t.Context(),
 				Object:    &policy,

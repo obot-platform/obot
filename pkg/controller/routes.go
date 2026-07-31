@@ -170,7 +170,7 @@ func (c *Controller) setupRoutes() {
 	})
 
 	// ModelAccessPolicys
-	root.Type(&v1.ModelAccessPolicy{}).HandlerFunc(modelaccesspolicy.PruneModels)
+	root.Type(&v1.ModelAccessPolicy{}).HandlerFunc(modelaccesspolicy.PruneDefaultPolicy)
 
 	// OAuthClients
 	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.OAuthClients)

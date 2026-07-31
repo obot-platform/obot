@@ -9,7 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-// PruneModels ensures invalid and ineffectual model resources are removed from
+// PruneDefaultPolicy ensures invalid and ineffectual model resources are removed from
 // the default ModelAccessPolicy. Custom policies are intentionally left intact
 // so their legacy resources remain visible for users to remediate.
 // This handler removes:
@@ -20,7 +20,7 @@ import (
 //
 // Wildcard suffix patterns (e.g. "claude-haiku-4-5*") are always kept, even when
 // they currently match no models, since they apply to future models as well.
-func PruneModels(req router.Request, _ router.Response) error {
+func PruneDefaultPolicy(req router.Request, _ router.Response) error {
 	policy := req.Object.(*v1.ModelAccessPolicy)
 	if policy.Namespace != system.DefaultNamespace ||
 		policy.Name != system.ModelAccessPolicyPrefix+"-default" {
