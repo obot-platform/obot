@@ -10,7 +10,7 @@ what usage limits apply.
 
 ## Obot
 
-The default edition. It supports up to 100 users and 100 devices and does not include enterprise-grade auth providers Entra, Okta, JumpCloud, and Auth0.
+The default edition. It supports up to 100 users and 100 devices and does not include enterprise-grade auth providers like Entra, Okta, JumpCloud, or Auth0.
 
 ## Obot Community
 
