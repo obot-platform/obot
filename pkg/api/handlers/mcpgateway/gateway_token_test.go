@@ -35,7 +35,7 @@ func TestGatewayTokenContextScopesAuthenticatedUserToMCPServer(t *testing.T) {
 
 	got := gatewayTokenContext(
 		authenticatedUser,
-		server,
+		server.MCPServerName,
 		"https://obot.example.test/mcp-connect/ms1server",
 		now,
 	)
@@ -53,6 +53,24 @@ func TestGatewayTokenContextScopesAuthenticatedUserToMCPServer(t *testing.T) {
 	require.Equal(t, now.Add(gatewayTokenExpiration), got.ExpiresAt.Time)
 }
 
+func TestGatewayTokenContextPreservesResolvedMCPServerInstance(t *testing.T) {
+	const (
+		instanceID = "msi1user-server"
+		audience   = "https://obot.example.test/mcp-connect/ms1server"
+	)
+	now := time.Date(2026, time.July, 31, 12, 0, 0, 0, time.UTC)
+
+	got := gatewayTokenContext(
+		&user.DefaultInfo{UID: "42"},
+		instanceID,
+		audience,
+		now,
+	)
+
+	require.Equal(t, instanceID, got.MCPID)
+	require.Equal(t, audience, got.Audience)
+}
+
 func TestGatewayAuthorizationOmitsCredentialsWhenAuthenticationIsDisabled(t *testing.T) {
 	mintCalled := false
 	handler := Handler{
@@ -62,7 +80,7 @@ func TestGatewayAuthorizationOmitsCredentialsWhenAuthenticationIsDisabled(t *tes
 		},
 	}
 
-	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{}, mcp.ServerConfig{})
+	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{}, "", mcp.ServerConfig{})
 
 	require.NoError(t, err)
 	require.Empty(t, got)
@@ -85,7 +103,7 @@ func TestGatewayTokenUsesExactServerAudience(t *testing.T) {
 		},
 	}
 
-	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{UID: "42"}, server)
+	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{UID: "42"}, server.MCPServerName, server)
 
 	require.NoError(t, err)
 	require.Equal(t, "scoped-gateway-token", got)
@@ -110,7 +128,7 @@ func TestGatewayTokenUsesExactServerAudienceBelowBasePath(t *testing.T) {
 		},
 	}
 
-	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{UID: "42"}, server)
+	got, err := handler.gatewayToken(t.Context(), &user.DefaultInfo{UID: "42"}, server.MCPServerName, server)
 
 	require.NoError(t, err)
 	require.Equal(t, "scoped-gateway-token", got)
@@ -127,12 +145,15 @@ func TestProxyReplacesInboundStudioBearerForNanobotAgent(t *testing.T) {
 	t.Cleanup(nanobot.Close)
 	handler := Handler{
 		transport: http.DefaultTransport,
-		resolveServer: func(api.Context) (mcp.ServerConfig, error) {
-			return mcp.ServerConfig{
-				URL:              nanobot.URL,
-				MCPServerName:    "ms1server",
-				NanobotAgentName: "studio-agent",
-				Audiences:        []string{"https://obot.example.test/mcp-connect/ms1server"},
+		resolveServer: func(api.Context) (resolvedServer, error) {
+			return resolvedServer{
+				mcpID: "ms1server",
+				config: mcp.ServerConfig{
+					URL:              nanobot.URL,
+					MCPServerName:    "ms1server",
+					NanobotAgentName: "studio-agent",
+					Audiences:        []string{"https://obot.example.test/mcp-connect/ms1server"},
+				},
 			}, nil
 		},
 		mintToken: func(context.Context, persistent.TokenContext) (string, error) {
@@ -151,14 +172,19 @@ func TestProxyReplacesInboundStudioBearerForNanobotAgent(t *testing.T) {
 func TestProxyReplacesInboundStudioBearerForEmbeddedNanobot(t *testing.T) {
 	receivedAuthorization := make(chan string, 1)
 	receivedToken := make(chan string, 1)
+	var minted persistent.TokenContext
 	handler := Handler{
-		resolveServer: func(api.Context) (mcp.ServerConfig, error) {
-			return mcp.ServerConfig{
-				MCPServerName: "ms1server",
-				Audiences:     []string{"https://obot.example.test/mcp-connect/ms1server"},
+		resolveServer: func(api.Context) (resolvedServer, error) {
+			return resolvedServer{
+				mcpID: "msi1user-server",
+				config: mcp.ServerConfig{
+					MCPServerName: "ms1server",
+					Audiences:     []string{"https://obot.example.test/mcp-connect/ms1server"},
+				},
 			}, nil
 		},
-		mintToken: func(context.Context, persistent.TokenContext) (string, error) {
+		mintToken: func(_ context.Context, tokenContext persistent.TokenContext) (string, error) {
+			minted = tokenContext
 			return "scoped-gateway-token", nil
 		},
 		nanobot: http.HandlerFunc(func(rw http.ResponseWriter, request *http.Request) {
@@ -175,13 +201,18 @@ func TestProxyReplacesInboundStudioBearerForEmbeddedNanobot(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 	require.Equal(t, "Bearer scoped-gateway-token", <-receivedAuthorization)
 	require.Equal(t, "scoped-gateway-token", <-receivedToken)
+	require.Equal(t, "msi1user-server", minted.MCPID)
+	require.Equal(t, "https://obot.example.test/mcp-connect/ms1server", minted.Audience)
 }
 
 func TestProxyRemovesInboundStudioBearerWhenAuthenticationIsDisabled(t *testing.T) {
 	receivedAuthorization := make(chan string, 1)
 	handler := Handler{
-		resolveServer: func(api.Context) (mcp.ServerConfig, error) {
-			return mcp.ServerConfig{MCPServerName: "ms1server"}, nil
+		resolveServer: func(api.Context) (resolvedServer, error) {
+			return resolvedServer{
+				mcpID:  "ms1server",
+				config: mcp.ServerConfig{MCPServerName: "ms1server"},
+			}, nil
 		},
 		mintToken: func(context.Context, persistent.TokenContext) (string, error) {
 			return "unexpected", nil
@@ -210,11 +241,14 @@ func TestProxyRemovesInboundStudioBearerForNanobotAgentWhenAuthenticationIsDisab
 	t.Cleanup(nanobot.Close)
 	handler := Handler{
 		transport: http.DefaultTransport,
-		resolveServer: func(api.Context) (mcp.ServerConfig, error) {
-			return mcp.ServerConfig{
-				URL:              nanobot.URL,
-				MCPServerName:    "ms1server",
-				NanobotAgentName: "studio-agent",
+		resolveServer: func(api.Context) (resolvedServer, error) {
+			return resolvedServer{
+				mcpID: "ms1server",
+				config: mcp.ServerConfig{
+					URL:              nanobot.URL,
+					MCPServerName:    "ms1server",
+					NanobotAgentName: "studio-agent",
+				},
 			}, nil
 		},
 		mintToken: func(context.Context, persistent.TokenContext) (string, error) {

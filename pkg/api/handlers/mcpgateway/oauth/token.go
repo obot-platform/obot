@@ -418,6 +418,9 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 			}
 		}
 	}
+	if mcpServerInstance != nil && mcpServerInstance.Spec.UserID != userID {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrAccessDenied, "MCP server instance does not belong to subject user", ""))
+	}
 
 	_, resourceMCPID, isConnectURL := strings.Cut(resource, "/mcp-connect/")
 
@@ -533,8 +536,6 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				ExpiresIn:       max(int(time.Until(expiresAt).Seconds()), 0),
 			})
 		}
-	} else if mcpServerInstance != nil {
-		return types.NewErrNotFound("no token exchange for %s", resource)
 	} else if mcpID == system.ObotMCPServerName {
 		now := time.Now()
 		expiresAt := now.Add(time.Hour)
