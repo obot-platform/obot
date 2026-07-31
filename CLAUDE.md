@@ -76,7 +76,7 @@ make serve-docs       # Start local docs server
   - `controller/` - Kubernetes-style controllers and data handlers
   - `mcp/` - MCP protocol implementation (Docker and Kubernetes runners)
   - `storage/` - CRD-style storage layer with resource types in `apis/obot.obot.ai/v1/`
-  - `gateway/` - storage layer for types that need direct database access with GORM
+  - `gateway/` - APIs whose primary responsibility is to access or store types directly in the database with GORM
   - `services/` - Dependency injection container (`config.go` has all service dependencies)
   - `cli/` - CLI command implementations
   - `auth/`, `oauth/`, `jwt/` - Authentication/authorization
