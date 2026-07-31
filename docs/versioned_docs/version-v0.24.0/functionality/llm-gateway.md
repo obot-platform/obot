@@ -394,6 +394,7 @@ Codex uses the OpenAI Responses API by default, which is what the gateway serves
 ### Codex with Amazon Bedrock
 
 Codex can use Bedrock `openai.*` and `google.*` models through Obot's OpenAI-compatible Bedrock route.
+Amazon Bedrock does not support Codex's built-in server-side web search, so disable it in the Codex configuration.
 
 Add one of the following configurations to `~/.codex/config.toml`:
 
@@ -405,6 +406,7 @@ model = "openai.gpt-5.4"
 # Bedrock's google.* models are also compatible
 # model = "google.gemma-4-31b"
 model_provider = "obot_bedrock"
+web_search = "disabled"
 
 [model_providers.obot_bedrock]
 name = "Amazon Bedrock Obot LLM Gateway"
@@ -422,6 +424,7 @@ model = "openai.gpt-5.4"
 # Bedrock's google.* models are also compatible
 # model = "google.gemma-4-31b"
 model_provider = "obot_bedrock"
+web_search = "disabled"
 
 [model_providers.obot_bedrock]
 name = "Amazon Bedrock Obot LLM Gateway"
@@ -439,6 +442,7 @@ For a local Obot server, replace `https://obot.example.com` with `http://localho
 ### Codex with Azure
 
 Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Add the configuration for your Azure authentication method to `~/.codex/config.toml`, replacing the example deployment name and Obot URL:
+Azure does not support Codex's built-in server-side web search, so disable it in the Codex configuration.
 
 <Tabs groupId="azure-auth">
   <TabItem value="api-key" label="API key" default>
@@ -446,6 +450,7 @@ Codex can use an Azure deployment whose model dialect is `OpenAIResponses`. Add 
 ```toml
 model = "my-gpt-deployment"
 model_provider = "obot_azure"
+web_search = "disabled"
 
 [model_providers.obot_azure]
 name = "Azure via Obot LLM Gateway"
@@ -461,6 +466,7 @@ supports_websockets = false
 ```toml
 model = "my-gpt-deployment"
 model_provider = "obot_azure"
+web_search = "disabled"
 
 [model_providers.obot_azure]
 name = "Azure via Obot LLM Gateway"
