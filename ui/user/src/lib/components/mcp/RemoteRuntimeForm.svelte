@@ -333,6 +333,7 @@
 					'text-input-filled dark:bg-base-100 flex grow',
 					showRequired?.fixedURL && 'error'
 				)}
+				aria-required="true"
 				bind:value={remoteConfig.fixedURL}
 				disabled={readonly || showAdvanced}
 			/>
@@ -401,6 +402,7 @@
 						oninput={() => {
 							onFieldChange?.('fixedURL');
 						}}
+						aria-required="true"
 					/>
 				</div>
 			{:else if selectedType === 'hostname' && typeof (config as RemoteCatalogConfigAdmin).hostname !== 'undefined'}
@@ -422,6 +424,7 @@
 						oninput={() => {
 							onFieldChange?.('hostname');
 						}}
+						aria-required="true"
 					/>
 				</div>
 			{:else if selectedType === 'urlTemplate' && typeof (config as RemoteCatalogConfigAdmin).urlTemplate !== 'undefined'}
@@ -446,6 +449,7 @@
 							oninput={() => {
 								onFieldChange?.('urlTemplate');
 							}}
+							aria-required="true"
 						/>
 					</div>
 

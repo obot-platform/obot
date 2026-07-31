@@ -881,6 +881,7 @@ export interface ToolReferenceList {
 // Version
 
 export interface Version {
+	latestVersion?: string;
 	sessionStore?: string;
 	obot?: string;
 	authEnabled?: boolean;

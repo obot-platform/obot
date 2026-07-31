@@ -164,6 +164,7 @@
 						bind:value={data.value}
 						disabled={readonly}
 						rows={(data.value ?? '').split('\n').length + 1}
+						aria-required="true"
 					></textarea>
 				{:else}
 					<input
@@ -174,6 +175,7 @@
 						placeholder="e.g. 123abcdef456"
 						disabled={readonly}
 						type={data.sensitive ? 'password' : 'text'}
+						aria-required="true"
 					/>
 				{/if}
 			</div>
@@ -236,6 +238,7 @@
 			bind:value={data.key}
 			placeholder="e.g. CUSTOM_API_KEY"
 			disabled={readonly || isPrebuiltEntry}
+			aria-required="true"
 		/>
 	</div>
 {/snippet}
@@ -249,6 +252,7 @@
 			class:error={missingName}
 			bind:value={data.name}
 			disabled={readonly || isPrebuiltEntry}
+			aria-required="true"
 		/>
 	</div>
 	<div class="flex w-full flex-col gap-1" id={`${id}-description-container`}>
