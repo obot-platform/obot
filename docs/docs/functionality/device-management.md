@@ -96,7 +96,7 @@ Local tool call auditing for Visual Studio Code continues to work, but Visual St
 
 :::important
 Cursor users with enforcement enabled need to go to `Cursor Settings → Rules, Skills, Subagents → Include third-party Plugins, Skills, and other configs` and turn it off.
-This will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
+Doing this will prevent Cursor from loading Claude's hooks and allow enforcement to work as expected.
 :::
 
 ### Configure enforcement

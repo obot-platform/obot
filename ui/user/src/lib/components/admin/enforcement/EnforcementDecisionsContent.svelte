@@ -258,6 +258,11 @@
 		return deviceNames.get(deviceID) ?? deviceID;
 	}
 
+	function getDeviceHostname(deviceID?: string): string | undefined {
+		if (!deviceID) return undefined;
+		return deviceNames.get(deviceID);
+	}
+
 	const handleQueryChange = debounce((value: string) => {
 		query = value;
 
@@ -416,7 +421,7 @@
 	</div>
 {:else if displayTableData.length > 0}
 	<EnforcementDecisionsTable
-		{getDeviceDisplayName}
+		{getDeviceHostname}
 		onSelectRow={(decision) => {
 			showFilters = false;
 			selectedDecision = decision;

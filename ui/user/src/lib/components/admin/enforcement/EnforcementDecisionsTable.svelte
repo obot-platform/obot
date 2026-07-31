@@ -11,10 +11,12 @@
 
 	interface Props {
 		onSelectRow?: (decision: EnforcementDecisionEvent) => void;
-		getDeviceDisplayName: (deviceID?: string) => string;
+		// getDeviceHostname returns the enrolled hostname for a device, or undefined when
+		// it could not be resolved — the Device cell then shows only the ID.
+		getDeviceHostname: (deviceID?: string) => string | undefined;
 	}
 
-	let { onSelectRow, getDeviceDisplayName }: Props = $props();
+	let { onSelectRow, getDeviceHostname }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -49,6 +51,15 @@
 			return allowlistServerLabel(server);
 		}
 		return server.command ?? '';
+	}
+
+	// identifierParts splits a decision into the combined Identifier cell: the MCP server on the
+	// primary line and the tool as a muted subline. When no server could be identified the tool
+	// moves up to the primary line so the cell is never blank.
+	function identifierParts(decision: EnforcementDecisionEvent) {
+		const server = serverDisplay(decision);
+		if (!server) return { primary: decision.tool || 'Unknown', secondary: undefined };
+		return { primary: server, secondary: decision.tool || undefined };
 	}
 </script>
 
@@ -167,18 +178,38 @@
 	</td>
 {/snippet}
 
-{#snippet serverCell(decision: EnforcementDecisionEvent)}
+{#snippet twoLine(primary: string | number | undefined, secondary?: string | number)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
-			<div class="flex min-w-0 flex-1 items-center gap-2 py-4">
-				<span class="truncate">{serverDisplay(decision)}</span>
-				{#if decision.obotHosted}
-					<span
-						class="badge badge-ghost badge-sm shrink-0"
-						use:tooltip={{ text: 'Hosted by this Obot instance' }}
-					>
-						Obot
-					</span>
+			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
+				<div class="truncate">{primary ?? '—'}</div>
+				{#if secondary !== undefined && secondary !== ''}
+					<div class="text-muted-content mt-1 truncate text-xs">{secondary}</div>
+				{/if}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
+{#snippet identifierCell(decision: EnforcementDecisionEvent)}
+	{@const identifier = identifierParts(decision)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
+				<div class="flex min-w-0 items-center gap-2">
+					<span class="truncate">{identifier.primary}</span>
+					{#if decision.obotHosted}
+						<span
+							class="badge badge-ghost badge-sm shrink-0"
+							use:tooltip={{ text: 'Hosted by this Obot instance' }}
+						>
+							Obot
+						</span>
+					{/if}
+				</div>
+				{#if identifier.secondary}
+					<div class="text-muted-content mt-1 truncate text-xs">{identifier.secondary}</div>
 				{/if}
 			</div>
 			{@render tdResizeHandler()}
@@ -199,9 +230,8 @@
 						{@render th('Result', { class: 'w-[22ch]', minWidth: '22ch' })}
 						{@render th('Agent', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Tool Type', { class: 'w-[14ch]', minWidth: '14ch' })}
-						{@render th('MCP Server', { class: 'w-[32ch]', minWidth: '24ch' })}
-						{@render th('Tool', { class: 'w-[28ch]', minWidth: '20ch' })}
-						{@render th('Device', { class: 'w-[24ch]', minWidth: '20ch' })}
+						{@render th('Identifier', { class: 'w-[36ch]', minWidth: '26ch' })}
+						{@render th('Device', { class: 'w-[28ch]', minWidth: '20ch' })}
 						{@render th('Reason', { class: 'w-[40ch]', minWidth: '24ch' })}
 						{@render th('IP Address', { class: 'w-[22ch]', minWidth: '22ch' })}
 					</tr>
@@ -223,9 +253,8 @@
 						{@render resultCell(d)}
 						{@render td(agentLabel(d.agent))}
 						{@render td(kindLabel(d.kind))}
-						{@render serverCell(d)}
-						{@render td(d.tool)}
-						{@render td(getDeviceDisplayName(d.deviceID))}
+						{@render identifierCell(d)}
+						{@render twoLine(d.deviceID, getDeviceHostname(d.deviceID))}
 						{@render td(d.unresolvedReason || d.reason)}
 						{@render td(d.clientIP)}
 					</tr>
