@@ -567,7 +567,7 @@
 {/if}
 
 <div class="flex flex-col gap-8">
-	<div class="flex gap-4 justify-between">
+	<div class="flex flex-wrap md:flex-nowrap gap-4 justify-between">
 		<!-- Summary with filter button -->
 		<div class="flex shrink-0 items-center justify-between gap-4">
 			<div class="flex-1">
@@ -625,7 +625,7 @@
 					</h3>
 
 					<div class="p-4">
-						<div class="text-muted-content h-[300px] min-h-[300px]">
+						<div class="text-muted-content h-72 min-h-72">
 							{#if paginated.length > 0}
 								<HorizontalBarGraph
 									data={paginated}
@@ -647,7 +647,7 @@
 								</HorizontalBarGraph>
 							{:else if !showLoadingSpinner}
 								<div
-									class="text-muted-content flex h-[300px] items-center justify-center text-sm font-light"
+									class="text-muted-content flex h-72 items-center justify-center text-sm font-light"
 								>
 									No data available
 								</div>

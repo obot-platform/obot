@@ -111,7 +111,7 @@
 					</div>
 				</div>
 			{:else}
-				<p class="text-muted whitespace-pre-line text-sm mb-1">{AUTH_SCOPE_DESCRIPTION}</p>
+				<p class="text-muted-content whitespace-pre-line text-sm mb-1">{AUTH_SCOPE_DESCRIPTION}</p>
 
 				<Table
 					data={tableData}

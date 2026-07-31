@@ -232,8 +232,7 @@
 		errors={errors.clientRegistration}
 		hasResults={Boolean(results.clientRegistration)}
 	>
-		<pre
-			class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
+		<pre class="p-2 rounded-md overflow-x-auto text-xs my-0">{JSON.stringify(
 				results.clientRegistration,
 				null,
 				2
@@ -251,8 +250,7 @@
 			{@const authorizationURL = (results.preparingAuthorization as OAuthDebuggerAuthorizationURL)
 				.oauthURL}
 			<div class="flex flex-col gap-2">
-				<pre
-					class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
+				<pre class="p-2 rounded-md overflow-x-auto text-xs my-0">{JSON.stringify(
 						results.preparingAuthorization,
 						null,
 						2
@@ -289,8 +287,7 @@
 		showContent={currentStep === DEBUG_FLOW_STEPS.preparingAuthorization}
 	>
 		{#if results.authorizationCode}
-			<pre
-				class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
+			<pre class="p-2 rounded-md overflow-x-auto text-xs my-0">{JSON.stringify(
 					results.authorizationCode,
 					null,
 					2
@@ -324,8 +321,7 @@
 		errors={errors.tokenRequest}
 		hasResults={Boolean(results.tokenRequest)}
 	>
-		<pre
-			class="bg-base-300 p-2 rounded-md overflow-x-auto text-xs my-0 text-base-content">{JSON.stringify(
+		<pre class="p-2 rounded-md overflow-x-auto text-xs my-0">{JSON.stringify(
 				results.tokenRequest,
 				null,
 				2

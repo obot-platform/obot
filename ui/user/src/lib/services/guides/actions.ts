@@ -24,7 +24,7 @@ export function getExpandAdvancedPaneAction({
 				id: parentID
 			},
 			title: title || 'Expand MCP Management',
-			description: description || 'MCP Management is collapsed. Click here to expand it.'
+			description: description || "Let's expand this section to continue."
 		},
 		listener: {
 			id: parentID,

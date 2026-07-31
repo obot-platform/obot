@@ -1031,46 +1031,26 @@
 {/snippet}
 
 {#snippet navLink(link: NavLink)}
-	{@const isActive = link.href && (link.href === pathname || pathname.startsWith(`${link.href}/`))}
 	<div class="flex">
-		<div class="flex w-full items-center" id={link.id}>
-			{#if link.disabled}
-				<div class="sidebar-link disabled">
-					{@render linkContent(link)}
-				</div>
-			{:else if link.href}
-				<a
-					id={`sidebar-link-${link.id}`}
-					href={resolve(link.href as `/${string}`)}
-					class={twMerge('sidebar-link', isActive && 'bg-base-300')}
-					onclick={saveSidebarScroll}
-				>
-					{@render linkContent(link)}
-				</a>
-			{:else}
-				<div class="sidebar-link no-link">
-					{@render linkContent(link)}
-				</div>
-			{/if}
-
-			{#if link.noteIcon && link.note}
-				<InfoTooltip icon={link.noteIcon} interactive>
-					{@render link.note()}
-				</InfoTooltip>
-			{/if}
-		</div>
-		{#if link.collapsible}
+		{#if link.collapsible && !link.href}
 			<button
-				id={`sidebar-collapse-${link.id}`}
-				class="px-2"
+				class="flex w-full items-center"
 				onclick={() => toggleNavCollapsed(link.id)}
+				id={`sidebar-collapse-${link.id}`}
 			>
-				{#if isNavCollapsed(link.id)}
-					<ChevronDown class="size-5" />
-				{:else}
-					<ChevronUp class="size-5" />
-				{/if}
+				{@render rootLinkContent(link)}
+				<div class="px-2">
+					{#if isNavCollapsed(link.id)}
+						<ChevronDown class="size-5" />
+					{:else}
+						<ChevronUp class="size-5" />
+					{/if}
+				</div>
 			</button>
+		{:else}
+			<div class="flex w-full items-center" id={link.id}>
+				{@render rootLinkContent(link)}
+			</div>
 		{/if}
 	</div>
 	{#if !isNavCollapsed(link.id)}
@@ -1126,6 +1106,34 @@
 	{/if}
 {/snippet}
 
+{#snippet rootLinkContent(link: NavLink)}
+	{@const isActive = link.href && (link.href === pathname || pathname.startsWith(`${link.href}/`))}
+	{#if link.disabled}
+		<div class="sidebar-link disabled">
+			{@render linkContent(link)}
+		</div>
+	{:else if link.href}
+		<a
+			id={`sidebar-link-${link.id}`}
+			href={resolve(link.href as `/${string}`)}
+			class={twMerge('sidebar-link', isActive && 'bg-base-300')}
+			onclick={saveSidebarScroll}
+		>
+			{@render linkContent(link)}
+		</a>
+	{:else}
+		<div class="sidebar-link no-link">
+			{@render linkContent(link)}
+		</div>
+	{/if}
+
+	{#if link.noteIcon && link.note}
+		<InfoTooltip icon={link.noteIcon} interactive>
+			{@render link.note()}
+		</InfoTooltip>
+	{/if}
+{/snippet}
+
 {#snippet linkContent(link: NavLink)}
 	{#if link.icon}
 		<link.icon class="size-5" />
@@ -1152,6 +1160,7 @@
 		&.disabled {
 			opacity: 0.5;
 			cursor: default;
+			width: fit-content;
 			&:hover {
 				background-color: transparent;
 			}

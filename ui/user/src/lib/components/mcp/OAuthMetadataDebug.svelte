@@ -73,8 +73,7 @@
 			{#if metadata.protectedResourceMetadata}
 				<div class="grid gap-1">
 					<p class="font-medium">Protected Resource Metadata</p>
-					<pre
-						class="bg-base-200 dark:bg-base-300 mt-1 overflow-auto rounded-md p-3 text-xs text-base-content">{formatJSON(
+					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.protectedResourceMetadata
 						)}</pre>
 				</div>
@@ -83,8 +82,7 @@
 			{#if metadata.authorizationServerMetadata}
 				<div class="grid gap-1">
 					<p class="font-medium">Authorization Server Metadata</p>
-					<pre
-						class="bg-base-200 dark:bg-base-300 mt-1 overflow-auto rounded-md p-3 text-xs text-base-content">{formatJSON(
+					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.authorizationServerMetadata
 						)}</pre>
 				</div>
@@ -93,8 +91,7 @@
 			{#if metadata.clientRegistration}
 				<div class="grid gap-1">
 					<p class="font-medium">Client Registration</p>
-					<pre
-						class="bg-base-200 dark:bg-base-300 mt-1 overflow-auto rounded-md p-3 text-xs text-base-content">{formatJSON(
+					<pre class="mt-1 overflow-auto rounded-md p-3 text-xs">{formatJSON(
 							metadata.clientRegistration
 						)}</pre>
 				</div>

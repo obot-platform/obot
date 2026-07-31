@@ -69,7 +69,7 @@
 						/>
 					</div>
 					<pre
-						class="bg-transparent my-0 max-w-full min-w-0 flex-1 overflow-x-auto font-mono text-sm break-all text-base-content">{code}</pre>
+						class="bg-transparent my-0 max-w-full min-w-0 flex-1 overflow-x-auto text-sm break-all">{code}</pre>
 				</div>
 			{/if}
 		</div>

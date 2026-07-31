@@ -210,7 +210,7 @@
 
 {#snippet codesnippet(step: string, command: string, id: string)}
 	<p class="text-sm">{step}</p>
-	<div class="relative mt-0.5 mb-4">
+	<div class="relative mt-0.5 mb-4 code-snippet">
 		<pre class="pl-4 pr-22 py-2 m-0" {id}><code>{command}</code></pre>
 		<div class="absolute top-1/2 right-2 -translate-y-1/2">
 			<CopyButton
@@ -285,6 +285,13 @@
 		margin-top: 0;
 		margin-bottom: 0;
 		border-radius: 0;
+		background-color: var(--tw-prose-pre-bg);
+		color: var(--tw-prose-pre-code);
+	}
+
+	.code-snippet pre {
+		background-color: var(--tw-prose-pre-bg);
+		color: var(--tw-prose-pre-code);
 	}
 
 	.mockup-code pre[data-prefix] {

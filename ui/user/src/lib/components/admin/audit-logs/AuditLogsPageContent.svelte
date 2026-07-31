@@ -558,9 +558,10 @@
 	</div>
 	{#if hasFilterPills || showAuditExportActions}
 		<div
-			class="{showAuditExportActions
-				? 'mt-4'
-				: ''} flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row"
+			class={twMerge(
+				showAuditExportActions && '@min-[768px]:mt-4',
+				'flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row'
+			)}
 		>
 			<div class="min-w-0 grow hidden @min-[768px]:block">
 				{@render filters()}

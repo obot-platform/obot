@@ -131,7 +131,7 @@
 								</div>
 								{#if file?.content}
 									<pre
-										class="dark:bg-base-400 bg-base-200 text-base-content max-h-96 overflow-auto rounded p-2 font-mono text-xs mb-0 mt-2">{file.content}</pre>
+										class="dark:bg-base-400 bg-base-200 max-h-96 overflow-auto rounded p-2 font-mono text-xs mb-0 mt-2">{file.content}</pre>
 								{/if}
 							</div>
 						{/each}

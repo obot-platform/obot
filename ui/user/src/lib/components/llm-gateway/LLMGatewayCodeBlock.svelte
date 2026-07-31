@@ -28,7 +28,7 @@
 			/>
 		</div>
 		<pre class="default-scrollbar-thin overflow-x-auto p-3 pr-12 text-xs leading-relaxed my-0"><code
-				class="font-mono">{block.code}</code
+				>{block.code}</code
 			></pre>
 	</div>
 </div>

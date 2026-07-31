@@ -100,7 +100,7 @@
 			<CopyButton showTextLeft text={value} />
 		</div>
 		<pre
-			class="default-scrollbar-thin dark:bg-base-400 bg-base-200 text-base-content max-h-80 overflow-auto rounded-md p-3 font-mono text-xs">{value ||
+			class="default-scrollbar-thin dark:bg-base-400 bg-base-200 max-h-80 overflow-auto rounded-md p-3 text-xs">{value ||
 				'-'}</pre>
 	</div>
 {/snippet}

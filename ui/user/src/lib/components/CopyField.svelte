@@ -55,7 +55,7 @@
 		<div
 			class={twMerge(
 				'label px-2.5 flex items-center gap-2 text-xs text-base-content/75 shrink-0 ml-1 mr-0 ',
-				variant === 'code' && 'mt-0.5',
+				variant === 'code' && 'pl-0 pr-2.5 mt-0.5',
 				classes?.inputLabel
 			)}
 		>
@@ -96,9 +96,3 @@
 		/>
 	</div>
 </div>
-
-<style>
-	.copy-field-input pre {
-		background-color: transparent;
-	}
-</style>
