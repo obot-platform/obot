@@ -145,7 +145,7 @@
 			</div>
 		{:else}
 			<div class="flex flex-col gap-6">
-				<p class="text-base-content/80 text-base">
+				<p class="text-muted-content text-sm">
 					MCP tunnels let Obot securely connect to private MCP servers that are not directly
 					reachable from Obot's network. You run a lightweight <code class="font-mono"
 						>obot tunnel</code

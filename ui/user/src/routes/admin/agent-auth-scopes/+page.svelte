@@ -96,7 +96,7 @@
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
-			<p class="whitespace-pre-line text-sm mb-1">
+			<p class="whitespace-pre-line text-sm mb-1 text-muted-content">
 				{AUTH_SCOPE_DESCRIPTION}
 			</p>
 			{#if allApiKeys.length === 0}

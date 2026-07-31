@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import { API_KEY_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
+	import { API_KEY_CREATABLE_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
 	import {
 		compileAvailableMcpServers,
 		getMCPDisplayName,
@@ -166,7 +166,7 @@
 			<section class="paper gap-2 p-4">
 				<p class="text-lg font-semibold" id="agent-auth-scope-scopes">API Scopes</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-scopes">
-					{#each API_KEY_CAPABILITIES as capability (capability.key)}
+					{#each API_KEY_CREATABLE_CAPABILITIES as capability (capability.key)}
 						<label
 							class={twMerge(
 								'bg-base-200 flex items-center gap-3 rounded-lg border border-transparent p-3',
