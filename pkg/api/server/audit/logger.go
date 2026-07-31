@@ -157,11 +157,7 @@ func (l *persistentLogger) persist() error {
 	}
 
 	buf := l.buffer
-	if l.spare != nil {
-		l.buffer = l.spare[:0]
-	} else {
-		l.buffer = nil
-	}
+	l.buffer = l.spare[:0]
 	l.spare = nil
 	l.lock.Unlock()
 
@@ -173,10 +169,8 @@ func (l *persistentLogger) persist() error {
 	}
 
 	l.lock.Lock()
-	if cap(buf) <= l.maxSize {
+	if bufCap := cap(buf); bufCap <= l.maxSize && cap(l.spare) < bufCap {
 		l.spare = buf[:0]
-	} else {
-		l.spare = nil
 	}
 	l.lock.Unlock()
 
