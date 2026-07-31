@@ -61,6 +61,7 @@
 	let loadingUsersAndGroups = $state(false);
 	let models = $state<Model[]>([]);
 	let defaultModelAliases = $derived(defaultModelAliasesStore.current);
+	let llmModels = $derived(models.filter((m) => m.usage === ModelUsage.LLM));
 	let loadingModels = $state(true);
 
 	let addUserGroupDialog = $state<ReturnType<typeof SearchUsers>>();
@@ -87,8 +88,7 @@
 
 	onMount(async () => {
 		const fetchedModels = await AdminService.listModels({ all: true });
-
-		models = fetchedModels.filter((m) => m.usage === ModelUsage.LLM);
+		models = fetchedModels;
 		loadingModels = false;
 	});
 
@@ -636,7 +636,7 @@
 
 <SearchModels
 	bind:this={addModelDialog}
-	{models}
+	models={llmModels}
 	defaultAliases={defaultModelAliases}
 	exclude={modelAccessPolicy.models?.map((m) => m.id) ?? []}
 	onAdd={async (modelIds: string[]) => {
