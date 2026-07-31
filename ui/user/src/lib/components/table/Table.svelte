@@ -5,6 +5,7 @@
 	import IconButton from '../primitives/IconButton.svelte';
 	import TableColumnFilter from './TableColumnFilter.svelte';
 	import TableHeader from './TableHeader.svelte';
+	import { calculateStickyTop } from './stickyOffset';
 	import {
 		ChevronDown,
 		ChevronsLeft,
@@ -530,70 +531,6 @@
 			}
 		}, PAGE_TRANSITION_DURATION + 50);
 	});
-
-	function findScrollContainer(element: HTMLElement): HTMLElement | null {
-		let parent: HTMLElement | null = element.parentElement;
-		while (parent) {
-			const style = getComputedStyle(parent);
-			if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-				return parent;
-			}
-			parent = parent.parentElement;
-		}
-		return null;
-	}
-
-	function calculateStickyTop(wrapper: HTMLElement): number {
-		const scrollContainer = findScrollContainer(wrapper);
-		if (!scrollContainer) return 0;
-
-		let maxStickyBottom = 0;
-
-		// Traverse from wrapper up to scroll container, checking for sticky siblings
-		let current: HTMLElement | null = wrapper;
-
-		while (current && current !== scrollContainer) {
-			const parent: HTMLElement | null = current.parentElement;
-			if (!parent) break;
-
-			// Check all siblings that come before current element
-			for (const sibling of parent.children) {
-				if (sibling === current) break;
-
-				// Check if the sibling itself is sticky
-				const siblingStyle = getComputedStyle(sibling);
-				if (siblingStyle.position === 'sticky') {
-					const top = parseFloat(siblingStyle.top) || 0;
-					if (top >= 0 && top < 200) {
-						maxStickyBottom = Math.max(
-							maxStickyBottom,
-							top + (sibling as HTMLElement).offsetHeight
-						);
-					}
-				}
-
-				// Also check for sticky descendants within the sibling
-				const stickyDescendants = sibling.querySelectorAll('*');
-				for (const desc of stickyDescendants) {
-					const el = desc as HTMLElement;
-					const otherTableRoot = el.closest('[data-table-root]');
-					if (otherTableRoot && otherTableRoot !== wrapper) continue;
-
-					const descStyle = getComputedStyle(desc);
-					if (descStyle.position === 'sticky') {
-						const top = parseFloat(descStyle.top) || 0;
-						if (top >= 0 && top < 200) {
-							maxStickyBottom = Math.max(maxStickyBottom, top + el.offsetHeight);
-						}
-					}
-				}
-			}
-
-			current = parent;
-		}
-
-		return maxStickyBottom;
-	}
 
 	let isScrolling = false;
 

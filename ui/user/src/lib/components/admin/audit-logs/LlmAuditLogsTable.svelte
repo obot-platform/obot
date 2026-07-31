@@ -110,7 +110,7 @@
 {#snippet th(content: string, { class: klass = '', minWidth = '0ch' } = {})}
 	<th
 		class={twMerge(
-			'dark:bg-base-200 bg-base-300 text-muted-content sticky top-0 box-content w-[24ch] truncate text-left text-xs font-medium tracking-wider uppercase',
+			'dark:bg-base-200 bg-base-300 text-muted-content box-content w-[24ch] truncate text-left text-xs font-medium tracking-wider uppercase',
 			klass
 		)}
 		data-min-width={minWidth}
@@ -158,7 +158,7 @@
 <!-- Data Table -->
 <div>
 	<div
-		class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 overflow-x-auto overflow-y-visible rounded-lg border border-transparent shadow-sm"
+		class="dark:bg-base-300 bg-base-100 flex w-full min-w-full flex-1 divide-y divide-gray-200 rounded-lg border border-transparent shadow-sm"
 	>
 		<VirtualPageTable class={twMerge('w-full flex-1 table-fixed border-collapse border-spacing-0')}>
 			{#snippet header()}
