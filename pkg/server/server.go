@@ -39,18 +39,16 @@ func Run(ctx context.Context, c services.Config) error {
 		}
 	}
 
-	go func() {
-		ctrl, err := controller.New(svcs)
-		if err != nil {
-			log.Fatalf("Failed to create controller: %v", err)
-		}
-		if err = ctrl.PreStart(ctx); err != nil {
-			log.Fatalf("Failed to start controller: %v", err)
-		}
-		if err = ctrl.Start(ctx); err != nil {
-			log.Fatalf("Failed to start controller: %v", err)
-		}
-	}()
+	ctrl, err := controller.New(svcs)
+	if err != nil {
+		return fmt.Errorf("failed to create controller: %v", err)
+	}
+	if err = ctrl.PreStart(ctx); err != nil {
+		return fmt.Errorf("failed to start controller: %v", err)
+	}
+	if err = ctrl.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start controller: %v", err)
+	}
 
 	if c.AllowedOrigin == "" {
 		c.AllowedOrigin = "*"
