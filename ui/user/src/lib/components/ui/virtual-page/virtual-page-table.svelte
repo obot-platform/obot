@@ -103,36 +103,47 @@
 		) as HTMLElement | undefined;
 		if (!wrapperRef) return;
 
-		let resizeTimeout: ReturnType<typeof setTimeout> | undefined;
-		const debouncedMeasure = () => {
-			clearTimeout(resizeTimeout);
-			resizeTimeout = setTimeout(() => {
+		let measureRaf: number | undefined;
+		let layoutTimeout: ReturnType<typeof setTimeout> | undefined;
+
+		const scheduleColumnMeasure = () => {
+			if (measureRaf !== undefined) return;
+			measureRaf = requestAnimationFrame(() => {
+				measureRaf = undefined;
 				measureColumnWidths();
-				updateStickyTop();
-			}, 100);
+			});
 		};
 
-		const resizeObserver = new ResizeObserver(debouncedMeasure);
-		if (parentContainer) resizeObserver.observe(parentContainer);
-		if (headerTableRef) resizeObserver.observe(headerTableRef);
+		const debouncedLayoutMeasure = () => {
+			scheduleColumnMeasure();
+			clearTimeout(layoutTimeout);
+			layoutTimeout = setTimeout(updateStickyTop, 100);
+		};
+
+		const cellResizeObserver = new ResizeObserver(scheduleColumnMeasure);
+		const layoutResizeObserver = new ResizeObserver(debouncedLayoutMeasure);
+
+		if (parentContainer) layoutResizeObserver.observe(parentContainer);
+		if (headerTableRef) cellResizeObserver.observe(headerTableRef);
 
 		const headerCells = headerTableRef?.tHead?.rows[0]?.cells;
 		if (headerCells) {
 			for (const cell of headerCells) {
-				resizeObserver.observe(cell);
+				cellResizeObserver.observe(cell);
 			}
 		}
 
-		let initialMeasureTimeout: ReturnType<typeof setTimeout> | undefined = $state();
-		initialMeasureTimeout = setTimeout(() => {
+		const initialMeasureTimeout = setTimeout(() => {
 			measureColumnWidths();
 			updateStickyTop();
 		}, PAGE_TRANSITION_DURATION + 50);
 
 		return () => {
-			clearTimeout(resizeTimeout);
+			if (measureRaf !== undefined) cancelAnimationFrame(measureRaf);
+			clearTimeout(layoutTimeout);
 			clearTimeout(initialMeasureTimeout);
-			resizeObserver.disconnect();
+			cellResizeObserver.disconnect();
+			layoutResizeObserver.disconnect();
 		};
 	});
 
