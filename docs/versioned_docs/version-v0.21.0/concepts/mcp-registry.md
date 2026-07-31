@@ -13,7 +13,7 @@ The MCP Registry is a central place to list and discover MCP servers. It provide
 MCP server definitions can come from:
 
 - **Official Obot repository**: The default set from [obot-platform/mcp-catalog](https://github.com/obot-platform/mcp-catalog)
-- **Custom Git repositories**: Your own repositories containing server definitions (see [MCP Server GitOps](/configuration/mcp-server-gitops/))
+- **Custom Git repositories**: Your own repositories containing server definitions (see [MCP Server GitOps](../configuration/mcp-server-gitops.md))
 - **Direct entry**: Servers added manually through the UI
 
 ### Server Definitions

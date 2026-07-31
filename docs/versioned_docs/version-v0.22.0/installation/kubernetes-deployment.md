@@ -94,17 +94,17 @@ For published workflow storage in HA, use one of these:
 
 For detailed configuration options, see:
 
-- **[Server Configuration](/configuration/server-configuration/)** - All available environment variables, including published workflow storage configuration
+- **[Server Configuration](../configuration/server-configuration.md)** - All available environment variables, including published workflow storage configuration
 - **[Workflow Sharing](../functionality/workflow-sharing.md)** - How shared workflows work and how to configure their storage
-- **[Encryption Providers](/configuration/encryption-providers/aws-kms/)** - KMS encryption setup
+- **[Encryption Providers](../configuration/encryption-providers/aws-kms.md)** - KMS encryption setup
 
 ## Cloud-Specific Guides
 
 For detailed cloud-specific deployment instructions:
 
-- [Google Kubernetes Engine (GKE)](/installation/reference-architectures/gcp-gke/)
-- [Amazon Elastic Kubernetes Service (EKS)](/installation/reference-architectures/aws-eks/)
-- [Azure Kubernetes Service (AKS)](/installation/reference-architectures/azure-aks/)
+- [Google Kubernetes Engine (GKE)](./reference-architectures/01-gcp-gke.md)
+- [Amazon Elastic Kubernetes Service (EKS)](./reference-architectures/02-aws-eks.md)
+- [Azure Kubernetes Service (AKS)](./reference-architectures/03-azure-aks.md)
 
 ## Security Configuration
 
@@ -155,7 +155,7 @@ If you want to constrain the Obot server's egress as a defense-in-depth measure,
 
 By default, Obot Agent uses storage inside its pod, which means all agent state is lost if the pod restarts. For production deployments, configure a persistent `StorageClass`.
 
-For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
+For complete guidance and examples (including AWS EBS, GCP Hyperdisk, and `nfs-subdir-external-provisioner`), see [Persistent Storage in Kubernetes](./kubernetes-persistent-storage.md).
 
 ## Workflow Sharing in Kubernetes
 
@@ -217,18 +217,18 @@ persistence:
 
 The `obot-data-rwx` claim itself must be provisioned with `ReadWriteMany`.
 
-For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](/installation/kubernetes-persistent-storage.md).
+For more examples and storage-class guidance, see [Persistent Storage in Kubernetes](./kubernetes-persistent-storage.md).
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](/configuration/auth-providers/)
-2. **Add Model Providers**: Configure [model providers](/configuration/model-providers/)
-3. **Set Up MCP Servers**: Configure [MCP servers](/functionality/mcp-servers/)
+1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers.md)
+2. **Add Model Providers**: Configure [model providers](../configuration/model-providers.md)
+3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md)
 4. **Configure Monitoring**: Set up logging and metrics
 5. **Review Security**: Enable authentication and encryption
 
 ## Related Documentation
 
-- [Installation Overview](/installation/overview/)
-- [Server Configuration](/configuration/server-configuration/)
-- [Settings for Hosted MCP Server Deployments](/configuration/mcp-deployments-in-kubernetes/)
+- [Installation Overview](./overview.md)
+- [Server Configuration](../configuration/server-configuration.md)
+- [Settings for Hosted MCP Server Deployments](../configuration/mcp-deployments-in-kubernetes.md)

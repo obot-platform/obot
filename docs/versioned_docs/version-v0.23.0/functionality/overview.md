@@ -6,7 +6,7 @@ title: Overview
 
 The MCP Platform is Obot's unified management interface for deploying, managing, and operating MCP servers. It provides role-based access to server management, registries, audit logs, usage tracking, and platform administration.
 
-For detailed permissions and role definitions, see [User Roles](/configuration/user-roles/).
+For detailed permissions and role definitions, see [User Roles](../configuration/user-roles.md).
 
 ## Roles and Capabilities
 
@@ -28,22 +28,22 @@ Power Users+ include all Power User capabilities and can additionally publish MC
 
 Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and Obot Agent administration.
 
-The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
+The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](../configuration/user-roles.md#auditor).
 
 ## Learn More
 
-- [MCP Servers](/functionality/mcp-servers/) - Deploy, configure, and manage MCP servers
+- [MCP Servers](./mcp-servers.md) - Deploy, configure, and manage MCP servers
 - [MCP Access Policies](./mcp-access-policies.md) - Control which servers are available to which users and groups
-- [Audit Logs and Usage](/functionality/audit-logs-and-usage/) - Monitor activity and track consumption
-- [Filters](/functionality/filters/) - Inspect and control MCP traffic
-- [Server Scheduling](/functionality/server-scheduling/) - Define server availability windows
-- [Skills](/functionality/skills/) - Manage skill sources and browse discoverable skills for agents
-- [Skill Access Policies](/functionality/skill-access-policies/) - Control which users and groups can access which skills
+- [Audit Logs and Usage](./audit-logs-and-usage.md) - Monitor activity and track consumption
+- [Filters](./filters.md) - Inspect and control MCP traffic
+- [Server Scheduling](./server-scheduling.md) - Define server availability windows
+- [Skills](./skills.md) - Manage skill sources and browse discoverable skills for agents
+- [Skill Access Policies](./skill-access-policies.md) - Control which users and groups can access which skills
 - [Device Management](./device-management.md) - Inventory local AI clients, MCP servers, skills, and plugins across submitted device scans
-- [Obot Agent Management](/functionality/obot-agent-management/) - Configure default agent, conversation, and workflow settings, and monitor activity
-- [Message Policies](/functionality/message-policies/) - Enforce content rules on user prompts and tool calls, and review violations
-- [User Management](/functionality/user-management/) - Manage users, roles, and authentication
-- [API Keys](/functionality/api-keys/) - Create and manage API keys for programmatic Obot access
-- [Branding](/functionality/branding/) - Customize theme colors and branding
-- [Workflow Sharing](/functionality/workflow-sharing/) - Publish, discover, install, and operate shared workflows
-- [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions
+- [Obot Agent Management](./obot-agent-management.md) - Configure default agent, conversation, and workflow settings, and monitor activity
+- [Message Policies](./message-policies.md) - Enforce content rules on user prompts and tool calls, and review violations
+- [User Management](./user-management.md) - Manage users, roles, and authentication
+- [API Keys](./api-keys.md) - Create and manage API keys for programmatic Obot access
+- [Branding](./branding.md) - Customize theme colors and branding
+- [Workflow Sharing](./workflow-sharing.md) - Publish, discover, install, and operate shared workflows
+- [User Roles](../configuration/user-roles.md) - Detailed permissions and role definitions

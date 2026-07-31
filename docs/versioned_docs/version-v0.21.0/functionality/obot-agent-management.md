@@ -12,7 +12,7 @@ View token usage across users and models to monitor costs and identify optimizat
 
 ## Model Providers
 
-Configure LLM providers and their available models. See [Model Providers](/configuration/model-providers/) for setup details.
+Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers.md) for setup details.
 
 ## Model Access Policies
 

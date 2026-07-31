@@ -29,7 +29,7 @@ The bootstrap skills let local agents use the `obot` CLI to search for Obot-mana
 - If authentication is enabled, Obot has at least one configured authentication provider that your user can use.
 - Your local OS keyring is available so the CLI can store a newly acquired API key.
 
-If Obot authentication is enabled but no provider is configured yet, finish server-side authentication setup first. See [Enabling Authentication](/installation/enabling-authentication/) and [Auth Providers](/configuration/auth-providers/).
+If Obot authentication is enabled but no provider is configured yet, finish server-side authentication setup first. See [Enabling Authentication](./enabling-authentication.md) and [Auth Providers](../configuration/auth-providers.md).
 
 ## Basic usage
 

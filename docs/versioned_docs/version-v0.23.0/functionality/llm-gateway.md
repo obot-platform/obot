@@ -8,8 +8,8 @@ The Obot LLM Gateway lets you call OpenAI and Anthropic models through Obot usin
 
 The gateway proxies your requests transparently to the upstream provider while enforcing per-user access:
 
-- You never handle the provider's real API key. Obot holds the key (configured by an administrator on a [Model Provider](/configuration/model-providers/)) and substitutes it on each request.
-- You can only call models that an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/).
+- You never handle the provider's real API key. Obot holds the key (configured by an administrator on a [Model Provider](../configuration/model-providers.md)) and substitutes it on each request.
+- You can only call models that an administrator has granted you through a [Model Access Policy](./model-access-policies.md).
 - The model list returned to your client (`/v1/models`) is scoped to the models you are allowed to use.
 
 ## The Models page
@@ -24,7 +24,7 @@ For each provider you have access to, the page shows:
 - **Example request** — a ready-to-run `curl` command, pre-filled with one of your available models and with the API key wired to `obot login --scope llm --print-token`.
 - **Available models** — a searchable list of the models you can call. Each entry has a copy button for the exact model name to send in your requests.
 
-If you don't have access to any OpenAI or Anthropic models, the page shows a **"No gateway models available"** message — contact an administrator to request access through a [Model Access Policy](/functionality/model-access-policies/).
+If you don't have access to any OpenAI or Anthropic models, the page shows a **"No gateway models available"** message — contact an administrator to request access through a [Model Access Policy](./model-access-policies.md).
 
 :::info Use the name exactly as shown
 The model name shown on the Models page is the value to put in your request's `model` field (and to select in your client). For OpenAI and Anthropic this is the provider's native model ID, such as `gpt-5.5` or `claude-opus-4.8`.
@@ -33,16 +33,16 @@ The model name shown on the Models page is the value to put in your request's `m
 The **LLM Gateway** sidebar section also groups the administrator pages that power this feature:
 
 - **Token Usage** — usage and cost analytics across users and models (admin only).
-- **Model Providers** — configure providers and their available models (admin only). See [Model Providers](/configuration/model-providers/).
-- **Model Access Policies** — control which users can use which models (admin only). See [Model Access Policies](/functionality/model-access-policies/).
+- **Model Providers** — configure providers and their available models (admin only). See [Model Providers](../configuration/model-providers.md).
+- **Model Access Policies** — control which users can use which models (admin only). See [Model Access Policies](./model-access-policies.md).
 
 ## Before you begin
 
 To use the gateway you need:
 
-1. **A configured provider.** An administrator must configure the OpenAI and/or Anthropic [Model Provider](/configuration/model-providers/) with a valid API key.
-2. **Model access.** An administrator must grant you access to one or more of those models through a [Model Access Policy](/functionality/model-access-policies/). The [Models page](#the-models-page) reflects exactly what you can call.
-3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](/installation/cli-setup/).
+1. **A configured provider.** An administrator must configure the OpenAI and/or Anthropic [Model Provider](../configuration/model-providers.md) with a valid API key.
+2. **Model access.** An administrator must grant you access to one or more of those models through a [Model Access Policy](./model-access-policies.md). The [Models page](#the-models-page) reflects exactly what you can call.
+3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](../installation/cli-setup.md).
 
 ## Getting your API key
 
@@ -167,15 +167,15 @@ See the Codex documentation for details:
 ## Limitations
 
 - **OpenAI and Anthropic only.** Only the OpenAI and Anthropic passthrough routes are available to external clients. Other configured providers (Azure, Amazon Bedrock, Google Vertex, the Generic Responses Compatible provider, etc.) are **not yet** exposed through the gateway.
-- **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
+- **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](./model-access-policies.md), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name as shown on the [Models page](#the-models-page). If the requested model doesn't match the provider for the route (for example, an Anthropic model on the OpenAI route), the request is rejected.
 - **Claude Code model discovery caveats.** Gateway model discovery is **off by default**, requires **Claude Code v2.1.129+**, and only adds models whose IDs begin with `claude` or `anthropic`. Obot's Anthropic models qualify; if discovery doesn't surface a model, select it manually with `/model`.
 - **OpenAI uses the Responses API.** The OpenAI passthrough supports the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
-- **Usage and policies still apply.** Requests count toward Obot [token usage](/functionality/audit-logs-and-usage/) and, where configured, are subject to [Message Policies](/functionality/message-policies/).
+- **Usage and policies still apply.** Requests count toward Obot [token usage](./audit-logs-and-usage.md) and, where configured, are subject to [Message Policies](./message-policies.md).
 
 ## Related topics
 
-- [Model Providers](/configuration/model-providers/) — configure OpenAI and Anthropic providers and their models
-- [Model Access Policies](/functionality/model-access-policies/) — grant users access to specific models
-- [Obot CLI Setup](/installation/cli-setup/) — install and configure the `obot` CLI
-- [Audit Logs and Usage](/functionality/audit-logs-and-usage/) — monitor token usage
+- [Model Providers](../configuration/model-providers.md) — configure OpenAI and Anthropic providers and their models
+- [Model Access Policies](./model-access-policies.md) — grant users access to specific models
+- [Obot CLI Setup](../installation/cli-setup.md) — install and configure the `obot` CLI
+- [Audit Logs and Usage](./audit-logs-and-usage.md) — monitor token usage

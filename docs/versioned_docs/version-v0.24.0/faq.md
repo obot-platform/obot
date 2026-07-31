@@ -8,7 +8,7 @@ Docker is suitable for local testing and small-scale deployments. For production
 
 ### Why can’t I see the User Management section?
 
-User Management is only visible when authentication is enabled. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don't see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](/installation/enabling-authentication/).
+User Management is only visible when authentication is enabled. Make sure you start Obot with `OBOT_SERVER_ENABLE_AUTHENTICATION=true`. If you don't see the bootstrap token prompt, the environment variable may not be set correctly. Follow the [installation guide](./installation/enabling-authentication.md).
 
 ### How do I assign roles to users before they log in?
 
@@ -52,7 +52,7 @@ codex mcp add --url <MCP_SERVER_URL> --oauth-resource <MCP_SERVER_URL> <SERVER_N
 
 Make sure the `--oauth-resource` value matches the `--url` value exactly.
 
-For other clients that don't support specifying the OAuth `resource` parameter, you can create an [MCP API key](/functionality/api-keys/) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
+For other clients that don't support specifying the OAuth `resource` parameter, you can create an [MCP API key](./functionality/api-keys.md) and use that instead of the OAuth flow. For more context, see the related [Codex CLI issue](https://github.com/openai/codex/issues/13891).
 
 ## Enterprise Access
 
@@ -64,12 +64,12 @@ For other clients that don't support specifying the OAuth `resource` parameter, 
 
 ### How do I pass user-specific parameters (e.g., Jira PAT tokens) to a remote MCP server?
 
-As an admin, you can configure the server in the MCP Servers section. See [MCP Servers](/functionality/mcp-servers/) for details.
+As an admin, you can configure the server in the MCP Servers section. See [MCP Servers](./functionality/mcp-servers.md) for details.
 
 ### How do I get started with AKS/GKE/AWS deployment?
 
 See the reference architecture guide for your cloud provider, and follow the Kubernetes installation.
 
-- [AKS](/installation/reference-architectures/azure-aks/)
-- [GKE](/installation/reference-architectures/gcp-gke/)
-- [AWS](/installation/reference-architectures/aws-eks/)
+- [AKS](./installation/reference-architectures/03-azure-aks.md)
+- [GKE](./installation/reference-architectures/01-gcp-gke.md)
+- [AWS](./installation/reference-architectures/02-aws-eks.md)

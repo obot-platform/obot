@@ -7,7 +7,7 @@ title: Audit Logs & Usage
 The MCP Platform provides visibility into MCP and LLM gateway activity through audit logs and usage tracking. These features help with monitoring, compliance, and understanding how MCP servers and LLM gateway models are being used.
 
 :::info Auditor Role
-Sensitive data (MCP request/response bodies, conversations, and workflow runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](/configuration/user-roles/#auditor) for details.
+Sensitive data (MCP request/response bodies, conversations, and workflow runs) can **only** be viewed by users with the Auditor role. All other roles, including Owner and Admin, see only metadata for these resources. The Auditor role is an add-on permission that can be combined with any other role, granting read-only access to sensitive data across the platform. See [User Roles](../configuration/user-roles.md#auditor) for details.
 :::
 
 ## MCP Audit Logs
@@ -51,11 +51,11 @@ Filter logs by:
 
 ### Retention
 
-Audit logs are automatically deleted after **90 days** by default. To preserve logs beyond this period, use the export functionality before they are deleted. See [Server Configuration](/configuration/server-configuration/) for retention settings.
+Audit logs are automatically deleted after **90 days** by default. To preserve logs beyond this period, use the export functionality before they are deleted. See [Server Configuration](../configuration/server-configuration.md) for retention settings.
 
 ### Exporting Audit Logs
 
-MCP audit logs can be exported for external analysis, compliance requirements, or long-term retention. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
+MCP audit logs can be exported for external analysis, compliance requirements, or long-term retention. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
 
 ## LLM Gateway Audit Logs
 
@@ -93,7 +93,7 @@ Filter LLM logs by:
 
 ### Exporting LLM Audit Logs
 
-LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](/configuration/audit-log-export/) for configuration options.
+LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
 
 ## Usage
 

@@ -6,7 +6,7 @@ title: Overview
 
 The MCP Platform is Obot's unified management interface for deploying, managing, and operating MCP servers. It provides role-based access to server management, registries, audit logs, usage tracking, and platform administration.
 
-For detailed permissions and role definitions, see [User Roles](/configuration/user-roles/).
+For detailed permissions and role definitions, see [User Roles](../configuration/user-roles.md).
 
 ## Roles and Capabilities
 
@@ -28,7 +28,7 @@ Power Users+ include all Power User capabilities and can additionally publish MC
 
 Admins and Owners have full administrative access to the platform, including system-wide configuration, user management, and Obot Agent administration.
 
-The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](/configuration/user-roles/#auditor).
+The only functional difference between Owners and Admins is that Owners can assign the **Auditor** role to users. For more information, see the [Auditor Role](../configuration/user-roles.md#auditor).
 
 ## Navigation by Role
 
@@ -69,4 +69,4 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Branding](../branding/) - Customize theme colors and branding
 - [Obot Agent](../agent/overview/) - Agents, conversations, workflows, and chat features
 - [Workflow Sharing](../workflow-sharing/) - Publish, discover, install, and operate shared workflows
-- [User Roles](/configuration/user-roles/) - Detailed permissions and role definitions
+- [User Roles](../configuration/user-roles.md) - Detailed permissions and role definitions

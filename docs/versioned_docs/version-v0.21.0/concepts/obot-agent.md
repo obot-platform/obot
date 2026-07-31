@@ -22,4 +22,4 @@ Obot Agent supports multiple LLM providers including OpenAI, Anthropic, Azure Op
 
 ## Learn More
 
-- [Obot Agent](/functionality/agent/overview.md) - Detailed configuration and usage
+- [Obot Agent](../functionality/agent/overview.md) - Detailed configuration and usage

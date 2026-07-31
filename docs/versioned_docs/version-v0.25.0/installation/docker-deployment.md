@@ -11,7 +11,7 @@ Docker deployment is the fastest way to get Obot running. It's ideal for:
 - Proof-of-concept and evaluation
 - Small team usage
 
-For production deployments, see [Kubernetes Deployment](/installation/kubernetes-deployment/).
+For production deployments, see [Kubernetes Deployment](./kubernetes-deployment.md).
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ Running Obot without authentication is not recommended unless you are behind a s
 :::warning Host access and trusted users
 This deployment bind-mounts the host Docker socket (`-v /var/run/docker.sock:/var/run/docker.sock`) so Obot can run MCP servers as sibling containers. Any MCP server Obot launches — including a **containerized** server, which runs an arbitrary container image with a user-supplied command — therefore runs on the host Docker daemon, which is equivalent to host-level access on that machine.
 
-Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](/installation/kubernetes-deployment/), which runs each MCP server in its own pod and supports stronger isolation controls you configure (restricted Pod Security Admission, a NetworkPolicy, and sandboxed runtimes such as gVisor or Kata Containers). See [User Roles — Security Model](/configuration/user-roles/#security-model).
+Users with the **Power User** or **Power User+** role can deploy MCP servers, so on this deployment they can effectively run code on the host. Use Docker deployment only for development, evaluation, or single-tenant use where all such users are trusted. For multi-tenant deployments or untrusted users, use the [Kubernetes deployment](./kubernetes-deployment.md), which runs each MCP server in its own pod and supports stronger isolation controls you configure (restricted Pod Security Admission, a NetworkPolicy, and sandboxed runtimes such as gVisor or Kata Containers). See [User Roles — Security Model](../configuration/user-roles.md#security-model).
 :::
 
 #### With Authentication (Recommended)
@@ -93,12 +93,12 @@ If you want published workflows in Docker to use external object storage instead
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](/installation/enabling-authentication/) for secure access
-2. **Configure Model Providers**: Configure [model providers](/configuration/model-providers/) (OpenAI, Anthropic, etc.)
-3. **Set Up MCP Servers**: Configure [MCP servers](/functionality/mcp-servers/) for extended functionality
+1. **Configure Authentication**: Set up [auth providers](./enabling-authentication.md) for secure access
+2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers.md) (OpenAI, Anthropic, etc.)
+3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md) for extended functionality
 
 ## Related Documentation
 
-- [Installation Overview](/installation/overview/)
-- [Kubernetes Deployment](/installation/kubernetes-deployment/)
-- [Server Configuration](/configuration/server-configuration/)
+- [Installation Overview](./overview.md)
+- [Kubernetes Deployment](./kubernetes-deployment.md)
+- [Server Configuration](../configuration/server-configuration.md)

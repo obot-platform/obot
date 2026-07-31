@@ -25,7 +25,7 @@ Model availability for chat is now controlled through [Model Access Policies](..
 
 ## Model Providers
 
-Configure LLM providers and their available models. See [Model Providers](/configuration/model-providers/) for setup details.
+Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers.md) for setup details.
 
 ## Model Access Policies
 

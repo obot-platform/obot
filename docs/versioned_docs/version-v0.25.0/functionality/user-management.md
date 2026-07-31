@@ -14,7 +14,7 @@ View and manage all users on the platform. From this page you can:
 - Update individual user roles
 - Monitor user activity
 
-For details on updating roles, see [User Roles](/configuration/user-roles/#managing-user-roles).
+For details on updating roles, see [User Roles](../configuration/user-roles.md#managing-user-roles).
 
 ## User Roles
 
@@ -25,7 +25,7 @@ Configure the default role assigned to new users when they first log in. Choose 
 - **Power User Plus**: Power User features plus share MCP servers through registries
 - **Admin**: Full platform management
 
-For detailed role descriptions and permissions, see [User Roles](/configuration/user-roles/).
+For detailed role descriptions and permissions, see [User Roles](../configuration/user-roles.md).
 
 ## Agent Authorization Scopes
 
@@ -33,4 +33,4 @@ View and manage agent authorization scopes for all users. Administrators can see
 
 ## Auth Providers
 
-Configure identity providers for user authentication. See [Auth Providers](/configuration/auth-providers/) for setup details.
+Configure identity providers for user authentication. See [Auth Providers](../configuration/auth-providers.md) for setup details.

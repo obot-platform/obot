@@ -11,8 +11,8 @@ The Obot LLM Gateway lets you call OpenAI, Anthropic, Generic Responses Compatib
 
 The gateway proxies your requests transparently to the upstream provider while enforcing per-user access:
 
-- You never handle the provider's real API key. Obot holds the key (configured by an administrator on a [Model Provider](/configuration/model-providers/)) and substitutes it on each request.
-- You can only call models that an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/).
+- You never handle the provider's real API key. Obot holds the key (configured by an administrator on a [Model Provider](../configuration/model-providers.md)) and substitutes it on each request.
+- You can only call models that an administrator has granted you through a [Model Access Policy](./model-access-policies.md).
 - The model list returned to your client (`/v1/models`) is scoped to the models you are allowed to use.
 
 ## The Models page
@@ -36,7 +36,7 @@ For each provider you have access to, the page shows:
 - **Example request** — a ready-to-run `curl` command, pre-filled with one of your available models and with the API key wired to `obot login --scope llm --print-token`.
 - **Available models** — a searchable list of the models you can call. Each entry has a copy button for the exact model name to send in your requests.
 
-If you don't have access to any gateway models, the page shows a **"No gateway models available"** message — contact an administrator to request access through a [Model Access Policy](/functionality/model-access-policies/).
+If you don't have access to any gateway models, the page shows a **"No gateway models available"** message — contact an administrator to request access through a [Model Access Policy](./model-access-policies.md).
 
 :::info Use the name exactly as shown
 The model name shown on the Models page is the value to put in your request's `model` field (and to select in your client). For OpenAI, Anthropic, and Generic Responses Compatible providers this is the provider's native model ID, including any `/` characters. For Amazon Bedrock, use the Mantle model ID returned by the Bedrock provider, such as `anthropic.claude-haiku-4-5`, `openai.gpt-5.4`, or `google.gemma-4-31b`. For Azure and Azure Entra, use the Azure deployment name exactly as configured in Obot; it does not need to resemble the underlying model name.
@@ -45,17 +45,17 @@ The model name shown on the Models page is the value to put in your request's `m
 The **LLM Gateway** sidebar section also groups the administrator pages that power this feature:
 
 - **Token Usage** — usage and cost analytics across users and models (admin only).
-- **Audit Logs** — request history, token usage, outcomes, and exports for LLM gateway traffic (admin only). See [Audit Logs and Usage](/functionality/audit-logs-and-usage/).
-- **Model Providers** — configure providers and their available models (admin only). See [Model Providers](/configuration/model-providers/).
-- **Model Access Policies** — control which users can use which models (admin only). See [Model Access Policies](/functionality/model-access-policies/).
+- **Audit Logs** — request history, token usage, outcomes, and exports for LLM gateway traffic (admin only). See [Audit Logs and Usage](./audit-logs-and-usage.md).
+- **Model Providers** — configure providers and their available models (admin only). See [Model Providers](../configuration/model-providers.md).
+- **Model Access Policies** — control which users can use which models (admin only). See [Model Access Policies](./model-access-policies.md).
 
 ## Before you begin
 
 To use the gateway you need:
 
-1. **A configured provider.** An administrator must configure a supported [Model Provider](/configuration/model-providers/) with valid credentials. This includes OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra.
-2. **Model access.** An administrator must grant you access to one or more of those models through a [Model Access Policy](/functionality/model-access-policies/). The [Models page](#the-models-page) reflects exactly what you can call.
-3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](/installation/cli-setup/).
+1. **A configured provider.** An administrator must configure a supported [Model Provider](../configuration/model-providers.md) with valid credentials. This includes OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra.
+2. **Model access.** An administrator must grant you access to one or more of those models through a [Model Access Policy](./model-access-policies.md). The [Models page](#the-models-page) reflects exactly what you can call.
+3. **The Obot CLI.** Install and set up the `obot` CLI to obtain an API key. See [Obot CLI Setup](../installation/cli-setup.md).
 
 ## Getting your API key
 
@@ -249,7 +249,7 @@ The Azure models endpoint uses Azure's OpenAI-compatible Models API and returns 
 An administrator configures one of these providers under **Model Providers**:
 
 - **Azure** requires the Azure resource endpoint (for example, `https://my-resource.services.ai.azure.com`) and an API key.
-- **Azure Entra** requires the Azure resource endpoint plus tenant ID, client ID, and client secret for a service principal. Obot requests tokens for the `https://ai.azure.com/.default` scope. Assign the service principal **Cognitive Services User** or **Foundry User** (formerly Azure AI User) on the specific Foundry resource. **Cognitive Services OpenAI User** may allow OpenAI requests but does not provide all permissions needed for Anthropic requests. See [Azure provider configuration](/configuration/model-providers/#azure-enterprise-only) for portal instructions and official references.
+- **Azure Entra** requires the Azure resource endpoint plus tenant ID, client ID, and client secret for a service principal. Obot requests tokens for the `https://ai.azure.com/.default` scope. Assign the service principal **Cognitive Services User** or **Foundry User** (formerly Azure AI User) on the specific Foundry resource. **Cognitive Services OpenAI User** may allow OpenAI requests but does not provide all permissions needed for Anthropic requests. See [Azure provider configuration](../configuration/model-providers.md#azure-enterprise-only) for portal instructions and official references.
 
 Configure each model's target model as its Azure deployment name. The provider's model metadata must expose either `AnthropicMessages` or `OpenAIResponses` as the dialect. The Models page groups models by that dialect, even if deployment names are arbitrary or misleading.
 
@@ -489,20 +489,20 @@ See the Codex documentation for details:
 ## Limitations
 
 - **Supported gateway providers.** External LLM Gateway clients can use OpenAI, Anthropic, Generic Responses Compatible, Amazon Bedrock, Amazon Bedrock API key, Azure, and Azure Entra providers. Other configured providers such as Google Vertex are not exposed through provider-specific gateway routes yet.
-- **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](/functionality/model-access-policies/), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
+- **Access is policy-bound.** You can only call models an administrator has granted you through a [Model Access Policy](./model-access-policies.md), and `/v1/models` returns only those models. A request for a model you don't have access to is rejected.
 - **Send the exact model name.** Use the model name shown on the [Models page](#the-models-page) exactly as displayed.
 - **Azure model discovery is OpenAI-only.** The Azure `/v1/models` and `/openai/v1/models` routes return accessible `OpenAIResponses` deployments. Microsoft Foundry does not expose an Anthropic Models API, so pass `AnthropicMessages` deployment names explicitly.
 - **Claude Code model discovery caveats.** Gateway model discovery is off by default and requires Claude Code v2.1.129 or later for the standard Anthropic gateway path. Claude Code's Bedrock Mantle mode may not populate the `/model` picker from Obot, so pass `--model` or select an enabled Mantle model manually.
 - **OpenAI-compatible routes use the Responses API.** The OpenAI, Generic Responses Compatible, Bedrock, and Azure OpenAI-compatible routes support the Responses API (`/v1/responses`); the Chat Completions endpoint is not currently supported. Codex uses the Responses API by default.
-- **Usage and policies still apply.** Requests count toward Obot [token usage](/functionality/audit-logs-and-usage/) and, where configured, are subject to [Message Policies](/functionality/message-policies/).
-- **Audit logs can be exported.** Administrators can create one-time or scheduled exports for LLM gateway audit logs. See [Audit Log Export](/configuration/audit-log-export/).
+- **Usage and policies still apply.** Requests count toward Obot [token usage](./audit-logs-and-usage.md) and, where configured, are subject to [Message Policies](./message-policies.md).
+- **Audit logs can be exported.** Administrators can create one-time or scheduled exports for LLM gateway audit logs. See [Audit Log Export](../configuration/audit-log-export.md).
 
 ## Related topics
 
-- [Model Providers](/configuration/model-providers/) — configure supported providers and their models
-- [Model Access Policies](/functionality/model-access-policies/) — grant users access to specific models
-- [Obot CLI Setup](/installation/cli-setup/) — install and configure the `obot` CLI
-- [Audit Logs and Usage](/functionality/audit-logs-and-usage/) — monitor token usage
+- [Model Providers](../configuration/model-providers.md) — configure supported providers and their models
+- [Model Access Policies](./model-access-policies.md) — grant users access to specific models
+- [Obot CLI Setup](../installation/cli-setup.md) — install and configure the `obot` CLI
+- [Audit Logs and Usage](./audit-logs-and-usage.md) — monitor token usage
 - [Claude Code: Route Mantle through a gateway](https://code.claude.com/docs/en/amazon-bedrock#route-mantle-through-a-gateway)
 - [AWS Bedrock Anthropic model cards](https://docs.aws.amazon.com/bedrock/latest/userguide/model-cards-anthropic.html) — check Anthropic model region availability
-- [Audit Log Export](/configuration/audit-log-export/) — export LLM gateway audit logs
+- [Audit Log Export](../configuration/audit-log-export.md) — export LLM gateway audit logs

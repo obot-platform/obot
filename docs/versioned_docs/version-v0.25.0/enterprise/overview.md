@@ -14,7 +14,7 @@ The default edition. It supports up to 100 users and 100 devices and does not in
 
 ## Obot Community
 
-Adds the enterprise-grade [auth providers](/configuration/auth-providers/), Entra, Okta, JumpCloud, and
+Adds the enterprise-grade [auth providers](../configuration/auth-providers.md), Entra, Okta, JumpCloud, and
 Auth0, so your users can log in through your existing identity provider. The 100 user and device limits still apply.
 
 Obot Community is free and just requires a one-time registration. To enable it, go to the **License** page in the admin UI.
