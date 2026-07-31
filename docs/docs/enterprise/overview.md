@@ -1,15 +1,25 @@
-# Enterprise Release
+---
+title: Obot Editions
+---
 
-We offer an enterprise-grade version of the Obot Platform that adds support for the following:
-- Additional **auth providers** such as Okta and Microsoft Entra
-- Additional **model providers** such as OpenAI on Azure and Anthropic on Amazon Bedrock
+# Obot Editions
 
-## Licensing
+Obot is available in three editions. They are all delivered in the same container image, and you can
+upgrade from one to the next in the app. The editions differ in which capabilities are enabled and
+what usage limits apply.
 
-Enterprise features are enabled with a license key. Request one for free for non-commercial and proof-of-concept purposes by reaching out to us on our [Discord](https://discord.gg/9sSf4UyAMC).
+## Obot
 
-Provide the key in one of two ways:
-- Set the `OBOT_SERVER_LICENSE_KEY` environment variable.
-- Enter it in the Obot UI.
+The default edition. It supports up to 100 users and 100 devices and does not include enterprise-grade auth providers Entra, Okta, JumpCloud, and Auth0.
 
-Once a valid key is configured, the enterprise features become available.
+## Obot Community
+
+Adds the enterprise-grade [auth providers](/configuration/auth-providers/), Entra, Okta, JumpCloud, and
+Auth0, so your users can log in through your existing identity provider. The 100 user and device limits still apply.
+
+Obot Community is free and just requires a one-time registration. To enable it, go to the **License** page in the admin UI.
+
+## Obot Enterprise
+
+Everything in Obot Community, with unlimited users and devices and enterprise support. To get an Enterprise license,
+[contact us](https://obot.ai/contact-us/).
