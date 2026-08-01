@@ -2,16 +2,21 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -19,13 +24,49 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	kschema "k8s.io/apimachinery/pkg/runtime/schema"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+type conflictOnceStorage struct {
+	kclient.WithWatch
+	updates       int
+	mutateOnError func(*v1.MCPServer)
+}
+
+func (c *conflictOnceStorage) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	c.updates++
+	if c.updates == 1 {
+		if c.mutateOnError != nil {
+			var latest v1.MCPServer
+			if err := c.Get(ctx, kclient.ObjectKeyFromObject(obj), &latest); err != nil {
+				return err
+			}
+			c.mutateOnError(&latest)
+			if err := c.WithWatch.Update(ctx, &latest); err != nil {
+				return err
+			}
+		}
+		return apierrors.NewConflict(
+			kschema.GroupResource{Group: v1.SchemeGroupVersion.Group, Resource: "mcpservers"},
+			obj.GetName(),
+			fmt.Errorf("controller updated MCPServer status"),
+		)
+	}
+	return c.WithWatch.Update(ctx, obj, opts...)
+}
+
+type noopControllerTrigger struct{}
+
+func (noopControllerTrigger) Trigger(context.Context, kschema.GroupVersionKind, string, time.Duration) error {
+	return nil
+}
 
 func TestConvertMCPResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
@@ -162,6 +203,173 @@ func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
 	var updated v1.MCPServer
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
 	assert.Empty(t, updated.Spec.Alias)
+}
+
+func TestConfigureServerRetriesControllerUpdateConflict(t *testing.T) {
+	storage, err := configureServerWithInjectedConflict(t, func(server *v1.MCPServer) {
+		server.Status.DeploymentStatus = "Progressing"
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, storage.updates)
+	var updated v1.MCPServer
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Name: "server", Namespace: system.DefaultNamespace}, &updated))
+	assert.Equal(t, "Progressing", updated.Status.DeploymentStatus)
+}
+
+func TestConfigureServerRejectsConcurrentSpecChange(t *testing.T) {
+	entry, server := configureServerTestObjects()
+	storage := &conflictOnceStorage{
+		WithWatch: newFakeStorage(t, &entry, &server),
+		mutateOnError: func(server *v1.MCPServer) {
+			server.Spec.Alias = "changed elsewhere"
+		},
+	}
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: "default-server",
+		Name:    "server",
+		Secrets: map[string]string{"TOKEN": "original"},
+	}))
+
+	err := configureServerRequestWithConfig(storage, gatewayClient, `{"TOKEN":"attempted"}`, func(string) error { return nil })
+
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+	assert.Equal(t, 1, storage.updates)
+	var updated v1.MCPServer
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Name: "server", Namespace: system.DefaultNamespace}, &updated))
+	assert.Equal(t, "changed elsewhere", updated.Spec.Alias)
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{"default-server"}, "server")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"TOKEN": "original"}, credential.Secrets)
+}
+
+func TestConfigureServerSerializesCredentialReplacement(t *testing.T) {
+	entry, server := configureServerTestObjects()
+	storage := newFakeStorage(t, &entry, &server)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: "default-server",
+		Name:    "server",
+		Secrets: map[string]string{"TOKEN": "initial"},
+	}))
+
+	firstDeleted := make(chan struct{})
+	secondDeleted := make(chan struct{})
+	releaseFirst := make(chan struct{})
+	var shutdownCalls atomic.Int32
+	shutdown := func(string) error {
+		switch shutdownCalls.Add(1) {
+		case 1:
+			close(firstDeleted)
+			<-releaseFirst
+		case 2:
+			close(secondDeleted)
+		}
+		return nil
+	}
+
+	firstErr := make(chan error, 1)
+	go func() {
+		firstErr <- configureServerRequestWithConfig(storage, gatewayClient, `{"TOKEN":"first"}`, shutdown)
+	}()
+
+	select {
+	case <-firstDeleted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the first credential deletion")
+	}
+	_, err := gatewayClient.RevealCredential(t.Context(), []string{"default-server"}, "server")
+	var notFound gateway.CredentialNotFoundError
+	require.Error(t, err)
+	require.True(t, errors.As(err, &notFound))
+
+	secondErr := make(chan error, 1)
+	go func() {
+		secondErr <- configureServerRequestWithConfig(storage, gatewayClient, `{"TOKEN":"second"}`, shutdown)
+	}()
+	select {
+	case <-secondDeleted:
+		t.Fatal("second configuration replaced credentials before the first completed")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(releaseFirst)
+	require.NoError(t, <-firstErr)
+	require.NoError(t, <-secondErr)
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{"default-server"}, "server")
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"TOKEN": "second"}, credential.Secrets)
+}
+
+func configureServerWithInjectedConflict(t *testing.T, mutateOnError func(*v1.MCPServer)) (*conflictOnceStorage, error) {
+	t.Helper()
+
+	entry, server := configureServerTestObjects()
+	storage := &conflictOnceStorage{
+		WithWatch:     newFakeStorage(t, &entry, &server),
+		mutateOnError: mutateOnError,
+	}
+
+	return storage, configureServerRequest(storage, newHandlerTestGateway(t))
+}
+
+func configureServerTestObjects() (v1.MCPServerCatalogEntry, v1.MCPServer) {
+	entry := v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "entry",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: "default",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "entry",
+				Runtime:        types.RuntimeRemote,
+				ServerUserType: types.ServerUserTypeMultiUser,
+			},
+		},
+	}
+	server := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "server",
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID:              "default",
+			MCPServerCatalogEntryName: "entry",
+			Manifest: types.MCPServerManifest{
+				Name:         "server",
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
+			},
+		},
+	}
+	return entry, server
+}
+
+func configureServerRequest(storage kclient.WithWatch, gatewayClient *gateway.Client) error {
+	return configureServerRequestWithConfig(storage, gatewayClient, `{}`, func(string) error { return nil })
+}
+
+func configureServerRequestWithConfig(storage kclient.WithWatch, gatewayClient *gateway.Client, config string, shutdown func(string) error) error {
+	request := httptest.NewRequest(http.MethodPost, "/api/mcp-catalogs/default/servers/server/configure", strings.NewReader(config))
+	request.SetPathValue("catalog_id", "default")
+	request.SetPathValue("mcp_server_id", "server")
+
+	err := (&MCPHandler{
+		controllerBackend: noopControllerTrigger{},
+		shutdownMCPServer: shutdown,
+	}).ConfigureServer(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User:           testUser("owner"),
+	})
+
+	return err
 }
 
 func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaximum(t *testing.T) {

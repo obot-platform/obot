@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"maps"
@@ -35,6 +36,10 @@ type Client struct {
 	enforcementLock         sync.Mutex
 	enforcementBuffer       []types.EnforcementDecisionLog
 	kickEnforcementPersist  chan struct{}
+	credentialLocks         sync.Map
+	credentialLockPoolOnce  sync.Once
+	credentialLockPool      *sql.DB
+	credentialLockPoolErr   error
 	llmAuditEntries         chan llmAuditEntry
 	llmAuditBatchSize       int
 	llmAuditEnabled         bool
@@ -94,6 +99,11 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 
 func (c *Client) Close() error {
 	var errs []error
+	if c.credentialLockPool != nil {
+		if err := c.credentialLockPool.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close credential lock database: %w", err))
+		}
+	}
 	if err := c.persistMCPAuditLogs(); err != nil {
 		errs = append(errs, fmt.Errorf("failed to persist audit logs: %w", err))
 	}

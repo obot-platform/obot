@@ -2,12 +2,20 @@ package client
 
 import (
 	"context"
+	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	gormpostgres "gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -19,7 +27,120 @@ var credentialGroupResource = schema.GroupResource{
 	Resource: "credentials",
 }
 
-const credentialEncryptedSecretsKey = "_obot_encrypted_env"
+const (
+	credentialEncryptedSecretsKey = "_obot_encrypted_env"
+	credentialLockRetryInterval   = 25 * time.Millisecond
+	credentialLockMaxConnections  = 5
+	credentialLockMaxIdleConns    = 2
+)
+
+// AcquireCredentialLock serializes operations for one credential key. PostgreSQL
+// uses a transaction-scoped advisory lock so independent Obot processes share the
+// same lock; non-PostgreSQL databases use a context-aware process-local semaphore.
+func (c *Client) AcquireCredentialLock(ctx context.Context, key string) (func(), error) {
+	if key == "" {
+		return nil, fmt.Errorf("credential lock key is required")
+	}
+
+	db := c.db.WithContext(ctx)
+	if db.Name() == "postgres" {
+		lockPool, err := c.postgresCredentialLockPool(db)
+		if err != nil {
+			return nil, err
+		}
+		return acquirePostgresCredentialLock(ctx, lockPool, key)
+	}
+	return c.acquireProcessCredentialLock(ctx, key)
+}
+
+func (c *Client) postgresCredentialLockPool(db *gorm.DB) (*sql.DB, error) {
+	c.credentialLockPoolOnce.Do(func() {
+		// Advisory-lock holders retain their connection for the protected operation.
+		// A separate pool prevents those holders from starving normal database work.
+		dialector, ok := db.Dialector.(*gormpostgres.Dialector)
+		if !ok || dialector.Config == nil || dialector.DSN == "" {
+			c.credentialLockPoolErr = fmt.Errorf("failed to determine PostgreSQL credential lock database configuration")
+			return
+		}
+		config, err := pgx.ParseConfig(dialector.DSN)
+		if err != nil {
+			c.credentialLockPoolErr = fmt.Errorf("failed to parse credential lock database configuration: %w", err)
+			return
+		}
+		c.credentialLockPool = stdlib.OpenDB(*config)
+		c.credentialLockPool.SetMaxOpenConns(credentialLockMaxConnections)
+		c.credentialLockPool.SetMaxIdleConns(credentialLockMaxIdleConns)
+	})
+	return c.credentialLockPool, c.credentialLockPoolErr
+}
+
+func acquirePostgresCredentialLock(ctx context.Context, sqlDB *sql.DB, key string) (func(), error) {
+	lockID := credentialLockID(key)
+
+	for {
+		conn, err := sqlDB.Conn(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to reserve credential lock connection: %w", err)
+		}
+		tx, err := conn.BeginTx(context.WithoutCancel(ctx), nil)
+		if err != nil {
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to begin credential lock transaction: %w", err)
+		}
+		var acquired bool
+		if err := tx.QueryRowContext(ctx, "SELECT pg_try_advisory_xact_lock($1)", lockID).Scan(&acquired); err != nil {
+			_ = tx.Rollback()
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to acquire credential lock: %w", err)
+		}
+
+		if acquired {
+			var release sync.Once
+			return func() {
+				release.Do(func() {
+					_ = tx.Rollback()
+					_ = conn.Close()
+				})
+			}, nil
+		}
+		_ = tx.Rollback()
+		_ = conn.Close()
+
+		timer := time.NewTimer(credentialLockRetryInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func credentialLockID(key string) int64 {
+	digest := sha256.Sum256([]byte(key))
+	return int64(binary.BigEndian.Uint64(digest[:8]))
+}
+
+func (c *Client) acquireProcessCredentialLock(ctx context.Context, key string) (func(), error) {
+	permitCandidate := make(chan struct{}, 1)
+	permitCandidate <- struct{}{}
+	permitValue, _ := c.credentialLocks.LoadOrStore(key, permitCandidate)
+	permit := permitValue.(chan struct{})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-permit:
+	}
+
+	var release sync.Once
+	return func() {
+		release.Do(func() {
+			permit <- struct{}{}
+		})
+	}, nil
+}
 
 type ListCredentialsOptions struct {
 	CredentialContexts []string

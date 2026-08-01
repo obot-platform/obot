@@ -1882,6 +1882,8 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return m.configureCompositeServer(req, mcpServer)
 	}
 
+	originalSpecDigest := utils.Digest(mcpServer.Spec)
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
@@ -1899,7 +1901,6 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			return fmt.Errorf("failed to get catalog entry %s: %w", mcpServer.Spec.MCPServerCatalogEntryName, err)
 		}
 
-		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
 			if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, catalogEntry, url, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
 				return err
@@ -1907,7 +1908,6 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 			// The URL is part of user configuration, but it is stored on the MCPServer spec rather than in credentials.
 			delete(envVars, configURLKey)
-			updateServer = true
 		}
 
 		// Check if the catalog entry has a URL template for remote runtime
@@ -1935,41 +1935,66 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 
-			updateServer = updateServer || mcpServer.Spec.NeedsURL || mcpServer.Spec.Manifest.RemoteConfig.URL != ""
 			mcpServer.Spec.NeedsURL = false
 			mcpServer.Spec.PreviousURL = ""
 		}
-
-		if updateServer {
-			if err := req.Update(&mcpServer); err != nil {
-				return fmt.Errorf("failed to update server configuration: %w", err)
-			}
-		}
 	}
 
-	if err := req.Update(&mcpServer); err != nil {
+	credentialName := mcpServer.Name
+	var credentialContext string
+	if catalogID != "" {
+		credentialContext = fmt.Sprintf("%s-%s", catalogID, credentialName)
+	} else if workspaceID != "" {
+		credentialContext = fmt.Sprintf("%s-%s", workspaceID, credentialName)
+	} else {
+		credentialContext = fmt.Sprintf("%s-%s", req.User.GetUID(), credentialName)
+	}
+	credentialLockKey := credentialContext + "\x00" + credentialName
+	releaseCredentialLock, err := req.GatewayClient.AcquireCredentialLock(req.Context(), credentialLockKey)
+	if err != nil {
+		return fmt.Errorf("failed to acquire server configuration lock: %w", err)
+	}
+	defer releaseCredentialLock()
+
+	configuredSpec := mcpServer.Spec
+	candidate := mcpServer
+	firstAttempt := true
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if !firstAttempt {
+			var latest v1.MCPServer
+			if err := req.Get(&latest, mcpServer.Name); err != nil {
+				return err
+			}
+			if latest.Spec.MCPCatalogID != catalogID || latest.Spec.PowerUserWorkspaceID != workspaceID {
+				return types.NewErrNotFound("MCP server not found")
+			}
+			if utils.Digest(latest.Spec) != originalSpecDigest {
+				return types.NewErrHTTP(http.StatusConflict, "MCP server changed during configuration")
+			}
+			candidate = latest
+		}
+
+		candidate.Spec = configuredSpec
+		firstAttempt = false
+		if err := req.Update(&candidate); err != nil {
+			return err
+		}
+		mcpServer = candidate
+		return nil
+	}); err != nil {
 		return fmt.Errorf("failed to update server configuration: %w", err)
 	}
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
-
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credCtx}); err != nil {
+	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credentialContext}); err != nil {
 		return err
 	}
 
 	sanitizeConfig(envVars, mcpServer.Spec.Manifest)
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: credCtx,
-		Name:    mcpServer.Name,
+		Context: credentialContext,
+		Name:    credentialName,
 		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
