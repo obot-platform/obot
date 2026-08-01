@@ -31,6 +31,29 @@ jobs:
       - name: Render Helm chart
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true
 
+      - name: Multi-replica pools require shared storage
+        run: |
+          set -u
+          base=(helm template obot chart --set dev.useEmbeddedDb=true)
+          expect() {
+            want="$1"; desc="$2"; shift 2
+            if "${base[@]}" "$@" >/dev/null 2>&1; then got=renders; else got=refuses; fi
+            [ "$got" = "$want" ] || { echo "FAIL: expected chart to $want $desc, got $got"; exit 1; }
+            echo "ok: chart ${got} ${desc}"
+          }
+          expect renders "a single replica on an RWO volume"
+          expect refuses "two replicas on an RWO volume" --set replicaCount=2
+          expect renders "two replicas on an RWX volume" \
+            --set replicaCount=2 --set 'persistence.accessModes[0]=ReadWriteMany'
+          expect renders "two replicas on an operator-supplied claim" \
+            --set replicaCount=2 --set persistence.existingClaim=obot-shared
+          expect refuses "two replicas with no volume and no artifact store" \
+            --set replicaCount=2 --set persistence.enabled=false
+          expect renders "two replicas with no volume but an artifact object store" \
+            --set replicaCount=2 --set persistence.enabled=false \
+            --set config.OBOT_ARTIFACT_STORAGE_PROVIDER=azure \
+            --set config.OBOT_ARTIFACT_STORAGE_BUCKET=obot
+
   build:
     runs-on: ubuntu-latest
 

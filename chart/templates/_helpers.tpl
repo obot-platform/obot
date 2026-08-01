@@ -155,6 +155,36 @@ Validate network policy provider Helm chart configuration.
 {{- end -}}
 
 {{/*
+Validate that a multi-replica pool has storage every replica can read.
+
+Obot writes published artifacts and audit logs as files under persistence.path.
+Two replicas sharing a ReadWriteOnce claim either strand the second pod on
+another node or hand each pod a private volume, so an artifact written by one is
+missing from the other — both fail silently, long after install. Refuse the
+combination instead.
+
+Valid multi-replica storage:
+  * a ReadWriteMany claim, so every replica sees the same files; or
+  * an existingClaim, whose access mode this chart cannot see — the operator
+    owns that guarantee; or
+  * no volume at all plus an artifact object store, which shares the files
+    every replica must agree on.
+*/}}
+{{- define "obot.validateReplicaStorage" -}}
+{{- if gt (int .Values.replicaCount) 1 -}}
+{{- if .Values.persistence.enabled -}}
+{{- if and (not .Values.persistence.existingClaim) (not (has "ReadWriteMany" .Values.persistence.accessModes)) -}}
+{{- fail (printf "replicaCount is %d but persistence.accessModes is %v: a multi-replica pool needs persistence.accessModes [ReadWriteMany] on an RWX storage class, an existingClaim backed by shared storage, or persistence.enabled=false with config.OBOT_ARTIFACT_STORAGE_PROVIDER set" (int .Values.replicaCount) .Values.persistence.accessModes) -}}
+{{- end -}}
+{{- else -}}
+{{- if not (.Values.config.OBOT_ARTIFACT_STORAGE_PROVIDER | default "" | toString | trim) -}}
+{{- fail (printf "replicaCount is %d with persistence.enabled=false but config.OBOT_ARTIFACT_STORAGE_PROVIDER is unset: published artifacts would stay on each replica's own ephemeral disk" (int .Values.replicaCount)) -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
 Get the image tag, defaulting to appVersion. If appVersion looks like a development version (0.0.0-dev),
 defaults to "main" tag instead.
 */}}
