@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -573,7 +574,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	// Refresh the token if needed
-	tok, err := config.TokenSource(req.Context(), token).Token()
+	tok, err := refreshOAuthToken(req.Context(), h.staticOAuthHTTPClient, config, token)
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to refresh token", ""))
 	}
@@ -592,6 +593,13 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		TokenType:       "Bearer",
 		ExpiresIn:       max(int(time.Until(tok.Expiry).Seconds()), 0),
 	})
+}
+
+func refreshOAuthToken(ctx context.Context, httpClient *http.Client, config *oauth2.Config, token *oauth2.Token) (*oauth2.Token, error) {
+	if httpClient != nil {
+		ctx = context.WithValue(ctx, oauth2.HTTPClient, httpClient)
+	}
+	return config.TokenSource(ctx, token).Token()
 }
 
 // getTokenForConnectResource handles the special case of token exchange for /mcp-connect/{resourceMCPID} resources.

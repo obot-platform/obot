@@ -881,10 +881,28 @@ export type MCPFilterInput = Omit<MCPFilter, 'id'> & { id?: string };
 export interface MCPServerOAuthCredentialRequest {
 	clientID: string;
 	clientSecret: string;
+	proof: string;
+}
+export type MCPServerOAuthCredentialTestRequest = Omit<MCPServerOAuthCredentialRequest, 'proof'>;
+export interface MCPServerOAuthCredentialTestStart {
+	testState: string;
+	oauthURL: string;
+}
+export interface MCPServerOAuthCredentialTestResult {
+	status: 'pending' | 'succeeded' | 'failed';
+	expiresAt: string;
+	proof?: string;
+	failureCategory?:
+		| 'authorization_denied'
+		| 'invalid_callback'
+		| 'token_exchange_failed'
+		| 'expired';
 }
 export interface MCPServerOAuthCredentialStatus {
 	configured: boolean;
 	clientID?: string;
+	generation?: string;
+	callbackURL: string;
 }
 
 /** Subset of RFC 7591 / Obot OAuth client registration response used by the MCP OAuth debugger. */

@@ -9,6 +9,7 @@ import {
 	doPatch,
 	doPost,
 	doPut,
+	doWithBody,
 	handleResponse,
 	type Fetcher,
 	type PaginatedResponse
@@ -68,6 +69,9 @@ import type {
 	MCPCapacityInfo,
 	MCPServerOAuthCredentialRequest,
 	MCPServerOAuthCredentialStatus,
+	MCPServerOAuthCredentialTestRequest,
+	MCPServerOAuthCredentialTestResult,
+	MCPServerOAuthCredentialTestStart,
 	TokenUsageTimeRange,
 	TotalTokenUsage,
 	TokenUsage,
@@ -870,6 +874,32 @@ export async function getMCPCatalogEntryOAuthCredentials(
 	return response;
 }
 
+export async function startMCPCatalogEntryOAuthCredentialTest(
+	catalogID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialTestRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialTestStart> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credential-tests`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialTestStart;
+}
+
+export async function getMCPCatalogEntryOAuthCredentialTest(
+	catalogID: string,
+	entryID: string,
+	testState: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialTestResult> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credential-tests/status`,
+		{ testState },
+		opts
+	)) as MCPServerOAuthCredentialTestResult;
+}
+
 export async function setMCPCatalogEntryOAuthCredentials(
 	catalogID: string,
 	entryID: string,
@@ -884,12 +914,31 @@ export async function setMCPCatalogEntryOAuthCredentials(
 	return response;
 }
 
+export async function replaceMCPCatalogEntryOAuthCredentials(
+	catalogID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	return (await doPut(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialStatus;
+}
+
 export async function deleteMCPCatalogEntryOAuthCredentials(
 	catalogID: string,
 	entryID: string,
-	opts?: { signal?: AbortSignal }
+	expectedGeneration: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<void> {
-	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`, opts);
+	await doWithBody(
+		'DELETE',
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`,
+		{ expectedGeneration },
+		opts
+	);
 }
 
 export async function refreshCompositeComponents(

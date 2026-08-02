@@ -39,7 +39,7 @@ func TestRoleUpliftAddsRequestTimeAdminWithoutOwner(t *testing.T) {
 	assert.NotContains(t, groups, types.GroupOwner)
 }
 
-func TestRoleUpliftPreservesDecoratedOwnerRole(t *testing.T) {
+func TestRoleUpliftRemovesDecoratedOwnerRoleForBasicClaim(t *testing.T) {
 	wrapped := NewRoleUplift(staticAuthenticator{
 		response: &authenticator.Response{
 			User: &user.DefaultInfo{
@@ -52,6 +52,52 @@ func TestRoleUpliftPreservesDecoratedOwnerRole(t *testing.T) {
 			},
 		},
 	}, Config{AdminRoles: []string{"admin"}})
+
+	resp, ok, err := wrapped.AuthenticateRequest(&http.Request{})
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	assert.NotContains(t, resp.User.GetGroups(), types.GroupOwner)
+	assert.NotContains(t, resp.User.GetGroups(), types.GroupAdmin)
+	assert.Contains(t, resp.User.GetGroups(), types.GroupBasic)
+}
+
+func TestRoleUpliftRemovesDecoratedOwnerRoleForAdminClaim(t *testing.T) {
+	wrapped := NewRoleUplift(staticAuthenticator{
+		response: &authenticator.Response{
+			User: &user.DefaultInfo{
+				Name:   "admin",
+				UID:    "2",
+				Groups: append(types.RoleOwner.Groups(), "external-group"),
+				Extra: map[string][]string{
+					jwtRolesExtraKey: {"admin"},
+				},
+			},
+		},
+	}, Config{AdminRoles: []string{"admin"}, OwnerRoles: []string{"owner"}})
+
+	resp, ok, err := wrapped.AuthenticateRequest(&http.Request{})
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	assert.NotContains(t, resp.User.GetGroups(), types.GroupOwner)
+	assert.Contains(t, resp.User.GetGroups(), types.GroupAdmin)
+	assert.Contains(t, resp.User.GetGroups(), "external-group")
+}
+
+func TestRoleUpliftAddsRequestTimeOwnerForConfiguredOwnerClaim(t *testing.T) {
+	wrapped := NewRoleUplift(staticAuthenticator{
+		response: &authenticator.Response{
+			User: &user.DefaultInfo{
+				Name:   "owner",
+				UID:    "1",
+				Groups: types.RoleBasic.Groups(),
+				Extra: map[string][]string{
+					jwtRolesExtraKey: {"owner"},
+				},
+			},
+		},
+	}, Config{AdminRoles: []string{"admin"}, OwnerRoles: []string{"owner"}})
 
 	resp, ok, err := wrapped.AuthenticateRequest(&http.Request{})
 	require.NoError(t, err)

@@ -2,16 +2,139 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/safehttp"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestExchangeAndPersistOAuthDebuggerTokenForDirectDynamicAndCIMD(t *testing.T) {
+	const (
+		mcpID  = "direct-mcp-server"
+		mcpURL = "https://direct-mcp.example/api"
+	)
+	for _, tc := range []struct {
+		name   string
+		legacy bool
+		config *oauth2.Config
+	}{
+		{name: "new dynamic registration", config: &oauth2.Config{ClientID: "dynamic-client", ClientSecret: "dynamic-secret"}},
+		{name: "new CIMD", config: &oauth2.Config{ClientID: "https://obot.example/oauth/client-metadata"}},
+		{name: "legacy dynamic registration", legacy: true, config: &oauth2.Config{ClientID: "dynamic-client", ClientSecret: "dynamic-secret"}},
+		{name: "legacy CIMD", legacy: true, config: &oauth2.Config{ClientID: "https://obot.example/oauth/client-metadata"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gatewayClient := newDirectOAuthDebuggerTestClient(t, mcpID)
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprint(w, `{"access_token":"debugger-access","refresh_token":"debugger-refresh","token_type":"Bearer"}`)
+			}))
+			t.Cleanup(provider.Close)
+			config := *tc.config
+			config.Endpoint = oauth2.Endpoint{AuthURL: provider.URL + "/authorize", TokenURL: provider.URL}
+			var pending *gatewaytypes.MCPOAuthPendingState
+			if tc.legacy {
+				pending = &gatewaytypes.MCPOAuthPendingState{
+					UserID: "user-1", MCPID: mcpID, URL: mcpURL,
+					OAuthAuthRequestID: OAuthDebuggerPendingStateMarker,
+					ClientID:           config.ClientID, ClientSecret: config.ClientSecret,
+					AuthURL: config.Endpoint.AuthURL, TokenURL: config.Endpoint.TokenURL,
+				}
+			} else {
+				if err := gatewayClient.CreateMCPOAuthPendingState(t.Context(), "user-1", mcpID, mcpURL, OAuthDebuggerPendingStateMarker, "", "new-state", "verifier-1", &config); err != nil {
+					t.Fatalf("create debugger pending state: %v", err)
+				}
+				var err error
+				pending, err = gatewayClient.GetMCPOAuthPendingState(t.Context(), "new-state")
+				if err != nil {
+					t.Fatalf("load debugger pending state: %v", err)
+				}
+			}
+
+			token, err := exchangeAndPersistOAuthDebuggerToken(t.Context(), gatewayClient, pending, "code-1")
+			if err != nil {
+				t.Fatalf("exchange direct debugger token: %v", err)
+			}
+			if token.AccessToken != "debugger-access" {
+				t.Fatalf("provider token = %q", token.AccessToken)
+			}
+			stored, err := gatewayClient.GetMCPOAuthToken(t.Context(), "user-1", mcpID, mcpURL)
+			if err != nil {
+				t.Fatalf("load stored debugger token: %v", err)
+			}
+			if stored.AccessToken != "debugger-access" || stored.CatalogEntryName != "" {
+				t.Fatalf("stored debugger token = access %q entry %q", stored.AccessToken, stored.CatalogEntryName)
+			}
+		})
+	}
+}
+
+func TestExchangeOAuthDebuggerTokenBlocksStaticCatalogPrivateTokenEndpoint(t *testing.T) {
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		t.Error("restricted client reached the private token endpoint")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(provider.Close)
+	pending := &gatewaytypes.MCPOAuthPendingState{
+		UserID: "user-1", MCPID: "mcp-1", URL: "https://mcp.example/api",
+		OAuthAuthRequestID: OAuthDebuggerPendingStateMarker,
+		CatalogEntryName:   "entry-1",
+		ClientID:           "client-1", ClientSecret: "secret-1",
+		AuthURL: "https://provider.example/authorize", TokenURL: provider.URL,
+	}
+
+	_, err := exchangeAndPersistOAuthDebuggerToken(
+		t.Context(),
+		newDirectOAuthDebuggerTestClient(t, "mcp-1"),
+		pending,
+		"code-1",
+		safehttp.NewClient(true, true, true),
+	)
+	if err == nil || !strings.Contains(err.Error(), "failed to exchange OAuth code") {
+		t.Fatalf("expected blocked private token exchange, got %v", err)
+	}
+}
+
+func newDirectOAuthDebuggerTestClient(t *testing.T, mcpID string) *gateway.Client {
+	t.Helper()
+	storageClient := clientfake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(&v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{Namespace: system.DefaultNamespace, Name: mcpID},
+		}).
+		Build()
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatalf("create storage services: %v", err)
+	}
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	if err != nil {
+		t.Fatalf("create gateway DB: %v", err)
+	}
+	if err := db.AutoMigrate(); err != nil {
+		t.Fatalf("migrate gateway DB: %v", err)
+	}
+	gatewayClient := gateway.New(t.Context(), db, storageClient, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = gatewayClient.Close() })
+	return gatewayClient
+}
 
 func TestOAuthDebuggerMetadata(t *testing.T) {
 	authServer := nmcp.AuthorizationServerMetadata{

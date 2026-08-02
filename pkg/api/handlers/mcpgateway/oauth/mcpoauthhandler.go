@@ -5,8 +5,10 @@ import (
 	"crypto/rand"
 	"fmt"
 	"strings"
+	"sync"
 
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -27,11 +29,16 @@ type MCPOAuthHandlerFactory struct {
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string) *MCPOAuthHandlerFactory {
+	remoteURLValidationConfig := sessionManager.RemoteMCPURLValidationConfig()
 	return &MCPOAuthHandlerFactory{
-		baseURL:                   baseURL,
-		mcpSessionManager:         sessionManager,
-		client:                    client,
-		stateMgr:                  newStateManager(gatewayClient),
+		baseURL:           baseURL,
+		mcpSessionManager: sessionManager,
+		client:            client,
+		stateMgr: newStateManager(gatewayClient, safehttp.NewClient(
+			!remoteURLValidationConfig.AllowLocalhostMCP,
+			!remoteURLValidationConfig.AllowPrivateIPMCP,
+			!remoteURLValidationConfig.AllowLinkLocalMCP,
+		)),
 		tokenStore:                globalTokenStore,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
@@ -156,6 +163,8 @@ type mcpOAuthHandler struct {
 	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
+	catalogEntryMu     sync.RWMutex
+	catalogEntryName   string
 }
 
 func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID string) *mcpOAuthHandler {
@@ -194,27 +203,42 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
 	// the pending state from the DB directly.
 	ch := make(chan nmcp.CallbackPayload)
-	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
+	m.catalogEntryMu.RLock()
+	catalogEntryName := m.catalogEntryName
+	m.catalogEntryMu.RUnlock()
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, catalogEntryName, state, verifier, conf)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string, error) {
 	if m.mcpID != "" {
-		var server v1.MCPServer
-		if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &server); err == nil {
-			// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
-			if server.Spec.MCPServerCatalogEntryName != "" {
-				credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
-				cred, err := m.gatewayClient.RevealCredential(ctx, []string{credName}, "oauth")
-				if err == nil {
-					clientID := cred.Secrets["CLIENT_ID"]
-					clientSecret := cred.Secrets["CLIENT_SECRET"]
-					if clientID != "" && clientSecret != "" {
-						return clientID, clientSecret, nil
-					}
+		entryName := m.catalogEntryForMCP(ctx)
+		if entryName != "" {
+			credName := system.MCPOAuthCredentialName(entryName)
+			cred, err := m.gatewayClient.RevealCredential(ctx, []string{credName}, "oauth")
+			if err == nil {
+				clientID := cred.Secrets["CLIENT_ID"]
+				clientSecret := cred.Secrets["CLIENT_SECRET"]
+				if clientID != "" && clientSecret != "" {
+					m.catalogEntryMu.Lock()
+					m.catalogEntryName = entryName
+					m.catalogEntryMu.Unlock()
+					return clientID, clientSecret, nil
 				}
 			}
 		}
 	}
 
 	return "", "", fmt.Errorf("no credentials found for MCP server %s", m.mcpID)
+}
+
+func (m *mcpOAuthHandler) catalogEntryForMCP(ctx context.Context) string {
+	var server v1.MCPServer
+	if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &server); err == nil {
+		return server.Spec.MCPServerCatalogEntryName
+	}
+	var instance v1.MCPServerInstance
+	if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &instance); err == nil {
+		return instance.Spec.MCPServerCatalogEntryName
+	}
+	return ""
 }

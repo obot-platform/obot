@@ -44,6 +44,7 @@
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
 	import StaticOAuthConfigureModal from '../mcp/StaticOAuthConfigureModal.svelte';
+	import { staticOAuthSaveWasCommitted } from '../mcp/staticOAuthCredentialTestState';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
@@ -659,14 +660,20 @@
 	async function handleConfigureOAuth() {
 		if (!entry || !id) return;
 		try {
-			staticOauthStatus =
-				entity === 'workspace'
-					? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id)
-					: await AdminService.getMCPCatalogEntryOAuthCredentials(id, entry.id);
+			staticOauthStatus = await loadOAuthStatus(entry, id);
 		} catch {
-			staticOauthStatus = { configured: false };
+			return;
 		}
 		staticOauthConfigModal?.open();
+	}
+
+	function loadOAuthStatus(
+		target: MCPCatalogEntry | MCPCatalogServer,
+		catalogOrWorkspaceID: string
+	) {
+		return entity === 'workspace'
+			? UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(catalogOrWorkspaceID, target.id)
+			: AdminService.getMCPCatalogEntryOAuthCredentials(catalogOrWorkspaceID, target.id);
 	}
 
 	function handleCancel() {
@@ -1496,27 +1503,77 @@
 <StaticOAuthConfigureModal
 	bind:this={staticOauthConfigModal}
 	oauthStatus={staticOauthStatus}
+	onStartTest={async (credentials) => {
+		if (!entry || !id) throw new Error('No MCP catalog entry selected');
+		return entity === 'workspace'
+			? UserService.startWorkspaceMCPCatalogEntryOAuthCredentialTest(id, entry.id, credentials)
+			: AdminService.startMCPCatalogEntryOAuthCredentialTest(id, entry.id, credentials);
+	}}
+	onGetTest={async (state) => {
+		if (!entry || !id) throw new Error('No MCP catalog entry selected');
+		return entity === 'workspace'
+			? UserService.getWorkspaceMCPCatalogEntryOAuthCredentialTest(id, entry.id, state)
+			: AdminService.getMCPCatalogEntryOAuthCredentialTest(id, entry.id, state);
+	}}
 	onSave={async (credentials) => {
 		if (!entry || !id) return;
-		if (entity === 'workspace') {
-			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
-		} else {
-			await AdminService.setMCPCatalogEntryOAuthCredentials(id, entry.id, credentials);
+		const statusBeforeSave = staticOauthStatus;
+		const replacing = statusBeforeSave?.configured === true;
+		let savedStatus: MCPServerOAuthCredentialStatus | undefined;
+		try {
+			if (entity === 'workspace') {
+				const save = replacing
+					? UserService.replaceWorkspaceMCPCatalogEntryOAuthCredentials
+					: UserService.setWorkspaceMCPCatalogEntryOAuthCredentials;
+				savedStatus = await save(id, entry.id, credentials);
+			} else {
+				const save = replacing
+					? AdminService.replaceMCPCatalogEntryOAuthCredentials
+					: AdminService.setMCPCatalogEntryOAuthCredentials;
+				savedStatus = await save(id, entry.id, credentials);
+			}
+		} catch (error) {
+			try {
+				staticOauthStatus = await loadOAuthStatus(entry, id);
+			} catch {
+				// The request layer reports the status-refresh failure separately.
+			}
+			if (
+				!(await staticOAuthSaveWasCommitted(
+					staticOauthStatus,
+					credentials.clientID,
+					credentials.proof
+				))
+			) {
+				throw error;
+			}
+			savedStatus = staticOauthStatus;
 		}
-		staticOauthStatus = {
-			...staticOauthStatus,
-			configured: true
-		};
+		staticOauthStatus = savedStatus;
 	}}
-	onDelete={async () => {
+	onDelete={async (expectedGeneration) => {
 		if (!entry || !id) return;
-		if (entity === 'workspace') {
-			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(id, entry.id);
-		} else {
-			await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id);
+		try {
+			if (entity === 'workspace') {
+				await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+					id,
+					entry.id,
+					expectedGeneration
+				);
+			} else {
+				await AdminService.deleteMCPCatalogEntryOAuthCredentials(id, entry.id, expectedGeneration);
+			}
+		} catch (error) {
+			try {
+				staticOauthStatus = await loadOAuthStatus(entry, id);
+			} catch {
+				// Preserve the stale-generation error if the refresh also fails.
+			}
+			throw error;
 		}
 		staticOauthStatus = {
 			...staticOauthStatus,
+			callbackURL: staticOauthStatus?.callbackURL ?? '',
 			configured: false
 		};
 	}}

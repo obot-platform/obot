@@ -268,13 +268,16 @@ func (c *Client) encryptCredential(ctx context.Context, credential *types.Creden
 }
 
 func (c *Client) decryptCredential(ctx context.Context, credential *types.Credential) error {
-	if !credential.Encrypted || len(credential.Secrets) != 1 || c.encryptionConfig == nil {
+	if !credential.Encrypted {
 		return nil
+	}
+	if len(credential.Secrets) != 1 || c.encryptionConfig == nil {
+		return fmt.Errorf("credential is encrypted but encryption is not configured")
 	}
 
 	transformer := c.encryptionConfig.Transformers[credentialGroupResource]
 	if transformer == nil {
-		return nil
+		return fmt.Errorf("credential is encrypted but no credential transformer is configured")
 	}
 
 	encryptedSecrets := credential.Secrets[credentialEncryptedSecretsKey]

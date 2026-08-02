@@ -239,9 +239,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateComponentToolPreviewsOAuthURL)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/refresh-components", mcpCatalogs.RefreshCompositeComponents)
 
-	// MCP Catalog Entry OAuth Credentials (admin only)
+	// MCP Catalog Entry OAuth Credentials (Owner only)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credential-tests", mcpCatalogs.StartOAuthCredentialTest)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credential-tests/status", mcpCatalogs.GetOAuthCredentialTest)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.GetOAuthCredentials)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.SetOAuthCredentials)
+	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.ReplaceOAuthCredentials)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.DeleteOAuthCredentials)
 
 	// MCPServers within the catalog (admin only, for multi-user MCP servers)
@@ -313,8 +316,11 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 
 	// Workspace-scoped MCP Server Catalog Entry OAuth Credentials (PowerUser and higher only)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credential-tests", mcpCatalogs.StartOAuthCredentialTest)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credential-tests/status", mcpCatalogs.GetOAuthCredentialTest)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.GetOAuthCredentials)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.SetOAuthCredentials)
+	mux.HandleFunc("PUT /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.ReplaceOAuthCredentials)
 	mux.HandleFunc("DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.DeleteOAuthCredentials)
 
 	// Workspace-scoped MCP Servers (PowerUserPlus and higher only)

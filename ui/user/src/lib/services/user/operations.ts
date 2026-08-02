@@ -12,7 +12,10 @@ import type {
 	TunnelConnection,
 	ServerK8sSettings,
 	MCPServerOAuthCredentialRequest,
-	MCPServerOAuthCredentialStatus
+	MCPServerOAuthCredentialStatus,
+	MCPServerOAuthCredentialTestRequest,
+	MCPServerOAuthCredentialTestResult,
+	MCPServerOAuthCredentialTestStart
 } from '../admin/types';
 import {
 	baseURL,
@@ -21,6 +24,7 @@ import {
 	doPatch,
 	doPost,
 	doPut,
+	doWithBody,
 	handleResponse,
 	type Fetcher,
 	type PaginatedResponse
@@ -845,6 +849,32 @@ export async function getWorkspaceMCPCatalogEntryOAuthCredentials(
 	return response;
 }
 
+export async function startWorkspaceMCPCatalogEntryOAuthCredentialTest(
+	workspaceID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialTestRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialTestStart> {
+	return (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/oauth-credential-tests`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialTestStart;
+}
+
+export async function getWorkspaceMCPCatalogEntryOAuthCredentialTest(
+	workspaceID: string,
+	entryID: string,
+	testState: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialTestResult> {
+	return (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/oauth-credential-tests/status`,
+		{ testState },
+		opts
+	)) as MCPServerOAuthCredentialTestResult;
+}
+
 export async function setWorkspaceMCPCatalogEntryOAuthCredentials(
 	workspaceID: string,
 	entryID: string,
@@ -859,12 +889,31 @@ export async function setWorkspaceMCPCatalogEntryOAuthCredentials(
 	return response;
 }
 
+export async function replaceWorkspaceMCPCatalogEntryOAuthCredentials(
+	workspaceID: string,
+	entryID: string,
+	credentials: MCPServerOAuthCredentialRequest,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPServerOAuthCredentialStatus> {
+	return (await doPut(
+		`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`,
+		credentials,
+		opts
+	)) as MCPServerOAuthCredentialStatus;
+}
+
 export async function deleteWorkspaceMCPCatalogEntryOAuthCredentials(
 	workspaceID: string,
 	entryID: string,
-	opts?: { signal?: AbortSignal }
+	expectedGeneration: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<void> {
-	await doDelete(`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`, opts);
+	await doWithBody(
+		'DELETE',
+		`/workspaces/${workspaceID}/entries/${entryID}/oauth-credentials`,
+		{ expectedGeneration },
+		opts
+	);
 }
 
 export async function generateWorkspaceMCPCatalogEntryToolPreviews(

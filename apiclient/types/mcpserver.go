@@ -32,6 +32,33 @@ const (
 	ServerUserTypeMultiUser ServerUserType = "multiUser"
 )
 
+type MCPStaticOAuthTestStatus string
+
+const (
+	MCPStaticOAuthTestStatusPending   MCPStaticOAuthTestStatus = "pending"
+	MCPStaticOAuthTestStatusSucceeded MCPStaticOAuthTestStatus = "succeeded"
+	MCPStaticOAuthTestStatusFailed    MCPStaticOAuthTestStatus = "failed"
+)
+
+type MCPStaticOAuthTestFailureCategory string
+
+const (
+	MCPStaticOAuthTestFailureAuthorizationDenied MCPStaticOAuthTestFailureCategory = "authorization_denied"
+	MCPStaticOAuthTestFailureInvalidCallback     MCPStaticOAuthTestFailureCategory = "invalid_callback"
+	MCPStaticOAuthTestFailureTokenExchange       MCPStaticOAuthTestFailureCategory = "token_exchange_failed"
+	MCPStaticOAuthTestFailureExpired             MCPStaticOAuthTestFailureCategory = "expired"
+)
+
+// MCPStaticOAuthTestResult contains the non-secret state of one credential test.
+type MCPStaticOAuthTestResult struct {
+	Status          MCPStaticOAuthTestStatus          `json:"status"`
+	FailureCategory MCPStaticOAuthTestFailureCategory `json:"failureCategory,omitempty"`
+	// Proof is returned only after a successful provider exchange and is consumed by Save.
+	Proof string `json:"proof,omitempty"`
+	// ExpiresAt is the server-authoritative time after which the proof cannot be saved.
+	ExpiresAt Time `json:"expiresAt"`
+}
+
 // IsSingleUser returns true if the type represents a single-user server.
 func (t ServerUserType) IsSingleUser() bool {
 	return t == ServerUserTypeSingleUser
@@ -321,7 +348,7 @@ type MCPServer struct {
 	Configured              bool           `json:"configured"`
 	MissingRequiredEnvVars  []string       `json:"missingRequiredEnvVars,omitempty"`
 	MissingRequiredHeaders  []string       `json:"missingRequiredHeader,omitempty"`
-	MissingOAuthCredentials bool           `json:"missingOAuthCredentials,omitempty"`
+	MissingOAuthCredentials bool           `json:"missingOAuthCredentials"`
 	CatalogEntryID          string         `json:"catalogEntryID"`
 	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
 	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
@@ -737,10 +764,19 @@ func ValidateURLHostname(u string, hostname string) error {
 	return nil
 }
 
-// MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
+// MCPServerOAuthCredentialRequest sets the exact credentials authorized by a successful one-time proof.
+// Obot stores the credential and consumes the proof in one database transaction.
 type MCPServerOAuthCredentialRequest struct {
 	ClientID     string `json:"clientID"`
 	ClientSecret string `json:"clientSecret"`
+	// Proof is the opaque state returned by the successful test for these exact values.
+	Proof string `json:"proof"`
+}
+
+// MCPServerOAuthCredentialDeleteRequest protects Clear from deleting an app
+// that changed after the caller loaded its status.
+type MCPServerOAuthCredentialDeleteRequest struct {
+	ExpectedGeneration string `json:"expectedGeneration"`
 }
 
 // MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
@@ -749,4 +785,26 @@ type MCPServerOAuthCredentialStatus struct {
 	Configured bool `json:"configured"`
 	// ClientID is the configured client ID (never includes secret)
 	ClientID string `json:"clientID,omitempty"`
+	// Generation changes for every committed save, including same-value replacement.
+	Generation string `json:"generation,omitempty"`
+	// CallbackURL is the redirect URL to register with the OAuth provider.
+	CallbackURL string `json:"callbackURL"`
+}
+
+// MCPServerOAuthCredentialTestRequest contains candidate static OAuth credentials to verify.
+type MCPServerOAuthCredentialTestRequest struct {
+	ClientID     string `json:"clientID"`
+	ClientSecret string `json:"clientSecret"`
+}
+
+// MCPServerOAuthCredentialTestStatusRequest carries an opaque proof outside
+// the URL so access and audit logs cannot persist it.
+type MCPServerOAuthCredentialTestStatusRequest struct {
+	TestState string `json:"testState"`
+}
+
+// MCPServerOAuthCredentialTestStart identifies a pending static OAuth verification.
+type MCPServerOAuthCredentialTestStart struct {
+	TestState string `json:"testState"`
+	OAuthURL  string `json:"oauthURL"`
 }

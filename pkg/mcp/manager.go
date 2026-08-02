@@ -363,13 +363,22 @@ func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPUR
 	if strings.TrimSpace(rawURL) == "" {
 		return nil
 	}
-	if config.AllowLocalhostMCP && config.AllowPrivateIPMCP && config.AllowLinkLocalMCP {
-		return nil
-	}
 
 	u, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse MCP server URL: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("MCP server URL must use http or https: %s", rawURL)
+	}
+	if u.Hostname() == "" {
+		return fmt.Errorf("MCP server URL must include a hostname: %s", rawURL)
+	}
+	if u.User != nil {
+		return fmt.Errorf("MCP server URL must not include user information: %s", rawURL)
+	}
+	if config.AllowLocalhostMCP && config.AllowPrivateIPMCP && config.AllowLinkLocalMCP {
+		return nil
 	}
 
 	hostname := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")

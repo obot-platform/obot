@@ -14,6 +14,7 @@ func TestLoadConfigFromEnv_AllFieldsPresent(t *testing.T) {
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME": "eligible",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME":       "roles",
 		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES":            "admin,owner",
+		"OBOT_GENERIC_OAUTH_AUTH_PROVIDER_OWNER_ROLES":            "owner,platform-owner",
 	}
 	cfg, err := LoadConfigFromEnv(envGetter(env))
 	require.NoError(t, err)
@@ -22,6 +23,7 @@ func TestLoadConfigFromEnv_AllFieldsPresent(t *testing.T) {
 	assert.Equal(t, "eligible", cfg.EligibilityClaimName)
 	assert.Equal(t, "roles", cfg.RolesClaimName)
 	assert.Equal(t, []string{"admin", "owner"}, cfg.AdminRoles)
+	assert.Equal(t, []string{"owner", "platform-owner"}, cfg.OwnerRoles)
 	assert.True(t, cfg.Enabled())
 }
 
@@ -35,6 +37,7 @@ func TestLoadConfigFromEnv_DefaultsAndDisabled(t *testing.T) {
 	assert.Equal(t, "eligible", cfg.EligibilityClaimName)
 	assert.Equal(t, "roles", cfg.RolesClaimName)
 	assert.Equal(t, []string{"admin"}, cfg.AdminRoles)
+	assert.Equal(t, []string{"owner"}, cfg.OwnerRoles)
 }
 
 func TestNormalizeIssuer(t *testing.T) {

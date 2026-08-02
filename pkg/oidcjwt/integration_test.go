@@ -30,6 +30,7 @@ func buildIntegrationStack(t *testing.T) (http.Handler, *testutil.TestIssuer, fu
 		EligibilityClaimName: "eligible",
 		RolesClaimName:       "roles",
 		AdminRoles:           []string{"admin"},
+		OwnerRoles:           []string{"owner"},
 	}
 	v, err := oidcjwt.NewVerifier(context.Background(), cfg)
 	require.NoError(t, err)
@@ -47,8 +48,17 @@ func buildIntegrationStack(t *testing.T) (http.Handler, *testutil.TestIssuer, fu
 	mux.HandleFunc("GET /api/system-mcp-catalogs/{catalog_id}/entries", gate.serveJSON(map[string]any{"items": []any{}}))
 	mux.HandleFunc("GET /api/system-mcp-servers/{id}", gate.serveJSON(map[string]any{"id": "system-server"}))
 	mux.HandleFunc("GET /api/mcp-servers/{mcpserver_id}", gate.serveJSON(map[string]any{"id": "user-server"}))
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", gate.serveJSON(map[string]any{"configured": true}))
 
 	return mux, issuer, cleanup, priv
+}
+
+func TestIntegration_OwnerRoleReachesOwnerOnlyCatalogOAuthEndpoint(t *testing.T) {
+	path := "/api/mcp-catalogs/default/entries/slack/oauth-credentials"
+	code, _ := runPathWithRoles(t, path, []string{"owner"})
+	require.Equal(t, http.StatusOK, code)
+	code, _ = runPathWithRoles(t, path, []string{"admin"})
+	require.Equal(t, http.StatusForbidden, code)
 }
 
 type integrationAuthzGate struct {

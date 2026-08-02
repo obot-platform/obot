@@ -1,6 +1,8 @@
 package types
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -811,5 +813,15 @@ func TestMCPServer_IsSingleUser(t *testing.T) {
 				t.Errorf("MCPServer.IsSingleUser() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestMCPServerSerializesExplicitOAuthCredentialStatus(t *testing.T) {
+	encoded, err := json.Marshal(MCPServer{MissingOAuthCredentials: false})
+	if err != nil {
+		t.Fatalf("marshal MCP server: %v", err)
+	}
+	if !strings.Contains(string(encoded), `"missingOAuthCredentials":false`) {
+		t.Fatalf("MCP server omitted explicit OAuth credential status: %s", encoded)
 	}
 }

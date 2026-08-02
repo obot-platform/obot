@@ -162,8 +162,10 @@ config:
   OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ELIGIBILITY_CLAIM_NAME: "eligible"
   # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME -- Claim name containing generic OAuth JWT role strings.
   OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ROLES_CLAIM_NAME: "roles"
-  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES -- Comma-separated role strings that map to Obot admin/owner groups.
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES -- Comma-separated role strings that map to Obot admin capabilities without Owner.
   OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES: "admin"
+  # config.OBOT_GENERIC_OAUTH_AUTH_PROVIDER_OWNER_ROLES -- Comma-separated role strings that map to the Obot owner group.
+  OBOT_GENERIC_OAUTH_AUTH_PROVIDER_OWNER_ROLES: "owner"
   # config.OBOT_SERVER_HOSTNAME -- The hostname of your Obot instance, including protocol
   OBOT_SERVER_HOSTNAME: ""
 

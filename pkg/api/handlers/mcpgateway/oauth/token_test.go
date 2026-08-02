@@ -1,15 +1,19 @@
 package oauth
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/mcpgateway"
@@ -28,6 +32,30 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestRefreshOAuthTokenUsesRestrictedHTTPClient(t *testing.T) {
+	var requests atomic.Int32
+	tokenEndpoint := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		requests.Add(1)
+	}))
+	t.Cleanup(tokenEndpoint.Close)
+
+	config := &oauth2.Config{
+		ClientID:     "client-id",
+		ClientSecret: "client-secret",
+		Endpoint:     oauth2.Endpoint{TokenURL: tokenEndpoint.URL},
+	}
+	token := &oauth2.Token{RefreshToken: "refresh-token", Expiry: time.Now().Add(-time.Hour)}
+
+	_, err := refreshOAuthToken(
+		context.Background(),
+		safehttp.NewClient(true, true, true),
+		config,
+		token,
+	)
+	require.Error(t, err)
+	require.Zero(t, requests.Load())
+}
 
 func TestTokenExchangeUsesUserSpecificOAuthForMCPServerInstance(t *testing.T) {
 	const (

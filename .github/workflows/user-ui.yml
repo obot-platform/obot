@@ -9,6 +9,20 @@ on:
       - main
     paths:
       - ui/user/**
+      - apiclient/types/mcpserver.go
+      - pkg/api/authz/**
+      - pkg/api/handlers/mcp_oauth_credential_test_handler.go
+      - pkg/api/handlers/mcp_oauth_credential_test_test.go
+      - pkg/api/handlers/mcp_oauth_debugger.go
+      - pkg/api/handlers/mcpcatalogs.go
+      - pkg/api/handlers/mcpcatalogs_test.go
+      - pkg/api/handlers/mcpgateway/**
+      - pkg/api/router/router.go
+      - pkg/encryption/**
+      - pkg/gateway/client/mcpoauthtoken.go
+      - pkg/gateway/client/mcpoauthtoken_test.go
+      - pkg/gateway/types/tokens.go
+      - .github/workflows/user-ui.yml
 
 jobs:
   lint:
@@ -17,23 +31,66 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
         with:
-          node-version: "24.15.0"
+          fetch-depth: 0
+
+      - name: Detect static OAuth changes
+        id: static-oauth-changes
+        shell: bash
+        run: |
+          base="${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [[ "$base" =~ ^0+$ ]]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --name-only "$base" "$GITHUB_SHA" | grep -Eq '^(ui/user/(e2e/static-oauth-credentials\.spec\.ts|playwright\.config\.ts|src/lib/components/mcp/(StaticOAuthConfigureModal\.svelte|staticOAuth.*\.ts)|src/lib/services/(admin|user)/operations\.ts)|apiclient/types/mcpserver\.go|pkg/(api/(authz/|handlers/(mcp_oauth_credential_test|mcp_oauth_debugger|mcpcatalogs|mcpgateway/)|router/router\.go)|encryption/|gateway/(client/mcpoauthtoken|types/tokens)\.go)|\.github/workflows/user-ui\.yml)'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        if: steps.static-oauth-changes.outputs.changed == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 11.0.3
 
-      - name: Run linter
-        run: | 
-          cd ui/user
-          pnpm install
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.15.0"
+          cache: pnpm
+          cache-dependency-path: ui/user/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: ui/user
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        if: steps.static-oauth-changes.outputs.changed == 'true'
+        working-directory: ui/user
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run UI checks
+        working-directory: ui/user
+        run: |
           pnpm run build
           pnpm run ci
+
+      - name: Run static OAuth state tests
+        if: steps.static-oauth-changes.outputs.changed == 'true'
+        working-directory: ui/user
+        run: pnpm run test:static-oauth
+
+      - name: Run static OAuth browser tests
+        if: steps.static-oauth-changes.outputs.changed == 'true'
+        working-directory: ui/user
+        run: pnpm run e2e:static-oauth
 
       - name: Verify no changes
         run: make no-changes

@@ -521,6 +521,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err := gatewayClient.MigrateToolReferenceCredentialContexts(ctx); err != nil {
 		return nil, fmt.Errorf("failed to migrate ToolReference credential contexts: %w", err)
 	}
+	if err := gatewayClient.MigrateUnencryptedCredentials(ctx); err != nil {
+		return nil, fmt.Errorf("failed to encrypt existing credentials: %w", err)
+	}
 
 	storageServices.Authn.SetServiceAccountValidator(func(ctx context.Context, token string) (string, error) {
 		apiKey, err := gatewayClient.ValidateStorageServiceAccountToken(ctx, token)

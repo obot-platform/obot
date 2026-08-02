@@ -8,6 +8,7 @@ type Config struct {
 	EligibilityClaimName string
 	RolesClaimName       string
 	AdminRoles           []string
+	OwnerRoles           []string
 }
 
 const (
@@ -16,6 +17,7 @@ const (
 )
 
 var defaultAdminRoles = []string{"admin"}
+var defaultOwnerRoles = []string{"owner"}
 
 func NormalizeIssuer(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), "/")
@@ -40,15 +42,20 @@ func LoadConfigFromEnv(getenv func(string) string) (Config, error) {
 		cfg.RolesClaimName = defaultRolesClaimName
 	}
 
-	adminRolesStr := getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES")
-	if adminRolesStr == "" {
-		cfg.AdminRoles = defaultAdminRoles
-	} else {
-		for _, r := range strings.Split(adminRolesStr, ",") {
-			if trimmed := strings.TrimSpace(r); trimmed != "" {
-				cfg.AdminRoles = append(cfg.AdminRoles, trimmed)
-			}
+	cfg.AdminRoles = configuredRoles(getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_ADMIN_ROLES"), defaultAdminRoles)
+	cfg.OwnerRoles = configuredRoles(getenv("OBOT_GENERIC_OAUTH_AUTH_PROVIDER_OWNER_ROLES"), defaultOwnerRoles)
+	return cfg, nil
+}
+
+func configuredRoles(value string, defaults []string) []string {
+	if value == "" {
+		return defaults
+	}
+	var roles []string
+	for _, role := range strings.Split(value, ",") {
+		if trimmed := strings.TrimSpace(role); trimmed != "" {
+			roles = append(roles, trimmed)
 		}
 	}
-	return cfg, nil
+	return roles
 }

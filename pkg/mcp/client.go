@@ -9,10 +9,12 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"golang.org/x/oauth2"
 )
 
 const oauthCheckClientScope = "Obot OAuth Check"
@@ -142,7 +144,11 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		url = sm.TransformObotHostname(system.MCPConnectURL(sm.baseURL, server.MCPServerName))
 	}
 
-	c, err := nmcp.NewClient(sm.sessionCtx, server.MCPServerDisplayName, nmcp.Server{
+	clientContext := sm.sessionCtx
+	if server.Runtime == types.RuntimeRemote && clientOpts.TokenStorage != nil {
+		clientContext = remoteOAuthContext(clientContext, sm.remoteURLValidationConfig, clientOpts.AllowedHosts)
+	}
+	c, err := nmcp.NewClient(clientContext, server.MCPServerDisplayName, nmcp.Server{
 		BaseURL: url,
 		Headers: headers,
 	}, clientOpts)
@@ -172,6 +178,16 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	return result, nil
+}
+
+func remoteOAuthContext(ctx context.Context, config RemoteMCPURLValidationConfig, allowedHosts []string) context.Context {
+	httpClient := safehttp.NewClientWithAllowList(
+		!config.AllowLocalhostMCP,
+		!config.AllowPrivateIPMCP,
+		!config.AllowLinkLocalMCP,
+		allowedHosts,
+	)
+	return context.WithValue(ctx, oauth2.HTTPClient, httpClient)
 }
 
 func copyListIntoMap(m map[string]string, list []string) {

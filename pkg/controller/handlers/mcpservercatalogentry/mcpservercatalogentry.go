@@ -245,24 +245,49 @@ func (*Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Respo
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
-// CleanupUnusedOAuthCredentials removes OAuth credentials for remote catalog entries
-// that no longer require static OAuth configuration.
+// CleanupUnusedOAuthCredentials removes entry-owned static OAuth state unless
+// the current catalog entry still uses it.
 func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Only process remote entries
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+	if entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+		entry.Spec.Manifest.RemoteConfig != nil &&
+		entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
 		return nil
 	}
 
-	// Only cleanup if RemoteConfig exists and StaticOAuthRequired is false
-	if entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
-		return nil
-	}
-
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), "oauth")
+	releaseCatalogMutationLock, err := h.gatewayClient.AcquireCredentialLock(req.Ctx, system.MCPStaticOAuthCatalogMutationLock)
 	if err != nil {
-		return fmt.Errorf("failed to delete OAuth credential: %w", err)
+		return fmt.Errorf("failed to coordinate static OAuth cleanup with catalog mutation: %w", err)
+	}
+	defer releaseCatalogMutationLock()
+
+	// Reconcile from authoritative state after acquiring the mutation lock so a
+	// stale cleanup request cannot delete an application restored while it waited.
+	var currentEntry v1.MCPServerCatalogEntry
+	if err := req.Client.Get(req.Ctx, router.Key(entry.Namespace, entry.Name), &currentEntry); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to confirm static OAuth cleanup is still required: %w", err)
+		}
+	} else if currentEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+		currentEntry.Spec.Manifest.RemoteConfig != nil &&
+		currentEntry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
+		return nil
+	}
+
+	credentialName := system.MCPOAuthCredentialName(entry.Name)
+	releaseCredentialLock, err := h.gatewayClient.AcquireCredentialLock(req.Ctx, credentialName)
+	if err != nil {
+		return fmt.Errorf("failed to coordinate static OAuth cleanup with credential mutation: %w", err)
+	}
+	defer releaseCredentialLock()
+	cleanupMCPIDs, err := staticOAuthCleanupTargetIDs(req, entry.Name)
+	if err != nil {
+		return err
+	}
+	deleted, err := h.gatewayClient.DeleteMCPStaticOAuthCredential(req.Ctx, entry.Name, cleanupMCPIDs...)
+	if err != nil {
+		return fmt.Errorf("failed to clean up static OAuth state: %w", err)
 	}
 	if deleted {
 		log.Infof("Deleted unused static OAuth credential for MCP catalog entry: entry=%s", entry.Name)
@@ -301,11 +326,11 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 
 	// Check if credentials exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
+	credential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
 
 	var configured bool
 	if err == nil {
-		configured = true
+		configured = gclient.MCPStaticOAuthCredentialReady(credential.Secrets, entry.Spec.Manifest.RemoteConfig.FixedURL)
 	} else if !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to check credential status: %w", err)
 	}
@@ -323,21 +348,55 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Only process remote entries
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
-		return nil
-	}
-
-	// Build the credential name for this entry
-	credName := system.MCPOAuthCredentialName(entry.Name)
-
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, credName, "oauth")
+	releaseCatalogMutationLock, err := h.gatewayClient.AcquireCredentialLock(req.Ctx, system.MCPStaticOAuthCatalogMutationLock)
 	if err != nil {
-		return fmt.Errorf("failed to delete OAuth credential: %w", err)
+		return fmt.Errorf("failed to coordinate static OAuth removal with catalog mutation: %w", err)
+	}
+	defer releaseCatalogMutationLock()
+	credentialName := system.MCPOAuthCredentialName(entry.Name)
+	releaseCredentialLock, err := h.gatewayClient.AcquireCredentialLock(req.Ctx, credentialName)
+	if err != nil {
+		return fmt.Errorf("failed to coordinate static OAuth removal with credential mutation: %w", err)
+	}
+	defer releaseCredentialLock()
+
+	cleanupMCPIDs, err := staticOAuthCleanupTargetIDs(req, entry.Name)
+	if err != nil {
+		return err
+	}
+	deleted, err := h.gatewayClient.DeleteMCPStaticOAuthCredential(req.Ctx, entry.Name, cleanupMCPIDs...)
+	if err != nil {
+		return fmt.Errorf("failed to remove static OAuth state: %w", err)
 	}
 	if deleted {
 		log.Infof("Removed static OAuth credential for deleted MCP catalog entry: entry=%s", entry.Name)
 	}
 
 	return nil
+}
+
+func staticOAuthCleanupTargetIDs(req router.Request, entryName string) ([]string, error) {
+	var servers v1.MCPServerList
+	if err := req.List(&servers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entryName),
+		Namespace:     system.DefaultNamespace,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list MCP servers for static OAuth cleanup: %w", err)
+	}
+	var instances v1.MCPServerInstanceList
+	if err := req.List(&instances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entryName),
+		Namespace:     system.DefaultNamespace,
+	}); err != nil {
+		return nil, fmt.Errorf("failed to list MCP server instances for static OAuth cleanup: %w", err)
+	}
+
+	ids := make([]string, 0, len(servers.Items)+len(instances.Items))
+	for _, server := range servers.Items {
+		ids = append(ids, server.Name)
+	}
+	for _, instance := range instances.Items {
+		ids = append(ids, instance.Name)
+	}
+	return ids, nil
 }

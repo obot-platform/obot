@@ -7,8 +7,9 @@ import (
 
 const (
 	// MCPOAuthCredentialContextPrefix is the credential context prefix for MCP OAuth credentials
-	MCPOAuthCredentialContextPrefix = "mcp-oauth"
-	OAuthClientIDMetadataPath       = "/oauth/client-metadata.json"
+	MCPOAuthCredentialContextPrefix   = "mcp-oauth"
+	MCPStaticOAuthCatalogMutationLock = "mcp-static-oauth-catalog-mutation"
+	OAuthClientIDMetadataPath         = "/oauth/client-metadata.json"
 )
 
 // MCPOAuthCredentialName returns the credential name for an MCP server's OAuth credentials

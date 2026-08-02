@@ -189,6 +189,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		app = app.WithPruneTypes(&v1.MCPServerCatalogEntry{})
 	}
 
+	releaseCatalogMutationLock, err := h.gatewayClient.AcquireCredentialLock(req.Ctx, system.MCPStaticOAuthCatalogMutationLock)
+	if err != nil {
+		return fmt.Errorf("failed to coordinate catalog sync with static OAuth: %w", err)
+	}
+	defer releaseCatalogMutationLock()
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 

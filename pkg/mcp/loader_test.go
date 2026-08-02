@@ -121,6 +121,22 @@ func TestValidateRemoteMCPURL(t *testing.T) {
 			rawURL: "",
 		},
 		{
+			name:              "rejects non HTTP scheme even when all address ranges are allowed",
+			rawURL:            "javascript:alert(document.domain)",
+			allowLocalhostMCP: true,
+			allowPrivateIPMCP: true,
+			allowLinkLocalMCP: true,
+			wantErr:           "http or https",
+		},
+		{
+			name:              "rejects URL without host even when all address ranges are allowed",
+			rawURL:            "https:///mcp",
+			allowLocalhostMCP: true,
+			allowPrivateIPMCP: true,
+			allowLinkLocalMCP: true,
+			wantErr:           "hostname",
+		},
+		{
 			name:    "rejects loopback",
 			rawURL:  "http://127.0.0.1:8080/mcp",
 			wantErr: "localhost URL",

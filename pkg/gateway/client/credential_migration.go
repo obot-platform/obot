@@ -4,18 +4,19 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
 	gptscriptCredentialsMigrationName           = "gptscript_credentials_to_gateway_credentials"
 	toolReferenceCredentialContextMigrationName = "toolreference_credential_context_to_name"
+	encryptCredentialsAtRestMigrationName       = "encrypt_gateway_credentials_at_rest"
 )
 
 type gptscriptCredentialSecret struct {
@@ -113,6 +114,29 @@ func (c *Client) MigrateToolReferenceCredentialContexts(ctx context.Context) err
 	})
 }
 
+// MigrateUnencryptedCredentials preserves existing installations while making
+// the configured credential transformer authoritative for every stored secret.
+func (c *Client) MigrateUnencryptedCredentials(ctx context.Context) error {
+	if c.encryptionConfig == nil || c.encryptionConfig.Transformers[credentialGroupResource] == nil {
+		return nil
+	}
+	return c.migrateIfNotRun(ctx, encryptCredentialsAtRestMigrationName, func(tx *gorm.DB) error {
+		var credentials []gatewaytypes.Credential
+		if err := tx.Where("encrypted = ?", false).Find(&credentials).Error; err != nil {
+			return fmt.Errorf("failed to list unencrypted credentials: %w", err)
+		}
+		for i := range credentials {
+			if err := c.encryptCredential(ctx, &credentials[i]); err != nil {
+				return fmt.Errorf("failed to encrypt credential %q in context %q: %w", credentials[i].Name, credentials[i].Context, err)
+			}
+			if err := tx.Model(&credentials[i]).Select("Secrets", "Encrypted").Updates(credentials[i]).Error; err != nil {
+				return fmt.Errorf("failed to store encrypted credential %q in context %q: %w", credentials[i].Name, credentials[i].Context, err)
+			}
+		}
+		return nil
+	})
+}
+
 func (c *Client) moveCredentialToNameContext(ctx context.Context, credential *gatewaytypes.Credential) error {
 	if credential.Encrypted {
 		if c.encryptionConfig == nil || c.encryptionConfig.Transformers[credentialGroupResource] == nil {
@@ -138,19 +162,18 @@ func (c *Client) moveCredentialToNameContext(ctx context.Context, credential *ga
 }
 
 func (c *Client) migrateIfNotRun(ctx context.Context, name string, f func(*gorm.DB) error) error {
-	db := c.db.WithContext(ctx)
-
-	var migration gatewaytypes.Migration
-	if err := db.Where("name = ?", name).First(&migration).Error; !errors.Is(err, gorm.ErrRecordNotFound) {
-		return err
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&gatewaytypes.Migration{Name: name})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return nil
+		}
 		if err := f(tx); err != nil {
 			return err
 		}
-
-		return tx.Create(&gatewaytypes.Migration{Name: name}).Error
+		return nil
 	})
 }
 

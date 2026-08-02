@@ -13,6 +13,7 @@ import (
 	"time"
 
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -39,7 +40,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		return err
 	}
 
-	clientID, clientSecret, err := m.lookupStaticOAuthClient(req, server)
+	clientID, clientSecret, catalogEntryName, err := m.lookupStaticOAuthClient(req, server)
 	useCIMD := m.useOAuthDebuggerCIMD(server, clientID, clientSecret)
 	if err != nil && authServer.RegistrationEndpoint == "" && !useCIMD {
 		return err
@@ -86,6 +87,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		server.Name,
 		serverConfig.URL,
 		OAuthDebuggerPendingStateMarker,
+		catalogEntryName,
 		state,
 		oauth2.GenerateVerifier(),
 		conf,
@@ -164,17 +166,19 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 		return types.NewErrNotFound("OAuth debugger authorization state not found")
 	}
 
-	conf := oauthDebuggerConfigFromPendingState(pendingState)
-
-	token, err := conf.Exchange(req.Context(), input.Code, oauth2.VerifierOption(pendingState.Verifier))
-	if err != nil {
-		return fmt.Errorf("failed to exchange OAuth code: %w", err)
+	var staticOAuthHTTPClient *http.Client
+	if pendingState.CatalogEntryName != "" {
+		validation := m.mcpSessionManager.RemoteMCPURLValidationConfig()
+		staticOAuthHTTPClient = safehttp.NewClient(
+			!validation.AllowLocalhostMCP,
+			!validation.AllowPrivateIPMCP,
+			!validation.AllowLinkLocalMCP,
+		)
 	}
-
-	if err := req.GatewayClient.ReplaceMCPOAuthToken(req.Context(), req.User.GetUID(), server.Name, serverConfig.URL, "", conf, token); err != nil {
+	token, err := exchangeAndPersistOAuthDebuggerToken(req.Context(), req.GatewayClient, pendingState, input.Code, staticOAuthHTTPClient)
+	if err != nil {
 		return err
 	}
-	_ = req.GatewayClient.DeleteMCPOAuthPendingState(req.Context(), pendingState.HashedState)
 
 	var expiresIn int
 	if !token.Expiry.IsZero() {
@@ -187,6 +191,23 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 		TokenType:    token.TokenType,
 		ExpiresIn:    expiresIn,
 	})
+}
+
+func exchangeAndPersistOAuthDebuggerToken(ctx context.Context, gatewayClient *gateway.Client, pendingState *gwtypes.MCPOAuthPendingState, code string, httpClients ...*http.Client) (*oauth2.Token, error) {
+	conf := oauthDebuggerConfigFromPendingState(pendingState)
+	exchangeContext := ctx
+	if len(httpClients) > 0 && httpClients[0] != nil {
+		exchangeContext = context.WithValue(ctx, oauth2.HTTPClient, httpClients[0])
+	}
+	token, err := conf.Exchange(exchangeContext, code, oauth2.VerifierOption(pendingState.Verifier))
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange OAuth code: %w", err)
+	}
+
+	if err := gatewayClient.CommitMCPOAuthPendingStateToken(ctx, pendingState, "", conf, token); err != nil {
+		return nil, err
+	}
+	return token, nil
 }
 
 func quarterToken(token string) string {
@@ -268,19 +289,19 @@ func registerOAuthDebuggerClient(ctx context.Context, registrationEndpoint strin
 	return registered, nil
 }
 
-func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
+func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, string, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
 		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, "oauth")
 		if err == nil && cred.Secrets["CLIENT_ID"] != "" && cred.Secrets["CLIENT_SECRET"] != "" {
-			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil
+			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], server.Spec.MCPServerCatalogEntryName, nil
 		}
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
-	return "", "", nil
+	return "", "", "", nil
 }
 
 func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientSecret string) bool {

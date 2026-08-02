@@ -14,6 +14,8 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"e2e:generic-oauth": "playwright test generic-oauth.spec.ts",
+		"e2e:static-oauth": "playwright test static-oauth-credentials.spec.ts",
+		"test:static-oauth": "node --experimental-strip-types --test src/lib/components/mcp/staticOAuthCredentialTestState.test.ts src/lib/components/mcp/staticOAuthCallerWiring.test.ts",
 		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"ci": "npm run format && npm run lint && npm run check"

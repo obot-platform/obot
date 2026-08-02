@@ -63,6 +63,36 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 	}
 }
 
+func TestUnauthenticatedOAuthCallbackAuthorizationIsExact(t *testing.T) {
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	unauthenticatedUser := &user.DefaultInfo{
+		Name:   "anonymous",
+		UID:    "anonymous",
+		Groups: []string{UnauthenticatedGroup},
+	}
+
+	tests := []struct {
+		name    string
+		method  string
+		path    string
+		allowed bool
+	}{
+		{name: "exact GET callback", method: http.MethodGet, path: "/oauth/mcp/callback", allowed: true},
+		{name: "callback POST", method: http.MethodPost, path: "/oauth/mcp/callback", allowed: false},
+		{name: "callback subpath", method: http.MethodGet, path: "/oauth/mcp/callback/extra", allowed: false},
+		{name: "protected OAuth route", method: http.MethodGet, path: "/oauth/userinfo", allowed: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			if got := authorizer.Authorize(req, unauthenticatedUser); got != tt.allowed {
+				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
+			}
+		})
+	}
+}
+
 func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{

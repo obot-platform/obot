@@ -8,6 +8,7 @@
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
+	import { staticOAuthSaveWasCommitted } from '$lib/components/mcp/staticOAuthCredentialTestState';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import {
 		AdminService,
@@ -204,51 +205,87 @@
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
 		oauthConfigEntry = entry;
 		try {
-			const catalogId = entry.powerUserWorkspaceID ? undefined : 'default';
-			oauthStatus = entry.powerUserWorkspaceID
-				? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(
-						entry.powerUserWorkspaceID,
-						entry.id
-					)
-				: await AdminService.getMCPCatalogEntryOAuthCredentials(catalogId!, entry.id);
+			oauthStatus = await loadOAuthStatus(entry);
 		} catch {
-			oauthStatus = { configured: false };
+			return;
 		}
 		oauthConfigModal?.open();
+	}
+
+	function loadOAuthStatus(entry: MCPCatalogEntry) {
+		return entry.powerUserWorkspaceID
+			? UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(
+					entry.powerUserWorkspaceID,
+					entry.id
+				)
+			: AdminService.getMCPCatalogEntryOAuthCredentials('default', entry.id);
 	}
 
 	async function handleSaveOAuth(credentials: {
 		clientID: string;
 		clientSecret: string;
-		authorizationServerURL?: string;
+		proof: string;
 	}) {
 		if (!oauthConfigEntry) return;
-		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
-				oauthConfigEntry.powerUserWorkspaceID,
-				oauthConfigEntry.id,
-				credentials
-			);
-		} else {
-			await AdminService.setMCPCatalogEntryOAuthCredentials(
-				'default',
-				oauthConfigEntry.id,
-				credentials
-			);
+		const statusBeforeSave = oauthStatus;
+		const replacing = statusBeforeSave?.configured === true;
+		try {
+			let savedStatus: MCPServerOAuthCredentialStatus;
+			if (oauthConfigEntry.powerUserWorkspaceID) {
+				const save = replacing
+					? UserService.replaceWorkspaceMCPCatalogEntryOAuthCredentials
+					: UserService.setWorkspaceMCPCatalogEntryOAuthCredentials;
+				savedStatus = await save(
+					oauthConfigEntry.powerUserWorkspaceID,
+					oauthConfigEntry.id,
+					credentials
+				);
+			} else {
+				const save = replacing
+					? AdminService.replaceMCPCatalogEntryOAuthCredentials
+					: AdminService.setMCPCatalogEntryOAuthCredentials;
+				savedStatus = await save('default', oauthConfigEntry.id, credentials);
+			}
+			oauthStatus = savedStatus;
+		} catch (error) {
+			try {
+				oauthStatus = await loadOAuthStatus(oauthConfigEntry);
+			} catch {
+				// The request layer reports the status-refresh failure separately.
+			}
+			if (
+				!(await staticOAuthSaveWasCommitted(oauthStatus, credentials.clientID, credentials.proof))
+			) {
+				throw error;
+			}
 		}
 		// Refresh the table to update status
 		mcpServersAndEntries.refreshAll();
 	}
 
-	async function handleDeleteOAuth() {
+	async function handleDeleteOAuth(expectedGeneration: string) {
 		if (!oauthConfigEntry) return;
-		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
-				oauthConfigEntry.powerUserWorkspaceID,
-				oauthConfigEntry.id
-			);
-		} else {
-			await AdminService.deleteMCPCatalogEntryOAuthCredentials('default', oauthConfigEntry.id);
+		try {
+			if (oauthConfigEntry.powerUserWorkspaceID) {
+				await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
+					oauthConfigEntry.powerUserWorkspaceID,
+					oauthConfigEntry.id,
+					expectedGeneration
+				);
+			} else {
+				await AdminService.deleteMCPCatalogEntryOAuthCredentials(
+					'default',
+					oauthConfigEntry.id,
+					expectedGeneration
+				);
+			}
+		} catch (error) {
+			try {
+				oauthStatus = await loadOAuthStatus(oauthConfigEntry);
+			} catch {
+				// Preserve the stale-generation error if the refresh also fails.
+			}
+			throw error;
 		}
 		// Refresh the table to update status
 		mcpServersAndEntries.refreshAll();
@@ -599,6 +636,30 @@
 	bind:this={oauthConfigModal}
 	{oauthStatus}
 	deprecated={isDeprecatedMCPServer(oauthConfigEntry)}
+	onStartTest={async (credentials) => {
+		if (!oauthConfigEntry) throw new Error('No MCP catalog entry selected');
+		return oauthConfigEntry.powerUserWorkspaceID
+			? UserService.startWorkspaceMCPCatalogEntryOAuthCredentialTest(
+					oauthConfigEntry.powerUserWorkspaceID,
+					oauthConfigEntry.id,
+					credentials
+				)
+			: AdminService.startMCPCatalogEntryOAuthCredentialTest(
+					'default',
+					oauthConfigEntry.id,
+					credentials
+				);
+	}}
+	onGetTest={async (state) => {
+		if (!oauthConfigEntry) throw new Error('No MCP catalog entry selected');
+		return oauthConfigEntry.powerUserWorkspaceID
+			? UserService.getWorkspaceMCPCatalogEntryOAuthCredentialTest(
+					oauthConfigEntry.powerUserWorkspaceID,
+					oauthConfigEntry.id,
+					state
+				)
+			: AdminService.getMCPCatalogEntryOAuthCredentialTest('default', oauthConfigEntry.id, state);
+	}}
 	onSave={handleSaveOAuth}
 	onDelete={handleDeleteOAuth}
 />
