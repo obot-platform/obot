@@ -679,7 +679,10 @@
 				(rule) =>
 					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
 			);
-			if (isAtLeastPowerUserPlus && !entry && !hasEverythingEveryoneRule) {
+			const showSetAccessPolicy = isAtLeastPowerUserPlus && !entry && !hasEverythingEveryoneRule;
+			const isSingleTenantCatalogEntry =
+				'isCatalogEntry' in savedEntry && savedEntry.manifest.serverUserType === 'singleUser';
+			if (showSetAccessPolicy && isSingleTenantCatalogEntry) {
 				await selectRulesDialog?.open();
 				loading = false;
 			} else {

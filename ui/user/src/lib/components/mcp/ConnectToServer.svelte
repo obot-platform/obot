@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { dialogAnimation } from '$lib/actions/dialogAnimation';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import {
 		AdminService,
 		UserService,
@@ -7,7 +8,8 @@
 		type MCPCatalogServer,
 		type MCPAllowedSecretBindingTarget,
 		type MCPSubField,
-		type MCPServerInstance
+		type MCPServerInstance,
+		Group
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
@@ -28,6 +30,7 @@
 	import CopyField from '../CopyField.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import SelectMcpAccessControlRules from '../admin/SelectMcpAccessControlRules.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CatalogConfigureForm, {
 		type CompositeLaunchFormData,
@@ -153,6 +156,8 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+
+	let selectRulesDialog = $state<ReturnType<typeof SelectMcpAccessControlRules>>();
 
 	let existingServerNames = $derived(
 		userConfiguredServers
@@ -743,7 +748,27 @@
 
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			configDialog?.close();
-			onConnect?.({ server, entry });
+
+			if (isMultiUserCatalogEntry(entry)) {
+				const isAtLeastPowerUserPlus = profile.current?.groups.includes(Group.POWERUSER_PLUS);
+				if (isAtLeastPowerUserPlus) {
+					const existingRules = isAtLeastPowerUserPlus
+						? workspaceID
+							? await UserService.listWorkspaceAccessControlRules(workspaceID)
+							: await AdminService.listAccessControlRules()
+						: [];
+					const hasEverythingEveryoneRule = existingRules.some(
+						(rule) =>
+							rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+					);
+					const showSetAccessPolicy = isAtLeastPowerUserPlus && !hasEverythingEveryoneRule;
+					if (showSetAccessPolicy) {
+						selectRulesDialog?.open();
+					}
+				}
+			} else {
+				onConnect?.({ server, entry });
+			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
 			launchMissingSecretBinding = launchError.includes('secret binding');
@@ -1359,3 +1384,13 @@
 		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
 	</form>
 </dialog>
+
+<SelectMcpAccessControlRules
+	bind:this={selectRulesDialog}
+	entry={isMultiUserCatalogEntry(entry) ? server : entry}
+	entity={workspaceID ? 'workspace' : 'catalog'}
+	id={workspaceID ?? DEFAULT_MCP_CATALOG_ID}
+	onSubmit={() => {
+		onConnect?.({ server, entry });
+	}}
+/>

@@ -112,7 +112,7 @@
 			sessionStorage.setItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION, entry.id);
 		}
 
-		await mcpServersAndEntries.refreshEntries();
+		await mcpServersAndEntries.refreshAll();
 		updatingBeforeCreate = false;
 
 		goto(
@@ -129,10 +129,10 @@
 	class="overflow-visible md:w-2xl"
 >
 	{#if accessControlRules.length === 0}
-		<p class="text-md mb-4 font-light">Looks like you don't have any MCP access policies yet!</p>
-		<p class="text-md mb-8 font-light">Want to go ahead & create one now?</p>
+		<p class="text-md font-light">Looks like you don't have any MCP access policies yet!</p>
+		<p class="text-md mb-4 font-light">Want to go ahead & create one now?</p>
 	{:else}
-		<p class="text-md mb-8 font-light">
+		<p class="text-md mb-4 font-light">
 			Select the access policies you want to apply to this MCP server.
 		</p>
 	{/if}

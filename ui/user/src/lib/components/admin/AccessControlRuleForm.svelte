@@ -158,7 +158,6 @@
 			const existingResourceIds = new Set(
 				accessControlRule.resources?.map((resource) => resource.id) ?? []
 			);
-
 			if (!existingResourceIds.has(initialAdditionId)) {
 				const entry = mcpEntriesMap.get(initialAdditionId);
 				if (entry) {
@@ -249,7 +248,7 @@
 				const server = mcpServersMap.get(resource.id);
 				return {
 					id: resource.id,
-					name: server?.manifest.name || '-',
+					name: server?.alias || server?.manifest.name || '-',
 					type: 'mcpserver'
 				};
 			}
