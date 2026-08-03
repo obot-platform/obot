@@ -24,10 +24,11 @@ type MCPOAuthHandlerFactory struct {
 	stateMgr                  *stateManager
 	tokenStore                mcp.GlobalTokenStore
 	secretBindingAllowedLabel string
+	cimdDocumentURL           string
 }
 
-func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string) *MCPOAuthHandlerFactory {
-	return &MCPOAuthHandlerFactory{
+func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
+	f := &MCPOAuthHandlerFactory{
 		baseURL:                   baseURL,
 		mcpSessionManager:         sessionManager,
 		client:                    client,
@@ -35,6 +36,12 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 		tokenStore:                globalTokenStore,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
 	}
+
+	if !forceDynamicClient && strings.HasPrefix(baseURL, "https://") {
+		f.cimdDocumentURL = system.OAuthClientIDMetadataURL(baseURL)
+	}
+
+	return f
 }
 
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
@@ -111,19 +118,16 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 		blockingConfig := f.mcpSessionManager.RemoteMCPURLValidationConfig()
 		httpClientOptions := nmcp.HTTPClientOptions{
-			OAuthRedirectURL: system.MCPOAuthCallbackURL(f.baseURL),
-			OAuthClientName:  "Obot MCP Gateway",
-			CallbackHandler:  oauthHandler,
-			ClientCredLookup: oauthHandler,
-			TokenStorage:     f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
-			BlockLoopback:    !blockingConfig.AllowLocalhostMCP,
-			BlockPrivateIP:   !blockingConfig.AllowPrivateIPMCP,
-			BlockLinkLocal:   !blockingConfig.AllowLinkLocalMCP,
+			OAuthRedirectURL:              system.MCPOAuthCallbackURL(f.baseURL),
+			OAuthClientName:               "Obot MCP Gateway",
+			OAuthClientIDMetadataDocument: f.cimdDocumentURL,
+			CallbackHandler:               oauthHandler,
+			ClientCredLookup:              oauthHandler,
+			TokenStorage:                  f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
+			BlockLoopback:                 !blockingConfig.AllowLocalhostMCP,
+			BlockPrivateIP:                !blockingConfig.AllowPrivateIPMCP,
+			BlockLinkLocal:                !blockingConfig.AllowLinkLocalMCP,
 		}
-		if strings.HasPrefix(f.baseURL, "https://") {
-			httpClientOptions.OAuthClientIDMetadataDocument = system.OAuthClientIDMetadataURL(f.baseURL)
-		}
-
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, nmcp.ClientOption{
 			ClientName:        "Obot MCP OAuth",
 			HTTPClientOptions: httpClientOptions,

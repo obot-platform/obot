@@ -99,6 +99,7 @@ type Config struct {
 	TunnelPeerToken      string   `usage:"Shared internal credential for tunnel peering"`
 
 	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+	ForceDynamicClient       bool   `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -199,6 +200,7 @@ type Services struct {
 	SkillAccessRuleHelper *skillaccessrule.Helper
 
 	MCPOAuthClientSecretExpiration time.Duration
+	ForceDynamicClient             bool
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
@@ -1042,6 +1044,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
+		ForceDynamicClient:             config.ForceDynamicClient,
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 

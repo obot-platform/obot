@@ -292,7 +292,8 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 }
 
 func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientSecret string) bool {
-	return (clientID == "" || clientSecret == "") &&
+	return !m.forceDynamicClient &&
+		(clientID == "" || clientSecret == "") &&
 		server.Status.OAuthMetadata != nil &&
 		server.Status.OAuthMetadata.ClientIDMetadataDocumentSupported &&
 		strings.HasPrefix(m.serverURL, "https://")

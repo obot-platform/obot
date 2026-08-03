@@ -229,6 +229,9 @@ config:
   # config.OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION -- The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. Defaults to 30d.
   OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION: ""
 
+  # config.OBOT_SERVER_FORCE_DYNAMIC_CLIENT -- Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. Defaults to false.
+  OBOT_SERVER_FORCE_DYNAMIC_CLIENT: false
+
   # config.OBOT_ARTIFACT_STORAGE_PROVIDER -- Storage provider for published workflows. Can be 's3', 'gcs', 'azure', or 'custom'. If unset, local disk storage is used.
   OBOT_ARTIFACT_STORAGE_PROVIDER: ""
   # config.OBOT_ARTIFACT_STORAGE_BUCKET -- Bucket or container name for published workflow storage.

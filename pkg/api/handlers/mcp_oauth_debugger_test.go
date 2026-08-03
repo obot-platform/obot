@@ -172,6 +172,7 @@ func TestOAuthDebuggerUsesCIMD(t *testing.T) {
 		oauthMeta    *v1.OAuthMetadata
 		clientID     string
 		clientSecret string
+		forceDynamic bool
 		expected     bool
 	}{
 		{
@@ -181,6 +182,14 @@ func TestOAuthDebuggerUsesCIMD(t *testing.T) {
 				ClientIDMetadataDocumentSupported: true,
 			},
 			expected: true,
+		},
+		{
+			name:         "dynamic client registration forced",
+			serverURL:    "https://obot.example.com",
+			forceDynamic: true,
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: true,
+			},
 		},
 		{
 			name:      "static credentials win",
@@ -216,7 +225,7 @@ func TestOAuthDebuggerUsesCIMD(t *testing.T) {
 			server := v1.MCPServer{
 				Status: v1.MCPServerStatus{OAuthMetadata: tt.oauthMeta},
 			}
-			got := (&MCPHandler{serverURL: tt.serverURL}).useOAuthDebuggerCIMD(server, tt.clientID, tt.clientSecret)
+			got := (&MCPHandler{serverURL: tt.serverURL, forceDynamicClient: tt.forceDynamic}).useOAuthDebuggerCIMD(server, tt.clientID, tt.clientSecret)
 			if got != tt.expected {
 				t.Fatalf("expected %v, got %v", tt.expected, got)
 			}

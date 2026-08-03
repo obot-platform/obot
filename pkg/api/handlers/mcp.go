@@ -56,12 +56,13 @@ type MCPHandler struct {
 	mcpRuntimeBackend         string
 	serverURL                 string
 	secretBindingAllowedLabel string
+	forceDynamicClient        bool
 
 	// shutdownMCPServer is only injected for testing
 	shutdownMCPServer func(string) error
 }
 
-func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string) *MCPHandler {
+func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:         mcpLoader,
 		mcpOAuthChecker:           mcpOAuthChecker,
@@ -71,6 +72,7 @@ func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.H
 		mcpRuntimeBackend:         mcpLoader.MCPRuntimeBackend(),
 		serverURL:                 serverURL,
 		secretBindingAllowedLabel: secretBindingAllowedLabel,
+		forceDynamicClient:        forceDynamicClient,
 	}
 }
 
