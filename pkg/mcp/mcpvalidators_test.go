@@ -1558,7 +1558,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "remote component with static OAuth not allowed in catalog",
+			name: "remote component with static OAuth is allowed in catalog",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
@@ -1576,11 +1576,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers[0]",
-				Message: "remote component with static OAuth cannot be included in a composite server",
-			},
+			expectedError: nil,
 		},
 		{
 			name: "remote component without static OAuth is allowed in catalog",
@@ -1893,7 +1889,7 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 		expectedError error
 	}{
 		{
-			name: "remote component with static OAuth not allowed",
+			name: "remote component with static OAuth is allowed",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeRuntimeConfig{
@@ -1911,11 +1907,7 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 					},
 				},
 			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers[0]",
-				Message: "remote component with static OAuth cannot be included in a composite server",
-			},
+			expectedError: nil,
 		},
 		{
 			name: "remote component without static OAuth is allowed",
@@ -1959,7 +1951,7 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 			expectedError: nil,
 		},
 		{
-			name: "mixed components with one having static OAuth not allowed",
+			name: "mixed components with one having static OAuth is allowed",
 			manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeRuntimeConfig{
@@ -1987,11 +1979,7 @@ func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
 					},
 				},
 			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers[1]",
-				Message: "remote component with static OAuth cannot be included in a composite server",
-			},
+			expectedError: nil,
 		},
 	}
 

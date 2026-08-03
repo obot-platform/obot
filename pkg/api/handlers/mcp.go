@@ -671,17 +671,66 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if serverConfig.Runtime == types.RuntimeRemote {
-		var are nmcp.AuthRequiredErr
-		if _, err = m.mcpSessionManager.PingServer(req.Context(), serverConfig); err != nil {
-			if !errors.As(err, &are) {
-				return fmt.Errorf("failed to ping MCP server: %w", err)
-			}
-			req.WriteHeader(http.StatusPreconditionFailed)
+	needsOAuth, err := m.serverNeedsOAuth(req.Context(), &server, serverConfig)
+	if err != nil {
+		return err
+	}
+	if !needsOAuth && server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		var componentServers v1.MCPServerList
+		if err := req.Storage.List(req.Context(), &componentServers, &kclient.ListOptions{
+			Namespace:     server.Namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
+		}); err != nil {
+			return fmt.Errorf("failed to list composite MCP component servers: %w", err)
 		}
+
+		disabled := make(map[string]bool)
+		if server.Spec.Manifest.CompositeConfig != nil {
+			for _, component := range server.Spec.Manifest.CompositeConfig.ComponentServers {
+				disabled[component.CatalogEntryID] = component.Disabled
+			}
+		}
+		for i := range componentServers.Items {
+			component := &componentServers.Items[i]
+			if disabled[component.Spec.MCPServerCatalogEntryName] || component.Spec.Manifest.Runtime != types.RuntimeRemote {
+				continue
+			}
+			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+			if err != nil {
+				return fmt.Errorf("failed to load composite MCP component server %s: %w", component.Name, err)
+			}
+			needsOAuth, err = m.serverNeedsOAuth(req.Context(), component, componentConfig)
+			if err != nil {
+				return err
+			}
+			if needsOAuth {
+				break
+			}
+		}
+	}
+	if needsOAuth {
+		req.WriteHeader(http.StatusPreconditionFailed)
 	}
 
 	return nil
+}
+
+func (m *MCPHandler) serverNeedsOAuth(ctx context.Context, server *v1.MCPServer, serverConfig mcp.ServerConfig) (bool, error) {
+	if mcp.RequiresStaticOAuth(*server) {
+		return true, nil
+	}
+	if serverConfig.Runtime != types.RuntimeRemote {
+		return false, nil
+	}
+
+	var authRequired nmcp.AuthRequiredErr
+	if _, err := m.mcpSessionManager.PingServer(ctx, serverConfig); err != nil {
+		if errors.As(err, &authRequired) {
+			return true, nil
+		}
+		return false, fmt.Errorf("failed to ping MCP server %s: %w", server.Name, err)
+	}
+	return false, nil
 }
 
 func (m *MCPHandler) GetOAuthURL(req api.Context) error {
@@ -1279,23 +1328,6 @@ func serverManifestFromCatalogEntryManifest(
 				inputComponent = inputComponents[entryComponent.ComponentID()]
 				userURL        string
 			)
-
-			// Check if the component has gained static OAuth.
-			// If so, reject the update - static OAuth components cannot be part of composites.
-			entryHasStaticOAuth := entryComponent.Manifest.Runtime == types.RuntimeRemote &&
-				entryComponent.Manifest.RemoteConfig != nil &&
-				entryComponent.Manifest.RemoteConfig.StaticOAuthRequired
-			inputHasStaticOAuth := inputComponent.Manifest.Runtime == types.RuntimeRemote &&
-				inputComponent.Manifest.RemoteConfig != nil &&
-				inputComponent.Manifest.RemoteConfig.StaticOAuthRequired
-
-			if entryHasStaticOAuth && !inputHasStaticOAuth {
-				// The component has gained static OAuth - reject the update.
-				return types.MCPServerManifest{}, types.NewErrBadRequest(
-					"cannot update composite server: component %s has been updated to require static OAuth, which is not allowed in composite servers",
-					entryComponent.ComponentID(),
-				)
-			}
 
 			if entryComponent.Manifest.Runtime == types.RuntimeRemote &&
 				entryComponent.Manifest.RemoteConfig != nil &&

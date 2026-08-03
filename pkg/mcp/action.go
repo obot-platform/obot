@@ -738,19 +738,6 @@ func serverManifestFromCatalogEntryManifest(isAdmin, disableHostnameValidation b
 				userURL        string
 			)
 
-			entryHasStaticOAuth := entryComponent.Manifest.Runtime == types.RuntimeRemote &&
-				entryComponent.Manifest.RemoteConfig != nil &&
-				entryComponent.Manifest.RemoteConfig.StaticOAuthRequired
-			inputHasStaticOAuth := inputComponent.Manifest.Runtime == types.RuntimeRemote &&
-				inputComponent.Manifest.RemoteConfig != nil &&
-				inputComponent.Manifest.RemoteConfig.StaticOAuthRequired
-			if entryHasStaticOAuth && !inputHasStaticOAuth {
-				return types.MCPServerManifest{}, types.NewErrBadRequest(
-					"cannot update composite server: component %s has been updated to require static OAuth, which is not allowed in composite servers",
-					entryComponent.ComponentID(),
-				)
-			}
-
 			if entryComponent.Manifest.Runtime == types.RuntimeRemote &&
 				entryComponent.Manifest.RemoteConfig != nil &&
 				entryComponent.Manifest.RemoteConfig.Hostname != "" &&

@@ -3,6 +3,7 @@ package oauth
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -82,6 +83,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 				if req.Context().Err() != nil {
 					return "", fmt.Errorf("failed to check component server OAuth: %w", req.Context().Err())
 				}
+				return "", fmt.Errorf("failed to check component server %s OAuth: %w", componentServer.Name, err)
 			}
 
 			if u != "" {
@@ -111,6 +113,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
+	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
+	if err != nil {
+		return "", err
+	}
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -142,12 +148,99 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	select {
 	case err := <-errChan:
-		return "", err
+		if err != nil || !staticOAuthPending {
+			return "", err
+		}
+		return f.staticOAuthURL(req.Context(), mcpServerConfig, oauthHandler)
 	case <-req.Context().Done():
 		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", req.Context().Err())
 	case u := <-oauthHandler.URLChan():
 		log.Infof("Remote MCP server requires OAuth authentication: mcpID=%s", mcpID)
 		return u, nil
+	}
+}
+
+func (f *MCPOAuthHandlerFactory) staticOAuthPending(ctx context.Context, mcpServer v1.MCPServer, oauthHandler *mcpOAuthHandler) (bool, error) {
+	if !mcp.RequiresStaticOAuth(mcpServer) {
+		return false, nil
+	}
+
+	conf, token, err := f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID).GetTokenConfig(ctx, oauthHandler.mcpURL)
+	if err != nil {
+		return false, fmt.Errorf("failed to check stored OAuth token for MCP server %s: %w", mcpServer.Name, err)
+	}
+	return conf == nil || token == nil, nil
+}
+
+func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfig mcp.ServerConfig, oauthHandler *mcpOAuthHandler) (string, error) {
+	metadata, err := f.mcpSessionManager.GetOAuthMetadata(ctx, serverConfig,
+		"Obot MCP Gateway", system.MCPOAuthCallbackURL(f.baseURL), true)
+	if err != nil {
+		return "", fmt.Errorf("failed to discover OAuth metadata for static OAuth server: %w", err)
+	}
+
+	callbackURL := system.MCPOAuthCallbackURL(f.baseURL)
+	authorizationServer, registration, err := staticOAuthMetadata(metadata, callbackURL)
+	if err != nil {
+		return "", err
+	}
+
+	clientID, clientSecret, err := oauthHandler.Lookup(ctx, metadata.AuthorizationServerMetadataURL)
+	if err != nil {
+		return "", err
+	}
+	conf := &oauth2.Config{
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  callbackURL,
+		Endpoint: oauth2.Endpoint{
+			AuthURL:   authorizationServer.AuthorizationEndpoint,
+			TokenURL:  authorizationServer.TokenEndpoint,
+			AuthStyle: staticOAuthAuthStyle(registration.TokenEndpointAuthMethod),
+		},
+	}
+	if registration.Scope != "" {
+		conf.Scopes = strings.Fields(registration.Scope)
+	}
+
+	authURL, _, _, err := nmcp.GetOAuthAuthorizationURL(ctx, oauthHandler, conf, authorizationServer.AuthorizationEndpoint, serverConfig.URL)
+	if err != nil {
+		return "", err
+	}
+	log.Infof("Remote MCP server requires configured static OAuth authentication: mcpID=%s", oauthHandler.mcpID)
+	return authURL, nil
+}
+
+func staticOAuthMetadata(metadata nmcp.OAuthMetadata, redirectURL string) (nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
+	var authorizationServer nmcp.AuthorizationServerMetadata
+	if len(metadata.AuthorizationServerMetadata) > 0 {
+		if err := json.Unmarshal(metadata.AuthorizationServerMetadata, &authorizationServer); err != nil {
+			return authorizationServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse authorization server metadata: %w", err)
+		}
+	}
+	if authorizationServer.AuthorizationEndpoint == "" || authorizationServer.TokenEndpoint == "" {
+		return authorizationServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("static OAuth is required but authorization server metadata was not found")
+	}
+
+	var registration nmcp.ClientRegistrationMetadata
+	if len(metadata.ClientRegistration) > 0 {
+		if err := json.Unmarshal(metadata.ClientRegistration, &registration); err != nil {
+			return authorizationServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
+		}
+	}
+
+	return authorizationServer, nmcp.AuthServerMetadataToClientRegistration(authorizationServer,
+		"Obot MCP Gateway", redirectURL, registration.Scope), nil
+}
+
+func staticOAuthAuthStyle(method string) oauth2.AuthStyle {
+	switch method {
+	case "client_secret_basic":
+		return oauth2.AuthStyleInHeader
+	case "client_secret_post":
+		return oauth2.AuthStyleInParams
+	default:
+		return oauth2.AuthStyleAutoDetect
 	}
 }
 

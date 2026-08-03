@@ -27,6 +27,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestServerNeedsOAuthForPendingStaticOAuth(t *testing.T) {
+	handler := MCPHandler{}
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					StaticOAuthRequired: true,
+				},
+			},
+		},
+	}
+
+	needsOAuth, err := handler.serverNeedsOAuth(t.Context(), &server, mcp.ServerConfig{Runtime: types.RuntimeRemote})
+	require.NoError(t, err)
+	require.True(t, needsOAuth)
+
+	server.Status.UserHasAuthenticated = true
+	needsOAuth, err = handler.serverNeedsOAuth(t.Context(), &server, mcp.ServerConfig{Runtime: types.RuntimeUVX})
+	require.NoError(t, err)
+	require.False(t, needsOAuth)
+}
+
 func TestConvertMCPResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},

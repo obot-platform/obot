@@ -14,7 +14,6 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -1099,23 +1098,8 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return nil
 	}
 
-	oauthServer := nmcp.Server{
-		BaseURL: serverConfig.URL,
-		Headers: serverConfigHeaders(serverConfig),
-	}
-	var metadata nmcp.OAuthMetadata
-	if serverConfig.TunnelName != "" {
-		httpClient, clientErr := h.mcpSessionManager.HTTPClientForServer(serverConfig, 5*time.Second)
-		if clientErr != nil {
-			return clientErr
-		}
-		metadata, err = nmcp.GetOAuthMetadataWithClient(req.Ctx, httpClient, oauthServer,
-			"Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL))
-	} else {
-		metadata, err = nmcp.GetOAuthMetadataWithBlockingConfig(req.Ctx, oauthServer,
-			"Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL),
-			!blockingConfig.AllowLocalhostMCP, !blockingConfig.AllowPrivateIPMCP, !blockingConfig.AllowLinkLocalMCP)
-	}
+	metadata, err := h.mcpSessionManager.GetOAuthMetadata(req.Ctx, serverConfig,
+		"Obot Test MCP OAuth Client", system.MCPOAuthCallbackURL(h.baseURL), mcp.RequiresStaticOAuth(*server))
 	if err != nil {
 		return fmt.Errorf("failed to get OAuth metadata: %w", err)
 	}
@@ -1175,22 +1159,6 @@ func setOAuthMetadata(req router.Request, server *v1.MCPServer, statusMetadata *
 	}
 
 	return nil
-}
-
-func serverConfigHeaders(serverConfig mcp.ServerConfig) map[string]string {
-	result := make(map[string]string, len(serverConfig.PassthroughHeaderNames)+len(serverConfig.Headers))
-	for i, key := range serverConfig.PassthroughHeaderNames {
-		if i < len(serverConfig.PassthroughHeaderValues) {
-			result[key] = serverConfig.PassthroughHeaderValues[i]
-		}
-	}
-	for _, header := range serverConfig.Headers {
-		key, value, ok := strings.Cut(header, "=")
-		if ok {
-			result[key] = value
-		}
-	}
-	return result
 }
 
 func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) error {

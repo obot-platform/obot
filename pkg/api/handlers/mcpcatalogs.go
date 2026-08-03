@@ -1640,13 +1640,6 @@ func (h *MCPCatalogHandler) populateComponentManifests(req api.Context, manifest
 				return types.NewErrBadRequest("multi-user catalog entry %s cannot be included in a composite server; use the multi-user MCP server instead", component.CatalogEntryID)
 			}
 
-			// Reject remote entries with static OAuth from being included in composites
-			if entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
-				entry.Spec.Manifest.RemoteConfig != nil &&
-				entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
-				return types.NewErrBadRequest("remote catalog entry %s with static OAuth cannot be included in a composite server", component.CatalogEntryID)
-			}
-
 			// Populate the manifest
 			component.Manifest = entry.Spec.Manifest
 			// Keep this component
