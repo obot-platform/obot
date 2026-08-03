@@ -10,7 +10,7 @@ import (
 )
 
 func TestLicenseRouteAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
 	users := []struct {
 		name      string
 		info      user.Info

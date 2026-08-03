@@ -1063,7 +1063,7 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 	}, nil
 }
 
-// MCPAuditLogOptions configures audit-row queries across MCP and local-agent sources. Common
+// MCPAuditLogOptions configures audit-row queries across MCP and local-agent catalogs. Common
 // filters apply to every selected source. MCP-only and local-agent-only filters are mutually
 // exclusive; ValidateAuditLogOptions enforces those rules before a query runs.
 type MCPAuditLogOptions struct {

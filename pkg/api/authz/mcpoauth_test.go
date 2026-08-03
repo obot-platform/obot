@@ -24,7 +24,7 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 			UserID: "mcpoauth-user-uid",
 		},
 	}).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",
 		UID:    "mcpoauth-user-uid",
@@ -73,7 +73,7 @@ func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
 			UserID: "mcp-user-uid",
 		},
 	}).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",
 		UID:    "mcp-user-uid",
@@ -118,7 +118,7 @@ func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
 }
 
 func TestMCPGroupDeniesNonMCPAPIRoutes(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",
 		UID:    "mcp-user-uid",

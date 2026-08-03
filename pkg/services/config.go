@@ -36,6 +36,7 @@ import (
 	otime "github.com/obot-platform/obot/pkg/gateway/time"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/hostedagentaccessrule"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/license"
@@ -836,6 +837,73 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	skillAccessRuleHelper := skillaccessrule.NewHelper(skillAccessRuleInformer.GetIndexer())
 
+	hostedAgentAccessRuleGVK, err := r.Backend().GroupVersionKindFor(&v1.HostedAgentAccessRule{})
+	if err != nil {
+		return nil, err
+	}
+
+	hostedAgentAccessRuleInformer, err := r.Backend().GetInformerForKind(ctx, hostedAgentAccessRuleGVK)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = hostedAgentAccessRuleInformer.AddIndexers(map[string]gocache.IndexFunc{
+		hostedagentaccessrule.HostedAgentIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.HostedAgentResourceTypeHostedAgent {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.ResourceSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, resource := range rule.Spec.Manifest.Resources {
+				if resource.Type == apiclienttypes.HostedAgentResourceTypeSelector {
+					results = append(results, resource.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.UserIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeUser {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.GroupIDIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeGroup {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+		hostedagentaccessrule.SubjectSelectorIndex: func(obj any) ([]string, error) {
+			rule := obj.(*v1.HostedAgentAccessRule)
+			var results []string
+			for _, subject := range rule.Spec.Manifest.Subjects {
+				if subject.Type == apiclienttypes.SubjectTypeSelector {
+					results = append(results, subject.ID)
+				}
+			}
+			return results, nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+
+	hostedAgentAccessRuleHelper := hostedagentaccessrule.NewHelper(hostedAgentAccessRuleInformer.GetIndexer())
+
 	mapHelper, err := modelaccesspolicy.NewHelper(ctx, r.Backend())
 	if err != nil {
 		return nil, err
@@ -898,7 +966,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		authenticators = union.New(authenticators, tunnel.NewTunnelAuthenticator(storageClient))
 		// API Key authentication (for MCP server access) - restricted to GroupAPIKey only
 		// Must come after UserDecorator since it handles its own user lookup
-		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient))
+		authenticators = union.New(authenticators, gserver.NewAPIKeyAuthenticator(gatewayClient, storageClient))
 		// Device enrollment tokens (ode1-) and device access JWTs. Both yield
 		// non-user principals, so they must come after the UserDecorator.
 		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
@@ -992,7 +1060,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ClientIDMetadataDocumentSupported: true,
 	}
 
-	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, registryNoAuth)
+	authorizer := authz.NewAuthorizer(gatewayClient, r.Backend(), storageClient, config.DevMode, acrHelper, skillAccessRuleHelper, hostedAgentAccessRuleHelper, registryNoAuth)
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,

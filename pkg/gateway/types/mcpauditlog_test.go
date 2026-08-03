@@ -272,7 +272,7 @@ func TestNewLocalAgentToolCallAuditLogFromInput(t *testing.T) {
 	}, types2.AuditLogActorTypeUser, "user-1", "127.0.0.1", 0, createdAt)
 
 	if log.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
-		t.Fatalf("expected local-agent source type, got %q", log.SourceType)
+		t.Fatalf("expected local-agent catalog type, got %q", log.SourceType)
 	}
 	if log.UserID != "user-1" || log.ClientIP != "127.0.0.1" || !log.CreatedAt.Equal(createdAt) {
 		t.Fatalf("server-owned fields were not populated correctly: %#v", log)

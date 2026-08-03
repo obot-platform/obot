@@ -158,6 +158,70 @@ func (c *Client) CreateAPIKey(ctx context.Context, userID uint, name, descriptio
 	return resp, nil
 }
 
+// CreateHostedAgentAPIKey issues the credential a hosted agent sandbox uses to
+// reach the MCP gateway and the model proxy.
+//
+// The key authenticates as the agent, not as its owner, so ownerUserID is
+// recorded for attribution and cleanup only and confers none of that user's
+// access. Scopes are deliberately limited to the gateway and the proxy: an
+// agent must never reach the Obot API, or an exfiltrated credential could
+// enumerate or modify resources.
+//
+// MCPServerIDs is left empty on purpose. Authentication resolves the instance
+// and fills the authorized servers from its live configuration, so narrowing an
+// agent takes effect without reissuing this key.
+//
+// The key does not expire. Agents read their credential once at startup and
+// cannot reload it, so expiry would strand a running sandbox.
+func (c *Client) CreateHostedAgentAPIKey(ctx context.Context, instanceID string, ownerUserID uint, name string) (*types.APIKeyCreateResponse, error) {
+	if instanceID == "" {
+		return nil, fmt.Errorf("hosted agent instance ID is required")
+	}
+
+	var resp *types.APIKeyCreateResponse
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		resp, err = c.createAPIKey(tx, ownerUserID, name, "Hosted agent sandbox credential", nil, types.APIKeyScopes{
+			CanAccessLLMProxy: true,
+			CanAccessSkills:   true,
+		})
+		if err != nil {
+			return err
+		}
+		resp.HostedAgentInstanceID = &instanceID
+		return tx.Model(&types.APIKey{}).Where("id = ?", resp.ID).
+			Update("hosted_agent_instance_id", instanceID).Error
+	}); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// DeleteHostedAgentAPIKeys revokes every key bound to an instance. Revocation
+// is a row delete, so a leaked credential stops working immediately rather than
+// waiting for an expiry that hosted agent keys deliberately do not have.
+func (c *Client) DeleteHostedAgentAPIKeys(ctx context.Context, instanceID string) error {
+	if instanceID == "" {
+		return nil
+	}
+	if err := c.db.WithContext(ctx).Where("hosted_agent_instance_id = ?", instanceID).
+		Delete(&types.APIKey{}).Error; err != nil {
+		return fmt.Errorf("failed to delete hosted agent API keys: %w", err)
+	}
+	return nil
+}
+
+// HostedAgentAPIKeys returns the keys bound to an instance, without secrets.
+func (c *Client) HostedAgentAPIKeys(ctx context.Context, instanceID string) ([]types.APIKey, error) {
+	var keys []types.APIKey
+	if err := c.db.WithContext(ctx).Where("hosted_agent_instance_id = ?", instanceID).
+		Order("created_at DESC").Find(&keys).Error; err != nil {
+		return nil, fmt.Errorf("failed to list hosted agent API keys: %w", err)
+	}
+	return keys, nil
+}
+
 // CreateAPIKeyFromTokenRequest creates an API key from a token request.
 func (c *Client) CreateAPIKeyFromTokenRequest(ctx context.Context, userID uint, tr *types.TokenRequest) (*types.APIKeyCreateResponse, error) {
 	var expiresAt *time.Time

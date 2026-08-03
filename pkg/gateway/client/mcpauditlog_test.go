@@ -151,7 +151,7 @@ func TestInsertLocalAgentAuditLogsCompletedSuccess(t *testing.T) {
 		t.Fatalf("load stored audit log: %v", err)
 	}
 	if stored.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
-		t.Fatalf("expected local-agent source type, got %q", stored.SourceType)
+		t.Fatalf("expected local-agent catalog type, got %q", stored.SourceType)
 	}
 	if stored.MCPFields != nil && (stored.MCPFields.MCPID != "" || len(stored.MCPFields.RequestBody) > 0 || len(stored.MCPFields.ResponseBody) > 0) {
 		t.Fatalf("expected no populated MCP fields, got %#v", stored.MCPFields)
@@ -379,7 +379,7 @@ func TestGetLocalAgentAuditLogsFiltersBySourceTypeAndBlanksPayloads(t *testing.T
 	}
 	got := logs[0]
 	if got.SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
-		t.Fatalf("expected local-agent source type, got %q", got.SourceType)
+		t.Fatalf("expected local-agent catalog type, got %q", got.SourceType)
 	}
 	if got.MCPFields != nil {
 		t.Fatalf("expected MCP fields to be nil for local-agent list row, got %#v", got.MCPFields)
