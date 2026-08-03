@@ -63,7 +63,7 @@
 		"@lucide/svelte": "^1.21.0",
 		"micromark": "^4.0.2",
 		"micromark-extension-gfm": "^3.0.0",
-		"postcss": "^8.5.18",
+		"postcss": "^8.5.23",
 		"prettier": "^3.5.2",
 		"prettier-plugin-svelte": "^3.3.3",
 		"prettier-plugin-tailwindcss": "^0.7.2",
