@@ -342,3 +342,10 @@ func (rw *responseWriter) Flush() {
 		f.Flush()
 	}
 }
+
+// Unwrap exposes the writer underneath to http.ResponseController. Without it a
+// websocket handler under /api/ cannot hijack the connection, because this
+// wrapper hides the Hijacker the server provides.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
+}
