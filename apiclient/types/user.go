@@ -49,6 +49,11 @@ const (
 	GroupTunnel             = "obot-tunnel"
 	GroupTunnelBridge       = "obot-tunnel-bridge"
 	GroupTunnelPeer         = "obot-tunnel-peer"
+	// GroupHostedAgent marks a principal that is a hosted agent sandbox rather
+	// than a person. It never accompanies GroupAPI: an agent reaches the MCP
+	// gateway and the model proxy and nothing else, so a stolen credential
+	// cannot enumerate or modify Obot resources.
+	GroupHostedAgent = "hosted-agent"
 )
 
 type Role int
