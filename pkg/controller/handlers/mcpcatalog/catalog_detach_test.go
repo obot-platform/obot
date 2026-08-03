@@ -1,6 +1,7 @@
 package mcpcatalog
 
 import (
+	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/apply"
@@ -76,10 +77,11 @@ func TestFilterDetachedCatalogEntriesReportsConflict(t *testing.T) {
 	desired.Spec.Editable = false
 	desired.Spec.SourceURL = "github.com/example/catalog"
 	desired.Spec.Manifest.Name = "Context7"
-	c := newCatalogFakeClient(existing)
+	c := &namespaceRecordingClient{Client: newCatalogFakeClient(existing)}
 
-	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, []client.Object{desired})
+	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, "default", []client.Object{desired})
 	require.NoError(t, err)
+	assert.Equal(t, "default", c.catalogEntryNamespace)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with a detached entry")
 }
@@ -90,7 +92,7 @@ func TestFilterDetachedCatalogEntriesPreservesDuplicateOrder(t *testing.T) {
 	second.Spec.SourceURL = "second"
 	c := newCatalogFakeClient()
 
-	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, []client.Object{first, second})
+	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, "default", []client.Object{first, second})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 2)
@@ -149,4 +151,17 @@ func newCatalogFakeClient(objects ...client.Object) client.Client {
 		}).
 		WithObjects(objects...).
 		Build()
+}
+
+type namespaceRecordingClient struct {
+	client.Client
+	catalogEntryNamespace string
+}
+
+func (c *namespaceRecordingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*v1.MCPServerCatalogEntryList); ok {
+		listOpts := (&client.ListOptions{}).ApplyOptions(opts)
+		c.catalogEntryNamespace = listOpts.Namespace
+	}
+	return c.Client.List(ctx, list, opts...)
 }

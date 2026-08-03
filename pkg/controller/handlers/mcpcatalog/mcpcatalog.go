@@ -154,7 +154,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
-	toAdd, detachedErrors, err := filterDetachedCatalogEntries(req.Ctx, req.Client, toAdd)
+	toAdd, detachedErrors, err := filterDetachedCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
 	if err != nil {
 		return fmt.Errorf("failed to check detached catalog entries: %w", err)
 	}
@@ -216,11 +216,11 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	}
 }
 
-func filterDetachedCatalogEntries(ctx context.Context, c client.Client, objs []client.Object) ([]client.Object, map[string]string, error) {
+func filterDetachedCatalogEntries(ctx context.Context, c client.Client, namespace string, objs []client.Object) ([]client.Object, map[string]string, error) {
 	result := make([]client.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
 	var existingEntries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &existingEntries); err != nil {
+	if err := c.List(ctx, &existingEntries, client.InNamespace(namespace)); err != nil {
 		return nil, nil, err
 	}
 	detachedNames := make(map[client.ObjectKey]struct{})
