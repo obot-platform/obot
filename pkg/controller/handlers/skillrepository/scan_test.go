@@ -246,8 +246,8 @@ allowed-tools: tool1,tool2
 		assert.Equal(t, "MIT", skill.Spec.License)
 		assert.Equal(t, "nanobot >= 1.0", skill.Spec.Compatibility)
 		assert.Equal(t, "tool1,tool2", skill.Spec.AllowedTools)
-		assert.Equal(t, "tester", skill.Spec.MetadataValues["author"])
-		assert.Equal(t, "1.0", skill.Spec.MetadataValues["version"])
+		assert.Equal(t, "tester", skill.Spec.Metadata["author"])
+		assert.Equal(t, "1.0", skill.Spec.Metadata["version"])
 	})
 
 	t.Run("root skill rejected", func(t *testing.T) {

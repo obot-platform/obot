@@ -554,7 +554,8 @@ export interface Skill {
 	license?: string;
 	compatibility?: string;
 	allowedTools?: string;
-	metadata?: Record<string, unknown>;
+	// The skill frontmatter's metadata block, carried on the resource envelope.
+	metadata?: Record<string, string>;
 	repoID?: string;
 	repoURL?: string;
 	repoRef?: string;

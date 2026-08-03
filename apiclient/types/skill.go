@@ -15,13 +15,12 @@ type Skill struct {
 }
 
 type SkillManifest struct {
-	Name           string            `json:"name,omitempty"`
-	Description    string            `json:"description,omitempty"`
-	DisplayName    string            `json:"displayName,omitempty"`
-	License        string            `json:"license,omitempty"`
-	Compatibility  string            `json:"compatibility,omitempty"`
-	AllowedTools   string            `json:"allowedTools,omitempty"`
-	MetadataValues map[string]string `json:"metadata,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Description   string `json:"description,omitempty"`
+	DisplayName   string `json:"displayName,omitempty"`
+	License       string `json:"license,omitempty"`
+	Compatibility string `json:"compatibility,omitempty"`
+	AllowedTools  string `json:"allowedTools,omitempty"`
 }
 
 type SkillList List[Skill]

@@ -14006,20 +14006,6 @@ func schema_obot_platform_obot_apiclient_types_SkillManifest(ref common.Referenc
 							Format: "",
 						},
 					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
 				},
 			},
 		},
@@ -22470,7 +22456,8 @@ func schema_storage_apis_obotobotai_v1_SkillSpec(ref common.ReferenceCallback) c
 					},
 					"metadata": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
+							Description: "Metadata is the skill frontmatter's metadata block. It lives on the spec rather than on the manifest because the manifest is embedded in the API's Skill alongside types.Metadata, and two promoted fields cannot both be called \"metadata\" -- encoding/json drops both when they are. Serialized name is unchanged, since the manifest was inlined here anyway.",
+							Type:        []string{"object"},
 							AdditionalProperties: &spec.SchemaOrBool{
 								Allows: true,
 								Schema: &spec.Schema{

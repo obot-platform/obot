@@ -63,6 +63,13 @@ func (in *Skill) GetColumns() [][]string {
 type SkillSpec struct {
 	types.SkillManifest `json:",inline"`
 
+	// Metadata is the skill frontmatter's metadata block. It lives on the spec
+	// rather than on the manifest because the manifest is embedded in the API's
+	// Skill alongside types.Metadata, and two promoted fields cannot both be
+	// called "metadata" -- encoding/json drops both when they are. Serialized
+	// name is unchanged, since the manifest was inlined here anyway.
+	Metadata map[string]string `json:"metadata,omitempty"`
+
 	RepoID       string `json:"repoID,omitempty"`
 	RepoURL      string `json:"repoURL,omitempty"`
 	RepoRef      string `json:"repoRef,omitempty"`

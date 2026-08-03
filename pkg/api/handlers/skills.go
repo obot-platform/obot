@@ -457,8 +457,12 @@ func sanitizeDownloadFilename(value string) string {
 }
 
 func convertSkill(skill v1.Skill) types.Skill {
+	// The frontmatter's metadata is surfaced through the envelope's own metadata
+	// map rather than a second field beside it.
+	metadata := MetadataFrom(&skill)
+	metadata.Metadata = skill.Spec.Metadata
 	return types.Skill{
-		Metadata:        MetadataFrom(&skill),
+		Metadata:        metadata,
 		SkillManifest:   skill.Spec.SkillManifest,
 		RepoID:          skill.Spec.RepoID,
 		RepoURL:         skill.Spec.RepoURL,
