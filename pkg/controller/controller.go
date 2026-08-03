@@ -73,6 +73,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}
 
+	if err := ensureHostedAgentPoolDefaults(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to ensure hosted agent pool defaults: %w", err)
+	}
+
 	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
 	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm, resourceMaximums); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
@@ -386,6 +390,40 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 	return client.Update(ctx, &defaultRoleSetting)
 }
 
+func ensureHostedAgentPoolDefaults(ctx context.Context, client kclient.Client) error {
+	const gibibyte = int64(1024 * 1024 * 1024)
+
+	var defaults v1.HostedAgentPoolDefaults
+	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "default"}
+	if err := client.Get(ctx, key, &defaults); err == nil {
+		// Defaults are administrator-owned after creation.
+		return nil
+	} else if !apierrors.IsNotFound(err) {
+		return err
+	}
+
+	return client.Create(ctx, &v1.HostedAgentPoolDefaults{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		},
+		Spec: v1.HostedAgentPoolDefaultsSpec{
+			Manifest: types.HostedAgentPoolDefaultsManifest{
+				Capacity: types.HostedAgentResourceQuantity{
+					CPUVCPUs:     1,
+					MemoryBytes:  4 * gibibyte,
+					StorageBytes: 20 * gibibyte,
+				},
+				// Seeded explicitly rather than left to the fallback, so an
+				// administrator opening the defaults sees the number that is
+				// actually in force. With the capacity above this gives each
+				// sandbox 250m CPU and 1GiB guaranteed.
+				MaxSandboxes: 4,
+			},
+		},
+	})
+}
+
 // ensureK8sSettings ensures the K8sSettings resource exists with proper configuration.
 // podSchedulingSettings: affinity, tolerations, resources, runtimeClassName - can be managed via Helm OR UI.
 //
@@ -572,7 +610,10 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router
 func (c *Controller) setupLocalK8sRoutes() {
-	if c.services.LocalRouter != nil {
+	// The local router now also exists when only hosted agents run on
+	// Kubernetes, so these are gated on the MCP backend rather than on the
+	// router: every one of them reconciles MCP state from cluster objects.
+	if c.services.LocalRouter != nil && mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) {
 		resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
 		deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
@@ -584,7 +625,6 @@ func (c *Controller) setupLocalK8sRoutes() {
 		// instead of waiting for the periodic service-account key rotation loop.
 		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 	}
-
 	if c.services.EveryReplicaRouter != nil {
 		peerHandler := tunnelpeer.New(c.services.TunnelManager.ID, c.services.TunnelManager)
 		c.services.EveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
