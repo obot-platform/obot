@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -25,7 +26,7 @@ func TestDataCreatesDefaultModelAccessPolicyWithLLMAliases(t *testing.T) {
 	ctx := t.Context()
 	client := newFakeClient(t)
 
-	require.NoError(t, Data(ctx, client, "", ""))
+	require.NoError(t, Data(ctx, client, Defaults{}))
 
 	var policy v1.ModelAccessPolicy
 	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
@@ -124,5 +125,134 @@ func TestCreateDefaultSkillRepository(t *testing.T) {
 			Name:      system.DefaultSkillRepository,
 		}, &repo))
 		assert.Equal(t, "main", repo.Spec.Ref)
+	})
+}
+
+func TestCreateDefaultAgentCatalog(t *testing.T) {
+	ctx := t.Context()
+	const repoURL = "https://github.com/obot-platform/hosted-agents-catalog"
+
+	t.Run("empty URL is no-op", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, "", "main", false))
+
+		var list v1.AgentCatalogList
+		require.NoError(t, c.List(ctx, &list))
+		assert.Empty(t, list.Items)
+	})
+
+	t.Run("whitespace-only URL is no-op", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, "  \n  ", "main", false))
+
+		var list v1.AgentCatalogList
+		require.NoError(t, c.List(ctx, &list))
+		assert.Empty(t, list.Items)
+	})
+
+	t.Run("invalid URL returns error", func(t *testing.T) {
+		c := newFakeClient(t)
+		err := createDefaultAgentCatalog(ctx, c, "not-a-url", "main", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid default agent catalog")
+	})
+
+	t.Run("local path is rejected outside development mode", func(t *testing.T) {
+		c := newFakeClient(t)
+		err := createDefaultAgentCatalog(ctx, c, "/home/dev/src/hosted-agents-catalog", "", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid default agent catalog")
+	})
+
+	t.Run("local path is accepted in development mode", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, "/home/dev/src/hosted-agents-catalog", "", true))
+
+		var source v1.AgentCatalog
+		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultAgentCatalog,
+		}, &source))
+		assert.Equal(t, "/home/dev/src/hosted-agents-catalog", source.Spec.RepoURL)
+	})
+
+	t.Run("invalid ref returns error", func(t *testing.T) {
+		c := newFakeClient(t)
+		err := createDefaultAgentCatalog(ctx, c, repoURL, "--upload-pack=evil", false)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gitRef must not begin with '-'")
+	})
+
+	t.Run("valid URL creates catalog", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, repoURL, "main", false))
+
+		var source v1.AgentCatalog
+		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultAgentCatalog,
+		}, &source))
+		assert.Equal(t, "Default", source.Spec.DisplayName)
+		assert.Equal(t, repoURL, source.Spec.RepoURL)
+		assert.Equal(t, "main", source.Spec.Ref)
+	})
+
+	t.Run("trims whitespace from URL and ref", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, "  "+repoURL+"  ", "  main  ", false))
+
+		var source v1.AgentCatalog
+		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultAgentCatalog,
+		}, &source))
+		assert.Equal(t, repoURL, source.Spec.RepoURL)
+		assert.Equal(t, "main", source.Spec.Ref)
+	})
+
+	t.Run("already exists is not an error", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, repoURL, "main", false))
+		require.NoError(t, createDefaultAgentCatalog(ctx, c, repoURL, "v2", false))
+
+		var source v1.AgentCatalog
+		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultAgentCatalog,
+		}, &source))
+		assert.Equal(t, "main", source.Spec.Ref)
+	})
+}
+
+func TestDataSeedsDefaultAgentCatalogOnFirstBoot(t *testing.T) {
+	ctx := t.Context()
+	const repoURL = "https://github.com/obot-platform/hosted-agents-catalog"
+
+	t.Run("seeds on first boot", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, Data(ctx, c, Defaults{HostedAgentsCatalogURL: repoURL}))
+
+		var source v1.AgentCatalog
+		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultAgentCatalog,
+		}, &source))
+		assert.Equal(t, repoURL, source.Spec.RepoURL)
+	})
+
+	// An existing MCPCatalog stands in for "this server has booted before", so a
+	// catalog an admin deleted is not resurrected.
+	t.Run("does not seed when catalogs already exist", func(t *testing.T) {
+		c := newFakeClient(t, &v1.MCPCatalog{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.DefaultCatalog,
+				Namespace: system.DefaultNamespace,
+			},
+		})
+		require.NoError(t, Data(ctx, c, Defaults{HostedAgentsCatalogURL: repoURL}))
+
+		var list v1.AgentCatalogList
+		require.NoError(t, c.List(ctx, &list))
+		assert.Empty(t, list.Items)
 	})
 }
