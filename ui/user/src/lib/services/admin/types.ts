@@ -1133,6 +1133,254 @@ export interface SkillAccessPolicyManifest {
 	resources: SkillAccessPolicyResource[];
 }
 
+// Agent sources
+
+export interface AgentCatalogManifest {
+	displayName: string;
+	repoURL: string;
+	ref?: string;
+}
+
+export interface AgentCatalog extends AgentCatalogManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	lastSyncTime?: string;
+	isSyncing?: boolean;
+	syncError?: string;
+	resolvedCommitSHA?: string;
+	discoveredAgentCount: number;
+	discoveredHarnessCount: number;
+}
+
+// Harnesses — the runtimes hosted agents are built on (e.g. "Claude Code",
+// "Codex", "Custom Python"). The harness supplies the docker image; the agent
+// supplies configuration.
+
+export interface HarnessManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	image: string;
+}
+
+export interface Harness extends HarnessManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+}
+
+// Hosted agents
+
+export type HostedAgentState = 'pending' | 'ready' | 'error' | 'removing';
+
+// Agents are templates and carry no status; only instances run.
+export interface HostedAgentInstanceStatus {
+	state?: HostedAgentState;
+	url?: string;
+	error?: string;
+	reason?: string;
+	message?: string;
+	observedRevision?: string;
+	lastObservedTime?: string;
+	backendID?: string;
+	backendGeneration?: string;
+}
+
+export interface HostedAgentEnv {
+	name?: string;
+	description?: string;
+	key: string;
+	value?: string;
+	sensitive?: boolean;
+	required?: boolean;
+}
+
+export type HostedAgentQuestionType = 'string' | 'number' | 'boolean' | 'select' | 'schedule';
+
+export interface HostedAgentQuestion {
+	key: string;
+	name?: string;
+	description?: string;
+	type?: HostedAgentQuestionType;
+	required?: boolean;
+	sensitive?: boolean;
+	default?: string;
+	// Only valid for type 'select'.
+	options?: string[];
+}
+
+export interface HostedAgentManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	iconDark?: string;
+	// The Harness this agent runs on; the harness supplies the docker image.
+	harnessID: string;
+	// Optional git repository made available to the agent.
+	gitRepo?: string;
+	// Branch, tag or commit SHA. Blank checks out the default branch.
+	gitRef?: string;
+	modelProviders?: string[];
+	// Model IDs, obot://<alias> references, or wildcard prefixes.
+	models?: string[];
+	// MCP gateway IDs — the same handles used by /mcp-connect/{mcp_id}.
+	mcpServers?: string[];
+	skills?: string[];
+	env?: HostedAgentEnv[];
+	questions?: HostedAgentQuestion[];
+	allowUserMCPServers?: boolean;
+	allowUserSkills?: boolean;
+	allowUserModels?: boolean;
+	// Lets a user set their own git repository on an instance, overriding the
+	// agent's gitRepo if one is configured.
+	allowUserGitRepo?: boolean;
+	maxInstancesPerUser?: number;
+	// The HTTP port the agent serves on inside its sandbox. When set, instances
+	// are reachable at /agent-connect/{instance id}.
+	port?: number;
+	// Offers an interactive shell attached to the sandbox. Requires an
+	// interactive harness, since without a TTY there is no session to attach to.
+	terminal?: boolean;
+}
+
+export interface HostedAgent extends HostedAgentManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	// Why this agent cannot be launched on this installation — a model its
+	// harness can use is not configured, or an MCP server it names is missing.
+	// Empty or absent means it can be launched.
+	unavailableReasons?: string[];
+}
+
+export interface HostedAgentInstanceManifest {
+	name: string;
+	description?: string;
+	icon?: string;
+	// Answers to the agent's questions, keyed by question key. Values are strings
+	// regardless of the question's type.
+	answers?: Record<string, string>;
+	// Git repository the user supplied; only accepted when the agent sets
+	// allowUserGitRepo.
+	gitRepo?: string;
+	// Branch, tag or commit for gitRepo. It belongs to the repository beside it:
+	// the agent's ref is not applied to a repository the user supplied.
+	gitRef?: string;
+	// Resources the user attached themselves; only accepted when the agent's
+	// corresponding allowUser* flag is set.
+	mcpServers?: string[];
+	skills?: string[];
+	models?: string[];
+}
+
+export interface HostedAgentInstance extends HostedAgentInstanceManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	hostedAgentID: string;
+	userID?: string;
+	poolID?: string;
+	// The icon to show, already resolved by the server through instance ->
+	// agent -> harness, so a client renders a row from this payload alone.
+	resolvedIcon?: string;
+	resolvedIconDark?: string;
+	status?: HostedAgentInstanceStatus;
+}
+
+export interface HostedAgentResourceQuantity {
+	cpuVcpus: number;
+	memoryBytes: number;
+	storageBytes: number;
+}
+
+export interface HostedAgentPoolManifest {
+	// How many sandboxes share this pool. Each reserves capacity/maxSandboxes
+	// and may burst to the whole pool, so raising it shrinks everyone's share.
+	maxSandboxes?: number;
+	capacity: HostedAgentResourceQuantity;
+	suspended?: boolean;
+}
+
+export interface HostedAgentPoolStatus {
+	backendProjectID?: string;
+	backendPoolID?: string;
+	ready?: boolean;
+	schedulable?: boolean;
+	degraded?: boolean;
+	capacity?: HostedAgentResourceQuantity;
+	observedRevision?: string;
+	reason?: string;
+	message?: string;
+}
+
+export interface HostedAgentPool extends HostedAgentPoolManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+	status?: HostedAgentPoolStatus;
+}
+
+export interface HostedAgentPoolDefaults extends HostedAgentPoolManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+}
+
+export interface HostedAgentPoolAssignmentManifest {
+	userID: string;
+	poolID: string;
+	default?: boolean;
+}
+
+export interface HostedAgentPoolAssignment extends HostedAgentPoolAssignmentManifest {
+	id: string;
+	created: string;
+	deleted?: string;
+}
+
+export interface HostedAgentInstanceUtilization {
+	instanceID: string;
+	state?: string;
+	usage: HostedAgentResourceQuantity;
+}
+
+export interface HostedAgentPoolUtilization {
+	timestamp: string;
+	pool: HostedAgentResourceQuantity;
+	instances: HostedAgentInstanceUtilization[];
+	pressure: {
+		cpu?: boolean;
+		memory?: boolean;
+		storage?: boolean;
+	};
+	// Distinguishes a pool using no disk from one whose disk cannot be measured.
+	// Sandboxes share one volume, so disk is only ever reported for the pool —
+	// never per instance.
+	storageMeasured?: boolean;
+}
+
+// The UI calls these "Access Policies"; the API resource is
+// hosted-agent-access-rules. See operations.ts for the rename shim.
+export interface HostedAgentAccessPolicyResource {
+	type: 'hostedAgent' | 'selector';
+	id: string;
+}
+export interface HostedAgentAccessPolicy {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
+}
+export interface HostedAgentAccessPolicyManifest {
+	displayName: string;
+	subjects: AccessControlRuleSubject[];
+	resources: HostedAgentAccessPolicyResource[];
+}
+
 // Storage credentials
 
 export interface StorageCredentials {
