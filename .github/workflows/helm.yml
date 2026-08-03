@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - main
+      - 'feat/*'
     paths:
       - .github/workflows/helm.yml
       - chart/**

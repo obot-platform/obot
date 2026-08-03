@@ -1,8 +1,14 @@
 name: Test Docker Build
+
+permissions:
+  contents: read
+  id-token: write
+
 on:
   pull_request:
     branches:
       - main
+      - 'feat/*'
     paths-ignore:
       - docs/**
       - chart/**
