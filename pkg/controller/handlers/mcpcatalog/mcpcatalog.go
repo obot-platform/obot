@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -59,6 +60,7 @@ const CatalogCredentialToolName = "catalog-source-tokens"
 
 const (
 	catalogReferenceSeparator = "::"
+	detachedEntryAnnotation   = "obot.ai/mcp-catalog-entry-detached"
 
 	// These are used to force catalog sync on startup, used for times when changes are made to
 	// catalogs, and they must be synced on the next start.
@@ -152,6 +154,14 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
+	toAdd, detachedErrors, err := filterDetachedCatalogEntries(req.Ctx, req.Client, toAdd)
+	if err != nil {
+		return fmt.Errorf("failed to check detached catalog entries: %w", err)
+	}
+	for sourceURL, errMsg := range detachedErrors {
+		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+	}
+
 	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd)
 	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
@@ -178,18 +188,24 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.
-	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name))
-
 	// Don't run prune if there are sync errors
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
 		log.Infof("Applying MCP catalog entries without prune due to source errors: catalog=%s entries=%d sourceErrors=%d", mcpCatalog.Name, len(toAdd), len(mcpCatalog.Status.SyncErrors))
-		app = app.WithNoPrune()
-	} else {
-		log.Infof("Applying MCP catalog entries with prune enabled: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
-		app = app.WithPruneTypes(&v1.MCPServerCatalogEntry{})
+		return apply.New(req.Client).
+			WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).
+			WithNoPrune().
+			Apply(req.Ctx, mcpCatalog, toAdd...)
 	}
 
-	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	if err := detachReferencedRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
+		return err
+	}
+
+	log.Infof("Applying MCP catalog entries with prune enabled: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
+	return apply.New(req.Client).
+		WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).
+		WithPruneTypes(&v1.MCPServerCatalogEntry{}).
+		Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -198,6 +214,113 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	} else {
 		syncErrors[sourceURL] = errMsg
 	}
+}
+
+func filterDetachedCatalogEntries(ctx context.Context, c client.Client, objs []client.Object) ([]client.Object, map[string]string, error) {
+	result := make([]client.Object, 0, len(objs))
+	errsBySourceURL := make(map[string]string)
+	var existingEntries v1.MCPServerCatalogEntryList
+	if err := c.List(ctx, &existingEntries); err != nil {
+		return nil, nil, err
+	}
+	detachedNames := make(map[client.ObjectKey]struct{})
+	for _, entry := range existingEntries.Items {
+		if entry.Annotations[detachedEntryAnnotation] == "true" {
+			detachedNames[client.ObjectKeyFromObject(&entry)] = struct{}{}
+		}
+	}
+
+	for _, obj := range objs {
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			result = append(result, obj)
+			continue
+		}
+
+		if _, detached := detachedNames[client.ObjectKeyFromObject(entry)]; detached {
+			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("catalog entry %q conflicts with a detached entry of the same identity", entry.Spec.Manifest.Name))
+			continue
+		}
+		result = append(result, obj)
+	}
+
+	return result, errsBySourceURL, nil
+}
+
+func detachReferencedRemovedEntries(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, desired []client.Object) error {
+	desiredNames := make(map[string]struct{}, len(desired))
+	for _, obj := range desired {
+		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
+			desiredNames[entry.Name] = struct{}{}
+		}
+	}
+
+	labels, _, err := apply.GetLabelsAndAnnotations(c.Scheme(), fmt.Sprintf("catalog-%s", catalog.Name), catalog)
+	if err != nil {
+		return fmt.Errorf("failed to calculate catalog ownership: %w", err)
+	}
+
+	var entries v1.MCPServerCatalogEntryList
+	if err := c.List(ctx, &entries, client.InNamespace(catalog.Namespace), client.MatchingLabels{apply.LabelHash: labels[apply.LabelHash]}); err != nil {
+		return fmt.Errorf("failed to list managed catalog entries: %w", err)
+	}
+
+	for i := range entries.Items {
+		entry := &entries.Items[i]
+		if entry.Spec.MCPCatalogName != catalog.Name {
+			continue
+		}
+		if _, ok := desiredNames[entry.Name]; ok {
+			continue
+		}
+
+		var servers v1.MCPServerList
+		if err := c.List(ctx, &servers, client.InNamespace(entry.Namespace), client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+			return fmt.Errorf("failed to list servers for catalog entry %q: %w", entry.Name, err)
+		}
+		if len(servers.Items) == 0 {
+			continue
+		}
+
+		if err := detachCatalogEntry(ctx, c, catalog, entry.Name); err != nil {
+			return fmt.Errorf("failed to detach catalog entry %q: %w", entry.Name, err)
+		}
+		log.Infof("Detached removed MCP catalog entry with active servers: catalog=%s entry=%s servers=%d", catalog.Name, entry.Name, len(servers.Items))
+	}
+
+	return nil
+}
+
+func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, entryName string) error {
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		var entry v1.MCPServerCatalogEntry
+		if err := c.Get(ctx, client.ObjectKey{Namespace: catalog.Namespace, Name: entryName}, &entry); err != nil {
+			return err
+		}
+
+		entry.Spec.Editable = true
+		entry.Spec.SourceURL = ""
+		entry.Spec.Manifest.EntryKey = ""
+		if entry.Annotations == nil {
+			entry.Annotations = make(map[string]string)
+		}
+		entry.Annotations[detachedEntryAnnotation] = "true"
+		for key := range entry.Annotations {
+			if strings.HasPrefix(key, apply.LabelPrefix) {
+				delete(entry.Annotations, key)
+			}
+		}
+		for key := range entry.Labels {
+			if strings.HasPrefix(key, apply.LabelPrefix) {
+				delete(entry.Labels, key)
+			}
+		}
+		entry.OwnerReferences = slices.DeleteFunc(entry.OwnerReferences, func(ref metav1.OwnerReference) bool {
+			return ref.APIVersion == v1.SchemeGroupVersion.String() && ref.Kind == "MCPCatalog" && ref.Name == catalog.Name
+		})
+
+		return c.Update(ctx, &entry)
+	})
 }
 
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
