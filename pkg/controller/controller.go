@@ -61,7 +61,13 @@ func New(services *services.Services) (*Controller, error) {
 }
 
 func (c *Controller) PreStart(ctx context.Context) error {
-	if err := data.Data(ctx, c.services.StorageClient, c.services.DefaultSkillRepoURL, c.services.DefaultSkillRepoRef); err != nil {
+	if err := data.Data(ctx, c.services.StorageClient, data.Defaults{
+		SkillRepoURL:           c.services.DefaultSkillRepoURL,
+		SkillRepoRef:           c.services.DefaultSkillRepoRef,
+		HostedAgentsCatalogURL: c.services.DefaultHostedAgentsCatalogURL,
+		HostedAgentsCatalogRef: c.services.DefaultHostedAgentsCatalogRef,
+		AllowLocalRepos:        c.services.DevMode,
+	}); err != nil {
 		return fmt.Errorf("failed to apply data: %w", err)
 	}
 

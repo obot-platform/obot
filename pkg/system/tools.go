@@ -24,6 +24,7 @@ const (
 	DefaultNamespace       = "default"
 	DefaultCatalog         = "default"
 	DefaultSkillRepository = "default"
+	DefaultAgentCatalog    = "default"
 	DefaultModelInfoSource = "default"
 	DefaultMDMAssetSource  = "default"
 	DefaultRoleSettingName = "user-default-role-setting"
