@@ -250,10 +250,6 @@ type headersResponseWriter struct {
 	wroteHeader bool
 }
 
-func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
-	return w.ResponseWriter
-}
-
 func (w *headersResponseWriter) ensureHeaders(status int) {
 	// Always set nosniff; harmless for non-browser clients.
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -309,6 +305,13 @@ func (w *headersResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return h.Hijack()
 }
 
+// Unwrap lets http.ResponseController reach the writer underneath, which is how
+// anything needing a capability not forwarded here -- read and write deadlines,
+// notably -- gets at it.
+func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) error {
 	if p, ok := w.ResponseWriter.(http.Pusher); ok {
 		return p.Push(target, opts)
@@ -341,4 +344,11 @@ func (rw *responseWriter) Flush() {
 	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+// Unwrap exposes the writer underneath to http.ResponseController. Without it a
+// websocket handler under /api/ cannot hijack the connection, because this
+// wrapper hides the Hijacker the server provides.
+func (rw *responseWriter) Unwrap() http.ResponseWriter {
+	return rw.ResponseWriter
 }
