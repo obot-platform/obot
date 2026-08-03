@@ -265,6 +265,12 @@
 			label: 'Skills',
 			href: '/skills'
 		},
+		{
+			id: 'hosted-agents',
+			icon: Container,
+			label: 'Hosted Agents',
+			href: '/hosted-agents'
+		},
 		...(hasAccessibleModels
 			? [
 					{
