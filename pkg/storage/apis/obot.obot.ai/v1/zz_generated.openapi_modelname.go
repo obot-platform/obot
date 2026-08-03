@@ -21,6 +21,26 @@ func (in AccessControlRuleSpec) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentCatalog) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentCatalog"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentCatalogList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentCatalogList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentCatalogSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentCatalogSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AgentCatalogStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AgentCatalogStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in Alias) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Alias"
 }
@@ -188,6 +208,131 @@ func (in GroupRoleChangeList) OpenAPIModelName() string {
 // OpenAPIModelName returns the OpenAPI model name for this type.
 func (in GroupRoleChangeSpec) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.GroupRoleChangeSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in Harness) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.Harness"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HarnessStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HarnessStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgent) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgent"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentAccessRule) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentAccessRule"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentAccessRuleList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentAccessRuleList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentAccessRuleSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentAccessRuleSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentInstance) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentInstance"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentInstanceList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentInstanceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentInstanceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentInstanceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentInstanceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPool) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPool"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolAssignment) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolAssignment"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolAssignmentList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolAssignmentList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolAssignmentSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolAssignmentSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolDefaults) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolDefaults"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolDefaultsList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolDefaultsList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolDefaultsSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolDefaultsSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentPoolStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentPoolStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in HostedAgentStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.HostedAgentStatus"
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
