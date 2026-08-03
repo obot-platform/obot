@@ -53,6 +53,19 @@ jobs:
             --set replicaCount=2 --set persistence.enabled=false \
             --set config.OBOT_ARTIFACT_STORAGE_PROVIDER=azure \
             --set config.OBOT_ARTIFACT_STORAGE_BUCKET=obot
+          expect renders "two replicas on an operator-mounted shared volume" \
+            --set replicaCount=2 --set persistence.enabled=false \
+            --set 'extraVolumes[0].name=shared' \
+            --set 'extraVolumes[0].persistentVolumeClaim.claimName=studio-data' \
+            --set 'extraVolumeMounts[0].name=shared' \
+            --set 'extraVolumeMounts[0].subPath=obot' \
+            --set 'extraVolumeMounts[0].mountPath=/data'
+          expect refuses "two replicas whose extra mount is not over the data path" \
+            --set replicaCount=2 --set persistence.enabled=false \
+            --set 'extraVolumes[0].name=shared' \
+            --set 'extraVolumes[0].emptyDir.medium=Memory' \
+            --set 'extraVolumeMounts[0].name=shared' \
+            --set 'extraVolumeMounts[0].mountPath=/somewhere-else'
 
   build:
     runs-on: ubuntu-latest

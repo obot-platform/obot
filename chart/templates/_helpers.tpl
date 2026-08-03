@@ -167,18 +167,29 @@ Valid multi-replica storage:
   * a ReadWriteMany claim, so every replica sees the same files; or
   * an existingClaim, whose access mode this chart cannot see — the operator
     owns that guarantee; or
+  * an extraVolumeMount over persistence.path, which is how an operator mounts a
+    volume this chart did not create — including a subPath of a larger shared
+    one. Its access mode is equally invisible here, so the same trust applies; or
   * no volume at all plus an artifact object store, which shares the files
     every replica must agree on.
 */}}
 {{- define "obot.validateReplicaStorage" -}}
 {{- if gt (int .Values.replicaCount) 1 -}}
+{{- $mountsPath := false -}}
+{{- range .Values.extraVolumeMounts -}}
+{{- if eq (.mountPath | default "") ($.Values.persistence.path | default "/data") -}}
+{{- $mountsPath = true -}}
+{{- end -}}
+{{- end -}}
+{{- if not $mountsPath -}}
 {{- if .Values.persistence.enabled -}}
 {{- if and (not .Values.persistence.existingClaim) (not (has "ReadWriteMany" .Values.persistence.accessModes)) -}}
-{{- fail (printf "replicaCount is %d but persistence.accessModes is %v: a multi-replica pool needs persistence.accessModes [ReadWriteMany] on an RWX storage class, an existingClaim backed by shared storage, or persistence.enabled=false with config.OBOT_ARTIFACT_STORAGE_PROVIDER set" (int .Values.replicaCount) .Values.persistence.accessModes) -}}
+{{- fail (printf "replicaCount is %d but persistence.accessModes is %v: a multi-replica pool needs persistence.accessModes [ReadWriteMany] on an RWX storage class, an existingClaim backed by shared storage, an extraVolumeMount at %s, or persistence.enabled=false with config.OBOT_ARTIFACT_STORAGE_PROVIDER set" (int .Values.replicaCount) .Values.persistence.accessModes (.Values.persistence.path | default "/data")) -}}
 {{- end -}}
 {{- else -}}
 {{- if not (.Values.config.OBOT_ARTIFACT_STORAGE_PROVIDER | default "" | toString | trim) -}}
-{{- fail (printf "replicaCount is %d with persistence.enabled=false but config.OBOT_ARTIFACT_STORAGE_PROVIDER is unset: published artifacts would stay on each replica's own ephemeral disk" (int .Values.replicaCount)) -}}
+{{- fail (printf "replicaCount is %d with persistence.enabled=false but neither config.OBOT_ARTIFACT_STORAGE_PROVIDER nor an extraVolumeMount at %s is set: published artifacts would stay on each replica's own ephemeral disk" (int .Values.replicaCount) (.Values.persistence.path | default "/data")) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
