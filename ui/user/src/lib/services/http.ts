@@ -104,6 +104,8 @@ type ResponseHandler = (
 	opts?: { dontLogErrors?: boolean }
 ) => Promise<unknown>;
 
+export type ErrorHandler = (error: unknown) => void;
+
 export async function doDelete(
 	path: string,
 	opts?: {
@@ -132,6 +134,7 @@ export async function doPut(
 	input?: string | object | Blob,
 	opts?: {
 		dontLogErrors?: boolean;
+		errorHandler?: ErrorHandler;
 		fetch?: typeof fetch;
 		signal?: AbortSignal;
 	}
@@ -144,12 +147,13 @@ export async function handleResponse(
 	path: string,
 	opts?: {
 		dontLogErrors?: boolean;
+		errorHandler?: ErrorHandler;
 	}
 ): Promise<unknown> {
 	if (!resp.ok) {
 		const body = await resp.text();
 		const e = createHttpError(resp.status, path, body);
-		if (opts?.dontLogErrors) {
+		if (opts?.dontLogErrors || opts?.errorHandler) {
 			throw e;
 		}
 		errors.items.push(e);
@@ -167,6 +171,7 @@ export async function doWithBody(
 	input?: string | object | Blob | FormData,
 	opts?: {
 		dontLogErrors?: boolean;
+		errorHandler?: ErrorHandler;
 		fetch?: typeof fetch;
 		headers?: Record<string, string>;
 		signal?: AbortSignal;
@@ -204,6 +209,10 @@ export async function doWithBody(
 		}
 		return handleResponse(resp, path, opts);
 	} catch (e) {
+		if (opts?.errorHandler) {
+			opts.errorHandler(e);
+			throw e;
+		}
 		if (opts?.dontLogErrors) {
 			throw e;
 		}
@@ -217,6 +226,7 @@ export async function doPost(
 	input: string | object | Blob,
 	opts?: {
 		dontLogErrors?: boolean;
+		errorHandler?: ErrorHandler;
 		fetch?: typeof fetch;
 		headers?: Record<string, string>;
 		signal?: AbortSignal;
