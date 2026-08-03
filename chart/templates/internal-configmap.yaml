@@ -16,10 +16,20 @@ data:
   {{ $key }}: {{ toString $value | quote }}
   {{- end }}
   {{- end }}
-  {{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+  {{- if include "obot.mcpOnKubernetes" . }}
+  # Hosted agent sandboxes share this namespace, so leaving it unset would send
+  # the agent backend to its own default namespace, which this chart never
+  # creates and grants no permissions on.
   OBOT_SERVER_MCPNAMESPACE: {{ include "obot.config.mcpNamespace" . | quote }}
   OBOT_SERVER_SERVICE_NAME: {{ include "obot.fullname" . | quote }}
   OBOT_SERVER_SERVICE_NAMESPACE: {{ .Release.Namespace | quote }}
+  {{- if not .Values.config.OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL }}
+  # Sandboxes are admitted against the namespace's Pod Security level, so the
+  # backend is told what that level is rather than being configured separately
+  # and left to drift out of agreement with the label above. Setting
+  # config.OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL explicitly overrides this.
+  OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL: {{ if .Values.mcpNamespace.podSecurity.enabled }}{{ .Values.mcpNamespace.podSecurity.enforce | quote }}{{ else }}"privileged"{{ end }}
+  {{- end }}
   {{- end }}
   {{- if .Values.mcpServerDefaults.affinity }}
   OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY: {{ .Values.mcpServerDefaults.affinity | toJson | quote }}
