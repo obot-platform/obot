@@ -389,7 +389,7 @@ func TestAuditLogOptionsDefaultsToMCPOnly(t *testing.T) {
 	}
 }
 
-// TestAuditLogOptionsMapsLocalAgentFilters proves local-agent source type and filters are passed
+// TestAuditLogOptionsMapsLocalAgentFilters proves local-agent catalog type and filters are passed
 // through to the gateway query when a caller explicitly opts in.
 func TestAuditLogOptionsMapsLocalAgentFilters(t *testing.T) {
 	opts := mcpAuditLogOptionsFromExport(exportWithFilters(types.AuditLogExportFilters{
@@ -402,7 +402,7 @@ func TestAuditLogOptionsMapsLocalAgentFilters(t *testing.T) {
 	}, true), 100, 0)
 
 	if len(opts.SourceTypes) != 1 || opts.SourceTypes[0] != types.AuditLogSourceTypeLocalAgentToolCall {
-		t.Fatalf("expected local-agent source type, got %v", opts.SourceTypes)
+		t.Fatalf("expected local-agent catalog type, got %v", opts.SourceTypes)
 	}
 	if len(opts.AgentProvider) != 1 || opts.AgentProvider[0] != string(types.LocalAgentProviderClaudeCode) {
 		t.Fatalf("expected agent provider filter to pass through, got %v", opts.AgentProvider)
