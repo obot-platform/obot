@@ -25,6 +25,8 @@ func (in *SkillRepository) Has(field string) (exists bool) {
 
 func (in *SkillRepository) Get(field string) (value string) {
 	switch field {
+	case "spec.displayName":
+		return in.Spec.DisplayName
 	case "spec.repoURL":
 		return in.Spec.RepoURL
 	case "spec.ref":
@@ -37,7 +39,7 @@ func (in *SkillRepository) Get(field string) (value string) {
 }
 
 func (in *SkillRepository) FieldNames() []string {
-	return []string{"spec.repoURL", "spec.ref", "spec.gitCredentialID"}
+	return []string{"spec.displayName", "spec.repoURL", "spec.ref", "spec.gitCredentialID"}
 }
 
 func (in *SkillRepository) GetColumns() [][]string {

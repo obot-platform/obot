@@ -14,6 +14,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SkillRepositoryHandler struct{}
@@ -212,18 +213,21 @@ func parseSkillRepositoryRequest(req api.Context) (*types.SkillRepositoryManifes
 
 func validateUniqueSkillRepository(req api.Context, manifest *types.SkillRepositoryManifest, excludedName string) error {
 	var repositories v1.SkillRepositoryList
-	if err := req.List(&repositories); err != nil {
-		return fmt.Errorf("failed to list skill repositories: %w", err)
+	if err := req.List(&repositories, kclient.MatchingFields{"spec.displayName": manifest.DisplayName}); err != nil {
+		return fmt.Errorf("failed to find skill sources by name: %w", err)
 	}
-
 	for _, repository := range repositories.Items {
-		if repository.Name == excludedName {
-			continue
-		}
-		if repository.Spec.DisplayName == manifest.DisplayName {
+		if repository.Name != excludedName {
 			return types.NewErrAlreadyExists("a skill source named %q already exists", manifest.DisplayName)
 		}
-		if repository.Spec.RepoURL == manifest.RepoURL {
+	}
+
+	repositories.Items = nil
+	if err := req.List(&repositories, kclient.MatchingFields{"spec.repoURL": manifest.RepoURL}); err != nil {
+		return fmt.Errorf("failed to find skill sources by repository URL: %w", err)
+	}
+	for _, repository := range repositories.Items {
+		if repository.Name != excludedName {
 			return types.NewErrAlreadyExists("a skill source with repository URL %q already exists", manifest.RepoURL)
 		}
 	}
