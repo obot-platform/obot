@@ -1,4 +1,4 @@
-{{- if eq .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND "kubernetes" }}
+{{- if include "obot.mcpOnKubernetes" . }}
 {{- include "obot.validatePodSecurityLevels" . -}}
 apiVersion: v1
 kind: Namespace
@@ -54,6 +54,12 @@ rules:
   - apiGroups: [""]
     resources: ["pods", "pods/log", "events"]
     verbs: ["get", "list", "watch"]
+  # The hosted agent terminal joins a sandbox's console. It attaches to the
+  # container the harness was started with rather than exec'ing a second
+  # process, so this is pods/attach and not pods/exec.
+  - apiGroups: [""]
+    resources: ["pods/attach"]
+    verbs: ["create", "get"]
   - apiGroups: ["apps"]
     resources: ["deployments"]
     verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
@@ -63,10 +69,71 @@ rules:
   - apiGroups: ["networking.aviatrix.com"]
     resources: ["firewallpolicies"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
-  # ResourceQuota access for capacity info
+  # ResourceQuota access for capacity info, and for hosted agent pools,
+  # whose pool budgets are ResourceQuotas scoped to a per-pool PriorityClass.
   - apiGroups: [""]
     resources: ["resourcequotas"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+  # Hosted agent sandbox volume cleanup runs as a Job.
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+
+---
+# PriorityClasses are cluster-scoped, so the per-pool objects backing hosted
+# agent pools cannot live in a namespaced Role. Each one is created with
+# an owner reference to the sandbox namespace, so deleting that namespace
+# collects them.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-obot-agent-clusterrole
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["scheduling.k8s.io"]
+    resources: ["priorityclasses"]
+    verbs: ["create", "get", "list", "watch", "update", "patch", "delete"]
+  # Needed to read the sandbox namespace's UID when building those owner
+  # references, and to create it when hosted agents are the only Kubernetes
+  # feature enabled.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["create", "get", "list", "watch"]
+  # Only read when Obot's own hostname is a loopback address, which is a
+  # developer running outside the cluster: a sandbox cannot reach 127.0.0.1, so
+  # a node address is substituted. Harmless to omit in production, where the
+  # configured hostname already resolves.
+  - apiGroups: [""]
+    resources: ["nodes"]
     verbs: ["get", "list"]
+  # Live per-sandbox CPU and memory for hosted agent pools.
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  # Pool volume usage comes from kubelet's stats summary, reached through the
+  # API server proxy. This grant is broader than it looks -- nodes/proxy can
+  # reach other kubelet endpoints too -- so withhold it if pool disk reporting
+  # is not wanted. The backend degrades to omitting disk rather than failing.
+  - apiGroups: [""]
+    resources: ["nodes/proxy", "nodes/stats"]
+    verbs: ["get"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ .Release.Name }}-obot-agent-clusterrolebinding
+  labels:
+    {{- include "obot.labels" . | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "obot.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: ClusterRole
+  name: {{ .Release.Name }}-obot-agent-clusterrole
+  apiGroup: rbac.authorization.k8s.io
 
 ---
 apiVersion: rbac.authorization.k8s.io/v1
