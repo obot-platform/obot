@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
@@ -211,7 +212,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 		return h.ensureSystemServerIsDeployed(req, mcpID)
 	}
 
-	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), mcpID, req.User.GetUID())
+	mcpID, mcpServer, mcpServerConfig, missingConfig, err := h.mcpSessionManager.ServerForActionWithConnectIDAllowMissingConfig(req.Context(), mcpID, principal.ResourceOwnerID(req.User))
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to get mcp server config: %w", err)
 	}
@@ -317,7 +318,9 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := systemServer.ValidConnectURLs(baseURL)
 
-	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, req.User.GetUID(), credEnv, secretsCred)
+	// Ownership, not the acting identity: a system server deployed for an agent
+	// belongs to the person who created that agent.
+	serverConfig, _, err := mcp.SystemServerToServerConfig(systemServer, audiences, principal.ResourceOwnerID(req.User), credEnv, secretsCred)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to convert system server to config: %w", err)
 	}
