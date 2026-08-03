@@ -157,6 +157,9 @@ func ensureServerReady(ctx context.Context, url string, server ServerConfig) err
 					}
 				}
 			}
+			if err := scanner.Err(); err != nil {
+				lastErr = fmt.Errorf("failed reading SSE stream: %w", err)
+			}
 			resp.Body.Close()
 			cancel()
 		}
