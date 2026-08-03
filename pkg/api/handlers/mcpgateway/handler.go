@@ -149,7 +149,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				}
 				r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
 				scheme := "https"
-				if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") {
+				if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
 					scheme = "http"
 				}
 				r.Out.Header.Set("X-Forwarded-Proto", scheme)
