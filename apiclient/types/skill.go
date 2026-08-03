@@ -15,13 +15,16 @@ type Skill struct {
 }
 
 type SkillManifest struct {
-	Name           string            `json:"name,omitempty"`
-	Description    string            `json:"description,omitempty"`
-	DisplayName    string            `json:"displayName,omitempty"`
-	License        string            `json:"license,omitempty"`
-	Compatibility  string            `json:"compatibility,omitempty"`
-	AllowedTools   string            `json:"allowedTools,omitempty"`
-	MetadataValues map[string]string `json:"metadata,omitempty"`
+	Name          string `json:"name,omitempty"`
+	Description   string `json:"description,omitempty"`
+	DisplayName   string `json:"displayName,omitempty"`
+	License       string `json:"license,omitempty"`
+	Compatibility string `json:"compatibility,omitempty"`
+	AllowedTools  string `json:"allowedTools,omitempty"`
+	// Tagged metadataValues rather than metadata: Skill embeds both Metadata and
+	// SkillManifest, and two promoted fields sharing the "metadata" tag made
+	// encoding/json drop both, so skills serialized no metadata at all.
+	MetadataValues map[string]string `json:"metadataValues,omitempty"`
 }
 
 type SkillList List[Skill]
