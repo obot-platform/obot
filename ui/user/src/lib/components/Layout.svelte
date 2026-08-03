@@ -20,6 +20,7 @@
 		'agent-management': true,
 		'mcp-server-management': true,
 		'skills-management': true,
+		'hosted-agent-management': true,
 		'device-management': true,
 		'user-management': true,
 		'llm-gateway': true,
@@ -102,6 +103,7 @@
 		Settings,
 		PanelLeftClose,
 		Brain,
+		Container,
 		LayoutGrid,
 		KeyRound,
 		Menu,
@@ -422,6 +424,29 @@
 								id: 'skill-access-policies',
 								href: '/admin/skill-access-policies',
 								label: 'Skill Access Policies',
+								collapsible: false
+							}
+						]
+					},
+					{
+						id: 'hosted-agent-management',
+						icon: Container,
+						// "Management" is dropped deliberately: the section's items already
+						// say what they are, and the longer label wrapped to two lines in a
+						// narrow sidebar.
+						label: 'Hosted Agents',
+						collapsible: true,
+						items: [
+							{
+								id: 'hosted-agents',
+								href: '/admin/hosted-agents',
+								label: 'Templates',
+								collapsible: false
+							},
+							{
+								id: 'hosted-agent-access-policies',
+								href: '/admin/hosted-agent-access-policies',
+								label: 'Access Policies',
 								collapsible: false
 							}
 						]
