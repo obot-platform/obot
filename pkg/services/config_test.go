@@ -1,13 +1,107 @@
 package services
 
 import (
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/obot-platform/obot/pkg/agentbackend"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/rest"
 )
+
+func TestNewAgentBackend(t *testing.T) {
+	tests := []struct {
+		name       string
+		kind       string
+		mcpBackend string
+		devMode    bool
+		wantKind   string
+		wantErr    bool
+		wantActive bool
+	}{
+		// Unset follows the MCP runtime rather than defaulting on its own, so a
+		// deployment names its backend once. There is no docker agent backend,
+		// so a docker MCP runtime lands on fake.
+		{name: "unset follows a docker MCP runtime", mcpBackend: "docker", wantKind: "fake", wantActive: true},
+		{name: "unset with no MCP runtime configured", wantKind: "fake", wantActive: true},
+		{name: "unset follows a kubernetes MCP runtime", mcpBackend: "kubernetes", wantErr: true},
+		{name: "unset follows the k8s alias", mcpBackend: "k8s", wantErr: true},
+		{name: "development defaults fake", devMode: true, wantKind: "fake", wantActive: true},
+		// An explicit value always wins over the MCP runtime, in both directions.
+		{name: "explicit disabled under a kubernetes MCP runtime", kind: "disabled", mcpBackend: "kubernetes", wantKind: "disabled"},
+		{name: "explicit disabled in development", kind: "disabled", devMode: true, wantKind: "disabled"},
+		{name: "explicit fake", kind: "FAKE", wantKind: "fake", wantActive: true},
+		// The Kubernetes backend needs a cluster, so selecting it without one
+		// has to fail at startup rather than at the first reconcile.
+		{name: "kubernetes without a cluster", kind: "kubernetes", wantErr: true},
+		{name: "explicit kubernetes under a docker MCP runtime", kind: "kubernetes", mcpBackend: "docker", wantErr: true},
+		{name: "discobox removed", kind: "discobox", wantErr: true},
+		{name: "unknown", kind: "other", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := Config{
+				HostedAgentsBackend: tt.kind,
+				DevMode:             tt.devMode,
+			}
+			config.MCPRuntimeBackend = tt.mcpBackend
+			kind, backend, err := newHostedAgentsBackend(config, nil, nil, nil)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected an error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if kind != tt.wantKind {
+				t.Fatalf("expected kind %q, got %q", tt.wantKind, kind)
+			}
+			_, err = backend.ObserveInstance(t.Context(), agentbackend.InstanceRef{ID: "test"})
+			if tt.wantActive && errors.Is(err, agentbackend.ErrDisabled) {
+				t.Fatal("expected an active backend")
+			}
+			if !tt.wantActive && !errors.Is(err, agentbackend.ErrDisabled) {
+				t.Fatalf("expected disabled backend, got %v", err)
+			}
+		})
+	}
+}
+
+func TestLeaderElectionRESTConfig(t *testing.T) {
+	tests := []struct {
+		name     string
+		timeout  time.Duration
+		expected time.Duration
+	}{
+		{name: "unset", expected: leaderElectionRequestTimeout},
+		{name: "longer", timeout: time.Minute, expected: leaderElectionRequestTimeout},
+		{name: "shorter", timeout: time.Second, expected: time.Second},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := &rest.Config{Timeout: tt.timeout}
+			result := leaderElectionRESTConfig(original)
+
+			if result == original {
+				t.Fatal("expected the REST config to be copied")
+			}
+			if result.Timeout != tt.expected {
+				t.Fatalf("expected timeout %s, got %s", tt.expected, result.Timeout)
+			}
+			if original.Timeout != tt.timeout {
+				t.Fatalf("original timeout changed from %s to %s", tt.timeout, original.Timeout)
+			}
+		})
+	}
+}
 
 func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 	tests := []struct {
