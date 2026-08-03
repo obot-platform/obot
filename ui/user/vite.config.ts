@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
 		target: apiTarget,
 		changeOrigin: true,
 		secure: true,
+		// The agent terminal is a websocket under /api, and the proxy ignores
+		// upgrade requests unless this is set.
+		ws: true,
 		headers: apiToken ? { Authorization: `Bearer ${apiToken}` } : undefined
 	};
 
