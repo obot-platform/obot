@@ -57,6 +57,11 @@ func TestStaticOAuthPendingUsesStoredAuthentication(t *testing.T) {
 	require.True(t, pending)
 
 	storage.config = &oauth2.Config{ClientID: "client"}
+	storage.token = &oauth2.Token{}
+	pending, err = factory.staticOAuthPending(t.Context(), server, handler)
+	require.NoError(t, err)
+	require.True(t, pending)
+
 	storage.token = &oauth2.Token{AccessToken: "token"}
 	pending, err = factory.staticOAuthPending(t.Context(), server, handler)
 	require.NoError(t, err)
