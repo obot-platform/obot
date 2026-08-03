@@ -108,6 +108,24 @@ Set name of namespace to use for mcp servers
 {{- end -}}
 
 {{/*
+Whether Obot runs workloads on Kubernetes.
+
+This gates the sandbox namespace, its RBAC and its network policy. Hosted agent
+sandboxes share that namespace with MCP servers and follow the same backend --
+the chart deliberately does not expose a separate agent backend setting, because
+a real deployment always wants the two to match. Overriding one without the
+other is a local development case, handled by setting the server flag directly.
+
+The k8s alias is accepted here because pkg/mcp accepts it: gating on the long
+spelling alone would leave a "k8s" deployment running on a cluster with no
+namespace and no permissions.
+*/}}
+{{- define "obot.mcpOnKubernetes" -}}
+{{- $backend := .Values.config.OBOT_SERVER_MCPRUNTIME_BACKEND | default "" | toString | lower -}}
+{{- if or (eq $backend "kubernetes") (eq $backend "k8s") -}}true{{- end -}}
+{{- end -}}
+
+{{/*
 Generate comma-separated list of MCP image pull secret names
 */}}
 {{- define "obot.config.mcpImagePullSecrets" -}}
