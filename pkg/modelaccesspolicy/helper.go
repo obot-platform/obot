@@ -3,6 +3,7 @@ package modelaccesspolicy
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/backend"
@@ -231,6 +232,51 @@ func (h *Helper) GetUserAllowedTargetModels(user kuser.Info, provider, dialect s
 			continue
 		}
 		if allowAll || allowedModels[m.Name] {
+			allowed[m.Spec.Manifest.TargetModel] = true
+		}
+	}
+
+	return allowed, false, nil
+}
+
+// GetAgentAllowedTargetModels enumerates the targets a hosted agent may use,
+// for the same passthrough list endpoint GetUserAllowedTargetModels serves.
+//
+// An agent's authority was fixed when its instance was created, so it is drawn
+// from the models configured on it rather than from access policies, which
+// describe people and would not match a principal that is not one. This mirrors
+// what the inference path already does; enumerating from policy here instead
+// would report a set the agent's own requests do not obey -- an agent told it
+// may use nothing, while every call it makes succeeds.
+//
+// modelIDs holds Model resource names, or "*" for every model.
+func (h *Helper) GetAgentAllowedTargetModels(modelIDs []string, provider, dialect string) (allowed map[string]bool, allowAll bool, _ error) {
+	allowAll = slices.Contains(modelIDs, "*")
+	if allowAll && dialect == "" {
+		// Nothing to filter, and the nil map must not be read as "allow
+		// nothing" -- the same contract GetUserAllowedTargetModels documents.
+		return nil, true, nil
+	}
+
+	// The provider index already drops deleted, inactive and unconfigured
+	// models, so every entry has a usable target.
+	objs, err := h.modelIndexer.ByIndex(modelProviderIndex, provider)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to get models for provider %q: %w", provider, err)
+	}
+
+	configured := make(map[string]bool, len(modelIDs))
+	for _, id := range modelIDs {
+		configured[id] = true
+	}
+
+	allowed = make(map[string]bool, len(objs))
+	for _, obj := range objs {
+		m, ok := obj.(*v1.Model)
+		if !ok || (dialect != "" && m.Spec.Manifest.Dialect != dialect) {
+			continue
+		}
+		if allowAll || configured[m.Name] {
 			allowed[m.Spec.Manifest.TargetModel] = true
 		}
 	}

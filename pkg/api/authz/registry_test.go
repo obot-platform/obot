@@ -50,7 +50,7 @@ func TestRegistryRouteAuthorization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, tt.registryNoAuth)
+			authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, tt.registryNoAuth)
 			req := httptest.NewRequest(http.MethodGet, "/v0.1/servers", nil)
 
 			if allowed := authorizer.Authorize(req, tt.user); allowed != tt.allowed {

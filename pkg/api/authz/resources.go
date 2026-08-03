@@ -9,6 +9,19 @@ import (
 
 var apiResources = map[string][]string{
 	types.GroupAPI: {
+		"GET    /api/hosted-agents",
+		"GET    /api/hosted-agents/{hosted_agent_id}",
+		"GET    /api/hosted-agent-instances",
+		"POST   /api/hosted-agent-instances",
+		"GET    /api/hosted-agent-instances/{hosted_agent_instance_id}",
+		"PUT    /api/hosted-agent-instances/{hosted_agent_instance_id}",
+		"DELETE /api/hosted-agent-instances/{hosted_agent_instance_id}",
+		"GET    /api/hosted-agent-instances/{hosted_agent_instance_id}/terminal",
+		"GET    /api/hosted-agent-pools",
+		"GET    /api/hosted-agent-pools/{hosted_agent_pool_id}",
+		"GET    /api/hosted-agent-pools/{hosted_agent_pool_id}/utilization",
+		"GET    /api/hosted-agent-pool-assignments",
+		"GET    /api/hosted-agent-pool-assignments/{hosted_agent_pool_assignment_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/tools",
 		"GET    /api/all-mcps/servers/{mcpserver_id}/resources",
@@ -116,6 +129,14 @@ var apiResources = map[string][]string{
 		"GET    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 		"PUT    /api/workspaces/{workspace_id}/access-control-rules/{access_control_rule_id}",
 	},
+	types.GroupAuthenticated: {
+		// Reaching an agent's own HTTP port. Any authenticated user may match
+		// this route; checkHostedAgentInstance then narrows it to the instance's
+		// owner. No method is given because the agent behind it serves whatever
+		// it likes.
+		"/agent-connect/{hosted_agent_instance_id}",
+		"/agent-connect/{hosted_agent_instance_id}/{rest...}",
+	},
 	types.GroupMCP: {
 		"GET    /mcp-connect/{mcp_id}",
 		"POST   /mcp-connect/{mcp_id}",
@@ -156,16 +177,18 @@ type Resources struct {
 	MCPServerInstanceID     string
 	MCPServerCatalogEntryID string
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
-	MCPID               string
-	WorkspaceID         string
-	NanobotAgentID      string
-	ProjectID           string
-	PublishedArtifactID string
-	ArtifactVersion     string
-	SkillID             string
-	DeviceScanID        string
-	OAuthAuthRequestID  string
-	Authorizated        ResourcesAuthorized
+	MCPID                 string
+	WorkspaceID           string
+	NanobotAgentID        string
+	ProjectID             string
+	PublishedArtifactID   string
+	ArtifactVersion       string
+	SkillID               string
+	DeviceScanID          string
+	OAuthAuthRequestID    string
+	HostedAgentID         string
+	HostedAgentInstanceID string
+	Authorizated          ResourcesAuthorized
 }
 
 type ResourcesAuthorized struct {
@@ -177,6 +200,8 @@ type ResourcesAuthorized struct {
 	Project               *v1.Project
 	PublishedArtifact     *v1.PublishedArtifact
 	Skill                 *v1.Skill
+	HostedAgent           *v1.HostedAgent
+	HostedAgentInstance   *v1.HostedAgentInstance
 }
 
 func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User) (bool, error) {
@@ -193,6 +218,8 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		SkillID:                 vars("skill_id"),
 		DeviceScanID:            vars("scan_id"),
 		OAuthAuthRequestID:      vars("oauth_request_id"),
+		HostedAgentID:           vars("hosted_agent_id"),
+		HostedAgentInstanceID:   vars("hosted_agent_instance_id"),
 	}
 
 	if !a.checkUser(user, vars("user_id")) {
@@ -232,6 +259,14 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkSkill(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkHostedAgent(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkHostedAgentInstance(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

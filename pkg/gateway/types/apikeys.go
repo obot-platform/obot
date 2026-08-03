@@ -14,14 +14,26 @@ import (
 type APIKey struct {
 	APIKeyScopes `json:",inline"`
 
-	ID           uint       `json:"id" gorm:"primaryKey;autoIncrement"`
-	UserID       uint       `json:"userId" gorm:"index"`
-	Name         string     `json:"name"`                  // User-provided name for the key
-	Description  string     `json:"description,omitempty"` // Optional description
-	HashedSecret string     `json:"-"`                     // bcrypt hash of the secret portion only
-	CreatedAt    time.Time  `json:"createdAt"`
-	LastUsedAt   *time.Time `json:"lastUsedAt,omitempty"`
-	ExpiresAt    *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
+	ID     uint `json:"id" gorm:"primaryKey;autoIncrement"`
+	UserID uint `json:"userId" gorm:"index"`
+
+	// HostedAgentInstanceID binds this key to a hosted agent rather than to a
+	// user. When set, the key authenticates as the agent: the principal
+	// identifies the instance, and its authorized MCP servers and models are
+	// resolved from the instance's live configuration rather than from the
+	// scopes stored here.
+	//
+	// An agent's authority is deliberately its own. A key that authenticated as
+	// its owner would turn a prompt injection or a compromised harness into
+	// full user-level access, whereas an agent key reaches only what that one
+	// instance was configured with.
+	HostedAgentInstanceID *string    `json:"hostedAgentInstanceID,omitempty" gorm:"index"`
+	Name                  string     `json:"name"`                  // User-provided name for the key
+	Description           string     `json:"description,omitempty"` // Optional description
+	HashedSecret          string     `json:"-"`                     // bcrypt hash of the secret portion only
+	CreatedAt             time.Time  `json:"createdAt"`
+	LastUsedAt            *time.Time `json:"lastUsedAt,omitempty"`
+	ExpiresAt             *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
 }
 
 type APIKeyScopes struct {

@@ -4,10 +4,12 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/hostedagentaccessrule"
 	"github.com/obot-platform/obot/pkg/skillaccessrule"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -126,6 +128,19 @@ var (
 		"/api/skill-repositories/",
 		"/api/skill-access-rules",
 		"/api/skill-access-rules/",
+		"/api/agent-catalogs",
+		"/api/agent-catalogs/",
+		"/api/harnesses",
+		"/api/harnesses/",
+		"/api/hosted-agents",
+		"/api/hosted-agents/",
+		"/api/hosted-agent-access-rules",
+		"/api/hosted-agent-access-rules/",
+		"/api/hosted-agent-pools",
+		"/api/hosted-agent-pools/",
+		"/api/hosted-agent-pool-defaults",
+		"/api/hosted-agent-pool-assignments",
+		"/api/hosted-agent-pool-assignments/",
 		"GET /api/eula",
 		"PUT /api/eula",
 		"PUT /api/app-preferences",
@@ -194,6 +209,14 @@ var (
 			"GET /api/skill-repositories/",
 			"GET /api/skill-access-rules",
 			"GET /api/skill-access-rules/",
+			"GET /api/agent-catalogs",
+			"GET /api/agent-catalogs/",
+			"GET /api/harnesses",
+			"GET /api/harnesses/",
+			"GET /api/hosted-agents",
+			"GET /api/hosted-agents/",
+			"GET /api/hosted-agent-access-rules",
+			"GET /api/hosted-agent-access-rules/",
 			"GET /api/message-policy-violations",
 			"GET /api/message-policy-violations/",
 			"GET /api/message-policy-violation-stats",
@@ -378,31 +401,33 @@ var (
 )
 
 type Authorizer struct {
-	rules          []rule
-	cache          kclient.Client
-	uncached       kclient.Client
-	gatewayClient  *client.Client
-	apiResources   map[string]*pathMatcher
-	acrHelper      *accesscontrolrule.Helper
-	skillHelper    *skillaccessrule.Helper
-	registryNoAuth bool
+	rules             []rule
+	cache             kclient.Client
+	uncached          kclient.Client
+	gatewayClient     *client.Client
+	apiResources      map[string]*pathMatcher
+	acrHelper         *accesscontrolrule.Helper
+	skillHelper       *skillaccessrule.Helper
+	hostedAgentHelper *hostedagentaccessrule.Helper
+	registryNoAuth    bool
 }
 
-func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, registryNoAuth bool) *Authorizer {
+func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, hostedAgentHelper *hostedagentaccessrule.Helper, registryNoAuth bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
 		apiBasedResources[group] = newPathMatcher(resources...)
 	}
 
 	return &Authorizer{
-		rules:          defaultRules(devMode, registryNoAuth),
-		cache:          cache,
-		uncached:       uncached,
-		gatewayClient:  gatewayClient,
-		apiResources:   apiBasedResources,
-		acrHelper:      acrHelper,
-		skillHelper:    skillHelper,
-		registryNoAuth: registryNoAuth,
+		rules:             defaultRules(devMode, registryNoAuth),
+		cache:             cache,
+		uncached:          uncached,
+		gatewayClient:     gatewayClient,
+		apiResources:      apiBasedResources,
+		acrHelper:         acrHelper,
+		skillHelper:       skillHelper,
+		hostedAgentHelper: hostedAgentHelper,
+		registryNoAuth:    registryNoAuth,
 	}
 }
 
@@ -442,7 +467,24 @@ func (a *Authorizer) Authorize(req *http.Request, userInfo user.Info) bool {
 		}
 	}
 
-	return a.authorizeAPIResources(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+	return a.authorizeAPIResources(req, user) || a.allowAgentConnectSignIn(req, user) || a.checkOAuthClient(req) || a.checkUI(req, user)
+}
+
+// allowAgentConnectSignIn lets an unauthenticated request reach the
+// agent-connect handler so a browser is sent to sign in rather than shown a
+// bare 401.
+//
+// This grants no access. The handler redirects as its first action, before
+// reading any instance, so the response is identical whether or not the
+// instance exists and nothing is proxied. It deliberately does not use the
+// static-rule path, which returns authorized without evaluating resources and
+// would therefore let any caller reach any sandbox.
+//
+// Authenticated callers never take this branch: they are matched against
+// apiResources and narrowed to the instance's owner by checkHostedAgentInstance.
+func (a *Authorizer) allowAgentConnectSignIn(req *http.Request, user User) bool {
+	return slices.Contains(user.GetGroups(), UnauthenticatedGroup) &&
+		strings.HasPrefix(req.URL.Path, "/agent-connect/")
 }
 
 func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {

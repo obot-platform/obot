@@ -38,7 +38,7 @@ import (
 // ServerToServerConfig / ConvertMCPServer only.
 //
 // If there are no secretBindings, MergeBoundCreds returns credEnv unchanged
-// (no allocation). If c is nil (docker backend), bindings cannot be resolved
+// (no pool). If c is nil (docker backend), bindings cannot be resolved
 // and the returned map omits them — the downstream missing-required gate
 // then fires for required bindings.
 //

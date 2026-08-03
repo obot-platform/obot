@@ -8,6 +8,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -21,6 +22,23 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 		// The handler will catch this and support the WWW-Authenticate header to trigger the login flow.
 		return true, nil
 	}
+	// A hosted agent is authorized by what it was granted, not by what its
+	// owner can currently reach.
+	//
+	// The checks below ask whether the caller is a user with access to this
+	// server -- through a catalog, a workspace, or ownership. An agent is none
+	// of those: it is a principal of its own, so every one of them denies it and
+	// an agent could never reach the MCP servers it was configured with.
+	//
+	// Its grant list is the authority instead. That list is not self-asserted:
+	// servers on the template were granted by the administrator who published
+	// it, and servers on the instance were checked against the owner when they
+	// were attached.
+	if principal.IsHostedAgent(user.Info) {
+		return MCPIDIsAuthorized(req.Context(), a.uncached,
+			user.GetExtra()["authorized_mcp_ids"], user.GetUID(), resources.MCPID)
+	}
+
 	if authorized, err := CheckMCPIDAccess(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID); err != nil || !authorized {
 		return false, err
 	}

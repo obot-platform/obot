@@ -363,3 +363,69 @@ func newModel(name, provider, targetModel string, active bool, opts ...modelOpt)
 	}
 	return m
 }
+
+// A hosted agent's model list has to describe the requests it can actually
+// make. Enumerating from the owner's policies instead reports a set the agent's
+// own calls do not obey -- an agent told it may use nothing while every request
+// succeeds -- and a client that picks its model by listing then refuses to run.
+func TestGetAgentAllowedTargetModels(t *testing.T) {
+	const provider = "anthropic-model-provider"
+
+	models := []*v1.Model{
+		newModel("m1-haiku", provider, "claude-haiku-4-5-20251001", true),
+		newModel("m1-opus", provider, "claude-opus-4-8", true),
+		newModel("m1-gpt", "openai-model-provider", "gpt-4o", true),
+	}
+
+	// The owner is granted nothing, so any result drawn from policy is empty.
+	// That is what makes these cases prove the agent is not evaluated that way.
+	restrictive := &v1.ModelAccessPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "p-none", Namespace: "default"},
+		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
+			Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: "someone-else"}},
+			Models:   []types2.ModelResource{},
+		}},
+	}
+
+	tests := []struct {
+		name         string
+		modelIDs     []string
+		dialect      string
+		want         map[string]bool
+		wantAllowAll bool
+	}{
+		{
+			name:         "wildcard allows every model without enumerating",
+			modelIDs:     []string{"*"},
+			wantAllowAll: true,
+		},
+		{
+			name:     "configured models are reported for this provider",
+			modelIDs: []string{"m1-haiku"},
+			want:     map[string]bool{"claude-haiku-4-5-20251001": true},
+		},
+		{
+			name:     "a model on another provider is not reported here",
+			modelIDs: []string{"m1-gpt"},
+			want:     map[string]bool{},
+		},
+		{
+			// An agent authorized for nothing may use nothing. This must be an
+			// empty set, not the nil that means "skip filtering".
+			name:     "an agent with no models is allowed none",
+			modelIDs: nil,
+			want:     map[string]bool{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newModelHelper(t, models, restrictive)
+
+			got, allowAll, err := h.GetAgentAllowedTargetModels(tt.modelIDs, provider, tt.dialect)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAllowAll, allowAll)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

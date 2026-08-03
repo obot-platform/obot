@@ -10,7 +10,7 @@ import (
 )
 
 func TestTunnelAuthorization(t *testing.T) {
-	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, nil, nil, false, nil, nil, nil, false)
 
 	tests := []struct {
 		name    string

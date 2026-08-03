@@ -28,6 +28,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -137,7 +138,22 @@ type responseModifier struct {
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
 	if isModelsListRequest(resp.Request) {
-		allowedTargetModels, allowAllModels, err := r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
+		// Which authority applies is decided the same way the inference path
+		// decides it, or the list contradicts the requests it describes: a
+		// hosted agent evaluated against its owner's policies is told it may
+		// use nothing while every call it makes succeeds. A client that picks
+		// its model by listing -- Claude Code does -- then refuses to run at
+		// all against models it is in fact authorized for.
+		var (
+			allowedTargetModels map[string]bool
+			allowAllModels      bool
+			err                 error
+		)
+		if agentModels, isAgent := principal.AuthorizedModelIDs(r.user); isAgent {
+			allowedTargetModels, allowAllModels, err = r.mapHelper.GetAgentAllowedTargetModels(agentModels, r.modelProvider, string(r.routeDialect))
+		} else {
+			allowedTargetModels, allowAllModels, err = r.mapHelper.GetUserAllowedTargetModels(r.user, r.modelProvider, string(r.routeDialect))
+		}
 		if err != nil {
 			return fmt.Errorf("failed to determine accessible models: %w", err)
 		}
@@ -674,8 +690,11 @@ func (r *responseModifier) Close() error {
 	if r.tokenUsageTracker != nil {
 		usage := r.tokenUsageTracker.getTokenUsage()
 		r.audit.setTokenUsage(usage)
+		// Recorded against the owner for the same reason the limit is checked
+		// against them: an agent has no user row of its own, and its usage
+		// should still land on whoever created it.
 		activity := &types.RunTokenActivity{
-			UserID: r.user.GetUID(),
+			UserID: principal.ResourceOwnerID(r.user),
 			Model:  r.model,
 			Usage:  usage,
 		}
@@ -938,12 +957,22 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		prepared.model = model.Spec.Manifest.TargetModel
 		audit.setModel(modelProvider.Name, model.Name, prepared.model)
 
-		hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
-		if err != nil {
-			return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
-		}
-		if !hasAccess {
-			return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
+		// A hosted agent's authority was fixed when its instance was created, so
+		// it is limited to the models configured on it rather than re-evaluated
+		// against access policies, which describe people and would not match a
+		// principal that is not one.
+		if agentModels, isAgent := principal.AuthorizedModelIDs(req.User); isAgent {
+			if !modelAllowedForAgent(agentModels, model.Name) {
+				return types2.NewErrForbidden("agent is not configured to use model %q", targetModel)
+			}
+		} else {
+			hasAccess, err := l.mapHelper.UserHasAccessToModel(req.User, model.Name)
+			if err != nil {
+				return fmt.Errorf("failed to check user access to model %q: %w", model.Name, err)
+			}
+			if !hasAccess {
+				return types2.NewErrForbidden("user does not have permission to use model %q", targetModel)
+			}
 		}
 
 		prepared.tokenUsageTracker = newTokenUsageTracker(*model)
@@ -986,9 +1015,15 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	req.Request.Body = io.NopCloser(bytes.NewReader(prepared.body))
 	req.ContentLength = int64(len(prepared.body))
 
+	// Daily token limits are a per-person quota, and a hosted agent is not a
+	// person: its UID identifies an instance, so a user lookup would fail. Bill
+	// the owner instead, so an agent still counts against whoever created it
+	// rather than escaping accounting altogether.
+	usageUserID := principal.ResourceOwnerID(req.User)
+
 	if remainingUsage, err := req.GatewayClient.RemainingTokenUsageForUser(
 		req.Context(),
-		req.User.GetUID(),
+		usageUserID,
 		tokenUsageTimePeriod,
 		l.dailyUserInputTokenLimit,
 		l.dailyUserOutputTokenLimit,
@@ -1112,4 +1147,18 @@ func shouldSkipMessagePolicyEnforcement(req *http.Request) bool {
 	}
 
 	return req.Header.Get(internalRequestTypeHeader) == threadTitleRequestType
+}
+
+// modelAllowedForAgent matches a model against an agent's configured list.
+//
+// The match is literal. Alias references are expanded into concrete model IDs
+// when the agent principal is built, so anything still carrying an "obot://"
+// prefix here failed to resolve and correctly grants nothing.
+//
+// Only exact IDs and the "*" wildcard are understood. Alias references such as
+// obot://llm and wildcard suffixes are not expanded here, so an agent
+// configured solely with those cannot yet reach a model through this proxy.
+// Denying is the safe direction while that resolution is missing.
+func modelAllowedForAgent(configured []string, modelID string) bool {
+	return slices.Contains(configured, "*") || slices.Contains(configured, modelID)
 }
