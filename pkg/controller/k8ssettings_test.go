@@ -78,3 +78,43 @@ func TestEnsureK8sSettingsAllowsStartupMaximumsWithoutConfiguredResources(t *tes
 	require.Nil(t, settings.Spec.Resources)
 	require.Nil(t, settings.Spec.NanobotAgentResources)
 }
+
+func TestEnsureK8sSettingsLocksMaximumsConfiguredThroughHelm(t *testing.T) {
+	ctx := t.Context()
+	existingResources := &corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("250m")},
+	}
+	client := newFakeClient(t, &v1.K8sSettings{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.K8sSettingsName,
+			Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.K8sSettingsSpec{Resources: existingResources},
+	})
+	maximum := resource.MustParse("2Gi")
+
+	require.NoError(t, ensureK8sSettings(ctx, client, &v1.K8sSettingsSpec{
+		MaximumsSetViaHelm: true,
+		MaxMemoryLimit:     &maximum,
+	}, nil, mcp.ResourceMaximums{MemoryLimit: &maximum}))
+
+	var settings v1.K8sSettings
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.K8sSettingsName,
+	}, &settings))
+	require.False(t, settings.Spec.SetViaHelm)
+	require.True(t, settings.Spec.MaximumsSetViaHelm)
+	require.Equal(t, existingResources, settings.Spec.Resources)
+	require.NotNil(t, settings.Spec.MaxMemoryLimit)
+	require.Zero(t, settings.Spec.MaxMemoryLimit.Cmp(maximum))
+
+	require.NoError(t, ensureK8sSettings(ctx, client, nil, nil, mcp.ResourceMaximums{}))
+	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.K8sSettingsName,
+	}, &settings))
+	require.False(t, settings.Spec.MaximumsSetViaHelm)
+	require.Nil(t, settings.Spec.MaxMemoryLimit)
+	require.Equal(t, existingResources, settings.Spec.Resources)
+}

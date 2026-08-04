@@ -21,11 +21,16 @@
 			type: data.k8sSettings?.type ?? '',
 			resources: data.k8sSettings?.resources ?? '',
 			setViaHelm: data.k8sSettings?.setViaHelm ?? false,
+			maximumsSetViaHelm: data.k8sSettings?.maximumsSetViaHelm ?? false,
 			affinity: data.k8sSettings?.affinity ?? '',
 			tolerations: data.k8sSettings?.tolerations ?? '',
 			runtimeClassName: data.k8sSettings?.runtimeClassName ?? '',
 			storageClassName: data.k8sSettings?.storageClassName ?? '',
-			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? ''
+			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? '',
+			maxCpuRequest: data.k8sSettings?.maxCpuRequest ?? '',
+			maxMemoryRequest: data.k8sSettings?.maxMemoryRequest ?? '',
+			maxCpuLimit: data.k8sSettings?.maxCpuLimit ?? '',
+			maxMemoryLimit: data.k8sSettings?.maxMemoryLimit ?? ''
 		}))
 	);
 	let saving = $state(false);
@@ -59,7 +64,9 @@
 	}
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let readonly = $derived(k8sSettings?.setViaHelm || isAdminReadonly);
+	let schedulingReadonly = $derived(Boolean(k8sSettings?.setViaHelm || isAdminReadonly));
+	let maximumsReadonly = $derived(Boolean(k8sSettings?.maximumsSetViaHelm || isAdminReadonly));
+	let readonly = $derived(schedulingReadonly && maximumsReadonly);
 
 	async function handleSave() {
 		if (!k8sSettings) return;
@@ -94,7 +101,7 @@
 		{#if k8sSettings}
 			<div class="flex flex-col gap-8">
 				<SchedulingForm
-					{readonly}
+					readonly={schedulingReadonly}
 					locked={k8sSettings.setViaHelm}
 					bind:resourceInfo
 					bind:affinity={k8sSettings.affinity}
@@ -142,7 +149,7 @@
 									id="storage-class-name"
 									bind:value={k8sSettings.storageClassName}
 									class="text-input-filled dark:bg-base-100"
-									disabled={readonly}
+									disabled={schedulingReadonly}
 									placeholder="example: fast-ssd"
 								/>
 								<p class="text-xs font-light text-muted-content">
@@ -157,7 +164,7 @@
 									id="nanobot-workspace-size"
 									bind:value={k8sSettings.nanobotWorkspaceSize}
 									class="text-input-filled dark:bg-base-100"
-									disabled={readonly}
+									disabled={schedulingReadonly}
 									placeholder="example: 10Gi"
 								/>
 								<p class="text-xs font-light text-muted-content">
@@ -167,6 +174,69 @@
 						</div>
 					</div>
 				</SchedulingForm>
+
+				<div class="paper mt-1">
+					<div>
+						<h2 class="text-lg font-semibold">
+							Resource Maximums
+							{#if k8sSettings.maximumsSetViaHelm}
+								<span class="pill-rounded nowrap font-light">
+									<Lock class="size-3" /> Helm-Deployed
+								</span>
+							{/if}
+						</h2>
+						<p class="text-sm">
+							Set the largest CPU and memory requests and limits users may configure for hosted MCP
+							server pods. Leave a value empty to allow no maximum.
+						</p>
+					</div>
+					<div class="grid grid-cols-2 gap-4">
+						<div class="col-span-2 flex flex-col gap-1 md:col-span-1">
+							<label class="input-label" for="max-cpu-request">Maximum CPU Request</label>
+							<input
+								type="text"
+								id="max-cpu-request"
+								bind:value={k8sSettings.maxCpuRequest}
+								class="text-input-filled dark:bg-base-100"
+								disabled={maximumsReadonly}
+								placeholder="example: 500m"
+							/>
+						</div>
+						<div class="col-span-2 flex flex-col gap-1 md:col-span-1">
+							<label class="input-label" for="max-cpu-limit">Maximum CPU Limit</label>
+							<input
+								type="text"
+								id="max-cpu-limit"
+								bind:value={k8sSettings.maxCpuLimit}
+								class="text-input-filled dark:bg-base-100"
+								disabled={maximumsReadonly}
+								placeholder="example: 1"
+							/>
+						</div>
+						<div class="col-span-2 flex flex-col gap-1 md:col-span-1">
+							<label class="input-label" for="max-memory-request">Maximum Memory Request</label>
+							<input
+								type="text"
+								id="max-memory-request"
+								bind:value={k8sSettings.maxMemoryRequest}
+								class="text-input-filled dark:bg-base-100"
+								disabled={maximumsReadonly}
+								placeholder="example: 512Mi"
+							/>
+						</div>
+						<div class="col-span-2 flex flex-col gap-1 md:col-span-1">
+							<label class="input-label" for="max-memory-limit">Maximum Memory Limit</label>
+							<input
+								type="text"
+								id="max-memory-limit"
+								bind:value={k8sSettings.maxMemoryLimit}
+								class="text-input-filled dark:bg-base-100"
+								disabled={maximumsReadonly}
+								placeholder="example: 1Gi"
+							/>
+						</div>
+					</div>
+				</div>
 
 				{#if !readonly}
 					<div

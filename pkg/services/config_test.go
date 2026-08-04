@@ -176,6 +176,30 @@ func TestParsePodSchedulingSettingsFromHelm(t *testing.T) {
 			},
 		},
 		{
+			name: "resource maximums are independently Helm managed",
+			opts: mcp.Options{
+				MCPK8sMaxCPURequest:    "500m",
+				MCPK8sMaxCPULimit:      "2",
+				MCPK8sMaxMemoryRequest: "512Mi",
+				MCPK8sMaxMemoryLimit:   "2Gi",
+			},
+			validateResult: func(t *testing.T, spec *v1.K8sSettingsSpec) {
+				t.Helper()
+				if spec.SetViaHelm {
+					t.Error("expected scheduling settings to remain UI managed")
+				}
+				if !spec.MaximumsSetViaHelm {
+					t.Error("expected resource maximums to be Helm managed")
+				}
+				if spec.MaxCPURequest == nil || spec.MaxCPURequest.String() != "500m" {
+					t.Errorf("expected max CPU request 500m, got %v", spec.MaxCPURequest)
+				}
+				if spec.MaxMemoryLimit == nil || spec.MaxMemoryLimit.String() != "2Gi" {
+					t.Errorf("expected max memory limit 2Gi, got %v", spec.MaxMemoryLimit)
+				}
+			},
+		},
+		{
 			name: "valid nanobot agent resources only",
 			opts: mcp.Options{
 				MCPK8sSettingsNanobotAgentResources: `{"limits":{"memory":"1Gi"},"requests":{"memory":"512Mi"}}`,

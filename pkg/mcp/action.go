@@ -169,10 +169,14 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because it could not be converted to an MCP server: %v", id, err)
 			}
+			resourceMaximums, err := sm.EffectiveKubernetesResourceMaximums(ctx, sm.storageClient)
+			if err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, err
+			}
 			if err := ValidateServerManifest(ctx, manifest, false, ValidationOptions{
 				AllowMissingURL:              allowMissingURL,
 				RemoteMCPURLValidationConfig: sm.remoteURLValidationConfig,
-				ResourceMaximums:             sm.resourceMaximums,
+				ResourceMaximums:             resourceMaximums,
 			}); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because its MCP server manifest is invalid: %v", id, err)
 			}

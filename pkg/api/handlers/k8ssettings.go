@@ -153,6 +153,23 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		errs                  []error
 	)
 
+	maxCPURequest, err := parseResourceMaximumField("maxCpuRequest", input.MaxCPURequest)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	maxCPULimit, err := parseResourceMaximumField("maxCpuLimit", input.MaxCPULimit)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	maxMemoryRequest, err := parseResourceMaximumField("maxMemoryRequest", input.MaxMemoryRequest)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	maxMemoryLimit, err := parseResourceMaximumField("maxMemoryLimit", input.MaxMemoryLimit)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
 	if input.Affinity != "" {
 		if err := yaml.UnmarshalStrict([]byte(input.Affinity), &affinity); err != nil {
 			errs = append(errs, fmt.Errorf("invalid affinity YAML: %v", err))
@@ -200,8 +217,8 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 			return err
 		}
 
-		// Don't allow updates if set via Helm
-		if settings.Spec.SetViaHelm {
+		// Don't allow updates when every editable group is managed via Helm.
+		if settings.Spec.SetViaHelm && settings.Spec.MaximumsSetViaHelm {
 			return types.NewErrBadRequest("K8s settings are managed via Helm and cannot be updated through the API")
 		}
 
@@ -215,47 +232,56 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 		// unchanged and continue to be enforced by the system.
 		// Note: input.PodSecurityAdmission is intentionally not processed here.
 
-		// Update the settings object
-		if input.Affinity != "" {
-			settings.Spec.Affinity = &affinity
-		} else {
-			settings.Spec.Affinity = nil
+		// Update only groups that are not managed via Helm.
+		if !settings.Spec.SetViaHelm {
+			if input.Affinity != "" {
+				settings.Spec.Affinity = &affinity
+			} else {
+				settings.Spec.Affinity = nil
+			}
+
+			if input.Tolerations != "" {
+				settings.Spec.Tolerations = tolerations
+			} else {
+				settings.Spec.Tolerations = nil
+			}
+
+			if input.Resources != "" {
+				settings.Spec.Resources = &resources
+			} else {
+				settings.Spec.Resources = nil
+			}
+
+			if input.RuntimeClassName != "" {
+				settings.Spec.RuntimeClassName = &input.RuntimeClassName
+			} else {
+				settings.Spec.RuntimeClassName = nil
+			}
+
+			if input.StorageClassName != "" {
+				settings.Spec.StorageClassName = &input.StorageClassName
+			} else {
+				settings.Spec.StorageClassName = nil
+			}
+
+			if input.NanobotWorkspaceSize != "" {
+				settings.Spec.NanobotWorkspaceSize = input.NanobotWorkspaceSize
+			} else {
+				settings.Spec.NanobotWorkspaceSize = ""
+			}
+
+			if input.NanobotAgentResources != "" {
+				settings.Spec.NanobotAgentResources = &nanobotAgentResources
+			} else {
+				settings.Spec.NanobotAgentResources = nil
+			}
 		}
 
-		if input.Tolerations != "" {
-			settings.Spec.Tolerations = tolerations
-		} else {
-			settings.Spec.Tolerations = nil
-		}
-
-		if input.Resources != "" {
-			settings.Spec.Resources = &resources
-		} else {
-			settings.Spec.Resources = nil
-		}
-
-		if input.RuntimeClassName != "" {
-			settings.Spec.RuntimeClassName = &input.RuntimeClassName
-		} else {
-			settings.Spec.RuntimeClassName = nil
-		}
-
-		if input.StorageClassName != "" {
-			settings.Spec.StorageClassName = &input.StorageClassName
-		} else {
-			settings.Spec.StorageClassName = nil
-		}
-
-		if input.NanobotWorkspaceSize != "" {
-			settings.Spec.NanobotWorkspaceSize = input.NanobotWorkspaceSize
-		} else {
-			settings.Spec.NanobotWorkspaceSize = ""
-		}
-
-		if input.NanobotAgentResources != "" {
-			settings.Spec.NanobotAgentResources = &nanobotAgentResources
-		} else {
-			settings.Spec.NanobotAgentResources = nil
+		if !settings.Spec.MaximumsSetViaHelm {
+			settings.Spec.MaxCPURequest = maxCPURequest
+			settings.Spec.MaxCPULimit = maxCPULimit
+			settings.Spec.MaxMemoryRequest = maxMemoryRequest
+			settings.Spec.MaxMemoryLimit = maxMemoryLimit
 		}
 
 		if err := validateK8sSettingsResourceMaximums(h.mcpSessionManager, settings.Spec); err != nil {
@@ -294,8 +320,9 @@ func convertResourceRequirements(resources corev1.ResourceRequirements) *types.M
 
 func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 	result := types.K8sSettings{
-		SetViaHelm: settings.Spec.SetViaHelm,
-		Metadata:   MetadataFrom(&settings),
+		SetViaHelm:         settings.Spec.SetViaHelm,
+		MaximumsSetViaHelm: settings.Spec.MaximumsSetViaHelm,
+		Metadata:           MetadataFrom(&settings),
 	}
 
 	formatted, err := FormatPodSchedulingYAML(
@@ -311,6 +338,10 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 	result.Tolerations = formatted.Tolerations
 	result.Resources = formatted.Resources
 	result.RuntimeClassName = formatted.RuntimeClassName
+	result.MaxCPURequest = resourceMaximumString(settings.Spec.MaxCPURequest)
+	result.MaxCPULimit = resourceMaximumString(settings.Spec.MaxCPULimit)
+	result.MaxMemoryRequest = resourceMaximumString(settings.Spec.MaxMemoryRequest)
+	result.MaxMemoryLimit = resourceMaximumString(settings.Spec.MaxMemoryLimit)
 
 	if settings.Spec.StorageClassName != nil {
 		result.StorageClassName = *settings.Spec.StorageClassName
@@ -390,4 +421,25 @@ func FormatPodSchedulingYAML(
 	}
 
 	return result, nil
+}
+
+func parseResourceMaximumField(name, value string) (*resource.Quantity, error) {
+	if value == "" {
+		return nil, nil
+	}
+	quantity, err := resource.ParseQuantity(value)
+	if err != nil {
+		return nil, fmt.Errorf("invalid %s: %w", name, err)
+	}
+	if quantity.Sign() < 0 {
+		return nil, fmt.Errorf("invalid %s: must be non-negative", name)
+	}
+	return &quantity, nil
+}
+
+func resourceMaximumString(maximum *resource.Quantity) string {
+	if maximum == nil {
+		return ""
+	}
+	return maximum.String()
 }

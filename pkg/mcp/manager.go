@@ -15,9 +15,11 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -215,6 +217,23 @@ func (sm *SessionManager) KubernetesResourceMaximums() ResourceMaximums {
 		return ResourceMaximums{}
 	}
 	return sm.resourceMaximums
+}
+
+func (sm *SessionManager) EffectiveKubernetesResourceMaximums(ctx context.Context, storageClient kclient.Client) (ResourceMaximums, error) {
+	maximums := sm.KubernetesResourceMaximums()
+
+	var settings v1.K8sSettings
+	if err := storageClient.Get(ctx, kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.K8sSettingsName,
+	}, &settings); err != nil {
+		if apierrors.IsNotFound(err) {
+			return maximums, nil
+		}
+		return ResourceMaximums{}, fmt.Errorf("failed to get Kubernetes settings: %w", err)
+	}
+
+	return ResourceMaximumsFromK8sSettings(settings.Spec, maximums), nil
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {

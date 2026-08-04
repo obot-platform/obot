@@ -8,6 +8,33 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+func TestResourceMaximumsFromK8sSettingsUsesStrictestMaximum(t *testing.T) {
+	t.Parallel()
+
+	startupCPU := resource.MustParse("2")
+	uiCPU := resource.MustParse("1")
+	got := ResourceMaximumsFromK8sSettings(v1.K8sSettingsSpec{
+		MaxCPURequest: &uiCPU,
+	}, ResourceMaximums{
+		CPURequest: &startupCPU,
+	})
+
+	if got.CPURequest == nil || got.CPURequest.Cmp(uiCPU) != 0 {
+		t.Fatalf("CPU request maximum = %v, want %s", got.CPURequest, uiCPU.String())
+	}
+
+	startupCPU = resource.MustParse("500m")
+	uiCPU = resource.MustParse("1")
+	got = ResourceMaximumsFromK8sSettings(v1.K8sSettingsSpec{
+		MaxCPURequest: &uiCPU,
+	}, ResourceMaximums{
+		CPURequest: &startupCPU,
+	})
+	if got.CPURequest == nil || got.CPURequest.Cmp(startupCPU) != 0 {
+		t.Fatalf("CPU request maximum = %v, want startup ceiling %s", got.CPURequest, startupCPU.String())
+	}
+}
+
 func TestParseResourceMaximums(t *testing.T) {
 	maximums, err := ParseResourceMaximums(Options{
 		MCPK8sMaxCPURequest:    "500m",

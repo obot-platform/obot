@@ -536,6 +536,11 @@ export interface K8sSettings {
 	created: string;
 	deleted?: string;
 	links?: Record<string, string>;
+	maxCpuLimit?: string;
+	maxCpuRequest?: string;
+	maxMemoryLimit?: string;
+	maxMemoryRequest?: string;
+	maximumsSetViaHelm?: boolean;
 	metadata?: Record<string, string>;
 	type: string;
 	affinity?: string;
@@ -556,6 +561,10 @@ export interface AppK8sSettings {
 
 export interface K8sSettingsManifest {
 	affinity?: string;
+	maxCpuLimit?: string;
+	maxCpuRequest?: string;
+	maxMemoryLimit?: string;
+	maxMemoryRequest?: string;
 	tolerations?: string;
 	resources?: string;
 	runtimeClassName?: string;

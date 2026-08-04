@@ -22,6 +22,24 @@ type ResourceMaximumExceededError struct {
 	Maximum resource.Quantity
 }
 
+func ResourceMaximumsFromK8sSettings(settings v1.K8sSettingsSpec, fallback ResourceMaximums) ResourceMaximums {
+	fallback.CPURequest = stricterResourceMaximum(fallback.CPURequest, settings.MaxCPURequest)
+	fallback.CPULimit = stricterResourceMaximum(fallback.CPULimit, settings.MaxCPULimit)
+	fallback.MemoryRequest = stricterResourceMaximum(fallback.MemoryRequest, settings.MaxMemoryRequest)
+	fallback.MemoryLimit = stricterResourceMaximum(fallback.MemoryLimit, settings.MaxMemoryLimit)
+	return fallback
+}
+
+func stricterResourceMaximum(a, b *resource.Quantity) *resource.Quantity {
+	if a == nil {
+		return b
+	}
+	if b == nil || a.Cmp(*b) <= 0 {
+		return a
+	}
+	return b
+}
+
 func (e *ResourceMaximumExceededError) Error() string {
 	return fmt.Sprintf("%s %s exceeds configured maximum %s", e.Field, e.Actual.String(), e.Maximum.String())
 }
@@ -105,6 +123,7 @@ func validateResourceMaximum(field string, resources corev1.ResourceList, resour
 }
 
 func ValidateK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) error {
+	maximums = ResourceMaximumsFromK8sSettings(k8sSettings, maximums)
 	// Use the same capped default calculation as deployment so empty settings
 	// are allowed even when built-in fallback defaults are higher than maximums.
 	if err := maximums.Validate(mcpContainerResourcesWithMaximums(nil, types.RuntimeNPX, false, k8sSettings, maximums)); err != nil {
@@ -117,6 +136,7 @@ func ValidateK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximum
 }
 
 func ValidateConfiguredK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) error {
+	maximums = ResourceMaximumsFromK8sSettings(k8sSettings, maximums)
 	if maximums.Empty() {
 		return nil
 	}

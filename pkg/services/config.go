@@ -351,8 +351,12 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 		opts.MCPK8sSettingsRuntimeClassName != "" ||
 		opts.MCPK8sSettingsStorageClassName != "" ||
 		opts.MCPK8sSettingsNanobotWorkspaceSize != ""
+	hasMaximums := opts.MCPK8sMaxCPURequest != "" ||
+		opts.MCPK8sMaxCPULimit != "" ||
+		opts.MCPK8sMaxMemoryRequest != "" ||
+		opts.MCPK8sMaxMemoryLimit != ""
 
-	if !hasPodSettings {
+	if !hasPodSettings && !hasMaximums {
 		return nil, nil
 	}
 
@@ -367,11 +371,21 @@ func parsePodSchedulingSettingsFromHelm(opts mcp.Options) (*v1.K8sSettingsSpec, 
 	}
 
 	spec := &v1.K8sSettingsSpec{
-		Affinity:         affinity,
-		Tolerations:      tolerations,
-		Resources:        resources,
-		RuntimeClassName: runtimeClassName,
+		Affinity:           affinity,
+		Tolerations:        tolerations,
+		Resources:          resources,
+		RuntimeClassName:   runtimeClassName,
+		SetViaHelm:         hasPodSettings,
+		MaximumsSetViaHelm: hasMaximums,
 	}
+	maximums, err := mcp.ParseResourceMaximums(opts)
+	if err != nil {
+		return nil, err
+	}
+	spec.MaxCPURequest = maximums.CPURequest
+	spec.MaxCPULimit = maximums.CPULimit
+	spec.MaxMemoryRequest = maximums.MemoryRequest
+	spec.MaxMemoryLimit = maximums.MemoryLimit
 
 	if opts.MCPK8sSettingsNanobotAgentResources != "" && opts.MCPK8sSettingsNanobotAgentResources != "{}" {
 		var nanobotAgentResources corev1.ResourceRequirements
