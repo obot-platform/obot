@@ -6,6 +6,8 @@
 	import DeviceScanDonutCard from '$lib/components/admin/device-scan/DeviceScanDonutCard.svelte';
 	import DeviceScanTimelineCard from '$lib/components/admin/device-scan/DeviceScanTimelineCard.svelte';
 	import { buildDeviceScanTopBuckets } from '$lib/components/admin/device-scan/deviceScanTopBuckets';
+	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
+	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
@@ -43,6 +45,7 @@
 	import {
 		Activity,
 		ChevronRight,
+		CircleDollarSign,
 		Coins,
 		Laptop,
 		MonitorCheck,
@@ -195,6 +198,14 @@
 			value: totalTokensData?.totalTokens ?? 0,
 			icon: Coins,
 			seeMore: '/admin/token-usage'
+		},
+		{
+			id: 'total-spend',
+			label: 'Total Spend',
+			loading,
+			value: totalTokensData?.totalSpend ?? 0,
+			icon: CircleDollarSign,
+			seeMore: '/admin/token-usage'
 		}
 	]);
 
@@ -285,7 +296,7 @@
 		<div class="col-span-12 grid grid-cols-12 gap-4">
 			<div
 				class={twMerge(
-					'paper flex min-w-0 flex-col gap-0 p-0',
+					'paper flex min-w-0 flex-col gap-0 p-0 h-full',
 					hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
 				)}
 			>
@@ -311,7 +322,7 @@
 						<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
 					</div>
 					<div class="@container min-w-0 w-full max-w-full">
-						<div class="grid grid-cols-2 gap-0 @md:flex @md:items-center">
+						<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-5">
 							{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
 								{@render deviceScanStatCell(deviceScanStat)}
 							{/each}
@@ -385,11 +396,18 @@
 				{/if}
 			</div>
 
+			<div class="col-span-12">
+				<TokenUsageTimelineCard startDate={start} endDate={end} />
+			</div>
+
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
 				{@render popularTools()}
 				{@render toolAverageResponseTime()}
 			</div>
 		{:else}
+			<div class="col-span-12">
+				<TokenUsageTimelineCard startDate={start} endDate={end} />
+			</div>
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
 				{@render toolUsageGraph()}
 				{@render serverActivityGraph()}
@@ -407,7 +425,7 @@
 	{#if loadingToolUsage}
 		<Skeleton type="card" class="min-h-72 h-full w-full" />
 	{:else}
-		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-1 w-full">
+		<div in:fade={{ duration: 150 }} class="paper h-full min-h-72 gap-1 w-full pt-4">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<h4 class="flex items-center gap-1 font-semibold">
 					Top Servers Used <span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
@@ -439,7 +457,7 @@
 	{:else}
 		<div
 			in:fade={{ duration: 150 }}
-			class={twMerge('paper h-full', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
+			class={twMerge('paper h-full pt-4', hasDeviceScans ? 'min-h-64' : 'min-h-96')}
 		>
 			<h4 class="font-semibold">Server Activity</h4>
 			{#if doesSupportK8sUpdates && deploymentStatusBreakdown.length > 0}
@@ -516,7 +534,7 @@
 {/snippet}
 
 {#snippet topServerDeploymentList()}
-	<div in:fade={{ duration: 150 }} class="paper h-full gap-1">
+	<div in:fade={{ duration: 150 }} class="paper h-full gap-1 pt-4">
 		<h4 class="flex items-center gap-2 font-semibold">Most Deployed Servers</h4>
 		{#if mcpServersAndEntries.current.loading || loading}
 			<Skeleton type="list" />
@@ -579,15 +597,15 @@
 {/snippet}
 
 {#snippet platformStatCell(platformStat: (typeof platformStatTiles)[number])}
-	{@const defaultClasses = 'col-span-4 p-2 flex gap-4 items-center justify-between w-full'}
+	{@const defaultClasses = 'col-span-4 p-2 flex gap-2 items-center justify-between w-full'}
 	<div
-		class="col-span-1 min-w-0 border-r-0 px-2 my-2 flex [&:last-child:nth-child(odd)]:col-span-2 @md:col-span-4 @md:[&:last-child:nth-child(odd)]:col-span-4 @md:not-last:border-r @md:not-last:border-base-300"
+		class="col-span-2 @sm:col-span-1 min-w-0 @sm:border-r px-2 my-2 flex @md:col-span-4 @md:not-last:border-r @md:not-last:border-base-300 @md:nth-3:border-r-0 @sm:not-odd:border-r-0 @xl:col-span-3"
 	>
 		{#if platformStat.seeMore && !isBootStrapUser}
 			<a
 				class={twMerge(
 					defaultClasses,
-					'group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
+					'truncate group w-full hover:bg-base-300/50 transition-colors duration-200 rounded-md'
 				)}
 				href={resolve(platformStat.seeMore as `/${string}`)}
 			>
@@ -602,9 +620,9 @@
 {/snippet}
 
 {#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
-	{@const defaultClasses = 'p-2 flex gap-4 items-center justify-between w-full'}
+	{@const defaultClasses = 'p-2 flex gap-2 items-center justify-between w-full'}
 	<div
-		class="col-span-1 min-w-0 flex border-r-0 px-2 my-2 [&:last-child:nth-child(odd)]:col-span-2 @md:flex-1 @md:col-span-auto @md:[&:last-child:nth-child(odd)]:col-span-auto @md:not-last:border-r @md:not-last:border-base-300"
+		class="col-span-2 @sm:col-span-1 min-w-0 flex @sm:border-r @sm:not-odd:border-r-0 px-2 my-2 @md:col-span-6 @min-[545px]:col-span-4 @md:last:border-r-0 @md:not-last:border-base-300 @3xl:col-span-1 @3xl:not-odd:border-r"
 	>
 		{#if deviceScanStat.seeMore}
 			<a
@@ -625,25 +643,31 @@
 {/snippet}
 
 {#snippet statContent(platformStat: (typeof platformStatTiles | typeof deviceScanTiles)[number])}
-	<div class="w-full">
-		<div class="text-xs text-muted-content flex items-center gap-1 shrink-0 mb-0.5">
+	<div class="w-full min-w-0 leading-none">
+		<div
+			class="text-[11px] @md:text-xs text-muted-content flex items-center gap-1 shrink-0 mb-1 tracking-wide"
+		>
 			{platformStat.label}
 		</div>
 
-		<div class="flex items-center gap-1 justify-between">
+		<div class="flex items-baseline gap-2 justify-between">
 			{#if platformStat.loading}
-				<Loading class="size-6" />
+				<Loading class="size-5" />
 			{:else}
-				<div class="text-xl font-semibold">
-					<TweenedMetric holdAtZero={platformStat.loading} target={platformStat.value} />
+				<div class="text-lg @md:text-xl font-semibold tabular-nums tracking-tight">
+					<TweenedMetric
+						holdAtZero={platformStat.loading}
+						target={platformStat.value}
+						format={platformStat.id === 'total-spend' ? formatTokenUsageUSD : undefined}
+					/>
 				</div>
 			{/if}
-			<div class="relative size-4 shrink-0">
+			<div class="relative size-3.5 @md:size-4 shrink-0 self-center">
 				<platformStat.icon
-					class="size-4 text-primary transition-opacity duration-200 group-hover:opacity-0"
+					class="size-3.5 @md:size-4 text-primary transition-opacity duration-200 group-hover:opacity-0"
 				/>
 				<ChevronRight
-					class="pointer-events-none text-muted-content absolute inset-0 size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+					class="pointer-events-none text-muted-content absolute inset-0 size-3.5 @md:size-4 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
 				/>
 			</div>
 		</div>
@@ -651,7 +675,7 @@
 {/snippet}
 
 {#snippet popularTools()}
-	<div class="paper h-full min-h-72 gap-1 flex flex-col">
+	<div class="paper h-full min-h-72 gap-1 flex flex-col pt-4">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Recently Popular Tools
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>
@@ -698,7 +722,7 @@
 {/snippet}
 
 {#snippet toolAverageResponseTime()}
-	<div class="paper h-full min-h-72 gap-1 flex flex-col">
+	<div class="paper h-full min-h-72 gap-1 flex flex-col pt-4">
 		<h4 class="flex items-center gap-2 font-semibold mb-1">
 			Tool Call Average Response Time
 			<span class="text-muted-content text-xs font-light">(Last 30 Days)</span>

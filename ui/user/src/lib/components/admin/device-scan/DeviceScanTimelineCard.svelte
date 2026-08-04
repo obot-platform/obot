@@ -18,7 +18,7 @@
 	}: Props = $props();
 </script>
 
-<div class="paper flex h-full flex-col gap-2">
+<div class="paper flex h-full flex-col gap-2 pt-4">
 	<div class="flex items-baseline justify-between gap-2">
 		<h4 class="font-semibold">Scan Timeline</h4>
 		{#if totalSubmissions > 0}

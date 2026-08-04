@@ -36,7 +36,7 @@
 	}: Props = $props();
 </script>
 
-<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2', klass)}>
+<div class={twMerge('paper flex h-full min-w-0 flex-col gap-2 pt-4', klass)}>
 	<div class="flex min-w-0 items-baseline justify-between gap-2">
 		<h4 class="min-w-0 truncate font-semibold">{title}</h4>
 		{#if totalGroups > topN}
