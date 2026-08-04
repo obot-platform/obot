@@ -725,6 +725,8 @@ export interface MCPCatalogEntry {
 	created: string;
 	deleted?: string;
 	manifest: MCPCatalogEntryServerManifest;
+	editable?: boolean;
+	detached?: boolean;
 	sourceURL?: string;
 	userCount?: number;
 	type: string;

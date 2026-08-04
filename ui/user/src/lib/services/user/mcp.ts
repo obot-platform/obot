@@ -344,7 +344,7 @@ export function convertEntriesToTableData(
 							0
 						)
 					: (entry.userCount ?? 0),
-				editable: !entry.sourceURL,
+				editable: entry.editable === true,
 				type: getServerTypeLabel(entry),
 				created: entry.created,
 				registry,

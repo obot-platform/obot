@@ -10,13 +10,14 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ktypes "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestDetachReferencedRemovedEntries(t *testing.T) {
+func TestDetachRemovedEntries(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
 	entry.Labels["example.com/label"] = "keep"
@@ -29,14 +30,15 @@ func TestDetachReferencedRemovedEntries(t *testing.T) {
 	}
 	c := newCatalogFakeClient(entry, server)
 
-	require.NoError(t, detachReferencedRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &updated))
 	assert.True(t, updated.Spec.Editable)
-	assert.Empty(t, updated.Spec.SourceURL)
-	assert.Empty(t, updated.Spec.Manifest.EntryKey)
-	assert.Equal(t, "true", updated.Annotations[detachedEntryAnnotation])
+	assert.Equal(t, entry.Spec.SourceURL, updated.Spec.SourceURL)
+	assert.Equal(t, entry.Spec.Manifest.EntryKey, updated.Spec.Manifest.EntryKey)
+	assert.True(t, updated.IsDetached())
+	assert.False(t, updated.IsGitManaged())
 	assert.Equal(t, "keep", updated.Labels["example.com/label"])
 	assert.Equal(t, "keep", updated.Annotations["example.com/annotation"])
 	for key := range updated.Labels {
@@ -51,17 +53,51 @@ func TestDetachReferencedRemovedEntries(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(server), &existingServer))
 }
 
-func TestUnreferencedRemovedEntryRemainsManagedForPrune(t *testing.T) {
+func TestUnreferencedRemovedEntryIsDetached(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, detachReferencedRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &updated))
-	assert.False(t, updated.Spec.Editable)
-	assert.NotEmpty(t, updated.Labels[apply.LabelHash])
+	assert.True(t, updated.Spec.Editable)
+	assert.True(t, updated.IsDetached())
+	assert.Empty(t, updated.Labels[apply.LabelHash])
+}
+
+func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
+	catalog := testCatalog()
+	managed := managedCatalogEntry(t, catalog, "default-context7-12345678")
+	detached := managedCatalogEntry(t, catalog, "default-other-12345678")
+	detached.Spec.Editable = true
+	detached.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "true"
+	delete(detached.Labels, apply.LabelHash)
+	catalog.Spec.SourceURLs = nil
+	c := newCatalogFakeClient(managed, detached)
+
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+
+	for _, entry := range []*v1.MCPServerCatalogEntry{managed, detached} {
+		var deleted v1.MCPServerCatalogEntry
+		err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+		require.True(t, apierrors.IsNotFound(err), "entry %q was not deleted", entry.Name)
+	}
+}
+
+func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
+	catalog := testCatalog()
+	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
+	entry.Spec.SourceURL = "https://github.com/example/removed"
+	desired := entry.DeepCopy()
+	desired.Spec.SourceURL = catalog.Spec.SourceURLs[0]
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, []client.Object{desired}))
+
+	var existing v1.MCPServerCatalogEntry
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &existing))
 }
 
 func TestFilterDetachedCatalogEntriesReportsConflict(t *testing.T) {
@@ -69,7 +105,7 @@ func TestFilterDetachedCatalogEntriesReportsConflict(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "default-context7-12345678",
 			Namespace:   "default",
-			Annotations: map[string]string{detachedEntryAnnotation: "true"},
+			Annotations: map[string]string{v1.MCPServerCatalogEntryDetachedAnnotation: "true"},
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{Editable: true},
 	}
@@ -82,6 +118,27 @@ func TestFilterDetachedCatalogEntriesReportsConflict(t *testing.T) {
 	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, "default", []client.Object{desired})
 	require.NoError(t, err)
 	assert.Equal(t, "default", c.catalogEntryNamespace)
+	assert.Empty(t, filtered)
+	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with a detached entry")
+}
+
+func TestFilterDetachedCatalogEntriesChecksExactEntryAfterStaleList(t *testing.T) {
+	existing := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "default-context7-12345678",
+			Namespace:   "default",
+			Annotations: map[string]string{v1.MCPServerCatalogEntryDetachedAnnotation: "true"},
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{Editable: true},
+	}
+	desired := existing.DeepCopy()
+	desired.Spec.Editable = false
+	desired.Spec.SourceURL = "github.com/example/catalog"
+	desired.Spec.Manifest.Name = "Context7"
+	c := &staleCatalogEntryListClient{Client: newCatalogFakeClient(existing)}
+
+	filtered, errs, err := filterDetachedCatalogEntries(t.Context(), c, "default", []client.Object{desired})
+	require.NoError(t, err)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with a detached entry")
 }
@@ -108,6 +165,7 @@ func testCatalog() *v1.MCPCatalog {
 			Namespace: "default",
 			UID:       ktypes.UID("catalog-uid"),
 		},
+		Spec: v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot/catalog"}},
 	}
 }
 
@@ -156,6 +214,18 @@ func newCatalogFakeClient(objects ...client.Object) client.Client {
 type namespaceRecordingClient struct {
 	client.Client
 	catalogEntryNamespace string
+}
+
+type staleCatalogEntryListClient struct {
+	client.Client
+}
+
+func (c *staleCatalogEntryListClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if entries, ok := list.(*v1.MCPServerCatalogEntryList); ok {
+		entries.Items = nil
+		return nil
+	}
+	return c.Client.List(ctx, list, opts...)
 }
 
 func (c *namespaceRecordingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {

@@ -6,6 +6,7 @@
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
+	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
@@ -31,9 +32,7 @@
 	let catalogEntry = $state(untrack(() => data.catalogEntry));
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isSourcedEntry = $derived(
-		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
-	);
+	let isEntryReadonly = $derived(catalogEntry?.editable !== true);
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
@@ -221,6 +220,13 @@
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpDeprecatedNotice {deprecated} variant="notification" />
+		{#if profile.current.hasAdminAccess?.()}
+			<McpDetachedNotice
+				detached={catalogEntry?.detached}
+				sourceURL={catalogEntry?.sourceURL}
+				variant="notification"
+			/>
+		{/if}
 
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
@@ -249,7 +255,7 @@
 				: catalogEntry?.manifest.runtime === 'remote'
 					? 'remote'
 					: 'hosted'}
-			readonly={isAdminReadonly || isSourcedEntry}
+			readonly={isAdminReadonly || isEntryReadonly}
 			id={serverScopeID}
 			entity={serverScopeEntity}
 			excludeViews={['overview']}

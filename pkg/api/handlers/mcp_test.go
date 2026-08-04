@@ -76,6 +76,25 @@ func TestConvertMCPResources(t *testing.T) {
 	assert.Equal(t, resources, server.MCPServerManifest.Resources)
 }
 
+func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {
+	entry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "entry",
+			Annotations: map[string]string{
+				v1.MCPServerCatalogEntryDetachedAnnotation: "true",
+			},
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Editable:  true,
+			SourceURL: "https://github.com/obot-platform/mcp-catalog",
+		},
+	}, "https://example.com")
+
+	assert.True(t, entry.Detached)
+	assert.True(t, entry.Editable)
+	assert.Equal(t, "https://github.com/obot-platform/mcp-catalog", entry.SourceURL)
+}
+
 func TestHideMultiUserCatalogEntry(t *testing.T) {
 	multiUserEntry := v1.MCPServerCatalogEntry{
 		Spec: v1.MCPServerCatalogEntrySpec{
