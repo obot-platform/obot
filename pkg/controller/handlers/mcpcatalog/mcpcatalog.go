@@ -227,15 +227,13 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	}
 
 	var entries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &entries, client.InNamespace(catalog.Namespace)); err != nil {
+	if err := c.List(ctx, &entries, client.InNamespace(catalog.Namespace), client.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list catalog entries: %w", err)
 	}
 
+	var missingManagedEntries []*v1.MCPServerCatalogEntry
 	for i := range entries.Items {
 		entry := &entries.Items[i]
-		if entry.Spec.MCPCatalogName != catalog.Name {
-			continue
-		}
 		if _, ok := desiredNames[entry.Name]; ok {
 			continue
 		}
@@ -253,12 +251,32 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		if entry.Labels[apply.LabelHash] != labels[apply.LabelHash] {
 			continue
 		}
+		missingManagedEntries = append(missingManagedEntries, entry)
+	}
 
-		var servers v1.MCPServerList
-		if err := c.List(ctx, &servers, client.InNamespace(entry.Namespace), client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
-			return fmt.Errorf("failed to list servers for catalog entry %q: %w", entry.Name, err)
+	if len(missingManagedEntries) == 0 {
+		return nil
+	}
+
+	missingNames := make(map[string]struct{}, len(missingManagedEntries))
+	for _, entry := range missingManagedEntries {
+		missingNames[entry.Name] = struct{}{}
+	}
+
+	var servers v1.MCPServerList
+	if err := c.List(ctx, &servers, client.InNamespace(catalog.Namespace)); err != nil {
+		return fmt.Errorf("failed to list servers for removed catalog entries: %w", err)
+	}
+	serverCounts := make(map[string]int, len(missingManagedEntries))
+	for _, server := range servers.Items {
+		if _, missing := missingNames[server.Spec.MCPServerCatalogEntryName]; missing {
+			serverCounts[server.Spec.MCPServerCatalogEntryName]++
 		}
-		if len(servers.Items) == 0 {
+	}
+
+	for _, entry := range missingManagedEntries {
+		serverCount := serverCounts[entry.Name]
+		if serverCount == 0 {
 			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete unused catalog entry %q: %w", entry.Name, err)
 			}
@@ -269,7 +287,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		if err := convertCatalogEntryToEditable(ctx, c, catalog, entry.Name); err != nil {
 			return fmt.Errorf("failed to convert catalog entry %q to editable: %w", entry.Name, err)
 		}
-		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s servers=%d", catalog.Name, entry.Name, len(servers.Items))
+		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s servers=%d", catalog.Name, entry.Name, serverCount)
 	}
 
 	return nil

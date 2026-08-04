@@ -1,6 +1,7 @@
 package mcpcatalog
 
 import (
+	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/apply"
@@ -99,6 +100,30 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &existing))
 }
 
+func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
+	catalog := testCatalog()
+	referenced := managedCatalogEntry(t, catalog, "default-referenced-12345678")
+	unused := managedCatalogEntry(t, catalog, "default-unused-12345678")
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: catalog.Namespace},
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: referenced.Name,
+		},
+	}
+	c := &serverListCountingClient{Client: newCatalogFakeClient(referenced, unused, server)}
+
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	assert.Equal(t, 1, c.serverListCalls)
+
+	var converted v1.MCPServerCatalogEntry
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(referenced), &converted))
+	assert.True(t, converted.Spec.Editable)
+
+	var deleted v1.MCPServerCatalogEntry
+	err := c.Get(t.Context(), client.ObjectKeyFromObject(unused), &deleted)
+	require.True(t, apierrors.IsNotFound(err))
+}
+
 func testCatalog() *v1.MCPCatalog {
 	return &v1.MCPCatalog{
 		TypeMeta: metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "MCPCatalog"},
@@ -142,6 +167,13 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 func newCatalogFakeClient(objects ...client.Object) client.Client {
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
+		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(obj client.Object) []string {
+			entry := obj.(*v1.MCPServerCatalogEntry)
+			if entry.Spec.MCPCatalogName == "" {
+				return nil
+			}
+			return []string{entry.Spec.MCPCatalogName}
+		}).
 		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj client.Object) []string {
 			server := obj.(*v1.MCPServer)
 			if server.Spec.MCPServerCatalogEntryName == "" {
@@ -151,4 +183,16 @@ func newCatalogFakeClient(objects ...client.Object) client.Client {
 		}).
 		WithObjects(objects...).
 		Build()
+}
+
+type serverListCountingClient struct {
+	client.Client
+	serverListCalls int
+}
+
+func (c *serverListCountingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+	if _, ok := list.(*v1.MCPServerList); ok {
+		c.serverListCalls++
+	}
+	return c.Client.List(ctx, list, opts...)
 }
