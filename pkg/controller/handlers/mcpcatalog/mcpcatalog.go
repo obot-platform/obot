@@ -179,26 +179,22 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.
+	// Apply must not prune because its informer may still observe stale ownership metadata and
+	// delete a freshly converted entry
+	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
+
 	// Missing entries cannot be reconciled safely from a partial desired set.
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
 		log.Infof("Applying MCP catalog entries without reconciling missing entries due to source errors: catalog=%s entries=%d sourceErrors=%d", mcpCatalog.Name, len(toAdd), len(mcpCatalog.Status.SyncErrors))
-		return apply.New(req.Client).
-			WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).
-			WithNoPrune().
-			Apply(req.Ctx, mcpCatalog, toAdd...)
+		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 	}
 
 	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
 		return err
 	}
 
-	// Apply must not prune after reconciliation because its informer may still
-	// observe stale ownership metadata and delete a freshly converted entry.
 	log.Infof("Applying MCP catalog entries without prune: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
-	return apply.New(req.Client).
-		WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).
-		WithNoPrune().
-		Apply(req.Ctx, mcpCatalog, toAdd...)
+	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
