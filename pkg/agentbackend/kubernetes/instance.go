@@ -47,7 +47,7 @@ func (b *Backend) ReconcileInstance(ctx context.Context, desired agentbackend.De
 		return errorObservation(desired.Ref, "PoolSuspended", "the pool does not admit new sandboxes"), nil
 	}
 
-	objs, err := b.instanceObjects(desired)
+	objs, err := b.instanceObjects(ctx, desired)
 	if err != nil {
 		return agentbackend.InstanceObservation{}, err
 	}
@@ -208,7 +208,7 @@ func (b *Backend) instanceURL(name string) string {
 	return fmt.Sprintf("http://%s.%s.svc.%s", name, b.opts.Namespace, b.opts.ClusterDomain)
 }
 
-func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclient.Object, error) {
+func (b *Backend) instanceObjects(ctx context.Context, desired agentbackend.DesiredInstance) ([]kclient.Object, error) {
 	var (
 		name   = instanceName(desired.Ref.ID)
 		pool   = poolName(desired.Pool.ID)
@@ -298,6 +298,10 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 		podLabels[key] = value
 	}
 
+	// Read per apply, so an operator who retargets the node pool moves existing
+	// sandboxes on their next reconcile rather than only new ones.
+	scheduling := b.scheduling(ctx)
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -325,8 +329,16 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 					// Ties the sandbox to its pool's quota. Every pool shares one
 					// priority value, so this expresses accounting, not urgency.
 					PriorityClassName: pool,
-					SecurityContext:   b.podSecurityContext(),
-					Volumes:           volumes,
+					// Placement is shared with MCP server pods so both land on
+					// whichever node pool the deployment set aside for them. It
+					// matters more here than it does for a single MCP pod: the
+					// pool volume binds to the node the first sandbox is placed
+					// on, so one misplaced sandbox strands the whole pool there.
+					Affinity:         scheduling.Affinity,
+					Tolerations:      scheduling.Tolerations,
+					RuntimeClassName: scheduling.RuntimeClassName,
+					SecurityContext:  b.podSecurityContext(),
+					Volumes:          volumes,
 					Containers: []corev1.Container{{
 						Name:            agentContainerName,
 						Image:           desired.Image,

@@ -86,7 +86,7 @@ func TestInstanceObjectsRefuseUnusableInstanceIDs(t *testing.T) {
 	for _, instanceID := range []string{"", "..", "---"} {
 		desired := desiredInstance()
 		desired.Ref.ID = instanceID
-		if _, err := backend.instanceObjects(desired); err == nil {
+		if _, err := backend.instanceObjects(t.Context(), desired); err == nil {
 			t.Errorf("instanceObjects(%q) should refuse to mount the pool root", instanceID)
 		}
 	}

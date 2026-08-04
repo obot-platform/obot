@@ -1,7 +1,9 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
+	"reflect"
 
 	"testing"
 
@@ -54,7 +56,7 @@ func deploymentFrom(t *testing.T, objs []kclient.Object) *appsv1.Deployment {
 func TestInstanceObjectsTagSandboxWithPoolPriorityClass(t *testing.T) {
 	backend := testBackend(t)
 
-	objs, err := backend.instanceObjects(desiredInstance())
+	objs, err := backend.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -65,12 +67,82 @@ func TestInstanceObjectsTagSandboxWithPoolPriorityClass(t *testing.T) {
 	}
 }
 
+// Sandboxes share a namespace with MCP server pods and must share their
+// placement too. A deployment that sets its MCP node pool aside with a taint and
+// an affinity would otherwise get MCP servers there and sandboxes anywhere.
+func TestInstanceObjectsApplyScheduling(t *testing.T) {
+	affinity := &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+				MatchExpressions: []corev1.NodeSelectorRequirement{{
+					Key:      "workload-type",
+					Operator: corev1.NodeSelectorOpIn,
+					Values:   []string{"mcp"},
+				}},
+			}},
+		},
+	}}
+	tolerations := []corev1.Toleration{{
+		Key:      "mcp-workload",
+		Operator: corev1.TolerationOpEqual,
+		Value:    "true",
+		Effect:   corev1.TaintEffectNoSchedule,
+	}}
+	runtimeClass := "gvisor"
+
+	backend, err := New(nil, nil, Options{
+		Namespace:     "obot-agents",
+		ClusterDomain: "cluster.local",
+		Scheduling: func(context.Context) Scheduling {
+			return Scheduling{
+				Affinity:         affinity,
+				Tolerations:      tolerations,
+				RuntimeClassName: &runtimeClass,
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	objs, err := backend.instanceObjects(t.Context(), desiredInstance())
+	if err != nil {
+		t.Fatalf("instanceObjects: %v", err)
+	}
+	spec := deploymentFrom(t, objs).Spec.Template.Spec
+
+	if !reflect.DeepEqual(spec.Affinity, affinity) {
+		t.Errorf("affinity = %+v, want %+v", spec.Affinity, affinity)
+	}
+	if !reflect.DeepEqual(spec.Tolerations, tolerations) {
+		t.Errorf("tolerations = %+v, want %+v", spec.Tolerations, tolerations)
+	}
+	if spec.RuntimeClassName == nil || *spec.RuntimeClassName != runtimeClass {
+		t.Errorf("runtimeClassName = %v, want %q", spec.RuntimeClassName, runtimeClass)
+	}
+}
+
+// An unconfigured provider must leave placement to the scheduler rather than
+// panic, which is the shape every existing test and the fake backend rely on.
+func TestInstanceObjectsWithoutSchedulingAreUnconstrained(t *testing.T) {
+	objs, err := testBackend(t).instanceObjects(t.Context(), desiredInstance())
+	if err != nil {
+		t.Fatalf("instanceObjects: %v", err)
+	}
+	spec := deploymentFrom(t, objs).Spec.Template.Spec
+
+	if spec.Affinity != nil || spec.Tolerations != nil || spec.RuntimeClassName != nil {
+		t.Errorf("expected unconstrained placement, got affinity=%v tolerations=%v runtimeClass=%v",
+			spec.Affinity, spec.Tolerations, spec.RuntimeClassName)
+	}
+}
+
 // Sandboxes share one ReadWriteOnce volume and are separated only by subPath, so
 // a rolling update would put two pods on the same directory.
 func TestInstanceObjectsUseRecreateAndSubPath(t *testing.T) {
 	backend := testBackend(t)
 
-	objs, err := backend.instanceObjects(desiredInstance())
+	objs, err := backend.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -99,7 +171,7 @@ func TestInstanceObjectsUseRecreateAndSubPath(t *testing.T) {
 func TestInstanceObjectsPropagateRevisionToPodTemplate(t *testing.T) {
 	backend := testBackend(t)
 
-	objs, err := backend.instanceObjects(desiredInstance())
+	objs, err := backend.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -246,7 +318,7 @@ func TestInstanceObjectsMountsResolveToVolumes(t *testing.T) {
 		{Path: "/opt/extra.yaml", Content: []byte("a: b")},
 	}
 
-	objs, err := backend.instanceObjects(desired)
+	objs, err := backend.instanceObjects(t.Context(), desired)
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -309,7 +381,7 @@ func TestPoolNamesAreStableAndDistinct(t *testing.T) {
 func TestInstanceObjectsHonourInteractiveHarness(t *testing.T) {
 	backend := testBackend(t)
 
-	plain, err := backend.instanceObjects(desiredInstance())
+	plain, err := backend.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -320,7 +392,7 @@ func TestInstanceObjectsHonourInteractiveHarness(t *testing.T) {
 
 	desired := desiredInstance()
 	desired.Harness.Interactive = true
-	interactive, err := backend.instanceObjects(desired)
+	interactive, err := backend.instanceObjects(t.Context(), desired)
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -343,7 +415,7 @@ func TestInstanceObjectsDeliverSecretRefsAsFiles(t *testing.T) {
 		FilePath: "/etc/obot/credential",
 	}}
 
-	objs, err := backend.instanceObjects(desired)
+	objs, err := backend.instanceObjects(t.Context(), desired)
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -513,7 +585,7 @@ func TestInstanceObjectsOmitServiceWithoutPort(t *testing.T) {
 	desired := desiredInstance()
 	desired.Port = 0
 
-	objs, err := backend.instanceObjects(desired)
+	objs, err := backend.instanceObjects(t.Context(), desired)
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -530,7 +602,7 @@ func TestInstanceObjectsIncludeServiceWithPort(t *testing.T) {
 	desired := desiredInstance()
 	desired.Port = 8080
 
-	objs, err := backend.instanceObjects(desired)
+	objs, err := backend.instanceObjects(t.Context(), desired)
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}

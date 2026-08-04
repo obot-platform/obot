@@ -1109,7 +1109,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return nil, fmt.Errorf("failed to build local k8s client for the agent backend: %w", err)
 		}
 	}
-	agentBackendKind, agentBackend, err := newHostedAgentsBackend(config, localK8sConfig, agentLocalK8sClient, localCacheClient)
+	agentBackendKind, agentBackend, err := newHostedAgentsBackend(config, localK8sConfig, agentLocalK8sClient, localCacheClient, storageClient)
 	if err != nil {
 		return nil, err
 	}
@@ -1437,7 +1437,37 @@ func hostedAgentsNeedK8s(config Config) bool {
 	}
 }
 
-func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cachedClient kclient.Client) (string, agentbackend.Backend, error) {
+// hostedAgentsScheduling reads the placement sandboxes are created with from
+// the same K8sSettings singleton MCP server pods are built from, rather than
+// from settings of its own. Sandboxes and MCP servers share a namespace and
+// should share the node pool the deployment set aside for them; a second set of
+// values would only give the two a way to disagree. Reading it per call rather
+// than at startup is what lets an admin retarget both at once when the settings
+// did not come from Helm.
+func hostedAgentsScheduling(obotClient kclient.Client) func(context.Context) agentbackendkubernetes.Scheduling {
+	if obotClient == nil {
+		return nil
+	}
+	return func(ctx context.Context) agentbackendkubernetes.Scheduling {
+		var settings v1.K8sSettings
+		if err := obotClient.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.K8sSettingsName,
+		}, &settings); err != nil {
+			// Unconstrained placement is the same answer the MCP backend gives
+			// here, and it lets a sandbox start rather than fail on a read.
+			pkgLog.Warnf("Failed to get K8s settings for hosted agent scheduling, using defaults: %v", err)
+			return agentbackendkubernetes.Scheduling{}
+		}
+		return agentbackendkubernetes.Scheduling{
+			Affinity:         settings.Spec.Affinity,
+			Tolerations:      settings.Spec.Tolerations,
+			RuntimeClassName: settings.Spec.RuntimeClassName,
+		}
+	}
+}
+
+func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cachedClient, obotClient kclient.Client) (string, agentbackend.Backend, error) {
 	kind := resolveHostedAgentsBackendKind(config)
 
 	switch kind {
@@ -1465,6 +1495,7 @@ func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cach
 			CleanupImage:     config.HostedAgentsCleanupImage,
 			ImagePullPolicy:  config.HostedAgentsImagePullPolicy,
 			RESTConfig:       restConfig,
+			Scheduling:       hostedAgentsScheduling(obotClient),
 		})
 		if err != nil {
 			return "", nil, err
