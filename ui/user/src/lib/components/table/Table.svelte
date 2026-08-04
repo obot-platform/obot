@@ -298,7 +298,8 @@
 	function getColumnMinWidth(width: number, index: number, columnCount: number): number {
 		if (index === 0 && tableSelectActions) return 57;
 		if (actions && index === columnCount - 1) return Math.max(width, ACTIONS_MIN_WIDTH);
-		return Math.max(width * 0.3, 100);
+		// if filterable fields are present, add width to account for filter button
+		return Math.max(width * 0.3, 100) + (filterableFields.size > 0 ? 36 : 0);
 	}
 
 	function calculateConstrainedWidths(naturalWidths: number[], availableWidth: number): number[] {
