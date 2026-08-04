@@ -8068,12 +8068,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
-					"detached": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 					"catalogName": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

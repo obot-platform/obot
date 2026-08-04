@@ -68,14 +68,10 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	}
 }
 
-func (in *MCPServerCatalogEntry) IsDetached() bool {
-	return in.Annotations[MCPServerCatalogEntryDetachedAnnotation] == "true"
-}
-
-// IsGitManaged mirrors the existing GitOps heuristic: sourced, non-editable,
-// non-detached catalog entries are treated as git-managed.
+// IsGitManaged mirrors the existing GitOps heuristic: sourced, non-editable
+// catalog entries are treated as git-managed
 func (in *MCPServerCatalogEntry) IsGitManaged() bool {
-	return !in.IsDetached() && !in.Spec.Editable && in.Spec.SourceURL != ""
+	return !in.Spec.Editable && in.Spec.SourceURL != ""
 }
 
 type MCPServerCatalogEntrySpec struct {

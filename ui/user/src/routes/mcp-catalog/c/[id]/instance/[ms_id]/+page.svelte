@@ -4,7 +4,6 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
 	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { normalizeManifestsForDiff } from '$lib/diff';
@@ -32,7 +31,9 @@
 	let sourceID = $derived(catalogEntry?.powerUserWorkspaceID || DEFAULT_MCP_CATALOG_ID);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isEntryReadonly = $derived(catalogEntry?.editable !== true);
+	let isSourcedEntry = $derived(
+		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
+	);
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
@@ -187,14 +188,6 @@
 	showBackButton
 >
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
-		{#if profile.current.hasAdminAccess?.()}
-			<McpDetachedNotice
-				detached={catalogEntry?.detached}
-				sourceURL={catalogEntry?.sourceURL}
-				variant="notification"
-			/>
-		{/if}
-
 		{#if showUpgradeNotification}
 			<div class="border-primary bg-primary/10 flex items-center gap-3 rounded-lg border p-4">
 				<Info class="text-primary size-5 shrink-0" />
@@ -223,7 +216,7 @@
 				: catalogEntry?.manifest.runtime === 'remote'
 					? 'remote'
 					: 'hosted'}
-			readonly={isAdminReadonly || isEntryReadonly}
+			readonly={isAdminReadonly || isSourcedEntry}
 			id={sourceID}
 			entity={sourceEntity}
 			excludeViews={['overview']}

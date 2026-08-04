@@ -5,7 +5,6 @@
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
-	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
@@ -356,12 +355,6 @@
 								{/if}
 								{#if d.status.toLowerCase() === 'deployed'}
 									<span class="badge badge-xs badge-secondary">Deployed</span>
-								{/if}
-								{#if entity === 'catalog'}
-									<McpDetachedNotice
-										detached={d.data.detached}
-										sourceURL={'sourceURL' in d.data ? d.data.sourceURL : undefined}
-									/>
 								{/if}
 								<McpDeprecatedNotice {deprecated} />
 							</p>
