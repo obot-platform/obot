@@ -16,10 +16,10 @@ var _ DeleteRefs = (*ModelInfo)(nil)
 // ModelInfo stores synced cost for one provider/model pair.
 type ModelInfo struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ModelInfoSpec `json:"spec,omitempty"`
-	Status EmptyStatus   `json:"status,omitempty"`
+	Spec   ModelInfoSpec `json:"spec"`
+	Status EmptyStatus   `json:"status"`
 }
 
 type ModelInfoSpec struct {
@@ -55,7 +55,7 @@ func ModelInfoName(provider, model string) string {
 
 type ModelInfoList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelInfo `json:"items"`
 }

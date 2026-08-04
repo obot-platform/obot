@@ -247,7 +247,7 @@ type createRequest struct {
 	ProviderNamespace string             `json:"providerNamespace,omitempty"`
 	ID                string             `json:"id,omitempty"`
 	NoExpiration      bool               `json:"noExpiration,omitempty"`
-	Scopes            types.APIKeyScopes `json:"scopes,omitempty"`
+	Scopes            types.APIKeyScopes `json:"scopes"`
 }
 
 type createResponse struct {

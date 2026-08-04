@@ -9,10 +9,10 @@ import (
 
 type ModelProvider struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ModelProviderSpec   `json:"spec,omitempty"`
-	Status ModelProviderStatus `json:"status,omitempty"`
+	Spec   ModelProviderSpec   `json:"spec"`
+	Status ModelProviderStatus `json:"status"`
 }
 
 func (in *ModelProvider) GetColumns() [][]string {
@@ -39,7 +39,7 @@ type ModelProviderStatus struct {
 
 type ModelProviderList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelProvider `json:"items"`
 }

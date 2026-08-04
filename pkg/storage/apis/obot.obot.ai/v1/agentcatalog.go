@@ -14,10 +14,10 @@ var _ fields.Fields = (*AgentCatalog)(nil)
 
 type AgentCatalog struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AgentCatalogSpec   `json:"spec,omitempty"`
-	Status AgentCatalogStatus `json:"status,omitempty"`
+	Spec   AgentCatalogSpec   `json:"spec"`
+	Status AgentCatalogStatus `json:"status"`
 }
 
 func (in *AgentCatalog) Has(field string) (exists bool) {
@@ -68,7 +68,7 @@ type AgentCatalogStatus struct {
 
 type AgentCatalogList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []AgentCatalog `json:"items"`
 }

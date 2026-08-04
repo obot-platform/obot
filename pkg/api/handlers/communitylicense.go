@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
+	"slices"
 	"strings"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
@@ -91,10 +92,8 @@ func hasEmailDomainSuffix(address string) bool {
 	if len(labels) < 2 {
 		return false
 	}
-	for _, label := range labels {
-		if label == "" {
-			return false
-		}
+	if slices.Contains(labels, "") {
+		return false
 	}
 	return true
 }

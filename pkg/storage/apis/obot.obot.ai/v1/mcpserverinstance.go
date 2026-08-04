@@ -19,9 +19,9 @@ var (
 
 type MCPServerInstance struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec MCPServerInstanceSpec `json:"spec,omitempty"`
+	Spec MCPServerInstanceSpec `json:"spec"`
 }
 
 func (in *MCPServerInstance) Has(field string) (exists bool) {
@@ -99,7 +99,7 @@ type MCPServerInstanceSpec struct {
 
 type MCPServerInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPServerInstance `json:"items"`
 }

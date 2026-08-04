@@ -10,14 +10,14 @@ import (
 // ModelInfoSource syncs ModelInfo records from an external source.
 type ModelInfoSource struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ModelInfoSourceSpec   `json:"spec,omitempty"`
-	Status ModelInfoSourceStatus `json:"status,omitempty"`
+	Spec   ModelInfoSourceSpec   `json:"spec"`
+	Status ModelInfoSourceStatus `json:"status"`
 }
 
 type ModelInfoSourceSpec struct {
-	Manifest types.ModelInfoSourceManifest `json:"manifest,omitempty"`
+	Manifest types.ModelInfoSourceManifest `json:"manifest"`
 }
 
 type ModelInfoSourceStatus struct {
@@ -40,7 +40,7 @@ func (in *ModelInfoSource) GetColumns() [][]string {
 
 type ModelInfoSourceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelInfoSource `json:"items"`
 }

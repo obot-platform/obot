@@ -16,9 +16,9 @@ var _ fields.Fields = (*MCPTunnel)(nil)
 
 type MCPTunnel struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec MCPTunnelSpec `json:"spec,omitempty"`
+	Spec MCPTunnelSpec `json:"spec"`
 }
 
 func (in *MCPTunnel) Has(field string) bool {
@@ -46,7 +46,7 @@ type MCPTunnelSpec struct {
 
 type MCPTunnelList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPTunnel `json:"items"`
 }

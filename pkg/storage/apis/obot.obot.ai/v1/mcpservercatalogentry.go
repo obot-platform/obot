@@ -17,10 +17,10 @@ var (
 
 type MCPServerCatalogEntry struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MCPServerCatalogEntrySpec   `json:"spec,omitempty"`
-	Status MCPServerCatalogEntryStatus `json:"status,omitempty"`
+	Spec   MCPServerCatalogEntrySpec   `json:"spec"`
+	Status MCPServerCatalogEntryStatus `json:"status"`
 }
 
 func (in *MCPServerCatalogEntry) GetColumns() [][]string {
@@ -75,7 +75,7 @@ func (in *MCPServerCatalogEntry) IsGitManaged() bool {
 }
 
 type MCPServerCatalogEntrySpec struct {
-	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest"`
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
 	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
 	Editable         bool                                `json:"editable,omitempty"`
@@ -105,7 +105,7 @@ type MCPServerCatalogEntryStatus struct {
 
 type MCPServerCatalogEntryList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPServerCatalogEntry `json:"items"`
 }

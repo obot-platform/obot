@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"runtime/debug"
+	"slices"
 
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/context"
@@ -10,8 +11,8 @@ import (
 )
 
 func apply(h api.HandlerFunc, m ...api.Middleware) api.HandlerFunc {
-	for i := len(m) - 1; i >= 0; i-- {
-		h = m[i](h)
+	for _, middleware := range slices.Backward(m) {
+		h = middleware(h)
 	}
 	return h
 }

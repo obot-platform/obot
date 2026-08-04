@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -104,7 +105,6 @@ func TestHeadersResponseWriter_SetsSecurityHeadersAndContentType(t *testing.T) {
 	}
 
 	for _, status := range append(bodyStatuses, noBodyStatuses...) {
-		status := status
 		t.Run(http.StatusText(status), func(t *testing.T) {
 			crw := newCountingResponseWriter()
 			rw := &headersResponseWriter{ResponseWriter: crw}
@@ -115,11 +115,8 @@ func TestHeadersResponseWriter_SetsSecurityHeadersAndContentType(t *testing.T) {
 			}
 
 			expectContentType := ""
-			for _, s := range bodyStatuses {
-				if s == status {
-					expectContentType = "text/plain; charset=utf-8"
-					break
-				}
+			if slices.Contains(bodyStatuses, status) {
+				expectContentType = "text/plain; charset=utf-8"
 			}
 			if got := crw.Header().Get("Content-Type"); got != expectContentType {
 				t.Fatalf("Content-Type = %q, want %q (status=%d)", got, expectContentType, status)

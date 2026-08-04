@@ -17,10 +17,10 @@ var (
 
 type HostedAgent struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HostedAgentSpec   `json:"spec,omitempty"`
-	Status HostedAgentStatus `json:"status,omitempty"`
+	Spec   HostedAgentSpec   `json:"spec"`
+	Status HostedAgentStatus `json:"status"`
 }
 
 func (in *HostedAgent) Has(field string) bool {
@@ -62,7 +62,7 @@ func (in *HostedAgent) GetColumns() [][]string {
 type HostedAgentSpec struct {
 	// Manifest holds the agent definition. Values for env entries marked
 	// sensitive are blanked here and kept in the credential store instead.
-	Manifest types.HostedAgentManifest `json:"manifest,omitempty"`
+	Manifest types.HostedAgentManifest `json:"manifest"`
 
 	// SourceID names the AgentCatalog this agent was discovered from. Empty for
 	// agents an admin registered by hand, which the sync never touches.
@@ -81,7 +81,7 @@ type HostedAgentStatus struct{}
 
 type HostedAgentList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgent `json:"items"`
 }

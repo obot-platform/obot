@@ -6,10 +6,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type OktaGroupMigration struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   OktaGroupMigrationSpec `json:"spec,omitempty"`
-	Status EmptyStatus            `json:"status,omitempty"`
+	Spec   OktaGroupMigrationSpec `json:"spec"`
+	Status EmptyStatus            `json:"status"`
 }
 
 type OktaGroupMigrationSpec struct {
@@ -21,6 +21,6 @@ type OktaGroupMigrationSpec struct {
 
 type OktaGroupMigrationList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []OktaGroupMigration `json:"items"`
 }

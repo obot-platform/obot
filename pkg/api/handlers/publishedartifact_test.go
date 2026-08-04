@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -118,9 +119,7 @@ func TestReadSkillFrontmatterFromZIP(t *testing.T) {
 			files := map[string][]byte{
 				skillformat.SkillMainFile: createSkillMDContent(t, tt.skillName, tt.description, tt.metadata),
 			}
-			for k, v := range tt.extraFiles {
-				files[k] = v
-			}
+			maps.Copy(files, tt.extraFiles)
 
 			fm, _, err := readSkillFrontmatterFromZIP(createArtifactTestZIP(t, files))
 			if err != nil {

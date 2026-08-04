@@ -349,8 +349,8 @@ func (l *Loader) Zip(w io.Writer, c types.MDMAssetConfiguration, values map[stri
 	for _, rel := range c.Assets {
 		name := path.Base(rel)
 		var err error
-		if strings.HasSuffix(name, ".tmpl") {
-			err = renderEntry(zw, l, rel, strings.TrimSuffix(name, ".tmpl"), context, modified)
+		if strippedName, ok := strings.CutSuffix(name, ".tmpl"); ok {
+			err = renderEntry(zw, l, rel, strippedName, context, modified)
 		} else {
 			err = copyInto(zw, l.files, rel, name, modified)
 		}

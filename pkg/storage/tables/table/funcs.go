@@ -54,7 +54,7 @@ func ToArrayFirst(s []string) (string, error) {
 func Graph(value int) (string, error) {
 	bars := int(float64(value) / 100.0 * 30)
 	builder := &strings.Builder{}
-	for i := 0; i < bars; i++ {
+	for i := range bars {
 		if i == bars-1 {
 			_, _ = fmt.Fprintf(builder, "> %v", value)
 			break

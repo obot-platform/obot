@@ -122,13 +122,13 @@ func TestSelectPeersFiltersInvalidEndpoints(t *testing.T) {
 			valid, missingTarget, wrongKind, emptyUID, wrongNamespace, unready,
 			terminating, self, mismatchedAddressType, invalidAddress),
 		*endpointSliceWithPorts("wrong-port-name", discoveryv1.AddressTypeIPv4,
-			[]discoveryv1.EndpointPort{{Name: stringPointer("metrics"), Port: int32Pointer(8080)}},
+			[]discoveryv1.EndpointPort{{Name: new("metrics"), Port: new(int32(8080))}},
 			endpoint("wrong-port-name", "10.0.1.1")),
 		*endpointSliceWithPorts("udp-port", discoveryv1.AddressTypeIPv4,
-			[]discoveryv1.EndpointPort{{Name: stringPointer("http"), Protocol: protocolPointer(corev1.ProtocolUDP), Port: int32Pointer(8080)}},
+			[]discoveryv1.EndpointPort{{Name: new("http"), Protocol: new(corev1.ProtocolUDP), Port: new(int32(8080))}},
 			endpoint("udp-port", "10.0.1.2")),
 		*endpointSliceWithPorts("invalid-port", discoveryv1.AddressTypeIPv4,
-			[]discoveryv1.EndpointPort{{Name: stringPointer("http"), Port: int32Pointer(70000)}},
+			[]discoveryv1.EndpointPort{{Name: new("http"), Port: new(int32(70000))}},
 			endpoint("invalid-port", "10.0.1.3")),
 	}
 
@@ -211,9 +211,9 @@ func newClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 
 func endpointSlice(name string, addressType discoveryv1.AddressType, port int32, endpoints ...discoveryv1.Endpoint) *discoveryv1.EndpointSlice {
 	return endpointSliceWithPorts(name, addressType, []discoveryv1.EndpointPort{{
-		Name:     stringPointer("http"),
-		Protocol: protocolPointer(corev1.ProtocolTCP),
-		Port:     int32Pointer(port),
+		Name:     new("http"),
+		Protocol: new(corev1.ProtocolTCP),
+		Port:     new(port),
 	}}, endpoints...)
 }
 
@@ -242,16 +242,4 @@ func endpoint(peerID string, addresses ...string) discoveryv1.Endpoint {
 			UID:       types.UID(peerID),
 		},
 	}
-}
-
-func stringPointer(value string) *string {
-	return &value
-}
-
-func int32Pointer(value int32) *int32 {
-	return &value
-}
-
-func protocolPointer(value corev1.Protocol) *corev1.Protocol {
-	return &value
 }

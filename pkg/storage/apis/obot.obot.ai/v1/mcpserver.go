@@ -22,10 +22,10 @@ var (
 
 type MCPServer struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MCPServerSpec   `json:"spec,omitempty"`
-	Status MCPServerStatus `json:"status,omitempty"`
+	Spec   MCPServerSpec   `json:"spec"`
+	Status MCPServerStatus `json:"status"`
 }
 
 func (in *MCPServer) Has(field string) (exists bool) {
@@ -188,9 +188,9 @@ type MCPServerStatus struct {
 type OAuthMetadata struct {
 	ProtectedResourceURL              string               `json:"protectedResourceUrl,omitempty"`
 	AuthorizationServerURL            string               `json:"authorizationServerUrl,omitempty"`
-	ProtectedResourceMetadata         runtime.RawExtension `json:"protectedResourceMetadata,omitempty"`
-	AuthorizationServerMetadata       runtime.RawExtension `json:"authorizationServerMetadata,omitempty"`
-	ClientRegistration                runtime.RawExtension `json:"clientRegistration,omitempty"`
+	ProtectedResourceMetadata         runtime.RawExtension `json:"protectedResourceMetadata"`
+	AuthorizationServerMetadata       runtime.RawExtension `json:"authorizationServerMetadata"`
+	ClientRegistration                runtime.RawExtension `json:"clientRegistration"`
 	DynamicClientRegistration         bool                 `json:"dynamicClientRegistration,omitempty"`
 	ClientIDMetadataDocumentSupported bool                 `json:"clientIdMetadataDocumentSupported,omitempty"`
 }
@@ -199,9 +199,9 @@ type DeploymentCondition struct {
 	// Type of deployment condition.
 	Type appsv1.DeploymentConditionType `json:"type"`
 	// Last time the condition transitioned from one status to another.
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 	// Last time the condition was updated.
-	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
+	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
 	// Status of the condition, one of True, False, Unknown.
 	Status corev1.ConditionStatus `json:"status"`
 	// The reason for the condition's last transition.
@@ -214,7 +214,7 @@ type DeploymentCondition struct {
 
 type MCPServerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPServer `json:"items"`
 }

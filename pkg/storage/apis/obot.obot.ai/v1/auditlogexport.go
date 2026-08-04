@@ -16,10 +16,10 @@ var (
 
 type AuditLogExport struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AuditLogExportSpec   `json:"spec,omitempty"`
-	Status AuditLogExportStatus `json:"status,omitempty"`
+	Spec   AuditLogExportSpec   `json:"spec"`
+	Status AuditLogExportStatus `json:"status"`
 }
 
 func (a *AuditLogExport) Has(field string) (exists bool) {
@@ -83,6 +83,6 @@ type AuditLogExportStatus struct {
 
 type AuditLogExportList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []AuditLogExport `json:"items"`
 }

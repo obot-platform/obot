@@ -14,7 +14,7 @@ var (
 
 type OAuthAuthRequest struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 	Spec              OAuthAuthRequestSpec   `json:"spec"`
 	Status            OAuthAuthRequestStatus `json:"status"`
 }
@@ -79,6 +79,6 @@ type OAuthAuthRequestStatus struct {
 
 type OAuthAuthRequestList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []OAuthAuthRequest `json:"items"`
 }

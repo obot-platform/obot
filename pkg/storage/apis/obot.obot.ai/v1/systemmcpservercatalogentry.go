@@ -17,10 +17,10 @@ var (
 
 type SystemMCPServerCatalogEntry struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SystemMCPServerCatalogEntrySpec   `json:"spec,omitempty"`
-	Status SystemMCPServerCatalogEntryStatus `json:"status,omitempty"`
+	Spec   SystemMCPServerCatalogEntrySpec   `json:"spec"`
+	Status SystemMCPServerCatalogEntryStatus `json:"status"`
 }
 
 func (in *SystemMCPServerCatalogEntry) GetColumns() [][]string {
@@ -58,7 +58,7 @@ func (in *SystemMCPServerCatalogEntry) DeleteRefs() []Ref {
 }
 
 type SystemMCPServerCatalogEntrySpec struct {
-	Manifest             types.SystemMCPServerCatalogEntryManifest `json:"manifest,omitempty"`
+	Manifest             types.SystemMCPServerCatalogEntryManifest `json:"manifest"`
 	SourceURL            string                                    `json:"sourceURL,omitempty"`
 	Editable             bool                                      `json:"editable,omitempty"`
 	SystemMCPCatalogName string                                    `json:"systemMCPCatalogName,omitempty"`
@@ -76,7 +76,7 @@ type SystemMCPServerCatalogEntryStatus struct {
 
 type SystemMCPServerCatalogEntryList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []SystemMCPServerCatalogEntry `json:"items"`
 }

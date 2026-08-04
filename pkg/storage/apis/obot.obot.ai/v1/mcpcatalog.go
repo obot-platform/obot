@@ -8,10 +8,10 @@ import (
 
 type MCPCatalog struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MCPCatalogSpec   `json:"spec,omitempty"`
-	Status MCPCatalogStatus `json:"status,omitempty"`
+	Spec   MCPCatalogSpec   `json:"spec"`
+	Status MCPCatalogStatus `json:"status"`
 }
 
 type MCPCatalogSpec struct {
@@ -39,7 +39,7 @@ func (in *MCPCatalog) GetColumns() [][]string {
 
 type MCPCatalogList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPCatalog `json:"items"`
 }

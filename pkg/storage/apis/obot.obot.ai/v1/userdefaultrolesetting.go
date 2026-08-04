@@ -9,9 +9,9 @@ import (
 
 type UserDefaultRoleSetting struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec UserDefaultRoleSettingSpec `json:"spec,omitempty"`
+	Spec UserDefaultRoleSettingSpec `json:"spec"`
 }
 
 type UserDefaultRoleSettingSpec struct {
@@ -23,7 +23,7 @@ type UserDefaultRoleSettingSpec struct {
 
 type UserDefaultRoleSettingList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []UserDefaultRoleSetting `json:"items"`
 }

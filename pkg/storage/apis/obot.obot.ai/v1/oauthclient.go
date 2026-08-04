@@ -19,9 +19,9 @@ var (
 
 type OAuthClient struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              OAuthClientSpec   `json:"spec,omitempty"`
-	Status            OAuthClientStatus `json:"status,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              OAuthClientSpec   `json:"spec"`
+	Status            OAuthClientStatus `json:"status"`
 }
 
 func (o *OAuthClient) DeleteRefs() []Ref {
@@ -82,6 +82,6 @@ type OAuthClientStatus struct{}
 
 type OAuthClientList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []OAuthClient `json:"items"`
 }

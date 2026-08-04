@@ -17,10 +17,10 @@ var (
 
 type Project struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ProjectSpec   `json:"spec,omitempty"`
-	Status ProjectStatus `json:"status,omitempty"`
+	Spec   ProjectSpec   `json:"spec"`
+	Status ProjectStatus `json:"status"`
 }
 
 func (in *Project) Has(field string) (exists bool) {
@@ -53,7 +53,7 @@ type ProjectStatus struct {
 
 type ProjectList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Project `json:"items"`
 }
@@ -63,10 +63,10 @@ type ProjectList struct {
 // Deprecated: use Project instead.
 type ProjectV2 struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ProjectSpec   `json:"spec,omitempty"`
-	Status ProjectStatus `json:"status,omitempty"`
+	Spec   ProjectSpec   `json:"spec"`
+	Status ProjectStatus `json:"status"`
 }
 
 func (in *ProjectV2) Has(field string) (exists bool) {
@@ -89,7 +89,7 @@ func (in *ProjectV2) FieldNames() []string {
 
 type ProjectV2List struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ProjectV2 `json:"items"`
 }

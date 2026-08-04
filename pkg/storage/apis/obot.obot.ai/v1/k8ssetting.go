@@ -9,10 +9,10 @@ import (
 
 type K8sSettings struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   K8sSettingsSpec   `json:"spec,omitempty"`
-	Status K8sSettingsStatus `json:"status,omitempty"`
+	Spec   K8sSettingsSpec   `json:"spec"`
+	Status K8sSettingsStatus `json:"status"`
 }
 
 type K8sSettingsSpec struct {
@@ -80,7 +80,7 @@ type K8sSettingsStatus struct{}
 
 type K8sSettingsList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []K8sSettings `json:"items"`
 }

@@ -82,8 +82,7 @@ func TestTunnelClosesWebSocketNormallyOnContextCancellation(t *testing.T) {
 		return nil
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, cancel := context.WithCancel(t.Context())
 	clientError := make(chan error, 1)
 	go func() {
 		clientError <- serveConnection(ctx, connection, "test")
@@ -798,8 +797,7 @@ func TestTunnelRoutesThroughPeerReplicaAndDisconnectsRemotely(t *testing.T) {
 		tunnelName: configuredTunnel,
 	}}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	first, firstServer := newManagerTestServer(ctx, t, reader)
 	defer firstServer.Close()
 	defer first.Close()
@@ -893,8 +891,7 @@ func TestBridgeEnforcesCurrentAllowedURLs(t *testing.T) {
 		tunnels: map[string]v1.MCPTunnel{tunnelName: configuredTunnel},
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	manager, server := newManagerTestServer(ctx, t, reader)
 	defer manager.Close()
 	defer server.Close()
@@ -937,8 +934,7 @@ func TestBridgeEnforcesCurrentAllowedURLs(t *testing.T) {
 }
 
 func TestBridgeRequiresCapability(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 	manager, server := newManagerTestServer(ctx, t)
 	defer manager.Close()
 	defer server.Close()
@@ -1134,8 +1130,7 @@ func TestReconcilePeersClosesRemovedIncomingConnection(t *testing.T) {
 }
 
 func TestBridgeURLIsStableAcrossManagerRestarts(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := t.Context()
 
 	first, err := NewManager(ctx, "http://127.0.0.1:8080/", allowAllTunnelReader{}, PeerConfig{})
 	if err != nil {

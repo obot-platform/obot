@@ -189,7 +189,7 @@ func parseMultiValue(queryValues url.Values, key string) []string {
 		if value == "" {
 			continue
 		}
-		for _, part := range strings.Split(value, ",") {
+		for part := range strings.SplitSeq(value, ",") {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				result = append(result, part)

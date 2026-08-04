@@ -18,10 +18,10 @@ var (
 
 type SystemMCPServer struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SystemMCPServerSpec   `json:"spec,omitempty"`
-	Status SystemMCPServerStatus `json:"status,omitempty"`
+	Spec   SystemMCPServerSpec   `json:"spec"`
+	Status SystemMCPServerStatus `json:"status"`
 }
 
 type SystemMCPServerSpec struct {
@@ -84,7 +84,7 @@ func (in *SystemMCPServer) DeleteRefs() []Ref {
 
 type SystemMCPServerList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []SystemMCPServer `json:"items"`
 }

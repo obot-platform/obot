@@ -13,10 +13,10 @@ import (
 // MDMAsset snapshots.
 type MDMAssetSource struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MDMAssetSourceSpec   `json:"spec,omitempty"`
-	Status MDMAssetSourceStatus `json:"status,omitempty"`
+	Spec   MDMAssetSourceSpec   `json:"spec"`
+	Status MDMAssetSourceStatus `json:"status"`
 }
 
 type MDMAssetSourceSpec struct {
@@ -42,7 +42,7 @@ func (in *MDMAssetSource) GetColumns() [][]string {
 
 type MDMAssetSourceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MDMAssetSource `json:"items"`
 }
@@ -54,10 +54,10 @@ type MDMAssetSourceList struct {
 // storage resources pass through the Kubernetes API request-size limit.
 type MDMAsset struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MDMAssetSpec `json:"spec,omitempty"`
-	Status EmptyStatus  `json:"status,omitempty"`
+	Spec   MDMAssetSpec `json:"spec"`
+	Status EmptyStatus  `json:"status"`
 }
 
 // MDMAssetSpec mirrors types.MDMAssetManifest field-for-field, except Fields
@@ -92,7 +92,7 @@ func MDMAssetName(digest string) string {
 
 type MDMAssetList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MDMAsset `json:"items"`
 }

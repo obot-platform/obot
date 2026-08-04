@@ -9,10 +9,10 @@ import (
 
 type HostedAgentAccessRule struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HostedAgentAccessRuleSpec `json:"spec,omitempty"`
-	Status EmptyStatus               `json:"status,omitempty"`
+	Spec   HostedAgentAccessRuleSpec `json:"spec"`
+	Status EmptyStatus               `json:"status"`
 }
 
 func (in *HostedAgentAccessRule) GetColumns() [][]string {
@@ -32,7 +32,7 @@ type HostedAgentAccessRuleSpec struct {
 
 type HostedAgentAccessRuleList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentAccessRule `json:"items"`
 }

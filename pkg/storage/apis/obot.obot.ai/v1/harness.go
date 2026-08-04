@@ -17,10 +17,10 @@ var (
 
 type Harness struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HarnessSpec   `json:"spec,omitempty"`
-	Status HarnessStatus `json:"status,omitempty"`
+	Spec   HarnessSpec   `json:"spec"`
+	Status HarnessStatus `json:"status"`
 }
 
 func (in *Harness) Has(field string) bool {
@@ -59,7 +59,7 @@ func (in *Harness) GetColumns() [][]string {
 }
 
 type HarnessSpec struct {
-	Manifest types.HarnessManifest `json:"manifest,omitempty"`
+	Manifest types.HarnessManifest `json:"manifest"`
 
 	// SourceID names the AgentCatalog this harness was discovered from. Empty
 	// for harnesses an admin registered by hand, which the sync never touches.
@@ -78,7 +78,7 @@ type HarnessStatus struct{}
 
 type HarnessList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Harness `json:"items"`
 }

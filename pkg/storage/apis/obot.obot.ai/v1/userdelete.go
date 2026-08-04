@@ -6,10 +6,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type UserDelete struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   UserDeleteSpec `json:"spec,omitempty"`
-	Status EmptyStatus    `json:"status,omitempty"`
+	Spec   UserDeleteSpec `json:"spec"`
+	Status EmptyStatus    `json:"status"`
 }
 
 type UserDeleteSpec struct {
@@ -20,6 +20,6 @@ type UserDeleteSpec struct {
 
 type UserDeleteList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []UserDelete `json:"items"`
 }

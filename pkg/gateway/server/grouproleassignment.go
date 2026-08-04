@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	types2 "github.com/obot-platform/obot/apiclient/types"
@@ -226,13 +227,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 			types2.RolePowerUser,
 		}
 
-		isValid := false
-		for _, validRole := range validBaseRoles {
-			if baseRole == validRole {
-				isValid = true
-				break
-			}
-		}
+		isValid := slices.Contains(validBaseRoles, baseRole)
 
 		if !isValid {
 			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=invalid_base_role", role)

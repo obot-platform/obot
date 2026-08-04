@@ -9,10 +9,10 @@ import (
 
 type MCPWebhookValidation struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MCPWebhookValidationSpec   `json:"spec,omitempty"`
-	Status MCPWebhookValidationStatus `json:"status,omitempty"`
+	Spec   MCPWebhookValidationSpec   `json:"spec"`
+	Status MCPWebhookValidationStatus `json:"status"`
 }
 
 type MCPWebhookValidationSpec struct {
@@ -37,7 +37,7 @@ func (in *MCPWebhookValidation) GetColumns() [][]string {
 
 type MCPWebhookValidationList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPWebhookValidation `json:"items"`
 }

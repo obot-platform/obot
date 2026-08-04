@@ -8,10 +8,10 @@ import (
 
 type UserGroupChange struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   UserGroupChangeSpec `json:"spec,omitempty"`
-	Status EmptyStatus         `json:"status,omitempty"`
+	Spec   UserGroupChangeSpec `json:"spec"`
+	Status EmptyStatus         `json:"status"`
 }
 
 type UserGroupChangeSpec struct {
@@ -22,6 +22,6 @@ type UserGroupChangeSpec struct {
 
 type UserGroupChangeList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []UserGroupChange `json:"items"`
 }

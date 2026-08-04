@@ -6,8 +6,8 @@ import "strings"
 func SanitizeDSN(dsn string) string {
 	if strings.HasPrefix(dsn, "postgres://") || strings.HasPrefix(dsn, "postgresql://") {
 		// Find the @ symbol that separates credentials from host
-		atIndex := strings.Index(dsn, "@")
-		if atIndex == -1 {
+		_, hostAndPath, ok := strings.Cut(dsn, "@")
+		if !ok {
 			return dsn
 		}
 
@@ -18,8 +18,6 @@ func SanitizeDSN(dsn string) string {
 
 		// Extract scheme and host+path parts
 		schemePrefix := dsn[:schemeEnd+3]
-		hostAndPath := dsn[atIndex+1:]
-
 		// Return sanitized version: scheme + [REDACTED] + @ + host+path
 		return schemePrefix + "[REDACTED]@" + hostAndPath
 	}

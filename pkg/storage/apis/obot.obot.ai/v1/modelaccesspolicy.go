@@ -9,10 +9,10 @@ import (
 
 type ModelAccessPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ModelAccessPolicySpec `json:"spec,omitempty"`
-	Status EmptyStatus           `json:"status,omitempty"`
+	Spec   ModelAccessPolicySpec `json:"spec"`
+	Status EmptyStatus           `json:"status"`
 }
 
 type ModelAccessPolicySpec struct {
@@ -32,7 +32,7 @@ func (in *ModelAccessPolicy) GetColumns() [][]string {
 
 type ModelAccessPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelAccessPolicy `json:"items"`
 }

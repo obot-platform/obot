@@ -14,10 +14,10 @@ var _ fields.Fields = (*PublishedArtifact)(nil)
 
 type PublishedArtifact struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   PublishedArtifactSpec   `json:"spec,omitempty"`
-	Status PublishedArtifactStatus `json:"status,omitempty"`
+	Spec   PublishedArtifactSpec   `json:"spec"`
+	Status PublishedArtifactStatus `json:"status"`
 }
 
 func (in *PublishedArtifact) Has(field string) (exists bool) {
@@ -76,7 +76,7 @@ type PublishedArtifactStatus struct {
 
 type PublishedArtifactList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []PublishedArtifact `json:"items"`
 }

@@ -9,10 +9,10 @@ import (
 
 type ImagePullSecret struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   ImagePullSecretSpec   `json:"spec,omitempty"`
-	Status ImagePullSecretStatus `json:"status,omitempty"`
+	Spec   ImagePullSecretSpec   `json:"spec"`
+	Status ImagePullSecretStatus `json:"status"`
 }
 
 type ImagePullSecretSpec struct {
@@ -39,7 +39,7 @@ type ImagePullSecretStatus struct {
 
 type ImagePullSecretList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []ImagePullSecret `json:"items"`
 }

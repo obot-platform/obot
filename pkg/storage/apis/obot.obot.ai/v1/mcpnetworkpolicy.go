@@ -16,10 +16,10 @@ var (
 
 type MCPNetworkPolicy struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MCPNetworkPolicySpec   `json:"spec,omitempty"`
-	Status MCPNetworkPolicyStatus `json:"status,omitempty"`
+	Spec   MCPNetworkPolicySpec   `json:"spec"`
+	Status MCPNetworkPolicyStatus `json:"status"`
 }
 
 func (in *MCPNetworkPolicy) Has(field string) bool {
@@ -57,7 +57,7 @@ type MCPNetworkPolicyStatus struct{}
 
 type MCPNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPNetworkPolicy `json:"items"`
 }

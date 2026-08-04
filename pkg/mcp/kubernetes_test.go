@@ -22,14 +22,13 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 	baseSettings := v1.K8sSettingsSpec{
-		RuntimeClassName: ptr.To("runtime-class"),
+		RuntimeClassName: new("runtime-class"),
 	}
 	resourceSettings := *baseSettings.DeepCopy()
 	resourceSettings.Resources = &corev1.ResourceRequirements{

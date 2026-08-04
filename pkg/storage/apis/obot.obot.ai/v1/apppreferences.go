@@ -9,15 +9,15 @@ import (
 
 type AppPreferences struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AppPreferencesSpec   `json:"spec,omitempty"`
-	Status AppPreferencesStatus `json:"status,omitempty"`
+	Spec   AppPreferencesSpec   `json:"spec"`
+	Status AppPreferencesStatus `json:"status"`
 }
 
 type AppPreferencesSpec struct {
-	Logos types.LogoPreferences  `json:"logos,omitempty"`
-	Theme types.ThemePreferences `json:"theme,omitempty"`
+	Logos types.LogoPreferences  `json:"logos"`
+	Theme types.ThemePreferences `json:"theme"`
 }
 
 type AppPreferencesStatus struct{}
@@ -26,7 +26,7 @@ type AppPreferencesStatus struct{}
 
 type AppPreferencesList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []AppPreferences `json:"items"`
 }

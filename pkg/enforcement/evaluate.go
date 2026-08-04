@@ -2,6 +2,7 @@ package enforcement
 
 import (
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -76,12 +77,7 @@ func toolMatches(call NormalizedCall, entry types.AllowlistServer) bool {
 	if len(entry.Tools) == 0 {
 		return true
 	}
-	for _, tool := range entry.Tools {
-		if tool == call.Tool {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(entry.Tools, call.Tool)
 }
 
 // urlMatches compares a call URL against an allowlisted URL by scheme, host, and

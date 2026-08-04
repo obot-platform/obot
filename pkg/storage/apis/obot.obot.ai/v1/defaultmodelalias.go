@@ -13,7 +13,7 @@ var (
 
 type DefaultModelAlias struct {
 	v1.TypeMeta   `json:",inline"`
-	v1.ObjectMeta `json:"metadata,omitempty"`
+	v1.ObjectMeta `json:"metadata"`
 
 	Spec   DefaultModelAliasSpec   `json:"spec"`
 	Status DefaultModelAliasStatus `json:"status"`
@@ -51,6 +51,6 @@ type DefaultModelAliasStatus struct {
 
 type DefaultModelAliasList struct {
 	v1.TypeMeta `json:",inline"`
-	v1.ListMeta `json:"metadata,omitempty"`
+	v1.ListMeta `json:"metadata"`
 	Items       []DefaultModelAlias `json:"items"`
 }

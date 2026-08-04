@@ -9,10 +9,10 @@ import (
 
 type MessagePolicy struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   MessagePolicySpec `json:"spec,omitempty"`
-	Status EmptyStatus       `json:"status,omitempty"`
+	Spec   MessagePolicySpec `json:"spec"`
+	Status EmptyStatus       `json:"status"`
 }
 
 type MessagePolicySpec struct {
@@ -32,7 +32,7 @@ func (in *MessagePolicy) GetColumns() [][]string {
 
 type MessagePolicyList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []MessagePolicy `json:"items"`
 }

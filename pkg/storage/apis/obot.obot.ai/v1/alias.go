@@ -13,10 +13,10 @@ var (
 
 type Alias struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AliasSpec   `json:"spec,omitempty"`
-	Status EmptyStatus `json:"status,omitempty"`
+	Spec   AliasSpec   `json:"spec"`
+	Status EmptyStatus `json:"status"`
 }
 
 func (in *Alias) DeleteRefs() []Ref {
@@ -62,7 +62,7 @@ type AliasScoped interface {
 
 type AliasList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Alias `json:"items"`
 }

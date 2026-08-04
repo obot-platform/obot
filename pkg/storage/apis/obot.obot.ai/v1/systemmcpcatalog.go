@@ -6,10 +6,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type SystemMCPCatalog struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SystemMCPCatalogSpec   `json:"spec,omitempty"`
-	Status SystemMCPCatalogStatus `json:"status,omitempty"`
+	Spec   SystemMCPCatalogSpec   `json:"spec"`
+	Status SystemMCPCatalogStatus `json:"status"`
 }
 
 type SystemMCPCatalogSpec struct {
@@ -36,7 +36,7 @@ func (in *SystemMCPCatalog) GetColumns() [][]string {
 
 type SystemMCPCatalogList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []SystemMCPCatalog `json:"items"`
 }

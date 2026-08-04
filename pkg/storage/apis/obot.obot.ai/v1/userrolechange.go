@@ -8,10 +8,10 @@ import (
 
 type UserRoleChange struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   UserRoleChangeSpec `json:"spec,omitempty"`
-	Status EmptyStatus        `json:"status,omitempty"`
+	Spec   UserRoleChangeSpec `json:"spec"`
+	Status EmptyStatus        `json:"status"`
 }
 
 type UserRoleChangeSpec struct {
@@ -22,6 +22,6 @@ type UserRoleChangeSpec struct {
 
 type UserRoleChangeList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []UserRoleChange `json:"items"`
 }

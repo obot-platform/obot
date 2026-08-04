@@ -6,10 +6,10 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type GitCredential struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   GitCredentialSpec   `json:"spec,omitempty"`
-	Status GitCredentialStatus `json:"status,omitempty"`
+	Spec   GitCredentialSpec   `json:"spec"`
+	Status GitCredentialStatus `json:"status"`
 }
 
 type GitCredentialSpec struct {
@@ -18,7 +18,7 @@ type GitCredentialSpec struct {
 }
 
 type GitCredentialStatus struct {
-	References GitCredentialReferences `json:"references,omitempty"`
+	References GitCredentialReferences `json:"references"`
 }
 
 type GitCredentialReferences struct {
@@ -48,7 +48,7 @@ func (in *GitCredential) GetColumns() [][]string {
 
 type GitCredentialList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []GitCredential `json:"items"`
 }

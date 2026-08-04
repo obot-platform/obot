@@ -9,17 +9,17 @@ import (
 
 type AppNotification struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AppNotificationSpec   `json:"spec,omitempty"`
-	Status AppNotificationStatus `json:"status,omitempty"`
+	Spec   AppNotificationSpec   `json:"spec"`
+	Status AppNotificationStatus `json:"status"`
 }
 
 type AppNotificationSpec struct {
-	Banner types.BannerNotification `json:"banner,omitempty"`
+	Banner types.BannerNotification `json:"banner"`
 	// Updated is set whenever the notification is updated after its initial creation.
 	// When unset, the creation timestamp is used as the updated time.
-	Updated metav1.Time `json:"updated,omitempty"`
+	Updated metav1.Time `json:"updated"`
 }
 
 type AppNotificationStatus struct{}
@@ -28,7 +28,7 @@ type AppNotificationStatus struct{}
 
 type AppNotificationList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []AppNotification `json:"items"`
 }

@@ -17929,6 +17929,7 @@ func schema_storage_apis_obotobotai_v1_AccessControlRule(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -17975,7 +17976,7 @@ func schema_storage_apis_obotobotai_v1_AccessControlRuleList(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18063,6 +18064,7 @@ func schema_storage_apis_obotobotai_v1_AgentCatalog(ref common.ReferenceCallback
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18109,7 +18111,7 @@ func schema_storage_apis_obotobotai_v1_AgentCatalogList(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18238,6 +18240,7 @@ func schema_storage_apis_obotobotai_v1_Alias(ref common.ReferenceCallback) commo
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18284,7 +18287,7 @@ func schema_storage_apis_obotobotai_v1_AliasList(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18367,6 +18370,7 @@ func schema_storage_apis_obotobotai_v1_AppNotification(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18413,7 +18417,7 @@ func schema_storage_apis_obotobotai_v1_AppNotificationList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18440,6 +18444,7 @@ func schema_storage_apis_obotobotai_v1_AppNotificationSpec(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"banner", "updated"},
 			},
 		},
 		Dependencies: []string{
@@ -18496,6 +18501,7 @@ func schema_storage_apis_obotobotai_v1_AppPreferences(ref common.ReferenceCallba
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18542,7 +18548,7 @@ func schema_storage_apis_obotobotai_v1_AppPreferencesList(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18569,6 +18575,7 @@ func schema_storage_apis_obotobotai_v1_AppPreferencesSpec(ref common.ReferenceCa
 						},
 					},
 				},
+				Required: []string{"logos", "theme"},
 			},
 		},
 		Dependencies: []string{
@@ -18625,6 +18632,7 @@ func schema_storage_apis_obotobotai_v1_AuditLogExport(ref common.ReferenceCallba
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18671,7 +18679,7 @@ func schema_storage_apis_obotobotai_v1_AuditLogExportList(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -18842,6 +18850,7 @@ func schema_storage_apis_obotobotai_v1_AuthProvider(ref common.ReferenceCallback
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -18888,7 +18897,7 @@ func schema_storage_apis_obotobotai_v1_AuthProviderList(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19082,7 +19091,7 @@ func schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"spec", "status"},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19129,7 +19138,7 @@ func schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19227,7 +19236,7 @@ func schema_storage_apis_obotobotai_v1_DeploymentCondition(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"type", "status"},
+				Required: []string{"type", "lastTransitionTime", "lastUpdateTime", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19284,6 +19293,7 @@ func schema_storage_apis_obotobotai_v1_GitCredential(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19330,7 +19340,7 @@ func schema_storage_apis_obotobotai_v1_GitCredentialList(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19451,6 +19461,7 @@ func schema_storage_apis_obotobotai_v1_GitCredentialStatus(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"references"},
 			},
 		},
 		Dependencies: []string{
@@ -19497,6 +19508,7 @@ func schema_storage_apis_obotobotai_v1_GroupRoleChange(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19543,7 +19555,7 @@ func schema_storage_apis_obotobotai_v1_GroupRoleChangeList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19608,6 +19620,7 @@ func schema_storage_apis_obotobotai_v1_Harness(ref common.ReferenceCallback) com
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19654,7 +19667,7 @@ func schema_storage_apis_obotobotai_v1_HarnessList(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19696,6 +19709,7 @@ func schema_storage_apis_obotobotai_v1_HarnessSpec(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -19753,6 +19767,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgent(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19799,6 +19814,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentAccessRule(ref common.Referenc
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19845,7 +19861,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentAccessRuleList(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19913,6 +19929,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentInstance(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -19959,7 +19976,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentInstanceList(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -19998,6 +20015,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentInstanceSpec(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -20111,7 +20129,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentList(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20158,6 +20176,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPool(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -20198,6 +20217,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolAssignment(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -20244,7 +20264,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolAssignmentList(ref common.
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20265,6 +20285,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolAssignmentSpec(ref common.
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -20305,6 +20326,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolDefaults(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -20351,7 +20373,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolDefaultsList(ref common.Re
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20372,6 +20394,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolDefaultsSpec(ref common.Re
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -20418,7 +20441,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20439,6 +20462,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentPoolSpec(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -20549,6 +20573,7 @@ func schema_storage_apis_obotobotai_v1_HostedAgentSpec(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -20606,6 +20631,7 @@ func schema_storage_apis_obotobotai_v1_ImagePullSecret(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -20652,7 +20678,7 @@ func schema_storage_apis_obotobotai_v1_ImagePullSecretList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20807,6 +20833,7 @@ func schema_storage_apis_obotobotai_v1_K8sSettings(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -20853,7 +20880,7 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsList(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -20951,6 +20978,7 @@ func schema_storage_apis_obotobotai_v1_MCPCatalog(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -20997,7 +21025,7 @@ func schema_storage_apis_obotobotai_v1_MCPCatalogList(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -21130,6 +21158,7 @@ func schema_storage_apis_obotobotai_v1_MCPNetworkPolicy(ref common.ReferenceCall
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -21176,7 +21205,7 @@ func schema_storage_apis_obotobotai_v1_MCPNetworkPolicyList(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -21284,6 +21313,7 @@ func schema_storage_apis_obotobotai_v1_MCPServer(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -21330,6 +21360,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntry(ref common.Referenc
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -21376,7 +21407,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryList(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -21435,6 +21466,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -21529,6 +21561,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstance(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -21575,7 +21608,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceList(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -21691,7 +21724,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerList(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -21988,6 +22021,7 @@ func schema_storage_apis_obotobotai_v1_MCPTunnel(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -22034,7 +22068,7 @@ func schema_storage_apis_obotobotai_v1_MCPTunnelList(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22116,6 +22150,7 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidation(ref common.Reference
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22162,7 +22197,7 @@ func schema_storage_apis_obotobotai_v1_MCPWebhookValidationList(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22251,6 +22286,7 @@ func schema_storage_apis_obotobotai_v1_MDMAsset(ref common.ReferenceCallback) co
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22297,7 +22333,7 @@ func schema_storage_apis_obotobotai_v1_MDMAssetList(ref common.ReferenceCallback
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22345,6 +22381,7 @@ func schema_storage_apis_obotobotai_v1_MDMAssetSource(ref common.ReferenceCallba
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22391,7 +22428,7 @@ func schema_storage_apis_obotobotai_v1_MDMAssetSourceList(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22555,6 +22592,7 @@ func schema_storage_apis_obotobotai_v1_MessagePolicy(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22601,7 +22639,7 @@ func schema_storage_apis_obotobotai_v1_MessagePolicyList(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22669,6 +22707,7 @@ func schema_storage_apis_obotobotai_v1_Model(ref common.ReferenceCallback) commo
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22715,6 +22754,7 @@ func schema_storage_apis_obotobotai_v1_ModelAccessPolicy(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22761,7 +22801,7 @@ func schema_storage_apis_obotobotai_v1_ModelAccessPolicyList(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22830,6 +22870,7 @@ func schema_storage_apis_obotobotai_v1_ModelInfo(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22876,7 +22917,7 @@ func schema_storage_apis_obotobotai_v1_ModelInfoList(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22924,6 +22965,7 @@ func schema_storage_apis_obotobotai_v1_ModelInfoSource(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -22970,7 +23012,7 @@ func schema_storage_apis_obotobotai_v1_ModelInfoSourceList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -22991,6 +23033,7 @@ func schema_storage_apis_obotobotai_v1_ModelInfoSourceSpec(ref common.ReferenceC
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -23109,7 +23152,7 @@ func schema_storage_apis_obotobotai_v1_ModelList(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -23156,6 +23199,7 @@ func schema_storage_apis_obotobotai_v1_ModelProvider(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -23202,7 +23246,7 @@ func schema_storage_apis_obotobotai_v1_ModelProviderList(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -23396,6 +23440,7 @@ func schema_storage_apis_obotobotai_v1_ModelSpec(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -23476,6 +23521,7 @@ func schema_storage_apis_obotobotai_v1_NanobotAgent(ref common.ReferenceCallback
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -23522,7 +23568,7 @@ func schema_storage_apis_obotobotai_v1_NanobotAgentList(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -23630,7 +23676,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequest(ref common.ReferenceCall
 						},
 					},
 				},
-				Required: []string{"spec", "status"},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -23677,7 +23723,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestList(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -23932,6 +23978,7 @@ func schema_storage_apis_obotobotai_v1_OAuthClient(ref common.ReferenceCallback)
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -23978,7 +24025,7 @@ func schema_storage_apis_obotobotai_v1_OAuthClientList(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24118,6 +24165,7 @@ func schema_storage_apis_obotobotai_v1_OAuthMetadata(ref common.ReferenceCallbac
 						},
 					},
 				},
+				Required: []string{"protectedResourceMetadata", "authorizationServerMetadata", "clientRegistration"},
 			},
 		},
 		Dependencies: []string{
@@ -24164,7 +24212,7 @@ func schema_storage_apis_obotobotai_v1_OAuthToken(ref common.ReferenceCallback) 
 						},
 					},
 				},
-				Required: []string{"spec", "status"},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24211,7 +24259,7 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenList(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24337,6 +24385,7 @@ func schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref common.ReferenceCa
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24383,7 +24432,7 @@ func schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24519,6 +24568,7 @@ func schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref common.ReferenceCa
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24565,7 +24615,7 @@ func schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24656,6 +24706,7 @@ func schema_storage_apis_obotobotai_v1_Project(ref common.ReferenceCallback) com
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24702,7 +24753,7 @@ func schema_storage_apis_obotobotai_v1_ProjectList(ref common.ReferenceCallback)
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24785,6 +24836,7 @@ func schema_storage_apis_obotobotai_v1_ProjectV2(ref common.ReferenceCallback) c
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24831,7 +24883,7 @@ func schema_storage_apis_obotobotai_v1_ProjectV2List(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -24878,6 +24930,7 @@ func schema_storage_apis_obotobotai_v1_PublishedArtifact(ref common.ReferenceCal
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -24924,7 +24977,7 @@ func schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref common.Referenc
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -25165,6 +25218,7 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExport(ref common.Refere
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -25211,7 +25265,7 @@ func schema_storage_apis_obotobotai_v1_ScheduledAuditLogExportList(ref common.Re
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -25371,6 +25425,7 @@ func schema_storage_apis_obotobotai_v1_Skill(ref common.ReferenceCallback) commo
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -25417,6 +25472,7 @@ func schema_storage_apis_obotobotai_v1_SkillAccessRule(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -25463,7 +25519,7 @@ func schema_storage_apis_obotobotai_v1_SkillAccessRuleList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -25531,7 +25587,7 @@ func schema_storage_apis_obotobotai_v1_SkillList(ref common.ReferenceCallback) c
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -25578,6 +25634,7 @@ func schema_storage_apis_obotobotai_v1_SkillRepository(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -25624,7 +25681,7 @@ func schema_storage_apis_obotobotai_v1_SkillRepositoryList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -25882,6 +25939,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPCatalog(ref common.ReferenceCall
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -25928,7 +25986,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPCatalogList(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26060,6 +26118,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServer(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -26106,6 +26165,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntry(ref common.Re
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -26152,7 +26212,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntryList(ref commo
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26191,6 +26251,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerCatalogEntrySpec(ref commo
 						},
 					},
 				},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
@@ -26279,7 +26340,7 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26418,6 +26479,7 @@ func schema_storage_apis_obotobotai_v1_UserDefaultRoleSetting(ref common.Referen
 						},
 					},
 				},
+				Required: []string{"metadata", "spec"},
 			},
 		},
 		Dependencies: []string{
@@ -26464,7 +26526,7 @@ func schema_storage_apis_obotobotai_v1_UserDefaultRoleSettingList(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26530,6 +26592,7 @@ func schema_storage_apis_obotobotai_v1_UserDelete(ref common.ReferenceCallback) 
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -26576,7 +26639,7 @@ func schema_storage_apis_obotobotai_v1_UserDeleteList(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26641,6 +26704,7 @@ func schema_storage_apis_obotobotai_v1_UserGroupChange(ref common.ReferenceCallb
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -26687,7 +26751,7 @@ func schema_storage_apis_obotobotai_v1_UserGroupChangeList(ref common.ReferenceC
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{
@@ -26752,6 +26816,7 @@ func schema_storage_apis_obotobotai_v1_UserRoleChange(ref common.ReferenceCallba
 						},
 					},
 				},
+				Required: []string{"metadata", "spec", "status"},
 			},
 		},
 		Dependencies: []string{
@@ -26798,7 +26863,7 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref common.ReferenceCa
 						},
 					},
 				},
-				Required: []string{"items"},
+				Required: []string{"metadata", "items"},
 			},
 		},
 		Dependencies: []string{

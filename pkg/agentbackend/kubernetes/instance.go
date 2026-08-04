@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path"
 	"sort"
 	"strings"
@@ -294,9 +295,7 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 	}}, fileMounts...)
 
 	podLabels := make(map[string]string, len(labels))
-	for key, value := range labels {
-		podLabels[key] = value
-	}
+	maps.Copy(podLabels, labels)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{

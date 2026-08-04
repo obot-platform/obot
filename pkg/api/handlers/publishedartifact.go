@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"os"
 	"path"
@@ -715,9 +716,7 @@ func withArtifactMetadata(fm skillformat.Frontmatter, artifactID, authorEmail st
 	fmCopy := fm
 	if len(fm.Metadata) > 0 {
 		fmCopy.Metadata = make(map[string]string, len(fm.Metadata)+3)
-		for k, v := range fm.Metadata {
-			fmCopy.Metadata[k] = v
-		}
+		maps.Copy(fmCopy.Metadata, fm.Metadata)
 	} else {
 		fmCopy.Metadata = make(map[string]string, 3)
 	}

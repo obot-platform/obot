@@ -280,6 +280,7 @@ func TestNewLocalAgentToolCallAuditLogFromInput(t *testing.T) {
 	local := log.LocalAgentToolCallFields
 	if local == nil {
 		t.Fatal("expected local-agent fields")
+		return
 	}
 	if local.ActorType != types2.AuditLogActorTypeUser || local.ActorID != "user-1" {
 		t.Fatalf("expected server-owned actor, got type=%q id=%q", local.ActorType, local.ActorID)

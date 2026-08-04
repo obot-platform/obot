@@ -17,9 +17,9 @@ var (
 
 type AccessControlRule struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec AccessControlRuleSpec `json:"spec,omitempty"`
+	Spec AccessControlRuleSpec `json:"spec"`
 }
 
 type AccessControlRuleSpec struct {
@@ -72,7 +72,7 @@ func (in *AccessControlRule) DeleteRefs() []Ref {
 
 type AccessControlRuleList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []AccessControlRule `json:"items"`
 }

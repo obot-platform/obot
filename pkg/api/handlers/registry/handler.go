@@ -654,9 +654,7 @@ func paginateServers(servers []types.RegistryServerResponse, cursor string, limi
 
 	// Get the page
 	endIdx := startIdx + limit
-	if endIdx > len(servers) {
-		endIdx = len(servers)
-	}
+	endIdx = min(endIdx, len(servers))
 
 	page := servers[startIdx:endIdx]
 	if page == nil {

@@ -2134,7 +2134,6 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 	// We do this in parallel because shutting down servers can take some time
 	g, ctx := errgroup.WithContext(req.Context())
 	for id, cred := range componentCreds {
-		id, cred := id, cred // Rescope variables for closure
 		g.Go(func() error {
 			modified, err := ensureCredential(ctx, req.GatewayClient, cred)
 			if err != nil {

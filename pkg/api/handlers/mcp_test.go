@@ -658,19 +658,20 @@ func TestApplyURLTemplateEdgeCases(t *testing.T) {
 func TestApplyURLTemplatePerformance(t *testing.T) {
 	// Test with a large number of variables
 	largeEnvVars := make(map[string]string, 1000)
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		key := fmt.Sprintf("VAR_%d", i)
 		value := fmt.Sprintf("value_%d", i)
 		largeEnvVars[key] = value
 	}
 
-	template := "https://example.com/api"
-	for i := 0; i < 100; i++ {
-		template += fmt.Sprintf("/${VAR_%d}", i)
+	var template strings.Builder
+	template.WriteString("https://example.com/api")
+	for i := range 100 {
+		_, _ = fmt.Fprintf(&template, "/${VAR_%d}", i)
 	}
 
 	start := time.Now()
-	result, err := applyURLTemplate(template, largeEnvVars)
+	result, err := applyURLTemplate(template.String(), largeEnvVars)
 	duration := time.Since(start)
 
 	if err != nil {

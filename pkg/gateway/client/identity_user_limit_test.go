@@ -322,7 +322,7 @@ func TestEnsureIdentityWithRoleEnforcesUserLimitConcurrently(t *testing.T) {
 	start := make(chan struct{})
 	errorsByAttempt := make(chan error, attempts)
 	var wg sync.WaitGroup
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

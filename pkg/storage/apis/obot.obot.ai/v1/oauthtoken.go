@@ -8,7 +8,7 @@ var _ DeleteRefs = (*OAuthToken)(nil)
 
 type OAuthToken struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 	Spec              OAuthTokenSpec   `json:"spec"`
 	Status            OAuthTokenStatus `json:"status"`
 }
@@ -36,6 +36,6 @@ type OAuthTokenStatus struct{}
 
 type OAuthTokenList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []OAuthToken `json:"items"`
 }

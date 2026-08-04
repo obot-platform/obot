@@ -18,14 +18,14 @@ var (
 
 type HostedAgentPool struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HostedAgentPoolSpec   `json:"spec,omitempty"`
-	Status HostedAgentPoolStatus `json:"status,omitempty"`
+	Spec   HostedAgentPoolSpec   `json:"spec"`
+	Status HostedAgentPoolStatus `json:"status"`
 }
 
 type HostedAgentPoolSpec struct {
-	Manifest types.HostedAgentPoolManifest `json:"manifest,omitempty"`
+	Manifest types.HostedAgentPoolManifest `json:"manifest"`
 }
 
 type HostedAgentPoolStatus struct {
@@ -36,7 +36,7 @@ type HostedAgentPoolStatus struct {
 
 type HostedAgentPoolList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentPool `json:"items"`
 }
@@ -45,20 +45,20 @@ type HostedAgentPoolList struct {
 
 type HostedAgentPoolDefaults struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec HostedAgentPoolDefaultsSpec `json:"spec,omitempty"`
+	Spec HostedAgentPoolDefaultsSpec `json:"spec"`
 }
 
 type HostedAgentPoolDefaultsSpec struct {
-	Manifest types.HostedAgentPoolDefaultsManifest `json:"manifest,omitempty"`
+	Manifest types.HostedAgentPoolDefaultsManifest `json:"manifest"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HostedAgentPoolDefaultsList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentPoolDefaults `json:"items"`
 }
@@ -67,9 +67,9 @@ type HostedAgentPoolDefaultsList struct {
 
 type HostedAgentPoolAssignment struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec HostedAgentPoolAssignmentSpec `json:"spec,omitempty"`
+	Spec HostedAgentPoolAssignmentSpec `json:"spec"`
 }
 
 func (in *HostedAgentPoolAssignment) Has(field string) bool {
@@ -99,14 +99,14 @@ func (in *HostedAgentPoolAssignment) DeleteRefs() []Ref {
 }
 
 type HostedAgentPoolAssignmentSpec struct {
-	Manifest types.HostedAgentPoolAssignmentManifest `json:"manifest,omitempty"`
+	Manifest types.HostedAgentPoolAssignmentManifest `json:"manifest"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type HostedAgentPoolAssignmentList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentPoolAssignment `json:"items"`
 }

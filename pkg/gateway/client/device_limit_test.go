@@ -139,7 +139,7 @@ func TestDeviceCountIsGlobal(t *testing.T) {
 		_, err := c.EnrollDevice(t.Context(), DeviceEnrollment{
 			DeviceID:           fmt.Sprintf("device-%d", i),
 			MDMConfigurationID: configurationID,
-			PublicKey:          []byte(fmt.Sprintf("key-%d", i)),
+			PublicKey:          fmt.Appendf(nil, "key-%d", i),
 		}, deviceLimit)
 		if err != nil {
 			t.Fatalf("enrolling device %d: %v", i, err)
@@ -166,7 +166,7 @@ func TestEnrollDeviceEnforcesDeviceLimitConcurrently(t *testing.T) {
 	start := make(chan struct{})
 	errorsByAttempt := make(chan error, attempts)
 	var wg sync.WaitGroup
-	for i := 0; i < attempts; i++ {
+	for i := range attempts {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()

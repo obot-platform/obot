@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 	"sort"
@@ -335,9 +336,7 @@ func cloneInstance(value agentbackend.DesiredInstance) agentbackend.DesiredInsta
 	value.Secrets = slices.Clone(value.Secrets)
 	if value.Env != nil {
 		env := make(map[string]string, len(value.Env))
-		for key, item := range value.Env {
-			env[key] = item
-		}
+		maps.Copy(env, value.Env)
 		value.Env = env
 	}
 	return value

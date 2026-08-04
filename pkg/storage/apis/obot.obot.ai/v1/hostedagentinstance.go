@@ -17,10 +17,10 @@ var (
 
 type HostedAgentInstance struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   HostedAgentInstanceSpec   `json:"spec,omitempty"`
-	Status HostedAgentInstanceStatus `json:"status,omitempty"`
+	Spec   HostedAgentInstanceSpec   `json:"spec"`
+	Status HostedAgentInstanceStatus `json:"status"`
 }
 
 func (in *HostedAgentInstance) Has(field string) bool {
@@ -66,7 +66,7 @@ type HostedAgentInstanceSpec struct {
 	UserID          string                            `json:"userID,omitempty"`
 	HostedAgentName string                            `json:"hostedAgentName,omitempty"`
 	PoolID          string                            `json:"poolID,omitempty"`
-	Manifest        types.HostedAgentInstanceManifest `json:"manifest,omitempty"`
+	Manifest        types.HostedAgentInstanceManifest `json:"manifest"`
 }
 
 type HostedAgentInstanceStatus struct {
@@ -88,7 +88,7 @@ type HostedAgentInstanceStatus struct {
 
 type HostedAgentInstanceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentInstance `json:"items"`
 }

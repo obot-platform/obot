@@ -9,10 +9,10 @@ import (
 
 type SkillAccessRule struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SkillAccessRuleSpec `json:"spec,omitempty"`
-	Status EmptyStatus         `json:"status,omitempty"`
+	Spec   SkillAccessRuleSpec `json:"spec"`
+	Status EmptyStatus         `json:"status"`
 }
 
 func (in *SkillAccessRule) GetColumns() [][]string {
@@ -32,7 +32,7 @@ type SkillAccessRuleSpec struct {
 
 type SkillAccessRuleList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []SkillAccessRule `json:"items"`
 }

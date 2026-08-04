@@ -13,10 +13,10 @@ var _ fields.Fields = (*SkillRepository)(nil)
 
 type SkillRepository struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SkillRepositorySpec   `json:"spec,omitempty"`
-	Status SkillRepositoryStatus `json:"status,omitempty"`
+	Spec   SkillRepositorySpec   `json:"spec"`
+	Status SkillRepositoryStatus `json:"status"`
 }
 
 func (in *SkillRepository) Has(field string) (exists bool) {
@@ -72,7 +72,7 @@ type SkillRepositoryStatus struct {
 
 type SkillRepositoryList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []SkillRepository `json:"items"`
 }

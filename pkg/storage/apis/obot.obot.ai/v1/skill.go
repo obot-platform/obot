@@ -17,10 +17,10 @@ var (
 
 type Skill struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   SkillSpec   `json:"spec,omitempty"`
-	Status SkillStatus `json:"status,omitempty"`
+	Spec   SkillSpec   `json:"spec"`
+	Status SkillStatus `json:"status"`
 }
 
 func (in *Skill) Has(field string) (exists bool) {
@@ -81,7 +81,7 @@ type SkillStatus struct {
 
 type SkillList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []Skill `json:"items"`
 }

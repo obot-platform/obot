@@ -15,10 +15,10 @@ var _ fields.Fields = (*AuthProvider)(nil)
 
 type AuthProvider struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   AuthProviderSpec   `json:"spec,omitempty"`
-	Status AuthProviderStatus `json:"status,omitempty"`
+	Spec   AuthProviderSpec   `json:"spec"`
+	Status AuthProviderStatus `json:"status"`
 }
 
 func (in *AuthProvider) Has(field string) (exists bool) {
@@ -59,7 +59,7 @@ type AuthProviderStatus struct {
 
 type AuthProviderList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []AuthProvider `json:"items"`
 }

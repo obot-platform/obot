@@ -16,9 +16,9 @@ var (
 
 type Model struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              ModelSpec   `json:"spec,omitempty"`
-	Status            ModelStatus `json:"status,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
+	Spec              ModelSpec   `json:"spec"`
+	Status            ModelStatus `json:"status"`
 }
 
 func (m *Model) Has(field string) (exists bool) {
@@ -75,7 +75,7 @@ func (m *Model) GetCost() types.ModelCost {
 }
 
 type ModelSpec struct {
-	Manifest types.ModelManifest `json:"manifest,omitempty"`
+	Manifest types.ModelManifest `json:"manifest"`
 }
 
 type ModelStatus struct {
@@ -89,6 +89,6 @@ type ModelStatus struct {
 
 type ModelList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 	Items           []Model `json:"items"`
 }

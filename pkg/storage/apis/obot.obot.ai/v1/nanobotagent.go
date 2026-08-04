@@ -17,10 +17,10 @@ var (
 
 type NanobotAgent struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   NanobotAgentSpec   `json:"spec,omitempty"`
-	Status NanobotAgentStatus `json:"status,omitempty"`
+	Spec   NanobotAgentSpec   `json:"spec"`
+	Status NanobotAgentStatus `json:"status"`
 }
 
 func (in *NanobotAgent) Has(field string) (exists bool) {
@@ -72,7 +72,7 @@ type NanobotAgentStatus struct{}
 
 type NanobotAgentList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []NanobotAgent `json:"items"`
 }

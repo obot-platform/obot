@@ -17,10 +17,10 @@ var (
 
 type PowerUserWorkspace struct {
 	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	metav1.ObjectMeta `json:"metadata"`
 
-	Spec   PowerUserWorkspaceSpec   `json:"spec,omitempty"`
-	Status PowerUserWorkspaceStatus `json:"status,omitempty"`
+	Spec   PowerUserWorkspaceSpec   `json:"spec"`
+	Status PowerUserWorkspaceStatus `json:"status"`
 }
 
 func (in *PowerUserWorkspace) Has(field string) (exists bool) {
@@ -59,7 +59,7 @@ type PowerUserWorkspaceStatus struct {
 
 type PowerUserWorkspaceList struct {
 	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.ListMeta `json:"metadata"`
 
 	Items []PowerUserWorkspace `json:"items"`
 }
