@@ -233,6 +233,9 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		if _, ok := desiredNames[entry.Name]; ok {
 			continue
 		}
+		if entry.Labels[apply.LabelHash] != labels[apply.LabelHash] {
+			continue
+		}
 
 		if entry.Spec.SourceURL != "" {
 			if _, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !configured {
@@ -244,9 +247,6 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 			}
 		}
 
-		if entry.Labels[apply.LabelHash] != labels[apply.LabelHash] {
-			continue
-		}
 		missingManagedEntries = append(missingManagedEntries, entry)
 	}
 

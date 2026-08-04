@@ -86,6 +86,20 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	}
 }
 
+func TestUnmanagedEntryFromRemovedSourceIsPreserved(t *testing.T) {
+	catalog := testCatalog()
+	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
+	delete(entry.Labels, apply.LabelHash)
+	catalog.Spec.SourceURLs = nil
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+
+	var preserved v1.MCPServerCatalogEntry
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &preserved))
+	assert.Equal(t, entry.Spec.SourceURL, preserved.Spec.SourceURL)
+}
+
 func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
