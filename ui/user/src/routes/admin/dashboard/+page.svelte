@@ -86,15 +86,24 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let serversData = $derived(
-		mcpServersAndEntries.current.loading || loading
-			? []
-			: [
-					...deployedCatalogEntryServers.filter((server) => !server.deleted),
-					...deployedWorkspaceCatalogEntryServers.filter((server) => !server.deleted),
-					...mcpServersAndEntries.current.servers.filter((server) => !server.deleted)
-				]
-	);
+	let serversData = $derived.by(() => {
+		if (mcpServersAndEntries.current.loading || loading) return [];
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const seen = new Set<string>();
+		const result: MCPCatalogServer[] = [];
+		for (const list of [
+			deployedCatalogEntryServers,
+			deployedWorkspaceCatalogEntryServers,
+			mcpServersAndEntries.current.servers
+		]) {
+			for (const server of list) {
+				if (server.deleted || seen.has(server.id)) continue;
+				seen.add(server.id);
+				result.push(server);
+			}
+		}
+		return result;
+	});
 
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
 	const { graphData, popularServers, totalServers, deploymentStatusBreakdown } = $derived(

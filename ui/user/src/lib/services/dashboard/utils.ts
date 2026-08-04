@@ -51,7 +51,7 @@ export function catalogServerEntryKind(
 	if (!server.catalogEntryID) return 'multi';
 	if (server.manifest.runtime === 'composite') return 'composite';
 	if (server.manifest.runtime === 'remote') return 'remote';
-	return 'single';
+	return server.serverUserType === 'singleUser' ? 'single' : 'multi';
 }
 
 export function normalizeServerDeploymentStatus(server: MCPCatalogServer): string {
@@ -59,7 +59,7 @@ export function normalizeServerDeploymentStatus(server: MCPCatalogServer): strin
 	if (raw && DEPLOYMENT_STATUS_ORDER.includes(raw as (typeof DEPLOYMENT_STATUS_ORDER)[number]))
 		return raw;
 	if (raw) return raw;
-	return 'Unknown';
+	return '--';
 }
 
 /** 12-column grid: 3× col-span-4 per full row; last row fills width (6+6 or 12). */
