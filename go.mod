@@ -38,6 +38,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/keygen-sh/keygen-go/v3 v3.3.0
+	github.com/klauspost/compress v1.18.6
 	github.com/moby/moby/api v1.52.0-alpha.1
 	github.com/moby/moby/client v0.1.0-alpha.0
 	github.com/oasdiff/yaml v0.0.0-20250309154309-f31be36b4037

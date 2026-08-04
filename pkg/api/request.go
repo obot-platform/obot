@@ -4,11 +4,14 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
@@ -63,12 +66,20 @@ func (r *Context) Read(obj any) error {
 }
 
 type BodyOptions struct {
+	// MaxBytes caps the body, applied to the compressed and decoded streams alike.
 	MaxBytes int64
 }
 
+const defaultMaxBodyBytes int64 = 8 * 1024 * 1024
+
+// maxDecoderWindowBytes caps the window a zstd frame may declare. The decoder
+// allocates it from the frame header, before any output the decoded cap could
+// bound.
+const maxDecoderWindowBytes = 64 * 1024 * 1024
+
 func (r *Context) Body(opts ...BodyOptions) (_ []byte, err error) {
 	defer func() {
-		if maxErr := (*http.MaxBytesError)(nil); errors.As(err, &maxErr) {
+		if _, isMaxBytes := errors.AsType[*http.MaxBytesError](err); isMaxBytes {
 			err = types.NewErrHTTP(http.StatusRequestEntityTooLarge, "request body too large")
 		}
 		_, _ = io.Copy(io.Discard, r.Request.Body)
@@ -80,9 +91,43 @@ func (r *Context) Body(opts ...BodyOptions) (_ []byte, err error) {
 		}
 	}
 	if opt.MaxBytes == 0 {
-		opt.MaxBytes = 8 * 1024 * 1024
+		opt.MaxBytes = defaultMaxBodyBytes
 	}
-	return io.ReadAll(http.MaxBytesReader(r.ResponseWriter, r.Request.Body, opt.MaxBytes))
+
+	body := io.Reader(http.MaxBytesReader(r.ResponseWriter, r.Request.Body, opt.MaxBytes))
+
+	// Device scans submit zstd. The decoded stream carries the same cap as the raw
+	// one, read one byte over so a body at the cap is distinguishable from one
+	// past it.
+	var compressed bool
+	if encoding := r.Request.Header.Get("Content-Encoding"); encoding != "" && !strings.EqualFold(encoding, "identity") {
+		if !strings.EqualFold(encoding, "zstd") {
+			return nil, types.NewErrHTTP(http.StatusUnsupportedMediaType, fmt.Sprintf("unsupported Content-Encoding %q", encoding))
+		}
+		zstdReader, zstdErr := zstd.NewReader(body,
+			zstd.WithDecoderConcurrency(1),
+			zstd.WithDecoderMaxMemory(maxDecoderWindowBytes))
+		if zstdErr != nil {
+			return nil, types.NewErrHTTP(http.StatusBadRequest, "unreadable zstd request body")
+		}
+		defer zstdReader.Close()
+		compressed, body = true, io.LimitReader(zstdReader, opt.MaxBytes+1)
+	}
+
+	data, err := io.ReadAll(body)
+	if err != nil {
+		// zstd validates nothing until the first read, so a malformed body lands
+		// here and would otherwise become a 500. A MaxBytesError is the cap, which
+		// the deferred mapping turns into a 413.
+		if _, isMaxBytes := errors.AsType[*http.MaxBytesError](err); compressed && !isMaxBytes {
+			return nil, types.NewErrHTTP(http.StatusBadRequest, "malformed compressed request body")
+		}
+		return nil, err
+	}
+	if int64(len(data)) > opt.MaxBytes {
+		return nil, types.NewErrHTTP(http.StatusRequestEntityTooLarge, "request body too large")
+	}
+	return data, nil
 }
 
 func (r *Context) WriteCreated(obj any) error {

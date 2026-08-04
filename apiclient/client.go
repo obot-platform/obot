@@ -11,6 +11,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/klauspost/compress/zstd"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 )
@@ -142,6 +143,28 @@ func (c *Client) postJSON(ctx context.Context, path string, obj any, headerKV ..
 		headerKV = append(headerKV, "Content-Type", "application/json")
 	}
 	return c.doRequest(ctx, http.MethodPost, path, body, headerKV...)
+}
+
+// postCompressedJSON marshals obj and POSTs it zstd-compressed. Intended for
+// bodies big enough to be worth compressing on every call. The server must
+// decode Content-Encoding; there is no uncompressed fallback.
+func (c *Client) postCompressedJSON(ctx context.Context, path string, obj any, headerKV ...string) (*http.Request, *http.Response, error) {
+	data, err := json.Marshal(obj)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Concurrency 1: no worker per CPU for a one-shot compression.
+	encoder, err := zstd.NewWriter(nil,
+		zstd.WithEncoderLevel(zstd.SpeedBetterCompression),
+		zstd.WithEncoderConcurrency(1))
+	if err != nil {
+		return nil, nil, err
+	}
+	defer encoder.Close()
+
+	return c.doRequest(ctx, http.MethodPost, path, bytes.NewReader(encoder.EncodeAll(data, nil)),
+		slices.Concat(headerKV, []string{"Content-Type", "application/json", "Content-Encoding", "zstd"})...)
 }
 
 func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, headerKV ...string) (*http.Request, *http.Response, error) {

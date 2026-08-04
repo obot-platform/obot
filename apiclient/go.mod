@@ -3,6 +3,7 @@ module github.com/obot-platform/obot/apiclient
 go 1.26.5
 
 require (
+	github.com/klauspost/compress v1.18.6
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/stretchr/testify v1.10.0
 )
