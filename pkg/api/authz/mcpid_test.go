@@ -714,6 +714,34 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	}
 }
 
+func TestVersionedMCPConnectAuthorization(t *testing.T) {
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+
+	tests := []struct {
+		name    string
+		groups  []string
+		allowed bool
+	}{
+		{name: "versioned MCP token", groups: []string{types.GroupVersionedMCP, types.GroupAuthenticated}, allowed: true},
+		{name: "administrator", groups: []string{types.GroupAdmin, types.GroupAuthenticated}, allowed: true},
+		{name: "ordinary MCP token", groups: []string{types.GroupMCP, types.GroupAuthenticated}},
+		{name: "owner without administrator", groups: []string{types.GroupOwner, types.GroupAuthenticated}},
+		{name: "basic user", groups: []string{types.GroupBasic, types.GroupAuthenticated}},
+		{name: "anonymous challenge", groups: []string{UnauthenticatedGroup}, allowed: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/versioned-mcp-connect/catalog-entry/2/messages", nil)
+			got := authorizer.Authorize(req, &user.DefaultInfo{UID: "42", Groups: tt.groups})
+			if got != tt.allowed {
+				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
+			}
+		})
+	}
+}
+
 func newMCPIDIsAuthorizedTestStorage(objects ...client.Object) client.Client {
 	return clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).

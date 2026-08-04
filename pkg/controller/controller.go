@@ -104,6 +104,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate audit-log export source types: %w", err)
 	}
 
+	if err := migrateMCPServerCatalogEntryVersions(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate MCP server catalog entry versions: %w", err)
+	}
+
 	if err := deleteToolReferenceOwnedModels(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to delete ToolReference-owned models: %w", err)
 	}

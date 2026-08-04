@@ -159,7 +159,9 @@ var (
 		"GET /api/nanobot-agents",
 	}
 	staticRules = map[string][]string{
-		types.GroupAdmin: adminAndOwnerRules,
+		types.GroupAdmin: append(append([]string{}, adminAndOwnerRules...),
+			"/versioned-mcp-connect/",
+		),
 		types.GroupOwner: adminAndOwnerRules,
 		types.GroupAuditor: {
 			"GET /api/admin-api-keys",
@@ -261,10 +263,13 @@ var (
 
 			"GET  /.well-known/",
 			"POST /oauth/register/{mcp_id}",
+			"POST /oauth/register/versioned-mcp-connect/{entry_id}/{version}",
 			"POST /oauth/register",
 			"GET  /oauth/authorize/{mcp_id}",
+			"GET  /oauth/authorize/versioned-mcp-connect/{entry_id}/{version}",
 			"GET  /oauth/authorize",
 			"POST /oauth/token/{mcp_id}",
+			"POST /oauth/token/versioned-mcp-connect/{entry_id}/{version}",
 			"POST /oauth/token",
 			"GET  /oauth/jwks.json",
 			"GET  /oauth/client-metadata.json",

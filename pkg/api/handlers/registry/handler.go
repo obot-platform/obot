@@ -252,8 +252,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 
 	// Filter for wildcard ACR access and non-templates
 	for _, server := range serverList.Items {
-		// Skip templates and components
-		if server.Spec.Template || server.Spec.CompositeName != "" {
+		if !isDiscoverableServer(server) {
 			continue
 		}
 
@@ -307,10 +306,10 @@ func (h *Handler) listPersonalServers(req api.Context, userID string) ([]v1.MCPS
 		return nil, nil, fmt.Errorf("failed to list personal servers: %w", err)
 	}
 
-	// Filter out template and component servers
+	// Filter out internal servers that are not part of ordinary discovery.
 	var servers []v1.MCPServer
 	for _, server := range serverList.Items {
-		if !server.Spec.Template && server.Spec.CompositeName == "" {
+		if isDiscoverableServer(server) {
 			servers = append(servers, server)
 		}
 	}
@@ -383,8 +382,7 @@ func (h *Handler) listServersInCatalog(
 
 	var result []v1.MCPServer
 	for _, server := range serverList.Items {
-		// Skip templates and components
-		if server.Spec.Template || server.Spec.CompositeName != "" {
+		if !isDiscoverableServer(server) {
 			continue
 		}
 
@@ -491,8 +489,7 @@ func (h *Handler) listServersInWorkspaces(
 		}
 
 		for _, server := range serverList.Items {
-			// Skip templates and components
-			if server.Spec.Template || server.Spec.CompositeName != "" {
+			if !isDiscoverableServer(server) {
 				continue
 			}
 
@@ -767,8 +764,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
 
-	// Skip templates and components
-	if server.Spec.Template || server.Spec.CompositeName != "" {
+	if !isDiscoverableServer(server) {
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
 
@@ -829,6 +825,10 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 	}
 
 	return ConvertMCPServerToRegistry(req.Context(), server, credEnv, h.serverURL, slug, reverseDNS, req.User.GetUID(), h.mimeFetcher)
+}
+
+func isDiscoverableServer(server v1.MCPServer) bool {
+	return !server.Spec.Template && server.Spec.CompositeName == "" && !server.Spec.PinnedCatalogEntryVersion
 }
 
 // findMCPServerCatalogEntry looks up an MCPServerCatalogEntry and checks ACR permissions

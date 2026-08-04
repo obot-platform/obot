@@ -59,7 +59,7 @@ func userCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int,
 	uniqueUsers := make(map[string]struct{}, len(mcpServers.Items))
 	userCount := 0
 	for _, server := range mcpServers.Items {
-		if !server.DeletionTimestamp.IsZero() || server.Spec.CompositeName != "" {
+		if !server.DeletionTimestamp.IsZero() || server.Spec.CompositeName != "" || server.Spec.PinnedCatalogEntryVersion {
 			continue
 		}
 		if isSingleUser && server.Spec.UserID != "" {
@@ -96,6 +96,43 @@ func (*Handler) EnsureServerUserType(req router.Request, _ router.Response) erro
 	}
 	entry.Spec.Manifest.ServerUserType = types.ServerUserTypeSingleUser
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
+}
+
+// EnsureEditableVersion keeps manually-authored entries represented by their legacy version zero child.
+func (*Handler) EnsureEditableVersion(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if !entry.Spec.Editable {
+		return nil
+	}
+
+	name := v1.MCPServerCatalogEntryVersionName(entry.Name, 0)
+	var version v1.MCPServerCatalogEntryVersion
+	err := req.Get(&version, entry.Namespace, name)
+	if apierrors.IsNotFound(err) {
+		return req.Client.Create(req.Ctx, &v1.MCPServerCatalogEntryVersion{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: entry.Namespace},
+			Spec: v1.MCPServerCatalogEntryVersionSpec{
+				MCPServerCatalogEntryName: entry.Name,
+				Version:                   0,
+				Manifest:                  entry.Spec.Manifest,
+				UnsupportedTools:          entry.Spec.UnsupportedTools,
+				SourceURL:                 entry.Spec.SourceURL,
+				Active:                    true,
+			},
+		})
+	}
+	if err != nil {
+		return err
+	}
+	if utils.Digest(version.Spec.Manifest) == utils.Digest(entry.Spec.Manifest) &&
+		slices.Equal(version.Spec.UnsupportedTools, entry.Spec.UnsupportedTools) && version.Spec.Active {
+		return nil
+	}
+	version.Spec.Manifest = entry.Spec.Manifest
+	version.Spec.UnsupportedTools = entry.Spec.UnsupportedTools
+	version.Spec.SourceURL = entry.Spec.SourceURL
+	version.Spec.Active = true
+	return req.Client.Update(req.Ctx, &version)
 }
 
 func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {

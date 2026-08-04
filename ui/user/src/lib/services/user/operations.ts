@@ -34,6 +34,9 @@ import {
 	type McpAuditLogUsageFilters,
 	type McpAuditLogUsageStats,
 	type BootstrapStatus,
+	type CatalogUpgradeApplyRequest,
+	type CatalogUpgradePlan,
+	type CatalogUpgradeResult,
 	type DefaultModelAlias,
 	type DeviceCodeVerificationResponse,
 	type DeviceScan,
@@ -493,6 +496,14 @@ export async function clearMcpServerOAuth(
 	await doDelete(`/mcp-servers/${id}/oauth`, opts);
 }
 
+export async function clearWorkspaceMcpServerOAuth(
+	workspaceID: string,
+	id: string,
+	opts?: { signal?: AbortSignal }
+): Promise<void> {
+	await doDelete(`/workspaces/${workspaceID}/servers/${id}/oauth`, opts);
+}
+
 // 412 means oauth is needed
 export async function getMcpServerOauthURL(
 	id: string,
@@ -540,6 +551,25 @@ export async function triggerMcpServerUpdate(mcpServerId: string): Promise<MCPCa
 	return (await doPost(`/mcp-servers/${mcpServerId}/trigger-update`, {})) as MCPCatalogServer;
 }
 
+export async function previewMcpServerCatalogUpgrade(
+	mcpServerId: string
+): Promise<CatalogUpgradePlan> {
+	return (await doPost(
+		`/mcp-servers/${mcpServerId}/catalog-upgrade/preview`,
+		{}
+	)) as CatalogUpgradePlan;
+}
+
+export async function applyMcpServerCatalogUpgrade(
+	mcpServerId: string,
+	request: CatalogUpgradeApplyRequest
+): Promise<CatalogUpgradeResult> {
+	return (await doPost(
+		`/mcp-servers/${mcpServerId}/catalog-upgrade/apply`,
+		request
+	)) as CatalogUpgradeResult;
+}
+
 export async function triggerWorkspaceMcpServerUpdate(
 	workspaceID: string,
 	entryID: string,
@@ -549,6 +579,29 @@ export async function triggerWorkspaceMcpServerUpdate(
 		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/trigger-update`,
 		{}
 	)) as MCPCatalogServer;
+}
+
+export async function previewWorkspaceMcpServerCatalogUpgrade(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string
+): Promise<CatalogUpgradePlan> {
+	return (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/catalog-upgrade/preview`,
+		{}
+	)) as CatalogUpgradePlan;
+}
+
+export async function applyWorkspaceMcpServerCatalogUpgrade(
+	workspaceID: string,
+	entryID: string,
+	mcpServerId: string,
+	request: CatalogUpgradeApplyRequest
+): Promise<CatalogUpgradeResult> {
+	return (await doPost(
+		`/workspaces/${workspaceID}/entries/${entryID}/servers/${mcpServerId}/catalog-upgrade/apply`,
+		request
+	)) as CatalogUpgradeResult;
 }
 
 export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: string): Promise<{

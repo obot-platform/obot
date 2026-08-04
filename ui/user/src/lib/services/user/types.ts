@@ -498,6 +498,8 @@ export interface MCPCatalogServer {
 	connectURL?: string;
 	configured: boolean;
 	catalogEntryID: string;
+	mcpServerCatalogEntryVersion?: number;
+	pinnedCatalogEntryVersion?: boolean;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeader?: string[];
 	mcpCatalogID: string;
@@ -518,6 +520,44 @@ export interface MCPCatalogServer {
 	deploymentStatus?: string;
 	compositeName?: string;
 	canConnect?: boolean;
+}
+export interface CatalogUpgradeApplyRequest {
+	configuration?: Record<string, string>;
+	confirmOAuthReauthorization?: boolean;
+	planID: string;
+	url?: string;
+}
+export interface CatalogUpgradePlan {
+	affectedUsers?: number;
+	canApply: boolean;
+	catalogEntryID: string;
+	currentManifest: MCPServer;
+	destructiveStorageCleanup?: boolean;
+	id: string;
+	missingRequiredEnvVars?: string[];
+	missingRequiredHeaders?: string[];
+	missingInstanceConfiguration?: Record<string, string[]>;
+	missingURL?: boolean;
+	oauthReauthorizationRequired?: boolean;
+	runtimeChanged?: boolean;
+	reusableConfiguration?: string[];
+	serverID: string;
+	sourceVersion: number;
+	targetManifest: MCPServer;
+	targetVersion: number;
+	validationFailures?: string[];
+	warnings?: CatalogUpgradeWarning[];
+}
+export interface CatalogUpgradeResult {
+	applied: boolean;
+	error?: string;
+	serverID: string;
+	sourceVersion: number;
+	targetVersion: number;
+}
+export interface CatalogUpgradeWarning {
+	code: string;
+	message: string;
 }
 export interface OAuthMetadata {
 	protectedResourceUrl?: string;

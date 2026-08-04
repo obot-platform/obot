@@ -34,7 +34,7 @@ npxConfig:
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), `duplicate source entry key "shared"`)
-	assert.Len(t, objs, 1)
+	assert.Len(t, objs, 2)
 }
 
 func TestReadMCPCatalogRejectsSeparatorInEntryKey(t *testing.T) {

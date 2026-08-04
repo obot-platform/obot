@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,10 +24,9 @@ npxConfig:
 	h := &Handler{}
 	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
-	assert.Len(t, objs, 1)
+	assert.Len(t, objs, 2)
 
-	entry, ok := objs[0].(*v1.MCPServerCatalogEntry)
-	assert.True(t, ok)
+	entry := catalogParent(t, objs)
 	assert.Equal(t, dir, entry.Spec.SourceURL)
 	assert.Equal(t, "test-entry", entry.Spec.Manifest.EntryKey)
 }

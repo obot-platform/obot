@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -153,9 +154,26 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
+	failedSources := make(map[string]bool, len(mcpCatalog.Status.SyncErrors))
+	for sourceURL := range mcpCatalog.Status.SyncErrors {
+		failedSources[sourceURL] = true
+	}
+	toAdd, err := h.reconcileMCPCatalogVersions(req.Ctx, req.Client, mcpCatalog.Spec.SourceURLs, failedSources, toAdd)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile MCP catalog versions: %w", err)
+	}
+
 	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd)
 	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+	}
+	if len(compositeRefErrors) > 0 && len(failedSources) == 0 {
+		// Reconcile once more in no-prune mode so versions removed from otherwise
+		// healthy sources are explicitly made inactive despite composite errors.
+		toAdd, err = h.reconcileMCPCatalogVersions(req.Ctx, req.Client, mcpCatalog.Spec.SourceURLs, map[string]bool{"": true}, toAdd)
+		if err != nil {
+			return fmt.Errorf("failed to reconcile MCP catalog versions after composite errors: %w", err)
+		}
 	}
 
 	mcpCatalog.Status.LastSyncTime = metav1.Now()
@@ -186,7 +204,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// Missing entries cannot be reconciled safely from a partial desired set.
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
 		log.Infof("Applying MCP catalog entries without reconciling missing entries due to source errors: catalog=%s entries=%d sourceErrors=%d", mcpCatalog.Name, len(toAdd), len(mcpCatalog.Status.SyncErrors))
-		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+			return err
+		}
+		return updateCatalogLatestVersions(req.Ctx, req.Client, toAdd)
 	}
 
 	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
@@ -194,7 +215,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	log.Infof("Applying MCP catalog entries without prune: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
-	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+		return err
+	}
+	return updateCatalogLatestVersions(req.Ctx, req.Client, toAdd)
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -329,93 +353,113 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 	result := make([]client.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
 	for _, obj := range objs {
-		entry, ok := obj.(*v1.MCPServerCatalogEntry)
-		if !ok || entry.Spec.Manifest.Runtime != types.RuntimeComposite || entry.Spec.Manifest.CompositeConfig == nil {
+		var (
+			manifest   *types.MCPServerCatalogEntryManifest
+			sourceURL  string
+			objectRef  string
+			gitManaged bool
+		)
+		switch entry := obj.(type) {
+		case *v1.MCPServerCatalogEntry:
+			manifest = &entry.Spec.Manifest
+			sourceURL = entry.Spec.SourceURL
+			objectRef = fmt.Sprintf("catalog entry %q", entry.Name)
+			gitManaged = entry.IsGitManaged()
+		case *v1.MCPServerCatalogEntryVersion:
+			manifest = &entry.Spec.Manifest
+			sourceURL = entry.Spec.SourceURL
+			objectRef = fmt.Sprintf("catalog entry version %q", entry.Name)
+			gitManaged = true
+		default:
+			result = append(result, obj)
+			continue
+		}
+		if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
 			result = append(result, obj)
 			continue
 		}
 
-		changed := false
-		var errs []error
-		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-			if component.MCPServerID != "" {
-				var server v1.MCPServer
-				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
-					errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
-					continue
-				}
-				if server.Spec.IsSingleUser() {
-					errs = append(errs, fmt.Errorf("server %q is not a multi-user server", component.MCPServerID))
-					continue
-				}
-				if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
-					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
-					continue
-				}
-
-				component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
-				changed = true
-				continue
-			}
-			if component.CatalogEntryID == "" {
-				continue
-			}
-
-			target, err := resolveComponentSourceRef(refs, mcp.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if target == nil {
-				target = entriesByName[component.CatalogEntryID]
-			}
-			if target == nil && c != nil {
-				var storedEntry v1.MCPServerCatalogEntry
-				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
-					errs = append(errs, fmt.Errorf("failed to get component catalog entry %q: %w", component.CatalogEntryID, err))
-					continue
-				} else if err == nil {
-					if catalogName != "" && storedEntry.Spec.MCPCatalogName != catalogName {
-						errs = append(errs, fmt.Errorf("component catalog entry %q not found in catalog %q", component.CatalogEntryID, catalogName))
-						continue
-					}
-					target = &storedEntry
-				}
-			}
-			if target == nil {
-				continue
-			}
-
-			component.CatalogEntryID = target.Name
-			component.Manifest = target.Spec.Manifest
-			changed = true
-		}
-
-		if len(errs) > 0 {
-			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to resolve composite catalog entry %q: %v", entry.Name, errors.Join(errs...)))
+		if err := h.resolveCompositeManifest(ctx, c, namespace, catalogName, refs, entriesByName, sourceURL, manifest, gitManaged); err != nil {
+			addSyncError(errsBySourceURL, sourceURL, fmt.Sprintf("failed to resolve composite %s: %v", objectRef, err))
 			continue
 		}
-
-		if changed {
-			if err := mcp.ValidateCatalogEntryManifest(ctx, entry.Spec.Manifest, entry.IsGitManaged(), h.remoteURLValidationConfig); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-			if err := mcp.ValidateSecretBindingsCatalogEntry(entry.Spec.Manifest, entry.IsGitManaged(), false, h.mcpBackend); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-			if err := mcp.ValidateTemplateReferencesCatalogEntry(entry.Spec.Manifest); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-		}
-
 		result = append(result, obj)
 	}
 
 	return result, errsBySourceURL
+}
+
+func (h *Handler) resolveCompositeManifest(ctx context.Context, c client.Client, namespace, catalogName string, refs, entriesByName map[string]*v1.MCPServerCatalogEntry, sourceURL string, manifest *types.MCPServerCatalogEntryManifest, gitManaged bool) error {
+	changed := false
+	var errs []error
+	for i := range manifest.CompositeConfig.ComponentServers {
+		component := &manifest.CompositeConfig.ComponentServers[i]
+		if component.MCPServerID != "" {
+			var server v1.MCPServer
+			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
+				errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
+				continue
+			}
+			if server.Spec.IsSingleUser() {
+				errs = append(errs, fmt.Errorf("server %q is not a multi-user server", component.MCPServerID))
+				continue
+			}
+			if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
+				errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
+				continue
+			}
+			component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
+			changed = true
+			continue
+		}
+		if component.CatalogEntryID == "" {
+			continue
+		}
+
+		target, err := resolveComponentSourceRef(refs, mcp.SourceIDForURL(sourceURL), component.CatalogEntryID)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		if target == nil {
+			target = entriesByName[component.CatalogEntryID]
+		}
+		if target == nil && c != nil {
+			var storedEntry v1.MCPServerCatalogEntry
+			if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
+				errs = append(errs, fmt.Errorf("failed to get component catalog entry %q: %w", component.CatalogEntryID, err))
+				continue
+			} else if err == nil {
+				if catalogName != "" && storedEntry.Spec.MCPCatalogName != catalogName {
+					errs = append(errs, fmt.Errorf("component catalog entry %q not found in catalog %q", component.CatalogEntryID, catalogName))
+					continue
+				}
+				target = &storedEntry
+			}
+		}
+		if target == nil {
+			continue
+		}
+		component.CatalogEntryID = target.Name
+		component.Manifest = target.Spec.Manifest
+		changed = true
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	if !changed {
+		return nil
+	}
+	if err := mcp.ValidateCatalogEntryManifest(ctx, *manifest, gitManaged, h.remoteURLValidationConfig); err != nil {
+		return fmt.Errorf("failed to validate resolved manifest: %w", err)
+	}
+	if err := mcp.ValidateSecretBindingsCatalogEntry(*manifest, gitManaged, false, h.mcpBackend); err != nil {
+		return fmt.Errorf("failed to validate resolved manifest: %w", err)
+	}
+	if err := mcp.ValidateTemplateReferencesCatalogEntry(*manifest); err != nil {
+		return fmt.Errorf("failed to validate resolved manifest: %w", err)
+	}
+	return nil
 }
 
 // resolveComponentSourceRef resolves GitOps portable refs. A bare entry key is
@@ -626,13 +670,27 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 	}
 }
 
+type versionedCatalogManifest struct {
+	types.MCPServerCatalogEntryManifest `json:",inline"`
+	Version                             *int `json:"version,omitempty"`
+}
+
+type catalogManifestFamily struct {
+	name       string
+	cleanName  string
+	entryKey   string
+	versions   map[int]types.MCPServerCatalogEntryManifest
+	invalid    bool
+	firstIndex int
+}
+
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
-	var entries []types.MCPServerCatalogEntryManifest
+	var entries []versionedCatalogManifest
 
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if git.IsGitRepoURL(sourceURL) {
 			var err error
-			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
+			entries, err = readGitCatalogEntries[versionedCatalogManifest](ctx, sourceURL, token)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
@@ -671,7 +729,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 
 		if fileInfo.IsDir() {
-			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
+			entries, err = readCatalogDirectory[versionedCatalogManifest](sourceURL)
 			if err != nil {
 				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 			}
@@ -687,10 +745,11 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		}
 	}
 
-	objs := make([]client.Object, 0, len(entries))
 	var errs []error
-	uniqueEntryKeys := make(map[string]struct{})
-	for _, entry := range entries {
+	families := make(map[string]*catalogManifestFamily)
+	entryKeyFamilies := make(map[string]string)
+	for i, decoded := range entries {
+		entry := decoded.MCPServerCatalogEntryManifest
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
@@ -713,28 +772,49 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 				errs = append(errs, fmt.Errorf("source entry key %q must be DNS-friendly: %s; skipping catalog entry %q", entry.EntryKey, strings.Join(dnsErrs, "; "), catalogEntryName))
 				continue
 			}
-			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
-				errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
+		}
+
+		version := 0
+		if decoded.Version != nil {
+			if *decoded.Version <= 0 {
+				errs = append(errs, fmt.Errorf("catalog entry %q explicit version must be positive, got %d", entry.Name, *decoded.Version))
 				continue
 			}
-			uniqueEntryKeys[entry.EntryKey] = struct{}{}
+			version = *decoded.Version
 		}
 
-		catalogEntry := v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      catalogEntryName,
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.MCPServerCatalogEntrySpec{
-				MCPCatalogName: catalogName,
-				SourceURL:      sourceURL,
-				Editable:       false, // entries from source URLs are not editable
-			},
+		family := families[cleanName]
+		if family == nil {
+			family = &catalogManifestFamily{
+				name:       entry.Name,
+				cleanName:  cleanName,
+				entryKey:   entry.EntryKey,
+				versions:   make(map[int]types.MCPServerCatalogEntryManifest),
+				firstIndex: i,
+			}
+			families[cleanName] = family
+			if entry.EntryKey != "" {
+				if otherName, ok := entryKeyFamilies[entry.EntryKey]; ok && otherName != cleanName {
+					errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
+					family.invalid = true
+				} else {
+					entryKeyFamilies[entry.EntryKey] = cleanName
+				}
+			}
+		} else {
+			if family.name != entry.Name {
+				errs = append(errs, fmt.Errorf("versions in catalog entry family %q must use exact name %q, got %q", cleanName, family.name, entry.Name))
+				family.invalid = true
+			}
+			if family.entryKey != entry.EntryKey {
+				errs = append(errs, fmt.Errorf("versions in catalog entry family %q must use entry key %q, got %q", cleanName, family.entryKey, entry.EntryKey))
+				family.invalid = true
+			}
 		}
-
-		// Check the metadata for default disabled tools.
-		if entry.Metadata["unsupportedTools"] != "" {
-			catalogEntry.Spec.UnsupportedTools = strings.Split(entry.Metadata["unsupportedTools"], ",")
+		if _, ok := family.versions[version]; ok {
+			errs = append(errs, fmt.Errorf("duplicate version %d in catalog entry family %q", version, family.name))
+			family.invalid = true
+			continue
 		}
 
 		sanitizeCatalogEntryManifest(&entry)
@@ -743,7 +823,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			continue
 		}
 		// secretBinding references are only allowed for git-managed entries.
-		if err := mcp.ValidateSecretBindingsCatalogEntry(entry, catalogEntry.IsGitManaged(), false, h.mcpBackend); err != nil {
+		if err := mcp.ValidateSecretBindingsCatalogEntry(entry, true, false, h.mcpBackend); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
@@ -751,12 +831,203 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			errs = append(errs, fmt.Errorf("failed to validate catalog entry %s: %w", entry.Name, err))
 			continue
 		}
-		catalogEntry.Spec.Manifest = entry
-
-		objs = append(objs, &catalogEntry)
+		family.versions[version] = entry
 	}
 
+	orderedFamilies := make([]*catalogManifestFamily, 0, len(families))
+	for _, family := range families {
+		if !family.invalid && len(family.versions) > 0 {
+			orderedFamilies = append(orderedFamilies, family)
+		}
+	}
+	sort.Slice(orderedFamilies, func(i, j int) bool { return orderedFamilies[i].firstIndex < orderedFamilies[j].firstIndex })
+
+	objs := make([]client.Object, 0, len(entries)+len(orderedFamilies))
+	for _, family := range orderedFamilies {
+		versions := make([]int, 0, len(family.versions))
+		for version := range family.versions {
+			versions = append(versions, version)
+		}
+		sort.Ints(versions)
+		defaultVersion := versions[len(versions)-1]
+		catalogEntryName := name.SafeHashConcatName(catalogName, family.cleanName)
+		selectedManifest := family.versions[defaultVersion]
+		catalogEntry := &v1.MCPServerCatalogEntry{
+			ObjectMeta: metav1.ObjectMeta{Name: catalogEntryName, Namespace: system.DefaultNamespace},
+			Spec: v1.MCPServerCatalogEntrySpec{
+				Manifest:         selectedManifest,
+				UnsupportedTools: unsupportedTools(selectedManifest),
+				DefaultVersion:   defaultVersion,
+				MCPCatalogName:   catalogName,
+				SourceURL:        sourceURL,
+				Editable:         false,
+			},
+			Status: v1.MCPServerCatalogEntryStatus{LatestVersion: defaultVersion},
+		}
+		objs = append(objs, catalogEntry)
+		for _, version := range versions {
+			manifest := family.versions[version]
+			objs = append(objs, &v1.MCPServerCatalogEntryVersion{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      v1.MCPServerCatalogEntryVersionName(catalogEntryName, version),
+					Namespace: system.DefaultNamespace,
+				},
+				Spec: v1.MCPServerCatalogEntryVersionSpec{
+					MCPServerCatalogEntryName: catalogEntryName,
+					Version:                   version,
+					Manifest:                  manifest,
+					UnsupportedTools:          unsupportedTools(manifest),
+					SourceURL:                 sourceURL,
+					Active:                    true,
+				},
+			})
+		}
+	}
 	return objs, errors.Join(errs...)
+}
+
+func unsupportedTools(manifest types.MCPServerCatalogEntryManifest) []string {
+	if manifest.Metadata["unsupportedTools"] == "" {
+		return nil
+	}
+	return strings.Split(manifest.Metadata["unsupportedTools"], ",")
+}
+
+func (h *Handler) reconcileMCPCatalogVersions(ctx context.Context, c client.Client, sourceURLs []string, failedSources map[string]bool, objs []client.Object) ([]client.Object, error) {
+	type family struct {
+		parent   *v1.MCPServerCatalogEntry
+		versions []*v1.MCPServerCatalogEntryVersion
+	}
+
+	families := make(map[string]*family)
+	var order []string
+	var others []client.Object
+	for _, obj := range objs {
+		switch obj := obj.(type) {
+		case *v1.MCPServerCatalogEntry:
+			if previous := slices.Index(order, obj.Name); previous >= 0 {
+				order = slices.Delete(order, previous, previous+1)
+			}
+			order = append(order, obj.Name)
+			families[obj.Name] = &family{parent: obj}
+		case *v1.MCPServerCatalogEntryVersion:
+			if current := families[obj.Spec.MCPServerCatalogEntryName]; current != nil && current.parent.Spec.SourceURL == obj.Spec.SourceURL {
+				current.versions = append(current.versions, obj)
+			}
+		default:
+			others = append(others, obj)
+		}
+	}
+
+	var existingVersions v1.MCPServerCatalogEntryVersionList
+	var servers v1.MCPServerList
+	if c != nil {
+		if err := c.List(ctx, &existingVersions, client.InNamespace(system.DefaultNamespace)); err != nil {
+			return nil, fmt.Errorf("failed to list existing catalog entry versions: %w", err)
+		}
+		if err := c.List(ctx, &servers, client.InNamespace(system.DefaultNamespace)); err != nil {
+			return nil, fmt.Errorf("failed to list MCP servers for catalog versions: %w", err)
+		}
+	}
+	referenced := make(map[string]map[int]bool)
+	for _, server := range servers.Items {
+		if referenced[server.Spec.MCPServerCatalogEntryName] == nil {
+			referenced[server.Spec.MCPServerCatalogEntryName] = make(map[int]bool)
+		}
+		referenced[server.Spec.MCPServerCatalogEntryName][server.Spec.MCPServerCatalogEntryVersion] = true
+	}
+
+	result := append([]client.Object(nil), others...)
+	sourcePriority := make(map[string]int, len(sourceURLs))
+	for i, sourceURL := range sourceURLs {
+		sourcePriority[sourceURL] = i
+	}
+	for _, entryName := range order {
+		family := families[entryName]
+		active := make(map[int]*v1.MCPServerCatalogEntryVersion, len(family.versions))
+		for _, version := range family.versions {
+			active[version.Spec.Version] = version
+		}
+
+		var existingParent *v1.MCPServerCatalogEntry
+		if c != nil {
+			var existing v1.MCPServerCatalogEntry
+			if err := c.Get(ctx, client.ObjectKey{Namespace: family.parent.Namespace, Name: family.parent.Name}, &existing); err == nil {
+				existingParent = &existing
+				currentPriority, currentKnown := sourcePriority[family.parent.Spec.SourceURL]
+				existingPriority, existingKnown := sourcePriority[existing.Spec.SourceURL]
+				if existing.Spec.SourceURL != family.parent.Spec.SourceURL && failedSources[existing.Spec.SourceURL] &&
+					existingKnown && (!currentKnown || existingPriority > currentPriority) {
+					result = append(result, existing.DeepCopy())
+					for i := range existingVersions.Items {
+						if existingVersions.Items[i].Spec.MCPServerCatalogEntryName == existing.Name {
+							result = append(result, existingVersions.Items[i].DeepCopy())
+						}
+					}
+					continue
+				}
+				if active[existing.Spec.DefaultVersion] != nil {
+					family.parent.Spec.DefaultVersion = existing.Spec.DefaultVersion
+				}
+			} else if !apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("failed to get existing catalog entry %q: %w", family.parent.Name, err)
+			}
+		}
+
+		for i := range existingVersions.Items {
+			existing := &existingVersions.Items[i]
+			if existing.Spec.MCPServerCatalogEntryName != family.parent.Name || active[existing.Spec.Version] != nil {
+				continue
+			}
+			retained := existing.DeepCopy()
+			if existingParent == nil || !failedSources[family.parent.Spec.SourceURL] {
+				retained.Spec.Active = false
+			}
+			if !referenced[family.parent.Name][existing.Spec.Version] && len(failedSources) == 0 {
+				continue
+			}
+			family.versions = append(family.versions, retained)
+		}
+		sort.Slice(family.versions, func(i, j int) bool { return family.versions[i].Spec.Version < family.versions[j].Spec.Version })
+
+		selected := active[family.parent.Spec.DefaultVersion]
+		if selected == nil {
+			return nil, fmt.Errorf("catalog entry %q default version %d is not active", family.parent.Name, family.parent.Spec.DefaultVersion)
+		}
+		family.parent.Spec.Manifest = selected.Spec.Manifest
+		family.parent.Spec.UnsupportedTools = slices.Clone(selected.Spec.UnsupportedTools)
+		latest := 0
+		for version := range active {
+			latest = max(latest, version)
+		}
+		family.parent.Status.LatestVersion = latest
+		result = append(result, family.parent)
+		for _, version := range family.versions {
+			result = append(result, version)
+		}
+	}
+	return result, nil
+}
+
+func updateCatalogLatestVersions(ctx context.Context, c client.Client, objs []client.Object) error {
+	for _, obj := range objs {
+		desired, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			continue
+		}
+		var stored v1.MCPServerCatalogEntry
+		if err := c.Get(ctx, client.ObjectKeyFromObject(desired), &stored); err != nil {
+			return fmt.Errorf("failed to get catalog entry %q after apply: %w", desired.Name, err)
+		}
+		if stored.Status.LatestVersion == desired.Status.LatestVersion {
+			continue
+		}
+		stored.Status.LatestVersion = desired.Status.LatestVersion
+		if err := c.Status().Update(ctx, &stored); err != nil {
+			return fmt.Errorf("failed to update latest version for catalog entry %q: %w", desired.Name, err)
+		}
+	}
+	return nil
 }
 
 func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {

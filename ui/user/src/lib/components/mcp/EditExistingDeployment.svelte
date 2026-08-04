@@ -7,7 +7,8 @@
 		type MCPCatalogServer,
 		type MCPAllowedSecretBindingTarget,
 		type MCPCatalogServerManifest,
-		type MCPSubField
+		type MCPSubField,
+		type CatalogUpgradePlan
 	} from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
@@ -26,6 +27,12 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
+	import {
+		catalogUpgradeConfiguration,
+		catalogUpgradeForm,
+		catalogUpgradeNeedsConfiguration,
+		getCatalogUpgradeBlockers
+	} from './catalogUpgrade';
 	import { CircleAlert } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -42,9 +49,10 @@
 	let entry = $state<MCPCatalogEntry>();
 	let server = $state<MCPCatalogServer>();
 	let mode = $state<'edit' | 'catalog-update'>('edit');
+	let upgradePlan = $state<CatalogUpgradePlan>();
 
 	let editingError = $state<string>();
-	let editingManifest = $derived(server?.manifest);
+	let editingManifest = $derived(upgradePlan?.targetManifest ?? server?.manifest);
 	let deprecated = $derived(isDeprecatedMCPServer(entry) || isDeprecatedMCPServer(server));
 	let secretBindingEngineError = $derived(
 		isKubernetesRuntimeBackend(version.current.engine)
@@ -139,6 +147,7 @@
 		server = initServer;
 		entry = initEntry;
 		mode = 'edit';
+		upgradePlan = undefined;
 		editingError = isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(initServer.manifest);
@@ -195,27 +204,30 @@
 
 	export async function updateFromCatalogEntry({
 		server: initServer,
-		entry: initEntry
+		entry: initEntry,
+		plan
 	}: {
 		server: MCPCatalogServer;
 		entry: MCPCatalogEntry;
+		plan?: CatalogUpgradePlan;
 	}): Promise<boolean> {
 		server = initServer;
 		entry = initEntry;
 		mode = 'catalog-update';
-
-		// Apply the catalog manifest first; the updated server response tells us what is missing.
-		const updatedServer = await triggerCatalogUpdate(initServer);
-		server = updatedServer;
+		upgradePlan = plan ?? (await previewCatalogUpdate(initServer));
+		const blockers = getCatalogUpgradeBlockers(upgradePlan);
+		if (blockers.length > 0) {
+			throw new Error(blockers.join(' '));
+		}
 		editingError = isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
-			: getSecretBindingEngineError(updatedServer.manifest);
+			: getSecretBindingEngineError(upgradePlan.targetManifest);
 
 		// Load secret binding targets so an admin can re-select a secret during the update flow
 		if (
 			isKubernetesRuntimeBackend(version.current.engine) &&
-			updatedServer.mcpCatalogID &&
-			isMultiUserServer(updatedServer)
+			initServer.mcpCatalogID &&
+			isMultiUserServer(initServer)
 		) {
 			try {
 				secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
@@ -229,36 +241,13 @@
 			secretBindingTargets = [];
 		}
 
-		// Keep existing shared values so the dialog only asks for newly required input.
-		let values: Record<string, string>;
-		try {
-			values = await revealServerValues(updatedServer);
-		} catch (error) {
-			if (!(error instanceof HttpError) || error.statusCode !== 404) {
-				console.error('Failed to reveal server values due to unexpected error', error);
-			}
-			values = {};
-		}
-
-		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
-		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
-		const form: LaunchFormData = {
-			envs: updatedServer.manifest.env?.map((env) => ({
-				...markPinnedSecretBinding(env, templateEnvBindings),
-				value: values[env.key] ?? ''
-			})),
-			headers: updatedServer.manifest.remoteConfig?.headers?.map((header) => ({
-				...markPinnedSecretBinding(header, templateHeaderBindings),
-				value: values[header.key] ?? '',
-				isStatic: header.value !== ''
-			}))
-		};
-
-		if (!hasMissingRequiredSharedConfiguration(updatedServer, form)) {
+		if (!catalogUpgradeNeedsConfiguration(upgradePlan)) {
+			await applyCatalogUpdate(initServer, upgradePlan, {});
+			await onUpdateConfigure?.();
 			return false;
 		}
 
-		configureForm = form;
+		configureForm = catalogUpgradeForm(upgradePlan);
 		configDialog?.open();
 		return true;
 	}
@@ -291,6 +280,7 @@
 		server = initServer;
 		entry = initEntry;
 		mode = 'edit';
+		upgradePlan = undefined;
 
 		editAliasDialog?.open();
 	}
@@ -374,68 +364,62 @@
 		server = { ...server, alias };
 	}
 
-	function hasMissingRequiredSharedConfiguration(server: MCPCatalogServer, form: LaunchFormData) {
-		const missingKeys = new Set([
-			...(server.missingRequiredEnvVars ?? []),
-			...(server.missingRequiredHeader ?? [])
-		]);
-		if (missingKeys.size === 0) return false;
-
-		// Secret-bound and static values are managed outside this shared config form.
-		return [...(form.envs ?? []), ...(form.headers ?? [])].some(
-			(field) =>
-				missingKeys.has(field.key) &&
-				!hasSecretBinding(field) &&
-				!('isStatic' in field && field.isStatic) &&
-				field.required &&
-				!field.value
-		);
-	}
-
-	async function triggerCatalogUpdate(server: MCPCatalogServer): Promise<MCPCatalogServer> {
-		// trigger-update has no useful body, so fetch the scoped server after applying it.
+	async function previewCatalogUpdate(server: MCPCatalogServer): Promise<CatalogUpgradePlan> {
 		if (server.powerUserWorkspaceID && server.catalogEntryID) {
-			await UserService.triggerWorkspaceMcpServerUpdate(
+			return UserService.previewWorkspaceMcpServerCatalogUpgrade(
 				server.powerUserWorkspaceID,
 				server.catalogEntryID,
 				server.id
 			);
-			return UserService.getWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
 		}
 		if (server.mcpCatalogID) {
-			await AdminService.triggerMcpCatalogServerUpdate(server.mcpCatalogID, server.id);
-			return AdminService.getMCPCatalogServer(server.mcpCatalogID, server.id);
+			return AdminService.previewMCPCatalogServerUpgrade(server.mcpCatalogID, server.id);
 		}
-		throw new Error('This server cannot be updated from the current view.');
+		return UserService.previewMcpServerCatalogUpgrade(server.id);
 	}
 
-	async function configureSharedServer(server: MCPCatalogServer, envs: Record<string, string>) {
-		if (server.powerUserWorkspaceID) {
-			return UserService.configureWorkspaceMCPCatalogServer(
+	async function applyCatalogUpdate(
+		server: MCPCatalogServer,
+		plan: CatalogUpgradePlan,
+		configuration: Record<string, string>,
+		url?: string
+	) {
+		if (plan.oauthReauthorizationRequired) {
+			await clearCatalogUpdateOAuth(server);
+		}
+		const request = {
+			planID: plan.id,
+			configuration,
+			url: url?.trim() || undefined,
+			confirmOAuthReauthorization: plan.oauthReauthorizationRequired || undefined
+		};
+		if (server.powerUserWorkspaceID && server.catalogEntryID) {
+			return UserService.applyWorkspaceMcpServerCatalogUpgrade(
 				server.powerUserWorkspaceID,
+				server.catalogEntryID,
 				server.id,
-				envs
+				request
 			);
 		}
 		if (server.mcpCatalogID) {
-			return AdminService.configureMCPCatalogServer(server.mcpCatalogID, server.id, envs);
+			return AdminService.applyMCPCatalogServerUpgrade(server.mcpCatalogID, server.id, request);
 		}
-		throw new Error('This server cannot be configured from the current view.');
+		return UserService.applyMcpServerCatalogUpgrade(server.id, request);
+	}
+
+	async function clearCatalogUpdateOAuth(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID && isMultiUserServer(server)) {
+			await UserService.clearWorkspaceMcpServerOAuth(server.powerUserWorkspaceID, server.id);
+		} else if (server.mcpCatalogID) {
+			await AdminService.clearMCPCatalogServerOAuth(server.mcpCatalogID, server.id);
+		} else {
+			await UserService.clearMcpServerOAuth(server.id);
+		}
 	}
 
 	async function configureUpdatedCatalogServer(lf: LaunchFormData) {
-		if (!server) return;
-		// Persist any secret binding the admin (re)selected before applying shared config;
-		// configureSharedServer only writes user-supplied values, not the manifest bindings.
-		if (server.mcpCatalogID && isMultiUserServer(server)) {
-			await AdminService.updateMCPCatalogServer(
-				server.mcpCatalogID,
-				server.id,
-				applyFormBindingsToManifest(server.manifest, lf)
-			);
-		}
-		const envs = convertEnvHeadersToRecord(lf.envs, lf.headers);
-		server = await configureSharedServer(server, envs);
+		if (!server || !upgradePlan) return;
+		await applyCatalogUpdate(server, upgradePlan, catalogUpgradeConfiguration(lf), lf.url);
 	}
 
 	async function updateExistingComposite(lf: CompositeLaunchFormData) {
@@ -491,7 +475,9 @@
 	icon={editingManifest?.icon}
 	name={getMCPDisplayName(server)}
 	onSave={handleConfigureForm}
-	submitText="Update"
+	submitText={mode === 'catalog-update' && upgradePlan?.oauthReauthorizationRequired
+		? 'Clear OAuth and Update'
+		: 'Update'}
 	loading={editing}
 	disableSave={!!secretBindingEngineError}
 	isNew={false}

@@ -9,8 +9,67 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+func migrateMCPServerCatalogEntryVersions(ctx context.Context, client kclient.Client) error {
+	var entries v1.MCPServerCatalogEntryList
+	if err := client.List(ctx, &entries); err != nil {
+		return fmt.Errorf("failed to list MCP server catalog entries: %w", err)
+	}
+
+	var versions v1.MCPServerCatalogEntryVersionList
+	if err := client.List(ctx, &versions); err != nil {
+		return fmt.Errorf("failed to list MCP server catalog entry versions: %w", err)
+	}
+	versionedEntries := make(map[string]struct{}, len(versions.Items))
+	for _, version := range versions.Items {
+		versionedEntries[version.Spec.MCPServerCatalogEntryName] = struct{}{}
+	}
+
+	for i := range entries.Items {
+		entry := &entries.Items[i]
+		if _, ok := versionedEntries[entry.Name]; ok {
+			continue
+		}
+
+		version := &v1.MCPServerCatalogEntryVersion{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      v1.MCPServerCatalogEntryVersionName(entry.Name, 0),
+				Namespace: entry.Namespace,
+			},
+			Spec: v1.MCPServerCatalogEntryVersionSpec{
+				MCPServerCatalogEntryName: entry.Name,
+				Version:                   0,
+				Manifest:                  entry.Spec.Manifest,
+				UnsupportedTools:          entry.Spec.UnsupportedTools,
+				SourceURL:                 entry.Spec.SourceURL,
+				Active:                    true,
+			},
+		}
+		if err := client.Create(ctx, version); err != nil && !apierrors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create legacy version for MCP server catalog entry %s: %w", entry.Name, err)
+		}
+
+		// Version zero and stable-primary semantics are represented by the zero values
+		// already present on legacy parents and catalog-derived servers.
+		if entry.Spec.DefaultVersion != 0 {
+			entry.Spec.DefaultVersion = 0
+			if err := client.Update(ctx, entry); err != nil {
+				return fmt.Errorf("failed to set default version for MCP server catalog entry %s: %w", entry.Name, err)
+			}
+		}
+		if entry.Status.LatestVersion != 0 {
+			entry.Status.LatestVersion = 0
+			if err := client.Status().Update(ctx, entry); err != nil {
+				return fmt.Errorf("failed to set latest version for MCP server catalog entry %s: %w", entry.Name, err)
+			}
+		}
+	}
+
+	return nil
+}
 
 func migrateDefaultModelAccessPolicyModels(ctx context.Context, client kclient.Client) error {
 	var policy v1.ModelAccessPolicy

@@ -156,6 +156,8 @@ func (c ComponentServer) ComponentID() string {
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
+	DefaultVersion            int                           `json:"defaultVersion,omitempty"`
+	LatestVersion             int                           `json:"latestVersion,omitempty"`
 	Editable                  bool                          `json:"editable,omitempty"`
 	CatalogName               string                        `json:"catalogName,omitempty"`
 	SourceURL                 string                        `json:"sourceURL,omitempty"`
@@ -169,6 +171,77 @@ type MCPServerCatalogEntry struct {
 
 	// ConnectURL is the default URL clients can use to connect before configuring a personal server.
 	ConnectURL string `json:"connectURL,omitempty"`
+}
+
+type MCPServerCatalogEntryVersion struct {
+	Metadata
+	MCPServerCatalogEntryName string                        `json:"mcpServerCatalogEntryName"`
+	Version                   int                           `json:"version"`
+	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
+	UnsupportedTools          []string                      `json:"unsupportedTools,omitempty"`
+	SourceURL                 string                        `json:"sourceURL,omitempty"`
+	Active                    bool                          `json:"active"`
+}
+
+type MCPServerCatalogEntryVersionList List[MCPServerCatalogEntryVersion]
+
+type CatalogUpgradeWarning struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type CatalogUpgradePlan struct {
+	ID                           string                  `json:"id"`
+	ServerID                     string                  `json:"serverID"`
+	CatalogEntryID               string                  `json:"catalogEntryID"`
+	SourceVersion                int                     `json:"sourceVersion"`
+	TargetVersion                int                     `json:"targetVersion"`
+	CurrentManifest              MCPServerManifest       `json:"currentManifest"`
+	TargetManifest               MCPServerManifest       `json:"targetManifest"`
+	ReusableConfiguration        []string                `json:"reusableConfiguration,omitempty"`
+	MissingRequiredEnvVars       []string                `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders       []string                `json:"missingRequiredHeaders,omitempty"`
+	MissingInstanceConfiguration map[string][]string     `json:"missingInstanceConfiguration,omitempty"`
+	AffectedUsers                int                     `json:"affectedUsers,omitempty"`
+	MissingURL                   bool                    `json:"missingURL,omitempty"`
+	OAuthReauthorizationRequired bool                    `json:"oauthReauthorizationRequired,omitempty"`
+	ValidationFailures           []string                `json:"validationFailures,omitempty"`
+	Warnings                     []CatalogUpgradeWarning `json:"warnings,omitempty"`
+	RuntimeChanged               bool                    `json:"runtimeChanged,omitempty"`
+	DestructiveStorageCleanup    bool                    `json:"destructiveStorageCleanup,omitempty"`
+	CanApply                     bool                    `json:"canApply"`
+}
+
+type CatalogUpgradeApplyRequest struct {
+	PlanID                      string            `json:"planID"`
+	Configuration               map[string]string `json:"configuration,omitempty"`
+	URL                         string            `json:"url,omitempty"`
+	ConfirmOAuthReauthorization bool              `json:"confirmOAuthReauthorization,omitempty"`
+}
+
+type CatalogUpgradeResult struct {
+	ServerID      string `json:"serverID"`
+	SourceVersion int    `json:"sourceVersion"`
+	TargetVersion int    `json:"targetVersion"`
+	Applied       bool   `json:"applied"`
+	Error         string `json:"error,omitempty"`
+}
+
+type CatalogBulkUpgradePlan struct {
+	CatalogEntryID string               `json:"catalogEntryID"`
+	TargetVersion  int                  `json:"targetVersion"`
+	AffectedUsers  int                  `json:"affectedUsers"`
+	Plans          []CatalogUpgradePlan `json:"plans"`
+}
+
+type CatalogBulkUpgradeResult struct {
+	CatalogEntryID string                 `json:"catalogEntryID"`
+	TargetVersion  int                    `json:"targetVersion"`
+	Results        []CatalogUpgradeResult `json:"results"`
+}
+
+type CatalogBulkUpgradeApplyRequest struct {
+	Plans map[string]CatalogUpgradeApplyRequest `json:"plans"`
 }
 
 type MCPResourceRequirements struct {
@@ -316,16 +389,18 @@ type MCPServer struct {
 
 	// Alias is a user-defined display label for this MCP server.
 	// For personal servers, it is user-managed. For catalog/workspace servers, it labels the shared deployment.
-	Alias                   string         `json:"alias,omitempty"`
-	UserID                  string         `json:"userID"`
-	Configured              bool           `json:"configured"`
-	MissingRequiredEnvVars  []string       `json:"missingRequiredEnvVars,omitempty"`
-	MissingRequiredHeaders  []string       `json:"missingRequiredHeader,omitempty"`
-	MissingOAuthCredentials bool           `json:"missingOAuthCredentials,omitempty"`
-	CatalogEntryID          string         `json:"catalogEntryID"`
-	PowerUserWorkspaceID    string         `json:"powerUserWorkspaceID"`
-	MCPCatalogID            string         `json:"mcpCatalogID,omitempty"`
-	ServerUserType          ServerUserType `json:"serverUserType,omitempty"`
+	Alias                        string         `json:"alias,omitempty"`
+	UserID                       string         `json:"userID"`
+	Configured                   bool           `json:"configured"`
+	MissingRequiredEnvVars       []string       `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders       []string       `json:"missingRequiredHeader,omitempty"`
+	MissingOAuthCredentials      bool           `json:"missingOAuthCredentials,omitempty"`
+	CatalogEntryID               string         `json:"catalogEntryID"`
+	MCPServerCatalogEntryVersion int            `json:"mcpServerCatalogEntryVersion,omitempty"`
+	PinnedCatalogEntryVersion    bool           `json:"pinnedCatalogEntryVersion,omitempty"`
+	PowerUserWorkspaceID         string         `json:"powerUserWorkspaceID"`
+	MCPCatalogID                 string         `json:"mcpCatalogID,omitempty"`
+	ServerUserType               ServerUserType `json:"serverUserType,omitempty"`
 	// ConnectURL is the URL clients can use to connect to this MCP server.
 	ConnectURL     string `json:"connectURL,omitempty"`
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`

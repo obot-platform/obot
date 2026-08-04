@@ -63,6 +63,8 @@ var apiResources = map[string][]string{
 		"POST   /api/mcp-servers/{mcpserver_id}/reveal",
 		"POST   /api/mcp-servers/{mcpserver_id}/restart",
 		"POST   /api/mcp-servers/{mcpserver_id}/trigger-update",
+		"POST   /api/mcp-servers/{mcpserver_id}/catalog-upgrade/preview",
+		"POST   /api/mcp-servers/{mcpserver_id}/catalog-upgrade/apply",
 		"GET    /api/mcp-servers/{mcpserver_id}/tools",
 		"GET    /api/mcp-servers/{mcpserver_id}/resources",
 		"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
@@ -101,6 +103,8 @@ var apiResources = map[string][]string{
 		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/logs",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/restart",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/trigger-update",
+		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/catalog-upgrade/preview",
+		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcpserver_id}/catalog-upgrade/apply",
 		"GET    /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
 		"POST   /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
 		"DELETE /api/workspaces/{workspace_id}/entries/{entry_id}/oauth-credentials",
@@ -145,6 +149,14 @@ var apiResources = map[string][]string{
 		"POST   /mcp-connect/{mcp_id}/",
 		"DELETE /mcp-connect/{mcp_id}/",
 	},
+	types.GroupVersionedMCP: {
+		"GET    /versioned-mcp-connect/{versioned_entry_id}/{version}",
+		"POST   /versioned-mcp-connect/{versioned_entry_id}/{version}",
+		"DELETE /versioned-mcp-connect/{versioned_entry_id}/{version}",
+		"GET    /versioned-mcp-connect/{versioned_entry_id}/{version}/",
+		"POST   /versioned-mcp-connect/{versioned_entry_id}/{version}/",
+		"DELETE /versioned-mcp-connect/{versioned_entry_id}/{version}/",
+	},
 	types.GroupCompositeMCP: {
 		"GET    /mcp-connect-composite/{mcp_id}",
 		"POST   /mcp-connect-composite/{mcp_id}",
@@ -169,6 +181,7 @@ var apiResources = map[string][]string{
 		// Allow unauthenticated access to MCP connect endpoints.
 		// This allows the authorization to pass, but the handler will issue the 401 with the WWW-Authenticate header.
 		"/mcp-connect/",
+		"/versioned-mcp-connect/",
 	},
 }
 

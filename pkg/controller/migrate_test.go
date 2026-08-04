@@ -20,8 +20,60 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 	t.Helper()
 	return fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithStatusSubresource(&v1.MCPServerCatalogEntry{}).
 		WithObjects(objects...).
 		Build()
+}
+
+func TestMigrateMCPServerCatalogEntryVersions(t *testing.T) {
+	ctx := t.Context()
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:    "Legacy Server",
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://legacy.example.com/mcp",
+		},
+	}
+	entry := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-entry", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest:         manifest,
+			UnsupportedTools: []string{"dangerous"},
+			MCPCatalogName:   system.DefaultCatalog,
+			SourceURL:        "https://example.com/catalog.git",
+		},
+	}
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "ms-legacy", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: entry.Name,
+			UserID:                    "user-1",
+		},
+	}
+	client := newFakeClient(t, entry, server)
+
+	require.NoError(t, migrateMCPServerCatalogEntryVersions(ctx, client))
+	require.NoError(t, migrateMCPServerCatalogEntryVersions(ctx, client))
+
+	var migratedEntry v1.MCPServerCatalogEntry
+	require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(entry), &migratedEntry))
+	assert.Equal(t, 0, migratedEntry.Spec.DefaultVersion)
+	assert.Equal(t, 0, migratedEntry.Status.LatestVersion)
+
+	var versions v1.MCPServerCatalogEntryVersionList
+	require.NoError(t, client.List(ctx, &versions))
+	require.Len(t, versions.Items, 1)
+	assert.Equal(t, entry.Name, versions.Items[0].Spec.MCPServerCatalogEntryName)
+	assert.Equal(t, 0, versions.Items[0].Spec.Version)
+	assert.Equal(t, manifest, versions.Items[0].Spec.Manifest)
+	assert.Equal(t, []string{"dangerous"}, versions.Items[0].Spec.UnsupportedTools)
+	assert.Equal(t, entry.Spec.SourceURL, versions.Items[0].Spec.SourceURL)
+	assert.True(t, versions.Items[0].Spec.Active)
+
+	var migratedServer v1.MCPServer
+	require.NoError(t, client.Get(ctx, kclient.ObjectKeyFromObject(server), &migratedServer))
+	assert.Equal(t, 0, migratedServer.Spec.MCPServerCatalogEntryVersion)
+	assert.False(t, migratedServer.Spec.PinnedCatalogEntryVersion)
 }
 
 func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {

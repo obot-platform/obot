@@ -46,6 +46,10 @@ func (in *MCPServer) Get(field string) (value string) {
 		return strconv.FormatBool(in.Spec.Template)
 	case "spec.compositeName":
 		return in.Spec.CompositeName
+	case "spec.mcpServerCatalogEntryVersion":
+		return strconv.Itoa(in.Spec.MCPServerCatalogEntryVersion)
+	case "spec.pinnedCatalogEntryVersion":
+		return strconv.FormatBool(in.Spec.PinnedCatalogEntryVersion)
 	case "spec.manifest.runtime":
 		return string(in.Spec.Manifest.Runtime)
 	case "auditLogTokenHash":
@@ -62,6 +66,8 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.powerUserWorkspaceID",
 		"spec.template",
 		"spec.compositeName",
+		"spec.mcpServerCatalogEntryVersion",
+		"spec.pinnedCatalogEntryVersion",
 		"spec.manifest.runtime",
 		"auditLogTokenHash",
 	}
@@ -106,6 +112,10 @@ type MCPServerSpec struct {
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// MCPServerCatalogEntryName contains the name of the MCPServerCatalogEntry from which this MCP server was created, if there is one.
 	MCPServerCatalogEntryName string `json:"mcpServerCatalogEntryName,omitempty"`
+	// MCPServerCatalogEntryVersion is the catalog version currently applied to this server.
+	MCPServerCatalogEntryVersion int `json:"mcpServerCatalogEntryVersion,omitempty"`
+	// PinnedCatalogEntryVersion identifies an administrator test deployment that follows an exact version instead of the family default.
+	PinnedCatalogEntryVersion bool `json:"pinnedCatalogEntryVersion,omitempty"`
 	// NeedsURL indicates whether the server's URL needs to be updated to match the catalog entry.
 	NeedsURL bool `json:"needsURL,omitempty"`
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.

@@ -77,14 +77,18 @@ func (in *MCPServerCatalogEntry) IsGitManaged() bool {
 type MCPServerCatalogEntrySpec struct {
 	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest"`
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
-	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
-	Editable         bool                                `json:"editable,omitempty"`
-	SourceURL        string                              `json:"sourceURL,omitempty"`
+	// DefaultVersion selects the version projected into Manifest and UnsupportedTools.
+	DefaultVersion int    `json:"defaultVersion,omitempty"`
+	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
+	Editable       bool   `json:"editable,omitempty"`
+	SourceURL      string `json:"sourceURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }
 
 type MCPServerCatalogEntryStatus struct {
+	// LatestVersion is the greatest active version currently published for this entry.
+	LatestVersion int `json:"latestVersion,omitempty"`
 	// UserCount contains the current number of users with an MCP server created from this catalog entry.
 	// For multi-user entries, this is the sum of MCPServerInstanceUserCount across each MCPServer created from this entry (not de-duplicated across servers).
 	UserCount int `json:"userCount,omitempty"`

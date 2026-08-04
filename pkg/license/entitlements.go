@@ -24,6 +24,8 @@ const (
 var entitlementPathsToGate = []string{
 	"/mcp-connect/{mcp_id}",
 	"/mcp-connect/{mcp_id}/",
+	"/versioned-mcp-connect/{entry_id}/{version}",
+	"/versioned-mcp-connect/{entry_id}/{version}/",
 	"GET /oauth/authorize",
 	"GET /oauth/authorize/",
 	"GET /oauth/consent/",

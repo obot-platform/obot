@@ -441,6 +441,21 @@ func (in MCPServerCatalogEntryStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerCatalogEntryVersion) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerCatalogEntryVersion"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerCatalogEntryVersionList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerCatalogEntryVersionList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPServerCatalogEntryVersionSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerCatalogEntryVersionSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPServerInstance) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPServerInstance"
 }
