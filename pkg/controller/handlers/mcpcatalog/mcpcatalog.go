@@ -303,10 +303,22 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 			continue
 		}
 
+		var servers v1.MCPServerList
+		if err := c.List(ctx, &servers, client.InNamespace(entry.Namespace), client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+			return fmt.Errorf("failed to list servers for catalog entry %q: %w", entry.Name, err)
+		}
+		if len(servers.Items) == 0 {
+			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete unused catalog entry %q: %w", entry.Name, err)
+			}
+			log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entry.Name)
+			continue
+		}
+
 		if err := detachCatalogEntry(ctx, c, catalog, entry.Name); err != nil {
 			return fmt.Errorf("failed to detach catalog entry %q: %w", entry.Name, err)
 		}
-		log.Infof("Detached removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entry.Name)
+		log.Infof("Detached removed MCP catalog entry with active servers: catalog=%s entry=%s servers=%d", catalog.Name, entry.Name, len(servers.Items))
 	}
 
 	return nil

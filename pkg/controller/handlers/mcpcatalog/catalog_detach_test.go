@@ -53,18 +53,16 @@ func TestDetachRemovedEntries(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(server), &existingServer))
 }
 
-func TestUnreferencedRemovedEntryIsDetached(t *testing.T) {
+func TestUnreferencedRemovedEntryIsDeleted(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
 	c := newCatalogFakeClient(entry)
 
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
-	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &updated))
-	assert.True(t, updated.Spec.Editable)
-	assert.True(t, updated.IsDetached())
-	assert.Empty(t, updated.Labels[apply.LabelHash])
+	var deleted v1.MCPServerCatalogEntry
+	err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+	require.True(t, apierrors.IsNotFound(err))
 }
 
 func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
@@ -74,8 +72,14 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	detached.Spec.Editable = true
 	detached.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "true"
 	delete(detached.Labels, apply.LabelHash)
+	server := &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "ms1context7", Namespace: catalog.Namespace},
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: managed.Name,
+		},
+	}
 	catalog.Spec.SourceURLs = nil
-	c := newCatalogFakeClient(managed, detached)
+	c := newCatalogFakeClient(managed, detached, server)
 
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
