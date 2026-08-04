@@ -176,6 +176,62 @@ func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
 	}
 }
 
+func TestResponseModifier_NonStreamingPrettyPrintedResponseTracksUsage(t *testing.T) {
+	tracker := newTokenUsageTracker(v1.Model{
+		Spec: v1.ModelSpec{Manifest: types2.ModelManifest{
+			Dialect: string(nanobottypes.DialectOpenAIResponses),
+		}},
+	})
+	recorder := newLLMAuditRecorder(
+		httptest.NewRequest(http.MethodPost, "/v1/responses", nil),
+		nil,
+		5<<20,
+	)
+	body := `{
+  "id": "resp_1",
+  "object": "response",
+  "status": "completed",
+  "model": "gpt-5.4-2026-03-05",
+  "usage": {
+    "input_tokens": 7,
+    "input_tokens_details": {
+      "cache_write_tokens": 0,
+      "cached_tokens": 0
+    },
+    "output_tokens": 11,
+    "output_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "total_tokens": 18
+  }
+}`
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+		Request:    httptest.NewRequest(http.MethodPost, "/v1/responses", nil),
+	}
+	r := &responseModifier{
+		tokenUsageTracker: tracker,
+		audit:             recorder,
+	}
+
+	if err := r.modifyResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadAll(resp.Body); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := recorder.responseStream.String(); got != body {
+		t.Fatalf("audit response = %q, want %q", got, body)
+	}
+	usage := tracker.getTokenUsage()
+	if usage.InputTokens != 7 || usage.OutputTokens != 11 || usage.TotalTokens != 18 {
+		t.Fatalf("token usage = %+v, want 7 input, 11 output, 18 total", usage)
+	}
+}
+
 func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 	body := "{\"model\":\"gpt-4o\",\"usage\":{\"input_tokens\":5,\"output_tokens\":10,\"total_tokens\":15}}\n"
 
@@ -186,8 +242,7 @@ func TestResponseModifier_NonStreamingResponse(t *testing.T) {
 		c:                 io.NopCloser(strings.NewReader("")),
 	}
 
-	buf := make([]byte, 4096)
-	if _, err := r.Read(buf); err != nil {
+	if _, err := io.ReadAll(r); err != nil {
 		t.Fatal(err)
 	}
 

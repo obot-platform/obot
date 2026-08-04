@@ -119,6 +119,9 @@ type responseModifier struct {
 	c                   io.Closer
 	stream              bool
 	leftover            []byte
+	// Non-streaming JSON is accumulated while forwarded, then parsed once at EOF or Close.
+	nonStreamResponse bytes.Buffer
+	nonStreamParsed   bool
 
 	// Token usage and model access gating
 	tokenUsageTracker *threadSafeTokenUsageTracker
@@ -292,6 +295,18 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 		return n, err
 	}
 
+	if !r.stream {
+		n, err := r.b.Read(p)
+		if n > 0 {
+			_, _ = r.nonStreamResponse.Write(p[:n])
+			r.audit.captureResponseChunk(p[:n])
+		}
+		if errors.Is(err, io.EOF) {
+			r.parseNonStreamTokenUsage()
+		}
+		return n, err
+	}
+
 	if len(r.leftover) > 0 {
 		n := copy(p, r.leftover)
 		r.leftover = r.leftover[n:]
@@ -340,6 +355,14 @@ func (r *responseModifier) Read(p []byte) (int, error) {
 
 	r.audit.captureResponseChunk(p[:n])
 	return n, nil
+}
+
+func (r *responseModifier) parseNonStreamTokenUsage() {
+	if r.stream || r.pipeReader != nil || r.nonStreamParsed {
+		return
+	}
+	r.tokenUsageTracker.addTokenUsage(r.nonStreamResponse.Bytes())
+	r.nonStreamParsed = true
 }
 
 // streamAndEvaluateToolCalls reads the upstream response, streams text through immediately,
@@ -671,6 +694,7 @@ func buildToolCallTargetMessage(toolCalls []messagepolicy.ToolCallInfo) string {
 }
 
 func (r *responseModifier) Close() error {
+	r.parseNonStreamTokenUsage()
 	if r.tokenUsageTracker != nil {
 		usage := r.tokenUsageTracker.getTokenUsage()
 		r.audit.setTokenUsage(usage)
