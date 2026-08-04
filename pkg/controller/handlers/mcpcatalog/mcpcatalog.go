@@ -293,6 +293,9 @@ func convertCatalogEntryToEditable(ctx context.Context, c client.Client, catalog
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var entry v1.MCPServerCatalogEntry
 		if err := c.Get(ctx, client.ObjectKey{Namespace: catalog.Namespace, Name: entryName}, &entry); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
 			return err
 		}
 

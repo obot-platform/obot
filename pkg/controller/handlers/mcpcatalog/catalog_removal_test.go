@@ -124,6 +124,12 @@ func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
 	require.True(t, apierrors.IsNotFound(err))
 }
 
+func TestConvertCatalogEntryToEditableIgnoresNotFound(t *testing.T) {
+	catalog := testCatalog()
+
+	require.NoError(t, convertCatalogEntryToEditable(t.Context(), newCatalogFakeClient(), catalog, "missing"))
+}
+
 func testCatalog() *v1.MCPCatalog {
 	return &v1.MCPCatalog{
 		TypeMeta: metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "MCPCatalog"},
