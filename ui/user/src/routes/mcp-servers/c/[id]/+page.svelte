@@ -68,7 +68,7 @@
 					: catalogEntry?.manifest.runtime === 'remote'
 						? 'remote'
 						: 'hosted'}
-				readonly={catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL}
+				readonly={catalogEntry.editable !== true}
 				id={workspaceId}
 				entity="workspace"
 				{hasExistingConfigured}

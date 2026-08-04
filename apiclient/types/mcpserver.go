@@ -157,6 +157,7 @@ type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
 	Editable                  bool                          `json:"editable,omitempty"`
+	Detached                  bool                          `json:"detached,omitempty"`
 	CatalogName               string                        `json:"catalogName,omitempty"`
 	SourceURL                 string                        `json:"sourceURL,omitempty"`
 	UserCount                 int                           `json:"userCount,omitempty"`

@@ -955,7 +955,7 @@
 			onConfigureOAuth={handleConfigureOAuth}
 		>
 			{#snippet readonlyMessage()}
-				{#if entry && 'sourceURL' in entry && !!entry.sourceURL}
+				{#if entry && 'sourceURL' in entry && !!entry.sourceURL && !entry.detached}
 					<p>
 						This catalog entry comes from an external Git Source URL <span
 							class="text-muted-content text-xs">({entry.sourceURL.split('/').pop()})</span
