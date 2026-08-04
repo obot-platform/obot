@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -22,11 +23,35 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.Client {
 		Build()
 }
 
+// fakeOnce records which seeds have run, standing in for the row the gateway
+// keeps. Seeds are identified by name, so a test can start from "never seeded"
+// or from "already seeded" without a database.
+type fakeOnce struct{ done map[string]bool }
+
+func newFakeOnce(seeded ...string) *fakeOnce {
+	f := &fakeOnce{done: map[string]bool{}}
+	for _, name := range seeded {
+		f.done[name] = true
+	}
+	return f
+}
+
+func (f *fakeOnce) RunOnce(ctx context.Context, name string, fn func(context.Context) error) error {
+	if f.done[name] {
+		return nil
+	}
+	if err := fn(ctx); err != nil {
+		return err
+	}
+	f.done[name] = true
+	return nil
+}
+
 func TestDataCreatesDefaultModelAccessPolicyWithLLMAliases(t *testing.T) {
 	ctx := t.Context()
 	client := newFakeClient(t)
 
-	require.NoError(t, Data(ctx, client, Defaults{}))
+	require.NoError(t, Data(ctx, client, newFakeOnce(), Defaults{}))
 
 	var policy v1.ModelAccessPolicy
 	require.NoError(t, client.Get(ctx, kclient.ObjectKey{
@@ -224,32 +249,51 @@ func TestCreateDefaultAgentCatalog(t *testing.T) {
 	})
 }
 
-func TestDataSeedsDefaultAgentCatalogOnFirstBoot(t *testing.T) {
+func TestDataSeedsHostedAgents(t *testing.T) {
 	ctx := t.Context()
 	const repoURL = "https://github.com/obot-platform/hosted-agents-catalog"
 
-	t.Run("seeds on first boot", func(t *testing.T) {
-		c := newFakeClient(t)
-		require.NoError(t, Data(ctx, c, Defaults{HostedAgentsCatalogURL: repoURL}))
-
-		var source v1.AgentCatalog
+	seeded := func(t *testing.T, c kclient.Client) {
+		t.Helper()
+		var catalog v1.AgentCatalog
 		require.NoError(t, c.Get(ctx, kclient.ObjectKey{
 			Namespace: system.DefaultNamespace,
 			Name:      system.DefaultAgentCatalog,
-		}, &source))
-		assert.Equal(t, repoURL, source.Spec.RepoURL)
+		}, &catalog))
+		assert.Equal(t, repoURL, catalog.Spec.RepoURL)
+
+		var rules v1.HostedAgentAccessRuleList
+		require.NoError(t, c.List(ctx, &rules))
+		assert.NotEmpty(t, rules.Items, "seeding a catalog nobody may use leaves the feature unusable")
+	}
+
+	t.Run("seeds on a new installation", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, Data(ctx, c, newFakeOnce(), Defaults{HostedAgentsCatalogURL: repoURL}))
+		seeded(t, c)
 	})
 
-	// An existing MCPCatalog stands in for "this server has booted before", so a
-	// catalog an admin deleted is not resurrected.
-	t.Run("does not seed when catalogs already exist", func(t *testing.T) {
+	// The case this seed used to miss entirely. An installation that upgrades
+	// into hosted agents already has MCP catalogs, which the surrounding seeds
+	// read as "this server has run before" -- true, and beside the point: it has
+	// never seen this feature. Gated that way it arrived with no harnesses, no
+	// templates and nobody permitted to use them.
+	t.Run("seeds on an installation that upgraded into the feature", func(t *testing.T) {
 		c := newFakeClient(t, &v1.MCPCatalog{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      system.DefaultCatalog,
 				Namespace: system.DefaultNamespace,
 			},
 		})
-		require.NoError(t, Data(ctx, c, Defaults{HostedAgentsCatalogURL: repoURL}))
+		require.NoError(t, Data(ctx, c, newFakeOnce(), Defaults{HostedAgentsCatalogURL: repoURL}))
+		seeded(t, c)
+	})
+
+	// The record outlives what it created, so an administrator who deletes the
+	// catalog does not find it back on the next start.
+	t.Run("does not seed again once it has", func(t *testing.T) {
+		c := newFakeClient(t)
+		require.NoError(t, Data(ctx, c, newFakeOnce(seedHostedAgents), Defaults{HostedAgentsCatalogURL: repoURL}))
 
 		var list v1.AgentCatalogList
 		require.NoError(t, c.List(ctx, &list))
