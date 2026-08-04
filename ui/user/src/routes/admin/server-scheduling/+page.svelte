@@ -173,8 +173,8 @@
 							<div class="flex items-center gap-3">
 								<Info class="size-6" />
 								<div>
-									Resource maximums are managed by your Helm chart and are <b
-										class="font-semibold">read-only</b
+									Resource maximums are managed by your Helm chart and are <b class="font-semibold"
+										>read-only</b
 									> in the UI.
 								</div>
 							</div>
