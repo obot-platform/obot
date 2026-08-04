@@ -20,7 +20,9 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		[hostedAgents, instances, pools, assignments] = await Promise.all([
 			AdminService.listHostedAgents({ fetch }),
 			AdminService.listHostedAgentInstances(undefined, { fetch }),
-			AdminService.listHostedAgentPools({ fetch }),
+			// Assigned only: this page launches agents, and a pool the user is not
+			// a member of is not theirs to spend, however much of it they can see.
+			AdminService.listHostedAgentPools({ fetch, assigned: true }),
 			AdminService.listHostedAgentPoolAssignments({ fetch })
 		]);
 	} catch (err) {

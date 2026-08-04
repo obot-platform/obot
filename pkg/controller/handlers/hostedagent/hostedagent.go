@@ -243,12 +243,22 @@ func (h *Handler) OrchestrateInstance(req router.Request, resp router.Response) 
 	}
 
 	ref := instanceRef(instance)
-	// EnsurePool is registered immediately before this handler. nah can
-	// aggregate errors from handlers in one reconciliation pass, so do not try
-	// to construct backend desired state when pool resolution failed.
-	// The pool handler's actionable error is sufficient and a later
-	// reconcile will continue once defaults or an assignment are configured.
+	// EnsurePool is registered immediately before this handler, but nah runs
+	// every handler for a type and aggregates their errors, so EnsurePool
+	// failing does not stop this one. Repeat its conclusion rather than trust
+	// it: a pool ID that survived EnsurePool's rejection would otherwise be
+	// deployed into anyway, putting this sandbox in a pool whose capacity
+	// belongs to somebody else. The pool handler's error is the actionable one,
+	// so bail out quietly and let a later reconcile continue once defaults or
+	// an assignment are configured.
 	if instance.Spec.PoolID == "" {
+		return nil
+	}
+	assignments, err := assignmentsForUser(req, instance.Spec.UserID)
+	if err != nil {
+		return err
+	}
+	if !isAssigned(assignments, instance.Spec.PoolID) {
 		return nil
 	}
 
