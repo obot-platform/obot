@@ -988,6 +988,7 @@ func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements,
 }
 
 func mcpContainerResourcesWithMaximums(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) corev1.ResourceRequirements {
+	maximums = ResourceMaximumsFromK8sSettings(k8sSettings, maximums)
 	defaults, implicitMemoryRequest := mcpContainerDefaultResources(runtime, nanobotAgent, k8sSettings)
 	defaults = withImplicitResourceMaximums(defaults, implicitMemoryRequest, maximums)
 	return withServerResourceOverrides(defaults, serverSpecificResources)

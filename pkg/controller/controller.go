@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -439,6 +440,9 @@ func ensureHostedAgentPoolDefaults(ctx context.Context, client kclient.Client) e
 //
 //	These are always applied regardless of SetViaHelm flag and cannot be modified via UI.
 func ensureK8sSettings(ctx context.Context, client kclient.Client, podSchedulingSettings *v1.K8sSettingsSpec, psaSettings *v1.PodSecurityAdmissionSettings, resourceMaximums mcp.ResourceMaximums) error {
+	settingsSetViaHelm := hasHelmPodSchedulingSettings(podSchedulingSettings)
+	maximumsSetViaHelm := podSchedulingSettings != nil && podSchedulingSettings.MaximumsSetViaHelm
+
 	var k8sSettings v1.K8sSettings
 	if err := client.Get(ctx, kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
@@ -452,18 +456,21 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 				Namespace: system.DefaultNamespace,
 			},
 			Spec: v1.K8sSettingsSpec{
-				SetViaHelm: podSchedulingSettings != nil,
+				SetViaHelm:         settingsSetViaHelm,
+				MaximumsSetViaHelm: maximumsSetViaHelm,
 			},
 		}
 
-		// If pod scheduling settings provided via Helm, use them
-		if podSchedulingSettings != nil {
+		if settingsSetViaHelm {
 			k8sSettings.Spec.Affinity = podSchedulingSettings.Affinity
 			k8sSettings.Spec.Tolerations = podSchedulingSettings.Tolerations
 			k8sSettings.Spec.Resources = podSchedulingSettings.Resources
 			k8sSettings.Spec.RuntimeClassName = podSchedulingSettings.RuntimeClassName
 			k8sSettings.Spec.StorageClassName = podSchedulingSettings.StorageClassName
 			k8sSettings.Spec.NanobotWorkspaceSize = podSchedulingSettings.NanobotWorkspaceSize
+		}
+		if maximumsSetViaHelm {
+			setK8sSettingsMaximums(&k8sSettings.Spec, podSchedulingSettings)
 		}
 
 		// PSA settings are always applied from environment/Helm (independent of SetViaHelm)
@@ -481,8 +488,7 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 	// Determine if we need to update
 	needsUpdate := false
 
-	// Handle pod scheduling settings from Helm
-	if podSchedulingSettings != nil {
+	if settingsSetViaHelm {
 		// Pod scheduling settings provided via Helm - lock them
 		if !k8sSettings.Spec.SetViaHelm ||
 			!affinityEqual(k8sSettings.Spec.Affinity, podSchedulingSettings.Affinity) ||
@@ -510,6 +516,18 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 		k8sSettings.Spec.RuntimeClassName = nil
 		k8sSettings.Spec.StorageClassName = nil
 		k8sSettings.Spec.NanobotWorkspaceSize = ""
+		needsUpdate = true
+	}
+
+	if maximumsSetViaHelm {
+		if !k8sSettings.Spec.MaximumsSetViaHelm || !resourceMaximumsEqual(k8sSettings.Spec, *podSchedulingSettings) {
+			k8sSettings.Spec.MaximumsSetViaHelm = true
+			setK8sSettingsMaximums(&k8sSettings.Spec, podSchedulingSettings)
+			needsUpdate = true
+		}
+	} else if k8sSettings.Spec.MaximumsSetViaHelm {
+		k8sSettings.Spec.MaximumsSetViaHelm = false
+		setK8sSettingsMaximums(&k8sSettings.Spec, nil)
 		needsUpdate = true
 	}
 
@@ -563,6 +581,44 @@ func resourcesEqual(a, b *corev1.ResourceRequirements) bool {
 		return false
 	}
 	return equality.Semantic.DeepEqual(a, b)
+}
+
+func quantityEqual(a, b *resource.Quantity) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Cmp(*b) == 0
+}
+
+func hasHelmPodSchedulingSettings(settings *v1.K8sSettingsSpec) bool {
+	if settings == nil {
+		return false
+	}
+	return settings.SetViaHelm || settings.Affinity != nil || len(settings.Tolerations) > 0 ||
+		settings.Resources != nil || settings.NanobotAgentResources != nil ||
+		settings.RuntimeClassName != nil || settings.StorageClassName != nil ||
+		settings.NanobotWorkspaceSize != ""
+}
+
+func resourceMaximumsEqual(a, b v1.K8sSettingsSpec) bool {
+	return quantityEqual(a.MaxCPURequest, b.MaxCPURequest) &&
+		quantityEqual(a.MaxCPULimit, b.MaxCPULimit) &&
+		quantityEqual(a.MaxMemoryRequest, b.MaxMemoryRequest) &&
+		quantityEqual(a.MaxMemoryLimit, b.MaxMemoryLimit)
+}
+
+func setK8sSettingsMaximums(settings *v1.K8sSettingsSpec, maximums *v1.K8sSettingsSpec) {
+	if maximums == nil {
+		settings.MaxCPURequest = nil
+		settings.MaxCPULimit = nil
+		settings.MaxMemoryRequest = nil
+		settings.MaxMemoryLimit = nil
+		return
+	}
+	settings.MaxCPURequest = maximums.MaxCPURequest
+	settings.MaxCPULimit = maximums.MaxCPULimit
+	settings.MaxMemoryRequest = maximums.MaxMemoryRequest
+	settings.MaxMemoryLimit = maximums.MaxMemoryLimit
 }
 
 func classNameEqual(a, b *string) bool {

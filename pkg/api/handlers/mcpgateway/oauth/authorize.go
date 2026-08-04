@@ -368,7 +368,12 @@ func (h *handler) consent(req api.Context) error {
 		mcpServer         *types.MCPServer
 		mcpServerInstance *types.MCPServerInstance
 	)
-	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL, h.oauthChecker.secretBindingAllowedLabel, handlers.ValidationOptionsWithResourceMaximums(h.oauthChecker.mcpSessionManager))
+	validationOptions, err := handlers.ValidationOptionsWithResourceMaximums(req, h.oauthChecker.mcpSessionManager)
+	if err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
+		return nil
+	}
+	mcpServer, mcpServerInstance, err = handlers.ConfigurationTargetForConnectID(req, oauthAppAuthRequest.Spec.MCPID, h.baseURL, h.oauthChecker.secretBindingAllowedLabel, validationOptions)
 	if err != nil {
 		if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))

@@ -8306,6 +8306,34 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 							Format:      "",
 						},
 					},
+					"maxCpuRequest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxCPURequest is the startup-configured maximum CPU request for MCP server pods.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxCpuLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxCPULimit is the startup-configured maximum CPU limit for MCP server pods.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxMemoryRequest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxMemoryRequest is the startup-configured maximum memory request for MCP server pods.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"maxMemoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaxMemoryLimit is the startup-configured maximum memory limit for MCP server pods.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"runtimeClassName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "RuntimeClassName specifies the RuntimeClass for MCP server pods This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)",
@@ -8343,6 +8371,13 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 					"setViaHelm": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SetViaHelm indicates settings are from Helm (cannot be updated via API)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"maximumsSetViaHelm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaximumsSetViaHelm indicates resource maximums are from Helm (cannot be updated via API)",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -20900,6 +20935,27 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"maxCPURequest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Maximum resource requests and limits for MCP server pods",
+							Ref:         ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
+					"maxCPULimit": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
+					"maxMemoryRequest": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
+					"maxMemoryLimit": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref(resource.Quantity{}.OpenAPIModelName()),
+						},
+					},
 					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "StorageClassName specifies the StorageClass for nanobot workspace volumes",
@@ -20927,11 +20983,18 @@ func schema_storage_apis_obotobotai_v1_K8sSettingsSpec(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"maximumsSetViaHelm": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MaximumsSetViaHelm indicates if resource maximums came from Helm (cannot be updated via API)",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			v1.PodSecurityAdmissionSettings{}.OpenAPIModelName()},
+			v1.PodSecurityAdmissionSettings{}.OpenAPIModelName(), resource.Quantity{}.OpenAPIModelName()},
 	}
 }
 

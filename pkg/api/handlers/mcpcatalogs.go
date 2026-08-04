@@ -326,7 +326,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 			return err
 		}
 	}
-	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
@@ -408,7 +408,7 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if manifest.ServerUserType == "" {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
-	if err := mcp.ValidateCatalogEntryManifest(req.Context(), manifest, false, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, manifest); err != nil {
@@ -1733,7 +1733,7 @@ func (h *MCPCatalogHandler) RefreshCompositeComponents(req api.Context) error {
 
 	// Validate the refreshed manifest to ensure it's still valid
 	entryGitManaged := entry.IsGitManaged()
-	if err := mcp.ValidateCatalogEntryManifest(req.Context(), entry.Spec.Manifest, entryGitManaged, ValidationOptionsWithResourceMaximums(h.sessionManager)); err != nil {
+	if err := validateCatalogEntryManifestWithResourceMaximums(req, entry.Spec.Manifest, entryGitManaged, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	if err := tunnel.ValidateCatalogEntryTunnelReferences(req.Context(), req.Storage, entry.Spec.Manifest); err != nil {

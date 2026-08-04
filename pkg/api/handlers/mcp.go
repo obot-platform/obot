@@ -83,14 +83,34 @@ func validationOptions(remoteValidationConfig mcp.RemoteMCPURLValidationConfig) 
 	}
 }
 
-// ValidationOptionsWithResourceMaximums builds MCP manifest validation options from the active MCP session manager.
-func ValidationOptionsWithResourceMaximums(sessionManager *mcp.SessionManager) mcp.ValidationOptions {
+// ValidationOptionsWithResourceMaximums builds MCP manifest validation options from startup and persisted settings.
+func ValidationOptionsWithResourceMaximums(req api.Context, sessionManager *mcp.SessionManager) (mcp.ValidationOptions, error) {
 	if sessionManager == nil {
-		return mcp.ValidationOptions{}
+		return mcp.ValidationOptions{}, nil
 	}
 	options := validationOptions(sessionManager.RemoteMCPURLValidationConfig())
-	options.ResourceMaximums = sessionManager.KubernetesResourceMaximums()
-	return options
+	maximums, err := sessionManager.EffectiveKubernetesResourceMaximums(req.Context(), req.Storage)
+	if err != nil {
+		return mcp.ValidationOptions{}, err
+	}
+	options.ResourceMaximums = maximums
+	return options, nil
+}
+
+func validateServerManifestWithResourceMaximums(req api.Context, manifest types.MCPServerManifest, isMultiUser bool, sessionManager *mcp.SessionManager) error {
+	options, err := ValidationOptionsWithResourceMaximums(req, sessionManager)
+	if err != nil {
+		return err
+	}
+	return mcp.ValidateServerManifest(req.Context(), manifest, isMultiUser, options)
+}
+
+func validateCatalogEntryManifestWithResourceMaximums(req api.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, sessionManager *mcp.SessionManager) error {
+	options, err := ValidationOptionsWithResourceMaximums(req, sessionManager)
+	if err != nil {
+		return err
+	}
+	return mcp.ValidateCatalogEntryManifest(req.Context(), manifest, gitManaged, options)
 }
 
 func (m *MCPHandler) currentImagePullSecretNames(req api.Context) ([]string, error) {
@@ -1681,7 +1701,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
 
-	if err := mcp.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validateServerManifestWithResourceMaximums(req, server.Spec.Manifest, !server.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, server.Spec.Manifest); err != nil {
@@ -1782,7 +1802,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	if err := mcp.ValidateServerManifest(req.Context(), updated, !existing.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validateServerManifestWithResourceMaximums(req, updated, !existing.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updated); err != nil {
@@ -1937,7 +1957,11 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 
 		var updateServer bool
 		if url := envVars[configURLKey]; url != "" {
-			if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, catalogEntry, url, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
+			if err != nil {
+				return err
+			}
+			if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, catalogEntry, url, validationOptions); err != nil {
 				return err
 			}
 
@@ -1964,7 +1988,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			}
 			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
 
-			if err := mcp.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+			if err := validateServerManifestWithResourceMaximums(req, mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
 			}
 			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
@@ -2132,7 +2156,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				if remoteConfig.URL != originalURL {
 					// Capture and validate the changes
 					component.Manifest.RemoteConfig = remoteConfig
-					if err := mcp.ValidateServerManifest(req.Context(), component.Manifest, false, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+					if err := validateServerManifestWithResourceMaximums(req, component.Manifest, false, m.mcpSessionManager); err != nil {
 						return fmt.Errorf("failed to validate server manifest %w", err)
 					}
 					if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, component.Manifest); err != nil {
@@ -3824,7 +3848,11 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return fmt.Errorf("failed to read input: %w", err)
 	}
 
-	if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, entry, input.URL, ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
+	if err != nil {
+		return err
+	}
+	if err := updateMCPServerURLFromCatalogEntry(req.Context(), req.Storage, &mcpServer, entry, input.URL, validationOptions); err != nil {
 		return err
 	}
 
@@ -3942,7 +3970,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	candidate := server.DeepCopy()
 	updateServerFromCatalogEntry(candidate, entry)
-	if err := mcp.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validateServerManifestWithResourceMaximums(req, candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, candidate.Spec.Manifest); err != nil {
@@ -3971,7 +3999,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		updateServerFromCatalogEntry(&latest, entry)
 
 		// Validate again in case the catalog entry changed between retries.
-		if err := mcp.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+		if err := validateServerManifestWithResourceMaximums(req, latest.Spec.Manifest, !latest.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 			return types.NewErrBadRequest("validation failed: %v", err)
 		}
 		if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, latest.Spec.Manifest); err != nil {
@@ -4071,7 +4099,7 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	if err != nil {
 		return err
 	}
-	if err := mcp.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+	if err := validateServerManifestWithResourceMaximums(req, updatedManifest, !compositeServer.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
