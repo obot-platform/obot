@@ -755,6 +755,32 @@ export interface MCPCatalogEntry {
 	needsK8sUpdate?: boolean;
 	oauthCredentialConfigured?: boolean;
 	connectURL?: string;
+	defaultVersion?: number;
+	latestVersion?: number;
+}
+export interface MCPCatalogEntryVersion {
+	active: boolean;
+	created: string;
+	id: string;
+	manifest: MCPCatalogEntryServerManifest;
+	mcpServerCatalogEntryName: string;
+	sourceURL?: string;
+	unsupportedTools?: string[];
+	version: number;
+}
+export interface CatalogBulkUpgradeApplyRequest {
+	plans: Record<string, import('../user/types').CatalogUpgradeApplyRequest>;
+}
+export interface CatalogBulkUpgradePlan {
+	affectedUsers: number;
+	catalogEntryID: string;
+	plans: import('../user/types').CatalogUpgradePlan[];
+	targetVersion: number;
+}
+export interface CatalogBulkUpgradeResult {
+	catalogEntryID: string;
+	results: import('../user/types').CatalogUpgradeResult[];
+	targetVersion: number;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing

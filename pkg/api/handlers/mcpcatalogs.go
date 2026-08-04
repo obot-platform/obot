@@ -5,9 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -25,6 +27,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -295,6 +298,166 @@ func (h *MCPCatalogHandler) GetEntry(req api.Context) error {
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
+func parseCatalogEntryVersion(req api.Context) (int, error) {
+	value := req.PathValue("version")
+	version, err := strconv.Atoi(value)
+	if err != nil || version < 0 {
+		return 0, types.NewErrBadRequest("invalid catalog entry version %q", value)
+	}
+	return version, nil
+}
+
+func getCatalogEntryForVersion(req api.Context) (v1.MCPServerCatalogEntry, error) {
+	catalogName := req.PathValue("catalog_id")
+	if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+		return v1.MCPServerCatalogEntry{}, fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, req.PathValue("entry_id")); err != nil {
+		return v1.MCPServerCatalogEntry{}, fmt.Errorf("failed to get entry: %w", err)
+	}
+	if err := validateEntryScope(entry, catalogName, ""); err != nil {
+		return v1.MCPServerCatalogEntry{}, err
+	}
+	return entry, nil
+}
+
+func getCatalogEntryVersion(req api.Context, entryName string, version int) (v1.MCPServerCatalogEntryVersion, error) {
+	var child v1.MCPServerCatalogEntryVersion
+	if err := req.Get(&child, v1.MCPServerCatalogEntryVersionName(entryName, version)); err != nil {
+		return v1.MCPServerCatalogEntryVersion{}, fmt.Errorf("failed to get catalog entry version: %w", err)
+	}
+	if child.Spec.MCPServerCatalogEntryName != entryName || child.Spec.Version != version {
+		return v1.MCPServerCatalogEntryVersion{}, types.NewErrBadRequest("catalog entry version does not belong to entry")
+	}
+	return child, nil
+}
+
+func convertMCPServerCatalogEntryVersion(version v1.MCPServerCatalogEntryVersion) types.MCPServerCatalogEntryVersion {
+	return types.MCPServerCatalogEntryVersion{
+		Metadata:                  MetadataFrom(&version),
+		MCPServerCatalogEntryName: version.Spec.MCPServerCatalogEntryName,
+		Version:                   version.Spec.Version,
+		Manifest:                  version.Spec.Manifest,
+		UnsupportedTools:          version.Spec.UnsupportedTools,
+		SourceURL:                 version.Spec.SourceURL,
+		Active:                    version.Spec.Active,
+	}
+}
+
+func (*MCPCatalogHandler) ListEntryVersions(req api.Context) error {
+	entry, err := getCatalogEntryForVersion(req)
+	if err != nil {
+		return err
+	}
+
+	var versions v1.MCPServerCatalogEntryVersionList
+	if err := req.List(&versions, client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+		return fmt.Errorf("failed to list catalog entry versions: %w", err)
+	}
+	sort.Slice(versions.Items, func(i, j int) bool {
+		return versions.Items[i].Spec.Version < versions.Items[j].Spec.Version
+	})
+
+	items := make([]types.MCPServerCatalogEntryVersion, 0, len(versions.Items))
+	for _, version := range versions.Items {
+		if version.Spec.MCPServerCatalogEntryName == entry.Name {
+			items = append(items, convertMCPServerCatalogEntryVersion(version))
+		}
+	}
+	return req.Write(types.MCPServerCatalogEntryVersionList{Items: items})
+}
+
+func (*MCPCatalogHandler) GetEntryVersion(req api.Context) error {
+	entry, err := getCatalogEntryForVersion(req)
+	if err != nil {
+		return err
+	}
+	version, err := parseCatalogEntryVersion(req)
+	if err != nil {
+		return err
+	}
+	child, err := getCatalogEntryVersion(req, entry.Name, version)
+	if err != nil {
+		return err
+	}
+	return req.Write(convertMCPServerCatalogEntryVersion(child))
+}
+
+func (h *MCPCatalogHandler) SetDefaultEntryVersion(req api.Context) error {
+	if _, err := getCatalogEntryForVersion(req); err != nil {
+		return err
+	}
+	version, err := parseCatalogEntryVersion(req)
+	if err != nil {
+		return err
+	}
+
+	var updated v1.MCPServerCatalogEntry
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		entry, err := getCatalogEntryForVersion(req)
+		if err != nil {
+			return err
+		}
+		child, err := getCatalogEntryVersion(req, entry.Name, version)
+		if err != nil {
+			return err
+		}
+		if !child.Spec.Active {
+			return types.NewErrBadRequest("catalog entry version %d is inactive", version)
+		}
+
+		entry.Spec.DefaultVersion = version
+		entry.Spec.Manifest = child.Spec.Manifest
+		entry.Spec.UnsupportedTools = slices.Clone(child.Spec.UnsupportedTools)
+		if err := req.Update(&entry); err != nil {
+			return err
+		}
+		updated = entry
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to set default catalog entry version: %w", err)
+	}
+	return req.Write(ConvertMCPServerCatalogEntry(updated, h.serverURL))
+}
+
+func (*MCPCatalogHandler) DeleteEntryVersion(req api.Context) error {
+	entry, err := getCatalogEntryForVersion(req)
+	if err != nil {
+		return err
+	}
+	version, err := parseCatalogEntryVersion(req)
+	if err != nil {
+		return err
+	}
+	child, err := getCatalogEntryVersion(req, entry.Name, version)
+	if err != nil {
+		return err
+	}
+	if child.Spec.Active {
+		return types.NewErrHTTP(http.StatusConflict, "active catalog entry versions cannot be deleted")
+	}
+	if entry.Spec.DefaultVersion == version {
+		return types.NewErrHTTP(http.StatusConflict, "the default catalog entry version cannot be deleted")
+	}
+
+	var servers v1.MCPServerList
+	if err := req.List(&servers, client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+		return fmt.Errorf("failed to list MCP servers referencing catalog entry: %w", err)
+	}
+	for _, server := range servers.Items {
+		if server.Spec.MCPServerCatalogEntryName == entry.Name && server.Spec.MCPServerCatalogEntryVersion == version {
+			return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("catalog entry version is referenced by MCP server %s", server.Name))
+		}
+	}
+
+	if err := req.Delete(&child); err != nil {
+		return fmt.Errorf("failed to delete catalog entry version: %w", err)
+	}
+	return nil
+}
+
 // CreateEntry creates a new entry for a catalog or workspace.
 func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
@@ -537,8 +700,8 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 
 	var items []types.MCPServer
 	for _, server := range list.Items {
-		if server.Spec.Template {
-			// Hide template servers
+		if server.Spec.Template || server.Spec.PinnedCatalogEntryVersion {
+			// Hide template and exact-version test deployments.
 			continue
 		}
 
@@ -612,7 +775,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 	// Filter out template servers and servers in workspaces
 	var filteredServers []v1.MCPServer
 	for _, server := range allServers {
-		if server.Spec.Template || server.Spec.PowerUserWorkspaceID != "" {
+		if server.Spec.Template || server.Spec.PowerUserWorkspaceID != "" || server.Spec.PinnedCatalogEntryVersion {
 			// Hide template servers and servers in workspaces.
 			// Servers in workspaces should not be possible,
 			// unless somehow someone (like an admin) created one from
@@ -700,8 +863,8 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 
 	var items []types.MCPServer
 	for _, server := range list.Items {
-		if server.Spec.Template {
-			// Hide template servers
+		if server.Spec.Template || server.Spec.PinnedCatalogEntryVersion {
+			// Hide template and exact-version test deployments.
 			continue
 		}
 

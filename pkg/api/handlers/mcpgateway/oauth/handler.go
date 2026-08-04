@@ -50,10 +50,13 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	// Expose two sets of endpoints: one for clients that look at the oauth-protected-resource metadata and one for clients that don't.
 	// Clients that don't look at the metadata must use a resource parameter when authorizing.
 	mux.HandleFunc("POST /oauth/register/{mcp_id}", h.register)
+	mux.HandleFunc("POST /oauth/register/versioned-mcp-connect/{entry_id}/{version}", h.register)
 	mux.HandleFunc("POST /oauth/register", h.register)
 	mux.HandleFunc("GET /oauth/authorize/{mcp_id}", h.authorize)
+	mux.HandleFunc("GET /oauth/authorize/versioned-mcp-connect/{entry_id}/{version}", h.authorize)
 	mux.HandleFunc("GET /oauth/authorize", h.authorize)
 	mux.HandleFunc("POST /oauth/token/{mcp_id}", h.token)
+	mux.HandleFunc("POST /oauth/token/versioned-mcp-connect/{entry_id}/{version}", h.token)
 	mux.HandleFunc("POST /oauth/token", h.token)
 
 	// This is the callback that Obot will redirect to after the user has authenticated.

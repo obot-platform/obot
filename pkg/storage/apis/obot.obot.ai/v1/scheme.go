@@ -33,6 +33,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&MCPServerInstanceList{},
 		&MCPServerCatalogEntry{},
 		&MCPServerCatalogEntryList{},
+		&MCPServerCatalogEntryVersion{},
+		&MCPServerCatalogEntryVersionList{},
 		&Model{},
 		&ModelList{},
 		&DefaultModelAlias{},

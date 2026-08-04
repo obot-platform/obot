@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/api/authz"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -41,5 +42,14 @@ func TestRegistryUserAuthenticated(t *testing.T) {
 				t.Fatalf("registryUserAuthenticated() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPinnedServersAreNotDiscoverable(t *testing.T) {
+	if isDiscoverableServer(v1.MCPServer{Spec: v1.MCPServerSpec{PinnedCatalogEntryVersion: true}}) {
+		t.Fatal("pinned catalog entry deployment must not be discoverable")
+	}
+	if !isDiscoverableServer(v1.MCPServer{}) {
+		t.Fatal("ordinary server should be discoverable")
 	}
 }

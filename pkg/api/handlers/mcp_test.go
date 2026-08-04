@@ -81,6 +81,7 @@ func TestConvertMCPResources(t *testing.T) {
 	entry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
 		Spec: v1.MCPServerCatalogEntrySpec{
+			DefaultVersion: 2,
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Name:           "entry",
 				Resources:      resources,
@@ -88,9 +89,12 @@ func TestConvertMCPResources(t *testing.T) {
 				Runtime:        types.RuntimeRemote,
 			},
 		},
+		Status: v1.MCPServerCatalogEntryStatus{LatestVersion: 3},
 	}, "https://example.com")
 	assert.Equal(t, resources, entry.Manifest.Resources)
 	assert.Equal(t, "https://example.com/mcp-connect/entry", entry.ConnectURL)
+	assert.Equal(t, 2, entry.DefaultVersion)
+	assert.Equal(t, 3, entry.LatestVersion)
 
 	compositeEntry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{Name: "composite-entry"},
@@ -112,6 +116,8 @@ func TestConvertMCPResources(t *testing.T) {
 	server := ConvertMCPServer(v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "server"},
 		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryVersion: 2,
+			PinnedCatalogEntryVersion:    true,
 			Manifest: types.MCPServerManifest{
 				Name:      "server",
 				Resources: resources,
@@ -119,6 +125,8 @@ func TestConvertMCPResources(t *testing.T) {
 		},
 	}, nil, "", "")
 	assert.Equal(t, resources, server.MCPServerManifest.Resources)
+	assert.Equal(t, 2, server.MCPServerCatalogEntryVersion)
+	assert.True(t, server.PinnedCatalogEntryVersion)
 }
 
 func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {

@@ -19,6 +19,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/catalogversion"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -80,16 +81,28 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return nil
 	}
 
-	var entry v1.MCPServerCatalogEntry
-	if err := req.Get(&entry, server.Namespace, server.Spec.MCPServerCatalogEntryName); apierrors.IsNotFound(err) {
+	var (
+		resolved catalogversion.Resolved
+		err      error
+	)
+	if server.Spec.PinnedCatalogEntryVersion {
+		resolved, err = catalogversion.ResolveExact(req.Ctx, req.Client, server.Namespace, server.Spec.MCPServerCatalogEntryName, server.Spec.MCPServerCatalogEntryVersion, false)
+	} else {
+		resolved, err = catalogversion.ResolveDefault(req.Ctx, req.Client, server.Namespace, server.Spec.MCPServerCatalogEntryName)
+	}
+	if apierrors.IsNotFound(err) {
 		return nil
-	} else if err != nil {
+	}
+	if err != nil {
 		return err
 	}
 
-	drifted, err := ConfigurationHasDrifted(req.Ctx, h.gatewayClient, server, entry.Spec.Manifest, h.defaultDenyAllEgress)
+	drifted, err := ConfigurationHasDrifted(req.Ctx, h.gatewayClient, server, resolved.Version.Spec.Manifest, h.defaultDenyAllEgress)
 	if err != nil {
 		return err
+	}
+	if !server.Spec.PinnedCatalogEntryVersion && server.Spec.MCPServerCatalogEntryVersion != resolved.Version.Spec.Version {
+		drifted = true
 	}
 
 	if server.Status.NeedsUpdate != drifted {
@@ -944,6 +957,14 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 		}
 
 		// Catalog entry component
+		resolvedComponent, err := catalogversion.ResolveDefault(req.Ctx, req.Client, compositeServer.Namespace, component.CatalogEntryID)
+		if err != nil {
+			return fmt.Errorf("failed to resolve catalog version for component %s: %w", component.CatalogEntryID, err)
+		}
+		desiredManifest, err := mcp.ServerManifestFromCatalogEntryManifest(false, component.Disabled, resolvedComponent.Version.Spec.Manifest, component.Manifest)
+		if err != nil {
+			return fmt.Errorf("failed to map catalog version for component %s: %w", component.CatalogEntryID, err)
+		}
 		if existingServer, exists := existingServers[component.CatalogEntryID]; !exists {
 			// New server, create it
 			newServer := withNeedsURL(v1.MCPServer{
@@ -953,10 +974,11 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					Finalizers:   []string{v1.MCPServerFinalizer},
 				},
 				Spec: v1.MCPServerSpec{
-					Manifest:                  component.Manifest,
-					MCPServerCatalogEntryName: component.CatalogEntryID,
-					UserID:                    compositeServer.Spec.UserID,
-					CompositeName:             compositeServer.Name,
+					Manifest:                     desiredManifest,
+					MCPServerCatalogEntryName:    component.CatalogEntryID,
+					MCPServerCatalogEntryVersion: resolvedComponent.Version.Spec.Version,
+					UserID:                       compositeServer.Spec.UserID,
+					CompositeName:                compositeServer.Name,
 				},
 			})
 
@@ -964,11 +986,12 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				return fmt.Errorf("failed to create new component server: %w", err)
 			}
 			log.Infof("Created component MCP server for composite server: composite=%s catalogEntry=%s", compositeServer.Name, component.CatalogEntryID)
-		} else if utils.Digest(existingServer.Spec.Manifest) != utils.Digest(component.Manifest) {
-			log.Infof("Updating component MCP server manifest for composite server: composite=%s componentServer=%s", compositeServer.Name, existingServer.Name)
-			// Ensure the server is shut down before updating it
-			if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
-				return err
+		} else if manifestChanged := utils.Digest(existingServer.Spec.Manifest) != utils.Digest(desiredManifest); manifestChanged || existingServer.Spec.MCPServerCatalogEntryVersion != resolvedComponent.Version.Spec.Version {
+			log.Infof("Updating component MCP server catalog version: composite=%s componentServer=%s version=%d", compositeServer.Name, existingServer.Name, resolvedComponent.Version.Spec.Version)
+			if manifestChanged {
+				if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
+					return err
+				}
 			}
 
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
@@ -977,7 +1000,8 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					return err
 				}
 
-				latestServer.Spec.Manifest = component.Manifest
+				latestServer.Spec.Manifest = desiredManifest
+				latestServer.Spec.MCPServerCatalogEntryVersion = resolvedComponent.Version.Spec.Version
 				latestServer = withNeedsURL(latestServer)
 				return req.Client.Update(req.Ctx, &latestServer)
 			}); err != nil {

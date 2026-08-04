@@ -139,7 +139,11 @@ import type {
 	MDMDevice,
 	MDMEnrollmentKey,
 	MDMEnrollmentKeyCreateResponse,
-	LocalAuthUser
+	LocalAuthUser,
+	CatalogBulkUpgradeApplyRequest,
+	CatalogBulkUpgradePlan,
+	CatalogBulkUpgradeResult,
+	MCPCatalogEntryVersion
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -843,6 +847,70 @@ export async function getMCPCatalogEntry(
 	};
 }
 
+export async function listMCPCatalogEntryVersions(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntryVersion[]> {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/versions`,
+		opts
+	)) as ItemsResponse<MCPCatalogEntryVersion>;
+	return response.items ?? [];
+}
+
+export async function getMCPCatalogEntryVersion(
+	catalogID: string,
+	entryID: string,
+	version: number,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogEntryVersion> {
+	return (await doGet(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/versions/${version}`,
+		opts
+	)) as MCPCatalogEntryVersion;
+}
+
+export async function setDefaultMCPCatalogEntryVersion(
+	catalogID: string,
+	entryID: string,
+	version: number
+): Promise<MCPCatalogEntry> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/versions/${version}/set-default`,
+		{}
+	)) as MCPCatalogEntry;
+}
+
+export async function deleteMCPCatalogEntryVersion(
+	catalogID: string,
+	entryID: string,
+	version: number
+): Promise<void> {
+	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}/versions/${version}`);
+}
+
+export async function previewMCPCatalogEntryRollout(
+	catalogID: string,
+	entryID: string
+): Promise<CatalogBulkUpgradePlan> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/upgrades/preview`,
+		{}
+	)) as CatalogBulkUpgradePlan;
+}
+
+export async function applyMCPCatalogEntryRollout(
+	catalogID: string,
+	entryID: string,
+	request: CatalogBulkUpgradeApplyRequest
+): Promise<CatalogBulkUpgradeResult> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/upgrades/apply`,
+		request
+	)) as CatalogBulkUpgradeResult;
+}
+
 export async function createMCPCatalogEntry(
 	catalogID: string,
 	entry: MCPCatalogEntryServerManifest,
@@ -1082,6 +1150,34 @@ export async function getMCPCatalogServer(
 		opts
 	)) as MCPCatalogServer;
 	return response;
+}
+
+export async function previewMCPCatalogServerUpgrade(
+	catalogID: string,
+	serverID: string
+): Promise<import('../user/types').CatalogUpgradePlan> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/servers/${serverID}/catalog-upgrade/preview`,
+		{}
+	)) as import('../user/types').CatalogUpgradePlan;
+}
+
+export async function applyMCPCatalogServerUpgrade(
+	catalogID: string,
+	serverID: string,
+	request: import('../user/types').CatalogUpgradeApplyRequest
+): Promise<import('../user/types').CatalogUpgradeResult> {
+	return (await doPost(
+		`/mcp-catalogs/${catalogID}/servers/${serverID}/catalog-upgrade/apply`,
+		request
+	)) as import('../user/types').CatalogUpgradeResult;
+}
+
+export async function clearMCPCatalogServerOAuth(
+	catalogID: string,
+	serverID: string
+): Promise<void> {
+	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}/oauth`);
 }
 
 export async function createMCPCatalogServer(

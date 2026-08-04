@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp/catalogversion"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -26,6 +28,120 @@ import (
 var actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 const requestTimeUpdateInterval = 15 * time.Minute
+
+// VersionedConnectID creates or reuses the requesting administrator's pinned
+// deployment for an exact active catalog entry version. The returned ID is
+// internal; public versioned connect URLs always retain the catalog entry ID.
+func (sm *SessionManager) VersionedConnectID(ctx context.Context, entryID string, version int, userID string) (string, error) {
+	resolved, err := catalogversion.ResolveExact(ctx, sm.storageClient, system.DefaultNamespace, entryID, version, true)
+	if err != nil {
+		return "", types.NewErrNotFound("active version %d for catalog entry %s not found", version, entryID)
+	}
+
+	entry := resolved.Entry
+	entry.Spec.Manifest = resolved.Version.Spec.Manifest
+	entry.Spec.UnsupportedTools = resolved.Version.Spec.UnsupportedTools
+	addExtractedEnvVarsToCatalogEntry(&entry)
+
+	missingAdminConfig, err := sm.entryMissingAdminConfig(ctx, entry)
+	if err != nil {
+		return "", fmt.Errorf("failed to determine required admin configuration for catalog entry %s: %w", entryID, err)
+	}
+	if err := missingAdminConfig.err(entryID); err != nil {
+		return "", err
+	}
+
+	var servers v1.MCPServerList
+	if err := sm.storageClient.List(ctx, &servers,
+		kclient.InNamespace(system.DefaultNamespace),
+		kclient.MatchingFields{
+			"spec.mcpServerCatalogEntryName":    entryID,
+			"spec.mcpServerCatalogEntryVersion": strconv.Itoa(version),
+			"spec.pinnedCatalogEntryVersion":    "true",
+			"spec.userID":                       userID,
+			"spec.template":                     "false",
+			"spec.compositeName":                "",
+		},
+	); err != nil {
+		return "", err
+	}
+
+	slices.SortFunc(servers.Items, func(a, b v1.MCPServer) int {
+		return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
+	})
+
+	var server v1.MCPServer
+	if len(servers.Items) > 0 {
+		server = servers.Items[0]
+	}
+
+	allowMissingURL := catalogEntryRequiresUserURL(entry.Spec.Manifest)
+	manifest, err := ServerManifestFromCatalogEntryManifest(false, allowMissingURL, entry.Spec.Manifest, server.Spec.Manifest)
+	if err != nil {
+		return "", types.NewErrBadRequest("catalog entry %s version %d cannot be connected because it could not be converted to an MCP server: %v", entryID, version, err)
+	}
+	if err := ValidateServerManifest(ctx, manifest, false, ValidationOptions{
+		AllowMissingURL:              allowMissingURL,
+		RemoteMCPURLValidationConfig: sm.remoteURLValidationConfig,
+		ResourceMaximums:             sm.resourceMaximums,
+	}); err != nil {
+		return "", types.NewErrBadRequest("catalog entry %s version %d cannot be connected because its MCP server manifest is invalid: %v", entryID, version, err)
+	}
+
+	if server.Name == "" {
+		server = v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    system.DefaultNamespace,
+			},
+			Spec: v1.MCPServerSpec{
+				Manifest:                     manifest,
+				UnsupportedTools:             entry.Spec.UnsupportedTools,
+				MCPServerCatalogEntryName:    entryID,
+				MCPServerCatalogEntryVersion: version,
+				PinnedCatalogEntryVersion:    true,
+				UserID:                       userID,
+				NeedsURL:                     allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
+			},
+		}
+		if !entry.Spec.Manifest.ServerUserType.IsSingleUser() {
+			server.Spec.MCPCatalogID = entry.Spec.MCPCatalogName
+		}
+		if err := sm.storageClient.Create(ctx, &server); err != nil {
+			return "", fmt.Errorf("failed to create pinned MCP server for catalog entry %s version %d: %w", entryID, version, err)
+		}
+	} else {
+		before := utils.Digest(server.Spec)
+		server.Spec.Manifest = manifest
+		server.Spec.UnsupportedTools = entry.Spec.UnsupportedTools
+		server.Spec.MCPServerCatalogEntryVersion = version
+		server.Spec.PinnedCatalogEntryVersion = true
+		syncConnectServerRemoteConfigFromCatalogEntry(&server, entry)
+		if before != utils.Digest(server.Spec) {
+			if err := sm.storageClient.Update(ctx, &server); err != nil {
+				return "", fmt.Errorf("failed to update pinned MCP server for catalog entry %s version %d: %w", entryID, version, err)
+			}
+		}
+	}
+
+	if server.Spec.Manifest.Runtime == types.RuntimeComposite &&
+		server.Spec.Manifest.CompositeConfig != nil &&
+		len(server.Spec.Manifest.CompositeConfig.ComponentServers) > 0 {
+		server, err = sm.waitForCompositeReady(ctx, server, 30*time.Second)
+		if err != nil {
+			return "", fmt.Errorf("failed to wait for pinned composite server to be ready: %w", err)
+		}
+	}
+
+	resolvedServer, instance, err := sm.serverOrInstanceFromConnectURL(ctx, server.Name, userID)
+	if err != nil {
+		return "", err
+	}
+	if instance.Name != "" {
+		return instance.Name, nil
+	}
+	return resolvedServer.Name, nil
+}
 
 // IDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
@@ -137,10 +253,13 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 
 		return server, v1.MCPServerInstance{}, nil
 	default:
-		var entry v1.MCPServerCatalogEntry
-		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}, &entry); err != nil {
+		resolved, err := catalogversion.ResolveDefault(ctx, sm.storageClient, system.DefaultNamespace, id)
+		if err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
 		}
+		entry := resolved.Entry
+		entry.Spec.Manifest = resolved.Version.Spec.Manifest
+		entry.Spec.UnsupportedTools = resolved.Version.Spec.UnsupportedTools
 		addExtractedEnvVarsToCatalogEntry(&entry)
 
 		var servers v1.MCPServerList
@@ -155,6 +274,9 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 		); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
+		servers.Items = slices.DeleteFunc(servers.Items, func(server v1.MCPServer) bool {
+			return server.Spec.PinnedCatalogEntryVersion
+		})
 		if len(servers.Items) == 0 {
 			missingAdminConfig, err := sm.entryMissingAdminConfig(ctx, entry)
 			if err != nil {
@@ -165,7 +287,7 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 			}
 
 			allowMissingURL := catalogEntryRequiresUserURL(entry.Spec.Manifest)
-			manifest, err := serverManifestFromCatalogEntryManifest(false, allowMissingURL, entry.Spec.Manifest, types.MCPServerManifest{})
+			manifest, err := ServerManifestFromCatalogEntryManifest(false, allowMissingURL, entry.Spec.Manifest, types.MCPServerManifest{})
 			if err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrBadRequest("catalog entry %s cannot be connected because it could not be converted to an MCP server: %v", id, err)
 			}
@@ -187,11 +309,12 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 					Namespace:    system.DefaultNamespace,
 				},
 				Spec: v1.MCPServerSpec{
-					Manifest:                  manifest,
-					UnsupportedTools:          entry.Spec.UnsupportedTools,
-					MCPServerCatalogEntryName: id,
-					UserID:                    userID,
-					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
+					Manifest:                     manifest,
+					UnsupportedTools:             entry.Spec.UnsupportedTools,
+					MCPServerCatalogEntryName:    id,
+					MCPServerCatalogEntryVersion: resolved.Version.Spec.Version,
+					UserID:                       userID,
+					NeedsURL:                     allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
 			if err := sm.storageClient.Create(ctx, &server); err != nil {
@@ -717,7 +840,7 @@ func syncConnectServerRemoteConfigFromCatalogEntry(server *v1.MCPServer, entry v
 	return before != utils.Digest(server.Spec)
 }
 
-func serverManifestFromCatalogEntryManifest(isAdmin, disableHostnameValidation bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
+func ServerManifestFromCatalogEntryManifest(isAdmin, disableHostnameValidation bool, entry types.MCPServerCatalogEntryManifest, input types.MCPServerManifest) (types.MCPServerManifest, error) {
 	var result types.MCPServerManifest
 
 	if entry.Runtime == types.RuntimeComposite {
@@ -798,13 +921,13 @@ func serverManifestFromCatalogEntryManifest(isAdmin, disableHostnameValidation b
 	}
 
 	if isAdmin {
-		result = mergeMCPServerManifests(result, input)
+		result = MergeMCPServerManifests(result, input)
 	}
 
 	return *result.DeepCopy(), nil
 }
 
-func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
+func MergeMCPServerManifests(existing, override types.MCPServerManifest) types.MCPServerManifest {
 	if override.Name != "" {
 		existing.Name = override.Name
 	}

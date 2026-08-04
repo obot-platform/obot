@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -58,7 +59,20 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		return mcpServerInstance.Spec.UserID == user.GetUID(), nil
+		if mcpServerInstance.Spec.UserID != user.GetUID() {
+			return false, nil
+		}
+		if mcpServerInstance.Spec.MCPServerName == "" {
+			return true, nil
+		}
+		var parent v1.MCPServer
+		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpServerInstance.Spec.MCPServerName), &parent); err != nil {
+			return false, err
+		}
+		if parent.Spec.PinnedCatalogEntryVersion {
+			return parent.Spec.UserID == user.GetUID() && slices.Contains(user.GetGroups(), types.GroupAdmin), nil
+		}
+		return true, nil
 
 	case system.IsMCPServerID(mcpID):
 		var mcpServer v1.MCPServer
@@ -66,7 +80,9 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		if mcpServer.Spec.IsCatalogServer() {
+		if mcpServer.Spec.PinnedCatalogEntryVersion {
+			return mcpServer.Spec.UserID == user.GetUID() && slices.Contains(user.GetGroups(), types.GroupAdmin), nil
+		} else if mcpServer.Spec.IsCatalogServer() {
 			return acrHelper.UserHasAccessToMCPServerInCatalog(user, mcpID, mcpServer.Spec.MCPCatalogID)
 		} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
 			return acrHelper.UserHasAccessToMCPServerInWorkspace(user, mcpID, mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Spec.UserID)

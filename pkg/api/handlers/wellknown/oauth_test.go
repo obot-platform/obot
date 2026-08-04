@@ -53,3 +53,53 @@ func TestOAuthAuthorizationAppendsMCPIDToOAuthEndpoints(t *testing.T) {
 		t.Fatalf("jwks_uri = %q", got.JWKSURI)
 	}
 }
+
+func TestVersionedOAuthMetadataPreservesExactResource(t *testing.T) {
+	h := &handler{
+		baseURL: "https://obot.example.com",
+		config: handlers.OAuthAuthorizationServerConfig{
+			Issuer:                "https://obot.example.com",
+			AuthorizationEndpoint: "https://obot.example.com/oauth/authorize",
+			TokenEndpoint:         "https://obot.example.com/oauth/token",
+			RegistrationEndpoint:  "https://obot.example.com/oauth/register",
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/.well-known/oauth-protected-resource/versioned-mcp-connect/catalog-entry/3", nil)
+	request.SetPathValue("entry_id", "catalog-entry")
+	request.SetPathValue("version", "3")
+	if err := h.oauthProtectedResource(api.Context{ResponseWriter: recorder, Request: request}); err != nil {
+		t.Fatal(err)
+	}
+	var protected map[string]any
+	if err := json.NewDecoder(recorder.Body).Decode(&protected); err != nil {
+		t.Fatal(err)
+	}
+	const resource = "https://obot.example.com/versioned-mcp-connect/catalog-entry/3"
+	if protected["resource"] != resource {
+		t.Fatalf("resource = %q, want %q", protected["resource"], resource)
+	}
+	servers := protected["authorization_servers"].([]any)
+	if len(servers) != 1 || servers[0] != resource {
+		t.Fatalf("authorization_servers = %#v", servers)
+	}
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/.well-known/oauth-authorization-server/versioned-mcp-connect/catalog-entry/3", nil)
+	request.SetPathValue("entry_id", "catalog-entry")
+	request.SetPathValue("version", "3")
+	if err := h.oauthAuthorization(api.Context{ResponseWriter: recorder, Request: request}); err != nil {
+		t.Fatal(err)
+	}
+	var config handlers.OAuthAuthorizationServerConfig
+	if err := json.NewDecoder(recorder.Body).Decode(&config); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := config.AuthorizationEndpoint, "https://obot.example.com/oauth/authorize/versioned-mcp-connect/catalog-entry/3"; got != want {
+		t.Fatalf("authorization endpoint = %q, want %q", got, want)
+	}
+	if got, want := config.TokenEndpoint, "https://obot.example.com/oauth/token/versioned-mcp-connect/catalog-entry/3"; got != want {
+		t.Fatalf("token endpoint = %q, want %q", got, want)
+	}
+}

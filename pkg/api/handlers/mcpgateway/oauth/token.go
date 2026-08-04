@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,8 @@ import (
 	"github.com/obot-platform/obot/pkg/auth"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/mcp/catalogversion"
+	"github.com/obot-platform/obot/pkg/mcp/connectroute"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
@@ -169,6 +172,9 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if oauthAuthRequest.Spec.ClientID != oauthClient.Name {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "code is invalid", ""))
 	}
+	if err := h.validateVersionedTokenEndpoint(req, oauthAuthRequest.Spec.Resource); err != nil {
+		return err
+	}
 
 	// Authorization codes are one-time use
 	if err := req.Storage.Delete(req.Context(), &oauthAuthRequest); err != nil {
@@ -197,6 +203,18 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
 	}
+	groupIDs, err := req.GatewayClient.ListGroupIDsForUser(req.Context(), user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to resolve user groups: %w", err)
+	}
+	effectiveRole, err := req.GatewayClient.ResolveUserEffectiveRole(req.Context(), user, groupIDs)
+	if err != nil {
+		return fmt.Errorf("failed to resolve user role: %w", err)
+	}
+	tokenGroups, err := h.mcpTokenGroups(req.Context(), req.Storage, oauthAuthRequest.Spec.Resource, effectiveRole.HasRole(types.RoleAdmin))
+	if err != nil {
+		return err
+	}
 
 	now := time.Now()
 	tknCtx := persistent.TokenContext{
@@ -208,7 +226,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 		UserName:              user.Username,
 		UserEmail:             user.Email,
 		Picture:               user.IconURL,
-		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
+		UserGroups:            tokenGroups,
 		AuthProviderName:      oauthAuthRequest.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthAuthRequest.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthAuthRequest.Spec.AuthProviderUserID,
@@ -266,6 +284,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	if oauthToken.Spec.ClientID != oauthClient.Name {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 	}
+	if err := h.validateVersionedTokenEndpoint(req, oauthToken.Spec.Resource); err != nil {
+		return err
+	}
 
 	// Consume terminally invalid grants so they cannot become usable again if the referenced resource is recreated.
 	invalidGrant := func(description string) error {
@@ -283,6 +304,10 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 			return invalidGrant("invalid user")
 		}
 		return newOAuthError(ErrServerError, fmt.Sprintf("failed to retrieve user: %v", err), "")
+	}
+	tokenGroups, err := h.mcpTokenGroups(req.Context(), req.Storage, oauthToken.Spec.Resource, slices.Contains(user.GetGroups(), types.GroupAdmin))
+	if err != nil {
+		return err
 	}
 
 	allowed, err := authz.CheckMCPIDAccess(req.Context(), req.Storage, h.acrHelper, user, oauthToken.Spec.MCPID)
@@ -311,7 +336,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		UserID:                user.GetUID(),
 		UserName:              user.GetName(),
 		UserEmail:             auth.FirstExtraValue(user.GetExtra(), "email"),
-		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
+		UserGroups:            tokenGroups,
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
 		AuthProviderUserID:    oauthToken.Spec.AuthProviderUserID,
@@ -352,6 +377,49 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		ExpiresIn:    int(time.Until(tknCtx.ExpiresAt.Time).Milliseconds() / 1000),
 		RefreshToken: refreshToken,
 	})
+}
+
+func (h *handler) validateVersionedTokenEndpoint(req api.Context, resource string) error {
+	resourceRoute, versioned, err := connectroute.ParseVersionedResource(resource)
+	if err != nil {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid versioned MCP resource", ""))
+	}
+	entryID := req.PathValue("entry_id")
+	if entryID == "" {
+		if versioned {
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "versioned MCP tokens must use their exact token endpoint", ""))
+		}
+		return nil
+	}
+	version, err := strconv.Atoi(req.PathValue("version"))
+	if err != nil || version < 0 {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid versioned token endpoint", ""))
+	}
+	endpointRoute := connectroute.Versioned{EntryID: entryID, Version: version}
+	if !versioned || resourceRoute != endpointRoute || resource != endpointRoute.Resource(h.baseURL) {
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "token does not belong to this versioned MCP resource", ""))
+	}
+	return nil
+}
+
+func (h *handler) mcpTokenGroups(ctx context.Context, storage kclient.Client, resource string, isAdmin bool) ([]string, error) {
+	route, versioned, err := connectroute.ParseVersionedResource(resource)
+	if err != nil {
+		return nil, types.NewErrBadRequest("invalid versioned MCP resource: %v", err)
+	}
+	if !versioned {
+		return []string{types.GroupMCP, types.GroupAuthenticated}, nil
+	}
+	if resource != route.Resource(h.baseURL) {
+		return nil, types.NewErrBadRequest("invalid versioned MCP resource")
+	}
+	if !isAdmin {
+		return nil, newOAuthErrHTTP(http.StatusForbidden, newOAuthError(ErrAccessDenied, "administrator access is required for versioned MCP connect", ""))
+	}
+	if _, err := catalogversion.ResolveExact(ctx, storage, system.DefaultNamespace, route.EntryID, route.Version, true); err != nil {
+		return nil, types.NewErrBadRequest("active version %d for catalog entry %s not found", route.Version, route.EntryID)
+	}
+	return []string{types.GroupVersionedMCP, types.GroupAuthenticated}, nil
 }
 
 func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, resource, subjectToken, subjectTokenType, requestedTokenType string) error {

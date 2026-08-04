@@ -209,6 +209,9 @@ export function getSecretBindingEngineError(
 
 export function requiresUserUpdate(server?: MCPCatalogServer) {
 	if (!server) return false;
+	if (server.needsUpdate && !server.compositeName && !server.pinnedCatalogEntryVersion) {
+		return true;
+	}
 	if (server?.needsURL) {
 		return true;
 	}

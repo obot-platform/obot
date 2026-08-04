@@ -48,6 +48,7 @@
 	import Table from '../table/Table.svelte';
 	import { setVirtualPageDisabled } from '../ui/virtual-page/context';
 	import CatalogServerForm from './CatalogServerForm.svelte';
+	import McpCatalogVersions from './McpCatalogVersions.svelte';
 	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
 	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
@@ -245,6 +246,9 @@
 							: []),
 						...(profile.current?.hasAdminAccess?.()
 							? [
+									...(entity === 'catalog' && 'isCatalogEntry' in entry
+										? [{ label: 'Versions', view: 'versions' }]
+										: []),
 									{ label: 'Filters', view: 'filters' },
 									{ label: 'Troubleshooting', view: 'troubleshooting' }
 								]
@@ -933,6 +937,14 @@
 					onReload={reloadConfiguredServers}
 				/>
 			{/if}
+		{:else if selected === 'versions' && entry && 'isCatalogEntry' in entry && id}
+			<McpCatalogVersions
+				catalogID={id}
+				{entry}
+				onEntryUpdated={(updated) => {
+					entry = updated;
+				}}
+			/>
 		{:else if selected === 'filters'}
 			{@render filtersView()}
 		{:else if selected === 'troubleshooting'}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -441,5 +443,139 @@ func newPopulateComponentManifestsRequest(objects ...client.Object) api.Context 
 			WithScheme(storagescheme.Scheme).
 			WithObjects(objects...).
 			Build()),
+	}
+}
+
+func TestSetDefaultEntryVersionProjectsCompatibilityFields(t *testing.T) {
+	entry := versionedCatalogEntry("entry", "default", 1)
+	entry.Spec.Manifest.Name = "old"
+	entry.Spec.UnsupportedTools = []string{"old-tool"}
+	child := catalogEntryVersion(entry.Name, 2, true)
+	child.Spec.Manifest.Name = "new"
+	child.Spec.UnsupportedTools = []string{"new-tool"}
+
+	req := newCatalogVersionRequest(http.MethodPost, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: system.DefaultNamespace}}, entry, child)
+	req.SetPathValue("catalog_id", "default")
+	req.SetPathValue("entry_id", entry.Name)
+	req.SetPathValue("version", "2")
+
+	require.NoError(t, (&MCPCatalogHandler{}).SetDefaultEntryVersion(req))
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, req.Get(&updated, entry.Name))
+	assert.Equal(t, 2, updated.Spec.DefaultVersion)
+	assert.Equal(t, "new", updated.Spec.Manifest.Name)
+	assert.Equal(t, []string{"new-tool"}, updated.Spec.UnsupportedTools)
+
+	var unchangedChild v1.MCPServerCatalogEntryVersion
+	require.NoError(t, req.Get(&unchangedChild, child.Name))
+	assert.True(t, unchangedChild.Spec.Active)
+}
+
+func TestCatalogEntryVersionOwnershipIsStrict(t *testing.T) {
+	entry := versionedCatalogEntry("entry", "other", 1)
+	child := catalogEntryVersion(entry.Name, 1, true)
+	req := newCatalogVersionRequest(http.MethodGet, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: system.DefaultNamespace}}, entry, child)
+	req.SetPathValue("catalog_id", "default")
+	req.SetPathValue("entry_id", entry.Name)
+	req.SetPathValue("version", "1")
+
+	err := (&MCPCatalogHandler{}).GetEntryVersion(req)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "does not belong to catalog")
+}
+
+func TestDeleteEntryVersionLifecycleChecks(t *testing.T) {
+	tests := []struct {
+		name       string
+		active     bool
+		defaultVer int
+		server     *v1.MCPServer
+		wantError  string
+	}{
+		{name: "active", active: true, defaultVer: 2, wantError: "active"},
+		{name: "default", defaultVer: 1, wantError: "default"},
+		{name: "stable reference", defaultVer: 2, server: versionedServer("stable", 1, false), wantError: "referenced"},
+		{name: "pinned reference", defaultVer: 2, server: versionedServer("pinned", 1, true), wantError: "referenced"},
+		{name: "unreferenced inactive", defaultVer: 2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := versionedCatalogEntry("entry", "default", tt.defaultVer)
+			child := catalogEntryVersion(entry.Name, 1, tt.active)
+			objects := []client.Object{
+				&v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: system.DefaultNamespace}},
+				entry,
+				child,
+			}
+			if tt.server != nil {
+				objects = append(objects, tt.server)
+			}
+			req := newCatalogVersionRequest(http.MethodDelete, objects...)
+			req.SetPathValue("catalog_id", "default")
+			req.SetPathValue("entry_id", entry.Name)
+			req.SetPathValue("version", "1")
+
+			err := (&MCPCatalogHandler{}).DeleteEntryVersion(req)
+			if tt.wantError != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantError)
+				return
+			}
+			require.NoError(t, err)
+			err = req.Storage.Get(context.Background(), client.ObjectKey{Namespace: system.DefaultNamespace, Name: child.Name}, &v1.MCPServerCatalogEntryVersion{})
+			assert.True(t, apierrors.IsNotFound(err))
+		})
+	}
+}
+
+func versionedCatalogEntry(name, catalog string, defaultVersion int) *v1.MCPServerCatalogEntry {
+	return &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: catalog,
+			DefaultVersion: defaultVersion,
+		},
+	}
+}
+
+func catalogEntryVersion(entryName string, version int, active bool) *v1.MCPServerCatalogEntryVersion {
+	return &v1.MCPServerCatalogEntryVersion{
+		ObjectMeta: metav1.ObjectMeta{Name: v1.MCPServerCatalogEntryVersionName(entryName, version), Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntryVersionSpec{
+			MCPServerCatalogEntryName: entryName,
+			Version:                   version,
+			Active:                    active,
+		},
+	}
+}
+
+func versionedServer(name string, version int, pinned bool) *v1.MCPServer {
+	return &v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName:    "entry",
+			MCPServerCatalogEntryVersion: version,
+			PinnedCatalogEntryVersion:    pinned,
+		},
+	}
+}
+
+func newCatalogVersionRequest(method string, objects ...client.Object) api.Context {
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(objects...).
+		WithIndex(&v1.MCPServerCatalogEntryVersion{}, "spec.mcpServerCatalogEntryName", func(object client.Object) []string {
+			return []string{object.(*v1.MCPServerCatalogEntryVersion).Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(object client.Object) []string {
+			return []string{object.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
+		}).
+		Build()
+	return api.Context{
+		Request:        httptest.NewRequest(method, "/", nil),
+		ResponseWriter: httptest.NewRecorder(),
+		Storage:        storage.Client(storageClient),
 	}
 }

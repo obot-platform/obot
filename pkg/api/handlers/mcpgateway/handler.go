@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/connectroute"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -229,6 +231,41 @@ func (h *Handler) Proxy(req api.Context) error {
 	return nil
 }
 
+func (h *Handler) ProxyVersioned(req api.Context) error {
+	route, matched, err := connectroute.ParseVersionedPath(req.URL.Path)
+	if err != nil || !matched {
+		return types.NewErrBadRequest("invalid versioned MCP connect path: %v", err)
+	}
+	if !req.UserIsAuthenticated() {
+		writeMCPAuthRequired(req, false)
+		return nil
+	}
+
+	if slices.Contains(req.User.GetGroups(), types.GroupVersionedMCP) {
+		resources := req.User.GetExtra()["resource"]
+		expected := route.Resource(strings.TrimSuffix(req.APIBaseURL, "/api"))
+		if len(resources) != 1 || resources[0] != expected {
+			return types.NewErrForbidden("versioned MCP token audience does not match requested resource")
+		}
+	} else if !req.UserIsAdmin() {
+		return types.NewErrForbidden("administrator access is required for versioned MCP connect")
+	}
+
+	connectID, err := h.mcpSessionManager.VersionedConnectID(req.Context(), route.EntryID, route.Version, req.User.GetUID())
+	if err != nil {
+		return err
+	}
+	if slices.Contains(req.User.GetGroups(), types.GroupVersionedMCP) {
+		authorizedIDs := req.User.GetExtra()["mcp_id"]
+		if len(authorizedIDs) != 1 || authorizedIDs[0] != connectID {
+			return types.NewErrForbidden("versioned MCP token is not authorized for resolved deployment")
+		}
+	}
+	req.SetPathValue("mcp_id", connectID)
+	req.SetPathValue("rest", route.Rest)
+	return h.Proxy(req)
+}
+
 func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {
 	mcpID := req.PathValue("mcp_id")
 
@@ -270,11 +307,15 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 func writeMCPAuthRequired(req api.Context, requiresConfig bool) {
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	connectPath := "mcp-connect"
-	if strings.HasPrefix(req.URL.Path, "/mcp-connect-composite/") {
+	metadataPath := fmt.Sprintf("%s/.well-known/oauth-protected-resource/%s/%s", baseURL, connectPath, req.PathValue("mcp_id"))
+	if route, matched, err := connectroute.ParseVersionedPath(req.URL.Path); matched && err == nil {
+		metadataPath = fmt.Sprintf("%s/.well-known/oauth-protected-resource%s", baseURL, route.Path())
+	} else if strings.HasPrefix(req.URL.Path, "/mcp-connect-composite/") {
 		connectPath = "mcp-connect-composite"
+		metadataPath = fmt.Sprintf("%s/.well-known/oauth-protected-resource/%s/%s", baseURL, connectPath, req.PathValue("mcp_id"))
 	}
 
-	req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s/.well-known/oauth-protected-resource/%s/%s"`, baseURL, connectPath, req.PathValue("mcp_id")))
+	req.ResponseWriter.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="Obot MCP Gateway", resource_metadata="%s"`, metadataPath))
 	if requiresConfig {
 		http.Error(req.ResponseWriter, "MCP server requires configuration", http.StatusUnauthorized)
 	} else {
