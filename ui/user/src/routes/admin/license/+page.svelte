@@ -12,6 +12,7 @@
 	} from '$lib/constants';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { parseErrorContent } from '$lib/errors';
+	import { reloadPage } from '$lib/navigation';
 	import { AdminService } from '$lib/services';
 	import { errors, license as licenseStore, profile, version } from '$lib/stores';
 	import { validateVersionUserLimit } from '$lib/utils';
@@ -87,7 +88,7 @@
 		try {
 			await AdminService.updateLicense({ licenseKey: updateLicenseKey }, { dontLogErrors: true });
 			updateLicenseDialog?.close();
-			window.location.reload();
+			reloadPage();
 		} catch (err) {
 			updateError = err instanceof Error ? err.message : 'An unknown error occurred.';
 		} finally {
@@ -99,7 +100,7 @@
 		deleting = true;
 		try {
 			await AdminService.deleteLicense();
-			window.location.reload();
+			reloadPage();
 		} catch (err) {
 			errors.append(`Failed to delete license: ${err}`);
 		} finally {
@@ -135,7 +136,7 @@
 				},
 				{ dontLogErrors: true }
 			);
-			window.location.reload();
+			reloadPage();
 		} catch (err) {
 			communityError =
 				parseErrorContent(err).message || 'Failed to obtain an Obot Community license.';

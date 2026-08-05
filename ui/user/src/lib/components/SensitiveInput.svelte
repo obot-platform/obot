@@ -288,7 +288,7 @@
 			id={name}
 			{name}
 			class={twMerge(
-				'text-input-filled w-full pr-10',
+				'input-text-filled w-full pr-10',
 				klass,
 				classes?.input,
 				error && 'border-error bg-error/20 text-error ring-error focus:ring-1'
