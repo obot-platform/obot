@@ -222,7 +222,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		return fmt.Errorf("failed to list catalog entries: %w", err)
 	}
 
-	missingEntries := make(map[string]*v1.MCPServerCatalogEntry)
+	missingNames := make(map[string]struct{})
 	for i := range entries.Items {
 		entry := &entries.Items[i]
 		if _, ok := desiredNames[entry.Name]; ok {
@@ -240,10 +240,10 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 			continue
 		}
 
-		missingEntries[entry.Name] = entry
+		missingNames[entry.Name] = struct{}{}
 	}
 
-	if len(missingEntries) == 0 {
+	if len(missingNames) == 0 {
 		return nil
 	}
 
@@ -251,26 +251,28 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	if err := c.List(ctx, &servers, client.InNamespace(catalog.Namespace)); err != nil {
 		return fmt.Errorf("failed to list servers for removed catalog entries: %w", err)
 	}
-	referencedEntries := make([]*v1.MCPServerCatalogEntry, 0, len(missingEntries))
+	referencedNames := make([]string, 0, len(missingNames))
 	for _, server := range servers.Items {
-		if entry, missing := missingEntries[server.Spec.MCPServerCatalogEntryName]; missing {
-			referencedEntries = append(referencedEntries, entry)
-			delete(missingEntries, entry.Name)
+		entryName := server.Spec.MCPServerCatalogEntryName
+		if _, missing := missingNames[entryName]; missing {
+			referencedNames = append(referencedNames, entryName)
+			delete(missingNames, entryName)
 		}
 	}
 
-	for _, entry := range missingEntries {
+	for entryName := range missingNames {
+		entry := &v1.MCPServerCatalogEntry{ObjectMeta: metav1.ObjectMeta{Name: entryName, Namespace: catalog.Namespace}}
 		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
-			return fmt.Errorf("failed to delete unused catalog entry %q: %w", entry.Name, err)
+			return fmt.Errorf("failed to delete unused catalog entry %q: %w", entryName, err)
 		}
-		log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entry.Name)
+		log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entryName)
 	}
 
-	for _, entry := range referencedEntries {
-		if err := convertCatalogEntryToEditable(ctx, c, catalog, entry.Name); err != nil {
-			return fmt.Errorf("failed to convert catalog entry %q to editable: %w", entry.Name, err)
+	for _, entryName := range referencedNames {
+		if err := convertCatalogEntryToEditable(ctx, c, catalog, entryName); err != nil {
+			return fmt.Errorf("failed to convert catalog entry %q to editable: %w", entryName, err)
 		}
-		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s", catalog.Name, entry.Name)
+		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s", catalog.Name, entryName)
 	}
 
 	return nil
