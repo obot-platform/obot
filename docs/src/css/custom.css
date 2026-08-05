@@ -69,6 +69,7 @@
 }
 
 .navbar.navbar-sidebar--show {
+  height: 100vh;
   height: 100dvh;
 }
 
