@@ -44,7 +44,11 @@ func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 			if !matchesCatalogPattern(patterns, filepath.Base(relPath)) || matchesCatalogPattern(ignorePatterns, relPath) {
 				return nil
 			}
-			if entry.Type()&os.ModeSymlink != 0 {
+			info, err := os.Lstat(path)
+			if err != nil {
+				return err
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
 				return nil
 			}
 			fileCount++
