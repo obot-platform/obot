@@ -8350,28 +8350,28 @@ func schema_obot_platform_obot_apiclient_types_K8sSettings(ref common.ReferenceC
 					},
 					"maxCpuRequest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxCPURequest is the startup-configured maximum CPU request for MCP server pods.",
+							Description: "MaxCPURequest is the configured maximum CPU request for MCP server pods.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"maxCpuLimit": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxCPULimit is the startup-configured maximum CPU limit for MCP server pods.",
+							Description: "MaxCPULimit is the configured maximum CPU limit for MCP server pods.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"maxMemoryRequest": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxMemoryRequest is the startup-configured maximum memory request for MCP server pods.",
+							Description: "MaxMemoryRequest is the configured maximum memory request for MCP server pods.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"maxMemoryLimit": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MaxMemoryLimit is the startup-configured maximum memory limit for MCP server pods.",
+							Description: "MaxMemoryLimit is the configured maximum memory limit for MCP server pods.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
