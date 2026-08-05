@@ -58,10 +58,12 @@ export interface AppPreferencesManifest {
 		logoIconWarning?: string;
 		logoDefault?: string;
 		logoEnterprise?: string;
+		logoCommunity?: string;
 		logoChat?: string;
 		darkLogoDefault?: string;
 		darkLogoChat?: string;
 		darkLogoEnterprise?: string;
+		darkLogoCommunity?: string;
 	};
 	theme?: {
 		backgroundColor?: string;

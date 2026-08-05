@@ -9310,6 +9310,12 @@ func schema_obot_platform_obot_apiclient_types_LogoPreferences(ref common.Refere
 							Format: "",
 						},
 					},
+					"logoCommunity": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"logoChat": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -9329,6 +9335,12 @@ func schema_obot_platform_obot_apiclient_types_LogoPreferences(ref common.Refere
 						},
 					},
 					"darkLogoEnterprise": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"darkLogoCommunity": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
