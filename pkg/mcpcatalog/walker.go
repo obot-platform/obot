@@ -14,54 +14,34 @@ import (
 
 const defaultMaxCatalogFiles = 1000
 
-type CatalogWalker struct {
-	root                  string
-	patterns              []string
-	ignorePatterns        []string
-	usingObotCatalogsFile bool
-}
-
-func NewCatalogWalker(root string) (*CatalogWalker, error) {
+// WalkCatalogFiles returns catalog manifest paths selected by .obotcatalogs and
+// .ignoreobotcatalogs. Traversal errors are yielded in the second value.
+func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 	patterns, usingObotCatalogsFile, err := catalogPatterns(root)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	ignorePatterns, err := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
-	return &CatalogWalker{
-		root:                  root,
-		patterns:              patterns,
-		ignorePatterns:        ignorePatterns,
-		usingObotCatalogsFile: usingObotCatalogsFile,
-	}, nil
-}
-
-func (w *CatalogWalker) UsingObotCatalogsFile() bool {
-	return w.usingObotCatalogsFile
-}
-
-// Files yields catalog manifest paths selected by .obotcatalogs and
-// .ignoreobotcatalogs. Traversal errors are yielded in the second value.
-func (w *CatalogWalker) Files() iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
 		fileCount := 0
-		err := filepath.WalkDir(w.root, func(path string, entry os.DirEntry, walkErr error) error {
+		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
-			relPath, err := filepath.Rel(w.root, path)
+			relPath, err := filepath.Rel(root, path)
 			if err != nil {
 				return err
 			}
 			if entry.IsDir() {
-				if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) || matchesCatalogPattern(w.ignorePatterns, relPath) {
+				if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) || matchesCatalogPattern(ignorePatterns, relPath) {
 					return filepath.SkipDir
 				}
 				return nil
 			}
-			if !matchesCatalogPattern(w.patterns, filepath.Base(relPath)) || matchesCatalogPattern(w.ignorePatterns, relPath) {
+			if !matchesCatalogPattern(patterns, filepath.Base(relPath)) || matchesCatalogPattern(ignorePatterns, relPath) {
 				return nil
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
@@ -79,7 +59,7 @@ func (w *CatalogWalker) Files() iter.Seq2[string, error] {
 		if err != nil {
 			yield("", err)
 		}
-	}
+	}, usingObotCatalogsFile, nil
 }
 
 func DecodeCatalogFile[T any](path string, strict bool) ([]T, bool, error) {
@@ -88,35 +68,30 @@ func DecodeCatalogFile[T any](path string, strict bool) ([]T, bool, error) {
 		return nil, false, err
 	}
 
-	if strict {
-		var shape any
-		if err := yaml.Unmarshal(contents, &shape); err != nil {
-			return nil, false, err
-		}
-		if shape == nil {
+	var shape any
+	if err := yaml.Unmarshal(contents, &shape); err != nil {
+		return nil, false, err
+	}
+	if shape == nil {
+		if strict {
 			return nil, false, fmt.Errorf("catalog file is empty")
 		}
-		if _, ok := shape.([]any); ok {
-			var entries []T
-			if err := yaml.UnmarshalStrict(contents, &entries); err != nil {
-				return nil, true, err
-			}
-			return entries, true, nil
-		}
-		var entry T
-		if err := yaml.UnmarshalStrict(contents, &entry); err != nil {
-			return nil, false, err
-		}
-		return []T{entry}, false, nil
+		return nil, true, nil
 	}
 
-	var entries []T
-	if err := yaml.Unmarshal(contents, &entries); err == nil {
+	decode := yaml.Unmarshal
+	if strict {
+		decode = yaml.UnmarshalStrict
+	}
+	if _, ok := shape.([]any); ok {
+		var entries []T
+		if err := decode(contents, &entries); err != nil {
+			return nil, true, err
+		}
 		return entries, true, nil
 	}
-
 	var entry T
-	if err := yaml.Unmarshal(contents, &entry); err != nil {
+	if err := decode(contents, &entry); err != nil {
 		return nil, false, err
 	}
 	return []T{entry}, false, nil

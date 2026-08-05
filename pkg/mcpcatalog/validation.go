@@ -82,15 +82,9 @@ func ValidateSourceFields(entry types.MCPServerCatalogEntryManifest) error {
 }
 
 func ValidateManifest(ctx context.Context, entry types.MCPServerCatalogEntryManifest, options ValidationOptions) error {
-	backend := options.MCPBackend
-	if backend == "" {
-		// Structural secret binding validation should not depend on the machine
-		// where the standalone validator happens to run.
-		backend = mcp.RuntimeBackendKubernetes
-	}
 	return errors.Join(
 		mcp.ValidateCatalogEntryManifest(ctx, entry, options.GitManaged, options.MCP),
-		mcp.ValidateSecretBindingsCatalogEntry(entry, options.GitManaged, false, backend),
+		mcp.ValidateSecretBindingsCatalogEntry(entry, options.GitManaged, false, options.MCPBackend),
 		mcp.ValidateTemplateReferencesCatalogEntry(entry),
 	)
 }

@@ -607,64 +607,9 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 }
 
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
-	var entries []types.MCPServerCatalogEntryManifest
-
-	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
-		if git.IsGitRepoURL(sourceURL) {
-			var err error
-			entries, err = readGitCatalogEntries[types.MCPServerCatalogEntryManifest](ctx, sourceURL, token)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
-			}
-		} else {
-			// If it wasn't a git repo, treat it as a raw file.
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
-			if err != nil {
-				return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
-			}
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			resp, err := h.httpClient.Do(req)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
-			}
-			defer resp.Body.Close()
-
-			contents, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
-			}
-
-			if resp.StatusCode != http.StatusOK {
-				return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
-			}
-
-			if err = yaml.Unmarshal(contents, &entries); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
-			}
-		}
-	} else {
-		fileInfo, err := os.Stat(sourceURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
-		}
-
-		if fileInfo.IsDir() {
-			entries, err = readCatalogDirectory[types.MCPServerCatalogEntryManifest](sourceURL)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
-			}
-		} else {
-			contents, err := os.ReadFile(sourceURL)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
-			}
-
-			if err = yaml.Unmarshal(contents, &entries); err != nil {
-				return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
-			}
-		}
+	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+	if err != nil {
+		return nil, err
 	}
 
 	objs := make([]client.Object, 0, len(entries))
@@ -676,18 +621,13 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			// We don't want to mark random MCP servers from the catalog as official.
 		}
 
-		cleanName := catalogvalidation.SanitizeName(entry.Name)
-		if cleanName == "" {
-			err := fmt.Errorf("invalid catalog entry name after sanitization: original=%q sanitized=%q", entry.Name, cleanName)
+		if err := catalogvalidation.ValidateSourceFields(entry); err != nil {
 			errs = append(errs, err)
 			continue
 		}
+		cleanName := catalogvalidation.SanitizeName(entry.Name)
 		catalogEntryName := name.SafeHashConcatName(catalogName, cleanName)
 
-		if err := catalogvalidation.ValidateSourceFields(entry); err != nil {
-			errs = append(errs, fmt.Errorf("%w; skipping catalog entry %q", err, catalogEntryName))
-			continue
-		}
 		if entry.EntryKey != "" {
 			if _, ok := uniqueEntryKeys[entry.EntryKey]; ok {
 				errs = append(errs, fmt.Errorf("duplicate source entry key %q also used by catalog entry %q", entry.EntryKey, catalogEntryName))
@@ -793,13 +733,13 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	walker, err := catalogvalidation.NewCatalogWalker(catalog)
+	files, usingObotCatalogsFile, err := catalogvalidation.WalkCatalogFiles(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
 	var entries []T
-	for path, walkErr := range walker.Files() {
+	for path, walkErr := range files {
 		if walkErr != nil {
 			return nil, fmt.Errorf("failed to walk repository files: %w", walkErr)
 		}
@@ -808,7 +748,7 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 			entries = append(entries, fileEntries...)
 			continue
 		}
-		if walker.UsingObotCatalogsFile() {
+		if usingObotCatalogsFile {
 			log.Warnf("Failed to parse %s as catalog entry: %v", path, err)
 		} else {
 			log.Debugf("Failed to parse %s as catalog entry: %v", path, err)

@@ -28,6 +28,7 @@ func ValidatePaths(ctx context.Context, paths []string, localOptions LocalValida
 	seenEntryKeys := map[string]string{}
 	options := ValidationOptions{
 		GitManaged: true,
+		MCPBackend: mcp.RuntimeBackendKubernetes,
 		MCP: mcp.ValidationOptions{
 			RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
 				AllowLocalhostMCP: true,
@@ -53,9 +54,9 @@ func ValidatePaths(ctx context.Context, paths []string, localOptions LocalValida
 		seenFiles[absPath] = struct{}{}
 		summary.Files++
 
-		entries, isArray, err := decodeCatalogFile(path)
+		entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("%s: %w", path, err))
+			errs = append(errs, fmt.Errorf("%s: invalid catalog entry: %w", path, err))
 			return
 		}
 		summary.Entries += len(entries)
@@ -100,12 +101,12 @@ func ValidatePaths(ctx context.Context, paths []string, localOptions LocalValida
 			continue
 		}
 
-		walker, err := NewCatalogWalker(input)
+		files, _, err := WalkCatalogFiles(input)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", input, err))
 			continue
 		}
-		for path, walkErr := range walker.Files() {
+		for path, walkErr := range files {
 			if walkErr != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", input, walkErr))
 				break
@@ -121,12 +122,4 @@ func ValidatePaths(ctx context.Context, paths []string, localOptions LocalValida
 	}
 
 	return summary, errors.Join(errs...)
-}
-
-func decodeCatalogFile(path string) ([]types.MCPServerCatalogEntryManifest, bool, error) {
-	entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
-	if err != nil {
-		return nil, isArray, fmt.Errorf("invalid catalog entry: %w", err)
-	}
-	return entries, isArray, nil
 }
