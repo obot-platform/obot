@@ -152,7 +152,7 @@ func testCatalog() *v1.MCPCatalog {
 			Namespace: "default",
 			UID:       ktypes.UID("catalog-uid"),
 		},
-		Spec: v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot/catalog"}},
+		Spec: v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot-platform/catalog"}},
 	}
 }
 
@@ -175,7 +175,7 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: catalog.Name,
-			SourceURL:      "github.com/obot/catalog",
+			SourceURL:      "github.com/obot-platform/catalog",
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Name:     "Context7",
 				EntryKey: "obot-context7",
