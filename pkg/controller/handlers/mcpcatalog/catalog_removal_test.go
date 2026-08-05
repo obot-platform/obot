@@ -89,10 +89,11 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	}
 }
 
-func TestUnmanagedEntryFromRemovedSourceIsPreserved(t *testing.T) {
+func TestEditableEntryIsPreserved(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
-	delete(entry.Labels, apply.LabelHash)
+	entry.Spec.Editable = true
+	entry.Spec.SourceURL = ""
 	catalog.Spec.SourceURLs = nil
 	c := newCatalogFakeClient(entry)
 
@@ -100,7 +101,21 @@ func TestUnmanagedEntryFromRemovedSourceIsPreserved(t *testing.T) {
 
 	var preserved v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &preserved))
-	assert.Equal(t, entry.Spec.SourceURL, preserved.Spec.SourceURL)
+	assert.Equal(t, entry.Spec, preserved.Spec)
+}
+
+func TestEntryFromRemovedSourceWithoutApplyLabelsIsDeleted(t *testing.T) {
+	catalog := testCatalog()
+	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
+	entry.Labels = nil
+	catalog.Spec.SourceURLs = nil
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+
+	var deleted v1.MCPServerCatalogEntry
+	err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+	require.True(t, apierrors.IsNotFound(err))
 }
 
 func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {

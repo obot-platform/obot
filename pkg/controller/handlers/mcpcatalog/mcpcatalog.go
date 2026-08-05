@@ -217,11 +217,6 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		configuredSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
 
-	labels, _, err := apply.GetLabelsAndAnnotations(c.Scheme(), fmt.Sprintf("catalog-%s", catalog.Name), catalog)
-	if err != nil {
-		return fmt.Errorf("failed to calculate catalog ownership: %w", err)
-	}
-
 	var entries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, client.InNamespace(catalog.Namespace), client.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list catalog entries: %w", err)
@@ -233,18 +228,16 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		if _, ok := desiredNames[entry.Name]; ok {
 			continue
 		}
-		if entry.Labels[apply.LabelHash] != labels[apply.LabelHash] {
+		if entry.Spec.SourceURL == "" {
 			continue
 		}
 
-		if entry.Spec.SourceURL != "" {
-			if _, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !configured {
-				if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
-					return fmt.Errorf("failed to delete catalog entry %q from removed source: %w", entry.Name, err)
-				}
-				log.Infof("Deleted MCP catalog entry from removed source: catalog=%s entry=%s source=%s", catalog.Name, entry.Name, entry.Spec.SourceURL)
-				continue
+		if _, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !configured {
+			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to delete catalog entry %q from removed source: %w", entry.Name, err)
 			}
+			log.Infof("Deleted MCP catalog entry from removed source: catalog=%s entry=%s source=%s", catalog.Name, entry.Name, entry.Spec.SourceURL)
+			continue
 		}
 
 		missingEntries[entry.Name] = entry
