@@ -41,14 +41,18 @@ describe('Licensing Page', () => {
 		vi.mocked(navigation.reloadPage).mockRestore();
 	});
 
-	it('renders community sign up when no license is present', async () => {
+	it('renders enterprise CTA when no license is present', async () => {
 		await renderLicensePage({ license: getLicenseResponse });
 
 		await expect
-			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
+			.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
 			.toBeVisible();
-		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
-		await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Name', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Email', { exact: true })).not.toBeInTheDocument();
 	});
 
 	it('renders enterprise CTA when community license is present', async () => {
@@ -65,9 +69,6 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
-		await expect
-			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
-			.not.toBeInTheDocument();
 	});
 
 	it('validating deleting an existing license', async () => {

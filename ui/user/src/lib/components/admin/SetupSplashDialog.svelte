@@ -4,7 +4,7 @@
 	import { AdminService, Group } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { goto } from '$lib/url';
+	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
@@ -110,6 +110,7 @@
 
 				if (isOnAuthProvidersPage) {
 					dialog?.close();
+					setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
 					return;
 				}
 

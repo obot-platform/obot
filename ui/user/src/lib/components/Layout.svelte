@@ -53,7 +53,6 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
@@ -75,7 +74,6 @@
 	import { isAgentEnabled, validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
 	import GuidePanel from './guides/GuidePanel.svelte';
@@ -686,10 +684,8 @@
 		betaRoutes.some((href) => pathname === href || pathname.startsWith(`${href}/`))
 	);
 	let logoVariant = $derived.by(() => {
-		if (version.current.licenseEntitlements?.includes(COMMUNITY_ENTITLEMENT))
-			return 'community' as const;
 		if (version.current.enterprise) return 'enterprise' as const;
-		return 'default' as const;
+		return 'community' as const;
 	});
 	$effect(() => {
 		if (responsive.isMobile) {
@@ -721,11 +717,6 @@
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
 	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
-	const excludeConfigureBanner = [
-		...(version.current.agentsEnabled !== false ? ['/admin/model-providers'] : []),
-		'/admin/auth-providers',
-		'/admin/branding'
-	];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -970,9 +961,6 @@
 						classes?.childrenContainer ?? ''
 					)}
 				>
-					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
-						<ConfigureBanner />
-					{/if}
 					{#if (!layout.sidebarOpen || hideSidebar) && !alwaysShowHeaderTitle}
 						<div
 							class={twMerge(

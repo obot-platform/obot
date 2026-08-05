@@ -111,49 +111,56 @@
 				<p class="text-center text-base font-medium">{msg}</p>
 			{/if}
 
-			<div class={twMerge('mb-4 self-center text-center font-light', classes?.note)}>
+			<div
+				class={twMerge(
+					'self-center text-center font-light',
+					!onsuccess && !hideCancelButton && 'mb-4',
+					classes?.note
+				)}
+			>
 				{#if typeof note === 'string'}
 					<p>{note}</p>
 				{:else if note}
 					{@render note()}
 				{/if}
 			</div>
-
-			<div
-				class={twMerge(
-					'flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end',
-					classes?.actions
-				)}
-			>
-				{#if !hideCancelButton}
-					<button
-						onclick={oncancel}
-						type="button"
-						class="btn btn-secondary flex-1 flex justify-center p-2 w-full"
-						disabled={loading}
-					>
-						{cancelText}
-					</button>
-				{/if}
-				{#if onsuccess}
-					<button
-						onclick={onsuccess}
-						type="button"
-						class={twMerge(
-							'flex flex-1 justify-center p-2 btn w-full',
-							type === 'delete' ? 'btn-error' : 'btn-primary',
-							classes?.confirm
-						)}
-						disabled={loading || disabled}
-					>
-						{#if loading}
-							<Loading class="size-4" />
-						{:else}
-							{submitText}
-						{/if}
-					</button>
-				{/if}
-			</div>
+			{#if onsuccess || !hideCancelButton}
+				<div
+					class={twMerge(
+						'flex w-full flex-col items-center justify-center gap-2 md:flex-row md:justify-end',
+						classes?.actions
+					)}
+				>
+					{#if !hideCancelButton}
+						<button
+							onclick={oncancel}
+							type="button"
+							class="btn btn-secondary flex-1 flex justify-center p-2 w-full"
+							disabled={loading}
+						>
+							{cancelText}
+						</button>
+					{/if}
+					{#if onsuccess}
+						<button
+							onclick={onsuccess}
+							type="button"
+							class={twMerge(
+								'flex flex-1 justify-center p-2 btn w-full',
+								type === 'delete' ? 'btn-error' : 'btn-primary',
+								classes?.confirm
+							)}
+							disabled={loading || disabled}
+						>
+							{#if loading}
+								<Loading class="size-4" />
+							{:else}
+								{submitText}
+							{/if}
+						</button>
+					{/if}
+				</div>
+			{/if}
 		</div>
 	</div>
 	<form class="dialog-backdrop">

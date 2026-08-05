@@ -47,13 +47,13 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			logoIconWarning: preferences?.logos?.logoIconWarning ?? DEFAULT_LOGOS.icon.warning,
 			logoDefault: preferences?.logos?.logoDefault ?? DEFAULT_LOGOS.beta.light.default,
 			logoEnterprise: preferences?.logos?.logoEnterprise ?? DEFAULT_LOGOS.beta.light.enterprise,
-			logoCommunity: DEFAULT_LOGOS.beta.light.community,
+			logoCommunity: preferences?.logos?.logoCommunity ?? DEFAULT_LOGOS.beta.light.community,
 			logoChat: preferences?.logos?.logoChat ?? DEFAULT_LOGOS.beta.light.chat,
 			darkLogoDefault: preferences?.logos?.darkLogoDefault ?? DEFAULT_LOGOS.beta.dark.default,
 			darkLogoChat: preferences?.logos?.darkLogoChat ?? DEFAULT_LOGOS.beta.dark.chat,
 			darkLogoEnterprise:
 				preferences?.logos?.darkLogoEnterprise ?? DEFAULT_LOGOS.beta.dark.enterprise,
-			darkLogoCommunity: DEFAULT_LOGOS.beta.dark.community
+			darkLogoCommunity: preferences?.logos?.darkLogoCommunity ?? DEFAULT_LOGOS.beta.dark.community
 		},
 		theme: {
 			backgroundColor: preferences?.theme?.backgroundColor ?? 'hsl(0 0 100)',
