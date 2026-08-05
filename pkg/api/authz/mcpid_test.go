@@ -716,7 +716,7 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 
 func TestVersionedMCPConnectAuthorization(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
-	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, false)
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
 
 	tests := []struct {
 		name    string
