@@ -1,11 +1,9 @@
 package mcpcatalog
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,10 +11,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
-	"sigs.k8s.io/yaml"
 )
-
-const maxCatalogFiles = 1000
 
 type ValidationSummary struct {
 	Files   int
@@ -87,21 +82,22 @@ func discoverFiles(paths []string) ([]string, error) {
 	seen := map[string]string{}
 	var errs []error
 	for _, input := range paths {
-		info, err := os.Lstat(input)
+		info, err := os.Stat(input)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", input, err))
-			continue
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			errs = append(errs, fmt.Errorf("%s: symbolic links are not allowed", input))
 			continue
 		}
 		if !info.IsDir() {
 			addDiscoveredFile(seen, input)
 			continue
 		}
-		if err := discoverDirectory(input, seen); err != nil {
+		files, _, err := DiscoverCatalogFiles(input)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", input, err))
+			continue
+		}
+		for _, path := range files {
+			addDiscoveredFile(seen, path)
 		}
 	}
 
@@ -110,49 +106,14 @@ func discoverFiles(paths []string) ([]string, error) {
 		files = append(files, path)
 	}
 	slices.Sort(files)
-	if len(files) > maxCatalogFiles {
-		errs = append(errs, fmt.Errorf("too many files to process (limit: %d)", maxCatalogFiles))
-		files = files[:maxCatalogFiles]
+	if len(files) > defaultMaxCatalogFiles {
+		errs = append(errs, fmt.Errorf("too many files to process (limit: %d)", defaultMaxCatalogFiles))
+		files = files[:defaultMaxCatalogFiles]
 	}
 	if len(files) == 0 {
 		errs = append(errs, fmt.Errorf("no catalog entry files found"))
 	}
 	return files, errors.Join(errs...)
-}
-
-func discoverDirectory(root string, seen map[string]string) error {
-	patterns, err := readPatterns(filepath.Join(root, ".obotcatalogs"), []string{"*.json", "*.yaml", "*.yml"})
-	if err != nil {
-		return err
-	}
-	ignorePatterns, err := readPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
-	if err != nil {
-		return err
-	}
-
-	return filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) || matchesAny(ignorePatterns, relPath) {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !matchesAny(patterns, filepath.Base(relPath)) || matchesAny(ignorePatterns, relPath) {
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s: symbolic links are not allowed", path)
-		}
-		addDiscoveredFile(seen, path)
-		return nil
-	})
 }
 
 func addDiscoveredFile(seen map[string]string, path string) {
@@ -165,65 +126,10 @@ func addDiscoveredFile(seen map[string]string, path string) {
 	}
 }
 
-func readPatterns(path string, defaults []string) ([]string, error) {
-	file, err := os.Open(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return defaults, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var patterns []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" && !strings.HasPrefix(line, "#") {
-			patterns = append(patterns, line)
-		}
-	}
-	if err := scanner.Err(); err != nil && !errors.Is(err, io.EOF) {
-		return nil, err
-	}
-	if len(patterns) == 0 {
-		return defaults, nil
-	}
-	return patterns, nil
-}
-
-func matchesAny(patterns []string, path string) bool {
-	for _, pattern := range patterns {
-		if matched, _ := filepath.Match(pattern, path); matched {
-			return true
-		}
-	}
-	return false
-}
-
 func decodeCatalogFile(path string) ([]types.MCPServerCatalogEntryManifest, bool, error) {
-	contents, err := os.ReadFile(path)
+	entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
 	if err != nil {
-		return nil, false, err
+		return nil, isArray, fmt.Errorf("invalid catalog entry: %w", err)
 	}
-	var shape any
-	if err := yaml.Unmarshal(contents, &shape); err != nil {
-		return nil, false, fmt.Errorf("invalid YAML or JSON: %w", err)
-	}
-	if shape == nil {
-		return nil, false, fmt.Errorf("catalog file is empty")
-	}
-	if _, ok := shape.([]any); ok {
-		var entries []types.MCPServerCatalogEntryManifest
-		if err := yaml.UnmarshalStrict(contents, &entries); err != nil {
-			return nil, true, fmt.Errorf("invalid catalog entries: %w", err)
-		}
-		return entries, true, nil
-	}
-
-	var entry types.MCPServerCatalogEntryManifest
-	if err := yaml.UnmarshalStrict(contents, &entry); err != nil {
-		return nil, false, fmt.Errorf("invalid catalog entry: %w", err)
-	}
-	return []types.MCPServerCatalogEntryManifest{entry}, false, nil
+	return entries, isArray, nil
 }

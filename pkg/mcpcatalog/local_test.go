@@ -30,6 +30,25 @@ remoteConfig:
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 1}, summary)
 }
 
+func TestValidatePathsSkipsSymlinkedCatalogFiles(t *testing.T) {
+	dir := t.TempDir()
+	validPath := filepath.Join(dir, "valid.yaml")
+	writeTestFile(t, dir, "valid.yaml", `name: Valid
+entryKey: valid
+shortDescription: Valid
+description: Valid
+icon: icon
+runtime: npx
+npxConfig:
+  package: valid
+`)
+	require.NoError(t, os.Symlink(validPath, filepath.Join(dir, "linked.yaml")))
+
+	summary, err := ValidatePaths(t.Context(), []string{dir}, LocalValidationOptions{})
+	require.NoError(t, err)
+	require.Equal(t, ValidationSummary{Files: 1, Entries: 1}, summary)
+}
+
 func TestValidatePathsSupportsEntryArrays(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entries.yaml")
 	require.NoError(t, os.WriteFile(path, []byte(`
@@ -128,6 +147,25 @@ func TestValidatePathsRequiresEntryKey(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "entries.yaml[0]: entryKey is required")
 	require.Contains(t, err.Error(), "entries.yaml[1]: entryKey is required")
+}
+
+func TestDecodeCatalogFileStrictness(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`name: First
+name: Second
+runtime: npx
+npxConfig:
+  package: test
+`), 0o600))
+
+	entries, isArray, err := DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, false)
+	require.NoError(t, err)
+	require.False(t, isArray)
+	require.Len(t, entries, 1)
+	require.Equal(t, "Second", entries[0].Name)
+
+	_, _, err = DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
+	require.ErrorContains(t, err, `key "name" already set`)
 }
 
 func TestNormalizeManifest(t *testing.T) {

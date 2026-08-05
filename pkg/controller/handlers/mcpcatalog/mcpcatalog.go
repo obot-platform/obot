@@ -1,14 +1,12 @@
 package mcpcatalog
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -794,174 +792,25 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 	return entries, nil
 }
 
-// isPathSafe checks if a file path is safe to read (not a symlink and within bounds).
-func isPathSafe(path, baseDir string) error {
-	info, err := os.Lstat(path)
-	if err != nil {
-		return fmt.Errorf("failed to get file info: %w", err)
-	}
-
-	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("symbolic links are not allowed for security reasons")
-	}
-
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	absBaseDir, err := filepath.Abs(baseDir)
-	if err != nil {
-		return fmt.Errorf("failed to get absolute base directory: %w", err)
-	}
-
-	if !strings.HasPrefix(absPath, absBaseDir+string(filepath.Separator)) {
-		return fmt.Errorf("file path is outside the allowed directory")
-	}
-
-	return nil
-}
-
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	var (
-		catalogPatterns       = []string{"*.json", "*.yaml", "*.yml"} // Default to all JSON and YAML files
-		ignorePatterns        []string
-		usingObotCatalogsFile bool
-	)
-
-	// First try to get .obotcatalogs file
-	obotCatalogsPath := filepath.Join(catalog, ".obotcatalogs")
-	if content, err := os.ReadFile(obotCatalogsPath); err == nil {
-		usingObotCatalogsFile = true
-		scanner := bufio.NewScanner(strings.NewReader(string(content)))
-		var patterns []string
-		for scanner.Scan() {
-			line := scanner.Text()
-			line = strings.TrimSpace(line)
-			if line != "" && !strings.HasPrefix(line, "#") {
-				patterns = append(patterns, line)
-			}
-		}
-		if scanner.Err() != nil && scanner.Err() != io.EOF {
-			log.Warnf("Failed to read .obotcatalogs file: %v", scanner.Err())
-		} else if len(patterns) > 0 {
-			catalogPatterns = patterns
-		}
-	}
-
-	obotIgnoreCatalogsPath := filepath.Join(catalog, ".ignoreobotcatalogs")
-	if content, err := os.ReadFile(obotIgnoreCatalogsPath); err == nil {
-		scanner := bufio.NewScanner(strings.NewReader(string(content)))
-		var patterns []string
-		for scanner.Scan() {
-			line := scanner.Text()
-			line = strings.TrimSpace(line)
-			if line != "" && !strings.HasPrefix(line, "#") {
-				patterns = append(patterns, line)
-			}
-		}
-		if scanner.Err() != nil && scanner.Err() != io.EOF {
-			log.Warnf("Failed to read .ignoreobotcatalogs file: %v", scanner.Err())
-		} else if len(patterns) > 0 {
-			ignorePatterns = patterns
-		}
-	}
-
-	// Walk through the cloned repository to find matching files
-	var (
-		entries   []T
-		fileCount int
-	)
-	const maxFiles = 1000 // Limit the number of files processed to prevent resource exhaustion
-
-	err := filepath.WalkDir(catalog, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// Get relative path from repository root
-		relPath, err := filepath.Rel(catalog, path)
-		if err != nil {
-			return err
-		}
-
-		// Skip the .git directory specifically
-		if d.IsDir() && (relPath == ".git" || strings.HasPrefix(relPath, ".git/")) {
-			return filepath.SkipDir
-		}
-
-		// Skip directories (but continue walking into them)
-		if d.IsDir() {
-			for _, pattern := range ignorePatterns {
-				if matched, _ := filepath.Match(pattern, relPath); matched {
-					return filepath.SkipDir
-				}
-			}
-			return nil
-		}
-
-		// Check if file matches any pattern
-		var matches bool
-		for _, pattern := range catalogPatterns {
-			if matched, _ := filepath.Match(pattern, filepath.Base(relPath)); matched {
-				matches = true
-				break
-			}
-		}
-		if !matches {
-			return nil
-		}
-
-		// Check if file matches any ignore pattern
-		for _, pattern := range ignorePatterns {
-			if matched, _ := filepath.Match(pattern, relPath); matched {
-				return nil
-			}
-		}
-
-		// Security check: ensure the file is safe to read
-		if err := isPathSafe(path, catalog); err != nil {
-			log.Warnf("Skipping unsafe file %s: %v", relPath, err)
-			return nil
-		}
-
-		// Check file count limit
-		fileCount++
-		if fileCount > maxFiles {
-			return fmt.Errorf("too many files to process (limit: %d)", maxFiles)
-		}
-
-		// Read file contents
-		content, err := os.ReadFile(path)
-		if err != nil {
-			log.Warnf("Failed to read contents of %s: %v", relPath, err)
-			return nil
-		}
-
-		// Try to unmarshal as array first
-		var fileEntries []T
-		if err := yaml.Unmarshal(content, &fileEntries); err != nil {
-			// If that fails, try single object with YAML
-			var entry T
-			if err := yaml.Unmarshal(content, &entry); err != nil {
-				if usingObotCatalogsFile {
-					log.Warnf("Failed to parse %s as catalog entry: %v", relPath, err)
-				} else {
-					log.Debugf("Failed to parse %s as catalog entry: %v", relPath, err)
-				}
-				return nil
-			}
-			fileEntries = []T{entry}
-		}
-
-		entries = append(entries, fileEntries...)
-		return nil
-	})
-
+	files, usingObotCatalogsFile, err := catalogvalidation.DiscoverCatalogFiles(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
+	var entries []T
+	for _, path := range files {
+		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path, false)
+		if err == nil {
+			entries = append(entries, fileEntries...)
+			continue
+		}
+		if usingObotCatalogsFile {
+			log.Warnf("Failed to parse %s as catalog entry: %v", path, err)
+		} else {
+			log.Debugf("Failed to parse %s as catalog entry: %v", path, err)
+		}
+	}
 	return entries, nil
 }
 
