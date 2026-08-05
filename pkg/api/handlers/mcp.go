@@ -1952,20 +1952,8 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		if catalogEntry.Spec.Manifest.Runtime == types.RuntimeRemote &&
 			catalogEntry.Spec.Manifest.RemoteConfig != nil &&
 			catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
-			// Apply the URL template with environment variables
-			finalURL, err := applyURLTemplate(catalogEntry.Spec.Manifest.RemoteConfig.URLTemplate, envVars)
-			if err != nil {
-				return fmt.Errorf("failed to apply URL template: %w", err)
-			}
-
-			// Update the server's remote config URL with the processed template
-			if mcpServer.Spec.Manifest.RemoteConfig == nil {
-				mcpServer.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{}
-			}
-			mcpServer.Spec.Manifest.RemoteConfig.URL = finalURL
-
-			if err := mcp.ValidateServerManifest(req.Context(), mcpServer.Spec.Manifest, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
-				return types.NewErrBadRequest("validation failed: %v", err)
+			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, envVars, !mcpServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
+				return err
 			}
 			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
 				return types.NewErrBadRequest("validation failed: %v", err)
@@ -2293,6 +2281,25 @@ func applyURLTemplate(templateStr string, envVars map[string]string) (string, er
 	}
 
 	return result, nil
+}
+
+// applyRemoteURLTemplate renders and validates a remote URL template before the server is used.
+func applyRemoteURLTemplate(ctx context.Context, manifest *types.MCPServerManifest, envVars map[string]string, isMultiUser bool, options mcp.ValidationOptions) error {
+	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
+		return nil
+	}
+
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, envVars)
+	if err != nil {
+		return fmt.Errorf("failed to apply URL template: %w", err)
+	}
+
+	manifest.RemoteConfig.URL = finalURL
+	if err := mcp.ValidateServerManifest(ctx, *manifest, isMultiUser, options); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+
+	return nil
 }
 
 func (m *MCPHandler) DeconfigureServer(req api.Context) error {

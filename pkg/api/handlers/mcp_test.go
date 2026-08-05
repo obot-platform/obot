@@ -653,6 +653,53 @@ func TestApplyURLTemplate(t *testing.T) {
 	}
 }
 
+func TestApplyRemoteURLTemplate(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Name:    "OAuth Remote",
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:          true,
+			URLTemplate:         "https://${HOST}/mcp/projects/${PROJECT_ID}",
+			StaticOAuthRequired: true,
+		},
+	}
+	options := mcp.ValidationOptions{
+		RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: true,
+			AllowPrivateIPMCP: true,
+			AllowLinkLocalMCP: true,
+		},
+	}
+
+	err := applyRemoteURLTemplate(t.Context(), &manifest, map[string]string{
+		"HOST":       "remote.example.com",
+		"PROJECT_ID": "project-123",
+	}, false, options)
+	require.NoError(t, err)
+	require.Equal(t, "https://remote.example.com/mcp/projects/project-123", manifest.RemoteConfig.URL)
+	require.True(t, manifest.RemoteConfig.StaticOAuthRequired)
+
+	server := v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "tool-preview"}, Spec: v1.MCPServerSpec{Manifest: manifest}}
+	serverConfig, missing, err := mcp.ServerToServerConfig(server, nil, "system", "temp", "default", nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, manifest.RemoteConfig.URL, serverConfig.URL)
+}
+
+func TestApplyRemoteURLTemplateRejectsInvalidRenderedURL(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "${SCHEME}://remote.example.com/mcp",
+		},
+	}
+
+	err := applyRemoteURLTemplate(t.Context(), &manifest, map[string]string{"SCHEME": "ftp"}, false, mcp.ValidationOptions{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "URL scheme must be either https or http")
+}
+
 func TestApplyURLTemplateEdgeCases(t *testing.T) {
 	tests := []struct {
 		name        string
