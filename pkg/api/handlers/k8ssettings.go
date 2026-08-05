@@ -93,10 +93,7 @@ func appK8sSettingsFromDeployment(ctx context.Context, k8sClient client.Client, 
 		}
 	}
 
-	var runtimeClassName *string
-	if podSpec.RuntimeClassName != nil && *podSpec.RuntimeClassName != "" {
-		runtimeClassName = podSpec.RuntimeClassName
-	}
+	runtimeClassName := podSpec.RuntimeClassName
 
 	formatted, err := FormatPodSchedulingYAML(podSpec.Affinity, podSpec.Tolerations, resources, runtimeClassName)
 	if err != nil {
