@@ -7,6 +7,7 @@
 	import PublishedWorkflowVersionDialog from '$lib/components/nanobot/PublishedWorkflowVersionDialog.svelte';
 	import { latestVersionSubjects } from '$lib/components/nanobot/publishedArtifactSubjects';
 	import { formatFileSize, formatFileTime } from '$lib/format';
+	import { reloadPage } from '$lib/navigation';
 	import { NanobotService } from '$lib/services';
 	import type {
 		ProjectLayoutContext,
@@ -490,7 +491,7 @@
 		onClose={() => (confirmInstallModal = undefined)}
 		onSuccess={() => {
 			confirmInstallModal = undefined;
-			window.location.reload();
+			reloadPage();
 		}}
 		confirmButtonText="Update"
 		message="Are you sure you want to update? Any existing changes will be overwritten."

@@ -1,4 +1,5 @@
 import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+import * as navigation from '$lib/navigation';
 import type { License } from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -7,9 +8,11 @@ import { worker } from '../../../tests/mocks/node';
 import type { PageData } from './$types';
 import LicensePage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock(import('$lib/navigation'), { spy: true });
 
 async function renderLicensePage({
 	license = getLicenseResponse,
@@ -32,6 +35,11 @@ async function renderLicensePage({
 describe('Licensing Page', () => {
 	beforeEach(() => {
 		localStorage.clear();
+		vi.mocked(navigation.reloadPage).mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		vi.mocked(navigation.reloadPage).mockRestore();
 	});
 
 	it('renders community sign up when no license is present', async () => {
@@ -64,15 +72,8 @@ describe('Licensing Page', () => {
 	});
 
 	it('validating deleting an existing license', async () => {
-		const deleteLicense = vi.fn();
-		worker.use(
-			http.delete('/api/license', async () => {
-				deleteLicense();
-				// Hold the response so window.location.reload is never reached in this test.
-				await new Promise(() => {});
-				return HttpResponse.json(getLicenseResponse);
-			})
-		);
+		const deleteLicense = vi.fn(() => HttpResponse.json(getLicenseResponse));
+		worker.use(http.delete('/api/license', deleteLicense));
 
 		await renderLicensePage({
 			license: {
@@ -95,6 +96,7 @@ describe('Licensing Page', () => {
 
 		await vi.waitFor(() => {
 			expect(deleteLicense).toHaveBeenCalledOnce();
+			expect(navigation.reloadPage).toHaveBeenCalledOnce();
 		});
 	});
 

@@ -72,6 +72,180 @@ export const listAppPreferencesResponse = {
 	}
 } satisfies Awaited<ReturnType<typeof UserService.listAppPreferences>>;
 
+// Auth providers
+
+export const listAuthProvidersResponse = [
+	{
+		id: 'google-auth-provider',
+		created: '2026-08-04T16:58:40-04:00',
+		type: 'authprovider',
+		name: 'Google',
+		icon: '/admin/assets/google_icon_small.png',
+		image: '',
+		port: 0,
+		link: 'https://google.com/',
+		requiredConfigurationParameters: [
+			{
+				name: 'OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_ID',
+				friendlyName: 'Client ID',
+				description:
+					"Unique identifier for the application when using Google's OAuth. Can typically be found in Google Cloud Console \u003e Credentials"
+			},
+			{
+				name: 'OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_SECRET',
+				friendlyName: 'Client Secret',
+				description:
+					"Password or key that app uses to authenticate with Google's OAuth. Can typically be found in Google Cloud Console \u003e Credentials",
+				sensitive: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_COOKIE_SECRET',
+				friendlyName: 'Cookie Secret',
+				description:
+					'Secret used to encrypt cookies. Must be a random string of length 16, 24, or 32.',
+				sensitive: true,
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS',
+				friendlyName: 'Allowed E-Mail Domains',
+				description:
+					'A list of email domains that are allowed to authenticate with this provider. * is a special value that allows all domains.'
+			}
+		],
+		optionalConfigurationParameters: [
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN',
+				friendlyName: 'PostgreSQL connection string (DSN)',
+				description:
+					'The connection string for a PostgreSQL database to use for session storage. If unset, cookies will be used for session storage instead.',
+				sensitive: true,
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS',
+				friendlyName: 'PostgreSQL max connections',
+				description: 'The maximum number of open connections to the PostgreSQL database.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS',
+				friendlyName: 'PostgreSQL max idle connections',
+				description: 'The maximum number of idle connections to the PostgreSQL database.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS',
+				friendlyName: 'PostgreSQL connection lifetime',
+				description: 'The maximum lifetime of a connection to the PostgreSQL database.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_TOKEN_REFRESH_DURATION',
+				friendlyName: 'Token Refresh Duration',
+				description:
+					'Time to wait before attempting to refresh auth tokens. Should be in a format like 1h1m1s. Default: 1h'
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_ENABLE_LOGGING',
+				friendlyName: 'Enable Logging',
+				description:
+					'Set to true to enable request, auth, and standard logging for the auth provider. Default: false'
+			}
+		],
+		configured: false,
+		missingConfigurationParameters: [
+			'OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_ID',
+			'OBOT_GOOGLE_AUTH_PROVIDER_CLIENT_SECRET',
+			'OBOT_AUTH_PROVIDER_COOKIE_SECRET',
+			'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+		],
+		namespace: 'default'
+	},
+	{
+		id: 'entra-auth-provider',
+		created: '2026-08-04T16:58:40-04:00',
+		type: 'authprovider',
+		name: 'Microsoft Entra',
+		icon: '/admin/assets/entra_icon.svg',
+		image: '',
+		port: 0,
+		link: 'https://entra.microsoft.com/',
+		missingEntitlements: ['OBOT_ENTERPRISE_AUTH_PROVIDERS'],
+		requiredConfigurationParameters: [
+			{
+				name: 'OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID',
+				friendlyName: 'Client ID',
+				description:
+					'Client ID for your Microsoft Entra OAuth app. Can be found in Microsoft Entra Admin Center \u003e App registrations'
+			},
+			{
+				name: 'OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET',
+				friendlyName: 'Client Secret',
+				description:
+					'Client secret for your Microsoft Entra OAuth app. Can be found in Microsoft Entra Admin Center \u003e App registrations',
+				sensitive: true
+			},
+			{
+				name: 'OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID',
+				friendlyName: 'Tenant ID',
+				description:
+					'Tenant ID for your Microsoft Entra tenant. Can be found in Microsoft Entra Admin Center \u003e Overview'
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_COOKIE_SECRET',
+				friendlyName: 'Cookie Secret',
+				description:
+					'Secret used to encrypt cookies. Must be a random string of length 16, 24, or 32.',
+				sensitive: true,
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS',
+				friendlyName: 'Allowed E-Mail Domains',
+				description:
+					'A list of email domains that are allowed to authenticate with this provider. * is a special value that allows all domains.'
+			}
+		],
+		optionalConfigurationParameters: [
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_DSN',
+				friendlyName: 'PostgreSQL connection string (DSN)',
+				description:
+					'The connection string for a PostgreSQL database to use for session storage. If unset, cookies will be used for session storage instead.',
+				sensitive: true,
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS',
+				friendlyName: 'PostgreSQL max open connections',
+				description: 'The maximum number of open connections to the PostgreSQL database.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS',
+				friendlyName: 'PostgreSQL max idle connections',
+				description: 'The maximum number of idle connections to the PostgreSQL database.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS',
+				friendlyName: 'PostgreSQL connection lifetime',
+				description: 'The maximum lifetime of a PostgreSQL database connection, in seconds.',
+				hidden: true
+			},
+			{
+				name: 'OBOT_AUTH_PROVIDER_ENABLE_LOGGING',
+				friendlyName: 'Enable Logging',
+				description:
+					'Set to true to enable request, auth, and standard logging for the auth provider. Default: false'
+			}
+		],
+		configured: true,
+		namespace: 'default'
+	}
+] satisfies Awaited<ReturnType<typeof AdminService.listAuthProviders>>;
+
 // License
 
 export const getLicenseResponse = {

@@ -4,6 +4,7 @@
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
 	import { goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
@@ -35,7 +36,7 @@
 	async function handleBootstrapLogin() {
 		try {
 			await AdminService.bootstrapLogin(bootstrapToken);
-			window.location.reload();
+			reloadPage();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred';
 		}
