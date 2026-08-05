@@ -53,8 +53,7 @@ export function compileAppPreferences(preferences?: AppPreferences): AppPreferen
 			darkLogoChat: preferences?.logos?.darkLogoChat ?? DEFAULT_LOGOS.beta.dark.chat,
 			darkLogoEnterprise:
 				preferences?.logos?.darkLogoEnterprise ?? DEFAULT_LOGOS.beta.dark.enterprise,
-			darkLogoCommunity:
-				preferences?.logos?.darkLogoCommunity ?? DEFAULT_LOGOS.beta.dark.community
+			darkLogoCommunity: preferences?.logos?.darkLogoCommunity ?? DEFAULT_LOGOS.beta.dark.community
 		},
 		theme: {
 			backgroundColor: preferences?.theme?.backgroundColor ?? 'hsl(0 0 100)',
