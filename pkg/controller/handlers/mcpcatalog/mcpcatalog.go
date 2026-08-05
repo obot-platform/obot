@@ -227,7 +227,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		return fmt.Errorf("failed to list catalog entries: %w", err)
 	}
 
-	var missingManagedEntries []*v1.MCPServerCatalogEntry
+	missingEntries := make(map[string]*v1.MCPServerCatalogEntry)
 	for i := range entries.Items {
 		entry := &entries.Items[i]
 		if _, ok := desiredNames[entry.Name]; ok {
@@ -247,43 +247,37 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 			}
 		}
 
-		missingManagedEntries = append(missingManagedEntries, entry)
+		missingEntries[entry.Name] = entry
 	}
 
-	if len(missingManagedEntries) == 0 {
+	if len(missingEntries) == 0 {
 		return nil
-	}
-
-	missingNames := make(map[string]struct{}, len(missingManagedEntries))
-	for _, entry := range missingManagedEntries {
-		missingNames[entry.Name] = struct{}{}
 	}
 
 	var servers v1.MCPServerList
 	if err := c.List(ctx, &servers, client.InNamespace(catalog.Namespace)); err != nil {
 		return fmt.Errorf("failed to list servers for removed catalog entries: %w", err)
 	}
-	serverCounts := make(map[string]int, len(missingManagedEntries))
+	referencedEntries := make([]*v1.MCPServerCatalogEntry, 0, len(missingEntries))
 	for _, server := range servers.Items {
-		if _, missing := missingNames[server.Spec.MCPServerCatalogEntryName]; missing {
-			serverCounts[server.Spec.MCPServerCatalogEntryName]++
+		if entry, missing := missingEntries[server.Spec.MCPServerCatalogEntryName]; missing {
+			referencedEntries = append(referencedEntries, entry)
+			delete(missingEntries, entry.Name)
 		}
 	}
 
-	for _, entry := range missingManagedEntries {
-		serverCount := serverCounts[entry.Name]
-		if serverCount == 0 {
-			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to delete unused catalog entry %q: %w", entry.Name, err)
-			}
-			log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entry.Name)
-			continue
+	for _, entry := range missingEntries {
+		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete unused catalog entry %q: %w", entry.Name, err)
 		}
+		log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entry.Name)
+	}
 
+	for _, entry := range referencedEntries {
 		if err := convertCatalogEntryToEditable(ctx, c, catalog, entry.Name); err != nil {
 			return fmt.Errorf("failed to convert catalog entry %q to editable: %w", entry.Name, err)
 		}
-		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s servers=%d", catalog.Name, entry.Name, serverCount)
+		log.Infof("Converted removed MCP catalog entry with active servers to editable: catalog=%s entry=%s", catalog.Name, entry.Name)
 	}
 
 	return nil

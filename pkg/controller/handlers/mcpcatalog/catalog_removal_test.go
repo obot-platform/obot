@@ -28,7 +28,9 @@ func TestRemovedEntryWithServerBecomesEditable(t *testing.T) {
 			MCPServerCatalogEntryName: entry.Name,
 		},
 	}
-	c := newCatalogFakeClient(entry, server)
+	secondServer := server.DeepCopy()
+	secondServer.Name = "ms2context7"
+	c := newCatalogFakeClient(entry, server, secondServer)
 
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
@@ -50,6 +52,7 @@ func TestRemovedEntryWithServerBecomesEditable(t *testing.T) {
 
 	var existingServer v1.MCPServer
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(server), &existingServer))
+	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(secondServer), &existingServer))
 }
 
 func TestUnreferencedRemovedEntryIsDeleted(t *testing.T) {
