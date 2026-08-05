@@ -749,22 +749,22 @@
 			await new Promise((resolve) => setTimeout(resolve, 1000));
 			configDialog?.close();
 
-			if (isMultiUserCatalogEntry(entry)) {
-				const isAtLeastPowerUserPlus = profile.current?.groups.includes(Group.POWERUSER_PLUS);
-				if (isAtLeastPowerUserPlus) {
-					const existingRules = isAtLeastPowerUserPlus
-						? workspaceID
-							? await UserService.listWorkspaceAccessControlRules(workspaceID)
-							: await AdminService.listAccessControlRules()
-						: [];
-					const hasEverythingEveryoneRule = existingRules.some(
-						(rule) =>
-							rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
-					);
-					const showSetAccessPolicy = isAtLeastPowerUserPlus && !hasEverythingEveryoneRule;
-					if (showSetAccessPolicy) {
-						selectRulesDialog?.open();
-					}
+			const isAtLeastPowerUserPlus = profile.current?.groups.includes(Group.POWERUSER_PLUS);
+			if (isMultiUserCatalogEntry(entry) && isAtLeastPowerUserPlus) {
+				const existingRules = isAtLeastPowerUserPlus
+					? workspaceID
+						? await UserService.listWorkspaceAccessControlRules(workspaceID)
+						: await AdminService.listAccessControlRules()
+					: [];
+				const hasEverythingEveryoneRule = existingRules.some(
+					(rule) =>
+						rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
+				);
+				const showSetAccessPolicy = isAtLeastPowerUserPlus && !hasEverythingEveryoneRule;
+				if (showSetAccessPolicy) {
+					selectRulesDialog?.open();
+				} else {
+					onConnect?.({ server, entry });
 				}
 			} else {
 				onConnect?.({ server, entry });
