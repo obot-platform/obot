@@ -13,11 +13,11 @@
 		untrack(() => {
 			if (!data.k8sSettings) return undefined;
 			return {
+				...data.k8sSettings,
 				affinity: data.k8sSettings.affinity ?? '',
 				tolerations: data.k8sSettings.tolerations ?? '',
 				resources: data.k8sSettings.resources ?? '',
-				runtimeClassName: data.k8sSettings.runtimeClassName ?? '',
-				...data.k8sSettings
+				runtimeClassName: data.k8sSettings.runtimeClassName ?? ''
 			};
 		})
 	);

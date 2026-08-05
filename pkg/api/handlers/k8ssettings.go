@@ -22,11 +22,11 @@ import (
 const appContainerName = "obot"
 
 type K8sSettingsHandler struct {
-	mcpSessionManager   *mcp.SessionManager
-	mcpRuntimeBackend   string
-	serviceName         string
-	serviceNamespace    string
-	localK8sClient      client.Client
+	mcpSessionManager *mcp.SessionManager
+	mcpRuntimeBackend string
+	serviceName       string
+	serviceNamespace  string
+	localK8sClient    client.Client
 }
 
 func NewK8sSettingsHandler(

@@ -412,27 +412,23 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 	)
 
 	if affinityJSON != "" && affinityJSON != "{}" {
-		var parsed corev1.Affinity
-		if err := unmarshalJSONStrict([]byte(affinityJSON), &parsed); err != nil {
+		affinity = new(corev1.Affinity)
+		if err := unmarshalJSONStrict([]byte(affinityJSON), affinity); err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("failed to parse affinity from Helm: %w", err)
 		}
-		affinity = &parsed
 	}
 
 	if tolerationsJSON != "" && tolerationsJSON != "[]" {
-		var parsed []corev1.Toleration
-		if err := unmarshalJSONStrict([]byte(tolerationsJSON), &parsed); err != nil {
+		if err := unmarshalJSONStrict([]byte(tolerationsJSON), &tolerations); err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("failed to parse tolerations from Helm: %w", err)
 		}
-		tolerations = parsed
 	}
 
 	if resourcesJSON != "" && resourcesJSON != "{}" {
-		var parsed corev1.ResourceRequirements
-		if err := unmarshalJSONStrict([]byte(resourcesJSON), &parsed); err != nil {
+		resources = new(corev1.ResourceRequirements)
+		if err := unmarshalJSONStrict([]byte(resourcesJSON), resources); err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("failed to parse resources from Helm: %w", err)
 		}
-		resources = &parsed
 	}
 
 	if runtimeClassName != "" {
