@@ -47,9 +47,7 @@ func (m *MCPValidate) Customize(cmd *cobra.Command) {
 }
 
 func (m *MCPValidate) Run(cmd *cobra.Command, args []string) error {
-	summary, err := mcpcatalog.ValidatePaths(cmd.Context(), args, mcpcatalog.LocalValidationOptions{
-		RequireEntryKey: m.RequireEntryKey,
-	})
+	summary, err := mcpcatalog.ValidatePaths(cmd.Context(), args, m.RequireEntryKey)
 	if err != nil {
 		return err
 	}

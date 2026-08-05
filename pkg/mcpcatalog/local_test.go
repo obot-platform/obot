@@ -25,7 +25,7 @@ remoteConfig:
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.yaml"), []byte("not: a catalog entry\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte("ignored.yaml\n"), 0o600))
 
-	summary, err := ValidatePaths(t.Context(), []string{dir, validPath}, LocalValidationOptions{})
+	summary, err := ValidatePaths(t.Context(), []string{dir, validPath}, false)
 	require.NoError(t, err)
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 1}, summary)
 }
@@ -44,7 +44,7 @@ npxConfig:
 `)
 	require.NoError(t, os.Symlink(validPath, filepath.Join(dir, "linked.yaml")))
 
-	summary, err := ValidatePaths(t.Context(), []string{dir}, LocalValidationOptions{})
+	summary, err := ValidatePaths(t.Context(), []string{dir}, false)
 	require.NoError(t, err)
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 1}, summary)
 }
@@ -70,7 +70,7 @@ func TestValidatePathsSupportsEntryArrays(t *testing.T) {
     package: second
 `), 0o600))
 
-	summary, err := ValidatePaths(t.Context(), []string{path}, LocalValidationOptions{})
+	summary, err := ValidatePaths(t.Context(), []string{path}, false)
 	require.NoError(t, err)
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 2}, summary)
 }
@@ -108,7 +108,7 @@ npxConfig:
   package: test
 `)
 
-	summary, err := ValidatePaths(t.Context(), []string{dir}, LocalValidationOptions{})
+	summary, err := ValidatePaths(t.Context(), []string{dir}, false)
 	require.Error(t, err)
 	require.Equal(t, 4, summary.Files)
 	for _, expected := range []string{
@@ -143,7 +143,7 @@ func TestValidatePathsRequiresEntryKey(t *testing.T) {
     package: whitespace
 `), 0o600))
 
-	_, err := ValidatePaths(t.Context(), []string{path}, LocalValidationOptions{RequireEntryKey: true})
+	_, err := ValidatePaths(t.Context(), []string{path}, true)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "entries.yaml[0]: entryKey is required")
 	require.Contains(t, err.Error(), "entries.yaml[1]: entryKey is required")
