@@ -113,9 +113,9 @@
 				{:else}
 					To re-enable access to existing functionality,
 					{#if violations.authProvider}
-						obtain a free Obot Community license
+						sign up for an Obot Community account
 					{/if}
-					contact support at
+					or contact support at
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew an Enterprise license.
 				{/if}
 			</p>
@@ -126,7 +126,7 @@
 					onclick={() => licenseViolationDialog?.close()}
 				>
 					<KeyRound class="size-4" />
-					Get Obot Community License
+					Register Obot Community Account
 				</a>
 			{/if}
 			<a href="mailto:info@obot.ai" class="btn btn-secondary">

@@ -264,10 +264,11 @@
 			{#if showCommunityEnrollment}
 				<form class="paper flex flex-col gap-4" onsubmit={handleCommunitySubmit}>
 					<div class="flex flex-col gap-1">
-						<h2 class="text-xl font-semibold">Upgrade to Obot Community</h2>
+						<h2 class="text-xl font-semibold">Register Obot Community Account</h2>
 						<p class="text-muted-content text-sm font-light">
-							Get permanent, free access to Obot Community and additional authentication providers,
-							including Entra, Okta, JumpCloud, and Auth0, with a one-time registration.
+							Create an Obot Community account, and get permanent, free access to additional
+							authentication providers, including Entra, Okta, JumpCloud, and Auth0, with a one-time
+							registration.
 						</p>
 					</div>
 
@@ -326,7 +327,7 @@
 						{#if communitySaving}
 							<LoaderCircle class="size-4 animate-spin" />
 						{/if}
-						{communitySaving ? 'Upgrading to Community Edition...' : 'Upgrade to Obot Community'}
+						{communitySaving ? 'Creating...' : 'Create Account'}
 					</button>
 				</form>
 			{/if}

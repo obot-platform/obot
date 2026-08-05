@@ -1,6 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { BaseProvider } from '$lib/services';
-	import { darkMode } from '$lib/stores';
+	import { darkMode, license } from '$lib/stores';
 	import Confirm from '../../Confirm.svelte';
 	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -49,9 +50,11 @@
 					Your license for or access to {provider.name} is invalid. Please contact support at
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew your license.
 				{:else}
-					A valid license is required to use {provider.name}. Please contact support at
+					A valid license is required to use {provider.name}. Sign up for an
+					<a href={resolve('/admin/license')} class="text-link">Obot Community account</a>
+					or please contact support at
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> for more information or to
-					purchase a license.
+					upgrade to Obot Enterprise.
 				{/if}
 			</p>
 		{/if}
