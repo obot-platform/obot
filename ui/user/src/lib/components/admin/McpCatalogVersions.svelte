@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -22,7 +24,7 @@
 		catalogUpgradeNeedsConfiguration,
 		getCatalogUpgradeBlockers
 	} from '../mcp/catalogUpgrade';
-	import { CircleAlert, ExternalLink, GitCompare, Trash2 } from '@lucide/svelte';
+	import { CircleAlert, ExternalLink, Eye, GitCompare, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -68,6 +70,13 @@
 
 	function versionURL(version: number) {
 		return `${origin}/versioned-mcp-connect/${entry.id}/${version}`;
+	}
+
+	function versionViewURL(version: number) {
+		const url = new URL(page.url);
+		url.searchParams.set('version', `${version}`);
+		url.searchParams.set('view', 'configuration');
+		return `${url.pathname}${url.search}`;
 	}
 
 	async function setDefault(version: number) {
@@ -230,6 +239,12 @@
 						</div>
 					{/if}
 					<div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+						<a
+							class="btn btn-secondary"
+							href={resolve(versionViewURL(version.version) as `/${string}`)}
+						>
+							<Eye class="size-4" /> View Version
+						</a>
 						{#if version.active && version.version !== entry.defaultVersion}
 							<button
 								class="btn btn-secondary"
