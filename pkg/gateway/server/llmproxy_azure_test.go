@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"testing"
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
@@ -75,7 +76,9 @@ func TestAzureProviderBackend(t *testing.T) {
 			if dialect != tt.dialect {
 				t.Fatalf("dialect = %q, want %q", dialect, tt.dialect)
 			}
-			llmTransformRequest(base)(req)
+			proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+			llmRewriteRequest(base)(proxyReq)
+			req = proxyReq.Out
 			if got := req.URL.String(); got != tt.wantURL {
 				t.Fatalf("URL = %q, want %q", got, tt.wantURL)
 			}

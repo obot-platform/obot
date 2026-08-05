@@ -753,16 +753,12 @@ func mustParseURL(s string) *url.URL {
 	return u
 }
 
-// llmRewriteRequest adapts llmTransformRequest to ReverseProxy.Rewrite, which
-// replaces the deprecated Director.
-//
-// Director made ReverseProxy append the client IP to X-Forwarded-For
-// automatically, so that is replicated here. SetXForwarded is deliberately not
-// used: it would additionally send X-Forwarded-Host and X-Forwarded-Proto, which
-// Director never did and which would expose internal hostnames to upstream model
-// providers.
+// llmRewriteRequest rewrites requests for the upstream model provider. Director
+// made ReverseProxy append the client IP to X-Forwarded-For automatically, so
+// that is replicated here. SetXForwarded is deliberately not used: it would
+// additionally send X-Forwarded-Host and X-Forwarded-Proto, which Director never
+// did and which would expose internal hostnames to upstream model providers.
 func llmRewriteRequest(u url.URL) func(*httputil.ProxyRequest) {
-	transform := llmTransformRequest(u)
 	return func(r *httputil.ProxyRequest) {
 		if clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr); err == nil {
 			if prior := r.In.Header.Values("X-Forwarded-For"); len(prior) > 0 {
@@ -770,13 +766,9 @@ func llmRewriteRequest(u url.URL) func(*httputil.ProxyRequest) {
 			}
 			r.Out.Header.Set("X-Forwarded-For", clientIP)
 		}
-		transform(r.Out)
-	}
-}
 
-func llmTransformRequest(u url.URL) func(req *http.Request) {
-	urlCopy := u // avoid mutating the original url.URL across requests
-	return func(req *http.Request) {
+		urlCopy := u // avoid mutating the original url.URL across requests
+		req := r.Out
 		reqPath := req.PathValue("path")
 		switch {
 		case urlCopy.Path == "":

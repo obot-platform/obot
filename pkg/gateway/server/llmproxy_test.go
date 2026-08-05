@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"strconv"
 	"strings"
@@ -479,30 +480,32 @@ func TestRewriteModelInBody(t *testing.T) {
 	}
 }
 
-func TestLLMTransformRequest_RemovesAcceptEncoding(t *testing.T) {
+func TestLLMRewriteRequest_RemovesAcceptEncoding(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
-	director := llmTransformRequest(*u)
 
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
 	req.SetPathValue("path", "responses")
 	req.Header.Set("Accept-Encoding", "gzip")
 
-	director(req)
+	proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+	llmRewriteRequest(*u)(proxyReq)
+	req = proxyReq.Out
 
 	if got := req.Header.Get("Accept-Encoding"); got != "" {
 		t.Fatalf("Accept-Encoding = %q, want empty", got)
 	}
 }
 
-func TestLLMTransformRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
+func TestLLMRewriteRequest_RemovesInternalRequestTypeHeader(t *testing.T) {
 	u := mustParseURL("https://api.example.com/v1")
-	director := llmTransformRequest(*u)
 
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/v1/responses", nil)
 	req.SetPathValue("path", "responses")
 	req.Header.Set(internalRequestTypeHeader, threadTitleRequestType)
 
-	director(req)
+	proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+	llmRewriteRequest(*u)(proxyReq)
+	req = proxyReq.Out
 
 	if got := req.Header.Get(internalRequestTypeHeader); got != "" {
 		t.Fatalf("%s = %q, want empty", internalRequestTypeHeader, got)
@@ -669,15 +672,15 @@ func TestGenericResponsesTransportHeaders(t *testing.T) {
 	}
 }
 
-// TestLLMTransformRequest_UpstreamPath asserts the upstream URL.Path produced
-// by llmTransformRequest for every (base URL, reqPath) combination the proxy
+// TestLLMRewriteRequest_UpstreamPath asserts the upstream URL.Path produced by
+// llmRewriteRequest for every (base URL, reqPath) combination the proxy
 // should support. Every reqPath is grounded in real source — either nanobot
 // (nanobot/pkg/llm/{anthropic,responses}/client.go) or the
 // official SDK each documented external coding tool uses.
 //
 // The expected paths are also what modifyResponse in llmproxy.go checks against
 // (/v1/messages and /v1/responses) for token counting and policy enforcement.
-func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
+func TestLLMRewriteRequest_UpstreamPath(t *testing.T) {
 	tests := []struct {
 		name    string
 		baseURL string
@@ -784,12 +787,13 @@ func TestLLMTransformRequest_UpstreamPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			u := mustParseURL(tt.baseURL)
-			director := llmTransformRequest(*u)
 
 			req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", nil)
 			req.SetPathValue("path", tt.reqPath)
 
-			director(req)
+			proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+			llmRewriteRequest(*u)(proxyReq)
+			req = proxyReq.Out
 
 			if got := req.URL.Path; got != tt.want {
 				t.Fatalf("URL.Path = %q, want %q", got, tt.want)
@@ -975,7 +979,9 @@ func TestBedrockRequestUpstreamPath(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			llmTransformRequest(u)(req)
+			proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+			llmRewriteRequest(u)(proxyReq)
+			req = proxyReq.Out
 
 			if got := req.URL.Path; got != tt.want {
 				t.Fatalf("upstream path = %q, want %q", got, tt.want)
@@ -1089,13 +1095,13 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	director := llmTransformRequest(base)
-
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local/", strings.NewReader(`{"model":"anthropic.claude-sonnet-4-6"}`))
 	req.SetPathValue("path", "v1/messages")
 	req.Header.Set("Authorization", "Bearer client-token")
 	req.Header.Set("X-Forwarded-For", "::1")
-	director(req)
+	proxyReq := &httputil.ProxyRequest{In: req, Out: req.Clone(req.Context())}
+	llmRewriteRequest(base)(proxyReq)
+	req = proxyReq.Out
 
 	if got := req.URL.String(); got != "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1/messages" {
 		t.Fatalf("URL = %q, want Bedrock Mantle messages URL", got)
