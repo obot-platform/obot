@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { BaseProvider } from '$lib/services';
-	import { darkMode, license } from '$lib/stores';
+	import { darkMode } from '$lib/stores';
 	import Confirm from '../../Confirm.svelte';
 	import { CircleAlert, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
