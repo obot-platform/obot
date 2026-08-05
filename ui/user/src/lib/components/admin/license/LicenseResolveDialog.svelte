@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
 	import { reloadPage } from '$lib/navigation';
@@ -9,8 +8,9 @@
 		type LicenseEntitlementViolation,
 		type ModelProvider
 	} from '$lib/services';
-	import { version, darkMode } from '$lib/stores';
+	import { version, license, darkMode } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import LicenseProviderDialog from './LicenseProviderDialog.svelte';
 	import { KeyRound, Mail } from '@lucide/svelte';
 	import { slide } from 'svelte/transition';
 
@@ -23,6 +23,8 @@
 	let licenseViolationDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let confirmDowngradeDialog = $state<ReturnType<typeof ProviderDeconfigureConfirm>>();
 	let providersToDeconfigure = $state<(AuthProvider | ModelProvider)[]>([]);
+
+	let licenseRequiredProvider = $state<AuthProvider>();
 
 	let downgrading = $state(false);
 	let error = $state('');
@@ -92,6 +94,10 @@
 			downgrading = false;
 		}
 	}
+
+	async function handleCreateLicense() {
+		window.location.reload();
+	}
 </script>
 
 <ResponsiveDialog
@@ -114,21 +120,22 @@
 				{:else}
 					To re-enable access to existing functionality,
 					{#if violations.authProvider}
-						obtain a free Obot Community license
+						register your email below or
 					{/if}
 					contact support at
 					<a href="mailto:info@obot.ai" class="text-link">info@obot.ai</a> to renew an Enterprise license.
 				{/if}
 			</p>
 			{#if violations.authProvider}
-				<a
-					href={resolve('/admin/license')}
+				<button
 					class="btn btn-primary"
-					onclick={() => licenseViolationDialog?.close()}
+					onclick={() => {
+						licenseRequiredProvider = $adminConfigStore.authProviders.find((p) => p.configured);
+					}}
 				>
 					<KeyRound class="size-4" />
-					Get Obot Community License
-				</a>
+					Register Your Email
+				</button>
 			{/if}
 			<a href="mailto:info@obot.ai" class="btn btn-secondary">
 				<Mail class="size-4" />
@@ -216,4 +223,13 @@
 	providers={providersToDeconfigure}
 	title="Confirm Downgrade"
 	confirmButtonText="Downgrade"
+/>
+
+<LicenseProviderDialog
+	bind:provider={licenseRequiredProvider}
+	licenseKey={license.current.licenseKey}
+	endpoint={AdminService.createCommunityLicense}
+	onSubmit={handleCreateLicense}
+	allowSignup
+	signUpMessage="Get permanent, free access to additional authentication providers, including Entra, Okta, JumpCloud, and Auth0, with a one-time registration up to 100 users."
 />

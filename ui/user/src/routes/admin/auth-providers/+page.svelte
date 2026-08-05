@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -16,8 +17,9 @@
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
-	import { errors, license, profile } from '$lib/stores';
+	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
+	import { clearUrlParams } from '$lib/url';
 	import { TriangleAlert, Info } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -59,6 +61,7 @@
 	let configuringAuthProvider = $state<AuthProvider>();
 	let configuringAuthProviderValues = $state<Record<string, string>>();
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
+	let showInitialAuthProvider = $derived(page.url.searchParams.get('provider'));
 
 	let setupLoading = $state(false);
 	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -127,6 +130,17 @@
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
 		};
+	});
+
+	$effect(() => {
+		if (showInitialAuthProvider) {
+			const authProvider = sortedAuthProviders.find(
+				(provider) => provider.id === showInitialAuthProvider
+			);
+			if (authProvider) {
+				handleClickConfigure(authProvider);
+			}
+		}
 	});
 
 	function getDocumentationUrl(authProviderId?: string) {
@@ -234,6 +248,58 @@
 			loading = false;
 		}
 	}
+
+	async function handleCommunitySubmit() {
+		if (!licenseRequiredProvider) return;
+
+		const newVersion = await UserService.getVersion();
+		version.initialize(newVersion);
+
+		authProviders = await AdminService.listAuthProviders();
+		adminConfigStore.updateAuthProviders(authProviders);
+
+		const updatedMatch = authProviders.find(
+			(provider) => provider.id === licenseRequiredProvider?.id
+		);
+
+		if (updatedMatch) {
+			handleClickConfigure(updatedMatch);
+		} else {
+			errors.append('There was an issue fetch the auth provider configuration.');
+		}
+
+		licenseRequiredProvider = undefined;
+	}
+
+	async function handleClickConfigure(authProvider: AuthProvider) {
+		if (authProvider.missingEntitlements && authProvider.missingEntitlements.length > 0) {
+			licenseRequiredProvider = authProvider;
+			return;
+		}
+
+		configuringAuthProvider = authProvider;
+		try {
+			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
+		} catch (err) {
+			// if 404, ignore, it means no credentials are set
+			if (!(err instanceof HttpError) || err.statusCode !== 404) {
+				console.error('An error occurred while revealing auth provider credentials', err);
+			} else {
+				// no credentials set, set initial default value for allowed domains
+				configuringAuthProviderValues = {
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				};
+			}
+		}
+
+		// Local auth has its own configure/manage-users modal.
+		if (authProvider.id === CommonAuthProviderIds.LOCAL) {
+			localAuthConfigureOpen = true;
+			localAuthConfigure?.open();
+		} else {
+			providerConfigure?.open();
+		}
+	}
 </script>
 
 <Layout title="Auth Providers">
@@ -258,37 +324,7 @@
 					disableConfigure={atLeastOneConfigured && !authProvider.configured}
 					provider={authProvider}
 					recommended={RecommendedModelProviders.includes(authProvider.id)}
-					onConfigure={async () => {
-						if (authProvider.missingEntitlements && authProvider.missingEntitlements.length > 0) {
-							licenseRequiredProvider = authProvider;
-							return;
-						}
-
-						configuringAuthProvider = authProvider;
-						try {
-							configuringAuthProviderValues = await AdminService.revealAuthProvider(
-								authProvider.id
-							);
-						} catch (err) {
-							// if 404, ignore, it means no credentials are set
-							if (!(err instanceof HttpError) || err.statusCode !== 404) {
-								console.error('An error occurred while revealing auth provider credentials', err);
-							} else {
-								// no credentials set, set initial default value for allowed domains
-								configuringAuthProviderValues = {
-									OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
-								};
-							}
-						}
-
-						// Local auth has its own configure/manage-users modal.
-						if (authProvider.id === CommonAuthProviderIds.LOCAL) {
-							localAuthConfigureOpen = true;
-							localAuthConfigure?.open();
-						} else {
-							providerConfigure?.open();
-						}
-					}}
+					onConfigure={() => handleClickConfigure(authProvider)}
 					onDeconfigure={async () => {
 						confirmDeconfigureAuthProvider = authProvider;
 						deconfigureAuthProviderDialog?.open();
@@ -344,6 +380,8 @@
 </ProviderConfigure>
 
 <LocalAuthConfigure
+	required={!!showInitialAuthProvider}
+	animate={showInitialAuthProvider ? 'slide' : undefined}
 	bind:this={localAuthConfigure}
 	provider={configuringAuthProvider}
 	values={configuringAuthProviderValues}
@@ -351,6 +389,8 @@
 	onConfigure={handleLocalAuthConfigure}
 	onClose={async (userCount) => {
 		localAuthConfigureOpen = false;
+		clearUrlParams(['provider']);
+		showInitialAuthProvider = null;
 		if (isBootstrapUser && userCount > 0) {
 			await prepareOwnerSetup();
 		}
@@ -417,7 +457,11 @@
 
 <LicenseProviderDialog
 	bind:provider={licenseRequiredProvider}
+	allowSignup={!licenseRequiredProvider?.configured}
 	licenseKey={license.current.licenseKey}
+	endpoint={AdminService.createCommunityLicense}
+	onSubmit={handleCommunitySubmit}
+	signUpMessage="Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter."
 />
 
 <svelte:head>
