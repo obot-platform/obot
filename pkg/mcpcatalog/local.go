@@ -23,7 +23,11 @@ type ValidationSummary struct {
 	Entries int
 }
 
-func ValidatePaths(ctx context.Context, paths []string) (ValidationSummary, error) {
+type LocalValidationOptions struct {
+	RequireEntryKey bool
+}
+
+func ValidatePaths(ctx context.Context, paths []string, localOptions LocalValidationOptions) (ValidationSummary, error) {
 	files, discoveryErr := discoverFiles(paths)
 	summary := ValidationSummary{Files: len(files)}
 	var errs []error
@@ -57,6 +61,9 @@ func ValidatePaths(ctx context.Context, paths []string) (ValidationSummary, erro
 			}
 			NormalizeManifest(entry)
 
+			if localOptions.RequireEntryKey && strings.TrimSpace(entry.EntryKey) == "" {
+				errs = append(errs, fmt.Errorf("%s: entryKey is required", label))
+			}
 			if err := ValidateSourceFields(*entry); err != nil {
 				errs = append(errs, fmt.Errorf("%s: %w", label, err))
 			}

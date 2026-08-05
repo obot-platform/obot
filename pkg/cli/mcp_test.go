@@ -208,6 +208,25 @@ npxConfig:
 	}
 }
 
+func TestMCPValidateRequiresEntryKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entry.yaml")
+	if err := os.WriteFile(path, []byte(`name: Test
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", "--require-entry-key", path)
+	if err == nil || !strings.Contains(err.Error(), "entryKey is required") {
+		t.Fatalf("error = %v, want missing entryKey error", err)
+	}
+}
+
 func mcpTestRoot(baseURL string) *Obot {
 	return &Obot{Client: &apiclient.Client{
 		BaseURL: baseURL + "/api",

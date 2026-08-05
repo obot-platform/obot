@@ -36,7 +36,9 @@ func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
 }
 
-type MCPValidate struct{}
+type MCPValidate struct {
+	RequireEntryKey bool `usage:"Require every catalog entry to set entryKey"`
+}
 
 func (m *MCPValidate) Customize(cmd *cobra.Command) {
 	cmd.Use = "validate <path>..."
@@ -45,7 +47,9 @@ func (m *MCPValidate) Customize(cmd *cobra.Command) {
 }
 
 func (m *MCPValidate) Run(cmd *cobra.Command, args []string) error {
-	summary, err := mcpcatalog.ValidatePaths(cmd.Context(), args)
+	summary, err := mcpcatalog.ValidatePaths(cmd.Context(), args, mcpcatalog.LocalValidationOptions{
+		RequireEntryKey: m.RequireEntryKey,
+	})
 	if err != nil {
 		return err
 	}

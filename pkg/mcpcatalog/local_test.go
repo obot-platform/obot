@@ -25,7 +25,7 @@ remoteConfig:
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "ignored.yaml"), []byte("not: a catalog entry\n"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte("ignored.yaml\n"), 0o600))
 
-	summary, err := ValidatePaths(t.Context(), []string{dir, validPath})
+	summary, err := ValidatePaths(t.Context(), []string{dir, validPath}, LocalValidationOptions{})
 	require.NoError(t, err)
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 1}, summary)
 }
@@ -51,7 +51,7 @@ func TestValidatePathsSupportsEntryArrays(t *testing.T) {
     package: second
 `), 0o600))
 
-	summary, err := ValidatePaths(t.Context(), []string{path})
+	summary, err := ValidatePaths(t.Context(), []string{path}, LocalValidationOptions{})
 	require.NoError(t, err)
 	require.Equal(t, ValidationSummary{Files: 1, Entries: 2}, summary)
 }
@@ -89,7 +89,7 @@ npxConfig:
   package: test
 `)
 
-	summary, err := ValidatePaths(t.Context(), []string{dir})
+	summary, err := ValidatePaths(t.Context(), []string{dir}, LocalValidationOptions{})
 	require.Error(t, err)
 	require.Equal(t, 4, summary.Files)
 	for _, expected := range []string{
@@ -102,6 +102,32 @@ npxConfig:
 	} {
 		require.Contains(t, err.Error(), expected)
 	}
+}
+
+func TestValidatePathsRequiresEntryKey(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "entries.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(`
+- name: Missing
+  shortDescription: Missing
+  description: Missing
+  icon: icon
+  runtime: npx
+  npxConfig:
+    package: missing
+- name: Whitespace
+  entryKey: "  "
+  shortDescription: Whitespace
+  description: Whitespace
+  icon: icon
+  runtime: npx
+  npxConfig:
+    package: whitespace
+`), 0o600))
+
+	_, err := ValidatePaths(t.Context(), []string{path}, LocalValidationOptions{RequireEntryKey: true})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "entries.yaml[0]: entryKey is required")
+	require.Contains(t, err.Error(), "entries.yaml[1]: entryKey is required")
 }
 
 func TestNormalizeManifest(t *testing.T) {
