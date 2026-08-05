@@ -11,16 +11,16 @@ type K8sSettings struct {
 	// Resources configuration (JSON/YAML blob)
 	Resources string `json:"resources,omitempty"`
 
-	// MaxCPURequest is the startup-configured maximum CPU request for MCP server pods.
+	// MaxCPURequest is the configured maximum CPU request for MCP server pods.
 	MaxCPURequest string `json:"maxCpuRequest,omitempty"`
 
-	// MaxCPULimit is the startup-configured maximum CPU limit for MCP server pods.
+	// MaxCPULimit is the configured maximum CPU limit for MCP server pods.
 	MaxCPULimit string `json:"maxCpuLimit,omitempty"`
 
-	// MaxMemoryRequest is the startup-configured maximum memory request for MCP server pods.
+	// MaxMemoryRequest is the configured maximum memory request for MCP server pods.
 	MaxMemoryRequest string `json:"maxMemoryRequest,omitempty"`
 
-	// MaxMemoryLimit is the startup-configured maximum memory limit for MCP server pods.
+	// MaxMemoryLimit is the configured maximum memory limit for MCP server pods.
 	MaxMemoryLimit string `json:"maxMemoryLimit,omitempty"`
 
 	// RuntimeClassName specifies the RuntimeClass for MCP server pods
