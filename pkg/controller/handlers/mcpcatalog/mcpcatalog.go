@@ -793,19 +793,22 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	files, usingObotCatalogsFile, err := catalogvalidation.DiscoverCatalogFiles(catalog)
+	walker, err := catalogvalidation.NewCatalogWalker(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
 	var entries []T
-	for _, path := range files {
+	for path, walkErr := range walker.Files() {
+		if walkErr != nil {
+			return nil, fmt.Errorf("failed to walk repository files: %w", walkErr)
+		}
 		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path, false)
 		if err == nil {
 			entries = append(entries, fileEntries...)
 			continue
 		}
-		if usingObotCatalogsFile {
+		if walker.UsingObotCatalogsFile() {
 			log.Warnf("Failed to parse %s as catalog entry: %v", path, err)
 		} else {
 			log.Debugf("Failed to parse %s as catalog entry: %v", path, err)

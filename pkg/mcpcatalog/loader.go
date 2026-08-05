@@ -3,6 +3,8 @@ package mcpcatalog
 import (
 	"bufio"
 	"fmt"
+	"io/fs"
+	"iter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,49 +14,72 @@ import (
 
 const defaultMaxCatalogFiles = 1000
 
-// DiscoverCatalogFiles returns the catalog manifest files selected by a
-// directory's .obotcatalogs and .ignoreobotcatalogs configuration.
-func DiscoverCatalogFiles(root string) ([]string, bool, error) {
+type CatalogWalker struct {
+	root                  string
+	patterns              []string
+	ignorePatterns        []string
+	usingObotCatalogsFile bool
+}
+
+func NewCatalogWalker(root string) (*CatalogWalker, error) {
 	patterns, usingObotCatalogsFile, err := catalogPatterns(root)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	ignorePatterns, err := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
+	return &CatalogWalker{
+		root:                  root,
+		patterns:              patterns,
+		ignorePatterns:        ignorePatterns,
+		usingObotCatalogsFile: usingObotCatalogsFile,
+	}, nil
+}
 
-	var files []string
-	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		relPath, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) || matchesCatalogPattern(ignorePatterns, relPath) {
-				return filepath.SkipDir
+func (w *CatalogWalker) UsingObotCatalogsFile() bool {
+	return w.usingObotCatalogsFile
+}
+
+// Files yields catalog manifest paths selected by .obotcatalogs and
+// .ignoreobotcatalogs. Traversal errors are yielded in the second value.
+func (w *CatalogWalker) Files() iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		fileCount := 0
+		err := filepath.WalkDir(w.root, func(path string, entry os.DirEntry, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			relPath, err := filepath.Rel(w.root, path)
+			if err != nil {
+				return err
+			}
+			if entry.IsDir() {
+				if relPath == ".git" || strings.HasPrefix(relPath, ".git"+string(filepath.Separator)) || matchesCatalogPattern(w.ignorePatterns, relPath) {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !matchesCatalogPattern(w.patterns, filepath.Base(relPath)) || matchesCatalogPattern(w.ignorePatterns, relPath) {
+				return nil
+			}
+			if entry.Type()&os.ModeSymlink != 0 {
+				return nil
+			}
+			fileCount++
+			if fileCount > defaultMaxCatalogFiles {
+				return fmt.Errorf("too many files to process (limit: %d)", defaultMaxCatalogFiles)
+			}
+			if !yield(path, nil) {
+				return fs.SkipAll
 			}
 			return nil
+		})
+		if err != nil {
+			yield("", err)
 		}
-		if !matchesCatalogPattern(patterns, filepath.Base(relPath)) || matchesCatalogPattern(ignorePatterns, relPath) {
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return nil
-		}
-		files = append(files, path)
-		if len(files) > defaultMaxCatalogFiles {
-			return fmt.Errorf("too many files to process (limit: %d)", defaultMaxCatalogFiles)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, false, err
 	}
-	return files, usingObotCatalogsFile, nil
 }
 
 func DecodeCatalogFile[T any](path string, strict bool) ([]T, bool, error) {
