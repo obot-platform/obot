@@ -4,15 +4,28 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp/connectroute"
 )
 
 // oauthAuthorization handles the /.well-known/oauth-authorization-server and /.well-known/oauth-authorization-server/{mcp_id} endpoints
 func (h *handler) oauthAuthorization(req api.Context) error {
 	config := h.config
-	if mcpID := req.PathValue("mcp_id"); mcpID != "" {
+	if entryID := req.PathValue("entry_id"); entryID != "" {
+		version, err := strconv.Atoi(req.PathValue("version"))
+		if err != nil || version < 0 {
+			return types.NewErrBadRequest("invalid MCP catalog entry version")
+		}
+		segment := connectroute.Versioned{EntryID: entryID, Version: version}.Path()[1:]
+		config.Issuer = appendPathSegment(config.Issuer, segment)
+		config.AuthorizationEndpoint = appendPathSegment(config.AuthorizationEndpoint, segment)
+		config.RegistrationEndpoint = appendPathSegment(config.RegistrationEndpoint, segment)
+		config.TokenEndpoint = appendPathSegment(config.TokenEndpoint, segment)
+	} else if mcpID := req.PathValue("mcp_id"); mcpID != "" {
 		config.Issuer = appendPathSegment(config.Issuer, mcpID)
 		config.AuthorizationEndpoint = appendPathSegment(config.AuthorizationEndpoint, mcpID)
 		config.RegistrationEndpoint = appendPathSegment(config.RegistrationEndpoint, mcpID)
@@ -34,6 +47,19 @@ func appendPathSegment(rawURL, segment string) string {
 }
 
 func (h *handler) oauthProtectedResource(req api.Context) error {
+	if entryID := req.PathValue("entry_id"); entryID != "" {
+		version, err := strconv.Atoi(req.PathValue("version"))
+		if err != nil || version < 0 {
+			return types.NewErrBadRequest("invalid MCP catalog entry version")
+		}
+		route := connectroute.Versioned{EntryID: entryID, Version: version}
+		return req.Write(map[string]any{
+			"resource_name":            "Obot Versioned MCP Gateway",
+			"resource":                 route.Resource(h.baseURL),
+			"authorization_servers":    []string{strings.TrimSuffix(h.baseURL, "/") + route.Path()},
+			"bearer_methods_supported": []string{"header"},
+		})
+	}
 	mcpID := req.PathValue("mcp_id")
 	if mcpID != "" {
 		return req.Write(map[string]any{

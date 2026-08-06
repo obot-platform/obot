@@ -217,6 +217,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-servers/{mcp_server_id}/prompts/{prompt_name}", mcp.GetPrompt)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/update-url", mcp.UpdateURL)
 	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/catalog-upgrade/preview", mcp.PreviewCatalogUpgrade)
+	mux.HandleFunc("POST /api/mcp-servers/{mcp_server_id}/catalog-upgrade/apply", mcp.ApplyCatalogUpgrade)
 
 	// MCPServerInstances
 	mux.HandleFunc("GET /api/mcp-server-instances", serverInstances.ListServerInstances)
@@ -245,6 +247,12 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries", mcpCatalogs.CreateEntry)
 	mux.HandleFunc("PUT /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.UpdateEntry)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/versions", mcpCatalogs.ListEntryVersions)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/versions/{version}", mcpCatalogs.GetEntryVersion)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/versions/{version}/set-default", mcpCatalogs.SetDefaultEntryVersion)
+	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/versions/{version}", mcpCatalogs.DeleteEntryVersion)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/upgrades/preview", mcp.PreviewCatalogRollout)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/upgrades/apply", mcp.ApplyCatalogRollout)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers", mcpCatalogs.AdminListServersForEntryInCatalog)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
@@ -278,6 +286,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/catalog-upgrade/preview", mcp.PreviewCatalogUpgrade)
+	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/catalog-upgrade/apply", mcp.ApplyCatalogUpgrade)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/configure", mcp.ConfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/deconfigure", mcp.DeconfigureServer)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/servers/{mcp_server_id}/reveal", mcp.Reveal)
@@ -323,6 +333,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/logs", mcp.StreamServerLogs)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/restart", mcp.RestartServerDeployment)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/trigger-update", mcp.TriggerUpdate)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/catalog-upgrade/preview", mcp.PreviewCatalogUpgrade)
+	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/catalog-upgrade/apply", mcp.ApplyCatalogUpgrade)
 	mux.HandleFunc("GET /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("POST /api/workspaces/{workspace_id}/entries/{entry_id}/generate-tool-previews", mcpCatalogs.GenerateToolPreviews)
@@ -751,6 +763,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	mux.HandleFunc("/mcp-connect/{mcp_id}", mcpGateway.Proxy)
 	mux.HandleFunc("/mcp-connect/{mcp_id}/{rest...}", mcpGateway.Proxy)
+	mux.HandleFunc("/versioned-mcp-connect/{entry_id}/{version}", mcpGateway.ProxyVersioned)
+	mux.HandleFunc("/versioned-mcp-connect/{entry_id}/{version}/{rest...}", mcpGateway.ProxyVersioned)
 	// This is a special path for internal MCP composite requests.
 	mux.HandleFunc("/mcp-connect-composite/{mcp_id}", mcpGateway.Proxy)
 

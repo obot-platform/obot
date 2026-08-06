@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
@@ -21,7 +23,14 @@
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
-	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
+	import {
+		ArrowLeft,
+		CircleFadingArrowUp,
+		ExternalLink,
+		Info,
+		GitCompare,
+		Link2Icon
+	} from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -29,15 +38,34 @@
 
 	let { data } = $props();
 	let catalogEntry = $state(untrack(() => data.catalogEntry));
+	let catalogVersion = $state(untrack(() => data.catalogVersion));
+
+	$effect(() => {
+		catalogEntry = data.catalogEntry;
+		catalogVersion = data.catalogVersion;
+	});
+
+	let isVersionView = $derived(!!catalogVersion);
+	let viewedEntry = $derived(
+		catalogEntry && catalogVersion
+			? {
+					...catalogEntry,
+					manifest: catalogVersion.manifest,
+					sourceURL: catalogVersion.sourceURL || catalogEntry.sourceURL
+				}
+			: catalogEntry
+	);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let isSourcedEntry = $derived(
-		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
+		viewedEntry && 'sourceURL' in viewedEntry && !!viewedEntry.sourceURL
 	);
-	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
+	let isComposite = $derived(viewedEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
-	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
-	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
+	let showUpgradeNotification = $derived(
+		!isVersionView && isComposite && needsUpdate && !isAdminReadonly
+	);
+	let deprecated = $derived(isDeprecatedMCPServer(viewedEntry));
 
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
@@ -177,9 +205,22 @@
 		}
 	}
 
-	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
+	let title = $derived(
+		`${viewedEntry?.manifest?.name ?? 'MCP Server'}${catalogVersion ? ` · Version ${catalogVersion.version}` : ''}`
+	);
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
+	let versionConnectURL = $derived(
+		catalogVersion && catalogEntry
+			? `${page.url.origin}/versioned-mcp-connect/${catalogEntry.id}/${catalogVersion.version}`
+			: ''
+	);
+	let defaultViewURL = $derived.by(() => {
+		const url = new URL(page.url);
+		url.searchParams.delete('version');
+		url.searchParams.set('view', 'versions');
+		return `${url.pathname}${url.search}`;
+	});
 </script>
 
 <Layout
@@ -191,35 +232,83 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions
-			bind:this={mcpServerActions}
-			entry={catalogEntry}
-			catalogID={workspaceId ? undefined : serverScopeID}
-			workspaceID={workspaceId}
-			{promptInitialLaunch}
-			{promptOAuthConfig}
-			onOAuthConfigured={() => {
-				if (!catalogEntry) return;
-				AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, catalogEntry.id).then((entry) => {
-					catalogEntry = entry;
-				});
-			}}
-			onConnect={({ entry, server }) => {
-				if (isMultiUserCatalogEntry(entry) && server) {
-					success.add(`${server.alias || server.manifest.name} has been created.`);
-				}
-				if (showUrlOnConnect) {
-					showUrlOnConnect = false;
-					connectUrlDialog?.open(entry, server?.connectURL, server);
-				}
-			}}
-			hideActions
-		/>
-		<button class="btn btn-primary" onclick={() => connectUrlDialog?.open(catalogEntry)}>
-			<Link2Icon class="size-4" /> Connect URL
-		</button>
+		{#if isVersionView && catalogVersion?.active}
+			<button
+				class="btn btn-primary"
+				onclick={() => window.open(versionConnectURL, '_blank', 'noopener')}
+			>
+				<ExternalLink class="size-4" /> Test Version
+			</button>
+		{:else if !isVersionView}
+			<McpServerActions
+				bind:this={mcpServerActions}
+				entry={catalogEntry}
+				catalogID={workspaceId ? undefined : serverScopeID}
+				workspaceID={workspaceId}
+				{promptInitialLaunch}
+				{promptOAuthConfig}
+				onOAuthConfigured={() => {
+					if (!catalogEntry) return;
+					AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, catalogEntry.id).then((entry) => {
+						catalogEntry = entry;
+					});
+				}}
+				onConnect={({ entry, server }) => {
+					if (isMultiUserCatalogEntry(entry) && server) {
+						success.add(`${server.alias || server.manifest.name} has been created.`);
+					}
+					if (showUrlOnConnect) {
+						showUrlOnConnect = false;
+						connectUrlDialog?.open(entry, server?.connectURL, server);
+					}
+				}}
+				hideActions
+			/>
+			<button class="btn btn-primary" onclick={() => connectUrlDialog?.open(catalogEntry)}>
+				<Link2Icon class="size-4" /> Connect URL
+			</button>
+		{/if}
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
+		{#if catalogVersion && catalogEntry}
+			<div class="border-primary/40 bg-primary/5 flex flex-col gap-4 rounded-lg border p-4">
+				<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+					<div class="flex flex-col gap-2">
+						<div class="flex flex-wrap items-center gap-2">
+							<h2 class="font-semibold">Viewing Version {catalogVersion.version}</h2>
+							<span class={catalogVersion.active ? 'pill-success' : 'pill'}>
+								{catalogVersion.active ? 'Active' : 'Inactive'}
+							</span>
+							{#if catalogVersion.version === catalogEntry.defaultVersion}
+								<span class="pill-primary">Default</span>
+							{/if}
+							{#if catalogVersion.version === catalogEntry.latestVersion}
+								<span class="pill">Latest</span>
+							{/if}
+						</div>
+						<p class="text-muted-content text-sm">
+							This is a read-only preview of the exact catalog manifest. Stable deployments and URLs
+							still use the default version.
+						</p>
+					</div>
+					<a class="btn btn-secondary shrink-0" href={resolve(defaultViewURL as `/${string}`)}>
+						<ArrowLeft class="size-4" /> Back to Default View
+					</a>
+				</div>
+				{#if catalogVersion.active}
+					<CopyField
+						value={versionConnectURL}
+						id={`catalog-version-${catalogVersion.version}-connect-url`}
+					/>
+				{:else}
+					<p class="notification-warning p-3 text-sm">
+						Inactive versions are retained for existing references and cannot create new test
+						deployments.
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		<McpDeprecatedNotice {deprecated} variant="notification" />
 
 		{#if showUpgradeNotification}
@@ -243,16 +332,17 @@
 		{/if}
 
 		<McpServerEntryForm
-			entry={catalogEntry}
-			type={catalogEntry?.manifest.runtime === 'composite'
+			entry={viewedEntry}
+			type={viewedEntry?.manifest.runtime === 'composite'
 				? 'composite'
-				: catalogEntry?.manifest.runtime === 'remote'
+				: viewedEntry?.manifest.runtime === 'remote'
 					? 'remote'
 					: 'hosted'}
-			readonly={isAdminReadonly || isSourcedEntry}
+			readonly={isVersionView || isAdminReadonly || isSourcedEntry}
 			id={serverScopeID}
 			entity={serverScopeEntity}
-			excludeViews={['overview']}
+			limitViews={isVersionView ? ['configuration', 'tools'] : undefined}
+			excludeViews={isVersionView ? undefined : ['overview']}
 		/>
 	</div>
 </Layout>
@@ -349,5 +439,5 @@
 />
 
 <svelte:head>
-	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>
+	<title>Obot | {title}</title>
 </svelte:head>

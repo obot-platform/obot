@@ -19,6 +19,7 @@
 		headers?: MCPServerInfo['headers'];
 		url?: string;
 		hostname?: string;
+		urlRequired?: boolean;
 		name?: string;
 	};
 
@@ -27,6 +28,7 @@
 		headers?: MCPServerInfo['headers'];
 		url?: string;
 		hostname?: string;
+		urlRequired?: boolean;
 		name?: string;
 		icon?: string;
 		deprecated?: boolean;
@@ -202,7 +204,7 @@
 		const hasHeaders =
 			Array.isArray(comp.headers) &&
 			(secretBindingTargets !== undefined || comp.headers.some((h) => !hasSecretBinding(h)));
-		const needsURL = Boolean(comp.hostname);
+		const needsURL = Boolean(comp.hostname || comp.urlRequired);
 		return hasEnvs || hasHeaders || needsURL;
 	}
 
@@ -217,7 +219,7 @@
 				if (comp.disabled) continue;
 				const envs = comp.envs ?? [];
 				const headers = comp.headers ?? [];
-				if (comp.hostname && !hasUrl(comp.url)) {
+				if ((comp.hostname || comp.urlRequired) && !hasUrl(comp.url)) {
 					return true;
 				}
 				if ([...envs, ...headers].some((f) => isEditableField(f) && f.required && !f.value)) {
@@ -228,7 +230,7 @@
 		}
 
 		const form = formAny as LaunchFormData;
-		if (form.hostname && !hasUrl(form.url)) {
+		if ((form.hostname || form.urlRequired) && !hasUrl(form.url)) {
 			return true;
 		}
 		const envs = form.envs ?? [];
@@ -794,7 +796,7 @@
 						{/if}
 					{/each}
 
-					{#if form.hostname}
+					{#if form.hostname || form.urlRequired}
 						<label for="url-manifest-url"> URL </label>
 						<input
 							type="text"
@@ -802,11 +804,13 @@
 							bind:value={form.url}
 							class="text-input-filled"
 						/>
-						<span class="text-muted-content font-light">
-							The URL must contain the hostname: <b class="font-semibold">
-								{form.hostname}
-							</b>
-						</span>
+						{#if form.hostname}
+							<span class="text-muted-content font-light">
+								The URL must contain the hostname: <b class="font-semibold">
+									{form.hostname}
+								</b>
+							</span>
+						{/if}
 					{/if}
 				{/if}
 			</div>

@@ -9,12 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	"github.com/obot-platform/obot/pkg/auth"
+	"github.com/obot-platform/obot/pkg/mcp/connectroute"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
@@ -171,6 +173,24 @@ func (h *handler) authorize(req api.Context) error {
 
 	mcpID := req.PathValue("mcp_id")
 	resource := req.FormValue("resource")
+	var versionedRoute *connectroute.Versioned
+	if entryID := req.PathValue("entry_id"); entryID != "" {
+		version, err := strconv.Atoi(req.PathValue("version"))
+		if err != nil || version < 0 {
+			redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "invalid MCP catalog entry version", state))
+			return nil
+		}
+		route := connectroute.Versioned{EntryID: entryID, Version: version}
+		versionedRoute = &route
+		mcpID = entryID
+		expected := route.Resource(h.baseURL)
+		if resource == "" {
+			resource = expected
+		} else if resource != expected {
+			redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "resource does not match versioned MCP connect path", state))
+			return nil
+		}
+	}
 	if resource != "" {
 		u, err := url.Parse(resource)
 		if err != nil {
@@ -178,7 +198,18 @@ func (h *handler) authorize(req api.Context) error {
 			return nil
 		}
 
-		if mcpID == "" {
+		if route, matched, routeErr := connectroute.ParseVersionedPath(u.Path); matched {
+			if routeErr != nil || route.Resource(h.baseURL) != resource {
+				redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "invalid versioned MCP resource", state))
+				return nil
+			}
+			if versionedRoute != nil && *versionedRoute != route {
+				redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, "resource does not match versioned MCP connect path", state))
+				return nil
+			}
+			versionedRoute = &route
+			mcpID = route.EntryID
+		} else if mcpID == "" {
 			mcpID = strings.TrimPrefix(u.Path, "/mcp-connect")
 			mcpID = strings.TrimPrefix(mcpID, "/")
 			// If the mcpID is "" or "/", then it's not a valid mcpID
@@ -190,6 +221,9 @@ func (h *handler) authorize(req api.Context) error {
 			redirectWithAuthorizeError(req, redirectURI, newOAuthError(ErrInvalidRequest, fmt.Sprintf("resource doesn't match mcp_id: %s", mcpID), state))
 			return nil
 		}
+	}
+	if versionedRoute != nil && req.UserIsAuthenticated() && !req.UserIsAdmin() {
+		return newOAuthErrHTTP(http.StatusForbidden, newOAuthError(ErrAccessDenied, "administrator access is required for versioned MCP connect", state))
 	}
 
 	if mcpID == "" {
@@ -241,7 +275,27 @@ func (h *handler) callback(req api.Context) error {
 
 	mcpID := oauthAppAuthRequest.Spec.MCPID
 	if mcpID != "" {
-		serverOrInstanceID, audience, err := h.oauthChecker.mcpSessionManager.IDAndAudienceFromConnectURL(req.Context(), mcpID, req.User.GetUID())
+		versionedRoute, versioned, routeErr := connectroute.ParseVersionedResource(oauthAppAuthRequest.Spec.Resource)
+		if routeErr != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, routeErr.Error(), oauthAppAuthRequest.Spec.State))
+			return nil
+		}
+		if versioned && !req.UserIsAdmin() {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "administrator access is required for versioned MCP connect", oauthAppAuthRequest.Spec.State))
+			return nil
+		}
+
+		var serverOrInstanceID, audience string
+		var err error
+		if versioned {
+			if oauthAppAuthRequest.Spec.Resource != versionedRoute.Resource(h.baseURL) || mcpID != versionedRoute.EntryID {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, "invalid versioned MCP resource", oauthAppAuthRequest.Spec.State))
+				return nil
+			}
+			serverOrInstanceID, err = h.oauthChecker.mcpSessionManager.VersionedConnectID(req.Context(), versionedRoute.EntryID, versionedRoute.Version, req.User.GetUID())
+		} else {
+			serverOrInstanceID, audience, err = h.oauthChecker.mcpSessionManager.IDAndAudienceFromConnectURL(req.Context(), mcpID, req.User.GetUID())
+		}
 		if err != nil {
 			if errHTTP := (*types.ErrHTTP)(nil); errors.As(err, &errHTTP) {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, errHTTP.Message, oauthAppAuthRequest.Spec.State))
@@ -252,8 +306,16 @@ func (h *handler) callback(req api.Context) error {
 		}
 
 		mcpID = serverOrInstanceID
-		audience = "/" + audience
-		if !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) || oauthAppAuthRequest.Spec.MCPID != mcpID {
+		if versioned {
+			oauthAppAuthRequest.Spec.MCPID = mcpID
+			if err = req.Update(&oauthAppAuthRequest); err != nil {
+				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, fmt.Sprintf("failed to update OAuth app auth request: %v", err), oauthAppAuthRequest.Spec.State))
+				return nil
+			}
+		} else {
+			audience = "/" + audience
+		}
+		if !versioned && (!strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) || oauthAppAuthRequest.Spec.MCPID != mcpID) {
 			// Ensure the audience is what the server expects.
 			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
 			oauthAppAuthRequest.Spec.MCPID = mcpID

@@ -75,11 +75,14 @@ compositeConfig:
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
 	assert.Empty(t, errsBySourceURL)
-	assert.Len(t, objs, 2)
+	assert.Len(t, objs, 4)
 
 	var composite, target *v1.MCPServerCatalogEntry
 	for _, obj := range objs {
-		entry := obj.(*v1.MCPServerCatalogEntry)
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			continue
+		}
 		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 			composite = entry
 		} else {
@@ -121,11 +124,14 @@ compositeConfig:
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
 	assert.Empty(t, errsBySourceURL)
-	assert.Len(t, objs, 2)
+	assert.Len(t, objs, 4)
 
 	var composite, target *v1.MCPServerCatalogEntry
 	for _, obj := range objs {
-		entry := obj.(*v1.MCPServerCatalogEntry)
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			continue
+		}
 		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 			composite = entry
 		} else {
@@ -320,11 +326,14 @@ compositeConfig:
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", append(firstObjs, secondObjs...))
 	assert.Empty(t, errsBySourceURL)
-	assert.Len(t, objs, 2)
+	assert.Len(t, objs, 4)
 
 	var composite, target *v1.MCPServerCatalogEntry
 	for _, obj := range objs {
-		entry := obj.(*v1.MCPServerCatalogEntry)
+		entry, ok := obj.(*v1.MCPServerCatalogEntry)
+		if !ok {
+			continue
+		}
 		if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 			composite = entry
 		} else {

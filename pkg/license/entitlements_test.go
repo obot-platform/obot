@@ -3,6 +3,7 @@ package license
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	keygen "github.com/keygen-sh/keygen-go/v3"
@@ -35,5 +36,18 @@ func TestMissingAndRequire(t *testing.T) {
 	}
 	if httpErr.Code != http.StatusPaymentRequired {
 		t.Fatalf("Require() status = %d, want %d", httpErr.Code, http.StatusPaymentRequired)
+	}
+}
+
+func TestVersionedMCPConnectUsesProviderEntitlementGate(t *testing.T) {
+	gate := NewProviderEntitlementGate(nil, nil)
+	for _, path := range []string{
+		"/versioned-mcp-connect/catalog-entry/2",
+		"/versioned-mcp-connect/catalog-entry/2/messages/1",
+	} {
+		req := httptest.NewRequest(http.MethodPost, path, nil)
+		if !gate.requiresProviderEntitlements(req) {
+			t.Fatalf("expected %q to require provider entitlements", path)
+		}
 	}
 }

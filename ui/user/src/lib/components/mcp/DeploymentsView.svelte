@@ -15,6 +15,7 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
+		type CatalogUpgradePlan,
 		type OrgUser,
 		MCPCompositeDeletionDependencyError
 	} from '$lib/services';
@@ -32,7 +33,13 @@
 		isMcpTunnelDisconnected,
 		shouldShowMcpTunnelDisconnectedBadge
 	} from '$lib/services/user/mcpTunnel';
-	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
+	import {
+		errors,
+		profile,
+		mcpServersAndEntries,
+		mcpTunnelConnections,
+		version
+	} from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
@@ -108,7 +115,7 @@
 	let updatedServer = $state<MCPCatalogServer | MCPCatalogEntry>();
 
 	let showUpgradeConfirm = $state<
-		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
+		{ type: 'single'; server: MCPCatalogServer; plan: CatalogUpgradePlan } | undefined
 	>();
 	let showK8sUpgradeConfirm = $state<
 		{ type: 'multi' } | { type: 'single'; server: MCPCatalogServer } | undefined
@@ -206,6 +213,9 @@
 								updateStatusTooltip: undefined
 							}
 						: getMcpServerDeploymentStatus(deployment, doesSupportK8sUpdates);
+				const isMyServer =
+					(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
+					(powerUserID === profile.current.id && powerUserWorkspaceID === id);
 
 				return {
 					...deployment,
@@ -221,10 +231,14 @@
 								deployment.catalogEntryID || deployment.mcpCatalogID || deployment.id
 							)
 						: false,
-					isMyServer:
-						(deployment.catalogEntryID && deployment.userID === profile.current.id) ||
-						(powerUserID === profile.current.id && powerUserWorkspaceID === id),
-					updateStatus,
+					isMyServer,
+					updateStatus:
+						!hasAdminAccess &&
+						isMyServer &&
+						!isMultiUserServer(deployment) &&
+						deployment.needsUpdate
+							? 'Update Available'
+							: updateStatus,
 					updatesAvailable,
 					updateStatusTooltip,
 					tunnelDisconnected,
@@ -316,25 +330,6 @@
 		return server.configured && supportsMCPBackendDetails(server);
 	}
 
-	async function handleBulkUpdate() {
-		for (const serverId of Object.keys(selected)) {
-			const server = selected[serverId];
-			// if doesn't need update or is child server of composite mcp
-			if (!server.needsUpdate || !canTriggerUpdate(server)) {
-				continue;
-			}
-			const prompted = await updateServer(server);
-			if (prompted) {
-				selected = {};
-				tableRef?.clearSelectAll();
-				return;
-			}
-		}
-
-		selected = {};
-		tableRef?.clearSelectAll();
-	}
-
 	async function handleK8sBulkUpdate(selections: typeof selected) {
 		const serversToUpdate = Object.values(selections).filter(
 			(server) => server.needsK8sUpdate && !server.compositeName
@@ -367,51 +362,48 @@
 		}
 	}
 
-	async function updateCatalogServerAndPromptForConfiguration(server: MCPCatalogServer) {
-		if (!isMultiUserServer(server) || !server.catalogEntryID) return false;
-
-		const entry = entriesMap[server.catalogEntryID];
-		if (!entry) {
-			// Without the entry manifest loaded, fall back to the plain update path.
-			if (server.powerUserWorkspaceID) {
-				await UserService.triggerWorkspaceMcpServerUpdate(
-					server.powerUserWorkspaceID,
-					server.catalogEntryID,
-					server.id
-				);
-			} else if (id) {
-				await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
-			}
-			return false;
+	async function previewCatalogUpgrade(server: MCPCatalogServer) {
+		if (server.powerUserWorkspaceID && server.catalogEntryID) {
+			return UserService.previewWorkspaceMcpServerCatalogUpgrade(
+				server.powerUserWorkspaceID,
+				server.catalogEntryID,
+				server.id
+			);
 		}
-
-		return (
-			(await editExistingDialog?.updateFromCatalogEntry({
-				server,
-				entry
-			})) ?? false
-		);
+		if (server.mcpCatalogID) {
+			return AdminService.previewMCPCatalogServerUpgrade(server.mcpCatalogID, server.id);
+		}
+		return UserService.previewMcpServerCatalogUpgrade(server.id);
 	}
 
-	async function updateServer(server?: MCPCatalogServer) {
+	async function prepareUpdate(server: MCPCatalogServer) {
+		updating[server.id] = { inProgress: true, error: '' };
+		try {
+			const plan = await previewCatalogUpgrade(server);
+			showUpgradeConfirm = { type: 'single', server, plan };
+		} catch (err) {
+			errors.append(err);
+			updating[server.id] = {
+				inProgress: false,
+				error: err instanceof Error ? err.message : 'An unknown error occurred'
+			};
+		} finally {
+			delete updating[server.id];
+		}
+	}
+
+	async function updateServer(server?: MCPCatalogServer, plan?: CatalogUpgradePlan) {
 		if (!server || !canTriggerUpdate(server)) return false;
 
 		updating[server.id] = { inProgress: true, error: '' };
 		let prompted = false;
 		try {
-			if (isMultiUserServer(server)) {
-				if (server.catalogEntryID) {
-					// Catalog-backed multi-user servers may need shared config after the manifest update.
-					prompted = await updateCatalogServerAndPromptForConfiguration(server);
-				} else if (server.powerUserWorkspaceID) {
-					prompted = false;
-				} else if (id) {
-					await AdminService.triggerMcpCatalogServerUpdate(id, server.id);
-				}
-			} else {
-				await UserService.triggerMcpServerUpdate(server.id);
-			}
+			const entry = server.catalogEntryID ? entriesMap[server.catalogEntryID] : undefined;
+			if (!entry) throw new Error('The catalog entry for this server is unavailable.');
+			prompted =
+				(await editExistingDialog?.updateFromCatalogEntry({ server, entry, plan })) ?? false;
 		} catch (err) {
+			errors.append(err);
 			updating[server.id] = {
 				inProgress: false,
 				error: err instanceof Error ? err.message : 'An unknown error occurred'
@@ -778,10 +770,7 @@
 										onclick={(e) => {
 											e.stopPropagation();
 											if (!d) return;
-											showUpgradeConfirm = {
-												type: 'single',
-												server: d
-											};
+											void prepareUpdate(d);
 											toggle(false);
 										}}
 										use:tooltip={d.compositeName
@@ -801,18 +790,29 @@
 									</button>
 								{/if}
 
-								{#if d.catalogEntryID && d.needsUpdate}
+								{#if d.catalogEntryID && d.needsUpdate && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-										onclick={(e) => {
+										onclick={async (e) => {
 											e.stopPropagation();
 											if (!d.catalogEntryID) return;
-
-											existingServer = d;
-											updatedServer = entriesMap[d.catalogEntryID];
-											diffDialog?.open();
 											toggle(false);
+											updating[d.id] = { inProgress: true, error: '' };
+											try {
+												const plan = await previewCatalogUpgrade(d);
+												existingServer = d;
+												updatedServer = { ...d, manifest: plan.targetManifest };
+												diffDialog?.open();
+											} catch (err) {
+												errors.append(err);
+												updating[d.id] = {
+													inProgress: false,
+													error: err instanceof Error ? err.message : 'An unknown error occurred'
+												};
+											} finally {
+												delete updating[d.id];
+											}
 										}}
 									>
 										<GitCompare class="size-4" /> View Diff
@@ -921,9 +921,6 @@
 					{@const restartableCount = Object.values(currentSelected).filter((s) =>
 						canRestartServer(s)
 					).length}
-					{@const upgradeableCount = Object.values(currentSelected).filter(
-						(s) => s.needsUpdate && canTriggerUpdate(s)
-					).length}
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate && !s.compositeName
 					).length}
@@ -948,23 +945,6 @@
 							{#if restartableCount > 0 && !readonly}
 								<span class="pill-primary">
 									{restartableCount}
-								</span>
-							{/if}
-						</button>
-						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-							onclick={() => {
-								selected = currentSelected;
-								showUpgradeConfirm = {
-									type: 'multi'
-								};
-							}}
-							disabled={readonly || upgradeableCount === 0}
-						>
-							<CircleFadingArrowUp class="size-4" /> Upgrade
-							{#if upgradeableCount > 0 && !readonly}
-								<span class="pill-primary">
-									{upgradeableCount}
 								</span>
 							{/if}
 						</button>
@@ -1027,30 +1007,49 @@
 	show={!!showUpgradeConfirm}
 	onsuccess={async () => {
 		if (!showUpgradeConfirm) return;
-		if (showUpgradeConfirm.type === 'single') {
-			await updateServer(showUpgradeConfirm.server);
-		} else {
-			await handleBulkUpdate();
-		}
+		await updateServer(showUpgradeConfirm.server, showUpgradeConfirm.plan);
 		await reload();
 		showUpgradeConfirm = undefined;
 	}}
 	oncancel={() => (showUpgradeConfirm = undefined)}
 	loading={Object.values(updating).some((u) => u.inProgress)}
+	disabled={(showUpgradeConfirm?.plan.validationFailures?.length ?? 0) > 0}
+	submitText={showUpgradeConfirm?.plan.oauthReauthorizationRequired
+		? 'Confirm OAuth Reset'
+		: 'Continue'}
 	type="info"
 	title="Confirm Update"
 >
 	{#snippet msgContent()}
 		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
 			<CircleAlert class="size-5" />
-			{`Update ${showUpgradeConfirm?.type === 'single' ? showUpgradeConfirm.server.id : 'selected server(s)'}?`}
+			{`Update ${showUpgradeConfirm?.server.id}?`}
 		</h4>
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			If this update introduces new required shared configuration parameters, you will be prompted
-			to supply them after the update is applied.
+			The server will be updated only after this preview is confirmed and any required configuration
+			is supplied.
 		</p>
+		{#if showUpgradeConfirm}
+			{#each showUpgradeConfirm.plan.warnings ?? [] as warning, index (`${warning.code}-${index}`)}
+				<p class="notification-warning mt-2 p-2 text-left text-sm">{warning.message}</p>
+			{/each}
+			{#each showUpgradeConfirm.plan.validationFailures ?? [] as failure, index (`${failure}-${index}`)}
+				<p class="text-error mt-2 text-left text-sm">{failure}</p>
+			{/each}
+			{#if showUpgradeConfirm.plan.missingURL}
+				<p class="notification-warning mt-2 p-2 text-left text-sm">
+					A server URL will be required before this update is applied.
+				</p>
+			{/if}
+			{#if showUpgradeConfirm.plan.oauthReauthorizationRequired}
+				<p class="notification-warning mt-2 p-2 text-left text-sm">
+					Existing OAuth authorization will be cleared when the update is applied. You must
+					authorize the server again after the update.
+				</p>
+			{/if}
+		{/if}
 	{/snippet}
 </Confirm>
 

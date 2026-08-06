@@ -1493,6 +1493,113 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	assert.False(t, updated.Status.NeedsUpdate)
 }
 
+func TestDetectDriftUsesDefaultForStableAndExactVersionForPinnedServers(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:    "Versioned",
+		Runtime: types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{
+			Package: "versioned",
+		},
+		ServerUserType: types.ServerUserTypeSingleUser,
+	}
+	entry := newMCPServerCatalogEntry("versioned-entry", manifest)
+	entry.Spec.DefaultVersion = 2
+	versions := []*v1.MCPServerCatalogEntryVersion{
+		{ObjectMeta: metav1.ObjectMeta{Name: v1.MCPServerCatalogEntryVersionName(entry.Name, 1), Namespace: entry.Namespace}, Spec: v1.MCPServerCatalogEntryVersionSpec{MCPServerCatalogEntryName: entry.Name, Version: 1, Manifest: manifest, Active: true}},
+		{ObjectMeta: metav1.ObjectMeta{Name: v1.MCPServerCatalogEntryVersionName(entry.Name, 2), Namespace: entry.Namespace}, Spec: v1.MCPServerCatalogEntryVersionSpec{MCPServerCatalogEntryName: entry.Name, Version: 2, Manifest: manifest, Active: true}},
+	}
+	serverManifest, err := types.MapCatalogEntryToServer(manifest, "", false)
+	require.NoError(t, err)
+
+	for _, tt := range []struct {
+		name       string
+		pinned     bool
+		wantUpdate bool
+	}{
+		{name: "stable follows changed default", wantUpdate: true},
+		{name: "pinned stays on exact version", pinned: true, wantUpdate: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newMCPServer("server")
+			server.Spec.MCPServerCatalogEntryName = entry.Name
+			server.Spec.MCPServerCatalogEntryVersion = 1
+			server.Spec.PinnedCatalogEntryVersion = tt.pinned
+			server.Spec.Manifest = serverManifest
+			client := newFakeClient(t, entry.DeepCopy(), versions[0].DeepCopy(), versions[1].DeepCopy(), server)
+
+			require.NoError(t, (&Handler{}).DetectDrift(router.Request{
+				Client: client, Ctx: t.Context(), Object: server, Namespace: server.Namespace, Name: server.Name,
+			}, &router.ResponseWrapper{}))
+
+			var updated v1.MCPServer
+			require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
+			assert.Equal(t, tt.wantUpdate, updated.Status.NeedsUpdate)
+		})
+	}
+}
+
+func TestEnsureCompositeComponentsUsesResolvedManifestAndUpdatesVersionOnly(t *testing.T) {
+	entry := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "component-entry", Namespace: "default"},
+		Spec:       v1.MCPServerCatalogEntrySpec{DefaultVersion: 2},
+	}
+	version := &v1.MCPServerCatalogEntryVersion{
+		ObjectMeta: metav1.ObjectMeta{Name: v1.MCPServerCatalogEntryVersionName(entry.Name, 2), Namespace: entry.Namespace},
+		Spec: v1.MCPServerCatalogEntryVersionSpec{
+			MCPServerCatalogEntryName: entry.Name,
+			Version:                   2,
+			Active:                    true,
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name: "Resolved", Runtime: types.RuntimeNPX, ServerUserType: types.ServerUserTypeSingleUser,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "resolved-v2"},
+			},
+		},
+	}
+	composite := newMCPServer("composite")
+	composite.Spec.UserID = "user"
+	composite.Spec.Manifest = types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: entry.Name,
+			Manifest: types.MCPServerManifest{
+				Name: "Stale", Runtime: types.RuntimeNPX, NPXConfig: &types.NPXRuntimeConfig{Package: "stale-v1"},
+			},
+		}}},
+	}
+	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(entry, version, composite).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.CompositeName}
+		}).Build()
+	h := &Handler{}
+	req := router.Request{Client: client, Ctx: t.Context(), Object: composite, Namespace: composite.Namespace, Name: composite.Name}
+
+	require.NoError(t, h.EnsureCompositeComponents(req, &router.ResponseWrapper{}))
+	var servers v1.MCPServerList
+	require.NoError(t, client.List(t.Context(), &servers))
+	require.Len(t, servers.Items, 2)
+	var component *v1.MCPServer
+	for i := range servers.Items {
+		if servers.Items[i].Spec.CompositeName == composite.Name {
+			component = &servers.Items[i]
+		}
+	}
+	require.NotNil(t, component)
+	assert.Equal(t, 2, component.Spec.MCPServerCatalogEntryVersion)
+	require.NotNil(t, component.Spec.Manifest.NPXConfig)
+	assert.Equal(t, "resolved-v2", component.Spec.Manifest.NPXConfig.Package)
+
+	component.Spec.MCPServerCatalogEntryVersion = 1
+	require.NoError(t, client.Update(t.Context(), component))
+	require.NoError(t, h.EnsureCompositeComponents(req, &router.ResponseWrapper{}))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(component), component))
+	assert.Equal(t, 2, component.Spec.MCPServerCatalogEntryVersion)
+}
+
 func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
 	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
 	server := newMCPServer("shared-server")

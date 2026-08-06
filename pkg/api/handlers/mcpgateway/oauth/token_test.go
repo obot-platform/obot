@@ -132,3 +132,114 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
 	assert.Equal(t, "Obot: refresh_token is invalid", oauthErr.Description)
 }
+
+func TestMCPTokenGroupsForVersionedResource(t *testing.T) {
+	const (
+		baseURL = "https://obot.example.com"
+		entryID = "catalog-entry"
+	)
+	entry := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: entryID, Namespace: system.DefaultNamespace},
+	}
+	version := &v1.MCPServerCatalogEntryVersion{
+		ObjectMeta: metav1.ObjectMeta{Name: v1.MCPServerCatalogEntryVersionName(entryID, 2), Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntryVersionSpec{
+			MCPServerCatalogEntryName: entryID,
+			Version:                   2,
+			Active:                    true,
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(entry, version).Build()
+	h := &handler{baseURL: baseURL}
+	resource := baseURL + "/versioned-mcp-connect/" + entryID + "/2"
+
+	groups, err := h.mcpTokenGroups(t.Context(), storage, resource, true)
+	require.NoError(t, err)
+	assert.Equal(t, []string{types.GroupVersionedMCP, types.GroupAuthenticated}, groups)
+	assert.NotContains(t, groups, types.GroupAdmin)
+	assert.NotContains(t, groups, types.GroupMCP)
+
+	_, err = h.mcpTokenGroups(t.Context(), storage, resource, false)
+	require.ErrorContains(t, err, "administrator access is required")
+	_, err = h.mcpTokenGroups(t.Context(), storage, resource+"/messages", true)
+	require.ErrorContains(t, err, "invalid versioned MCP resource")
+
+	version.Spec.Active = false
+	require.NoError(t, storage.Update(t.Context(), version))
+	_, err = h.mcpTokenGroups(t.Context(), storage, resource, true)
+	require.ErrorContains(t, err, "active version 2")
+}
+
+func TestVersionedTokenEndpointRejectsAuthorizationCodeForAnotherVersion(t *testing.T) {
+	const code = "authorization-code"
+	hashedCode := fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
+	authRequest := &v1.OAuthAuthRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "auth-request", Namespace: system.DefaultNamespace},
+		Spec: v1.OAuthAuthRequestSpec{
+			ClientID:       "client",
+			HashedAuthCode: hashedCode,
+			Resource:       "https://obot.example.com/versioned-mcp-connect/entry/1",
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(authRequest).
+		WithIndex(&v1.OAuthAuthRequest{}, "spec.hashedAuthCode", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.OAuthAuthRequest).Spec.HashedAuthCode}
+		}).Build()
+	request := httptest.NewRequest("POST", "/oauth/token/versioned-mcp-connect/entry/2", nil)
+	request.SetPathValue("entry_id", "entry")
+	request.SetPathValue("version", "2")
+	req := api.Context{Request: request, ResponseWriter: httptest.NewRecorder(), Storage: storage}
+
+	err := (&handler{baseURL: "https://obot.example.com"}).doAuthorizationCode(req, v1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{Name: "client", Namespace: system.DefaultNamespace},
+	}, code, "")
+	require.ErrorContains(t, err, "does not belong")
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(authRequest), &v1.OAuthAuthRequest{}))
+}
+
+func TestVersionedTokenEndpointRejectsRefreshTokenForAnotherEntry(t *testing.T) {
+	const refreshToken = "refresh-token"
+	token := &v1.OAuthToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))), Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.OAuthTokenSpec{
+			ClientID: "client",
+			Resource: "https://obot.example.com/versioned-mcp-connect/entry-a/2",
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(token).Build()
+	request := httptest.NewRequest("POST", "/oauth/token/versioned-mcp-connect/entry-b/2", nil)
+	request.SetPathValue("entry_id", "entry-b")
+	request.SetPathValue("version", "2")
+	req := api.Context{Request: request, ResponseWriter: httptest.NewRecorder(), Storage: storage}
+
+	err := (&handler{baseURL: "https://obot.example.com"}).doRefreshToken(req, v1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{Name: "client", Namespace: system.DefaultNamespace},
+	}, refreshToken)
+	require.ErrorContains(t, err, "does not belong")
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(token), &v1.OAuthToken{}))
+}
+
+func TestGenericTokenEndpointRejectsVersionedRefreshToken(t *testing.T) {
+	const refreshToken = "refresh-token"
+	token := &v1.OAuthToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))), Namespace: system.DefaultNamespace,
+		},
+		Spec: v1.OAuthTokenSpec{
+			ClientID: "client",
+			Resource: "https://obot.example.com/versioned-mcp-connect/entry/2",
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(token).Build()
+	req := api.Context{
+		Request: httptest.NewRequest("POST", "/oauth/token", nil), ResponseWriter: httptest.NewRecorder(), Storage: storage,
+	}
+
+	err := (&handler{baseURL: "https://obot.example.com"}).doRefreshToken(req, v1.OAuthClient{
+		ObjectMeta: metav1.ObjectMeta{Name: "client", Namespace: system.DefaultNamespace},
+	}, refreshToken)
+	require.ErrorContains(t, err, "exact token endpoint")
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(token), &v1.OAuthToken{}))
+}

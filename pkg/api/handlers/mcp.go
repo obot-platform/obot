@@ -22,6 +22,8 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/catalogupgrade"
+	"github.com/obot-platform/obot/pkg/mcp/catalogversion"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -208,6 +210,8 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 	return types.MCPServerCatalogEntry{
 		Metadata:                  MetadataFrom(&entry),
 		Manifest:                  entry.Spec.Manifest,
+		DefaultVersion:            entry.Spec.DefaultVersion,
+		LatestVersion:             entry.Status.LatestVersion,
 		Editable:                  entry.Spec.Editable,
 		CatalogName:               entry.Spec.MCPCatalogName,
 		SourceURL:                 entry.Spec.SourceURL,
@@ -296,7 +300,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	bypassACRCheck := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 
 	for _, server := range servers.Items {
-		if server.Spec.Template || server.Spec.CompositeName != "" {
+		if server.Spec.Template || server.Spec.CompositeName != "" || server.Spec.PinnedCatalogEntryVersion {
 			continue
 		}
 
@@ -1033,10 +1037,13 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 	default:
 		// In this case, id refers to a catalog entry.
 		// Get the catalog entry to make sure it's valid
-		var entry v1.MCPServerCatalogEntry
-		if err := req.Get(&entry, id); err != nil {
+		resolved, err := catalogversion.ResolveDefault(req.Context(), req.Storage, req.Namespace(), id)
+		if err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
 		}
+		entry := resolved.Entry
+		entry.Spec.Manifest = resolved.Version.Spec.Manifest
+		entry.Spec.UnsupportedTools = resolved.Version.Spec.UnsupportedTools
 		addExtractedEnvVarsToCatalogEntry(&entry)
 
 		// List the MCP servers for the user and take the first one.
@@ -1051,6 +1058,9 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 		}); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
+		servers.Items = slices.DeleteFunc(servers.Items, func(server v1.MCPServer) bool {
+			return server.Spec.PinnedCatalogEntryVersion
+		})
 		if len(servers.Items) == 0 {
 			// If the user has not configured an MCP server for the catalog entry, create a server for the user.
 			missingAdminConfig, err := entryMissingAdminConfig(req.Context(), req.LocalK8sClient, req.ObotNamespace, entry, secretBindingAllowedLabel)
@@ -1081,11 +1091,12 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 					Namespace:    req.Namespace(),
 				},
 				Spec: v1.MCPServerSpec{
-					Manifest:                  manifest,
-					UnsupportedTools:          entry.Spec.UnsupportedTools,
-					MCPServerCatalogEntryName: id,
-					UserID:                    req.User.GetUID(),
-					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
+					Manifest:                     manifest,
+					UnsupportedTools:             entry.Spec.UnsupportedTools,
+					MCPServerCatalogEntryName:    id,
+					MCPServerCatalogEntryVersion: resolved.Version.Spec.Version,
+					UserID:                       req.User.GetUID(),
+					NeedsURL:                     allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
 			if err := req.Create(&server); err != nil {
@@ -1609,10 +1620,14 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	var gitManagedEntry bool
 	var sourceCatalogEntryManifest *types.MCPServerCatalogEntryManifest
 	if input.CatalogEntryID != "" {
-		var catalogEntry v1.MCPServerCatalogEntry
-		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
+		resolved, err := catalogversion.ResolveDefault(req.Context(), req.Storage, req.Namespace(), input.CatalogEntryID)
+		if err != nil {
 			return err
 		}
+		catalogEntry := resolved.Entry
+		catalogEntry.Spec.Manifest = resolved.Version.Spec.Manifest
+		catalogEntry.Spec.UnsupportedTools = resolved.Version.Spec.UnsupportedTools
+		server.Spec.MCPServerCatalogEntryVersion = resolved.Version.Spec.Version
 		sourceCatalogEntryManifest = catalogEntry.Spec.Manifest.DeepCopy()
 
 		// Validate that the catalog entry type is compatible with the route used.
@@ -2788,33 +2803,35 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	}
 
 	converted := types.MCPServer{
-		Metadata:                    MetadataFrom(&server),
-		Alias:                       server.Spec.Alias,
-		MissingRequiredEnvVars:      missingEnvVars,
-		MissingRequiredHeaders:      missingHeaders,
-		MissingOAuthCredentials:     missingOAuth,
-		UserID:                      server.Spec.UserID,
-		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL && !missingOAuth,
-		MCPServerManifest:           server.Spec.Manifest,
-		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
-		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
-		MCPCatalogID:                server.Spec.MCPCatalogID,
-		ConnectURL:                  connectURL,
-		NeedsUpdate:                 server.Status.NeedsUpdate,
-		NeedsK8sUpdate:              server.Status.NeedsK8sUpdate,
-		NeedsURL:                    server.Spec.NeedsURL,
-		PreviousURL:                 server.Spec.PreviousURL,
-		MCPServerInstanceUserCount:  server.Status.MCPServerInstanceUserCount,
-		DeploymentStatus:            server.Status.DeploymentStatus,
-		DeploymentAvailableReplicas: server.Status.DeploymentAvailableReplicas,
-		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
-		DeploymentReplicas:          server.Status.DeploymentReplicas,
-		DeploymentConditions:        conditions,
-		OAuthMetadata:               convertOAuthMetadata(server.Status.OAuthMetadata),
-		K8sSettingsHash:             server.Status.K8sSettingsHash,
-		Template:                    server.Spec.Template,
-		CompositeName:               server.Spec.CompositeName,
-		NanobotAgentID:              server.Spec.NanobotAgentID,
+		Metadata:                     MetadataFrom(&server),
+		Alias:                        server.Spec.Alias,
+		MissingRequiredEnvVars:       missingEnvVars,
+		MissingRequiredHeaders:       missingHeaders,
+		MissingOAuthCredentials:      missingOAuth,
+		UserID:                       server.Spec.UserID,
+		Configured:                   len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL && !missingOAuth,
+		MCPServerManifest:            server.Spec.Manifest,
+		CatalogEntryID:               server.Spec.MCPServerCatalogEntryName,
+		MCPServerCatalogEntryVersion: server.Spec.MCPServerCatalogEntryVersion,
+		PinnedCatalogEntryVersion:    server.Spec.PinnedCatalogEntryVersion,
+		PowerUserWorkspaceID:         server.Spec.PowerUserWorkspaceID,
+		MCPCatalogID:                 server.Spec.MCPCatalogID,
+		ConnectURL:                   connectURL,
+		NeedsUpdate:                  server.Status.NeedsUpdate,
+		NeedsK8sUpdate:               server.Status.NeedsK8sUpdate,
+		NeedsURL:                     server.Spec.NeedsURL,
+		PreviousURL:                  server.Spec.PreviousURL,
+		MCPServerInstanceUserCount:   server.Status.MCPServerInstanceUserCount,
+		DeploymentStatus:             server.Status.DeploymentStatus,
+		DeploymentAvailableReplicas:  server.Status.DeploymentAvailableReplicas,
+		DeploymentReadyReplicas:      server.Status.DeploymentReadyReplicas,
+		DeploymentReplicas:           server.Status.DeploymentReplicas,
+		DeploymentConditions:         conditions,
+		OAuthMetadata:                convertOAuthMetadata(server.Status.OAuthMetadata),
+		K8sSettingsHash:              server.Status.K8sSettingsHash,
+		Template:                     server.Spec.Template,
+		CompositeName:                server.Spec.CompositeName,
+		NanobotAgentID:               server.Spec.NanobotAgentID,
 	}
 
 	if server.Spec.IsSingleUser() {
@@ -2990,6 +3007,9 @@ func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 		}); err != nil {
 			return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
 		}
+		serversWithEntryName.Items = slices.DeleteFunc(serversWithEntryName.Items, func(server v1.MCPServer) bool {
+			return server.Spec.PinnedCatalogEntryVersion
+		})
 
 		slices.SortFunc(serversWithEntryName.Items, func(a, b v1.MCPServer) int {
 			return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
@@ -3884,104 +3904,199 @@ func updateMCPServerURLFromCatalogEntry(ctx context.Context, client kclient.Clie
 }
 
 func (m *MCPHandler) TriggerUpdate(req api.Context) error {
-	var (
-		workspaceID = req.PathValue("workspace_id")
-		server      v1.MCPServer
-	)
-
-	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+	var current v1.MCPServer
+	if err := req.Get(&current, req.PathValue("mcp_server_id")); err != nil {
 		return err
 	}
-
-	if !server.Spec.IsSingleUser() {
-		// Multi-user servers deployed from catalog entries can be updated, but only
-		// through catalog- or workspace-scoped routes.
-		if server.Spec.MCPServerCatalogEntryName == "" {
+	if current.Spec.MCPServerCatalogEntryName == "" || !current.Status.NeedsUpdate {
+		if current.Spec.MCPServerCatalogEntryName == "" && !current.Spec.IsSingleUser() {
 			return types.NewErrBadRequest("cannot trigger update for a multi-user MCP server without a catalog entry; use the UpdateServer endpoint instead")
 		}
-		if err := validateServerScope(req, server); err != nil {
-			return err
-		}
-		if !req.UserIsAdmin() {
-			// Multi-user catalog entry deployments require PowerUserPlus access to the owning workspace.
-			if !req.UserIsPowerUserPlus() || workspaceID == "" || server.Spec.PowerUserWorkspaceID != workspaceID {
-				return types.NewErrNotFound("MCP server %s not found", server.Name)
-			}
-		}
-	}
-
-	// Reject component servers - must upgrade parent composite
-	if server.Spec.CompositeName != "" {
-		return types.NewErrBadRequest("cannot trigger update on a component server; upgrade the parent composite server instead")
-	}
-
-	if server.Spec.MCPServerCatalogEntryName == "" || !server.Status.NeedsUpdate {
 		return nil
 	}
-
-	var entry v1.MCPServerCatalogEntry
-	if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
+	server, err := m.catalogUpgradeServer(req)
+	if err != nil {
 		return err
 	}
+	planner := m.catalogUpgradePlanner(req)
+	plan, err := planner.Plan(req.Context(), server.Name, nil)
+	if err != nil {
+		return err
+	}
+	if !plan.CanApply {
+		return types.NewErrBadRequest("catalog update requires preview and additional configuration")
+	}
+	_, err = planner.Apply(req.Context(), server.Name, types.CatalogUpgradeApplyRequest{PlanID: plan.ID})
+	return err
+}
 
-	if !req.UserIsAdmin() && server.Spec.IsSingleUser() {
-		// Allow users to upgrade their own single-user servers.
-		if !server.Spec.IsOwnedBy(req.User.GetUID()) {
-			// Workspace-based authorization for power user workspace entries
-			if workspaceID == "" || entry.Spec.PowerUserWorkspaceID != workspaceID {
-				return types.NewErrNotFound("MCP server %s not found", server.Name)
+func (m *MCPHandler) PreviewCatalogUpgrade(req api.Context) error {
+	server, err := m.catalogUpgradeServer(req)
+	if err != nil {
+		return err
+	}
+	plan, err := m.catalogUpgradePlanner(req).Plan(req.Context(), server.Name, nil)
+	if err != nil {
+		return err
+	}
+	return req.Write(plan)
+}
+
+func (m *MCPHandler) ApplyCatalogUpgrade(req api.Context) error {
+	server, err := m.catalogUpgradeServer(req)
+	if err != nil {
+		return err
+	}
+	var input types.CatalogUpgradeApplyRequest
+	if err := req.Read(&input); err != nil {
+		return err
+	}
+	result, err := m.catalogUpgradePlanner(req).Apply(req.Context(), server.Name, input)
+	if err != nil {
+		return err
+	}
+	return req.Write(result)
+}
+
+func (m *MCPHandler) PreviewCatalogRollout(req api.Context) error {
+	entry, servers, err := catalogRolloutTargets(req)
+	if err != nil {
+		return err
+	}
+	result := types.CatalogBulkUpgradePlan{CatalogEntryID: entry.Name, TargetVersion: entry.Spec.DefaultVersion}
+	users := make(map[string]struct{})
+	planner := m.catalogUpgradePlanner(req)
+	for _, server := range servers {
+		if server.Spec.MCPServerCatalogEntryVersion == entry.Spec.DefaultVersion && !server.Status.NeedsUpdate {
+			continue
+		}
+		plan, planErr := planner.Plan(req.Context(), server.Name, nil)
+		if planErr != nil {
+			plan = types.CatalogUpgradePlan{
+				ServerID: server.Name, CatalogEntryID: entry.Name,
+				SourceVersion: server.Spec.MCPServerCatalogEntryVersion, TargetVersion: entry.Spec.DefaultVersion,
+				ValidationFailures: []string{planErr.Error()},
 			}
 		}
+		result.Plans = append(result.Plans, plan)
+		if server.Spec.IsSingleUser() {
+			users[server.Spec.UserID] = struct{}{}
+		} else if server.Status.MCPServerInstanceUserCount != nil {
+			result.AffectedUsers += *server.Status.MCPServerInstanceUserCount
+		}
 	}
+	result.AffectedUsers += len(users)
+	return req.Write(result)
+}
 
-	// Branch for composite servers
-	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
-		return m.triggerCompositeUpdate(req, server, entry)
-	}
-
-	candidate := server.DeepCopy()
-	updateServerFromCatalogEntry(candidate, entry)
-	if err := mcp.ValidateServerManifest(req.Context(), candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, candidate.Spec.Manifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-
-	// Shutdown the server, even if there is no credential
-	if err := m.removeMCPServer(req.Context(), server); err != nil {
+func (m *MCPHandler) ApplyCatalogRollout(req api.Context) error {
+	entry, servers, err := catalogRolloutTargets(req)
+	if err != nil {
 		return err
 	}
-
-	// Use RetryOnConflict because catalog-entry updates cause controller-side
-	// status writes (for example DetectDrift setting NeedsUpdate) that can race
-	// with this spec update and bump the ResourceVersion.
-	oldManifestHash := utils.Digest(server.Spec.Manifest)
-	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		var latest v1.MCPServer
-		if err := req.Get(&latest, server.Name); err != nil {
-			return err
-		}
-
-		if utils.Digest(latest.Spec.Manifest) != oldManifestHash {
-			return types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
-		}
-
-		updateServerFromCatalogEntry(&latest, entry)
-
-		// Validate again in case the catalog entry changed between retries.
-		if err := mcp.ValidateServerManifest(req.Context(), latest.Spec.Manifest, !latest.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
-			return types.NewErrBadRequest("validation failed: %v", err)
-		}
-		if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, latest.Spec.Manifest); err != nil {
-			return types.NewErrBadRequest("validation failed: %v", err)
-		}
-		return req.Update(&latest)
-	}); err != nil {
+	var input types.CatalogBulkUpgradeApplyRequest
+	if err := req.Read(&input); err != nil {
 		return err
 	}
+	result := types.CatalogBulkUpgradeResult{CatalogEntryID: entry.Name, TargetVersion: entry.Spec.DefaultVersion}
+	planner := m.catalogUpgradePlanner(req)
+	for _, server := range servers {
+		if server.Spec.MCPServerCatalogEntryVersion == entry.Spec.DefaultVersion && !server.Status.NeedsUpdate {
+			continue
+		}
+		applyRequest, ok := input.Plans[server.Name]
+		if !ok {
+			result.Results = append(result.Results, types.CatalogUpgradeResult{ServerID: server.Name, SourceVersion: server.Spec.MCPServerCatalogEntryVersion, TargetVersion: entry.Spec.DefaultVersion, Error: "no upgrade plan supplied"})
+			continue
+		}
+		applied, applyErr := planner.Apply(req.Context(), server.Name, applyRequest)
+		if applyErr != nil {
+			applied = types.CatalogUpgradeResult{ServerID: server.Name, SourceVersion: server.Spec.MCPServerCatalogEntryVersion, TargetVersion: entry.Spec.DefaultVersion, Error: applyErr.Error()}
+		}
+		result.Results = append(result.Results, applied)
+	}
+	return req.Write(result)
+}
 
-	return nil
+func catalogRolloutTargets(req api.Context) (v1.MCPServerCatalogEntry, []v1.MCPServer, error) {
+	var entry v1.MCPServerCatalogEntry
+	if !req.UserIsAdmin() {
+		return entry, nil, types.NewErrForbidden("administrator access is required")
+	}
+	if err := req.Get(&entry, req.PathValue("entry_id")); err != nil {
+		return entry, nil, err
+	}
+	if entry.Spec.MCPCatalogName != req.PathValue("catalog_id") {
+		return entry, nil, types.NewErrNotFound("MCP catalog entry not found")
+	}
+	var list v1.MCPServerList
+	if err := req.List(&list, kclient.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+		return entry, nil, err
+	}
+	servers := slices.DeleteFunc(list.Items, func(server v1.MCPServer) bool {
+		return server.Spec.Template || server.Spec.CompositeName != "" || server.Spec.PinnedCatalogEntryVersion
+	})
+	return entry, servers, nil
+}
+
+func (m *MCPHandler) catalogUpgradeServer(req api.Context) (v1.MCPServer, error) {
+	var server v1.MCPServer
+	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+		return server, err
+	}
+	if server.Spec.CompositeName != "" {
+		return server, types.NewErrBadRequest("cannot trigger update on a component server; upgrade the parent composite server instead")
+	}
+	if server.Spec.MCPServerCatalogEntryName == "" {
+		return server, types.NewErrBadRequest("MCP server cannot be upgraded from a catalog entry")
+	}
+	if server.Spec.PinnedCatalogEntryVersion && !req.UserIsAdmin() {
+		return server, types.NewErrNotFound("MCP server %s not found", server.Name)
+	}
+	if server.Spec.IsSingleUser() {
+		if req.UserIsAdmin() || server.Spec.IsOwnedBy(req.User.GetUID()) {
+			return server, nil
+		}
+		if workspaceID := req.PathValue("workspace_id"); workspaceID != "" {
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err == nil && entry.Spec.PowerUserWorkspaceID == workspaceID {
+				return server, nil
+			}
+		}
+		return server, types.NewErrNotFound("MCP server %s not found", server.Name)
+	}
+	if err := validateServerScope(req, server); err != nil {
+		return server, err
+	}
+	if !req.UserIsAdmin() && (!req.UserIsPowerUserPlus() || req.PathValue("workspace_id") == "" || server.Spec.PowerUserWorkspaceID != req.PathValue("workspace_id")) {
+		return server, types.NewErrNotFound("MCP server %s not found", server.Name)
+	}
+	return server, nil
+}
+
+func (m *MCPHandler) catalogUpgradePlanner(req api.Context) *catalogupgrade.Planner {
+	var credentials catalogupgrade.CredentialStore
+	if req.GatewayClient != nil {
+		credentials = req.GatewayClient
+	}
+	var secretBindingTest func(context.Context, types.MCPServerManifest) error
+	if req.LocalK8sClient != nil {
+		secretBindingTest = func(ctx context.Context, manifest types.MCPServerManifest) error {
+			return mcp.ValidateSecretBindingsAvailable(ctx, req.LocalK8sClient, req.ObotNamespace, manifest.Env, manifest.RemoteConfig, m.secretBindingAllowedLabel)
+		}
+	}
+	return catalogupgrade.New(
+		req.Storage,
+		credentials,
+		func(ctx context.Context, serverID string) error {
+			if m.shutdownMCPServer != nil {
+				return m.shutdownMCPServer(serverID)
+			}
+			return m.mcpSessionManager.ShutdownServer(ctx, serverID)
+		},
+		secretBindingTest,
+		ValidationOptionsWithResourceMaximums(m.mcpSessionManager),
+	)
 }
 
 func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalogEntry) {
@@ -4052,43 +4167,6 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 		// For non-remote runtimes, clear the remote config.
 		server.Spec.Manifest.RemoteConfig = nil
 	}
-}
-
-// triggerCompositeUpdate upgrades a composite server and all its component servers from the latest catalog entry
-func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
-	// Capture the hash of the initial server so we can compare changes on update.
-	// This will let us abort an update if the server's manifest has changed before the update was applied.
-	oldManifestHash := utils.Digest(compositeServer.Spec.Manifest)
-
-	// Build fresh manifest with user URLs applied
-	updatedManifest, err := serverManifestFromCatalogEntryManifest(
-		req.UserIsAdmin(),
-		true,
-		entry.Spec.Manifest,
-		compositeServer.Spec.Manifest,
-	)
-	if err != nil {
-		return err
-	}
-	if err := mcp.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), ValidationOptionsWithResourceMaximums(m.mcpSessionManager)); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-
-	// Ensure the composite server's manifest is updated
-	compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, updatedManifest)
-	if err != nil {
-		return err
-	}
-
-	// Wait for the composite server to apply the changes to all component servers
-	if _, err := waitForCompositeReady(req, compositeServer, 30*time.Second); err != nil {
-		return fmt.Errorf("failed to wait for component servers to sync: %w", err)
-	}
-
-	return nil
 }
 
 // updateCompositeManifest attempts to update a composite server to have the given manifest.
@@ -4164,7 +4242,7 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 	// Filter out template servers
 	var catalogServers []v1.MCPServer
 	for _, server := range serverList.Items {
-		if !server.Spec.Template {
+		if !server.Spec.Template && !server.Spec.PinnedCatalogEntryVersion {
 			catalogServers = append(catalogServers, server)
 		}
 	}
