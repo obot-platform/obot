@@ -438,6 +438,40 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
 }
 
+func (h *MCPCatalogHandler) AcceptEntryOwnership(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+	if err := validateEntryScope(entry, catalogName, ""); err != nil {
+		return err
+	}
+	if !entry.IsDetached() {
+		return types.NewErrBadRequest("entry is not detached")
+	}
+
+	acceptCatalogEntryOwnership(&entry)
+	if err := req.Update(&entry); err != nil {
+		return fmt.Errorf("failed to accept ownership of entry: %w", err)
+	}
+
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
+func acceptCatalogEntryOwnership(entry *v1.MCPServerCatalogEntry) {
+	entry.Spec.Editable = true
+	entry.Spec.SourceURL = ""
+	entry.Spec.Manifest.EntryKey = ""
+	delete(entry.Annotations, v1.MCPServerCatalogEntryDetachedAnnotation)
+}
+
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")

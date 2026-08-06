@@ -871,6 +871,20 @@ export async function updateMCPCatalogEntry(
 	};
 }
 
+export async function acceptMCPCatalogEntryOwnership(
+	catalogID: string,
+	entryID: string
+): Promise<MCPCatalogEntry> {
+	const response = (await doPost(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/accept-ownership`,
+		{}
+	)) as MCPCatalogEntry;
+	return {
+		...response,
+		isCatalogEntry: true
+	};
+}
+
 export async function deleteMCPCatalogEntry(catalogID: string, entryID: string): Promise<void> {
 	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}`);
 }

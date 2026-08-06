@@ -176,6 +176,14 @@
 		}
 	}
 
+	async function acceptOwnership() {
+		if (!catalogEntry) return;
+		catalogEntry = await AdminService.acceptMCPCatalogEntryOwnership(
+			DEFAULT_MCP_CATALOG_ID,
+			catalogEntry.id
+		);
+	}
+
 	let title = $derived(catalogEntry?.manifest?.name ?? 'MCP Server');
 	let promptInitialLaunch = $derived(page.url.searchParams.get('launch') === 'true');
 	let promptOAuthConfig = $derived(page.url.searchParams.get('configure-oauth') === 'true');
@@ -225,6 +233,7 @@
 				detached={catalogEntry?.detached}
 				sourceURL={catalogEntry?.sourceURL}
 				variant="notification"
+				onAcceptOwnership={isAdminReadonly ? undefined : acceptOwnership}
 			/>
 		{/if}
 

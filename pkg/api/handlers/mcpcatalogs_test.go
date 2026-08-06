@@ -18,6 +18,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestAcceptCatalogEntryOwnership(t *testing.T) {
+	entry := &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				v1.MCPServerCatalogEntryDetachedAnnotation: "true",
+				"example.com/keep":                         "true",
+			},
+		},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Editable:  true,
+			SourceURL: "https://github.com/obot-platform/mcp-catalog",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				EntryKey: "context7",
+			},
+		},
+	}
+
+	acceptCatalogEntryOwnership(entry)
+
+	assert.True(t, entry.Spec.Editable)
+	assert.Empty(t, entry.Spec.SourceURL)
+	assert.Empty(t, entry.Spec.Manifest.EntryKey)
+	assert.False(t, entry.IsDetached())
+	assert.Equal(t, "true", entry.Annotations["example.com/keep"])
+}
+
 func TestNormalizeName(t *testing.T) {
 	tests := []struct {
 		name     string

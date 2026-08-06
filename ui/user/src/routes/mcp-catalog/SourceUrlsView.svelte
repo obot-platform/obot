@@ -139,6 +139,9 @@
 	msg={deletingSource?.type === 'single'
 		? 'Delete this Git Source URL?'
 		: 'Delete selected Git Source URLs?'}
+	note={deletingSource?.type === 'single'
+		? 'This action is permanent and cannot be undone. All catalog entries from this source and their deployed MCP servers, including those currently in use, will be deleted. Are you sure you wish to continue?'
+		: 'This action is permanent and cannot be undone. All catalog entries from these sources and their deployed MCP servers, including those currently in use, will be deleted. Are you sure you wish to continue?'}
 	show={Boolean(deletingSource)}
 	onsuccess={async () => {
 		if (!deletingSource || !catalog) {

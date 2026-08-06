@@ -167,6 +167,14 @@
 		}
 	}
 
+	async function acceptOwnership() {
+		if (!catalogEntry) return;
+		catalogEntry = await AdminService.acceptMCPCatalogEntryOwnership(
+			DEFAULT_MCP_CATALOG_ID,
+			catalogEntry.id
+		);
+	}
+
 	$effect(() => {
 		if (catalogEntry?.manifest.runtime === 'composite') {
 			untrack(() => mcpServersAndEntries.refreshAll());
@@ -192,6 +200,7 @@
 				detached={catalogEntry?.detached}
 				sourceURL={catalogEntry?.sourceURL}
 				variant="notification"
+				onAcceptOwnership={isAdminReadonly ? undefined : acceptOwnership}
 			/>
 		{/if}
 
