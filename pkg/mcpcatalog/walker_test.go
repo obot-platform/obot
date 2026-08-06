@@ -1,8 +1,10 @@
 package mcpcatalog
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -19,6 +21,43 @@ func TestWalkCatalogFilesSkipsSymlinksAndIgnoredFiles(t *testing.T) {
 
 	files, _, err := WalkCatalogFiles(dir)
 	require.NoError(t, err)
+	var paths []string
+	for path, err := range files {
+		require.NoError(t, err)
+		paths = append(paths, path)
+	}
+	require.Equal(t, []string{validPath}, paths)
+}
+
+func TestWalkCatalogFilesFallsBackWhenPatternFilesCannotBeRead(t *testing.T) {
+	dir := t.TempDir()
+	validPath := filepath.Join(dir, "valid.yaml")
+	require.NoError(t, os.WriteFile(validPath, []byte("name: Valid\n"), 0o600))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, ".obotcatalogs"), 0o700))
+	require.NoError(t, os.Mkdir(filepath.Join(dir, ".ignoreobotcatalogs"), 0o700))
+
+	files, usingObotCatalogsFile, err := WalkCatalogFiles(dir)
+	require.NoError(t, err)
+	require.False(t, usingObotCatalogsFile)
+
+	var paths []string
+	for path, err := range files {
+		require.NoError(t, err)
+		paths = append(paths, path)
+	}
+	require.Equal(t, []string{validPath}, paths)
+}
+
+func TestWalkCatalogFilesFallsBackWhenPatternLineIsTooLong(t *testing.T) {
+	dir := t.TempDir()
+	validPath := filepath.Join(dir, "valid.yaml")
+	require.NoError(t, os.WriteFile(validPath, []byte("name: Valid\n"), 0o600))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, ".obotcatalogs"), []byte(strings.Repeat("x", bufio.MaxScanTokenSize+1)), 0o600))
+
+	files, usingObotCatalogsFile, err := WalkCatalogFiles(dir)
+	require.NoError(t, err)
+	require.True(t, usingObotCatalogsFile)
+
 	var paths []string
 	for path, err := range files {
 		require.NoError(t, err)

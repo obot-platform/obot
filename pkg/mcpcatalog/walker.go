@@ -9,22 +9,19 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/obot-platform/obot/logger"
 	"sigs.k8s.io/yaml"
 )
 
 const defaultMaxCatalogFiles = 1000
 
+var log = logger.Package()
+
 // WalkCatalogFiles returns catalog manifest paths selected by .obotcatalogs and
 // .ignoreobotcatalogs. Traversal errors are yielded in the second value.
 func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
-	patterns, usingObotCatalogsFile, err := catalogPatterns(root)
-	if err != nil {
-		return nil, false, err
-	}
-	ignorePatterns, err := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
-	if err != nil {
-		return nil, false, err
-	}
+	patterns, usingObotCatalogsFile := catalogPatterns(root)
+	ignorePatterns, _ := readCatalogPatterns(filepath.Join(root, ".ignoreobotcatalogs"), nil)
 	return func(yield func(string, error) bool) {
 		fileCount := 0
 		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
@@ -46,7 +43,8 @@ func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 			}
 			info, err := os.Lstat(path)
 			if err != nil {
-				return err
+				log.Warnf("Skipping unsafe file %s: failed to get file info: %v", relPath, err)
+				return nil
 			}
 			if info.Mode()&os.ModeSymlink != 0 {
 				return nil
@@ -101,27 +99,18 @@ func DecodeCatalogFile[T any](path string, strict bool) ([]T, bool, error) {
 	return []T{entry}, false, nil
 }
 
-func catalogPatterns(root string) ([]string, bool, error) {
-	patterns, err := readCatalogPatterns(filepath.Join(root, ".obotcatalogs"), []string{"*.json", "*.yaml", "*.yml"})
-	if err != nil {
-		return nil, false, err
-	}
-	_, err = os.Stat(filepath.Join(root, ".obotcatalogs"))
-	return patterns, err == nil, nil
+func catalogPatterns(root string) ([]string, bool) {
+	return readCatalogPatterns(filepath.Join(root, ".obotcatalogs"), []string{"*.json", "*.yaml", "*.yml"})
 }
 
-func readCatalogPatterns(path string, defaults []string) ([]string, error) {
-	file, err := os.Open(path)
-	if os.IsNotExist(err) {
-		return defaults, nil
-	}
+func readCatalogPatterns(path string, defaults []string) ([]string, bool) {
+	contents, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return defaults, false
 	}
-	defer file.Close()
 
 	var patterns []string
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(strings.NewReader(string(contents)))
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line != "" && !strings.HasPrefix(line, "#") {
@@ -129,12 +118,13 @@ func readCatalogPatterns(path string, defaults []string) ([]string, error) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		return nil, err
+		log.Warnf("Failed to read %s file: %v", filepath.Base(path), err)
+		return defaults, true
 	}
 	if len(patterns) == 0 {
-		return defaults, nil
+		return defaults, true
 	}
-	return patterns, nil
+	return patterns, true
 }
 
 func matchesCatalogPattern(patterns []string, path string) bool {
