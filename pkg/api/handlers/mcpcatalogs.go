@@ -1462,14 +1462,8 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
 	}
 
-	// Merge any secretBinding-resolved values into the user-supplied
-	// config so URL-template substitution and ServerToServerConfig see
-	// them. The caller's config map is not mutated.
-	config, err = mcp.MergeBoundCreds(ctx, localK8sClient, obotNamespace, serverManifest.Env, serverManifest.RemoteConfig, config, secretBindingAllowedLabel)
+	config, err = prepareTempServerConfig(ctx, localK8sClient, obotNamespace, secretBindingAllowedLabel, &serverManifest, config, !entryManifest.ServerUserType.IsSingleUser(), validationOptions)
 	if err != nil {
-		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
-	}
-	if err := applyRemoteURLTemplate(ctx, &serverManifest, config, !entryManifest.ServerUserType.IsSingleUser(), validationOptions); err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
 	if err := tunnel.ValidateServerTunnelReferences(ctx, client, serverManifest); err != nil {
@@ -1536,6 +1530,20 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	}
 
 	return tempMCPServer, serverConfig, nil
+}
+
+func prepareTempServerConfig(ctx context.Context, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel string, serverManifest *types.MCPServerManifest, config map[string]string, isMultiUser bool, validationOptions mcp.ValidationOptions) (map[string]string, error) {
+	// Render templates before resolving bindings so Secret values can only be
+	// used by runtime fields such as headers, never embedded in the URL.
+	if err := applyRemoteURLTemplate(ctx, serverManifest, config, isMultiUser, validationOptions); err != nil {
+		return nil, err
+	}
+
+	mergedConfig, err := mcp.MergeBoundCreds(ctx, localK8sClient, obotNamespace, serverManifest.Env, serverManifest.RemoteConfig, config, secretBindingAllowedLabel)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
+	}
+	return mergedConfig, nil
 }
 
 // ListCategoriesForCatalog returns all unique categories from entries in a catalog

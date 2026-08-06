@@ -7,12 +7,14 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -320,6 +322,44 @@ func TestValidateEntryVisibleFromScope(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
+	const (
+		namespace = "obot-ns"
+		label     = "allowed-secret"
+		key       = "WORKSPACE"
+	)
+	localK8sClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "remote-secret", Namespace: namespace, Labels: map[string]string{label: "true"}},
+		Data:       map[string][]byte{"token": []byte("secret-value")},
+	}).Build()
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: key, Required: true,
+		}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "https://example.com/mcp/${WORKSPACE}",
+			Headers: []types.MCPHeader{{
+				Key: key, SecretBinding: &types.MCPSecretBinding{Name: "remote-secret", Key: "token"},
+			}},
+		},
+	}
+	input := map[string]string{key: "user-value"}
+	options := mcp.ValidationOptions{RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+		AllowLocalhostMCP: true,
+		AllowPrivateIPMCP: true,
+		AllowLinkLocalMCP: true,
+	}}
+
+	merged, err := prepareTempServerConfig(t.Context(), localK8sClient, namespace, label, &manifest, input, false, options)
+	require.NoError(t, err)
+	require.Equal(t, "https://example.com/mcp/user-value", manifest.RemoteConfig.URL)
+	require.NotContains(t, manifest.RemoteConfig.URL, "secret-value")
+	require.Equal(t, "secret-value", merged[key])
+	require.Equal(t, "user-value", input[key])
 }
 
 func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
