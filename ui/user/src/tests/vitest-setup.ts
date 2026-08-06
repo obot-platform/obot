@@ -1,10 +1,14 @@
 import '../app.css';
 import { worker } from './mocks/node';
 import 'devicon/devicon.min.css';
-import { beforeAll, afterEach, afterAll } from 'vitest';
+import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 
 beforeAll(async () => {
 	await worker.start();
+});
+
+beforeEach(() => {
+	localStorage.clear();
 });
 
 afterEach(async () => {

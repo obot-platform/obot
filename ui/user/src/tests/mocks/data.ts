@@ -1,11 +1,13 @@
 import type { AdminService, UserService } from '$lib/services';
+import type { MCPCatalogEntryFieldManifest, ServerK8sSettings } from '$lib/services/admin/types';
+import type { K8sServerDetail, MCPServerInstance } from '$lib/services/user/types';
+import { createMCPCatalogEntry, createMCPCatalogServer } from '../helpers/mcp';
 import { faker } from '@faker-js/faker';
 
 /**
- * This file contains mocked response data for API endpoints that are utilized in the operation.ts files of the "src/lib/services" directory.
+ * This file contains mocked response data, whether for API endpoints that are utilized in the operation.ts files of the "src/lib/services" directory or overriding async function responses.
  *
- * When adding a mocked response, keep the responses grouped by type and sorted alphabetically.
- * The mocked variable name should be the same as the function name in the operation.ts file.
+ * If mocking a response to an endpoint, the mocked variable name should be the same as the function name in the operation.ts file.
  * When mocking the data, utilize the openapi_generated.go file to determine the expected response shape, and utilize the faker library to generate the mocked data if appropriate.
  */
 
@@ -241,10 +243,32 @@ export const listAuthProvidersResponse = [
 					'Set to true to enable request, auth, and standard logging for the auth provider. Default: false'
 			}
 		],
-		configured: true,
+		configured: false,
+		missingConfigurationParameters: [
+			'OBOT_ENTRA_AUTH_PROVIDER_CLIENT_ID',
+			'OBOT_ENTRA_AUTH_PROVIDER_CLIENT_SECRET',
+			'OBOT_ENTRA_AUTH_PROVIDER_TENANT_ID',
+			'OBOT_AUTH_PROVIDER_COOKIE_SECRET',
+			'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS'
+		],
 		namespace: 'default'
 	}
 ] satisfies Awaited<ReturnType<typeof AdminService.listAuthProviders>>;
+
+export const getBootstrapStatusResponse = {
+	enabled: true,
+	setupEnabled: true
+} satisfies Awaited<ReturnType<typeof UserService.getBootstrapStatus>>;
+
+export const listExplicitRoleEmailsResponse = {
+	owners: null,
+	admins: null
+} satisfies Awaited<ReturnType<typeof AdminService.listExplicitRoleEmails>>;
+
+export const initiateTempLoginResponse = {
+	redirectUrl: 'https://example.com/temp-login',
+	tokenId: 'temp-login-token'
+};
 
 // License
 
@@ -293,6 +317,31 @@ export const listMCPCatalogServersResponse = [] satisfies Awaited<
 	ReturnType<typeof UserService.listMCPCatalogServers>
 >;
 
+export const listMCPCatalogEntriesResponse = [] satisfies Awaited<
+	ReturnType<typeof AdminService.listMCPCatalogEntries>
+>;
+
+export const listAllCatalogDeployedSingleRemoteServersResponse = [] satisfies Awaited<
+	ReturnType<typeof AdminService.listAllCatalogDeployedSingleRemoteServers>
+>;
+
+export const listAllWorkspaceDeployedSingleRemoteServersResponse = [] satisfies Awaited<
+	ReturnType<typeof AdminService.listAllWorkspaceDeployedSingleRemoteServers>
+>;
+
+export const listAllUserWorkspaceCatalogEntriesResponse = [] satisfies Awaited<
+	ReturnType<typeof AdminService.listAllUserWorkspaceCatalogEntries>
+>;
+
+export const listAllUserWorkspaceMCPServersResponse = [] satisfies Awaited<
+	ReturnType<typeof AdminService.listAllUserWorkspaceMCPServers>
+>;
+
+export const getMCPCapacityResponse = {
+	source: 'deployments',
+	activeDeployments: 0
+} satisfies Awaited<ReturnType<typeof AdminService.getMCPCapacity>>;
+
 export const listMCPsResponse = [] satisfies Awaited<ReturnType<typeof UserService.listMCPs>>;
 
 export const listMcpServerInstancesResponse = [] satisfies Awaited<
@@ -339,6 +388,180 @@ export const listUsersResponse = [
 	}
 ] satisfies Awaited<ReturnType<typeof UserService.listUsers>>;
 
+export const getK8sServerDetailResponse = {
+	deploymentName: 'mcp-server-test',
+	events: [
+		{
+			action: 'Created',
+			count: 1,
+			eventType: 'Normal',
+			message: 'Created container',
+			reason: 'Created',
+			time: '2026-01-01T00:00:00.000Z'
+		}
+	],
+	isAvailable: true,
+	lastRestart: '2026-01-01T00:00:00.000Z',
+	namespace: 'obot',
+	readyReplicas: 1,
+	replicas: 1
+} satisfies K8sServerDetail;
+
+export const getServerK8sSettingsResponse = {
+	needsK8sUpdate: false,
+	currentSettings: {
+		id: 'k8s-settings',
+		created: '2026-01-01T00:00:00.000Z',
+		type: 'k8ssettings'
+	},
+	deployedSettingsHash: 'hash'
+} satisfies ServerK8sSettings;
+
+/**
+ * Fixtures for mcp-catalog server details page specs (admin viewing hosted / remote / composite).
+ */
+export function createMcpServerDetailsFixtures() {
+	const associatedUser = listUsersResponse[0]!;
+
+	const entrySingle = createMCPCatalogEntry({
+		id: 'entry-details-single',
+		name: 'Hosted Single User Entry',
+		runtime: 'npx',
+		serverUserType: 'singleUser'
+	});
+	const entryRemote = createMCPCatalogEntry({
+		id: 'entry-details-remote',
+		name: 'Remote Entry',
+		runtime: 'remote',
+		serverUserType: 'singleUser'
+	});
+	const entryCompositeChild = createMCPCatalogEntry({
+		id: 'entry-details-composite-child',
+		name: 'Composite Child Entry',
+		runtime: 'npx',
+		serverUserType: 'singleUser'
+	});
+	const entryComposite = createMCPCatalogEntry({
+		id: 'entry-details-composite',
+		name: 'Composite Entry',
+		runtime: 'composite',
+		serverUserType: 'singleUser',
+		manifest: {
+			compositeConfig: {
+				componentServers: [
+					{
+						catalogEntryID: entryCompositeChild.id,
+						manifest: {
+							name: 'Composite Child Entry',
+							runtime: 'npx',
+							serverUserType: 'singleUser',
+							icon: '',
+							shortDescription: '',
+							description: ''
+						}
+					}
+				]
+			}
+		}
+	});
+	const entryMulti = createMCPCatalogEntry({
+		id: 'entry-details-multi',
+		name: 'Hosted Multi User Entry',
+		runtime: 'npx',
+		serverUserType: 'multiUser'
+	});
+
+	const serverSingle = createMCPCatalogServer({
+		id: 'server-details-single',
+		name: 'Hosted Single User Server',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entrySingle.id,
+		userID: associatedUser.id
+	});
+	const serverRemote = createMCPCatalogServer({
+		id: 'server-details-remote',
+		name: 'Remote Server',
+		runtime: 'remote',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryRemote.id,
+		userID: associatedUser.id,
+		oauthMetadata: {
+			protectedResourceUrl: 'https://example.com/.well-known/oauth-protected-resource',
+			authorizationServerUrl: 'https://auth.example.com',
+			dynamicClientRegistration: true,
+			clientIdMetadataDocumentSupported: false
+		}
+	});
+	const serverComposite = createMCPCatalogServer({
+		id: 'server-details-composite',
+		name: 'Composite Server',
+		runtime: 'composite',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryComposite.id,
+		userID: associatedUser.id,
+		manifest: {
+			name: 'Composite Server',
+			runtime: 'composite',
+			compositeConfig: {
+				componentServers: [
+					{
+						catalogEntryID: entryCompositeChild.id,
+						manifest: {
+							name: 'Composite Child Entry',
+							runtime: 'npx',
+							icon: '',
+							shortDescription: '',
+							description: ''
+						}
+					}
+				]
+			}
+		}
+	});
+	const serverCompositeChild = createMCPCatalogServer({
+		id: 'server-details-composite-child',
+		name: 'Composite Child Entry',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryCompositeChild.id,
+		compositeName: serverComposite.id,
+		userID: associatedUser.id
+	});
+	const serverMulti = createMCPCatalogServer({
+		id: 'server-details-multi',
+		name: 'Hosted Multi User Server',
+		runtime: 'npx',
+		serverUserType: 'multiUser',
+		catalogEntryID: entryMulti.id,
+		userID: associatedUser.id
+	});
+
+	const multiUserInstance = {
+		id: 'instance-details-multi',
+		created: '2026-01-01T00:00:00.000Z',
+		configured: true,
+		userID: associatedUser.id,
+		mcpServerID: serverMulti.id,
+		mcpCatalogID: 'default'
+	} satisfies MCPServerInstance;
+
+	return {
+		associatedUser,
+		entrySingle,
+		entryRemote,
+		entryComposite,
+		entryCompositeChild,
+		entryMulti,
+		serverSingle,
+		serverRemote,
+		serverComposite,
+		serverCompositeChild,
+		serverMulti,
+		multiUserInstance
+	};
+}
+
 // Version
 
 export const getVersionResponse = {
@@ -358,3 +581,168 @@ export const getVersionResponse = {
 	sessionStore: 'cookie',
 	upgradeAvailable: false
 } satisfies Awaited<ReturnType<typeof UserService.getVersion>>;
+
+const editableEnvField: MCPCatalogEntryFieldManifest = {
+	key: 'TEST_API_KEY',
+	name: 'Test API Key',
+	description: '',
+	required: false,
+	sensitive: false,
+	value: '',
+	file: false
+};
+
+export function createDeploymentsPageFixtures() {
+	const entrySingleUpdate = createMCPCatalogEntry({
+		id: 'entry-single-update',
+		name: 'Entry Single Update',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		env: [editableEnvField]
+	});
+	const entrySingleK8s = createMCPCatalogEntry({
+		id: 'entry-single-k8s',
+		name: 'Entry Single K8s',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		env: [editableEnvField]
+	});
+	const entryMulti = createMCPCatalogEntry({
+		id: 'entry-multi',
+		name: 'Entry Multi User',
+		runtime: 'npx',
+		serverUserType: 'multiUser'
+	});
+	const entryRemote = createMCPCatalogEntry({
+		id: 'entry-remote',
+		name: 'Entry Remote',
+		runtime: 'remote',
+		serverUserType: 'singleUser'
+	});
+	const entryComposite = createMCPCatalogEntry({
+		id: 'entry-composite',
+		name: 'Entry Composite',
+		runtime: 'composite',
+		serverUserType: 'singleUser'
+	});
+	const entryCompositeChild = createMCPCatalogEntry({
+		id: 'entry-composite-child',
+		name: 'Entry Composite Child',
+		runtime: 'npx',
+		serverUserType: 'singleUser'
+	});
+
+	const compositeServerId = 'server-composite';
+	const compositeChildId = 'server-composite-child';
+
+	const serverSingleNeedsUpdate = createMCPCatalogServer({
+		id: 'server-single-needs-update',
+		name: 'Npx Single Needs Update',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entrySingleUpdate.id,
+		env: [editableEnvField],
+		needsUpdate: true,
+		created: '2026-01-07T00:00:00.000Z',
+		userID
+	});
+	const serverSingleNeedsK8s = createMCPCatalogServer({
+		id: 'server-single-needs-k8s',
+		name: 'Npx Single Needs K8s',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entrySingleK8s.id,
+		env: [editableEnvField],
+		needsK8sUpdate: true,
+		created: '2026-01-06T00:00:00.000Z',
+		userID
+	});
+	const serverMulti = createMCPCatalogServer({
+		id: 'server-multi',
+		name: 'Npx Multi User',
+		runtime: 'npx',
+		serverUserType: 'multiUser',
+		catalogEntryID: entryMulti.id,
+		created: '2026-01-05T00:00:00.000Z',
+		userID
+	});
+	const serverRemote = createMCPCatalogServer({
+		id: 'server-remote',
+		name: 'Remote Deployment',
+		runtime: 'remote',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryRemote.id,
+		created: '2026-01-04T00:00:00.000Z',
+		userID
+	});
+	const serverComposite = createMCPCatalogServer({
+		id: compositeServerId,
+		name: 'Composite Parent',
+		runtime: 'composite',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryComposite.id,
+		manifest: {
+			name: 'Composite Parent',
+			runtime: 'composite',
+			compositeConfig: {
+				componentServers: [
+					{
+						catalogEntryID: entryCompositeChild.id,
+						mcpServerID: compositeChildId
+					}
+				]
+			}
+		},
+		created: '2026-01-03T00:00:00.000Z',
+		userID
+	});
+	const serverNoCatalogEntry = createMCPCatalogServer({
+		id: 'server-no-catalog',
+		name: 'Orphan Hosted',
+		runtime: 'npx',
+		serverUserType: 'multiUser',
+		catalogEntryID: '',
+		created: '2026-01-02T00:00:00.000Z',
+		userID
+	});
+	const serverCompositeChild = createMCPCatalogServer({
+		id: compositeChildId,
+		name: 'Composite Component',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryCompositeChild.id,
+		compositeName: compositeServerId,
+		created: '2026-01-01T00:00:00.000Z',
+		userID
+	});
+
+	const entries = [
+		entrySingleUpdate,
+		entrySingleK8s,
+		entryMulti,
+		entryRemote,
+		entryComposite,
+		entryCompositeChild
+	];
+	const servers = [
+		serverSingleNeedsUpdate,
+		serverSingleNeedsK8s,
+		serverMulti,
+		serverRemote,
+		serverComposite,
+		serverNoCatalogEntry,
+		serverCompositeChild
+	];
+
+	return {
+		entries,
+		servers,
+		serverSingleNeedsUpdate,
+		serverSingleNeedsK8s,
+		serverMulti,
+		serverRemote,
+		serverComposite,
+		serverNoCatalogEntry,
+		serverCompositeChild
+	};
+}
