@@ -276,98 +276,122 @@
 						</p>
 					</div>
 
-					<h3 class="text-lg font-semibold">CPU Settings</h3>
-					<div class="grid grid-cols-2 gap-4">
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="cpu-request">Request</label>
-							<input
-								type="text"
-								id="cpu-request"
-								bind:value={resourceInfo.requests.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder="example: 500m"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="cpu-limit">Limit</label>
-							<input
-								type="text"
-								id="cpu-limit"
-								bind:value={resourceInfo.limits.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder="example: 1"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="max-cpu-request">Max Request</label>
-							<input
-								type="text"
-								id="max-cpu-request"
-								bind:value={k8sSettings.maxCpuRequest}
-								class="text-input-filled dark:bg-base-100"
-								disabled={maximumsReadonly}
-								placeholder="example: 500m"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="max-cpu-limit">Max Limit</label>
-							<input
-								type="text"
-								id="max-cpu-limit"
-								bind:value={k8sSettings.maxCpuLimit}
-								class="text-input-filled dark:bg-base-100"
-								disabled={maximumsReadonly}
-								placeholder="example: 1"
-							/>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">CPU Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="cpu-request">Request</label>
+								<input
+									type="text"
+									id="cpu-request"
+									bind:value={resourceInfo.requests.cpu}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 500m"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="cpu-limit">Limit</label>
+								<input
+									type="text"
+									id="cpu-limit"
+									bind:value={resourceInfo.limits.cpu}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 1"
+								/>
+							</div>
 						</div>
 					</div>
-					<h3 class="text-lg font-semibold">Memory Settings</h3>
-					<div class="grid grid-cols-2 gap-4">
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="memory-request">Request</label>
-							<input
-								type="text"
-								id="memory-request"
-								bind:value={resourceInfo.requests.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder="example: 512Mi"
-							/>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">Memory Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="memory-request">Request</label>
+								<input
+									type="text"
+									id="memory-request"
+									bind:value={resourceInfo.requests.memory}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 512Mi"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="memory-limit">Limit</label>
+								<input
+									type="text"
+									id="memory-limit"
+									bind:value={resourceInfo.limits.memory}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 1Gi"
+								/>
+							</div>
 						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="memory-limit">Limit</label>
-							<input
-								type="text"
-								id="memory-limit"
-								bind:value={resourceInfo.limits.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={schedulingReadonly}
-								placeholder="example: 1Gi"
-							/>
+					</div>
+
+					<div class="divider my-0"></div>
+
+					<div>
+						{@render headerContent('Maximum Settings', true)}
+						<p class="text-sm">
+							Define the maximum allowed values for the CPU and memory requests and limits for pods.
+						</p>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">CPU Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-cpu-request">Max Request</label>
+								<input
+									type="text"
+									id="max-cpu-request"
+									bind:value={k8sSettings.maxCpuRequest}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 500m"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-cpu-limit">Max Limit</label>
+								<input
+									type="text"
+									id="max-cpu-limit"
+									bind:value={k8sSettings.maxCpuLimit}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 1"
+								/>
+							</div>
 						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="max-memory-request">Max Request</label>
-							<input
-								type="text"
-								id="max-memory-request"
-								bind:value={k8sSettings.maxMemoryRequest}
-								class="text-input-filled dark:bg-base-100"
-								disabled={maximumsReadonly}
-								placeholder="example: 512Mi"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-							<label class="input-label" for="max-memory-limit">Max Limit</label>
-							<input
-								type="text"
-								id="max-memory-limit"
-								bind:value={k8sSettings.maxMemoryLimit}
-								class="text-input-filled dark:bg-base-100"
-								disabled={maximumsReadonly}
-								placeholder="example: 1Gi"
-							/>
+					</div>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">Memory Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-memory-request">Max Request</label>
+								<input
+									type="text"
+									id="max-memory-request"
+									bind:value={k8sSettings.maxMemoryRequest}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 512Mi"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-memory-limit">Max Limit</label>
+								<input
+									type="text"
+									id="max-memory-limit"
+									bind:value={k8sSettings.maxMemoryLimit}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 1Gi"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -496,10 +520,13 @@
 	</div>
 </Layout>
 
-{#snippet headerContent(title: string)}
+{#snippet headerContent(title: string, isMaximumSetViaHelm?: boolean)}
+	{@const isHelmDeployed = isMaximumSetViaHelm
+		? k8sSettings?.maximumsSetViaHelm
+		: k8sSettings?.setViaHelm}
 	<h2 class="text-lg font-semibold">
 		{title}
-		{#if k8sSettings?.setViaHelm}
+		{#if isHelmDeployed}
 			<span class="pill-rounded nowrap font-light">
 				<Lock class="size-3" /> Helm-Deployed
 			</span>
