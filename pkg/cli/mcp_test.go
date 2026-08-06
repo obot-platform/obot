@@ -210,7 +210,7 @@ remoteConfig:
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout, "Validated 1 catalog entries in 1 files.") {
+	if !strings.Contains(stdout, "Catalog entries in 1 files are valid.") {
 		t.Fatalf("unexpected output: %s", stdout)
 	}
 }
@@ -270,7 +270,7 @@ func TestMCPValidateSupportsEntryArrays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(stdout, "Validated 2 catalog entries in 1 files.") {
+	if !strings.Contains(stdout, "Catalog entries in 1 files are valid.") {
 		t.Fatalf("unexpected output: %s", stdout)
 	}
 }
