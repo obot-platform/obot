@@ -1,0 +1,20 @@
+{
+  "prompts": [
+    "Deploy a Cloud Run service using source code at a specified path.",
+    "Deploy a Cloud Run service using an existing container image (e.g., gcr.io/project/image:tag).",
+    "List all Cloud Run services in the current project, including names, URLs, and latest revisions.",
+    "Get full details of a specific Cloud Run service, including env vars, revisions, and traffic settings.",
+    "Fetch logs for a specific Cloud Run service, filtered by severity, revision, or timeframe.",
+    "List all available Google Cloud projects accessible to the current credentials.",
+    "Create a new Google Cloud project with a specified project ID and project name."
+  ],
+  "tools": [
+    "deploy-file-contents",
+    "deploy-container-image",
+    "list-services",
+    "get-service",
+    "get-service-log",
+    "list-projects",
+    "create-project"
+  ]
+}

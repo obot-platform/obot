@@ -1,0 +1,21 @@
+{
+  "prompts": [
+    "Show me the list of connected Redis clients.",
+    "Create a vector similarity index named 'test_vector_index' on hashes with prefix 'testdoc:', vector field 'vector', dimension 4, and distance metric 'COSINE'. Then show the schema and info for the index, and list all indexes in the database.",
+    "How many keys are currently stored in the Redis database? Scan and return all keys matching the pattern 'test*' and scan for keys matching the pattern 'test*' (first batch).",
+    "Set the key 'testkey' to the value 'testvalue', get its value, set it to expire in 60 seconds, check its type, and then delete it.",
+    "Create hash 'testhash' with field 'field1' set to 'value1', check if 'field1' exists, get its value, get all fields and values, delete 'field1', and set it again.",
+    "Store the vector [0.1, 0.2, 0.3, 0.4] in the field 'vector' of hash 'testdoc:1', get the vector from hash 'testdoc:1', and search for the 2 nearest neighbors to the vector [0.1, 0.2, 0.3, 0.4] in index 'test_vector_index'.",
+    "Set the root JSON value of key 'testjson' to {\"foo\": \"bar\"}, get the root JSON value, and then delete it.",
+    "Push 'item1' onto the left and 'item2' onto the right of the list 'testlist', get all elements, get the length, remove and return the first and last elements.",
+    "Add 'member1' and 'member2' to the set 'testset', get all members, and remove 'member1'.",
+    "Add the member 'zmember1' with score 1.5 and 'zmember2' with score 2.5 to the sorted set 'testzset', get all members (with scores), and remove 'zmember1'.",
+    "Add two entries with field 'foo' and values 'bar' and 'baz' to the stream 'teststream', read the first 2 entries, and delete the entry with ID '123-0'.",
+    "Publish the message 'hello world' to the channel 'testchannel', subscribe and unsubscribe from the channel.",
+    "Set the key 'oldkey' to the value 'somevalue' and rename it to 'newkey'.",
+    "Show me the default Redis server info."
+  ],
+  "tools": [
+    "client_list", "create_vector_index_hash", "get_index_info", "get_indexes", "dbsize", "scan_all_keys", "scan_keys", "set", "get", "expire", "type", "delete", "hset", "hexists", "hget", "hgetall", "hdel", "set_vector_in_hash", "get_vector_from_hash", "vector_search_hash", "json_set", "json_get", "json_del", "lpush", "rpush", "lrange", "llen", "lpop", "rpop", "sadd", "smembers", "srem", "zadd", "zrange", "zrem", "xadd", "xrange", "xdel", "publish", "subscribe", "unsubscribe", "rename", "info"
+  ]
+}

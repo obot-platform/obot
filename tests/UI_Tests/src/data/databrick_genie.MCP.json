@@ -1,0 +1,20 @@
+{
+  "prompts": [
+    "Connect to the Databricks Genie Spaces MCP server.",
+    "List all available tools under Databricks Genie Spaces.",
+    "Attempt to fetch data without specifying any parameters.",
+    "What is the total sales for Q1 2024?",
+    "Give me insights on the trend of product sales over the last year.",
+    "How many new customers did we acquire in the last 3 months?",
+    "Which products had the highest sales last week in region A?",
+    "Run a serverless SQL query to fetch the top 10 customers by revenue.",
+    "Use serverless SQL to aggregate sales data by product category.",
+    "Run a complex serverless SQL query on a large dataset.",
+    "Show me the trend of website traffic for the last 6 months.",
+    "Give me the top 5 sales-performing regions over the past quarter.",
+    "Request data insights across multiple datasets concurrently.",
+    "Run multiple BI queries about different products and regions at the same time.",
+    "Search for product sales data across multiple years and regions."
+  ],
+  "tools": []
+}

@@ -1,0 +1,12 @@
+{
+    "prompts": [
+        "Is the DuckDuckGo search tool currently enabled and operational?",
+        "Use the DuckDuckGo search tool to find the latest news about OpenAI's GPT-5 release.",
+        "Fetch and summarize the main content from the URL 'https://en.wikipedia.org/wiki/Artificial_intelligence' using fetch_content.",
+        "Search for top tutorials on building REST APIs with FastAPI using DuckDuckGo search."
+    ],
+    "tools": [
+        "search",
+        "fetch_content"
+    ]
+}

@@ -1,0 +1,11 @@
+{
+  "prompts": [
+    "Is the Markitdown tool connected?",
+    "Convert the first section of: https://www.python.org/ to markdown",
+    "Convert the first section of: https://www.nytimes.com/ to markdown",
+    "Convert the first section of: https://www.nasa.gov/ to markdown."
+  ],
+  "tools": [
+    "convert_to_markdown"
+  ]
+}

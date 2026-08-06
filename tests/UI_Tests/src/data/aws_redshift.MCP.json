@@ -1,0 +1,19 @@
+{
+  "prompts": [
+    "Is AWS Redshift tool connected?",
+    "List all available Amazon Redshift clusters in my AWS account.",
+    "List all databases in the Redshift cluster named my-redshift-cluster.",
+    "List all schemas in the dev database of my-redshift-cluster.",
+    "List all tables in the public schema of the dev database in my-redshift-cluster.",
+    "List all columns in the users table in the public schema of the dev database in my-redshift-cluster.",
+    "Execute the following SQL query on the dev database in my-redshift-cluster: `SELECT COUNT(*) FROM users;`"
+  ],
+  "tools" : [
+    "list_clusters",
+    "list_databases",
+    "list_schemas",
+    "list_tables",
+    "list_columns",
+    "execute_query"
+  ]
+}

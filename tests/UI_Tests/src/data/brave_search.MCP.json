@@ -1,0 +1,25 @@
+{
+  "prompts": [
+    "Is Brave Search MCP server connected?",
+    "Search the web for 'best productivity apps 2025' and return the top 5 results.",
+    "Find web pages about 'remote work trends' published in the last 7 days.",
+    "Search for the latest news about 'AI regulation' and return the 5 most recent articles.",
+    "Find breaking news on 'electric vehicles' from the last 24 hours.",
+    "Search for images of 'modern home office setups' and return the top 5 results.",
+    "Find safe-for-work images of 'healthy breakfast ideas'.",
+    "Search for videos about 'machine learning tutorials' and return the top 3 results.",
+    "Find recent videos on '2025 tech conferences' published in the last month.",
+    "Find coffee shops near 'Denver, CO' with ratings and reviews.",
+    "Search for top-rated vegan restaurants in 'San Francisco'.",
+    "Summarize the top web results for 'benefits of meditation' with inline references.",
+    "Generate a concise summary of news articles about 'renewable energy investments'."
+  ],
+  "tools": [
+    "brave_web_search",
+    "brave_news_search",
+    "brave_image_search",
+    "brave_video_search",
+    "brave_local_search",
+    "brave_summarizer"
+  ]
+}

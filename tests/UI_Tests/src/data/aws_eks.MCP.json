@@ -1,0 +1,23 @@
+{
+  "prompts": [
+    "Is AWS EKS tool connected?",
+    "List all running pods in the default namespace of my EKS cluster.",
+    "Search the EKS troubleshooting guide for solutions to pod networking issues."
+  ],
+  "tools" : [
+    "manage_eks_stacks",
+    "list_k8s_resources",
+    "manage_k8s_resource",
+    "apply_yaml",
+    "list_api_versions",
+    "generate_app_manifest",
+    "get_pod_logs",
+    "get_k8s_events",
+    "get_cloudwatch_logs",
+    "get_cloudwatch_metrics",
+    "get_eks_metrics_guidance",
+    "get_policies_for_role",
+    "add_inline_policy",
+    "search_eks_troubleshoot_guide"
+  ]
+}
