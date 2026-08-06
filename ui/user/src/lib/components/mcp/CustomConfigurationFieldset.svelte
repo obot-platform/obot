@@ -55,13 +55,14 @@
 	let missingValue = $derived(showRequired && !data.value?.trim());
 
 	$effect(() => {
-		if (data && usesSecretBindingSource(data)) {
-			data.sensitive = true;
-		}
 		if (urlTemplateVariable) {
+			data.secretBinding = undefined;
+			data.secretBindingSource = 'value';
 			data.required = true;
 			data.sensitive = false;
 			data.file = false;
+		} else if (data && usesSecretBindingSource(data)) {
+			data.sensitive = true;
 		}
 	});
 </script>

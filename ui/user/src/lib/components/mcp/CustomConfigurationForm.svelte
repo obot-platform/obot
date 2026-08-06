@@ -40,10 +40,16 @@
 	const indexedConfig = $derived((config ?? []).map((item, i) => ({ item, index: i })));
 	const canBindSecrets = $derived(secretBindingTargets !== undefined);
 	const userConfig = $derived(
-		canBindSecrets ? indexedConfig : indexedConfig.filter(({ item }) => !hasSecretBinding(item))
+		urlTemplateVariables
+			? indexedConfig
+			: canBindSecrets
+				? indexedConfig
+				: indexedConfig.filter(({ item }) => !hasSecretBinding(item))
 	);
 	const secretBoundEnvs = $derived(
-		canBindSecrets ? [] : indexedConfig.filter(({ item }) => hasSecretBinding(item))
+		urlTemplateVariables || canBindSecrets
+			? []
+			: indexedConfig.filter(({ item }) => hasSecretBinding(item))
 	);
 	const allSecretBound = $derived([
 		...secretBoundEnvs.map(({ item }) => ({ item, source: 'env' as const })),
