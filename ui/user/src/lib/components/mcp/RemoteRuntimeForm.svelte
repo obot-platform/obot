@@ -144,7 +144,9 @@
 												{ label: 'Static', id: 'static' },
 												{ label: 'User-Supplied', id: 'user_supplied' }
 											]}
-											selected={config.headers[i].required ? 'user_supplied' : 'static'}
+											selected={config.headers[i].required || config.headers[i].options?.length
+												? 'user_supplied'
+												: 'static'}
 											onSelect={(option) => {
 												if (!config.headers?.[i]) return;
 												if (option.id === 'user_supplied') {
@@ -162,7 +164,7 @@
 										/>
 									{/if}
 								</div>
-								{#if config.headers[i].required}
+								{#if config.headers[i].required || config.headers[i].options?.length}
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
 										<input
