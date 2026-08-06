@@ -32,7 +32,9 @@
 	let sourceID = $derived(catalogEntry?.powerUserWorkspaceID || DEFAULT_MCP_CATALOG_ID);
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isEntryReadonly = $derived(catalogEntry?.editable !== true);
+	let isSourcedEntry = $derived(
+		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
+	);
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
@@ -232,7 +234,7 @@
 				: catalogEntry?.manifest.runtime === 'remote'
 					? 'remote'
 					: 'hosted'}
-			readonly={isAdminReadonly || isEntryReadonly}
+			readonly={isAdminReadonly || isSourcedEntry}
 			id={sourceID}
 			entity={sourceEntity}
 			excludeViews={['overview']}

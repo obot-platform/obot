@@ -32,7 +32,9 @@
 	let catalogEntry = $state(untrack(() => data.catalogEntry));
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isEntryReadonly = $derived(catalogEntry?.editable !== true);
+	let isSourcedEntry = $derived(
+		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
+	);
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
@@ -264,7 +266,7 @@
 				: catalogEntry?.manifest.runtime === 'remote'
 					? 'remote'
 					: 'hosted'}
-			readonly={isAdminReadonly || isEntryReadonly}
+			readonly={isAdminReadonly || isSourcedEntry}
 			id={serverScopeID}
 			entity={serverScopeEntity}
 			excludeViews={['overview']}
