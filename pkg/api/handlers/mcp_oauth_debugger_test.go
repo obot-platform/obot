@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
@@ -23,7 +23,7 @@ func (f oauthDebuggerRoundTripFunc) RoundTrip(request *http.Request) (*http.Resp
 }
 
 func TestOAuthDebuggerMetadata(t *testing.T) {
-	authServer := nmcp.AuthorizationServerMetadata{
+	authServer := mcp.AuthorizationServerMetadata{
 		Issuer:                            "https://auth.example.com",
 		AuthorizationEndpoint:             "https://auth.example.com/authorize",
 		TokenEndpoint:                     "https://auth.example.com/token",
@@ -34,7 +34,7 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 	}
 	authServerJSON := mustJSON(t, authServer)
 
-	registration := nmcp.ClientRegistrationMetadata{Scope: "read write"}
+	registration := mcp.ClientRegistrationMetadata{Scope: "read write"}
 	registrationJSON := mustJSON(t, registration)
 
 	m := &MCPHandler{serverURL: "https://obot.example.com"}
@@ -54,7 +54,7 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 		t.Fatalf("parsed auth server mismatch:\nexpected: %#v\nactual:   %#v", authServer, parsedAuthServer)
 	}
 
-	expectedRegistration := nmcp.ClientRegistrationMetadata{
+	expectedRegistration := mcp.ClientRegistrationMetadata{
 		RedirectURIs:            []string{"https://obot.example.com/oauth/mcp/callback"},
 		TokenEndpointAuthMethod: "client_secret_post",
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
@@ -83,7 +83,7 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 		{
 			name: "missing authorization endpoint",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, mcp.AuthorizationServerMetadata{
 					TokenEndpoint: "https://auth.example.com/token",
 				})},
 			},
@@ -92,7 +92,7 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 		{
 			name: "missing token endpoint",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, mcp.AuthorizationServerMetadata{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
 				})},
 			},
@@ -101,7 +101,7 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 		{
 			name: "invalid client registration metadata",
 			oauthMetadata: &v1.OAuthMetadata{
-				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, nmcp.AuthorizationServerMetadata{
+				AuthorizationServerMetadata: runtime.RawExtension{Raw: mustJSON(t, mcp.AuthorizationServerMetadata{
 					AuthorizationEndpoint: "https://auth.example.com/authorize",
 					TokenEndpoint:         "https://auth.example.com/token",
 				})},
@@ -147,7 +147,7 @@ func TestOAuthDebuggerAuthStyle(t *testing.T) {
 }
 
 func TestOAuthDebuggerStaticClient(t *testing.T) {
-	authServer := nmcp.AuthorizationServerMetadata{
+	authServer := mcp.AuthorizationServerMetadata{
 		AuthorizationEndpoint: "https://auth.example.com/authorize",
 		TokenEndpoint:         "https://auth.example.com/token",
 	}
@@ -234,11 +234,11 @@ func TestOAuthDebuggerUsesCIMD(t *testing.T) {
 }
 
 func TestOAuthDebuggerCIMDClient(t *testing.T) {
-	authServer := nmcp.AuthorizationServerMetadata{
+	authServer := mcp.AuthorizationServerMetadata{
 		AuthorizationEndpoint: "https://auth.example.com/authorize",
 		TokenEndpoint:         "https://auth.example.com/token",
 	}
-	registration := nmcp.ClientRegistrationMetadata{
+	registration := mcp.ClientRegistrationMetadata{
 		RedirectURIs:  []string{"https://obot.example.com/oauth/mcp/callback"},
 		GrantTypes:    []string{"authorization_code", "refresh_token"},
 		ResponseTypes: []string{"code"},
@@ -266,7 +266,7 @@ func TestOAuthDebuggerCIMDClient(t *testing.T) {
 }
 
 func TestRegisterOAuthDebuggerClientUsesProvidedHTTPClient(t *testing.T) {
-	registration := nmcp.ClientRegistrationMetadata{
+	registration := mcp.ClientRegistrationMetadata{
 		ClientName:   "Obot MCP OAuth Debugger",
 		RedirectURIs: []string{"https://obot.example.com/oauth/mcp/callback"},
 	}
@@ -283,7 +283,7 @@ func TestRegisterOAuthDebuggerClientUsesProvidedHTTPClient(t *testing.T) {
 		if request.Header.Get("Content-Type") != "application/json" || request.Header.Get("Accept") != "application/json" {
 			t.Errorf("registration request headers = %#v", request.Header)
 		}
-		var actual nmcp.ClientRegistrationMetadata
+		var actual mcp.ClientRegistrationMetadata
 		if err := json.NewDecoder(request.Body).Decode(&actual); err != nil {
 			t.Errorf("decode registration request: %v", err)
 		} else if !reflect.DeepEqual(actual, registration) {

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -23,10 +22,6 @@ const (
 	// AuditLogIgnore is a metadata field that tells the audit log persistence layer to ignore audit logs for this server
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
 )
-
-type GlobalTokenStore interface {
-	ForUserAndMCP(userID, mcpID string) nmcp.TokenStorage
-}
 
 type Config struct {
 	MCPServers map[string]ServerConfig `json:"mcpServers"`
@@ -73,6 +68,8 @@ type ServerConfig struct {
 
 	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
 	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
+	StaticOAuthClientID       string `json:"staticOAuthClientID"`
+	StaticOAuthClientSecret   string `json:"staticOAuthClientSecret"`
 
 	AuditLogMetadata map[string]string `json:"auditLogMetadata"`
 
@@ -262,7 +259,7 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 }
 
 func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
-	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv)
+	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv, nil)
 	if err != nil {
 		return config, missing, err
 	}
@@ -351,7 +348,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 	return config, missing, err
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred, staticOAuthCred map[string]string) (ServerConfig, []string, error) {
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -402,6 +399,8 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		Audiences:                 audiences,
 		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
 		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
+		StaticOAuthClientID:       staticOAuthCred["CLIENT_ID"],
+		StaticOAuthClientSecret:   staticOAuthCred["CLIENT_SECRET"],
 		PassthroughHeaderNames:    passthroughHeaderNames,
 		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
 		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
@@ -614,8 +613,8 @@ type header interface {
 	Set(key, value string)
 }
 
-type headerMap map[string]string
+type headerMap map[string][]string
 
 func (h headerMap) Set(key, value string) {
-	h[key] = value
+	h[key] = []string{value}
 }

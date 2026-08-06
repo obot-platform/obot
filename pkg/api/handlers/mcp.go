@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	nahbackend "github.com/obot-platform/nah/pkg/backend"
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -726,7 +727,7 @@ func (m *MCPHandler) serverNeedsOAuth(ctx context.Context, server *v1.MCPServer,
 	}
 
 	var authRequired nmcp.AuthRequiredErr
-	if _, err := m.mcpSessionManager.PingServer(ctx, serverConfig); err != nil {
+	if err := m.mcpSessionManager.PingServer(ctx, serverConfig); err != nil {
 		if errors.As(err, &authRequired) {
 			return true, nil
 		}
@@ -1278,10 +1279,10 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
-func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, nmcp.ServerCapabilities, error) {
+func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, *gomcp.ServerCapabilities, error) {
 	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
-		return server, serverConfig, nmcp.ServerCapabilities{}, err
+		return server, serverConfig, nil, err
 	}
 
 	caps, err := mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)

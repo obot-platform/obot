@@ -9,9 +9,9 @@ import (
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -35,12 +35,12 @@ func New(defaultSourceURL string, urlValidation mcp.RemoteMCPURLValidationConfig
 	return &Handler{
 		// Reuse the deployment's remote-URL egress policy so the model info fetch
 		// honors the same loopback/private-IP/link-local rules as other configured-URL fetches.
-		httpClient: safehttp.NewClientWithTimeout(
-			!urlValidation.AllowLocalhostMCP,
-			!urlValidation.AllowPrivateIPMCP,
-			!urlValidation.AllowLinkLocalMCP,
-			time.Minute,
-		),
+		httpClient: safehttp.NewClient(safehttp.ClientOptions{
+			BlockLoopback:  !urlValidation.AllowLocalhostMCP,
+			BlockPrivateIP: !urlValidation.AllowPrivateIPMCP,
+			BlockLinkLocal: !urlValidation.AllowLinkLocalMCP,
+			Timeout:        time.Minute,
+		}),
 		defaultSourceURL: defaultSourceURL,
 	}
 }

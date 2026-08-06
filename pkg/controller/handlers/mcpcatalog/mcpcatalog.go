@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nanobot/pkg/safehttp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
@@ -24,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gitcredential"
 	"github.com/obot-platform/obot/pkg/mcp"
 	catalogvalidation "github.com/obot-platform/obot/pkg/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -70,10 +70,14 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 	validationOptions.ResourceMaximums = mcpSessionManager.KubernetesResourceMaximums()
 
 	return &Handler{
-		defaultCatalogPath:        defaultCatalogPath,
-		defaultSystemCatalogPath:  defaultSystemCatalogPath,
-		gatewayClient:             gatewayClient,
-		httpClient:                safehttp.NewClient(!remoteURLValidationConfig.AllowLocalhostMCP, !remoteURLValidationConfig.AllowPrivateIPMCP, !remoteURLValidationConfig.AllowLinkLocalMCP),
+		defaultCatalogPath:       defaultCatalogPath,
+		defaultSystemCatalogPath: defaultSystemCatalogPath,
+		gatewayClient:            gatewayClient,
+		httpClient: safehttp.NewClient(safehttp.ClientOptions{
+			BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
+			BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
+			BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,
+		}),
 		accessControlRuleHelper:   accessControlRuleHelper,
 		remoteURLValidationConfig: validationOptions,
 		mcpBackend:                mcpSessionManager.MCPRuntimeBackend(),

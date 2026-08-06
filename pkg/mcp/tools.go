@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/google/jsonschema-go/jsonschema"
-	"github.com/obot-platform/nanobot/pkg/mcp"
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	otypes "github.com/obot-platform/obot/apiclient/types"
 )
 
-func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConfig) ([]mcp.Tool, error) {
+func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConfig) ([]*gomcp.Tool, error) {
 	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
 		return nil, err
@@ -22,7 +22,7 @@ func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConf
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
 
-	resp, err := client.ListTools(ctx)
+	resp, err := client.ListTools(ctx, &gomcp.ListToolsParams{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list MCP tools: %w", err)
 	}
@@ -30,7 +30,7 @@ func (sm *SessionManager) ListTools(ctx context.Context, serverConfig ServerConf
 	return resp.Tools, nil
 }
 
-func ConvertTools(tools []mcp.Tool, unsupportedTools []string) ([]otypes.MCPServerTool, error) {
+func ConvertTools(tools []*gomcp.Tool, unsupportedTools []string) ([]otypes.MCPServerTool, error) {
 	convertedTools := make([]otypes.MCPServerTool, 0, len(tools))
 	for _, t := range tools {
 		mcpTool := otypes.MCPServerTool{
@@ -41,7 +41,7 @@ func ConvertTools(tools []mcp.Tool, unsupportedTools []string) ([]otypes.MCPServ
 			Unsupported: slices.Contains(unsupportedTools, t.Name),
 		}
 
-		if len(t.InputSchema) > 0 {
+		if t.InputSchema != nil {
 			var schema jsonschema.Schema
 
 			schemaData, err := json.Marshal(t.InputSchema)

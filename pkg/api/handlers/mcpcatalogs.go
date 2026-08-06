@@ -872,6 +872,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		entry.Namespace,
+		entry.Name,
 		catalogName,
 		entry.Spec.Manifest,
 		configRequest.Config,
@@ -997,6 +998,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
 			entry.Namespace,
+			entry.Name,
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
@@ -1121,7 +1123,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1214,6 +1216,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		composite.Namespace,
+		composite.Name,
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
@@ -1339,6 +1342,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		composite.Namespace,
+		composite.Name,
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
@@ -1423,6 +1427,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
 			entry.Namespace,
+			entry.Name,
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
@@ -1450,7 +1455,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel, namespace, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel, namespace, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1515,7 +1520,12 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), "temp", "temp", catalogName, config, tokenExchangeEnv)
+	staticOAuthCred, err := gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(entryName)}, entryName)
+	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to reveal credential: %w", err)
+	}
+
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), "temp", "temp", catalogName, config, tokenExchangeEnv, staticOAuthCred.Secrets)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}

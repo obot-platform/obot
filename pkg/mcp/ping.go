@@ -3,14 +3,14 @@ package mcp
 import (
 	"context"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func (sm *SessionManager) PingServer(ctx context.Context, serverConfig ServerConfig) (*nmcp.PingResult, error) {
+func (sm *SessionManager) PingServer(ctx context.Context, serverConfig ServerConfig) error {
 	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return client.Ping(ctx)
+	return client.Ping(ctx, &gomcp.PingParams{})
 }
