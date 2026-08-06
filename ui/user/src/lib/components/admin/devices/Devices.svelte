@@ -192,7 +192,16 @@
 			{ title: 'Clients', property: 'client_count' },
 			{ title: 'Last Scanned', property: 'scannedAt' }
 		]}
-		sortable={['short_device_id', 'os_arch', 'username', 'scannedAt']}
+		sortable={[
+			'short_device_id',
+			'os_arch',
+			'username',
+			'mcp_count',
+			'skill_count',
+			'plugin_count',
+			'client_count',
+			'scannedAt'
+		]}
 		{filterable}
 		onClickRow={(d, isCtrlClick) => {
 			openUrl(resolve(`/admin/devices/${d.deviceID}`), isCtrlClick);
