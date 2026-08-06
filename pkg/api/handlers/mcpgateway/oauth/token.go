@@ -257,13 +257,19 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	var oauthToken v1.OAuthToken
 	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: oauthClient.Namespace, Name: fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken)))}, &oauthToken); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
+		}
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is invalid", ""))
 	}
 	if oauthToken.Spec.ClientID != oauthClient.Name {
-		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "refresh_token is invalid", ""))
+		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 	}
 
 	if err := req.Delete(&oauthToken); err != nil {
+		if apierrors.IsNotFound(err) {
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
+		}
 		return fmt.Errorf("failed to refresh oauth token: %w", err)
 	}
 

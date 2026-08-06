@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestDoRefreshTokenPreservesScope(t *testing.T) {
+func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	const (
 		baseURL      = "https://obot.example.com"
 		clientName   = "oauth-client"
@@ -96,12 +97,14 @@ func TestDoRefreshTokenPreservesScope(t *testing.T) {
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
 	}
-	err = (&handler{tokenService: tokenService}).doRefreshToken(req, v1.OAuthClient{
+	oauthClient := v1.OAuthClient{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: system.DefaultNamespace,
 			Name:      clientName,
 		},
-	}, refreshToken)
+	}
+	h := &handler{tokenService: tokenService}
+	err = h.doRefreshToken(req, oauthClient, refreshToken)
 	require.NoError(t, err)
 
 	var response types.OAuthToken
@@ -112,4 +115,20 @@ func TestDoRefreshTokenPreservesScope(t *testing.T) {
 	refreshedName := fmt.Sprintf("%x", sha256.Sum256([]byte(response.RefreshToken)))
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: refreshedName}, &refreshed))
 	assert.Equal(t, "profile email", refreshed.Spec.Scope)
+
+	err = h.doRefreshToken(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Storage:        storage,
+	}, oauthClient, refreshToken)
+	require.Error(t, err)
+
+	var errHTTP *types.ErrHTTP
+	require.ErrorAs(t, err, &errHTTP)
+	assert.Equal(t, http.StatusBadRequest, errHTTP.Code)
+
+	var oauthErr oauthError
+	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
+	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
+	assert.Equal(t, "Obot: refresh_token is invalid", oauthErr.Description)
 }

@@ -26,6 +26,7 @@ type ErrorCode string
 
 const (
 	ErrInvalidClient           ErrorCode = "invalid_client"
+	ErrInvalidGrant            ErrorCode = "invalid_grant"
 	ErrInvalidRequest          ErrorCode = "invalid_request"
 	ErrUnauthorizedClient      ErrorCode = "unauthorized_client"
 	ErrAccessDenied            ErrorCode = "access_denied"
