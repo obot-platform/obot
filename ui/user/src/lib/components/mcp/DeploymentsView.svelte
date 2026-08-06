@@ -76,6 +76,7 @@
 		servers?: MCPCatalogServer[];
 		skipLoadOnMount?: boolean;
 		serverPrefixPath?: string;
+		catalogEntryId?: string;
 	}
 
 	let {
@@ -95,7 +96,8 @@
 		onlyMyServers,
 		servers: initialServers,
 		skipLoadOnMount,
-		serverPrefixPath
+		serverPrefixPath,
+		catalogEntryId
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
@@ -599,8 +601,8 @@
 			<Loading class="size-6" />
 		</div>
 	{:else}
-		{#if entity === 'catalog' && profile.current.hasAdminAccess?.()}
-			<CapacityBanner bind:this={capacityBanner} />
+		{#if entity === 'catalog' && profile.current.hasAdminAccess?.() && doesSupportK8sUpdates}
+			<CapacityBanner bind:this={capacityBanner} catalogId={id} {catalogEntryId} />
 		{/if}
 		{#if tableData.length > 0}
 			<Table

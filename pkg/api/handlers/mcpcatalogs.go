@@ -578,6 +578,54 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	return req.Write(types.MCPServerList{Items: items})
 }
 
+// GetEntryCapacity returns MCP capacity info for deployments tied to a catalog entry.
+func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
+	catalogName := req.PathValue("catalog_id")
+	entryName := req.PathValue("entry_id")
+
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, entryName); err != nil {
+		return fmt.Errorf("failed to get entry: %w", err)
+	}
+
+	if entry.Spec.MCPCatalogName != catalogName {
+		return types.NewErrBadRequest("entry does not belong to catalog")
+	}
+
+	var list v1.MCPServerList
+	if err := req.List(&list, client.MatchingFields{
+		"spec.mcpServerCatalogEntryName": entryName,
+	}); err != nil {
+		return fmt.Errorf("failed to list servers: %w", err)
+	}
+
+	serverNames := make([]string, 0, len(list.Items))
+	for _, server := range list.Items {
+		if server.Spec.Template {
+			continue
+		}
+		serverNames = append(serverNames, server.Name)
+	}
+
+	info, err := h.sessionManager.GetCapacityInfoForServers(req.Context(), serverNames)
+	if err != nil {
+		var notSupported *mcp.ErrNotSupportedByBackend
+		if errors.As(err, &notSupported) {
+			return req.Write(types.MCPCapacityInfo{
+				Error: notSupported.Error(),
+			})
+		}
+		return err
+	}
+
+	return req.Write(info)
+}
+
 // AdminListServersForAllEntriesInCatalog returns all servers for all entries in a catalog.
 func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")

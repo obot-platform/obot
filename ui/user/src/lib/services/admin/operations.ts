@@ -763,6 +763,18 @@ export async function getMCPCapacity(opts?: { fetch?: Fetcher }): Promise<MCPCap
 	return response;
 }
 
+export async function getMCPCatalogEntryCapacity(
+	catalogID: string,
+	entryID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCapacityInfo> {
+	const response = (await doGet(
+		`/mcp-catalogs/${catalogID}/entries/${entryID}/mcp-capacity`,
+		opts
+	)) as MCPCapacityInfo;
+	return response;
+}
+
 // MCP catalogs
 
 export async function listMCPCatalogs(opts?: { fetch?: Fetcher }): Promise<MCPCatalog[]> {

@@ -649,6 +649,7 @@ export type LLMAuditLogURLFilters = {
 };
 
 // MCP capacity
+// Returned by GET /mcp-capacity and GET /mcp-catalogs/{catalog_id}/entries/{entry_id}/mcp-capacity
 
 export type CapacitySource = 'resourceQuota' | 'deployments';
 export interface MCPCapacityInfo {

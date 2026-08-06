@@ -254,6 +254,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/accept-ownership", mcpCatalogs.AcceptEntryOwnership)
 	mux.HandleFunc("DELETE /api/mcp-catalogs/{catalog_id}/entries/{entry_id}", mcpCatalogs.DeleteEntry)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers", mcpCatalogs.AdminListServersForEntryInCatalog)
+	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/mcp-capacity", mcpCatalogs.GetEntryCapacity)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/k8s-settings-status", mcp.CheckK8sSettingsStatus)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/servers/{mcp_server_id}/redeploy-with-k8s-settings", mcp.RedeployWithK8sSettings)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/all-servers", mcpCatalogs.AdminListServersForAllEntriesInCatalog)

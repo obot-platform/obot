@@ -528,3 +528,12 @@ func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (types.MCPCapacit
 	}
 	return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
 }
+
+// GetCapacityInfoForServers returns capacity information for the given MCP server deployments.
+// Only available when using the Kubernetes backend.
+func (sm *SessionManager) GetCapacityInfoForServers(ctx context.Context, serverNames []string) (types.MCPCapacityInfo, error) {
+	if k8sBackend, ok := sm.backend.(*kubernetesBackend); ok {
+		return k8sBackend.GetCapacityInfoForServers(ctx, serverNames), nil
+	}
+	return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
+}

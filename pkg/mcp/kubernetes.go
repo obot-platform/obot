@@ -2045,17 +2045,31 @@ func (k *kubernetesBackend) checkResourceQuotaCapacity(ctx context.Context, memo
 // Used by the admin capacity endpoint.
 func (k *kubernetesBackend) GetCapacityInfo(ctx context.Context) types.MCPCapacityInfo {
 	// Try ResourceQuota first - this is the only accurate source
-	if info, ok := k.getResourceQuotaCapacity(ctx); ok {
+	if info, ok := k.getResourceQuotaCapacity(ctx, nil); ok {
 		return info
 	}
 
 	// Fallback to deployment aggregation only (no limits, just totals)
 	// Node metrics are intentionally not used because they don't account for
 	// taints, affinity, or other scheduling constraints.
-	return k.getDeploymentCapacity(ctx)
+	return k.getDeploymentCapacity(ctx, nil)
 }
 
-func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context) (types.MCPCapacityInfo, bool) {
+func (k *kubernetesBackend) GetCapacityInfoForServers(ctx context.Context, serverNames []string) types.MCPCapacityInfo {
+	allowed := make(map[string]struct{}, len(serverNames))
+	for _, name := range serverNames {
+		if name != "" {
+			allowed[name] = struct{}{}
+		}
+	}
+
+	if info, ok := k.getResourceQuotaCapacity(ctx, allowed); ok {
+		return info
+	}
+	return k.getDeploymentCapacity(ctx, allowed)
+}
+
+func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context, allowed map[string]struct{}) (types.MCPCapacityInfo, bool) {
 	quotas, err := k.clientset.CoreV1().ResourceQuotas(k.mcpNamespace).List(ctx, metav1.ListOptions{})
 	if err != nil || len(quotas.Items) == 0 {
 		return types.MCPCapacityInfo{}, false
@@ -2083,29 +2097,21 @@ func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context) (types
 	deployments, err := k.clientset.AppsV1().Deployments(k.mcpNamespace).List(ctx, metav1.ListOptions{})
 	if err == nil {
 		var totalCPU, totalMemory resource.Quantity
+		active := 0
 		for _, deployment := range deployments.Items {
-			replicas := int64(1)
-			if deployment.Spec.Replicas != nil {
-				replicas = int64(*deployment.Spec.Replicas)
-			}
-			for _, container := range deployment.Spec.Template.Spec.Containers {
-				if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
-					scaled := cpu.DeepCopy()
-					scaled.SetMilli(scaled.MilliValue() * replicas)
-					totalCPU.Add(scaled)
-				}
-				if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
-					scaled := mem.DeepCopy()
-					scaled.Set(scaled.Value() * replicas)
-					totalMemory.Add(scaled)
+			if allowed != nil {
+				if _, ok := allowed[deployment.Name]; !ok {
+					continue
 				}
 			}
+			addDeploymentResourceRequests(deployment, &totalCPU, &totalMemory)
+			active++
 		}
 		info.CPURequested = formatCPU(totalCPU)
 		info.MemoryRequested = formatMemory(totalMemory)
-		info.ActiveDeployments = len(deployments.Items)
-	} else {
-		// Fallback to ResourceQuota status if deployment list fails
+		info.ActiveDeployments = active
+	} else if allowed == nil {
+		// Fallback to ResourceQuota status if deployment list fails (namespace-wide only)
 		var totalCPUUsed, totalMemoryUsed resource.Quantity
 		for _, quota := range quotas.Items {
 			if used, ok := quota.Status.Used[corev1.ResourceRequestsCPU]; ok {
@@ -2123,7 +2129,7 @@ func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context) (types
 	return info, true
 }
 
-func (k *kubernetesBackend) getDeploymentCapacity(ctx context.Context) types.MCPCapacityInfo {
+func (k *kubernetesBackend) getDeploymentCapacity(ctx context.Context, allowed map[string]struct{}) types.MCPCapacityInfo {
 	info := types.MCPCapacityInfo{
 		Source: types.CapacitySourceDeployments,
 	}
@@ -2135,30 +2141,41 @@ func (k *kubernetesBackend) getDeploymentCapacity(ctx context.Context) types.MCP
 	}
 
 	var totalCPU, totalMemory resource.Quantity
+	active := 0
 	for _, deployment := range deployments.Items {
-		replicas := int64(1)
-		if deployment.Spec.Replicas != nil {
-			replicas = int64(*deployment.Spec.Replicas)
-		}
-		for _, container := range deployment.Spec.Template.Spec.Containers {
-			if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
-				scaled := cpu.DeepCopy()
-				scaled.SetMilli(scaled.MilliValue() * replicas)
-				totalCPU.Add(scaled)
-			}
-			if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
-				scaled := mem.DeepCopy()
-				scaled.Set(scaled.Value() * replicas)
-				totalMemory.Add(scaled)
+		if allowed != nil {
+			if _, ok := allowed[deployment.Name]; !ok {
+				continue
 			}
 		}
+		addDeploymentResourceRequests(deployment, &totalCPU, &totalMemory)
+		active++
 	}
 
 	info.CPURequested = formatCPU(totalCPU)
 	info.MemoryRequested = formatMemory(totalMemory)
-	info.ActiveDeployments = len(deployments.Items)
+	info.ActiveDeployments = active
 
 	return info
+}
+
+func addDeploymentResourceRequests(deployment appsv1.Deployment, totalCPU, totalMemory *resource.Quantity) {
+	replicas := int64(1)
+	if deployment.Spec.Replicas != nil {
+		replicas = int64(*deployment.Spec.Replicas)
+	}
+	for _, container := range deployment.Spec.Template.Spec.Containers {
+		if cpu, ok := container.Resources.Requests[corev1.ResourceCPU]; ok {
+			scaled := cpu.DeepCopy()
+			scaled.SetMilli(scaled.MilliValue() * replicas)
+			totalCPU.Add(scaled)
+		}
+		if mem, ok := container.Resources.Requests[corev1.ResourceMemory]; ok {
+			scaled := mem.DeepCopy()
+			scaled.Set(scaled.Value() * replicas)
+			totalMemory.Add(scaled)
+		}
+	}
 }
 
 func (k *kubernetesBackend) countActiveDeployments(ctx context.Context) int {
