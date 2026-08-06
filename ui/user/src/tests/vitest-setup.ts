@@ -2,6 +2,13 @@ import '../app.css';
 import { worker } from './mocks/node';
 import 'devicon/devicon.min.css';
 import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
+import { locators } from 'vitest/browser';
+
+locators.extend({
+	locator(selector) {
+		return `css=${selector}`;
+	}
+});
 
 beforeAll(async () => {
 	await worker.start();

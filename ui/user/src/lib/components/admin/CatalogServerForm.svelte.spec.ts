@@ -6,19 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { locators, page, type Locator } from 'vitest/browser';
-
-declare module 'vitest/browser' {
-	interface LocatorSelectors {
-		locator(selector: string): Locator;
-	}
-}
-
-locators.extend({
-	locator(selector) {
-		return `css=${selector}`;
-	}
-});
+import { page } from 'vitest/browser';
 
 const catalogID = 'test-catalog';
 
