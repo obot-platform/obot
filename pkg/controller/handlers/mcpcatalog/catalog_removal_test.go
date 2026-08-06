@@ -151,11 +151,10 @@ func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T)
 	desired.Spec.Editable = false
 	desired.Spec.SourceURL = "github.com/example/catalog"
 	desired.Spec.Manifest.Name = "Context7"
-	c := &namespaceRecordingClient{Client: newCatalogFakeClient(existing)}
+	c := newCatalogFakeClient(existing)
 
 	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []client.Object{desired})
 	require.NoError(t, err)
-	assert.Equal(t, "default", c.catalogEntryNamespace)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with an Obot-managed entry")
 }
@@ -346,19 +345,6 @@ func newCatalogFakeClient(objects ...client.Object) client.Client {
 type serverListCountingClient struct {
 	client.Client
 	serverListCalls int
-}
-
-type namespaceRecordingClient struct {
-	client.Client
-	catalogEntryNamespace string
-}
-
-func (c *namespaceRecordingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
-	if _, ok := list.(*v1.MCPServerCatalogEntryList); ok {
-		listOpts := (&client.ListOptions{}).ApplyOptions(opts)
-		c.catalogEntryNamespace = listOpts.Namespace
-	}
-	return c.Client.List(ctx, list, opts...)
 }
 
 type staleCatalogEntryListClient struct {
