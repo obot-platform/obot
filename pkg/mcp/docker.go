@@ -12,6 +12,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -665,6 +666,110 @@ func (d *dockerBackend) getContainer(ctx context.Context, name string) (*contain
 	return nil, nil
 }
 
+func (d *dockerBackend) inspectContainer(ctx context.Context, name string) (*container.Summary, error) {
+	inspect, err := d.client.ContainerInspect(ctx, name)
+	if cerrdefs.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimPrefix(inspect.Name, "/") != name {
+		return nil, nil
+	}
+
+	return inspectResponseToSummary(name, inspect), nil
+}
+
+func inspectResponseToSummary(name string, inspect container.InspectResponse) *container.Summary {
+	summary := &container.Summary{
+		ID:              inspect.ID,
+		Names:           []string{inspect.Name},
+		Image:           inspect.Image,
+		Labels:          map[string]string{},
+		Mounts:          inspect.Mounts,
+		NetworkSettings: &container.NetworkSettingsSummary{},
+	}
+	if summary.Names[0] == "" {
+		summary.Names[0] = "/" + name
+	}
+	if inspect.Config != nil {
+		summary.Image = inspect.Config.Image
+		if inspect.Config.Labels != nil {
+			summary.Labels = maps.Clone(inspect.Config.Labels)
+		}
+	}
+	if inspect.State != nil {
+		summary.State = inspect.State.Status
+	}
+	if inspect.NetworkSettings != nil {
+		summary.NetworkSettings.Networks = inspect.NetworkSettings.Networks
+		for port, bindings := range inspect.NetworkSettings.Ports {
+			privatePort := uint16(port.Int())
+			if len(bindings) == 0 {
+				summary.Ports = append(summary.Ports, container.Port{
+					PrivatePort: privatePort,
+					Type:        port.Proto(),
+				})
+				continue
+			}
+			for _, binding := range bindings {
+				publicPort, err := strconv.ParseUint(binding.HostPort, 10, 16)
+				if err != nil {
+					continue
+				}
+				summary.Ports = append(summary.Ports, container.Port{
+					IP:          binding.HostIP,
+					PrivatePort: privatePort,
+					PublicPort:  uint16(publicPort),
+					Type:        port.Proto(),
+				})
+			}
+		}
+
+		hostIPRank := func(hostIP string) int {
+			switch hostIP {
+			case "127.0.0.1":
+				return 0
+			case "":
+				return 1
+			case "::1":
+				return 2
+			}
+
+			ip := net.ParseIP(hostIP)
+			if ip != nil && ip.To4() != nil {
+				return 1
+			}
+			if ip != nil {
+				return 3
+			}
+			return 4
+		}
+		sort.Slice(summary.Ports, func(i, j int) bool {
+			left, right := summary.Ports[i], summary.Ports[j]
+			if left.PrivatePort != right.PrivatePort {
+				return left.PrivatePort < right.PrivatePort
+			}
+			if left.Type != right.Type {
+				return left.Type < right.Type
+			}
+			if (left.PublicPort != 0) != (right.PublicPort != 0) {
+				return left.PublicPort != 0
+			}
+			if leftRank, rightRank := hostIPRank(left.IP), hostIPRank(right.IP); leftRank != rightRank {
+				return leftRank < rightRank
+			}
+			if left.IP != right.IP {
+				return left.IP < right.IP
+			}
+			return left.PublicPort < right.PublicPort
+		})
+	}
+
+	return summary
+}
+
 func (d *dockerBackend) getDeploymentCache(mcpServerName string) *dockerDeploymentCacheEntry {
 	d.deploymentCacheMu.RLock()
 	defer d.deploymentCacheMu.RUnlock()
@@ -1072,6 +1177,12 @@ func (d *dockerBackend) createAndStartContainer(ctx context.Context, server Serv
 			cont, getErr := d.getContainer(ctx, server.MCPServerName)
 			if getErr != nil {
 				return "", 0, fmt.Errorf("failed to create container: %w", err)
+			}
+			if cont == nil {
+				cont, getErr = d.inspectContainer(ctx, server.MCPServerName)
+				if getErr != nil {
+					return "", 0, fmt.Errorf("failed to inspect conflicting container: %w", getErr)
+				}
 			}
 			if cont == nil {
 				time.Sleep(time.Second)
