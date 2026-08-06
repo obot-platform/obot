@@ -34,7 +34,6 @@ async function renderLicensePage({
 
 describe('Licensing Page', () => {
 	beforeEach(() => {
-		localStorage.clear();
 		vi.mocked(navigation.reloadPage).mockImplementation(() => {});
 	});
 
