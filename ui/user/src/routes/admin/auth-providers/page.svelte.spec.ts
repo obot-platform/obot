@@ -73,9 +73,7 @@ function mockConfigureFlow(configuredProviders: AuthProvider[]) {
 		http.get('/api/setup/explicit-role-emails', () =>
 			HttpResponse.json(listExplicitRoleEmailsResponse)
 		),
-		http.post('/api/setup/initiate-temp-login', () =>
-			HttpResponse.json(initiateTempLoginResponse)
-		)
+		http.post('/api/setup/initiate-temp-login', () => HttpResponse.json(initiateTempLoginResponse))
 	);
 
 	return { configureAuthProvider };
@@ -105,7 +103,9 @@ describe('Auth Providers Page', () => {
 			});
 
 			await expect
-				.element(page.getByRole('dialog').getByText('Next Step: Owner Login Setup', { exact: true }))
+				.element(
+					page.getByRole('dialog').getByText('Next Step: Owner Login Setup', { exact: true })
+				)
 				.toBeVisible();
 			await expect
 				.element(page.getByRole('dialog').getByRole('link', { name: /Continue with Google/ }))
