@@ -579,10 +579,10 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	}
 
 	// Get the token store for this user and MCP
-	store := h.tokenStore.ForUserAndMCP(userID, mcpID)
+	store := h.tokenStore.ForUserAndMCP(userID, mcpID, resource)
 
 	// Retrieve the OAuth configuration and token
-	config, token, err := store.GetTokenConfig(req.Context(), resource)
+	config, token, err := store.GetTokenConfig(req.Context())
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve token configuration", ""))
 	}
@@ -599,7 +599,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 	// Store the refreshed token if it changed
 	if tok.AccessToken != token.AccessToken || tok.RefreshToken != token.RefreshToken || tok.Expiry.Unix() != token.Expiry.Unix() {
-		if err = store.SetTokenConfig(req.Context(), resource, config, tok); err != nil {
+		if err = store.SetTokenConfig(req.Context(), config, tok); err != nil {
 			return fmt.Errorf("failed to store token: %w", err)
 		}
 	}

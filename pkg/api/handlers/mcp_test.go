@@ -680,7 +680,7 @@ func TestApplyRemoteURLTemplate(t *testing.T) {
 	require.True(t, manifest.RemoteConfig.StaticOAuthRequired)
 
 	server := v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "tool-preview"}, Spec: v1.MCPServerSpec{Manifest: manifest}}
-	serverConfig, missing, err := mcp.ServerToServerConfig(server, nil, "system", "temp", "default", nil, nil)
+	serverConfig, missing, err := mcp.ServerToServerConfig(server, nil, "system", "temp", "default", nil, nil, nil)
 	require.NoError(t, err)
 	require.Empty(t, missing)
 	require.Equal(t, manifest.RemoteConfig.URL, serverConfig.URL)

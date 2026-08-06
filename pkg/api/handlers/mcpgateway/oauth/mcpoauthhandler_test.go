@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -17,23 +17,27 @@ type staticOAuthTokenStorage struct {
 	token  *oauth2.Token
 }
 
-func (s *staticOAuthTokenStorage) GetTokenConfig(context.Context, string) (*oauth2.Config, *oauth2.Token, error) {
+func (s *staticOAuthTokenStorage) NewTokenSource(_ context.Context, _ *oauth2.Config, token *oauth2.Token) (oauth2.TokenSource, error) {
+	return oauth2.StaticTokenSource(token), nil
+}
+
+func (s *staticOAuthTokenStorage) GetTokenConfig(context.Context) (*oauth2.Config, *oauth2.Token, error) {
 	return s.config, s.token, nil
 }
 
-func (*staticOAuthTokenStorage) SetTokenConfig(context.Context, string, *oauth2.Config, *oauth2.Token) error {
+func (*staticOAuthTokenStorage) SetTokenConfig(context.Context, *oauth2.Config, *oauth2.Token) error {
 	return nil
 }
 
-func (*staticOAuthTokenStorage) DeleteTokenConfig(context.Context, string) error {
+func (*staticOAuthTokenStorage) DeleteTokenConfig(context.Context) error {
 	return nil
 }
 
 type staticOAuthGlobalTokenStore struct {
-	storage nmcp.TokenStorage
+	storage mcp.TokenStorage
 }
 
-func (s staticOAuthGlobalTokenStore) ForUserAndMCP(string, string) nmcp.TokenStorage {
+func (s staticOAuthGlobalTokenStore) ForUserAndMCP(string, string, string) mcp.TokenStorage {
 	return s.storage
 }
 
@@ -69,7 +73,7 @@ func TestStaticOAuthPendingUsesStoredAuthentication(t *testing.T) {
 }
 
 func TestStaticOAuthMetadataDefaultsMissingClientRegistration(t *testing.T) {
-	authorizationServer := nmcp.AuthorizationServerMetadata{
+	authorizationServer := mcp.AuthorizationServerMetadata{
 		Issuer:                            "https://auth.example.com",
 		AuthorizationEndpoint:             "https://auth.example.com/authorize",
 		TokenEndpoint:                     "https://auth.example.com/token",
@@ -80,12 +84,12 @@ func TestStaticOAuthMetadataDefaultsMissingClientRegistration(t *testing.T) {
 	authorizationServerJSON, err := json.Marshal(authorizationServer)
 	require.NoError(t, err)
 
-	parsedAuthorizationServer, registration, err := staticOAuthMetadata(nmcp.OAuthMetadata{
+	parsedAuthorizationServer, registration, err := staticOAuthMetadata(mcp.OAuthMetadata{
 		AuthorizationServerMetadata: authorizationServerJSON,
 	}, "https://obot.example.com/oauth/mcp/callback")
 	require.NoError(t, err)
 	require.Equal(t, authorizationServer, parsedAuthorizationServer)
-	require.Equal(t, nmcp.ClientRegistrationMetadata{
+	require.Equal(t, mcp.ClientRegistrationMetadata{
 		RedirectURIs:            []string{"https://obot.example.com/oauth/mcp/callback"},
 		TokenEndpointAuthMethod: "client_secret_post",
 		GrantTypes:              []string{"authorization_code", "refresh_token"},
@@ -95,6 +99,6 @@ func TestStaticOAuthMetadataDefaultsMissingClientRegistration(t *testing.T) {
 }
 
 func TestStaticOAuthMetadataReportsMissingAuthorizationServer(t *testing.T) {
-	_, _, err := staticOAuthMetadata(nmcp.OAuthMetadata{}, "https://obot.example.com/oauth/mcp/callback")
+	_, _, err := staticOAuthMetadata(mcp.OAuthMetadata{}, "https://obot.example.com/oauth/mcp/callback")
 	require.EqualError(t, err, "static OAuth is required but authorization server metadata was not found")
 }

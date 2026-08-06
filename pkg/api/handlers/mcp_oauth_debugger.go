@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/oauth2"
@@ -58,7 +58,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint, must configure static client ID and secret")
 		}
 
-		httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, 10*time.Second)
+		httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, nil, nil, 10*time.Second)
 		if err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
 	}
 
 	conf := oauthDebuggerConfigFromPendingState(storedClient)
-	authURL, err := nmcp.AuthCodeURL(conf, storedClient.AuthURL, serverConfig.URL, input.State, storedClient.Verifier)
+	authURL, err := mcp.AuthCodeURL(conf, storedClient.AuthURL, serverConfig.URL, input.State, storedClient.Verifier)
 	if err != nil {
 		return err
 	}
@@ -170,7 +170,7 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 
 	conf := oauthDebuggerConfigFromPendingState(pendingState)
 
-	httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, 10*time.Second)
+	httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, nil, nil, 10*time.Second)
 	if err != nil {
 		return err
 	}
@@ -220,32 +220,32 @@ func (m *MCPHandler) validateOAuthDebuggerServer(req api.Context, server v1.MCPS
 	return nil
 }
 
-func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
+func (m *MCPHandler) oauthDebuggerMetadata(server v1.MCPServer) (mcp.AuthorizationServerMetadata, mcp.ClientRegistrationMetadata, error) {
 	metadata := server.Status.OAuthMetadata
-	var authServer nmcp.AuthorizationServerMetadata
+	var authServer mcp.AuthorizationServerMetadata
 	if len(metadata.AuthorizationServerMetadata.Raw) > 0 {
 		if err := json.Unmarshal(metadata.AuthorizationServerMetadata.Raw, &authServer); err != nil {
-			return authServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse OAuth authorization server metadata: %w", err)
+			return authServer, mcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse OAuth authorization server metadata: %w", err)
 		}
 	}
 	if authServer.AuthorizationEndpoint == "" {
-		return authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include authorization_endpoint")
+		return authServer, mcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include authorization_endpoint")
 	}
 	if authServer.TokenEndpoint == "" {
-		return authServer, nmcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include token_endpoint")
+		return authServer, mcp.ClientRegistrationMetadata{}, types.NewErrBadRequest("OAuth metadata does not include token_endpoint")
 	}
 
-	var registration nmcp.ClientRegistrationMetadata
+	var registration mcp.ClientRegistrationMetadata
 	if len(metadata.ClientRegistration.Raw) > 0 {
 		if err := json.Unmarshal(metadata.ClientRegistration.Raw, &registration); err != nil {
 			return authServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
 		}
 	}
 
-	return authServer, nmcp.AuthServerMetadataToClientRegistration(authServer, "Obot MCP OAuth Debugger", system.MCPOAuthCallbackURL(m.serverURL), registration.Scope), nil
+	return authServer, mcp.AuthServerMetadataToClientRegistration(authServer, "Obot MCP OAuth Debugger", system.MCPOAuthCallbackURL(m.serverURL), registration.Scope), nil
 }
 
-func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, registrationEndpoint string, registration nmcp.ClientRegistrationMetadata) (types.OAuthClient, error) {
+func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, registrationEndpoint string, registration mcp.ClientRegistrationMetadata) (types.OAuthClient, error) {
 	b, err := json.Marshal(registration)
 	if err != nil {
 		return types.OAuthClient{}, err
@@ -299,7 +299,7 @@ func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientS
 		strings.HasPrefix(m.serverURL, "https://")
 }
 
-func (m *MCPHandler) oauthDebuggerCIMDClient(authServer nmcp.AuthorizationServerMetadata, registration nmcp.ClientRegistrationMetadata) types.OAuthClient {
+func (m *MCPHandler) oauthDebuggerCIMDClient(authServer mcp.AuthorizationServerMetadata, registration mcp.ClientRegistrationMetadata) types.OAuthClient {
 	return types.OAuthClient{
 		OAuthClientManifest: types.OAuthClientManifest{
 			RedirectURIs:            registration.RedirectURIs,
@@ -316,7 +316,7 @@ func (m *MCPHandler) oauthDebuggerCIMDClient(authServer nmcp.AuthorizationServer
 	}
 }
 
-func oauthDebuggerStaticClient(clientID, clientSecret string, authServer nmcp.AuthorizationServerMetadata) types.OAuthClient {
+func oauthDebuggerStaticClient(clientID, clientSecret string, authServer mcp.AuthorizationServerMetadata) types.OAuthClient {
 	client := types.OAuthClient{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
