@@ -21479,7 +21479,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"manifest", "detached"},
+				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
