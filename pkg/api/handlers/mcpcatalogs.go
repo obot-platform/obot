@@ -1469,7 +1469,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
-	if err := applyRemoteURLTemplate(ctx, &serverManifest, config, false, validationOptions); err != nil {
+	if err := applyRemoteURLTemplate(ctx, &serverManifest, config, !entryManifest.ServerUserType.IsSingleUser(), validationOptions); err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
 	if err := tunnel.ValidateServerTunnelReferences(ctx, client, serverManifest); err != nil {
