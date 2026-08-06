@@ -536,6 +536,32 @@ func TestServerToServerConfig_ExpandsURLTemplateFromConstrainedEnv(t *testing.T)
 	require.EqualError(t, err, `env "REGION" value "attacker.example" is not one of the configured options`)
 }
 
+func TestServerToServerConfig_DoesNotExpandDisabledURLTemplate(t *testing.T) {
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			URL:         "https://example.com/mcp",
+			URLTemplate: "https://${REGION}.example.com/mcp",
+		},
+	}}}
+
+	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"REGION": "eu"}, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, "https://example.com/mcp", config.URL)
+}
+
+func TestEffectiveConfigurationValues_EmptyConfiguredValuesUseStaticValues(t *testing.T) {
+	values := EffectiveConfigurationValues(
+		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "ENV", Value: "static-env"}}},
+		[]types.MCPHeader{{Key: "HEADER", Value: "static-header"}},
+		map[string]string{"ENV": "", "HEADER": ""},
+	)
+
+	require.Equal(t, "static-env", values["ENV"])
+	require.Equal(t, "static-header", values["HEADER"])
+}
+
 func TestServerToServerConfig_WithPrefix(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	tests := []struct {
