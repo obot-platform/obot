@@ -101,14 +101,10 @@ func TestConvertMCPResources(t *testing.T) {
 
 func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {
 	entry := ConvertMCPServerCatalogEntry(v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "entry",
-			Annotations: map[string]string{
-				v1.MCPServerCatalogEntryDetachedAnnotation: "true",
-			},
-		},
+		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Editable:  true,
+			Detached:  true,
 			SourceURL: "https://github.com/obot-platform/mcp-catalog",
 		},
 	}, "https://example.com")

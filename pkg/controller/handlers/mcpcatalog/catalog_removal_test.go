@@ -42,7 +42,7 @@ func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	assert.False(t, updated.Spec.Editable)
 	assert.Equal(t, entry.Spec.SourceURL, updated.Spec.SourceURL)
 	assert.Equal(t, entry.Spec.Manifest.EntryKey, updated.Spec.Manifest.EntryKey)
-	assert.True(t, updated.IsDetached())
+	assert.True(t, updated.Spec.Detached)
 	assert.False(t, updated.IsGitManaged())
 	assert.Equal(t, "keep", updated.Labels["example.com/label"])
 	assert.Equal(t, "keep", updated.Annotations["example.com/annotation"])
@@ -76,7 +76,7 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	managed := managedCatalogEntry(t, catalog, "default-context7-12345678")
 	other := managedCatalogEntry(t, catalog, "default-other-12345678")
 	other.Spec.Editable = false
-	other.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "true"
+	other.Spec.Detached = true
 	delete(other.Labels, apply.LabelHash)
 	server := &v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "ms1context7", Namespace: catalog.Namespace},
@@ -187,7 +187,7 @@ func TestFilterConflictingCatalogEntriesAllowsDetachedEntryReattachment(t *testi
 	desired.Labels = nil
 	desired.Annotations = nil
 	desired.OwnerReferences = nil
-	existing.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "true"
+	existing.Spec.Detached = true
 	for key := range existing.Annotations {
 		if strings.HasPrefix(key, apply.LabelPrefix) {
 			delete(existing.Annotations, key)
@@ -205,13 +205,13 @@ func TestFilterConflictingCatalogEntriesAllowsDetachedEntryReattachment(t *testi
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
-	assert.Equal(t, "false", filtered[0].GetAnnotations()[v1.MCPServerCatalogEntryDetachedAnnotation])
+	assert.False(t, filtered[0].(*v1.MCPServerCatalogEntry).Spec.Detached)
 
 	require.NoError(t, apply.New(c).WithOwnerSubContext("catalog-"+catalog.Name).WithNoPrune().Apply(t.Context(), catalog, filtered...))
 
 	var reattached v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(existing), &reattached))
-	assert.False(t, reattached.IsDetached())
+	assert.False(t, reattached.Spec.Detached)
 	assert.False(t, reattached.Spec.Editable)
 	assert.True(t, reattached.IsGitManaged())
 	assert.NotEmpty(t, reattached.Labels[apply.LabelHash])
@@ -230,7 +230,7 @@ func TestFilterConflictingCatalogEntriesAllowsGitManagedEntry(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
-	assert.Empty(t, filtered[0].GetAnnotations()[v1.MCPServerCatalogEntryDetachedAnnotation])
+	assert.False(t, filtered[0].(*v1.MCPServerCatalogEntry).Spec.Detached)
 }
 
 func TestFilterConflictingCatalogEntriesPreservesDuplicateOrder(t *testing.T) {
@@ -265,7 +265,7 @@ func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
 	var converted v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(referenced), &converted))
 	assert.False(t, converted.Spec.Editable)
-	assert.True(t, converted.IsDetached())
+	assert.True(t, converted.Spec.Detached)
 
 	var deleted v1.MCPServerCatalogEntry
 	err := c.Get(t.Context(), client.ObjectKeyFromObject(unused), &deleted)

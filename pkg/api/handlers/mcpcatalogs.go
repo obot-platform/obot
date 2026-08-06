@@ -453,7 +453,7 @@ func (h *MCPCatalogHandler) AcceptEntryOwnership(req api.Context) error {
 	if err := validateEntryScope(entry, catalogName, ""); err != nil {
 		return err
 	}
-	if !entry.IsDetached() {
+	if !entry.Spec.Detached {
 		return types.NewErrBadRequest("entry is not detached")
 	}
 
@@ -467,9 +467,9 @@ func (h *MCPCatalogHandler) AcceptEntryOwnership(req api.Context) error {
 
 func acceptCatalogEntryOwnership(entry *v1.MCPServerCatalogEntry) {
 	entry.Spec.Editable = true
+	entry.Spec.Detached = false
 	entry.Spec.SourceURL = ""
 	entry.Spec.Manifest.EntryKey = ""
-	delete(entry.Annotations, v1.MCPServerCatalogEntryDetachedAnnotation)
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {

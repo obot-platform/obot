@@ -68,14 +68,10 @@ func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	}
 }
 
-func (in *MCPServerCatalogEntry) IsDetached() bool {
-	return in.Annotations[MCPServerCatalogEntryDetachedAnnotation] == "true"
-}
-
 // IsGitManaged mirrors the existing GitOps heuristic: sourced, non-editable,
 // non-detached catalog entries are treated as git-managed.
 func (in *MCPServerCatalogEntry) IsGitManaged() bool {
-	return !in.IsDetached() && !in.Spec.Editable && in.Spec.SourceURL != ""
+	return !in.Spec.Detached && !in.Spec.Editable && in.Spec.SourceURL != ""
 }
 
 type MCPServerCatalogEntrySpec struct {
@@ -83,6 +79,7 @@ type MCPServerCatalogEntrySpec struct {
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
 	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
 	Editable         bool                                `json:"editable,omitempty"`
+	Detached         bool                                `json:"detached"`
 	SourceURL        string                              `json:"sourceURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`

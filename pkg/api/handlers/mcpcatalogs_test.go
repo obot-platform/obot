@@ -22,12 +22,12 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{
-				v1.MCPServerCatalogEntryDetachedAnnotation: "true",
-				"example.com/keep":                         "true",
+				"example.com/keep": "true",
 			},
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Editable:  false,
+			Detached:  true,
 			SourceURL: "https://github.com/obot-platform/mcp-catalog",
 			Manifest: types.MCPServerCatalogEntryManifest{
 				EntryKey: "context7",
@@ -40,7 +40,7 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	assert.True(t, entry.Spec.Editable)
 	assert.Empty(t, entry.Spec.SourceURL)
 	assert.Empty(t, entry.Spec.Manifest.EntryKey)
-	assert.False(t, entry.IsDetached())
+	assert.False(t, entry.Spec.Detached)
 	assert.Equal(t, "true", entry.Annotations["example.com/keep"])
 }
 

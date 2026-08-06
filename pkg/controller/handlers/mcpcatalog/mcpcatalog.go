@@ -246,13 +246,7 @@ func filterConflictingCatalogEntries(ctx context.Context, c client.Client, names
 			result = append(result, obj)
 			continue
 		}
-		if existing.IsDetached() {
-			if entry.Annotations == nil {
-				entry.Annotations = make(map[string]string)
-			}
-			// Apply this transition with the restored Git object so a failed sync
-			// leaves the existing entry detached.
-			entry.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "false"
+		if existing.Spec.Detached {
 			result = append(result, obj)
 			continue
 		}
@@ -350,10 +344,7 @@ func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCat
 		}
 
 		entry.Spec.Editable = false
-		if entry.Annotations == nil {
-			entry.Annotations = make(map[string]string)
-		}
-		entry.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "true"
+		entry.Spec.Detached = true
 		for key := range entry.Annotations {
 			if strings.HasPrefix(key, apply.LabelPrefix) {
 				delete(entry.Annotations, key)
