@@ -551,6 +551,25 @@ func TestServerToServerConfig_DoesNotExpandDisabledURLTemplate(t *testing.T) {
 	require.Equal(t, "https://example.com/mcp", config.URL)
 }
 
+func TestServerToServerConfig_DoesNotExpandFileValueInURLTemplate(t *testing.T) {
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{
+			MCPHeader: types.MCPHeader{Key: "CONFIG", Required: true},
+			File:      true,
+		}},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "https://example.com/${CONFIG}",
+		},
+	}}}
+
+	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"CONFIG": "sensitive-file-contents"}, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, "https://example.com/${CONFIG}", config.URL)
+}
+
 func TestEffectiveConfigurationValues_EmptyConfiguredValuesUseStaticValues(t *testing.T) {
 	values := EffectiveConfigurationValues(
 		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "ENV", Value: "static-env"}}},

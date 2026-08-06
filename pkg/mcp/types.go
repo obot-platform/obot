@@ -228,14 +228,14 @@ func configureContainerizedRuntime(serverConfig *ServerConfig, containerizedConf
 	return nil
 }
 
-func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, credEnv map[string]string) ([]string, error) {
+func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.RemoteRuntimeConfig, credEnv map[string]string, fileEnvVars map[string]struct{}) ([]string, error) {
 	if remoteConfig == nil {
 		return nil, fmt.Errorf("remote runtime requires remote config")
 	}
 
 	serverConfig.URL = remoteConfig.URL
 	if remoteConfig.IsTemplate && remoteConfig.URLTemplate != "" {
-		expandedURL := expandEnvVars(remoteConfig.URLTemplate, credEnv, nil)
+		expandedURL := expandEnvVars(remoteConfig.URLTemplate, credEnv, fileEnvVars)
 		if serverConfig.URL == "" || len(extractEnvRefs(expandedURL)) == 0 {
 			serverConfig.URL = expandedURL
 		}
@@ -456,7 +456,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		}
 	case types.RuntimeRemote:
 		var err error
-		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, credEnv)
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, mcpServer.Spec.Manifest.RemoteConfig, credEnv, fileEnvVars)
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
@@ -561,7 +561,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		}
 	case types.RuntimeRemote:
 		var err error
-		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, systemServer.Spec.Manifest.RemoteConfig, credEnv)
+		missingRequiredNames, err = configureRemoteRuntime(&serverConfig, systemServer.Spec.Manifest.RemoteConfig, credEnv, fileEnvVars)
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
