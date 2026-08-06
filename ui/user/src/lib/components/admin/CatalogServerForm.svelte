@@ -1011,13 +1011,13 @@
 				{onConfigureOAuth}
 			>
 				{#snippet afterHeaders()}
-					{#if secretBoundHeaders.length > 0}
+					{#if formData.remoteConfig?.urlTemplate !== undefined}
 						<CustomConfigurationForm
 							bind:config={formData.env}
 							{readonly}
 							serverUserType={formData.serverUserType}
-							{secretBoundHeaders}
 							showRequired={showRequired.env}
+							urlTemplateVariables
 						/>
 					{/if}
 				{/snippet}

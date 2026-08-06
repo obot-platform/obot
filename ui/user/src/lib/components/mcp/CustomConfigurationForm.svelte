@@ -19,6 +19,7 @@
 		overrideEnvField?: string[];
 		overrideEnvTemplate?: Snippet<[{ config: MCPCatalogEntryFieldManifest; index: number }]>;
 		showRequired?: boolean;
+		urlTemplateVariables?: boolean;
 	}
 
 	let {
@@ -30,7 +31,8 @@
 		secretBindingTargets,
 		overrideEnvField,
 		overrideEnvTemplate,
-		showRequired
+		showRequired,
+		urlTemplateVariables = false
 	}: Props = $props();
 
 	// Separate secret-bound fields from user-configurable fields, preserving
@@ -58,8 +60,18 @@
 		id={CATALOG_SERVER_FIELD_IDS.configuration}
 	>
 		<h4 class="text-sm font-semibold">
-			{serverUserType === 'singleUser' ? 'User Supplied Configuration' : 'Configuration'}
+			{urlTemplateVariables
+				? 'URL Template Variables'
+				: serverUserType === 'singleUser'
+					? 'User Supplied Configuration'
+					: 'Configuration'}
 		</h4>
+		{#if urlTemplateVariables}
+			<p class="text-muted-content text-xs font-light">
+				Define the ${'{VARIABLE}'} placeholders in the URL template. Users provide a value for each variable
+				during setup.
+			</p>
+		{/if}
 
 		{#each userConfig as { item, index: i } (i)}
 			{#if overrideEnvField?.includes(item.key) && overrideEnvTemplate}
@@ -69,45 +81,47 @@
 					class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
 				>
 					<div class="flex w-full flex-col gap-4">
-						<div class="flex w-full flex-col gap-1">
-							<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
-							<Select
-								class="dark:border-base-400 bg-base-100 border border-transparent"
-								classes={{
-									root: 'flex grow'
-								}}
-								options={[
-									{ label: 'Environment Variable', id: 'environment_variable_type' },
-									{ label: 'File', id: 'file_type' }
-								]}
-								disabled={readonly || isPrebuiltEntry}
-								selected={config![i].file ? 'file_type' : 'environment_variable_type'}
-								onSelect={(option) => {
-									if (option.id === 'file_type') {
-										config![i].file = true;
-									} else {
-										config![i].file = false;
-									}
-								}}
-								id={`env-type-${i}`}
-							/>
-						</div>
+						{#if !urlTemplateVariables}
+							<div class="flex w-full flex-col gap-1">
+								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+								<Select
+									class="dark:border-base-400 bg-base-100 border border-transparent"
+									classes={{
+										root: 'flex grow'
+									}}
+									options={[
+										{ label: 'Environment Variable', id: 'environment_variable_type' },
+										{ label: 'File', id: 'file_type' }
+									]}
+									disabled={readonly || isPrebuiltEntry}
+									selected={config![i].file ? 'file_type' : 'environment_variable_type'}
+									onSelect={(option) => {
+										if (option.id === 'file_type') {
+											config![i].file = true;
+										} else {
+											config![i].file = false;
+										}
+									}}
+									id={`env-type-${i}`}
+								/>
+							</div>
 
-						<p class="text-muted-content text-xs font-light">
-							{#if config![i].file}
-								The value {serverUserType === 'singleUser' ? 'the user supplies' : 'you provide'} will
-								be written to a file. An environment variable will be created using the name you specify
-								in the Key field and its value will be the path to that file. This environment variable
-								will be set inside your deployment and you can reference it in the arguments section above
-								using the syntax ${'{KEY_NAME}'}.
-							{:else}
-								{serverUserType === 'singleUser'
-									? 'The value the user supplies'
-									: 'The value you provide'} will be set as an environment variable using the name you
-								specify in the Key field. This environment variable will be set inside your deployment
-								and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
-							{/if}
-						</p>
+							<p class="text-muted-content text-xs font-light">
+								{#if config![i].file}
+									The value {serverUserType === 'singleUser' ? 'the user supplies' : 'you provide'} will
+									be written to a file. An environment variable will be created using the name you specify
+									in the Key field and its value will be the path to that file. This environment variable
+									will be set inside your deployment and you can reference it in the arguments section
+									above using the syntax ${'{KEY_NAME}'}.
+								{:else}
+									{serverUserType === 'singleUser'
+										? 'The value the user supplies'
+										: 'The value you provide'} will be set as an environment variable using the name you
+									specify in the Key field. This environment variable will be set inside your deployment
+									and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
+								{/if}
+							</p>
+						{/if}
 
 						<CustomConfigurationFieldset
 							id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
@@ -120,6 +134,7 @@
 								input: inputClass
 							}}
 							{showRequired}
+							urlTemplateVariable={urlTemplateVariables}
 						/>
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
@@ -151,7 +166,7 @@
 								description: '',
 								name: '',
 								value: '',
-								required: false,
+								required: urlTemplateVariables,
 								sensitive: false,
 								file: false
 							});
@@ -159,7 +174,11 @@
 					}}
 				>
 					<Plus class="size-4" />
-					{serverUserType === 'singleUser' ? 'User Configuration' : 'Configuration'}
+					{urlTemplateVariables
+						? 'URL Variable'
+						: serverUserType === 'singleUser'
+							? 'User Configuration'
+							: 'Configuration'}
 				</button>
 			</div>
 		{/if}

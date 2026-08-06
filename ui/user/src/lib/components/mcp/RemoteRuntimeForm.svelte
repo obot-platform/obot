@@ -134,7 +134,7 @@
 								</div>
 								<div class="flex w-full flex-col gap-1">
 									{#if variant === 'catalog'}
-										<label for={`env-type-${i}`} class="text-sm font-light">Value</label>
+										<label for={`header-value-type-${i}`} class="text-sm font-light">Value</label>
 										<Select
 											class="bg-base-100 dark:border-base-400 border border-transparent shadow-none"
 											classes={{
@@ -157,7 +157,7 @@
 												}
 												config.headers[i].value = '';
 											}}
-											id={`env-type-${i}`}
+											id={`header-value-type-${i}`}
 										/>
 									{/if}
 								</div>
@@ -457,8 +457,8 @@
 								<p class="font-semibold">Variable Interpolation</p>
 								<p>
 									Use <code class="rounded bg-base-300 px-1 py-0.5">${'{VARIABLE_NAME}'}</code> syntax
-									in your URL template. Variables can be populated from header values that users provide
-									during setup.
+									in your URL template. Declare each variable under URL Template Variables below. Users
+									provide the values during setup.
 								</p>
 								<p class="text-xs">
 									Example: <code class="rounded bg-base-300 px-1 py-0.5 text-xs"
