@@ -3,7 +3,6 @@
 	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
-	import ConfigurationOptionsEditor from './ConfigurationOptionsEditor.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -216,10 +215,6 @@
 			{/if}
 		</div>
 	{/if}
-{/if}
-
-{#if selectedType === 'user_supplied' && (!readonly || data.options?.length)}
-	<ConfigurationOptionsEditor bind:options={data.options} {readonly} />
 {/if}
 
 {#snippet label(title: string, forInput: string, required?: boolean, showError?: boolean)}

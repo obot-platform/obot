@@ -12,7 +12,6 @@
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import ConfigurationOptionsEditor from './ConfigurationOptionsEditor.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
@@ -214,12 +213,6 @@
 											}
 										}}
 									/>
-									{#if variant === 'catalog' && (!readonly || header.options?.length)}
-										<ConfigurationOptionsEditor
-											bind:options={config.headers[i].options}
-											{readonly}
-										/>
-									{/if}
 								{:else}
 									{#if secretBindingTargets && !version.current.hideK8sDetails}
 										<SecretBindingPicker
