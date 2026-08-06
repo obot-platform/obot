@@ -27,7 +27,7 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 			},
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
-			Editable:  true,
+			Editable:  false,
 			SourceURL: "https://github.com/obot-platform/mcp-catalog",
 			Manifest: types.MCPServerCatalogEntryManifest{
 				EntryKey: "context7",

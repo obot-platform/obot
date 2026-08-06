@@ -21,7 +21,7 @@
 	}: Props = $props();
 	let acceptingOwnership = $state(false);
 	const explanation =
-		'This entry was removed from its Git catalog. Obot retained it to avoid disrupting deployments. It is no longer synchronized with Git and is now managed in Obot.';
+		'This entry was removed from its Git catalog. Obot retained it to avoid disrupting deployments. It remains read-only and will resume Git synchronization if restored upstream. Accept ownership to manage it in Obot.';
 
 	async function acceptOwnership() {
 		if (!onAcceptOwnership || acceptingOwnership) return;

@@ -153,11 +153,11 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
-	toAdd, detachedErrors, err := filterDetachedCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
+	toAdd, conflictErrors, err := filterConflictingCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
 	if err != nil {
-		return fmt.Errorf("failed to check detached catalog entries: %w", err)
+		return fmt.Errorf("failed to check catalog entry conflicts: %w", err)
 	}
-	for sourceURL, errMsg := range detachedErrors {
+	for sourceURL, errMsg := range conflictErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
 
@@ -188,7 +188,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// I know we don't want to do apply anymore. But we were doing it before in a different place.
 	// Now we're doing it here. It's not important enough to change right now.
 	// Apply must not prune because its informer may still observe stale ownership metadata and
-	// delete a freshly converted entry
+	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
 
 	// Missing entries cannot be reconciled safely from a partial desired set.
@@ -213,18 +213,17 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	}
 }
 
-func filterDetachedCatalogEntries(ctx context.Context, c client.Client, namespace string, objs []client.Object) ([]client.Object, map[string]string, error) {
+func filterConflictingCatalogEntries(ctx context.Context, c client.Client, namespace string, objs []client.Object) ([]client.Object, map[string]string, error) {
 	result := make([]client.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
 	var existingEntries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &existingEntries, client.InNamespace(namespace)); err != nil {
 		return nil, nil, err
 	}
-	detachedNames := make(map[client.ObjectKey]struct{})
-	for _, entry := range existingEntries.Items {
-		if entry.IsDetached() {
-			detachedNames[client.ObjectKeyFromObject(&entry)] = struct{}{}
-		}
+	existingByName := make(map[client.ObjectKey]v1.MCPServerCatalogEntry, len(existingEntries.Items))
+	for i := range existingEntries.Items {
+		entry := &existingEntries.Items[i]
+		existingByName[client.ObjectKeyFromObject(entry)] = *entry
 	}
 
 	for _, obj := range objs {
@@ -235,17 +234,30 @@ func filterDetachedCatalogEntries(ctx context.Context, c client.Client, namespac
 		}
 
 		key := client.ObjectKeyFromObject(entry)
-		_, detached := detachedNames[key]
-		if !detached {
-			var existing v1.MCPServerCatalogEntry
+		existing, found := existingByName[key]
+		if !found {
 			if err := c.Get(ctx, key, &existing); err != nil && !apierrors.IsNotFound(err) {
 				return nil, nil, err
 			} else if err == nil {
-				detached = existing.IsDetached()
+				found = true
 			}
 		}
-		if detached {
-			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("catalog entry %q conflicts with a detached entry of the same identity", entry.Spec.Manifest.Name))
+		if !found {
+			result = append(result, obj)
+			continue
+		}
+		if existing.IsDetached() {
+			if entry.Annotations == nil {
+				entry.Annotations = make(map[string]string)
+			}
+			// Apply this transition with the restored Git object so a failed sync
+			// leaves the existing entry detached.
+			entry.Annotations[v1.MCPServerCatalogEntryDetachedAnnotation] = "false"
+			result = append(result, obj)
+			continue
+		}
+		if !existing.IsGitManaged() {
+			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("catalog entry %q conflicts with an Obot-managed entry of the same identity", entry.Spec.Manifest.Name))
 			continue
 		}
 		result = append(result, obj)
@@ -318,8 +330,8 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	}
 
 	for _, entryName := range referencedNames {
-		if err := convertCatalogEntryToEditable(ctx, c, catalog, entryName); err != nil {
-			return fmt.Errorf("failed to convert catalog entry %q to editable: %w", entryName, err)
+		if err := detachCatalogEntry(ctx, c, catalog, entryName); err != nil {
+			return fmt.Errorf("failed to detach catalog entry %q: %w", entryName, err)
 		}
 		log.Infof("Detached removed MCP catalog entry with active servers: catalog=%s entry=%s", catalog.Name, entryName)
 	}
@@ -327,7 +339,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	return nil
 }
 
-func convertCatalogEntryToEditable(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, entryName string) error {
+func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, entryName string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var entry v1.MCPServerCatalogEntry
 		if err := c.Get(ctx, client.ObjectKey{Namespace: catalog.Namespace, Name: entryName}, &entry); err != nil {
@@ -337,7 +349,7 @@ func convertCatalogEntryToEditable(ctx context.Context, c client.Client, catalog
 			return err
 		}
 
-		entry.Spec.Editable = true
+		entry.Spec.Editable = false
 		if entry.Annotations == nil {
 			entry.Annotations = make(map[string]string)
 		}
