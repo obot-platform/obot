@@ -74,7 +74,6 @@
 	import { isAgentEnabled, validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
-	import ConfigureBanner from './admin/ConfigureBanner.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
 	import GuidePanel from './guides/GuidePanel.svelte';
@@ -703,11 +702,6 @@
 
 	const isAdminRoute = $derived(pathname.includes('/admin'));
 	const isAgentRoute = $derived(pathname === '/agent' || pathname.startsWith('/agent/'));
-	const excludeConfigureBanner = [
-		...(version.current.agentsEnabled !== false ? ['/admin/model-providers'] : []),
-		'/admin/auth-providers',
-		'/admin/branding'
-	];
 	$effect(() => {
 		const isAdminOrBootstrapUser =
 			profile.current.loaded &&
@@ -952,9 +946,6 @@
 						classes?.childrenContainer ?? ''
 					)}
 				>
-					{#if isAdminRoute && !excludeConfigureBanner.includes(pathname)}
-						<ConfigureBanner />
-					{/if}
 					{#if (!layout.sidebarOpen || hideSidebar) && !alwaysShowHeaderTitle}
 						<div
 							class={twMerge(

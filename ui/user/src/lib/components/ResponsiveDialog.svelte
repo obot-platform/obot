@@ -11,6 +11,8 @@
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
+	export type ResponsiveDialogAnimate = 'slide' | 'fade' | null;
+
 	interface Props {
 		id?: string;
 		class?: string;
@@ -26,7 +28,7 @@
 		titleContent?: Snippet;
 		title?: string;
 		children: Snippet;
-		animate?: 'slide' | 'fade' | null;
+		animate?: ResponsiveDialogAnimate;
 		hideClose?: boolean;
 		disableClickOutside?: boolean;
 		disableMobileStyles?: boolean;
