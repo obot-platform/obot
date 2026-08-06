@@ -13,8 +13,6 @@ import (
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 )
 
-const referenceSeparator = "::"
-
 var (
 	invalidNameChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	multipleDashes   = regexp.MustCompile(`-{2,}`)
@@ -71,9 +69,6 @@ func ValidateSourceFields(entry types.MCPServerCatalogEntryManifest) error {
 	}
 	if entry.EntryKey == "" {
 		return nil
-	}
-	if strings.Contains(entry.EntryKey, referenceSeparator) {
-		return fmt.Errorf("source entry key %q cannot contain %s", entry.EntryKey, referenceSeparator)
 	}
 	if errs := kvalidation.IsDNS1123Subdomain(entry.EntryKey); len(errs) > 0 {
 		return fmt.Errorf("source entry key %q must be DNS-friendly: %s", entry.EntryKey, strings.Join(errs, "; "))

@@ -37,26 +37,6 @@ npxConfig:
 	assert.Len(t, objs, 1)
 }
 
-func TestReadMCPCatalogRejectsSeparatorInEntryKey(t *testing.T) {
-	dir := t.TempDir()
-	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`entryKey: bad::key
-name: Bad
-shortDescription: Bad
-description: Bad
-icon: icon
-runtime: npx
-npxConfig:
-  package: test
-`), 0o600))
-
-	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
-
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), `source entry key "bad::key" cannot contain ::`)
-	assert.Empty(t, objs)
-}
-
 func TestReadMCPCatalogRejectsNonDNSFriendlyEntryKey(t *testing.T) {
 	dir := t.TempDir()
 	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`entryKey: Bad_Key
