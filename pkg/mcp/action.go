@@ -304,7 +304,6 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		}
 		return ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
-
 	var (
 		credCtxs []string
 		scope    string
@@ -515,10 +514,10 @@ func serverInstanceHeaders(instance v1.MCPServerInstance, credEnv map[string]str
 	var headerNames, headerValues, missingHeaders []string
 	for _, header := range instance.Spec.MultiUserConfig.UserDefinedHeaders {
 		val := credEnv[header.Key]
-		if val != "" {
+		if val != "" && ConfigurationOptionValueValid(header, credEnv) {
 			headerNames = append(headerNames, header.Key)
 			headerValues = append(headerValues, applyMCPServerInstanceHeaderPrefix(val, header.Prefix))
-		} else if header.Required {
+		} else if header.Required || val != "" {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
@@ -909,7 +908,7 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   true,
+						Sensitive:   false,
 						Required:    true,
 					},
 				})
@@ -960,9 +959,6 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 		}
 	case types.RuntimeRemote:
 		if manifest.RemoteConfig != nil {
-			for _, header := range manifest.RemoteConfig.Headers {
-				existing[header.Key] = struct{}{}
-			}
 			toExtract = append(toExtract, manifest.RemoteConfig.URLTemplate)
 		}
 	}
@@ -980,14 +976,14 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 							Required:    true,
 						},
 					})
-				} else if manifest.RemoteConfig != nil {
-					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{
+				} else {
+					manifest.Env = append(manifest.Env, types.MCPEnv{MCPHeader: types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
 						Sensitive:   false,
 						Required:    true,
-					})
+					}})
 				}
 			}
 		}

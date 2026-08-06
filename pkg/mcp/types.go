@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -233,6 +234,12 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	}
 
 	serverConfig.URL = remoteConfig.URL
+	if remoteConfig.URLTemplate != "" {
+		expandedURL := expandEnvVars(remoteConfig.URLTemplate, credEnv, nil)
+		if serverConfig.URL == "" || len(extractEnvRefs(expandedURL)) == 0 {
+			serverConfig.URL = expandedURL
+		}
+	}
 	serverConfig.TunnelName = remoteConfig.TunnelName
 	serverConfig.Headers = make([]string, 0, len(remoteConfig.Headers))
 
@@ -352,6 +359,10 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 }
 
 func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+	credEnv = EffectiveConfigurationValues(mcpServer.Spec.Manifest.Env, remoteHeadersForConfig(mcpServer.Spec.Manifest.RemoteConfig), credEnv)
+	if err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeadersForConfig(mcpServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
+		return ServerConfig{}, nil, err
+	}
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -484,6 +495,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
 func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+	credEnv = EffectiveConfigurationValues(systemServer.Spec.Manifest.Env, remoteHeadersForConfig(systemServer.Spec.Manifest.RemoteConfig), credEnv)
+	if err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeadersForConfig(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
+		return ServerConfig{}, nil, err
+	}
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -600,6 +615,30 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	return serverConfig, missingRequiredNames, nil
+}
+
+func remoteHeadersForConfig(config *types.RemoteRuntimeConfig) []types.MCPHeader {
+	if config == nil {
+		return nil
+	}
+	return config.Headers
+}
+
+// EffectiveConfigurationValues overlays user configuration on static catalog values.
+func EffectiveConfigurationValues(envs []types.MCPEnv, headers []types.MCPHeader, configured map[string]string) map[string]string {
+	values := make(map[string]string, len(configured)+len(envs)+len(headers))
+	maps.Copy(values, configured)
+	for _, env := range envs {
+		if _, ok := values[env.Key]; !ok && env.Value != "" {
+			values[env.Key] = env.Value
+		}
+	}
+	for _, header := range headers {
+		if _, ok := values[header.Key]; !ok && header.Value != "" {
+			values[header.Key] = header.Value
+		}
+	}
+	return values
 }
 
 func copyHeaders[T header](headers T, keys, values []string) {

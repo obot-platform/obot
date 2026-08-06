@@ -546,12 +546,18 @@ export interface MCPServerInstance {
 // MCP runtime
 
 export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite';
+export interface MCPConfigurationOption {
+	description?: string;
+	name: string;
+	value: string;
+}
 export interface MCPSubField {
 	description: string;
 	file?: boolean;
 	dynamicFile?: boolean;
 	key: string;
 	name: string;
+	options?: MCPConfigurationOption[];
 	required: boolean;
 	sensitive: boolean;
 	value?: string;

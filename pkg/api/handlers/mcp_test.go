@@ -1373,6 +1373,24 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 	assert.Empty(t, converted.MissingRequiredHeaders)
 }
 
+func TestConvertMCPServerOptionalOptionsMayBeEmptyButRejectStaleValue(t *testing.T) {
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeNPX,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:     "REGION",
+			Options: []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}}},
+	}}}
+
+	converted := ConvertMCPServer(server, nil, "", "")
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+
+	converted = ConvertMCPServer(server, map[string]string{"REGION": "removed"}, "", "")
+	assert.False(t, converted.Configured)
+	assert.Equal(t, []string{"REGION"}, converted.MissingRequiredEnvVars)
+}
+
 func TestServerManifestFromCatalogEntryManifestAllowsMissingRemoteHostname(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
@@ -1408,10 +1426,11 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 	assert.True(t, manifest.RemoteConfig.IsTemplate)
 	assert.Equal(t, template, manifest.RemoteConfig.URLTemplate)
 	assert.Empty(t, manifest.RemoteConfig.URL)
-	assert.ElementsMatch(t, []types.MCPHeader{
-		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
-		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
-	}, manifest.RemoteConfig.Headers)
+	assert.ElementsMatch(t, []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
+		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
+	}, manifest.Env)
+	assert.Empty(t, manifest.RemoteConfig.Headers)
 }
 
 func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostname(t *testing.T) {
@@ -1467,11 +1486,11 @@ func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *tes
 	}
 
 	addExtractedEnvVarsToCatalogEntry(&entry)
-	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
-	assert.ElementsMatch(t, []types.MCPHeader{
-		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
-		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
-	}, headers)
+	envs := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.Env
+	assert.ElementsMatch(t, []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
+		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
+	}, envs)
 }
 
 func TestSyncConnectServerRemoteConfigFromCatalogEntryURLTemplate(t *testing.T) {

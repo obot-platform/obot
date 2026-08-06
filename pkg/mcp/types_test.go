@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -505,6 +506,34 @@ func TestServerToServerConfig_RemoteTunnelName(t *testing.T) {
 	if config.TunnelName != mcpServer.Spec.Manifest.RemoteConfig.TunnelName {
 		t.Fatalf("TunnelName = %q, want %q", config.TunnelName, mcpServer.Spec.Manifest.RemoteConfig.TunnelName)
 	}
+}
+
+func TestServerToServerConfig_ExpandsURLTemplateFromConstrainedEnv(t *testing.T) {
+	region := types.MCPEnv{MCPHeader: types.MCPHeader{
+		Key:      "REGION",
+		Required: true,
+		Options: []types.MCPConfigurationOption{
+			{Value: "us", Name: "United States"},
+			{Value: "eu", Name: "Europe"},
+		},
+	}}
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env:     []types.MCPEnv{region},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			URL:         "https://attacker.example/mcp",
+			URLTemplate: "https://${REGION}.mcp.pagerduty.com/mcp",
+			IsTemplate:  true,
+		},
+	}}}
+
+	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"REGION": "eu"}, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, "https://eu.mcp.pagerduty.com/mcp", config.URL)
+
+	_, _, err = ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"REGION": "attacker.example"}, nil)
+	require.EqualError(t, err, `env "REGION" value "attacker.example" is not one of the configured options`)
 }
 
 func TestServerToServerConfig_WithPrefix(t *testing.T) {

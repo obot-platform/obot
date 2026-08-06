@@ -53,6 +53,100 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 }
 
+func TestValidateConfigurationOptions(t *testing.T) {
+	valid := types.MCPHeader{
+		Key:      "REGION",
+		Required: true,
+		Options: []types.MCPConfigurationOption{
+			{Value: "us", Name: "United States"},
+			{Value: "eu", Name: "Europe", Description: "European service region"},
+		},
+	}
+
+	require.NoError(t, ValidateConfigurationOptions([]types.MCPEnv{{MCPHeader: valid}}, nil))
+	require.NoError(t, ValidateConfiguredOptions([]types.MCPEnv{{MCPHeader: valid}}, nil, map[string]string{"REGION": "eu"}))
+	require.EqualError(t, ValidateConfiguredOptions([]types.MCPEnv{{MCPHeader: valid}}, nil, nil), `env "REGION" requires a selection`)
+	require.EqualError(t, ValidateConfiguredOptions(nil, []types.MCPHeader{valid}, map[string]string{"REGION": "ap"}), `header "REGION" value "ap" is not one of the configured options`)
+
+	tests := []struct {
+		name    string
+		field   types.MCPHeader
+		wantErr string
+	}{
+		{name: "empty value", field: types.MCPHeader{Options: []types.MCPConfigurationOption{{Name: "US"}}}, wantErr: "value cannot be empty"},
+		{name: "empty name", field: types.MCPHeader{Options: []types.MCPConfigurationOption{{Value: "us"}}}, wantErr: "name cannot be empty"},
+		{name: "duplicate value", field: types.MCPHeader{Options: []types.MCPConfigurationOption{{Value: "us", Name: "US"}, {Value: "us", Name: "USA"}}}, wantErr: `duplicate value "us"`},
+		{name: "static value", field: types.MCPHeader{Value: "us", Options: valid.Options}, wantErr: "value and options are mutually exclusive"},
+		{name: "secret binding", field: types.MCPHeader{SecretBinding: &types.MCPSecretBinding{Name: "region", Key: "value"}, Options: valid.Options}, wantErr: "secretBinding and options are mutually exclusive"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateConfigurationOptions([]types.MCPEnv{{MCPHeader: tt.field}}, nil)
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+func TestValidateCatalogConfigurationConstraints(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Value: "us", Name: "United States"}, {Value: "eu", Name: "Europe"}}
+	catalog := types.MCPServerCatalogEntryManifest{
+		Runtime:      types.RuntimeRemote,
+		Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Options: options}}},
+		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/mcp"},
+	}
+	manifest, err := types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	require.NoError(t, ValidateCatalogConfigurationConstraints(manifest, catalog))
+
+	manifest.RemoteConfig.URL = "https://attacker.example/mcp"
+	require.NoError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), "derived URL is not trusted by runtime conversion")
+	manifest.RemoteConfig.URLTemplate = "https://${REGION}.attacker.example/mcp"
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), "remoteConfig.urlTemplate must match the source catalog entry")
+
+	manifest, err = types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	manifest.Env = append([]types.MCPEnv(nil), manifest.Env...)
+	manifest.Env[0].Options = nil
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), `env "REGION" options must match the source catalog entry`)
+
+	manifest, err = types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	manifest.Env = append([]types.MCPEnv(nil), manifest.Env...)
+	manifest.Env[0].Required = true
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), `env "REGION" options must match the source catalog entry`)
+
+	manifest, err = types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	manifest.Env = append([]types.MCPEnv(nil), manifest.Env...)
+	manifest.Env[0].File = true
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), `env "REGION" options must match the source catalog entry`)
+
+	compositeCatalog := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+			CatalogEntryID: "remote",
+			Manifest:       catalog,
+		}}},
+	}
+	componentManifest, err := types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	componentManifest.RemoteConfig.URLTemplate = "https://${REGION}.attacker.example/mcp"
+	compositeManifest := types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: "remote",
+			Manifest:       componentManifest,
+		}}},
+	}
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(compositeManifest, compositeCatalog), `component "remote": remoteConfig.urlTemplate must match the source catalog entry`)
+
+	compositeManifest.CompositeConfig.ComponentServers = append(compositeManifest.CompositeConfig.ComponentServers, types.ComponentServer{CatalogEntryID: "extra"})
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(compositeManifest, compositeCatalog), "compositeConfig components must match the source catalog entry")
+
+	compositeManifest.CompositeConfig.ComponentServers = []types.ComponentServer{{MCPServerID: "remote"}}
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(compositeManifest, compositeCatalog), `component "remote" must match the source catalog entry`)
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

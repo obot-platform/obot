@@ -12,6 +12,7 @@
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
+	import ConfigurationOptionsEditor from './ConfigurationOptionsEditor.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
 	import { Plus, Trash2, Info, Settings } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
@@ -108,7 +109,7 @@
 				{#if showUrlTemplateHelp}
 					Header values will be supplied with the URL to configure the deployment of the catalog
 					entry. Their values can be supplied by the user during initial setup or as static provided
-					values. Only values provided by the user will be used in URL template interpolation.
+					values. URL template variables are configured as environment fields below.
 				{:else}
 					Header values will be supplied with the URL to configure the deployment of the catalog
 					entry. Their values can be supplied by the user during initial setup or as static provided
@@ -154,6 +155,7 @@
 													config.headers[i].name = '';
 													config.headers[i].description = '';
 													config.headers[i].sensitive = false;
+													config.headers[i].options = undefined;
 												}
 												config.headers[i].value = '';
 											}}
@@ -212,6 +214,12 @@
 											}
 										}}
 									/>
+									{#if variant === 'catalog' && (!readonly || header.options?.length)}
+										<ConfigurationOptionsEditor
+											bind:options={config.headers[i].options}
+											{readonly}
+										/>
+									{/if}
 								{:else}
 									{#if secretBindingTargets && !version.current.hideK8sDetails}
 										<SecretBindingPicker
