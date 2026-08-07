@@ -379,6 +379,7 @@
 </ProviderConfigure>
 
 <LocalAuthConfigure
+	required={!!showInitialAuthProvider}
 	animate={showInitialAuthProvider ? 'slide' : undefined}
 	bind:this={localAuthConfigure}
 	provider={configuringAuthProvider}
@@ -388,6 +389,7 @@
 	onClose={async (userCount) => {
 		localAuthConfigureOpen = false;
 		clearUrlParams(['provider']);
+		showInitialAuthProvider = null;
 		if (isBootstrapUser && userCount > 0) {
 			await prepareOwnerSetup();
 		}
