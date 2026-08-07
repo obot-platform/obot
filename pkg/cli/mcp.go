@@ -33,24 +33,24 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Short = "Manage MCP servers"
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
-	c.AddCommand(cmd.Command(&MCPValidate{}))
+	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
 }
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
 }
 
-type MCPValidate struct {
+type MCPValidateCatalogYAML struct {
 	RequireEntryKey bool `usage:"Require every catalog entry to set entryKey"`
 }
 
-func (m *MCPValidate) Customize(cmd *cobra.Command) {
-	cmd.Use = "validate <path>..."
+func (m *MCPValidateCatalogYAML) Customize(cmd *cobra.Command) {
+	cmd.Use = "validate-catalog-yaml <path>..."
 	cmd.Short = "Validate MCP catalog entry files"
 	cmd.Args = cobra.MinimumNArgs(1)
 }
 
-func (m *MCPValidate) Run(cmd *cobra.Command, args []string) error {
+func (m *MCPValidateCatalogYAML) Run(cmd *cobra.Command, args []string) error {
 	files, err := validateMCPCatalogPaths(cmd.Context(), args, m.RequireEntryKey)
 	if err != nil {
 		return err

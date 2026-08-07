@@ -185,7 +185,7 @@ func TestMCPSearchRegistryAuthErrors(t *testing.T) {
 	}
 }
 
-func TestMCPValidate(t *testing.T) {
+func TestMCPValidateCatalogYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "entry.yaml")
 	if err := os.WriteFile(path, []byte(`name: Test
@@ -206,7 +206,7 @@ remoteConfig:
 		t.Fatal(err)
 	}
 
-	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", dir, path)
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", dir, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -215,7 +215,7 @@ remoteConfig:
 	}
 }
 
-func TestMCPValidateRequiresEntryKey(t *testing.T) {
+func TestMCPValidateCatalogYAMLRequiresEntryKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entry.yaml")
 	if err := os.WriteFile(path, []byte(`
 - name: Missing
@@ -237,13 +237,13 @@ func TestMCPValidateRequiresEntryKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", "--require-entry-key", path)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", "--require-entry-key", path)
 	if err == nil || !strings.Contains(err.Error(), "entry.yaml[0]: entryKey is required") || !strings.Contains(err.Error(), "entry.yaml[1]: entryKey is required") {
 		t.Fatalf("error = %v, want both missing entryKey errors", err)
 	}
 }
 
-func TestMCPValidateSupportsEntryArrays(t *testing.T) {
+func TestMCPValidateCatalogYAMLSupportsEntryArrays(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "entries.yaml")
 	if err := os.WriteFile(path, []byte(`
 - name: First
@@ -266,7 +266,7 @@ func TestMCPValidateSupportsEntryArrays(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", path)
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,7 +275,7 @@ func TestMCPValidateSupportsEntryArrays(t *testing.T) {
 	}
 }
 
-func TestMCPValidateAggregatesErrors(t *testing.T) {
+func TestMCPValidateCatalogYAMLAggregatesErrors(t *testing.T) {
 	dir := t.TempDir()
 	files := map[string]string{
 		"duplicate-key.yaml": `name: First
@@ -311,7 +311,7 @@ npxConfig:
 		}
 	}
 
-	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate", dir)
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", dir)
 	if err == nil {
 		t.Fatal("expected validation errors")
 	}
