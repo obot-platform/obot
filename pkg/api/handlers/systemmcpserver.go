@@ -61,7 +61,6 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
 		return err
 	}
-
 	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
@@ -153,6 +152,13 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
 		return err
+	}
+	var remoteHeaders []types.MCPHeader
+	if systemServer.Spec.Manifest.RemoteConfig != nil {
+		remoteHeaders = systemServer.Spec.Manifest.RemoteConfig.Headers
+	}
+	if err := mcp.ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders, envVars); err != nil {
+		return types.NewErrBadRequest("invalid configuration: %v", err)
 	}
 
 	credCtx := systemServer.Name
@@ -522,7 +528,7 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	configured := true
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+		if (env.Required && env.Value == "" && credEnv[env.Key] == "") || !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv) {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 			configured = false
 		}

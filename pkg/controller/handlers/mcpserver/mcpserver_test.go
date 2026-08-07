@@ -1493,6 +1493,29 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	assert.False(t, updated.Status.NeedsUpdate)
 }
 
+func TestConfigurationHasDriftedWhenOptionsChange(t *testing.T) {
+	server := &v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:     "REGION",
+			Options: []types.MCPConfigurationOption{{Value: "us", Name: "United States"}, {Value: "eu", Name: "Europe"}},
+		}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{URLTemplate: "https://${REGION}.example.com/mcp", IsTemplate: true},
+	}}}
+	entry := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:     "REGION",
+			Options: []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}}},
+		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/mcp"},
+	}
+
+	drifted, err := ConfigurationHasDrifted(t.Context(), nil, server, entry, false)
+	require.NoError(t, err)
+	require.True(t, drifted)
+}
+
 func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
 	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
 	server := newMCPServer("shared-server")

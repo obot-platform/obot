@@ -129,6 +129,7 @@
 					data.value = '';
 					data.description = '';
 					data.sensitive = false;
+					data.options = undefined;
 
 					if (option.id === 'user_supplied') {
 						data.secretBinding = undefined;

@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -203,6 +204,11 @@ func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error 
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
+	if mcpServerInstance.Spec.MultiUserConfig != nil {
+		if err := mcp.ValidateConfiguredOptions(nil, mcpServerInstance.Spec.MultiUserConfig.UserDefinedHeaders, envVars); err != nil {
+			return types.NewErrBadRequest("invalid configuration: %v", err)
+		}
+	}
 
 	for key, val := range envVars {
 		val = strings.TrimSpace(val)
@@ -303,10 +309,10 @@ func mcpServerInstanceHeaders(instance v1.MCPServerInstance, credEnv map[string]
 
 	for _, header := range instance.Spec.MultiUserConfig.UserDefinedHeaders {
 		val := credEnv[header.Key]
-		if val != "" {
+		if val != "" && mcp.ConfigurationOptionValueValid(header, credEnv) {
 			headerNames = append(headerNames, header.Key)
 			headerValues = append(headerValues, applyMCPServerInstanceHeaderPrefix(val, header.Prefix))
-		} else if header.Required {
+		} else if header.Required || val != "" {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}

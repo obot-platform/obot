@@ -14,6 +14,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestServerInstanceHeadersRejectsUnknownOption(t *testing.T) {
+	instance := v1.MCPServerInstance{Spec: v1.MCPServerInstanceSpec{MultiUserConfig: &types.MultiUserConfig{
+		UserDefinedHeaders: []types.MCPHeader{{
+			Key:      "REGION",
+			Required: true,
+			Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}},
+	}}}
+
+	names, values, missing := serverInstanceHeaders(instance, map[string]string{"REGION": "eu"})
+	require.Empty(t, names)
+	require.Empty(t, values)
+	require.Equal(t, []string{"REGION"}, missing)
+}
+
 func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *testing.T) {
 	const (
 		entryID = "catalog-entry"

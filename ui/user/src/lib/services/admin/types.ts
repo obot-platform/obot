@@ -1,6 +1,7 @@
 import {
 	type MCPServerTool,
 	type MCPSecretBinding,
+	type MCPConfigurationOption,
 	type RemoteRuntimeConfig,
 	type MultiUserConfig,
 	type Runtime,
@@ -665,6 +666,7 @@ export interface MCPCatalogEntryFieldManifest {
 	key: string;
 	description: string;
 	name: string;
+	options?: MCPConfigurationOption[];
 	required: boolean;
 	sensitive: boolean;
 	value: string;
@@ -790,6 +792,7 @@ export interface MCPCatalogServerManifest {
 }
 export interface MCPHeaderManifest {
 	name: string;
+	options?: MCPConfigurationOption[];
 	description: string;
 	key: string;
 	value: string;

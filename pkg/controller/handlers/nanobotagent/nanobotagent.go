@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -136,7 +137,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			}
 		}
 
-		if !slices.Equal(existing.Spec.Manifest.Env, expectedEnv) {
+		if !reflect.DeepEqual(existing.Spec.Manifest.Env, expectedEnv) {
 			needsUpdate = true
 		}
 

@@ -1461,7 +1461,6 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to convert catalog entry to server config: %w", err)
 	}
-
 	config, err = prepareTempServerConfig(ctx, localK8sClient, obotNamespace, secretBindingAllowedLabel, &serverManifest, config, !entryManifest.ServerUserType.IsSingleUser(), validationOptions)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, err
@@ -1469,7 +1468,6 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	if err := tunnel.ValidateServerTunnelReferences(ctx, client, serverManifest); err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("validation failed: %v", err)
 	}
-
 	// Create temporary MCPServer object to use existing conversion logic
 	tempName := "tool-preview-" + utils.Digest(serverManifest)[:16]
 	tempMCPServer := v1.MCPServer{
@@ -1533,9 +1531,18 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 }
 
 func prepareTempServerConfig(ctx context.Context, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel string, serverManifest *types.MCPServerManifest, config map[string]string, isMultiUser bool, validationOptions mcp.ValidationOptions) (map[string]string, error) {
+	var remoteHeaders []types.MCPHeader
+	if serverManifest.RemoteConfig != nil {
+		remoteHeaders = serverManifest.RemoteConfig.Headers
+	}
+	if err := mcp.ValidateConfiguredOptions(serverManifest.Env, remoteHeaders, config); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	// Render templates before resolving bindings so Secret values can only be
 	// used by runtime fields such as headers, never embedded in the URL.
-	if err := applyRemoteURLTemplate(ctx, serverManifest, config, isMultiUser, validationOptions); err != nil {
+	effectiveConfig := mcp.EffectiveConfigurationValues(serverManifest.Env, remoteHeaders, config)
+	if err := applyRemoteURLTemplate(ctx, serverManifest, effectiveConfig, isMultiUser, validationOptions); err != nil {
 		return nil, err
 	}
 
