@@ -1749,6 +1749,26 @@ func (in *K8sSettingsSpec) DeepCopyInto(out *K8sSettingsSpec) {
 		*out = new(corev1.ResourceRequirements)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.MaxCPURequest != nil {
+		in, out := &in.MaxCPURequest, &out.MaxCPURequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.MaxCPULimit != nil {
+		in, out := &in.MaxCPULimit, &out.MaxCPULimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.MaxMemoryRequest != nil {
+		in, out := &in.MaxMemoryRequest, &out.MaxMemoryRequest
+		x := (*in).DeepCopy()
+		*out = &x
+	}
+	if in.MaxMemoryLimit != nil {
+		in, out := &in.MaxMemoryLimit, &out.MaxMemoryLimit
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	if in.NanobotAgentResources != nil {
 		in, out := &in.NanobotAgentResources, &out.NanobotAgentResources
 		*out = new(corev1.ResourceRequirements)

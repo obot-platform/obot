@@ -11,6 +11,18 @@ type K8sSettings struct {
 	// Resources configuration (JSON/YAML blob)
 	Resources string `json:"resources,omitempty"`
 
+	// MaxCPURequest is the configured maximum CPU request for MCP server pods.
+	MaxCPURequest string `json:"maxCpuRequest,omitempty"`
+
+	// MaxCPULimit is the configured maximum CPU limit for MCP server pods.
+	MaxCPULimit string `json:"maxCpuLimit,omitempty"`
+
+	// MaxMemoryRequest is the configured maximum memory request for MCP server pods.
+	MaxMemoryRequest string `json:"maxMemoryRequest,omitempty"`
+
+	// MaxMemoryLimit is the configured maximum memory limit for MCP server pods.
+	MaxMemoryLimit string `json:"maxMemoryLimit,omitempty"`
+
 	// RuntimeClassName specifies the RuntimeClass for MCP server pods
 	// This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
 	RuntimeClassName string `json:"runtimeClassName,omitempty"`
@@ -29,6 +41,9 @@ type K8sSettings struct {
 
 	// SetViaHelm indicates settings are from Helm (cannot be updated via API)
 	SetViaHelm bool `json:"setViaHelm,omitempty"`
+
+	// MaximumsSetViaHelm indicates resource maximums are from Helm (cannot be updated via API)
+	MaximumsSetViaHelm bool `json:"maximumsSetViaHelm,omitempty"`
 
 	Metadata Metadata `json:"metadata,omitempty"`
 }

@@ -247,7 +247,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 		return fmt.Errorf("failed to compute core resource requirements: %w", err)
 	}
 
-	resourceMaximums := h.mcpSessionManager.KubernetesResourceMaximums()
+	resourceMaximums := h.mcpSessionManager.EffectiveKubernetesResourceMaximumsForSettings(k8sSettings.Spec)
 	currentHash := mcp.ComputeK8sSettingsHash(k8sSettings.Spec, resources, server.Spec.Manifest.Runtime, server.Spec.NanobotAgentID != "", resourceMaximums, imagePullSecretNames)
 	shouldSetNeedsK8sUpdate := server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate
 

@@ -20,11 +20,16 @@
 			type: data.k8sSettings?.type ?? '',
 			resources: data.k8sSettings?.resources ?? '',
 			setViaHelm: data.k8sSettings?.setViaHelm ?? false,
+			maximumsSetViaHelm: data.k8sSettings?.maximumsSetViaHelm ?? false,
 			affinity: data.k8sSettings?.affinity ?? '',
 			tolerations: data.k8sSettings?.tolerations ?? '',
 			runtimeClassName: data.k8sSettings?.runtimeClassName ?? '',
 			storageClassName: data.k8sSettings?.storageClassName ?? '',
-			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? ''
+			nanobotWorkspaceSize: data.k8sSettings?.nanobotWorkspaceSize ?? '',
+			maxCpuRequest: data.k8sSettings?.maxCpuRequest ?? '',
+			maxMemoryRequest: data.k8sSettings?.maxMemoryRequest ?? '',
+			maxCpuLimit: data.k8sSettings?.maxCpuLimit ?? '',
+			maxMemoryLimit: data.k8sSettings?.maxMemoryLimit ?? ''
 		}))
 	);
 	let saving = $state(false);
@@ -41,18 +46,6 @@
 	}
 
 	function convertResourcesForInput(resources?: string) {
-		if (!resources)
-			return {
-				requests: {
-					cpu: '',
-					memory: ''
-				},
-				limits: {
-					cpu: '',
-					memory: ''
-				}
-			};
-
 		const result = {
 			requests: {
 				cpu: '',
@@ -63,10 +56,22 @@
 				memory: ''
 			}
 		};
+		if (!resources) return result;
 
 		const segments = resources.split('\n').map((segment) => segment.trim());
 		const limitsIndex = segments.findIndex((segment) => segment.startsWith('limits:'));
 		const requestsIndex = segments.findIndex((segment) => segment.startsWith('requests:'));
+
+		const updateValueByLine = (
+			line: string,
+			obj: typeof result.requests | typeof result.limits
+		) => {
+			if (line.includes('cpu:')) {
+				obj.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
+			} else if (line.includes('memory:')) {
+				obj.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
+			}
+		};
 
 		if (requestsIndex !== -1) {
 			const endIndex =
@@ -74,11 +79,7 @@
 
 			for (let i = requestsIndex + 1; i < endIndex; i++) {
 				const line = segments[i];
-				if (line.includes('cpu:')) {
-					result.requests.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
-				} else if (line.includes('memory:')) {
-					result.requests.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
-				}
+				updateValueByLine(line, result.requests);
 			}
 		}
 
@@ -88,11 +89,7 @@
 
 			for (let i = limitsIndex + 1; i < endIndex; i++) {
 				const line = segments[i];
-				if (line.includes('cpu:')) {
-					result.limits.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
-				} else if (line.includes('memory:')) {
-					result.limits.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
-				}
+				updateValueByLine(line, result.limits);
 			}
 		}
 
@@ -101,24 +98,21 @@
 
 	function convertResourcesForOutput(output: ReturnType<typeof convertResourcesForInput>) {
 		let outputString = '';
+		const updateOutputString = (key: 'cpu' | 'memory', value: string) => {
+			if (value) {
+				outputString += `\n  ${key}: ${value.toString()}`;
+			}
+		};
 		if (output.requests.cpu || output.requests.memory) {
 			outputString += `requests:`;
-			if (output.requests.cpu) {
-				outputString += `\n  cpu: ${output.requests.cpu.toString()}`;
-			}
-			if (output.requests.memory) {
-				outputString += `\n  memory: ${output.requests.memory.toString()}`;
-			}
+			updateOutputString('cpu', output.requests.cpu);
+			updateOutputString('memory', output.requests.memory);
 		}
 
 		if (output.limits.cpu || output.limits.memory) {
 			outputString += `\nlimits:`;
-			if (output.limits.cpu) {
-				outputString += `\n  cpu: ${output.limits.cpu.toString()}`;
-			}
-			if (output.limits.memory) {
-				outputString += `\n  memory: ${output.limits.memory.toString()}`;
-			}
+			updateOutputString('cpu', output.limits.cpu);
+			updateOutputString('memory', output.limits.memory);
 		}
 
 		return outputString;
@@ -158,16 +152,30 @@
 	<div class="relative h-full w-full" transition:fade={{ duration }}>
 		<div class="flex flex-col gap-8">
 			{#if k8sSettings}
-				{@const readonly = k8sSettings?.setViaHelm || isAdminReadonly}
+				{@const schedulingReadonly = k8sSettings.setViaHelm || isAdminReadonly}
+				{@const maximumsReadonly = k8sSettings.maximumsSetViaHelm || isAdminReadonly}
+				{@const readonly = schedulingReadonly && maximumsReadonly}
 				<div class="flex flex-col gap-2">
 					{#if k8sSettings?.setViaHelm}
 						<div class="notification-info p-3 text-sm font-light">
 							<div class="flex items-center gap-3">
 								<Info class="size-6" />
 								<div>
-									These settings are currently managed by your Helm chart and are <b
+									Scheduling defaults are currently managed by your Helm chart and are <b
 										class="font-semibold">read-only</b
 									> in the UI. To edit them, update your Helm values and redeploy.
+								</div>
+							</div>
+						</div>
+					{/if}
+					{#if k8sSettings.maximumsSetViaHelm}
+						<div class="notification-info p-3 text-sm font-light">
+							<div class="flex items-center gap-3">
+								<Info class="size-6" />
+								<div>
+									Resource maximums are managed by your Helm chart and are <b class="font-semibold"
+										>read-only</b
+									> in the UI.
 								</div>
 							</div>
 						</div>
@@ -215,7 +223,7 @@
 						<div class="text-sm font-light">Affinity Configuration</div>
 						<YamlEditor
 							bind:value={k8sSettings.affinity}
-							disabled={readonly}
+							disabled={schedulingReadonly}
 							placeholder=""
 							rows={6}
 							autoHeight
@@ -247,7 +255,7 @@
 						<div class="text-sm font-light">Tolerations Configuration</div>
 						<YamlEditor
 							bind:value={k8sSettings.tolerations}
-							disabled={readonly}
+							disabled={schedulingReadonly}
 							placeholder=""
 							rows={6}
 							autoHeight
@@ -268,54 +276,122 @@
 						</p>
 					</div>
 
-					<h3 class="text-lg font-semibold">CPU Settings</h3>
-					<div class="flex gap-4">
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="cpu-request">Request</label>
-							<input
-								type="text"
-								id="cpu-request"
-								bind:value={resourceInfo.requests.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 500m"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="cpu-limit">Limit</label>
-							<input
-								type="text"
-								id="cpu-limit"
-								bind:value={resourceInfo.limits.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 1"
-							/>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">CPU Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="cpu-request">Request</label>
+								<input
+									type="text"
+									id="cpu-request"
+									bind:value={resourceInfo.requests.cpu}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 500m"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="cpu-limit">Limit</label>
+								<input
+									type="text"
+									id="cpu-limit"
+									bind:value={resourceInfo.limits.cpu}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 1"
+								/>
+							</div>
 						</div>
 					</div>
-					<h3 class="text-lg font-semibold">Memory Settings</h3>
-					<div class="flex gap-4">
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="memory-request">Request</label>
-							<input
-								type="text"
-								id="memory-request"
-								bind:value={resourceInfo.requests.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 512Mi"
-							/>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">Memory Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="memory-request">Request</label>
+								<input
+									type="text"
+									id="memory-request"
+									bind:value={resourceInfo.requests.memory}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 512Mi"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="memory-limit">Limit</label>
+								<input
+									type="text"
+									id="memory-limit"
+									bind:value={resourceInfo.limits.memory}
+									class="text-input-filled dark:bg-base-100"
+									disabled={schedulingReadonly}
+									placeholder="example: 1Gi"
+								/>
+							</div>
 						</div>
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="memory-limit">Limit</label>
-							<input
-								type="text"
-								id="memory-limit"
-								bind:value={resourceInfo.limits.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 1Gi"
-							/>
+					</div>
+
+					<div class="divider my-0"></div>
+
+					<div>
+						{@render headerContent('Maximum Settings', true)}
+						<p class="text-sm">
+							Define the maximum allowed values for the CPU and memory requests and limits for pods.
+						</p>
+					</div>
+
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">CPU Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-cpu-request">Max Request</label>
+								<input
+									type="text"
+									id="max-cpu-request"
+									bind:value={k8sSettings.maxCpuRequest}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 500m"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-cpu-limit">Max Limit</label>
+								<input
+									type="text"
+									id="max-cpu-limit"
+									bind:value={k8sSettings.maxCpuLimit}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 1"
+								/>
+							</div>
+						</div>
+					</div>
+					<div class="flex flex-col gap-1">
+						<h3 class="text-base font-semibold">Memory Settings</h3>
+						<div class="grid grid-cols-2 gap-4">
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-memory-request">Max Request</label>
+								<input
+									type="text"
+									id="max-memory-request"
+									bind:value={k8sSettings.maxMemoryRequest}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 512Mi"
+								/>
+							</div>
+							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+								<label class="input-label" for="max-memory-limit">Max Limit</label>
+								<input
+									type="text"
+									id="max-memory-limit"
+									bind:value={k8sSettings.maxMemoryLimit}
+									class="text-input-filled dark:bg-base-100"
+									disabled={maximumsReadonly}
+									placeholder="example: 1Gi"
+								/>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -348,7 +424,7 @@
 							id="runtime-class-name"
 							bind:value={k8sSettings.runtimeClassName}
 							class="text-input-filled dark:bg-base-100"
-							disabled={readonly}
+							disabled={schedulingReadonly}
 							placeholder="example: gvisor"
 						/>
 						<p class="text-xs font-light text-muted-content">
@@ -378,7 +454,7 @@
 								id="storage-class-name"
 								bind:value={k8sSettings.storageClassName}
 								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
+								disabled={schedulingReadonly}
 								placeholder="example: fast-ssd"
 							/>
 							<p class="text-xs font-light text-muted-content">
@@ -392,7 +468,7 @@
 								id="nanobot-workspace-size"
 								bind:value={k8sSettings.nanobotWorkspaceSize}
 								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
+								disabled={schedulingReadonly}
 								placeholder="example: 10Gi"
 							/>
 							<p class="text-xs font-light text-muted-content">
@@ -444,10 +520,13 @@
 	</div>
 </Layout>
 
-{#snippet headerContent(title: string)}
+{#snippet headerContent(title: string, isMaximumSetViaHelm?: boolean)}
+	{@const isHelmDeployed = isMaximumSetViaHelm
+		? k8sSettings?.maximumsSetViaHelm
+		: k8sSettings?.setViaHelm}
 	<h2 class="text-lg font-semibold">
 		{title}
-		{#if k8sSettings?.setViaHelm}
+		{#if isHelmDeployed}
 			<span class="pill-rounded nowrap font-light">
 				<Lock class="size-3" /> Helm-Deployed
 			</span>
