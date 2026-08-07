@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -122,21 +121,11 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	go func() {
 		defer close(errChan)
 
-		blockingConfig := f.mcpSessionManager.RemoteMCPURLValidationConfig()
-		httpClientOptions := nmcp.HTTPClientOptions{
-			OAuthRedirectURL:              system.MCPOAuthCallbackURL(f.baseURL),
-			OAuthClientName:               "Obot MCP Gateway",
-			OAuthClientIDMetadataDocument: f.cimdDocumentURL,
-			CallbackHandler:               oauthHandler,
-			ClientCredLookup:              oauthHandler,
-			TokenStorage:                  f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID),
-			BlockLoopback:                 !blockingConfig.AllowLocalhostMCP,
-			BlockPrivateIP:                !blockingConfig.AllowPrivateIPMCP,
-			BlockLinkLocal:                !blockingConfig.AllowLinkLocalMCP,
-		}
-		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, nmcp.ClientOption{
-			ClientName:        "Obot MCP OAuth",
-			HTTPClientOptions: httpClientOptions,
+		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
+			ClientName:      "Obot MCP OAuth",
+			TokenStorage:    f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
+			CallbackHandler: oauthHandler,
+			ClientLookup:    oauthHandler,
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
@@ -165,7 +154,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthPending(ctx context.Context, mcpServ
 		return false, nil
 	}
 
-	conf, token, err := f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID).GetTokenConfig(ctx, oauthHandler.mcpURL)
+	conf, token, err := f.tokenStore.ForUserAndMCP(oauthHandler.userID, oauthHandler.mcpID, oauthHandler.mcpURL).GetTokenConfig(ctx)
 	if err != nil {
 		return false, fmt.Errorf("failed to check stored OAuth token for MCP server %s: %w", mcpServer.Name, err)
 	}
@@ -203,7 +192,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 		conf.Scopes = strings.Fields(registration.Scope)
 	}
 
-	authURL, _, _, err := nmcp.GetOAuthAuthorizationURL(ctx, oauthHandler, conf, authorizationServer.AuthorizationEndpoint, serverConfig.URL)
+	authURL, _, _, err := mcp.GetOAuthAuthorizationURL(ctx, oauthHandler, conf, authorizationServer.AuthorizationEndpoint, serverConfig.URL)
 	if err != nil {
 		return "", err
 	}
@@ -211,25 +200,25 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 	return authURL, nil
 }
 
-func staticOAuthMetadata(metadata nmcp.OAuthMetadata, redirectURL string) (nmcp.AuthorizationServerMetadata, nmcp.ClientRegistrationMetadata, error) {
-	var authorizationServer nmcp.AuthorizationServerMetadata
+func staticOAuthMetadata(metadata mcp.OAuthMetadata, redirectURL string) (mcp.AuthorizationServerMetadata, mcp.ClientRegistrationMetadata, error) {
+	var authorizationServer mcp.AuthorizationServerMetadata
 	if len(metadata.AuthorizationServerMetadata) > 0 {
 		if err := json.Unmarshal(metadata.AuthorizationServerMetadata, &authorizationServer); err != nil {
-			return authorizationServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse authorization server metadata: %w", err)
+			return authorizationServer, mcp.ClientRegistrationMetadata{}, fmt.Errorf("failed to parse authorization server metadata: %w", err)
 		}
 	}
 	if authorizationServer.AuthorizationEndpoint == "" || authorizationServer.TokenEndpoint == "" {
-		return authorizationServer, nmcp.ClientRegistrationMetadata{}, fmt.Errorf("static OAuth is required but authorization server metadata was not found")
+		return authorizationServer, mcp.ClientRegistrationMetadata{}, fmt.Errorf("static OAuth is required but authorization server metadata was not found")
 	}
 
-	var registration nmcp.ClientRegistrationMetadata
+	var registration mcp.ClientRegistrationMetadata
 	if len(metadata.ClientRegistration) > 0 {
 		if err := json.Unmarshal(metadata.ClientRegistration, &registration); err != nil {
 			return authorizationServer, registration, fmt.Errorf("failed to parse OAuth client registration metadata: %w", err)
 		}
 	}
 
-	return authorizationServer, nmcp.AuthServerMetadataToClientRegistration(authorizationServer,
+	return authorizationServer, mcp.AuthServerMetadataToClientRegistration(authorizationServer,
 		"Obot MCP Gateway", redirectURL, registration.Scope), nil
 }
 
@@ -283,14 +272,14 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 	}
 }
 
-func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, verifier string) (string, <-chan nmcp.CallbackPayload, error) {
+func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, verifier string) (string, <-chan mcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
 
 	// The channel is required by the nanobot CallbackHandler interface but is not used
 	// in the Obot flow. The auth URL is handled via HandleAuthURL/URLChan, and the
 	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
 	// the pending state from the DB directly.
-	ch := make(chan nmcp.CallbackPayload)
+	ch := make(chan mcp.CallbackPayload)
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
 }
 

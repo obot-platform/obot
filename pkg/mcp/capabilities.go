@@ -3,14 +3,14 @@ package mcp
 import (
 	"context"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func (sm *SessionManager) ServerCapabilities(ctx context.Context, serverConfig ServerConfig) (nmcp.ServerCapabilities, error) {
+func (sm *SessionManager) ServerCapabilities(ctx context.Context, serverConfig ServerConfig) (*gomcp.ServerCapabilities, error) {
 	client, err := sm.clientForServer(ctx, serverConfig)
 	if err != nil {
-		return nmcp.ServerCapabilities{}, err
+		return nil, err
 	}
 
-	return client.Session.InitializeResult.Capabilities, nil
+	return client.InitializeResult().Capabilities, nil
 }

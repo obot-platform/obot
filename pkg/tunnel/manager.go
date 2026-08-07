@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net"
 	"net/http"
 	"net/url"
@@ -207,6 +208,7 @@ type bridgeRoundTripper struct {
 	manager    *Manager
 	tunnelName string
 	transport  http.RoundTripper
+	headers    http.Header
 }
 
 func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -215,10 +217,11 @@ func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, e
 	}
 
 	outbound := request.Clone(request.Context())
-	outbound.Header = request.Header.Clone()
 	if outbound.Header == nil {
-		outbound.Header = make(http.Header)
+		outbound.Header = make(http.Header, len(b.headers)+1)
 	}
+
+	maps.Copy(outbound.Header, b.headers)
 
 	if !b.manager.isBridgeURLForTunnel(outbound.URL, b.tunnelName) {
 		bridgeURL, err := b.manager.BridgeURL(b.tunnelName, outbound.URL.String())
@@ -239,7 +242,7 @@ func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, e
 
 // HTTPClient returns an HTTP client that routes every request through the
 // named tunnel. Redirects rewritten by the bridge remain on the same tunnel.
-func (m *Manager) HTTPClient(tunnelName string, timeout time.Duration) (*http.Client, error) {
+func (m *Manager) HTTPClient(tunnelName string, headers http.Header, timeout time.Duration) (*http.Client, error) {
 	if m == nil {
 		return nil, errors.New("tunnel manager is not configured")
 	}
@@ -252,6 +255,7 @@ func (m *Manager) HTTPClient(tunnelName string, timeout time.Duration) (*http.Cl
 			manager:    m,
 			tunnelName: tunnelName,
 			transport:  http.DefaultTransport,
+			headers:    headers.Clone(),
 		},
 	}, nil
 }
