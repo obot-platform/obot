@@ -179,7 +179,8 @@
 				configureForm = {
 					envs: nextConsent.mcpServer.manifest.env?.map((env) => ({
 						...env,
-						value: values[env.key] ?? ''
+						value: values[env.key] ?? '',
+						isStatic: Boolean(env.value)
 					})),
 					headers: nextConsent.mcpServer.manifest.remoteConfig?.headers?.map((header) => ({
 						...header,
