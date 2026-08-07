@@ -236,10 +236,10 @@ func filterConflictingCatalogEntries(ctx context.Context, c client.Client, names
 		key := client.ObjectKeyFromObject(entry)
 		existing, found := existingByName[key]
 		if !found {
-			if err := c.Get(ctx, key, &existing); err != nil && !apierrors.IsNotFound(err) {
-				return nil, nil, err
-			} else if err == nil {
+			if err := c.Get(ctx, key, &existing); err == nil {
 				found = true
+			} else if !apierrors.IsNotFound(err) {
+				return nil, nil, err
 			}
 		}
 		if !found {
