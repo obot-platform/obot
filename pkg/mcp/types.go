@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strconv"
@@ -349,6 +350,17 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 }
 
 func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred, staticOAuthCred map[string]string) (ServerConfig, []string, error) {
+	// Catalog-managed literal values are static configuration, not user credentials.
+	// Make them available while expanding runtime arguments, but keep them separate
+	// from credEnv so they are never persisted or exposed as user-supplied secrets.
+	runtimeCredEnv := make(map[string]string, len(credEnv)+len(mcpServer.Spec.Manifest.Env))
+	maps.Copy(runtimeCredEnv, credEnv)
+	for _, env := range mcpServer.Spec.Manifest.Env {
+		if env.Value != "" {
+			runtimeCredEnv[env.Key] = env.Value
+		}
+	}
+
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -430,16 +442,16 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	// Handle runtime-specific configuration
 	switch mcpServer.Spec.Manifest.Runtime {
 	case types.RuntimeUVX:
-		if err := configureUVXRuntime(&serverConfig, mcpServer.Spec.Manifest.UVXConfig, credEnv, fileEnvVars); err != nil {
+		if err := configureUVXRuntime(&serverConfig, mcpServer.Spec.Manifest.UVXConfig, runtimeCredEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeNPX:
-		if err := configureNPXRuntime(&serverConfig, mcpServer.Spec.Manifest.NPXConfig, credEnv, fileEnvVars); err != nil {
+		if err := configureNPXRuntime(&serverConfig, mcpServer.Spec.Manifest.NPXConfig, runtimeCredEnv, fileEnvVars); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeContainerized:
 		serverConfig.Args = make([]string, 0, len(mcpServer.Spec.Manifest.ContainerizedConfig.Args))
-		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, credEnv, fileEnvVars, true); err != nil {
+		if err := configureContainerizedRuntime(&serverConfig, mcpServer.Spec.Manifest.ContainerizedConfig, runtimeCredEnv, fileEnvVars, true); err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
 	case types.RuntimeRemote:
@@ -455,16 +467,22 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	}
 
 	for _, env := range mcpServer.Spec.Manifest.Env {
-		val, ok := credEnv[env.Key]
-		if !ok || val == "" {
+		val := env.Value
+		isStatic := val != ""
+		if !isStatic {
+			val = runtimeCredEnv[env.Key]
+		}
+		if val == "" {
 			if env.Required {
 				missingRequiredNames = append(missingRequiredNames, env.Key)
 			}
 			continue
 		}
 
-		// Apply prefix if specified (e.g., "Bearer ", "sk-")
-		val = applyPrefix(val, env.Prefix)
+		// Static catalog values are already fully configured, like static headers.
+		if !isStatic {
+			val = applyPrefix(val, env.Prefix)
+		}
 
 		if !env.File {
 			serverConfig.Env = append(serverConfig.Env, fmt.Sprintf("%s=%s", env.Key, val))

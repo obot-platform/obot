@@ -2747,8 +2747,10 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 			continue
 		}
 
-		if _, ok := credEnv[env.Key]; !ok {
-			missingEnvVars = append(missingEnvVars, env.Key)
+		if env.Value == "" {
+			if _, ok := credEnv[env.Key]; !ok {
+				missingEnvVars = append(missingEnvVars, env.Key)
+			}
 		}
 	}
 

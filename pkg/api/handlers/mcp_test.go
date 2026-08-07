@@ -50,6 +50,28 @@ func TestServerNeedsOAuthForPendingStaticOAuth(t *testing.T) {
 	require.False(t, needsOAuth)
 }
 
+func TestConvertMCPServer_StaticEnvIsConfigured(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					MCPHeader: types.MCPHeader{
+						Key:      "CATALOG_TOKEN",
+						Value:    "catalog-value",
+						Required: true,
+					},
+				}},
+			},
+		},
+	}
+
+	converted := ConvertMCPServer(server, nil, "", "")
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+}
+
 func TestConvertMCPResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
