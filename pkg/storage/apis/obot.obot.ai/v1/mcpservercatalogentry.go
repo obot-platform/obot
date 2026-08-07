@@ -79,7 +79,6 @@ type MCPServerCatalogEntrySpec struct {
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
 	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
 	Editable         bool                                `json:"editable,omitempty"`
-	// +optional
 	Detached         bool                                `json:"detached"`
 	SourceURL        string                              `json:"sourceURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
