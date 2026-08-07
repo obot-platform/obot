@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -17,16 +18,32 @@ import (
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
+	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+type consumeOAuthTokenAfterGetStorage struct {
+	storage.Client
+}
+
+func (s *consumeOAuthTokenAfterGetStorage) Get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
+	if err := s.Client.Get(ctx, key, obj, opts...); err != nil {
+		return err
+	}
+	if _, ok := obj.(*v1.OAuthToken); ok {
+		return s.Delete(ctx, obj)
+	}
+	return nil
+}
 
 func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	const (
@@ -157,8 +174,35 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
 	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
 	assert.Equal(t, "Obot: invalid MCP server", oauthErr.Description)
-	require.Error(t, storage.Get(t.Context(), kclient.ObjectKey{
+	err = storage.Get(t.Context(), kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),
-	}, &v1.OAuthToken{}))
+	}, &v1.OAuthToken{})
+	require.True(t, apierrors.IsNotFound(err), "expected NotFound after consuming stale refresh token, got %v", err)
+
+	racedRefreshToken := "concurrently-consumed-refresh-token"
+	require.NoError(t, storage.Create(t.Context(), &v1.OAuthToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.DefaultNamespace,
+			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(racedRefreshToken))),
+		},
+		Spec: v1.OAuthTokenSpec{
+			ClientID: clientName,
+			Resource: baseURL,
+			UserID:   42,
+			MCPID:    system.MCPServerPrefix + "deleted",
+		},
+	}))
+
+	err = h.doRefreshToken(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Storage:        &consumeOAuthTokenAfterGetStorage{Client: storage},
+		GatewayClient:  gatewayClient,
+	}, oauthClient, racedRefreshToken)
+	require.Error(t, err)
+	require.ErrorAs(t, err, &errHTTP)
+	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
+	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
+	assert.Equal(t, "Obot: refresh_token is invalid", oauthErr.Description)
 }

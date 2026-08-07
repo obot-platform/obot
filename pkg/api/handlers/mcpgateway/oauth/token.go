@@ -269,7 +269,9 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 
 	// Consume terminally invalid grants so they cannot become usable again if the referenced resource is recreated.
 	invalidGrant := func(description string) error {
-		if err := req.Delete(&oauthToken); err != nil && !apierrors.IsNotFound(err) {
+		if err := req.Storage.Delete(req.Context(), &oauthToken); apierrors.IsNotFound(err) {
+			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
+		} else if err != nil {
 			return fmt.Errorf("failed to invalidate oauth token: %w", err)
 		}
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, description, ""))
@@ -293,7 +295,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		return invalidGrant("invalid MCP server")
 	}
 
-	if err := req.Delete(&oauthToken); err != nil {
+	if err := req.Storage.Delete(req.Context(), &oauthToken); err != nil {
 		if apierrors.IsNotFound(err) {
 			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidGrant, "refresh_token is invalid", ""))
 		}
