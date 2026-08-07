@@ -13,6 +13,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
+	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile } from '$lib/stores';
@@ -220,7 +221,7 @@
 		try {
 			await AdminService.deconfigureAuthProvider(confirmDeconfigureAuthProvider.id);
 			if (isBootstrapUser) {
-				window.location.reload();
+				reloadPage();
 			} else {
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);

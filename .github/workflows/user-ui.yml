@@ -38,3 +38,28 @@ jobs:
 
       - name: Verify no changes
         run: make no-changes
+
+  test:
+    runs-on: depot-ubuntu-22.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.15.0"
+
+      - name: Install Playwright Browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.3
+
+      - name: Run UI Tests
+        run: | 
+          cd ui/user
+          pnpm install
+          pnpm run test

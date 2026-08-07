@@ -5,6 +5,7 @@
 	import Menu from '$lib/components/navbar/Menu.svelte';
 	import ProfileIcon from '$lib/components/profile/ProfileIcon.svelte';
 	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
+	import { reloadPage } from '$lib/navigation';
 	import { AdminService, NanobotService, UserService } from '$lib/services';
 	import {
 		AiClient,
@@ -137,7 +138,7 @@
 		try {
 			await UserService.restartK8sDeployment(`ms1${agentId}`);
 			await NanobotService.launchProjectAgent(projectId, agentId);
-			window.location.reload();
+			reloadPage();
 		} catch (error) {
 			console.error('Failed to restart agent:', error);
 			errors.append(error);

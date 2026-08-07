@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ProviderDeconfigureConfirm from '$lib/components/admin/ProviderDeconfigureConfirm.svelte';
+	import { reloadPage } from '$lib/navigation';
 	import {
 		AdminService,
 		type AuthProvider,
@@ -83,7 +84,7 @@
 				await AdminService.deconfigureAuthProvider(authProvider.name);
 			}
 
-			window.location.reload();
+			reloadPage();
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'An unknown error occurred.';
 		} finally {

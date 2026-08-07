@@ -54,6 +54,7 @@ pnpm run check        # TypeScript type checking
 pnpm run lint         # ESLint + Prettier check
 pnpm run format       # Auto-format code
 pnpm run ci           # Run format, lint, and check
+pnpm run test         # Run UI integration tests
 ```
 
 ### Documentation (in docs/)
@@ -84,6 +85,7 @@ make serve-docs       # Start local docs server
   - `src/lib/components/` - Reusable Svelte components organized by feature
   - `src/lib/services/` - HTTP client and API interaction logic
   - `src/routes/` - SvelteKit file-based routing
+  - `src/tests/` - Mock data and helpers for testing via vitest-browser-svelte
 - `/apiclient` - Go module for API client code
 - `/logger` - Go module for logging utilities
 - `/tools` - Development scripts (`dev.sh`, `devmode-kubeconfig`)

@@ -21,7 +21,7 @@
 	import type { PageData } from './$types';
 	import { apply, isSupported } from '@oddbird/popover-polyfill/fn';
 	import 'devicon/devicon.min.css';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 
 	interface Props {
 		children?: import('svelte').Snippet;
@@ -34,6 +34,10 @@
 	}
 
 	let { children, data }: Props = $props();
+
+	onMount(() => {
+		document.documentElement.toggleAttribute('hydrated', true);
+	});
 
 	untrack(() => {
 		if (data.appPreferences) {
