@@ -54,7 +54,6 @@ func New(services *services.Services) (*Controller, error) {
 	}
 
 	c.setupRoutes()
-	c.setupLocalK8sRoutes()
 
 	services.Router.PosStart(c.PostStart)
 
@@ -84,9 +83,15 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure hosted agent pool defaults: %w", err)
 	}
 
-	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
+	resourceMaximums, err := c.services.MCPSessionManager.EffectiveKubernetesResourceMaximums(ctx, c.services.StorageClient)
+	if err != nil {
+		return fmt.Errorf("failed to get effective K8s resource maximums: %w", err)
+	}
 	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm, resourceMaximums); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
+	}
+	if err := c.setupLocalK8sRoutes(ctx); err != nil {
+		return err
 	}
 
 	if err := ensureAppPreferences(ctx, c.services.StorageClient); err != nil {
@@ -671,12 +676,15 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 }
 
 // setupLocalK8sRoutes sets up routes for the local Kubernetes router
-func (c *Controller) setupLocalK8sRoutes() {
+func (c *Controller) setupLocalK8sRoutes(ctx context.Context) error {
 	// The local router now also exists when only hosted agents run on
 	// Kubernetes, so these are gated on the MCP backend rather than on the
 	// router: every one of them reconciles MCP state from cluster objects.
 	if c.services.LocalRouter != nil && mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) {
-		resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
+		resourceMaximums, err := c.services.MCPSessionManager.EffectiveKubernetesResourceMaximums(ctx, c.services.StorageClient)
+		if err != nil {
+			return fmt.Errorf("failed to get effective K8s resource maximums: %w", err)
+		}
 		deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
@@ -691,6 +699,7 @@ func (c *Controller) setupLocalK8sRoutes() {
 		peerHandler := tunnelpeer.New(c.services.TunnelManager.ID, c.services.TunnelManager)
 		c.services.EveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
 	}
+	return nil
 }
 
 // ensureLocalAuthProvider creates or updates the AuthProvider resource for the built-in local
