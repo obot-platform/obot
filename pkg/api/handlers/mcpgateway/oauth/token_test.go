@@ -131,4 +131,34 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
 	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
 	assert.Equal(t, "Obot: refresh_token is invalid", oauthErr.Description)
+
+	staleRefreshToken := "deleted-server-refresh-token"
+	require.NoError(t, storage.Create(t.Context(), &v1.OAuthToken{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: system.DefaultNamespace,
+			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),
+		},
+		Spec: v1.OAuthTokenSpec{
+			ClientID: clientName,
+			Resource: baseURL,
+			UserID:   42,
+			MCPID:    system.MCPServerPrefix + "deleted",
+		},
+	}))
+
+	err = h.doRefreshToken(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+	}, oauthClient, staleRefreshToken)
+	require.Error(t, err)
+	require.ErrorAs(t, err, &errHTTP)
+	require.NoError(t, json.Unmarshal([]byte(errHTTP.Message), &oauthErr))
+	assert.Equal(t, "invalid_grant", string(oauthErr.Code))
+	assert.Equal(t, "Obot: invalid MCP server", oauthErr.Description)
+	require.Error(t, storage.Get(t.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),
+	}, &v1.OAuthToken{}))
 }
