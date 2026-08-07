@@ -60,6 +60,7 @@ type Handler struct {
 	accessControlRuleHelper   *accesscontrolrule.Helper
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
+	mcpSessionManager         *mcp.SessionManager
 }
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
@@ -67,7 +68,6 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 	validationOptions := mcp.ValidationOptions{
 		RemoteMCPURLValidationConfig: remoteURLValidationConfig,
 	}
-	validationOptions.ResourceMaximums = mcpSessionManager.KubernetesResourceMaximums()
 
 	return &Handler{
 		defaultCatalogPath:       defaultCatalogPath,
@@ -81,11 +81,18 @@ func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gcl
 		accessControlRuleHelper:   accessControlRuleHelper,
 		remoteURLValidationConfig: validationOptions,
 		mcpBackend:                mcpSessionManager.MCPRuntimeBackend(),
+		mcpSessionManager:         mcpSessionManager,
 	}
 }
 
 func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog := req.Object.(*v1.MCPCatalog)
+	maximums, err := h.mcpSessionManager.EffectiveKubernetesResourceMaximums(req.Ctx, req.Client)
+	if err != nil {
+		return fmt.Errorf("failed to get effective resource maximums: %w", err)
+	}
+	validationOptions := h.remoteURLValidationConfig
+	validationOptions.ResourceMaximums = maximums
 
 	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true" || mcpCatalog.Annotations[forceSyncStartupAnnotation] != startupSyncGeneration
 	if !forceSync && !mcpCatalog.Status.LastSyncTime.IsZero() {
@@ -129,7 +136,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
-		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token)
+		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
 		if err != nil {
 			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
@@ -149,7 +156,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
 
-	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd)
+	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, validationOptions)
 	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
@@ -354,7 +361,11 @@ func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCat
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
 // catalog entry names and snapshots the target manifests. Entries with invalid
 // portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Client, namespace, catalogName string, objs []client.Object) ([]client.Object, map[string]string) {
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Client, namespace, catalogName string, objs []client.Object, options ...mcp.ValidationOptions) ([]client.Object, map[string]string) {
+	validationOptions := h.remoteURLValidationConfig
+	if len(options) > 0 {
+		validationOptions = options[0]
+	}
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
 	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
 	for _, obj := range objs {
@@ -441,7 +452,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 
 		if changed {
 			if err := catalogvalidation.ValidateManifest(ctx, entry.Spec.Manifest, catalogvalidation.ValidationOptions{
-				MCP:        h.remoteURLValidationConfig,
+				MCP:        validationOptions,
 				MCPBackend: h.mcpBackend,
 				GitManaged: entry.IsGitManaged(),
 			}); err != nil {
@@ -664,7 +675,11 @@ func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryM
 	}
 }
 
-func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]client.Object, error) {
+	validationOptions := h.remoteURLValidationConfig
+	if len(options) > 0 {
+		validationOptions = options[0]
+	}
 	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
 		return nil, err
@@ -713,7 +728,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 
 		catalogvalidation.NormalizeManifest(&entry)
 		if err := catalogvalidation.ValidateManifest(ctx, entry, catalogvalidation.ValidationOptions{
-			MCP:        h.remoteURLValidationConfig,
+			MCP:        validationOptions,
 			MCPBackend: h.mcpBackend,
 			GitManaged: catalogEntry.IsGitManaged(),
 		}); err != nil {

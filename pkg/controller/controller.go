@@ -84,11 +84,13 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure hosted agent pool defaults: %w", err)
 	}
 
-	resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
+	resourceMaximums, err := c.services.MCPSessionManager.EffectiveKubernetesResourceMaximums(ctx, c.services.StorageClient)
+	if err != nil {
+		return fmt.Errorf("failed to get effective K8s resource maximums: %w", err)
+	}
 	if err := ensureK8sSettings(ctx, c.services.StorageClient, c.services.PodSchedulingSettingsFromHelm, c.services.PSASettingsFromHelm, resourceMaximums); err != nil {
 		return fmt.Errorf("failed to ensure K8s settings: %w", err)
 	}
-
 	if err := ensureAppPreferences(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure app preferences: %w", err)
 	}
@@ -676,8 +678,12 @@ func (c *Controller) setupLocalK8sRoutes() {
 	// Kubernetes, so these are gated on the MCP backend rather than on the
 	// router: every one of them reconciles MCP state from cluster objects.
 	if c.services.LocalRouter != nil && mcp.IsKubernetesBackend(c.services.MCPRuntimeBackend) {
-		resourceMaximums := c.services.MCPSessionManager.KubernetesResourceMaximums()
-		deploymentHandler := deployment.New(c.services.MCPServerNamespace, c.services.Router.Backend(), c.services.MCPRuntimeBackend, resourceMaximums, c.services.MCPImagePullSecrets)
+		deploymentHandler := deployment.New(
+			c.services.MCPServerNamespace,
+			c.services.Router.Backend(),
+			c.services.MCPSessionManager,
+			c.services.MCPImagePullSecrets,
+		)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).IncludeRemoved().HandlerFunc(deploymentHandler.UpdateMCPServerStatus)
 		c.services.LocalRouter.Type(&appsv1.Deployment{}).HandlerFunc(deploymentHandler.CleanupOldIDs)
 

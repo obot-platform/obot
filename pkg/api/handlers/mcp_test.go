@@ -136,7 +136,7 @@ func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {
 	assert.Equal(t, "https://github.com/obot-platform/mcp-catalog", entry.SourceURL)
 }
 
-func TestValidationOptionsWithResourceMaximumsUsesPersistedMaximum(t *testing.T) {
+func TestValidationOptionsWithResourceMaximumsIgnoresPersistedMaximumForNonKubernetesBackend(t *testing.T) {
 	maximum := resource.MustParse("500m")
 	req := api.Context{
 		Request: httptest.NewRequest(http.MethodGet, "/", nil),
@@ -148,8 +148,7 @@ func TestValidationOptionsWithResourceMaximumsUsesPersistedMaximum(t *testing.T)
 
 	options, err := ValidationOptionsWithResourceMaximums(req, &mcp.SessionManager{})
 	require.NoError(t, err)
-	require.NotNil(t, options.ResourceMaximums.CPURequest)
-	require.Zero(t, options.ResourceMaximums.CPURequest.Cmp(maximum))
+	require.Nil(t, options.ResourceMaximums.CPURequest)
 
 	err = mcp.ValidateServerManifest(t.Context(), types.MCPServerManifest{
 		Runtime: types.RuntimeNPX,
@@ -160,7 +159,7 @@ func TestValidationOptionsWithResourceMaximumsUsesPersistedMaximum(t *testing.T)
 			Requests: types.MCPResourceRequests{CPU: "1"},
 		},
 	}, false, options)
-	require.Error(t, err)
+	require.NoError(t, err)
 }
 
 func TestHideMultiUserCatalogEntry(t *testing.T) {

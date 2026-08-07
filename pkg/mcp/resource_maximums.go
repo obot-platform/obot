@@ -123,7 +123,6 @@ func validateResourceMaximum(field string, resources corev1.ResourceList, resour
 }
 
 func ValidateK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) error {
-	maximums = ResourceMaximumsFromK8sSettings(k8sSettings, maximums)
 	// Use the same capped default calculation as deployment so empty settings
 	// are allowed even when built-in fallback defaults are higher than maximums.
 	if err := maximums.Validate(mcpContainerResourcesWithMaximums(nil, types.RuntimeNPX, false, k8sSettings, maximums)); err != nil {
@@ -136,7 +135,6 @@ func ValidateK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximum
 }
 
 func ValidateConfiguredK8sSettingsResourceMaximums(k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) error {
-	maximums = ResourceMaximumsFromK8sSettings(k8sSettings, maximums)
 	if maximums.Empty() {
 		return nil
 	}

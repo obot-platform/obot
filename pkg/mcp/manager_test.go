@@ -7,9 +7,44 @@ import (
 	"testing"
 	"time"
 
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
+	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestEffectiveKubernetesResourceMaximums(t *testing.T) {
+	maximum := resource.MustParse("500m")
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(&v1.K8sSettings{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      system.K8sSettingsName,
+				Namespace: system.DefaultNamespace,
+			},
+			Spec: v1.K8sSettingsSpec{MaxCPURequest: &maximum},
+		}).
+		Build()
+
+	t.Run("Kubernetes backend uses persisted maximum", func(t *testing.T) {
+		manager := &SessionManager{runtimeBackend: RuntimeBackendKubernetes}
+		got, err := manager.EffectiveKubernetesResourceMaximums(t.Context(), storageClient)
+		require.NoError(t, err)
+		require.NotNil(t, got.CPURequest)
+		require.Zero(t, got.CPURequest.Cmp(maximum))
+	})
+
+	t.Run("non-Kubernetes backend ignores persisted maximum", func(t *testing.T) {
+		manager := &SessionManager{runtimeBackend: runtimeBackendDocker}
+		got, err := manager.EffectiveKubernetesResourceMaximums(t.Context(), nil)
+		require.NoError(t, err)
+		require.True(t, got.Empty())
+	})
+}
 
 func TestHTTPClientForServer(t *testing.T) {
 	const timeout = 3 * time.Second

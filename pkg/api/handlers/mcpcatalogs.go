@@ -864,6 +864,10 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
 		req.GatewayClient,
@@ -878,7 +882,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		configRequest.Config,
 		configRequest.URL,
 		h.serverURL,
-		ValidationOptionsWithResourceMaximums(h.sessionManager),
+		validationOptions,
 	)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
@@ -948,6 +952,10 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
 
 	compositeToolPreviews := make([]types.MCPServerTool, 0, len(compositeConfig.ComponentServers))
 	for _, componentEntry := range compositeConfig.ComponentServers {
@@ -1005,7 +1013,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			config.Config,
 			config.URL,
 			h.serverURL,
-			ValidationOptionsWithResourceMaximums(h.sessionManager),
+			validationOptions,
 		)
 		if err != nil {
 			return err
@@ -1125,7 +1133,11 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, ValidationOptionsWithResourceMaximums(h.sessionManager))
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1208,6 +1220,10 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	if catalogName == "" {
 		catalogName = composite.Spec.PowerUserWorkspaceID
 	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
 
 	// Use the manifest snapshot embedded in the composite entry for this component.
 	server, serverConfig, err := tempServerAndConfig(
@@ -1224,7 +1240,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		configRequest.Config,
 		configRequest.URL,
 		h.serverURL,
-		ValidationOptionsWithResourceMaximums(h.sessionManager),
+		validationOptions,
 	)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
@@ -1336,6 +1352,10 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 	if catalogName == "" {
 		catalogName = composite.Spec.PowerUserWorkspaceID
 	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
+	}
 
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
@@ -1351,7 +1371,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		configRequest.Config,
 		configRequest.URL,
 		h.serverURL,
-		ValidationOptionsWithResourceMaximums(h.sessionManager),
+		validationOptions,
 	)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
@@ -1393,6 +1413,10 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	catalogName := entry.Spec.MCPCatalogName
 	if catalogName == "" {
 		catalogName = entry.Spec.PowerUserWorkspaceID
+	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return err
 	}
 
 	for _, componentEntry := range compositeConfig.ComponentServers {
@@ -1437,7 +1461,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			config.Config,
 			config.URL,
 			h.serverURL,
-			ValidationOptionsWithResourceMaximums(h.sessionManager),
+			validationOptions,
 		)
 		if err != nil {
 			// If we can't create server config, skip this component
