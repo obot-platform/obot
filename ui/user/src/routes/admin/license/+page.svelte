@@ -11,7 +11,6 @@
 		MODEL_PROVIDERS_ENTITLEMENT
 	} from '$lib/constants';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
-	import { parseErrorContent } from '$lib/errors';
 	import { AdminService } from '$lib/services';
 	import { errors, license as licenseStore, profile, version } from '$lib/stores';
 	import { validateVersionUserLimit } from '$lib/utils';
@@ -46,17 +45,9 @@
 			.filter((entitlement) => entitlement !== MODEL_PROVIDERS_ENTITLEMENT)
 			.sort((a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b)))
 	);
-	let showEnterpriseCTA = $derived(isCommunityEdition);
-	let showCommunityEnrollment = $derived(
-		Boolean(license && !hasValidLicense && !license.locked && !isAdminReadonly)
-	);
+	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
 	let showUserLimitNotice = $derived(validateVersionUserLimit(version.current));
 
-	let communityName = $state('');
-	let communityEmail = $state('');
-	let communityCompany = $state('');
-	let communitySaving = $state(false);
-	let communityError = $state('');
 	let manualCheckAvailableAt = $derived(
 		license?.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
 	);
@@ -117,30 +108,6 @@
 			errors.append(`Failed to recheck license: ${err}`);
 		} finally {
 			rechecking = false;
-		}
-	}
-
-	async function handleCommunitySubmit(event: SubmitEvent) {
-		event.preventDefault();
-		if (communitySaving) return;
-
-		communitySaving = true;
-		communityError = '';
-		try {
-			await AdminService.createCommunityLicense(
-				{
-					name: communityName.trim(),
-					email: communityEmail.trim(),
-					company: communityCompany.trim() || undefined
-				},
-				{ dontLogErrors: true }
-			);
-			window.location.reload();
-		} catch (err) {
-			communityError =
-				parseErrorContent(err).message || 'Failed to obtain an Obot Community license.';
-		} finally {
-			communitySaving = false;
 		}
 	}
 
@@ -261,75 +228,6 @@
 				</div>
 			{/if}
 
-			{#if showCommunityEnrollment}
-				<form class="paper flex flex-col gap-4" onsubmit={handleCommunitySubmit}>
-					<div class="flex flex-col gap-1">
-						<h2 class="text-xl font-semibold">Upgrade to Obot Community</h2>
-						<p class="text-muted-content text-sm font-light">
-							Get permanent, free access to Obot Community and additional authentication providers,
-							including Entra, Okta, JumpCloud, and Auth0, with a one-time registration.
-						</p>
-					</div>
-
-					<div class="grid gap-4 md:grid-cols-2">
-						<label class="flex flex-col gap-1 text-sm font-light" for="community-name">
-							Name
-							<input
-								id="community-name"
-								class="text-input-filled"
-								name="name"
-								type="text"
-								autocomplete="name"
-								bind:value={communityName}
-								required
-							/>
-						</label>
-
-						<label class="flex flex-col gap-1 text-sm font-light" for="community-email">
-							Email
-							<input
-								id="community-email"
-								class="text-input-filled"
-								name="email"
-								type="email"
-								pattern="[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+"
-								title="Enter an email address with a valid domain, such as name@example.com."
-								autocomplete="email"
-								bind:value={communityEmail}
-								required
-							/>
-						</label>
-
-						<label
-							class="flex flex-col gap-1 text-sm font-light md:col-span-2"
-							for="community-company"
-						>
-							Company <span class="text-muted-content text-xs">(optional)</span>
-							<input
-								id="community-company"
-								class="text-input-filled"
-								name="company"
-								type="text"
-								autocomplete="organization"
-								bind:value={communityCompany}
-							/>
-						</label>
-					</div>
-
-					{#if communityError}
-						<div in:slide={{ duration: 150, axis: 'y' }} class="alert alert-error alert-soft">
-							{communityError}
-						</div>
-					{/if}
-
-					<button class="btn btn-primary w-full sm:w-fit" type="submit" disabled={communitySaving}>
-						{#if communitySaving}
-							<LoaderCircle class="size-4 animate-spin" />
-						{/if}
-						{communitySaving ? 'Upgrading to Community Edition...' : 'Upgrade to Obot Community'}
-					</button>
-				</form>
-			{/if}
 			<section class="paper flex flex-col @2xl:flex-row gap-6 items-start justify-between">
 				<div class="flex flex-col gap-6">
 					{#if license}

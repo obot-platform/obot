@@ -172,7 +172,7 @@
 				<div
 					bind:this={scrollableWrapper}
 					class={twMerge(
-						'text-input-filled base flex min-h-15 w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
+						'input-text-filled base flex min-h-15 w-full shrink-0 flex-col overflow-x-hidden overflow-y-auto font-mono',
 						klass,
 						classes?.wrapper,
 						(error || validationFailed) &&
@@ -241,7 +241,7 @@
 			{:else}
 				<div
 					class={twMerge(
-						'text-input-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
+						'input-text-filled base flex min-h-full w-full flex-1 flex-col overflow-hidden rounded font-mono [box-shadow:none]',
 						klass,
 						classes?.wrapper,
 						(error || validationFailed) &&
@@ -288,7 +288,7 @@
 			id={name}
 			{name}
 			class={twMerge(
-				'text-input-filled w-full pr-10',
+				'input-text-filled w-full pr-10',
 				klass,
 				classes?.input,
 				error && 'border-error bg-error/20 text-error ring-error focus:ring-1'
@@ -330,11 +330,11 @@
 </div>
 
 <style>
-	.text-input-filled.base.hide textarea {
+	.input-text-filled.base.hide textarea {
 		color: transparent;
 		caret-color: var(--color-base-content);
 	}
-	.text-input-filled.base.hide textarea::selection {
+	.input-text-filled.base.hide textarea::selection {
 		background: highlight;
 		color: transparent;
 	}

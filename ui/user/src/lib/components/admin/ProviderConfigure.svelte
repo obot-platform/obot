@@ -5,6 +5,7 @@
 	import type { BaseProvider, ProviderParameter } from '$lib/services/admin/types';
 	import { darkMode, profile } from '$lib/stores';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import type { ResponsiveDialogAnimate } from '../ResponsiveDialog.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import { CircleAlert } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -18,9 +19,11 @@
 		values?: Record<string, string>;
 		loading?: boolean;
 		readonly?: boolean;
+		animate?: ResponsiveDialogAnimate;
 	}
 
-	const { provider, onConfigure, note, values, error, loading, readonly }: Props = $props();
+	const { provider, onConfigure, note, values, error, loading, readonly, animate }: Props =
+		$props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let form = $state<Record<string, string>>({});
 	let showRequired = $state(false);
@@ -264,6 +267,7 @@
 	{onClose}
 	{onOpen}
 	classes={{ header: 'p-4 pb-0', content: 'p-0' }}
+	{animate}
 >
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2 pb-0">

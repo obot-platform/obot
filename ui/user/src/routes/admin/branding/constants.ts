@@ -3,6 +3,7 @@ import type { AppPreferences } from '$lib/services';
 const LOGO_LABELS = {
 	default: 'Full Logo',
 	enterprise: 'Full Enterprise Logo',
+	community: 'Full Community Logo',
 	chat: 'Full Chat Logo'
 };
 
@@ -127,6 +128,10 @@ export const themeLightLogoFields: { id: keyof AppPreferences['logos']; label: s
 		label: LOGO_LABELS.enterprise
 	},
 	{
+		id: 'logoCommunity',
+		label: LOGO_LABELS.community
+	},
+	{
 		id: 'logoChat',
 		label: LOGO_LABELS.chat
 	}
@@ -140,6 +145,10 @@ export const themeDarkLogoFields: { id: keyof AppPreferences['logos']; label: st
 	{
 		id: 'darkLogoEnterprise',
 		label: LOGO_LABELS.enterprise
+	},
+	{
+		id: 'darkLogoCommunity',
+		label: LOGO_LABELS.community
 	},
 	{
 		id: 'darkLogoChat',

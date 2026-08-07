@@ -122,7 +122,7 @@
 				{#if provider.configured}
 					<TriangleAlert class="size-4 text-warning" /> License {licenseKey ? 'Invalid' : 'Missing'}
 				{:else}
-					<CircleAlert class="size-4 text-muted-content" /> License Required
+					<CircleAlert class="size-4 text-muted-content" /> Registration Required
 				{/if}
 			{:else if provider.configured}
 				<CircleCheck class="size-4 text-success" /> Configured
