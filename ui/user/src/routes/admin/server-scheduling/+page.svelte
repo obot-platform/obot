@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import YamlEditor from '$lib/components/admin/YamlEditor.svelte';
+	import SchedulingForm from '$lib/components/admin/SchedulingForm.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, type K8sSettings } from '$lib/services';
 	import { profile } from '$lib/stores/index.js';
+	import { parseSchedulingResources } from '$lib/utils.js';
 	import { Info, Lock } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -30,76 +31,9 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let resourceInfo = $state(untrack(() => convertResourcesForInput(data.k8sSettings?.resources)));
+	let resourceInfo = $state(untrack(() => parseSchedulingResources(data.k8sSettings?.resources)));
 
-	function stripQuotes(value: string): string {
-		// Remove double quotes if the entire value is wrapped in them
-		if (value.startsWith('"') && value.endsWith('"')) {
-			return value.slice(1, -1);
-		}
-		return value;
-	}
-
-	function convertResourcesForInput(resources?: string) {
-		if (!resources)
-			return {
-				requests: {
-					cpu: '',
-					memory: ''
-				},
-				limits: {
-					cpu: '',
-					memory: ''
-				}
-			};
-
-		const result = {
-			requests: {
-				cpu: '',
-				memory: ''
-			},
-			limits: {
-				cpu: '',
-				memory: ''
-			}
-		};
-
-		const segments = resources.split('\n').map((segment) => segment.trim());
-		const limitsIndex = segments.findIndex((segment) => segment.startsWith('limits:'));
-		const requestsIndex = segments.findIndex((segment) => segment.startsWith('requests:'));
-
-		if (requestsIndex !== -1) {
-			const endIndex =
-				limitsIndex !== -1 && limitsIndex > requestsIndex ? limitsIndex : segments.length;
-
-			for (let i = requestsIndex + 1; i < endIndex; i++) {
-				const line = segments[i];
-				if (line.includes('cpu:')) {
-					result.requests.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
-				} else if (line.includes('memory:')) {
-					result.requests.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
-				}
-			}
-		}
-
-		if (limitsIndex !== -1) {
-			const endIndex =
-				requestsIndex !== -1 && requestsIndex > limitsIndex ? requestsIndex : segments.length;
-
-			for (let i = limitsIndex + 1; i < endIndex; i++) {
-				const line = segments[i];
-				if (line.includes('cpu:')) {
-					result.limits.cpu = stripQuotes(line.split('cpu:')[1]?.trim() ?? '');
-				} else if (line.includes('memory:')) {
-					result.limits.memory = stripQuotes(line.split('memory:')[1]?.trim() ?? '');
-				}
-			}
-		}
-
-		return result;
-	}
-
-	function convertResourcesForOutput(output: ReturnType<typeof convertResourcesForInput>) {
+	function convertResourcesForOutput(output: ReturnType<typeof parseSchedulingResources>) {
 		let outputString = '';
 		if (output.requests.cpu || output.requests.memory) {
 			outputString += `requests:`;
@@ -125,6 +59,7 @@
 	}
 
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let readonly = $derived(k8sSettings?.setViaHelm || isAdminReadonly);
 
 	async function handleSave() {
 		if (!k8sSettings) return;
@@ -140,7 +75,7 @@
 			});
 			prevK8sSettings = k8sSettings;
 			k8sSettings = response;
-			resourceInfo = convertResourcesForInput(response.resources);
+			resourceInfo = parseSchedulingResources(response.resources);
 			showSaved = true;
 			timeout = setTimeout(() => {
 				showSaved = false;
@@ -156,251 +91,82 @@
 
 <Layout classes={{ container: 'pb-0' }} title="Server Scheduling">
 	<div class="relative h-full w-full" transition:fade={{ duration }}>
-		<div class="flex flex-col gap-8">
-			{#if k8sSettings}
-				{@const readonly = k8sSettings?.setViaHelm || isAdminReadonly}
-				<div class="flex flex-col gap-2">
-					{#if k8sSettings?.setViaHelm}
+		{#if k8sSettings}
+			<div class="flex flex-col gap-8">
+				<SchedulingForm
+					{readonly}
+					locked={k8sSettings.setViaHelm}
+					bind:resourceInfo
+					bind:affinity={k8sSettings.affinity}
+					bind:tolerations={k8sSettings.tolerations}
+					bind:runtimeClassName={k8sSettings.runtimeClassName}
+					type="mcpserver"
+				>
+					{#snippet notes()}
 						<div class="notification-info p-3 text-sm font-light">
-							<div class="flex items-center gap-3">
+							<div class="flex items-center gap-2">
 								<Info class="size-6" />
-								<div>
-									These settings are currently managed by your Helm chart and are <b
-										class="font-semibold">read-only</b
-									> in the UI. To edit them, update your Helm values and redeploy.
-								</div>
+								<p class="text-md font-semibold">Configuration Notes</p>
+							</div>
+							<ul class="list-disc px-8 py-1 text-sm">
+								<li>
+									The below configuration maps directly to Kubernetes fields and functionality. <br
+									/>
+									Links have been provided to the relevant Kubernetes documentation inline below.
+								</li>
+								<li>Resource configurations apply to all pods in the deployment.</li>
+								<li>Changes will take effect on the next deployment or pod restart.</li>
+								<li>Invalid YAML/JSON will be rejected during validation.</li>
+							</ul>
+						</div>
+					{/snippet}
+					<div class="paper mt-1">
+						<div>
+							{@render headerContent('Nanobot Workspace Storage')}
+							<p class="text-sm">
+								Configure the storage class and volume size used for nanobot workspace volumes.
+								These values map to Kubernetes StorageClass configuration and persistent volume
+								sizes. See the Kubernetes <a
+									href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
+									class="text-link"
+									rel="external"
+									target="_blank">StorageClass documentation</a
+								> for more details.
+							</p>
+						</div>
+						<div class="flex flex-col gap-4">
+							<div class="flex flex-col gap-1">
+								<label class="input-label" for="storage-class-name">StorageClass Name</label>
+								<input
+									type="text"
+									id="storage-class-name"
+									bind:value={k8sSettings.storageClassName}
+									class="text-input-filled dark:bg-base-100"
+									disabled={readonly}
+									placeholder="example: fast-ssd"
+								/>
+								<p class="text-xs font-light text-muted-content">
+									Leave empty to use the cluster default StorageClass.
+								</p>
+							</div>
+							<div class="flex flex-col gap-1">
+								<label class="input-label" for="nanobot-workspace-size">Workspace Volume Size</label
+								>
+								<input
+									type="text"
+									id="nanobot-workspace-size"
+									bind:value={k8sSettings.nanobotWorkspaceSize}
+									class="text-input-filled dark:bg-base-100"
+									disabled={readonly}
+									placeholder="example: 10Gi"
+								/>
+								<p class="text-xs font-light text-muted-content">
+									Use units like Gi or Mi (example: 10Gi, 512Mi).
+								</p>
 							</div>
 						</div>
-					{/if}
-
-					<div class="notification-info p-3 text-sm font-light">
-						<div class="flex items-center gap-2">
-							<Info class="size-6" />
-							<p class="text-md font-semibold">Configuration Notes</p>
-						</div>
-						<ul class="list-disc px-8 py-1 text-sm">
-							<li>
-								The below configuration maps directly to Kubernetes fields and functionality. <br />
-								Links have been provided to the relevant Kubernetes documentation inline below.
-							</li>
-							<li>Resource configurations apply to all pods in the deployment.</li>
-							<li>Changes will take effect on the next deployment or pod restart.</li>
-							<li>Invalid YAML/JSON will be rejected during validation.</li>
-						</ul>
 					</div>
-				</div>
-
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Affinity')}
-						<p class="text-sm">
-							Define the affinity field for the pods in every MCP deployment. This value will be
-							used to set the <code>spec.template.spec.affinity</code> field on Kubernetes
-							deployments and must be a valid
-							<a
-								class="text-link"
-								href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#affinity-v1-core"
-								rel="external"
-								target="_blank">Affinity object</a
-							>. See the Kubernetes
-							<a
-								href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity"
-								target="_blank"
-								rel="external"
-								class="text-link">affinity documentation</a
-							> for more details.
-						</p>
-					</div>
-					<div class="flex flex-col gap-1">
-						<div class="text-sm font-light">Affinity Configuration</div>
-						<YamlEditor
-							bind:value={k8sSettings.affinity}
-							disabled={readonly}
-							placeholder=""
-							rows={6}
-							autoHeight
-						/>
-					</div>
-				</div>
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Tolerations')}
-						<p class="text-sm">
-							Define the tolerations field for the pods in every MCP deployment. This value will be
-							used to set the <code>spec.template.spec.tolerations</code> field on Kubernetes
-							deployments and must be a valid list of
-							<a
-								href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#toleration-v1-core"
-								class="text-link"
-								rel="external"
-								target="_blank">Toleration objects</a
-							>. See the Kubernetes
-							<a
-								href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/"
-								target="_blank"
-								rel="external"
-								class="text-link">taints and tolerations documentation</a
-							> for more details.
-						</p>
-					</div>
-					<div class="flex flex-col gap-1">
-						<div class="text-sm font-light">Tolerations Configuration</div>
-						<YamlEditor
-							bind:value={k8sSettings.tolerations}
-							disabled={readonly}
-							placeholder=""
-							rows={6}
-							autoHeight
-						/>
-					</div>
-				</div>
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Resource Limits & Requests')}
-						<p class="text-sm">
-							Define the CPU and memory requests and limits for pods in every hosted single or
-							multi-tenant deployment. See the Kubernetes <a
-								href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
-								class="text-link"
-								rel="external"
-								target="_blank">resource management documentation</a
-							> for more information.
-						</p>
-					</div>
-
-					<h3 class="text-lg font-semibold">CPU Settings</h3>
-					<div class="flex gap-4">
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="cpu-request">Request</label>
-							<input
-								type="text"
-								id="cpu-request"
-								bind:value={resourceInfo.requests.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 500m"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="cpu-limit">Limit</label>
-							<input
-								type="text"
-								id="cpu-limit"
-								bind:value={resourceInfo.limits.cpu}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 1"
-							/>
-						</div>
-					</div>
-					<h3 class="text-lg font-semibold">Memory Settings</h3>
-					<div class="flex gap-4">
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="memory-request">Request</label>
-							<input
-								type="text"
-								id="memory-request"
-								bind:value={resourceInfo.requests.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 512Mi"
-							/>
-						</div>
-						<div class="flex flex-1 flex-col gap-1">
-							<label class="input-label" for="memory-limit">Limit</label>
-							<input
-								type="text"
-								id="memory-limit"
-								bind:value={resourceInfo.limits.memory}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 1Gi"
-							/>
-						</div>
-					</div>
-				</div>
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Runtime Class')}
-						<p class="text-sm">
-							Specify a <a
-								href="https://kubernetes.io/docs/concepts/containers/runtime-class/"
-								class="text-link"
-								rel="external"
-								target="_blank">RuntimeClass</a
-							>
-							for MCP server pods. RuntimeClass allows you to select a specific container runtime configuration
-							for enhanced security isolation. Container runtimes like
-							<a href="https://gvisor.dev/" class="text-link" rel="external" target="_blank"
-								>gVisor</a
-							>
-							or
-							<a href="https://katacontainers.io/" class="text-link" rel="external" target="_blank"
-								>Kata Containers</a
-							> provide stronger isolation by adding an additional security boundary between the container
-							and the host kernel.
-						</p>
-					</div>
-					<div class="flex flex-col gap-1">
-						<label class="input-label" for="runtime-class-name">RuntimeClass Name</label>
-						<input
-							type="text"
-							id="runtime-class-name"
-							bind:value={k8sSettings.runtimeClassName}
-							class="text-input-filled dark:bg-base-100"
-							disabled={readonly}
-							placeholder="example: gvisor"
-						/>
-						<p class="text-xs font-light text-muted-content">
-							Leave empty to use the cluster's default container runtime.
-						</p>
-					</div>
-				</div>
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Nanobot Workspace Storage')}
-						<p class="text-sm">
-							Configure the storage class and volume size used for nanobot workspace volumes. These
-							values map to Kubernetes StorageClass configuration and persistent volume sizes. See
-							the Kubernetes <a
-								href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
-								class="text-link"
-								rel="external"
-								target="_blank">StorageClass documentation</a
-							> for more details.
-						</p>
-					</div>
-					<div class="flex flex-col gap-4">
-						<div class="flex flex-col gap-1">
-							<label class="input-label" for="storage-class-name">StorageClass Name</label>
-							<input
-								type="text"
-								id="storage-class-name"
-								bind:value={k8sSettings.storageClassName}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: fast-ssd"
-							/>
-							<p class="text-xs font-light text-muted-content">
-								Leave empty to use the cluster default StorageClass.
-							</p>
-						</div>
-						<div class="flex flex-col gap-1">
-							<label class="input-label" for="nanobot-workspace-size">Workspace Volume Size</label>
-							<input
-								type="text"
-								id="nanobot-workspace-size"
-								bind:value={k8sSettings.nanobotWorkspaceSize}
-								class="text-input-filled dark:bg-base-100"
-								disabled={readonly}
-								placeholder="example: 10Gi"
-							/>
-							<p class="text-xs font-light text-muted-content">
-								Use units like Gi or Mi (example: 10Gi, 512Mi).
-							</p>
-						</div>
-					</div>
-				</div>
+				</SchedulingForm>
 
 				{#if !readonly}
 					<div
@@ -419,7 +185,7 @@
 							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
 							onclick={() => {
 								k8sSettings = prevK8sSettings;
-								resourceInfo = convertResourcesForInput(prevK8sSettings?.resources);
+								resourceInfo = parseSchedulingResources(prevK8sSettings?.resources);
 							}}
 						>
 							Reset
@@ -439,8 +205,8 @@
 				{:else}
 					<div class="h-4"></div>
 				{/if}
-			{/if}
-		</div>
+			</div>
+		{/if}
 	</div>
 </Layout>
 
@@ -456,5 +222,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | Chat Configuration</title>
+	<title>Obot | Server Scheduling</title>
 </svelte:head>

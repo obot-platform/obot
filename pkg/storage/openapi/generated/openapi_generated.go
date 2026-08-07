@@ -30,6 +30,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AgentCatalogManifest":                      schema_obot_platform_obot_apiclient_types_AgentCatalogManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServer":                           schema_obot_platform_obot_apiclient_types_AllowlistServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.AllowlistServerPackage":                    schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref),
+		"github.com/obot-platform/obot/apiclient/types.AppK8sSettings":                            schema_obot_platform_obot_apiclient_types_AppK8sSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppNotification":                           schema_obot_platform_obot_apiclient_types_AppNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.AppPreferences":                            schema_obot_platform_obot_apiclient_types_AppPreferences(ref),
 		"github.com/obot-platform/obot/apiclient/types.AuditLogAction":                            schema_obot_platform_obot_apiclient_types_AuditLogAction(ref),
@@ -1123,6 +1124,47 @@ func schema_obot_platform_obot_apiclient_types_AllowlistServerPackage(ref common
 					},
 				},
 				Required: []string{"source", "name"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_AppK8sSettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "AppK8sSettings surfaces Obot server pod scheduling configuration. Values are read-only and sourced from the Obot Deployment pod template at request time.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"affinity": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Affinity rules (YAML)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"tolerations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Tolerations (YAML)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resources configuration (YAML)",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"runtimeClassName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RuntimeClassName specifies the RuntimeClass for Obot server pods",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 	}

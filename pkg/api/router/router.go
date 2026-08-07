@@ -144,6 +144,13 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	licenseHandler := handlers.NewLicenseHandler(services.LicenseProvider, upgrade.NewCommunityLicenseIssuer(services.GatewayClient, upgrade.ServerBaseURL(), http.DefaultClient))
 	tunnelHandler := handlers.NewTunnelHandler(services.TunnelManager)
 	mcpTunnelHandler := handlers.NewMCPTunnelHandler(services.TunnelManager)
+	k8sSettingsHandler := handlers.NewK8sSettingsHandler(
+		services.MCPSessionManager,
+		services.MCPRuntimeBackend,
+		services.ServiceName,
+		services.ServiceNamespace,
+		services.LocalK8sClient,
+	)
 
 	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
 	if err != nil {
@@ -548,10 +555,10 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/user-default-role-settings", userDefaultRoleSettings.Set)
 
 	// K8s Settings
-	k8sSettingsHandler := handlers.NewK8sSettingsHandler(services.MCPSessionManager)
 	mux.HandleFunc("GET /api/default-k8s-settings", k8sSettingsHandler.Defaults)
 	mux.HandleFunc("GET /api/k8s-settings", k8sSettingsHandler.Get)
 	mux.HandleFunc("PUT /api/k8s-settings", k8sSettingsHandler.Update)
+	mux.HandleFunc("GET /api/app-k8s-settings", k8sSettingsHandler.GetApp)
 
 	// Image Pull Secrets
 	mux.HandleFunc("GET /api/image-pull-secrets/capability", imagePullSecretsHandler.Capability)
