@@ -42,7 +42,18 @@ type Defaults struct {
 	AllowLocalRepos        bool
 }
 
-func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
+// seedHostedAgents names the one-time record for the hosted agent seed. It is
+// this seed's own name, so a later seed takes a new one rather than changing
+// what this record means.
+const seedHostedAgents = "seed_hosted_agents"
+
+// OnceRunner runs a named piece of work a single time per installation. It is
+// an interface so that seeding can be tested without a database.
+type OnceRunner interface {
+	RunOnce(ctx context.Context, name string, f func(context.Context) error) error
+}
+
+func Data(ctx context.Context, c kclient.Client, runner OnceRunner, defaults Defaults) error {
 	var defaultModelAliases v1.DefaultModelAliasList
 	if err := yaml.Unmarshal(defaultModelAliasesData, &defaultModelAliases); err != nil {
 		return fmt.Errorf("failed to unmarshal default model aliases: %w", err)
@@ -120,21 +131,32 @@ func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
 			return err
 		}
 
-		var everythingHostedAgentAccessRule v1.HostedAgentAccessRule
-		if err := yaml.Unmarshal(everythingHostedAgentAccessRuleData, &everythingHostedAgentAccessRule); err != nil {
-			return fmt.Errorf("failed to unmarshal everything hosted agent access rule: %w", err)
-		}
-
-		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingHostedAgentAccessRule)); err != nil {
-			return err
-		}
-
 		if err := createDefaultSkillRepository(ctx, c, defaults.SkillRepoURL, defaults.SkillRepoRef); err != nil {
 			return err
 		}
+	}
 
-		if err := createDefaultAgentCatalog(ctx, c, defaults.HostedAgentsCatalogURL, defaults.HostedAgentsCatalogRef, defaults.AllowLocalRepos); err != nil {
-			return err
+	// Hosted agents are seeded on their own record rather than alongside the
+	// rules above. Those are gated on there being no MCP catalogs, which stands
+	// in for "this server has never started" -- true of a new installation, and
+	// false of every installation that upgrades into this feature. Seeded that
+	// way, hosted agents would arrive only on installations created after the
+	// release: an upgrade would show the feature with no harnesses, no
+	// templates, and nobody permitted to use them.
+	if runner != nil {
+		if err := runner.RunOnce(ctx, seedHostedAgents, func(ctx context.Context) error {
+			var everythingHostedAgentAccessRule v1.HostedAgentAccessRule
+			if err := yaml.Unmarshal(everythingHostedAgentAccessRuleData, &everythingHostedAgentAccessRule); err != nil {
+				return fmt.Errorf("failed to unmarshal everything hosted agent access rule: %w", err)
+			}
+
+			if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &everythingHostedAgentAccessRule)); err != nil {
+				return err
+			}
+
+			return createDefaultAgentCatalog(ctx, c, defaults.HostedAgentsCatalogURL, defaults.HostedAgentsCatalogRef, defaults.AllowLocalRepos)
+		}); err != nil {
+			return fmt.Errorf("failed to seed hosted agents: %w", err)
 		}
 	}
 
