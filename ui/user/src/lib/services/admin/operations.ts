@@ -1905,8 +1905,19 @@ export async function deleteHostedAgent(
 
 // Hosted agent pools
 
-export async function listHostedAgentPools(opts?: { fetch?: Fetcher }): Promise<HostedAgentPool[]> {
-	const response = (await doGet('/hosted-agent-pools', opts)) as ItemsResponse<HostedAgentPool>;
+// listHostedAgentPools returns every pool, which is what the admin screens
+// manage. Pass assigned: true to ask the narrower question of where the caller
+// may launch an agent — an admin manages pools they are not a member of, and
+// launching into one of those spends somebody else's capacity.
+export async function listHostedAgentPools(opts?: {
+	fetch?: Fetcher;
+	assigned?: boolean;
+}): Promise<HostedAgentPool[]> {
+	const queryString = opts?.assigned ? buildQueryString({ assigned: 'true' }) : '';
+	const response = (await doGet(
+		`/hosted-agent-pools${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as ItemsResponse<HostedAgentPool>;
 	return response.items ?? [];
 }
 

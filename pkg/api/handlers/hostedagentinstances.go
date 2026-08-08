@@ -142,8 +142,12 @@ func (h *HostedAgentInstanceHandler) Create(req api.Context) error {
 			agent.Spec.Manifest.Name, strings.Join(reasons, "; "))
 	}
 
+	// Assignment rather than access: an admin may manage every pool, but the
+	// sandbox they are creating here is their own and draws from the budget of a
+	// pool they were assigned to. Leaving an empty pool ID is the normal case;
+	// the controller then resolves the caller's default pool or creates it.
 	if body.PoolID != "" {
-		if err := requirePoolAccess(req, body.PoolID); err != nil {
+		if err := requirePoolAssignment(req, body.PoolID); err != nil {
 			return err
 		}
 	}

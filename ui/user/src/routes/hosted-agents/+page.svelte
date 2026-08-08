@@ -211,7 +211,7 @@
 	async function refresh() {
 		try {
 			instances = await AdminService.listHostedAgentInstances();
-			pools = await AdminService.listHostedAgentPools();
+			pools = await AdminService.listHostedAgentPools({ assigned: true });
 			await Promise.all(
 				pools.map(async (pool) => {
 					try {

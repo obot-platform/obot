@@ -29,8 +29,14 @@ func (*HostedAgentPoolHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list hosted agent pools: %w", err)
 	}
 
+	// An admin manages every pool, so the unfiltered list is what the admin
+	// screens need. A client asking where the caller may launch is asking a
+	// different question — ?assigned=true answers that one, for admins too,
+	// because administration is not membership.
+	onlyAssigned := req.URL.Query().Get("assigned") == "true"
+
 	allowed := map[string]bool(nil)
-	if !req.UserIsAdmin() {
+	if onlyAssigned || !req.UserIsAdmin() {
 		var err error
 		allowed, err = userPoolIDs(req)
 		if err != nil {
@@ -40,7 +46,7 @@ func (*HostedAgentPoolHandler) List(req api.Context) error {
 
 	items := make([]types.HostedAgentPool, 0, len(list.Items))
 	for _, item := range list.Items {
-		if !req.UserIsAdmin() && !allowed[item.Name] {
+		if allowed != nil && !allowed[item.Name] {
 			continue
 		}
 		items = append(items, convertHostedAgentPool(item))
@@ -412,6 +418,31 @@ func requirePoolAccess(req api.Context, poolID string) error {
 	}
 	if !allowed[poolID] {
 		return types.NewErrNotFound("hosted agent pool %s not found", poolID)
+	}
+	return nil
+}
+
+// requirePoolAssignment reports whether the caller may place their own sandbox
+// in a pool, which is a narrower question than whether they may look at it.
+//
+// Administration is not membership: an admin manages every pool, but their own
+// sandbox still draws from the budget of a pool somebody assigned them to.
+// Without this distinction an admin launching an agent lands in whichever pool
+// their client happened to name — in practice another user's personal pool,
+// silently spending capacity that was never theirs.
+func requirePoolAssignment(req api.Context, poolID string) error {
+	if err := requirePoolAccess(req, poolID); err != nil {
+		return err
+	}
+	allowed, err := userPoolIDs(req)
+	if err != nil {
+		return err
+	}
+	if !allowed[poolID] {
+		// Only an admin reaches this: requirePoolAccess already answered
+		// not-found for everybody else, and an admin can see the pool anyway,
+		// so naming it plainly leaks nothing.
+		return types.NewErrBadRequest("you are not assigned to hosted agent pool %s", poolID)
 	}
 	return nil
 }
