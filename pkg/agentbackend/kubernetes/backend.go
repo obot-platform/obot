@@ -99,6 +99,29 @@ type Options struct {
 	// RESTConfig enables live usage reporting through metrics.k8s.io. Without
 	// it, utilization reports committed requests instead of measured usage.
 	RESTConfig *rest.Config
+	// Scheduling supplies the placement every sandbox pod is created with. It is
+	// read per apply rather than captured once, because the settings it comes
+	// from are editable while the server runs. Nil, or a nil return, means the
+	// scheduler places sandboxes with no constraints of Obot's own.
+	Scheduling func(context.Context) Scheduling
+}
+
+// Scheduling is the pod placement shared with MCP server pods. Sandboxes and
+// MCP servers already share a namespace; sharing placement is what keeps a
+// dedicated node pool -- selected by affinity and reached through a taint --
+// holding both rather than only one of them.
+type Scheduling struct {
+	Affinity         *corev1.Affinity
+	Tolerations      []corev1.Toleration
+	RuntimeClassName *string
+}
+
+// scheduling reads the current placement, tolerating an unconfigured provider.
+func (b *Backend) scheduling(ctx context.Context) Scheduling {
+	if b.opts.Scheduling == nil {
+		return Scheduling{}
+	}
+	return b.opts.Scheduling(ctx)
 }
 
 type Backend struct {

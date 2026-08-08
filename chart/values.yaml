@@ -360,9 +360,11 @@ mcpNamespace:
     # mcpNamespace.podSecurity.warnVersion -- Kubernetes version for the warn policy. Default is latest.
     warnVersion: latest
 
-# mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
+# mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods.
+# The scheduling settings below (affinity, tolerations, runtimeClassName) also apply to
+# hosted agent sandbox pods, which share the MCP namespace and should share its node pool.
 mcpServerDefaults:
-  # mcpServerDefaults.affinity -- Affinity rules for MCP server pods (YAML format)
+  # mcpServerDefaults.affinity -- Affinity rules for MCP server pods and hosted agent sandboxes (YAML format)
   # When set via Helm, these settings cannot be updated through the API
   affinity: {}
   # Example:
@@ -385,7 +387,7 @@ mcpServerDefaults:
   #             operator: Exists
   #         topologyKey: kubernetes.io/hostname
 
-  # mcpServerDefaults.tolerations -- Tolerations for MCP server pods (YAML list format)
+  # mcpServerDefaults.tolerations -- Tolerations for MCP server pods and hosted agent sandboxes (YAML list format)
   # When set via Helm, these settings cannot be updated through the API
   tolerations: []
   # Example:
@@ -410,8 +412,8 @@ mcpServerDefaults:
   #     memory: "1Gi"
   #     cpu: "500m"
 
-  # mcpServerDefaults.runtimeClassName -- RuntimeClass name for MCP server pods
-  # This allows running MCP servers with specific container runtimes (e.g., gVisor, Kata)
+  # mcpServerDefaults.runtimeClassName -- RuntimeClass name for MCP server pods and hosted agent sandboxes
+  # This allows running MCP servers and agents with specific container runtimes (e.g., gVisor, Kata)
   runtimeClassName: ""
 
   # mcpServerDefaults.storageClassName -- StorageClass name for nanobot workspace volumes

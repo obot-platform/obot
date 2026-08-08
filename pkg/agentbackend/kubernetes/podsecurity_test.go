@@ -39,7 +39,7 @@ func TestParsePodSecurityLevelDefaultsToRestricted(t *testing.T) {
 // install requires of every field.
 func TestSandboxSatisfiesRestrictedPodSecurity(t *testing.T) {
 	backend := backendWithPodSecurity(t, "")
-	objects, err := backend.instanceObjects(desiredInstance())
+	objects, err := backend.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestCleanupJobSatisfiesRestrictedPodSecurity(t *testing.T) {
 // level was chosen for.
 func TestLoweredPodSecurityLevelsRelaxTheSandbox(t *testing.T) {
 	baseline := backendWithPodSecurity(t, "baseline")
-	objects, err := baseline.instanceObjects(desiredInstance())
+	objects, err := baseline.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestLoweredPodSecurityLevelsRelaxTheSandbox(t *testing.T) {
 	}
 
 	privileged := backendWithPodSecurity(t, "privileged")
-	objects, err = privileged.instanceObjects(desiredInstance())
+	objects, err = privileged.instanceObjects(t.Context(), desiredInstance())
 	if err != nil {
 		t.Fatalf("instanceObjects: %v", err)
 	}

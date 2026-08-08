@@ -50,7 +50,7 @@ func TestNewAgentBackend(t *testing.T) {
 				DevMode:             tt.devMode,
 			}
 			config.MCPRuntimeBackend = tt.mcpBackend
-			kind, backend, err := newHostedAgentsBackend(config, nil, nil, nil)
+			kind, backend, err := newHostedAgentsBackend(config, nil, nil, nil, nil)
 			if tt.wantErr {
 				if err == nil {
 					t.Fatal("expected an error")
