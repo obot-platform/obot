@@ -3,10 +3,10 @@ module github.com/obot-platform/obot
 go 1.26.5
 
 replace (
-	// Carries the Entra offline_access fix (VD-4128) on top of the pinned nanobot
-	// commit. Drop this line and bump the require above once the equivalent change
-	// merges into obot-platform/nanobot.
-	github.com/obot-platform/nanobot => github.com/accelerate-data/nanobot v0.0.0-20260807054302-5b10a7aa53e6
+	// Carries the Entra offline_access fix and forced-expiry refresh proof (VD-4128)
+	// on top of the pinned nanobot commit. Keep this owned fork pinned until an
+	// equivalent upstream release is available and verified.
+	github.com/obot-platform/nanobot => github.com/accelerate-data/nanobot v0.0.0-20260809055832-58d4794821ff
 
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
