@@ -84,6 +84,8 @@ github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2 h1:+vx7roKuyA63n
 github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2/go.mod h1:HBCaDeC1lPdgDeDbhX8XFpy1jqjK0IBG8W5K+xYqA0w=
 github.com/ProtonMail/go-crypto v1.1.6 h1:ZcV+Ropw6Qn0AX9brlQLAUXfqLBc7Bl+f/DmNxpLfdw=
 github.com/ProtonMail/go-crypto v1.1.6/go.mod h1:rA3QumHc/FZ8pAHreoekgiAbzpNsfQAosU5td4SnOrE=
+github.com/accelerate-data/nanobot v0.0.0-20260807054302-5b10a7aa53e6 h1:b3V7nICqGo+v6WtlR5ZKNtzF5ItvA8HRz1a9KWJqVFA=
+github.com/accelerate-data/nanobot v0.0.0-20260807054302-5b10a7aa53e6/go.mod h1:Hep7kaYneKyNRCJ7hxpOtnpPCyHQjM8ws3G4aIKFwj0=
 github.com/adhocore/gronx v1.19.5 h1:cwIG4nT1v9DvadxtHBe6MzE+FZ1JDvAUC45U2fl4eSQ=
 github.com/adhocore/gronx v1.19.5/go.mod h1:7oUY1WAU8rEJWmAxXR2DN0JaO4gi9khSgKjiRypqteg=
 github.com/adrg/xdg v0.5.3 h1:xRnxJXne7+oWDatRhR1JLnvuccuIeCoBu2rtuLqQB78=
@@ -513,8 +515,6 @@ github.com/obot-platform/mcp-oauth-proxy v0.0.3 h1:oDaNI7vV7UJcX0yNFXcIYZhzv7Onz
 github.com/obot-platform/mcp-oauth-proxy v0.0.3/go.mod h1:m6Vehmceyh44h/tp9hLjQqUkFwI6ZHfy/c4E1y8HJac=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f h1:yoMKu8I8gFlsBOSPs+guQdsSWscaipIjDIBIIl2a7ho=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f/go.mod h1:m3e3C4G/Y/ZYRc6CdMj9n8JfVRCzIc7N8FUvjemsVtY=
-github.com/obot-platform/nanobot v0.0.92-0.20260727163144-fd3660343e64 h1:4SeVLTnBmN5WE2rUCcX30TarmGh2fseUd2ni3FPkIcw=
-github.com/obot-platform/nanobot v0.0.92-0.20260727163144-fd3660343e64/go.mod h1:Hep7kaYneKyNRCJ7hxpOtnpPCyHQjM8ws3G4aIKFwj0=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.12.0/go.mod h1:oUhWkIvk5aDxtKvDDuw8gItl8pKl42LzjC9KZE0HfGg=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=

@@ -3,6 +3,11 @@ module github.com/obot-platform/obot
 go 1.26.5
 
 replace (
+	// Carries the Entra offline_access fix (VD-4128) on top of the pinned nanobot
+	// commit. Drop this line and bump the require above once the equivalent change
+	// merges into obot-platform/nanobot.
+	github.com/obot-platform/nanobot => github.com/accelerate-data/nanobot v0.0.0-20260807054302-5b10a7aa53e6
+
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
 	github.com/rancher/remotedialer => github.com/thedadams/remotedialer v0.0.0-20260723172339-49a97825a059
