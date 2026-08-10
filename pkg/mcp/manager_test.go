@@ -38,6 +38,43 @@ func TestEffectiveKubernetesResourceMaximums(t *testing.T) {
 		require.Zero(t, got.CPURequest.Cmp(maximum))
 	})
 
+	t.Run("runtime ignores startup maximum", func(t *testing.T) {
+		startupMaximum := resource.MustParse("100m")
+		manager := &SessionManager{
+			runtimeBackend:   RuntimeBackendKubernetes,
+			resourceMaximums: ResourceMaximums{CPURequest: &startupMaximum},
+		}
+		got, err := manager.EffectiveKubernetesResourceMaximums(t.Context(), storageClient)
+		require.NoError(t, err)
+		require.NotNil(t, got.CPURequest)
+		require.Zero(t, got.CPURequest.Cmp(maximum))
+	})
+
+	t.Run("startup uses strictest persisted and configured maximum", func(t *testing.T) {
+		startupMaximum := resource.MustParse("100m")
+		manager := &SessionManager{
+			runtimeBackend:   RuntimeBackendKubernetes,
+			resourceMaximums: ResourceMaximums{CPURequest: &startupMaximum},
+		}
+		got, err := manager.StartupKubernetesResourceMaximums(t.Context(), storageClient)
+		require.NoError(t, err)
+		require.NotNil(t, got.CPURequest)
+		require.Zero(t, got.CPURequest.Cmp(startupMaximum))
+	})
+
+	t.Run("startup uses configured maximum before settings exist", func(t *testing.T) {
+		startupMaximum := resource.MustParse("100m")
+		manager := &SessionManager{
+			runtimeBackend:   RuntimeBackendKubernetes,
+			resourceMaximums: ResourceMaximums{CPURequest: &startupMaximum},
+		}
+		emptyStorageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+		got, err := manager.StartupKubernetesResourceMaximums(t.Context(), emptyStorageClient)
+		require.NoError(t, err)
+		require.NotNil(t, got.CPURequest)
+		require.Zero(t, got.CPURequest.Cmp(startupMaximum))
+	})
+
 	t.Run("non-Kubernetes backend ignores persisted maximum", func(t *testing.T) {
 		manager := &SessionManager{runtimeBackend: runtimeBackendDocker}
 		got, err := manager.EffectiveKubernetesResourceMaximums(t.Context(), nil)

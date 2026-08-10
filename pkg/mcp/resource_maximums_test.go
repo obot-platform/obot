@@ -8,12 +8,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func TestResourceMaximumsFromK8sSettingsUsesStrictestMaximum(t *testing.T) {
+func TestEffectiveResourceMaximumsUsesStrictestMaximum(t *testing.T) {
 	t.Parallel()
 
 	startupCPU := resource.MustParse("2")
 	uiCPU := resource.MustParse("1")
-	got := ResourceMaximumsFromK8sSettings(v1.K8sSettingsSpec{
+	got := EffectiveResourceMaximums(v1.K8sSettingsSpec{
 		MaxCPURequest: &uiCPU,
 	}, ResourceMaximums{
 		CPURequest: &startupCPU,
@@ -25,7 +25,7 @@ func TestResourceMaximumsFromK8sSettingsUsesStrictestMaximum(t *testing.T) {
 
 	startupCPU = resource.MustParse("500m")
 	uiCPU = resource.MustParse("1")
-	got = ResourceMaximumsFromK8sSettings(v1.K8sSettingsSpec{
+	got = EffectiveResourceMaximums(v1.K8sSettingsSpec{
 		MaxCPURequest: &uiCPU,
 	}, ResourceMaximums{
 		CPURequest: &startupCPU,

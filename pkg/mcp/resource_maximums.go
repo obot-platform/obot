@@ -22,7 +22,7 @@ type ResourceMaximumExceededError struct {
 	Maximum resource.Quantity
 }
 
-func ResourceMaximumsFromK8sSettings(settings v1.K8sSettingsSpec, fallback ResourceMaximums) ResourceMaximums {
+func EffectiveResourceMaximums(settings v1.K8sSettingsSpec, fallback ResourceMaximums) ResourceMaximums {
 	fallback.CPURequest = stricterResourceMaximum(fallback.CPURequest, settings.MaxCPURequest)
 	fallback.CPULimit = stricterResourceMaximum(fallback.CPULimit, settings.MaxCPULimit)
 	fallback.MemoryRequest = stricterResourceMaximum(fallback.MemoryRequest, settings.MaxMemoryRequest)

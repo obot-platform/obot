@@ -84,7 +84,7 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to ensure hosted agent pool defaults: %w", err)
 	}
 
-	resourceMaximums, err := c.services.MCPSessionManager.EffectiveKubernetesResourceMaximums(ctx, c.services.StorageClient)
+	resourceMaximums, err := c.services.MCPSessionManager.StartupKubernetesResourceMaximums(ctx, c.services.StorageClient)
 	if err != nil {
 		return fmt.Errorf("failed to get effective K8s resource maximums: %w", err)
 	}

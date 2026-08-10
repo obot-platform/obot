@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -19,7 +18,6 @@ import (
 
 type sessionManager interface {
 	MCPRuntimeBackend() string
-	EffectiveKubernetesResourceMaximums(context.Context, kclient.Client) (mcp.ResourceMaximums, error)
 }
 
 type Handler struct {
@@ -145,16 +143,11 @@ func (h *Handler) UpdateMCPServerStatus(req router.Request, _ router.Response) e
 			return fmt.Errorf("failed to compute core resource requirements: %w", err)
 		}
 
-		resourceMaximums, err := h.mcpSessionManager.EffectiveKubernetesResourceMaximums(req.Ctx, h.storageClient)
-		if err != nil {
-			return fmt.Errorf("failed to get effective Kubernetes resource maximums: %w", err)
-		}
 		currentHash := mcp.ComputeK8sSettingsHash(
 			k8sSettings.Spec,
 			resources,
 			mcpServer.Spec.Manifest.Runtime,
 			mcpServer.Spec.NanobotAgentID != "",
-			resourceMaximums,
 			imagePullSecretNames,
 		)
 

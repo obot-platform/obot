@@ -136,8 +136,7 @@ func (h *K8sSettingsHandler) Defaults(req api.Context) error {
 
 	// Match the resources the Kubernetes backend will actually use when no
 	// explicit defaults are configured. Resource maximums cap implicit fallbacks.
-	maximums := h.mcpSessionManager.EffectiveKubernetesResourceMaximumsForSettings(settings.Spec)
-	return req.Write(convertResourceRequirements(mcp.EffectiveDefaultMCPResourceRequirementsWithMaximums(settings.Spec, maximums)))
+	return req.Write(convertResourceRequirements(mcp.EffectiveDefaultMCPResourceRequirements(settings.Spec)))
 }
 
 func (h *K8sSettingsHandler) Update(req api.Context) error {

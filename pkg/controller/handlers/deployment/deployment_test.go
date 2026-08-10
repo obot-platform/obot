@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"context"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -14,47 +13,32 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type liveSessionManager struct {
-	calls    int
-	maximums mcp.ResourceMaximums
-}
+type liveSessionManager struct{}
 
 func (*liveSessionManager) MCPRuntimeBackend() string {
 	return mcp.RuntimeBackendKubernetes
 }
 
-func (m *liveSessionManager) EffectiveKubernetesResourceMaximums(
-	context.Context,
-	kclient.Client,
-) (mcp.ResourceMaximums, error) {
-	m.calls++
-	return m.maximums, nil
-}
-
 func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 	oldMaximum := resource.MustParse("5m")
 	newMaximum := resource.MustParse("10m")
-	settingsSpec := v1.K8sSettingsSpec{}
-	oldMaximums := mcp.ResourceMaximums{CPURequest: &oldMaximum}
-	newMaximums := mcp.ResourceMaximums{CPURequest: &newMaximum}
+	oldSettingsSpec := v1.K8sSettingsSpec{MaxCPURequest: &oldMaximum}
+	newSettingsSpec := v1.K8sSettingsSpec{MaxCPURequest: &newMaximum}
 	oldHash := mcp.ComputeK8sSettingsHash(
-		settingsSpec,
+		oldSettingsSpec,
 		nil,
 		types.RuntimeNPX,
 		false,
-		oldMaximums,
 		nil,
 	)
 	newHash := mcp.ComputeK8sSettingsHash(
-		settingsSpec,
+		newSettingsSpec,
 		nil,
 		types.RuntimeNPX,
 		false,
-		newMaximums,
 		nil,
 	)
 	require.NotEqual(t, oldHash, newHash)
@@ -77,14 +61,14 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 			Name:      system.K8sSettingsName,
 			Namespace: system.DefaultNamespace,
 		},
-		Spec: settingsSpec,
+		Spec: newSettingsSpec,
 	}
 	storageClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.MCPServer{}).
 		WithObjects(server, settings).
 		Build()
-	manager := &liveSessionManager{maximums: newMaximums}
+	manager := &liveSessionManager{}
 	handler := &Handler{
 		mcpDeploymentNamespace: "obot-mcp",
 		mcpNamespace:           system.DefaultNamespace,
@@ -106,7 +90,6 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 		Object: deployment,
 	}, &router.ResponseWrapper{})
 	require.NoError(t, err)
-	require.Equal(t, 1, manager.calls)
 
 	var updated v1.MCPServer
 	require.NoError(t, storageClient.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))

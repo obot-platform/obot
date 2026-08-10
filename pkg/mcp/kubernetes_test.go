@@ -44,32 +44,99 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		},
 	}
 
-	baseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeNPX, false, ResourceMaximums{}, nil)
-	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, false, ResourceMaximums{}, nil); got == baseHash {
+	baseHash := ComputeK8sSettingsHash(
+		baseSettings,
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	)
+	if got := ComputeK8sSettingsHash(
+		resourceSettings,
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	); got == baseHash {
 		t.Fatalf("regular server hash = %s, want it to differ when default resources are set", got)
 	}
 
-	remoteBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeRemote, false, ResourceMaximums{}, nil)
-	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeRemote, false, ResourceMaximums{}, nil); got != remoteBaseHash {
+	remoteBaseHash := ComputeK8sSettingsHash(
+		baseSettings,
+		nil,
+		types.RuntimeRemote,
+		false,
+		nil,
+	)
+	if got := ComputeK8sSettingsHash(
+		resourceSettings,
+		nil,
+		types.RuntimeRemote,
+		false,
+		nil,
+	); got != remoteBaseHash {
 		t.Fatalf("remote server hash = %s, want %s", got, remoteBaseHash)
 	}
 
-	compositeBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeComposite, false, ResourceMaximums{}, nil)
-	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeComposite, false, ResourceMaximums{}, nil); got != compositeBaseHash {
+	compositeBaseHash := ComputeK8sSettingsHash(
+		baseSettings,
+		nil,
+		types.RuntimeComposite,
+		false,
+		nil,
+	)
+	if got := ComputeK8sSettingsHash(
+		resourceSettings,
+		nil,
+		types.RuntimeComposite,
+		false,
+		nil,
+	); got != compositeBaseHash {
 		t.Fatalf("composite server hash = %s, want %s", got, compositeBaseHash)
 	}
 	if compositeBaseHash != remoteBaseHash {
 		t.Fatalf("composite base hash = %s, want remote base hash %s", compositeBaseHash, remoteBaseHash)
 	}
 
-	nanobotBaseHash := ComputeK8sSettingsHash(baseSettings, nil, types.RuntimeNPX, true, ResourceMaximums{}, nil)
-	if got := ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, true, ResourceMaximums{}, nil); got != nanobotBaseHash {
+	nanobotBaseHash := ComputeK8sSettingsHash(
+		baseSettings,
+		nil,
+		types.RuntimeNPX,
+		true,
+		nil,
+	)
+	if got := ComputeK8sSettingsHash(
+		resourceSettings,
+		nil,
+		types.RuntimeNPX,
+		true,
+		nil,
+	); got != nanobotBaseHash {
 		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, nanobotBaseHash)
 	}
-	if got := ComputeK8sSettingsHash(nanobotSettings, nil, types.RuntimeNPX, false, ResourceMaximums{}, nil); got != ComputeK8sSettingsHash(resourceSettings, nil, types.RuntimeNPX, false, ResourceMaximums{}, nil) {
+	regularHash := ComputeK8sSettingsHash(
+		resourceSettings,
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	)
+	if got := ComputeK8sSettingsHash(
+		nanobotSettings,
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	); got != regularHash {
 		t.Fatalf("non-nanobot hash = %s, want nanobot-only settings ignored", got)
 	}
-	if got := ComputeK8sSettingsHash(nanobotSettings, nil, types.RuntimeNPX, true, ResourceMaximums{}, nil); got == nanobotBaseHash {
+	if got := ComputeK8sSettingsHash(
+		nanobotSettings,
+		nil,
+		types.RuntimeNPX,
+		true,
+		nil,
+	); got == nanobotBaseHash {
 		t.Fatalf("nanobot hash = %s, want it to differ when nanobot-only settings are set", got)
 	}
 
@@ -78,17 +145,35 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 			corev1.ResourceMemory: resource.MustParse("768Mi"),
 		},
 	}
-	if got := ComputeK8sSettingsHash(baseSettings, serverResources, types.RuntimeNPX, false, ResourceMaximums{}, nil); got == baseHash {
+	if got := ComputeK8sSettingsHash(
+		baseSettings,
+		serverResources,
+		types.RuntimeNPX,
+		false,
+		nil,
+	); got == baseHash {
 		t.Fatalf("server-specific resources hash = %s, want it to differ from default resource hash", got)
 	}
 }
 
-func TestComputeK8sSettingsHashUsesImplicitResourceMaximums(t *testing.T) {
-	baseHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, nil, types.RuntimeNPX, false, ResourceMaximums{}, nil)
-	cappedHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, nil, types.RuntimeNPX, false, ResourceMaximums{
-		CPURequest:    new(resource.MustParse("5m")),
-		MemoryRequest: new(resource.MustParse("128Mi")),
-	}, nil)
+func TestComputeK8sSettingsHashUsesSettingsResourceMaximums(t *testing.T) {
+	baseHash := ComputeK8sSettingsHash(
+		v1.K8sSettingsSpec{},
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	)
+	cappedHash := ComputeK8sSettingsHash(
+		v1.K8sSettingsSpec{
+			MaxCPURequest:    new(resource.MustParse("5m")),
+			MaxMemoryRequest: new(resource.MustParse("128Mi")),
+		},
+		nil,
+		types.RuntimeNPX,
+		false,
+		nil,
+	)
 	if cappedHash == baseHash {
 		t.Fatalf("capped hash = %s, want it to differ from uncapped implicit defaults", cappedHash)
 	}
@@ -300,7 +385,19 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			backend := newKubernetesBackend(0, true, nil, nil, nil, nil, Options{ServiceName: tt.serviceName, ServiceNamespace: tt.serviceNamespace, MCPClusterDomain: tt.clusterDomain}, ResourceMaximums{})
+			backend := newKubernetesBackend(
+				0,
+				true,
+				nil,
+				nil,
+				nil,
+				nil,
+				Options{
+					ServiceName:      tt.serviceName,
+					ServiceNamespace: tt.serviceNamespace,
+					MCPClusterDomain: tt.clusterDomain,
+				},
+			)
 			k := backend.(*kubernetesBackend)
 			if k.serviceFQDN != tt.expectedFQDN {
 				t.Errorf("newKubernetesBackend() serviceFQDN = %v, want %v", k.serviceFQDN, tt.expectedFQDN)
@@ -485,7 +582,6 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 		name              string
 		server            ServerConfig
 		settings          *v1.K8sSettings
-		resourceMaximums  ResourceMaximums
 		wantCPURequest    string
 		wantMemoryRequest string
 		wantMemoryLimit   string
@@ -502,9 +598,12 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 			server: ServerConfig{
 				Runtime: types.RuntimeContainerized,
 			},
-			resourceMaximums: ResourceMaximums{
-				CPURequest:    new(resource.MustParse("5m")),
-				MemoryRequest: new(resource.MustParse("128Mi")),
+			settings: &v1.K8sSettings{
+				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Spec: v1.K8sSettingsSpec{
+					MaxCPURequest:    new(resource.MustParse("5m")),
+					MaxMemoryRequest: new(resource.MustParse("128Mi")),
+				},
 			},
 			wantCPURequest:    "5m",
 			wantMemoryRequest: "128Mi",
@@ -523,9 +622,12 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				Runtime:          types.RuntimeContainerized,
 				NanobotAgentName: "agent-1",
 			},
-			resourceMaximums: ResourceMaximums{
-				CPURequest:    new(resource.MustParse("5m")),
-				MemoryRequest: new(resource.MustParse("256Mi")),
+			settings: &v1.K8sSettings{
+				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Spec: v1.K8sSettingsSpec{
+					MaxCPURequest:    new(resource.MustParse("5m")),
+					MaxMemoryRequest: new(resource.MustParse("256Mi")),
+				},
 			},
 			wantCPURequest:    "5m",
 			wantMemoryRequest: "256Mi",
@@ -563,7 +665,6 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k := newTestKubernetesBackend(t)
-			k.resourceMaximums = tt.resourceMaximums
 			if tt.settings != nil {
 				scheme := runtime.NewScheme()
 				if err := v1.AddToScheme(scheme); err != nil {
@@ -612,20 +713,38 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 	}
 }
 
-func TestK8sObjectsAllowsSystemServerResourcesAboveMaximum(t *testing.T) {
-	k := newTestKubernetesBackend(t)
-	k.resourceMaximums = ResourceMaximums{CPURequest: new(resource.MustParse("100m"))}
-
-	server := testK8sServerConfig()
-	server.SystemMCPServer = true
-	server.Resources = &corev1.ResourceRequirements{
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU: resource.MustParse("250m"),
+func TestK8sObjectsUsesStoredMaximums(t *testing.T) {
+	storedMaximum := resource.MustParse("20m")
+	settings := &v1.K8sSettings{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      system.K8sSettingsName,
+			Namespace: system.DefaultNamespace,
 		},
+		Spec: v1.K8sSettingsSpec{MaxCPURequest: &storedMaximum},
+	}
+	k := newTestKubernetesBackend(t, settings)
+	server := testK8sServerConfig()
+
+	objects, err := k.k8sObjects(t.Context(), server)
+	if err != nil {
+		t.Fatalf("k8sObjects() error = %v", err)
 	}
 
-	if _, err := k.k8sObjects(t.Context(), server); err != nil {
-		t.Fatalf("expected system MCP server resources to bypass maximums: %v", err)
+	deployment := findDeployment(t, objects, server.MCPServerName)
+	container := findContainer(t, deployment, "mcp")
+	if got := container.Resources.Requests[corev1.ResourceCPU]; got.Cmp(defaultCPURequest) != 0 {
+		t.Fatalf("CPU request = %s, want stored-settings result %s", got.String(), defaultCPURequest.String())
+	}
+
+	wantHash := ComputeK8sSettingsHash(
+		settings.Spec,
+		server.Resources,
+		server.Runtime,
+		server.NanobotAgentName != "",
+		nil,
+	)
+	if got := deployment.Annotations["obot.ai/k8s-settings-hash"]; got != wantHash {
+		t.Fatalf("K8s settings hash = %q, want %q", got, wantHash)
 	}
 }
 
@@ -1088,7 +1207,13 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	dep := findDeployment(t, objs, "test-server")
 	assertImagePullSecrets(t, dep, []string{"managed-a", "managed-b"})
 
-	expectedHash := ComputeK8sSettingsHash(v1.K8sSettingsSpec{}, nil, types.RuntimeContainerized, false, ResourceMaximums{}, []string{"managed-b", "managed-a"})
+	expectedHash := ComputeK8sSettingsHash(
+		v1.K8sSettingsSpec{},
+		nil,
+		types.RuntimeContainerized,
+		false,
+		[]string{"managed-b", "managed-a"},
+	)
 	if dep.Annotations["obot.ai/k8s-settings-hash"] != expectedHash {
 		t.Fatalf("k8s settings hash = %q, want %q", dep.Annotations["obot.ai/k8s-settings-hash"], expectedHash)
 	}

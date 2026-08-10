@@ -169,7 +169,15 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 			return nil, err
 		}
 
-		backend = newKubernetesBackend(httpListenPort, authEnabled, clientset, client, cachedClient, obotStorageClient, opts, resourceMaximums)
+		backend = newKubernetesBackend(
+			httpListenPort,
+			authEnabled,
+			clientset,
+			client,
+			cachedClient,
+			obotStorageClient,
+			opts,
+		)
 	default:
 		return nil, fmt.Errorf("unknown runtime backend: %s", opts.MCPRuntimeBackend)
 	}
@@ -212,7 +220,28 @@ func (sm *SessionManager) ResourceMaximums() ResourceMaximums {
 	return sm.resourceMaximums
 }
 
-func (sm *SessionManager) EffectiveKubernetesResourceMaximums(ctx context.Context, storageClient kclient.Client) (ResourceMaximums, error) {
+func (sm *SessionManager) EffectiveKubernetesResourceMaximums(
+	ctx context.Context,
+	storageClient kclient.Client,
+) (ResourceMaximums, error) {
+	return sm.kubernetesResourceMaximums(ctx, storageClient, ResourceMaximums{})
+}
+
+func (sm *SessionManager) StartupKubernetesResourceMaximums(
+	ctx context.Context,
+	storageClient kclient.Client,
+) (ResourceMaximums, error) {
+	if sm == nil {
+		return ResourceMaximums{}, nil
+	}
+	return sm.kubernetesResourceMaximums(ctx, storageClient, sm.resourceMaximums)
+}
+
+func (sm *SessionManager) kubernetesResourceMaximums(
+	ctx context.Context,
+	storageClient kclient.Client,
+	fallback ResourceMaximums,
+) (ResourceMaximums, error) {
 	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
 		return ResourceMaximums{}, nil
 	}
@@ -223,19 +252,21 @@ func (sm *SessionManager) EffectiveKubernetesResourceMaximums(ctx context.Contex
 		Name:      system.K8sSettingsName,
 	}, &settings); err != nil {
 		if apierrors.IsNotFound(err) {
-			return ResourceMaximumsFromK8sSettings(v1.K8sSettingsSpec{}, sm.resourceMaximums), nil
+			return fallback, nil
 		}
 		return ResourceMaximums{}, fmt.Errorf("failed to get Kubernetes settings: %w", err)
 	}
 
-	return ResourceMaximumsFromK8sSettings(settings.Spec, sm.resourceMaximums), nil
+	return EffectiveResourceMaximums(settings.Spec, fallback), nil
 }
 
-func (sm *SessionManager) EffectiveKubernetesResourceMaximumsForSettings(settings v1.K8sSettingsSpec) ResourceMaximums {
+func (sm *SessionManager) EffectiveKubernetesResourceMaximumsForSettings(
+	settings v1.K8sSettingsSpec,
+) ResourceMaximums {
 	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
 		return ResourceMaximums{}
 	}
-	return ResourceMaximumsFromK8sSettings(settings, sm.resourceMaximums)
+	return EffectiveResourceMaximums(settings, ResourceMaximums{})
 }
 
 func (sm *SessionManager) TransformObotHostname(hostname string) string {
