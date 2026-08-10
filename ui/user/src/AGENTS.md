@@ -14,10 +14,10 @@ Skip trivial presentational tweaks with no behavior change.
 
 ## File naming and placement
 
-| Target | Spec file | Location |
-| --- | --- | --- |
-| Route `+page.svelte` | `page.svelte.spec.ts` | Same directory as the page |
-| Component `Foo.svelte` | `Foo.svelte.spec.ts` | Same directory as the component |
+| Target                 | Spec file             | Location                        |
+| ---------------------- | --------------------- | ------------------------------- |
+| Route `+page.svelte`   | `page.svelte.spec.ts` | Same directory as the page      |
+| Component `Foo.svelte` | `Foo.svelte.spec.ts`  | Same directory as the component |
 
 Vitest picks up `src/**/*.svelte.{test,spec}.{js,ts}` in the browser (client) project. Do not invent a parallel `__tests__` tree for these.
 
@@ -41,12 +41,12 @@ Optional: for large new surfaces, sketch coverage with `it.skip` / `describe` bl
 
 Before writing a new test, open the closest matching spec and mirror its structure:
 
-| Pattern | Reference |
-| --- | --- |
-| Admin route + `preparePageData` + form/dialog flows | `routes/admin/license/page.svelte.spec.ts`, `routes/admin/auth-providers/page.svelte.spec.ts` |
-| Route that loads MCP data via MSW + store setup | `routes/admin/mcp-deployments/page.svelte.spec.ts`, `routes/mcp-catalog/s/[id]/details/page.svelte.spec.ts` |
-| Shared layout / role-based navigation | `lib/components/Layout.svelte.spec.ts` |
-| Form component + validation + `worker.use` | `lib/components/admin/CatalogServerForm.svelte.spec.ts` |
+| Pattern                                             | Reference                                                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Admin route + `preparePageData` + form/dialog flows | `routes/admin/license/page.svelte.spec.ts`, `routes/admin/auth-providers/page.svelte.spec.ts`               |
+| Route that loads MCP data via MSW + store setup     | `routes/admin/mcp-deployments/page.svelte.spec.ts`, `routes/mcp-catalog/s/[id]/details/page.svelte.spec.ts` |
+| Shared layout / role-based navigation               | `lib/components/Layout.svelte.spec.ts`                                                                      |
+| Form component + validation + `worker.use`          | `lib/components/admin/CatalogServerForm.svelte.spec.ts`                                                     |
 
 Copy local helpers (`renderXPage`, `mockXApis`, fixture builders) from those files rather than inventing new harness styles.
 
@@ -54,19 +54,20 @@ Copy local helpers (`renderXPage`, `mockXApis`, fixture builders) from those fil
 
 Use these instead of ad-hoc setup:
 
-| Path | Use for |
-| --- | --- |
-| `tests/vitest-setup.ts` | Global MSW lifecycle, `localStorage` clear, `page.getByCSS` — already wired via Vite; do not duplicate |
+| Path                        | Use for                                                                                                     |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `tests/vitest-setup.ts`     | Global MSW lifecycle, `localStorage` clear, `page.getByCSS` — already wired via Vite; do not duplicate      |
 | `tests/helpers/pageData.ts` | `preparePageData`, `createMockProfile`, `createPageData` for route renders that need layout `data` / stores |
-| `tests/helpers/mcp.ts` | MCP entry/server fixture builders |
-| `tests/mocks/data.ts` | Shared API response fixtures; extend here when many specs need the same payload |
-| `tests/mocks/handlers.ts` | Default MSW handlers |
-| `tests/mocks/worker.ts` | `worker` for per-test `worker.use(...)` overrides |
+| `tests/helpers/mcp.ts`      | MCP entry/server fixture builders                                                                           |
+| `tests/mocks/data.ts`       | Shared API response fixtures; extend here when many specs need the same payload                             |
+| `tests/mocks/handlers.ts`   | Default MSW handlers                                                                                        |
+| `tests/mocks/worker.ts`     | `worker` for per-test `worker.use(...)` overrides                                                           |
 
 Typical route test shape:
 
 ```ts
-import { preparePageData } from '../../../tests/helpers/pageData'; // adjust relative depth
+import { preparePageData } from '../../../tests/helpers/pageData';
+// adjust relative depth
 import { worker } from '../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import MyPage from './+page.svelte';
