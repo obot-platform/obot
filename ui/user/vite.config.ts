@@ -27,10 +27,13 @@ export default defineConfig(({ mode }) => {
 	return {
 		server: {
 			port: 5174,
-			proxy: {
-				'/api': proxyConfig,
-				'/oauth2': proxyConfig
-			}
+			proxy:
+				mode === 'test'
+					? undefined
+					: {
+							'/api': proxyConfig,
+							'/oauth2': proxyConfig
+						}
 		},
 		plugins: [sveltekit()],
 		test: {
@@ -54,7 +57,7 @@ export default defineConfig(({ mode }) => {
 					}
 				},
 				{
-					extends: './vite.config.ts',
+					extends: true,
 					test: {
 						name: 'server',
 						environment: 'node',

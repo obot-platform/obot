@@ -11,7 +11,7 @@ locators.extend({
 });
 
 beforeAll(async () => {
-	await worker.start();
+	await worker.start({ onUnhandledRequest: 'error' });
 });
 
 beforeEach(() => {

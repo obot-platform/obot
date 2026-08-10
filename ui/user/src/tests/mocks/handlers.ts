@@ -38,6 +38,7 @@ export const handlers = [
 	http.get('/api/mcp-server-instances', () =>
 		HttpResponse.json({ items: data.listMcpServerInstancesResponse })
 	),
+	http.get('/api/mcp-servers/:id/logs', () => HttpResponse.json({ items: [] })),
 	http.get('/api/mcp-servers', () =>
 		HttpResponse.json({ items: data.listSingleOrRemoteMcpServersResponse })
 	),
