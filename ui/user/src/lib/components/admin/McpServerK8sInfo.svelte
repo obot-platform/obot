@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
+	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
@@ -621,20 +622,21 @@
 	{/if}
 
 	{#if hasAdminAccess}
+		{@const status = isPending
+			? 'Pending'
+			: missingSecretBindings.length > 0
+				? 'Missing Kubernetes Secret'
+				: needsUpdate
+					? 'Configuration Required'
+					: 'Error'}
 		<div class="flex flex-col gap-2">
 			<div
 				class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col rounded-lg border border-transparent p-4 shadow-sm"
 			>
-				<div class="grid grid-cols-2 gap-4">
-					<p class="text-sm font-semibold">Status</p>
-					<p class="text-sm font-light">
-						{isPending
-							? 'Pending'
-							: missingSecretBindings.length > 0
-								? 'Missing Kubernetes Secret'
-								: needsUpdate
-									? 'Configuration Required'
-									: 'Error'}
+				<div class="grid grid-cols-2 gap-1 md:gap-4">
+					<p class="text-sm font-semibold col-span-2 md:col-span-1">Status</p>
+					<p class="text-sm font-light col-span-2 md:col-span-1">
+						{status}{status === 'Error' ? `: ${parseErrorContent(error).message}` : ''}
 					</p>
 				</div>
 			</div>
