@@ -81,11 +81,14 @@ async function renderLayout(groups: string[] = [], versionOverrides: Partial<Ver
 }
 
 async function clickButton(id: string) {
-	const button = document.getElementById(id);
-	if (!(button instanceof HTMLButtonElement)) {
-		throw new Error(`Expected button #${id} to be rendered`);
+	const locator = page.getByCSS(`#${id}`);
+	await expect.element(locator).toBeInTheDocument();
+	// Native DOM click: Playwright actionability fails on driver.js overlays / off-viewport sidebar.
+	const el = await locator.element();
+	if (!(el instanceof HTMLElement)) {
+		throw new Error(`Expected #${id} to be an HTMLElement`);
 	}
-	button.click();
+	el.click();
 	await tick();
 }
 
@@ -96,14 +99,14 @@ async function openAdvancedPane(label: 'Administration' | 'Advanced Settings') {
 }
 
 async function expandSection(id: string, expectedHref: string) {
-	if (!document.querySelector(`a[href="${expectedHref}"]`)) {
+	const link = page.getByCSS(`a[href="${expectedHref}"]`);
+	if ((await link.elements()).length === 0) {
 		await clickButton(`sidebar-collapse-${id}`);
 	}
 }
 
-function expectLink(href: string) {
-	const link = document.querySelector(`a[href="${href}"]`);
-	expect(link, `Expected navigation link ${href}`).toBeInTheDocument();
+async function expectLink(href: string) {
+	await expect.element(page.getByCSS(`a[href="${href}"]`)).toBeInTheDocument();
 }
 
 async function expectAdminSections() {
@@ -116,7 +119,7 @@ async function expectAdminSections() {
 	}
 
 	for (const href of adminSharedLinks) {
-		expectLink(href);
+		await expectLink(href);
 	}
 }
 
@@ -135,7 +138,7 @@ describe('Layout.svelte', () => {
 				await renderLayout([Group.ADMIN]);
 				await openAdvancedPane('Administration');
 				await expectAdminSections();
-				expectLink('/admin/mcp-tunnels');
+				await expectLink('/admin/mcp-tunnels');
 			});
 
 			describe('when agents are enabled', () => {
@@ -155,8 +158,8 @@ describe('Layout.svelte', () => {
 					await openAdvancedPane('Administration');
 					await expandSection('mcp-server-management', '/admin/mcp-catalog');
 
-					expectLink('/admin/server-scheduling');
-					expectLink('/admin/image-pull-secrets');
+					await expectLink('/admin/server-scheduling');
+					await expectLink('/admin/image-pull-secrets');
 				});
 			});
 		});
@@ -169,9 +172,11 @@ describe('Layout.svelte', () => {
 				await expandSection('mcp-server-management', '/mcp-catalog');
 
 				for (const href of ['/mcp-catalog', '/audit-logs', '/usage']) {
-					expectLink(href);
+					await expectLink(href);
 				}
-				expect(document.querySelector('a[href="/mcp-access-policies"]')).not.toBeInTheDocument();
+				await expect
+					.element(page.getByCSS('a[href="/mcp-access-policies"]'))
+					.not.toBeInTheDocument();
 			});
 		});
 
@@ -183,7 +188,7 @@ describe('Layout.svelte', () => {
 				await expandSection('mcp-server-management', '/mcp-catalog');
 
 				for (const href of ['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage']) {
-					expectLink(href);
+					await expectLink(href);
 				}
 			});
 		});

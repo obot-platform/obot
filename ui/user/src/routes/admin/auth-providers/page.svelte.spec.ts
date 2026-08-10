@@ -6,7 +6,7 @@ import {
 	listAuthProvidersResponse,
 	listExplicitRoleEmailsResponse
 } from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/node';
+import { worker } from '../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import AuthProvidersPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';

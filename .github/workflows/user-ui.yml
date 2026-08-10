@@ -50,9 +50,6 @@ jobs:
         with:
           node-version: "24.15.0"
 
-      - name: Install Playwright Browser
-        run: npx playwright install --with-deps chromium
-
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -62,4 +59,5 @@ jobs:
         run: | 
           cd ui/user
           pnpm install
+          pnpm exec playwright install --with-deps chromium
           pnpm run test

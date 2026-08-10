@@ -1,7 +1,7 @@
 import { mcpServersAndEntries } from '$lib/stores';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { createDeploymentsPageFixtures } from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/node';
+import { worker } from '../../../tests/mocks/worker';
 import DeploymentsPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it } from 'vitest';

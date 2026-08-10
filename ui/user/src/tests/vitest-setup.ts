@@ -1,5 +1,5 @@
 import '../app.css';
-import { worker } from './mocks/node';
+import { worker } from './mocks/worker';
 import 'devicon/devicon.min.css';
 import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { locators } from 'vitest/browser';

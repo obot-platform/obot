@@ -4,7 +4,7 @@ import type { License } from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getLicenseResponse, getVersionResponse } from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/node';
+import { worker } from '../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import LicensePage from './+page.svelte';
 import { http, HttpResponse } from 'msw';

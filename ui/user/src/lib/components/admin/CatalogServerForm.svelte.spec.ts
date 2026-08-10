@@ -1,9 +1,8 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/node';
+import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
 import { http, HttpResponse } from 'msw';
-import { tick } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -80,14 +79,7 @@ async function addConfiguration() {
 
 async function selectStaticConfiguration() {
 	await page.getByCSS(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-0`).click();
-	const staticOption = Array.from(document.querySelectorAll('button')).find(
-		(button) => button.textContent?.trim() === 'Static'
-	);
-	if (!staticOption) {
-		throw new Error('Expected the Static configuration option to be rendered');
-	}
-	staticOption.click();
-	await tick();
+	await page.getByRole('button', { name: 'Static', exact: true }).click();
 }
 
 describe('CatalogServerForm.svelte', () => {
