@@ -23,6 +23,7 @@
 		getMcpServerDeploymentStatus,
 		getServerTypeLabel,
 		getServerUrl,
+		hasEditableConfiguration,
 		hasMissingSecretBindingConfig,
 		isMultiUserServer,
 		supportsMCPBackendDetails
@@ -581,6 +582,15 @@
 	function isRestartableServer(d: MCPCatalogServer) {
 		return d.manifest.runtime !== 'remote' && d.manifest.runtime !== 'composite';
 	}
+
+	function canEditDeploymentConfiguration(d: MCPCatalogServer) {
+		return !d.compositeName && d.manifest.runtime !== 'composite';
+	}
+
+	function hasEditableDeploymentConfiguration(d: MCPCatalogServer) {
+		const entry = d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined;
+		return hasEditableConfiguration(entry ?? d);
+	}
 </script>
 
 <div class="flex flex-col gap-0.5">
@@ -756,7 +766,7 @@
 										{/if}
 									</span>
 								</a>
-								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && supportsMCPBackendDetails(d)}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && canEditDeploymentConfiguration(d) && hasEditableDeploymentConfiguration(d)}
 									<button
 										class="menu-button"
 										onclick={(e) => {
