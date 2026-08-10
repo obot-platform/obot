@@ -20,6 +20,7 @@ var obotProviderToProviderID = map[string]string{
 	system.OpenAIModelProvider:              "openai",
 	system.AmazonBedrockModelProvider:       "amazon-bedrock",
 	system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
+	system.AzureEntraModelProvider:          "azure",
 }
 
 // fetchModelInfos GETs the models.dev document at the source URL and parses it

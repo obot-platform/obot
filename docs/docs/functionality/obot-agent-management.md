@@ -14,6 +14,10 @@ Obot Agent Management provides administrators with tools to configure default ag
 
 View token usage across users and models to monitor costs and identify optimization opportunities.
 
+:::note
+Token counts are reported for the Azure API key provider, but estimated spend is not available because Azure API key requests use deployment names, which Obot cannot reliably map to the underlying model's price.
+:::
+
 ## Model Providers
 
 Configure LLM providers and their available models. See [Model Providers](../configuration/model-providers.md) for setup details.

@@ -43,6 +43,11 @@ const sampleAPIJSON = `{
       "anthropic.claude-haiku-4-5": {"cost": {"input": 1, "output": 5, "cache_read": 0.1}}
     }
   },
+  "azure": {
+    "models": {
+      "gpt-4o": {"cost": {"input": 2.5, "output": 10, "cache_read": 1.25}}
+    }
+  },
   "cohere": {
     "models": {
       "command-r": {"cost": {"input": 0.5, "output": 1.5}}
@@ -60,7 +65,7 @@ func mustDecodeDoc(t *testing.T, raw string) modelsDevDocument {
 func TestParseModelInfos(t *testing.T) {
 	infos, err := parseModelInfos(system.DefaultNamespace, "default", mustDecodeDoc(t, sampleAPIJSON))
 	require.NoError(t, err)
-	require.Len(t, infos, 5, "anthropic + 2 openai + 2 bedrock, cohere dropped")
+	require.Len(t, infos, 6, "anthropic + 2 openai + 2 bedrock + Azure Entra, cohere dropped")
 
 	byProviderAndModel := map[string]v1.ModelInfoSpec{}
 	for _, info := range infos {
@@ -99,6 +104,12 @@ func TestParseModelInfos(t *testing.T) {
 		assert.Equal(t, 5.0, b.Cost.Output)
 		assert.Equal(t, 0.1, b.Cost.CacheRead)
 	}
+
+	azure := byProviderAndModel[system.AzureEntraModelProvider+"/gpt-4o"]
+	assert.Equal(t, system.AzureEntraModelProvider, azure.Provider)
+	assert.Equal(t, 2.5, azure.Cost.Input)
+	assert.Equal(t, 10.0, azure.Cost.Output)
+	assert.Equal(t, 1.25, azure.Cost.CacheRead)
 }
 
 func TestParseModelInfos_NoKnownProviders(t *testing.T) {
