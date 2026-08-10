@@ -3,7 +3,6 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -104,10 +103,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 	sm.contextLock.Unlock()
 
-	var (
-		jwtToken *jwt.Token
-		headers  headerMap
-	)
+	var jwtToken *jwt.Token
 	// If the token storage is not set, then this is a client we use in our API.
 	// This needs authentication for it to work.
 	// If this is a system client, we don't need to authenticate because we are talking directly to the MCP server.
@@ -132,16 +128,12 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 
 		// Clear the headers because we are talking to Obot directly and the gateway will set the correct headers.
 		// We just need the token to talk to Obot.
-		headers = headerMap{"Authorization": []string{"Bearer " + token}}
-	} else {
-		headers = serverConfigHeaders(server)
+		server.Headers = []string{"Authorization=Bearer " + token}
 	}
 
-	var (
-		url          = server.URL
-		allowedHosts []string
-	)
-	if isOAuthCheck || server.UserID == "system" {
+	url := server.URL
+	directConnect := isOAuthCheck || server.UserID == "system"
+	if directConnect {
 		if server.TunnelName != "" {
 			if sm.tunnelManager == nil {
 				return nil, fmt.Errorf("tunnel manager is not configured")
@@ -152,16 +144,9 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 			if err != nil {
 				return nil, fmt.Errorf("failed to prepare tunneled MCP server URL: %w", err)
 			}
-
-			bridgeAuthorizationName, bridgeAuthorizationValue := sm.tunnelManager.BridgeAuthorization()
-			headers.Set(bridgeAuthorizationName, bridgeAuthorizationValue)
-			allowedHosts = append(allowedHosts, sm.tunnelManager.BridgeHost())
 		}
 	} else {
-		obotBaseURL := sm.TransformObotHostname(sm.baseURL)
-		_, obotHostname, _ := strings.Cut(obotBaseURL, "://")
-		allowedHosts = append(allowedHosts, obotHostname)
-		url = system.MCPConnectURL(obotBaseURL, server.MCPServerName)
+		url = system.MCPConnectURL(sm.TransformObotHostname(sm.baseURL), server.MCPServerName)
 	}
 
 	c := gomcp.NewClient(&gomcp.Implementation{
@@ -172,7 +157,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		// That's OK because this is just used for listing/getting tools, prompts, resources, etc.
 	}, &gomcp.ClientOptions{Capabilities: &gomcp.ClientCapabilities{}})
 
-	httpClient, err := sm.HTTPClientForServer(server, allowedHosts, http.Header(headers), 0)
+	httpClient, err := sm.HTTPClientForServer(server, HTTPClientOptions{Timeout: 0, DirectConnect: directConnect})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}

@@ -11,7 +11,50 @@ import (
 	"github.com/oasdiff/yaml"
 	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
+
+func TestServerHookConfigBuildsScopedHooks(t *testing.T) {
+	hooks, servers := ServerHookConfig(ServerConfig{UserID: "user-1", Audiences: []string{"https://obot.example"}, Webhooks: []Webhook{
+		{
+			Name: "policy/resource", DisplayName: "Shared Display Name", URL: "https://policy.example/mcp", ToolName: "validate",
+			Definitions: types.MCPSelectors{
+				{Method: "tools/list"},
+				{Method: "tools/call", Identifiers: []string{"echo"}},
+				{Method: "resources/read", Identifiers: []string{"*"}},
+			},
+			MutateAllowed: true,
+		},
+	}})
+
+	server, ok := servers["policy-resource"]
+	if !ok {
+		t.Fatalf("hook server did not use stable resource name: %#v", servers)
+	}
+	if server.MCPServerName != system.SystemMCPServerPrefix+"policy/resource" || server.URL != "https://policy.example/mcp" || server.UserID != "user-1" || !server.SystemMCPServer {
+		t.Fatalf("unexpected native hook server config: %#v", server)
+	}
+	if len(server.Audiences) != 1 || server.Audiences[0] != "https://obot.example" {
+		t.Fatalf("hook server did not retain audiences: %#v", server.Audiences)
+	}
+	if len(hooks) != 3 {
+		t.Fatalf("got %d hook mappings, want 3: %#v", len(hooks), hooks)
+	}
+	if !hooks[0].Matches("tools/list", map[string]string{"name": "", "direction": "request"}) {
+		t.Fatal("tools/list method selector did not match")
+	}
+	if !hooks[1].Matches("tools/call", map[string]string{"name": "echo"}) || hooks[1].Matches("tools/call", map[string]string{"name": "search"}) {
+		t.Fatal("tools/call identifier selector did not scope by tool name")
+	}
+	if !hooks[2].Matches("resources/read", map[string]string{"name": "file:///readme"}) {
+		t.Fatal("wildcard identifier did not match resource URI")
+	}
+	for _, hook := range hooks {
+		if hook.Targets[0].Target != "policy-resource/validate" || hook.Targets[0].MutateDisallowed {
+			t.Fatalf("unexpected hook target: %#v", hook.Targets[0])
+		}
+	}
+}
 
 func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	var healthzCalls, mcpCalls int

@@ -175,7 +175,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 		return "", err
 	}
 
-	clientID, clientSecret, err := oauthHandler.Lookup(ctx, metadata.AuthorizationServerMetadataURL)
+	clientID, clientSecret, err := oauthHandler.Lookup(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -286,7 +286,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
 }
 
-func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string, error) {
+func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 	// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
 	if m.catalogEntryName != "" {
 		cred, err := m.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(m.catalogEntryName)}, system.StaticOAuthCredentialName)

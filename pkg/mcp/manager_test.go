@@ -93,7 +93,7 @@ func TestHTTPClientForServer(t *testing.T) {
 	}
 
 	t.Run("direct server", func(t *testing.T) {
-		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(ServerConfig{}, nil, nil, timeout)
+		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(ServerConfig{}, HTTPClientOptions{Timeout: timeout})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -113,16 +113,13 @@ func TestHTTPClientForServer(t *testing.T) {
 			w.WriteHeader(http.StatusNoContent)
 		}))
 		defer server.Close()
-
 		serverURL, err := url.Parse(server.URL)
 		if err != nil {
 			t.Fatal(err)
 		}
-		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(
-			ServerConfig{},
-			[]string{serverURL.Host},
-			http.Header{"X-MCP-Test": {"injected"}},
-			timeout,
+		httpClient, err := (&SessionManager{backend: &kubernetesBackend{serviceFQDN: serverURL.Host}}).HTTPClientForServer(
+			ServerConfig{Headers: []string{"X-MCP-Test=injected"}},
+			HTTPClientOptions{Timeout: timeout},
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -153,7 +150,7 @@ func TestHTTPClientForServer(t *testing.T) {
 			backend: &kubernetesBackend{
 				serviceFQDN: serverURL.Host,
 			},
-		}).HTTPClientForServer(ServerConfig{}, nil, nil, timeout)
+		}).HTTPClientForServer(ServerConfig{}, HTTPClientOptions{Timeout: timeout})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +166,7 @@ func TestHTTPClientForServer(t *testing.T) {
 	})
 
 	t.Run("tunnel manager required", func(t *testing.T) {
-		_, err := (&SessionManager{}).HTTPClientForServer(ServerConfig{TunnelName: "office"}, nil, nil, timeout)
+		_, err := (&SessionManager{}).HTTPClientForServer(ServerConfig{TunnelName: "office"}, HTTPClientOptions{Timeout: timeout, DirectConnect: true})
 		if err == nil {
 			t.Fatal("tunneled server without tunnel manager returned no error")
 		}
@@ -184,9 +181,7 @@ func TestHTTPClientForServer(t *testing.T) {
 
 		httpClient, err := (&SessionManager{tunnelManager: tunnelManager}).HTTPClientForServer(
 			ServerConfig{TunnelName: "office"},
-			nil,
-			nil,
-			timeout,
+			HTTPClientOptions{Timeout: timeout, DirectConnect: true},
 		)
 		if err != nil {
 			t.Fatal(err)
@@ -208,9 +203,7 @@ func TestHTTPClientForServer(t *testing.T) {
 
 		_, err = (&SessionManager{tunnelManager: tunnelManager}).HTTPClientForServer(
 			ServerConfig{TunnelName: "Office"},
-			nil,
-			nil,
-			timeout,
+			HTTPClientOptions{Timeout: timeout, DirectConnect: true},
 		)
 		if err == nil {
 			t.Fatal("invalid tunnel name returned no error")

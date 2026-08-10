@@ -15,9 +15,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers"
-	"github.com/obot-platform/obot/pkg/auth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -266,7 +266,7 @@ func (h *handler) callback(req api.Context) error {
 	}
 
 	oauthAppAuthRequest.Spec.UserID = req.UserID()
-	oauthAppAuthRequest.Spec.AuthProviderUserID = auth.FirstExtraValue(req.User.GetExtra(), "auth_provider_user_id")
+	oauthAppAuthRequest.Spec.AuthProviderUserID = utils.FirstSet(req.User.GetExtra()["auth_provider_user_id"]...)
 	oauthAppAuthRequest.Spec.AuthProviderNamespace = authProviderNamespace
 	oauthAppAuthRequest.Spec.AuthProviderName = authProviderName
 	if err := req.Update(&oauthAppAuthRequest); err != nil {

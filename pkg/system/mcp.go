@@ -48,5 +48,9 @@ func MCPOAuthCallbackURL(serverURL string) string {
 }
 
 func OAuthClientIDMetadataURL(serverURL string) string {
+	if !strings.HasPrefix(serverURL, "https://") {
+		// Client Metadata is only supported for HTTPS.
+		return ""
+	}
 	return strings.TrimRight(serverURL, "/") + OAuthClientIDMetadataPath
 }

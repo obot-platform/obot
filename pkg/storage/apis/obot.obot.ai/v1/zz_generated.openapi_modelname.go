@@ -396,6 +396,46 @@ func (in MCPCatalogStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPClientSession) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPClientSession"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPClientSessionList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPClientSessionList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPClientSessionSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPClientSessionSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPClientSessionStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPClientSessionStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPHookCorrelation) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPHookCorrelation"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPHookCorrelationList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPHookCorrelationList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPHookCorrelationSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPHookCorrelationSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in MCPHookMutation) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPHookMutation"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in MCPNetworkPolicy) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.MCPNetworkPolicy"
 }

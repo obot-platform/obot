@@ -34,7 +34,7 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 		tokenStore:   tokenStore,
 		tokenService: tokenService,
 		oauthConfig:  oauthConfig,
-		clientMetadataHTTPClient: safehttp.NewClient(safehttp.ClientOptions{
+		clientMetadataHTTPClient: safehttp.NewClient(safehttp.Options{
 			BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
 			BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
 			BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,

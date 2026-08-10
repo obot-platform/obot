@@ -190,7 +190,7 @@ type oauthTestClientCredLookup struct {
 	calls        int
 }
 
-func (l *oauthTestClientCredLookup) Lookup(context.Context, string) (string, string, error) {
+func (l *oauthTestClientCredLookup) Lookup(context.Context) (string, string, error) {
 	l.calls++
 	return l.clientID, l.clientSecret, nil
 }
@@ -416,8 +416,8 @@ type recordingTokenStorage struct {
 	lastToken *oauth2.Token
 }
 
-func (*recordingTokenStorage) NewTokenSource(_ context.Context, _ *oauth2.Config, token *oauth2.Token) (oauth2.TokenSource, error) {
-	return oauth2.StaticTokenSource(token), nil
+func (*recordingTokenStorage) TokenSource(context.Context) (oauth2.TokenSource, error) {
+	return nil, nil
 }
 
 func (*recordingTokenStorage) GetTokenConfig(context.Context) (*oauth2.Config, *oauth2.Token, error) {
@@ -472,12 +472,7 @@ func TestStorageBackedTokenSourcePersistsRefreshedToken(t *testing.T) {
 func TestStorageBackedTokenSourceDoesNotPersistUnchangedToken(t *testing.T) {
 	tok := &oauth2.Token{AccessToken: "access-token", RefreshToken: "refresh-token", Expiry: time.Now().Add(time.Hour)}
 	storage := &recordingTokenStorage{}
-	ts := &storageBackedTokenSource{
-		tokenStorage: storage,
-		conf:         &oauth2.Config{},
-		tok:          tok,
-		tokenSource:  oauth2.StaticTokenSource(tok),
-	}
+	ts := newStorageBackedTokenSource(storage, &oauth2.Config{}, tok)
 
 	got, err := ts.Token()
 	require.NoError(t, err)
@@ -486,16 +481,22 @@ func TestStorageBackedTokenSourceDoesNotPersistUnchangedToken(t *testing.T) {
 }
 
 func TestStorageBackedTokenSourcePropagatesPersistenceError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, _ *http.Request) {
+		rw.Header().Set("Content-Type", "application/json")
+		_, _ = rw.Write([]byte(`{"access_token":"new-access-token","token_type":"Bearer","expires_in":3600}`))
+	}))
+	defer server.Close()
+
 	persistenceErr := errors.New("persistence failed")
-	old := &oauth2.Token{AccessToken: "old-access-token", Expiry: time.Now().Add(-time.Hour)}
-	newToken := &oauth2.Token{AccessToken: "new-access-token", Expiry: time.Now().Add(time.Hour)}
+	old := &oauth2.Token{AccessToken: "old-access-token", RefreshToken: "refresh-token", Expiry: time.Now().Add(-time.Hour)}
 	storage := &recordingTokenStorage{setErr: persistenceErr}
-	ts := &storageBackedTokenSource{
-		tokenStorage: storage,
-		conf:         &oauth2.Config{},
-		tok:          old,
-		tokenSource:  oauth2.StaticTokenSource(newToken),
+	conf := &oauth2.Config{
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  server.URL,
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
 	}
+	ts := newStorageBackedTokenSource(storage, conf, old)
 
 	got, err := ts.Token()
 	require.ErrorIs(t, err, persistenceErr)

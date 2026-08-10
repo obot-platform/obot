@@ -15,6 +15,8 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/hostedagentpool"
 	"github.com/obot-platform/obot/pkg/controller/handlers/imagepullsecret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpclientsession"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcphookcorrelation"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpservercatalogentry"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
@@ -66,6 +68,8 @@ func (c *Controller) setupRoutes() {
 	imagePullSecretHandler := imagepullsecret.New(c.services.GatewayClient, c.services.LocalK8sClient, c.services.MCPRuntimeBackend, c.services.MCPServerNamespace, c.services.ServiceNamespace, c.services.ServiceAccountName, c.services.MCPImagePullSecrets, c.services.ServiceAccountIssuerURL)
 	gitCredentialHandler := gitcredentialhandler.New(c.services.GatewayClient)
 	modelHandler := model.NewHandler(c.services.GatewayClient)
+	mcpClientSessionHandler := mcpclientsession.New()
+	mcpHookCorrelationHandler := mcphookcorrelation.New()
 
 	// AuthProviders
 	root.Type(&v1.AuthProvider{}).HandlerFunc(providers.SetAuthProviderConfiguredStatus)
@@ -183,6 +187,12 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
+
+	// MCPClientSession
+	root.Type(&v1.MCPClientSession{}).HandlerFunc(mcpClientSessionHandler.Cleanup)
+
+	// MCPHookCorrelation
+	root.Type(&v1.MCPHookCorrelation{}).HandlerFunc(mcpHookCorrelationHandler.Cleanup)
 
 	// AccessControlRule
 	root.Type(&v1.AccessControlRule{}).HandlerFunc(cleanup.Cleanup)

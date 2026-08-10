@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/utils"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -38,11 +38,11 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		gatewayUser  *types.User
 		authGroupIDs []string
 	)
-	if authProviderNamespace, authProviderName := auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"), auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"); authProviderNamespace != "" && authProviderName != "" {
+	if authProviderNamespace, authProviderName := utils.FirstSet(resp.User.GetExtra()["auth_provider_namespace"]...), utils.FirstSet(resp.User.GetExtra()["auth_provider_name"]...); authProviderNamespace != "" && authProviderName != "" {
 		identity := &types.Identity{
-			Email:                 auth.FirstExtraValue(resp.User.GetExtra(), "email"),
-			AuthProviderName:      auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_name"),
-			AuthProviderNamespace: auth.FirstExtraValue(resp.User.GetExtra(), "auth_provider_namespace"),
+			Email:                 utils.FirstSet(resp.User.GetExtra()["email"]...),
+			AuthProviderName:      authProviderName,
+			AuthProviderNamespace: authProviderNamespace,
 			ProviderUsername:      resp.User.GetName(),
 			ProviderUserID:        resp.User.GetUID(),
 		}

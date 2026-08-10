@@ -17,8 +17,11 @@ type staticOAuthTokenStorage struct {
 	token  *oauth2.Token
 }
 
-func (s *staticOAuthTokenStorage) NewTokenSource(_ context.Context, _ *oauth2.Config, token *oauth2.Token) (oauth2.TokenSource, error) {
-	return oauth2.StaticTokenSource(token), nil
+func (s *staticOAuthTokenStorage) TokenSource(context.Context) (oauth2.TokenSource, error) {
+	if s.config == nil || s.token == nil {
+		return nil, nil
+	}
+	return oauth2.StaticTokenSource(s.token), nil
 }
 
 func (s *staticOAuthTokenStorage) GetTokenConfig(context.Context) (*oauth2.Config, *oauth2.Token, error) {

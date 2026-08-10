@@ -45,12 +45,3 @@ func ProviderURLFromContext(ctx context.Context) string {
 	url, _ := ctx.Value(authProviderURLKey{}).(string)
 	return url
 }
-
-// FirstExtraValue returns the first value for the given key in the extra map.
-func FirstExtraValue(extra map[string][]string, key string) string {
-	values := extra[key]
-	if len(values) == 0 {
-		return ""
-	}
-	return values[0]
-}

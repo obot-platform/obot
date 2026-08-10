@@ -13,10 +13,10 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -234,12 +234,12 @@ func (r *Context) UserID() uint {
 }
 
 func (r *Context) AuthProviderUserID() string {
-	return auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_user_id")
+	return utils.FirstSet(r.User.GetExtra()["auth_provider_user_id"]...)
 }
 
 func (r *Context) AuthProviderNameAndNamespace() (string, string) {
-	return auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_name"),
-		auth.FirstExtraValue(r.User.GetExtra(), "auth_provider_namespace")
+	return utils.FirstSet(r.User.GetExtra()["auth_provider_name"]...),
+		utils.FirstSet(r.User.GetExtra()["auth_provider_namespace"]...)
 }
 
 func (r *Context) UserTimezone() string {

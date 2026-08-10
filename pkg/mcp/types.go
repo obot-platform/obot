@@ -3,6 +3,7 @@ package mcp
 import (
 	"fmt"
 	"maps"
+	"net/http"
 	"regexp"
 	"slices"
 	"strconv"
@@ -619,20 +620,10 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	return serverConfig, missingRequiredNames, nil
 }
 
-func copyHeaders[T header](headers T, keys, values []string) {
+func copyHeaders(headers http.Header, keys, values []string) {
 	for i, key := range keys {
 		if i < len(values) {
 			headers.Set(key, values[i])
 		}
 	}
-}
-
-type header interface {
-	Set(key, value string)
-}
-
-type headerMap map[string][]string
-
-func (h headerMap) Set(key, value string) {
-	h[key] = []string{value}
 }

@@ -18,12 +18,12 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
-	"github.com/obot-platform/obot/pkg/auth"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -308,7 +308,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                user.GetUID(),
 		UserName:              user.GetName(),
-		UserEmail:             auth.FirstExtraValue(user.GetExtra(), "email"),
+		UserEmail:             utils.FirstSet(user.GetExtra()["email"]...),
 		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,
@@ -495,40 +495,6 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				if err != nil {
 					return err
 				}
-			} else if _, audienceID, ok := strings.Cut(resource, "/mcp-connect-composite/"); ok && audienceID != "" {
-				// Ensure this MCP server exists and is a composite MCP server.
-				var server v1.MCPServer
-				if err := req.Get(&server, audienceID); err != nil || server.Spec.Manifest.Runtime != types.RuntimeComposite {
-					return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve composite MCP server "+audienceID, ""))
-				}
-
-				if apiKey != nil {
-					user, err := req.GatewayClient.UserByID(req.Context(), userID)
-					if err != nil {
-						return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid user", ""))
-					}
-
-					expiresAt := time.Now().Add(tokenExpiration)
-					if apiKey.ExpiresAt != nil {
-						expiresAt = *apiKey.ExpiresAt
-					}
-					tokenCtx = &persistent.TokenContext{
-						Issuer:    h.baseURL,
-						Audience:  fmt.Sprintf("%s/mcp-connect-composite/%s", h.baseURL, audienceID),
-						MCPID:     audienceID,
-						IssuedAt:  persistent.NewTime(apiKey.CreatedAt),
-						ExpiresAt: persistent.NewTime(expiresAt),
-						UserID:    userID,
-						UserName:  user.Username,
-						UserEmail: user.Email,
-						Picture:   user.IconURL,
-					}
-				}
-
-				token, expiresAt, err = h.getTokenForCompositeConnectResource(req.Context(), subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, audienceID, audienceID)
-				if err != nil {
-					return err
-				}
 			} else {
 				// No component MCP ID in resource, return the original token
 				token = subjectToken
@@ -580,26 +546,19 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 	store := h.tokenStore.ForUserAndMCP(userID, mcpID, resource)
 
 	// Retrieve the OAuth configuration and token
-	config, token, err := store.GetTokenConfig(req.Context())
+	tokenSource, err := store.TokenSource(req.Context())
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to retrieve token configuration", ""))
 	}
 
-	if config == nil || token == nil {
+	if tokenSource == nil {
 		return types.NewErrNotFound("no token to exchange for %s", resource)
 	}
 
 	// Refresh the token if needed
-	tok, err := config.TokenSource(req.Context(), token).Token()
+	tok, err := tokenSource.Token()
 	if err != nil {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "failed to refresh token", ""))
-	}
-
-	// Store the refreshed token if it changed
-	if tok.AccessToken != token.AccessToken || tok.RefreshToken != token.RefreshToken || tok.Expiry.Unix() != token.Expiry.Unix() {
-		if err = store.SetTokenConfig(req.Context(), config, tok); err != nil {
-			return fmt.Errorf("failed to store token: %w", err)
-		}
 	}
 
 	// Return RFC 8693 compliant response
@@ -619,16 +578,6 @@ func (h *handler) getTokenForConnectResource(ctx context.Context, subjectTokenTy
 	}
 
 	return h.getTokenForMCPConnectResource(ctx, subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, audienceID, "mcp-connect")
-}
-
-// getTokenForCompositeConnectResource handles the special case of token exchange for /mcp-connect-composite/{resourceMCPID} resources.
-// It creates a new token with the appropriate audience and composite MCP groups.
-func (h *handler) getTokenForCompositeConnectResource(ctx context.Context, subjectTokenType, subjectToken string, apiKeyExpiresAt *time.Time, tokenCtx *persistent.TokenContext, resourceMCPID, audienceID string) (string, time.Time, error) {
-	if tokenCtx != nil {
-		// Only the group "composite-mcp" is allowed to access composite MCP resources
-		tokenCtx.UserGroups = []string{types.GroupCompositeMCP, types.GroupAuthenticated}
-	}
-	return h.getTokenForMCPConnectResource(ctx, subjectTokenType, subjectToken, apiKeyExpiresAt, tokenCtx, resourceMCPID, audienceID, "mcp-connect-composite")
 }
 
 func (h *handler) getTokenForMCPConnectResource(ctx context.Context, subjectTokenType, subjectToken string, apiKeyExpiresAt *time.Time, tokenCtx *persistent.TokenContext, resourceMCPID, audienceID, connectString string) (string, time.Time, error) {

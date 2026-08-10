@@ -20,13 +20,13 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/publishedartifact"
 	"github.com/obot-platform/obot/pkg/skillformat"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/blob"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -91,7 +91,7 @@ func (h *PublishedArtifactHandler) Create(req api.Context) error {
 	slog.Debug("Parsed SKILL.md from ZIP", "name", fm.Name, "description", fm.Description)
 
 	authorID := req.User.GetUID()
-	authorEmail := auth.FirstExtraValue(req.User.GetExtra(), "email")
+	authorEmail := utils.FirstSet(req.User.GetExtra()["email"]...)
 
 	slog.Debug("Artifact author", "id", authorID, "email", authorEmail)
 

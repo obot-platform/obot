@@ -12,7 +12,7 @@ Small, local, and easily reversible implementation choices generally do not need
 
 ## Creating an ADR
 
-1. Copy [`template.md`](template.md) to `NNNN-short-name.md` using the next available four-digit number and a concise kebab-case name.
+1. Copy [`template.md`](template.md) to `YYYY-MM-DD-short-name.md` using the creation date and a concise kebab-case name.
 2. Describe the decision reflected in the implementation.
 3. If the implementation differs materially from an accepted ODP, complete a follow-up ODP before proceeding and link both ODPs from the ADR.
 4. Link every GitHub issue related to the decision and the related ODP when applicable.

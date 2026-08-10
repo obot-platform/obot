@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"encoding/json"
 	"sync"
 	"testing"
@@ -19,6 +20,22 @@ func TestMCPAuditLogNormalizeMCPFields(t *testing.T) {
 	}
 	if log.MCPFields == nil {
 		t.Fatal("expected MCP fields to be populated")
+	}
+}
+
+func TestMCPAuditLogDoesNotExposeProxyExchangeID(t *testing.T) {
+	body, err := json.Marshal(MCPAuditLog{
+		SourceType: types2.AuditLogSourceTypeMCP,
+		MCPFields: &MCPAuditLogFields{
+			MCPID:           "mcp-1",
+			ProxyExchangeID: "internal-exchange-id",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte("internal-exchange-id")) || bytes.Contains(body, []byte("proxyExchange")) {
+		t.Fatalf("internal proxy exchange ID leaked into JSON: %s", body)
 	}
 }
 

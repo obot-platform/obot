@@ -69,9 +69,24 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 		// Process response-only logs
 		for _, responseLog := range responseOnlyLogs {
 			responseMCP := responseLog.MCP()
-			// Find matching request log by RequestID and SessionID
+			// Find and lock the pending request from the same proxied HTTP exchange.
+			// Legacy cross-request responses do not have an exchange ID, so they
+			// continue to use protocol session metadata as a fallback.
+			query := tx.Where("request_id = ? AND mcp_id = ? AND user_id = ? AND response_received = ? AND source_type = ?",
+				responseMCP.RequestID, responseMCP.MCPID, responseLog.UserID, false, types2.AuditLogSourceTypeMCP)
+			if responseMCP.ProxyExchangeID != "" {
+				query = query.Where("proxy_exchange_id = ?", responseMCP.ProxyExchangeID)
+			} else if responseMCP.SessionID == "" {
+				query = query.Where("COALESCE(session_id, '') = ''")
+			} else {
+				query = query.Where("session_id = ? OR (COALESCE(session_id, '') = '' AND call_type = ?)",
+					responseMCP.SessionID, "initialize")
+			}
 			var existingLog types.MCPAuditLog
-			err := tx.Where("request_id = ? AND session_id = ? AND response_received = ? AND source_type = ?", responseMCP.RequestID, responseMCP.SessionID, false, types2.AuditLogSourceTypeMCP).
+			err := query.
+				Clauses(clause.Locking{Strength: "UPDATE"}).
+				Order(clause.Expr{SQL: "CASE WHEN session_id = ? THEN 0 ELSE 1 END", Vars: []any{responseMCP.SessionID}}).
+				Order("created_at DESC").
 				First(&existingLog).Error
 
 			if err == nil {
@@ -116,6 +131,9 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				}
 				if existingMCP.ClientVersion == "" {
 					updates["client_version"] = responseMCP.ClientVersion
+				}
+				if existingMCP.SessionID == "" && responseMCP.SessionID != "" {
+					updates["session_id"] = responseMCP.SessionID
 				}
 
 				// Calculate processing time as difference between response and request timestamps

@@ -33,7 +33,7 @@ func New(defaultSourceURL string, urlValidation mcp.RemoteMCPURLValidationConfig
 	return &Handler{
 		// Reuse the deployment's remote-URL egress policy so the model info fetch
 		// honors the same loopback/private-IP/link-local rules as other configured-URL fetches.
-		httpClient: safehttp.NewClient(safehttp.ClientOptions{
+		httpClient: safehttp.NewClient(safehttp.Options{
 			BlockLoopback:  !urlValidation.AllowLocalhostMCP,
 			BlockPrivateIP: !urlValidation.AllowPrivateIPMCP,
 			BlockLinkLocal: !urlValidation.AllowLinkLocalMCP,

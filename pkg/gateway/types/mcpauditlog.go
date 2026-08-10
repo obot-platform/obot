@@ -52,6 +52,9 @@ type MCPAuditLogFields struct {
 	SessionID                 string                                `json:"sessionID,omitempty" gorm:"index"`
 	WebhookStatuses           datatypes.JSONSlice[MCPWebhookStatus] `json:"webhookStatuses,omitempty"`
 	ResponseReceived          bool                                  `json:"responseReceived"`
+	// ProxyExchangeID is an internal identifier shared by the request and response
+	// audit entries emitted for one proxied HTTP exchange. It is not MCP protocol data.
+	ProxyExchangeID string `json:"-" gorm:"column:proxy_exchange_id;index"`
 
 	// Additional metadata
 	RequestID       string          `json:"requestID,omitempty" gorm:"index"`

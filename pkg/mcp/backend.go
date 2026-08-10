@@ -16,6 +16,7 @@ import (
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	ntypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 const (
@@ -278,13 +279,8 @@ func constructMCPServerNanobotYAMLForComposite(server ServerConfig) ([]byte, err
 	return data, nil
 }
 
-func ServerNanobotConfig(server ServerConfig, isComposite bool) ntypes.Config {
-	var config ntypes.Config
-	if isComposite {
-		config = compositeMCPServerNanobotConfig(server)
-	} else {
-		config = serverNanobotConfig(server, nil)
-	}
+func ServerNanobotConfig(server ServerConfig) ntypes.Config {
+	config := compositeMCPServerNanobotConfig(server)
 
 	config.Auth = &ntypes.Auth{
 		OAuthClientID:     server.TokenExchangeClientID,
@@ -294,10 +290,32 @@ func ServerNanobotConfig(server ServerConfig, isComposite bool) ntypes.Config {
 	return config
 }
 
+// ServerHookConfig returns hook mappings and the MCP server configurations used
+// by the native hook runner. The target MCP server itself is intentionally
+// absent: its traffic continues through the reverse proxy.
+func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
+	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
+	hooks := hookDefinitions(server.Webhooks, replacer)
+	servers := make(HookServerConfigs, len(server.Webhooks))
+	for _, webhook := range server.Webhooks {
+		servers[webhookServerName(webhook, replacer)] = ServerConfig{
+			Runtime:              types.RuntimeRemote,
+			URL:                  webhook.URL,
+			UserID:               server.UserID,
+			MCPServerName:        system.SystemMCPServerPrefix + webhook.Name,
+			MCPServerDisplayName: webhook.DisplayName,
+			SystemMCPServer:      true,
+			Audiences:            append([]string(nil), server.Audiences...),
+		}
+	}
+	return hooks, servers
+}
+
 func serverNanobotConfig(server ServerConfig, env map[string][]byte) ntypes.Config {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
 
-	webhookDefinitions, mcpServers := webhookDefinitions(server.Webhooks, replacer)
+	webhookDefinitions := hookDefinitions(server.Webhooks, replacer)
+	mcpServers := nanobotWebhookServers(server.Webhooks, replacer)
 
 	completeEnv := maps.Clone(keyValueSliceToMap(server.Env))
 	if completeEnv == nil {
@@ -316,7 +334,7 @@ func serverNanobotConfig(server ServerConfig, env map[string][]byte) ntypes.Conf
 		Env:                completeEnv,
 		Headers:            keyValueSliceToMap(server.Headers),
 		PassthroughHeaders: server.PassthroughHeaderNames,
-		Hooks:              webhookDefinitions,
+		Hooks:              nanobotHooks(webhookDefinitions),
 	}
 
 	return ntypes.Config{
@@ -338,47 +356,76 @@ func constructMCPServerNanobotYAML(server ServerConfig, env map[string][]byte) (
 	return data, nil
 }
 
-func webhookDefinitions(webhooks []Webhook, replacer *strings.Replacer) (nmcp.Hooks, map[string]nmcp.Server) {
-	webhookDefinitions := make(nmcp.Hooks, 0, len(webhooks))
-	mcpServers := make(map[string]nmcp.Server, len(webhooks)+1)
-
+func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
+	definitions := make(Hooks, 0, len(webhooks))
 	for _, webhook := range webhooks {
-		webhookName := replacer.Replace(webhook.DisplayName)
-		if webhookName == "" {
-			webhookName = replacer.Replace(webhook.Name)
-		}
-		mcpServers[webhookName] = nmcp.Server{
-			BaseURL: webhook.URL,
-		}
-
+		webhookName := webhookServerName(webhook, replacer)
 		targetName := webhookName + "/" + webhook.ToolName
 
 		if len(webhook.Definitions) == 0 {
-			webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
+			definitions = append(definitions, HookMapping{
 				Name:    "*",
-				Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 			})
 			continue
 		}
 
 		for _, def := range webhook.Definitions {
+			method := def.Method
+			if method == "" {
+				method = "*"
+			}
 			if len(def.Identifiers) == 0 {
-				webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
-					Name:    def.Method,
-					Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				definitions = append(definitions, HookMapping{
+					Name:    method,
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 				})
 			}
 			for _, id := range def.Identifiers {
-				webhookDefinitions = append(webhookDefinitions, nmcp.HookMapping{
-					Name:    def.Method,
-					Params:  map[string]string{"name": id},
-					Targets: []nmcp.HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				var params map[string]string
+				if id != "*" {
+					params = map[string]string{"name": id}
+				}
+				definitions = append(definitions, HookMapping{
+					Name:    method,
+					Params:  params,
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
 				})
 			}
 		}
 	}
 
-	return webhookDefinitions, mcpServers
+	return definitions
+}
+
+// nanobotWebhookServers and nanobotHooks are only used by the legacy nanobot
+// server configuration path. Reverse-proxy hooks use the native types above.
+func nanobotWebhookServers(webhooks []Webhook, replacer *strings.Replacer) map[string]nmcp.Server {
+	servers := make(map[string]nmcp.Server, len(webhooks)+1)
+	for _, webhook := range webhooks {
+		servers[webhookServerName(webhook, replacer)] = nmcp.Server{BaseURL: webhook.URL}
+	}
+	return servers
+}
+
+func nanobotHooks(hooks Hooks) nmcp.Hooks {
+	result := make(nmcp.Hooks, 0, len(hooks))
+	for _, hook := range hooks {
+		targets := make([]nmcp.HookTarget, 0, len(hook.Targets))
+		for _, target := range hook.Targets {
+			targets = append(targets, nmcp.HookTarget{Target: target.Target, MutateDisallowed: target.MutateDisallowed})
+		}
+		result = append(result, nmcp.HookMapping{Name: hook.Name, Params: hook.Params, Targets: targets})
+	}
+	return result
+}
+
+func webhookServerName(webhook Webhook, replacer *strings.Replacer) string {
+	name := replacer.Replace(webhook.Name)
+	if name == "" {
+		name = replacer.Replace(webhook.DisplayName)
+	}
+	return name
 }
 
 func keyValueSliceToMap(values []string) map[string]string {

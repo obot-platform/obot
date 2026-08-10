@@ -38,13 +38,13 @@ func (m *SessionManager) GetOAuthMetadata(ctx context.Context, serverConfig Serv
 	var httpClient *http.Client
 	if serverConfig.TunnelName != "" {
 		var err error
-		httpClient, err = m.HTTPClientForServer(serverConfig, nil, nil, 5*time.Second)
+		httpClient, err = m.HTTPClientForServer(serverConfig, HTTPClientOptions{Timeout: 5 * time.Second, DirectConnect: true})
 		if err != nil {
 			return OAuthMetadata{}, err
 		}
 	} else {
 		blockingConfig := m.RemoteMCPURLValidationConfig()
-		httpClient = safehttp.NewClient(safehttp.ClientOptions{
+		httpClient = safehttp.NewClient(safehttp.Options{
 			BlockLoopback:  !blockingConfig.AllowLocalhostMCP,
 			BlockPrivateIP: !blockingConfig.AllowPrivateIPMCP,
 			BlockLinkLocal: !blockingConfig.AllowLinkLocalMCP,
@@ -111,46 +111,6 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	return t.base.RoundTrip(req)
 }
 
-// storageBackedTokenSource implements the oauth2.TokenSource interface to store new tokens in the TokenStorage.
-type storageBackedTokenSource struct {
-	lock         sync.Mutex
-	tokenStorage TokenStorage
-	conf         *oauth2.Config
-	tok          *oauth2.Token
-	tokenSource  oauth2.TokenSource
-}
-
-func newStorageBackedTokenSource(tokenStorage TokenStorage, conf *oauth2.Config, tok *oauth2.Token) oauth2.TokenSource {
-	return oauth2.ReuseTokenSource(tok, &storageBackedTokenSource{
-		tokenStorage: tokenStorage,
-		conf:         conf,
-		tok:          tok,
-		tokenSource:  conf.TokenSource(context.Background(), tok),
-	})
-}
-
-func (ts *storageBackedTokenSource) Token() (*oauth2.Token, error) {
-	tok, err := ts.tokenSource.Token()
-	if err != nil {
-		return nil, err
-	}
-
-	ts.lock.Lock()
-	defer ts.lock.Unlock()
-
-	if tok.AccessToken != ts.tok.AccessToken || tok.RefreshToken != ts.tok.RefreshToken || tok.Expiry.Unix() != ts.tok.Expiry.Unix() {
-		ts.tok = tok
-
-		if ts.tokenStorage != nil {
-			if err = ts.tokenStorage.SetTokenConfig(context.Background(), ts.conf, ts.tok); err != nil {
-				return nil, fmt.Errorf("failed to store token: %w", err)
-			}
-		}
-	}
-
-	return ts.tok, nil
-}
-
 var (
 	resourceMetadataRegex = regexp.MustCompile(`resource_metadata="([^"]*)"`)
 	scopeRegex            = regexp.MustCompile(`scope="([^"]*)"`)
@@ -172,7 +132,7 @@ type CallbackHandler interface {
 }
 
 type ClientCredLookup interface {
-	Lookup(context.Context, string) (string, string, error)
+	Lookup(context.Context) (string, string, error)
 }
 
 type oauth struct {
@@ -225,12 +185,7 @@ func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clie
 }
 
 func (o *oauth) TokenSource(ctx context.Context) (oauth2.TokenSource, error) {
-	oauthConfig, token, err := o.tokenStorage.GetTokenConfig(ctx)
-	if err != nil || token == nil {
-		return nil, err
-	}
-
-	return newStorageBackedTokenSource(o.tokenStorage, oauthConfig, token), nil
+	return o.tokenStorage.TokenSource(ctx)
 }
 
 func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Response) error {
@@ -476,7 +431,7 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 		lookupErr  error
 	)
 	if o.clientLookup != nil {
-		clientInfo.ClientID, clientInfo.ClientSecret, lookupErr = o.clientLookup.Lookup(ctx, protectedResourceMetadata.AuthorizationServers[0])
+		clientInfo.ClientID, clientInfo.ClientSecret, lookupErr = o.clientLookup.Lookup(ctx)
 	}
 	if lookupErr == nil && clientInfo.ClientID != "" && clientInfo.ClientSecret != "" {
 		slog.Info("using static oauth client credentials", "server", serverName, "authorization_server", protectedResourceMetadata.AuthorizationServers[0])

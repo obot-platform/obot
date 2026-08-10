@@ -6,6 +6,8 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
+	"golang.org/x/oauth2"
 )
 
 func TestClientBlocksLoopbackLiteralIP(t *testing.T) {
@@ -14,7 +16,7 @@ func TestClientBlocksLoopbackLiteralIP(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := NewClient(ClientOptions{BlockLoopback: true}).Get(ts.URL)
+	_, err := NewClient(Options{BlockLoopback: true}).Get(ts.URL)
 	if err == nil {
 		t.Fatal("expected loopback IP to be blocked")
 	}
@@ -29,7 +31,7 @@ func TestClientBlocksLoopbackHostname(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	_, err := NewClient(ClientOptions{BlockLoopback: true}).Get(strings.Replace(ts.URL, "127.0.0.1", "localhost", 1))
+	_, err := NewClient(Options{BlockLoopback: true}).Get(strings.Replace(ts.URL, "127.0.0.1", "localhost", 1))
 	if err == nil {
 		t.Fatal("expected localhost to resolve to a blocked loopback IP")
 	}
@@ -39,7 +41,7 @@ func TestClientBlocksLoopbackHostname(t *testing.T) {
 }
 
 func TestClientBlocksPrivateIP(t *testing.T) {
-	_, err := NewClient(ClientOptions{BlockPrivateIP: true}).Get("http://192.168.0.1/.well-known/oauth-protected-resource")
+	_, err := NewClient(Options{BlockPrivateIP: true}).Get("http://192.168.0.1/.well-known/oauth-protected-resource")
 	if err == nil {
 		t.Fatal("expected private IP to be blocked")
 	}
@@ -49,7 +51,7 @@ func TestClientBlocksPrivateIP(t *testing.T) {
 }
 
 func TestClientBlocksLinkLocalIP(t *testing.T) {
-	_, err := NewClient(ClientOptions{BlockLinkLocal: true}).Get("http://169.254.169.254/latest/meta-data")
+	_, err := NewClient(Options{BlockLinkLocal: true}).Get("http://169.254.169.254/latest/meta-data")
 	if err == nil {
 		t.Fatal("expected link-local IP to be blocked")
 	}
@@ -64,7 +66,7 @@ func TestClientAllowsExplicitlyDisabledBlockedRanges(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	resp, err := NewClient(ClientOptions{}).Get(ts.URL)
+	resp, err := NewClient(Options{}).Get(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +88,7 @@ func TestClientAllowsBlockedIPWhenAllowListed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := NewClient(ClientOptions{
+	resp, err := NewClient(Options{
 		BlockLoopback: true,
 		AllowList:     []string{serverURL.Host},
 	}).Get(ts.URL)
@@ -112,7 +114,7 @@ func TestClientAllowsBlockedHostnameWhenAllowListed(t *testing.T) {
 	}
 	localURL := strings.Replace(ts.URL, "127.0.0.1", "localhost", 1)
 
-	resp, err := NewClient(ClientOptions{
+	resp, err := NewClient(Options{
 		BlockLoopback: true,
 		AllowList:     []string{"localhost:" + serverURL.Port()},
 	}).Get(localURL)
@@ -133,7 +135,7 @@ func TestClientBlocksAllowListedHostnameWithMismatchedPort(t *testing.T) {
 	defer ts.Close()
 
 	localURL := strings.Replace(ts.URL, "127.0.0.1", "localhost", 1)
-	_, err := NewClient(ClientOptions{
+	_, err := NewClient(Options{
 		BlockLoopback: true,
 		AllowList:     []string{"localhost:1"},
 	}).Get(localURL)
@@ -158,7 +160,7 @@ func TestClientAddsConfiguredHeadersWithoutMutatingRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client := NewClient(ClientOptions{
+	client := NewClient(Options{
 		BlockLoopback: true,
 		AllowList:     []string{serverURL.Host},
 		Headers: http.Header{
@@ -193,6 +195,62 @@ func TestClientAddsConfiguredHeadersWithoutMutatingRequest(t *testing.T) {
 	}
 	if request.Header.Get("X-Override") != "request" {
 		t.Fatalf("original request header = %q, want request", request.Header.Get("X-Override"))
+	}
+}
+
+func TestClientPreservesOAuthTokenOnlyForSameOriginRedirects(t *testing.T) {
+	var crossOriginAuthorization []string
+	crossOrigin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		crossOriginAuthorization = append(crossOriginAuthorization, req.Header.Get("Authorization"))
+		if req.URL.Path == "/hop" {
+			http.Redirect(w, req, "/final", http.StatusFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer crossOrigin.Close()
+
+	var sameOriginAuthorization string
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/same-origin":
+			http.Redirect(w, req, "/same-origin-final", http.StatusFound)
+		case "/same-origin-final":
+			sameOriginAuthorization = req.Header.Get("Authorization")
+			w.WriteHeader(http.StatusNoContent)
+		case "/cross-origin":
+			http.Redirect(w, req, crossOrigin.URL+"/hop", http.StatusFound)
+		default:
+			http.NotFound(w, req)
+		}
+	}))
+	defer origin.Close()
+
+	client := NewClient(Options{
+		Headers:     http.Header{"Authorization": {"Bearer configured-token"}},
+		TokenSource: oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "secret-token"}),
+	})
+	response, err := client.Get(origin.URL + "/same-origin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if sameOriginAuthorization != "Bearer secret-token" {
+		t.Fatalf("same-origin authorization = %q, want bearer token", sameOriginAuthorization)
+	}
+
+	response, err = client.Get(origin.URL + "/cross-origin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if len(crossOriginAuthorization) != 2 {
+		t.Fatalf("cross-origin requests = %d, want redirect and final request", len(crossOriginAuthorization))
+	}
+	for i, authorization := range crossOriginAuthorization {
+		if authorization != "" {
+			t.Fatalf("cross-origin request %d received authorization %q", i, authorization)
+		}
 	}
 }
 

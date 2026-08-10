@@ -9,19 +9,36 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"golang.org/x/oauth2"
 )
 
-type ClientOptions struct {
+type Options struct {
 	BlockLoopback  bool
 	BlockPrivateIP bool
 	BlockLinkLocal bool
 	AllowList      []string
 	Timeout        time.Duration
 	Headers        http.Header
+	TokenSource    oauth2.TokenSource
 }
 
 // NewClient returns an HTTP client that can block selected local address ranges.
-func NewClient(options ClientOptions) *http.Client {
+func NewClient(options Options) *http.Client {
+	return &http.Client{
+		Timeout:   options.Timeout,
+		Transport: NewSafeTransport(options),
+	}
+}
+
+type checkingTransport struct {
+	base        http.RoundTripper
+	dialer      *safeDialer
+	headers     http.Header
+	tokenSource oauth2.TokenSource
+}
+
+func NewSafeTransport(options Options) http.RoundTripper {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	dialer := &safeDialer{
 		dialer:         &net.Dialer{},
@@ -33,20 +50,12 @@ func NewClient(options ClientOptions) *http.Client {
 	}
 	transport.DialContext = dialer.DialContext
 
-	return &http.Client{
-		Timeout: options.Timeout,
-		Transport: checkingTransport{
-			base:    transport,
-			dialer:  dialer,
-			headers: options.Headers.Clone(),
-		},
+	return checkingTransport{
+		base:        transport,
+		dialer:      dialer,
+		headers:     options.Headers.Clone(),
+		tokenSource: options.TokenSource,
 	}
-}
-
-type checkingTransport struct {
-	base    http.RoundTripper
-	dialer  *safeDialer
-	headers http.Header
 }
 
 func (t checkingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -56,15 +65,41 @@ func (t checkingTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		}
 	}
 
-	if len(t.headers) > 0 {
+	if len(t.headers) > 0 || t.tokenSource != nil {
+		preserveAuthorization := sameOriginAsInitialRequest(req, req.URL)
 		req = req.Clone(req.Context())
 		if req.Header == nil {
-			req.Header = make(http.Header, len(t.headers))
+			req.Header = make(http.Header, len(t.headers)+1)
 		}
 		maps.Copy(req.Header, t.headers)
+		if !preserveAuthorization {
+			req.Header.Del("Authorization")
+		}
+
+		if t.tokenSource != nil && preserveAuthorization {
+			token, err := t.tokenSource.Token()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get token from source: %w", err)
+			}
+			req.Header.Set("Authorization", "Bearer "+token.AccessToken)
+		}
 	}
 
 	return t.base.RoundTrip(req)
+}
+
+func sameOriginAsInitialRequest(req *http.Request, target *url.URL) bool {
+	if req == nil || target == nil {
+		return false
+	}
+	initial := req
+	for initial.Response != nil && initial.Response.Request != nil {
+		initial = initial.Response.Request
+	}
+	return initial.URL != nil &&
+		strings.EqualFold(initial.URL.Scheme, target.Scheme) &&
+		strings.EqualFold(initial.URL.Hostname(), target.Hostname()) &&
+		portForURL(initial.URL) == portForURL(target)
 }
 
 type safeDialer struct {

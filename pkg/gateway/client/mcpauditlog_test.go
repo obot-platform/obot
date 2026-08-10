@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -67,28 +68,34 @@ func TestInsertMCPAuditLogsMergesResponseOnlyRowWithGroupedFields(t *testing.T) 
 		MCPFields: &types.MCPAuditLogFields{
 			MCPID:       "mcp-1",
 			RequestID:   "request-1",
-			SessionID:   "session-1",
+			CallType:    "initialize",
+			SessionID:   "",
 			RequestBody: json.RawMessage(`{"name":"tool"}`),
+			WebhookStatuses: datatypes.JSONSlice[types.MCPWebhookStatus]{
+				{Type: "request", Tool: "policy/check", Status: "ok"},
+			},
 		},
 	}
 	response := types.MCPAuditLog{
 		CreatedAt: now.Add(250 * time.Millisecond),
 		UserID:    "user-1",
 		MCPFields: &types.MCPAuditLogFields{
-			MCPID:            "mcp-1",
-			RequestID:        "request-1",
-			SessionID:        "session-1",
-			ResponseReceived: true,
-			ResponseBody:     json.RawMessage(`{"ok":true}`),
-			ResponseStatus:   200,
+			MCPID:                "mcp-1",
+			RequestID:            "request-1",
+			SessionID:            "session-1",
+			ResponseReceived:     true,
+			MutatedRequestBody:   json.RawMessage(`{"name":"modified-tool"}`),
+			ResponseBody:         json.RawMessage(`{"ok":true,"value":"modified"}`),
+			OriginalResponseBody: json.RawMessage(`{"ok":true,"value":"original"}`),
+			ResponseStatus:       200,
+			WebhookStatuses: datatypes.JSONSlice[types.MCPWebhookStatus]{
+				{Type: "response", Tool: "policy/check", Status: "mutated"},
+			},
 		},
 	}
 
-	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{request}); err != nil {
-		t.Fatalf("insert request audit log: %v", err)
-	}
-	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{response}); err != nil {
-		t.Fatalf("insert response audit log: %v", err)
+	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{request, response}); err != nil {
+		t.Fatalf("insert separate request and response audit logs: %v", err)
 	}
 
 	var got types.MCPAuditLog
@@ -98,11 +105,192 @@ func TestInsertMCPAuditLogsMergesResponseOnlyRowWithGroupedFields(t *testing.T) 
 	if got.MCP().ResponseReceived != true {
 		t.Fatal("expected response_received to be true")
 	}
-	if string(got.MCP().ResponseBody) != `{"ok":true}` {
+	if got.MCP().SessionID != "session-1" {
+		t.Fatalf("expected response-assigned session ID to be merged, got %q", got.MCP().SessionID)
+	}
+	if string(got.MCP().MutatedRequestBody) != `{"name":"modified-tool"}` || !got.MCP().RequestMutated {
+		t.Fatalf("expected modified request body to be merged, got body=%s mutated=%v", got.MCP().MutatedRequestBody, got.MCP().RequestMutated)
+	}
+	if string(got.MCP().ResponseBody) != `{"ok":true,"value":"modified"}` {
 		t.Fatalf("expected response body to be merged, got %s", got.MCP().ResponseBody)
+	}
+	if string(got.MCP().OriginalResponseBody) != `{"ok":true,"value":"original"}` || !got.MCP().ResponseMutated {
+		t.Fatalf("expected original response body to be merged, got body=%s mutated=%v", got.MCP().OriginalResponseBody, got.MCP().ResponseMutated)
 	}
 	if got.MCP().ProcessingTimeMs != 250 {
 		t.Fatalf("expected processing time 250ms, got %d", got.MCP().ProcessingTimeMs)
+	}
+	if statuses := got.MCP().WebhookStatuses; len(statuses) != 2 || statuses[0].Type != "request" || statuses[1].Type != "response" {
+		t.Fatalf("expected request and response webhook statuses to be appended in order, got %#v", statuses)
+	}
+}
+
+func TestInsertMCPAuditLogsDoesNotClaimEmptySessionForNonInitializeResponse(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	request := types.MCPAuditLog{
+		CreatedAt: now,
+		UserID:    "user-1",
+		MCPFields: &types.MCPAuditLogFields{
+			MCPID:       "mcp-1",
+			RequestID:   "1",
+			CallType:    "tools/call",
+			RequestBody: json.RawMessage(`{"name":"from-session-a"}`),
+		},
+	}
+	response := types.MCPAuditLog{
+		CreatedAt: now.Add(time.Millisecond),
+		UserID:    "user-1",
+		MCPFields: &types.MCPAuditLogFields{
+			MCPID:            "mcp-1",
+			RequestID:        "1",
+			SessionID:        "session-b",
+			ResponseReceived: true,
+			ResponseBody:     json.RawMessage(`{"result":"from-session-b"}`),
+		},
+	}
+
+	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{request, response}); err != nil {
+		t.Fatalf("insert audit logs: %v", err)
+	}
+
+	var got []types.MCPAuditLog
+	if err := c.db.WithContext(ctx).Order("created_at").Find(&got).Error; err != nil {
+		t.Fatalf("load audit logs: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected separate request and response rows, got %d", len(got))
+	}
+	if got[0].MCP().ResponseReceived || got[0].MCP().SessionID != "" {
+		t.Fatalf("empty-session request was incorrectly claimed: %#v", got[0].MCP())
+	}
+	if !got[1].MCP().ResponseReceived || got[1].MCP().SessionID != "session-b" || len(got[1].MCP().RequestBody) != 0 {
+		t.Fatalf("response was not stored as an orphaned response row: %#v", got[1].MCP())
+	}
+}
+
+func TestInsertMCPAuditLogsMergesInitializeResponseWithNullSession(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+
+	request := types.MCPAuditLog{
+		CreatedAt: now,
+		UserID:    "user-1",
+		MCPFields: &types.MCPAuditLogFields{
+			MCPID:       "mcp-1",
+			RequestID:   "nullable-session",
+			CallType:    "initialize",
+			RequestBody: json.RawMessage(`{"method":"initialize"}`),
+		},
+	}
+	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{request}); err != nil {
+		t.Fatalf("insert initialize request: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).
+		Where("request_id = ?", "nullable-session").
+		UpdateColumn("session_id", nil).Error; err != nil {
+		t.Fatalf("set legacy session ID to NULL: %v", err)
+	}
+
+	response := types.MCPAuditLog{
+		CreatedAt: now.Add(time.Millisecond),
+		UserID:    "user-1",
+		MCPFields: &types.MCPAuditLogFields{
+			MCPID:            "mcp-1",
+			RequestID:        "nullable-session",
+			SessionID:        "assigned-session",
+			ResponseReceived: true,
+			ResponseBody:     json.RawMessage(`{"result":{}}`),
+		},
+	}
+	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{response}); err != nil {
+		t.Fatalf("merge initialize response: %v", err)
+	}
+
+	var got []types.MCPAuditLog
+	if err := c.db.WithContext(ctx).Find(&got).Error; err != nil {
+		t.Fatalf("load merged audit log: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected one merged audit row, got %d", len(got))
+	}
+	if !got[0].MCP().ResponseReceived || got[0].MCP().SessionID != "assigned-session" {
+		t.Fatalf("nullable initialize session was not correlated: %#v", got[0].MCP())
+	}
+}
+
+func TestInsertMCPAuditLogsCorrelatesConcurrentSessionlessExchangesWithReusedRequestID(t *testing.T) {
+	for _, responseOrder := range []struct {
+		name string
+		ids  []string
+	}{
+		{name: "first request responds first", ids: []string{"exchange-a", "exchange-b"}},
+		{name: "second request responds first", ids: []string{"exchange-b", "exchange-a"}},
+	} {
+		t.Run(responseOrder.name, func(t *testing.T) {
+			c := newTestClient(t)
+			ctx := t.Context()
+			now := time.Now().UTC()
+
+			request := func(exchangeID, value string, createdAt time.Time) types.MCPAuditLog {
+				return types.MCPAuditLog{
+					CreatedAt: createdAt,
+					UserID:    "user-1",
+					MCPFields: &types.MCPAuditLogFields{
+						MCPID:           "mcp-1",
+						RequestID:       "1",
+						CallType:        "tools/call",
+						ProxyExchangeID: exchangeID,
+						RequestBody:     json.RawMessage(`{"request":"` + value + `"}`),
+					},
+				}
+			}
+			response := func(exchangeID string, createdAt time.Time) types.MCPAuditLog {
+				return types.MCPAuditLog{
+					CreatedAt: createdAt,
+					UserID:    "user-1",
+					MCPFields: &types.MCPAuditLogFields{
+						MCPID:            "mcp-1",
+						RequestID:        "1",
+						ProxyExchangeID:  exchangeID,
+						ResponseReceived: true,
+						ResponseBody:     json.RawMessage(`{"response":"` + exchangeID + `"}`),
+					},
+				}
+			}
+
+			logs := []types.MCPAuditLog{
+				request("exchange-a", "a", now),
+				request("exchange-b", "b", now.Add(time.Millisecond)),
+			}
+			for i, exchangeID := range responseOrder.ids {
+				logs = append(logs, response(exchangeID, now.Add(time.Duration(i+2)*time.Millisecond)))
+			}
+			if err := c.insertMCPAuditLogs(ctx, logs); err != nil {
+				t.Fatalf("insert audit logs: %v", err)
+			}
+
+			var got []types.MCPAuditLog
+			if err := c.db.WithContext(ctx).Order("created_at").Find(&got).Error; err != nil {
+				t.Fatalf("load audit logs: %v", err)
+			}
+			if len(got) != 2 {
+				t.Fatalf("expected two merged audit rows, got %d", len(got))
+			}
+			for _, auditLog := range got {
+				mcp := auditLog.MCP()
+				if !mcp.ResponseReceived {
+					t.Fatalf("request was not merged with its response: %#v", mcp)
+				}
+				wantResponse := `{"response":"` + mcp.ProxyExchangeID + `"}`
+				if string(mcp.ResponseBody) != wantResponse {
+					t.Fatalf("exchange %q received response %s, want %s", mcp.ProxyExchangeID, mcp.ResponseBody, wantResponse)
+				}
+			}
+		})
 	}
 }
 
@@ -946,7 +1134,7 @@ func TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns(t *testi
 		want        []string
 	}{
 		// List view: headers are dropped too.
-		{name: "list drops headers", keepHeaders: false, want: append(append([]string{}, sensitive...), headers...)},
+		{name: "list drops headers", keepHeaders: false, want: append(slices.Clone(sensitive), headers...)},
 		// Detail view: headers are kept (returned redacted).
 		{name: "detail keeps headers", keepHeaders: true, want: sensitive},
 	}

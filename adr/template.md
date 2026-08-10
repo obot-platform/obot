@@ -1,4 +1,4 @@
-# NNNN: Decision title
+# YYYY-MM-DD: Decision title
 
 - **Status:** Accepted
 - **Date:** YYYY-MM-DD

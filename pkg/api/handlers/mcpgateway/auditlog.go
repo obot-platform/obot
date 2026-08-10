@@ -753,6 +753,17 @@ func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 }
 
 func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog) {
+	h.collectMCPProxyAuditEntry(ctx, entry, false, "")
+}
+
+// CollectMCPProxyAuditEntry records proxy-only persistence metadata. The
+// nanobot audit type predates ResponseReceived and has no internal exchange ID,
+// so the proxy passes both values separately.
+func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
+	h.collectMCPProxyAuditEntry(context.Background(), entry, responseReceived, proxyExchangeID)
+}
+
+func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
 	if entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
 		// If the call type is empty, then this is a response to a request.
 		// The audit log will be handled elsewhere.
@@ -770,6 +781,8 @@ func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditl
 	if err := h.attributeMCPAuditLogAPIKey(ctx, &auditLog); err != nil {
 		slog.Warn("failed to attribute MCP audit log API key", "error", err)
 	}
+	auditLog.MCP().ResponseReceived = responseReceived
+	auditLog.MCP().ProxyExchangeID = proxyExchangeID
 	h.gatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 }
 

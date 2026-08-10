@@ -25,6 +25,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/rancher/remotedialer"
+	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -205,23 +206,29 @@ type bridgeTarget struct {
 }
 
 type bridgeRoundTripper struct {
-	manager    *Manager
-	tunnelName string
-	transport  http.RoundTripper
-	headers    http.Header
+	manager     *Manager
+	tunnelName  string
+	transport   http.RoundTripper
+	headers     http.Header
+	tokenSource oauth2.TokenSource
 }
 
 func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
-	if request == nil || request.URL == nil {
-		return nil, errors.New("tunnel bridge request URL is required")
+	targetURL := request.URL
+	if bridgedTarget, ok := b.manager.bridgeTargetURLForTunnel(request.URL, b.tunnelName); ok {
+		targetURL = bridgedTarget
 	}
+	preserveAuthorization := b.sameOriginAsInitialRequest(request, targetURL)
 
 	outbound := request.Clone(request.Context())
 	if outbound.Header == nil {
-		outbound.Header = make(http.Header, len(b.headers)+1)
+		outbound.Header = make(http.Header, len(b.headers)+2)
 	}
 
 	maps.Copy(outbound.Header, b.headers)
+	if !preserveAuthorization {
+		outbound.Header.Del("Authorization")
+	}
 
 	if !b.manager.isBridgeURLForTunnel(outbound.URL, b.tunnelName) {
 		bridgeURL, err := b.manager.BridgeURL(b.tunnelName, outbound.URL.String())
@@ -235,48 +242,105 @@ func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, e
 		outbound.Host = ""
 	}
 
+	if b.tokenSource != nil && preserveAuthorization {
+		token, err := b.tokenSource.Token()
+		if err != nil {
+			return nil, fmt.Errorf("failed to obtain token from source: %w", err)
+		}
+
+		outbound.Header["Authorization"] = []string{"Bearer " + token.AccessToken}
+	}
+
 	name, value := b.manager.BridgeAuthorization()
 	outbound.Header.Set(name, value)
 	return b.transport.RoundTrip(outbound)
 }
 
+func (b *bridgeRoundTripper) sameOriginAsInitialRequest(request *http.Request, target *url.URL) bool {
+	if request == nil || target == nil {
+		return false
+	}
+	initial := request
+	for initial.Response != nil && initial.Response.Request != nil {
+		initial = initial.Response.Request
+	}
+	initialTarget := initial.URL
+	if bridgedTarget, ok := b.manager.bridgeTargetURLForTunnel(initial.URL, b.tunnelName); ok {
+		initialTarget = bridgedTarget
+	}
+	return initialTarget != nil && sameOrigin(initialTarget, target)
+}
+
+type HTTPClientOptions struct {
+	Headers     http.Header
+	TokenSource oauth2.TokenSource
+	Timeout     time.Duration
+}
+
 // HTTPClient returns an HTTP client that routes every request through the
 // named tunnel. Redirects rewritten by the bridge remain on the same tunnel.
-func (m *Manager) HTTPClient(tunnelName string, headers http.Header, timeout time.Duration) (*http.Client, error) {
+func (m *Manager) HTTPClient(tunnelName string, opts HTTPClientOptions) (*http.Client, error) {
 	if m == nil {
 		return nil, errors.New("tunnel manager is not configured")
 	}
 	if err := apitypes.ValidateTunnelName(tunnelName); err != nil {
 		return nil, err
 	}
+
+	headers := opts.Headers.Clone()
+	if headers == nil {
+		headers = make(http.Header, 1)
+	}
+
+	bridgeAuthorizationName, bridgeAuthorizationValue := m.BridgeAuthorization()
+	headers.Set(bridgeAuthorizationName, bridgeAuthorizationValue)
+
 	return &http.Client{
-		Timeout: timeout,
+		Timeout: opts.Timeout,
 		Transport: &bridgeRoundTripper{
-			manager:    m,
-			tunnelName: tunnelName,
-			transport:  http.DefaultTransport,
-			headers:    headers.Clone(),
+			manager:     m,
+			tunnelName:  tunnelName,
+			transport:   http.DefaultTransport,
+			tokenSource: opts.TokenSource,
+			headers:     headers,
 		},
 	}, nil
 }
 
 func (m *Manager) isBridgeURLForTunnel(targetURL *url.URL, tunnelName string) bool {
+	_, ok := m.bridgeTargetForTunnel(targetURL, tunnelName)
+	return ok
+}
+
+func (m *Manager) bridgeTargetURLForTunnel(targetURL *url.URL, tunnelName string) (*url.URL, bool) {
+	target, ok := m.bridgeTargetForTunnel(targetURL, tunnelName)
+	if !ok {
+		return nil, false
+	}
+	parsed, err := parseTargetURL(target.URL)
+	return parsed, err == nil
+}
+
+func (m *Manager) bridgeTargetForTunnel(targetURL *url.URL, tunnelName string) (bridgeTarget, bool) {
 	if targetURL == nil ||
 		!strings.EqualFold(targetURL.Scheme+"://"+targetURL.Host, m.bridgeBaseURL) ||
 		!strings.HasPrefix(targetURL.Path, bridgePathPrefix) {
-		return false
+		return bridgeTarget{}, false
 	}
 
 	encoded := strings.TrimPrefix(targetURL.Path, bridgePathPrefix)
 	if encoded == "" || strings.Contains(encoded, "/") {
-		return false
+		return bridgeTarget{}, false
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
-		return false
+		return bridgeTarget{}, false
 	}
 	var target bridgeTarget
-	return json.Unmarshal(payload, &target) == nil && target.TunnelName == tunnelName
+	if json.Unmarshal(payload, &target) != nil || target.TunnelName != tunnelName {
+		return bridgeTarget{}, false
+	}
+	return target, true
 }
 
 // BridgeURL converts an ordinary HTTP(S) target and MCPTunnel name into an
