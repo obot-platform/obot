@@ -103,6 +103,7 @@
 				<SchedulingForm
 					readonly={schedulingReadonly}
 					locked={k8sSettings.setViaHelm}
+					maximumsLocked={k8sSettings.maximumsSetViaHelm}
 					bind:resourceInfo
 					bind:affinity={k8sSettings.affinity}
 					bind:tolerations={k8sSettings.tolerations}
@@ -126,6 +127,71 @@
 								<li>Invalid YAML/JSON will be rejected during validation.</li>
 							</ul>
 						</div>
+					{/snippet}
+					{#snippet maximumResources()}
+						{#if k8sSettings}
+							<div>
+								{@render headerContent('Maximum Settings', true)}
+								<p class="text-sm">
+									Define the maximum allowed values for CPU and memory requests and limits for
+									hosted MCP server pods. Leave a value empty to allow no maximum.
+								</p>
+							</div>
+							<div class="flex flex-col gap-1">
+								<h3 class="text-base font-semibold">CPU Settings</h3>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+										<label class="input-label" for="max-cpu-request">Max Request</label>
+										<input
+											type="text"
+											id="max-cpu-request"
+											bind:value={k8sSettings.maxCpuRequest}
+											class="text-input-filled dark:bg-base-100"
+											disabled={maximumsReadonly}
+											placeholder="example: 500m"
+										/>
+									</div>
+									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+										<label class="input-label" for="max-cpu-limit">Max Limit</label>
+										<input
+											type="text"
+											id="max-cpu-limit"
+											bind:value={k8sSettings.maxCpuLimit}
+											class="text-input-filled dark:bg-base-100"
+											disabled={maximumsReadonly}
+											placeholder="example: 1"
+										/>
+									</div>
+								</div>
+							</div>
+							<div class="flex flex-col gap-1">
+								<h3 class="text-base font-semibold">Memory Settings</h3>
+								<div class="grid grid-cols-2 gap-4">
+									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+										<label class="input-label" for="max-memory-request">Max Request</label>
+										<input
+											type="text"
+											id="max-memory-request"
+											bind:value={k8sSettings.maxMemoryRequest}
+											class="text-input-filled dark:bg-base-100"
+											disabled={maximumsReadonly}
+											placeholder="example: 512Mi"
+										/>
+									</div>
+									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+										<label class="input-label" for="max-memory-limit">Max Limit</label>
+										<input
+											type="text"
+											id="max-memory-limit"
+											bind:value={k8sSettings.maxMemoryLimit}
+											class="text-input-filled dark:bg-base-100"
+											disabled={maximumsReadonly}
+											placeholder="example: 1Gi"
+										/>
+									</div>
+								</div>
+							</div>
+						{/if}
 					{/snippet}
 					<div class="paper mt-1">
 						<div>
@@ -174,70 +240,6 @@
 						</div>
 					</div>
 				</SchedulingForm>
-
-				<div class="paper mt-1">
-					<div>
-						{@render headerContent('Maximum Settings', true)}
-						<p class="text-sm">
-							Define the maximum allowed values for CPU and memory requests and limits for hosted
-							MCP server pods. Leave a value empty to allow no maximum.
-						</p>
-					</div>
-					<div class="flex flex-col gap-1">
-						<h3 class="text-base font-semibold">CPU Settings</h3>
-						<div class="grid grid-cols-2 gap-4">
-							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-								<label class="input-label" for="max-cpu-request">Max Request</label>
-								<input
-									type="text"
-									id="max-cpu-request"
-									bind:value={k8sSettings.maxCpuRequest}
-									class="text-input-filled dark:bg-base-100"
-									disabled={maximumsReadonly}
-									placeholder="example: 500m"
-								/>
-							</div>
-							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-								<label class="input-label" for="max-cpu-limit">Max Limit</label>
-								<input
-									type="text"
-									id="max-cpu-limit"
-									bind:value={k8sSettings.maxCpuLimit}
-									class="text-input-filled dark:bg-base-100"
-									disabled={maximumsReadonly}
-									placeholder="example: 1"
-								/>
-							</div>
-						</div>
-					</div>
-					<div class="flex flex-col gap-1">
-						<h3 class="text-base font-semibold">Memory Settings</h3>
-						<div class="grid grid-cols-2 gap-4">
-							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-								<label class="input-label" for="max-memory-request">Max Request</label>
-								<input
-									type="text"
-									id="max-memory-request"
-									bind:value={k8sSettings.maxMemoryRequest}
-									class="text-input-filled dark:bg-base-100"
-									disabled={maximumsReadonly}
-									placeholder="example: 512Mi"
-								/>
-							</div>
-							<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-								<label class="input-label" for="max-memory-limit">Max Limit</label>
-								<input
-									type="text"
-									id="max-memory-limit"
-									bind:value={k8sSettings.maxMemoryLimit}
-									class="text-input-filled dark:bg-base-100"
-									disabled={maximumsReadonly}
-									placeholder="example: 1Gi"
-								/>
-							</div>
-						</div>
-					</div>
-				</div>
 
 				{#if !readonly}
 					<div

@@ -9,12 +9,14 @@
 	interface Props {
 		readonly?: boolean;
 		locked?: boolean;
+		maximumsLocked?: boolean;
 		affinity?: string;
 		tolerations?: string;
 		runtimeClassName?: string;
 		resourceInfo: SchedulingResources;
 		children?: Snippet;
 		notes?: Snippet;
+		maximumResources?: Snippet;
 		type: 'app' | 'mcpserver';
 	}
 
@@ -27,19 +29,21 @@
 		runtimeClassName = $bindable(),
 		children,
 		notes,
-		type
+		type,
+		maximumResources,
+		maximumsLocked
 	}: Props = $props();
 </script>
 
 <div class="flex flex-col gap-2">
-	{#if locked}
+	{#if locked || maximumsLocked}
 		<div class="notification-info p-3 text-sm font-light">
 			<div class="flex items-center gap-3">
 				<Info class="size-6" />
 				<div>
-					These settings are currently managed by your Helm chart and are <b class="font-semibold"
-						>read-only</b
-					> in the UI. To edit them, update your Helm values and redeploy.
+					{maximumsLocked && !locked ? 'Maximum resources' : 'These settings'} are currently managed by
+					your Helm chart and are <b class="font-semibold">read-only</b> in the UI. To edit them, update
+					your Helm values and redeploy.
 				</div>
 			</div>
 		</div>
@@ -122,7 +126,7 @@
 		</p>
 	</div>
 
-	<h3 class="text-lg font-semibold">CPU Settings</h3>
+	<h3 class="text-base font-semibold">CPU Settings</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
 			<label class="input-label" for="cpu-request">Request</label>
@@ -147,7 +151,7 @@
 			/>
 		</div>
 	</div>
-	<h3 class="text-lg font-semibold">Memory Settings</h3>
+	<h3 class="text-base font-semibold">Memory Settings</h3>
 	<div class="flex gap-4">
 		<div class="flex flex-1 flex-col gap-1">
 			<label class="input-label" for="memory-request">Request</label>
@@ -172,6 +176,11 @@
 			/>
 		</div>
 	</div>
+
+	{#if maximumResources}
+		<div class="divider my-0"></div>
+		{@render maximumResources()}
+	{/if}
 </div>
 <div class="paper mt-1">
 	<div>
