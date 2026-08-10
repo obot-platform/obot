@@ -18,7 +18,7 @@ async function renderSingleTenantForm(onSubmit = vi.fn()) {
 		onSubmit
 	});
 
-	await page.locator('#server-configuration-selector').click();
+	await page.getByCSS('#server-configuration-selector').click();
 	await page.getByRole('button', { name: 'Single-tenant', exact: true }).click();
 
 	return onSubmit;
@@ -52,18 +52,18 @@ async function fillRequiredServerFields({
 	packageName = createMCPCatalogEntryResponse.manifest.npxConfig.package
 } = {}) {
 	if (name) {
-		await page.locator(`#${CATALOG_SERVER_FIELD_IDS.name}`).fill(name);
+		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`).fill(name);
 	}
 	if (shortDescription) {
-		await page.locator(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill(shortDescription);
+		await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`).fill(shortDescription);
 	}
 	if (packageName) {
-		await page.locator('#npx-package').fill(packageName);
+		await page.getByCSS('#npx-package').fill(packageName);
 	}
 }
 
 async function submitForm() {
-	await page.locator(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.submitBtn}`).click();
 }
 
 function mockCatalogEntrySubmit() {
@@ -75,11 +75,11 @@ function mockCatalogEntrySubmit() {
 }
 
 async function addConfiguration() {
-	await page.locator(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
+	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
 }
 
 async function selectStaticConfiguration() {
-	await page.locator(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-0`).click();
+	await page.getByCSS(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-0`).click();
 	const staticOption = Array.from(document.querySelectorAll('button')).find(
 		(button) => button.textContent?.trim() === 'Static'
 	);
@@ -98,7 +98,7 @@ describe('CatalogServerForm.svelte', () => {
 		await submitForm();
 
 		await expect
-			.element(page.locator(`#${CATALOG_SERVER_FIELD_IDS.name}`))
+			.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.name}`))
 			.toHaveAttribute('aria-invalid', 'true');
 		await expect.element(page.getByText('Name is required', { exact: true })).toBeVisible();
 	});
@@ -110,7 +110,7 @@ describe('CatalogServerForm.svelte', () => {
 		await submitForm();
 
 		await expect
-			.element(page.locator(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`))
+			.element(page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.shortDescription}`))
 			.toHaveAttribute('aria-invalid', 'true');
 		await expect
 			.element(page.getByText('Short description is required', { exact: true }))
@@ -121,15 +121,15 @@ describe('CatalogServerForm.svelte', () => {
 		it('shows required validation indicators for an empty Configuration Key and Name', async () => {
 			await renderSingleTenantForm();
 			await fillRequiredServerFields();
-			await page.locator(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
 
 			await submitForm();
 
 			await expect
-				.element(page.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 			await expect
-				.element(page.locator(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 		});
 
@@ -141,9 +141,9 @@ describe('CatalogServerForm.svelte', () => {
 			);
 			const onSubmit = await renderSingleTenantForm();
 			await fillRequiredServerFields();
-			await page.locator(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
-			await page.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('TEST_API_KEY');
-			await page.locator(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('Test API Key');
+			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
+			await page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('TEST_API_KEY');
+			await page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('Test API Key');
 
 			await submitForm();
 
@@ -165,10 +165,10 @@ describe('CatalogServerForm.svelte', () => {
 			await submitForm();
 
 			await expect
-				.element(page.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 			await expect
-				.element(page.locator(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 		});
 
@@ -181,10 +181,10 @@ describe('CatalogServerForm.svelte', () => {
 			await submitForm();
 
 			await expect
-				.element(page.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 			await expect
-				.element(page.locator(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.element(page.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`))
 				.toHaveClass(/error/);
 		});
 
@@ -194,10 +194,10 @@ describe('CatalogServerForm.svelte', () => {
 			await fillRequiredServerFields();
 			await addConfiguration();
 			await page
-				.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
+				.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
 				.fill(createMCPCatalogEntryResponse.manifest.env[0].key);
 			await page
-				.locator(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`)
+				.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`)
 				.fill(createMCPCatalogEntryResponse.manifest.env[0].name);
 
 			await submitForm();
@@ -217,9 +217,11 @@ describe('CatalogServerForm.svelte', () => {
 			await addConfiguration();
 			await selectStaticConfiguration();
 			await page
-				.locator(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
+				.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
 				.fill(createMCPCatalogEntryResponse.manifest.env[0].key);
-			await page.locator(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('test-api-key-value');
+			await page
+				.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`)
+				.fill('test-api-key-value');
 
 			await submitForm();
 
@@ -239,14 +241,14 @@ describe('CatalogServerForm.svelte', () => {
 
 			await submitForm();
 
-			await expect.element(page.locator('#basic-url')).toHaveClass(/error/);
+			await expect.element(page.getByCSS('#basic-url')).toHaveClass(/error/);
 		});
 
 		it('submits a valid remote catalog entry', async () => {
 			mockCatalogEntrySubmit();
 			const onSubmit = await renderRemoteForm();
 			await fillRequiredServerFields({ packageName: '' });
-			await page.locator('#basic-url').fill('https://example.com/mcp');
+			await page.getByCSS('#basic-url').fill('https://example.com/mcp');
 
 			await submitForm();
 

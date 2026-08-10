@@ -72,8 +72,8 @@ describe('MCP Catalog multi-user server details page (admin)', () => {
 		await expect
 			.element(page.getByText(fixtures.associatedUser.email, { exact: true }).first())
 			.toBeVisible();
-		expect(
-			page.getByRole('heading', { name: 'Associated User', exact: true })
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Associated User', exact: true }))
+			.not.toBeInTheDocument();
 	});
 });

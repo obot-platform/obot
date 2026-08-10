@@ -110,9 +110,9 @@ describe('Auth Providers Page', () => {
 			await expect
 				.element(page.getByRole('dialog').getByRole('link', { name: /Continue with Google/ }))
 				.toBeVisible();
-			expect(
-				page.getByRole('dialog').getByRole('link', { name: /Continue with Google/ })
-			).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
+			await expect
+				.element(page.getByRole('dialog').getByRole('link', { name: /Continue with Google/ }))
+				.toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 		});
 
 		it('non-bootstrap user does not see handoff and provider shows as configured', async () => {
@@ -125,9 +125,9 @@ describe('Auth Providers Page', () => {
 				expect(configureAuthProvider).toHaveBeenCalledOnce();
 			});
 
-			expect(
-				page.getByRole('dialog').filter({ hasText: 'Next Step: Owner Login Setup' })
-			).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('dialog').filter({ hasText: 'Next Step: Owner Login Setup' }))
+				.not.toBeInTheDocument();
 
 			await expect
 				.element(providerCard('Google').getByText('Configured', { exact: true }))
@@ -162,7 +162,9 @@ describe('Auth Providers Page', () => {
 				)
 				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
-			expect(page.getByText('Set Up Microsoft Entra', { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(page.getByText('Set Up Microsoft Entra', { exact: true }))
+				.not.toBeInTheDocument();
 		});
 	});
 });

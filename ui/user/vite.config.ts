@@ -37,7 +37,7 @@ export default defineConfig(({ mode }) => {
 			projects: [
 				{
 					// Client-side tests (Svelte components)
-					extends: './vite.config.ts',
+					extends: true,
 					test: {
 						name: 'client',
 						// Timeout for browser tests - prevent hanging on element lookups

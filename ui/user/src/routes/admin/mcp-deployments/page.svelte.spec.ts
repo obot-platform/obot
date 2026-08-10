@@ -85,8 +85,12 @@ async function expectMenuActions(
 	}
 
 	for (const label of expected.absent ?? []) {
-		expect(page.getByRole('button', { name: label, exact: true })).not.toBeInTheDocument();
-		expect(page.getByRole('link', { name: label, exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: label, exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('link', { name: label, exact: true }))
+			.not.toBeInTheDocument();
 	}
 }
 
@@ -190,16 +194,18 @@ describe('MCP Deployments Page', () => {
 				.element(page.getByRole('button', { name: 'Delete Server', exact: true }))
 				.toBeVisible();
 
-			expect(
-				page.getByRole('button', { name: 'Update Server', exact: true })
-			).not.toBeInTheDocument();
-			expect(page.getByRole('button', { name: 'View Diff', exact: true })).not.toBeInTheDocument();
-			expect(
-				page.getByRole('button', { name: 'Update Scheduling Config', exact: true })
-			).not.toBeInTheDocument();
-			expect(
-				page.getByRole('button', { name: 'View Audit Logs', exact: true })
-			).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Update Server', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'View Diff', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Update Scheduling Config', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'View Audit Logs', exact: true }))
+				.not.toBeInTheDocument();
 		});
 	});
 

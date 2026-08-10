@@ -192,12 +192,12 @@ describe('Layout.svelte', () => {
 			it('does not show administration or advanced settings', async () => {
 				await renderLayout([Group.USER]);
 
-				expect(
-					page.getByRole('button', { name: 'Administration', exact: true })
-				).not.toBeInTheDocument();
-				expect(
-					page.getByRole('button', { name: 'Advanced Settings', exact: true })
-				).not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('button', { name: 'Administration', exact: true }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('button', { name: 'Advanced Settings', exact: true }))
+					.not.toBeInTheDocument();
 			});
 		});
 

@@ -5,7 +5,7 @@ import { beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
 import { locators } from 'vitest/browser';
 
 locators.extend({
-	locator(selector) {
+	getByCSS(selector) {
 		return `css=${selector}`;
 	}
 });

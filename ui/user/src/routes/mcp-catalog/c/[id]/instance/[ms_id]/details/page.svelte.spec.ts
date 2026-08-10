@@ -74,9 +74,9 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 		await expect
 			.element(page.getByText(fixtures.associatedUser.email, { exact: true }).first())
 			.toBeVisible();
-		expect(
-			page.getByRole('heading', { name: 'Connected Users', exact: true })
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Connected Users', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('remote server shows Associated User table and OAuth metadata', async () => {
@@ -100,13 +100,13 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 			)
 			.toBeVisible();
 
-		expect(page.getByText('Deployment', { exact: true })).not.toBeInTheDocument();
-		expect(
-			page.getByRole('heading', { name: 'Recent Events', exact: true })
-		).not.toBeInTheDocument();
-		expect(
-			page.getByRole('heading', { name: 'Deployment Logs', exact: true })
-		).not.toBeInTheDocument();
+		await expect.element(page.getByText('Deployment', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Recent Events', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Deployment Logs', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('composite server shows Connected Users table and MCP Servers links to children', async () => {
@@ -135,12 +135,12 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 			.element(page.getByText(fixtures.associatedUser.email, { exact: true }).first())
 			.toBeVisible();
 
-		expect(page.getByText('Deployment', { exact: true })).not.toBeInTheDocument();
-		expect(
-			page.getByRole('heading', { name: 'Associated User', exact: true })
-		).not.toBeInTheDocument();
-		expect(
-			page.getByRole('heading', { name: 'OAuth Metadata', exact: true })
-		).not.toBeInTheDocument();
+		await expect.element(page.getByText('Deployment', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Associated User', exact: true }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'OAuth Metadata', exact: true }))
+			.not.toBeInTheDocument();
 	});
 });

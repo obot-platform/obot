@@ -65,9 +65,9 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
-		expect(
-			page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true })
-		).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('validating deleting an existing license', async () => {
