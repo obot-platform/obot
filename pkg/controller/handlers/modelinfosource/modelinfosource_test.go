@@ -38,6 +38,11 @@ const sampleAPIJSON = `{
       ]}}
     }
   },
+  "amazon-bedrock": {
+    "models": {
+      "anthropic.claude-haiku-4-5": {"cost": {"input": 1, "output": 5, "cache_read": 0.1}}
+    }
+  },
   "cohere": {
     "models": {
       "command-r": {"cost": {"input": 0.5, "output": 1.5}}
@@ -55,18 +60,18 @@ func mustDecodeDoc(t *testing.T, raw string) modelsDevDocument {
 func TestParseModelInfos(t *testing.T) {
 	infos, err := parseModelInfos(system.DefaultNamespace, "default", mustDecodeDoc(t, sampleAPIJSON))
 	require.NoError(t, err)
-	require.Len(t, infos, 3, "anthropic + 2 openai, cohere dropped")
+	require.Len(t, infos, 5, "anthropic + 2 openai + 2 bedrock, cohere dropped")
 
-	byModel := map[string]v1.ModelInfoSpec{}
+	byProviderAndModel := map[string]v1.ModelInfoSpec{}
 	for _, info := range infos {
 		modelInfo := info.(*v1.ModelInfo)
 		assert.Equal(t, system.DefaultNamespace, modelInfo.Namespace)
 		assert.Equal(t, "default", modelInfo.Spec.ModelInfoSourceName)
 		assert.NotEmpty(t, modelInfo.Name)
-		byModel[modelInfo.Spec.Model] = modelInfo.Spec
+		byProviderAndModel[modelInfo.Spec.Provider+"/"+modelInfo.Spec.Model] = modelInfo.Spec
 	}
 
-	a := byModel["claude-opus-4-5"]
+	a := byProviderAndModel[system.AnthropicModelProvider+"/claude-opus-4-5"]
 	assert.Equal(t, system.AnthropicModelProvider, a.Provider)
 	assert.Equal(t, 5.0, a.Cost.Input)
 	assert.Equal(t, 25.0, a.Cost.Output)
@@ -74,18 +79,26 @@ func TestParseModelInfos(t *testing.T) {
 	assert.Equal(t, 10.0, a.Cost.CacheWrite1h, "anthropic 1h cache is 2x input")
 	assert.Empty(t, a.Cost.Tiers)
 
-	o := byModel["gpt-4o"]
+	o := byProviderAndModel[system.OpenAIModelProvider+"/gpt-4o"]
 	assert.Equal(t, system.OpenAIModelProvider, o.Provider)
 	assert.Zero(t, o.Cost.CacheWrite, "absent in source")
 	assert.Zero(t, o.Cost.CacheWrite1h, "non-anthropic gets no 1h cache")
 
-	g := byModel["gpt-5"]
+	g := byProviderAndModel[system.OpenAIModelProvider+"/gpt-5"]
 	require.Len(t, g.Cost.Tiers, 1, "only the context tier with a positive size is kept")
 	tier := g.Cost.Tiers[0]
 	assert.Equal(t, types.ModelCostTierTypeContext, tier.Type)
 	require.NotNil(t, tier.Size)
 	assert.Equal(t, 272000, *tier.Size)
 	assert.Equal(t, 5.0, tier.Input)
+
+	for _, provider := range []string{system.AmazonBedrockModelProvider, system.AmazonBedrockAPIKeyModelProvider} {
+		b := byProviderAndModel[provider+"/anthropic.claude-haiku-4-5"]
+		assert.Equal(t, provider, b.Provider)
+		assert.Equal(t, 1.0, b.Cost.Input)
+		assert.Equal(t, 5.0, b.Cost.Output)
+		assert.Equal(t, 0.1, b.Cost.CacheRead)
+	}
 }
 
 func TestParseModelInfos_NoKnownProviders(t *testing.T) {

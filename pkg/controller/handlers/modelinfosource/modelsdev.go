@@ -13,10 +13,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// providerIDToObotProvider maps source provider IDs to Obot provider names.
-var providerIDToObotProvider = map[string]string{
-	"anthropic": system.AnthropicModelProvider,
-	"openai":    system.OpenAIModelProvider,
+// obotProviderToProviderID maps Obot provider names to their models.dev source
+// provider IDs. Both Bedrock authentication methods share Bedrock pricing.
+var obotProviderToProviderID = map[string]string{
+	system.AnthropicModelProvider:           "anthropic",
+	system.OpenAIModelProvider:              "openai",
+	system.AmazonBedrockModelProvider:       "amazon-bedrock",
+	system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
 }
 
 // fetchModelInfos GETs the models.dev document at the source URL and parses it
@@ -78,7 +81,7 @@ type modelsDevTier struct {
 // given namespace, owned by the named source.
 func parseModelInfos(namespace, sourceName string, doc modelsDevDocument) ([]kclient.Object, error) {
 	var infos []kclient.Object
-	for providerID, obotProvider := range providerIDToObotProvider {
+	for obotProvider, providerID := range obotProviderToProviderID {
 		provider, ok := doc[providerID]
 		if !ok {
 			continue
