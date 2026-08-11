@@ -13,9 +13,15 @@ import (
 
 func TestHTTPClientForServer(t *testing.T) {
 	const timeout = 3 * time.Second
+	backend := &kubernetesBackend{
+		httpListenPort:   8080,
+		mcpNamespace:     "obot-mcp",
+		mcpClusterDomain: "cluster.local",
+		serviceFQDN:      "obot.obot-system.svc.cluster.local",
+	}
 
 	t.Run("direct server", func(t *testing.T) {
-		httpClient, err := (&SessionManager{}).HTTPClientForServer(ServerConfig{}, nil, nil, timeout)
+		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(ServerConfig{}, nil, nil, timeout)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -40,7 +46,7 @@ func TestHTTPClientForServer(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		httpClient, err := (&SessionManager{}).HTTPClientForServer(
+		httpClient, err := (&SessionManager{backend: backend}).HTTPClientForServer(
 			ServerConfig{},
 			[]string{serverURL.Host},
 			http.Header{"X-MCP-Test": {"injected"}},
