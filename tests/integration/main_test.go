@@ -213,7 +213,7 @@ func buildTestMCPImage(repositoryRoot, workDir string) (string, error) {
 		return "", fmt.Errorf("build integration MCP server: %w\n%s", err, output)
 	}
 
-	image := "obot-integration-mcp:test"
+	image := "obot-integration-mcp:" + filepath.Base(workDir)
 	dockerfile := filepath.Join(repositoryRoot, "tests/integration/testdata/mcpserver/Dockerfile")
 	buildImage := exec.CommandContext(ctx, "docker", "build", "--quiet", "--file", dockerfile, "--tag", image, workDir)
 	if output, err := buildImage.CombinedOutput(); err != nil {

@@ -14,7 +14,7 @@ func TestNonStreamingRequestsUseDeadline(t *testing.T) {
 		call func(*Harness, *testing.T)
 	}{
 		{
-			name: "do",
+			name: "get",
 			call: func(h *Harness, t *testing.T) {
 				h.Get(t, "/", nil)
 			},
