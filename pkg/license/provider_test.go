@@ -540,7 +540,7 @@ func newTestLicenseGatewayClient(t *testing.T) *gatewayclient.Client {
 		t.Fatalf("failed to migrate gateway database: %v", err)
 	}
 
-	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, false)
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
 	t.Cleanup(func() {
 		if err := gatewayClient.Close(); err != nil {
 			t.Errorf("failed to close gateway client: %v", err)

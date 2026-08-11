@@ -334,7 +334,7 @@ func newExportTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	}
 
 	// Use a short persistence interval so LogMCPAuditEntry rows flush to the DB quickly.
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, true)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }

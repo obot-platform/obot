@@ -292,7 +292,7 @@ func newTokenRequestTestServer(t *testing.T) (*Server, *client.Client) {
 			return []string{strconv.FormatBool(obj.(*v1.AuthProvider).Status.Configured)}
 		}).
 		Build()
-	gatewayClient := client.New(t.Context(), db, storageClient, nil, nil, nil, nil, time.Hour, 10, 90, 90, false)
+	gatewayClient := client.New(t.Context(), db, storageClient, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, false)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 	if err := gatewayClient.UpsertCredential(t.Context(), types.Credential{
 		Context: provider.Name,

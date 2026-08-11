@@ -15,9 +15,13 @@ import (
 // Composite indexes:
 //   - idx_ds_user_time   (submitted_by, created_at) — list scans for a user
 //   - idx_ds_device_time (device_id, created_at)    — list scans for a device
+//
+// CreatedAt also carries a standalone index. Retention cleanup filters on
+// it alone, which neither composite can serve without a leading
+// submitted_by or device_id value.
 type DeviceScan struct {
 	ID             uint      `json:"id" gorm:"primaryKey"`
-	CreatedAt      time.Time `json:"createdAt" gorm:"index:idx_ds_user_time,priority:2;index:idx_ds_device_time,priority:2"`
+	CreatedAt      time.Time `json:"createdAt" gorm:"index;index:idx_ds_user_time,priority:2;index:idx_ds_device_time,priority:2"`
 	SubmittedBy    string    `json:"submittedBy" gorm:"index:idx_ds_user_time,priority:1"`
 	DeviceID       string    `json:"deviceID" gorm:"index:idx_ds_device_time,priority:1"`
 	Hostname       string    `json:"hostname"`

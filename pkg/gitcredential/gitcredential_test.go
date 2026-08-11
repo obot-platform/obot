@@ -171,7 +171,7 @@ func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	db, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate())
-	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
 	t.Cleanup(func() { _ = client.Close() })
 	return client
 }

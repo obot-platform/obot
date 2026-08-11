@@ -20,6 +20,9 @@ const (
 	defaultAuditLogCleanupInterval = 24 * time.Hour
 	defaultAuditLogDeleteBatchSize = 1000
 
+	defaultDeviceScanCleanupInterval = 24 * time.Hour
+	defaultDeviceScanDeleteBatchSize = 100
+
 	// DefaultUserLimit is the maximum number of users allowed when no
 	// license-derived user-limit provider is configured.
 	DefaultUserLimit = 100
@@ -30,34 +33,36 @@ const (
 )
 
 type Client struct {
-	db                      *db.DB
-	encryptionConfig        *encryptionconfig.EncryptionConfiguration
-	emailsWithExplicitRoles map[string]types2.Role
-	auditLock               sync.Mutex
-	auditBuffer             []types.MCPAuditLog
-	kickAuditPersist        chan struct{}
-	enforcementLock         sync.Mutex
-	enforcementBuffer       []types.EnforcementDecisionLog
-	kickEnforcementPersist  chan struct{}
-	llmAuditEntries         chan llmAuditEntry
-	llmAuditBatchSize       int
-	llmAuditEnabled         bool
-	storageClient           kclient.Client
-	apiKeyCacheLock         sync.RWMutex
-	apiKeyCache             map[[32]byte]apiKeyValidationCacheEntry
-	apiKeyCacheTTL          time.Duration
-	serviceAccountCacheLock sync.RWMutex
-	serviceAccountCache     map[[32]byte]serviceAccountValidationCacheEntry
-	serviceAccountCacheTTL  time.Duration
-	deviceCreationLock      sync.Mutex
-	auditLogCleanupInterval time.Duration
-	auditLogDeleteBatchSize int
-	oktaGroupMigrationMu    sync.Mutex
-	oktaGroupMigrationDone  bool
-	mcpOAuthTokenTrigger    func(context.Context, string) error
+	db                        *db.DB
+	encryptionConfig          *encryptionconfig.EncryptionConfiguration
+	emailsWithExplicitRoles   map[string]types2.Role
+	auditLock                 sync.Mutex
+	auditBuffer               []types.MCPAuditLog
+	kickAuditPersist          chan struct{}
+	enforcementLock           sync.Mutex
+	enforcementBuffer         []types.EnforcementDecisionLog
+	kickEnforcementPersist    chan struct{}
+	llmAuditEntries           chan llmAuditEntry
+	llmAuditBatchSize         int
+	llmAuditEnabled           bool
+	storageClient             kclient.Client
+	apiKeyCacheLock           sync.RWMutex
+	apiKeyCache               map[[32]byte]apiKeyValidationCacheEntry
+	apiKeyCacheTTL            time.Duration
+	serviceAccountCacheLock   sync.RWMutex
+	serviceAccountCache       map[[32]byte]serviceAccountValidationCacheEntry
+	serviceAccountCacheTTL    time.Duration
+	deviceCreationLock        sync.Mutex
+	auditLogCleanupInterval   time.Duration
+	auditLogDeleteBatchSize   int
+	deviceScanCleanupInterval time.Duration
+	deviceScanDeleteBatchSize int
+	oktaGroupMigrationMu      sync.Mutex
+	oktaGroupMigrationDone    bool
+	mcpOAuthTokenTrigger      func(context.Context, string) error
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays int, llmAuditEnabled bool) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -67,24 +72,26 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleOwner
 	}
 	c := &Client{
-		db:                      db,
-		encryptionConfig:        encryptionConfig,
-		emailsWithExplicitRoles: explicitRoleEmailsSet,
-		auditBuffer:             make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
-		kickAuditPersist:        make(chan struct{}),
-		enforcementBuffer:       make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
-		kickEnforcementPersist:  make(chan struct{}),
-		storageClient:           storageClient,
-		mcpOAuthTokenTrigger:    mcpOAuthTokenTrigger,
-		apiKeyCache:             make(map[[32]byte]apiKeyValidationCacheEntry),
-		apiKeyCacheTTL:          apiKeyValidationCacheTTL,
-		serviceAccountCache:     make(map[[32]byte]serviceAccountValidationCacheEntry),
-		serviceAccountCacheTTL:  serviceAccountValidationCacheTTL,
-		llmAuditEntries:         make(chan llmAuditEntry, defaultLLMAuditLogBufferSize),
-		llmAuditBatchSize:       defaultLLMAuditLogBatchSize,
-		llmAuditEnabled:         llmAuditEnabled,
-		auditLogCleanupInterval: defaultAuditLogCleanupInterval,
-		auditLogDeleteBatchSize: defaultAuditLogDeleteBatchSize,
+		db:                        db,
+		encryptionConfig:          encryptionConfig,
+		emailsWithExplicitRoles:   explicitRoleEmailsSet,
+		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
+		kickAuditPersist:          make(chan struct{}),
+		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
+		kickEnforcementPersist:    make(chan struct{}),
+		storageClient:             storageClient,
+		mcpOAuthTokenTrigger:      mcpOAuthTokenTrigger,
+		apiKeyCache:               make(map[[32]byte]apiKeyValidationCacheEntry),
+		apiKeyCacheTTL:            apiKeyValidationCacheTTL,
+		serviceAccountCache:       make(map[[32]byte]serviceAccountValidationCacheEntry),
+		serviceAccountCacheTTL:    serviceAccountValidationCacheTTL,
+		llmAuditEntries:           make(chan llmAuditEntry, defaultLLMAuditLogBufferSize),
+		llmAuditBatchSize:         defaultLLMAuditLogBatchSize,
+		llmAuditEnabled:           llmAuditEnabled,
+		auditLogCleanupInterval:   defaultAuditLogCleanupInterval,
+		auditLogDeleteBatchSize:   defaultAuditLogDeleteBatchSize,
+		deviceScanCleanupInterval: defaultDeviceScanCleanupInterval,
+		deviceScanDeleteBatchSize: defaultDeviceScanDeleteBatchSize,
 	}
 
 	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
@@ -95,6 +102,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runAPIKeyCacheCleanup(ctx)
 	go c.runMCPAuditLogCleanup(ctx, auditLogRetentionDays)
 	go c.runLLMAuditLogCleanup(ctx, llmAuditLogRetentionDays)
+	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	return c
 }
 
