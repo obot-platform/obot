@@ -179,6 +179,94 @@ func TestValidateCatalogConfigurationConstraints(t *testing.T) {
 	require.EqualError(t, ValidateCatalogConfigurationConstraints(compositeManifest, compositeCatalog), `component "remote" must match the source catalog entry`)
 }
 
+func TestValidateCatalogConfigurationConstraintsRejectsInvalidDuplicateRuntimeKeys(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Value: "us", Name: "United States"}}
+	catalog := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: "REGION", Options: options,
+		}}},
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://example.com/mcp",
+			Headers:  []types.MCPHeader{{Key: "MODE", Options: options}},
+		},
+		MultiUserConfig: &types.MultiUserConfig{
+			UserDefinedHeaders: []types.MCPHeader{{Key: "TENANT", Options: options}},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(*types.MCPServerManifest)
+		wantErr string
+	}{
+		{
+			name: "env",
+			mutate: func(manifest *types.MCPServerManifest) {
+				manifest.Env = append([]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Value: "attacker"}}}, manifest.Env...)
+			},
+			wantErr: `env "REGION" options must match the source catalog entry`,
+		},
+		{
+			name: "remote header",
+			mutate: func(manifest *types.MCPServerManifest) {
+				manifest.RemoteConfig.Headers = append([]types.MCPHeader{{Key: "MODE", Value: "attacker"}}, manifest.RemoteConfig.Headers...)
+			},
+			wantErr: `header "MODE" options must match the source catalog entry`,
+		},
+		{
+			name: "multi-user header",
+			mutate: func(manifest *types.MCPServerManifest) {
+				manifest.MultiUserConfig.UserDefinedHeaders = append([]types.MCPHeader{{Key: "TENANT", Value: "attacker"}}, manifest.MultiUserConfig.UserDefinedHeaders...)
+			},
+			wantErr: `multi-user header "TENANT" options must match the source catalog entry`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest, err := types.MapCatalogEntryToServer(catalog, "", false)
+			require.NoError(t, err)
+			tt.mutate(&manifest)
+			require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, catalog), tt.wantErr)
+		})
+	}
+
+	t.Run("URL template env", func(t *testing.T) {
+		templateCatalog := types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key: "HOST", Required: true, Value: "trusted.example",
+			}}},
+			RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${HOST}/mcp"},
+		}
+		manifest, err := types.MapCatalogEntryToServer(templateCatalog, "", false)
+		require.NoError(t, err)
+		manifest.Env = append([]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "HOST", Value: "attacker.example"}}}, manifest.Env...)
+		require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, templateCatalog), `env "HOST" referenced by remoteConfig.urlTemplate must match the source catalog entry`)
+	})
+}
+
+func TestValidateCatalogConfigurationConstraintsAllowsUnconstrainedDuplicateRuntimeKeys(t *testing.T) {
+	catalog := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "LOG_LEVEL"}}},
+		RemoteConfig: &types.RemoteCatalogConfig{
+			FixedURL: "https://example.com/mcp",
+			Headers:  []types.MCPHeader{{Key: "X-Trace"}},
+		},
+		MultiUserConfig: &types.MultiUserConfig{
+			UserDefinedHeaders: []types.MCPHeader{{Key: "X-Forwarded-Tenant"}},
+		},
+	}
+	manifest, err := types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	manifest.Env = append(manifest.Env, types.MCPEnv{MCPHeader: types.MCPHeader{Key: "LOG_LEVEL"}})
+	manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{Key: "X-Trace"})
+	manifest.MultiUserConfig.UserDefinedHeaders = append(manifest.MultiUserConfig.UserDefinedHeaders, types.MCPHeader{Key: "X-Forwarded-Tenant"})
+	require.NoError(t, ValidateCatalogConfigurationConstraints(manifest, catalog))
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

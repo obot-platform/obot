@@ -1577,7 +1577,7 @@ func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, c
 			return err
 		}
 	}
-	if err := validateCatalogFieldConstraints("header", runtimeHeaderFields(remoteHeaders(manifest.RemoteConfig)), catalogHeaderFields(remoteCatalogHeaders(catalog.RemoteConfig))); err != nil {
+	if err := validateCatalogFieldConstraints("header", remoteHeaders(manifest.RemoteConfig), remoteCatalogHeaders(catalog.RemoteConfig)); err != nil {
 		return err
 	}
 	var runtimeMultiUserHeaders, catalogMultiUserHeaders []types.MCPHeader
@@ -1587,7 +1587,7 @@ func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, c
 	if catalog.MultiUserConfig != nil {
 		catalogMultiUserHeaders = catalog.MultiUserConfig.UserDefinedHeaders
 	}
-	if err := validateCatalogFieldConstraints("multi-user header", runtimeHeaderFields(runtimeMultiUserHeaders), catalogHeaderFields(catalogMultiUserHeaders)); err != nil {
+	if err := validateCatalogFieldConstraints("multi-user header", runtimeMultiUserHeaders, catalogMultiUserHeaders); err != nil {
 		return err
 	}
 	if catalog.CompositeConfig != nil {
@@ -1617,74 +1617,66 @@ func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, c
 }
 
 func validateCatalogURLTemplateEnvConstraints(runtimeFields, catalogFields []types.MCPEnv, urlTemplate string) error {
-	runtimeByKey := make(map[string]types.MCPEnv, len(runtimeFields))
-	for _, field := range runtimeFields {
-		runtimeByKey[field.Key] = field
-	}
-	catalogByKey := make(map[string]types.MCPEnv, len(catalogFields))
-	for _, field := range catalogFields {
-		catalogByKey[field.Key] = field
-	}
-
 	for _, key := range extractEnvRefs(urlTemplate) {
-		catalogField, catalogDeclared := catalogByKey[key]
-		if !catalogDeclared {
-			continue
-		}
-		runtimeField, ok := runtimeByKey[key]
-		if !ok ||
-			runtimeField.File != catalogField.File ||
-			runtimeField.DynamicFile != catalogField.DynamicFile ||
-			!constrainedFieldMatches(runtimeField.MCPHeader, catalogField.MCPHeader) {
-			return fmt.Errorf("env %q referenced by remoteConfig.urlTemplate must match the source catalog entry", key)
+		for _, catalogField := range catalogFields {
+			if catalogField.Key == key && !allMatchingFieldsMatch(runtimeFields, key,
+				func(field types.MCPEnv) string { return field.Key },
+				func(field types.MCPEnv) bool {
+					return field.File == catalogField.File &&
+						field.DynamicFile == catalogField.DynamicFile &&
+						constrainedFieldMatches(field.MCPHeader, catalogField.MCPHeader)
+				}) {
+				return fmt.Errorf("env %q referenced by remoteConfig.urlTemplate must match the source catalog entry", key)
+			}
 		}
 	}
 	return nil
 }
 
 func validateCatalogEnvConstraints(runtimeFields, catalogFields []types.MCPEnv) error {
-	runtimeByKey := make(map[string]types.MCPEnv, len(runtimeFields))
-	for _, field := range runtimeFields {
-		runtimeByKey[field.Key] = field
-	}
 	for _, catalogField := range catalogFields {
 		if len(catalogField.Options) == 0 {
 			continue
 		}
-		runtimeField, ok := runtimeByKey[catalogField.Key]
-		if !ok ||
-			runtimeField.File != catalogField.File ||
-			runtimeField.DynamicFile != catalogField.DynamicFile ||
-			!constrainedFieldMatches(runtimeField.MCPHeader, catalogField.MCPHeader) {
+		if !allMatchingFieldsMatch(runtimeFields, catalogField.Key,
+			func(field types.MCPEnv) string { return field.Key },
+			func(field types.MCPEnv) bool {
+				return field.File == catalogField.File &&
+					field.DynamicFile == catalogField.DynamicFile &&
+					constrainedFieldMatches(field.MCPHeader, catalogField.MCPHeader)
+			}) {
 			return fmt.Errorf("env %q options must match the source catalog entry", catalogField.Key)
 		}
 	}
 	return nil
 }
 
-func runtimeHeaderFields(fields []types.MCPHeader) map[string]types.MCPHeader {
-	result := make(map[string]types.MCPHeader, len(fields))
-	for _, field := range fields {
-		result[field.Key] = field
-	}
-	return result
-}
-
-func catalogHeaderFields(fields []types.MCPHeader) map[string]types.MCPHeader {
-	return runtimeHeaderFields(fields)
-}
-
-func validateCatalogFieldConstraints(kind string, runtimeFields, catalogFields map[string]types.MCPHeader) error {
-	for key, catalogField := range catalogFields {
+func validateCatalogFieldConstraints(kind string, runtimeFields, catalogFields []types.MCPHeader) error {
+	for _, catalogField := range catalogFields {
 		if len(catalogField.Options) == 0 {
 			continue
 		}
-		runtimeField, ok := runtimeFields[key]
-		if !ok || !constrainedFieldMatches(runtimeField, catalogField) {
-			return fmt.Errorf("%s %q options must match the source catalog entry", kind, key)
+		if !allMatchingFieldsMatch(runtimeFields, catalogField.Key,
+			func(field types.MCPHeader) string { return field.Key },
+			func(field types.MCPHeader) bool { return constrainedFieldMatches(field, catalogField) }) {
+			return fmt.Errorf("%s %q options must match the source catalog entry", kind, catalogField.Key)
 		}
 	}
 	return nil
+}
+
+func allMatchingFieldsMatch[T any](fields []T, expectedKey string, key func(T) string, matches func(T) bool) bool {
+	found := false
+	for _, field := range fields {
+		if key(field) != expectedKey {
+			continue
+		}
+		found = true
+		if !matches(field) {
+			return false
+		}
+	}
+	return found
 }
 
 func constrainedFieldMatches(runtimeField, catalogField types.MCPHeader) bool {
