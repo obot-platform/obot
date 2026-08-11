@@ -60,6 +60,36 @@ func TestHTTPClientForServer(t *testing.T) {
 		}
 	})
 
+	t.Run("direct server uses Kubernetes backend allow list", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNoContent)
+		}))
+		defer server.Close()
+
+		serverURL, err := url.Parse(server.URL)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		httpClient, err := (&SessionManager{
+			backend: &kubernetesBackend{
+				serviceFQDN: serverURL.Host,
+			},
+		}).HTTPClientForServer(ServerConfig{}, nil, nil, timeout)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		response, err := httpClient.Get(server.URL)
+		if err != nil {
+			t.Fatalf("request to backend-allowlisted server failed: %v", err)
+		}
+		defer response.Body.Close()
+		if response.StatusCode != http.StatusNoContent {
+			t.Fatalf("response status = %d, want %d", response.StatusCode, http.StatusNoContent)
+		}
+	})
+
 	t.Run("tunnel manager required", func(t *testing.T) {
 		_, err := (&SessionManager{}).HTTPClientForServer(ServerConfig{TunnelName: "office"}, nil, nil, timeout)
 		if err == nil {

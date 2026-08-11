@@ -12,10 +12,13 @@ import (
 // configured network path, including its tunnel when present.
 func (sm *SessionManager) HTTPClientForServer(server ServerConfig, allowHosts []string, headers http.Header, timeout time.Duration) (*http.Client, error) {
 	if server.TunnelName == "" {
+		remoteURLValidationConfig, backendAllowHosts := sm.RemoteConfigForBackend()
+		allowHosts = append(allowHosts, backendAllowHosts...)
+
 		return safehttp.NewClient(safehttp.ClientOptions{
-			BlockLoopback:  !sm.remoteURLValidationConfig.AllowLocalhostMCP,
-			BlockPrivateIP: !sm.remoteURLValidationConfig.AllowPrivateIPMCP,
-			BlockLinkLocal: !sm.remoteURLValidationConfig.AllowLinkLocalMCP,
+			BlockLoopback:  !remoteURLValidationConfig.AllowLocalhostMCP,
+			BlockPrivateIP: !remoteURLValidationConfig.AllowPrivateIPMCP,
+			BlockLinkLocal: !remoteURLValidationConfig.AllowLinkLocalMCP,
 			AllowList:      allowHosts,
 			Timeout:        timeout,
 			Headers:        headers,
