@@ -84,6 +84,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	state := strings.ToLower(rand.Text())
 
 	conf := oauthDebuggerConfig(clientID, clientSecret, authServer.AuthorizationEndpoint, authServer.TokenEndpoint, registration.TokenEndpointAuthMethod, firstString(registration.RedirectURIs), registration.Scope)
+	resourceURL := mcp.OAuthResourceURL(authServer.AuthorizationEndpoint, serverConfig.URL)
 	if err := req.GatewayClient.CreateMCPOAuthPendingState(
 		req.Context(),
 		req.User.GetUID(),
@@ -92,6 +93,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		OAuthDebuggerPendingStateMarker,
 		state,
 		oauth2.GenerateVerifier(),
+		resourceURL,
 		conf,
 	); err != nil {
 		return err
@@ -105,7 +107,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 
 // GetOAuthDebuggerAuthorizationURL creates fresh pending OAuth state and returns the remote authorization URL.
 func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, _, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -131,7 +133,7 @@ func (m *MCPHandler) GetOAuthDebuggerAuthorizationURL(req api.Context) error {
 	}
 
 	conf := oauthDebuggerConfigFromPendingState(storedClient)
-	authURL, err := mcp.AuthCodeURL(conf, storedClient.AuthURL, serverConfig.URL, input.State, storedClient.Verifier)
+	authURL, err := mcp.AuthCodeURL(conf, storedClient.AuthURL, storedClient.ResourceURL, input.State, storedClient.Verifier)
 	if err != nil {
 		return err
 	}
@@ -175,7 +177,11 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 		return err
 	}
 	exchangeContext := context.WithValue(req.Context(), oauth2.HTTPClient, httpClient)
-	token, err := conf.Exchange(exchangeContext, input.Code, oauth2.VerifierOption(pendingState.Verifier))
+	exchangeOptions := []oauth2.AuthCodeOption{oauth2.VerifierOption(pendingState.Verifier)}
+	if pendingState.ResourceURL != "" {
+		exchangeOptions = append(exchangeOptions, oauth2.SetAuthURLParam("resource", pendingState.ResourceURL))
+	}
+	token, err := conf.Exchange(exchangeContext, input.Code, exchangeOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to exchange OAuth code: %w", err)
 	}

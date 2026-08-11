@@ -72,6 +72,7 @@ type MCPOAuthPendingState struct {
 	UserID             string `gorm:"index:idx_pending_user_mcp"`
 	MCPID              string `gorm:"index:idx_pending_user_mcp"`
 	URL                string
+	ResourceURL        string
 	OAuthAuthRequestID string
 	ClientID           string
 	ClientSecret       string

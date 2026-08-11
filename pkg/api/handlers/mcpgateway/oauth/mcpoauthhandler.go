@@ -275,7 +275,7 @@ func (m *mcpOAuthHandler) HandleAuthURL(ctx context.Context, _ string, authURL s
 	}
 }
 
-func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, verifier string) (string, <-chan mcp.CallbackPayload, error) {
+func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, resourceURL, verifier string) (string, <-chan mcp.CallbackPayload, error) {
 	state := strings.ToLower(rand.Text())
 
 	// The channel is required by the nanobot CallbackHandler interface but is not used
@@ -283,7 +283,7 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 	// callback arrives via a separate HTTP endpoint (oauthCallback) which looks up
 	// the pending state from the DB directly.
 	ch := make(chan mcp.CallbackPayload)
-	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, conf)
+	return state, ch, m.stateMgr.store(ctx, m.userID, m.mcpID, m.mcpURL, m.oauthAuthRequestID, state, verifier, resourceURL, conf)
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string, error) {

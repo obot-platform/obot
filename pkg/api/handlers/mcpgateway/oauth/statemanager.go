@@ -19,8 +19,8 @@ func newStateManager(gatewayClient *client.Client) *stateManager {
 	}
 }
 
-func (sm *stateManager) store(ctx context.Context, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier string, conf *oauth2.Config) error {
-	return sm.gatewayClient.CreateMCPOAuthPendingState(ctx, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier, conf)
+func (sm *stateManager) store(ctx context.Context, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier, resourceURL string, conf *oauth2.Config) error {
+	return sm.gatewayClient.CreateMCPOAuthPendingState(ctx, userID, mcpID, mcpURL, oauthAuthRequestID, state, verifier, resourceURL, conf)
 }
 
 func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, errorDescription string) (string, string, error) {
@@ -49,7 +49,11 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 		conf.Scopes = strings.Split(ps.Scopes, " ")
 	}
 
-	token, err := conf.Exchange(ctx, code, oauth2.SetAuthURLParam("code_verifier", ps.Verifier))
+	exchangeOptions := []oauth2.AuthCodeOption{oauth2.VerifierOption(ps.Verifier)}
+	if ps.ResourceURL != "" {
+		exchangeOptions = append(exchangeOptions, oauth2.SetAuthURLParam("resource", ps.ResourceURL))
+	}
+	token, err := conf.Exchange(ctx, code, exchangeOptions...)
 	if err != nil {
 		_ = sm.gatewayClient.DeleteMCPOAuthPendingState(ctx, ps.HashedState)
 		return "", "", fmt.Errorf("failed to exchange code: %w", err)

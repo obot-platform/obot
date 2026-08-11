@@ -168,7 +168,7 @@ type AuthURLHandler interface {
 
 type CallbackHandler interface {
 	AuthURLHandler
-	NewState(context.Context, *oauth2.Config, string) (string, <-chan CallbackPayload, error)
+	NewState(context.Context, *oauth2.Config, string, string) (string, <-chan CallbackPayload, error)
 }
 
 type ClientCredLookup interface {
@@ -189,6 +189,7 @@ type oauth struct {
 
 type oauthMetadataDiscovery struct {
 	ProtectedResourceURL              string
+	ResourceURL                       string
 	ProtectedResourceMetadata         protectedResourceMetadata
 	ProtectedResourceMetadataJSON     json.RawMessage
 	AuthorizationServerURL            string
@@ -275,7 +276,7 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		conf.Scopes = strings.Split(discovery.ClientRegistration.Scope, " ")
 	}
 	conf.Endpoint.AuthStyle = tokenEndpointAuthStyle(discovery.ClientRegistration.TokenEndpointAuthMethod, clientInfo.ClientSecret != "")
-	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, connectURL)
+	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, discovery.ResourceURL)
 	if err != nil {
 		return err
 	}
@@ -305,7 +306,7 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		}
 	}
 
-	tok, err := ExchangeOAuthToken(ctx, conf, cb.Code, verifier)
+	tok, err := ExchangeOAuthToken(ctx, conf, cb.Code, verifier, discovery.ResourceURL)
 	if err != nil {
 		slog.Warn("oauth code exchange failed",
 			"server", o.serverName,
@@ -392,6 +393,7 @@ func discoverOAuthMetadata(ctx context.Context, client *http.Client, baseURL, au
 
 	return oauthMetadataDiscovery{
 		ProtectedResourceURL:              finalResourceMetadataURL.String(),
+		ResourceURL:                       string(protectedResourceMetadata.Resource),
 		ProtectedResourceMetadata:         protectedResourceMetadata,
 		ProtectedResourceMetadataJSON:     protectedResourceMetadataJSON,
 		AuthorizationServerURL:            authorizationServerURL,
@@ -591,17 +593,18 @@ func registerOAuthClient(ctx context.Context, client *http.Client, serverName st
 
 // GetOAuthAuthorizationURL constructs the OAuth authorization URL and callback
 // state for the authorization code flow.
-func GetOAuthAuthorizationURL(ctx context.Context, callbackHandler CallbackHandler, conf *oauth2.Config, authorizationEndpoint, connectURL string) (string, <-chan CallbackPayload, string, error) {
+func GetOAuthAuthorizationURL(ctx context.Context, callbackHandler CallbackHandler, conf *oauth2.Config, authorizationEndpoint, resourceURL string) (string, <-chan CallbackPayload, string, error) {
 	// use PKCE to protect against CSRF attacks
 	// https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-22.html#name-countermeasures-6
 	verifier := oauth2.GenerateVerifier()
 
-	state, ch, err := callbackHandler.NewState(ctx, conf, verifier)
+	resourceURL = OAuthResourceURL(authorizationEndpoint, resourceURL)
+	state, ch, err := callbackHandler.NewState(ctx, conf, resourceURL, verifier)
 	if err != nil {
 		return "", nil, "", fmt.Errorf("failed to create state: %w", err)
 	}
 
-	authURL, err := AuthCodeURL(conf, authorizationEndpoint, connectURL, state, verifier)
+	authURL, err := AuthCodeURL(conf, authorizationEndpoint, resourceURL, state, verifier)
 	if err != nil {
 		return "", nil, "", fmt.Errorf("failed to generate auth code URL: %w", err)
 	}
@@ -610,8 +613,12 @@ func GetOAuthAuthorizationURL(ctx context.Context, callbackHandler CallbackHandl
 }
 
 // ExchangeOAuthToken exchanges an OAuth authorization code for a token.
-func ExchangeOAuthToken(ctx context.Context, conf *oauth2.Config, code, verifier string) (*oauth2.Token, error) {
-	tok, err := conf.Exchange(ctx, code, oauth2.VerifierOption(verifier))
+func ExchangeOAuthToken(ctx context.Context, conf *oauth2.Config, code, verifier, resourceURL string) (*oauth2.Token, error) {
+	options := []oauth2.AuthCodeOption{oauth2.VerifierOption(verifier)}
+	if resourceURL = OAuthResourceURL(conf.Endpoint.AuthURL, resourceURL); resourceURL != "" {
+		options = append(options, oauth2.SetAuthURLParam("resource", resourceURL))
+	}
+	tok, err := conf.Exchange(ctx, code, options...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to exchange code for token: %w", err)
 	}
@@ -865,7 +872,7 @@ func AuthCodeURL(conf *oauth2.Config, urlFromMetadata, resourceURL, state, verif
 
 	// Redirect user to consent page to ask for permission for the scopes specified above.
 	authCodeURLOpts := []oauth2.AuthCodeOption{oauth2.S256ChallengeOption(verifier)}
-	if authEndpoint.Host != "login.microsoftonline.com" {
+	if resourceURL = OAuthResourceURL(authEndpoint.String(), resourceURL); resourceURL != "" {
 		// Entra does not like the resource parameter, and including it will often cause things to fail.
 		// VSCode does something similar to this.
 		authCodeURLOpts = append(authCodeURLOpts, oauth2.SetAuthURLParam("resource", resourceURL))
@@ -876,6 +883,17 @@ func AuthCodeURL(conf *oauth2.Config, urlFromMetadata, resourceURL, state, verif
 	}
 
 	return conf.AuthCodeURL(state, authCodeURLOpts...), nil
+}
+
+// OAuthResourceURL returns the protected resource identifier when the
+// authorization server supports the RFC 8707 resource parameter. Microsoft
+// Entra rejects this parameter, so it must be omitted throughout the flow.
+func OAuthResourceURL(authorizationEndpoint, resourceURL string) string {
+	authEndpoint, err := url.Parse(authorizationEndpoint)
+	if err == nil && strings.EqualFold(authEndpoint.Hostname(), "login.microsoftonline.com") {
+		return ""
+	}
+	return resourceURL
 }
 
 type resourceIdentifier string
