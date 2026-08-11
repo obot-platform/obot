@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -326,6 +327,128 @@ npxConfig:
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error = %v, want %q", err, expected)
 		}
+	}
+}
+
+func TestMCPValidateSystemCatalogYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "entries.yaml")
+	if err := os.WriteFile(path, []byte(`
+- name: Filter
+  shortDescription: Filter
+  description: Filter
+  icon: icon
+  systemMCPServerType: filter
+  filterConfig:
+    toolName: filter
+  runtime: npx
+  npxConfig:
+    package: filter
+- name: Remote
+  shortDescription: Remote
+  description: Remote
+  icon: icon
+  runtime: remote
+  remoteConfig:
+    fixedURL: https://does-not-resolve.invalid/mcp
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ignored.yaml"), []byte("not: a system catalog entry\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte("ignored.yaml\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", dir, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stdout, "System catalog entries in 1 files are valid.") {
+		t.Fatalf("unexpected output: %s", stdout)
+	}
+}
+
+func TestMCPValidateSystemCatalogYAMLAggregatesErrors(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"unknown-field.yaml": `name: Unknown
+shortDescription: Unknown
+description: Unknown
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+unknownField: true`,
+		"missing-filter-config.yaml": `name: Missing Filter Config
+shortDescription: Missing
+description: Missing
+icon: icon
+systemMCPServerType: filter
+runtime: npx
+npxConfig:
+  package: test`,
+		"invalid-name.yaml": `name: "!!!"
+shortDescription: Invalid
+description: Invalid
+icon: icon
+runtime: npx
+npxConfig:
+  package: test`,
+	}
+	for name, contents := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents+"\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", dir)
+	if err == nil {
+		t.Fatal("expected validation errors")
+	}
+	for _, expected := range []string{
+		"unknown-field.yaml",
+		"unknown field \"unknownField\"",
+		"missing-filter-config.yaml",
+		"filterConfig is required",
+		"invalid-name.yaml",
+		"invalid system catalog entry name after sanitization",
+	} {
+		if !strings.Contains(err.Error(), expected) {
+			t.Fatalf("error = %v, want %q", err, expected)
+		}
+	}
+}
+
+func TestMCPValidateSystemCatalogYAMLRejectsDuplicateSanitizedNames(t *testing.T) {
+	dir := t.TempDir()
+	firstPath := filepath.Join(dir, "first.yaml")
+	secondPath := filepath.Join(dir, "second.yaml")
+	entry := func(name string) string {
+		return fmt.Sprintf(`name: %q
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+`, name)
+	}
+	if err := os.WriteFile(firstPath, []byte(entry("Shared Name")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(secondPath, []byte(entry("shared-name")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-system-catalog-yaml", firstPath, secondPath)
+	if err == nil {
+		t.Fatal("expected duplicate sanitized name error")
+	}
+	want := fmt.Sprintf("%s: duplicate sanitized system catalog entry name %q also used by %s", secondPath, "shared-name", firstPath)
+	if !strings.Contains(err.Error(), want) {
+		t.Fatalf("error = %v, want %q", err, want)
 	}
 }
 

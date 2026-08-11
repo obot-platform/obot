@@ -34,6 +34,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
+	c.AddCommand(cmd.Command(&MCPValidateSystemCatalogYAML{}))
 }
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
@@ -60,9 +61,50 @@ func (m *MCPValidateCatalogYAML) Run(cmd *cobra.Command, args []string) error {
 }
 
 func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKey bool) (int, error) {
+	seenEntryKeys := make(map[string]string)
+	return validateCatalogPaths(paths, func(path string) error {
+		return validateMCPCatalogFile(ctx, path, requireEntryKey, seenEntryKeys)
+	})
+}
+
+type MCPValidateSystemCatalogYAML struct{}
+
+func (m *MCPValidateSystemCatalogYAML) Customize(cmd *cobra.Command) {
+	cmd.Use = "validate-system-catalog-yaml <path>..."
+	cmd.Short = "Validate system MCP catalog entry files"
+	cmd.Args = cobra.MinimumNArgs(1)
+}
+
+func (m *MCPValidateSystemCatalogYAML) Run(cmd *cobra.Command, args []string) error {
+	files, err := validateSystemMCPCatalogPaths(cmd.Context(), args)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "System catalog entries in %d files are valid.\n", files)
+	return nil
+}
+
+func validateSystemMCPCatalogPaths(ctx context.Context, paths []string) (int, error) {
+	seenSanitizedNames := make(map[string]string)
+	return validateCatalogPaths(paths, func(path string) error {
+		return validateSystemMCPCatalogFile(ctx, path, seenSanitizedNames)
+	})
+}
+
+func validateCatalogPaths(paths []string, validateFile func(string) error) (int, error) {
 	var validationErr error
 	seenFiles := make(map[string]struct{})
-	seenEntryKeys := make(map[string]string)
+	validateFileOnce := func(path string) error {
+		absPath, err := filepath.Abs(path)
+		if err != nil {
+			absPath = filepath.Clean(path)
+		}
+		if _, ok := seenFiles[absPath]; ok {
+			return nil
+		}
+		seenFiles[absPath] = struct{}{}
+		return validateFile(path)
+	}
 
 	for _, input := range paths {
 		info, err := os.Stat(input)
@@ -71,7 +113,7 @@ func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKe
 			continue
 		}
 		if !info.IsDir() {
-			validationErr = errors.Join(validationErr, validateMCPCatalogFile(ctx, input, requireEntryKey, seenFiles, seenEntryKeys))
+			validationErr = errors.Join(validationErr, validateFileOnce(input))
 			continue
 		}
 
@@ -85,7 +127,7 @@ func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKe
 				validationErr = errors.Join(validationErr, fmt.Errorf("%s: %w", input, walkErr))
 				break
 			}
-			validationErr = errors.Join(validationErr, validateMCPCatalogFile(ctx, path, requireEntryKey, seenFiles, seenEntryKeys))
+			validationErr = errors.Join(validationErr, validateFileOnce(path))
 		}
 	}
 	if len(seenFiles) == 0 {
@@ -95,16 +137,7 @@ func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKe
 	return len(seenFiles), validationErr
 }
 
-func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bool, seenFiles map[string]struct{}, seenEntryKeys map[string]string) error {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		absPath = filepath.Clean(path)
-	}
-	if _, ok := seenFiles[absPath]; ok {
-		return nil
-	}
-	seenFiles[absPath] = struct{}{}
-
+func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bool, seenEntryKeys map[string]string) error {
 	entries, isArray, err := mcpcatalog.DecodeCatalogFile[types.MCPServerCatalogEntryManifest](path, true)
 	if err != nil {
 		return fmt.Errorf("%s: invalid catalog entry: %w", path, err)
@@ -144,6 +177,44 @@ func validateMCPCatalogFile(ctx context.Context, path string, requireEntryKey bo
 			}
 		}
 		if err := mcpcatalog.ValidateManifest(ctx, *entry, validationOptions); err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", label, err))
+		}
+	}
+
+	return errors.Join(errs...)
+}
+
+func validateSystemMCPCatalogFile(ctx context.Context, path string, seenSanitizedNames map[string]string) error {
+	entries, isArray, err := mcpcatalog.DecodeCatalogFile[types.SystemMCPServerCatalogEntryManifest](path, true)
+	if err != nil {
+		return fmt.Errorf("%s: invalid system catalog entry: %w", path, err)
+	}
+
+	validationOptions := mcp.ValidationOptions{
+		RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+			AllowLocalhostMCP: true,
+			AllowPrivateIPMCP: true,
+			AllowLinkLocalMCP: true,
+		},
+	}
+	var errs []error
+	for i := range entries {
+		entry := &entries[i]
+		label := path
+		if isArray {
+			label = fmt.Sprintf("%s[%d]", path, i)
+		}
+		mcpcatalog.NormalizeSystemManifest(entry)
+
+		sanitizedName := mcpcatalog.SanitizeName(entry.Name)
+		if sanitizedName == "" {
+			errs = append(errs, fmt.Errorf("%s: invalid system catalog entry name after sanitization: original=%q sanitized=%q", label, entry.Name, sanitizedName))
+		} else if previous, ok := seenSanitizedNames[sanitizedName]; ok {
+			errs = append(errs, fmt.Errorf("%s: duplicate sanitized system catalog entry name %q also used by %s", label, sanitizedName, previous))
+		} else {
+			seenSanitizedNames[sanitizedName] = label
+		}
+		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, *entry, validationOptions); err != nil {
 			errs = append(errs, fmt.Errorf("%s: %w", label, err))
 		}
 	}

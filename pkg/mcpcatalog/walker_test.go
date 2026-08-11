@@ -99,3 +99,18 @@ func TestNormalizeManifest(t *testing.T) {
 	require.True(t, entry.Env[0].File)
 	require.Equal(t, "API-KEY", entry.RemoteConfig.Headers[0].Key)
 }
+
+func TestNormalizeSystemManifest(t *testing.T) {
+	entry := types.SystemMCPServerCatalogEntryManifest{
+		Runtime:      types.RuntimeRemote,
+		Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Name: "config-file.json"}}},
+		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Name: "api_key"}}},
+	}
+
+	NormalizeSystemManifest(&entry)
+
+	require.Equal(t, types.ServerUserTypeSingleUser, entry.ServerUserType)
+	require.Equal(t, "CONFIG_FILE_JSON", entry.Env[0].Key)
+	require.True(t, entry.Env[0].File)
+	require.Equal(t, "API-KEY", entry.RemoteConfig.Headers[0].Key)
+}

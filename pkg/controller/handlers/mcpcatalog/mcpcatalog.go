@@ -609,9 +609,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 			continue
 		}
 
-		mcpManifest := systemCatalogEntryManifestToMCP(entry)
-		catalogvalidation.NormalizeManifest(&mcpManifest)
-		entry = mcpCatalogEntryManifestToSystem(mcpManifest, entry.SystemMCPServerType, entry.FilterConfig)
+		catalogvalidation.NormalizeSystemManifest(&entry)
 		if err := mcp.ValidateSystemMCPServerCatalogEntryManifest(ctx, entry, mcp.ValidationOptions{}); err != nil {
 			errs = append(errs, fmt.Errorf("failed to validate system catalog entry %s: %w", entry.Name, err))
 			continue
@@ -632,47 +630,6 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	}
 
 	return systemObjs, errors.Join(errs...)
-}
-
-func mcpCatalogEntryManifestToSystem(manifest types.MCPServerCatalogEntryManifest, systemMCPServerType types.SystemMCPServerType, filterConfig *types.FilterConfig) types.SystemMCPServerCatalogEntryManifest {
-	return types.SystemMCPServerCatalogEntryManifest{
-		Metadata:            manifest.Metadata,
-		Name:                manifest.Name,
-		ShortDescription:    manifest.ShortDescription,
-		Description:         manifest.Description,
-		Icon:                manifest.Icon,
-		RepoURL:             manifest.RepoURL,
-		ToolPreview:         manifest.ToolPreview,
-		SystemMCPServerType: systemMCPServerType,
-		ServerUserType:      manifest.ServerUserType,
-		FilterConfig:        filterConfig,
-		Runtime:             manifest.Runtime,
-		UVXConfig:           manifest.UVXConfig,
-		NPXConfig:           manifest.NPXConfig,
-		ContainerizedConfig: manifest.ContainerizedConfig,
-		RemoteConfig:        manifest.RemoteConfig,
-		Env:                 manifest.Env,
-		Resources:           manifest.Resources,
-	}
-}
-
-func systemCatalogEntryManifestToMCP(manifest types.SystemMCPServerCatalogEntryManifest) types.MCPServerCatalogEntryManifest {
-	return types.MCPServerCatalogEntryManifest{
-		Metadata:            manifest.Metadata,
-		Name:                manifest.Name,
-		ShortDescription:    manifest.ShortDescription,
-		Description:         manifest.Description,
-		Icon:                manifest.Icon,
-		RepoURL:             manifest.RepoURL,
-		ToolPreview:         manifest.ToolPreview,
-		Runtime:             manifest.Runtime,
-		UVXConfig:           manifest.UVXConfig,
-		NPXConfig:           manifest.NPXConfig,
-		ContainerizedConfig: manifest.ContainerizedConfig,
-		RemoteConfig:        manifest.RemoteConfig,
-		Env:                 manifest.Env,
-		Resources:           manifest.Resources,
-	}
 }
 
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]client.Object, error) {

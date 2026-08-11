@@ -36,7 +36,21 @@ func SanitizeName(name string) string {
 // NormalizeManifest applies the same compatibility normalization used when
 // Obot imports a catalog source.
 func NormalizeManifest(entry *types.MCPServerCatalogEntryManifest) {
-	for i, env := range entry.Env {
+	normalizeEnv(entry.Env)
+	normalizeRemoteConfig(entry.Runtime, entry.RemoteConfig)
+	normalizeServerUserType(&entry.ServerUserType)
+}
+
+// NormalizeSystemManifest applies the same compatibility normalization used
+// when Obot imports a system catalog source.
+func NormalizeSystemManifest(entry *types.SystemMCPServerCatalogEntryManifest) {
+	normalizeEnv(entry.Env)
+	normalizeRemoteConfig(entry.Runtime, entry.RemoteConfig)
+	normalizeServerUserType(&entry.ServerUserType)
+}
+
+func normalizeEnv(envs []types.MCPEnv) {
+	for i, env := range envs {
 		if env.Key == "" {
 			env.Key = env.Name
 		}
@@ -45,21 +59,25 @@ func NormalizeManifest(entry *types.MCPServerCatalogEntryManifest) {
 			env.File = true
 		}
 		env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-		entry.Env[i] = env
+		envs[i] = env
 	}
+}
 
-	if entry.Runtime == types.RuntimeRemote && entry.RemoteConfig != nil {
-		for i, header := range entry.RemoteConfig.Headers {
+func normalizeRemoteConfig(runtime types.Runtime, remoteConfig *types.RemoteCatalogConfig) {
+	if runtime == types.RuntimeRemote && remoteConfig != nil {
+		for i, header := range remoteConfig.Headers {
 			if header.Key == "" {
 				header.Key = header.Name
 			}
 			header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-			entry.RemoteConfig.Headers[i] = header
+			remoteConfig.Headers[i] = header
 		}
 	}
+}
 
-	if entry.ServerUserType == "" {
-		entry.ServerUserType = types.ServerUserTypeSingleUser
+func normalizeServerUserType(serverUserType *types.ServerUserType) {
+	if *serverUserType == "" {
+		*serverUserType = types.ServerUserTypeSingleUser
 	}
 }
 
