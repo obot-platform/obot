@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -592,6 +593,87 @@ func TestServerToServerConfig_RemoteTunnelName(t *testing.T) {
 	if config.TunnelName != mcpServer.Spec.Manifest.RemoteConfig.TunnelName {
 		t.Fatalf("TunnelName = %q, want %q", config.TunnelName, mcpServer.Spec.Manifest.RemoteConfig.TunnelName)
 	}
+}
+
+func TestServerToServerConfig_ValidatesConstrainedEnv(t *testing.T) {
+	region := types.MCPEnv{MCPHeader: types.MCPHeader{
+		Key:      "REGION",
+		Required: true,
+		Options: []types.MCPConfigurationOption{
+			{Value: "us", Name: "United States"},
+			{Value: "eu", Name: "Europe"},
+		},
+	}}
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env:     []types.MCPEnv{region},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			URL:         "https://eu.mcp.pagerduty.com/mcp",
+			URLTemplate: "https://${REGION}.mcp.pagerduty.com/mcp",
+			IsTemplate:  true,
+		},
+	}}}
+
+	config, missing, err := ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"REGION": "eu"}, nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	require.Equal(t, "https://eu.mcp.pagerduty.com/mcp", config.URL)
+
+	_, _, err = ServerToServerConfig(server, nil, "user", "scope", "catalog", map[string]string{"REGION": "attacker.example"}, nil, nil)
+	require.EqualError(t, err, `env "REGION" value "attacker.example" is not one of the configured options`)
+}
+
+func TestEffectiveConfigurationValues_EmptyConfiguredValuesUseStaticValues(t *testing.T) {
+	values := EffectiveConfigurationValues(
+		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "ENV", Value: "static-env"}}},
+		[]types.MCPHeader{{Key: "HEADER", Value: "static-header"}},
+		map[string]string{"ENV": "", "HEADER": ""},
+	)
+
+	require.Equal(t, "static-env", values["ENV"])
+	require.Equal(t, "static-header", values["HEADER"])
+}
+
+func TestValidateAndResolveURLTemplateConfig(t *testing.T) {
+	template := "https://${REGION}.example.com/${WORKSPACE}/${TENANT}/${LEGACY_TENANT}/${IGNORED}"
+	envs := []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Key: "REGION", Value: "env-default"}},
+		{MCPHeader: types.MCPHeader{Key: "TENANT", Options: []types.MCPConfigurationOption{{Value: "configured-env-field", Name: "Configured tenant"}}}},
+	}
+	headers := []types.MCPHeader{
+		{Key: "REGION", Value: "header-default"},
+		{Key: "WORKSPACE", Value: "legacy-default"},
+		{Key: "LEGACY_TENANT"},
+		{Key: "IGNORED_HEADER", Value: "not-in-template"},
+	}
+
+	remoteConfig := &types.RemoteRuntimeConfig{URLTemplate: template, Headers: headers}
+	values, err := ValidateAndResolveURLTemplateConfig(envs, remoteConfig, nil)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"REGION":        "env-default",
+		"WORKSPACE":     "legacy-default",
+		"TENANT":        "",
+		"LEGACY_TENANT": "",
+	}, values)
+
+	values, err = ValidateAndResolveURLTemplateConfig(envs, remoteConfig, map[string]string{
+		"REGION":         "configured-env",
+		"WORKSPACE":      "configured-legacy-header",
+		"TENANT":         "configured-env-field",
+		"LEGACY_TENANT":  "configured-legacy-field",
+		"IGNORED_HEADER": "must-not-be-used",
+	})
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"REGION":        "env-default",
+		"WORKSPACE":     "legacy-default",
+		"TENANT":        "configured-env-field",
+		"LEGACY_TENANT": "configured-legacy-field",
+	}, values)
+
+	_, err = ValidateAndResolveURLTemplateConfig(envs, remoteConfig, map[string]string{"TENANT": "unknown"})
+	require.EqualError(t, err, `env "TENANT" value "unknown" is not one of the configured options`)
 }
 
 func TestServerToServerConfig_WithPrefix(t *testing.T) {

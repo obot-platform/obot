@@ -515,12 +515,22 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 }
 
 func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValidation *v1.MCPWebhookValidation, envVars map[string]string, options mcp.ValidationOptions) error {
-	manifest := webhookValidation.Spec.Manifest.SystemMCPServerManifest
-	if manifest == nil || manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
+	return applyRemoteURLTemplateToSystemManifest(ctx, webhookValidation.Spec.Manifest.SystemMCPServerManifest, envVars, options)
+}
+
+func applyRemoteURLTemplateToSystemManifest(ctx context.Context, manifest *types.SystemMCPServerManifest, envVars map[string]string, options mcp.ValidationOptions) error {
+	if manifest == nil {
+		return nil
+	}
+	effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(manifest.Env, manifest.RemoteConfig, envVars)
+	if err != nil {
+		return types.NewErrBadRequest("invalid configuration: %v", err)
+	}
+	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
 		return nil
 	}
 
-	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, envVars)
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, effectiveConfig)
 	if err != nil {
 		return fmt.Errorf("failed to apply URL template: %w", err)
 	}

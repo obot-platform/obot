@@ -316,7 +316,6 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		}
 		return ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
-
 	var (
 		credCtxs []string
 		scope    string
@@ -534,10 +533,10 @@ func serverInstanceHeaders(instance v1.MCPServerInstance, credEnv map[string]str
 	var headerNames, headerValues, missingHeaders []string
 	for _, header := range instance.Spec.MultiUserConfig.UserDefinedHeaders {
 		val := credEnv[header.Key]
-		if val != "" {
+		if val != "" && ConfigurationOptionValueValid(header, credEnv) {
 			headerNames = append(headerNames, header.Key)
 			headerValues = append(headerValues, applyMCPServerInstanceHeaderPrefix(val, header.Prefix))
-		} else if header.Required {
+		} else if header.Required || val != "" {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
@@ -989,25 +988,15 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 	for _, v := range toExtract {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
-				if manifest.Runtime != types.RuntimeRemote {
-					manifest.Env = append(manifest.Env, types.MCPEnv{
-						MCPHeader: types.MCPHeader{
-							Name:        env,
-							Key:         env,
-							Description: "Automatically detected variable",
-							Sensitive:   true,
-							Required:    true,
-						},
-					})
-				} else if manifest.RemoteConfig != nil {
-					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{
+				manifest.Env = append(manifest.Env, types.MCPEnv{
+					MCPHeader: types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   false,
+						Sensitive:   manifest.Runtime != types.RuntimeRemote,
 						Required:    true,
-					})
-				}
+					},
+				})
 			}
 		}
 	}

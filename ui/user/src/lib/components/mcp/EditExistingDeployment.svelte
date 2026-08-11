@@ -26,6 +26,7 @@
 		type LaunchFormData
 	} from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
+	import { isMissingRequiredConfigurationField } from './configurationOptions';
 	import { CircleAlert } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -387,8 +388,7 @@
 				missingKeys.has(field.key) &&
 				!hasSecretBinding(field) &&
 				!('isStatic' in field && field.isStatic) &&
-				field.required &&
-				!field.value
+				isMissingRequiredConfigurationField(field)
 		);
 	}
 

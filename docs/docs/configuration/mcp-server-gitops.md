@@ -366,6 +366,32 @@ remoteConfig:
 
 ### Runtime Configuration
 
+#### Remote URL templates
+
+Declare every `${VAR}` referenced by `remoteConfig.urlTemplate` as a required field under
+`env`. Obot uses these environment configuration values to render and validate the concrete
+remote URL when the server is configured. URL-template env fields cannot use `file`,
+`dynamicFile`, or `secretBinding` because file contents and secrets must never be embedded in a
+URL.
+
+```yaml
+runtime: remote
+remoteConfig:
+  urlTemplate: https://${REGION}.api.example.com/workspaces/${WORKSPACE_ID}/mcp
+env:
+  - key: REGION
+    name: Region
+    required: true
+    sensitive: false
+  - key: WORKSPACE_ID
+    name: Workspace ID
+    required: true
+    sensitive: false
+```
+
+Avoid putting sensitive values in URL templates because URLs can appear in browser, server, and
+monitoring logs. Use `remoteConfig.headers` for authentication tokens and other secrets.
+
 For remote servers:
 
 ```yaml

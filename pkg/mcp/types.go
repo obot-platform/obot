@@ -361,6 +361,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		}
 	}
 
+	effectiveCredEnv := EffectiveConfigurationValues(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), credEnv)
+	if err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), effectiveCredEnv); err != nil {
+		return ServerConfig{}, nil, err
+	}
 	fileEnvVars := make(map[string]struct{})
 	for _, file := range mcpServer.Spec.Manifest.Env {
 		if file.File {
@@ -501,6 +505,10 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
 func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+	credEnv = EffectiveConfigurationValues(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv)
+	if err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
+		return ServerConfig{}, nil, err
+	}
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -617,6 +625,66 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	return serverConfig, missingRequiredNames, nil
+}
+
+// EffectiveConfigurationValues overlays user configuration on static catalog values.
+func EffectiveConfigurationValues(envs []types.MCPEnv, headers []types.MCPHeader, configured map[string]string) map[string]string {
+	values := make(map[string]string, len(configured)+len(envs)+len(headers))
+	maps.Copy(values, configured)
+	for _, env := range envs {
+		if values[env.Key] == "" && env.Value != "" {
+			values[env.Key] = env.Value
+		}
+	}
+	for _, header := range headers {
+		if values[header.Key] == "" && header.Value != "" {
+			values[header.Key] = header.Value
+		}
+	}
+	return values
+}
+
+// ValidateAndResolveURLTemplateConfig validates submitted configuration and returns the values
+// that may be used to render a remote URL template. Declared environment fields are authoritative.
+// Header fields are considered only when no matching environment field exists, preserving catalog
+// entries created before URL template variables moved from headers to env.
+func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, configured map[string]string) (map[string]string, error) {
+	var headers []types.MCPHeader
+	var template string
+	if remoteConfig != nil {
+		headers = remoteConfig.Headers
+		template = remoteConfig.URLTemplate
+	}
+	if err := ValidateConfiguredOptions(envs, headers, configured); err != nil {
+		return nil, err
+	}
+
+	envsByKey := make(map[string]types.MCPHeader, len(envs))
+	for _, env := range envs {
+		envsByKey[env.Key] = env.MCPHeader
+	}
+	headersByKey := make(map[string]types.MCPHeader, len(headers))
+	for _, header := range headers {
+		headersByKey[header.Key] = header
+	}
+
+	values := make(map[string]string)
+	for _, key := range extractEnvRefs(template) {
+		field, ok := envsByKey[key]
+		if !ok {
+			field, ok = headersByKey[key]
+		}
+		if !ok {
+			continue
+		}
+
+		value := field.Value
+		if configuredValue := configured[key]; value == "" && configuredValue != "" {
+			value = configuredValue
+		}
+		values[key] = value
+	}
+	return values, nil
 }
 
 func copyHeaders[T header](headers T, keys, values []string) {

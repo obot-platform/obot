@@ -362,6 +362,50 @@ func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
 	require.Equal(t, "user-value", input[key])
 }
 
+func TestPrepareTempServerConfigUsesCatalogDefaultInURLTemplate(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:      "REGION",
+			Required: true,
+			Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "http://127.0.0.1/mcp/${REGION}",
+		},
+	}
+	options := mcp.ValidationOptions{RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+		AllowLocalhostMCP: true,
+		AllowPrivateIPMCP: true,
+	}}
+
+	config, err := prepareTempServerConfig(t.Context(), fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(), "obot-ns", "allowed-secret", &manifest, map[string]string{"REGION": "us"}, false, options)
+	require.NoError(t, err)
+	require.Equal(t, "http://127.0.0.1/mcp/us", manifest.RemoteConfig.URL)
+	require.Equal(t, "us", config["REGION"])
+}
+
+func TestPrepareTempServerConfigSupportsLegacyHeaderTemplateVariable(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "http://127.0.0.1/mcp/${WORKSPACE}",
+			Headers:     []types.MCPHeader{{Key: "WORKSPACE", Required: true}},
+		},
+	}
+	options := mcp.ValidationOptions{RemoteMCPURLValidationConfig: mcp.RemoteMCPURLValidationConfig{
+		AllowLocalhostMCP: true,
+		AllowPrivateIPMCP: true,
+	}}
+
+	config, err := prepareTempServerConfig(t.Context(), fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build(), "obot-ns", "allowed-secret", &manifest, map[string]string{"WORKSPACE": "legacy"}, false, options)
+	require.NoError(t, err)
+	require.Equal(t, "http://127.0.0.1/mcp/legacy", manifest.RemoteConfig.URL)
+	require.Equal(t, "legacy", config["WORKSPACE"])
+}
+
 func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 	server := &v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "shared-server", Namespace: system.DefaultNamespace},

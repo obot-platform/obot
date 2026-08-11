@@ -15,6 +15,90 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestServerInstanceHeadersRejectsUnknownOption(t *testing.T) {
+	instance := v1.MCPServerInstance{Spec: v1.MCPServerInstanceSpec{MultiUserConfig: &types.MultiUserConfig{
+		UserDefinedHeaders: []types.MCPHeader{{
+			Key:      "REGION",
+			Required: true,
+			Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}},
+	}}}
+
+	names, values, missing := serverInstanceHeaders(instance, map[string]string{"REGION": "eu"})
+	require.Empty(t, names)
+	require.Empty(t, values)
+	require.Equal(t, []string{"REGION"}, missing)
+}
+
+func TestAddExtractedEnvVarsDefaultsToSensitive(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest types.MCPServerManifest
+	}{
+		{
+			name: "npx argument remains sensitive",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Args: []string{"--token=${TOKEN}"}},
+			},
+		},
+		{
+			name: "undeclared remote URL variable defaults to sensitive",
+			manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://${HOST}/mcp"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: tt.manifest}}
+			addExtractedEnvVars(&server)
+			require.Len(t, server.Spec.Manifest.Env, 1)
+			require.True(t, server.Spec.Manifest.Env[0].Sensitive)
+		})
+	}
+}
+
+func TestAddExtractedEnvVarsToCatalogEntryManifestRemoteFields(t *testing.T) {
+	t.Run("missing variable becomes env", func(t *testing.T) {
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime:      types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${HOST}/mcp"},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Len(t, manifest.Env, 1)
+		require.Equal(t, "HOST", manifest.Env[0].Key)
+		require.True(t, manifest.Env[0].Required)
+		require.False(t, manifest.Env[0].Sensitive)
+	})
+
+	t.Run("explicit env is preserved", func(t *testing.T) {
+		expected := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "HOST", Name: "Host", Required: true, Sensitive: true}}
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime:      types.RuntimeRemote,
+			Env:          []types.MCPEnv{expected},
+			RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${HOST}/mcp"},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Equal(t, []types.MCPEnv{expected}, manifest.Env)
+	})
+
+	t.Run("legacy header does not create duplicate env", func(t *testing.T) {
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				URLTemplate: "https://${HOST}/mcp",
+				Headers:     []types.MCPHeader{{Key: "HOST", Required: true}},
+			},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Empty(t, manifest.Env)
+		require.Len(t, manifest.RemoteConfig.Headers, 1)
+	})
+}
+
 func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *testing.T) {
 	const (
 		entryID = "catalog-entry"

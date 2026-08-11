@@ -108,7 +108,7 @@
 				{#if showUrlTemplateHelp}
 					Header values will be supplied with the URL to configure the deployment of the catalog
 					entry. Their values can be supplied by the user during initial setup or as static provided
-					values. Only values provided by the user will be used in URL template interpolation.
+					values. URL template variables are configured as environment fields below.
 				{:else}
 					Header values will be supplied with the URL to configure the deployment of the catalog
 					entry. Their values can be supplied by the user during initial setup or as static provided
@@ -144,7 +144,9 @@
 												{ label: 'Static', id: 'static' },
 												{ label: 'User-Supplied', id: 'user_supplied' }
 											]}
-											selected={config.headers[i].required ? 'user_supplied' : 'static'}
+											selected={config.headers[i].required || config.headers[i].options?.length
+												? 'user_supplied'
+												: 'static'}
 											onSelect={(option) => {
 												if (!config.headers?.[i]) return;
 												if (option.id === 'user_supplied') {
@@ -154,6 +156,7 @@
 													config.headers[i].name = '';
 													config.headers[i].description = '';
 													config.headers[i].sensitive = false;
+													config.headers[i].options = undefined;
 												}
 												config.headers[i].value = '';
 											}}
@@ -161,7 +164,7 @@
 										/>
 									{/if}
 								</div>
-								{#if config.headers[i].required}
+								{#if config.headers[i].required || config.headers[i].options?.length}
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
 										<input

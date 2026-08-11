@@ -243,9 +243,18 @@ type MCPHeader struct {
 	Sensitive bool   `json:"sensitive"`
 	Required  bool   `json:"required"`
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
+	// Options constrains user-supplied values to catalog-owned selections.
+	Options []MCPConfigurationOption `json:"options,omitempty"`
 
 	// SecretBinding binds this value to a key in a pre-existing Kubernetes Secret
 	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
+}
+
+// MCPConfigurationOption constrains a configuration field to a catalog-owned value.
+type MCPConfigurationOption struct {
+	Value       string `json:"value"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
 }
 
 // MCPSecretBinding references a single key in a pre-existing Kubernetes Secret

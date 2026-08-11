@@ -65,6 +65,23 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteURLTemplateRequiresConfigur
 	}
 }
 
+func TestConvertMCPServerCatalogEntryToRegistryConstrainedEnvRequiresConfiguration(t *testing.T) {
+	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/mcp"})
+	entry.Spec.Manifest.Env = []types.MCPEnv{{MCPHeader: types.MCPHeader{
+		Key:      "REGION",
+		Required: true,
+		Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}, {Value: "eu", Name: "Europe"}},
+	}}}
+
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got.Meta.Obot == nil || !got.Meta.Obot.ConfigurationRequired {
+		t.Fatal("expected constrained URL template to require configuration")
+	}
+}
+
 func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigurationUntilConfigured(t *testing.T) {
 	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{
 		FixedURL:            "https://api.example.com/mcp",

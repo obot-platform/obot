@@ -24,6 +24,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -136,7 +137,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			}
 		}
 
-		if !slices.Equal(existing.Spec.Manifest.Env, expectedEnv) {
+		if !equality.Semantic.DeepEqual(existing.Spec.Manifest.Env, expectedEnv) {
 			needsUpdate = true
 		}
 

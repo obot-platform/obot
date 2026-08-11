@@ -1,6 +1,7 @@
 package types
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -389,6 +390,32 @@ func TestMapCatalogEntryToServer_RemoteURLTemplate(t *testing.T) {
 
 	if result.RemoteConfig.URL != "" {
 		t.Errorf("Expected URL to remain empty until configured, got %q", result.RemoteConfig.URL)
+	}
+}
+
+func TestMapCatalogEntryToServer_PreservesConfigurationOptions(t *testing.T) {
+	options := []MCPConfigurationOption{{Value: "us", Name: "United States"}, {Value: "eu", Name: "Europe"}}
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Runtime: RuntimeRemote,
+		Env:     []MCPEnv{{MCPHeader: MCPHeader{Key: "REGION", Required: true, Options: options}}},
+		RemoteConfig: &RemoteCatalogConfig{
+			URLTemplate: "https://${REGION}.example.com/mcp",
+			Headers:     []MCPHeader{{Key: "MODE", Options: []MCPConfigurationOption{{Value: "read", Name: "Read only"}}}},
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !reflect.DeepEqual(options, result.Env[0].Options) {
+		t.Fatalf("env options = %#v, want %#v", result.Env[0].Options, options)
+	}
+	if !reflect.DeepEqual(catalogEntry.RemoteConfig.Headers[0].Options, result.RemoteConfig.Headers[0].Options) {
+		t.Fatalf("header options = %#v, want %#v", result.RemoteConfig.Headers[0].Options, catalogEntry.RemoteConfig.Headers[0].Options)
+	}
+	if !result.RemoteConfig.IsTemplate {
+		t.Fatal("expected URL template runtime")
 	}
 }
 

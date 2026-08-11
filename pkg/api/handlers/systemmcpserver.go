@@ -61,7 +61,6 @@ func (h *SystemMCPServerHandler) Get(req api.Context) error {
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
 		return err
 	}
-
 	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 	if err != nil {
 		return err
@@ -152,6 +151,9 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 
 	var systemServer v1.SystemMCPServer
 	if err := req.Get(&systemServer, req.PathValue("id")); err != nil {
+		return err
+	}
+	if err := applyRemoteURLTemplateToSystemManifest(req.Context(), &systemServer.Spec.Manifest, envVars, validationOptions(h.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return err
 	}
 
@@ -522,7 +524,7 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	configured := true
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+		if (env.Required && env.Value == "" && credEnv[env.Key] == "") || !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv) {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 			configured = false
 		}

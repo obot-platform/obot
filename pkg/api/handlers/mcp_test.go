@@ -12,6 +12,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -248,6 +249,75 @@ func TestUpdateServerAliasUnscopedSharedServer(t *testing.T) {
 	var updated v1.MCPServer
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "server"}, &updated))
 	assert.Empty(t, updated.Spec.Alias)
+}
+
+func TestAddExtractedEnvVarsDefaultsToSensitive(t *testing.T) {
+	tests := []struct {
+		name     string
+		manifest types.MCPServerManifest
+	}{
+		{
+			name: "npx argument remains sensitive",
+			manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Args: []string{"--token=${TOKEN}"}},
+			},
+		},
+		{
+			name: "undeclared remote URL variable defaults to sensitive",
+			manifest: types.MCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://${HOST}/mcp"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: tt.manifest}}
+			addExtractedEnvVars(&server)
+			require.Len(t, server.Spec.Manifest.Env, 1)
+			require.True(t, server.Spec.Manifest.Env[0].Sensitive)
+		})
+	}
+}
+
+func TestAddExtractedEnvVarsToCatalogEntryManifestRemoteFields(t *testing.T) {
+	t.Run("missing variable becomes env", func(t *testing.T) {
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime:      types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${HOST}/mcp"},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Len(t, manifest.Env, 1)
+		require.Equal(t, "HOST", manifest.Env[0].Key)
+		require.True(t, manifest.Env[0].Required)
+		require.False(t, manifest.Env[0].Sensitive)
+	})
+
+	t.Run("explicit env is preserved", func(t *testing.T) {
+		expected := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "HOST", Name: "Host", Required: true, Sensitive: true}}
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime:      types.RuntimeRemote,
+			Env:          []types.MCPEnv{expected},
+			RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${HOST}/mcp"},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Equal(t, []types.MCPEnv{expected}, manifest.Env)
+	})
+
+	t.Run("legacy header does not create duplicate env", func(t *testing.T) {
+		manifest := types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				URLTemplate: "https://${HOST}/mcp",
+				Headers:     []types.MCPHeader{{Key: "HOST", Required: true}},
+			},
+		}
+		addExtractedEnvVarsToCatalogEntryManifest(&manifest)
+		require.Empty(t, manifest.Env)
+		require.Len(t, manifest.RemoteConfig.Headers, 1)
+	})
 }
 
 func TestMCPServerOrInstanceFromConnectURLRejectsCatalogEntryResourcesAboveMaximum(t *testing.T) {
@@ -568,6 +638,116 @@ func TestTriggerUpdateScope(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestTriggerUpdateRemoteURLTemplateUsesPersistedConfiguration(t *testing.T) {
+	tests := []struct {
+		name        string
+		configured  map[string]string
+		template    string
+		env         []types.MCPEnv
+		expectedURL string
+		missing     []string
+	}{
+		{
+			name:       "valid selection renders updated URL",
+			configured: map[string]string{"REGION": "us"},
+			template:   "https://example.com/new/${REGION}",
+			env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key:      "REGION",
+				Required: true,
+				Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+			}}},
+			expectedURL: "https://example.com/new/us",
+		},
+		{
+			name:       "removed selection requires reconfiguration",
+			configured: map[string]string{"REGION": "removed"},
+			template:   "https://example.com/new/${REGION}",
+			env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key:      "REGION",
+				Required: true,
+				Options:  []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+			}}},
+			missing: []string{"REGION"},
+		},
+		{
+			name:       "new template variable requires reconfiguration",
+			configured: map[string]string{"REGION": "us"},
+			template:   "https://example.com/new/${REGION}/${WORKSPACE}",
+			env: []types.MCPEnv{
+				{MCPHeader: types.MCPHeader{Key: "REGION", Required: true}},
+				{MCPHeader: types.MCPHeader{Key: "WORKSPACE", Required: true}},
+			},
+			missing: []string{"WORKSPACE"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayClient := newHandlerTestGateway(t)
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: "user-1-server",
+				Name:    "server",
+				Secrets: tt.configured,
+			}))
+
+			server := v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: system.DefaultNamespace},
+				Spec: v1.MCPServerSpec{
+					UserID:                    "user-1",
+					MCPServerCatalogEntryName: "entry",
+					Manifest: types.MCPServerManifest{
+						Runtime: types.RuntimeRemote,
+						Env:     tt.env,
+						RemoteConfig: &types.RemoteRuntimeConfig{
+							URL:         "https://example.com/old",
+							IsTemplate:  true,
+							URLTemplate: "https://example.com/old/${REGION}",
+						},
+					},
+				},
+				Status: v1.MCPServerStatus{NeedsUpdate: true},
+			}
+			entry := v1.MCPServerCatalogEntry{
+				ObjectMeta: metav1.ObjectMeta{Name: "entry", Namespace: system.DefaultNamespace},
+				Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+					Runtime: types.RuntimeRemote,
+					Env:     tt.env,
+					RemoteConfig: &types.RemoteCatalogConfig{
+						URLTemplate: tt.template,
+					},
+				}},
+			}
+			storage := newFakeStorage(t, &server, &entry)
+			req := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/server/trigger-update", nil)
+			req.SetPathValue("mcp_server_id", server.Name)
+
+			var shutdown []string
+			err := (&MCPHandler{
+				shutdownMCPServer: func(name string) error {
+					shutdown = append(shutdown, name)
+					return nil
+				},
+			}).TriggerUpdate(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        req,
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           testUser("user-1"),
+			})
+			require.NoError(t, err)
+			assert.Equal(t, []string{"server"}, shutdown)
+
+			var updated v1.MCPServer
+			require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: server.Name}, &updated))
+			require.NotNil(t, updated.Spec.Manifest.RemoteConfig)
+			assert.Equal(t, tt.expectedURL, updated.Spec.Manifest.RemoteConfig.URL)
+
+			converted := ConvertMCPServer(updated, tt.configured, "", "")
+			assert.Equal(t, tt.missing, converted.MissingRequiredEnvVars)
+		})
+	}
 }
 
 // Test functions for applyURLTemplate
@@ -1421,6 +1601,56 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 	assert.Empty(t, converted.MissingRequiredHeaders)
 }
 
+func TestConvertMCPServerOptionalOptionsMayBeEmptyButRejectStaleValue(t *testing.T) {
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeNPX,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:     "REGION",
+			Options: []types.MCPConfigurationOption{{Value: "us", Name: "United States"}},
+		}}},
+	}}}
+
+	converted := ConvertMCPServer(server, nil, "", "")
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+
+	converted = ConvertMCPServer(server, map[string]string{"REGION": "removed"}, "", "")
+	assert.False(t, converted.Configured)
+	assert.Equal(t, []string{"REGION"}, converted.MissingRequiredEnvVars)
+}
+
+func TestUpdateServerValidatesPinnedConfigurationWithoutSourceEntry(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Value: "us", Name: "United States"}}
+	existing := v1.MCPServer{Spec: v1.MCPServerSpec{
+		MCPServerCatalogEntryName: "deleted-entry",
+		Manifest: types.MCPServerManifest{
+			Runtime: types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{
+				Package: "example-package",
+			},
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Options: options}}},
+		},
+	}}
+	existing.Name = "server"
+	existing.Namespace = system.DefaultNamespace
+	updated := *existing.Spec.Manifest.DeepCopy()
+	updated.Env[0].Options = nil
+
+	body, err := json.Marshal(updated)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPut, "/api/mcp-servers/server", bytes.NewReader(body))
+	req.SetPathValue("mcp_server_id", existing.Name)
+
+	err = (&MCPHandler{}).UpdateServer(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        newFakeStorage(t, &existing),
+		GatewayClient:  newHandlerTestGateway(t),
+		User:           testUser("user-1"),
+	})
+	require.ErrorContains(t, err, `invalid catalog configuration: env "REGION" options must match the source catalog entry`)
+}
+
 func TestServerManifestFromCatalogEntryManifestAllowsMissingRemoteHostname(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
@@ -1456,10 +1686,11 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 	assert.True(t, manifest.RemoteConfig.IsTemplate)
 	assert.Equal(t, template, manifest.RemoteConfig.URLTemplate)
 	assert.Empty(t, manifest.RemoteConfig.URL)
-	assert.ElementsMatch(t, []types.MCPHeader{
-		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
-		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
-	}, manifest.RemoteConfig.Headers)
+	assert.ElementsMatch(t, []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
+		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
+	}, manifest.Env)
+	assert.Empty(t, manifest.RemoteConfig.Headers)
 }
 
 func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostname(t *testing.T) {
@@ -1515,11 +1746,11 @@ func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *tes
 	}
 
 	addExtractedEnvVarsToCatalogEntry(&entry)
-	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
-	assert.ElementsMatch(t, []types.MCPHeader{
-		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
-		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
-	}, headers)
+	envs := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.Env
+	assert.ElementsMatch(t, []types.MCPEnv{
+		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
+		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
+	}, envs)
 }
 
 func TestSyncConnectServerRemoteConfigFromCatalogEntryURLTemplate(t *testing.T) {
