@@ -16,11 +16,12 @@
 	let loading = $state(true);
 
 	async function fetchCapacity() {
+		const opts = { dontLogErrors: true };
 		try {
 			capacityInfo =
 				catalogId && catalogEntryId
-					? await AdminService.getMCPCatalogEntryCapacity(catalogId, catalogEntryId)
-					: await AdminService.getMCPCapacity();
+					? await AdminService.getMCPCatalogEntryCapacity(catalogId, catalogEntryId, opts)
+					: await AdminService.getMCPCapacity(opts);
 		} catch {
 			// Silently fail - banner just won't show
 			capacityInfo = null;

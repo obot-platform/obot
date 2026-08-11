@@ -2124,6 +2124,8 @@ func (k *kubernetesBackend) getResourceQuotaCapacity(ctx context.Context, allowe
 		info.CPURequested = formatCPU(totalCPUUsed)
 		info.MemoryRequested = formatMemory(totalMemoryUsed)
 		info.ActiveDeployments = k.countActiveDeployments(ctx)
+	} else {
+		info.Error = "failed to list deployments"
 	}
 
 	return info, true

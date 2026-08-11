@@ -35,10 +35,15 @@ type MCPCatalogHandler struct {
 	serverURL                 string
 	mcpBackend                string
 	sessionManager            *mcp.SessionManager
+	capacityInfoProvider      capacityInfoProvider
 	oauthChecker              MCPOAuthChecker
 	gatewayClient             *gclient.Client
 	acrHelper                 *accesscontrolrule.Helper
 	secretBindingAllowedLabel string
+}
+
+type capacityInfoProvider interface {
+	GetCapacityInfoForServers(context.Context, []string) (types.MCPCapacityInfo, error)
 }
 
 func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBackend string, sessionManager *mcp.SessionManager, oauthChecker MCPOAuthChecker, gatewayClient *gclient.Client, acrHelper *accesscontrolrule.Helper, secretBindingAllowedLabel string) *MCPCatalogHandler {
@@ -47,6 +52,7 @@ func NewMCPCatalogHandler(defaultCatalogPath string, serverURL string, mcpBacken
 		serverURL:                 serverURL,
 		mcpBackend:                mcpBackend,
 		sessionManager:            sessionManager,
+		capacityInfoProvider:      sessionManager,
 		oauthChecker:              oauthChecker,
 		gatewayClient:             gatewayClient,
 		acrHelper:                 acrHelper,
@@ -596,6 +602,9 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 	if entry.Spec.MCPCatalogName != catalogName {
 		return types.NewErrBadRequest("entry does not belong to catalog")
 	}
+	if entry.Spec.Manifest.Runtime == types.RuntimeRemote || entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.NewErrBadRequest("capacity is only supported for hosted catalog entries")
+	}
 
 	var list v1.MCPServerList
 	if err := req.List(&list, client.MatchingFields{
@@ -612,7 +621,7 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 		serverNames = append(serverNames, server.Name)
 	}
 
-	info, err := h.sessionManager.GetCapacityInfoForServers(req.Context(), serverNames)
+	info, err := h.capacityInfoProvider.GetCapacityInfoForServers(req.Context(), serverNames)
 	if err != nil {
 		var notSupported *mcp.ErrNotSupportedByBackend
 		if errors.As(err, &notSupported) {

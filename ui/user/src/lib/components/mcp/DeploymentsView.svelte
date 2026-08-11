@@ -76,7 +76,7 @@
 		servers?: MCPCatalogServer[];
 		skipLoadOnMount?: boolean;
 		serverPrefixPath?: string;
-		catalogEntryId?: string;
+		entry?: MCPCatalogEntry | MCPCatalogServer;
 	}
 
 	let {
@@ -97,10 +97,20 @@
 		servers: initialServers,
 		skipLoadOnMount,
 		serverPrefixPath,
-		catalogEntryId
+		entry
 	}: Props = $props();
 
 	const doesSupportK8sUpdates = $derived(version.current.engine === 'kubernetes');
+	const supportsCapacity = $derived.by(() => {
+		if (entity !== 'catalog' || !doesSupportK8sUpdates || !profile.current.hasAdminAccess?.())
+			return false;
+
+		return entry
+			? 'isCatalogEntry' in entry &&
+					entry.manifest.runtime !== 'composite' &&
+					entry.manifest.runtime !== 'remote'
+			: true;
+	});
 
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? false);
 
@@ -601,8 +611,8 @@
 			<Loading class="size-6" />
 		</div>
 	{:else}
-		{#if entity === 'catalog' && profile.current.hasAdminAccess?.() && doesSupportK8sUpdates}
-			<CapacityBanner bind:this={capacityBanner} catalogId={id} {catalogEntryId} />
+		{#if supportsCapacity}
+			<CapacityBanner bind:this={capacityBanner} catalogId={id} catalogEntryId={entry?.id} />
 		{/if}
 		{#if tableData.length > 0}
 			<Table

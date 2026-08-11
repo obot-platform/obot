@@ -108,7 +108,7 @@
 			{usersMap}
 			{onReload}
 			skipLoadOnMount
-			catalogEntryId={entry?.id}
+			{entry}
 		/>
 	{:else}
 		{@render emptyInstancesContent()}

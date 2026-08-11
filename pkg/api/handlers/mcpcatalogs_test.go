@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -44,6 +46,123 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	assert.Empty(t, entry.Spec.Manifest.EntryKey)
 	assert.False(t, entry.Spec.Detached)
 	assert.Equal(t, "true", entry.Annotations["example.com/keep"])
+}
+
+type fakeCapacityInfoProvider struct {
+	serverNames []string
+	info        types.MCPCapacityInfo
+	err         error
+}
+
+func (f *fakeCapacityInfoProvider) GetCapacityInfoForServers(_ context.Context, serverNames []string) (types.MCPCapacityInfo, error) {
+	f.serverNames = append([]string(nil), serverNames...)
+	return f.info, f.err
+}
+
+func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
+	tests := []struct {
+		name             string
+		entryCatalogName string
+		entryRuntime     types.Runtime
+		servers          []v1.MCPServer
+		providerInfo     types.MCPCapacityInfo
+		providerErr      error
+		wantServerNames  []string
+		wantErr          string
+		wantResponse     types.MCPCapacityInfo
+	}{
+		{
+			name:             "returns capacity for matching deployments",
+			entryCatalogName: "catalog-1",
+			entryRuntime:     types.RuntimeContainerized,
+			servers: []v1.MCPServer{{
+				ObjectMeta: metav1.ObjectMeta{Name: "server-1", Namespace: system.DefaultNamespace},
+				Spec:       v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
+			}},
+			providerInfo:    types.MCPCapacityInfo{Source: types.CapacitySourceDeployments, ActiveDeployments: 1},
+			wantServerNames: []string{"server-1"},
+			wantResponse:    types.MCPCapacityInfo{Source: types.CapacitySourceDeployments, ActiveDeployments: 1},
+		},
+		{
+			name:             "excludes template deployments",
+			entryCatalogName: "catalog-1",
+			entryRuntime:     types.RuntimeContainerized,
+			servers: []v1.MCPServer{
+				{ObjectMeta: metav1.ObjectMeta{Name: "template-server", Namespace: system.DefaultNamespace}, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1", Template: true}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "server-1", Namespace: system.DefaultNamespace}, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"}},
+			},
+			providerInfo:    types.MCPCapacityInfo{ActiveDeployments: 1},
+			wantServerNames: []string{"server-1"},
+			wantResponse:    types.MCPCapacityInfo{ActiveDeployments: 1},
+		},
+		{
+			name:             "rejects composite catalog entry",
+			entryCatalogName: "catalog-1",
+			entryRuntime:     types.RuntimeComposite,
+			wantErr:          "capacity is only supported for hosted catalog entries",
+		},
+		{
+			name:             "rejects remote catalog entry",
+			entryCatalogName: "catalog-1",
+			entryRuntime:     types.RuntimeRemote,
+			wantErr:          "capacity is only supported for hosted catalog entries",
+		},
+		{
+			name:             "rejects entry from another catalog",
+			entryCatalogName: "catalog-2",
+			wantErr:          "entry does not belong to catalog",
+		},
+		{
+			name:             "returns backend not supported as capacity error",
+			entryCatalogName: "catalog-1",
+			entryRuntime:     types.RuntimeContainerized,
+			providerErr:      &mcp.ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"},
+			wantResponse:     types.MCPCapacityInfo{Error: "feature capacity info is not supported by docker backend"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			provider := &fakeCapacityInfoProvider{info: tt.providerInfo, err: tt.providerErr}
+			objects := []client.Object{
+				&v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}},
+				&v1.MCPServerCatalogEntry{
+					ObjectMeta: metav1.ObjectMeta{Name: "entry-1", Namespace: system.DefaultNamespace},
+					Spec: v1.MCPServerCatalogEntrySpec{
+						MCPCatalogName: tt.entryCatalogName,
+						Manifest:       types.MCPServerCatalogEntryManifest{Runtime: tt.entryRuntime},
+					},
+				},
+			}
+			for i := range tt.servers {
+				server := tt.servers[i]
+				objects = append(objects, &server)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/api/mcp-catalogs/catalog-1/entries/entry-1/mcp-capacity", nil)
+			req.SetPathValue("catalog_id", "catalog-1")
+			req.SetPathValue("entry_id", "entry-1")
+			rec := httptest.NewRecorder()
+			err := (&MCPCatalogHandler{capacityInfoProvider: provider}).GetEntryCapacity(api.Context{
+				ResponseWriter: rec,
+				Request:        req,
+				Storage:        newFakeStorage(t, objects...),
+			})
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.Empty(t, provider.serverNames)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantServerNames, provider.serverNames)
+
+			var got types.MCPCapacityInfo
+			require.NoError(t, json.NewDecoder(rec.Body).Decode(&got))
+			assert.Equal(t, tt.wantResponse, got)
+		})
+	}
 }
 
 func TestNormalizeName(t *testing.T) {
