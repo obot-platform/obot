@@ -26,6 +26,7 @@
 		onFieldChange?: (field: string) => void;
 		isNewEntry?: boolean;
 		onConfigureOAuth?: () => void;
+		canConfigureOAuthCredentials?: boolean;
 		disableStaticOAuth?: boolean;
 		disableHostnameOption?: boolean;
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
@@ -42,6 +43,7 @@
 		onFieldChange,
 		isNewEntry,
 		onConfigureOAuth,
+		canConfigureOAuthCredentials = true,
 		disableStaticOAuth,
 		disableHostnameOption,
 		secretBindingTargets,
@@ -587,7 +589,7 @@
 						<button
 							class="btn btn-secondary flex w-fit items-center gap-2 text-sm"
 							onclick={onConfigureOAuth}
-							disabled={readonly}
+							disabled={!canConfigureOAuthCredentials}
 							type="button"
 						>
 							<Settings class="size-4" />

@@ -55,6 +55,7 @@
 		hideTitle?: boolean;
 		readonlyMessage?: Snippet;
 		onConfigureOAuth?: () => void;
+		canConfigureOAuthCredentials?: boolean;
 	}
 
 	let {
@@ -66,7 +67,8 @@
 		onCancel,
 		onSubmit,
 		readonlyMessage,
-		onConfigureOAuth
+		onConfigureOAuth,
+		canConfigureOAuthCredentials = true
 	}: Props = $props();
 	function getType(entry?: MCPCatalogEntry | MCPCatalogServer) {
 		if (!entry) return undefined;
@@ -985,6 +987,7 @@
 				onFieldChange={updateRequired}
 				isNewEntry={!entry}
 				{onConfigureOAuth}
+				{canConfigureOAuthCredentials}
 				secretBindingTargets={editableSecretBindingTargets}
 			>
 				{#snippet afterHeaders()}
@@ -1009,6 +1012,7 @@
 				onFieldChange={updateRequired}
 				isNewEntry={!entry}
 				{onConfigureOAuth}
+				{canConfigureOAuthCredentials}
 			>
 				{#snippet afterHeaders()}
 					{#if formData.remoteConfig?.urlTemplate !== undefined}

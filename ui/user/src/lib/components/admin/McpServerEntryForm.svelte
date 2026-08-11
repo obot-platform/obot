@@ -155,6 +155,9 @@
 		return tabs.some((t) => t.view === tab) ? tab : fallback;
 	});
 	let configurationReadonly = $derived(readonly || isCatalogEntryDeployedMultiUserServer(entry));
+	let canConfigureOAuthCredentials = $derived(
+		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
+	);
 
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
@@ -806,6 +809,7 @@
 			<button
 				class="btn btn-secondary flex items-center gap-1.5 font-normal"
 				onclick={handleConfigureOAuth}
+				disabled={!canConfigureOAuthCredentials}
 			>
 				<Settings class="size-4" />
 				Configure OAuth Credentials
@@ -953,6 +957,7 @@
 			onSubmit={handleSubmit}
 			hideTitle={Boolean(entry)}
 			onConfigureOAuth={handleConfigureOAuth}
+			{canConfigureOAuthCredentials}
 		>
 			{#snippet readonlyMessage()}
 				{#if entry && 'sourceURL' in entry && !!entry.sourceURL && !entry.detached}
