@@ -10160,7 +10160,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 					},
 					"deploymentStatus": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Ready, Progressing, Failed).",
+							Description: "DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).",
 							Type:        []string{"string"},
 							Format:      "",
 						},

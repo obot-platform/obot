@@ -59,7 +59,7 @@ export function normalizeServerDeploymentStatus(server: MCPCatalogServer): strin
 	if (raw && DEPLOYMENT_STATUS_ORDER.includes(raw as (typeof DEPLOYMENT_STATUS_ORDER)[number]))
 		return raw;
 	if (raw) return raw;
-	return '--';
+	return 'Pending'; // on demand pod has not yet been activated
 }
 
 /** 12-column grid: 3× col-span-4 per full row; last row fills width (6+6 or 12). */
