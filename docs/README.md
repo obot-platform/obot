@@ -1,82 +1,80 @@
-# Website
+# Obot documentation
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The Obot documentation site is built with Docusaurus 3 and published at [docs.obot.ai](https://docs.obot.ai).
 
-### Installation
+## Layout
 
+- `docs/` contains the current, unreleased documentation and is published under `/next/`.
+- `versioned_docs/version-vX.Y.Z/` contains snapshots of released documentation.
+- `versioned_sidebars/` contains the sidebar snapshot for each released version.
+- `static/` contains images and downloads shared by every version.
+- `versions.json` lists released versions. The first entry is the latest release and is published at the site root.
+
+Make ordinary documentation changes in `docs/`. Treat files in `versioned_docs/` as release snapshots and only backport corrections that would otherwise mislead users of that release.
+
+## Local development
+
+Run all `make` commands from the root of the Obot repository, not from this `docs/` directory.
+
+To install the documentation dependencies and start the development server:
+
+```bash
+make serve-docs
 ```
-$ yarn
+
+Most changes are reflected in the browser without restarting the server.
+
+## Build
+
+The documentation workflow uses npm. To run the same build used by CI:
+
+```bash
+cd docs
+npm install
+npm run build
 ```
 
-### Local Development
+The generated site is written to `docs/build/`. Broken documentation links fail the build.
 
-```
-$ yarn start
-```
+## Links
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+Use relative links, including the `.md` extension, when linking to another documentation page:
 
-### Build
-
-```
-$ yarn build
+```markdown
+[MCP Servers](./mcp-servers.md)
 ```
 
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+Relative links resolve within the current documentation version. Do not use site-root paths such as `/functionality/mcp-servers/` for links between documentation pages.
 
-## Versioning
+Files under `static/` are shared by every version, so images and downloads should use absolute paths:
 
-This documentation uses Docusaurus versioning to maintain docs for multiple releases.
+```markdown
+![Add a server](/img/add-mcp-server-type-selector.png)
+```
 
-### Understanding Versions
+## Release versions
 
-- **Next (docs/ folder)**: Unreleased documentation for features in development
-- **Versioned releases (versioned_docs/)**: Documentation snapshots for each stable release
+Run all version-management commands from the root of the Obot repository.
 
-### Creating a New Version
+To snapshot the current documentation for a new release:
 
-When releasing a new version of Obot (e.g., v0.9.0):
+```bash
+make gen-docs-release version=v0.26.0
+```
 
-1. Ensure all documentation updates are merged to `docs/` folder
-2. Run the versioning command:
-   ```bash
-   npm run docusaurus docs:version 0.9.0
-   ```
-3. This creates:
-   - `versioned_docs/version-0.9.0/` - Snapshot of docs
-   - `versioned_sidebars/version-0.9.0-sidebars.json` - Snapshot of sidebar
-   - Updates `versions.json` to include "0.9.0"
+Include the `v` prefix. This command updates `versions.json` and creates:
 
-4. Update `docusaurus.config.ts`:
-   ```typescript
-   docs: {
-     lastVersion: '0.9.0', // Change from 'current' to first stable version
-     // ... rest of config
-   }
-   ```
+- `docs/versioned_docs/version-v0.26.0/`
+- `docs/versioned_sidebars/version-v0.26.0-sidebars.json`
 
-5. Commit the changes:
-   ```bash
-   git add versions.json versioned_docs/ versioned_sidebars/ docusaurus.config.ts
-   git commit -m "docs: create version 0.9.0"
-   ```
+The Docusaurus configuration derives the latest release and version menu from `versions.json`; do not update `lastVersion` manually.
 
-### Updating Documentation
+Keep the latest release and the three releases immediately preceding it. After creating a release snapshot, remove the oldest snapshot when necessary:
 
-**For unreleased features**: Edit files in `docs/` - these appear under "Next"
+```bash
+make remove-docs-version version=v0.22.0
+```
 
-**For released versions**: Edit files in `versioned_docs/version-X.X.X/` - these appear under that specific version
+The removal command requires `jq` on the host. Review the generated changes, run the documentation build, and then commit the updated snapshots, sidebar files, and `versions.json`.
 
-### Version URLs
-
-- Next: `https://docs.obot.ai/next/`
-- Stable (default): `https://docs.obot.ai/` (shows latest stable release)
-- Specific version: `https://docs.obot.ai/0.9.0/`
-
-### Best Practices
-
-1. **Write docs in docs/ first**: Always develop documentation in the main `docs/` folder
-2. **Version on release**: Only create a version snapshot when tagging a release
-3. **Patch updates**: For patch releases (e.g., 0.9.1), update the 0.9.0 version docs if needed - don't create new versions for patches
-4. **Breaking changes**: Create new versions for major/minor releases that change APIs or features significantly
-5. **Backport sparingly**: Only backport critical fixes to old versions - prefer forward-looking documentation
+The current documentation is available at `https://docs.obot.ai/next/`, the latest release at `https://docs.obot.ai/`, and older releases at paths such as `https://docs.obot.ai/v0.24.0/`.

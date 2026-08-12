@@ -96,22 +96,21 @@ no-changes:
 
 #cut a new version for release with items in docs/docs
 gen-docs-release:
-	if [ -z ${version} ]; then \
-  			echo "version not set (version=x.x)"; \
-    		exit 1 \
-    	;fi
+	@if [ -z "${version}" ]; then \
+		echo "version not set (version=vX.Y.Z)"; \
+		exit 1; \
+	fi
 	docker run --rm --workdir=/docs -v $${PWD}/docs:/docs node:24-bookworm yarn docusaurus docs:version ${version}
 
 # Completely remove doc version from docs site
 remove-docs-version:
-	if [ -z ${version} ]; then \
-  			echo "version not set (version=x.x)"; \
-    		exit 1 \
-    	;fi
+	@if [ -z "${version}" ]; then \
+		echo "version not set (version=vX.Y.Z)"; \
+		exit 1; \
+	fi
 	echo "removing ${version} from documentation completely"
 	-rm  "./docs/versioned_sidebars/version-${version}-sidebars.json"
 	-rm  -r ./docs/versioned_docs/version-${version}
 	jq 'del(.[] | select(. == "${version}"))' ./docs/versions.json > tmp.json && mv tmp.json ./docs/versions.json
-	grep -v '"${version}": {label: "${version}", banner: "none", path: "${version}"},' ./docs/docusaurus.config.ts  > tmp.config.ts && mv tmp.config.ts ./docs/docusaurus.config.ts
 
 .PHONY: ui ui-user build all clean dev dev-open otel-jaeger-up otel-jaeger-down otel-jaeger-logs telepresence-setup lint lint-admin lint-api no-changes fmt tidy gen-docs-release deprecate-docs-release remove-docs-version
