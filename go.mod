@@ -5,7 +5,6 @@ go 1.26.5
 replace (
 	github.com/obot-platform/obot/apiclient => ./apiclient
 	github.com/obot-platform/obot/logger => ./logger
-	github.com/rancher/remotedialer => github.com/thedadams/remotedialer v0.0.0-20260723172339-49a97825a059
 )
 
 require (
@@ -52,7 +51,7 @@ require (
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/prometheus/client_golang v1.23.2
-	github.com/rancher/remotedialer v0.6.2-0.20260710094027-c230dff32648
+	github.com/rancher/remotedialer v0.6.2-0.20260812153830-1c09457bfdb3
 	github.com/rs/cors v1.11.1
 	github.com/sethvargo/go-limiter v1.0.0
 	github.com/sirupsen/logrus v1.9.4
