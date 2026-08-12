@@ -250,7 +250,7 @@ func (s *Server) authenticateAPIKey(apiContext api.Context) error {
 	}
 
 	bearer, ok := strings.CutPrefix(authHeader, "Bearer ")
-	if !ok || !strings.HasPrefix(bearer, "ok1-") {
+	if !ok || !strings.HasPrefix(bearer, system.APIKeyPrefix+"-") {
 		slog.Info("Denied API key auth request", "reason", "invalid_api_key_format")
 		return apiContext.Write(apiKeyAuthResponse{
 			Allowed: false,

@@ -2,12 +2,12 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/auditlog"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"gorm.io/gorm"
 )
 
@@ -122,7 +122,7 @@ func (c *Client) hydrateAuditLogAPIKeyFilterOptions(ctx context.Context, snapsho
 		}
 		if key, ok := keysByID[snapshot.APIKeyID]; ok {
 			option.UserID = strconv.FormatUint(uint64(key.UserID), 10)
-			option.MaskedKey = fmt.Sprintf("ok1-%d-%d-*****", key.UserID, key.ID)
+			option.MaskedKey = principal.MaskedAPIKeyName(option.UserID, key.ID)
 			option.Revoked = key.RevokedAt != nil
 			option.UserDisplayName = auditLogAPIKeyUserDisplayName(usersByID[key.UserID], option.UserID)
 		}

@@ -122,3 +122,9 @@ func TestNewAPIKeyAttributionResolvesDisplayName(t *testing.T) {
 		t.Fatalf("unnamed attribution = %#v, want masked key identifier", unnamedHostedAgentKey)
 	}
 }
+
+func TestMaskedAPIKeyName(t *testing.T) {
+	if got := MaskedAPIKeyName("7", 42); got != "ok1-7-42-*****" {
+		t.Fatalf("masked API key name = %q", got)
+	}
+}
