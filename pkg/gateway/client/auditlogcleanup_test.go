@@ -75,6 +75,103 @@ func countLLMAuditLogs(t *testing.T, c *Client) int64 {
 	return count
 }
 
+func insertAPIKey(t *testing.T, c *Client, revokedAt *time.Time) uint {
+	t.Helper()
+	entry := types.APIKey{
+		UserID:    1,
+		Name:      "retention-test",
+		CreatedAt: time.Now().UTC().AddDate(0, 0, -200),
+		RevokedAt: revokedAt,
+	}
+	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
+		t.Fatalf("failed to insert API key: %v", err)
+	}
+	return entry.ID
+}
+
+func countAPIKeys(t *testing.T, c *Client) int64 {
+	t.Helper()
+	var count int64
+	if err := c.db.WithContext(t.Context()).Model(&types.APIKey{}).Count(&count).Error; err != nil {
+		t.Fatalf("failed to count API keys: %v", err)
+	}
+	return count
+}
+
+func TestAPIKeyRetentionDays(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		mcpDays       int
+		llmDays       int
+		wantRetention int
+	}{
+		{name: "MCP is longer", mcpDays: 90, llmDays: 30, wantRetention: 90},
+		{name: "LLM is longer", mcpDays: 30, llmDays: 90, wantRetention: 90},
+		{name: "equal", mcpDays: 90, llmDays: 90, wantRetention: 90},
+		{name: "MCP cleanup disabled", mcpDays: 0, llmDays: 90, wantRetention: 0},
+		{name: "LLM cleanup disabled", mcpDays: 90, llmDays: 0, wantRetention: 0},
+		{name: "negative disables cleanup", mcpDays: -1, llmDays: 90, wantRetention: 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := apiKeyRetentionDays(tt.mcpDays, tt.llmDays); got != tt.wantRetention {
+				t.Fatalf("apiKeyRetentionDays(%d, %d) = %d, want %d", tt.mcpDays, tt.llmDays, got, tt.wantRetention)
+			}
+		})
+	}
+}
+
+func TestDeleteOldRevokedAPIKeys(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -90)
+	old := cutoff.Add(-time.Second)
+	atCutoff := cutoff
+	recent := cutoff.Add(time.Second)
+
+	insertAPIKey(t, c, nil)
+	insertAPIKey(t, c, &old)
+	insertAPIKey(t, c, &atCutoff)
+	insertAPIKey(t, c, &recent)
+
+	if err := c.deleteOldRevokedAPIKeys(t.Context(), now, 90); err != nil {
+		t.Fatalf("delete old revoked API keys: %v", err)
+	}
+	if got := countAPIKeys(t, c); got != 3 {
+		t.Fatalf("API keys after cleanup = %d, want 3", got)
+	}
+}
+
+func TestDeleteOldRevokedAPIKeysBatching(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	old := now.AddDate(0, 0, -100)
+	for range 7 {
+		insertAPIKey(t, c, &old)
+	}
+	recent := now.AddDate(0, 0, -1)
+	insertAPIKey(t, c, &recent)
+
+	if err := c.deleteOldRevokedAPIKeys(t.Context(), now, 90); err != nil {
+		t.Fatalf("delete old revoked API keys: %v", err)
+	}
+	if got := countAPIKeys(t, c); got != 1 {
+		t.Fatalf("API keys after batched cleanup = %d, want 1", got)
+	}
+}
+
+func TestDeleteOldRevokedAPIKeysDisabled(t *testing.T) {
+	c := newTestClient(t)
+	old := time.Now().UTC().AddDate(0, 0, -200)
+	insertAPIKey(t, c, &old)
+
+	if err := c.deleteOldRevokedAPIKeys(t.Context(), time.Now().UTC(), 0); err != nil {
+		t.Fatalf("disabled cleanup: %v", err)
+	}
+	if got := countAPIKeys(t, c); got != 1 {
+		t.Fatalf("API keys after disabled cleanup = %d, want 1", got)
+	}
+}
+
 func TestDeleteOldAuditLogs(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
@@ -140,24 +237,28 @@ func TestDeleteOldAuditLogsBatching(t *testing.T) {
 	}
 }
 
-func TestRunAuditLogCleanup(t *testing.T) {
+func TestRunRetentionCleanup(t *testing.T) {
 	c := newTestClient(t)
 
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -100)) // old
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))   // recent
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -100))
+	insertLLMAuditLog(t, c, now.AddDate(0, 0, -1))
+	oldRevocation := now.AddDate(0, 0, -100)
+	insertAPIKey(t, c, &oldRevocation)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	go c.runMCPAuditLogCleanup(ctx, 90)
+	go c.runRetentionCleanup(ctx, 90, 30)
 
 	// Wait until the cleanup has deleted old logs, or time out.
 	deadline := time.Now().Add(2 * time.Second)
 	var got int64
 	for {
 		got = countAuditLogs(t, c)
-		if got == 1 {
+		if got == 1 && countLLMAuditLogs(t, c) == 1 && countAPIKeys(t, c) == 0 {
 			break
 		}
 		if time.Now().After(deadline) {
@@ -173,19 +274,61 @@ func TestRunAuditLogCleanup(t *testing.T) {
 	}
 }
 
-func TestRunAuditLogCleanupDisabled(t *testing.T) {
+func TestRunRetentionCleanupDisabled(t *testing.T) {
 	c := newTestClient(t)
 
 	now := time.Now().UTC()
 	insertAuditLog(t, c, now.AddDate(0, 0, -100))
 	insertAuditLog(t, c, now.AddDate(0, 0, -1))
 
-	// retentionDays=0 means the function returns immediately without cleanup.
+	// Both retention periods disabled means the function returns immediately.
 	// Call synchronously — if it ever blocks, the test timeout will catch it.
-	c.runMCPAuditLogCleanup(t.Context(), 0)
+	c.runRetentionCleanup(t.Context(), 0, 0)
 
 	if got := countAuditLogs(t, c); got != 2 {
 		t.Errorf("expected 2 audit logs (cleanup disabled), got %d", got)
+	}
+}
+
+func TestRunRetentionCleanupRepeats(t *testing.T) {
+	c := newTestClient(t)
+	old := time.Now().UTC().AddDate(0, 0, -100)
+	insertAuditLog(t, c, old)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	go c.runRetentionCleanup(ctx, 90, 30)
+
+	waitUntilEmpty := func(stage string) {
+		t.Helper()
+		deadline := time.Now().Add(2 * time.Second)
+		for countAuditLogs(t, c) != 0 {
+			if time.Now().After(deadline) {
+				t.Fatalf("timed out waiting for %s cleanup", stage)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	waitUntilEmpty("initial")
+
+	insertAuditLog(t, c, old)
+	waitUntilEmpty("periodic")
+}
+
+func TestCleanupRetainedDataSkipsAPIKeysWhenAuditCleanupFails(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	oldRevocation := now.AddDate(0, 0, -100)
+	insertAPIKey(t, c, &oldRevocation)
+
+	if err := c.db.WithContext(t.Context()).Migrator().DropTable(&types.MCPAuditLog{}); err != nil {
+		t.Fatalf("drop MCP audit log table: %v", err)
+	}
+	if err := c.cleanupRetainedData(t.Context(), now, 90, 30); err == nil {
+		t.Fatal("cleanup succeeded despite missing MCP audit log table")
+	}
+	if got := countAPIKeys(t, c); got != 1 {
+		t.Fatalf("API keys after failed audit cleanup = %d, want 1", got)
 	}
 }
 

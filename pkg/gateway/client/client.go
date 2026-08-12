@@ -100,8 +100,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 	go c.runPendingStateCleanup(ctx)
 	go c.runTokenCleanup(ctx)
 	go c.runAPIKeyCacheCleanup(ctx)
-	go c.runMCPAuditLogCleanup(ctx, auditLogRetentionDays)
-	go c.runLLMAuditLogCleanup(ctx, llmAuditLogRetentionDays)
+	go c.runRetentionCleanup(ctx, auditLogRetentionDays, llmAuditLogRetentionDays)
 	go c.runDeviceScanCleanup(ctx, deviceScanRetentionDays)
 	return c
 }

@@ -34,7 +34,7 @@ type APIKey struct {
 	CreatedAt             time.Time  `json:"createdAt"`
 	LastUsedAt            *time.Time `json:"lastUsedAt,omitempty"`
 	ExpiresAt             *time.Time `json:"expiresAt,omitempty"` // nil means no expiration
-	RevokedAt             *time.Time `json:"revokedAt,omitempty"`
+	RevokedAt             *time.Time `json:"revokedAt,omitempty" gorm:"index"`
 }
 
 type APIKeyScopes struct {
