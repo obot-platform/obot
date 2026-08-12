@@ -1542,6 +1542,8 @@ export interface TokenUsage {
 	date: string;
 	userID?: string;
 	model?: string;
+	apiKeyID?: number;
+	apiKeyName?: string;
 	inputTokens: number;
 	cacheReadTokens: number;
 	cacheWriteTokens: number;

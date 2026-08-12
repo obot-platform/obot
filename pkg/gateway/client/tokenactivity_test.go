@@ -13,12 +13,18 @@ func TestTokenActivityRoundTrip(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
 	now := time.Now()
+	apiKeyID := uint(42)
+	if !c.db.WithContext(ctx).Migrator().HasIndex(&types.RunTokenActivity{}, "idx_run_token_activity_api_key_created") {
+		t.Fatal("expected API key/date token usage index")
+	}
 
 	rows := []types.RunTokenActivity{
 		{
-			UserID:    "u1",
-			Model:     "claude-opus-4-5",
-			CreatedAt: now,
+			UserID:     "u1",
+			Model:      "claude-opus-4-5",
+			CreatedAt:  now,
+			APIKeyID:   &apiKeyID,
+			APIKeyName: "CLI token",
 			Usage: types.TokenUsage{
 				InputTokens:      100050,
 				CacheReadTokens:  100000,
@@ -72,6 +78,13 @@ func TestTokenActivityRoundTrip(t *testing.T) {
 	}
 	if math.Abs(opus.Usage.TotalSpend-0.07025) > 1e-9 {
 		t.Errorf("total spend = %v, want 0.07025", opus.Usage.TotalSpend)
+	}
+	if opus.APIKeyID == nil || *opus.APIKeyID != apiKeyID || opus.APIKeyName != "CLI token" {
+		t.Errorf("API key attribution = ID %v, name %q; want ID %d, name %q", opus.APIKeyID, opus.APIKeyName, apiKeyID, "CLI token")
+	}
+	converted := types.ConvertTokenActivity(opus)
+	if converted.APIKeyID == nil || *converted.APIKeyID != apiKeyID || converted.APIKeyName != "CLI token" {
+		t.Errorf("converted API key attribution = ID %v, name %q", converted.APIKeyID, converted.APIKeyName)
 	}
 
 	total, err := c.TotalTokenUsageForUser(ctx, "u1", now.Add(-time.Hour), now.Add(time.Hour))

@@ -16,15 +16,46 @@ import (
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
+	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type captureRoundTripper struct {
 	req *http.Request
+}
+
+func TestNewRunTokenActivityCapturesOwnerAndAPIKey(t *testing.T) {
+	requestUser := &user.DefaultInfo{
+		UID: "hosted-agent:hai1abc",
+		Extra: map[string][]string{
+			principal.HostedAgentOwnerExtra: {"7"},
+			principal.APIKeyIDExtra:         {"42"},
+			principal.APIKeyNameExtra:       {"CLI token"},
+		},
+	}
+	usage := types.TokenUsage{InputTokens: 10, OutputTokens: 5, TotalSpend: 0.25}
+
+	activity := newRunTokenActivity(requestUser, "gpt-5", usage)
+
+	if activity.UserID != "7" || activity.Model != "gpt-5" || activity.Usage != usage {
+		t.Fatalf("activity identity or usage = %#v", activity)
+	}
+	if activity.APIKeyID == nil || *activity.APIKeyID != 42 || activity.APIKeyName != "CLI token" {
+		t.Fatalf("API key attribution = ID %v, name %q; want ID 42, name %q", activity.APIKeyID, activity.APIKeyName, "CLI token")
+	}
+}
+
+func TestNewRunTokenActivityLeavesDirectUserUnattributed(t *testing.T) {
+	activity := newRunTokenActivity(&user.DefaultInfo{UID: "7"}, "gpt-5", types.TokenUsage{})
+	if activity.APIKeyID != nil || activity.APIKeyName != "" {
+		t.Fatalf("direct user gained API key attribution: %#v", activity)
+	}
 }
 
 func (c *captureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {

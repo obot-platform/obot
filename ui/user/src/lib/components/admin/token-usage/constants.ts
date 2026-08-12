@@ -1,11 +1,13 @@
 export const ALL_MODELS = 'all_models';
 export const ALL_USERS = 'all_users';
+export const ALL_API_KEYS = 'all_api_keys';
 
 export const TOKEN_USAGE_PARAMS = {
 	START: 'start',
 	END: 'end',
 	MODEL: 'model',
 	USER: 'user',
+	API_KEY: 'api_key',
 	TOKEN_TYPE: 'token_type',
 	GROUP_BY: 'group_by'
 } as const;
@@ -31,6 +33,7 @@ export const DEFAULT_TOKEN_GROUP_BY = TOKEN_GROUP_BY.DEFAULT;
 export const USAGE_SUBVIEW = {
 	MODELS: 'models',
 	USERS: 'users',
+	API_KEYS: 'api_keys',
 	SPEND: 'spend'
 } as const;
 

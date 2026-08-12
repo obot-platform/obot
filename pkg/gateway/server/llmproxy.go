@@ -718,11 +718,7 @@ func (r *responseModifier) Close() error {
 		// Recorded against the owner for the same reason the limit is checked
 		// against them: an agent has no user row of its own, and its usage
 		// should still land on whoever created it.
-		activity := &types.RunTokenActivity{
-			UserID: principal.ResourceOwnerID(r.user),
-			Model:  r.model,
-			Usage:  usage,
-		}
+		activity := newRunTokenActivity(r.user, r.model, usage)
 		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
 			log.Warnf("failed to save token usage for user %s: %v", r.user.GetUID(), err)
 		}
@@ -732,6 +728,19 @@ func (r *responseModifier) Close() error {
 	err := r.c.Close()
 	r.audit.finish(r.client, err)
 	return err
+}
+
+func newRunTokenActivity(user kuser.Info, model string, usage types.TokenUsage) *types.RunTokenActivity {
+	activity := &types.RunTokenActivity{
+		UserID: principal.ResourceOwnerID(user),
+		Model:  model,
+		Usage:  usage,
+	}
+	if attribution, ok := principal.APIKeyAttributionFromUser(user); ok {
+		activity.APIKeyID = &attribution.ID
+		activity.APIKeyName = attribution.Name
+	}
+	return activity
 }
 
 func wrapAuditOnlyResponse(resp *http.Response, audit *llmAuditRecorder, client *client.Client) {

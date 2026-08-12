@@ -21,11 +21,13 @@ func ConvertAPIActivity(a APIActivity) types2.APIActivity {
 }
 
 type RunTokenActivity struct {
-	ID        uint
-	CreatedAt time.Time
-	Name      string
-	UserID    string
-	Model     string
+	ID         uint
+	CreatedAt  time.Time `gorm:"index:idx_run_token_activity_api_key_created,priority:2"`
+	Name       string
+	UserID     string
+	Model      string
+	APIKeyID   *uint  `gorm:"index:idx_run_token_activity_api_key_created,priority:1"`
+	APIKeyName string `gorm:"type:text"`
 
 	Usage TokenUsage `gorm:"embedded"`
 }
@@ -63,6 +65,8 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 	return types2.TokenUsage{
 		UserID:           a.UserID,
 		Model:            a.Model,
+		APIKeyID:         a.APIKeyID,
+		APIKeyName:       a.APIKeyName,
 		Date:             *types2.NewTime(a.CreatedAt),
 		InputTokens:      a.Usage.InputTokens,
 		CacheReadTokens:  a.Usage.CacheReadTokens,

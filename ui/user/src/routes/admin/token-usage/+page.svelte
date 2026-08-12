@@ -7,6 +7,7 @@
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import TokenUsageTimelineCard from '$lib/components/admin/token-usage/TokenUsageTimelineCard.svelte';
 	import {
+		ALL_API_KEYS,
 		ALL_MODELS,
 		ALL_USERS,
 		CHART_LABEL,
@@ -40,7 +41,7 @@
 		TIMELINE_AGGREGATE_THRESHOLD,
 		type TokenUsageTimelineItem
 	} from '$lib/components/admin/token-usage/tokenUsageTimeline';
-	import { getUserLabels } from '$lib/components/admin/token-usage/utils';
+	import { getAPIKeyFilterOptions, getUserLabels } from '$lib/components/admin/token-usage/utils';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -84,6 +85,10 @@
 	const selectedUserIdsForSelect = $derived(
 		selectedUserIds.length > 0 ? selectedUserIds.join(',') : ALL_USERS
 	);
+	const selectedAPIKeyIDs = $derived(page.url.searchParams.getAll(TOKEN_USAGE_PARAMS.API_KEY));
+	const selectedAPIKeyIDsForSelect = $derived(
+		selectedAPIKeyIDs.length > 0 ? selectedAPIKeyIDs.join(',') : ALL_API_KEYS
+	);
 	let selectedTokenType = $derived(
 		(page.url.searchParams.get(TOKEN_USAGE_PARAMS.TOKEN_TYPE) as TokenType) ?? DEFAULT_TOKEN_TYPE
 	);
@@ -111,6 +116,13 @@
 		}
 		if (selectedTargetModels) {
 			result = result.filter((row) => row.model != null && selectedTargetModels.has(row.model));
+		}
+		const apiKeyIDsToFilter = selectedAPIKeyIDs.filter((id) => id !== ALL_API_KEYS);
+		if (apiKeyIDsToFilter.length > 0) {
+			const apiKeySet = new Set(apiKeyIDsToFilter);
+			result = result.filter(
+				(row) => row.apiKeyID != null && apiKeySet.has(row.apiKeyID.toString())
+			);
 		}
 		return result;
 	});
@@ -217,9 +229,15 @@
 		userLabel: string;
 		timelineData: TokenUsageTimelineItem[];
 	};
+	type PerAPIKeyRow = {
+		apiKeyID: string;
+		apiKeyLabel: string;
+		timelineData: TokenUsageTimelineItem[];
+	};
 
 	let perModelPromptData = $state<PerModelRow[]>([]);
 	let perUserPromptData = $state<PerUserRow[]>([]);
+	let perAPIKeyPromptData = $state<PerAPIKeyRow[]>([]);
 
 	$effect(() => {
 		const filtered = filteredData;
@@ -275,14 +293,42 @@
 			});
 		}
 
+		function computePerAPIKey(): PerAPIKeyRow[] {
+			if (!filtered.length) return [];
+			const byAPIKey = new SvelteMap<string, TokenUsage[]>();
+			for (const row of filtered) {
+				if (row.apiKeyID == null) continue;
+				const apiKeyID = row.apiKeyID.toString();
+				let rows = byAPIKey.get(apiKeyID);
+				if (!rows) {
+					rows = [];
+					byAPIKey.set(apiKeyID, rows);
+				}
+				rows.push(row);
+			}
+			const labels = new Map(
+				getAPIKeyFilterOptions(filtered).map((option) => [option.id, option.label])
+			);
+			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
+				const apiKeyLabel = labels.get(apiKeyID) ?? `API key #${apiKeyID}`;
+				return {
+					apiKeyID,
+					apiKeyLabel,
+					timelineData: rows.map((row) => toTimelineItem(row, apiKeyLabel))
+				};
+			});
+		}
+
 		if (filtered.length <= threshold) {
 			perModelPromptData = computePerModel();
 			perUserPromptData = computePerUser();
+			perAPIKeyPromptData = computePerAPIKey();
 			return;
 		}
 
 		perModelPromptData = [];
 		perUserPromptData = [];
+		perAPIKeyPromptData = [];
 		const ac = new AbortController();
 		const signal = ac.signal;
 		const schedule =
@@ -293,11 +339,13 @@
 			if (signal.aborted) return;
 			perModelPromptData = computePerModel();
 			perUserPromptData = computePerUser();
+			perAPIKeyPromptData = computePerAPIKey();
 		});
 		return () => ac.abort();
 	});
 
 	type GraphItem = {
+		key: string;
 		label: string;
 		timelineData: TokenUsageTimelineItem[];
 		mode: GraphMode;
@@ -307,14 +355,25 @@
 		if (selectedSubview === USAGE_SUBVIEW.MODELS || selectedSubview === USAGE_SUBVIEW.SPEND) {
 			const metric: GraphMetric =
 				selectedSubview === USAGE_SUBVIEW.SPEND ? GRAPH_METRIC.SPEND : GRAPH_METRIC.TOKENS;
-			return perModelPromptData.map(({ modelLabel, timelineData }) => ({
+			return perModelPromptData.map(({ modelKey, modelLabel, timelineData }) => ({
+				key: modelKey,
 				label: modelLabel,
 				timelineData,
 				mode: GRAPH_MODE.BUCKET,
 				metric
 			}));
 		}
-		return perUserPromptData.map(({ userLabel, timelineData }) => ({
+		if (selectedSubview === USAGE_SUBVIEW.API_KEYS) {
+			return perAPIKeyPromptData.map(({ apiKeyID, apiKeyLabel, timelineData }) => ({
+				key: apiKeyID,
+				label: apiKeyLabel,
+				timelineData,
+				mode: GRAPH_MODE.INPUT_OUTPUT,
+				metric: GRAPH_METRIC.TOKENS
+			}));
+		}
+		return perUserPromptData.map(({ userKey, userLabel, timelineData }) => ({
+			key: userKey,
 			label: userLabel,
 			timelineData,
 			mode: GRAPH_MODE.INPUT_OUTPUT,
@@ -397,6 +456,7 @@
 		if (!shouldDefer) {
 			gridDataReady = true;
 			const mapped = items.map((item) => ({
+				key: item.key,
 				label: item.label,
 				timelineData: timelineDataForChartWithRange(item.timelineData, start, end),
 				mode: item.mode,
@@ -418,6 +478,7 @@
 			const chunk = items.slice(fromIndex, fromIndex + GRID_CHUNK_SIZE);
 			for (const item of chunk) {
 				accumulated.push({
+					key: item.key,
 					label: item.label,
 					timelineData: timelineDataForChartWithRange(item.timelineData, start, end),
 					mode: item.mode,
@@ -507,6 +568,43 @@
 		}
 	}
 
+	function handleRemoveAPIKeyFilter(apiKeyID: string) {
+		const currentUrl = new URL(page.url);
+		const apiKeyIDs = currentUrl.searchParams
+			.getAll(TOKEN_USAGE_PARAMS.API_KEY)
+			.filter((id) => id !== apiKeyID);
+		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.API_KEY);
+		for (const id of apiKeyIDs) {
+			currentUrl.searchParams.append(TOKEN_USAGE_PARAMS.API_KEY, id);
+		}
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleRemoveAllAPIKeyFilters() {
+		const currentUrl = new URL(page.url);
+		currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.API_KEY);
+		goto(currentUrl, { noScroll: true, keepFocus: true });
+	}
+
+	function handleToggleAPIKeyFilter(apiKeyID: string) {
+		if (apiKeyID === ALL_API_KEYS) {
+			handleRemoveAllAPIKeyFilters();
+			return;
+		}
+		const currentUrl = new URL(page.url);
+		const apiKeyIDs = currentUrl.searchParams.getAll(TOKEN_USAGE_PARAMS.API_KEY);
+		if (apiKeyIDs.includes(apiKeyID)) {
+			handleRemoveAPIKeyFilter(apiKeyID);
+		} else {
+			apiKeyIDs.push(apiKeyID);
+			currentUrl.searchParams.delete(TOKEN_USAGE_PARAMS.API_KEY);
+			for (const id of apiKeyIDs) {
+				currentUrl.searchParams.append(TOKEN_USAGE_PARAMS.API_KEY, id);
+			}
+			goto(currentUrl, { noScroll: true, keepFocus: true });
+		}
+	}
+
 	function handleRemoveModelFilter(modelId: string) {
 		const currentUrl = new URL(page.url);
 		const models = currentUrl.searchParams
@@ -567,6 +665,14 @@
 		{ label: 'All Models', id: ALL_MODELS },
 		...modelsData.map((model) => ({ label: model.name, id: model.id }))
 	]);
+
+	const apiKeyOptions = $derived([
+		{ label: 'All API Keys', id: ALL_API_KEYS },
+		...getAPIKeyFilterOptions(data)
+	]);
+	const apiKeyOptionsMap = $derived(
+		new Map(apiKeyOptions.map((option) => [option.id, option.label]))
+	);
 
 	const subViewSortByOptions = $derived(
 		selectedSubview === USAGE_SUBVIEW.SPEND
@@ -648,6 +754,26 @@
 					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
+					options={apiKeyOptions}
+					selected={selectedAPIKeyIDsForSelect}
+					onSelect={(option) => handleToggleAPIKeyFilter(option.id)}
+					onClear={(option) => option && handleRemoveAPIKeyFilter(option.id)}
+					onClearAll={selectedAPIKeyIDsForSelect !== ALL_API_KEYS
+						? () => handleRemoveAllAPIKeyFilters()
+						: undefined}
+					id="api-key-select"
+					multiple
+					searchInDropdown
+					placeholder="Filter by API key..."
+					buttonReadOnly
+					buttonTitle="API Keys"
+					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
+				/>
+				<Select
+					class="dark:border-base-400 border border-transparent"
+					classes={{
+						root: 'w-full md:flex-1 dark:border-base-400'
+					}}
 					options={modelsOptions}
 					selected={filteredByModel}
 					onSelect={(option) => handleToggleModelFilter(option.id)}
@@ -666,7 +792,7 @@
 				<div class="bg-base-400 hidden h-8 w-0.5 md:block"></div>
 				<AuditLogCalendar start={startDate} end={endDate} onChange={handleDateRangeChange} />
 			</div>
-			{#if filteredByModel !== ALL_MODELS || selectedUserIdsForSelect !== ALL_USERS}
+			{#if filteredByModel !== ALL_MODELS || selectedUserIdsForSelect !== ALL_USERS || selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				<div class="flex flex-wrap items-center gap-2" in:slide={{ axis: 'y', duration: 100 }}>
 					{#if selectedUserIdsForSelect !== ALL_USERS}
 						{@const userPills = selectedUserIds.map((selectedUser) => ({
@@ -677,6 +803,17 @@
 							<div class="filter-primary">
 								<span class="font-semibold">User:</span>{userPill.label}
 								<button class="ml-1" onclick={() => handleRemoveUserFilter(userPill.id)}>
+									<X class="size-3" />
+								</button>
+							</div>
+						{/each}
+					{/if}
+					{#if selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
+						{#each selectedAPIKeyIDs as apiKeyID (apiKeyID)}
+							<div class="filter-primary">
+								<span class="font-semibold">API Key:</span>{apiKeyOptionsMap.get(apiKeyID) ??
+									`API key #${apiKeyID}`}
+								<button class="ml-1" onclick={() => handleRemoveAPIKeyFilter(apiKeyID)}>
 									<X class="size-3" />
 								</button>
 							</div>
@@ -738,6 +875,17 @@
 						</button>
 						<button
 							class={twMerge(
+								'w-28 whitespace-nowrap border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+								selectedSubview === USAGE_SUBVIEW.API_KEYS
+									? 'border-primary'
+									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+							)}
+							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
+						>
+							API Keys
+						</button>
+						<button
+							class={twMerge(
 								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
 								selectedSubview === USAGE_SUBVIEW.SPEND
 									? 'border-primary'
@@ -763,7 +911,7 @@
 						class="bg-base-100 dark:border-base-400 border border-transparent"
 						value={subViewSearchQuery}
 						onChange={(value) => (subViewSearchQuery = value)}
-						placeholder={`Search ${selectedSubview === USAGE_SUBVIEW.USERS ? 'users' : 'models'}...`}
+						placeholder={`Search ${selectedSubview === USAGE_SUBVIEW.USERS ? 'users' : selectedSubview === USAGE_SUBVIEW.API_KEYS ? 'API keys' : 'models'}...`}
 					/>
 				</div>
 
@@ -779,7 +927,7 @@
 							</div>
 						{:else if displayGraphItems.length > 0}
 							<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-								{#each displayGraphItems.slice(0, visibleChartCount) as item (`${item.metric}-${item.label}`)}
+								{#each displayGraphItems.slice(0, visibleChartCount) as item (`${item.metric}-${item.key}`)}
 									<div class="paper p-0 flex min-h-0 flex-col overflow-hidden">
 										<h5
 											class="shrink-0 text-xs font-medium uppercase border-b dark:border-base-400 border-base-300 px-4 py-2 rounded-t-md"

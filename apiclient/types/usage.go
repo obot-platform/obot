@@ -3,8 +3,10 @@ package types
 type TokenUsage struct {
 	Date Time `json:"date,omitzero"`
 
-	UserID string `json:"userID,omitempty"`
-	Model  string `json:"model,omitempty"`
+	UserID     string `json:"userID,omitempty"`
+	Model      string `json:"model,omitempty"`
+	APIKeyID   *uint  `json:"apiKeyID,omitempty"`
+	APIKeyName string `json:"apiKeyName,omitempty"`
 
 	// InputTokens is the total input: CacheReadTokens + CacheWriteTokens + uncached input.
 	InputTokens int `json:"inputTokens"`

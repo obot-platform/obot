@@ -17419,6 +17419,18 @@ func schema_obot_platform_obot_apiclient_types_TokenUsage(ref common.ReferenceCa
 							Format: "",
 						},
 					},
+					"apiKeyID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"apiKeyName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"inputTokens": {
 						SchemaProps: spec.SchemaProps{
 							Description: "InputTokens is the total input: CacheReadTokens + CacheWriteTokens + uncached input.",

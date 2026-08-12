@@ -1,4 +1,4 @@
-import type { OrgUser } from '$lib/services';
+import type { OrgUser, TokenUsage } from '$lib/services';
 import { getUserDisplayName } from '$lib/utils';
 import {
 	differenceInCalendarDays,
@@ -210,4 +210,23 @@ export function getUserLabels(
 			return [k, label];
 		})
 	);
+}
+
+export function getAPIKeyFilterOptions(rows: TokenUsage[]): { id: string; label: string }[] {
+	const options = new Map<string, string>();
+	for (const row of rows) {
+		if (row.apiKeyID == null) continue;
+		const id = row.apiKeyID.toString();
+		if (options.has(id)) continue;
+
+		const maskedIdentifier = row.userID
+			? `ok1-${row.userID}-${row.apiKeyID}-*****`
+			: `API key #${row.apiKeyID}`;
+		const label = row.apiKeyName || maskedIdentifier;
+		options.set(id, label);
+	}
+
+	return [...options]
+		.map(([id, label]) => ({ id, label }))
+		.sort((a, b) => a.label.localeCompare(b.label));
 }
