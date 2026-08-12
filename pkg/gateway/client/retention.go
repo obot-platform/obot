@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -39,14 +40,20 @@ func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDa
 }
 
 func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAuditLogRetentionDays, llmAuditLogRetentionDays int) error {
-	var auditLogErrors []error
-	if err := c.deleteOldMCPAuditLogs(ctx, now, mcpAuditLogRetentionDays); err != nil {
-		auditLogErrors = append(auditLogErrors, fmt.Errorf("delete old MCP audit logs: %w", err))
-	}
-	if err := c.deleteOldLLMAuditLogs(ctx, now, llmAuditLogRetentionDays); err != nil {
-		auditLogErrors = append(auditLogErrors, fmt.Errorf("delete old LLM audit logs: %w", err))
-	}
-	if err := errors.Join(auditLogErrors...); err != nil {
+	if err := runAuditLogCleanups(
+		func() error {
+			if err := c.deleteOldMCPAuditLogs(ctx, now, mcpAuditLogRetentionDays); err != nil {
+				return fmt.Errorf("delete old MCP audit logs: %w", err)
+			}
+			return nil
+		},
+		func() error {
+			if err := c.deleteOldLLMAuditLogs(ctx, now, llmAuditLogRetentionDays); err != nil {
+				return fmt.Errorf("delete old LLM audit logs: %w", err)
+			}
+			return nil
+		},
+	); err != nil {
 		return err
 	}
 
@@ -54,6 +61,25 @@ func (c *Client) cleanupRetainedData(ctx context.Context, now time.Time, mcpAudi
 		return fmt.Errorf("delete old revoked API keys: %w", err)
 	}
 	return nil
+}
+
+func runAuditLogCleanups(mcpCleanup, llmCleanup func() error) error {
+	var (
+		waitGroup sync.WaitGroup
+		mcpErr    error
+		llmErr    error
+	)
+	waitGroup.Add(2)
+	go func() {
+		defer waitGroup.Done()
+		mcpErr = mcpCleanup()
+	}()
+	go func() {
+		defer waitGroup.Done()
+		llmErr = llmCleanup()
+	}()
+	waitGroup.Wait()
+	return errors.Join(mcpErr, llmErr)
 }
 
 func (c *Client) deleteOldRevokedAPIKeys(ctx context.Context, now time.Time, retentionDays int) error {

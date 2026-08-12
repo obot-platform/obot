@@ -332,6 +332,43 @@ func TestCleanupRetainedDataSkipsAPIKeysWhenAuditCleanupFails(t *testing.T) {
 	}
 }
 
+func TestRunAuditLogCleanupsDoesNotSerializeStreams(t *testing.T) {
+	mcpStarted := make(chan struct{})
+	releaseMCP := make(chan struct{})
+	llmFinished := make(chan struct{})
+	cleanupFinished := make(chan error, 1)
+
+	go func() {
+		cleanupFinished <- runAuditLogCleanups(
+			func() error {
+				close(mcpStarted)
+				<-releaseMCP
+				return nil
+			},
+			func() error {
+				close(llmFinished)
+				return nil
+			},
+		)
+	}()
+
+	select {
+	case <-mcpStarted:
+	case <-time.After(time.Second):
+		t.Fatal("MCP audit cleanup did not start")
+	}
+	select {
+	case <-llmFinished:
+	case <-time.After(time.Second):
+		t.Fatal("LLM audit cleanup was blocked by MCP audit cleanup")
+	}
+	close(releaseMCP)
+
+	if err := <-cleanupFinished; err != nil {
+		t.Fatalf("run audit-log cleanups: %v", err)
+	}
+}
+
 func TestDeleteOldLLMAuditLogs(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
