@@ -12,21 +12,42 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type deviceLimitProviderFunc func(context.Context) (gatewayclient.DeviceLimit, error)
+
+func newDeviceEnrollTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatalf("create storage services: %v", err)
+	}
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatalf("create gateway database: %v", err)
+	}
+	if err := database.AutoMigrate(); err != nil {
+		t.Fatalf("migrate gateway database: %v", err)
+	}
+	client := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, true)
+	t.Cleanup(func() { _ = client.Close() })
+	return client
+}
 
 func (f deviceLimitProviderFunc) DeviceLimit(ctx context.Context) (gatewayclient.DeviceLimit, error) {
 	return f(ctx)
 }
 
 func TestDeviceEnrollPreservesDeviceLimitForbiddenError(t *testing.T) {
-	gatewayClient := newEnforcementTestGatewayClient(t)
+	gatewayClient := newDeviceEnrollTestGatewayClient(t)
 	limit := gatewayclient.DeviceLimit{Maximum: 1}
 
 	firstPublicKey := deviceEnrollTestPublicKey(t)
@@ -91,7 +112,7 @@ func deviceEnrollTestPublicKey(t *testing.T) []byte {
 }
 
 func TestDeviceEnrollRejectsInvalidDeviceLimit(t *testing.T) {
-	gatewayClient := newEnforcementTestGatewayClient(t)
+	gatewayClient := newDeviceEnrollTestGatewayClient(t)
 	body, err := json.Marshal(types.DeviceEnrollRequest{
 		DeviceID:  "device-1",
 		PublicKey: deviceEnrollTestPublicKey(t),

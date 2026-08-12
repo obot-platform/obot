@@ -152,11 +152,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 		services.LocalK8sClient,
 	)
 
-	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
-	if err != nil {
-		return nil, err
-	}
-
 	// Version
 	mux.HandleFunc("GET /api/version", version.GetVersion)
 
@@ -423,12 +418,9 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mcp-stats/{mcp_id}", mcpAuditLogs.GetUsageStats)
 	mux.HandleFunc("POST /api/local-agent-audit-logs", localAgentAuditLogs.Submit)
 
-	// Enforcement decisions
-	mux.HandleFunc("POST /api/enforcement/decisions", enforcement.Decide)
-	mux.HandleFunc("GET /api/enforcement-decisions", enforcement.ListDecisions)
-	mux.HandleFunc("GET /api/enforcement-decisions/filter-options/{filter}", enforcement.ListFilterOptions)
-	mux.HandleFunc("GET /api/enforcement-decisions/allowlist-check/{id}", enforcement.CheckDecisionAllowlist)
-	mux.HandleFunc("GET /api/enforcement-decisions/{id}", enforcement.GetDecision)
+	// Compatibility for older Obot Sentry versions. Remove only after the
+	// supported legacy-device upgrade window closes.
+	mux.HandleFunc("POST /api/enforcement/decisions", handlers.AllowLegacyDecision)
 
 	// LLM Audit Logs
 	mux.HandleFunc("GET /api/llm-audit-logs", llmAuditLogs.List)
@@ -700,7 +692,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("GET /api/mdm/configurations", mdmConfigurations.List)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}", mdmConfigurations.Get)
 	mux.HandleFunc("PUT /api/mdm/configurations/{id}", mdmConfigurations.Update)
-	mux.HandleFunc("PUT /api/mdm/configurations/{id}/enforcement", mdmConfigurations.UpdateEnforcement)
 	mux.HandleFunc("DELETE /api/mdm/configurations/{id}", mdmConfigurations.Delete)
 	mux.HandleFunc("GET /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.ListEnrollmentKeys)
 	mux.HandleFunc("POST /api/mdm/configurations/{id}/enrollment-keys", mdmConfigurations.CreateEnrollmentKey)

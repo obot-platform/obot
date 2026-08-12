@@ -100,6 +100,13 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
+	// This intentionally destroys the retired local-agent allowlist policy and
+	// its historical decisions. It must run before AutoMigrate so the removed
+	// model and MDM columns cannot be recreated.
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_local_agent_allowlist_enforcement", removeLocalAgentAllowlistEnforcement); err != nil {
+		return fmt.Errorf("failed to remove local-agent allowlist enforcement data: %w", err)
+	}
+
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},
@@ -134,7 +141,6 @@ func (db *DB) AutoMigrate() (err error) {
 		types.Credential{},
 		types.LocalAuthUser{},
 		types.LocalAuthSession{},
-		types.EnforcementDecisionLog{},
 	); err != nil {
 		return fmt.Errorf("failed to auto migrate gateway types: %w", err)
 	}

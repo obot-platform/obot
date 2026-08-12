@@ -147,11 +147,9 @@ func (h *Handler) renderConfigurationsForLatest(ctx context.Context, digest stri
 }
 
 // renderConfiguration validates the configuration's stored values against the
-// bundle and renders every target from stored state (values + trusted server URL
-// + the enforcement toggle), reusing the same render-from-stored-state
-// implementation the enforcement-update handler uses.
+// bundle and renders every target from stored state (values + trusted server URL).
 func (h *Handler) renderConfiguration(loader *mdmassets.Loader, digest string, configuration gatewaytypes.MDMConfiguration) (gatewaytypes.MDMConfiguration, error) {
-	rendered, normalizedValues, err := loader.RenderStoredState(configuration.Values, h.serverURL, configuration.EnforcementEnabled)
+	rendered, normalizedValues, err := loader.RenderStoredState(configuration.Values, h.serverURL)
 	if err != nil {
 		return gatewaytypes.MDMConfiguration{}, err
 	}

@@ -14,7 +14,6 @@
 		type MDMEnrollmentKey
 	} from '$lib/services';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import EnforcementSettings from './EnforcementSettings.svelte';
 	import EnrollmentConfigDownload from './EnrollmentConfigDownload.svelte';
 	import EnrollmentKeyRevealDialog from './EnrollmentKeyRevealDialog.svelte';
 	import { KeyRound, Plus, Trash2 } from '@lucide/svelte';
@@ -28,7 +27,6 @@
 		assets: MDMAsset[];
 		assetLoadError?: string;
 		readOnly?: boolean;
-		onConfigurationUpdate?: (configuration: MDMConfiguration) => void;
 	}
 
 	let {
@@ -37,8 +35,7 @@
 		assetSource,
 		assets,
 		assetLoadError,
-		readOnly = false,
-		onConfigurationUpdate
+		readOnly = false
 	}: Props = $props();
 
 	let enrollmentKeys = $state<MDMEnrollmentKey[]>(untrack(() => initialEnrollmentKeys));
@@ -180,12 +177,6 @@
 			</section>
 		{/snippet}
 	</EnrollmentConfigDownload>
-
-	<EnforcementSettings
-		{configuration}
-		{readOnly}
-		onUpdate={(updated) => onConfigurationUpdate?.(updated)}
-	/>
 </div>
 
 <ResponsiveDialog bind:this={createKeyDialog} title="New Enrollment Key" class="w-full max-w-md">

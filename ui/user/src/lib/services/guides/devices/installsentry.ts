@@ -182,24 +182,8 @@ export const steps: GuideStep[] = [
 					},
 					listener: {
 						id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enrollmentKeysSection,
-						skipClickTargetOnNext: true,
 						action: {
-							highlight: {
-								selector: {
-									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection
-								},
-								side: 'top',
-								title: 'Tool Call Enforcement',
-								description:
-									'Here you can control which tool calls can run on your enrolled devices when enforcement is enabled. Make sure to save your changes for them to take effect.',
-								experimental: true
-							},
-							listener: {
-								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.toolCallEnforcementSection,
-								action: {
-									success: true
-								}
-							}
+							success: true
 						}
 					}
 				}
@@ -235,25 +219,7 @@ export const steps: GuideStep[] = [
 					},
 					listener: {
 						id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesTabDevices,
-						skipClickTargetOnNext: true,
-						action: {
-							highlight: {
-								selector: {
-									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementDecisionsLink
-								},
-								side: 'right',
-								title: 'Enforcement Decisions',
-								description:
-									'When enforcement is enabled and tool calls are made, any actions Obot Sentry takes against them will be recorded and viewable here.'
-							},
-							listener: {
-								id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementDecisionsLink,
-								skipClickTargetOnNext: true,
-								action: {
-									success: true
-								}
-							}
-						}
+						action: { success: true }
 					}
 				}
 			}
@@ -263,7 +229,7 @@ export const steps: GuideStep[] = [
 
 export default {
 	steps,
-	title: 'Discover Shadow AI & Enforce Policies for Unmanaged MCP Servers',
-	description: 'Install Obot Sentry on devices to inventory, audit, and enforce.',
+	title: 'Discover Shadow AI on Managed Devices',
+	description: 'Install Obot Sentry on devices to inventory and audit local AI activity.',
 	id: 'devices-install-sentry-guide'
 };

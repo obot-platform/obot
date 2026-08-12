@@ -40,7 +40,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 - [Server Scheduling](./server-scheduling.md) - Configure pod scheduling behavior for MCP servers
 - [Skills](./skills.md) - Manage skill sources and browse discoverable skills for agents
 - [Skill Access Policies](./skill-access-policies.md) - Control which users and groups can access which skills
-- [Device Management](./device-management.md) - Inventory local AI clients, MCP servers, skills, and plugins, audit local tool calls, and enforce tool call allowlists
+- [Device Management](./device-management.md) - Inventory local AI clients, MCP servers, skills, and plugins, and audit local tool calls
 - [Obot Agent Management](./obot-agent-management.md) - Configure default agent, conversation, and workflow settings, and monitor activity
 - [Message Policies](./message-policies.md) - Enforce content rules on user prompts and tool calls, and review violations
 - [User Management](./user-management.md) - Manage users, roles, and authentication
