@@ -60,6 +60,7 @@ func (h *LLMAuditLogHandler) Get(req api.Context) error {
 }
 
 var llmAuditLogFilterOptions = map[string][]any{
+	"api_key_id":               nil,
 	"user_id":                  {""},
 	"model_provider":           {""},
 	"target_model":             {""},
@@ -81,6 +82,13 @@ func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {
 	exclude, ok := llmAuditLogFilterOptions[filter]
 	if !ok {
 		return types.NewErrBadRequest("invalid filter: %s", filter)
+	}
+	if filter == "api_key_id" {
+		options, err := req.GatewayClient.GetLLMAuditLogAPIKeyFilterOptions(req.Context(), opts)
+		if err != nil {
+			return err
+		}
+		return req.Write(map[string]any{"options": options})
 	}
 
 	options, err := req.GatewayClient.GetLLMAuditLogFilterOptions(req.Context(), filter, opts, exclude...)
@@ -104,6 +112,7 @@ func hideModelsRequestsFilterOptions(requestPaths []string) []string {
 func parseLLMAuditLogOpts(query url.Values) gateway.LLMAuditLogOptions {
 	hideModelsRequests, _ := strconv.ParseBool(query.Get("hide_models_requests"))
 	opts := gateway.LLMAuditLogOptions{
+		APIKeyID:           api.ParseUintList(query["api_key_id"]),
 		HideModelsRequests: hideModelsRequests,
 		UserID:             parseStringList(query, "user_id"),
 		ModelProvider:      parseStringList(query, "model_provider"),

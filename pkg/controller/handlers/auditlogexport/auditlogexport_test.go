@@ -29,6 +29,7 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 		EndTime:                metav1.NewTime(end),
 		WithRequestAndResponse: true,
 		LLMFilters: &types.LLMAuditLogExportFilters{
+			APIKeyIDs:              []uint{12, 34},
 			UserIDs:                []string{"user-1"},
 			ModelProviders:         []string{"openai"},
 			TargetModels:           []string{"gpt-4o"},
@@ -52,11 +53,26 @@ func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	if !reflect.DeepEqual(got.UserID, export.Spec.LLMFilters.UserIDs) || !reflect.DeepEqual(got.ResponseStatus, export.Spec.LLMFilters.ResponseStatuses) || got.Query != "needle" {
 		t.Fatalf("filters were not mapped: %#v", got)
 	}
+	if !reflect.DeepEqual(got.APIKeyID, export.Spec.LLMFilters.APIKeyIDs) {
+		t.Fatalf("API key filter was not mapped: %#v", got)
+	}
 	if !reflect.DeepEqual(got.MessagePolicyTriggered, export.Spec.LLMFilters.MessagePolicyTriggered) {
 		t.Fatalf("message policy filter was not mapped: %#v", got)
 	}
 	if !reflect.DeepEqual(got.UserAgent, export.Spec.LLMFilters.UserAgents) {
 		t.Fatalf("user agent filter was not mapped: %#v", got)
+	}
+}
+
+func TestMCPAuditLogOptionsMapsAPIKeyIDs(t *testing.T) {
+	export := exportWithFilters(types.AuditLogExportFilters{
+		SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
+		APIKeyIDs:   []uint{12, 34},
+	}, false)
+
+	got := mcpAuditLogOptionsFromExport(export, 100, 0)
+	if !reflect.DeepEqual(got.APIKeyID, export.Spec.Filters.APIKeyIDs) {
+		t.Fatalf("API key filter was not mapped: %#v", got)
 	}
 }
 

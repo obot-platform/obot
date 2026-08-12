@@ -1,9 +1,19 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"slices"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 func TestParseLLMAuditLogOptsDefaultsStartTimeToLast30Days(t *testing.T) {
@@ -27,11 +37,15 @@ func TestParseLLMAuditLogOptsUsesProvidedStartTime(t *testing.T) {
 
 func TestParseLLMAuditLogOptsParsesFilterFields(t *testing.T) {
 	opts := parseLLMAuditLogOpts(url.Values{
+		"api_key_id":               {"42,7", "9", "invalid", "0"},
 		"target_model":             {"model-a,model-b"},
 		"user_agent":               {"claude-code/2.1.211"},
 		"client_session_id":        {"session-1"},
 		"message_policy_triggered": {"true,false"},
 	})
+	if !slices.Equal(opts.APIKeyID, []uint{42, 7, 9}) {
+		t.Fatalf("expected API key IDs [42 7 9], got %v", opts.APIKeyID)
+	}
 
 	if got, want := opts.TargetModel, []string{"model-a", "model-b"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("expected target models %v, got %v", want, got)
@@ -99,5 +113,38 @@ func TestHideModelsRequestsFilterOptions(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestListLLMAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
+	gatewayClient := newEnforcementTestGatewayClient(t)
+	created, err := gatewayClient.CreateAPIKey(t.Context(), 7, "CLI token", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatalf("create API key: %v", err)
+	}
+	entry := gatewaytypes.LLMAuditLog{
+		ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "7",
+		APIKeyID: &created.ID, APIKeyName: "CLI token",
+	}
+	if err := gatewayClient.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+		t.Fatalf("insert LLM audit log: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/llm-audit-logs/filter-options/api_key_id", nil)
+	request.SetPathValue("filter", "api_key_id")
+	ctx := api.Context{ResponseWriter: recorder, Request: request, GatewayClient: gatewayClient}
+	if err := NewLLMAuditLogHandler().ListFilterOptions(ctx); err != nil {
+		t.Fatalf("list API-key filter options: %v", err)
+	}
+
+	var response struct {
+		Options []types.AuditLogAPIKeyFilterOption `json:"options"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Options) != 1 || response.Options[0].Value != fmt.Sprint(created.ID) || response.Options[0].Name != "CLI token" || response.Options[0].MaskedKey != fmt.Sprintf("ok1-7-%d-*****", created.ID) {
+		t.Fatalf("unexpected structured options: %#v", response.Options)
 	}
 }

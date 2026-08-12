@@ -108,6 +108,7 @@ func mcpAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 		Tool:                      filters.Tools,
 		Outcome:                   filters.Outcomes,
 		Client:                    filters.Clients,
+		APIKeyID:                  filters.APIKeyIDs,
 		UserID:                    filters.UserIDs,
 		MCPID:                     filters.MCPIDs,
 		MCPServerDisplayName:      filters.MCPServerDisplayNames,
@@ -139,6 +140,7 @@ func llmAuditLogOptionsFromExport(export *v1.AuditLogExport, limit, offset int) 
 	return client.LLMAuditLogOptions{
 		StartTime:              export.Spec.StartTime.Time,
 		EndTime:                export.Spec.EndTime.Time,
+		APIKeyID:               filters.APIKeyIDs,
 		UserID:                 filters.UserIDs,
 		ModelProvider:          filters.ModelProviders,
 		TargetModel:            filters.TargetModels,

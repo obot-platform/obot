@@ -696,6 +696,16 @@ func TestValidateAuditLogOptionsRejectsSourceSpecificFiltersWithMultipleSources(
 		wantErr bool
 	}{
 		{
+			name:    "api key filter with both sources is rejected",
+			opts:    MCPAuditLogOptions{SourceTypes: both, APIKeyID: []uint{42}},
+			wantErr: true,
+		},
+		{
+			name:    "api key filter scoped to the mcp source is allowed",
+			opts:    MCPAuditLogOptions{SourceTypes: mcpOnly, APIKeyID: []uint{42}},
+			wantErr: false,
+		},
+		{
 			name:    "mcp filter with both sources is rejected",
 			opts:    MCPAuditLogOptions{SourceTypes: both, MCPID: []string{"mcp-1"}},
 			wantErr: true,
@@ -732,6 +742,35 @@ func TestValidateAuditLogOptionsRejectsSourceSpecificFiltersWithMultipleSources(
 				t.Fatalf("expected no validation error, got %v", err)
 			}
 		})
+	}
+}
+
+func TestGetMCPAuditLogsFiltersByAPIKeyID(t *testing.T) {
+	c := newTestClient(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	keyOne, keyTwo := uint(42), uint(77)
+	for _, log := range []types.MCPAuditLog{
+		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, APIKeyID: &keyOne, APIKeyName: "CLI token", MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
+		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, APIKeyID: &keyTwo, APIKeyName: "Automation", MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
+		{CreatedAt: now, SourceType: types2.AuditLogSourceTypeMCP, MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"}},
+	} {
+		if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{log}); err != nil {
+			t.Fatalf("insert MCP audit log: %v", err)
+		}
+	}
+
+	logs, total, err := c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{APIKeyID: []uint{keyOne}})
+	if err != nil {
+		t.Fatalf("filter MCP audit logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].APIKeyID == nil || *logs[0].APIKeyID != keyOne {
+		t.Fatalf("expected only key %d, got total=%d logs=%#v", keyOne, total, logs)
+	}
+
+	_, total, err = c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{APIKeyID: []uint{keyOne, keyTwo}})
+	if err != nil || total != 2 {
+		t.Fatalf("expected both attributed keys, got total=%d err=%v", total, err)
 	}
 }
 

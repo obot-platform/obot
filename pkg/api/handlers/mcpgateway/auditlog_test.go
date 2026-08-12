@@ -31,6 +31,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestParseAuditLogOptsParsesAPIKeyIDs(t *testing.T) {
+	opts := parseAuditLogOpts(map[string][]string{
+		"api_key_id": {"42, 7", "9", "invalid", "0"},
+	})
+
+	if !slices.Equal(opts.APIKeyID, []uint{42, 7, 9}) {
+		t.Fatalf("APIKeyID = %v, want [42 7 9]", opts.APIKeyID)
+	}
+}
+
 func TestAuditLogInputUnmarshalFlatMCPFields(t *testing.T) {
 	var input auditLogInput
 	if err := json.Unmarshal([]byte(`{
@@ -159,6 +169,50 @@ func TestAttributeMCPAuditLogAPIKeyPreservesPrincipalSnapshot(t *testing.T) {
 
 	if input.APIKeyID == nil || *input.APIKeyID != 42 || input.APIKeyName != "event-time name" {
 		t.Fatalf("principal attribution was overwritten: ID=%v name=%q", input.APIKeyID, input.APIKeyName)
+	}
+}
+
+func TestListAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	created, err := gatewayClient.CreateAPIKey(t.Context(), 7, "CLI token", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatalf("create API key: %v", err)
+	}
+	seedMCPAuditLogs(t, gatewayClient, gatewaytypes.MCPAuditLog{
+		CreatedAt: time.Now().UTC(), SourceType: types.AuditLogSourceTypeMCP,
+		UserID: "7", APIKeyID: &created.ID, APIKeyName: "CLI token",
+		MCPFields: &gatewaytypes.MCPAuditLogFields{MCPID: "mcp-1", CallType: "tools/call"},
+	})
+
+	recorder := httptest.NewRecorder()
+	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call", &user.DefaultInfo{
+		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+	}, recorder)
+	ctx.Request.SetPathValue("filter", "api_key_id")
+	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
+		t.Fatalf("list API-key filter options: %v", err)
+	}
+
+	var response struct {
+		Options []types.AuditLogAPIKeyFilterOption `json:"options"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Options) != 1 || response.Options[0].Value != fmt.Sprint(created.ID) || response.Options[0].Name != "CLI token" || response.Options[0].MaskedKey != fmt.Sprintf("ok1-7-%d-*****", created.ID) {
+		t.Fatalf("unexpected structured options: %#v", response.Options)
+	}
+}
+
+func TestListAuditLogAPIKeyFilterOptionsRejectsMixedSources(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	ctx := newAuditLogListContext(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
+		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
+	})
+	ctx.Request.SetPathValue("filter", "api_key_id")
+
+	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err == nil {
+		t.Fatal("expected mixed-source API-key filter options to be rejected")
 	}
 }
 
