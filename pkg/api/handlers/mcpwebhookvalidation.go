@@ -68,10 +68,10 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
+	defaultFilterContractVersion(&manifest, types.FilterContractVersionV1)
 	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
 		return err
 	}
-	defaultFilterContractVersion(&manifest, types.FilterContractVersionV1)
 
 	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
@@ -124,10 +124,10 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read manifest: %v", err)
 	}
 
+	defaultFilterContractVersion(&manifest, effectiveFilterContractVersion(webhookValidation.Spec.Manifest.ContractVersion))
 	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
 		return err
 	}
-	defaultFilterContractVersion(&manifest, effectiveFilterContractVersion(webhookValidation.Spec.Manifest.ContractVersion))
 
 	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
