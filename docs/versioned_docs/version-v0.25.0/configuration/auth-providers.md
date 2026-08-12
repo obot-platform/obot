@@ -136,6 +136,14 @@ You can now return to Obot and finish configuring Entra. Use the table below to 
 | Client Secret | Secret `Value` column   | Certificates & secrets |
 | Tenant ID     | Directory (tenant) ID   | Overview               |
 
+:::warning Troubleshooting sign-in
+
+If you followed these instructions and users cannot sign in, SAML SSO may have been enabled by default on the enterprise application associated with Obot. To check, navigate to **Entra ID > Enterprise apps > All applications** in the Entra admin center, select the application associated with Obot, and open **Single sign-on**.
+
+Obot does not currently support SAML SSO on its Entra enterprise application. If SAML is enabled, disable it or use a separate app registration for Obot. See [Microsoft's troubleshooting guide](https://learn.microsoft.com/en-us/troubleshoot/entra/entra-id/app-integration/troubleshooting-signature-validation-errors#scenario-2-the-application-is-enabled-for-saml-sso) for more information.
+
+:::
+
 #### Restricting Login to Specific Users and Groups (Optional)
 
 You can restrict login access to specific Entra users and groups by taking the following steps:
