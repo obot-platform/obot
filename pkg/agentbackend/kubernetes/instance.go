@@ -352,6 +352,10 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 		},
 	}
 
+	if b.opts.RuntimeClassName != "" {
+		deployment.Spec.Template.Spec.RuntimeClassName = new(b.opts.RuntimeClassName)
+	}
+
 	for _, pullSecret := range b.opts.ImagePullSecrets {
 		deployment.Spec.Template.Spec.ImagePullSecrets = append(
 			deployment.Spec.Template.Spec.ImagePullSecrets,

@@ -147,6 +147,8 @@ config:
   # Hosted agent sandboxes follow OBOT_SERVER_MCPRUNTIME_BACKEND: they run on Kubernetes when MCP servers do, in the namespace configured under mcpNamespace. There is deliberately no separate backend setting, because a deployment always wants the two to match.
   # config.OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME -- StorageClass for hosted agent pool volumes. Each pool gets one ReadWriteOnce volume that every sandbox in the pool mounts, so the StorageClass must use volumeBindingMode: WaitForFirstConsumer -- that is what confines a pool to a single node. Leaving this empty uses the cluster default StorageClass, which commonly binds immediately and can leave a pool's sandboxes unschedulable.
   OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME: ""
+  # config.OBOT_SERVER_HOSTED_AGENTS_RUNTIME_CLASS_NAME -- RuntimeClass for hosted agent deployments.
+  OBOT_SERVER_HOSTED_AGENTS_RUNTIME_CLASS_NAME: ""
   # config.OBOT_SERVER_HOSTED_AGENTS_CLEANUP_IMAGE -- Image used to erase a deleted sandbox's directory from its pool volume. Needs a shell and coreutils. Defaults to busybox:1.36. Set this when the cluster cannot pull from Docker Hub.
   OBOT_SERVER_HOSTED_AGENTS_CLEANUP_IMAGE: ""
   # config.OBOT_HOSTED_AGENTS_IMAGE_PULL_POLICY -- Pull policy for hosted agent sandbox images (Always, IfNotPresent, Never). Empty means Always, which refuses an image preloaded onto the node rather than published to a registry; use IfNotPresent for air-gapped installs.

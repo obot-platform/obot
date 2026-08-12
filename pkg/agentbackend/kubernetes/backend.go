@@ -78,6 +78,8 @@ type Options struct {
 	// volumeBindingMode: WaitForFirstConsumer, which is what confines a pool to
 	// a single node.
 	StorageClassName string
+	// RuntimeClassName is the name of the runtime class to use for the sandbox pods.
+	RuntimeClassName string
 	// FSGroup owns the per-instance subdirectory on the shared volume.
 	FSGroup int64
 	// PodSecurityLevel must match the Pod Security Admission level enforced on

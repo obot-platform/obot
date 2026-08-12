@@ -135,6 +135,7 @@ type Config struct {
 	HostedAgentsPodSecurityLevel         string `usage:"Pod Security Admission level enforced on the namespace hosted agent sandboxes run in (privileged, baseline, or restricted). Must match the namespace's own label or sandboxes are refused at admission. Empty means restricted." name:"hosted-agents-pod-security-level" env:"OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL"`
 	HostedAgentsImagePullPolicy          string `usage:"Pull policy for hosted agent sandbox images (Always, IfNotPresent, Never)" default:"" name:"hosted-agents-image-pull-policy" env:"OBOT_HOSTED_AGENTS_IMAGE_PULL_POLICY"`
 	HostedAgentsCleanupImage             string `usage:"Image used to erase a deleted sandbox's directory from its pool volume. Needs a shell and coreutils." name:"hosted-agents-cleanup-image" default:"busybox:1.36"`
+	HostedAgentsRuntimeClassName         string `usage:"RuntimeClass for hosted agent deployments" name:"hosted-agents-runtime-class-name"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
 	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.92"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
@@ -1503,6 +1504,7 @@ func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cach
 			Namespace:        config.MCPNamespace,
 			ClusterDomain:    config.MCPClusterDomain,
 			StorageClassName: config.HostedAgentsStorageClassName,
+			RuntimeClassName: config.HostedAgentsRuntimeClassName,
 			// Sandboxes share the MCP namespace, so they are admitted against
 			// whatever Pod Security level that namespace carries.
 			PodSecurityLevel: agentbackendkubernetes.ParsePodSecurityLevel(config.HostedAgentsPodSecurityLevel),

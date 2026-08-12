@@ -65,6 +65,43 @@ func TestInstanceObjectsTagSandboxWithPoolPriorityClass(t *testing.T) {
 	}
 }
 
+func TestInstanceObjectsApplyRuntimeClass(t *testing.T) {
+	tests := []struct {
+		name             string
+		runtimeClassName string
+		want             *string
+	}{
+		{name: "configured", runtimeClassName: "gvisor", want: new("gvisor")},
+		{name: "unset"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			backend := testBackend(t)
+			backend.opts.RuntimeClassName = tt.runtimeClassName
+
+			objs, err := backend.instanceObjects(desiredInstance())
+			if err != nil {
+				t.Fatalf("instanceObjects: %v", err)
+			}
+			got := deploymentFrom(t, objs).Spec.Template.Spec.RuntimeClassName
+
+			if tt.want == nil {
+				if got != nil {
+					t.Errorf("runtimeClassName = %q, want nil", *got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatalf("runtimeClassName = nil, want %q", *tt.want)
+			}
+			if *got != *tt.want {
+				t.Errorf("runtimeClassName = %q, want %q", *got, *tt.want)
+			}
+		})
+	}
+}
+
 // Sandboxes share one ReadWriteOnce volume and are separated only by subPath, so
 // a rolling update would put two pods on the same directory.
 func TestInstanceObjectsUseRecreateAndSubPath(t *testing.T) {
