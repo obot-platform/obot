@@ -92,7 +92,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 		return fmt.Errorf("failed to list API keys for user %d: %w", userDelete.Spec.UserID, err)
 	}
 	for _, key := range apiKeys {
-		if err := u.gatewayClient.DeleteAPIKey(req.Ctx, userDelete.Spec.UserID, key.ID); err != nil {
+		if err := u.gatewayClient.RevokeAPIKey(req.Ctx, userDelete.Spec.UserID, key.ID); err != nil {
 			return fmt.Errorf("failed to delete API key %d for user %d: %w", key.ID, userDelete.Spec.UserID, err)
 		}
 	}

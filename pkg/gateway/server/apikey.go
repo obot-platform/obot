@@ -12,6 +12,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -116,7 +117,10 @@ func (s *Server) listAPIKeys(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusUnauthorized, "user not authenticated")
 	}
 
-	keys, err := apiContext.GatewayClient.ListAPIKeys(apiContext.Context(), userID)
+	showRevoked, _ := strconv.ParseBool(apiContext.Request.URL.Query().Get("show_revoked"))
+	keys, err := apiContext.GatewayClient.ListAPIKeysWithOptions(apiContext.Context(), userID, client.APIKeyListOptions{
+		ShowRevoked: showRevoked,
+	})
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to list API keys: %v", err))
 	}
@@ -147,8 +151,8 @@ func (s *Server) getAPIKey(apiContext api.Context) error {
 	return apiContext.Write(key)
 }
 
-// deleteAPIKey deletes an API key for the authenticated user.
-func (s *Server) deleteAPIKey(apiContext api.Context) error {
+// revokeAPIKey revokes an API key for the authenticated user.
+func (s *Server) revokeAPIKey(apiContext api.Context) error {
 	userID := apiContext.UserID()
 	if userID == 0 {
 		return types2.NewErrHTTP(http.StatusUnauthorized, "user not authenticated")
@@ -159,10 +163,10 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 		return types2.NewErrBadRequest("invalid key ID")
 	}
 
-	if err := apiContext.GatewayClient.DeleteAPIKey(apiContext.Context(), userID, uint(keyID)); err != nil {
-		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
+	if err := apiContext.GatewayClient.RevokeAPIKey(apiContext.Context(), userID, uint(keyID)); err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to revoke API key: %v", err))
 	}
-	pkgLog.Infof("Deleted API key for user: userID=%d keyID=%d", userID, keyID)
+	pkgLog.Infof("Revoked API key for user: userID=%d keyID=%d", userID, keyID)
 
 	return apiContext.Write(map[string]any{"deleted": true})
 }
@@ -171,7 +175,10 @@ func (s *Server) deleteAPIKey(apiContext api.Context) error {
 
 // listAllAPIKeys lists all API keys in the system (admin/owner only).
 func (s *Server) listAllAPIKeys(apiContext api.Context) error {
-	keys, err := apiContext.GatewayClient.ListAllAPIKeys(apiContext.Context())
+	showRevoked, _ := strconv.ParseBool(apiContext.Request.URL.Query().Get("show_revoked"))
+	keys, err := apiContext.GatewayClient.ListAllAPIKeys(apiContext.Context(), client.APIKeyListOptions{
+		ShowRevoked: showRevoked,
+	})
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to list API keys: %v", err))
 	}
@@ -197,15 +204,16 @@ func (s *Server) getAnyAPIKey(apiContext api.Context) error {
 	return apiContext.Write(key)
 }
 
-// deleteAnyAPIKey deletes any API key by ID (admin/owner only).
+// deleteAnyAPIKey revokes any API key by ID while preserving the DELETE route
+// for compatibility (admin/owner only).
 func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 	keyID, err := strconv.ParseUint(apiContext.PathValue("id"), 10, 64)
 	if err != nil {
 		return types2.NewErrBadRequest("invalid key ID")
 	}
 
-	if err := apiContext.GatewayClient.DeleteAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
-		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to delete API key: %v", err))
+	if err := apiContext.GatewayClient.RevokeAPIKeyByID(apiContext.Context(), uint(keyID)); err != nil {
+		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to revoke API key: %v", err))
 	}
 
 	return apiContext.Write(map[string]any{"deleted": true})

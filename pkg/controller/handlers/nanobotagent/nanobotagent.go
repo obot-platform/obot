@@ -320,7 +320,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	}
 	if apiKeyIDStr != "" {
 		if id, err := strconv.ParseUint(apiKeyIDStr, 10, 32); err == nil {
-			if err = h.gatewayClient.DeleteAPIKey(ctx, gatewayUser.ID, uint(id)); err != nil {
+			if err = h.gatewayClient.RevokeAPIKey(ctx, gatewayUser.ID, uint(id)); err != nil {
 				return fmt.Errorf("failed to delete old API key: %w", err)
 			}
 		}
@@ -622,7 +622,7 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 		}
 
 		// Delete the API key
-		if err := h.gatewayClient.DeleteAPIKey(ctx, gatewayUser.ID, uint(apiKeyID)); err != nil {
+		if err := h.gatewayClient.RevokeAPIKey(ctx, gatewayUser.ID, uint(apiKeyID)); err != nil {
 			return fmt.Errorf("failed to delete API key: %w", err)
 		}
 	}

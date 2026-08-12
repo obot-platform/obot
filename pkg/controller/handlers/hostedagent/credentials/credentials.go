@@ -89,8 +89,8 @@ func (i *Issuer) EnsureInstanceCredential(ctx context.Context, instanceID, owner
 	return created.Key, version, nil
 }
 
-// RevokeInstanceCredential removes both the key and its stored plaintext.
-// Revocation is a row delete, so a leaked credential stops working at once
+// RevokeInstanceCredential revokes the key and deletes its stored plaintext.
+// Revocation immediately invalidates a key, so a leaked credential stops working at once
 // rather than waiting for an expiry these keys deliberately do not have.
 func (i *Issuer) RevokeInstanceCredential(ctx context.Context, instanceID string) error {
 	if i == nil || i.gatewayClient == nil {
@@ -98,7 +98,7 @@ func (i *Issuer) RevokeInstanceCredential(ctx context.Context, instanceID string
 	}
 
 	var errs []error
-	if err := i.gatewayClient.DeleteHostedAgentAPIKeys(ctx, instanceID); err != nil {
+	if err := i.gatewayClient.RevokeHostedAgentAPIKeys(ctx, instanceID); err != nil {
 		errs = append(errs, err)
 	}
 	// DeleteCredential is idempotent, so a credential that is already gone is

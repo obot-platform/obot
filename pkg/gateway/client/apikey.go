@@ -41,6 +41,9 @@ func cloneAPIKey(apiKey types.APIKey) types.APIKey {
 	if apiKey.ExpiresAt != nil {
 		cloned.ExpiresAt = new(*apiKey.ExpiresAt)
 	}
+	if apiKey.RevokedAt != nil {
+		cloned.RevokedAt = new(*apiKey.RevokedAt)
+	}
 	return cloned
 }
 
@@ -63,7 +66,7 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 	}
 
 	// Fast path: entry appears valid under the read lock.
-	entryExpired := now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))
+	entryExpired := entry.apiKey.RevokedAt != nil || now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now))
 	if !entryExpired {
 		cachedAPIKey := entry.apiKey
 		c.apiKeyCacheLock.RUnlock()
@@ -81,7 +84,7 @@ func (c *Client) getValidatedAPIKeyFromCache(key string, now time.Time) (*types.
 		return nil, false
 	}
 
-	if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+	if entry.apiKey.RevokedAt != nil || now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
 		delete(c.apiKeyCache, fingerprint)
 		c.apiKeyCacheLock.Unlock()
 		return nil, false
@@ -112,7 +115,7 @@ func (c *Client) pruneExpiredValidatedAPIKeys(now time.Time) {
 	defer c.apiKeyCacheLock.Unlock()
 
 	for fingerprint, entry := range c.apiKeyCache {
-		if now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
+		if entry.apiKey.RevokedAt != nil || now.After(entry.expiresAt) || (entry.apiKey.ExpiresAt != nil && entry.apiKey.ExpiresAt.Before(now)) {
 			delete(c.apiKeyCache, fingerprint)
 		}
 	}
@@ -200,16 +203,17 @@ func (c *Client) CreateHostedAgentAPIKey(ctx context.Context, instanceID string,
 	return resp, nil
 }
 
-// DeleteHostedAgentAPIKeys revokes every key bound to an instance. Revocation
-// is a row delete, so a leaked credential stops working immediately rather than
-// waiting for an expiry that hosted agent keys deliberately do not have.
-func (c *Client) DeleteHostedAgentAPIKeys(ctx context.Context, instanceID string) error {
+// RevokeHostedAgentAPIKeys immediately disables every key bound to an instance
+// while retaining the key metadata for audit history.
+func (c *Client) RevokeHostedAgentAPIKeys(ctx context.Context, instanceID string) error {
 	if instanceID == "" {
 		return nil
 	}
-	if err := c.db.WithContext(ctx).Where("hosted_agent_instance_id = ?", instanceID).
-		Delete(&types.APIKey{}).Error; err != nil {
-		return fmt.Errorf("failed to delete hosted agent API keys: %w", err)
+	if err := c.db.WithContext(ctx).Model(&types.APIKey{}).
+		Where("hosted_agent_instance_id = ?", instanceID).
+		Where("revoked_at IS NULL").
+		Update("revoked_at", time.Now().UTC()).Error; err != nil {
+		return fmt.Errorf("failed to revoke hosted agent API keys: %w", err)
 	}
 	return nil
 }
@@ -218,6 +222,7 @@ func (c *Client) DeleteHostedAgentAPIKeys(ctx context.Context, instanceID string
 func (c *Client) HostedAgentAPIKeys(ctx context.Context, instanceID string) ([]types.APIKey, error) {
 	var keys []types.APIKey
 	if err := c.db.WithContext(ctx).Where("hosted_agent_instance_id = ?", instanceID).
+		Where("revoked_at IS NULL").
 		Order("created_at DESC").Find(&keys).Error; err != nil {
 		return nil, fmt.Errorf("failed to list hosted agent API keys: %w", err)
 	}
@@ -270,10 +275,24 @@ func (c *Client) createAPIKeyFromTokenRequest(tx *gorm.DB, userID uint, tr *type
 	return resp, nil
 }
 
-// ListAPIKeys returns all API keys for a user (without the secrets).
+// APIKeyListOptions controls whether retained revoked keys are included.
+type APIKeyListOptions struct {
+	ShowRevoked bool
+}
+
+// ListAPIKeys returns active API keys for a user (without the secrets).
 func (c *Client) ListAPIKeys(ctx context.Context, userID uint) ([]types.APIKey, error) {
+	return c.ListAPIKeysWithOptions(ctx, userID, APIKeyListOptions{})
+}
+
+// ListAPIKeysWithOptions returns API keys for a user according to opts.
+func (c *Client) ListAPIKeysWithOptions(ctx context.Context, userID uint, opts APIKeyListOptions) ([]types.APIKey, error) {
 	var keys []types.APIKey
-	if err := c.db.WithContext(ctx).Where("user_id = ?", userID).Order("created_at DESC").Find(&keys).Error; err != nil {
+	db := c.db.WithContext(ctx).Where("user_id = ?", userID)
+	if !opts.ShowRevoked {
+		db = db.Where("revoked_at IS NULL")
+	}
+	if err := db.Order("created_at DESC").Find(&keys).Error; err != nil {
 		return nil, fmt.Errorf("failed to list API keys: %w", err)
 	}
 	return keys, nil
@@ -288,24 +307,41 @@ func (c *Client) GetAPIKey(ctx context.Context, userID uint, keyID uint) (*types
 	return &key, nil
 }
 
-// DeleteAPIKey removes an API key.
-func (c *Client) DeleteAPIKey(ctx context.Context, userID uint, keyID uint) error {
-	result := c.db.WithContext(ctx).Where("id = ?", keyID).Where("user_id = ?", userID).Delete(&types.APIKey{})
-	if result.Error != nil {
-		return fmt.Errorf("failed to delete API key: %w", result.Error)
-	}
-	c.invalidateValidatedAPIKeysByID(keyID)
-	return nil
+// RevokeAPIKey immediately disables an API key while retaining its metadata.
+// Repeated revocation is idempotent and preserves the original revocation time.
+func (c *Client) RevokeAPIKey(ctx context.Context, userID uint, keyID uint) error {
+	return c.revokeAPIKey(ctx, keyID, &userID)
 }
 
 // ValidateAPIKey validates an API key and returns the associated APIKey record.
 // The key format is: ok1-<user_id>-<key_id>-<secret>
 // Lookup is done by key ID, then bcrypt is used to verify the secret.
-// Cache hits return a previously validated key without touching the database.
+// Cache hits avoid repeating bcrypt but still check persisted lifecycle state so
+// revocation on one server replica takes effect on every replica immediately.
 // On cache misses, last_used_at is updated only if more than a minute has elapsed.
 func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey, error) {
 	cacheNow := time.Now()
 	if cachedAPIKey, ok := c.getValidatedAPIKeyFromCache(key, cacheNow); ok {
+		var lifecycle struct {
+			ExpiresAt *time.Time
+			RevokedAt *time.Time
+		}
+		if err := c.db.WithContext(ctx).Model(&types.APIKey{}).
+			Select("expires_at", "revoked_at").
+			Where("id = ?", cachedAPIKey.ID).
+			Where("user_id = ?", cachedAPIKey.UserID).
+			First(&lifecycle).Error; err != nil {
+			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
+			return nil, err
+		}
+		if lifecycle.RevokedAt != nil {
+			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
+			return nil, fmt.Errorf("API key has been revoked")
+		}
+		if lifecycle.ExpiresAt != nil && lifecycle.ExpiresAt.Before(cacheNow) {
+			c.invalidateValidatedAPIKeysByID(cachedAPIKey.ID)
+			return nil, fmt.Errorf("API key has expired")
+		}
 		return cachedAPIKey, nil
 	}
 
@@ -330,6 +366,9 @@ func (c *Client) ValidateAPIKey(ctx context.Context, key string) (*types.APIKey,
 		// Check expiration
 		if apiKey.ExpiresAt != nil && apiKey.ExpiresAt.Before(time.Now()) {
 			return fmt.Errorf("API key has expired")
+		}
+		if apiKey.RevokedAt != nil {
+			return fmt.Errorf("API key has been revoked")
 		}
 
 		// Update last used timestamp if more than a minute has elapsed
@@ -393,10 +432,14 @@ func ParseRedactedAPIKey(key string) (userID uint, keyID uint, err error) {
 
 // Admin methods - no user filtering
 
-// ListAllAPIKeys returns all API keys in the system (for admin use).
-func (c *Client) ListAllAPIKeys(ctx context.Context) ([]types.APIKey, error) {
+// ListAllAPIKeys returns system API keys according to opts.
+func (c *Client) ListAllAPIKeys(ctx context.Context, opts APIKeyListOptions) ([]types.APIKey, error) {
 	var keys []types.APIKey
-	if err := c.db.WithContext(ctx).Order("created_at DESC").Find(&keys).Error; err != nil {
+	db := c.db.WithContext(ctx)
+	if !opts.ShowRevoked {
+		db = db.Where("revoked_at IS NULL")
+	}
+	if err := db.Order("created_at DESC").Find(&keys).Error; err != nil {
 		return nil, fmt.Errorf("failed to list API keys: %w", err)
 	}
 	return keys, nil
@@ -411,14 +454,29 @@ func (c *Client) GetAPIKeyByID(ctx context.Context, keyID uint) (*types.APIKey, 
 	return &key, nil
 }
 
-// DeleteAPIKeyByID removes an API key by ID without user filtering (for admin use).
-func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
-	result := c.db.WithContext(ctx).Where("id = ?", keyID).Delete(&types.APIKey{})
+// RevokeAPIKeyByID immediately disables an API key without user filtering
+// while retaining its metadata for audit history.
+func (c *Client) RevokeAPIKeyByID(ctx context.Context, keyID uint) error {
+	return c.revokeAPIKey(ctx, keyID, nil)
+}
+
+func (c *Client) revokeAPIKey(ctx context.Context, keyID uint, userID *uint) error {
+	db := c.db.WithContext(ctx).Model(&types.APIKey{}).Where("id = ?", keyID)
+	if userID != nil {
+		db = db.Where("user_id = ?", *userID)
+	}
+	result := db.Where("revoked_at IS NULL").Update("revoked_at", time.Now().UTC())
 	if result.Error != nil {
-		return fmt.Errorf("failed to delete API key: %w", result.Error)
+		return fmt.Errorf("failed to revoke API key: %w", result.Error)
 	}
 	c.invalidateValidatedAPIKeysByID(keyID)
 	return nil
+}
+
+// DeleteAPIKeyByID is retained for callers that still use the old lifecycle
+// name. It revokes the key and does not delete retained metadata.
+func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
+	return c.RevokeAPIKeyByID(ctx, keyID)
 }
 
 // UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key
