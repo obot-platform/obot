@@ -41,7 +41,7 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 	)
 	for _, resource := range webhookValidation.Spec.Manifest.Resources {
 		switch resource.Type {
-		case types.ResourceTypeSelector:
+		case types.ResourceTypeSelector, types.ResourceTypeDevice:
 			newResources = append(newResources, resource)
 		case types.ResourceTypeMCPServer:
 			if err = req.Get(&mcpServer, req.Namespace, resource.ID); err == nil {

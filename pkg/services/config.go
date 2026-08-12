@@ -688,6 +688,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
+		mcp.DeviceFilterSurfaceIndex: mcp.DeviceFilterSurfaceIndexKeys,
 		"server-names": func(obj any) ([]string, error) {
 			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
 			var results []string

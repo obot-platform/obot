@@ -1347,6 +1347,15 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 				Message: "toolName is required in filterConfig when systemMCPServerType is filter",
 			}
 		}
+		switch manifest.FilterConfig.ContractVersion {
+		case "", types.FilterContractVersionLegacyMCP, types.FilterContractVersionV1:
+		default:
+			return types.RuntimeValidationError{
+				Runtime: manifest.Runtime,
+				Field:   "filterConfig.contractVersion",
+				Message: fmt.Sprintf("unsupported Filter contract version %q", manifest.FilterConfig.ContractVersion),
+			}
+		}
 	}
 
 	return ValidateCatalogEntryManifest(ctx, types.MCPServerCatalogEntryManifest{

@@ -76,6 +76,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 		return fmt.Errorf("failed to migrate default model access policy models: %w", err)
 	}
 
+	if err := migrateMCPWebhookValidationContractVersions(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate MCP webhook validation contract versions: %w", err)
+	}
+
 	if err := ensureDefaultUserRoleSetting(ctx, c.services.StorageClient); err != nil {
 		return fmt.Errorf("failed to ensure default user role setting: %w", err)
 	}

@@ -3,8 +3,13 @@ package mcpwebhookvalidation
 import (
 	"testing"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
@@ -48,5 +53,37 @@ func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
 	}
 	if server.Spec.Manifest.Env[0].Key == "WEBHOOK_URL" {
 		t.Fatalf("expected provided manifest to be used instead of derived webhook env, got %#v", server.Spec.Manifest.Env)
+	}
+}
+
+func TestCleanupResourcesPreservesDeviceResource(t *testing.T) {
+	filter := &v1.MCPWebhookValidation{
+		ObjectMeta: metav1.ObjectMeta{Name: "filter", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
+			Resources: []types.Resource{
+				{
+					Type: types.ResourceTypeDevice,
+					ID:   "*",
+				},
+				{
+					Type: types.ResourceTypeMCPServer,
+					ID:   "missing",
+				},
+			},
+		}},
+	}
+	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(filter).Build()
+
+	if err := new(Handler).CleanupResources(router.Request{
+		Client:    client,
+		Object:    filter,
+		Ctx:       t.Context(),
+		Namespace: system.DefaultNamespace,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(filter.Spec.Manifest.Resources) != 1 || filter.Spec.Manifest.Resources[0].Type != types.ResourceTypeDevice {
+		t.Fatalf("cleanup removed device resource: %v", filter.Spec.Manifest.Resources)
 	}
 }

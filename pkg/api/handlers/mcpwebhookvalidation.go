@@ -71,6 +71,7 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
 		return err
 	}
+	defaultFilterContractVersion(&manifest, types.FilterContractVersionV1)
 
 	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
@@ -126,6 +127,7 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 	if err := m.resolveManifestFromCatalogEntry(req, &manifest); err != nil {
 		return err
 	}
+	defaultFilterContractVersion(&manifest, effectiveFilterContractVersion(webhookValidation.Spec.Manifest.ContractVersion))
 
 	if err := validateManifest(req.Context(), &manifest, validationOptions(m.mcpSessionManager.RemoteMCPURLValidationConfig())); err != nil {
 		return types.NewErrBadRequest("invalid manifest: %v", err)
@@ -481,6 +483,9 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 
 	manifest.SystemMCPServerManifest = &serverManifest
 	manifest.ToolName = entry.Spec.Manifest.FilterConfig.ToolName
+	if entry.Spec.Manifest.FilterConfig.ContractVersion != "" {
+		manifest.ContractVersion = entry.Spec.Manifest.FilterConfig.ContractVersion
+	}
 	return nil
 }
 
@@ -562,10 +567,34 @@ func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest
 		}
 	}
 
+	deviceSelected := false
 	for _, resource := range m.Resources {
+		if resource.Type == types.ResourceTypeDevice {
+			if resource.ID != "*" {
+				return fmt.Errorf("invalid resource: device resource ID must be '*'")
+			}
+			if deviceSelected {
+				return fmt.Errorf("invalid resource: duplicate device/* resource")
+			}
+			deviceSelected = true
+			continue
+		}
 		if err := resource.Validate(); err != nil {
 			return fmt.Errorf("invalid resource: %v", err)
 		}
+	}
+
+	if err := normalizeDeviceSurfaces(m, deviceSelected); err != nil {
+		return err
+	}
+
+	switch m.ContractVersion {
+	case "", types.FilterContractVersionLegacyMCP, types.FilterContractVersionV1:
+	default:
+		return fmt.Errorf("unsupported Filter contract version %q", m.ContractVersion)
+	}
+	if deviceSelected && m.ContractVersion != types.FilterContractVersionV1 {
+		return fmt.Errorf("device Filters require contract version %q", types.FilterContractVersionV1)
 	}
 
 	for i, filter := range m.Selectors {
@@ -578,5 +607,56 @@ func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest
 		}
 	}
 
+	return nil
+}
+
+func defaultFilterContractVersion(m *types.MCPWebhookValidationManifest, fallback types.FilterContractVersion) {
+	if m.ContractVersion != "" {
+		return
+	}
+	if m.AppliesToDevices() {
+		m.ContractVersion = types.FilterContractVersionV1
+		return
+	}
+	m.ContractVersion = fallback
+}
+
+func effectiveFilterContractVersion(version types.FilterContractVersion) types.FilterContractVersion {
+	if version == "" {
+		return types.FilterContractVersionLegacyMCP
+	}
+	return version
+}
+
+func normalizeDeviceSurfaces(m *types.MCPWebhookValidationManifest, deviceSelected bool) error {
+	if !deviceSelected {
+		if len(m.DeviceSurfaces) > 0 {
+			return fmt.Errorf("device surfaces require the device/* resource")
+		}
+		return nil
+	}
+	if len(m.DeviceSurfaces) == 0 {
+		return fmt.Errorf("at least one device surface is required with the device/* resource")
+	}
+
+	seen := make(map[types.FilterSurface]struct{}, len(m.DeviceSurfaces))
+	for _, surface := range m.DeviceSurfaces {
+		switch surface {
+		case types.FilterSurfaceUserPrompt, types.FilterSurfaceToolArguments, types.FilterSurfaceToolResponse:
+		default:
+			return fmt.Errorf("unknown device surface %q", surface)
+		}
+		if _, ok := seen[surface]; ok {
+			return fmt.Errorf("duplicate device surface %q", surface)
+		}
+		seen[surface] = struct{}{}
+	}
+
+	m.DeviceSurfaces = m.DeviceSurfaces[:0]
+	for _, surface := range types.KnownFilterSurfaces() {
+		if _, ok := seen[surface]; ok {
+			m.DeviceSurfaces = append(m.DeviceSurfaces, surface)
+		}
+	}
 	return nil
 }

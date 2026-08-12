@@ -116,7 +116,18 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.EnforcementDecisionServer":                 schema_obot_platform_obot_apiclient_types_EnforcementDecisionServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.ErrHTTP":                                   schema_obot_platform_obot_apiclient_types_ErrHTTP(ref),
 		"github.com/obot-platform/obot/apiclient/types.EulaStatus":                                schema_obot_platform_obot_apiclient_types_EulaStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterCapabilities":                        schema_obot_platform_obot_apiclient_types_FilterCapabilities(ref),
 		"github.com/obot-platform/obot/apiclient/types.FilterConfig":                              schema_obot_platform_obot_apiclient_types_FilterConfig(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterContext":                             schema_obot_platform_obot_apiclient_types_FilterContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterDeviceContext":                       schema_obot_platform_obot_apiclient_types_FilterDeviceContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterEnvironmentContext":                  schema_obot_platform_obot_apiclient_types_FilterEnvironmentContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterEvent":                               schema_obot_platform_obot_apiclient_types_FilterEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterLocalAgentContext":                   schema_obot_platform_obot_apiclient_types_FilterLocalAgentContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterMCPContext":                          schema_obot_platform_obot_apiclient_types_FilterMCPContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterRequest":                             schema_obot_platform_obot_apiclient_types_FilterRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterResponse":                            schema_obot_platform_obot_apiclient_types_FilterResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterToolRequest":                         schema_obot_platform_obot_apiclient_types_FilterToolRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.FilterTraceContext":                        schema_obot_platform_obot_apiclient_types_FilterTraceContext(ref),
 		"github.com/obot-platform/obot/apiclient/types.GCSConfig":                                 schema_obot_platform_obot_apiclient_types_GCSConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredential":                             schema_obot_platform_obot_apiclient_types_GitCredential(ref),
 		"github.com/obot-platform/obot/apiclient/types.GitCredentialList":                         schema_obot_platform_obot_apiclient_types_GitCredentialList(ref),
@@ -166,6 +177,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogExportFilters":                  schema_obot_platform_obot_apiclient_types_LLMAuditLogExportFilters(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogList":                           schema_obot_platform_obot_apiclient_types_LLMAuditLogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.LLMAuditLogResponse":                       schema_obot_platform_obot_apiclient_types_LLMAuditLogResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentFilterEvent":                     schema_obot_platform_obot_apiclient_types_LocalAgentFilterEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentFilterEventContext":              schema_obot_platform_obot_apiclient_types_LocalAgentFilterEventContext(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentFilterResult":                    schema_obot_platform_obot_apiclient_types_LocalAgentFilterResult(ref),
+		"github.com/obot-platform/obot/apiclient/types.LocalAgentFilterStatus":                    schema_obot_platform_obot_apiclient_types_LocalAgentFilterStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogAction":          schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogAction(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogAgent":           schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogAgent(ref),
 		"github.com/obot-platform/obot/apiclient/types.LocalAgentToolCallAuditLogDevice":          schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogDevice(ref),
@@ -5876,6 +5891,33 @@ func schema_obot_platform_obot_apiclient_types_EulaStatus(ref common.ReferenceCa
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_FilterCapabilities(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"canReject": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"canMutate": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"canReject", "canMutate"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_FilterConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5889,8 +5931,373 @@ func schema_obot_platform_obot_apiclient_types_FilterConfig(ref common.Reference
 							Format:  "",
 						},
 					},
+					"contractVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"toolName"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"trace": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterTraceContext"),
+						},
+					},
+					"mcp": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterMCPContext"),
+						},
+					},
+					"localAgent": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterLocalAgentContext"),
+						},
+					},
+					"device": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterDeviceContext"),
+						},
+					},
+					"environment": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.FilterEnvironmentContext"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.FilterDeviceContext", "github.com/obot-platform/obot/apiclient/types.FilterEnvironmentContext", "github.com/obot-platform/obot/apiclient/types.FilterLocalAgentContext", "github.com/obot-platform/obot/apiclient/types.FilterMCPContext", "github.com/obot-platform/obot/apiclient/types.FilterTraceContext"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterDeviceContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"deploymentId": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"id", "deploymentId"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterEnvironmentContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"operatingSystem": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"architecture": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"workingDirectory": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"surface": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"method": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"identifier": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "phase"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterLocalAgentContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"provider": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"agentVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"model": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"modelId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolKind": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"provider"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterMCPContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"serverName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"serverShortName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FilterRequest is the common v1 Filter envelope. Payload is the complete value under review.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"source": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"event": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterEvent"),
+						},
+					},
+					"context": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterContext"),
+						},
+					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterCapabilities"),
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "source", "event", "context", "capabilities", "payload"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.FilterCapabilities", "github.com/obot-platform/obot/apiclient/types.FilterContext", "github.com/obot-platform/obot/apiclient/types.FilterEvent"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"decision"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterToolRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "FilterToolRequest is the MCP tool input for a v1 Filter.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"request": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterRequest"),
+						},
+					},
+				},
+				Required: []string{"request"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.FilterRequest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_FilterTraceContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"eventId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sessionId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"turnId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolUseId": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -8877,6 +9284,201 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLogResponse(ref common.Re
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_LocalAgentFilterEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAgentFilterEvent is the provider-neutral event submitted by an enrolled device. Device and deployment identity are intentionally absent and must be supplied by the authenticated server.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"occurredAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"event": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterEvent"),
+						},
+					},
+					"context": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.LocalAgentFilterEventContext"),
+						},
+					},
+					"capabilities": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterCapabilities"),
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"apiVersion", "occurredAt", "event", "context", "capabilities", "payload"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.FilterCapabilities", "github.com/obot-platform/obot/apiclient/types.FilterEvent", "github.com/obot-platform/obot/apiclient/types.LocalAgentFilterEventContext", "github.com/obot-platform/obot/apiclient/types.Time"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LocalAgentFilterEventContext(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"trace": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterTraceContext"),
+						},
+					},
+					"localAgent": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterLocalAgentContext"),
+						},
+					},
+					"environment": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.FilterEnvironmentContext"),
+						},
+					},
+				},
+				Required: []string{"trace", "localAgent", "environment"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.FilterEnvironmentContext", "github.com/obot-platform/obot/apiclient/types.FilterLocalAgentContext", "github.com/obot-platform/obot/apiclient/types.FilterTraceContext"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LocalAgentFilterResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "LocalAgentFilterResult is agent-neutral. Obot Sentry maps it to the active agent's hook protocol.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"payload": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"filterStatuses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.LocalAgentFilterStatus"),
+									},
+								},
+							},
+						},
+					},
+					"unenforceable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"decision"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.LocalAgentFilterStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_LocalAgentFilterStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"filterId": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"filterName": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"decision": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"errorCategory": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"latencyMs": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"unenforceable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"filterId", "decision"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_LocalAgentToolCallAuditLogAction(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -11567,6 +12169,25 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidation(ref common.R
 							},
 						},
 					},
+					"deviceSurfaces": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"contractVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -11704,6 +12325,25 @@ func schema_obot_platform_obot_apiclient_types_MCPWebhookValidationManifest(ref 
 									},
 								},
 							},
+						},
+					},
+					"deviceSurfaces": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"contractVersion": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 					"url": {

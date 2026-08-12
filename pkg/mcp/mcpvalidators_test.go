@@ -1130,6 +1130,19 @@ func TestValidateSystemCatalogEntryRejectsTunnel(t *testing.T) {
 	require.ErrorContains(t, err, "tunnels are not supported for system MCP servers")
 }
 
+func TestValidateSystemCatalogEntryFilterContractVersion(t *testing.T) {
+	base := types.SystemMCPServerCatalogEntryManifest{
+		SystemMCPServerType: types.SystemMCPServerTypeFilter,
+		FilterConfig:        &types.FilterConfig{ToolName: "filter_pii", ContractVersion: types.FilterContractVersionV1},
+		Runtime:             types.RuntimeRemote,
+		ServerUserType:      types.ServerUserTypeSingleUser,
+		RemoteConfig:        &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+	}
+	require.NoError(t, ValidateSystemMCPServerCatalogEntryManifest(t.Context(), base, ValidationOptions{}))
+	base.FilterConfig.ContractVersion = "future/v2"
+	require.ErrorContains(t, ValidateSystemMCPServerCatalogEntryManifest(t.Context(), base, ValidationOptions{}), "unsupported Filter contract version")
+}
+
 func TestRemoteValidator_ValidateCatalogConfig_HeaderValidation(t *testing.T) {
 	validator := RemoteValidator{}
 

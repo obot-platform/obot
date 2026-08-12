@@ -53,6 +53,41 @@ func migrateDefaultModelAccessPolicyModels(ctx context.Context, client kclient.C
 	return nil
 }
 
+// migrateMCPWebhookValidationContractVersions makes the compatibility behavior of Filters created
+// before the v1 contract explicit. New Filters are defaulted by the API handler instead.
+func migrateMCPWebhookValidationContractVersions(ctx context.Context, client kclient.Client) error {
+	var filters v1.MCPWebhookValidationList
+	if err := client.List(ctx, &filters); err != nil {
+		return fmt.Errorf("failed to list MCP webhook validations: %w", err)
+	}
+
+	for i := range filters.Items {
+		filter := &filters.Items[i]
+		if filter.Spec.Manifest.ContractVersion != "" {
+			continue
+		}
+
+		contractVersion := types.FilterContractVersionLegacyMCP
+		if catalogEntryID := filter.Spec.Manifest.SystemMCPServerCatalogEntryID; catalogEntryID != "" {
+			var entry v1.SystemMCPServerCatalogEntry
+			if err := client.Get(ctx, kclient.ObjectKey{Namespace: filter.Namespace, Name: catalogEntryID}, &entry); err == nil {
+				if entry.Spec.Manifest.FilterConfig != nil && entry.Spec.Manifest.FilterConfig.ContractVersion != "" {
+					contractVersion = entry.Spec.Manifest.FilterConfig.ContractVersion
+				}
+			} else if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to get system MCP server catalog entry %s: %w", catalogEntryID, err)
+			}
+		}
+
+		filter.Spec.Manifest.ContractVersion = contractVersion
+		if err := client.Update(ctx, filter); err != nil {
+			return fmt.Errorf("failed to migrate MCP webhook validation %s: %w", filter.Name, err)
+		}
+	}
+
+	return nil
+}
+
 func addCatalogIDToAccessControlRules(ctx context.Context, client kclient.Client) error {
 	var acRules v1.AccessControlRuleList
 	if err := client.List(ctx, &acRules); err != nil {

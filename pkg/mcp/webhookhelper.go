@@ -10,6 +10,24 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+const DeviceFilterSurfaceIndex = "device-filter-surfaces"
+
+// DeviceFilterSurfaceIndexKeys returns applicable surfaces only for enabled, configured Device
+// Filters. Keeping this separate from MCP resource indexes prevents device selection from being
+// inferred from MCP applicability.
+func DeviceFilterSurfaceIndexKeys(obj any) ([]string, error) {
+	filter, ok := obj.(*v1.MCPWebhookValidation)
+	if !ok || filter.Spec.Manifest.Disabled || !filter.Status.Configured || !filter.Spec.Manifest.AppliesToDevices() {
+		return nil, nil
+	}
+
+	keys := make([]string, 0, len(filter.Spec.Manifest.DeviceSurfaces))
+	for _, surface := range filter.Spec.Manifest.DeviceSurfaces {
+		keys = append(keys, string(surface))
+	}
+	return keys, nil
+}
+
 type WebhookHelper struct {
 	indexer cache.Indexer
 	baseURL string

@@ -15,6 +15,8 @@ type MCPWebhookValidation struct {
 type MCPWebhookValidationManifest struct {
 	Name                          string                   `json:"name,omitempty"`
 	Resources                     []Resource               `json:"resources,omitempty"`
+	DeviceSurfaces                []FilterSurface          `json:"deviceSurfaces,omitempty"`
+	ContractVersion               FilterContractVersion    `json:"contractVersion,omitempty"`
 	URL                           string                   `json:"url,omitempty"`
 	Secret                        string                   `json:"secret,omitempty"`
 	SystemMCPServerManifest       *SystemMCPServerManifest `json:"mcpServerManifest,omitempty"`
@@ -23,6 +25,20 @@ type MCPWebhookValidationManifest struct {
 	Selectors                     MCPSelectors             `json:"selectors,omitempty"`
 	AllowedToMutate               bool                     `json:"allowedToMutate,omitempty"`
 	Disabled                      bool                     `json:"disabled,omitempty"`
+}
+
+// ResourceTypeDevice is scoped to MCPWebhookValidationManifest. Resource.Validate deliberately
+// does not accept it because Resource is also the access-control resource representation.
+const ResourceTypeDevice ResourceType = "device"
+
+// AppliesToDevices reports whether this Filter has the all-devices resource.
+func (m MCPWebhookValidationManifest) AppliesToDevices() bool {
+	for _, resource := range m.Resources {
+		if resource.Type == ResourceTypeDevice && resource.ID == "*" {
+			return true
+		}
+	}
+	return false
 }
 
 type MCPWebhookValidationList List[MCPWebhookValidation]

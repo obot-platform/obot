@@ -123,6 +123,46 @@ func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {
 	})
 }
 
+func TestMigrateMCPWebhookValidationContractVersions(t *testing.T) {
+	legacy := &v1.MCPWebhookValidation{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
+			URL: "https://example.com/legacy",
+		}},
+	}
+	v1Filter := &v1.MCPWebhookValidation{
+		ObjectMeta: metav1.ObjectMeta{Name: "v1", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
+			URL:             "https://example.com/v1",
+			ContractVersion: types.FilterContractVersionV1,
+		}},
+	}
+	catalogFilter := &v1.MCPWebhookValidation{
+		ObjectMeta: metav1.ObjectMeta{Name: "catalog-filter", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
+			SystemMCPServerCatalogEntryID: "pii-filter",
+		}},
+	}
+	catalogEntry := &v1.SystemMCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "pii-filter", Namespace: system.DefaultNamespace},
+		Spec: v1.SystemMCPServerCatalogEntrySpec{Manifest: types.SystemMCPServerCatalogEntryManifest{
+			FilterConfig: &types.FilterConfig{ContractVersion: types.FilterContractVersionV1},
+		}},
+	}
+	client := newFakeClient(t, legacy, v1Filter, catalogFilter, catalogEntry)
+
+	require.NoError(t, migrateMCPWebhookValidationContractVersions(t.Context(), client))
+	require.NoError(t, migrateMCPWebhookValidationContractVersions(t.Context(), client))
+
+	var got v1.MCPWebhookValidation
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Name: "legacy", Namespace: system.DefaultNamespace}, &got))
+	assert.Equal(t, types.FilterContractVersionLegacyMCP, got.Spec.Manifest.ContractVersion)
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Name: "v1", Namespace: system.DefaultNamespace}, &got))
+	assert.Equal(t, types.FilterContractVersionV1, got.Spec.Manifest.ContractVersion)
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Name: "catalog-filter", Namespace: system.DefaultNamespace}, &got))
+	assert.Equal(t, types.FilterContractVersionV1, got.Spec.Manifest.ContractVersion)
+}
+
 func TestMigratePublishedArtifactVisibility(t *testing.T) {
 	ctx := t.Context()
 

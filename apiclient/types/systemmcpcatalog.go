@@ -65,7 +65,8 @@ type SystemMCPServerCatalogEntryManifest struct {
 }
 
 type FilterConfig struct {
-	ToolName string `json:"toolName"`
+	ToolName        string                `json:"toolName"`
+	ContractVersion FilterContractVersion `json:"contractVersion,omitempty"`
 }
 
 type SystemMCPServerCatalogEntryList List[SystemMCPServerCatalogEntry]
