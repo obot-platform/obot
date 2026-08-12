@@ -497,7 +497,8 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	}
 	multiSource := len(sources) > 1
 
-	// Common cross-source filters resolve to the right column per source.
+	// Common cross-source filters resolve to the right column per source and are the only filters
+	// offered when more than one source is selected.
 	hasCommonFilters := len(filters.Actors) > 0 || len(filters.Operations) > 0 ||
 		len(filters.MCPServers) > 0 || len(filters.Tools) > 0 ||
 		len(filters.Outcomes) > 0 || len(filters.Clients) > 0
@@ -519,10 +520,10 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	}
 
 	if multiSource {
-		// Selecting more than one source narrows the available filters to the cross-source set;
-		// single-source filters would silently drop the other source's rows at execution.
+		// Selecting more than one source narrows the available filters to the common cross-source
+		// set; the single-source filters would silently drop the other source's rows at execution.
 		if hasMCPFilters || hasLocalFilters || hasSharedColumnFilters {
-			return fmt.Errorf("only cross-source filters are allowed when exporting more than one audit log source")
+			return fmt.Errorf("only common filters are allowed when exporting more than one audit log source")
 		}
 		return nil
 	}
