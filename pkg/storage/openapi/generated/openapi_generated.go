@@ -1958,7 +1958,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"apiKeyIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "APIKeyIDs matches API keys across every selected source.",
+							Description: "APIKeyIDs matches API keys used to make requests.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

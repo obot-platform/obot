@@ -641,6 +641,7 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	if err := validateAuditLogOptions(opts); err != nil {
 		return err
 	}
+
 	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, excludeArgs...)
 	if err != nil {
 		return err
