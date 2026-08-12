@@ -218,32 +218,11 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		return nil, 0, err
 	}
 
-	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
-	if opts.Query != "" {
-		var err error
-		db, err = c.applyAuditLogSearch(ctx, db, opts.Query)
-		if err != nil {
-			return nil, 0, err
-		}
+	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	if err != nil {
+		return nil, 0, err
 	}
-
-	db = applySharedAuditLogFilters(db, opts)
-
 	eventTime := auditLogEventTimeExpression(sources)
-	if !opts.StartTime.IsZero() {
-		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
-	}
-	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
-			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
-	}
-	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
-			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
-	}
 
 	if hasMCPAuditLogFilters(opts) {
 		db = applyMCPAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeMCP), opts)
@@ -294,6 +273,36 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		}
 	}
 	return logs, total, nil
+}
+
+// auditLogBaseQuery applies the source, search, shared-column, time, and duration filters common
+// to audit-log list and filter-option queries. Callers add source-specific and unified filters.
+func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions, sources []types2.AuditLogSourceType) (*gorm.DB, error) {
+	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
+	db = applySharedAuditLogFilters(db, opts)
+	if opts.Query != "" {
+		var err error
+		if db, err = c.applyAuditLogSearch(ctx, db, opts.Query); err != nil {
+			return nil, err
+		}
+	}
+
+	eventTime := auditLogEventTimeExpression(sources)
+	if !opts.StartTime.IsZero() {
+		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
+	}
+	if !opts.EndTime.IsZero() {
+		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
+	}
+	if opts.ProcessingTimeMin > 0 {
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
+	}
+	if opts.ProcessingTimeMax > 0 {
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
+			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
+	}
+	return db, nil
 }
 
 // ValidateAuditLogOptions verifies source selection, source-specific filter compatibility, and sort
@@ -697,29 +706,9 @@ func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option str
 	expr := auditLogUnifiedFilterOptionExpr[option]
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
 
-	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
-	db = applySharedAuditLogFilters(db, opts)
-	if opts.Query != "" {
-		var err error
-		if db, err = c.applyAuditLogSearch(ctx, db, opts.Query); err != nil {
-			return nil, err
-		}
-	}
-
-	eventTime := auditLogEventTimeExpression(sources)
-	if !opts.StartTime.IsZero() {
-		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
-	}
-	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
-			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
-	}
-	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
-			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
+	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	if err != nil {
+		return nil, err
 	}
 
 	// Authorized scope (role-based own-server / workspace, and embedded-view server props). Reusing

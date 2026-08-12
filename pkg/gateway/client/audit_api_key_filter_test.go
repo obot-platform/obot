@@ -65,6 +65,22 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 			t.Fatalf("insert LLM audit log: %v", err)
 		}
 	}
+	missingKeyID := uint(999999)
+	missingKeyMCPLog := types.MCPAuditLog{
+		CreatedAt: now.Add(3 * time.Minute), SourceType: apitypes.AuditLogSourceTypeMCP,
+		UserID: fmt.Sprint(user.ID), APIKeyID: &missingKeyID, APIKeyName: "Deleted key snapshot",
+		MCPFields: &types.MCPAuditLogFields{MCPID: "mcp-missing", CallType: "tools/call", CallIdentifier: "missing-key-tool"},
+	}
+	if err := c.insertMCPAuditLogs(ctx, []types.MCPAuditLog{missingKeyMCPLog}); err != nil {
+		t.Fatalf("insert missing-key MCP audit log: %v", err)
+	}
+	missingKeyLLMLog := types.LLMAuditLog{
+		ID: uuid.NewString(), CreatedAt: now.Add(3 * time.Minute), UserID: fmt.Sprint(user.ID),
+		APIKeyID: &missingKeyID, APIKeyName: "Deleted key snapshot", ModelProvider: "missing",
+	}
+	if err := c.InsertLLMAuditLog(ctx, &missingKeyLLMLog); err != nil {
+		t.Fatalf("insert missing-key LLM audit log: %v", err)
+	}
 	localLog := validLocalAgentAuditLog(now.Add(4*time.Minute), "local-api-key", apitypes.AuditLogOutcomeStatusSuccess)
 	localLog.APIKeyID = &named.ID
 	localLog.APIKeyName = named.Name
@@ -74,12 +90,12 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 
 	assertOptions := func(t *testing.T, options []apitypes.AuditLogAPIKeyFilterOption) {
 		t.Helper()
-		if len(options) != 3 {
-			t.Fatalf("expected three distinct key options, got %#v", options)
+		if len(options) != 4 {
+			t.Fatalf("expected four distinct key options, got %#v", options)
 		}
-		values := []string{options[0].Value, options[1].Value, options[2].Value}
+		values := []string{options[0].Value, options[1].Value, options[2].Value, options[3].Value}
 		slices.Sort(values)
-		wantValues := []string{fmt.Sprint(named.ID), fmt.Sprint(duplicateName.ID), fmt.Sprint(unnamed.ID)}
+		wantValues := []string{fmt.Sprint(named.ID), fmt.Sprint(duplicateName.ID), fmt.Sprint(unnamed.ID), fmt.Sprint(missingKeyID)}
 		slices.Sort(wantValues)
 		if !slices.Equal(values, wantValues) {
 			t.Fatalf("values = %v, want %v", values, wantValues)
@@ -87,6 +103,9 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		byValue := make(map[string]apitypes.AuditLogAPIKeyFilterOption, len(options))
 		for _, option := range options {
 			byValue[option.Value] = option
+			if option.Value == fmt.Sprint(missingKeyID) {
+				continue
+			}
 			if option.UserID != "7" || option.UserDisplayName != "Calvin McLean" {
 				t.Fatalf("missing owner context: %#v", option)
 			}
@@ -102,6 +121,10 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		}
 		if got := byValue[fmt.Sprint(unnamed.ID)].Name; got != fmt.Sprintf("ok1-7-%d-*****", unnamed.ID) {
 			t.Fatalf("unnamed key name = %q", got)
+		}
+		if missing := byValue[fmt.Sprint(missingKeyID)]; missing.Name != "Deleted key snapshot" ||
+			missing.UserID != "" || missing.UserDisplayName != "" || missing.MaskedKey != "" || missing.Revoked {
+			t.Fatalf("missing key metadata was not preserved as an event-time snapshot: %#v", missing)
 		}
 	}
 
