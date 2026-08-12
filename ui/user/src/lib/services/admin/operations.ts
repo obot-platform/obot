@@ -16,6 +16,7 @@ import {
 } from '../http';
 import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from '../user/constants';
 import type {
+	AuditLogFilterOption,
 	ModelProvider,
 	MCPCatalogServer,
 	MCPServerInstance,
@@ -324,7 +325,7 @@ export async function listLLMAuditLogFilterOptions(
 	const response = (await doGet(
 		`/llm-audit-logs/filter-options/${filter}${queryString ? `?${queryString}` : ''}`,
 		{ fetch: fetchFn, signal }
-	)) as { options: string[] };
+	)) as { options: AuditLogFilterOption[] };
 	return response;
 }
 

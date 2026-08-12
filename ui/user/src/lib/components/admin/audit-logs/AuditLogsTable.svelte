@@ -257,6 +257,8 @@
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
 					{@const identifier = identifierParts(d)}
+					{@const actor = actorLabel(d.actor)}
+					{@const credential = d.actor.credentialID}
 
 					<tr
 						id={`mcp-audit-log-${item.index}`}
@@ -268,7 +270,7 @@
 					>
 						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
 						{@render td(eventTypeLabel(d.eventType))}
-						{@render twoLine(actorLabel(d.actor), d.actor.actorType)}
+						{@render twoLine(credential || actor, credential ? actor : d.actor.actorType)}
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}

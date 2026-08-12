@@ -1,5 +1,40 @@
 import { page } from '$app/state';
+import type { AuditLogAPIKeyFilterOption, AuditLogFilterOption } from '$lib/services';
 import { isSafe } from './utils';
+
+export function isAuditLogAPIKeyFilterOption(
+	option: unknown
+): option is AuditLogAPIKeyFilterOption {
+	return (
+		typeof option === 'object' &&
+		option !== null &&
+		'value' in option &&
+		typeof option.value === 'string'
+	);
+}
+
+export function getAuditLogAPIKeyFilterOptionLabel(option: AuditLogAPIKeyFilterOption): string {
+	const key = formatAuditLogAPIKeyName(option.name, option.maskedKey);
+	const owner = option.userDisplayName || option.userID;
+	return [key, owner, option.revoked ? 'Revoked' : ''].filter(Boolean).join(' · ');
+}
+
+export function formatAuditLogAPIKeyName(name: string, maskedKey: string): string {
+	return name && name !== maskedKey ? `${name} (${maskedKey})` : maskedKey || name;
+}
+
+export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {
+	return userID && apiKeyID !== undefined ? `ok1-${userID}-${apiKeyID}-*****` : '';
+}
+
+export function toAuditLogFilterSelectOption(option: AuditLogFilterOption): {
+	id: string;
+	label: string;
+} {
+	return isAuditLogAPIKeyFilterOption(option)
+		? { id: option.value, label: getAuditLogAPIKeyFilterOptionLabel(option) }
+		: { id: option, label: option };
+}
 
 export function buildSearchParamFiltersArray<T>(
 	supportedFilters: (keyof T)[],

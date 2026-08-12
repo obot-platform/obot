@@ -36,17 +36,17 @@ export function eventTypeParamFromSourceTypes(sourceTypes: readonly string[]): s
 }
 
 // Advanced Options offer values scoped to the selected log sources, so changing the sources
-// invalidates every selection. The free-text query is source-independent and is kept.
+// invalidates source-specific selections. Free-text and API-key filters apply to every source.
 export function clearSourceScopedFilters(filters: Record<string, unknown>) {
 	for (const key of Object.keys(filters)) {
-		if (key !== 'query') {
+		if (key !== 'query' && key !== 'api_key_id') {
 			filters[key] = '';
 		}
 	}
 }
 
-// The source-agnostic ("common") filter keys. These resolve to the correct column per source and
-// are the only filters the backend accepts when more than one source is selected.
+// The source-agnostic ("common") filter keys resolve to the correct column per source and are
+// available when more than one source is selected.
 export const COMMON_FILTER_KEYS = [
 	'actor',
 	'operation',
@@ -56,8 +56,11 @@ export const COMMON_FILTER_KEYS = [
 	'client'
 ] as const;
 
+const ALL_SOURCE_FILTER_KEYS = new Set(['api_key_id']);
+
 // Decide whether a single filter is usable for the currently selected source(s). The backend
 // enforces the same split, so the forms only ever show (and fetch options for) filters it accepts:
+//   - all-source filters    -> any non-empty source selection
 //   - common filters        -> only when more than one source is selected
 //   - source-specific       -> only when that single source is the sole selection
 //   - shared columns        -> user_id/session_id/client_ip; only for a single source of either kind
@@ -70,6 +73,7 @@ export function isExportFilterKeyVisible(
 ): boolean {
 	const singleSource = sourceTypes.length === 1;
 
+	if (ALL_SOURCE_FILTER_KEYS.has(filterKey)) return sourceTypes.length > 0;
 	if (commonFilterKeys.has(filterKey)) return sourceTypes.length > 1;
 	if (mcpFilterKeys.has(filterKey)) return singleSource && sourceTypes.includes('mcp');
 	if (localFilterKeys.has(filterKey))

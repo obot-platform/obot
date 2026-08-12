@@ -29,6 +29,7 @@ import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
 	type AppPreferences,
+	type AuditLogFilterOption,
 	type AuditLogEvent,
 	type AuditLogURLFilters,
 	type McpAuditLogUsageFilters,
@@ -200,7 +201,7 @@ export async function listAuditLogFilterOptions(
 		`/mcp-audit-logs/filter-options/${filterId}${queryString ? `?${queryString}` : ''}`,
 		{ fetch: fetchFn }
 	)) as {
-		options: string[];
+		options: AuditLogFilterOption[];
 	};
 	return response;
 }

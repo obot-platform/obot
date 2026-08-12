@@ -1958,7 +1958,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"apiKeyIDs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Single-source filters.",
+							Description: "APIKeyIDs matches API keys across every selected source.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -1972,7 +1972,8 @@ func schema_obot_platform_obot_apiclient_types_AuditLogExportFilters(ref common.
 					},
 					"userIDs": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Single-source filters.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

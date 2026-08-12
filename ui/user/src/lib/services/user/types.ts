@@ -118,6 +118,17 @@ export type AuditLogTargetType =
 	| 'local_tool';
 export type AuditLogOutcomeStatus = 'success' | 'failure' | 'denied' | 'timeout' | 'unknown';
 
+export type AuditLogAPIKeyFilterOption = {
+	maskedKey: string;
+	name: string;
+	revoked: boolean;
+	userDisplayName: string;
+	userID: string;
+	value: string;
+};
+
+export type AuditLogFilterOption = string | AuditLogAPIKeyFilterOption;
+
 export type AuditLogTargetRef = {
 	targetType: AuditLogTargetType;
 	id?: string;
@@ -254,6 +265,7 @@ export interface McpAuditLogUsageStats {
 	uniqueUsers: number;
 }
 export type AuditLogURLFilters = {
+	api_key_id?: string | null;
 	event_type?: string | null;
 
 	// Unified, source-agnostic filters used by the audit log UI. These map to the correct

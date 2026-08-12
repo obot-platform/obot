@@ -1,6 +1,8 @@
 package auditlog
 
 import (
+	"fmt"
+
 	api "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -64,7 +66,9 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 	}
 
 	event.EventType = api.AuditLogEventTypeMCPCall
-	event.Actor = mcpActor(log.UserID, mcp.APIKey)
+	// MCPFields.APIKey is a legacy field that may contain the bearer token. Only expose the
+	// event-time, non-secret display snapshot through the normalized audit-log API.
+	event.Actor = mcpActor(log.UserID, apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName))
 	event.Action = api.AuditLogAction{
 		Operation: mcp.CallType,
 		Name:      mcp.CallIdentifier,
@@ -125,6 +129,18 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 		WebhookStatuses: webhooks,
 		PayloadRedacted: opts.PayloadRedacted,
 	}
+}
+
+func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
+	if name == "" || userID == "" || apiKeyID == nil {
+		return name
+	}
+
+	maskedKey := fmt.Sprintf("ok1-%s-%d-*****", userID, *apiKeyID)
+	if name == maskedKey {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, maskedKey)
 }
 
 func mcpActor(userID, credentialID string) api.AuditLogActor {

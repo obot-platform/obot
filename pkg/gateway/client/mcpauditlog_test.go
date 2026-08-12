@@ -696,13 +696,18 @@ func TestValidateAuditLogOptionsRejectsSourceSpecificFiltersWithMultipleSources(
 		wantErr bool
 	}{
 		{
-			name:    "api key filter with both sources is rejected",
+			name:    "api key filter with both sources is allowed",
 			opts:    MCPAuditLogOptions{SourceTypes: both, APIKeyID: []uint{42}},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "api key filter scoped to the mcp source is allowed",
 			opts:    MCPAuditLogOptions{SourceTypes: mcpOnly, APIKeyID: []uint{42}},
+			wantErr: false,
+		},
+		{
+			name:    "api key filter scoped to the local source is allowed",
+			opts:    MCPAuditLogOptions{SourceTypes: localOnly, APIKeyID: []uint{42}},
 			wantErr: false,
 		},
 		{
@@ -759,6 +764,12 @@ func TestGetMCPAuditLogsFiltersByAPIKeyID(t *testing.T) {
 			t.Fatalf("insert MCP audit log: %v", err)
 		}
 	}
+	local := validLocalAgentAuditLog(now, "local-key-one", types2.AuditLogOutcomeStatusSuccess)
+	local.APIKeyID = &keyOne
+	local.APIKeyName = "CLI token"
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{local}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
 
 	logs, total, err := c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{APIKeyID: []uint{keyOne}})
 	if err != nil {
@@ -771,6 +782,25 @@ func TestGetMCPAuditLogsFiltersByAPIKeyID(t *testing.T) {
 	_, total, err = c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{APIKeyID: []uint{keyOne, keyTwo}})
 	if err != nil || total != 2 {
 		t.Fatalf("expected both attributed keys, got total=%d err=%v", total, err)
+	}
+
+	logs, total, err = c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{
+		SourceTypes: []types2.AuditLogSourceType{types2.AuditLogSourceTypeMCP, types2.AuditLogSourceTypeLocalAgentToolCall},
+		APIKeyID:    []uint{keyOne},
+	})
+	if err != nil {
+		t.Fatalf("filter mixed audit logs: %v", err)
+	}
+	if total != 2 || len(logs) != 2 {
+		t.Fatalf("expected key %d from both sources, got total=%d logs=%#v", keyOne, total, logs)
+	}
+
+	logs, total, err = c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{
+		SourceTypes: []types2.AuditLogSourceType{types2.AuditLogSourceTypeLocalAgentToolCall},
+		APIKeyID:    []uint{keyOne},
+	})
+	if err != nil || total != 1 || len(logs) != 1 || logs[0].SourceType != types2.AuditLogSourceTypeLocalAgentToolCall {
+		t.Fatalf("expected the attributed local-agent row, got total=%d logs=%#v err=%v", total, logs, err)
 	}
 }
 

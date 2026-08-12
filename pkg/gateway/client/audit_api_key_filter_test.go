@@ -65,6 +65,12 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 			t.Fatalf("insert LLM audit log: %v", err)
 		}
 	}
+	localLog := validLocalAgentAuditLog(now.Add(4*time.Minute), "local-api-key", apitypes.AuditLogOutcomeStatusSuccess)
+	localLog.APIKeyID = &named.ID
+	localLog.APIKeyName = named.Name
+	if err := c.InsertLocalAgentAuditLogs(ctx, []types.MCPAuditLog{localLog}); err != nil {
+		t.Fatalf("insert local-agent audit log: %v", err)
+	}
 
 	assertOptions := func(t *testing.T, options []apitypes.AuditLogAPIKeyFilterOption) {
 		t.Helper()
@@ -104,6 +110,24 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		t.Fatalf("get MCP key options: %v", err)
 	}
 	assertOptions(t, mcpOptions)
+
+	localOptions, err := c.GetMCPAuditLogAPIKeyFilterOptions(ctx, MCPAuditLogOptions{
+		SourceTypes: []apitypes.AuditLogSourceType{apitypes.AuditLogSourceTypeLocalAgentToolCall},
+	})
+	if err != nil {
+		t.Fatalf("get local-agent key options: %v", err)
+	}
+	if len(localOptions) != 1 || localOptions[0].Value != fmt.Sprint(named.ID) {
+		t.Fatalf("unexpected local-agent key options: %#v", localOptions)
+	}
+
+	mixedOptions, err := c.GetMCPAuditLogAPIKeyFilterOptions(ctx, MCPAuditLogOptions{
+		SourceTypes: []apitypes.AuditLogSourceType{apitypes.AuditLogSourceTypeMCP, apitypes.AuditLogSourceTypeLocalAgentToolCall},
+	})
+	if err != nil {
+		t.Fatalf("get mixed-source key options: %v", err)
+	}
+	assertOptions(t, mixedOptions)
 
 	llmOptions, err := c.GetLLMAuditLogAPIKeyFilterOptions(ctx, LLMAuditLogOptions{})
 	if err != nil {

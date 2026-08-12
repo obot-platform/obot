@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import { toAuditLogFilterSelectOption } from '$lib/auditlogs';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import {
@@ -20,6 +21,7 @@
 		Group,
 		UserService,
 		type AuditLogExport,
+		type AuditLogFilterOption,
 		type LLMAuditLogURLFilters,
 		type OrgUser,
 		type AuditLogURLFilters
@@ -33,6 +35,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	type AuditLogExportMultiSelectFilterKey =
+		| 'api_key_id'
 		| 'actor'
 		| 'operation'
 		| 'mcp_server'
@@ -56,6 +59,7 @@
 		| 'tool_kind'
 		| 'device_id';
 	type LLMAuditLogExportMultiSelectFilterKey =
+		| 'api_key_id'
 		| 'user_id'
 		| 'user_agent'
 		| 'client_session_id'
@@ -107,6 +111,12 @@
 				filterKey: 'client',
 				title: 'Clients',
 				description: 'MCP clients and local-agent providers'
+			},
+			// API-key attribution is shared by every audit-log source.
+			{
+				filterKey: 'api_key_id',
+				title: 'API Keys',
+				description: 'API keys used for the requests'
 			},
 			// Single-source filters. Shown only when exactly one log source is selected.
 			{
@@ -194,6 +204,11 @@
 	const LLM_AUDIT_LOG_EXPORT_FILTER_FIELDS: AuditLogExportFilterFieldConfig<LLMAuditLogExportMultiSelectFilterKey>[] =
 		[
 			{
+				filterKey: 'api_key_id',
+				title: 'API Keys',
+				description: 'API keys used for the requests'
+			},
+			{
 				filterKey: 'user_id',
 				title: 'Users',
 				description: 'List of users',
@@ -268,6 +283,7 @@
 		endTime: set(new Date(), { milliseconds: 0, seconds: 59 }),
 		sourceTypes: [...ALL_SOURCE_TYPES] as string[],
 		filters: {
+			api_key_id: '',
 			actor: '',
 			operation: '',
 			mcp_server: '',
@@ -310,6 +326,7 @@
 		'tool',
 		'outcome',
 		'client',
+		'api_key_id',
 		'mcp_id',
 		'user_id',
 		'mcp_server_catalog_entry_name',
@@ -328,6 +345,7 @@
 		'device_id'
 	];
 	let llmFiltersIds = [
+		'api_key_id',
 		'user_id',
 		'user_agent',
 		'client_session_id',
@@ -341,7 +359,7 @@
 	let filtersIds = $derived(logType === 'llm' ? llmFiltersIds : mcpFiltersIds);
 
 	let usersMap = new SvelteMap<string, OrgUser>();
-	let filtersOptions: Record<string, string[]> = $state({});
+	let filtersOptions: Record<string, AuditLogFilterOption[]> = $state({});
 
 	onMount(async () => {
 		if (initialData && (mode === 'view' || mode === 'edit')) {
@@ -354,6 +372,7 @@
 			if (logType === 'llm' && initialData.llmFilters) {
 				const filters = initialData.llmFilters;
 				form.filters = {
+					api_key_id: join(filters.apiKeyIDs),
 					user_id: join(filters.userIDs),
 					model_provider: join(filters.modelProviders),
 					target_model: join(filters.targetModels),
@@ -373,6 +392,7 @@
 				const filters = initialData.filters;
 				form.sourceTypes = normalizeSourceTypes(filters.sourceTypes);
 				form.filters = {
+					api_key_id: join(filters.apiKeyIDs),
 					actor: join(filters.actors),
 					operation: join(filters.operations),
 					mcp_server: join(filters.mcpServers),
@@ -508,7 +528,7 @@
 		)
 	);
 
-	function join(array: string[] | undefined): string {
+	function join(array: (string | number)[] | undefined): string {
 		return array ? array.join(',') : '';
 	}
 
@@ -564,6 +584,7 @@
 					startTime: form.startTime.toISOString(),
 					endTime: form.endTime.toISOString(),
 					llmFilters: {
+						apiKeyIDs: splitNumbers(form.filters.api_key_id),
 						userIDs: split(form.filters.user_id),
 						modelProviders: split(form.filters.model_provider),
 						targetModels: split(form.filters.target_model),
@@ -595,6 +616,7 @@
 				startTime: form.startTime.toISOString(),
 				endTime: form.endTime.toISOString(),
 				filters: {
+					apiKeyIDs: splitNumbers(form.filters.api_key_id),
 					sourceTypes: normalizeSourceTypes(form.sourceTypes),
 					actors: split(form.filters.actor),
 					operations: split(form.filters.operation),
@@ -647,9 +669,16 @@
 		const opts = filtersOptions[field.filterKey];
 		if (!opts?.map) return [];
 		if (field.useUserDisplayNames) {
-			return opts.map((d) => ({ id: d, label: usersMap.get(d)?.displayName ?? d }));
+			return opts
+				.filter((d): d is string => typeof d === 'string')
+				.map((d) => ({ id: d, label: usersMap.get(d)?.displayName ?? d }));
 		}
-		return opts.map((d) => ({ id: d, label: field.getOptionLabel?.(d) ?? d }));
+		return opts.map((d) => {
+			const option = toAuditLogFilterSelectOption(d);
+			return typeof d === 'string' && field.getOptionLabel
+				? { ...option, label: field.getOptionLabel(d) }
+				: option;
+		});
 	}
 </script>
 

@@ -190,12 +190,18 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "API key filter without MCP source",
+			name: "API key filter with local-agent source",
 			filters: types.AuditLogExportFilters{
 				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
 				APIKeyIDs:   []uint{12},
 			},
-			wantErr: true,
+		},
+		{
+			name: "API key filter with both sources",
+			filters: types.AuditLogExportFilters{
+				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP, types.AuditLogSourceTypeLocalAgentToolCall},
+				APIKeyIDs:   []uint{12},
+			},
 		},
 		{
 			name: "local filter without local source",

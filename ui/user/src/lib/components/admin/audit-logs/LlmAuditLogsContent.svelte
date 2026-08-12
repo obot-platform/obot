@@ -2,7 +2,12 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
+	import {
+		buildPillSearchParamFilters,
+		buildSearchParamFiltersArray,
+		getAuditLogAPIKeyFilterOptionLabel,
+		isAuditLogAPIKeyFilterOption
+	} from '$lib/auditlogs';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
@@ -13,6 +18,7 @@
 		AdminService,
 		UserService,
 		type LLMAuditLog,
+		type AuditLogAPIKeyFilterOption,
 		type LLMAuditLogURLFilters,
 		type OrgUser
 	} from '$lib/services';
@@ -39,6 +45,7 @@
 
 	type SupportedFilter = keyof LLMAuditLogURLFilters;
 	const supportedFilters: SupportedFilter[] = [
+		'api_key_id',
 		'user_id',
 		'client_session_id',
 		'hide_models_requests',
@@ -57,6 +64,7 @@
 	let response = $state<PaginatedResponse<LLMAuditLog>>();
 	let pageIndex = $state(0);
 	let users = $state<OrgUser[]>([]);
+	let apiKeyFilterOptions = $state<Record<string, AuditLogAPIKeyFilterOption>>({});
 	let showFilters = $state(false);
 	let rightSidebar = $state<HTMLDivElement>();
 	let selectedAuditLog = $state<LlmAuditLogDetail>();
@@ -152,6 +160,32 @@
 		})
 	);
 
+	function rememberAPIKeyFilterOptions(options: unknown[]) {
+		for (const option of options) {
+			if (typeof option !== 'string' && isAuditLogAPIKeyFilterOption(option)) {
+				apiKeyFilterOptions[option.value] = option;
+			}
+		}
+	}
+
+	$effect(() => {
+		const controller = new AbortController();
+		const otherFilters = { ...filters };
+		delete otherFilters.api_key_id;
+		AdminService.listLLMAuditLogFilterOptions('api_key_id', {
+			...otherFilters,
+			offset: null,
+			signal: controller.signal
+		})
+			.then((result) => rememberAPIKeyFilterOptions(result.options ?? []))
+			.catch((error) => {
+				if (!isAbortError(error) && !controller.signal.aborted) {
+					console.error('Failed to fetch API key filter options:', error);
+				}
+			});
+		return () => controller.abort();
+	});
+
 	$effect(() => {
 		void filterPaginationKey;
 		pageIndex = 0;
@@ -220,6 +254,7 @@
 	function getFilterDisplayLabel(key: string) {
 		const _key = key as keyof LLMAuditLogURLFilters;
 		if (_key === 'outcome') return 'Outcome';
+		if (_key === 'api_key_id') return 'API Key';
 		if (_key === 'request_path') return 'Path';
 		if (_key === 'response_status') return 'Status';
 		if (_key === 'user_id') return 'User';
@@ -232,6 +267,10 @@
 	}
 
 	function getFilterValue(label: keyof LLMAuditLogURLFilters, value: string | number) {
+		if (label === 'api_key_id') {
+			const option = apiKeyFilterOptions[value.toString()];
+			return option ? getAuditLogAPIKeyFilterOptionLabel(option) : value.toString();
+		}
 		if (label === 'user_id') {
 			return getUserDisplayName(usersMap, value + '');
 		}
@@ -461,9 +500,11 @@
 			endpoint={async (filterId, opts) => {
 				const response = await AdminService.listLLMAuditLogFilterOptions(filterId, {
 					...opts,
+					query,
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime.toISOString()
 				});
+				if (filterId === 'api_key_id') rememberAPIKeyFilterOptions(response.options ?? []);
 				return { options: response?.options ?? [] };
 			}}
 		/>
