@@ -35,11 +35,13 @@ func TestClassifyMCPOutcome(t *testing.T) {
 
 func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	created := time.Date(2026, 7, 14, 10, 0, 0, 0, time.UTC)
+	apiKeyID := uint(17)
 	log := gatewaytypes.MCPAuditLog{
 		ID: 7, CreatedAt: created, SourceType: api.AuditLogSourceTypeMCP,
-		UserID: "user-1", ClientIP: "127.0.0.1",
+		UserID: "user-1", APIKeyID: &apiKeyID, ClientIP: "127.0.0.1",
+		APIKeyName: "CLI token",
 		MCPFields: &gatewaytypes.MCPAuditLogFields{
-			APIKey: "credential-1", MCPID: "mcp-1", MCPServerDisplayName: "GitHub",
+			APIKey: "ok1-user-1-17-super-secret", MCPID: "mcp-1", MCPServerDisplayName: "GitHub",
 			CallType: "tools/call", CallIdentifier: "search", ResponseStatus: 200,
 			ResponseReceived: true, ProcessingTimeMs: 42, RequestBody: json.RawMessage(`{"q":"obot"}`),
 			SessionID: "session-1", ClientName: "client", ClientVersion: "1.0.0",
@@ -50,7 +52,7 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	if summary.Details != nil || summary.EventType != api.AuditLogEventTypeMCPCall {
 		t.Fatalf("unexpected summary: %#v", summary)
 	}
-	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "credential-1" {
+	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "CLI token (ok1-user-1-17-*****)" {
 		t.Fatalf("unexpected actor: %#v", summary.Actor)
 	}
 	if summary.Target.TargetType != api.AuditLogTargetTypeMCPTool || summary.Target.Parent == nil {
@@ -70,6 +72,24 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	}
 	if strings.Contains(string(data), "mcpFields") || strings.Contains(string(data), "localAgentToolCallFields") {
 		t.Fatalf("legacy subtype key leaked into normalized JSON: %s", data)
+	}
+	if strings.Contains(string(data), "super-secret") {
+		t.Fatalf("API key secret leaked into normalized JSON: %s", data)
+	}
+}
+
+func TestPresentMCPDoesNotDuplicateMaskedUnnamedAPIKey(t *testing.T) {
+	apiKeyID := uint(17)
+	log := gatewaytypes.MCPAuditLog{
+		SourceType: api.AuditLogSourceTypeMCP,
+		UserID:     "user-1",
+		APIKeyID:   &apiKeyID,
+		APIKeyName: "ok1-user-1-17-*****",
+		MCPFields:  &gatewaytypes.MCPAuditLogFields{},
+	}
+
+	if actor := Present(log, PresentOptions{}).Actor; actor.CredentialID != "ok1-user-1-17-*****" {
+		t.Fatalf("unexpected unnamed API key display: %#v", actor)
 	}
 }
 
@@ -103,9 +123,13 @@ func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 }
 
 func TestPresentUnknownActors(t *testing.T) {
-	mcp := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, MCPFields: &gatewaytypes.MCPAuditLogFields{APIKey: "credential"}}
+	mcp := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, APIKeyName: "credential", MCPFields: &gatewaytypes.MCPAuditLogFields{}}
 	if actor := Present(mcp, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeCredential || actor.ID != "credential" {
 		t.Fatalf("unexpected credential actor: %#v", actor)
+	}
+	legacyMCP := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, MCPFields: &gatewaytypes.MCPAuditLogFields{APIKey: "ok1-user-1-17-super-secret"}}
+	if actor := Present(legacyMCP, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeUnknown || actor.ID != "" {
+		t.Fatalf("legacy API key must not become an actor: %#v", actor)
 	}
 	local := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeLocalAgentToolCall, UserID: "reported", LocalAgentToolCallFields: &gatewaytypes.LocalAgentToolCallAuditLogFields{ActorType: api.AuditLogActorTypeUnknown}}
 	if actor := Present(local, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeUnknown || actor.ID != "" {

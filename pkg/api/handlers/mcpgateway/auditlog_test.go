@@ -204,15 +204,41 @@ func TestListAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
 	}
 }
 
-func TestListAuditLogAPIKeyFilterOptionsRejectsMixedSources(t *testing.T) {
+func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	ctx := newAuditLogListContext(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
+	created, err := gatewayClient.CreateAPIKey(t.Context(), 7, "Local CLI", "", nil, gatewaytypes.APIKeyScopes{CanAccessAPI: true})
+	if err != nil {
+		t.Fatalf("create API key: %v", err)
+	}
+	event := validLocalAgentAuditLogInput(time.Now().UTC(), "local-api-key-filter", types.AuditLogOutcomeStatusSuccess)
+	if err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{
+		UID:    "7",
+		Groups: []string{types.GroupAuthenticated},
+		Extra: map[string][]string{
+			principal.APIKeyIDExtra:   {fmt.Sprint(created.ID)},
+			principal.APIKeyNameExtra: {"Local CLI"},
+		},
+	})); err != nil {
+		t.Fatalf("submit local-agent audit log: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
 		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
-	})
+	}, recorder)
 	ctx.Request.SetPathValue("filter", "api_key_id")
 
-	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err == nil {
-		t.Fatal("expected mixed-source API-key filter options to be rejected")
+	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
+		t.Fatalf("list mixed-source API-key options: %v", err)
+	}
+	var response struct {
+		Options []types.AuditLogAPIKeyFilterOption `json:"options"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if len(response.Options) != 1 || response.Options[0].Value != fmt.Sprint(created.ID) || response.Options[0].Name != "Local CLI" {
+		t.Fatalf("unexpected mixed-source options: %#v", response.Options)
 	}
 }
 

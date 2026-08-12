@@ -17,17 +17,14 @@ type auditLogAPIKeySnapshot struct {
 }
 
 // GetMCPAuditLogAPIKeyFilterOptions returns the API keys present in the
-// currently filtered and authorized MCP audit-log result set.
+// currently filtered and authorized MCP and local-agent audit-log result set.
 func (c *Client) GetMCPAuditLogAPIKeyFilterOptions(ctx context.Context, opts MCPAuditLogOptions) ([]apitypes.AuditLogAPIKeyFilterOption, error) {
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
 	if err := ValidateAuditLogOptions(opts, sources); err != nil {
 		return nil, err
 	}
-	if len(sources) != 1 || sources[0] != apitypes.AuditLogSourceTypeMCP {
-		return nil, fmt.Errorf("API key filter options require the MCP audit log source")
-	}
 
-	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type = ?", apitypes.AuditLogSourceTypeMCP)
+	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
 	if opts.Query != "" {
 		var err error
 		db, err = c.applyAuditLogSearch(ctx, db, opts.Query)
@@ -35,28 +32,27 @@ func (c *Client) GetMCPAuditLogAPIKeyFilterOptions(ctx context.Context, opts MCP
 			return nil, err
 		}
 	}
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN ?", opts.UserID)
-	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN ?", opts.SessionID)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN ?", opts.ClientIP)
-	}
+	db = applySharedAuditLogFilters(db, opts)
+	eventTime := auditLogEventTimeExpression(sources)
 	if !opts.StartTime.IsZero() {
-		db = db.Where("created_at >= ?", opts.StartTime.UTC())
+		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
 	}
 	if !opts.EndTime.IsZero() {
-		db = db.Where("created_at < ?", opts.EndTime.UTC())
+		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
 	}
 	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("processing_time_ms >= ?", opts.ProcessingTimeMin)
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
+			apitypes.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
 	}
 	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("processing_time_ms <= ?", opts.ProcessingTimeMax)
+		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
+			apitypes.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
 	}
-	db = applyMCPAuditLogFilters(db, opts)
+	if hasMCPAuditLogFilters(opts) {
+		db = applyMCPAuditLogFilters(db.Where("source_type = ?", apitypes.AuditLogSourceTypeMCP), opts)
+	} else if hasLocalAgentAuditLogFilters(opts) {
+		db = applyLocalAgentAuditLogFilters(db.Where("source_type = ?", apitypes.AuditLogSourceTypeLocalAgentToolCall), opts)
+	}
 	db = applyUnifiedAuditLogFilters(db, opts)
 
 	return c.scanAuditLogAPIKeyFilterOptions(ctx, db, opts.Limit)

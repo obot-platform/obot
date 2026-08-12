@@ -227,15 +227,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		}
 	}
 
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN ?", opts.UserID)
-	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN ?", opts.SessionID)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN ?", opts.ClientIP)
-	}
+	db = applySharedAuditLogFilters(db, opts)
 
 	eventTime := auditLogEventTimeExpression(sources)
 	if !opts.StartTime.IsZero() {
@@ -341,7 +333,7 @@ func ValidateAuditLogOptions(opts MCPAuditLogOptions, sources []types2.AuditLogS
 }
 
 func hasMCPAuditLogFilters(opts MCPAuditLogOptions) bool {
-	return len(opts.APIKeyID) > 0 || len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 || len(opts.MCPID) > 0 ||
+	return len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 || len(opts.MCPID) > 0 ||
 		len(opts.MCPServerDisplayName) > 0 || len(opts.MCPServerCatalogEntryName) > 0 || len(opts.CallType) > 0 ||
 		len(opts.CallIdentifier) > 0 || len(opts.ClientName) > 0 || len(opts.ClientVersion) > 0 || len(opts.ResponseStatus) > 0
 }
@@ -350,10 +342,23 @@ func hasLocalAgentAuditLogFilters(opts MCPAuditLogOptions) bool {
 	return len(opts.AgentProvider) > 0 || len(opts.Status) > 0 || len(opts.ToolName) > 0 || len(opts.ToolKind) > 0 || len(opts.DeviceID) > 0
 }
 
-func applyMCPAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
+func applySharedAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	if len(opts.APIKeyID) > 0 {
 		db = db.Where("api_key_id IN ?", opts.APIKeyID)
 	}
+	if len(opts.UserID) > 0 {
+		db = db.Where("user_id IN ?", opts.UserID)
+	}
+	if len(opts.SessionID) > 0 {
+		db = db.Where("session_id IN ?", opts.SessionID)
+	}
+	if len(opts.ClientIP) > 0 {
+		db = db.Where("client_ip IN ?", opts.ClientIP)
+	}
+	return db
+}
+
+func applyMCPAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
 	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var conditions []string
 		var args []any
@@ -693,6 +698,7 @@ func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option str
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
 
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
+	db = applySharedAuditLogFilters(db, opts)
 	if opts.Query != "" {
 		var err error
 		if db, err = c.applyAuditLogSearch(ctx, db, opts.Query); err != nil {
@@ -720,7 +726,6 @@ func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option str
 	// applyMCPAuditLogFilters with a scope-only options value keeps the scope predicates identical to
 	// the list query; the source-specific filter columns are empty here so they add nothing.
 	db = applyMCPAuditLogFilters(db, MCPAuditLogOptions{
-		APIKeyID:                  opts.APIKeyID,
 		PowerUserWorkspaceID:      opts.PowerUserWorkspaceID,
 		OwnServerMCPIDs:           opts.OwnServerMCPIDs,
 		MCPID:                     opts.MCPID,
@@ -765,12 +770,7 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type = ?", types2.AuditLogSourceTypeMCP).Distinct(option)
 
 	// Apply the same filters as GetMCPAuditLogs (excluding sorting, offset)
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN (?)", opts.UserID)
-	}
-	if len(opts.APIKeyID) > 0 {
-		db = db.Where("api_key_id IN (?)", opts.APIKeyID)
-	}
+	db = applySharedAuditLogFilters(db, opts)
 	if len(opts.MCPID) > 0 {
 		db = db.Where("mcp_id IN (?)", opts.MCPID)
 	}
@@ -786,9 +786,6 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	if len(opts.CallIdentifier) > 0 {
 		db = db.Where("call_identifier IN (?)", opts.CallIdentifier)
 	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN (?)", opts.SessionID)
-	}
 	if len(opts.ClientName) > 0 {
 		db = db.Where("client_name IN (?)", opts.ClientName)
 	}
@@ -797,9 +794,6 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	}
 	if len(opts.ResponseStatus) > 0 {
 		db = db.Where("response_status IN (?)", opts.ResponseStatus)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN (?)", opts.ClientIP)
 	}
 	// Apply scope filtering (union of workspace servers OR own servers)
 	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
@@ -850,15 +844,7 @@ func isLocalAgentFilterOption(option string) bool {
 func (c *Client) getMixedAuditLogFilterOptions(ctx context.Context, option string, opts MCPAuditLogOptions, exclude ...any) ([]string, error) {
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).
 		Where("source_type IN ?", auditlog.NormalizeSourceTypes(opts.SourceTypes)).Distinct(option)
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN ?", opts.UserID)
-	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN ?", opts.SessionID)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN ?", opts.ClientIP)
-	}
+	db = applySharedAuditLogFilters(db, opts)
 	if !opts.StartTime.IsZero() {
 		db = db.Where("((source_type = ? AND created_at >= ?) OR (source_type = ? AND occurred_at >= ?))",
 			types2.AuditLogSourceTypeMCP, opts.StartTime.UTC(), types2.AuditLogSourceTypeLocalAgentToolCall, opts.StartTime.UTC())
@@ -885,15 +871,7 @@ func (c *Client) getLocalAgentAuditLogFilterOptions(ctx context.Context, option 
 	}
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type = ?", types2.AuditLogSourceTypeLocalAgentToolCall).Distinct(column)
 
-	if len(opts.UserID) > 0 {
-		db = db.Where("user_id IN ?", opts.UserID)
-	}
-	if len(opts.ClientIP) > 0 {
-		db = db.Where("client_ip IN ?", opts.ClientIP)
-	}
-	if len(opts.SessionID) > 0 {
-		db = db.Where("session_id IN ?", opts.SessionID)
-	}
+	db = applySharedAuditLogFilters(db, opts)
 	if len(opts.AgentProvider) > 0 {
 		db = db.Where("agent_provider IN ?", opts.AgentProvider)
 	}
@@ -1083,7 +1061,8 @@ type MCPAuditLogOptions struct {
 	// are present, a row may match either scope.
 	PowerUserWorkspaceID []string
 	OwnServerMCPIDs      []string
-	// UserID, SessionID, and ClientIP are common filters shared by both sources.
+	// APIKeyID, UserID, SessionID, and ClientIP are common filters shared by both sources.
+	APIKeyID  []uint
 	UserID    []string
 	SessionID []string
 	ClientIP  []string
@@ -1093,7 +1072,6 @@ type MCPAuditLogOptions struct {
 	ProcessingTimeMax int64
 
 	// MCP-only filters.
-	APIKeyID                  []uint
 	MCPID                     []string
 	MCPServerDisplayName      []string
 	MCPServerCatalogEntryName []string

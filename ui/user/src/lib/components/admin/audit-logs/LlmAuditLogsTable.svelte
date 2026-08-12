@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
+	import { formatAuditLogAPIKeyName, getAuditLogAPIKeyMaskedKey } from '$lib/auditlogs';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { type LLMAuditLog } from '$lib/services';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
@@ -133,6 +134,20 @@
 	</td>
 {/snippet}
 
+{#snippet twoLine(primary: string | number | undefined, secondary?: string | number)}
+	<td class="text-sm whitespace-nowrap">
+		<div class="box-content flex h-full px-6">
+			<div class="flex min-w-0 flex-1 flex-col justify-center py-2 leading-tight">
+				<div class="truncate">{primary ?? '—'}</div>
+				{#if secondary !== undefined && secondary !== ''}
+					<div class="text-muted-content mt-1 truncate text-xs">{secondary}</div>
+				{/if}
+			</div>
+			{@render tdResizeHandler()}
+		</div>
+	</td>
+{/snippet}
+
 {#snippet timestampCell(timestamp: string, messagePolicyTriggered: boolean)}
 	<td class="text-sm whitespace-nowrap">
 		<div class="box-content flex h-full px-6">
@@ -165,7 +180,7 @@
 				<thead>
 					<tr bind:this={headerRowElement}>
 						{@render th('Timestamp', { class: 'w-[28ch]', minWidth: '28ch' })}
-						{@render th('User', { class: 'w-[24ch]', minWidth: '24ch' })}
+						{@render th('Actor', { class: 'w-[28ch]', minWidth: '24ch' })}
 						{@render th('Provider', { class: 'w-[18ch]', minWidth: '18ch' })}
 						{@render th('Model', { class: 'w-[28ch]', minWidth: '28ch' })}
 						{@render th('Status', { class: 'w-[16ch]', minWidth: '16ch' })}
@@ -182,6 +197,11 @@
 			{#snippet children({ items }: { items: { index: number; data: LLMAuditLog }[] })}
 				{#each items as item (item.data.id)}
 					{@const d = item.data}
+					{@const actor = getUserDisplayName(d.userID)}
+					{@const apiKey = formatAuditLogAPIKeyName(
+						d.apiKeyName ?? '',
+						getAuditLogAPIKeyMaskedKey(d.userID, d.apiKeyID)
+					)}
 					<tr
 						class={twMerge(
 							'group m-0 h-14 text-sm leading-0 text-[0] transition-colors duration-300',
@@ -193,7 +213,7 @@
 							formatAuditLogTableTimestamp(d.createdAt),
 							d.messagePolicyTriggered
 						)}
-						{@render td(getUserDisplayName(d.userID))}
+						{@render twoLine(apiKey || actor, apiKey ? actor : undefined)}
 						{@render td(d.modelProvider)}
 						{@render td(d.targetModel)}
 						{@render td(d.responseStatus || '')}

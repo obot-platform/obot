@@ -2,7 +2,12 @@
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
-	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
+	import {
+		buildPillSearchParamFilters,
+		buildSearchParamFiltersArray,
+		getAuditLogAPIKeyFilterOptionLabel,
+		isAuditLogAPIKeyFilterOption
+	} from '$lib/auditlogs';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
@@ -13,6 +18,7 @@
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
+		type AuditLogAPIKeyFilterOption,
 		type AuditLogURLFilters,
 		AdminService,
 		type AuditLogEvent,
@@ -111,6 +117,7 @@
 	const isReachedMin = $derived(pageIndex <= 0);
 
 	const users = new SvelteMap<string, OrgUser>();
+	const apiKeyFilterOptions = new SvelteMap<string, AuditLogAPIKeyFilterOption>();
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
@@ -153,15 +160,23 @@
 	);
 
 	const forcedEventType = $derived(isServerScoped ? 'mcp_call' : '');
-	const visibleFilterKeys = $derived(
-		unifiedFilters.filter(
+
+	function getVisibleFilterKeys(): SupportedFilter[] {
+		const [source, ...remainingFilters] = unifiedFilters;
+		const filters: SupportedFilter[] = [source, 'api_key_id', ...remainingFilters];
+		return filters.filter(
 			(key) => !(isServerScoped && (key === 'mcp_server' || key === 'event_type'))
-		)
-	);
+		);
+	}
 
 	// supportedFilters also carries the time-range params so they are read from the URL; the drawer
 	// itself only renders unifiedFilters (time is handled by the calendar).
-	const supportedFilters: SupportedFilter[] = [...unifiedFilters, 'start_time', 'end_time'];
+	const supportedFilters: SupportedFilter[] = [
+		...unifiedFilters,
+		'api_key_id',
+		'start_time',
+		'end_time'
+	];
 
 	// Duration filter presets (client-side). Each value encodes a millisecond range "min-max"; an
 	// empty bound is unbounded. Translated to processing_time_min/max before querying the backend.
@@ -191,6 +206,10 @@
 	}
 
 	function formatSingleFilterValue(key: string, value: string): string {
+		if (key === 'api_key_id') {
+			const option = apiKeyFilterOptions.get(value);
+			return option ? getAuditLogAPIKeyFilterOptionLabel(option) : value;
+		}
 		if (key === 'actor') return actorDisplay(value);
 		if (key === 'duration') return durationBucketLabel(value);
 		if (key === 'outcome' && value) return value.charAt(0).toUpperCase() + value.slice(1);
@@ -270,6 +289,14 @@
 		return { ...clone, ...propsFilters, ...enforcedFilters } as Partial<AuditLogURLFilters>;
 	});
 
+	function rememberAPIKeyFilterOptions(options: unknown[]) {
+		for (const option of options) {
+			if (typeof option !== 'string' && isAuditLogAPIKeyFilterOption(option)) {
+				apiKeyFilterOptions.set(option.value, option);
+			}
+		}
+	}
+
 	let timeRangeFilters = $derived.by(() => {
 		const { start_time, end_time } = searchParamFilters;
 
@@ -301,6 +328,23 @@
 	});
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
+
+	$effect(() => {
+		const otherFilters = { ...auditLogsSlideoverFilters };
+		const duration = otherFilters.duration;
+		delete otherFilters.api_key_id;
+		delete otherFilters.duration;
+		UserService.listAuditLogFilterOptions('api_key_id', {
+			...otherFilters,
+			...(forcedEventType ? { event_type: forcedEventType } : {}),
+			...(duration ? durationToProcessingParams(String(duration)) : {}),
+			start_time: timeRangeFilters.startTime.toISOString(),
+			end_time: timeRangeFilters.endTime?.toISOString(),
+			query
+		})
+			.then((response) => rememberAPIKeyFilterOptions(response.options ?? []))
+			.catch((error) => console.error('Failed to fetch API key filter options:', error));
+	});
 
 	// Base filters with time filters and query and pagination
 	const allFilters = $derived.by(() => {
@@ -377,6 +421,7 @@
 		const _key = key as keyof AuditLogURLFilters;
 
 		if (_key === 'event_type') return 'Source';
+		if (_key === 'api_key_id') return 'API Key';
 		if (_key === 'actor') return 'Actor';
 		if (_key === 'operation') return 'Operation';
 		if (_key === 'mcp_server') return 'Identifier – MCP Server';
@@ -477,7 +522,6 @@
 						url.searchParams.set(key, value.toString());
 					}
 				});
-
 				// Add query if present
 				if (query) {
 					url.searchParams.set('query', query);
@@ -734,7 +778,7 @@
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
 			filters={auditLogsSlideoverFilters}
-			getVisibleFilterKeys={() => visibleFilterKeys}
+			getVisibleFilterKeys={() => getVisibleFilterKeys()}
 			isFilterMultiSelect={(filterId) => filterId !== 'duration'}
 			isFilterDisabled={(filterId) =>
 				propsFiltersKeys.has(filterId) || enforcedFiltersKeys.has(filterId)}
@@ -752,16 +796,19 @@
 				// A `duration` selection among the other active filters must also narrow the option
 				// list, so translate it to the processing_time_min/max params the backend understands.
 				const { duration, ...rest } = opts as Partial<AuditLogURLFilters>;
-				return await UserService.listAuditLogFilterOptions(filterId, {
+				const response = await UserService.listAuditLogFilterOptions(filterId, {
 					...rest,
 					...(duration ? durationToProcessingParams(String(duration)) : {}),
 					start_time: timeRangeFilters.startTime.toISOString(),
 					end_time: timeRangeFilters.endTime?.toISOString(),
+					query,
 					// In a server-scoped view the source is pinned to MCP; otherwise prefer the event
 					// type(s) currently selected in the drawer (passed via opts) so option lists update
 					// live as the user switches Source, falling back to the URL.
 					event_type: forcedEventType || String(opts.event_type ?? '') || selectedEventTypes
 				});
+				if (filterId === 'api_key_id') rememberAPIKeyFilterOptions(response.options ?? []);
+				return response;
 			}}
 		/>
 	{/if}

@@ -103,8 +103,7 @@ type AuditLogExportFilters struct {
 	// MCP-only default at execution time.
 	SourceTypes []AuditLogSourceType `json:"sourceTypes,omitempty"`
 
-	// Common cross-source filters. These resolve to the appropriate column per source and are the
-	// only filters allowed when more than one source is selected.
+	// Common cross-source filters. These resolve to the appropriate column per source.
 
 	// Actors matches an Obot user ID or an enrolled device ID.
 	Actors []string `json:"actors,omitempty"`
@@ -118,9 +117,10 @@ type AuditLogExportFilters struct {
 	Outcomes []string `json:"outcomes,omitempty"`
 	// Clients is the MCP client name or local-agent provider.
 	Clients []string `json:"clients,omitempty"`
+	// APIKeyIDs matches API keys across every selected source.
+	APIKeyIDs []uint `json:"apiKeyIDs,omitempty"`
 
 	// Single-source filters.
-	APIKeyIDs                  []uint   `json:"apiKeyIDs,omitempty"`
 	UserIDs                    []string `json:"userIDs,omitempty"`
 	MCPIDs                     []string `json:"mcpIDs,omitempty"`
 	MCPServerDisplayNames      []string `json:"mcpServerDisplayNames,omitempty"`
