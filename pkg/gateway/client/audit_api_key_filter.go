@@ -11,9 +11,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type auditLogAPIKeySnapshot struct {
-	APIKeyID   uint
-	APIKeyName string
+type auditLogAPIKeyOptionRow struct {
+	APIKeyID        uint
+	APIKeyName      string
+	UserID          uint
+	Revoked         bool
+	UserDisplayName string
+	Username        string
+	Email           string
 }
 
 // GetMCPAuditLogAPIKeyFilterOptions returns the API keys present in the
@@ -24,29 +29,9 @@ func (c *Client) GetMCPAuditLogAPIKeyFilterOptions(ctx context.Context, opts MCP
 		return nil, err
 	}
 
-	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
-	if opts.Query != "" {
-		var err error
-		db, err = c.applyAuditLogSearch(ctx, db, opts.Query)
-		if err != nil {
-			return nil, err
-		}
-	}
-	db = applySharedAuditLogFilters(db, opts)
-	eventTime := auditLogEventTimeExpression(sources)
-	if !opts.StartTime.IsZero() {
-		db = db.Where(eventTime+" >= ?", opts.StartTime.UTC())
-	}
-	if !opts.EndTime.IsZero() {
-		db = db.Where(eventTime+" < ?", opts.EndTime.UTC())
-	}
-	if opts.ProcessingTimeMin > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END >= ?",
-			apitypes.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMin)
-	}
-	if opts.ProcessingTimeMax > 0 {
-		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
-			apitypes.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
+	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	if err != nil {
+		return nil, err
 	}
 	if hasMCPAuditLogFilters(opts) {
 		db = applyMCPAuditLogFilters(db.Where("source_type = ?", apitypes.AuditLogSourceTypeMCP), opts)
@@ -67,79 +52,58 @@ func (c *Client) GetLLMAuditLogAPIKeyFilterOptions(ctx context.Context, opts LLM
 }
 
 func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.DB, limit int) ([]apitypes.AuditLogAPIKeyFilterOption, error) {
-	query := db.
+	snapshots := db.
 		Where("api_key_id IS NOT NULL").
 		Select("api_key_id, MAX(api_key_name) AS api_key_name").
-		Group("api_key_id").
-		Order("api_key_name, api_key_id")
+		Group("api_key_id")
+	query := c.db.WithContext(ctx).
+		Table("(?) AS audit_key_snapshots", snapshots).
+		Select(`audit_key_snapshots.api_key_id,
+			audit_key_snapshots.api_key_name,
+			COALESCE(api_keys.user_id, 0) AS user_id,
+			(api_keys.revoked_at IS NOT NULL) AS revoked,
+			COALESCE(users.display_name, '') AS user_display_name,
+			COALESCE(users.username, '') AS username,
+			COALESCE(users.email, '') AS email`).
+		Joins("LEFT JOIN api_keys ON api_keys.id = audit_key_snapshots.api_key_id").
+		Joins("LEFT JOIN users ON users.id = api_keys.user_id").
+		Order("audit_key_snapshots.api_key_name, audit_key_snapshots.api_key_id")
 	if limit > 0 {
 		query = query.Limit(limit)
 	}
 
-	var snapshots []auditLogAPIKeySnapshot
-	if err := query.Scan(&snapshots).Error; err != nil {
+	var rows []auditLogAPIKeyOptionRow
+	if err := query.Scan(&rows).Error; err != nil {
 		return nil, err
 	}
-	return c.hydrateAuditLogAPIKeyFilterOptions(ctx, snapshots)
-}
 
-func (c *Client) hydrateAuditLogAPIKeyFilterOptions(ctx context.Context, snapshots []auditLogAPIKeySnapshot) ([]apitypes.AuditLogAPIKeyFilterOption, error) {
-	if len(snapshots) == 0 {
-		return []apitypes.AuditLogAPIKeyFilterOption{}, nil
-	}
-
-	keyIDs := make([]uint, 0, len(snapshots))
-	for _, snapshot := range snapshots {
-		keyIDs = append(keyIDs, snapshot.APIKeyID)
-	}
-	var keys []types.APIKey
-	if err := c.db.WithContext(ctx).Where("id IN ?", keyIDs).Find(&keys).Error; err != nil {
-		return nil, err
-	}
-	keysByID := make(map[uint]types.APIKey, len(keys))
-	userIDs := make([]uint, 0, len(keys))
-	for _, key := range keys {
-		keysByID[key.ID] = key
-		userIDs = append(userIDs, key.UserID)
-	}
-
-	var users []types.User
-	if len(userIDs) > 0 {
-		if err := c.db.WithContext(ctx).Where("id IN ?", userIDs).Find(&users).Error; err != nil {
-			return nil, err
-		}
-	}
-	usersByID := make(map[uint]types.User, len(users))
-	for _, user := range users {
-		usersByID[user.ID] = user
-	}
-
-	options := make([]apitypes.AuditLogAPIKeyFilterOption, 0, len(snapshots))
-	for _, snapshot := range snapshots {
+	options := make([]apitypes.AuditLogAPIKeyFilterOption, 0, len(rows))
+	for _, row := range rows {
 		option := apitypes.AuditLogAPIKeyFilterOption{
-			Value: strconv.FormatUint(uint64(snapshot.APIKeyID), 10),
-			Name:  snapshot.APIKeyName,
+			Value:   strconv.FormatUint(uint64(row.APIKeyID), 10),
+			Name:    row.APIKeyName,
+			Revoked: row.Revoked,
 		}
-		if key, ok := keysByID[snapshot.APIKeyID]; ok {
-			option.UserID = strconv.FormatUint(uint64(key.UserID), 10)
-			option.MaskedKey = principal.MaskedAPIKeyName(option.UserID, key.ID)
-			option.Revoked = key.RevokedAt != nil
-			option.UserDisplayName = auditLogAPIKeyUserDisplayName(usersByID[key.UserID], option.UserID)
+		if row.UserID != 0 {
+			option.UserID = strconv.FormatUint(uint64(row.UserID), 10)
+			option.MaskedKey = principal.MaskedAPIKeyName(option.UserID, row.APIKeyID)
+			option.UserDisplayName = auditLogAPIKeyUserDisplayName(
+				row.UserDisplayName, row.Username, row.Email, option.UserID)
 		}
 		options = append(options, option)
 	}
 	return options, nil
 }
 
-func auditLogAPIKeyUserDisplayName(user types.User, fallback string) string {
-	if user.DisplayName != "" {
-		return user.DisplayName
+func auditLogAPIKeyUserDisplayName(displayName, username, email, fallback string) string {
+	if displayName != "" {
+		return displayName
 	}
-	if user.Username != "" {
-		return user.Username
+	if username != "" {
+		return username
 	}
-	if user.Email != "" {
-		return user.Email
+	if email != "" {
+		return email
 	}
 	return fallback
 }
