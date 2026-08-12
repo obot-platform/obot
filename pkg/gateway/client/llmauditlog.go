@@ -237,6 +237,9 @@ func applyLLMAuditLogOptions(db *gorm.DB, opts LLMAuditLogOptions) *gorm.DB {
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
 	}
+	if len(opts.APIKeyID) > 0 {
+		db = db.Where("api_key_id IN (?)", opts.APIKeyID)
+	}
 	if len(opts.ModelProvider) > 0 {
 		db = db.Where("model_provider IN (?)", opts.ModelProvider)
 	}
@@ -437,6 +440,7 @@ func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
 type LLMAuditLogOptions struct {
 	WithSensitiveFields    bool
 	HideModelsRequests     bool
+	APIKeyID               []uint
 	UserID                 []string
 	ModelProvider          []string
 	TargetModel            []string

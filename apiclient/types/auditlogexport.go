@@ -120,6 +120,7 @@ type AuditLogExportFilters struct {
 	Clients []string `json:"clients,omitempty"`
 
 	// Single-source filters.
+	APIKeyIDs                  []uint   `json:"apiKeyIDs,omitempty"`
 	UserIDs                    []string `json:"userIDs,omitempty"`
 	MCPIDs                     []string `json:"mcpIDs,omitempty"`
 	MCPServerDisplayNames      []string `json:"mcpServerDisplayNames,omitempty"`
@@ -144,6 +145,7 @@ type AuditLogExportFilters struct {
 
 // LLMAuditLogExportFilters represents filters for LLM audit log export
 type LLMAuditLogExportFilters struct {
+	APIKeyIDs              []uint   `json:"apiKeyIDs,omitempty"`
 	UserIDs                []string `json:"userIDs,omitempty"`
 	ModelProviders         []string `json:"modelProviders,omitempty"`
 	TargetModels           []string `json:"targetModels,omitempty"`

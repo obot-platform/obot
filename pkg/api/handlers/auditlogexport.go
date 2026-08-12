@@ -502,7 +502,7 @@ func validateAuditLogExportFilters(filters *types.AuditLogExportFilters) error {
 	hasCommonFilters := len(filters.Actors) > 0 || len(filters.Operations) > 0 ||
 		len(filters.MCPServers) > 0 || len(filters.Tools) > 0 ||
 		len(filters.Outcomes) > 0 || len(filters.Clients) > 0
-	hasMCPFilters := len(filters.MCPIDs) > 0 || len(filters.MCPServerDisplayNames) > 0 ||
+	hasMCPFilters := len(filters.APIKeyIDs) > 0 || len(filters.MCPIDs) > 0 || len(filters.MCPServerDisplayNames) > 0 ||
 		len(filters.MCPServerCatalogEntryNames) > 0 || len(filters.CallTypes) > 0 ||
 		len(filters.CallIdentifiers) > 0 || len(filters.ClientNames) > 0 ||
 		len(filters.ClientVersions) > 0 || len(filters.ResponseStatuses) > 0

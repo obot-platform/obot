@@ -142,6 +142,7 @@ func (a *auditLogInput) UnmarshalJSON(data []byte) error {
 // Callers are responsible for setting any additional fields (e.g. default Limit, WithRequestAndResponse).
 func parseAuditLogOpts(query url.Values) gateway.MCPAuditLogOptions {
 	opts := gateway.MCPAuditLogOptions{
+		APIKeyID:                  api.ParseUintList(query["api_key_id"]),
 		UserID:                    parseMultiValueParam(query, "user_id"),
 		MCPID:                     parseMultiValueParam(query, "mcp_id"),
 		MCPServerDisplayName:      parseMultiValueParam(query, "mcp_server_display_name"),
@@ -509,6 +510,7 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 // The values of this map represent the "zero" values that are excluded when looking for options in the database.
 // For example, "" for strings and 0 for numbers.
 var filterOptions = map[string]any{
+	"api_key_id":                    uint(0),
 	"user_id":                       "",
 	"mcp_id":                        "",
 	"mcp_server_display_name":       "",
@@ -627,6 +629,16 @@ func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {
 	}
 	if err := validateAuditLogOptions(opts); err != nil {
 		return err
+	}
+	if filter == "api_key_id" {
+		if len(sources) != 1 || sources[0] != types.AuditLogSourceTypeMCP {
+			return types.NewErrBadRequest("api_key_id filter options require event_type=mcp_call")
+		}
+		options, err := req.GatewayClient.GetMCPAuditLogAPIKeyFilterOptions(req.Context(), opts)
+		if err != nil {
+			return err
+		}
+		return req.Write(map[string]any{"options": options})
 	}
 
 	options, err := req.GatewayClient.GetAuditLogFilterOptions(req.Context(), filter, opts, excludeArgs...)

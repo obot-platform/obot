@@ -219,6 +219,34 @@ func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	}
 }
 
+func TestGetLLMAuditLogsFiltersByAPIKeyID(t *testing.T) {
+	c := newTestClient(t)
+	now := time.Now().UTC()
+	keyOne, keyTwo := uint(42), uint(77)
+	for _, entry := range []types.LLMAuditLog{
+		{ID: uuid.NewString(), CreatedAt: now, APIKeyID: &keyOne, APIKeyName: "CLI token"},
+		{ID: uuid.NewString(), CreatedAt: now, APIKeyID: &keyTwo, APIKeyName: "Automation"},
+		{ID: uuid.NewString(), CreatedAt: now},
+	} {
+		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
+			t.Fatalf("insert LLM audit log: %v", err)
+		}
+	}
+
+	logs, total, err := c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{APIKeyID: []uint{keyOne}})
+	if err != nil {
+		t.Fatalf("filter LLM audit logs: %v", err)
+	}
+	if total != 1 || len(logs) != 1 || logs[0].APIKeyID == nil || *logs[0].APIKeyID != keyOne {
+		t.Fatalf("expected only key %d, got total=%d logs=%#v", keyOne, total, logs)
+	}
+
+	_, total, err = c.GetLLMAuditLogs(t.Context(), LLMAuditLogOptions{APIKeyID: []uint{keyOne, keyTwo}})
+	if err != nil || total != 2 {
+		t.Fatalf("expected both attributed keys, got total=%d err=%v", total, err)
+	}
+}
+
 func TestGetLLMAuditLogsCanHideModelsRequests(t *testing.T) {
 	c := newTestClient(t)
 	now := time.Now().UTC()

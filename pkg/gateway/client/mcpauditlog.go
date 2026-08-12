@@ -341,7 +341,7 @@ func ValidateAuditLogOptions(opts MCPAuditLogOptions, sources []types2.AuditLogS
 }
 
 func hasMCPAuditLogFilters(opts MCPAuditLogOptions) bool {
-	return len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 || len(opts.MCPID) > 0 ||
+	return len(opts.APIKeyID) > 0 || len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 || len(opts.MCPID) > 0 ||
 		len(opts.MCPServerDisplayName) > 0 || len(opts.MCPServerCatalogEntryName) > 0 || len(opts.CallType) > 0 ||
 		len(opts.CallIdentifier) > 0 || len(opts.ClientName) > 0 || len(opts.ClientVersion) > 0 || len(opts.ResponseStatus) > 0
 }
@@ -351,6 +351,9 @@ func hasLocalAgentAuditLogFilters(opts MCPAuditLogOptions) bool {
 }
 
 func applyMCPAuditLogFilters(db *gorm.DB, opts MCPAuditLogOptions) *gorm.DB {
+	if len(opts.APIKeyID) > 0 {
+		db = db.Where("api_key_id IN ?", opts.APIKeyID)
+	}
 	if len(opts.PowerUserWorkspaceID) > 0 || len(opts.OwnServerMCPIDs) > 0 {
 		var conditions []string
 		var args []any
@@ -717,6 +720,7 @@ func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option str
 	// applyMCPAuditLogFilters with a scope-only options value keeps the scope predicates identical to
 	// the list query; the source-specific filter columns are empty here so they add nothing.
 	db = applyMCPAuditLogFilters(db, MCPAuditLogOptions{
+		APIKeyID:                  opts.APIKeyID,
 		PowerUserWorkspaceID:      opts.PowerUserWorkspaceID,
 		OwnServerMCPIDs:           opts.OwnServerMCPIDs,
 		MCPID:                     opts.MCPID,
@@ -763,6 +767,9 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 	// Apply the same filters as GetMCPAuditLogs (excluding sorting, offset)
 	if len(opts.UserID) > 0 {
 		db = db.Where("user_id IN (?)", opts.UserID)
+	}
+	if len(opts.APIKeyID) > 0 {
+		db = db.Where("api_key_id IN (?)", opts.APIKeyID)
 	}
 	if len(opts.MCPID) > 0 {
 		db = db.Where("mcp_id IN (?)", opts.MCPID)
@@ -1086,6 +1093,7 @@ type MCPAuditLogOptions struct {
 	ProcessingTimeMax int64
 
 	// MCP-only filters.
+	APIKeyID                  []uint
 	MCPID                     []string
 	MCPServerDisplayName      []string
 	MCPServerCatalogEntryName []string
