@@ -611,11 +611,11 @@ func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest
 }
 
 func defaultFilterContractVersion(m *types.MCPWebhookValidationManifest, fallback types.FilterContractVersion) {
-	if m.ContractVersion != "" {
+	if m.AppliesToDevices() && (m.ContractVersion == "" || m.ContractVersion == types.FilterContractVersionLegacyMCP) {
+		m.ContractVersion = types.FilterContractVersionV1
 		return
 	}
-	if m.AppliesToDevices() {
-		m.ContractVersion = types.FilterContractVersionV1
+	if m.ContractVersion != "" {
 		return
 	}
 	m.ContractVersion = fallback

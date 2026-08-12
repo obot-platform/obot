@@ -253,7 +253,31 @@ func TestDefaultFilterContractVersion(t *testing.T) {
 			want:     types.FilterContractVersionV1,
 		},
 		{
-			name: "explicit value preserved",
+			name: "device selection upgrades explicit legacy",
+			manifest: types.MCPWebhookValidationManifest{
+				Resources: []types.Resource{{
+					Type: types.ResourceTypeDevice,
+					ID:   "*",
+				}},
+				ContractVersion: types.FilterContractVersionLegacyMCP,
+			},
+			fallback: types.FilterContractVersionLegacyMCP,
+			want:     types.FilterContractVersionV1,
+		},
+		{
+			name: "device selection preserves unknown version for validation",
+			manifest: types.MCPWebhookValidationManifest{
+				Resources: []types.Resource{{
+					Type: types.ResourceTypeDevice,
+					ID:   "*",
+				}},
+				ContractVersion: "future/v2",
+			},
+			fallback: types.FilterContractVersionLegacyMCP,
+			want:     "future/v2",
+		},
+		{
+			name: "MCP-only explicit value preserved",
 			manifest: types.MCPWebhookValidationManifest{
 				ContractVersion: types.FilterContractVersionLegacyMCP,
 			},
