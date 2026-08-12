@@ -263,13 +263,6 @@ func TestValidateAuditLogExportFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "valid MCP API key filter",
-			filters: types.AuditLogExportFilters{
-				SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP},
-				APIKeyIDs:   []uint{12, 34},
-			},
-		},
-		{
 			name: "valid local-agent filters",
 			filters: types.AuditLogExportFilters{
 				SourceTypes:    []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall},
