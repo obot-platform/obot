@@ -88,6 +88,15 @@ func TestFilterToolRequestUsesSingleRequestArgument(t *testing.T) {
 	}
 }
 
+func TestKnownFilterSurfacesReturnsCopy(t *testing.T) {
+	surfaces := KnownFilterSurfaces()
+	surfaces[0] = "changed"
+
+	if got := KnownFilterSurfaces()[0]; got != FilterSurfaceUserPrompt {
+		t.Fatalf("canonical surface changed to %q", got)
+	}
+}
+
 func TestDeviceResourceRemainsInvalidForAccessControl(t *testing.T) {
 	if err := (Resource{Type: ResourceTypeDevice, ID: "*"}).Validate(); err == nil {
 		t.Fatal("device resource must remain invalid outside Filter-manifest validation")

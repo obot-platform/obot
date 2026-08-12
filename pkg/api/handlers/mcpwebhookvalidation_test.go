@@ -405,3 +405,36 @@ func TestResolveManifestFromCatalogEntryCopiesV1ContractMetadata(t *testing.T) {
 		t.Fatalf("catalog metadata not resolved: %#v", manifest)
 	}
 }
+
+func TestResolveManifestFromCatalogEntryUsesLegacyForMissingContractMetadata(t *testing.T) {
+	entry := &v1.SystemMCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "legacy-filter", Namespace: system.DefaultNamespace},
+		Spec: v1.SystemMCPServerCatalogEntrySpec{Manifest: types.SystemMCPServerCatalogEntryManifest{
+			Name:                "Legacy Filter",
+			SystemMCPServerType: types.SystemMCPServerTypeFilter,
+			FilterConfig:        &types.FilterConfig{ToolName: "filter"},
+			Runtime:             types.RuntimeRemote,
+			ServerUserType:      types.ServerUserTypeSingleUser,
+			RemoteConfig:        &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+		}},
+	}
+	req := api.Context{
+		Request:        httptest.NewRequest(http.MethodPost, "/", nil),
+		ResponseWriter: httptest.NewRecorder(),
+		Storage: storage.Client(fake.NewClientBuilder().
+			WithScheme(storagescheme.Scheme).
+			WithObjects(entry).
+			Build()),
+	}
+	manifest := types.MCPWebhookValidationManifest{
+		SystemMCPServerCatalogEntryID: entry.Name,
+		ContractVersion:               types.FilterContractVersionV1,
+	}
+
+	if err := (&MCPWebhookValidationHandler{mcpSessionManager: &mcp.SessionManager{}}).resolveManifestFromCatalogEntry(req, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if manifest.ContractVersion != types.FilterContractVersionLegacyMCP {
+		t.Fatalf("contract version = %q, want %q", manifest.ContractVersion, types.FilterContractVersionLegacyMCP)
+	}
+}

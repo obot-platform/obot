@@ -483,9 +483,7 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 
 	manifest.SystemMCPServerManifest = &serverManifest
 	manifest.ToolName = entry.Spec.Manifest.FilterConfig.ToolName
-	if entry.Spec.Manifest.FilterConfig.ContractVersion != "" {
-		manifest.ContractVersion = entry.Spec.Manifest.FilterConfig.ContractVersion
-	}
+	manifest.ContractVersion = effectiveFilterContractVersion(entry.Spec.Manifest.FilterConfig.ContractVersion)
 	return nil
 }
 

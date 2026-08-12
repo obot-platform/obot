@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 )
 
 const FilterAPIVersionV1 = "obot.obot.ai/filter/v1"
@@ -56,7 +57,7 @@ var allFilterSurfaces = [...]FilterSurface{
 }
 
 func KnownFilterSurfaces() []FilterSurface {
-	return allFilterSurfaces[:]
+	return slices.Clone(allFilterSurfaces[:])
 }
 
 type FilterDecision string

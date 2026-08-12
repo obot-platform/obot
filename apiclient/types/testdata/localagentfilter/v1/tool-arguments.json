@@ -1,0 +1,37 @@
+{
+  "apiVersion": "obot.obot.ai/local-agent-filter-event/v1",
+  "occurredAt": "2026-08-12T17:30:00Z",
+  "event": {
+    "type": "tool_call",
+    "phase": "request",
+    "surface": "tool_arguments",
+    "identifier": "shell"
+  },
+  "context": {
+    "trace": {
+      "eventId": "event-123",
+      "sessionId": "session-123",
+      "turnId": "turn-123",
+      "toolUseId": "tool-use-123"
+    },
+    "localAgent": {
+      "provider": "codex",
+      "agentVersion": "1.2.3",
+      "model": "gpt-5",
+      "toolName": "shell",
+      "toolKind": "shell"
+    },
+    "environment": {
+      "operatingSystem": "darwin",
+      "architecture": "arm64",
+      "workingDirectory": "/workspace"
+    }
+  },
+  "capabilities": {
+    "canReject": true,
+    "canMutate": false
+  },
+  "payload": {
+    "command": "pwd"
+  }
+}

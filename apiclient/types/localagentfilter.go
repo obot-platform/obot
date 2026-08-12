@@ -1,6 +1,10 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+)
 
 const LocalAgentFilterEventAPIVersionV1 = "obot.obot.ai/local-agent-filter-event/v1"
 
@@ -13,6 +17,28 @@ type LocalAgentFilterEvent struct {
 	Context      LocalAgentFilterEventContext `json:"context"`
 	Capabilities FilterCapabilities           `json:"capabilities"`
 	Payload      json.RawMessage              `json:"payload"`
+}
+
+func (e LocalAgentFilterEvent) Validate() error {
+	if e.APIVersion != LocalAgentFilterEventAPIVersionV1 {
+		return fmt.Errorf("unsupported local-agent Filter event API version %q", e.APIVersion)
+	}
+	if e.OccurredAt.IsZero() {
+		return errors.New("local-agent Filter event occurrence time is required")
+	}
+	if err := e.Event.validateLocalAgent(); err != nil {
+		return err
+	}
+	if e.Context.LocalAgent.Provider == "" {
+		return errors.New("local-agent Filter events require an agent provider")
+	}
+	if e.Event.Surface == FilterSurfaceUserPrompt && e.Capabilities.CanMutate {
+		return errors.New("user prompts cannot advertise mutation capability")
+	}
+	if len(e.Payload) == 0 || !json.Valid(e.Payload) {
+		return errors.New("local-agent Filter event payload must be valid JSON")
+	}
+	return nil
 }
 
 type LocalAgentFilterEventContext struct {
