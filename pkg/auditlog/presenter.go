@@ -5,6 +5,7 @@ import (
 
 	api "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 // PresentOptions controls which authorized portions of an audit event are exposed by Present.
@@ -136,7 +137,7 @@ func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
 		return name
 	}
 
-	maskedKey := fmt.Sprintf("ok1-%s-%d-*****", userID, *apiKeyID)
+	maskedKey := principal.MaskedAPIKeyName(userID, *apiKeyID)
 	if name == maskedKey {
 		return name
 	}

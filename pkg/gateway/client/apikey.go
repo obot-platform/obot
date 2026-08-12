@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
 
 const (
 	apiKeySecretLength       = 32 // 32 bytes = 256 bits of entropy
-	apiKeyPrefix             = "ok1"
 	apiKeyValidationCacheTTL = 15 * time.Second
 	apiKeyCacheCleanupPeriod = 5 * time.Minute
 	expirationDur            = 7 * 24 * time.Hour
@@ -394,7 +394,7 @@ func ParseAPIKey(key string) (prefix string, userID uint, keyID uint, secret str
 	if err != nil || n != 4 {
 		return "", 0, 0, "", fmt.Errorf("invalid API key format")
 	}
-	if prefix != apiKeyPrefix {
+	if prefix != system.APIKeyPrefix {
 		return "", 0, 0, "", fmt.Errorf("invalid API key prefix")
 	}
 	return prefix, userID, keyID, secret, nil
@@ -410,7 +410,7 @@ func ParseRedactedAPIKey(key string) (userID uint, keyID uint, err error) {
 	if len(parts) != 4 {
 		return 0, 0, fmt.Errorf("invalid redacted API key format")
 	}
-	if parts[0] != apiKeyPrefix {
+	if parts[0] != system.APIKeyPrefix {
 		return 0, 0, fmt.Errorf("invalid API key prefix")
 	}
 	prefixLength := len(parts[0]) + len(parts[1]) + len(parts[2]) + 3
@@ -518,7 +518,7 @@ func (c *Client) createAPIKey(tx *gorm.DB, userID uint, name, description string
 	}
 
 	// Construct the full key with the auto-generated ID
-	fullKey := fmt.Sprintf("%s-%d-%d-%s", apiKeyPrefix, userID, apiKey.ID, secret)
+	fullKey := fmt.Sprintf("%s-%d-%d-%s", system.APIKeyPrefix, userID, apiKey.ID, secret)
 
 	return &types.APIKeyCreateResponse{
 		APIKey: *apiKey,
