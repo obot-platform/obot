@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -169,6 +170,28 @@ func TestDeleteOldRevokedAPIKeysDisabled(t *testing.T) {
 	}
 	if got := countAPIKeys(t, c); got != 1 {
 		t.Fatalf("API keys after disabled cleanup = %d, want 1", got)
+	}
+}
+
+func TestRetentionDeletesPropagateCanceledContext(t *testing.T) {
+	c := newTestClient(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	now := time.Now().UTC()
+
+	for _, tt := range []struct {
+		name   string
+		delete func() error
+	}{
+		{name: "MCP audit logs", delete: func() error { return c.deleteOldMCPAuditLogs(ctx, now, 90) }},
+		{name: "LLM audit logs", delete: func() error { return c.deleteOldLLMAuditLogs(ctx, now, 90) }},
+		{name: "revoked API keys", delete: func() error { return c.deleteOldRevokedAPIKeys(ctx, now, 90) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.delete(); !errors.Is(err, context.Canceled) {
+				t.Fatalf("cleanup error = %v, want context.Canceled", err)
+			}
+		})
 	}
 }
 

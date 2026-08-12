@@ -65,17 +65,10 @@ func (c *Client) deleteOldMCPAuditLogs(ctx context.Context, now time.Time, reten
 	if retentionDays <= 0 {
 		return nil
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 
 	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
 
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
 		result := c.db.WithContext(ctx).Exec(
 			"DELETE FROM mcp_audit_logs WHERE id IN (SELECT id FROM mcp_audit_logs WHERE created_at < ? LIMIT ?)",
 			cutoff, c.auditLogDeleteBatchSize,

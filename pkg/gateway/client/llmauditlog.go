@@ -367,17 +367,10 @@ func (c *Client) deleteOldLLMAuditLogs(ctx context.Context, now time.Time, reten
 	if retentionDays <= 0 {
 		return nil
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 
 	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
 
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
 		result := c.db.WithContext(ctx).Exec(
 			"DELETE FROM llm_audit_logs WHERE id IN (SELECT id FROM llm_audit_logs WHERE created_at < ? LIMIT ?)",
 			cutoff, c.auditLogDeleteBatchSize,

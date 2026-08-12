@@ -86,16 +86,9 @@ func (c *Client) deleteOldRevokedAPIKeys(ctx context.Context, now time.Time, ret
 	if retentionDays <= 0 {
 		return nil
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
 
 	cutoff := now.Truncate(24*time.Hour).AddDate(0, 0, -retentionDays)
 	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-
 		result := c.db.WithContext(ctx).Exec(
 			"DELETE FROM api_keys WHERE id IN (SELECT id FROM api_keys WHERE revoked_at IS NOT NULL AND revoked_at < ? LIMIT ?)",
 			cutoff, c.auditLogDeleteBatchSize,
