@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 )
 
 type LocalAgentAuditLogHandler struct{}
@@ -29,6 +30,7 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 	logs := make([]gatewaytypes.MCPAuditLog, 0, len(input.Events))
 	createdAt := time.Now().UTC()
 	actorType, actorID, deviceDeploymentID := localAgentSubmitterAttribution(req)
+	apiKeyAttribution, hasAPIKeyAttribution := principal.APIKeyAttributionFromUser(req.User)
 	for i, event := range input.Events {
 		log := gatewaytypes.NewLocalAgentToolCallAuditLogFromInput(
 			event,
@@ -38,6 +40,10 @@ func (*LocalAgentAuditLogHandler) Submit(req api.Context) error {
 			deviceDeploymentID,
 			createdAt,
 		)
+		if hasAPIKeyAttribution {
+			log.APIKeyID = new(apiKeyAttribution.ID)
+			log.APIKeyName = apiKeyAttribution.Name
+		}
 		if err := log.ValidateSourceFields(); err != nil {
 			return types.NewErrBadRequest("invalid local agent audit log at index %d: %v", i, err)
 		}

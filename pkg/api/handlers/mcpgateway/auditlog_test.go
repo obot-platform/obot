@@ -215,6 +215,9 @@ func TestLocalAgentAuditLogSubmitAuthenticatedBatchSucceeds(t *testing.T) {
 	if got.UserID != "42" {
 		t.Fatalf("userID = %q, want authenticated user", got.UserID)
 	}
+	if got.APIKeyID != nil || got.APIKeyName != "" {
+		t.Fatalf("ordinary user gained API-key attribution: ID=%v name=%q", got.APIKeyID, got.APIKeyName)
+	}
 	if got.ClientIP != "203.0.113.10" {
 		t.Fatalf("clientIP = %q, want trusted forwarded IP", got.ClientIP)
 	}
@@ -230,6 +233,53 @@ func TestLocalAgentAuditLogSubmitAuthenticatedBatchSucceeds(t *testing.T) {
 	}
 	if string(local.RequestBody) != `{"arg":true}` || string(local.ResponseBody) != `{"ok":true}` {
 		t.Fatalf("unexpected payloads: request=%s response=%s", local.RequestBody, local.ResponseBody)
+	}
+}
+
+func TestLocalAgentAuditLogSubmitAPIKeyAttribution(t *testing.T) {
+	tests := []struct {
+		name       string
+		apiKeyName string
+		wantName   string
+	}{
+		{name: "named", apiKeyName: "CLI token", wantName: "CLI token"},
+		{name: "unnamed", wantName: "ok1-7-42-*****"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+			attribution := principal.NewAPIKeyAttribution(42, 7, tt.apiKeyName)
+			events := []types.LocalAgentToolCallAuditLogInput{
+				validLocalAgentAuditLogInput(time.Now().UTC(), "entry-1", types.AuditLogOutcomeStatusSuccess),
+				validLocalAgentAuditLogInput(time.Now().UTC(), "entry-2", types.AuditLogOutcomeStatusSuccess),
+			}
+
+			err := NewLocalAgentAuditLogHandler().Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, events, &user.DefaultInfo{
+				UID:    "7",
+				Groups: []string{types.GroupAuthenticated, types.GroupAPI},
+				Extra: map[string][]string{
+					principal.APIKeyIDExtra:   {fmt.Sprint(attribution.ID)},
+					principal.APIKeyNameExtra: {attribution.Name},
+				},
+			}))
+			if err != nil {
+				t.Fatalf("submit local-agent audit logs: %v", err)
+			}
+
+			for id := uint(1); id <= uint(len(events)); id++ {
+				got, err := gatewayClient.GetMCPAuditLog(t.Context(), id, true)
+				if err != nil {
+					t.Fatalf("get local-agent audit log %d: %v", id, err)
+				}
+				if got.APIKeyID == nil || *got.APIKeyID != attribution.ID || got.APIKeyName != tt.wantName {
+					t.Fatalf("audit log %d attribution = ID %v, name %q; want ID %d, name %q", id, got.APIKeyID, got.APIKeyName, attribution.ID, tt.wantName)
+				}
+				if got.LocalAgentToolCallFields.ActorType != types.AuditLogActorTypeUser || got.LocalAgentToolCallFields.ActorID != "7" {
+					t.Fatalf("audit log %d actor = %q/%q, want user/7", id, got.LocalAgentToolCallFields.ActorType, got.LocalAgentToolCallFields.ActorID)
+				}
+			}
+		})
 	}
 }
 
@@ -257,6 +307,9 @@ func TestLocalAgentAuditLogSubmitDeviceJWTStampsDeviceAttribution(t *testing.T) 
 	}
 	if got.UserID != "" {
 		t.Fatalf("userID = %q, want empty for device submitter", got.UserID)
+	}
+	if got.APIKeyID != nil || got.APIKeyName != "" {
+		t.Fatalf("device principal gained API-key attribution: ID=%v name=%q", got.APIKeyID, got.APIKeyName)
 	}
 	local := got.LocalAgentToolCallFields
 	if local == nil {
