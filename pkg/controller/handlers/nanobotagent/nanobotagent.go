@@ -310,9 +310,9 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Delete old API key if present.
-	// We're not deleting the key the container is currently using because it may take a few minutes for the volume
-	// to update with the new credentials. We delete the previously used key instead to ensure that we don't leave orphaned keys around.
+	// Revoke the old API key if present.
+	// We're not revoking the key the container is currently using because it may take a few minutes for the volume
+	// to update with the new credentials. We revoke the previously used key instead to ensure that we don't leave active orphaned keys around.
 	apiKeyIDStr := credEnvFileVars["MCP_API_KEY_ID_PREV"]
 	if apiKeyIDStr == "" {
 		// Backward compatibility while migrating old credentials.
@@ -321,7 +321,7 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	if apiKeyIDStr != "" {
 		if id, err := strconv.ParseUint(apiKeyIDStr, 10, 32); err == nil {
 			if err = h.gatewayClient.RevokeAPIKey(ctx, gatewayUser.ID, uint(id)); err != nil {
-				return fmt.Errorf("failed to delete old API key: %w", err)
+				return fmt.Errorf("failed to revoke old API key: %w", err)
 			}
 		}
 	}
@@ -593,7 +593,7 @@ func preferredModelsForAlias(aliasName types.DefaultModelAliasType) []string {
 	return preferred
 }
 
-// deleteTokens deletes the API key and MCP token associated with the MCP server.
+// deleteTokens revokes the API key and deletes the MCP token associated with the MCP server.
 func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpServerName string) error {
 	credCtx := fmt.Sprintf("%s-%s", agent.Spec.UserID, mcpServerName)
 
@@ -607,7 +607,7 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	// Extract and delete the API key if present
+	// Extract and revoke the API key if present
 
 	if apiKeyIDStr := parseEnvFile(cred.Secrets["NANOBOT_ENV_FILE"])["MCP_API_KEY_ID"]; apiKeyIDStr != "" {
 		apiKeyID, err := strconv.ParseUint(apiKeyIDStr, 10, 32)
@@ -615,15 +615,15 @@ func (h *Handler) deleteTokens(ctx context.Context, agent *v1.NanobotAgent, mcpS
 			return fmt.Errorf("failed to parse API key ID: %w", err)
 		}
 
-		// Look up the gateway user to get the uint ID needed for API key deletion
+		// Look up the gateway user to get the uint ID needed for API key revocation
 		gatewayUser, err := h.gatewayClient.UserByIDIncludeDeleted(ctx, agent.Spec.UserID)
 		if err != nil {
 			return fmt.Errorf("failed to get user: %w", err)
 		}
 
-		// Delete the API key
+		// Revoke the API key
 		if err := h.gatewayClient.RevokeAPIKey(ctx, gatewayUser.ID, uint(apiKeyID)); err != nil {
-			return fmt.Errorf("failed to delete API key: %w", err)
+			return fmt.Errorf("failed to revoke API key: %w", err)
 		}
 	}
 

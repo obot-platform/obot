@@ -84,7 +84,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	log.Infof("Deleted projects during user cleanup: userID=%s projects=%d", userID, len(projects.Items))
 
-	// Delete any API keys the user created. Nanobot-agent keys are handled by the
+	// Revoke any API keys the user created. Nanobot-agent keys are handled by the
 	// NanobotAgent delete flow above; this sweeps user-created keys plus anything
 	// the nanobot path missed.
 	apiKeys, err := u.gatewayClient.ListAPIKeys(req.Ctx, userDelete.Spec.UserID)
@@ -93,10 +93,10 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	}
 	for _, key := range apiKeys {
 		if err := u.gatewayClient.RevokeAPIKey(req.Ctx, userDelete.Spec.UserID, key.ID); err != nil {
-			return fmt.Errorf("failed to delete API key %d for user %d: %w", key.ID, userDelete.Spec.UserID, err)
+			return fmt.Errorf("failed to revoke API key %d for user %d: %w", key.ID, userDelete.Spec.UserID, err)
 		}
 	}
-	log.Infof("Deleted API keys during user cleanup: userID=%s keys=%d", userID, len(apiKeys))
+	log.Infof("Revoked API keys during user cleanup: userID=%s keys=%d", userID, len(apiKeys))
 
 	var servers v1.MCPServerList
 	if err := req.List(&servers, &kclient.ListOptions{
@@ -112,7 +112,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	for _, server := range servers.Items {
 		// Skip multi-user servers in the default MCPCatalog — they should persist after user deletion.
 		// Also skip servers that are associated with an agent because we need the credential to stick
-		// around so we can delete the API key.
+		// around so we can revoke the API key.
 		if server.Spec.MCPCatalogID == system.DefaultCatalog || server.Spec.NanobotAgentID != "" {
 			continue
 		}
