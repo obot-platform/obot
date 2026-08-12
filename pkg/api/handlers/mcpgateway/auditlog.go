@@ -1,7 +1,9 @@
 package mcpgateway
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -21,9 +23,11 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	"gorm.io/gorm"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -306,6 +310,9 @@ func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
 
 		auditLog.NormalizeMCPFields()
 		convertMCPAuditLog(&auditLog)
+		if err := h.attributeMCPAuditLogAPIKey(req.Context(), &auditLog); err != nil {
+			return fmt.Errorf("failed to attribute MCP audit log API key: %w", err)
+		}
 
 		// NanobotAgent containers are single-user; attribute audit logs to the owner
 		// when the container doesn't report a user (no auth middleware configured).
@@ -744,6 +751,10 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 
 // CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
 func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
+	h.collectMCPAuditEntry(context.Background(), entry)
+}
+
+func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog) {
 	if entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
 		// If the call type is empty, then this is a response to a request.
 		// The audit log will be handled elsewhere.
@@ -758,7 +769,46 @@ func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	}
 
 	convertMCPAuditLog(&auditLog)
+	if err := h.attributeMCPAuditLogAPIKey(ctx, &auditLog); err != nil {
+		log.Warnf("failed to attribute MCP audit log API key: %v", err)
+	}
 	h.gatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
+}
+
+// attributeMCPAuditLogAPIKey snapshots attribution for deployed nanobot MCP
+// servers. Their current authentication-proxy contract only propagates the
+// user subject, while their audit payload includes a non-secret redacted API
+// key prefix. Resolving the key at ingestion keeps audit reads
+// independent of the mutable API-key table.
+func (h *AuditLogHandler) attributeMCPAuditLogAPIKey(ctx context.Context, auditLog *auditLogInput) error {
+	if auditLog.APIKeyID != nil || h.gatewayClient == nil {
+		return nil
+	}
+	mcpFields := auditLog.MCPFields
+	if mcpFields == nil {
+		return nil
+	}
+
+	ownerUserID, keyID, err := gateway.ParseRedactedAPIKey(mcpFields.APIKey)
+	if err != nil {
+		return nil
+	}
+
+	apiKey, err := h.gatewayClient.GetAPIKey(ctx, ownerUserID, keyID)
+	var attribution principal.APIKeyAttribution
+	if err == nil {
+		attribution = principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
+		// Older keys may no longer have metadata. Preserve the stable ID and
+		// safe display fallback anyway.
+		attribution = principal.NewAPIKeyAttribution(keyID, ownerUserID, "")
+	} else {
+		return fmt.Errorf("get API key %d for user %d: %w", keyID, ownerUserID, err)
+	}
+
+	auditLog.APIKeyID = &attribution.ID
+	auditLog.APIKeyName = attribution.Name
+	return nil
 }
 
 func convertMCPAuditLog(auditLog *auditLogInput) {
@@ -770,6 +820,11 @@ func convertMCPAuditLog(auditLog *auditLogInput) {
 	}
 	if auditLog.SourceType == "" {
 		auditLog.SourceType = types.AuditLogSourceTypeMCP
+	}
+	if apiKeyID, err := strconv.ParseUint(auditLog.Metadata[principal.APIKeyIDExtra], 10, 0); err == nil && apiKeyID > 0 {
+		id := uint(apiKeyID)
+		auditLog.APIKeyID = &id
+		auditLog.APIKeyName = auditLog.Metadata[principal.APIKeyNameExtra]
 	}
 
 	mcp := auditLog.MCP()

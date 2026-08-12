@@ -74,7 +74,7 @@ func hostedAgentGroups(hasMCPServers bool) []string {
 //
 // The principal never carries GroupAPI, so an exfiltrated agent credential
 // cannot reach the Obot API.
-func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanceID string) (*authenticator.Response, bool, error) {
+func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanceID string, attribution principal.APIKeyAttribution) (*authenticator.Response, bool, error) {
 	if a.storage == nil {
 		return nil, false, nil
 	}
@@ -146,6 +146,8 @@ func (a *APIKeyAuthenticator) authenticateHostedAgent(req *http.Request, instanc
 				principal.AuthorizedModelIDsExtra: modelIDs,
 				"hosted_agent_instance_id":        {instance.Name},
 				principal.HostedAgentOwnerExtra:   {instance.Spec.UserID},
+				principal.APIKeyIDExtra:           {fmt.Sprintf("%d", attribution.ID)},
+				principal.APIKeyNameExtra:         {attribution.Name},
 			},
 		},
 	}, true, nil
@@ -178,7 +180,8 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	// user who created it, so it must not pick up the owner's identity, groups
 	// or role below.
 	if apiKey.HostedAgentInstanceID != nil && *apiKey.HostedAgentInstanceID != "" {
-		return a.authenticateHostedAgent(req, *apiKey.HostedAgentInstanceID)
+		return a.authenticateHostedAgent(req, *apiKey.HostedAgentInstanceID,
+			principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name))
 	}
 
 	// Get the user from the database
@@ -187,9 +190,12 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		return nil, false, nil
 	}
 
+	attribution := principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
 	extra := map[string][]string{
-		"email":              {u.Email},
-		"authorized_mcp_ids": apiKey.MCPServerIDs,
+		"email":                   {u.Email},
+		"authorized_mcp_ids":      apiKey.MCPServerIDs,
+		principal.APIKeyIDExtra:   {fmt.Sprintf("%d", attribution.ID)},
+		principal.APIKeyNameExtra: {attribution.Name},
 	}
 
 	// Look up auth provider group memberships so that group-based access

@@ -16,10 +16,14 @@ import (
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
 	ID         uint                      `json:"id" gorm:"primaryKey"`
-	CreatedAt  time.Time                 `json:"createdAt" gorm:"index"`
+	CreatedAt  time.Time                 `json:"createdAt" gorm:"index;index:idx_mcp_audit_api_key_created,priority:2"`
 	SourceType types2.AuditLogSourceType `json:"sourceType" gorm:"index;default:mcp"`
 	UserID     string                    `json:"userID" gorm:"index"`
-	ClientIP   string                    `json:"clientIP" gorm:"index"`
+	APIKeyID   *uint                     `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`
+	// APIKeyName is the event-time display value. Unnamed keys snapshot their
+	// non-secret masked identifier instead of requiring an API-key table join.
+	APIKeyName string `json:"apiKeyName,omitempty"`
+	ClientIP   string `json:"clientIP" gorm:"index"`
 
 	MCPFields                *MCPAuditLogFields                `json:"mcpFields,omitempty" gorm:"embedded"`
 	LocalAgentToolCallFields *LocalAgentToolCallAuditLogFields `json:"localAgentToolCallFields,omitempty" gorm:"embedded"`

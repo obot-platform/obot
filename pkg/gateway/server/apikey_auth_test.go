@@ -2,11 +2,17 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hostedagentmodels"
+	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
@@ -14,6 +20,67 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestAPIKeyAuthenticatorCarriesAuditAttribution(t *testing.T) {
+	_, client := newTokenRequestTestServer(t)
+	keyOwner, err := client.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "alice",
+		ProviderUserID:   "alice",
+		Email:            "alice@example.com",
+	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := client.CreateAPIKey(t.Context(), keyOwner.ID, "CLI token", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	req.Header.Set("Authorization", "Bearer "+created.Key)
+
+	response, ok, err := NewAPIKeyAuthenticator(client, nil).AuthenticateRequest(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || response == nil || response.User == nil {
+		t.Fatal("expected API key to authenticate")
+	}
+	attribution, ok := principal.APIKeyAttributionFromUser(response.User)
+	if !ok || attribution.ID != created.ID || attribution.Name != "CLI token" {
+		t.Fatalf("attribution = %#v, %v; want key %d named CLI token", attribution, ok, created.ID)
+	}
+}
+
+func TestAPIKeyAuthenticatorCarriesMaskedAttributionForUnnamedKey(t *testing.T) {
+	_, client := newTokenRequestTestServer(t)
+	keyOwner, err := client.EnsureIdentityWithRole(t.Context(), &gatewaytypes.Identity{
+		ProviderUsername: "alice-unnamed",
+		ProviderUserID:   "alice-unnamed",
+		Email:            "alice-unnamed@example.com",
+	}, "", types2.RoleBasic, gatewayclient.UserLimit{Unlimited: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	created, err := client.CreateAPIKey(t.Context(), keyOwner.ID, "", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	req.Header.Set("Authorization", "Bearer "+created.Key)
+
+	response, ok, err := NewAPIKeyAuthenticator(client, nil).AuthenticateRequest(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok || response == nil || response.User == nil {
+		t.Fatal("expected API key to authenticate")
+	}
+	attribution, ok := principal.APIKeyAttributionFromUser(response.User)
+	wantName := fmt.Sprintf("ok1-%d-%d-*****", keyOwner.ID, created.ID)
+	if !ok || attribution.ID != created.ID || attribution.Name != wantName {
+		t.Fatalf("attribution = %#v, %v; want key %d named %q", attribution, ok, created.ID, wantName)
+	}
+}
 
 // A hosted agent must never reach the Obot API. Live authorization decides
 // which MCP servers it may use, but nothing narrows the API surface except the

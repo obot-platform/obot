@@ -8508,6 +8508,19 @@ func schema_obot_platform_obot_apiclient_types_LLMAuditLog(ref common.ReferenceC
 							Format:  "",
 						},
 					},
+					"apiKeyID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int32",
+						},
+					},
+					"apiKeyName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIKeyName is the event-time display value and is a masked identifier for unnamed keys.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"modelProvider": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",

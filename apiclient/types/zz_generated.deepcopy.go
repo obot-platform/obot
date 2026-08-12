@@ -2979,6 +2979,11 @@ func (in *K8sSettingsStatus) DeepCopy() *K8sSettingsStatus {
 func (in *LLMAuditLog) DeepCopyInto(out *LLMAuditLog) {
 	*out = *in
 	in.CreatedAt.DeepCopyInto(&out.CreatedAt)
+	if in.APIKeyID != nil {
+		in, out := &in.APIKeyID, &out.APIKeyID
+		*out = new(uint)
+		**out = **in
+	}
 	if in.RequestHeaders != nil {
 		in, out := &in.RequestHeaders, &out.RequestHeaders
 		*out = make(json.RawMessage, len(*in))

@@ -76,3 +76,49 @@ func TestIsHostedAgent(t *testing.T) {
 		t.Error("a nil principal is not an agent")
 	}
 }
+
+func TestAPIKeyAttribution(t *testing.T) {
+	keyUser := &kuser.DefaultInfo{Extra: map[string][]string{
+		APIKeyIDExtra:   {"42"},
+		APIKeyNameExtra: {"CLI token"},
+	}}
+
+	got, ok := APIKeyAttributionFromUser(keyUser)
+	if !ok {
+		t.Fatal("expected API-key attribution")
+	}
+	if got.ID != 42 || got.Name != "CLI token" {
+		t.Fatalf("attribution = %#v, want ID 42 and name CLI token", got)
+	}
+
+	unnamed := &kuser.DefaultInfo{Extra: map[string][]string{APIKeyIDExtra: {"7"}}}
+	got, ok = APIKeyAttributionFromUser(unnamed)
+	if !ok || got.ID != 7 || got.Name != "" {
+		t.Fatalf("unnamed attribution = %#v, %v; want ID 7 and empty name", got, ok)
+	}
+
+	for _, invalid := range []kuser.Info{
+		nil,
+		&kuser.DefaultInfo{},
+		&kuser.DefaultInfo{Extra: map[string][]string{APIKeyIDExtra: {"not-a-number"}}},
+		&kuser.DefaultInfo{Extra: map[string][]string{APIKeyIDExtra: {"0"}}},
+	} {
+		if got, ok := APIKeyAttributionFromUser(invalid); ok {
+			t.Fatalf("invalid principal produced attribution %#v", got)
+		}
+	}
+}
+
+func TestNewAPIKeyAttributionResolvesDisplayName(t *testing.T) {
+	named := NewAPIKeyAttribution(42, 7, "CLI token")
+	if named.ID != 42 || named.Name != "CLI token" {
+		t.Fatalf("named attribution = %#v, want key name", named)
+	}
+
+	// The owner is passed explicitly because a hosted agent's principal UID is
+	// the instance, not the user ID embedded in its API-key prefix.
+	unnamedHostedAgentKey := NewAPIKeyAttribution(42, 7, "")
+	if unnamedHostedAgentKey.ID != 42 || unnamedHostedAgentKey.Name != "ok1-7-42-*****" {
+		t.Fatalf("unnamed attribution = %#v, want masked key identifier", unnamedHostedAgentKey)
+	}
+}

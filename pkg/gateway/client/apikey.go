@@ -6,6 +6,8 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -357,6 +359,36 @@ func ParseAPIKey(key string) (prefix string, userID uint, keyID uint, secret str
 		return "", 0, 0, "", fmt.Errorf("invalid API key prefix")
 	}
 	return prefix, userID, keyID, secret, nil
+}
+
+// ParseRedactedAPIKey extracts the owner and key IDs from the non-secret API
+// key prefix emitted by nanobot audit logs. Nanobot retains the first three
+// hyphen-delimited components or 12 characters, whichever is longer, so short
+// numeric components can be followed by a small fragment of the redacted
+// secret. Full bearer tokens are deliberately rejected.
+func ParseRedactedAPIKey(key string) (userID uint, keyID uint, err error) {
+	parts := strings.SplitN(key, "-", 4)
+	if len(parts) != 4 {
+		return 0, 0, fmt.Errorf("invalid redacted API key format")
+	}
+	if parts[0] != apiKeyPrefix {
+		return 0, 0, fmt.Errorf("invalid API key prefix")
+	}
+	prefixLength := len(parts[0]) + len(parts[1]) + len(parts[2]) + 3
+	if len(key) != max(prefixLength, 12) {
+		return 0, 0, fmt.Errorf("invalid redacted API key format")
+	}
+
+	parsedUserID, err := strconv.ParseUint(parts[1], 10, 0)
+	if err != nil || parsedUserID == 0 {
+		return 0, 0, fmt.Errorf("invalid redacted API key format")
+	}
+	parsedKeyID, err := strconv.ParseUint(parts[2], 10, 0)
+	if err != nil || parsedKeyID == 0 {
+		return 0, 0, fmt.Errorf("invalid redacted API key format")
+	}
+
+	return uint(parsedUserID), uint(parsedKeyID), nil
 }
 
 // Admin methods - no user filtering

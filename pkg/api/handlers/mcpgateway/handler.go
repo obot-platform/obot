@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type Handler struct {
@@ -38,6 +40,20 @@ type Handler struct {
 	nanobot                   http.Handler
 	secretBindingAllowedLabel string
 	tunnelManager             *tunnel.Manager
+}
+
+func auditLogMetadataForPrincipal(metadata map[string]string, user user.Info) map[string]string {
+	result := maps.Clone(metadata)
+	attribution, ok := principal.APIKeyAttributionFromUser(user)
+	if !ok {
+		return result
+	}
+	if result == nil {
+		result = map[string]string{}
+	}
+	result[principal.APIKeyIDExtra] = strconv.FormatUint(uint64(attribution.ID), 10)
+	result[principal.APIKeyNameExtra] = attribution.Name
+	return result
 }
 
 var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
@@ -205,7 +221,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		// Don't audit log composite loopback requests, they are internal to the MCP gateway
 		ctx = nmcp.WithAuditLogMetadata(ctx, map[string]string{mcp.AuditLogIgnore: "true"})
 	} else {
-		ctx = nmcp.WithAuditLogMetadata(ctx, serverConfig.AuditLogMetadata)
+		ctx = nmcp.WithAuditLogMetadata(ctx, auditLogMetadataForPrincipal(serverConfig.AuditLogMetadata, req.User))
 	}
 	ctx = nmcp.WithToken(ctx, strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer "))
 

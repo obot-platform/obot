@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -11,11 +12,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -69,6 +72,114 @@ func TestAuditLogInputUnmarshalIgnoresNestedMCPFields(t *testing.T) {
 	}
 	if input.MCP().MCPID != "" || input.MCP().CallIdentifier != "" {
 		t.Fatalf("expected nested MCP fields to be ignored, got %#v", input.MCP())
+	}
+}
+
+func TestConvertMCPAuditLogCapturesAPIKeyAttribution(t *testing.T) {
+	input := auditLogInput{
+		Metadata: map[string]string{
+			principal.APIKeyIDExtra:   "42",
+			principal.APIKeyNameExtra: "CLI token",
+		},
+	}
+
+	convertMCPAuditLog(&input)
+
+	if input.APIKeyID == nil || *input.APIKeyID != 42 {
+		t.Fatalf("APIKeyID = %v, want 42", input.APIKeyID)
+	}
+	if input.APIKeyName != "CLI token" {
+		t.Fatalf("APIKeyName = %q, want CLI token", input.APIKeyName)
+	}
+	if input.MCP().APIKey != "" {
+		t.Fatalf("legacy APIKey field = %q, want empty", input.MCP().APIKey)
+	}
+}
+
+func TestConvertMCPAuditLogCapturesMaskedUnnamedAPIKeyAttribution(t *testing.T) {
+	input := auditLogInput{
+		Metadata: map[string]string{
+			principal.APIKeyIDExtra:   "42",
+			principal.APIKeyNameExtra: "ok1-7-42-*****",
+		},
+	}
+
+	convertMCPAuditLog(&input)
+
+	if input.APIKeyID == nil || *input.APIKeyID != 42 {
+		t.Fatalf("APIKeyID = %v, want 42", input.APIKeyID)
+	}
+	if input.APIKeyName != "ok1-7-42-*****" {
+		t.Fatalf("APIKeyName = %q, want masked key identifier", input.APIKeyName)
+	}
+}
+
+func TestConvertMCPAuditLogLeavesNonAPIKeyEventUnattributed(t *testing.T) {
+	input := auditLogInput{Metadata: map[string]string{"mcpID": "mcp-1"}}
+
+	convertMCPAuditLog(&input)
+
+	if input.APIKeyID != nil || input.APIKeyName != "" {
+		t.Fatalf("non-API-key event gained attribution: ID=%v name=%q", input.APIKeyID, input.APIKeyName)
+	}
+}
+
+func TestAttributeMCPAuditLogAPIKeyUsesMaskedUnnamedFallback(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	created, err := gatewayClient.CreateAPIKey(t.Context(), 7, "", "", nil, gatewaytypes.APIKeyScopes{CanAccessLLMProxy: true})
+	if err != nil {
+		t.Fatalf("create API key: %v", err)
+	}
+
+	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{MCPFields: &gatewaytypes.MCPAuditLogFields{
+		APIKey: auditlogs.RedactAPIKey(created.Key),
+	}}}
+	if err := NewAuditLogHandler(gatewayClient).attributeMCPAuditLogAPIKey(t.Context(), &input); err != nil {
+		t.Fatal(err)
+	}
+
+	wantName := fmt.Sprintf("ok1-7-%d-*****", created.ID)
+	if input.APIKeyID == nil || *input.APIKeyID != created.ID || input.APIKeyName != wantName {
+		t.Fatalf("attribution = ID %v, name %q; want ID %d, name %q", input.APIKeyID, input.APIKeyName, created.ID, wantName)
+	}
+}
+
+func TestAttributeMCPAuditLogAPIKeyPreservesPrincipalSnapshot(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	id := uint(42)
+	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{
+		APIKeyID:   &id,
+		APIKeyName: "event-time name",
+		MCPFields:  &gatewaytypes.MCPAuditLogFields{APIKey: "ok1-7-1-"},
+	}}
+
+	if err := NewAuditLogHandler(gatewayClient).attributeMCPAuditLogAPIKey(t.Context(), &input); err != nil {
+		t.Fatal(err)
+	}
+
+	if input.APIKeyID == nil || *input.APIKeyID != 42 || input.APIKeyName != "event-time name" {
+		t.Fatalf("principal attribution was overwritten: ID=%v name=%q", input.APIKeyID, input.APIKeyName)
+	}
+}
+
+func TestAuditLogMetadataForPrincipalAddsAPIKeyAttribution(t *testing.T) {
+	base := map[string]string{"mcpID": "mcp-1"}
+	requestUser := &user.DefaultInfo{Extra: map[string][]string{
+		principal.APIKeyIDExtra:   {"42"},
+		principal.APIKeyNameExtra: {"CLI token"},
+	}}
+
+	got := auditLogMetadataForPrincipal(base, requestUser)
+
+	if got["mcpID"] != "mcp-1" || got[principal.APIKeyIDExtra] != "42" || got[principal.APIKeyNameExtra] != "CLI token" {
+		t.Fatalf("metadata = %#v, want server and API-key attribution", got)
+	}
+	if _, ok := base[principal.APIKeyIDExtra]; ok {
+		t.Fatalf("base metadata was mutated: %#v", base)
+	}
+	withoutKey := auditLogMetadataForPrincipal(base, &user.DefaultInfo{UID: "7"})
+	if _, ok := withoutKey[principal.APIKeyIDExtra]; ok {
+		t.Fatalf("ordinary principal gained API-key attribution: %#v", withoutKey)
 	}
 }
 

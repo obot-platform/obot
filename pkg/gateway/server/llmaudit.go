@@ -18,6 +18,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -48,12 +49,20 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	if user != nil {
 		userID = user.GetUID()
 	}
+	var apiKeyID *uint
+	apiKeyName := ""
+	if attribution, ok := principal.APIKeyAttributionFromUser(user); ok {
+		apiKeyID = &attribution.ID
+		apiKeyName = attribution.Name
+	}
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
 			ID:             uuid.NewString(),
 			CreatedAt:      now,
 			UserID:         userID,
+			APIKeyID:       apiKeyID,
+			APIKeyName:     apiKeyName,
 			RequestPath:    req.URL.Path,
 			RequestMethod:  req.Method,
 			RequestHeaders: redactedHeaders(req.Header),

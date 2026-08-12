@@ -285,9 +285,13 @@ func newTokenRequestTestServer(t *testing.T) (*Server, *client.Client) {
 		ObjectMeta: metav1.ObjectMeta{Name: "github", Namespace: system.DefaultNamespace},
 		Status:     v1.AuthProviderStatus{Configured: true},
 	}
+	defaultRole := &v1.UserDefaultRoleSetting{
+		ObjectMeta: metav1.ObjectMeta{Name: system.DefaultRoleSettingName, Namespace: system.DefaultNamespace},
+		Spec:       v1.UserDefaultRoleSettingSpec{Role: clienttypes.RoleBasic},
+	}
 	storageClient := clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithObjects(provider).
+		WithObjects(provider, defaultRole).
 		WithIndex(&v1.AuthProvider{}, "status.configured", func(obj kclient.Object) []string {
 			return []string{strconv.FormatBool(obj.(*v1.AuthProvider).Status.Configured)}
 		}).

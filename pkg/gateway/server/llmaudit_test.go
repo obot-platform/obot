@@ -13,10 +13,12 @@ import (
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 func TestRedactedHeaders(t *testing.T) {
@@ -81,6 +83,49 @@ func TestNewLLMAuditRecorderCapturesRequest(t *testing.T) {
 	}
 	if recorder.log.UserAgent != "PDi/JS 0.94.0" {
 		t.Fatalf("expected raw user agent, got %q", recorder.log.UserAgent)
+	}
+	if recorder.log.APIKeyID != nil || recorder.log.APIKeyName != "" {
+		t.Fatalf("non-API-key request gained attribution: ID=%v name=%q", recorder.log.APIKeyID, recorder.log.APIKeyName)
+	}
+}
+
+func TestNewLLMAuditRecorderCapturesAPIKeyAttribution(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	requestUser := &user.DefaultInfo{
+		UID: "7",
+		Extra: map[string][]string{
+			principal.APIKeyIDExtra:   {"42"},
+			principal.APIKeyNameExtra: {"CLI token"},
+		},
+	}
+
+	recorder := newLLMAuditRecorder(req, requestUser, 5<<20)
+
+	if recorder.log.APIKeyID == nil || *recorder.log.APIKeyID != 42 {
+		t.Fatalf("APIKeyID = %v, want 42", recorder.log.APIKeyID)
+	}
+	if recorder.log.APIKeyName != "CLI token" {
+		t.Fatalf("APIKeyName = %q, want CLI token", recorder.log.APIKeyName)
+	}
+}
+
+func TestNewLLMAuditRecorderCapturesMaskedUnnamedAPIKeyAttribution(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/api/llm-provider/openai/v1/responses", nil)
+	requestUser := &user.DefaultInfo{
+		UID: "hosted-agent:hai1abc",
+		Extra: map[string][]string{
+			principal.APIKeyIDExtra:   {"42"},
+			principal.APIKeyNameExtra: {"ok1-7-42-*****"},
+		},
+	}
+
+	recorder := newLLMAuditRecorder(req, requestUser, 5<<20)
+
+	if recorder.log.APIKeyID == nil || *recorder.log.APIKeyID != 42 {
+		t.Fatalf("APIKeyID = %v, want 42", recorder.log.APIKeyID)
+	}
+	if recorder.log.APIKeyName != "ok1-7-42-*****" {
+		t.Fatalf("APIKeyName = %q, want masked key identifier", recorder.log.APIKeyName)
 	}
 }
 

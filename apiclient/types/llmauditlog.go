@@ -4,10 +4,13 @@ import "encoding/json"
 
 // LLMAuditLog represents an audit log entry for LLM gateway calls.
 type LLMAuditLog struct {
-	ID                        string          `json:"id"`
-	CreatedAt                 Time            `json:"createdAt"`
-	Duration                  int64           `json:"duration"`
-	UserID                    string          `json:"userID"`
+	ID        string `json:"id"`
+	CreatedAt Time   `json:"createdAt"`
+	Duration  int64  `json:"duration"`
+	UserID    string `json:"userID"`
+	APIKeyID  *uint  `json:"apiKeyID,omitempty"`
+	// APIKeyName is the event-time display value and is a masked identifier for unnamed keys.
+	APIKeyName                string          `json:"apiKeyName,omitempty"`
 	ModelProvider             string          `json:"modelProvider"`
 	ModelID                   string          `json:"modelID"`
 	TargetModel               string          `json:"targetModel"`
