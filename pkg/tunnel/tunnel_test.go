@@ -505,9 +505,16 @@ func TestTunnelRoutesRequestsByName(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	manager, server := newManagerTestServer(ctx, t)
 	errorsByClient := make(chan error, 2)
+	sessionKeys := make(map[string]string, 2)
 
 	for name, responseBody := range map[string]string{"office": "from-office", "lab": "from-lab"} {
-		connection, _, err := dial(ctx, server.URL, testTunnelToken(name))
+		token := testTunnelToken(name)
+		matcher, ok := newCredentialMatcher(token)
+		if !ok {
+			t.Fatalf("test tunnel token for %q is invalid", name)
+		}
+		sessionKeys[name] = tunnelSessionKey(name, matcher.credentialID)
+		connection, _, err := dial(ctx, server.URL, token)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -524,13 +531,13 @@ func TestTunnelRoutesRequestsByName(t *testing.T) {
 
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		connected := localTunnelConnectionCount(manager, "office") > 0 &&
-			localTunnelConnectionCount(manager, "lab") > 0
+		connected := manager.remoteDialer.HasSession(sessionKeys["office"]) &&
+			manager.remoteDialer.HasSession(sessionKeys["lab"])
 		if connected {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("named tunnels did not register")
+			t.Fatal("named tunnel sessions did not become ready")
 		}
 		time.Sleep(time.Millisecond)
 	}
