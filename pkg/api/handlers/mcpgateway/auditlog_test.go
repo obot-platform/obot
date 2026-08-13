@@ -188,7 +188,7 @@ func TestListAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T) {
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call", &user.DefaultInfo{
 		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
 	}, recorder)
-	ctx.Request.SetPathValue("filter", "api_key_id")
+	ctx.SetPathValue("filter", "api_key_id")
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
 		t.Fatalf("list API-key filter options: %v", err)
 	}
@@ -226,7 +226,7 @@ func TestListAuditLogAPIKeyFilterOptionsIncludesLocalAgentKeysForMixedSources(t 
 	ctx := newAuditLogListContextWithRecorder(t, gatewayClient, "event_type=mcp_call,local_agent_tool_call", &user.DefaultInfo{
 		UID: "1", Groups: []string{types.GroupAuthenticated, types.GroupAdmin},
 	}, recorder)
-	ctx.Request.SetPathValue("filter", "api_key_id")
+	ctx.SetPathValue("filter", "api_key_id")
 
 	if err := NewAuditLogHandler(gatewayClient).ListAuditLogFilterOptions(ctx); err != nil {
 		t.Fatalf("list mixed-source API-key options: %v", err)
