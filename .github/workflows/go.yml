@@ -1,5 +1,8 @@
 name: go
 
+permissions:
+  contents: read
+
 on:
   push:
     branches:
@@ -19,6 +22,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v5

@@ -1,5 +1,9 @@
 name: Helm Chart
 
+permissions:
+  contents: read
+  packages: read
+
 on:
   push:
     branches:
@@ -22,6 +26,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
@@ -38,6 +44,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Helm
         uses: azure/setup-helm@v4
