@@ -59,7 +59,7 @@
 		"@types/react-dom": "^18.3.7",
 		"@uiw/codemirror-theme-github": "^4.25.9",
 		"dompurify": "3.4.13",
-		"@vitest/browser-playwright": "4.1.10",
+		"@vitest/browser-playwright": "^4.1.10",
 		"eslint": "^10.5.0",
 		"eslint-config-prettier": "^10.1.8",
 		"eslint-plugin-svelte": "^3.19.0",

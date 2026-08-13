@@ -611,7 +611,8 @@ export function createDeploymentsPageFixtures() {
 		id: 'entry-multi',
 		name: 'Entry Multi User',
 		runtime: 'npx',
-		serverUserType: 'multiUser'
+		serverUserType: 'multiUser',
+		env: [editableEnvField]
 	});
 	const entryRemote = createMCPCatalogEntry({
 		id: 'entry-remote',
@@ -629,7 +630,8 @@ export function createDeploymentsPageFixtures() {
 		id: 'entry-composite-child',
 		name: 'Entry Composite Child',
 		runtime: 'npx',
-		serverUserType: 'singleUser'
+		serverUserType: 'singleUser',
+		env: [editableEnvField]
 	});
 
 	const compositeServerId = 'server-composite';
@@ -702,6 +704,7 @@ export function createDeploymentsPageFixtures() {
 		runtime: 'npx',
 		serverUserType: 'multiUser',
 		catalogEntryID: '',
+		env: [editableEnvField],
 		created: '2026-01-02T00:00:00.000Z',
 		userID
 	});

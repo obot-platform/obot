@@ -175,18 +175,18 @@ describe('MCP Deployments Page', () => {
 			});
 		});
 
-		it('composite child shows parent audit logs and keeps edit/restart', async () => {
+		it('composite child shows parent audit logs and keeps restart', async () => {
 			await openRowActions(fixtures.serverCompositeChild.manifest.name!);
 
 			await expect
 				.element(page.getByRole('link', { name: 'View Catalog Entry', exact: true }))
 				.toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Edit Configuration', exact: true }))
-				.toBeVisible();
-			await expect
 				.element(page.getByRole('button', { name: 'Restart Server', exact: true }))
 				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Configuration', exact: true }))
+				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: /View Parent Server\s*Audit Logs/ }))
 				.toBeVisible();

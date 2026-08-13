@@ -2,7 +2,9 @@ import * as data from './data';
 import { http, HttpResponse } from 'msw';
 
 export const handlers = [
-	http.get('/api/all-mcps/entries', () => HttpResponse.json({ items: data.listMCPsResponse })),
+	http.get('/api/all-mcps/entries', () =>
+		HttpResponse.json({ items: data.listMCPCatalogEntriesResponse })
+	),
 	http.get('/api/all-mcps/servers', () =>
 		HttpResponse.json({ items: data.listMCPCatalogServersResponse })
 	),
