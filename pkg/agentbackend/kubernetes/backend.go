@@ -31,6 +31,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/pkg/agentbackend"
+	"github.com/obot-platform/obot/pkg/hash"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -43,6 +44,10 @@ const (
 	// revisionAnnotation carries the Obot-supplied desired revision. It is
 	// stored verbatim and reported back as the observed revision.
 	revisionAnnotation = "obot.ai/agent-revision"
+	// schedulingRevisionAnnotation records the deployment-wide scheduling
+	// defaults used to build a pod template. Unlike the agent revision, these
+	// settings can change without changing desired instance state.
+	schedulingRevisionAnnotation = "obot.ai/hosted-agent-scheduling-revision"
 
 	instanceLabel = "obot.ai/hosted-agent-instance"
 	poolLabel     = "obot.ai/hosted-agent-pool"
@@ -184,6 +189,22 @@ func New(client, cachedClient kclient.Client, opts Options) (*Backend, error) {
 		attachClient: attachClient,
 		devTransport: devTransport,
 	}, nil
+}
+
+func (b *Backend) podSchedulingRevision() string {
+	if b.opts.Affinity == nil && len(b.opts.Tolerations) == 0 && len(b.opts.NodeSelector) == 0 {
+		return ""
+	}
+
+	return hash.String(struct {
+		Affinity     *corev1.Affinity    `json:"affinity,omitempty"`
+		Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
+		NodeSelector map[string]string   `json:"nodeSelector,omitempty"`
+	}{
+		Affinity:     b.opts.Affinity,
+		Tolerations:  b.opts.Tolerations,
+		NodeSelector: b.opts.NodeSelector,
+	})
 }
 
 // poolName is the shared name of a pool's PriorityClass, ResourceQuota,
