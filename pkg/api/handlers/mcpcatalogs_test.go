@@ -362,7 +362,7 @@ func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
 	require.Equal(t, "user-value", input[key])
 }
 
-func TestPrepareTempServerConfigUsesCatalogDefaultInURLTemplate(t *testing.T) {
+func TestPrepareTempServerConfigUsesSelectedOptionInURLTemplate(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime: types.RuntimeRemote,
 		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
