@@ -2,6 +2,7 @@ package kubernetes
 
 import (
 	"encoding/json"
+	"reflect"
 
 	"testing"
 
@@ -34,6 +35,99 @@ func desiredInstance() agentbackend.DesiredInstance {
 		Image:    "example.com/agent:v1",
 		Requests: agentbackend.InstanceResources{CPUVCPUs: 0.5, MemoryBytes: 1 << 30},
 		Limits:   agentbackend.InstanceResources{CPUVCPUs: 2, MemoryBytes: 4 << 30},
+	}
+}
+
+func TestHostedAgentPodScheduling(t *testing.T) {
+	affinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+					MatchExpressions: []corev1.NodeSelectorRequirement{{
+						Key:      "workload",
+						Operator: corev1.NodeSelectorOpIn,
+						Values:   []string{"hosted-agent"},
+					}},
+				}},
+			},
+		},
+	}
+	tolerations := []corev1.Toleration{{
+		Key:      "workload",
+		Operator: corev1.TolerationOpEqual,
+		Value:    "hosted-agent",
+		Effect:   corev1.TaintEffectNoSchedule,
+	}}
+	nodeSelector := map[string]string{"node-pool": "agents"}
+	backend, err := New(nil, nil, Options{
+		Namespace:     "obot-agents",
+		ClusterDomain: "cluster.local",
+		Affinity:      affinity,
+		Tolerations:   tolerations,
+		NodeSelector:  nodeSelector,
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	objects, err := backend.instanceObjects(desiredInstance())
+	if err != nil {
+		t.Fatalf("instanceObjects: %v", err)
+	}
+	cleanup, err := backend.cleanupJob("inst-1", "alloc-1")
+	if err != nil {
+		t.Fatalf("cleanupJob: %v", err)
+	}
+
+	specs := map[string]*corev1.PodSpec{
+		"sandbox": &deploymentFrom(t, objects).Spec.Template.Spec,
+		"cleanup": &cleanup.Spec.Template.Spec,
+	}
+	for name, spec := range specs {
+		t.Run(name, func(t *testing.T) {
+			if !reflect.DeepEqual(spec.Affinity, affinity) {
+				t.Errorf("unexpected affinity: %#v", spec.Affinity)
+			}
+			if !reflect.DeepEqual(spec.Tolerations, tolerations) {
+				t.Errorf("unexpected tolerations: %#v", spec.Tolerations)
+			}
+			if !reflect.DeepEqual(spec.NodeSelector, nodeSelector) {
+				t.Errorf("unexpected node selector: %#v", spec.NodeSelector)
+			}
+		})
+	}
+
+	// Each workload gets its own copy; mutating one generated pod template must
+	// not alter another or the backend's deployment-wide settings.
+	specs["sandbox"].NodeSelector["node-pool"] = "other"
+	if got := specs["cleanup"].NodeSelector["node-pool"]; got != "agents" {
+		t.Fatalf("sandbox node selector mutation leaked to cleanup job: %q", got)
+	}
+	if got := backend.opts.NodeSelector["node-pool"]; got != "agents" {
+		t.Fatalf("sandbox node selector mutation leaked to backend options: %q", got)
+	}
+}
+
+func TestHostedAgentPodSchedulingDefaultsAreEmpty(t *testing.T) {
+	backend := testBackend(t)
+	objects, err := backend.instanceObjects(desiredInstance())
+	if err != nil {
+		t.Fatalf("instanceObjects: %v", err)
+	}
+	cleanup, err := backend.cleanupJob("inst-1", "alloc-1")
+	if err != nil {
+		t.Fatalf("cleanupJob: %v", err)
+	}
+
+	for name, spec := range map[string]*corev1.PodSpec{
+		"sandbox": &deploymentFrom(t, objects).Spec.Template.Spec,
+		"cleanup": &cleanup.Spec.Template.Spec,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if spec.Affinity != nil || len(spec.Tolerations) != 0 || len(spec.NodeSelector) != 0 {
+				t.Fatalf("expected empty scheduling fields, got %+v", spec)
+			}
+		})
 	}
 }
 

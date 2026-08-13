@@ -31,6 +31,15 @@ data:
   OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL: {{ if .Values.mcpNamespace.podSecurity.enabled }}{{ .Values.mcpNamespace.podSecurity.enforce | quote }}{{ else }}"privileged"{{ end }}
   {{- end }}
   {{- end }}
+  {{- if .Values.hostedAgentDefaults.affinity }}
+  OBOT_SERVER_HOSTED_AGENTS_AFFINITY: {{ .Values.hostedAgentDefaults.affinity | toJson | quote }}
+  {{- end }}
+  {{- if .Values.hostedAgentDefaults.tolerations }}
+  OBOT_SERVER_HOSTED_AGENTS_TOLERATIONS: {{ .Values.hostedAgentDefaults.tolerations | toJson | quote }}
+  {{- end }}
+  {{- if .Values.hostedAgentDefaults.nodeSelector }}
+  OBOT_SERVER_HOSTED_AGENTS_NODE_SELECTOR: {{ .Values.hostedAgentDefaults.nodeSelector | toJson | quote }}
+  {{- end }}
   {{- if .Values.mcpServerDefaults.affinity }}
   OBOT_SERVER_MCPK8S_SETTINGS_AFFINITY: {{ .Values.mcpServerDefaults.affinity | toJson | quote }}
   {{- end }}

@@ -74,6 +74,88 @@ func TestNewAgentBackend(t *testing.T) {
 	}
 }
 
+func TestParseHostedAgentPodSchedulingSettings(t *testing.T) {
+	tests := []struct {
+		name          string
+		config        Config
+		errorContains string
+		validate      func(*testing.T, hostedAgentPodSchedulingSettings)
+	}{
+		{
+			name: "empty settings",
+			config: Config{
+				HostedAgentsAffinity:     "{}",
+				HostedAgentsTolerations:  "[]",
+				HostedAgentsNodeSelector: "{}",
+			},
+			validate: func(t *testing.T, settings hostedAgentPodSchedulingSettings) {
+				t.Helper()
+				if settings.Affinity != nil || len(settings.Tolerations) != 0 || len(settings.NodeSelector) != 0 {
+					t.Fatalf("expected empty scheduling settings, got %+v", settings)
+				}
+			},
+		},
+		{
+			name: "valid combined settings",
+			config: Config{
+				HostedAgentsAffinity:     `{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"workload","operator":"In","values":["hosted-agent"]}]}]}}}`,
+				HostedAgentsTolerations:  `[{"key":"workload","operator":"Equal","value":"hosted-agent","effect":"NoSchedule"}]`,
+				HostedAgentsNodeSelector: `{"node-pool":"agents"}`,
+			},
+			validate: func(t *testing.T, settings hostedAgentPodSchedulingSettings) {
+				t.Helper()
+				if settings.Affinity == nil || settings.Affinity.NodeAffinity == nil {
+					t.Fatal("expected node affinity")
+				}
+				if len(settings.Tolerations) != 1 || settings.Tolerations[0].Key != "workload" {
+					t.Fatalf("unexpected tolerations: %+v", settings.Tolerations)
+				}
+				if settings.NodeSelector["node-pool"] != "agents" {
+					t.Fatalf("unexpected node selector: %+v", settings.NodeSelector)
+				}
+			},
+		},
+		{
+			name:          "malformed affinity",
+			config:        Config{HostedAgentsAffinity: `{invalid`},
+			errorContains: "failed to parse hosted agent affinity",
+		},
+		{
+			name:          "unknown affinity field",
+			config:        Config{HostedAgentsAffinity: `{"unknownField":true}`},
+			errorContains: "unknown field",
+		},
+		{
+			name:          "tolerations have wrong type",
+			config:        Config{HostedAgentsTolerations: `{}`},
+			errorContains: "failed to parse hosted agent tolerations",
+		},
+		{
+			name:          "node selector has wrong value type",
+			config:        Config{HostedAgentsNodeSelector: `{"node-pool":1}`},
+			errorContains: "failed to parse hosted agent node selector",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			settings, err := parseHostedAgentPodSchedulingSettings(tt.config)
+			if tt.errorContains != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.errorContains) {
+					t.Fatalf("expected error containing %q, got %v", tt.errorContains, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.validate != nil {
+				tt.validate(t, settings)
+			}
+		})
+	}
+}
+
 func TestLeaderElectionRESTConfig(t *testing.T) {
 	tests := []struct {
 		name     string

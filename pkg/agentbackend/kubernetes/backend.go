@@ -80,6 +80,11 @@ type Options struct {
 	StorageClassName string
 	// RuntimeClassName is the name of the runtime class to use for the sandbox pods.
 	RuntimeClassName string
+	// Affinity, Tolerations, and NodeSelector constrain every pod created by
+	// the backend, including cleanup jobs that must reach the pool volume.
+	Affinity     *corev1.Affinity
+	Tolerations  []corev1.Toleration
+	NodeSelector map[string]string
 	// FSGroup owns the per-instance subdirectory on the shared volume.
 	FSGroup int64
 	// PodSecurityLevel must match the Pod Security Admission level enforced on

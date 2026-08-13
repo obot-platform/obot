@@ -362,6 +362,15 @@ mcpNamespace:
     # mcpNamespace.podSecurity.warnVersion -- Kubernetes version for the warn policy. Default is latest.
     warnVersion: latest
 
+# hostedAgentDefaults -- Default Kubernetes scheduling configuration for hosted agent pods
+hostedAgentDefaults:
+  # hostedAgentDefaults.affinity -- Affinity rules applied to hosted agent sandboxes and cleanup jobs
+  affinity: {}
+  # hostedAgentDefaults.tolerations -- Tolerations applied to hosted agent sandboxes and cleanup jobs
+  tolerations: []
+  # hostedAgentDefaults.nodeSelector -- Node labels required by hosted agent sandboxes and cleanup jobs
+  nodeSelector: {}
+
 # mcpServerDefaults -- Default Kubernetes configuration for all deployed MCP server pods
 mcpServerDefaults:
   # mcpServerDefaults.affinity -- Affinity rules for MCP server pods (YAML format)

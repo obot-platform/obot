@@ -355,6 +355,7 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 	if b.opts.RuntimeClassName != "" {
 		deployment.Spec.Template.Spec.RuntimeClassName = new(b.opts.RuntimeClassName)
 	}
+	b.setPodScheduling(&deployment.Spec.Template.Spec)
 
 	for _, pullSecret := range b.opts.ImagePullSecrets {
 		deployment.Spec.Template.Spec.ImagePullSecrets = append(
@@ -518,7 +519,7 @@ func (b *Backend) cleanupJob(instanceID, poolID string) (*batchv1.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &batchv1.Job{
+	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cleanupJobName(instanceID),
 			Namespace: b.opts.Namespace,
@@ -573,7 +574,24 @@ func (b *Backend) cleanupJob(instanceID, poolID string) (*batchv1.Job, error) {
 				},
 			},
 		},
-	}, nil
+	}
+	b.setPodScheduling(&job.Spec.Template.Spec)
+	return job, nil
+}
+
+func (b *Backend) setPodScheduling(spec *corev1.PodSpec) {
+	if b.opts.Affinity != nil {
+		spec.Affinity = b.opts.Affinity.DeepCopy()
+	}
+	if len(b.opts.Tolerations) > 0 {
+		spec.Tolerations = make([]corev1.Toleration, len(b.opts.Tolerations))
+		for i := range b.opts.Tolerations {
+			b.opts.Tolerations[i].DeepCopyInto(&spec.Tolerations[i])
+		}
+	}
+	if len(b.opts.NodeSelector) > 0 {
+		spec.NodeSelector = maps.Clone(b.opts.NodeSelector)
+	}
 }
 
 // cleanupResources keeps the job small and Guaranteed. Deleting a sandbox must

@@ -137,6 +137,9 @@ type Config struct {
 	HostedAgentsImagePullPolicy          string `usage:"Pull policy for hosted agent sandbox images (Always, IfNotPresent, Never)" default:"" name:"hosted-agents-image-pull-policy" env:"OBOT_HOSTED_AGENTS_IMAGE_PULL_POLICY"`
 	HostedAgentsCleanupImage             string `usage:"Image used to erase a deleted sandbox's directory from its pool volume. Needs a shell and coreutils." name:"hosted-agents-cleanup-image" default:"busybox:1.36"`
 	HostedAgentsRuntimeClassName         string `usage:"RuntimeClass for hosted agent deployments" name:"hosted-agents-runtime-class-name"`
+	HostedAgentsAffinity                 string `usage:"Affinity rules for hosted agent pods (JSON)" name:"hosted-agents-affinity"`
+	HostedAgentsTolerations              string `usage:"Tolerations for hosted agent pods (JSON)" name:"hosted-agents-tolerations"`
+	HostedAgentsNodeSelector             string `usage:"Node selector for hosted agent pods (JSON)" name:"hosted-agents-node-selector"`
 	MCPServerSearchImage                 string `usage:"Container image for the obot MCP server" default:"ghcr.io/obot-platform/obot-mcp-server:v0.2.0"`
 	NanobotAgentImage                    string `usage:"Container image for the Nanobot agent MCP server" default:"ghcr.io/obot-platform/nanobot-agent:v0.0.92"`
 	MCPNetworkPolicyProviderChartRepo    string `usage:"Helm repository URL for the network policy provider chart"`
@@ -305,6 +308,38 @@ func unmarshalJSONStrict(data []byte, v any) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)
+}
+
+type hostedAgentPodSchedulingSettings struct {
+	Affinity     *corev1.Affinity
+	Tolerations  []corev1.Toleration
+	NodeSelector map[string]string
+}
+
+func parseHostedAgentPodSchedulingSettings(config Config) (hostedAgentPodSchedulingSettings, error) {
+	var settings hostedAgentPodSchedulingSettings
+
+	if config.HostedAgentsAffinity != "" && config.HostedAgentsAffinity != "{}" {
+		var affinity corev1.Affinity
+		if err := unmarshalJSONStrict([]byte(config.HostedAgentsAffinity), &affinity); err != nil {
+			return settings, fmt.Errorf("failed to parse hosted agent affinity: %w", err)
+		}
+		settings.Affinity = &affinity
+	}
+
+	if config.HostedAgentsTolerations != "" && config.HostedAgentsTolerations != "[]" {
+		if err := unmarshalJSONStrict([]byte(config.HostedAgentsTolerations), &settings.Tolerations); err != nil {
+			return settings, fmt.Errorf("failed to parse hosted agent tolerations: %w", err)
+		}
+	}
+
+	if config.HostedAgentsNodeSelector != "" && config.HostedAgentsNodeSelector != "{}" {
+		if err := unmarshalJSONStrict([]byte(config.HostedAgentsNodeSelector), &settings.NodeSelector); err != nil {
+			return settings, fmt.Errorf("failed to parse hosted agent node selector: %w", err)
+		}
+	}
+
+	return settings, nil
 }
 
 // parsePSASettingsFromHelm parses Pod Security Admission settings from environment/Helm options.
@@ -1499,6 +1534,10 @@ func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cach
 		if client == nil {
 			return "", nil, fmt.Errorf("agent backend %q requires a local Kubernetes cluster, but no local K8s config is available", kind)
 		}
+		scheduling, err := parseHostedAgentPodSchedulingSettings(config)
+		if err != nil {
+			return "", nil, err
+		}
 		backend, err := agentbackendkubernetes.New(client, cachedClient, agentbackendkubernetes.Options{
 			// Sandboxes share the MCP namespace so that the existing local
 			// cluster router, which is scoped to it, sees them. Pools are
@@ -1507,6 +1546,9 @@ func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cach
 			ClusterDomain:    config.MCPClusterDomain,
 			StorageClassName: config.HostedAgentsStorageClassName,
 			RuntimeClassName: config.HostedAgentsRuntimeClassName,
+			Affinity:         scheduling.Affinity,
+			Tolerations:      scheduling.Tolerations,
+			NodeSelector:     scheduling.NodeSelector,
 			// Sandboxes share the MCP namespace, so they are admitted against
 			// whatever Pod Security level that namespace carries.
 			PodSecurityLevel: agentbackendkubernetes.ParsePodSecurityLevel(config.HostedAgentsPodSecurityLevel),
