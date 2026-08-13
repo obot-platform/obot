@@ -473,12 +473,6 @@ func (c *Client) revokeAPIKey(ctx context.Context, keyID uint, userID *uint) err
 	return nil
 }
 
-// DeleteAPIKeyByID is retained for callers that still use the old lifecycle
-// name. It revokes the key and does not delete retained metadata.
-func (c *Client) DeleteAPIKeyByID(ctx context.Context, keyID uint) error {
-	return c.RevokeAPIKeyByID(ctx, keyID)
-}
-
 // UpdateAPIKeyLastUsed updates the last_used_at timestamp for an API key
 // if more than a minute has elapsed since the previous timestamp.
 func (c *Client) UpdateAPIKeyLastUsed(ctx context.Context, key *types.APIKey) error {
