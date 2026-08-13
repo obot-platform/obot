@@ -2,6 +2,7 @@ package auditlog
 
 import (
 	"fmt"
+	"strings"
 
 	api "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -133,7 +134,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 }
 
 func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
-	if name == "" || userID == "" || apiKeyID == nil {
+	if name == "" || userID == "" || apiKeyID == nil || strings.HasPrefix(userID, "hosted-agent:") {
 		return name
 	}
 

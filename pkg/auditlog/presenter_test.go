@@ -93,6 +93,32 @@ func TestPresentMCPDoesNotDuplicateMaskedUnnamedAPIKey(t *testing.T) {
 	}
 }
 
+func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
+	apiKeyID := uint(42)
+	for _, test := range []struct {
+		name       string
+		apiKeyName string
+	}{
+		{name: "named key", apiKeyName: "CLI token"},
+		{name: "unnamed key", apiKeyName: "ok1-7-42-*****"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			log := gatewaytypes.MCPAuditLog{
+				SourceType: api.AuditLogSourceTypeMCP,
+				UserID:     "hosted-agent:hai1abc",
+				APIKeyID:   &apiKeyID,
+				APIKeyName: test.apiKeyName,
+				MCPFields:  &gatewaytypes.MCPAuditLogFields{},
+			}
+
+			actor := Present(log, PresentOptions{}).Actor
+			if actor.CredentialID != test.apiKeyName {
+				t.Fatalf("credential display = %q, want %q", actor.CredentialID, test.apiKeyName)
+			}
+		})
+	}
+}
+
 func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 	recorded := time.Date(2026, 7, 14, 10, 0, 1, 0, time.UTC)
 	observed := recorded.Add(-time.Second)
