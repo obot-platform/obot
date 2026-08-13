@@ -65,7 +65,7 @@ func mustDecodeDoc(t *testing.T, raw string) modelsDevDocument {
 func TestParseModelInfos(t *testing.T) {
 	infos, err := parseModelInfos(system.DefaultNamespace, "default", mustDecodeDoc(t, sampleAPIJSON))
 	require.NoError(t, err)
-	require.Len(t, infos, 6, "anthropic + 2 openai + 2 bedrock + Azure Entra, cohere dropped")
+	require.Len(t, infos, 7, "anthropic + 2 openai + 2 bedrock + Azure API key + Azure Entra, cohere dropped")
 
 	byProviderAndModel := map[string]v1.ModelInfoSpec{}
 	for _, info := range infos {
@@ -105,11 +105,13 @@ func TestParseModelInfos(t *testing.T) {
 		assert.Equal(t, 0.1, b.Cost.CacheRead)
 	}
 
-	azure := byProviderAndModel[system.AzureEntraModelProvider+"/gpt-4o"]
-	assert.Equal(t, system.AzureEntraModelProvider, azure.Provider)
-	assert.Equal(t, 2.5, azure.Cost.Input)
-	assert.Equal(t, 10.0, azure.Cost.Output)
-	assert.Equal(t, 1.25, azure.Cost.CacheRead)
+	for _, provider := range []string{system.AzureModelProvider, system.AzureEntraModelProvider} {
+		azure := byProviderAndModel[provider+"/gpt-4o"]
+		assert.Equal(t, provider, azure.Provider)
+		assert.Equal(t, 2.5, azure.Cost.Input)
+		assert.Equal(t, 10.0, azure.Cost.Output)
+		assert.Equal(t, 1.25, azure.Cost.CacheRead)
+	}
 }
 
 func TestParseModelInfos_NoKnownProviders(t *testing.T) {

@@ -20,6 +20,7 @@ var obotProviderToProviderID = map[string]string{
 	system.OpenAIModelProvider:              "openai",
 	system.AmazonBedrockModelProvider:       "amazon-bedrock",
 	system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
+	system.AzureModelProvider:               "azure",
 	system.AzureEntraModelProvider:          "azure",
 }
 

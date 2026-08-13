@@ -76,7 +76,7 @@ In the Azure portal, find your API key and endpoint URL after setting up at leas
 You must also specify deployment names as a comma-separated list using `deployment[:usage[:dialect]]`. Usage defaults to `llm`. Dialect defaults to `openai`; specify `anthropic` for Claude deployments. For example: `my-gpt-deployment,my-claude-deployment:llm:anthropic`.
 
 :::note
-Obot reports token counts for the Azure API key provider, but does not report estimated spend. Azure API key requests use deployment names, which Obot cannot reliably map to the underlying model's price.
+Obot reports token counts for the Azure API key provider and estimates spend when a deployment name exactly matches a model in its pricing catalog. Azure API key requests use deployment names, so deployments with different names cannot be reliably mapped to an underlying model and do not have estimated spend.
 :::
 
 ##### Microsoft Entra ID Authentication
