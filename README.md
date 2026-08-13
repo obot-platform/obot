@@ -128,6 +128,12 @@ This Docker configuration mounts the host Docker socket so Obot can launch hoste
 
 See the [Installation Guide](https://docs.obot.ai/installation/overview) for Kubernetes, external PostgreSQL, encryption, authentication, and production configuration.
 
+## Design and architecture
+
+Significant changes begin as [Obot Design Proposals](https://github.com/obot-platform/obot-design-proposals) so the architecture can be discussed before implementation. Architectural decisions that ship are recorded as concise [Architecture Decision Records](adr/README.md) in this repository.
+
+An ODP captures the proposed design and the discussion that shaped it. An ADR records the durable decision reflected in the implementation.
+
 ## Documentation and Community
 
 - Documentation: [https://docs.obot.ai](https://docs.obot.ai)

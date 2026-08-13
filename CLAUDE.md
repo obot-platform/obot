@@ -61,6 +61,28 @@ pnpm run ci           # Run format, lint, and check
 make serve-docs       # Start local docs server
 ```
 
+## Design Proposals and Architecture Decisions
+
+- Significant or architecturally important changes are designed first in the
+  [Obot Design Proposals repository](https://github.com/obot-platform/obot-design-proposals).
+  A merged ODP is the signal that implementation may proceed.
+- When an implementation introduces a meaningful architectural decision,
+  include an ADR in the implementation pull request. Follow
+  [`adr/README.md`](adr/README.md) and start from
+  [`adr/template.md`](adr/template.md).
+- An ODP records the design considered before implementation. An ADR records
+  the concise, durable decision that actually shipped; do not duplicate the
+  entire proposal in the ADR.
+- Link the ADR to every related GitHub issue and to its ODP when applicable. If
+  implementation differs materially from the accepted ODP, resolve that design
+  change through a follow-up ODP rather than documenting the surprise only in
+  the ADR.
+- Do not mark an ADR superseded or deprecated unless a human has made that
+  decision.
+- When one ADR supersedes another, update both records in the same change: the
+  new ADR links to the old one through `Supersedes`, and the old ADR is marked
+  `Superseded` and links back through `Superseded by`.
+
 ## Architecture
 
 ### Entry Points
