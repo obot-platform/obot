@@ -205,8 +205,9 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 	event.Timestamp.Source = api.AuditLogTimestampSourceClientReported
 	event.Timestamp.OccurredAt = *api.NewTime(local.OccurredAt)
 	event.Actor = api.AuditLogActor{
-		ActorType: local.ActorType,
-		ID:        local.ActorID,
+		ActorType:    local.ActorType,
+		ID:           local.ActorID,
+		CredentialID: apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName),
 	}
 	event.Action = api.AuditLogAction{
 		Operation: "tools/call",

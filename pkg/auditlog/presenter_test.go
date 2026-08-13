@@ -137,7 +137,7 @@ func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 	if event.Timestamp.OccurredAt.GetTime() != observed || event.Timestamp.RecordedAt.GetTime() != recorded || event.Timestamp.Source != api.AuditLogTimestampSourceClientReported {
 		t.Fatalf("unexpected timestamps: %#v", event.Timestamp)
 	}
-	if event.Actor.ActorType != api.AuditLogActorTypeDevice || event.Actor.ID != "device-1" {
+	if event.Actor.ActorType != api.AuditLogActorTypeDevice || event.Actor.ID != "device-1" || event.Actor.CredentialID != "" {
 		t.Fatalf("unexpected actor: %#v", event.Actor)
 	}
 	if event.Target.TargetType != api.AuditLogTargetTypeMCPTool || event.Target.Parent == nil || event.Target.Parent.Name != "github" {
@@ -145,6 +145,25 @@ func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 	}
 	if event.Outcome.Status != api.AuditLogOutcomeStatusDenied || event.Outcome.Reason != "policy" {
 		t.Fatalf("unexpected outcome: %#v", event.Outcome)
+	}
+}
+
+func TestPresentLocalAgentIncludesAPIKeyCredential(t *testing.T) {
+	apiKeyID := uint(17)
+	log := gatewaytypes.MCPAuditLog{
+		SourceType: api.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:     "42",
+		APIKeyID:   &apiKeyID,
+		APIKeyName: "Local CLI",
+		LocalAgentToolCallFields: &gatewaytypes.LocalAgentToolCallAuditLogFields{
+			ActorType: api.AuditLogActorTypeUser,
+			ActorID:   "42",
+		},
+	}
+
+	actor := Present(log, PresentOptions{}).Actor
+	if actor.CredentialID != "Local CLI (ok1-42-17-*****)" {
+		t.Fatalf("unexpected API-key credential: %#v", actor)
 	}
 }
 
