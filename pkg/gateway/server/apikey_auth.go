@@ -161,7 +161,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		}
 	}
 
-	// Check if this is an API key (starts with ok1-)
+	// Check if this value uses the shared API key prefix.
 	if !strings.HasPrefix(authHeader, system.APIKeyPrefix+"-") {
 		return nil, false, nil
 	}
