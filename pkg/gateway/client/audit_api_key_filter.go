@@ -51,7 +51,11 @@ func (c *Client) GetLLMAuditLogAPIKeyFilterOptions(ctx context.Context, opts LLM
 	return c.scanAuditLogAPIKeyFilterOptions(ctx, db, opts.Limit)
 }
 
+// scanAuditLogAPIKeyFilterOptions returns the unique API keys represented by
+// the filtered audit-log query in db, enriched with current key and user data.
 func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.DB, limit int) ([]apitypes.AuditLogAPIKeyFilterOption, error) {
+	// API key names are immutable, so every snapshot for a key should have the
+	// same name. MAX selects that value while grouping the snapshots by key ID.
 	snapshots := db.
 		Where("api_key_id IS NOT NULL").
 		Select("api_key_id, MAX(api_key_name) AS api_key_name").
