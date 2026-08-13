@@ -332,7 +332,6 @@
 	$effect(() => {
 		const otherFilters = { ...auditLogsSlideoverFilters };
 		const duration = otherFilters.duration;
-		delete otherFilters.api_key_id;
 		delete otherFilters.duration;
 		UserService.listAuditLogFilterOptions('api_key_id', {
 			...otherFilters,

@@ -171,7 +171,6 @@
 	$effect(() => {
 		const controller = new AbortController();
 		const otherFilters = { ...filters };
-		delete otherFilters.api_key_id;
 		AdminService.listLLMAuditLogFilterOptions('api_key_id', {
 			...otherFilters,
 			offset: null,
