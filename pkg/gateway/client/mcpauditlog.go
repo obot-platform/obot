@@ -218,11 +218,10 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		return nil, 0, err
 	}
 
-	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	db, eventTime, err := c.auditLogBaseQuery(ctx, opts, sources)
 	if err != nil {
 		return nil, 0, err
 	}
-	eventTime := auditLogEventTimeExpression(sources)
 
 	if hasMCPAuditLogFilters(opts) {
 		db = applyMCPAuditLogFilters(db.Where("source_type = ?", types2.AuditLogSourceTypeMCP), opts)
@@ -243,7 +242,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 		return nil, 0, err
 	}
 
-	sortExpression, err := auditLogSortExpression(opts, sources)
+	sortExpression, err := auditLogSortExpression(opts, sources, eventTime)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -276,14 +275,16 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 }
 
 // auditLogBaseQuery applies the source, search, shared-column, time, and duration filters common
-// to audit-log list and filter-option queries. Callers add source-specific and unified filters.
-func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions, sources []types2.AuditLogSourceType) (*gorm.DB, error) {
+// to audit-log list and filter-option queries. It also returns the effective event-time expression
+// used by the time filters so list queries can reuse it for ordering. Callers add source-specific
+// and unified filters.
+func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions, sources []types2.AuditLogSourceType) (*gorm.DB, string, error) {
 	db := c.db.WithContext(ctx).Model(&types.MCPAuditLog{}).Where("source_type IN ?", sources)
 	db = applySharedAuditLogFilters(db, opts)
 	if opts.Query != "" {
 		var err error
 		if db, err = c.applyAuditLogSearch(ctx, db, opts.Query); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
@@ -302,7 +303,7 @@ func (c *Client) auditLogBaseQuery(ctx context.Context, opts MCPAuditLogOptions,
 		db = db.Where("CASE WHEN source_type = ? THEN duration_ms ELSE processing_time_ms END <= ?",
 			types2.AuditLogSourceTypeLocalAgentToolCall, opts.ProcessingTimeMax)
 	}
-	return db, nil
+	return db, eventTime, nil
 }
 
 // ValidateAuditLogOptions verifies source selection, source-specific filter compatibility, and sort
@@ -337,7 +338,8 @@ func ValidateAuditLogOptions(opts MCPAuditLogOptions, sources []types2.AuditLogS
 	if opts.SortOrder != "" && opts.SortOrder != "asc" && opts.SortOrder != "desc" {
 		return fmt.Errorf("invalid audit log sort direction %q", opts.SortOrder)
 	}
-	_, err := auditLogSortExpression(opts, sources)
+	eventTime := auditLogEventTimeExpression(sources)
+	_, err := auditLogSortExpression(opts, sources, eventTime)
 	return err
 }
 
@@ -534,10 +536,10 @@ func (c *Client) applyAuditLogSearch(ctx context.Context, db *gorm.DB, queryValu
 	return db.Where("("+strings.Join(parts, " OR ")+")", args...), nil
 }
 
-func auditLogSortExpression(opts MCPAuditLogOptions, sources []types2.AuditLogSourceType) (string, error) {
+func auditLogSortExpression(opts MCPAuditLogOptions, sources []types2.AuditLogSourceType, eventTime string) (string, error) {
 	sortBy := opts.SortBy
 	if sortBy == "" || sortBy == "timestamp" {
-		return auditLogEventTimeExpression(sources), nil
+		return eventTime, nil
 	}
 	switch sortBy {
 	case "event_type":
@@ -706,7 +708,7 @@ func (c *Client) getUnifiedAuditLogFilterOptions(ctx context.Context, option str
 	expr := auditLogUnifiedFilterOptionExpr[option]
 	sources := auditlog.NormalizeSourceTypes(opts.SourceTypes)
 
-	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	db, _, err := c.auditLogBaseQuery(ctx, opts, sources)
 	if err != nil {
 		return nil, err
 	}
