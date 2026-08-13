@@ -86,6 +86,10 @@
 
 	{#snippet additRequestContent(data)}
 		{@const requestURL = [data.requestMethod, data.requestPath].filter(Boolean).join(' ')}
+		{@const apiKey = formatAuditLogAPIKeyName(
+			data.apiKeyName ?? '',
+			getAuditLogAPIKeyMaskedKey(data.userID, data.apiKeyID)
+		)}
 		{#if requestURL}
 			<p class="break-all grid grid-cols-2 gap-2">
 				<span class="font-medium">Request URL:</span>
@@ -98,13 +102,10 @@
 				{data.userAgent}
 			</p>
 		{/if}
-		{#if data.apiKeyName}
+		{#if apiKey}
 			<p class="break-all grid grid-cols-2 gap-2">
 				<span class="font-medium">API Key:</span>
-				{formatAuditLogAPIKeyName(
-					data.apiKeyName,
-					getAuditLogAPIKeyMaskedKey(data.userID, data.apiKeyID)
-				)}
+				{apiKey}
 			</p>
 		{/if}
 	{/snippet}

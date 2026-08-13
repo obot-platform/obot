@@ -20,7 +20,7 @@ export function getAuditLogAPIKeyFilterOptionLabel(option: AuditLogAPIKeyFilterO
 }
 
 export function formatAuditLogAPIKeyName(name: string, maskedKey: string): string {
-	return name && name !== maskedKey ? `${name} (${maskedKey})` : maskedKey || name;
+	return name && maskedKey && name !== maskedKey ? `${name} (${maskedKey})` : maskedKey || name;
 }
 
 export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {
