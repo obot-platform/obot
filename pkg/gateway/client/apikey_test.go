@@ -191,15 +191,53 @@ func TestParseRedactedAPIKey(t *testing.T) {
 		wantKeyID  uint
 		wantErr    bool
 	}{
-		{name: "valid redacted key", key: "ok1-123-456-", wantUserID: 123, wantKeyID: 456},
-		{name: "valid redacted key with short ID fragment", key: "ok1-7-1-abcd", wantUserID: 7, wantKeyID: 1},
-		{name: "full key is rejected", key: "ok1-123-456-secret", wantErr: true},
-		{name: "wrong prefix", key: "ok2-123-456-", wantErr: true},
-		{name: "missing user ID", key: "ok1--456-", wantErr: true},
-		{name: "missing key ID", key: "ok1-123--", wantErr: true},
-		{name: "zero user ID", key: "ok1-0-456-", wantErr: true},
-		{name: "zero key ID", key: "ok1-123-0-", wantErr: true},
-		{name: "not an API key", key: "", wantErr: true},
+		{
+			name:       "valid redacted key",
+			key:        "ok1-123-456-",
+			wantUserID: 123,
+			wantKeyID:  456,
+		},
+		{
+			name:       "valid redacted key with short ID fragment",
+			key:        "ok1-7-1-abcd",
+			wantUserID: 7,
+			wantKeyID:  1,
+		},
+		{
+			name:    "full key is rejected",
+			key:     "ok1-123-456-secret",
+			wantErr: true,
+		},
+		{
+			name:    "wrong prefix",
+			key:     "ok2-123-456-",
+			wantErr: true,
+		},
+		{
+			name:    "missing user ID",
+			key:     "ok1--456-",
+			wantErr: true,
+		},
+		{
+			name:    "missing key ID",
+			key:     "ok1-123--",
+			wantErr: true,
+		},
+		{
+			name:    "zero user ID",
+			key:     "ok1-0-456-",
+			wantErr: true,
+		},
+		{
+			name:    "zero key ID",
+			key:     "ok1-123-0-",
+			wantErr: true,
+		},
+		{
+			name:    "not an API key",
+			key:     "",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
