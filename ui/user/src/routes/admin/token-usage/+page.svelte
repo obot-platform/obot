@@ -307,7 +307,7 @@
 				rows.push(row);
 			}
 			const labels = new Map(
-				getAPIKeyFilterOptions(filtered).map((option) => [option.id, option.label])
+				getAPIKeyFilterOptions(filtered, users).map((option) => [option.id, option.label])
 			);
 			return [...byAPIKey.entries()].map(([apiKeyID, rows]) => {
 				const apiKeyLabel = labels.get(apiKeyID) ?? `API key #${apiKeyID}`;
@@ -668,7 +668,7 @@
 
 	const apiKeyOptions = $derived([
 		{ label: 'All API Keys', id: ALL_API_KEYS },
-		...getAPIKeyFilterOptions(data)
+		...getAPIKeyFilterOptions(data, usersMap)
 	]);
 	const apiKeyOptionsMap = $derived(
 		new Map(apiKeyOptions.map((option) => [option.id, option.label]))
@@ -732,6 +732,26 @@
 				<Select
 					class="dark:border-base-400 border border-transparent"
 					classes={{
+						root: 'w-full md:min-w-72 md:flex-[2] dark:border-base-400'
+					}}
+					options={apiKeyOptions}
+					selected={selectedAPIKeyIDsForSelect}
+					onSelect={(option) => handleToggleAPIKeyFilter(option.id)}
+					onClear={(option) => option && handleRemoveAPIKeyFilter(option.id)}
+					onClearAll={selectedAPIKeyIDsForSelect !== ALL_API_KEYS
+						? () => handleRemoveAllAPIKeyFilters()
+						: undefined}
+					id="api-key-select"
+					multiple
+					searchInDropdown
+					placeholder="Filter by API key..."
+					buttonReadOnly
+					buttonTitle="API Keys"
+					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
+				/>
+				<Select
+					class="dark:border-base-400 border border-transparent"
+					classes={{
 						root: 'w-full md:flex-1 dark:border-base-400'
 					}}
 					options={usersOptions}
@@ -748,26 +768,6 @@
 					buttonReadOnly
 					buttonTitle="Users"
 					displayCount={!!selectedUserIdsForSelect && selectedUserIdsForSelect !== ALL_USERS}
-				/>
-				<Select
-					class="dark:border-base-400 border border-transparent"
-					classes={{
-						root: 'w-full md:flex-1 dark:border-base-400'
-					}}
-					options={apiKeyOptions}
-					selected={selectedAPIKeyIDsForSelect}
-					onSelect={(option) => handleToggleAPIKeyFilter(option.id)}
-					onClear={(option) => option && handleRemoveAPIKeyFilter(option.id)}
-					onClearAll={selectedAPIKeyIDsForSelect !== ALL_API_KEYS
-						? () => handleRemoveAllAPIKeyFilters()
-						: undefined}
-					id="api-key-select"
-					multiple
-					searchInDropdown
-					placeholder="Filter by API key..."
-					buttonReadOnly
-					buttonTitle="API Keys"
-					displayCount={!!selectedAPIKeyIDsForSelect && selectedAPIKeyIDsForSelect !== ALL_API_KEYS}
 				/>
 				<Select
 					class="dark:border-base-400 border border-transparent"
@@ -853,6 +853,17 @@
 					<div class="flex shrink-0 min-h-12">
 						<button
 							class={twMerge(
+								'w-28 whitespace-nowrap border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
+								selectedSubview === USAGE_SUBVIEW.API_KEYS
+									? 'border-primary'
+									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+							)}
+							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
+						>
+							API Keys
+						</button>
+						<button
+							class={twMerge(
 								'w-24 border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
 								selectedSubview === USAGE_SUBVIEW.MODELS
 									? 'border-primary'
@@ -872,17 +883,6 @@
 							onclick={() => selectSubview(USAGE_SUBVIEW.USERS)}
 						>
 							Users
-						</button>
-						<button
-							class={twMerge(
-								'w-28 whitespace-nowrap border-b-2 border-transparent px-4 py-2 transition-colors duration-400',
-								selectedSubview === USAGE_SUBVIEW.API_KEYS
-									? 'border-primary'
-									: 'hover:border-primary/25 text-muted-content hover:text-base-content'
-							)}
-							onclick={() => selectSubview(USAGE_SUBVIEW.API_KEYS)}
-						>
-							API Keys
 						</button>
 						<button
 							class={twMerge(

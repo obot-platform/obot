@@ -212,7 +212,10 @@ export function getUserLabels(
 	);
 }
 
-export function getAPIKeyFilterOptions(rows: TokenUsage[]): { id: string; label: string }[] {
+export function getAPIKeyFilterOptions(
+	rows: TokenUsage[],
+	users: Map<string, OrgUser>
+): { id: string; label: string }[] {
 	const options = new Map<string, string>();
 	for (const row of rows) {
 		if (row.apiKeyID == null) continue;
@@ -222,7 +225,12 @@ export function getAPIKeyFilterOptions(rows: TokenUsage[]): { id: string; label:
 		const maskedIdentifier = row.userID
 			? `ok1-${row.userID}-${row.apiKeyID}-*****`
 			: `API key #${row.apiKeyID}`;
-		const label = row.apiKeyName || maskedIdentifier;
+		const key =
+			row.apiKeyName && row.apiKeyName !== maskedIdentifier
+				? `${row.apiKeyName} (${maskedIdentifier})`
+				: maskedIdentifier;
+		const owner = getUserDisplayName(users, row.userID ?? '');
+		const label = `${key} • ${owner}`;
 		options.set(id, label);
 	}
 
