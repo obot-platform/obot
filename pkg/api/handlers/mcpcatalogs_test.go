@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -55,7 +56,7 @@ type fakeCapacityInfoProvider struct {
 }
 
 func (f *fakeCapacityInfoProvider) GetCapacityInfoForServers(_ context.Context, serverNames []string) (types.MCPCapacityInfo, error) {
-	f.serverNames = append([]string(nil), serverNames...)
+	f.serverNames = slices.Clone(serverNames)
 	return f.info, f.err
 }
 
@@ -113,11 +114,11 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			wantErr:          "entry does not belong to catalog",
 		},
 		{
-			name:             "returns backend not supported as capacity error",
+			name:             "rejects unsupported backend",
 			entryCatalogName: "catalog-1",
 			entryRuntime:     types.RuntimeContainerized,
 			providerErr:      &mcp.ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"},
-			wantResponse:     types.MCPCapacityInfo{Error: "feature capacity info is not supported by docker backend"},
+			wantErr:          "feature capacity info is not supported by docker backend",
 		},
 	}
 

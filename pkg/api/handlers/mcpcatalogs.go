@@ -625,9 +625,7 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 	if err != nil {
 		var notSupported *mcp.ErrNotSupportedByBackend
 		if errors.As(err, &notSupported) {
-			return req.Write(types.MCPCapacityInfo{
-				Error: notSupported.Error(),
-			})
+			return types.NewErrBadRequest("%s", notSupported.Error())
 		}
 		return err
 	}

@@ -523,17 +523,17 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 // GetCapacityInfo returns capacity information for the MCP namespace.
 // Only available when using the Kubernetes backend.
 func (sm *SessionManager) GetCapacityInfo(ctx context.Context) (types.MCPCapacityInfo, error) {
-	if k8sBackend, ok := sm.backend.(*kubernetesBackend); ok {
-		return k8sBackend.GetCapacityInfo(ctx), nil
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
 	}
-	return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
+	return sm.backend.(*kubernetesBackend).GetCapacityInfo(ctx), nil
 }
 
 // GetCapacityInfoForServers returns capacity information for the given MCP server deployments.
 // Only available when using the Kubernetes backend.
 func (sm *SessionManager) GetCapacityInfoForServers(ctx context.Context, serverNames []string) (types.MCPCapacityInfo, error) {
-	if k8sBackend, ok := sm.backend.(*kubernetesBackend); ok {
-		return k8sBackend.GetCapacityInfoForServers(ctx, serverNames), nil
+	if sm == nil || !IsKubernetesBackend(sm.runtimeBackend) {
+		return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
 	}
-	return types.MCPCapacityInfo{}, &ErrNotSupportedByBackend{Feature: "capacity info", Backend: "docker"}
+	return sm.backend.(*kubernetesBackend).GetCapacityInfoForServers(ctx, serverNames), nil
 }

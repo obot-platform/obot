@@ -23,12 +23,10 @@ func NewMCPCapacityHandler(mcpSessionManager *mcp.SessionManager) *MCPCapacityHa
 func (h *MCPCapacityHandler) GetCapacity(req api.Context) error {
 	info, err := h.mcpSessionManager.GetCapacityInfo(req.Context())
 	if err != nil {
-		// If backend doesn't support capacity info (e.g., Docker), return empty info
+		// If backend doesn't support capacity info (e.g., Docker), return bad request.
 		var notSupported *mcp.ErrNotSupportedByBackend
 		if errors.As(err, &notSupported) {
-			return req.Write(types.MCPCapacityInfo{
-				Error: notSupported.Error(),
-			})
+			return types.NewErrBadRequest("%s", notSupported.Error())
 		}
 		return err
 	}
