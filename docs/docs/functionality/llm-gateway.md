@@ -39,7 +39,7 @@ For each provider you have access to, the page shows:
 If you don't have access to any gateway models, the page shows a **"No gateway models available"** message — contact an administrator to request access through a [Model Access Policy](./model-access-policies.md).
 
 :::info Use the name exactly as shown
-The model name shown on the Models page is the value to put in your request's `model` field (and to select in your client). For OpenAI, Anthropic, and Generic Responses Compatible providers this is the provider's native model ID, including any `/` characters. For Amazon Bedrock, use the Mantle model ID returned by the Bedrock provider, such as `anthropic.claude-haiku-4-5`, `openai.gpt-5.4`, or `google.gemma-4-31b`. For Azure and Azure Entra, use the Azure deployment name exactly as configured in Obot; it does not need to resemble the underlying model name.
+The model name shown on the Models page is the value to put in your request's `model` field (and to select in your client). For OpenAI, Anthropic, and Generic Responses Compatible providers this is the provider's native model ID, including any `/` characters. For Amazon Bedrock, use the Mantle model ID returned by the Bedrock provider, such as `anthropic.claude-sonnet-5`, `openai.gpt-5.4`, or `google.gemma-4-31b`. For Azure and Azure Entra, use the Azure deployment name exactly as configured in Obot; it does not need to resemble the underlying model name.
 :::
 
 The **LLM Gateway** sidebar section also groups the administrator pages that power this feature:
@@ -139,7 +139,7 @@ curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/messages \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
-  -d '{"model":"anthropic.claude-haiku-4-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"anthropic.claude-sonnet-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
 
 # OpenAI-compatible Bedrock model
 curl https://obot.example.com/api/llm-proxy/aws-bedrock/v1/responses \
@@ -163,7 +163,7 @@ curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/messages \
   -H "Authorization: Bearer $OBOT_API_KEY" \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
-  -d '{"model":"anthropic.claude-haiku-4-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
+  -d '{"model":"anthropic.claude-sonnet-5","max_tokens":1024,"messages":[{"role":"user","content":"hi"}]}'
 
 # OpenAI-compatible Bedrock model
 curl https://obot.example.com/api/llm-proxy/aws-bedrock-api-key/v1/responses \
@@ -289,7 +289,7 @@ export ANTHROPIC_AUTH_TOKEN="$(obot login --url https://obot.example.com --scope
 export CLAUDE_CODE_SKIP_MANTLE_AUTH=1
 export CLAUDE_CODE_USE_MANTLE=1
 
-claude --model anthropic.claude-haiku-4-5
+claude --model anthropic.claude-sonnet-5
 ```
 
   </TabItem>
@@ -301,7 +301,7 @@ export ANTHROPIC_AUTH_TOKEN="$(obot login --url https://obot.example.com --scope
 export CLAUDE_CODE_SKIP_MANTLE_AUTH=1
 export CLAUDE_CODE_USE_MANTLE=1
 
-claude --model anthropic.claude-haiku-4-5
+claude --model anthropic.claude-sonnet-5
 ```
 
   </TabItem>
@@ -321,9 +321,10 @@ Claude Code can use an Azure deployment whose model dialect is `AnthropicMessage
   <TabItem value="api-key" label="API key" default>
 
 ```bash
-ANTHROPIC_FOUNDRY_BASE_URL='https://obot.example.com/api/llm-proxy/azure' \
-ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)" \
-CLAUDE_CODE_USE_FOUNDRY=1 \
+export ANTHROPIC_FOUNDRY_BASE_URL="https://obot.example.com/api/llm-proxy/azure"
+export ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
+export CLAUDE_CODE_USE_FOUNDRY=1
+
 claude --model my-claude-deployment
 ```
 
@@ -331,9 +332,10 @@ claude --model my-claude-deployment
   <TabItem value="entra-id" label="Entra ID">
 
 ```bash
-ANTHROPIC_FOUNDRY_BASE_URL='https://obot.example.com/api/llm-proxy/azure-entra' \
-ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)" \
-CLAUDE_CODE_USE_FOUNDRY=1 \
+export ANTHROPIC_FOUNDRY_BASE_URL="https://obot.example.com/api/llm-proxy/azure-entra"
+export ANTHROPIC_FOUNDRY_API_KEY="$(obot login --url https://obot.example.com --scope llm --print-token)"
+export CLAUDE_CODE_USE_FOUNDRY=1
+
 claude --model my-claude-deployment
 ```
 
