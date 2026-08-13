@@ -931,6 +931,7 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 						Required:    true,
 					},
 				})
+				existing[env] = struct{}{}
 			}
 		}
 	}
@@ -997,6 +998,7 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 						Required:    true,
 					},
 				})
+				existing[env] = struct{}{}
 			}
 		}
 	}

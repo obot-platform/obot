@@ -3126,6 +3126,20 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 			wantErr: "cannot be a file",
 		},
 		{
+			name: "remote URLTemplate with duplicate file env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}, File: true},
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}},
+				},
+			},
+			wantErr: "cannot be a file",
+		},
+		{
 			name: "remote URLTemplate with dynamic file env is rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
@@ -3137,6 +3151,20 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 			wantErr: "cannot be a file",
 		},
 		{
+			name: "remote URLTemplate with duplicate dynamic file env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}, DynamicFile: true},
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}},
+				},
+			},
+			wantErr: "cannot be a file",
+		},
+		{
 			name: "remote URLTemplate with secret-bound env is rejected",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeRemote,
@@ -3144,6 +3172,20 @@ func TestValidateTemplateReferences_CatalogEntry(t *testing.T) {
 					URLTemplate: "https://${TAG}.example.com/mcp",
 				},
 				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TAG", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "url-secret", Key: "tag"}}}},
+			},
+			wantErr: "cannot use secretBinding",
+		},
+		{
+			name: "remote URLTemplate with duplicate secret-bound env is rejected",
+			manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{
+					URLTemplate: "https://${TAG}.example.com/mcp",
+				},
+				Env: []types.MCPEnv{
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true, SecretBinding: &types.MCPSecretBinding{Name: "url-secret", Key: "tag"}}},
+					{MCPHeader: types.MCPHeader{Key: "TAG", Required: true}},
+				},
 			},
 			wantErr: "cannot use secretBinding",
 		},

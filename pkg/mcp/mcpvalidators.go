@@ -1959,20 +1959,20 @@ func validateTemplateReferences(envs []types.MCPEnv, fields []string, requireDec
 }
 
 func validateRemoteURLTemplateEnv(envs []types.MCPEnv, urlTemplate string) error {
-	envsByKey := make(map[string]types.MCPEnv, len(envs))
-	for _, env := range envs {
-		envsByKey[env.Key] = env
-	}
+	referenced := make(map[string]struct{})
 	for _, name := range extractEnvRefs(urlTemplate) {
-		env, ok := envsByKey[name]
+		referenced[name] = struct{}{}
+	}
+	for _, env := range envs {
+		_, ok := referenced[env.Key]
 		if !ok {
 			continue
 		}
 		if env.File || env.DynamicFile {
-			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot be a file", name)
+			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot be a file", env.Key)
 		}
 		if env.SecretBinding != nil {
-			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot use secretBinding", name)
+			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot use secretBinding", env.Key)
 		}
 	}
 	return nil

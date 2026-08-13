@@ -61,6 +61,24 @@ func TestAddExtractedEnvVarsDefaultsToSensitive(t *testing.T) {
 	}
 }
 
+func TestAddExtractedEnvVarsDeduplicatesRepeatedReferences(t *testing.T) {
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: types.MCPServerManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Args: []string{"${REGION}/${REGION}"}},
+	}}}
+	addExtractedEnvVars(&server)
+	require.Len(t, server.Spec.Manifest.Env, 1)
+	require.Equal(t, "REGION", server.Spec.Manifest.Env[0].Key)
+
+	catalogManifest := types.MCPServerCatalogEntryManifest{
+		Runtime:      types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/${REGION}"},
+	}
+	addExtractedEnvVarsToCatalogEntryManifest(&catalogManifest)
+	require.Len(t, catalogManifest.Env, 1)
+	require.Equal(t, "REGION", catalogManifest.Env[0].Key)
+}
+
 func TestAddExtractedEnvVarsToCatalogEntryManifestRemoteFields(t *testing.T) {
 	t.Run("missing variable becomes env", func(t *testing.T) {
 		manifest := types.MCPServerCatalogEntryManifest{
