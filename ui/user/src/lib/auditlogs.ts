@@ -24,7 +24,9 @@ export function formatAuditLogAPIKeyName(name: string, maskedKey: string): strin
 }
 
 export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {
-	return userID && apiKeyID !== undefined ? `ok1-${userID}-${apiKeyID}-*****` : '';
+	return userID && !userID.startsWith('hosted-agent:') && apiKeyID !== undefined
+		? `ok1-${userID}-${apiKeyID}-*****`
+		: '';
 }
 
 export function toAuditLogFilterSelectOption(option: AuditLogFilterOption): {
