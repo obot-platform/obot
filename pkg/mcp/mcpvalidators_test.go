@@ -106,8 +106,13 @@ func TestValidateCatalogConfigurationConstraints(t *testing.T) {
 	manifest, err = types.MapCatalogEntryToServer(catalog, "", false)
 	require.NoError(t, err)
 	manifest.RemoteConfig.URL = "https://us.example.com/mcp"
-	pinnedCatalog := manifest.ConvertToCatalogEntry()
+	pinnedCatalog := *catalog.DeepCopy()
+	pinnedCatalog.RemoteConfig.FixedURL = manifest.RemoteConfig.URL
 	require.NoError(t, ValidateCatalogConfigurationConstraints(manifest, pinnedCatalog))
+	manifest.Env = append([]types.MCPEnv(nil), manifest.Env...)
+	manifest.Env[0].Options = nil
+	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, pinnedCatalog), `env "REGION" options must match the source catalog entry`)
+	manifest.Env[0].Options = options
 	manifest.RemoteConfig.URL = "https://attacker.example/mcp"
 	require.EqualError(t, ValidateCatalogConfigurationConstraints(manifest, pinnedCatalog), "remoteConfig.url must match the deployed catalog configuration")
 

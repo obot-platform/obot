@@ -1696,7 +1696,15 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			}
 			manifest = applySecretBindingOverlay(manifest, input.MCPServerManifest)
 		}
-		if err := mcp.ValidateCatalogConfigurationConstraints(manifest, catalogEntry.Spec.Manifest); err != nil {
+		catalogConstraints := catalogEntry.Spec.Manifest
+		if isAdminOverride &&
+			catalogConstraints.RemoteConfig != nil &&
+			catalogConstraints.RemoteConfig.URLTemplate != "" &&
+			manifest.RemoteConfig != nil {
+			catalogConstraints = *catalogEntry.Spec.Manifest.DeepCopy()
+			catalogConstraints.RemoteConfig.FixedURL = manifest.RemoteConfig.URL
+		}
+		if err := mcp.ValidateCatalogConfigurationConstraints(manifest, catalogConstraints); err != nil {
 			return types.NewErrBadRequest("invalid catalog configuration: %v", err)
 		}
 
