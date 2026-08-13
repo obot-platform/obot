@@ -648,16 +648,10 @@ func TestValidateAndResolveURLTemplateConfig(t *testing.T) {
 	}
 
 	remoteConfig := &types.RemoteRuntimeConfig{URLTemplate: template, Headers: headers}
-	values, err := ValidateAndResolveURLTemplateConfig(envs, remoteConfig, nil)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{
-		"REGION":        "env-default",
-		"WORKSPACE":     "legacy-default",
-		"TENANT":        "",
-		"LEGACY_TENANT": "",
-	}, values)
+	_, err := ValidateAndResolveURLTemplateConfig(envs, remoteConfig, nil)
+	require.EqualError(t, err, `configuration value "TENANT" referenced by remoteConfig.urlTemplate is required`)
 
-	values, err = ValidateAndResolveURLTemplateConfig(envs, remoteConfig, map[string]string{
+	values, err := ValidateAndResolveURLTemplateConfig(envs, remoteConfig, map[string]string{
 		"REGION":         "configured-env",
 		"WORKSPACE":      "configured-legacy-header",
 		"TENANT":         "configured-env-field",

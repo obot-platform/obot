@@ -682,6 +682,9 @@ func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *type
 		if configuredValue := configured[key]; value == "" && configuredValue != "" {
 			value = configuredValue
 		}
+		if value == "" {
+			return nil, fmt.Errorf("configuration value %q referenced by remoteConfig.urlTemplate is required", key)
+		}
 		values[key] = value
 	}
 	return values, nil

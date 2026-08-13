@@ -408,6 +408,21 @@ func TestPrepareTempServerConfigRejectsInvalidOptionAsBadRequest(t *testing.T) {
 	require.Contains(t, httpErr.Message, `env "REGION" value "eu" is not one of the configured options`)
 }
 
+func TestPrepareTempServerConfigRejectsEmptyURLTemplateValue(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "TENANT", Required: true}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "https://example.com/mcp/${TENANT}",
+		},
+	}
+
+	_, err := prepareTempServerConfig(t.Context(), nil, "obot-ns", "allowed-secret", &manifest, map[string]string{"TENANT": ""}, false, mcp.ValidationOptions{})
+	require.ErrorContains(t, err, `configuration value "TENANT" referenced by remoteConfig.urlTemplate is required`)
+	require.Empty(t, manifest.RemoteConfig.URL)
+}
+
 func TestPrepareTempServerConfigSupportsLegacyHeaderTemplateVariable(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime: types.RuntimeRemote,
