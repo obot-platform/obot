@@ -29,7 +29,7 @@ func (c *Client) GetMCPAuditLogAPIKeyFilterOptions(ctx context.Context, opts MCP
 		return nil, err
 	}
 
-	db, err := c.auditLogBaseQuery(ctx, opts, sources)
+	db, _, err := c.auditLogBaseQuery(ctx, opts, sources)
 	if err != nil {
 		return nil, err
 	}
