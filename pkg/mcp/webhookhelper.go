@@ -17,7 +17,10 @@ const DeviceFilterSurfaceIndex = "device-filter-surfaces"
 // inferred from MCP applicability.
 func DeviceFilterSurfaceIndexKeys(obj any) ([]string, error) {
 	filter, ok := obj.(*v1.MCPWebhookValidation)
-	if !ok || filter.Spec.Manifest.Disabled || !filter.Status.Configured || !filter.Spec.Manifest.AppliesToDevices() {
+	if !ok {
+		return nil, fmt.Errorf("expected *v1.MCPWebhookValidation, got %T", obj)
+	}
+	if filter.Spec.Manifest.Disabled || !filter.Status.Configured || !filter.Spec.Manifest.AppliesToDevices() {
 		return nil, nil
 	}
 
