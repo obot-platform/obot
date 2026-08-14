@@ -922,4 +922,16 @@ func TestValidateAndResolveURLTemplateConfig(t *testing.T) {
 	if _, err := ValidateAndResolveURLTemplateConfig(envs, remote, nil); err == nil {
 		t.Fatal("expected missing required selection to fail")
 	}
+
+	undeclared := &types.RemoteRuntimeConfig{URLTemplate: "https://example.com/mcp/${UNDECLARED}"}
+	values, err = ValidateAndResolveURLTemplateConfig(nil, undeclared, map[string]string{"UNDECLARED": "configured"})
+	if err != nil {
+		t.Fatalf("expected submitted undeclared value to retain pre-existing rendering behavior, got %v", err)
+	}
+	if values["UNDECLARED"] != "configured" {
+		t.Fatalf("expected submitted undeclared value, got %#v", values)
+	}
+	if _, err := ValidateAndResolveURLTemplateConfig(nil, undeclared, nil); err == nil {
+		t.Fatal("expected unresolved undeclared value to fail")
+	}
 }

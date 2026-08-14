@@ -625,9 +625,8 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	return serverConfig, missingRequiredNames, nil
 }
 
-// ValidateAndResolveURLTemplateConfig validates submitted selections and returns the declared
-// values used to render a remote URL template. Environment fields are authoritative; headers are
-// consulted only for compatibility with catalog entries created before URL variables lived in env.
+// ValidateAndResolveURLTemplateConfig validates submitted selections and returns the values used
+// to render a remote URL template, filling omitted static values from declared fields.
 func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, configured map[string]string) (map[string]string, error) {
 	var headers []types.MCPHeader
 	var template string
@@ -643,32 +642,23 @@ func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *type
 		return nil, fmt.Errorf("configuration %q requires a selection", missing[0])
 	}
 
-	envByKey := make(map[string]types.MCPHeader, len(envs))
+	values := make(map[string]string, len(configured)+len(envs)+len(headers))
+	maps.Copy(values, configured)
 	for _, env := range envs {
-		envByKey[env.Key] = env.MCPHeader
+		if values[env.Key] == "" && env.Value != "" {
+			values[env.Key] = env.Value
+		}
 	}
-	headerByKey := make(map[string]types.MCPHeader, len(headers))
 	for _, header := range headers {
-		headerByKey[header.Key] = header
+		if values[header.Key] == "" && header.Value != "" {
+			values[header.Key] = header.Value
+		}
 	}
 
-	values := make(map[string]string)
 	for _, key := range extractEnvRefs(template) {
-		field, ok := envByKey[key]
-		if !ok {
-			field, ok = headerByKey[key]
-		}
-		if !ok {
-			continue
-		}
-		value := configured[key]
-		if value == "" {
-			value = field.Value
-		}
-		if value == "" {
+		if values[key] == "" {
 			return nil, fmt.Errorf("configuration value %q referenced by remoteConfig.urlTemplate is required", key)
 		}
-		values[key] = value
 	}
 	return values, nil
 }
