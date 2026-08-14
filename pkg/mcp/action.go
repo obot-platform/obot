@@ -259,7 +259,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 
 	var staticOauthCred gatewaytypes.Credential
 	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, "oauth")
+		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return server, ServerConfig{}, nil, fmt.Errorf("failed to find static oauth credential: %w", err)
 		}
@@ -368,7 +368,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 	}
 
 	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, "oauth")
+		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return ServerConfig{}, nil, fmt.Errorf("failed to find static oauth credential: %w", err)
 		}

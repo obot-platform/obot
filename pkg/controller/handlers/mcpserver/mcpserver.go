@@ -1098,7 +1098,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 
 	var staticOAuthCred gatewaytypes.Credential
 	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOAuthCred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, server.Spec.MCPServerCatalogEntryName)
+		staticOAuthCred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to reveal credential: %w", err)
 		}

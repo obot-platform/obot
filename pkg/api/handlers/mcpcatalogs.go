@@ -1038,12 +1038,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 		}
 
 		// CatalogEntry-based components still use a temporary server with the supplied config.
-		componentID := componentEntry.CatalogEntryID
-		if componentID == "" {
-			componentID = componentEntry.MCPServerID
-		}
-
-		config, ok := configRequest.ComponentConfigs[componentID]
+		config, ok := configRequest.ComponentConfigs[componentEntry.ComponentID()]
 		if !ok {
 			// No config provided for this component, skip it
 			continue
@@ -1062,7 +1057,7 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
 			entry.Namespace,
-			entry.Name,
+			componentEntry.CatalogEntryID,
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
@@ -1289,7 +1284,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		composite.Namespace,
-		composite.Name,
+		component.CatalogEntryID,
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
@@ -1420,7 +1415,7 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
 		composite.Namespace,
-		composite.Name,
+		component.CatalogEntryID,
 		catalogName,
 		component.Manifest,
 		configRequest.Config,
@@ -1510,7 +1505,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
 			entry.Namespace,
-			entry.Name,
+			componentEntry.CatalogEntryID,
 			catalogName,
 			componentEntry.Manifest,
 			config.Config,
@@ -1561,7 +1556,8 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 			Name: tempName,
 		},
 		Spec: v1.MCPServerSpec{
-			Manifest: serverManifest,
+			Manifest:                  serverManifest,
+			MCPServerCatalogEntryName: entryName,
 		},
 	}
 
@@ -1604,7 +1600,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
 	}
 
-	staticOAuthCred, err := gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(entryName)}, entryName)
+	staticOAuthCred, err := gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(entryName)}, system.StaticOAuthCredentialName)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to reveal credential: %w", err)
 	}
@@ -1926,7 +1922,7 @@ func (h *MCPCatalogHandler) GetOAuthCredentials(req api.Context) error {
 
 	// Check if credentials exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
 	configured := err == nil
 
 	var clientID string
@@ -1960,7 +1956,7 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 
 	// Check if credentials already exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	_, err = req.GatewayClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+	_, err = req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
 	credentialsExist := err == nil
 
 	var clientID, clientSecret string
@@ -1984,7 +1980,7 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 	// Store new credential
 	cred := gatewaytypes.Credential{
 		Context: credName,
-		Name:    "oauth",
+		Name:    system.StaticOAuthCredentialName,
 		Secrets: map[string]string{
 			"CLIENT_ID":     clientID,
 			"CLIENT_SECRET": clientSecret,
@@ -2023,7 +2019,7 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	}
 
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	deleted, err := req.GatewayClient.DeleteCredential(req.Context(), credName, "oauth")
+	deleted, err := req.GatewayClient.DeleteCredential(req.Context(), credName, system.StaticOAuthCredentialName)
 	if err != nil {
 		return err
 	}

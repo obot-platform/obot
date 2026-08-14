@@ -260,7 +260,7 @@ func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Res
 		return nil
 	}
 
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), "oauth")
+	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), system.StaticOAuthCredentialName)
 	if err != nil {
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
@@ -301,7 +301,7 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 
 	// Check if credentials exist
 	credName := system.MCPOAuthCredentialName(entry.Name)
-	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, "oauth")
+	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, system.StaticOAuthCredentialName)
 
 	var configured bool
 	if err == nil {
@@ -331,7 +331,7 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 	// Build the credential name for this entry
 	credName := system.MCPOAuthCredentialName(entry.Name)
 
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, credName, "oauth")
+	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, credName, system.StaticOAuthCredentialName)
 	if err != nil {
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}

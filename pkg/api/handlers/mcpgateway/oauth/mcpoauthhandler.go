@@ -111,7 +111,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	}
 
 	// Remote server, check for OAuth directly
-	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID)
+	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
 	if err != nil {
 		return "", err
@@ -234,7 +234,6 @@ func staticOAuthAuthStyle(method string) oauth2.AuthStyle {
 }
 
 type mcpOAuthHandler struct {
-	client             kclient.Client
 	gatewayClient      *client.Client
 	stateMgr           *stateManager
 	mcpID              string
@@ -242,17 +241,20 @@ type mcpOAuthHandler struct {
 	userID             string
 	oauthAuthRequestID string
 	urlChan            chan string
+
+	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
+	catalogEntryName string
 }
 
-func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID string) *mcpOAuthHandler {
+func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {
 	return &mcpOAuthHandler{
-		client:             f.client,
 		gatewayClient:      gatewayClient,
 		stateMgr:           f.stateMgr,
 		userID:             userID,
 		mcpID:              mcpID,
 		mcpURL:             mcpURL,
 		oauthAuthRequestID: oauthAuthRequestID,
+		catalogEntryName:   catalogEntryName,
 		urlChan:            make(chan string, 1),
 	}
 }
@@ -284,20 +286,14 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, ver
 }
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context, _ string) (string, string, error) {
-	if m.mcpID != "" {
-		var server v1.MCPServer
-		if err := m.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: m.mcpID}, &server); err == nil {
-			// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
-			if server.Spec.MCPServerCatalogEntryName != "" {
-				credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
-				cred, err := m.gatewayClient.RevealCredential(ctx, []string{credName}, "oauth")
-				if err == nil {
-					clientID := cred.Secrets["CLIENT_ID"]
-					clientSecret := cred.Secrets["CLIENT_SECRET"]
-					if clientID != "" && clientSecret != "" {
-						return clientID, clientSecret, nil
-					}
-				}
+	// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
+	if m.catalogEntryName != "" {
+		cred, err := m.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(m.catalogEntryName)}, system.StaticOAuthCredentialName)
+		if err == nil {
+			clientID := cred.Secrets["CLIENT_ID"]
+			clientSecret := cred.Secrets["CLIENT_SECRET"]
+			if clientID != "" && clientSecret != "" {
+				return clientID, clientSecret, nil
 			}
 		}
 	}

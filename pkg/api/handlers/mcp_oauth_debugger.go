@@ -279,7 +279,7 @@ func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, r
 func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, "oauth")
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
 		if err == nil && cred.Secrets["CLIENT_ID"] != "" && cred.Secrets["CLIENT_SECRET"] != "" {
 			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil
 		}

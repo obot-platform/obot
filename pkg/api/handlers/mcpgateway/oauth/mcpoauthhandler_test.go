@@ -72,6 +72,15 @@ func TestStaticOAuthPendingUsesStoredAuthentication(t *testing.T) {
 	require.False(t, pending)
 }
 
+func TestNewMCPOAuthHandlerCarriesCatalogEntry(t *testing.T) {
+	factory := &MCPOAuthHandlerFactory{}
+
+	// Tool preview servers are never written to storage, so the catalog entry name is the
+	// only thing tying them back to the credentials the admin configured.
+	handler := factory.newMCPOAuthHandler(nil, "user", "tool-preview-63cb5f4336ed0dcf", "https://example.com/mcp", "", "slack-entry")
+	require.Equal(t, "slack-entry", handler.catalogEntryName)
+}
+
 func TestStaticOAuthMetadataDefaultsMissingClientRegistration(t *testing.T) {
 	authorizationServer := mcp.AuthorizationServerMetadata{
 		Issuer:                            "https://auth.example.com",
