@@ -507,6 +507,7 @@
 											<div class="flex flex-col gap-1">
 												<span class="flex items-center gap-2">
 													<label
+														id={`${compId}-${env.data.key}-label`}
 														for={`${compId}-${env.data.key}`}
 														class={highlightRequired ? 'text-error' : ''}
 													>
@@ -549,6 +550,7 @@
 														options={configurationSelectOptions(env.data.options)}
 														selected={comp.envs![env.index].value}
 														placeholder="Select a value"
+														ariaLabelledby={`${compId}-${env.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) => (comp.envs![env.index].value = option.value)}
 														onClear={() => (comp.envs![env.index].value = '')}
@@ -612,6 +614,7 @@
 											<div class="flex flex-col gap-1">
 												<span class="flex items-center gap-2">
 													<label
+														id={`${compId}-${header.data.key}-label`}
 														for={`${compId}-${header.data.key}`}
 														class={highlightRequired ? 'text-error' : ''}
 													>
@@ -655,6 +658,7 @@
 														options={configurationSelectOptions(header.data.options)}
 														selected={comp.headers![header.index].value}
 														placeholder="Select a value"
+														ariaLabelledby={`${compId}-${header.data.key}-label`}
 														disabled={form.componentConfigs[compId].disabled}
 														onSelect={(option) =>
 															(comp.headers![header.index].value = option.value)}
@@ -728,7 +732,11 @@
 								isMissingRequiredConfigurationField(env.data)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
-									<label for={env.data.key} class={highlightRequired ? 'text-error' : ''}>
+									<label
+										id={`${env.data.key}-label`}
+										for={env.data.key}
+										class={highlightRequired ? 'text-error' : ''}
+									>
 										{fieldLabel(env.data)}
 										{#if !env.data.required}
 											<span class="text-muted-content">(optional)</span>
@@ -765,6 +773,7 @@
 										options={configurationSelectOptions(env.data.options)}
 										selected={form.envs![env.index].value}
 										placeholder="Select a value"
+										ariaLabelledby={`${env.data.key}-label`}
 										onSelect={(option) => (form.envs![env.index].value = option.value)}
 										onClear={() => (form.envs![env.index].value = '')}
 									/>
@@ -820,7 +829,11 @@
 								isMissingRequiredConfigurationField(header.data)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
-									<label for={header.data.key} class={highlightRequired ? 'text-error' : ''}>
+									<label
+										id={`${header.data.key}-label`}
+										for={header.data.key}
+										class={highlightRequired ? 'text-error' : ''}
+									>
 										{fieldLabel(header.data)}
 										{#if !header.data.required}
 											<span class="text-muted-content">(optional)</span>
@@ -855,6 +868,7 @@
 										options={configurationSelectOptions(header.data.options)}
 										selected={form.headers![header.index].value}
 										placeholder="Select a value"
+										ariaLabelledby={`${header.data.key}-label`}
 										onSelect={(option) => (form.headers![header.index].value = option.value)}
 										onClear={() => (form.headers![header.index].value = '')}
 									/>
