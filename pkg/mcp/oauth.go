@@ -204,6 +204,7 @@ type oauthMetadataDiscovery struct {
 // OAuthMetadata contains discovered OAuth metadata for an MCP server.
 type OAuthMetadata struct {
 	ProtectedResourceMetadataURL      string          `json:"protectedResourceMetadataUrl,omitempty"`
+	ResourceURL                       string          `json:"resourceUrl,omitempty"`
 	AuthorizationServerMetadataURL    string          `json:"authorizationServerMetadataUrl,omitempty"`
 	ProtectedResourceMetadata         json.RawMessage `json:"protectedResourceMetadata,omitempty"`
 	AuthorizationServerMetadata       json.RawMessage `json:"authorizationServerMetadata,omitempty"`
@@ -542,6 +543,7 @@ func GetOAuthMetadataWithClient(ctx context.Context, httpClient *http.Client, se
 
 	return OAuthMetadata{
 		ProtectedResourceMetadataURL:      discovery.ProtectedResourceURL,
+		ResourceURL:                       discovery.ResourceURL,
 		AuthorizationServerMetadataURL:    discovery.AuthorizationServerMetadataURL,
 		ProtectedResourceMetadata:         discovery.ProtectedResourceMetadataJSON,
 		AuthorizationServerMetadata:       discovery.AuthorizationServerMetadataJSON,
@@ -837,6 +839,15 @@ func parseProtectedResourceMetadata(reader io.Reader) (protectedResourceMetadata
 	}
 
 	return metadata, nil
+}
+
+// ParseOAuthResourceURL returns the resource identifier from protected-resource metadata.
+func ParseOAuthResourceURL(metadata json.RawMessage) (string, error) {
+	parsed, err := parseProtectedResourceMetadata(bytes.NewReader(metadata))
+	if err != nil {
+		return "", err
+	}
+	return string(parsed.Resource), nil
 }
 
 // parseResourceMetadata extracts the resource_metadata URL from a Bearer authenticate header

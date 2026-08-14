@@ -115,6 +115,7 @@ func TestGetOAuthMetadataPathAndRootFallbackUsesMetadataScope(t *testing.T) {
 
 	metadata, err := GetOAuthMetadataWithClient(t.Context(), server.Client(), ServerConfig{URL: server.URL + "/mcp"}, clientName, redirectURL)
 	require.NoError(t, err)
+	require.Equal(t, server.URL, metadata.ResourceURL)
 	require.Equal(t, server.URL+"/.well-known/oauth-protected-resource", metadata.ProtectedResourceMetadataURL)
 	require.True(t, pathMetadataRequested.Load(), "expected path-specific metadata URL to be attempted")
 	require.True(t, rootMetadataRequested.Load(), "expected root metadata URL to be attempted")

@@ -38,10 +38,12 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 	registrationJSON := mustJSON(t, registration)
 
 	m := &MCPHandler{serverURL: "https://obot.example.com"}
-	parsedAuthServer, parsedRegistration, err := m.oauthDebuggerMetadata(v1.MCPServer{
+	const resourceURL = "https://resource.example.com/mcp"
+	parsedAuthServer, parsedRegistration, parsedResourceURL, err := m.oauthDebuggerMetadata(v1.MCPServer{
 		Status: v1.MCPServerStatus{
 			OAuthMetadata: &v1.OAuthMetadata{
 				AuthorizationServerURL:      authServer.Issuer,
+				ProtectedResourceMetadata:   runtime.RawExtension{Raw: json.RawMessage(`{"resource":["https://resource.example.com/mcp"]}`)},
 				AuthorizationServerMetadata: runtime.RawExtension{Raw: authServerJSON},
 				ClientRegistration:          runtime.RawExtension{Raw: registrationJSON},
 			},
@@ -65,6 +67,9 @@ func TestOAuthDebuggerMetadata(t *testing.T) {
 	if !reflect.DeepEqual(parsedRegistration, expectedRegistration) {
 		t.Fatalf("parsed registration mismatch:\nexpected: %#v\nactual:   %#v", expectedRegistration, parsedRegistration)
 	}
+	if parsedResourceURL != resourceURL {
+		t.Fatalf("parsed resource URL = %q, want %q", parsedResourceURL, resourceURL)
+	}
 }
 
 func TestOAuthDebuggerMetadataErrors(t *testing.T) {
@@ -73,6 +78,13 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 		oauthMetadata    *v1.OAuthMetadata
 		expectedContains string
 	}{
+		{
+			name: "invalid protected resource metadata",
+			oauthMetadata: &v1.OAuthMetadata{
+				ProtectedResourceMetadata: runtime.RawExtension{Raw: json.RawMessage(`{`)},
+			},
+			expectedContains: "failed to parse OAuth protected resource metadata",
+		},
 		{
 			name: "invalid auth server metadata",
 			oauthMetadata: &v1.OAuthMetadata{
@@ -113,7 +125,7 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := (&MCPHandler{}).oauthDebuggerMetadata(v1.MCPServer{
+			_, _, _, err := (&MCPHandler{}).oauthDebuggerMetadata(v1.MCPServer{
 				Status: v1.MCPServerStatus{OAuthMetadata: tt.oauthMetadata},
 			})
 			if err == nil {

@@ -193,7 +193,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 		conf.Scopes = strings.Fields(registration.Scope)
 	}
 
-	authURL, _, _, err := mcp.GetOAuthAuthorizationURL(ctx, oauthHandler, conf, authorizationServer.AuthorizationEndpoint, serverConfig.URL)
+	authURL, _, _, err := mcp.GetOAuthAuthorizationURL(ctx, oauthHandler, conf, authorizationServer.AuthorizationEndpoint, metadata.ResourceURL)
 	if err != nil {
 		return "", err
 	}
