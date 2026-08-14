@@ -59,7 +59,6 @@
 	import { X } from '@lucide/svelte';
 	import { subDays } from 'date-fns';
 	import { onMount } from 'svelte';
-	import { SvelteMap } from 'svelte/reactivity';
 	import { fade } from 'svelte/transition';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -247,7 +246,8 @@
 
 		function computePerModel(): PerModelRow[] {
 			if (!filtered.length) return [];
-			const byModel = new SvelteMap<string, TokenUsage[]>();
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const byModel = new Map<string, TokenUsage[]>();
 			for (const r of filtered) {
 				const model = r.model;
 				if (!model) continue;
@@ -270,7 +270,8 @@
 
 		function computePerUser(): PerUserRow[] {
 			if (!filtered.length) return [];
-			const byUser = new SvelteMap<string, TokenUsage[]>();
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const byUser = new Map<string, TokenUsage[]>();
 			for (const r of filtered) {
 				const userKey = r.userID ?? TOKEN_USAGE_CATEGORY.UNKNOWN;
 				let rows = byUser.get(userKey);
@@ -295,7 +296,8 @@
 
 		function computePerAPIKey(): PerAPIKeyRow[] {
 			if (!filtered.length) return [];
-			const byAPIKey = new SvelteMap<string, TokenUsage[]>();
+			// eslint-disable-next-line svelte/prefer-svelte-reactivity
+			const byAPIKey = new Map<string, TokenUsage[]>();
 			for (const row of filtered) {
 				if (row.apiKeyID == null) continue;
 				const apiKeyID = row.apiKeyID.toString();
