@@ -12,6 +12,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -1844,4 +1845,83 @@ func TestUpdateServerFromCatalogEntryPreservesValidHostnameURL(t *testing.T) {
 	assert.Equal(t, "mcptunnel-office", server.Spec.Manifest.RemoteConfig.TunnelName)
 	assert.False(t, server.Spec.NeedsURL)
 	assert.Empty(t, server.Spec.PreviousURL)
+}
+
+func TestPrepareCompositeCatalogServerUpdateRendersPersistedURLTemplateSelections(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}}
+	componentCatalog := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: "REGION", Required: true, Options: options,
+		}}},
+		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://8.8.8.8/${REGION}/mcp"},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime:        types.RuntimeComposite,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+				CatalogEntryID: "component",
+				Manifest:       componentCatalog,
+			}}},
+		}},
+	}
+	oldComponentManifest, err := types.MapCatalogEntryToServer(componentCatalog, "", false)
+	require.NoError(t, err)
+	oldComponentManifest.RemoteConfig.URL = "https://8.8.8.8/us/mcp"
+	compositeServer := v1.MCPServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "composite", Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerSpec{
+			UserID: "owner",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+					CatalogEntryID: "component",
+					Manifest:       oldComponentManifest,
+				}}},
+			},
+		},
+	}
+
+	for _, tt := range []struct {
+		name    string
+		value   string
+		wantURL string
+	}{
+		{name: "valid selection", value: "us", wantURL: "https://8.8.8.8/us/mcp"},
+		{name: "stale selection", value: "stale"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			child := v1.MCPServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "child", Namespace: system.DefaultNamespace},
+				Spec: v1.MCPServerSpec{
+					UserID:                    "owner",
+					CompositeName:             compositeServer.Name,
+					MCPServerCatalogEntryName: "component",
+					Manifest:                  oldComponentManifest,
+				},
+			}
+			gatewayClient := newHandlerTestGateway(t)
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: "owner-child",
+				Name:    child.Name,
+				Secrets: map[string]string{"REGION": tt.value},
+			}))
+			req := api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        httptest.NewRequest(http.MethodPost, "/", nil),
+				Storage:        newFakeStorage(t, &child),
+				GatewayClient:  gatewayClient,
+				User:           testUser("owner"),
+			}
+
+			updated, err := (&MCPHandler{mcpSessionManager: &mcp.SessionManager{}}).prepareCompositeCatalogServerUpdate(req, compositeServer, entry)
+			require.NoError(t, err)
+			require.Len(t, updated.CompositeConfig.ComponentServers, 1)
+			remoteConfig := updated.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig
+			require.NotNil(t, remoteConfig)
+			assert.Equal(t, tt.wantURL, remoteConfig.URL)
+			assert.True(t, remoteConfig.IsTemplate)
+		})
+	}
 }

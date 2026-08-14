@@ -4145,21 +4145,9 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	// This will let us abort an update if the server's manifest has changed before the update was applied.
 	oldManifestHash := utils.Digest(compositeServer.Spec.Manifest)
 
-	// Build fresh manifest with user URLs applied
-	updatedManifest, err := serverManifestFromCatalogEntryManifest(
-		req.UserIsAdmin(),
-		true,
-		entry.Spec.Manifest,
-		compositeServer.Spec.Manifest,
-	)
+	updatedManifest, err := m.prepareCompositeCatalogServerUpdate(req, compositeServer, entry)
 	if err != nil {
 		return err
-	}
-	if err := validateServerManifestWithResourceMaximums(req, updatedManifest, !compositeServer.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
 	}
 
 	// Ensure the composite server's manifest is updated
@@ -4174,6 +4162,75 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	}
 
 	return nil
+}
+
+// prepareCompositeCatalogServerUpdate builds and validates an updated composite manifest,
+// reapplying each existing component's persisted configuration to URL templates when it
+// remains valid. Missing or stale configuration leaves the template unresolved so the
+// component requires explicit reconfiguration after the catalog update.
+func (m *MCPHandler) prepareCompositeCatalogServerUpdate(req api.Context, compositeServer v1.MCPServer, entry v1.MCPServerCatalogEntry) (types.MCPServerManifest, error) {
+	updatedManifest, err := serverManifestFromCatalogEntryManifest(
+		req.UserIsAdmin(),
+		true,
+		entry.Spec.Manifest,
+		compositeServer.Spec.Manifest,
+	)
+	if err != nil {
+		return types.MCPServerManifest{}, err
+	}
+
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
+	if err != nil {
+		return types.MCPServerManifest{}, err
+	}
+
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers,
+		kclient.InNamespace(compositeServer.Namespace),
+		kclient.MatchingFields{"spec.compositeName": compositeServer.Name},
+	); err != nil {
+		return types.MCPServerManifest{}, fmt.Errorf("failed to list component servers: %w", err)
+	}
+	existingServers := make(map[string]v1.MCPServer, len(componentServers.Items))
+	for _, server := range componentServers.Items {
+		if id := server.Spec.MCPServerCatalogEntryName; id != "" {
+			existingServers[id] = server
+		}
+	}
+
+	if updatedManifest.CompositeConfig != nil {
+		for i := range updatedManifest.CompositeConfig.ComponentServers {
+			component := &updatedManifest.CompositeConfig.ComponentServers[i]
+			remoteConfig := component.Manifest.RemoteConfig
+			if component.Manifest.Runtime != types.RuntimeRemote || remoteConfig == nil || remoteConfig.URLTemplate == "" {
+				continue
+			}
+			existingServer, ok := existingServers[component.CatalogEntryID]
+			if !ok {
+				continue
+			}
+			configured, err := credentialEnvForMCPServer(req, existingServer, m.secretBindingAllowedLabel)
+			if err != nil {
+				return types.MCPServerManifest{}, fmt.Errorf("failed to resolve configuration for component %s: %w", component.ComponentID(), err)
+			}
+			effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, remoteConfig, configured)
+			if err != nil {
+				// Missing or stale persisted selections intentionally leave the template unresolved.
+				continue
+			}
+			if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, effectiveConfig, false, validationOptions); err != nil {
+				return types.MCPServerManifest{}, fmt.Errorf("failed to render URL template for component %s: %w", component.ComponentID(), err)
+			}
+		}
+	}
+
+	if err := mcp.ValidateServerManifest(req.Context(), updatedManifest, !compositeServer.Spec.IsSingleUser(), validationOptions); err != nil {
+		return types.MCPServerManifest{}, types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
+		return types.MCPServerManifest{}, types.NewErrBadRequest("validation failed: %v", err)
+	}
+	return updatedManifest, nil
 }
 
 // updateCompositeManifest attempts to update a composite server to have the given manifest.
