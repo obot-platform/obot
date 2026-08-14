@@ -155,18 +155,25 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	credCtx := systemServer.Name
-
-	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
-		return err
-	}
-
 	// Remove empty values
 	for key, val := range envVars {
 		if val == "" {
 			delete(envVars, key)
 		}
+	}
+	var headers []types.MCPHeader
+	if systemServer.Spec.Manifest.RemoteConfig != nil {
+		headers = systemServer.Spec.Manifest.RemoteConfig.Headers
+	}
+	if err := mcp.ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, headers, envVars); err != nil {
+		return types.NewErrBadRequest("invalid configuration: %v", err)
+	}
+
+	credCtx := systemServer.Name
+
+	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
+	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
+		return err
 	}
 
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
@@ -519,16 +526,20 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 		})
 	}
 
-	configured := true
-
 	for _, env := range server.Spec.Manifest.Env {
 		if (env.Required && env.Value == "" && credEnv[env.Key] == "") || (credEnv[env.Key] != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)) {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
-			configured = false
+		}
+	}
+	if server.Spec.Manifest.RemoteConfig != nil {
+		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
+			if (header.Required && header.Value == "" && credEnv[header.Key] == "") || (credEnv[header.Key] != "" && !mcp.ConfigurationOptionValueValid(header, credEnv)) {
+				result.MissingRequiredHeaders = append(result.MissingRequiredHeaders, header.Key)
+			}
 		}
 	}
 
-	result.Configured = configured
+	result.Configured = len(result.MissingRequiredEnvVars) == 0 && len(result.MissingRequiredHeaders) == 0
 	return result
 }
 
