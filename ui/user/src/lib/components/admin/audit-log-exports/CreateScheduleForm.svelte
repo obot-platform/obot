@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { toAuditLogFilterSelectOption } from '$lib/auditlogs';
+	import { toAuditLogFilterSelectOption, toStringFilterSelectOptions } from '$lib/auditlogs';
 	import Select from '$lib/components/Select.svelte';
 	import {
 		ALL_SOURCE_TYPES,
@@ -363,6 +363,7 @@
 
 	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
 		const sameLabel = (d: AuditLogFilterOption) => toAuditLogFilterSelectOption(d);
+		const getUserDisplayName = (id: string) => usersMap.get(id)?.displayName ?? id;
 		if (logType === 'llm') {
 			return [
 				{
@@ -377,13 +378,7 @@
 					filterKey: 'user_id',
 					label: 'Users',
 					description: 'Comma-separated user IDs',
-					options:
-						filtersOptions['user_id']
-							?.filter((d): d is string => typeof d === 'string')
-							.map?.((d) => ({
-								id: d,
-								label: usersMap.get(d)?.displayName ?? d
-							})) ?? []
+					options: toStringFilterSelectOptions(filtersOptions['user_id'], getUserDisplayName)
 				},
 				{
 					fieldId: 'model_provider',
@@ -439,13 +434,10 @@
 					filterKey: 'message_policy_triggered',
 					label: 'Message Policy Action',
 					description: 'Filter by whether a message policy was triggered',
-					options:
-						filtersOptions['message_policy_triggered']
-							?.filter((value): value is string => typeof value === 'string')
-							.map?.((value) => ({
-								id: value,
-								label: value === 'true' ? 'Triggered' : 'Not triggered'
-							})) ?? []
+					options: toStringFilterSelectOptions(
+						filtersOptions['message_policy_triggered'],
+						(value) => (value === 'true' ? 'Triggered' : 'Not triggered')
+					)
 				}
 			];
 		}
@@ -457,13 +449,7 @@
 				filterKey: 'actor',
 				label: 'Actors',
 				description: 'Users and enrolled devices',
-				options:
-					filtersOptions['actor']
-						?.filter((d): d is string => typeof d === 'string')
-						.map?.((d) => ({
-							id: d,
-							label: usersMap.get(d)?.displayName ?? d
-						})) ?? []
+				options: toStringFilterSelectOptions(filtersOptions['actor'], getUserDisplayName)
 			},
 			{
 				fieldId: 'tool',
@@ -549,13 +535,7 @@
 				filterKey: 'user_id',
 				label: 'User IDs',
 				description: 'Comma-separated user IDs',
-				options:
-					filtersOptions['user_id']
-						?.filter((d): d is string => typeof d === 'string')
-						.map?.((d) => ({
-							id: d,
-							label: usersMap.get(d)?.displayName ?? d
-						})) ?? []
+				options: toStringFilterSelectOptions(filtersOptions['user_id'], getUserDisplayName)
 			},
 			{
 				fieldId: 'mcp_id',

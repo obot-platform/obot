@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { toAuditLogFilterSelectOption } from '$lib/auditlogs';
+	import { toAuditLogFilterSelectOption, toStringFilterSelectOptions } from '$lib/auditlogs';
 	import type { DateRange } from '$lib/components/Calendar.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import {
@@ -669,9 +669,7 @@
 		const opts = filtersOptions[field.filterKey];
 		if (!opts?.map) return [];
 		if (field.useUserDisplayNames) {
-			return opts
-				.filter((d): d is string => typeof d === 'string')
-				.map((d) => ({ id: d, label: usersMap.get(d)?.displayName ?? d }));
+			return toStringFilterSelectOptions(opts, (id) => usersMap.get(id)?.displayName ?? id);
 		}
 		return opts.map((d) => {
 			const option = toAuditLogFilterSelectOption(d);
