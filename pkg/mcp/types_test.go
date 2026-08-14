@@ -849,3 +849,23 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateAndResolveURLTemplateConfig(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}}
+	envs := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Required: true, Options: options}}}
+	remote := &types.RemoteRuntimeConfig{URLTemplate: "https://${REGION}.example.com/mcp"}
+
+	values, err := ValidateAndResolveURLTemplateConfig(envs, remote, map[string]string{"REGION": "eu"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if values["REGION"] != "eu" {
+		t.Fatalf("expected selected region, got %#v", values)
+	}
+	if _, err := ValidateAndResolveURLTemplateConfig(envs, remote, map[string]string{"REGION": "forged"}); err == nil {
+		t.Fatal("expected forged selection to fail")
+	}
+	if _, err := ValidateAndResolveURLTemplateConfig(envs, remote, nil); err == nil {
+		t.Fatal("expected missing required selection to fail")
+	}
+}

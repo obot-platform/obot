@@ -116,6 +116,54 @@ env:
     description: Description of this variable
 ```
 
+#### Selectable configuration values
+
+Git-synced catalog entries can constrain an environment variable or remote header to a catalog-owned
+set of values by adding `options`. Obot renders these fields as dropdowns and rejects configuration
+values that are not listed. Option values are case-sensitive; each option requires a unique, non-empty
+`value` and a non-empty display `name`. The optional `description` is shown after selection.
+
+```yaml
+env:
+  - name: DigitalOcean Service
+    key: DIGITALOCEAN_SERVICE
+    description: Choose the DigitalOcean service to connect
+    required: true
+    sensitive: false
+    options:
+      - name: App Platform
+        value: apps
+        description: Deploy, manage, and monitor App Platform applications.
+      - name: Kubernetes
+        value: doks
+        description: Manage DigitalOcean Kubernetes clusters and node pools.
+```
+
+The same `options` shape is supported under `remoteConfig.headers`. An option-backed field cannot
+also define a static `value` or `secretBinding`, and options cannot be authored through the catalog
+entry UI or non-Git catalog APIs. Optional fields may be left unselected; required fields must select
+one of the declared values.
+
+For `remoteConfig.urlTemplate`, declare every `${VAR}` as a required field under `env`, where it may
+also define options. Template substitutions are validated selections and cannot be supplied by
+overriding the derived URL directly.
+
+```yaml
+runtime: remote
+remoteConfig:
+  urlTemplate: https://${REGION}.api.example.com/mcp
+env:
+  - key: REGION
+    name: Region
+    required: true
+    sensitive: false
+    options:
+      - name: United States
+        value: us
+      - name: Europe
+        value: eu
+```
+
 ### Server User Type
 
 ```yaml

@@ -25,6 +25,29 @@ func TestMapCatalogEntryToServerCopiesResources(t *testing.T) {
 	}
 }
 
+func TestMapCatalogEntryToServerPreservesConfigurationOptions(t *testing.T) {
+	options := []MCPConfigurationOption{{Name: "US", Value: "us", Description: "US endpoint"}}
+	catalogEntry := MCPServerCatalogEntryManifest{
+		Runtime: RuntimeRemote,
+		Env:     []MCPEnv{{MCPHeader: MCPHeader{Key: "REGION", Options: options}}},
+		RemoteConfig: &RemoteCatalogConfig{
+			FixedURL: "https://example.com/mcp",
+			Headers:  []MCPHeader{{Key: "TIER", Options: options}},
+		},
+	}
+
+	result, err := MapCatalogEntryToServer(catalogEntry, "", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Env) != 1 || len(result.Env[0].Options) != 1 || result.Env[0].Options[0] != options[0] {
+		t.Fatalf("environment options were not preserved: %#v", result.Env)
+	}
+	if result.RemoteConfig == nil || len(result.RemoteConfig.Headers) != 1 || len(result.RemoteConfig.Headers[0].Options) != 1 {
+		t.Fatalf("header options were not preserved: %#v", result.RemoteConfig)
+	}
+}
+
 func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.T) {
 	manifest := MCPServerManifest{
 		Runtime: RuntimeRemote,

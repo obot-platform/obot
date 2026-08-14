@@ -1697,6 +1697,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 			}
 			manifest = applySecretBindingOverlay(manifest, input.MCPServerManifest)
 		}
+		if err := mcp.ValidateCatalogConfigurationConstraints(manifest, catalogEntry.Spec.Manifest); err != nil {
+			return types.NewErrBadRequest("invalid catalog configuration: %v", err)
+		}
 
 		server.Spec.Manifest = manifest
 		server.Spec.UnsupportedTools = catalogEntry.Spec.UnsupportedTools
@@ -1705,6 +1708,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		// If the user is an admin, or if this server is being created in a workspace by a PowerUserPlus,
 		// they can create a server with a manifest that is not in the catalog.
 		server.Spec.Manifest = input.MCPServerManifest
+		if mcp.ManifestHasConfigurationOptions(server.Spec.Manifest) {
+			return types.NewErrBadRequest("configuration options may only be defined by Git-managed catalog entries")
+		}
 	} else {
 		return types.NewErrBadRequest("catalogEntryID is required")
 	}
@@ -1812,6 +1818,13 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 	if err := validateServerManifestWithResourceMaximums(req, updated, !existing.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if existing.Spec.MCPServerCatalogEntryName != "" {
+		if err := mcp.ValidateCatalogConfigurationConstraints(updated, existing.Spec.Manifest.ConvertToCatalogEntry()); err != nil {
+			return types.NewErrBadRequest("invalid catalog configuration: %v", err)
+		}
+	} else if mcp.ManifestHasConfigurationOptions(updated) {
+		return types.NewErrBadRequest("configuration options may only be defined by Git-managed catalog entries")
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
@@ -1953,6 +1966,10 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
+	effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars)
+	if err != nil {
+		return types.NewErrBadRequest("invalid configuration: %v", err)
+	}
 
 	// Check if this server is from a catalog and has a URL template that needs to be processed.
 	// URL templates may only reference user-supplied env vars. References to secret-bound env
@@ -1988,7 +2005,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			if err != nil {
 				return err
 			}
-			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, envVars, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, effectiveConfig, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
 				return err
 			}
 			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
@@ -2119,6 +2136,13 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			// Skip components we're not configuring
 			continue
 		}
+		var effectiveConfig map[string]string
+		if !config.Disabled {
+			effectiveConfig, err = mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, component.Manifest.RemoteConfig, config.Config)
+			if err != nil {
+				return types.NewErrBadRequest("invalid configuration for component %s: %v", componentID, err)
+			}
+		}
 
 		sanitizeConfig(config.Config, component.Manifest)
 
@@ -2141,7 +2165,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, config.Config)
+					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, effectiveConfig)
 					if err != nil {
 						return fmt.Errorf("failed to apply URL template %w", err)
 					}
@@ -2734,11 +2758,6 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 		}
 	case types.RuntimeRemote:
 		if manifest.RemoteConfig != nil {
-			// Add the existing headers to the existing map.
-			for _, header := range manifest.RemoteConfig.Headers {
-				existing[header.Key] = struct{}{}
-			}
-
 			toExtract = append(toExtract, manifest.RemoteConfig.URLTemplate)
 		}
 	}
@@ -2746,25 +2765,16 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 	for _, v := range toExtract {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
-				if manifest.Runtime != types.RuntimeRemote {
-					manifest.Env = append(manifest.Env, types.MCPEnv{
-						MCPHeader: types.MCPHeader{
-							Name:        env,
-							Key:         env,
-							Description: "Automatically detected variable",
-							Sensitive:   true,
-							Required:    true,
-						},
-					})
-				} else if manifest.RemoteConfig != nil {
-					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{
+				manifest.Env = append(manifest.Env, types.MCPEnv{
+					MCPHeader: types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   false,
+						Sensitive:   manifest.Runtime != types.RuntimeRemote,
 						Required:    true,
-					})
-				}
+					},
+				})
+				existing[env] = struct{}{}
 			}
 		}
 	}
@@ -2778,14 +2788,14 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	// are present here under their env.Key the same way user-supplied
 	// values are.
 	for _, env := range server.Spec.Manifest.Env {
-		if !env.Required {
+		if !env.Required && len(env.Options) == 0 {
 			continue
 		}
-
-		if env.Value == "" {
-			if _, ok := credEnv[env.Key]; !ok {
-				missingEnvVars = append(missingEnvVars, env.Key)
-			}
+		configuredValue := credEnv[env.Key]
+		missingRequired := env.Required && env.Value == "" && configuredValue == ""
+		invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)
+		if missingRequired || invalidSelection {
+			missingEnvVars = append(missingEnvVars, env.Key)
 		}
 	}
 
@@ -2793,11 +2803,13 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 	// Bound headers resolved via MergeBoundCreds are keyed by header.Key.
 	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil {
 		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if !header.Required {
+			if !header.Required && len(header.Options) == 0 {
 				continue
 			}
-
-			if _, ok := credEnv[header.Key]; !ok {
+			configuredValue := credEnv[header.Key]
+			missingRequired := header.Required && header.Value == "" && configuredValue == ""
+			invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(header, credEnv)
+			if missingRequired || invalidSelection {
 				missingHeaders = append(missingHeaders, header.Key)
 			}
 		}
@@ -3988,14 +4000,18 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
 		return m.triggerCompositeUpdate(req, server, entry)
 	}
+	var configured map[string]string
+	if entry.Spec.Manifest.Runtime == types.RuntimeRemote && entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
+		var err error
+		configured, err = credentialEnvForMCPServer(req, server, m.secretBindingAllowedLabel)
+		if err != nil {
+			return err
+		}
+	}
 
 	candidate := server.DeepCopy()
-	updateServerFromCatalogEntry(candidate, entry)
-	if err := validateServerManifestWithResourceMaximums(req, candidate.Spec.Manifest, !candidate.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
-	}
-	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, candidate.Spec.Manifest); err != nil {
-		return types.NewErrBadRequest("validation failed: %v", err)
+	if err := m.prepareCatalogServerUpdate(req, candidate, entry, configured); err != nil {
+		return err
 	}
 
 	// Shutdown the server, even if there is no credential
@@ -4017,20 +4033,38 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 			return types.NewErrHTTP(http.StatusConflict, "manifest changed during update")
 		}
 
-		updateServerFromCatalogEntry(&latest, entry)
-
-		// Validate again in case the catalog entry changed between retries.
-		if err := validateServerManifestWithResourceMaximums(req, latest.Spec.Manifest, !latest.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
-			return types.NewErrBadRequest("validation failed: %v", err)
-		}
-		if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, latest.Spec.Manifest); err != nil {
-			return types.NewErrBadRequest("validation failed: %v", err)
+		if err := m.prepareCatalogServerUpdate(req, &latest, entry, configured); err != nil {
+			return err
 		}
 		return req.Update(&latest)
 	}); err != nil {
 		return err
 	}
 
+	return nil
+}
+
+func (m *MCPHandler) prepareCatalogServerUpdate(req api.Context, server *v1.MCPServer, entry v1.MCPServerCatalogEntry, configured map[string]string) error {
+	updateServerFromCatalogEntry(server, entry)
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
+	if err != nil {
+		return err
+	}
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URLTemplate != "" {
+		effectiveConfig, configErr := mcp.ValidateAndResolveURLTemplateConfig(server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, configured)
+		if configErr == nil {
+			if err := applyRemoteURLTemplate(req.Context(), &server.Spec.Manifest, effectiveConfig, !server.Spec.IsSingleUser(), validationOptions); err != nil {
+				return err
+			}
+		}
+		// Invalid persisted selections intentionally leave the template unresolved so the API reports reconfiguration.
+	}
+	if err := mcp.ValidateServerManifest(req.Context(), server.Spec.Manifest, !server.Spec.IsSingleUser(), validationOptions); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, server.Spec.Manifest); err != nil {
+		return types.NewErrBadRequest("validation failed: %v", err)
+	}
 	return nil
 }
 
@@ -4093,6 +4127,7 @@ func updateServerFromCatalogEntry(server *v1.MCPServer, entry v1.MCPServerCatalo
 		} else if entry.Spec.Manifest.RemoteConfig.URLTemplate != "" {
 			server.Spec.Manifest.RemoteConfig = &types.RemoteRuntimeConfig{
 				Headers:             entry.Spec.Manifest.RemoteConfig.Headers,
+				IsTemplate:          true,
 				URLTemplate:         entry.Spec.Manifest.RemoteConfig.URLTemplate,
 				TunnelName:          entry.Spec.Manifest.RemoteConfig.TunnelName,
 				StaticOAuthRequired: entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired,

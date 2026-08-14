@@ -185,6 +185,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                            schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                        schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption":                    schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                    schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                 schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPPromptReadStats":                        schema_obot_platform_obot_apiclient_types_MCPPromptReadStats(ref),
@@ -9697,6 +9698,40 @@ func schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref common.Ref
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPConfigurationOption is a catalog-owned value that can be selected for an MCP configuration field.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name", "value"},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9753,6 +9788,19 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format: "",
 						},
 					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Options constrains user-supplied values to selections owned by a Git-managed catalog entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"),
+									},
+								},
+							},
+						},
+					},
 					"secretBinding": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
@@ -9778,7 +9826,7 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption", "github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 
@@ -9838,6 +9886,19 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Format: "",
 						},
 					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Options constrains user-supplied values to selections owned by a Git-managed catalog entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"),
+									},
+								},
+							},
+						},
+					},
 					"secretBinding": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
@@ -9849,7 +9910,7 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption", "github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
 	}
 }
 

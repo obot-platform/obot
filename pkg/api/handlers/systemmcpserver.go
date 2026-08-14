@@ -522,7 +522,7 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	configured := true
 
 	for _, env := range server.Spec.Manifest.Env {
-		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+		if (env.Required && env.Value == "" && credEnv[env.Key] == "") || (credEnv[env.Key] != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)) {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 			configured = false
 		}

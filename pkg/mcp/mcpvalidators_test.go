@@ -53,6 +53,88 @@ func TestValidateCatalogEntryManifest_MultiUserConfig(t *testing.T) {
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}))
 }
 
+func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
+	validOptions := []types.MCPConfigurationOption{
+		{Name: "United States", Value: "us", Description: "US endpoint"},
+		{Name: "Europe", Value: "eu"},
+	}
+	base := types.MCPServerCatalogEntryManifest{
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Runtime:        types.RuntimeNPX,
+		NPXConfig:      &types.NPXRuntimeConfig{Package: "test-server"},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: "REGION", Name: "Region", Required: true, Options: validOptions,
+		}}},
+	}
+
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, true, ValidationOptions{}))
+	require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{}), "may only be set on Git-managed catalog entries")
+
+	tests := []struct {
+		name    string
+		mutate  func(*types.MCPServerCatalogEntryManifest)
+		wantErr string
+	}{
+		{name: "static value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Value = "us" }, wantErr: "value and options are mutually exclusive"},
+		{name: "secret binding", mutate: func(m *types.MCPServerCatalogEntryManifest) {
+			m.Env[0].SecretBinding = &types.MCPSecretBinding{Name: "secret", Key: "region"}
+		}, wantErr: "secretBinding and options are mutually exclusive"},
+		{name: "blank name", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Name = " " }, wantErr: "name cannot be empty"},
+		{name: "blank value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Value = " " }, wantErr: "value cannot be empty"},
+		{name: "duplicate value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[1].Value = "us" }, wantErr: "duplicate value"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := *base.DeepCopy()
+			tt.mutate(&manifest)
+			require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateConfiguredOptions(t *testing.T) {
+	field := types.MCPEnv{MCPHeader: types.MCPHeader{
+		Key: "REGION", Required: true,
+		Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}},
+	}}
+
+	require.NoError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "eu"}))
+	require.EqualError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil), `env "REGION" requires a selection`)
+	require.EqualError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "ap"}), `env "REGION" value "ap" is not one of the configured options`)
+
+	field.Required = false
+	require.NoError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil))
+	require.Error(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "stale"}))
+}
+
+func TestValidateCatalogConfigurationConstraints(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}}
+	catalog := types.MCPServerCatalogEntryManifest{
+		Runtime:      types.RuntimeRemote,
+		Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Required: true, Options: options}}},
+		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/mcp"},
+	}
+	server, err := types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	require.NoError(t, ValidateCatalogConfigurationConstraints(server, catalog))
+
+	server.Env[0].Options = []types.MCPConfigurationOption{{Name: "Anything", Value: "anything"}}
+	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(server, catalog), `env "REGION" configuration must match`)
+
+	server, err = types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	server.RemoteConfig.URL = "https://forged.example.com/mcp"
+	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(server, catalog), "remoteConfig.url must match")
+
+	server, err = types.MapCatalogEntryToServer(catalog, "", false)
+	require.NoError(t, err)
+	server.Env = append(server.Env, types.MCPEnv{MCPHeader: types.MCPHeader{
+		Key: "INJECTED", Options: []types.MCPConfigurationOption{{Name: "Injected", Value: "injected"}},
+	}})
+	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(server, catalog), `env "INJECTED" configuration must match`)
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 

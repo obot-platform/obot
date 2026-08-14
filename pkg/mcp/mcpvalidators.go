@@ -1164,6 +1164,9 @@ func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatal
 }
 
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options ValidationOptions) error {
+	if err := validateServerConfigurationOptions(manifest); err != nil {
+		return err
+	}
 	if err := validateMCPResourceRequirements(manifest.Runtime, manifest.Resources); err != nil {
 		return err
 	}
@@ -1219,6 +1222,9 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
+	if err := validateCatalogConfigurationOptions(manifest, gitManaged, ""); err != nil {
+		return err
+	}
 	if utf8.RuneCountInString(manifest.ShortDescription) > maxShortDescriptionLength {
 		return fmt.Errorf("short description must be less than or equal to %d characters", maxShortDescriptionLength)
 	}
@@ -1369,6 +1375,9 @@ func ValidateSystemMCPServerCatalogEntryManifest(ctx context.Context, manifest t
 }
 
 func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemMCPServerManifest, options ValidationOptions) error {
+	if err := ValidateConfigurationOptions(manifest.Env, remoteHeaders(manifest.RemoteConfig)); err != nil {
+		return err
+	}
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -1412,6 +1421,329 @@ func ValidateSystemMCPServerManifest(ctx context.Context, manifest types.SystemM
 		Field:   "runtime",
 		Message: "unsupported runtime",
 	}
+}
+
+func remoteHeaders(config *types.RemoteRuntimeConfig) []types.MCPHeader {
+	if config == nil {
+		return nil
+	}
+	return config.Headers
+}
+
+func remoteCatalogHeaders(config *types.RemoteCatalogConfig) []types.MCPHeader {
+	if config == nil {
+		return nil
+	}
+	return config.Headers
+}
+
+func validateServerConfigurationOptions(manifest types.MCPServerManifest) error {
+	headers := append([]types.MCPHeader(nil), remoteHeaders(manifest.RemoteConfig)...)
+	if manifest.MultiUserConfig != nil {
+		headers = append(headers, manifest.MultiUserConfig.UserDefinedHeaders...)
+	}
+	if err := ValidateConfigurationOptions(manifest.Env, headers); err != nil {
+		return err
+	}
+	if manifest.CompositeConfig != nil {
+		for i, component := range manifest.CompositeConfig.ComponentServers {
+			if err := validateServerConfigurationOptions(component.Manifest); err != nil {
+				return fmt.Errorf("compositeConfig.componentServers[%d].manifest: %w", i, err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, prefix string) error {
+	if err := validateCatalogConfigurationFields(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), manifest.MultiUserConfig, gitManaged, prefix); err != nil {
+		return err
+	}
+	if manifest.CompositeConfig != nil {
+		for i, component := range manifest.CompositeConfig.ComponentServers {
+			componentPrefix := fmt.Sprintf("%scompositeConfig.componentServers[%d].manifest.", prefix, i)
+			if err := validateCatalogConfigurationOptions(component.Manifest, gitManaged, componentPrefix); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCatalogConfigurationFields(envs []types.MCPEnv, headers []types.MCPHeader, multiUser *types.MultiUserConfig, gitManaged bool, prefix string) error {
+	for i, env := range envs {
+		if err := validateCatalogConfigurationField(fmt.Sprintf("%senv[%d]", prefix, i), env.MCPHeader, gitManaged); err != nil {
+			return err
+		}
+	}
+	for i, header := range headers {
+		if err := validateCatalogConfigurationField(fmt.Sprintf("%sremoteConfig.headers[%d]", prefix, i), header, gitManaged); err != nil {
+			return err
+		}
+	}
+	if multiUser != nil {
+		for i, header := range multiUser.UserDefinedHeaders {
+			if err := validateCatalogConfigurationField(fmt.Sprintf("%smultiUserConfig.userDefinedHeaders[%d]", prefix, i), header, gitManaged); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateCatalogConfigurationField(field string, config types.MCPHeader, gitManaged bool) error {
+	if len(config.Options) == 0 {
+		return nil
+	}
+	if !gitManaged {
+		return fmt.Errorf("%s.options may only be set on Git-managed catalog entries", field)
+	}
+	return validateConfigurationFieldOptions(field, config)
+}
+
+// ValidateConfigurationOptions validates option definitions carried by a deployed server manifest.
+func ValidateConfigurationOptions(envs []types.MCPEnv, headers []types.MCPHeader) error {
+	for i, env := range envs {
+		if err := validateConfigurationFieldOptions(fmt.Sprintf("env[%d]", i), env.MCPHeader); err != nil {
+			return err
+		}
+	}
+	for i, header := range headers {
+		if err := validateConfigurationFieldOptions(fmt.Sprintf("headers[%d]", i), header); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateConfigurationFieldOptions(field string, config types.MCPHeader) error {
+	if len(config.Options) == 0 {
+		return nil
+	}
+	if config.Value != "" {
+		return fmt.Errorf("%s.value and options are mutually exclusive", field)
+	}
+	if config.SecretBinding != nil {
+		return fmt.Errorf("%s.secretBinding and options are mutually exclusive", field)
+	}
+
+	values := make(map[string]struct{}, len(config.Options))
+	for i, option := range config.Options {
+		if strings.TrimSpace(option.Name) == "" {
+			return fmt.Errorf("%s.options[%d].name cannot be empty", field, i)
+		}
+		if strings.TrimSpace(option.Value) == "" {
+			return fmt.Errorf("%s.options[%d].value cannot be empty", field, i)
+		}
+		if _, exists := values[option.Value]; exists {
+			return fmt.Errorf("%s.options contains duplicate value %q", field, option.Value)
+		}
+		values[option.Value] = struct{}{}
+	}
+	return nil
+}
+
+// ValidateConfiguredOptions rejects missing required selections and values outside catalog-owned options.
+func ValidateConfiguredOptions(envs []types.MCPEnv, headers []types.MCPHeader, values map[string]string) error {
+	for _, env := range envs {
+		if err := validateConfiguredOption("env", env.MCPHeader, values); err != nil {
+			return err
+		}
+	}
+	for _, header := range headers {
+		if err := validateConfiguredOption("header", header, values); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateConfiguredOption(kind string, field types.MCPHeader, values map[string]string) error {
+	if len(field.Options) == 0 {
+		return nil
+	}
+	value := values[field.Key]
+	if value == "" {
+		if field.Required {
+			return fmt.Errorf("%s %q requires a selection", kind, field.Key)
+		}
+		return nil
+	}
+	for _, option := range field.Options {
+		if option.Value == value {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s %q value %q is not one of the configured options", kind, field.Key, value)
+}
+
+// ConfigurationOptionValueValid reports whether a field's configured selection is allowed.
+func ConfigurationOptionValueValid(field types.MCPHeader, values map[string]string) bool {
+	return validateConfiguredOption("configuration", field, values) == nil
+}
+
+// ManifestHasConfigurationOptions reports whether a server manifest defines catalog-owned options.
+func ManifestHasConfigurationOptions(manifest types.MCPServerManifest) bool {
+	for _, env := range manifest.Env {
+		if len(env.Options) > 0 {
+			return true
+		}
+	}
+	for _, header := range remoteHeaders(manifest.RemoteConfig) {
+		if len(header.Options) > 0 {
+			return true
+		}
+	}
+	if manifest.MultiUserConfig != nil {
+		for _, header := range manifest.MultiUserConfig.UserDefinedHeaders {
+			if len(header.Options) > 0 {
+				return true
+			}
+		}
+	}
+	if manifest.CompositeConfig != nil {
+		for _, component := range manifest.CompositeConfig.ComponentServers {
+			if ManifestHasConfigurationOptions(component.Manifest) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ValidateCatalogConfigurationConstraints ensures catalog-owned configuration fields cannot be changed on a deployed server.
+func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, catalog types.MCPServerCatalogEntryManifest) error {
+	if catalog.Runtime == types.RuntimeRemote && catalog.RemoteConfig != nil && catalog.RemoteConfig.URLTemplate != "" {
+		if manifest.RemoteConfig == nil || !manifest.RemoteConfig.IsTemplate || manifest.RemoteConfig.URLTemplate != catalog.RemoteConfig.URLTemplate {
+			return fmt.Errorf("remoteConfig.urlTemplate must match the source catalog entry")
+		}
+		if manifest.RemoteConfig.URL != catalog.RemoteConfig.FixedURL {
+			return fmt.Errorf("remoteConfig.url must match the deployed catalog configuration")
+		}
+	}
+	if err := validateCatalogEnvConstraints(manifest.Env, catalog.Env, catalog.RemoteConfig); err != nil {
+		return err
+	}
+	if err := validateCatalogHeaderConstraints("header", remoteHeaders(manifest.RemoteConfig), remoteCatalogHeaders(catalog.RemoteConfig)); err != nil {
+		return err
+	}
+	var runtimeMultiUser, catalogMultiUser []types.MCPHeader
+	if manifest.MultiUserConfig != nil {
+		runtimeMultiUser = manifest.MultiUserConfig.UserDefinedHeaders
+	}
+	if catalog.MultiUserConfig != nil {
+		catalogMultiUser = catalog.MultiUserConfig.UserDefinedHeaders
+	}
+	if err := validateCatalogHeaderConstraints("multi-user header", runtimeMultiUser, catalogMultiUser); err != nil {
+		return err
+	}
+	if catalog.CompositeConfig != nil {
+		if manifest.CompositeConfig == nil || len(manifest.CompositeConfig.ComponentServers) != len(catalog.CompositeConfig.ComponentServers) {
+			return fmt.Errorf("compositeConfig components must match the source catalog entry")
+		}
+		runtimeComponents := make(map[string]types.ComponentServer, len(manifest.CompositeConfig.ComponentServers))
+		for _, component := range manifest.CompositeConfig.ComponentServers {
+			runtimeComponents[component.ComponentID()] = component
+		}
+		for _, catalogComponent := range catalog.CompositeConfig.ComponentServers {
+			runtimeComponent, ok := runtimeComponents[catalogComponent.ComponentID()]
+			if !ok || runtimeComponent.CatalogEntryID != catalogComponent.CatalogEntryID || runtimeComponent.MCPServerID != catalogComponent.MCPServerID {
+				return fmt.Errorf("component %q must match the source catalog entry", catalogComponent.ComponentID())
+			}
+			if err := ValidateCatalogConfigurationConstraints(runtimeComponent.Manifest, catalogComponent.Manifest); err != nil {
+				return fmt.Errorf("component %q: %w", catalogComponent.ComponentID(), err)
+			}
+		}
+	}
+	return nil
+}
+
+func validateCatalogEnvConstraints(runtimeFields, catalogFields []types.MCPEnv, remoteConfig *types.RemoteCatalogConfig) error {
+	templateKeys := map[string]struct{}{}
+	if remoteConfig != nil {
+		for _, key := range extractEnvRefs(remoteConfig.URLTemplate) {
+			templateKeys[key] = struct{}{}
+		}
+	}
+	for _, catalogField := range catalogFields {
+		_, templateField := templateKeys[catalogField.Key]
+		if len(catalogField.Options) == 0 && !templateField {
+			continue
+		}
+		if !allMatchingFieldsMatch(runtimeFields, catalogField.Key,
+			func(field types.MCPEnv) string { return field.Key },
+			func(field types.MCPEnv) bool {
+				return field.File == catalogField.File && field.DynamicFile == catalogField.DynamicFile && constrainedFieldMatches(field.MCPHeader, catalogField.MCPHeader)
+			}) {
+			return fmt.Errorf("env %q configuration must match the source catalog entry", catalogField.Key)
+		}
+	}
+	for _, runtimeField := range runtimeFields {
+		if len(runtimeField.Options) == 0 {
+			continue
+		}
+		if !allMatchingFieldsMatch(catalogFields, runtimeField.Key,
+			func(field types.MCPEnv) string { return field.Key },
+			func(field types.MCPEnv) bool {
+				return field.File == runtimeField.File && field.DynamicFile == runtimeField.DynamicFile && constrainedFieldMatches(runtimeField.MCPHeader, field.MCPHeader)
+			}) {
+			return fmt.Errorf("env %q configuration must match the source catalog entry", runtimeField.Key)
+		}
+	}
+	return nil
+}
+
+func validateCatalogHeaderConstraints(kind string, runtimeFields, catalogFields []types.MCPHeader) error {
+	for _, catalogField := range catalogFields {
+		if len(catalogField.Options) == 0 {
+			continue
+		}
+		if !allMatchingFieldsMatch(runtimeFields, catalogField.Key,
+			func(field types.MCPHeader) string { return field.Key },
+			func(field types.MCPHeader) bool { return constrainedFieldMatches(field, catalogField) }) {
+			return fmt.Errorf("%s %q configuration must match the source catalog entry", kind, catalogField.Key)
+		}
+	}
+	for _, runtimeField := range runtimeFields {
+		if len(runtimeField.Options) == 0 {
+			continue
+		}
+		if !allMatchingFieldsMatch(catalogFields, runtimeField.Key,
+			func(field types.MCPHeader) string { return field.Key },
+			func(field types.MCPHeader) bool { return constrainedFieldMatches(runtimeField, field) }) {
+			return fmt.Errorf("%s %q configuration must match the source catalog entry", kind, runtimeField.Key)
+		}
+	}
+	return nil
+}
+
+func allMatchingFieldsMatch[T any](fields []T, expectedKey string, key func(T) string, matches func(T) bool) bool {
+	found := false
+	for _, field := range fields {
+		if key(field) != expectedKey {
+			continue
+		}
+		found = true
+		if !matches(field) {
+			return false
+		}
+	}
+	return found
+}
+
+func constrainedFieldMatches(runtimeField, catalogField types.MCPHeader) bool {
+	if runtimeField.Required != catalogField.Required || runtimeField.Sensitive != catalogField.Sensitive || runtimeField.Prefix != catalogField.Prefix || runtimeField.Value != catalogField.Value {
+		return false
+	}
+	if len(runtimeField.Options) != len(catalogField.Options) {
+		return false
+	}
+	for i := range runtimeField.Options {
+		if runtimeField.Options[i] != catalogField.Options[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func validateRuntimeStartupTimeout(runtime types.Runtime, startupTimeoutSeconds int) error {
@@ -1681,12 +2013,43 @@ func validateTemplateReferences(envs []types.MCPEnv, fields []string, requireDec
 // the same key with Required=false, which today produces a literal
 // "${VAR}" string at runtime instead of a substituted value.
 func ValidateTemplateReferences(manifest types.MCPServerManifest) error {
-	return validateTemplateReferences(manifest.Env, serverTemplateFields(manifest), false)
+	if err := validateTemplateReferences(manifest.Env, serverTemplateFields(manifest), false); err != nil {
+		return err
+	}
+	if manifest.Runtime == types.RuntimeRemote && manifest.RemoteConfig != nil {
+		return validateRemoteURLTemplateEnv(manifest.Env, manifest.RemoteConfig.URLTemplate)
+	}
+	return nil
 }
 
 // ValidateTemplateReferencesCatalogEntry is the catalog-entry counterpart.
 // Catalog entries don't get the auto-extraction fixup, so undeclared
 // ${VAR} references are an error.
 func ValidateTemplateReferencesCatalogEntry(manifest types.MCPServerCatalogEntryManifest) error {
-	return validateTemplateReferences(manifest.Env, catalogTemplateFields(manifest), true)
+	if err := validateTemplateReferences(manifest.Env, catalogTemplateFields(manifest), true); err != nil {
+		return err
+	}
+	if manifest.Runtime == types.RuntimeRemote && manifest.RemoteConfig != nil {
+		return validateRemoteURLTemplateEnv(manifest.Env, manifest.RemoteConfig.URLTemplate)
+	}
+	return nil
+}
+
+func validateRemoteURLTemplateEnv(envs []types.MCPEnv, urlTemplate string) error {
+	referenced := make(map[string]struct{})
+	for _, key := range extractEnvRefs(urlTemplate) {
+		referenced[key] = struct{}{}
+	}
+	for _, env := range envs {
+		if _, ok := referenced[env.Key]; !ok {
+			continue
+		}
+		if env.File || env.DynamicFile {
+			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot be a file", env.Key)
+		}
+		if env.SecretBinding != nil {
+			return fmt.Errorf("env var %q referenced from remoteConfig.urlTemplate cannot use secretBinding", env.Key)
+		}
+	}
+	return nil
 }

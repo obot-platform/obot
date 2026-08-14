@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -122,6 +123,10 @@ func TestApplyRemoteURLTemplateToWebhookValidation(t *testing.T) {
 				SystemMCPServerManifest: &types.SystemMCPServerManifest{
 					Name:    "validator",
 					Runtime: types.RuntimeRemote,
+					Env: []types.MCPEnv{
+						{MCPHeader: types.MCPHeader{Key: "HOST", Required: true}},
+						{MCPHeader: types.MCPHeader{Key: "SPACE", Required: true}},
+					},
 					RemoteConfig: &types.RemoteRuntimeConfig{
 						IsTemplate:  true,
 						URLTemplate: "https://${HOST}/mcp/${SPACE}",
@@ -142,6 +147,24 @@ func TestApplyRemoteURLTemplateToWebhookValidation(t *testing.T) {
 	remoteConfig := validation.Spec.Manifest.SystemMCPServerManifest.RemoteConfig
 	if remoteConfig.URL != "https://example.com/mcp/abc123" {
 		t.Fatalf("expected rendered URL, got %q", remoteConfig.URL)
+	}
+}
+
+func TestApplyRemoteURLTemplateToWebhookValidationRejectsUnknownOption(t *testing.T) {
+	validation := &v1.MCPWebhookValidation{Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
+		SystemMCPServerManifest: &types.SystemMCPServerManifest{
+			Runtime: types.RuntimeRemote,
+			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+				Key: "REGION", Required: true,
+				Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
+			}}},
+			RemoteConfig: &types.RemoteRuntimeConfig{IsTemplate: true, URLTemplate: "https://${REGION}.example.com/mcp"},
+		},
+	}}}
+
+	err := applyRemoteURLTemplateToWebhookValidation(t.Context(), validation, map[string]string{"REGION": "forged"}, mcp.ValidationOptions{})
+	if err == nil || !strings.Contains(err.Error(), "not one of the configured options") {
+		t.Fatalf("expected invalid option error, got %v", err)
 	}
 }
 

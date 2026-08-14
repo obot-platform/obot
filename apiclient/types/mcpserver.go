@@ -243,9 +243,18 @@ type MCPHeader struct {
 	Sensitive bool   `json:"sensitive"`
 	Required  bool   `json:"required"`
 	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
+	// Options constrains user-supplied values to selections owned by a Git-managed catalog entry.
+	Options []MCPConfigurationOption `json:"options,omitempty"`
 
 	// SecretBinding binds this value to a key in a pre-existing Kubernetes Secret
 	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
+}
+
+// MCPConfigurationOption is a catalog-owned value that can be selected for an MCP configuration field.
+type MCPConfigurationOption struct {
+	Name        string `json:"name"`
+	Value       string `json:"value"`
+	Description string `json:"description,omitempty"`
 }
 
 // MCPSecretBinding references a single key in a pre-existing Kubernetes Secret
@@ -554,6 +563,8 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 // This option exists to allow mapping disabled remote components of a composite server, which may
 // not have a user URL set until they are enabled.
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
+	// The server owns mutable configuration fields; do not retain their slices from the catalog object.
+	catalogConfiguration := catalogEntry.DeepCopy()
 	serverManifest := MCPServerManifest{
 		// Copy common fields
 		Metadata:         catalogEntry.Metadata,
@@ -563,9 +574,9 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		Icon:             catalogEntry.Icon,
 		ToolPreview:      catalogEntry.ToolPreview,
 		Runtime:          catalogEntry.Runtime,
-		Env:              catalogEntry.Env,
+		Env:              catalogConfiguration.Env,
 		Resources:        catalogEntry.Resources,
-		MultiUserConfig:  catalogEntry.MultiUserConfig,
+		MultiUserConfig:  catalogConfiguration.MultiUserConfig,
 	}
 
 	// Handle runtime-specific mapping
@@ -667,7 +678,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		}
 
 		// Copy headers and static OAuth flag from catalog entry
-		remoteConfig.Headers = catalogEntry.RemoteConfig.Headers
+		remoteConfig.Headers = catalogConfiguration.RemoteConfig.Headers
 		remoteConfig.StaticOAuthRequired = catalogEntry.RemoteConfig.StaticOAuthRequired
 		serverManifest.RemoteConfig = remoteConfig
 	default:

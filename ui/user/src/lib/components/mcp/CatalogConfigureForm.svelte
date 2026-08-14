@@ -6,10 +6,16 @@
 	import Confirm from '../Confirm.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import Select from '../Select.svelte';
 	import SensitiveInput from '../SensitiveInput.svelte';
 	import Toggle from '../Toggle.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import SecretBindingPicker from './SecretBindingPicker.svelte';
+	import {
+		configurationSelectOptions,
+		isMissingRequiredConfigurationField,
+		selectedConfigurationOption
+	} from './configurationOptions';
 	import { CircleAlert, Server } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -220,7 +226,11 @@
 				if (comp.hostname && !hasUrl(comp.url)) {
 					return true;
 				}
-				if ([...envs, ...headers].some((f) => isEditableField(f) && f.required && !f.value)) {
+				if (
+					[...envs, ...headers].some((f) =>
+						isMissingRequiredConfigurationField(f, isEditableField(f))
+					)
+				) {
 					return true;
 				}
 			}
@@ -233,8 +243,8 @@
 		}
 		const envs = form.envs ?? [];
 		const headers = form.headers ?? [];
-		return [...envs, ...headers].some(
-			(field) => isEditableField(field) && field.required && !field.value
+		return [...envs, ...headers].some((field) =>
+			isMissingRequiredConfigurationField(field, isEditableField(field))
 		);
 	}
 
@@ -245,11 +255,11 @@
 			for (const [compId, comp] of Object.entries(formAny.componentConfigs || {})) {
 				if (comp.disabled) continue;
 				for (const f of comp.envs ?? []) {
-					if (isEditableField(f) && f.required && !f.value)
+					if (isMissingRequiredConfigurationField(f, isEditableField(f)))
 						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				for (const f of comp.headers ?? []) {
-					if (isEditableField(f) && f.required && !f.value)
+					if (isMissingRequiredConfigurationField(f, isEditableField(f)))
 						fieldsToHighlight.add(keyFor(compId, f.key));
 				}
 				if (comp.hostname && !comp.url) fieldsToHighlight.add(keyFor(compId, 'url'));
@@ -259,7 +269,7 @@
 		}
 		const form = formAny as LaunchFormData;
 		[...(form.envs ?? []), ...(form.headers ?? [])].forEach((field) => {
-			if (isEditableField(field) && field.required && !field.value) {
+			if (isMissingRequiredConfigurationField(field, isEditableField(field))) {
 				fieldsToHighlight.add(field.key);
 			}
 		});
@@ -280,7 +290,7 @@
 
 		if (missingRequiredFields(form)) {
 			highlightMissingRequiredFields(form);
-			localError = 'Please fill out all required configuration fields.';
+			localError = 'Please complete all configuration fields with valid values.';
 			return;
 		}
 
@@ -492,7 +502,8 @@
 									{#each envs as env (env.data.key)}
 										{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
 											{@const highlightRequired =
-												highlightedFields.has(`${compId}:${env.data.key}`) && !env.data.value}
+												highlightedFields.has(`${compId}:${env.data.key}`) &&
+												isMissingRequiredConfigurationField(env.data)}
 											<div class="flex flex-col gap-1">
 												<span class="flex items-center gap-2">
 													<label
@@ -528,6 +539,20 @@
 												{/if}
 												{#if usesSecretBindingSource(env.data)}
 													<!-- Secret-bound value is selected above. -->
+												{:else if env.data.options?.length}
+													<Select
+														id={`${compId}-${env.data.key}`}
+														class={twMerge(
+															'border-base-300 border',
+															highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+														)}
+														options={configurationSelectOptions(env.data.options)}
+														selected={comp.envs![env.index].value}
+														placeholder="Select a value"
+														disabled={form.componentConfigs[compId].disabled}
+														onSelect={(option) => (comp.envs![env.index].value = option.value)}
+														onClear={() => (comp.envs![env.index].value = '')}
+													/>
 												{:else if env.data.sensitive}
 													<SensitiveInput
 														error={highlightRequired}
@@ -564,6 +589,11 @@
 														)}
 													/>
 												{/if}
+												{#if selectedConfigurationOption(env.data)?.description}
+													<p class="text-muted-content text-xs font-light break-all">
+														{selectedConfigurationOption(env.data)?.description}
+													</p>
+												{/if}
 												{#if displayDescriptionInline}
 													<p class="text-muted-content text-xs font-light break-all">
 														{env.data.description}
@@ -576,7 +606,8 @@
 									{#each headers as header (header.data.key)}
 										{#if secretBindingTargets !== undefined || !hasSecretBinding(header.data)}
 											{@const highlightRequired =
-												highlightedFields.has(`${compId}:${header.data.key}`) && !header.data.value}
+												highlightedFields.has(`${compId}:${header.data.key}`) &&
+												isMissingRequiredConfigurationField(header.data)}
 
 											<div class="flex flex-col gap-1">
 												<span class="flex items-center gap-2">
@@ -614,6 +645,21 @@
 												{/if}
 												{#if usesSecretBindingSource(header.data)}
 													<!-- Secret-bound value is selected above. -->
+												{:else if header.data.options?.length}
+													<Select
+														id={`${compId}-${header.data.key}`}
+														class={twMerge(
+															'border-base-300 border',
+															highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+														)}
+														options={configurationSelectOptions(header.data.options)}
+														selected={comp.headers![header.index].value}
+														placeholder="Select a value"
+														disabled={form.componentConfigs[compId].disabled}
+														onSelect={(option) =>
+															(comp.headers![header.index].value = option.value)}
+														onClear={() => (comp.headers![header.index].value = '')}
+													/>
 												{:else if header.data.sensitive}
 													<SensitiveInput
 														name={header.data.name}
@@ -633,6 +679,11 @@
 																'border-error bg-error/20 ring-error focus:ring-1'
 														)}
 													/>
+												{/if}
+												{#if selectedConfigurationOption(header.data)?.description}
+													<p class="text-muted-content text-xs font-light break-all">
+														{selectedConfigurationOption(header.data)?.description}
+													</p>
 												{/if}
 												{#if displayDescriptionInline}
 													<p class="text-muted-content text-xs font-light break-all">
@@ -672,7 +723,9 @@
 
 					{#each visibleEnvs as env (env.data.key)}
 						{#if secretBindingTargets !== undefined || !hasSecretBinding(env.data)}
-							{@const highlightRequired = highlightedFields.has(env.data.key) && !env.data.value}
+							{@const highlightRequired =
+								highlightedFields.has(env.data.key) &&
+								isMissingRequiredConfigurationField(env.data)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={env.data.key} class={highlightRequired ? 'text-error' : ''}>
@@ -702,6 +755,19 @@
 								{/if}
 								{#if usesSecretBindingSource(env.data)}
 									<!-- Secret-bound value is selected above. -->
+								{:else if env.data.options?.length}
+									<Select
+										id={env.data.key}
+										class={twMerge(
+											'border-base-300 border',
+											highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+										)}
+										options={configurationSelectOptions(env.data.options)}
+										selected={form.envs![env.index].value}
+										placeholder="Select a value"
+										onSelect={(option) => (form.envs![env.index].value = option.value)}
+										onClear={() => (form.envs![env.index].value = '')}
+									/>
 								{:else if env.data.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
@@ -733,6 +799,11 @@
 										)}
 									/>
 								{/if}
+								{#if selectedConfigurationOption(env.data)?.description}
+									<p class="text-muted-content text-xs font-light break-all">
+										{selectedConfigurationOption(env.data)?.description}
+									</p>
+								{/if}
 								{#if displayDescriptionInline}
 									<p class="text-muted-content text-xs font-light break-all">
 										{env.data.description}
@@ -745,7 +816,8 @@
 					{#each remoteHeaders as header (header.data.key)}
 						{#if secretBindingTargets !== undefined || !hasSecretBinding(header.data)}
 							{@const highlightRequired =
-								highlightedFields.has(header.data.key) && !header.data.value}
+								highlightedFields.has(header.data.key) &&
+								isMissingRequiredConfigurationField(header.data)}
 							<div class="flex flex-col gap-1">
 								<span class="flex items-center gap-2">
 									<label for={header.data.key} class={highlightRequired ? 'text-error' : ''}>
@@ -773,6 +845,19 @@
 								{/if}
 								{#if usesSecretBindingSource(header.data)}
 									<!-- Secret-bound value is selected above. -->
+								{:else if header.data.options?.length}
+									<Select
+										id={header.data.key}
+										class={twMerge(
+											'border-base-300 border',
+											highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+										)}
+										options={configurationSelectOptions(header.data.options)}
+										selected={form.headers![header.index].value}
+										placeholder="Select a value"
+										onSelect={(option) => (form.headers![header.index].value = option.value)}
+										onClear={() => (form.headers![header.index].value = '')}
+									/>
 								{:else if header.data.sensitive}
 									<SensitiveInput
 										error={highlightRequired}
@@ -789,6 +874,11 @@
 											highlightRequired && 'border-error bg-error/20 ring-error focus:ring-1'
 										)}
 									/>
+								{/if}
+								{#if selectedConfigurationOption(header.data)?.description}
+									<p class="text-muted-content text-xs font-light break-all">
+										{selectedConfigurationOption(header.data)?.description}
+									</p>
 								{/if}
 							</div>
 						{/if}

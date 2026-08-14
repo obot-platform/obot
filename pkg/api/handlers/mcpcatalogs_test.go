@@ -482,6 +482,23 @@ func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
 	require.Equal(t, "user-value", input[key])
 }
 
+func TestPrepareTempServerConfigRejectsUnknownOption(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: "REGION", Required: true,
+			Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
+		}}},
+		RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
+	}
+	_, err := prepareTempServerConfig(t.Context(), fake.NewClientBuilder().Build(), "obot-ns", "allowed", &manifest, map[string]string{"REGION": "forged"}, false, mcp.ValidationOptions{})
+	require.Error(t, err)
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	require.Equal(t, http.StatusBadRequest, httpErr.Code)
+	require.Contains(t, httpErr.Message, "not one of the configured options")
+}
+
 func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 	server := &v1.MCPServer{
 		ObjectMeta: metav1.ObjectMeta{Name: "shared-server", Namespace: system.DefaultNamespace},
