@@ -43,6 +43,15 @@
 	import { debounce } from 'es-toolkit';
 	import { twMerge } from 'tailwind-merge';
 
+	interface Props {
+		apiKeyId?: string | null;
+		startTime?: Date | null;
+		endTime?: Date | null;
+	}
+
+	let { apiKeyId, startTime: startTimeOverride, endTime: endTimeOverride }: Props = $props();
+	const hasDateRangeOverride = $derived(Boolean(startTimeOverride && endTimeOverride));
+
 	type SupportedFilter = keyof LLMAuditLogURLFilters;
 	const supportedFilters: SupportedFilter[] = [
 		'api_key_id',
@@ -69,6 +78,7 @@
 	let rightSidebar = $state<HTMLDivElement>();
 	let selectedAuditLog = $state<LlmAuditLogDetail>();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	const isApiKeyScoped = $derived(Boolean(apiKeyId));
 
 	const total = $derived(response?.total ?? 0);
 	const numberOfPages = $derived(Math.ceil(total / pageLimit));
@@ -126,12 +136,26 @@
 		);
 	});
 
+	const propsFilters = $derived.by(() => {
+		if (!apiKeyId) return {} as Partial<LLMAuditLogURLFilters>;
+		return { api_key_id: apiKeyId } as Partial<LLMAuditLogURLFilters>;
+	});
+	const propsFiltersKeys = $derived(new Set(Object.keys(propsFilters)));
+
 	const pillsSearchParamFilters = $derived(
-		buildPillSearchParamFilters<LLMAuditLogURLFilters>(searchParamFiltersAsArray)
+		buildPillSearchParamFilters<LLMAuditLogURLFilters>(
+			searchParamFiltersAsArray,
+			propsFilters,
+			propsFiltersKeys
+		)
 	);
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
 	const timeRangeFilters = $derived.by(() => {
+		if (startTimeOverride && endTimeOverride) {
+			return { startTime: startTimeOverride, endTime: endTimeOverride };
+		}
+
 		const startParam = page.url.searchParams.get('start_time');
 		const endParam = page.url.searchParams.get('end_time');
 		const endTime = set(new Date(endParam || new Date()), { milliseconds: 0, seconds: 59 });
@@ -144,6 +168,7 @@
 
 	const filters = $derived<LLMAuditLogURLFilters>({
 		...pillsSearchParamFilters,
+		...propsFilters,
 		start_time: timeRangeFilters.startTime.toISOString(),
 		end_time: timeRangeFilters.endTime.toISOString(),
 		limit: pageLimit,
@@ -320,7 +345,7 @@
 	}
 </script>
 
-<div class="flex flex-col gap-4 @container">
+<div class="flex flex-col gap-2 @container">
 	<div class="flex flex-col gap-4 @min-[768px]:flex-row">
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
@@ -329,11 +354,13 @@
 			value={query}
 		/>
 		<div class="self-start @min-[768px]:self-end flex gap-4">
-			<AuditLogCalendar
-				start={timeRangeFilters.startTime}
-				end={timeRangeFilters.endTime}
-				onChange={handleDateChange}
-			/>
+			{#if !hasDateRangeOverride}
+				<AuditLogCalendar
+					start={timeRangeFilters.startTime}
+					end={timeRangeFilters.endTime}
+					onChange={handleDateChange}
+				/>
+			{/if}
 			<button
 				class="btn btn-neutral h-12.5"
 				onclick={() => {
@@ -348,14 +375,19 @@
 		</div>
 	</div>
 
-	{#if hasFilterPills || !isAdminReadonly}
+	{#if hasFilterPills || (!isAdminReadonly && !isApiKeyScoped)}
 		<div class="flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row">
 			<div class="min-w-0 grow hidden @min-[768px]:block">
 				{#if hasFilterPills}
-					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+					<AuditLogFilterPills
+						{pillsSearchParamFilters}
+						{getFilterDisplayLabel}
+						{getFilterValue}
+						isFilterClearable={(filterKey) => !propsFiltersKeys.has(String(filterKey))}
+					/>
 				{/if}
 			</div>
-			{#if !isAdminReadonly}
+			{#if !isAdminReadonly && !isApiKeyScoped}
 				<div class="@min-[768px]:ml-auto flex shrink-0 gap-4">
 					<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
 						{#snippet icon()}
@@ -384,7 +416,12 @@
 			{/if}
 			<div class="min-w-0 grow block @min-[768px]:hidden">
 				{#if hasFilterPills}
-					<AuditLogFilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+					<AuditLogFilterPills
+						{pillsSearchParamFilters}
+						{getFilterDisplayLabel}
+						{getFilterValue}
+						isFilterClearable={(filterKey) => !propsFiltersKeys.has(String(filterKey))}
+					/>
 				{/if}
 			</div>
 		</div>
@@ -480,8 +517,11 @@
 	{:else if showFilters}
 		<FiltersDrawer
 			onClose={handleRightSidebarClose}
-			filters={{ ...searchParamFilters }}
-			isFilterDisabled={() => false}
+			filters={{ ...searchParamFilters, ...propsFilters }}
+			getVisibleFilterKeys={() =>
+				supportedFilters.filter((key) => !(isApiKeyScoped && key === 'api_key_id'))}
+			isFilterDisabled={(filterId) => propsFiltersKeys.has(filterId)}
+			isFilterClearable={(filterId) => !propsFiltersKeys.has(filterId)}
 			isFilterMultiSelect={(filterId) => filterId !== 'hide_models_requests'}
 			getDefaultValue={(filterId) => (filterId === 'hide_models_requests' ? 'true' : undefined)}
 			getUserDisplayName={(...args) => getUserDisplayName(usersMap, ...args)}

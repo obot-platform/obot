@@ -2403,7 +2403,7 @@ export async function listTotalTokenUsageForUser(userId: string, opts?: { fetch?
 export async function listTokenUsageForUser(
 	userId: string,
 	timeRange: TokenUsageTimeRange,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<TokenUsage[]> {
 	const queryString = tokenUsageQueryString(timeRange);
 	const response = await doGet(`/users/${userId}/token-usage?${queryString}`, opts);

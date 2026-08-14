@@ -51,11 +51,23 @@
 		mcpId?: string | null;
 		mcpServerDisplayName?: string | null;
 		mcpServerCatalogEntryName?: string | null;
+		apiKeyId?: string | null;
+		startTime?: Date | null;
+		endTime?: Date | null;
 		emptyContent?: Snippet;
 		entity?: 'workspace' | 'catalog';
 	}
 
-	let { mcpServerDisplayName, mcpServerCatalogEntryName, mcpId, emptyContent }: Props = $props();
+	let {
+		mcpServerDisplayName,
+		mcpServerCatalogEntryName,
+		mcpId,
+		apiKeyId,
+		startTime: startTimeOverride,
+		endTime: endTimeOverride,
+		emptyContent
+	}: Props = $props();
+	const hasDateRangeOverride = $derived(Boolean(startTimeOverride && endTimeOverride));
 
 	let auditLogsResponse = $state<PaginatedResponse<AuditLogEvent>>();
 	const auditLogsTotalItems = $derived(auditLogsResponse?.total ?? 0);
@@ -158,6 +170,7 @@
 	const isServerScoped = $derived(
 		Boolean(mcpId || mcpServerDisplayName || mcpServerCatalogEntryName)
 	);
+	const isApiKeyScoped = $derived(Boolean(apiKeyId));
 
 	const forcedEventType = $derived(isServerScoped ? 'mcp_call' : '');
 
@@ -165,7 +178,9 @@
 		const [source, ...remainingFilters] = unifiedFilters;
 		const filters: SupportedFilter[] = [source, 'api_key_id', ...remainingFilters];
 		return filters.filter(
-			(key) => !(isServerScoped && (key === 'mcp_server' || key === 'event_type'))
+			(key) =>
+				!(isServerScoped && (key === 'mcp_server' || key === 'event_type')) &&
+				!(isApiKeyScoped && key === 'api_key_id')
 		);
 	}
 
@@ -248,7 +263,8 @@
 		const entries: [key: SupportedFilter, value: string | null | undefined][] = [
 			['mcp_server_display_name', mcpServerDisplayName],
 			['mcp_server_catalog_entry_name', mcpServerCatalogEntryName],
-			['mcp_id', mcpId ?? undefined]
+			['mcp_id', mcpId ?? undefined],
+			['api_key_id', apiKeyId || undefined]
 		];
 
 		return (
@@ -274,6 +290,7 @@
 
 	const showAuditExportActions = $derived(
 		!isServerScoped &&
+			!isApiKeyScoped &&
 			(profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER))
 	);
 
@@ -298,6 +315,10 @@
 	}
 
 	let timeRangeFilters = $derived.by(() => {
+		if (startTimeOverride && endTimeOverride) {
+			return { startTime: startTimeOverride, endTime: endTimeOverride };
+		}
+
 		const { start_time, end_time } = searchParamFilters;
 
 		const endTime = set(new Date(end_time || new Date()), { milliseconds: 0, seconds: 59 });
@@ -376,13 +397,19 @@
 		if (!pageIndexLocal.isReady) return;
 
 		showLoadingSpinner = true;
-		fetchAuditLogs({ ...allFilters }).then((res) => {
-			// Reset page and page fragment indexes when the total results are less than the current page offset
-			if (!res || pageOffset > (res?.total ?? 0)) {
-				pageIndexLocal.current = 0;
-			}
-			showLoadingSpinner = false;
-		});
+		fetchAuditLogs({ ...allFilters })
+			.then((res) => {
+				// Reset page and page fragment indexes when the total results are less than the current page offset
+				if (!res || pageOffset > (res?.total ?? 0)) {
+					pageIndexLocal.current = 0;
+				}
+			})
+			.catch((error) => {
+				console.error('Failed to fetch audit logs:', error);
+			})
+			.finally(() => {
+				showLoadingSpinner = false;
+			});
 	});
 
 	// Throttle query update
@@ -579,11 +606,13 @@
 
 		<div class="flex flex-col gap-2 self-start @min-[768px]:self-end">
 			<div class="flex gap-4">
-				<AuditLogCalendar
-					start={timeRangeFilters.startTime}
-					end={timeRangeFilters.endTime}
-					onChange={handleDateChange}
-				/>
+				{#if !hasDateRangeOverride}
+					<AuditLogCalendar
+						start={timeRangeFilters.startTime}
+						end={timeRangeFilters.endTime}
+						onChange={handleDateChange}
+					/>
+				{/if}
 
 				<button
 					class="btn btn-neutral h-12.5"
@@ -742,14 +771,18 @@
 		</div>
 	{/if}
 {:else if !showLoadingSpinner}
-	<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
-		<Captions class="text-muted-content size-24 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No audit logs</h4>
-		<p class="text-muted-content text-sm font-light">
-			Currently, there are no audit logs for selected range or filters. Try modifying your search
-			criteria or try again later.
-		</p>
-	</div>
+	{#if emptyContent}
+		{@render emptyContent()}
+	{:else}
+		<div class="mt-12 flex w-md max-w-full flex-col items-center gap-4 self-center text-center">
+			<Captions class="text-muted-content size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No audit logs</h4>
+			<p class="text-muted-content text-sm font-light">
+				Currently, there are no audit logs for selected range or filters. Try modifying your search
+				criteria or try again later.
+			</p>
+		</div>
+	{/if}
 {/if}
 
 <div
