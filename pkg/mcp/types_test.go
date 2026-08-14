@@ -100,6 +100,60 @@ func TestServerToServerConfig_ContainerizedHealthzPath(t *testing.T) {
 	}
 }
 
+func TestServerToServerConfig_ConfigurationOptions(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:      "REGION",
+			Required: true,
+			Options:  []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
+		}}},
+	}
+	server := v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: manifest}}
+	server.Name = "test-server"
+
+	_, missing, err := ServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", nil, nil, nil)
+	if err != nil {
+		t.Fatalf("expected missing option to be reported without an error, got %v", err)
+	}
+	if !slices.Equal(missing, []string{"REGION"}) {
+		t.Fatalf("expected REGION to be missing, got %v", missing)
+	}
+
+	_, _, err = ServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", "test-scope", "test-catalog", map[string]string{"REGION": "stale"}, nil, nil)
+	if err == nil || !strings.Contains(err.Error(), `env "REGION" value "stale" is not one of the configured options`) {
+		t.Fatalf("expected invalid option error, got %v", err)
+	}
+}
+
+func TestSystemServerToServerConfig_ConfigurationOptions(t *testing.T) {
+	manifest := types.SystemMCPServerManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "example-server"},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key:      "REGION",
+			Required: true,
+			Options:  []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
+		}}},
+	}
+	server := v1.SystemMCPServer{Spec: v1.SystemMCPServerSpec{Manifest: manifest}}
+	server.Name = "test-system-server"
+
+	_, missing, err := SystemServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", nil, nil)
+	if err != nil {
+		t.Fatalf("expected missing option to be reported without an error, got %v", err)
+	}
+	if !slices.Equal(missing, []string{"REGION"}) {
+		t.Fatalf("expected REGION to be missing, got %v", missing)
+	}
+
+	_, _, err = SystemServerToServerConfig(server, server.ValidConnectURLs("http://localhost:8080"), "test-user-id", map[string]string{"REGION": "stale"}, nil)
+	if err == nil || !strings.Contains(err.Error(), `env "REGION" value "stale" is not one of the configured options`) {
+		t.Fatalf("expected invalid option error, got %v", err)
+	}
+}
+
 func TestServerToServerConfig_UsesStaticCatalogEnvValue(t *testing.T) {
 	baseURL := "http://localhost:8080"
 	mcpServer := v1.MCPServer{

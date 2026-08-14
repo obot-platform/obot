@@ -99,20 +99,33 @@ func TestValidateConfiguredOptions(t *testing.T) {
 		Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}},
 	}}
 
-	require.NoError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "eu"}))
-	require.EqualError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil), `env "REGION" requires a selection`)
-	require.EqualError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "ap"}), `env "REGION" value "ap" is not one of the configured options`)
+	missing, err := ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "eu"})
+	require.NoError(t, err)
+	require.Empty(t, missing)
+
+	missing, err = ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, []string{"REGION"}, missing)
+
+	_, err = ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "ap"})
+	require.EqualError(t, err, `env "REGION" value "ap" is not one of the configured options`)
 
 	field.Required = false
-	require.NoError(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil))
-	require.Error(t, ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "stale"}))
+	missing, err = ValidateConfiguredOptions([]types.MCPEnv{field}, nil, nil)
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	_, err = ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "stale"})
+	require.Error(t, err)
 
 	header := types.MCPHeader{
 		Key: "X-REGION", Required: true,
 		Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}},
 	}
-	require.NoError(t, ValidateConfiguredOptions(nil, []types.MCPHeader{header}, map[string]string{"X-REGION": "us"}))
-	require.EqualError(t, ValidateConfiguredOptions(nil, []types.MCPHeader{header}, map[string]string{"X-REGION": "stale"}), `header "X-REGION" value "stale" is not one of the configured options`)
+	missing, err = ValidateConfiguredOptions(nil, []types.MCPHeader{header}, map[string]string{"X-REGION": "us"})
+	require.NoError(t, err)
+	require.Empty(t, missing)
+	_, err = ValidateConfiguredOptions(nil, []types.MCPHeader{header}, map[string]string{"X-REGION": "stale"})
+	require.EqualError(t, err, `header "X-REGION" value "stale" is not one of the configured options`)
 }
 
 func TestValidateCatalogConfigurationConstraints(t *testing.T) {

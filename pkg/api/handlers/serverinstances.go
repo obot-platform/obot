@@ -205,8 +205,12 @@ func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error 
 		return err
 	}
 	if mcpServerInstance.Spec.MultiUserConfig != nil {
-		if err := mcp.ValidateConfiguredOptions(nil, mcpServerInstance.Spec.MultiUserConfig.UserDefinedHeaders, envVars); err != nil {
+		missing, err := mcp.ValidateConfiguredOptions(nil, mcpServerInstance.Spec.MultiUserConfig.UserDefinedHeaders, envVars)
+		if err != nil {
 			return types.NewErrBadRequest("invalid configuration: %v", err)
+		}
+		if len(missing) > 0 {
+			return types.NewErrBadRequest("invalid configuration: %q requires a selection", missing[0])
 		}
 	}
 

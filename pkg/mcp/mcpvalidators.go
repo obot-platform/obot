@@ -1543,19 +1543,33 @@ func validateConfigurationFieldOptions(field string, config types.MCPHeader) err
 	return nil
 }
 
-// ValidateConfiguredOptions rejects missing required selections and values outside catalog-owned options.
-func ValidateConfiguredOptions(envs []types.MCPEnv, headers []types.MCPHeader, values map[string]string) error {
+// ValidateConfiguredOptions returns missing required selections and rejects values outside catalog-owned options.
+// It does not return an error when returning missing configs.
+func ValidateConfiguredOptions(envs []types.MCPEnv, headers []types.MCPHeader, values map[string]string) ([]string, error) {
+	var missing []string
 	for _, env := range envs {
+		if len(env.Options) > 0 && values[env.Key] == "" {
+			if env.Required {
+				missing = append(missing, env.Key)
+			}
+			continue
+		}
 		if err := validateConfiguredOption("env", env.MCPHeader, values); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	for _, header := range headers {
+		if len(header.Options) > 0 && values[header.Key] == "" {
+			if header.Required {
+				missing = append(missing, header.Key)
+			}
+			continue
+		}
 		if err := validateConfiguredOption("header", header, values); err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return missing, nil
 }
 
 func validateConfiguredOption(kind string, field types.MCPHeader, values map[string]string) error {

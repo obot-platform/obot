@@ -165,8 +165,12 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 	if systemServer.Spec.Manifest.RemoteConfig != nil {
 		headers = systemServer.Spec.Manifest.RemoteConfig.Headers
 	}
-	if err := mcp.ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, headers, envVars); err != nil {
+	missing, err := mcp.ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, headers, envVars)
+	if err != nil {
 		return types.NewErrBadRequest("invalid configuration: %v", err)
+	}
+	if len(missing) > 0 {
+		return types.NewErrBadRequest("invalid configuration: %q requires a selection", missing[0])
 	}
 
 	credCtx := systemServer.Name

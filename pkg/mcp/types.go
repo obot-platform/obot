@@ -350,7 +350,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 }
 
 func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred, staticOAuthCred map[string]string) (ServerConfig, []string, error) {
-	if err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
+	if _, err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}
 	// Catalog-managed literal values are static configuration, not user credentials.
@@ -504,7 +504,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
 func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
-	if err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
+	if _, err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}
 	fileEnvVars := make(map[string]struct{})
@@ -635,8 +635,12 @@ func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *type
 		headers = remoteConfig.Headers
 		template = remoteConfig.URLTemplate
 	}
-	if err := ValidateConfiguredOptions(envs, headers, configured); err != nil {
+	missing, err := ValidateConfiguredOptions(envs, headers, configured)
+	if err != nil {
 		return nil, err
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("configuration %q requires a selection", missing[0])
 	}
 
 	envByKey := make(map[string]types.MCPHeader, len(envs))
