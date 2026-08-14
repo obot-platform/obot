@@ -69,15 +69,12 @@ func runAuditLogCleanups(mcpCleanup, llmCleanup func() error) error {
 		mcpErr    error
 		llmErr    error
 	)
-	waitGroup.Add(2)
-	go func() {
-		defer waitGroup.Done()
+	waitGroup.Go(func() {
 		mcpErr = mcpCleanup()
-	}()
-	go func() {
-		defer waitGroup.Done()
+	})
+	waitGroup.Go(func() {
 		llmErr = llmCleanup()
-	}()
+	})
 	waitGroup.Wait()
 	return errors.Join(mcpErr, llmErr)
 }
