@@ -7,7 +7,7 @@
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const { apiKey } = $derived(data);
+	const { apiKey, isAdmin } = $derived(data);
 	let title = $derived(apiKey?.name || 'Agent Auth Scope');
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
@@ -16,10 +16,13 @@
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
 		{#if apiKey}
 			<AgentAuthScopeDetails
+				{isAdmin}
 				agentAuthScope={{ ...apiKey, prefix: `ok1-${apiKey.userId}-${apiKey.id}-*****` }}
 				onDelete={async () => {
-					await ApiKeysService.deleteAnyApiKey(apiKey.id.toString());
-					goto('/agent-auth-scopes', { replaceState: true });
+					await (isAdmin ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
+						apiKey.id.toString()
+					);
+					goto(`${isAdmin ? '/admin' : ''}/agent-auth-scopes`, { replaceState: true });
 				}}
 			/>
 		{/if}

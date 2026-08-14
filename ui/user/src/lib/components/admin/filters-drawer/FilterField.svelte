@@ -132,6 +132,5 @@
 		}
 		multiple={filter.multiple ?? true}
 		{onSelect}
-		position="top"
 	/>
 </div>

@@ -6,7 +6,7 @@ const ADMIN_AGENT_AUTH_SCOPES_PREFIX = '/admin/agent-auth-scopes';
 
 export const load: PageLoad = async ({ params, parent, fetch, url }) => {
 	const { profile } = await parent();
-	const { id } = params;
+	const { id, api_key } = params;
 	const isAdmin =
 		url.pathname === ADMIN_AGENT_AUTH_SCOPES_PREFIX ||
 		url.pathname.startsWith(`${ADMIN_AGENT_AUTH_SCOPES_PREFIX}/`);
@@ -20,6 +20,7 @@ export const load: PageLoad = async ({ params, parent, fetch, url }) => {
 	}
 	return {
 		apiKey,
+		apiKeyId: api_key,
 		isAdmin
 	};
 };
