@@ -1637,22 +1637,30 @@ func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, c
 	if err := validateCatalogHeaderConstraints("multi-user header", runtimeMultiUser, catalogMultiUser); err != nil {
 		return err
 	}
-	if catalog.CompositeConfig != nil {
-		if manifest.CompositeConfig == nil || len(manifest.CompositeConfig.ComponentServers) != len(catalog.CompositeConfig.ComponentServers) {
-			return fmt.Errorf("compositeConfig components must match the source catalog entry")
-		}
-		runtimeComponents := make(map[string]types.ComponentServer, len(manifest.CompositeConfig.ComponentServers))
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			runtimeComponents[component.ComponentID()] = component
-		}
-		for _, catalogComponent := range catalog.CompositeConfig.ComponentServers {
-			runtimeComponent, ok := runtimeComponents[catalogComponent.ComponentID()]
-			if !ok || runtimeComponent.CatalogEntryID != catalogComponent.CatalogEntryID || runtimeComponent.MCPServerID != catalogComponent.MCPServerID {
-				return fmt.Errorf("component %q must match the source catalog entry", catalogComponent.ComponentID())
+	if catalog.CompositeConfig == nil {
+		if manifest.CompositeConfig != nil {
+			for _, component := range manifest.CompositeConfig.ComponentServers {
+				if ManifestHasConfigurationOptions(component.Manifest) {
+					return fmt.Errorf("component %q configuration options must be defined by the source catalog entry", component.ComponentID())
+				}
 			}
-			if err := ValidateCatalogConfigurationConstraints(runtimeComponent.Manifest, catalogComponent.Manifest); err != nil {
-				return fmt.Errorf("component %q: %w", catalogComponent.ComponentID(), err)
-			}
+		}
+		return nil
+	}
+	if manifest.CompositeConfig == nil || len(manifest.CompositeConfig.ComponentServers) != len(catalog.CompositeConfig.ComponentServers) {
+		return fmt.Errorf("compositeConfig components must match the source catalog entry")
+	}
+	runtimeComponents := make(map[string]types.ComponentServer, len(manifest.CompositeConfig.ComponentServers))
+	for _, component := range manifest.CompositeConfig.ComponentServers {
+		runtimeComponents[component.ComponentID()] = component
+	}
+	for _, catalogComponent := range catalog.CompositeConfig.ComponentServers {
+		runtimeComponent, ok := runtimeComponents[catalogComponent.ComponentID()]
+		if !ok || runtimeComponent.CatalogEntryID != catalogComponent.CatalogEntryID || runtimeComponent.MCPServerID != catalogComponent.MCPServerID {
+			return fmt.Errorf("component %q must match the source catalog entry", catalogComponent.ComponentID())
+		}
+		if err := ValidateCatalogConfigurationConstraints(runtimeComponent.Manifest, catalogComponent.Manifest); err != nil {
+			return fmt.Errorf("component %q: %w", catalogComponent.ComponentID(), err)
 		}
 	}
 	return nil

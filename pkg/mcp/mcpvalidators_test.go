@@ -142,6 +142,49 @@ func TestValidateCatalogConfigurationConstraints(t *testing.T) {
 	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(server, catalog), `env "INJECTED" configuration must match`)
 }
 
+func TestValidateCatalogConfigurationConstraintsCompositeOverrides(t *testing.T) {
+	options := []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}}
+	baseCatalog := types.MCPServerCatalogEntryManifest{Runtime: types.RuntimeNPX}
+	compositeOverride := types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: "component",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env:     []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Options: options}}},
+			},
+		}}},
+	}
+
+	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(compositeOverride, baseCatalog), `component "component" configuration options must be defined by the source catalog entry`)
+
+	compositeOverride.CompositeConfig.ComponentServers[0].Manifest.Env[0].Options = nil
+	require.NoError(t, ValidateCatalogConfigurationConstraints(compositeOverride, baseCatalog))
+
+	componentCatalog := types.MCPServerCatalogEntryManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
+		Env:       []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Options: options}}},
+	}
+	matchingComponent, err := types.MapCatalogEntryToServer(componentCatalog, "", false)
+	require.NoError(t, err)
+	compositeCatalog := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+			CatalogEntryID: "component",
+			Manifest:       componentCatalog,
+		}}},
+	}
+	matchingComposite := types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: "component",
+			Manifest:       matchingComponent,
+		}}},
+	}
+	require.NoError(t, ValidateCatalogConfigurationConstraints(matchingComposite, compositeCatalog))
+}
+
 func TestRemoteValidator_validateRemoteCatalogConfig(t *testing.T) {
 	validator := RemoteValidator{}
 
