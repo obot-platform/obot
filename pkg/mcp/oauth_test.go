@@ -471,35 +471,63 @@ func TestStorageBackedTokenSourcePersistsRefreshedToken(t *testing.T) {
 	require.Same(t, tok, storage.lastToken)
 }
 
-func TestEntraOmitsResourceFromAuthorizationAndTokenRequests(t *testing.T) {
+func TestOAuthResourceHandlingByAuthorizationServer(t *testing.T) {
 	const resourceURL = "https://resource.example.com/mcp"
-	callback := &oauthAuthorizeCallbackHandler{}
-	tokenServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		require.NoError(t, req.ParseForm())
-		require.Empty(t, req.Form.Get("resource"))
-		rw.Header().Set("Content-Type", "application/json")
-		_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600}`))
-	}))
-	defer tokenServer.Close()
-
-	conf := &oauth2.Config{
-		ClientID:    "client-id",
-		RedirectURL: "https://obot.example.com/callback",
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
-			TokenURL: tokenServer.URL,
+	tests := []struct {
+		name             string
+		authorizationURL string
+		expectedResource string
+	}{
+		{
+			name:             "Entra global",
+			authorizationURL: "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize",
+		},
+		{
+			name:             "Entra US Government",
+			authorizationURL: "https://login.microsoftonline.us/tenant/oauth2/v2.0/authorize",
+		},
+		{
+			name:             "Entra China",
+			authorizationURL: "https://login.partner.microsoftonline.cn/tenant/oauth2/v2.0/authorize",
+		},
+		{
+			name:             "non-Entra China authority",
+			authorizationURL: "https://login.chinacloudapi.cn/tenant/oauth2/v2.0/authorize",
+			expectedResource: resourceURL,
 		},
 	}
 
-	authURL, _, verifier, err := GetOAuthAuthorizationURL(t.Context(), callback, conf, conf.Endpoint.AuthURL, resourceURL)
-	require.NoError(t, err)
-	parsedAuthURL, err := url.Parse(authURL)
-	require.NoError(t, err)
-	require.Empty(t, parsedAuthURL.Query().Get("resource"))
-	require.Empty(t, callback.resourceURL)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			callback := &oauthAuthorizeCallbackHandler{}
+			tokenServer := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				require.NoError(t, req.ParseForm())
+				require.Equal(t, tt.expectedResource, req.Form.Get("resource"))
+				rw.Header().Set("Content-Type", "application/json")
+				_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600}`))
+			}))
+			defer tokenServer.Close()
 
-	_, err = ExchangeOAuthToken(t.Context(), conf, "authorization-code", verifier, resourceURL)
-	require.NoError(t, err)
+			conf := &oauth2.Config{
+				ClientID:    "client-id",
+				RedirectURL: "https://obot.example.com/callback",
+				Endpoint: oauth2.Endpoint{
+					AuthURL:  tt.authorizationURL,
+					TokenURL: tokenServer.URL,
+				},
+			}
+
+			authURL, _, verifier, err := GetOAuthAuthorizationURL(t.Context(), callback, conf, conf.Endpoint.AuthURL, resourceURL)
+			require.NoError(t, err)
+			parsedAuthURL, err := url.Parse(authURL)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedResource, parsedAuthURL.Query().Get("resource"))
+			require.Equal(t, tt.expectedResource, callback.resourceURL)
+
+			_, err = ExchangeOAuthToken(t.Context(), conf, "authorization-code", verifier, resourceURL)
+			require.NoError(t, err)
+		})
+	}
 }
 
 func TestStorageBackedTokenSourceDoesNotPersistUnchangedToken(t *testing.T) {

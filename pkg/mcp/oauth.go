@@ -901,8 +901,11 @@ func AuthCodeURL(conf *oauth2.Config, urlFromMetadata, resourceURL, state, verif
 // Entra rejects this parameter, so it must be omitted throughout the flow.
 func OAuthResourceURL(authorizationEndpoint, resourceURL string) string {
 	authEndpoint, err := url.Parse(authorizationEndpoint)
-	if err == nil && strings.EqualFold(authEndpoint.Hostname(), "login.microsoftonline.com") {
-		return ""
+	if err == nil {
+		switch strings.ToLower(authEndpoint.Hostname()) {
+		case "login.microsoftonline.com", "login.microsoftonline.us", "login.partner.microsoftonline.cn":
+			return ""
+		}
 	}
 	return resourceURL
 }
