@@ -38,6 +38,15 @@ export function toAuditLogFilterSelectOption(option: AuditLogFilterOption): {
 		: { id: option, label: option };
 }
 
+export function toStringFilterSelectOptions(
+	options: readonly unknown[] | undefined,
+	getOptionLabel?: (option: string) => string
+): { id: string; label: string }[] {
+	return (options ?? [])
+		.filter((option): option is string => typeof option === 'string')
+		.map((option) => ({ id: option, label: getOptionLabel?.(option) ?? option }));
+}
+
 export function buildSearchParamFiltersArray<T>(
 	supportedFilters: (keyof T)[],
 	defaultSearchParams?: Partial<Record<keyof T, string | string[] | number | undefined | null>>
