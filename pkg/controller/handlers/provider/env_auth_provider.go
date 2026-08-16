@@ -16,6 +16,7 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -99,15 +100,20 @@ func (h *Handler) EnsureAuthProviderEnvCredential(ctx context.Context, c kclient
 		return fmt.Errorf("failed to upsert auth provider credential %q: %w", authProvider.Name, err)
 	}
 
-	if authProvider.Annotations == nil {
-		authProvider.Annotations = map[string]string{}
-	}
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
-	}
-	if err := c.Update(ctx, &authProvider); err != nil {
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: authProvider.Name}, &authProvider); err != nil {
+			return err
+		}
+		if authProvider.Annotations == nil {
+			authProvider.Annotations = map[string]string{}
+		}
+		if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
+			authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
+		} else {
+			delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
+		}
+		return c.Update(ctx, &authProvider)
+	}); err != nil {
 		return fmt.Errorf("failed to update auth provider sync annotation %q: %w", authProvider.Name, err)
 	}
 

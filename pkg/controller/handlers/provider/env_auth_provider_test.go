@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,7 +15,9 @@ import (
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -102,6 +105,31 @@ func TestEnsureAuthProviderEnvCredentialCreatesCredentialAndSyncsProvider(t *tes
 	}
 	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
 		t.Fatalf("expected auth provider sync annotation to be toggled")
+	}
+}
+
+func TestEnsureAuthProviderEnvCredentialRetriesSyncAnnotationConflict(t *testing.T) {
+	ctx := context.Background()
+	storageClient := &conflictOnceClient{
+		Client: fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(genericAuthProvider()).Build(),
+	}
+	gatewayClient := newProviderTestGatewayClient(t, storageClient)
+
+	setGenericOAuthEnv(t)
+	handler := &Handler{gatewayClient: gatewayClient}
+	if err := handler.EnsureAuthProviderEnvCredential(ctx, storageClient); err != nil {
+		t.Fatal(err)
+	}
+
+	if storageClient.updateCalls != 2 {
+		t.Fatalf("auth provider update calls = %d, want 2", storageClient.updateCalls)
+	}
+	var authProvider v1.AuthProvider
+	if err := storageClient.Get(ctx, objectKey(genericOAuthAuthProviderName), &authProvider); err != nil {
+		t.Fatal(err)
+	}
+	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
+		t.Fatal("expected auth provider sync annotation to be toggled after conflict retry")
 	}
 }
 
@@ -306,4 +334,21 @@ func newProviderTestGatewayClient(t *testing.T, storageClient kclient.Client) *g
 	})
 
 	return gateway.New(context.Background(), db, storageClient, nil, nil, nil, nil, time.Hour, 1000, 90, 90, true)
+}
+
+type conflictOnceClient struct {
+	kclient.Client
+	updateCalls int
+}
+
+func (c *conflictOnceClient) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	c.updateCalls++
+	if c.updateCalls == 1 {
+		return apierrors.NewConflict(
+			schema.GroupResource{Group: "obot.obot.ai", Resource: "authproviders"},
+			obj.GetName(),
+			errors.New("the object has been modified"),
+		)
+	}
+	return c.Client.Update(ctx, obj, opts...)
 }
