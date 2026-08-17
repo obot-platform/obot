@@ -530,6 +530,20 @@ func TestOAuthResourceHandlingByAuthorizationServer(t *testing.T) {
 	}
 }
 
+func TestResolveOAuthResourceURL(t *testing.T) {
+	require.Equal(t,
+		"https://connection.example.com/mcp",
+		ResolveOAuthResourceURL("https://auth.example.com/authorize", "", "https://connection.example.com/mcp"),
+	)
+	require.Equal(t,
+		"https://resource.example.com/mcp",
+		ResolveOAuthResourceURL("https://auth.example.com/authorize", "https://resource.example.com/mcp", "https://connection.example.com/mcp"),
+	)
+	require.Empty(t,
+		ResolveOAuthResourceURL("https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize", "", "https://connection.example.com/mcp"),
+	)
+}
+
 func TestStorageBackedTokenSourceDoesNotPersistUnchangedToken(t *testing.T) {
 	tok := &oauth2.Token{AccessToken: "access-token", RefreshToken: "refresh-token", Expiry: time.Now().Add(time.Hour)}
 	storage := &recordingTokenStorage{}
@@ -654,6 +668,54 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 	require.Equal(t, "access-token", o.currentToken.AccessToken)
 	require.Equal(t, 1, storage.setCalls)
 	require.Equal(t, "access-token", storage.lastToken.AccessToken)
+}
+
+func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *testing.T) {
+	var serverURL string
+	const redirectURL = "https://obot.example.com/callback"
+	callback := &oauthAuthorizeCallbackHandler{}
+	tokenRequest := make(chan url.Values, 1)
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		switch req.URL.Path {
+		case "/.well-known/oauth-protected-resource/mcp", "/.well-known/oauth-protected-resource":
+			http.NotFound(rw, req)
+		case "/.well-known/oauth-authorization-server":
+			_ = json.NewEncoder(rw).Encode(map[string]any{
+				"issuer":                                serverURL,
+				"authorization_endpoint":                serverURL + "/authorize",
+				"token_endpoint":                        serverURL + "/token",
+				"response_types_supported":              []string{"code"},
+				"grant_types_supported":                 []string{"authorization_code"},
+				"token_endpoint_auth_methods_supported": []string{"none"},
+			})
+		case "/token":
+			require.NoError(t, req.ParseForm())
+			tokenRequest <- req.Form
+			rw.Header().Set("Content-Type", "application/json")
+			_, _ = rw.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600}`))
+		default:
+			http.NotFound(rw, req)
+		}
+	}))
+	defer server.Close()
+	serverURL = server.URL
+	connectURL := server.URL + "/mcp"
+
+	request := httptest.NewRequest(http.MethodGet, connectURL, nil)
+	response := &http.Response{
+		StatusCode: http.StatusUnauthorized,
+		Header:     make(http.Header),
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "test-client", redirectURL, "")
+	require.NoError(t, o.Authorize(t.Context(), request, response))
+
+	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)
+	require.NoError(t, err)
+	require.Equal(t, connectURL, callback.resourceURL)
+	require.Equal(t, connectURL, authorizationRequest.URL.Query().Get("resource"))
+	require.Equal(t, connectURL, (<-tokenRequest).Get("resource"))
 }
 
 func hVerifier(callback *oauthAuthorizeCallbackHandler) string {

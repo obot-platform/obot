@@ -84,7 +84,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	state := strings.ToLower(rand.Text())
 
 	conf := oauthDebuggerConfig(clientID, clientSecret, authServer.AuthorizationEndpoint, authServer.TokenEndpoint, registration.TokenEndpointAuthMethod, firstString(registration.RedirectURIs), registration.Scope)
-	resourceURL = mcp.OAuthResourceURL(authServer.AuthorizationEndpoint, resourceURL)
+	resourceURL = mcp.ResolveOAuthResourceURL(authServer.AuthorizationEndpoint, resourceURL, serverConfig.URL)
 	if err := req.GatewayClient.CreateMCPOAuthPendingState(
 		req.Context(),
 		req.User.GetUID(),

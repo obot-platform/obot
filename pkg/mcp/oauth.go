@@ -277,7 +277,8 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		conf.Scopes = strings.Split(discovery.ClientRegistration.Scope, " ")
 	}
 	conf.Endpoint.AuthStyle = tokenEndpointAuthStyle(discovery.ClientRegistration.TokenEndpointAuthMethod, clientInfo.ClientSecret != "")
-	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, discovery.ResourceURL)
+	resourceURL := ResolveOAuthResourceURL(authorizationServerMetadata.AuthorizationEndpoint, discovery.ResourceURL, connectURL)
+	authURL, ch, verifier, err := GetOAuthAuthorizationURL(ctx, o.callbackHandler, conf, authorizationServerMetadata.AuthorizationEndpoint, resourceURL)
 	if err != nil {
 		return err
 	}
@@ -307,7 +308,7 @@ func (o *oauth) Authorize(ctx context.Context, req *http.Request, resp *http.Res
 		}
 	}
 
-	tok, err := ExchangeOAuthToken(ctx, conf, cb.Code, verifier, discovery.ResourceURL)
+	tok, err := ExchangeOAuthToken(ctx, conf, cb.Code, verifier, resourceURL)
 	if err != nil {
 		slog.Warn("oauth code exchange failed",
 			"server", o.serverName,
@@ -908,6 +909,15 @@ func OAuthResourceURL(authorizationEndpoint, resourceURL string) string {
 		}
 	}
 	return resourceURL
+}
+
+// ResolveOAuthResourceURL prefers the discovered protected-resource identifier
+// and falls back to the MCP connection URL before applying provider-specific handling.
+func ResolveOAuthResourceURL(authorizationEndpoint, discoveredResourceURL, connectionURL string) string {
+	if discoveredResourceURL == "" {
+		discoveredResourceURL = connectionURL
+	}
+	return OAuthResourceURL(authorizationEndpoint, discoveredResourceURL)
 }
 
 type resourceIdentifier string
