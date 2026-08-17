@@ -2165,17 +2165,14 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
+					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, component.Manifest.Env, remoteConfig.Headers, config.Config)
 					if err != nil {
-						return err
-					}
-					if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, config.Config, false, validationOptions); err != nil {
 						if configErr, ok := errors.AsType[*urlTemplateConfigurationError](err); ok {
 							return types.NewErrBadRequest("invalid configuration for component %s: %v", componentID, configErr)
 						}
 						return fmt.Errorf("failed to apply URL template: %w", err)
 					}
-					remoteConfig = component.Manifest.RemoteConfig
+					remoteConfig.URL = finalURL
 				} else if remoteConfig.Hostname != "" {
 					remoteConfig.URL = config.URL
 					if remoteConfig.URL != "" && !strings.HasPrefix(remoteConfig.URL, "http") {
