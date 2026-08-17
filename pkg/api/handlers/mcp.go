@@ -16,8 +16,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/obot-platform/mmmcp"
 	nahbackend "github.com/obot-platform/nah/pkg/backend"
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
@@ -645,21 +645,15 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 
 			if config.Runtime != types.RuntimeRemote {
 				_, err = m.mcpSessionManager.ListTools(req.Context(), config)
-			} else {
-				// Don't use ListTools for remote MCP servers in case they need OAuth.
-				_, err = m.mcpSessionManager.LaunchServer(req.Context(), config)
 			}
 			if err != nil {
 				if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("Component MCP server %s is not healthy, check configuration for errors: %v", component.Name, err))
 				}
-				if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-					return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from component MCP server %s, check configuration for errors", component.Name))
-				}
 				if errors.Is(err, mcp.ErrInsufficientCapacity) {
 					return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server. Please contact your administrator.")
 				}
-				if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+				if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 					return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 				}
 
@@ -672,24 +666,18 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 
 	if server.Spec.Manifest.Runtime != types.RuntimeRemote {
 		_, err = m.mcpSessionManager.ListTools(req.Context(), serverConfig)
-	} else {
-		// Don't use ListTools for remote MCP servers in case they need OAuth.
-		_, err = m.mcpSessionManager.LaunchServer(req.Context(), serverConfig)
-	}
-	if err != nil {
-		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
+		if err != nil {
+			if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
+				return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
+			}
+			if errors.Is(err, mcp.ErrInsufficientCapacity) {
+				return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server. Please contact your administrator.")
+			}
+			if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
+				return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+			}
+			return fmt.Errorf("failed to launch MCP server: %w", err)
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if errors.Is(err, mcp.ErrInsufficientCapacity) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server. Please contact your administrator.")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
-			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
-		}
-		return fmt.Errorf("failed to launch MCP server: %w", err)
 	}
 
 	return nil
@@ -764,7 +752,7 @@ func (m *MCPHandler) serverNeedsOAuth(ctx context.Context, server *v1.MCPServer,
 	}
 
 	if err := m.mcpSessionManager.PingServer(ctx, serverConfig); err != nil {
-		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return true, nil
 		}
 		return false, fmt.Errorf("failed to ping MCP server %s: %w", server.Name, err)
@@ -802,11 +790,11 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return err
 	}
@@ -820,10 +808,7 @@ func (m *MCPHandler) GetTools(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return fmt.Errorf("failed to list tools: %w", err)
@@ -838,11 +823,11 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return err
 	}
@@ -856,17 +841,14 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
@@ -881,11 +863,11 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return err
 	}
@@ -896,17 +878,14 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 
 	contents, err := m.mcpSessionManager.ReadResource(req.Context(), serverConfig, req.PathValue("resource_uri"))
 	if err != nil {
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support resources")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
@@ -921,11 +900,11 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return err
 	}
@@ -939,17 +918,14 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list prompts: %w", err)
@@ -964,11 +940,11 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
+		}
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
+			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return err
 	}
@@ -987,16 +963,13 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server is not healthy, check configuration for errors: %v", err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP server, check configuration for errors")
-		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support prompts")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
-		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to get prompt: %w", err)
@@ -2639,7 +2612,7 @@ func toolsForServer(ctx context.Context, mcpSessionManager *mcp.SessionManager, 
 		}
 		if strings.HasSuffix(strings.ToLower(err.Error()), "method not found") {
 			return nil, types.NewErrHTTP(http.StatusFailedDependency, "MCP server does not support tools")
-		} else if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
+		} else if _, ok := errors.AsType[*mmmcp.AuthorizationError](err); ok {
 			return nil, types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return nil, err
@@ -3402,7 +3375,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return err
@@ -3489,7 +3462,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 			}
 
 			if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), componentConfig); err != nil {
-				if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+				if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 					return types.NewErrNotFound(nse.Error())
 				}
 				return err
@@ -3501,7 +3474,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 	}
 
 	if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return err
@@ -3640,7 +3613,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	if hashDrift || server.Status.NeedsK8sUpdate {
 		// Trigger restart to force redeployment with new settings
 		if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			if _, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 				return types.NewErrBadRequest("Restart is not supported by the current backend")
 			}
 			return fmt.Errorf("failed to redeploy server: %w", err)
@@ -3865,7 +3838,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 
 	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return err

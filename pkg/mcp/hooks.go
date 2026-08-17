@@ -8,9 +8,8 @@ import (
 )
 
 const (
-	// HookMutationsMetaKey is retained for compatibility with clients that already
-	// consume hook mutation metadata from MCP results.
-	HookMutationsMetaKey = "ai.nanobot.hooks/mutations"
+	// HookMutationsMetaKey identifies hook mutation metadata in MCP results.
+	HookMutationsMetaKey = "ai.obot.hooks/mutations"
 )
 
 var (

@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -227,13 +226,10 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("MCP server for agent %s is not healthy, check configuration for errors: %v", agent.Name, err))
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, fmt.Sprintf("No response from MCP server for agent %s, check configuration for errors: %v", agent.Name, err))
-		}
 		if errors.Is(err, mcp.ErrInsufficientCapacity) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP server for agent. Please contact your administrator.")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 

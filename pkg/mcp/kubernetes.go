@@ -202,7 +202,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		podName: podName,
 	})
 
-	if server.IsNanobotAgentServer() {
+	if server.IsAgentServer() {
 		return ServerConfig{
 			URL:                  fmt.Sprintf("%s/%s", u, strings.TrimPrefix(server.ContainerPath, "/")),
 			MCPServerName:        server.MCPServerName,
@@ -215,7 +215,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			Runtime:              types.RuntimeRemote,
 			ContainerPort:        server.ContainerPort,
 			ContainerPath:        server.ContainerPath,
-			NanobotAgentName:     server.NanobotAgentName,
+			AgentName:            server.AgentName,
 			StartupTimeout:       server.StartupTimeout,
 		}, nil
 	}
@@ -224,24 +224,22 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 
 	// Use the pod name as the scope, so we get a new session if the pod restarts. MCP sessions aren't persistent on the server side.
 	return ServerConfig{
-		URL:                       fullURL,
-		MCPServerName:             server.MCPServerName,
-		TokenExchangeClientID:     server.TokenExchangeClientID,
-		TokenExchangeClientSecret: server.TokenExchangeClientSecret,
-		Audiences:                 server.Audiences,
-		AuditLogMetadata:          server.AuditLogMetadata,
-		MCPServerNamespace:        server.MCPServerNamespace,
-		MCPServerDisplayName:      server.MCPServerDisplayName,
-		Scope:                     podName,
-		UserID:                    server.UserID,
-		OwnerUserID:               server.OwnerUserID,
-		Runtime:                   types.RuntimeRemote,
-		ContainerPort:             server.ContainerPort,
-		ContainerPath:             server.ContainerPath,
-		PassthroughHeaderNames:    server.PassthroughHeaderNames,
-		PassthroughHeaderValues:   server.PassthroughHeaderValues,
-		StartupTimeout:            server.StartupTimeout,
-		Webhooks:                  server.Webhooks,
+		URL:                     fullURL,
+		MCPServerName:           server.MCPServerName,
+		Audiences:               server.Audiences,
+		AuditLogMetadata:        server.AuditLogMetadata,
+		MCPServerNamespace:      server.MCPServerNamespace,
+		MCPServerDisplayName:    server.MCPServerDisplayName,
+		Scope:                   podName,
+		UserID:                  server.UserID,
+		OwnerUserID:             server.OwnerUserID,
+		Runtime:                 types.RuntimeRemote,
+		ContainerPort:           server.ContainerPort,
+		ContainerPath:           server.ContainerPath,
+		PassthroughHeaderNames:  server.PassthroughHeaderNames,
+		PassthroughHeaderValues: server.PassthroughHeaderValues,
+		StartupTimeout:          server.StartupTimeout,
+		Webhooks:                server.Webhooks,
 	}, nil
 }
 
@@ -407,15 +405,13 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 
 	if !k.authEnabled {
 		server.Audiences = nil
-		server.TokenExchangeClientID = ""
-		server.TokenExchangeClientSecret = ""
 	}
 
 	var (
 		command  []string
 		objs     = make([]kclient.Object, 0, 5)
 		image    = k.baseImage
-		args     = []string{"run", "--disable-ui", "--listen-address", fmt.Sprintf(":%d", defaultContainerPort), "--exclude-built-in-agents", "--config", "/config/nanobot.yaml"}
+		args     = []string{"--listen", fmt.Sprintf(":%d", defaultContainerPort), "--config", "/config/mmmcp.yaml"}
 		port     = defaultContainerPort
 		portName = "mcp"
 
@@ -481,16 +477,15 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		server.Args = args
 	}
 
-	// Set this environment variable for our nanobot image to read
-	secretEnvData["NANOBOT_META_ENV"] = []byte(strings.Join(metaEnv, ","))
+	secretEnvData["MMMCP_META_ENV"] = []byte(strings.Join(metaEnv, ","))
 
-	// Set an environment variable to force fetch tool list
-	secretEnvData["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"] = []byte("true")
+	if server.Runtime == types.RuntimeContainerized {
+		// Containerized runtimes can still be Nanobot agents.
+		secretEnvData["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"] = []byte("true")
+		secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
+	}
 
-	// Tell nanobot to expose the healthz endpoint
-	secretEnvData["NANOBOT_RUN_HEALTHZ_PATH"] = []byte("/healthz")
-
-	if server.IsNanobotAgentServer() {
+	if server.IsAgentServer() {
 		maps.Copy(secretEnvData, OTELEnv("nanobot-agent", ""))
 	}
 
@@ -506,7 +501,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	mcpResources := mcpContainerResources(
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		k8sSettings,
 	)
 
@@ -519,7 +514,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		k8sSettings,
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		effectiveImagePullSecrets,
 	)
 
@@ -527,12 +522,12 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	psaLevel := GetPSAEnforceLevelFromSpec(k8sSettings)
 
 	var workspacePVCName string
-	if server.NanobotAgentName != "" {
+	if server.IsAgentServer() {
 		workspacePVCName = name.SafeConcatName(server.MCPServerName, "workspace")
 
 		workspaceSizeDef := k8sSettings.NanobotWorkspaceSize
 		if workspaceSizeDef == "" {
-			workspaceSizeDef = nanobotWorkspaceDefaultSize
+			workspaceSizeDef = agentWorkspaceDefaultSize
 		}
 		workspaceSize, err := resource.ParseQuantity(workspaceSizeDef)
 		if err != nil {
@@ -584,8 +579,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	}
 	if workspacePVCName != "" {
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
-			Name:      nanobotWorkspaceVolumeName,
-			MountPath: nanobotWorkspaceMountPath,
+			Name:      agentWorkspaceVolumeName,
+			MountPath: agentWorkspaceMountPath,
 		})
 	}
 
@@ -604,7 +599,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		Args:            args,
 		WorkingDir: func() string {
 			if workspacePVCName != "" {
-				return nanobotWorkspaceMountPath
+				return agentWorkspaceMountPath
 			}
 			return ""
 		}(),
@@ -665,7 +660,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 
 						if workspacePVCName != "" {
 							volumes = append(volumes, corev1.Volume{
-								Name: nanobotWorkspaceVolumeName,
+								Name: agentWorkspaceVolumeName,
 								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 									ClaimName: workspacePVCName,
 								},
@@ -683,17 +678,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	objs = append(objs, dep)
 
 	if server.Runtime != types.RuntimeContainerized {
-		// Setup the MCP server nanobot config (nanobot.yaml that configures how nanobot proxies
-		// to the underlying MCP server) and mount it into the last container in the deployment.
-		var nanobotFileString []byte
-		if server.Runtime == types.RuntimeComposite {
-			nanobotFileString, err = constructMCPServerNanobotYAMLForComposite(server)
-			annotations["nanobot-composite-file-rev"] = utils.Digest(nanobotFileString)
-		} else {
-			nanobotFileString, err = constructMCPServerNanobotYAML(server, secretEnvData)
-		}
+		// Configure mmmcp to expose the command-based MCP server over HTTP.
+		mmmcpFileString, err := constructMCPServerMMMCPYAML(server, secretEnvData)
 		if err != nil {
-			return nil, fmt.Errorf("failed to construct nanobot.yaml: %w", err)
+			return nil, fmt.Errorf("failed to construct mmmcp.yaml: %w", err)
 		}
 
 		objs = append(objs, &corev1.Secret{
@@ -701,7 +689,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 			Namespace:   k.mcpNamespace,
 			Annotations: annotations,
 			Data: map[string][]byte{
-				"nanobot.yaml": nanobotFileString,
+				"mmmcp.yaml": mmmcpFileString,
 			},
 		})
 
@@ -712,8 +700,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		})
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].ReadinessProbe = &corev1.Probe{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path: "/healthz",
+			TCPSocket: &corev1.TCPSocketAction{
 				Port: intstr.FromInt(port),
 			},
 		}
@@ -723,7 +710,7 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		dep.Spec.Template.Spec.ImagePullSecrets = append(dep.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{Name: secret})
 	}
 
-	if server.IsNanobotAgentServer() {
+	if server.IsAgentServer() {
 		// We also need to replace since there is a PVC involved.
 		dep.Spec.Strategy.Type = appsv1.RecreateDeploymentStrategyType
 	}
@@ -782,7 +769,7 @@ func analyzePodStatus(ctx context.Context, pod *corev1.Pod, server ServerConfig)
 	return analyzePodStatusWithClient(ctx, pod, server, &http.Client{Timeout: time.Second})
 }
 
-func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server ServerConfig, healthCheckClient *http.Client) (bool, error) {
+func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server ServerConfig, client *http.Client) (bool, error) {
 	// Check pod phase first
 	switch pod.Status.Phase {
 	case corev1.PodFailed:
@@ -790,7 +777,7 @@ func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server Ser
 	case corev1.PodSucceeded:
 		// This shouldn't happen for a long-running deployment, but if it does, it's an error
 		// Except for agents. We use "recreate" update strategy for agents, so it's possible that the old pod exited while the new one is initializing.
-		return server.NanobotAgentName != "", fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
+		return server.IsAgentServer(), fmt.Errorf("%w: pod succeeded and exited", ErrHealthCheckTimeout)
 	case corev1.PodUnknown:
 		return false, fmt.Errorf("%w: pod is in Unknown phase", ErrHealthCheckTimeout)
 	}
@@ -849,11 +836,10 @@ func analyzePodStatusWithClient(ctx context.Context, pod *corev1.Pod, server Ser
 
 	// If this is a command-based MCP server, then check for a 500 from the health check.
 	if pod.Status.PodIP != "" && (server.Runtime == types.RuntimeNPX || server.Runtime == types.RuntimeUVX) {
-		if err := ensureHTTPGetOK(ctx, healthCheckClient, fmt.Sprintf("http://%s:%d%s", pod.Status.PodIP, defaultContainerPort, server.HealthzPath)); err != nil {
+		if err := ensureHTTPGetOK(ctx, client, fmt.Sprintf("http://%s:%d%s", pod.Status.PodIP, defaultContainerPort, server.HealthzPath)); err != nil {
 			return false, err
 		}
 	}
-
 	// Default: pod is in Pending or Running but not ready yet - should retry
 	return true, fmt.Errorf("pod in phase %s, waiting for containers to be ready", pod.Status.Phase)
 }
@@ -991,13 +977,13 @@ func (k *kubernetesBackend) deleteDeploymentCache(mcpServerName string) {
 	delete(k.deploymentCache, mcpServerName)
 }
 
-func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
+func mcpContainerResources(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, agent bool, k8sSettings v1.K8sSettingsSpec) corev1.ResourceRequirements {
 	maximums := EffectiveResourceMaximums(k8sSettings, ResourceMaximums{})
-	return mcpContainerResourcesWithMaximums(serverSpecificResources, runtime, nanobotAgent, k8sSettings, maximums)
+	return mcpContainerResourcesWithMaximums(serverSpecificResources, runtime, agent, k8sSettings, maximums)
 }
 
-func mcpContainerResourcesWithMaximums(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) corev1.ResourceRequirements {
-	defaults, implicitMemoryRequest := mcpContainerDefaultResources(runtime, nanobotAgent, k8sSettings)
+func mcpContainerResourcesWithMaximums(serverSpecificResources *corev1.ResourceRequirements, runtime types.Runtime, agent bool, k8sSettings v1.K8sSettingsSpec, maximums ResourceMaximums) corev1.ResourceRequirements {
+	defaults, implicitMemoryRequest := mcpContainerDefaultResources(runtime, agent, k8sSettings)
 	defaults = withImplicitResourceMaximums(defaults, implicitMemoryRequest, maximums)
 	return withServerResourceOverrides(defaults, serverSpecificResources)
 }
@@ -1006,11 +992,11 @@ func mcpContainerResourcesWithMaximums(serverSpecificResources *corev1.ResourceR
 // its memory request came from a built-in fallback. Only built-in fallbacks are
 // capped by ResourceMaximums; explicit K8s settings remain explicit and are
 // validated separately.
-func mcpContainerDefaultResources(runtime types.Runtime, nanobotAgent bool, k8sSettings v1.K8sSettingsSpec) (corev1.ResourceRequirements, bool) {
+func mcpContainerDefaultResources(runtime types.Runtime, agent bool, k8sSettings v1.K8sSettingsSpec) (corev1.ResourceRequirements, bool) {
 	if runtime == types.RuntimeRemote || runtime == types.RuntimeComposite {
 		return memoryRequestResources(remoteMemoryRequest), true
 	}
-	if nanobotAgent {
+	if agent {
 		if k8sSettings.NanobotAgentResources != nil {
 			return *k8sSettings.NanobotAgentResources, false
 		}
@@ -1103,13 +1089,13 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		k8sSettings,
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		effectiveImagePullSecrets,
 	)
 	desiredResources := mcpContainerResources(
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		k8sSettings,
 	)
 
@@ -1698,7 +1684,7 @@ func ComputeK8sSettingsHash(
 	settings v1.K8sSettingsSpec,
 	serverSpecificResources *corev1.ResourceRequirements,
 	serverRuntime types.Runtime,
-	nanobotAgentServer bool,
+	agentServer bool,
 	imagePullSecretNames []string,
 ) string {
 	var buf bytes.Buffer
@@ -1719,7 +1705,7 @@ func ComputeK8sSettingsHash(
 	// applied to the Deployment, including maximums from K8sSettings capping
 	// implicit built-in defaults.
 	// Ignoring errors from JSON encoding since the inputs are well-defined structs that should always marshal successfully
-	_ = json.NewEncoder(&buf).Encode(mcpContainerResources(serverSpecificResources, serverRuntime, nanobotAgentServer, settings))
+	_ = json.NewEncoder(&buf).Encode(mcpContainerResources(serverSpecificResources, serverRuntime, agentServer, settings))
 
 	// Hash runtimeClassName
 	if settings.RuntimeClassName != nil && *settings.RuntimeClassName != "" {
@@ -1731,8 +1717,8 @@ func ComputeK8sSettingsHash(
 		buf.WriteString(*settings.StorageClassName)
 	}
 
-	// Hash nanobot-only settings
-	if nanobotAgentServer {
+	// Hash agent-only settings.
+	if agentServer {
 		if settings.NanobotWorkspaceSize != "" {
 			buf.WriteString(settings.NanobotWorkspaceSize)
 		}
@@ -1948,7 +1934,7 @@ func (k *kubernetesBackend) CheckCapacity(ctx context.Context, server ServerConf
 	resources := mcpContainerResources(
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		k8sSettings,
 	)
 	if mem, ok := resources.Requests[corev1.ResourceMemory]; ok {

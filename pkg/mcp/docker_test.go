@@ -1,8 +1,11 @@
 package mcp
 
 import (
+	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/api/types/container"
 )
@@ -107,6 +110,132 @@ func TestDockerBackendNetworkConfigReturnsLocalIPError(t *testing.T) {
 	}
 	if !errors.Is(err, routeErr) {
 		t.Fatalf("expected wrapped route error, got %v", err)
+	}
+}
+
+func TestAnalyzeContainerState(t *testing.T) {
+	tests := []struct {
+		name        string
+		state       *container.State
+		wantRetry   bool
+		wantErr     bool
+		wantMessage string
+	}{
+		{
+			name:      "missing state retries",
+			wantRetry: true,
+		},
+		{
+			name:      "created container retries",
+			state:     &container.State{Status: container.StateCreated},
+			wantRetry: true,
+		},
+		{
+			name:      "restarting container retries",
+			state:     &container.State{Status: container.StateRestarting, Restarting: true},
+			wantRetry: true,
+		},
+		{
+			name:        "restarting failed container returns health failure",
+			state:       &container.State{Status: container.StateRestarting, Restarting: true, ExitCode: 1},
+			wantErr:     true,
+			wantMessage: "container is restarting with exit code 1",
+		},
+		{
+			name:  "running container is ready",
+			state: &container.State{Status: container.StateRunning, Running: true},
+		},
+		{
+			name:        "paused container fails",
+			state:       &container.State{Status: container.StatePaused, Running: true, Paused: true},
+			wantErr:     true,
+			wantMessage: "container is paused",
+		},
+		{
+			name:        "exited container fails even with zero exit code",
+			state:       &container.State{Status: container.StateExited},
+			wantErr:     true,
+			wantMessage: "container is exited with exit code 0",
+		},
+		{
+			name:        "failed container includes Docker error",
+			state:       &container.State{Status: container.StateExited, ExitCode: 2, Error: "exec format error"},
+			wantErr:     true,
+			wantMessage: "container is exited with exit code 2: exec format error",
+		},
+		{
+			name:        "OOM-killed container fails",
+			state:       &container.State{Status: container.StateExited, ExitCode: 137, OOMKilled: true},
+			wantErr:     true,
+			wantMessage: "container was OOM-killed",
+		},
+		{
+			name:        "dead container fails",
+			state:       &container.State{Status: container.StateDead, Dead: true},
+			wantErr:     true,
+			wantMessage: "container is dead",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			shouldRetry, err := analyzeContainerState(tt.state)
+			if shouldRetry != tt.wantRetry {
+				t.Fatalf("analyzeContainerState() retry = %v, want %v", shouldRetry, tt.wantRetry)
+			}
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("analyzeContainerState() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr && !errors.Is(err, ErrHealthCheckFailed) {
+				t.Fatalf("analyzeContainerState() error = %v, want %v", err, ErrHealthCheckFailed)
+			}
+			if tt.wantMessage != "" && !strings.Contains(err.Error(), tt.wantMessage) {
+				t.Fatalf("analyzeContainerState() error = %q, want it to contain %q", err, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestMonitorContainerReadinessDetectsCrashLoop(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+
+	err := monitorContainerReadiness(ctx, time.Millisecond,
+		func(context.Context) (container.InspectResponse, error) {
+			return container.InspectResponse{ContainerJSONBase: &container.ContainerJSONBase{
+				RestartCount: 4,
+				State: &container.State{
+					Status:   container.StateRunning,
+					Running:  true,
+					ExitCode: 1,
+				},
+			}}, nil
+		},
+		func(ctx context.Context) error {
+			<-ctx.Done()
+			return ctx.Err()
+		},
+	)
+	if !errors.Is(err, ErrHealthCheckFailed) {
+		t.Fatalf("monitorContainerReadiness() error = %v, want %v", err, ErrHealthCheckFailed)
+	}
+	if !strings.Contains(err.Error(), "4 restarts") {
+		t.Fatalf("monitorContainerReadiness() error = %q, want restart count", err)
+	}
+}
+
+func TestMonitorContainerReadinessReturnsSuccessfulHealthCheck(t *testing.T) {
+	err := monitorContainerReadiness(t.Context(), time.Hour,
+		func(context.Context) (container.InspectResponse, error) {
+			t.Fatal("container inspection should not run before the health check succeeds")
+			return container.InspectResponse{}, nil
+		},
+		func(context.Context) error {
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("monitorContainerReadiness() error = %v", err)
 	}
 }
 

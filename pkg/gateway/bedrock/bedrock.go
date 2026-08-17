@@ -12,7 +12,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -50,7 +50,7 @@ func IsProvider(providerName string) bool {
 	return providerName == system.AmazonBedrockModelProvider || providerName == system.AmazonBedrockAPIKeyModelProvider
 }
 
-func BaseURL(providerName string, credentials map[string]string, dialect nanobottypes.Dialect) (url.URL, error) {
+func BaseURL(providerName string, credentials map[string]string, dialect llmtypes.Dialect) (url.URL, error) {
 	u, err := RootURL(providerName, credentials)
 	if err != nil {
 		return url.URL{}, err
@@ -137,11 +137,11 @@ func APIKeyRegionFromCredential(credentials map[string]string) string {
 	return defaultRegion
 }
 
-func RouteDialect(dialect nanobottypes.Dialect) (string, error) {
+func RouteDialect(dialect llmtypes.Dialect) (string, error) {
 	switch dialect {
-	case nanobottypes.DialectAnthropicMessages:
+	case llmtypes.DialectAnthropicMessages:
 		return "anthropic", nil
-	case nanobottypes.DialectOpenAIResponses:
+	case llmtypes.DialectOpenAIResponses:
 		return "openai", nil
 	default:
 		return "", fmt.Errorf("unsupported Bedrock model dialect %q", dialect)

@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/obot-platform/nanobot/pkg/system"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type ports struct {

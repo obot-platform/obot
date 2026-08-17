@@ -47,9 +47,9 @@ func TestNewAgentBackend(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := Config{
 				HostedAgentsBackend: tt.kind,
+				MCPRuntimeBackend:   tt.mcpBackend,
 				DevMode:             tt.devMode,
-
-				MCPRuntimeBackend: tt.mcpBackend}
+			}
 			kind, backend, err := newHostedAgentsBackend(config, nil, nil, nil)
 			if tt.wantErr {
 				if err == nil {

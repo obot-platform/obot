@@ -2,28 +2,14 @@ package systemmcpserver
 
 import (
 	"context"
-	"crypto/rand"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
-	"strings"
-	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
-	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
-	"golang.org/x/crypto/bcrypt"
-	"k8s.io/apimachinery/pkg/fields"
-	kwait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Handler struct {
@@ -38,92 +24,6 @@ func New(gatewayClient *gateway.Client, mcpLoader *mcp.SessionManager, serverURL
 		mcpSessionManager: mcpLoader,
 		serverURL:         serverURL,
 	}
-}
-
-// EnsureSecretInfo ensures an OAuthClient and token exchange credentials exist for the system MCP server.
-func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error {
-	systemServer := req.Object.(*v1.SystemMCPServer)
-
-	fieldSelector := fields.SelectorFromSet(map[string]string{
-		"spec.mcpServerName": systemServer.Name,
-	})
-	var oauthClients v1.OAuthClientList
-	if err := req.List(&oauthClients, &kclient.ListOptions{
-		Namespace:     req.Namespace,
-		FieldSelector: fieldSelector,
-	}); err != nil {
-		return err
-	}
-
-	if len(oauthClients.Items) == 0 {
-		// Double-check with the uncached listing
-		if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
-			Namespace:     req.Namespace,
-			FieldSelector: fieldSelector,
-		}); err != nil {
-			return err
-		}
-	}
-
-	secretCredToolName := SecretInfoToolName(systemServer.Name)
-
-	if systemServer.Status.AuditLogTokenHash != "" {
-		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretCredToolName)
-		if err != nil {
-			return fmt.Errorf("failed to get credential: %w", err)
-		}
-
-		if systemServer.Status.AuditLogTokenHash != utils.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
-			// Reset the audit log token hash to reset the credential.
-			systemServer.Status.AuditLogTokenHash = ""
-		}
-	}
-
-	if len(oauthClients.Items) > 0 && systemServer.Status.AuditLogTokenHash != "" {
-		return nil
-	}
-
-	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
-	clientSecret := strings.ToLower(rand.Text() + rand.Text())
-	hashedClientSecretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash client secret: %w", err)
-	}
-
-	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
-
-	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
-		Context: systemServer.Name,
-		Name:    secretCredToolName,
-		Secrets: map[string]string{
-			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
-			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
-			"AUDIT_LOG_TOKEN":              auditLogToken,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	oauthClient := v1.OAuthClient{
-		Name:       clientID,
-		Namespace:  req.Namespace,
-		Finalizers: []string{v1.OAuthClientFinalizer},
-		Spec: v1.OAuthClientSpec{
-			Manifest: types.OAuthClientManifest{
-				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
-			},
-			ClientSecretHash: hashedClientSecretHash,
-			MCPServerName:    systemServer.Name,
-		},
-	}
-
-	if err := req.Client.Create(req.Ctx, &oauthClient); err != nil {
-		return fmt.Errorf("failed to create OAuth client: %w", err)
-	}
-
-	systemServer.Status.AuditLogTokenHash = utils.Digest(auditLogToken)
-
-	return nil
 }
 
 // EnsureDeployment automatically deploys the server if Enabled=true and fully configured
@@ -164,13 +64,8 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		return fmt.Errorf("failed to list credentials: %w", err)
 	}
 
-	secretToolName := SecretInfoToolName(systemServer.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
-		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-		if cred.Name == secretToolName {
-			continue
-		}
 		// Get credential details
 		credDetail, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credCtx}, cred.Name)
 		if err != nil {
@@ -180,31 +75,10 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 		maps.Copy(credEnv, credDetail.Secrets)
 	}
 
-	// Retrieve the token exchange credential
-	var (
-		tokenExchangeCred gatewaytypes.Credential
-		tokenCredErr      error
-	)
-	if err = retry.OnError(kwait.Backoff{
-		Steps:    10,
-		Duration: 100 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-	}, func(err error) bool {
-		return errors.As(err, &gateway.CredentialNotFoundError{})
-	}, func() error {
-		tokenExchangeCred, tokenCredErr = h.gatewayClient.RevealCredential(req.Ctx, []string{systemServer.Name}, secretToolName)
-		return tokenCredErr
-	}); err != nil {
-		return fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
-	}
-
-	secretsCred := tokenExchangeCred.Secrets
-
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
 
 	// Transform to ServerConfig
-	serverConfig, missingRequired, err := mcp.SystemServerToServerConfig(*systemServer, audiences, "", credEnv, secretsCred)
+	serverConfig, missingRequired, err := mcp.SystemServerToServerConfig(*systemServer, audiences, "", credEnv)
 	if err != nil {
 		return fmt.Errorf("failed to transform system server to config: %w", err)
 	}
@@ -285,13 +159,8 @@ func GetCredentialsForSystemServer(ctx context.Context, gatewayClient *gateway.C
 		return nil, err
 	}
 
-	secretToolName := SecretInfoToolName(server.Name)
 	credEnv := make(map[string]string)
 	for _, cred := range creds {
-		// Skip the secret info credential — those vars go to the shim only, not the MCP server.
-		if cred.Name == secretToolName {
-			continue
-		}
 		credDetail, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, cred.Name)
 		if err != nil {
 			continue
@@ -301,10 +170,4 @@ func GetCredentialsForSystemServer(ctx context.Context, gatewayClient *gateway.C
 	}
 
 	return credEnv, nil
-}
-
-// SecretInfoToolName returns the credential toolName used to store token exchange secrets
-// for the given system MCP server. Exported for use by API handlers.
-func SecretInfoToolName(serverName string) string {
-	return serverName + "-secret-info"
 }

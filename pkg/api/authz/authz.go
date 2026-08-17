@@ -276,9 +276,6 @@ var (
 			// This allows the UI to display custom images to unauthenticated users.
 			"GET /api/image/{image_id}",
 
-			// The auth for this is handled in the HTTP handler
-			"POST /api/mcp-audit-logs",
-
 			// API Key authentication webhook (called by nanobot shim)
 			// This endpoint validates the API key passed in the header
 			"POST /api/api-keys/auth",

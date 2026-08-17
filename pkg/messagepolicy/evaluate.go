@@ -12,12 +12,12 @@ import (
 	"strings"
 	"sync"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -227,7 +227,7 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		credHeaders map[string]string
 		httpClient  *http.Client
 	)
-	dialect := nanobottypes.Dialect(model.Spec.Manifest.Dialect)
+	dialect := llmtypes.Dialect(model.Spec.Manifest.Dialect)
 	if bedrock.IsProvider(modelProvider.Name) {
 		u, err := bedrock.BaseURL(modelProvider.Name, credEnv, dialect)
 		if err != nil {
@@ -280,19 +280,19 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 // appropriate API format for the provider's dialect.
 func (h *Helper) callLLM(ctx context.Context, resolved *resolvedModel, messages []chatMessage) (string, error) {
 	if bedrock.IsProvider(resolved.providerName) || azure.IsProvider(resolved.providerName) {
-		switch nanobottypes.Dialect(resolved.dialect) {
-		case nanobottypes.DialectAnthropicMessages:
+		switch llmtypes.Dialect(resolved.dialect) {
+		case llmtypes.DialectAnthropicMessages:
 			return h.callLLMAnthropicMessages(ctx, resolved, messages)
-		case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
+		case llmtypes.DialectOpenAIResponses, llmtypes.DialectOpenResponses:
 			return h.callLLMOpenAIResponses(ctx, resolved, messages)
 		default:
 			return "", fmt.Errorf("unsupported dedicated model provider dialect %q", resolved.dialect)
 		}
 	}
-	switch nanobottypes.Dialect(resolved.dialect) {
-	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
+	switch llmtypes.Dialect(resolved.dialect) {
+	case llmtypes.DialectOpenAIResponses, llmtypes.DialectOpenResponses:
 		return h.callLLMOpenAIResponses(ctx, resolved, messages)
-	case "", nanobottypes.DialectAnthropicMessages, nanobottypes.DialectOpenAIChatCompletions:
+	case "", llmtypes.DialectAnthropicMessages, llmtypes.DialectOpenAIChatCompletions:
 		return h.callLLMChatCompletions(ctx, resolved, messages)
 	default:
 		return "", fmt.Errorf("unsupported model provider dialect %q", resolved.dialect)

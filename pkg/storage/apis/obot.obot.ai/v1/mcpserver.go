@@ -82,8 +82,6 @@ type MCPServerStatus struct {
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
 	// NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings
 	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
-	// AuditLogTokenHash is the hash of the token used to submit audit logs.
-	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 	// ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server.
 	// This field is only populated for composite MCP servers.
 	ObservedCompositeManifestHash string `json:"observedCompositeManifestHash,omitempty"`
@@ -156,8 +154,6 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.CompositeName
 	case "spec.manifest.runtime":
 		return string(in.Spec.Manifest.Runtime)
-	case "auditLogTokenHash":
-		return in.Status.AuditLogTokenHash
 	}
 	return ""
 }
@@ -171,7 +167,6 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.template",
 		"spec.compositeName",
 		"spec.manifest.runtime",
-		"auditLogTokenHash",
 	}
 }
 

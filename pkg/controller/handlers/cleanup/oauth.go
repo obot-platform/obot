@@ -1,6 +1,7 @@
 package cleanup
 
 import (
+	"slices"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -10,9 +11,14 @@ import (
 func OAuthClients(req router.Request, resp router.Response) error {
 	o := req.Object.(*v1.OAuthClient)
 
-	// Client for MCP server token exchange will be cleaned up when the MCP server is deleted.
-	// And static clients are deleted by users.
-	if o.Spec.MCPServerName != "" || o.Spec.Static {
+	if idx := slices.Index(o.Finalizers, "obot.obot.ai/oauth-client"); idx != -1 {
+		// If the finalizer exists, remove it first.
+		o.Finalizers = slices.Delete(o.Finalizers, idx, idx+1)
+		return req.Client.Update(req.Ctx, o)
+	}
+
+	// Static clients are deleted by users.
+	if o.Spec.Static || !o.DeletionTimestamp.IsZero() {
 		return nil
 	}
 

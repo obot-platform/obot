@@ -22,6 +22,11 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type Router struct {
+	http.Handler
+	mcpGateway *mcpgateway.Handler
+}
+
 // resolveAgentsEnabled determines whether Obot Agent features are enabled.
 //
 // An explicitly-set OBOT_ENABLE_AGENTS value (or --enable-agents flag) always
@@ -44,7 +49,11 @@ func resolveAgentsEnabled(ctx context.Context, services *services.Services) (boo
 	return len(agents.Items) > 0, nil
 }
 
-func Router(ctx context.Context, services *services.Services) (http.Handler, error) {
+func (r *Router) Close() error {
+	return r.mcpGateway.Close()
+}
+
+func NewRouter(ctx context.Context, services *services.Services) (*Router, error) {
 	mux := services.APIServer
 
 	agentsEnabled, err := resolveAgentsEnabled(ctx, services)
@@ -156,6 +165,7 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	enforcement, err := handlers.NewEnforcementHandler(services.ServerURL)
 	if err != nil {
+		_ = mcpGateway.Close()
 		return nil, err
 	}
 
@@ -418,7 +428,6 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	// MCP Audit Logs
 	mux.HandleFunc("GET /api/mcp-audit-logs", mcpAuditLogs.ListAuditLogs)
-	mux.HandleFunc("POST /api/mcp-audit-logs", mcpAuditLogs.SubmitAuditLogs)
 	mux.HandleFunc("GET /api/mcp-audit-logs/filter-options/{filter}", mcpAuditLogs.ListAuditLogFilterOptions)
 	mux.HandleFunc("GET /api/mcp-audit-logs/detail/{audit_log_id}", mcpAuditLogs.GetAuditLog)
 	mux.HandleFunc("GET /api/mcp-audit-logs/{mcp_id}", mcpAuditLogs.ListAuditLogs)
@@ -775,5 +784,5 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 
 	mux.HTTPHandle("/", ui.Handler(services.DevUIPort, services.UserUIPort))
 
-	return services.APIServer, nil
+	return &Router{Handler: services.APIServer, mcpGateway: mcpGateway}, nil
 }

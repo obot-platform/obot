@@ -18,8 +18,8 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	obotmcp "github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -333,6 +333,9 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 
 	mediaType, _, _ := mime.ParseMediaType(resp.Header.Get("Content-Type"))
 	if mediaType == "text/event-stream" {
+		if a.entry.CallType == "subscriptions/listen" {
+			a.recordResponse(nil, resp.StatusCode, nil, a.entry.RequestID)
+		}
 		resp.Body = newAuditSSEBody(resp.Body, a, resp.StatusCode)
 		return nil
 	}

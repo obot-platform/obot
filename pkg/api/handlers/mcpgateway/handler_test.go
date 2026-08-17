@@ -1,12 +1,15 @@
 package mcpgateway
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"testing"
 
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"golang.org/x/oauth2"
 )
@@ -90,6 +93,29 @@ func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
 				t.Fatalf("Authorization = %q, want %q", got.Get("Authorization"), tt.wantAuthorization)
 			}
 		})
+	}
+}
+
+func TestMCPJSONRPCErrorPropagatesThroughTransport(t *testing.T) {
+	deploymentErr := errors.New("MCP server is not healthy: container repeatedly crashed (exit code 1, 4 restarts)")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !writeMCPJSONRPCError(w, req, deploymentErr) {
+			http.Error(w, deploymentErr.Error(), http.StatusInternalServerError)
+		}
+	}))
+	defer server.Close()
+
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "test", Version: "test"}, nil)
+	_, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{
+		Endpoint:             server.URL,
+		HTTPClient:           server.Client(),
+		DisableStandaloneSSE: true,
+	}, nil)
+	if err == nil {
+		t.Fatal("Connect() error = nil, want deployment health error")
+	}
+	if !strings.Contains(err.Error(), deploymentErr.Error()) {
+		t.Fatalf("Connect() error = %q, want it to contain %q", err, deploymentErr)
 	}
 }
 

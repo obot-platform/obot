@@ -71,7 +71,7 @@ func ConvertTools(tools []*gomcp.Tool, unsupportedTools []string) ([]otypes.MCPS
 // filtering out disabled tools and applying name/description overrides.
 // If overrides are present, they act as an allowlist - only tools explicitly listed are included.
 // toolPrefix, if non-empty, is prepended to every returned tool's Name so previews
-// match what the composite server will expose via nanobot at runtime.
+// match what the composite server will expose via mmmcp at runtime.
 func ApplyToolOverrides(tools []otypes.MCPServerTool, toolOverrides []otypes.ToolOverride, toolPrefix string) []otypes.MCPServerTool {
 	// Build lookup map: toolName -> ToolOverride
 	overrideMap := make(map[string]otypes.ToolOverride, len(toolOverrides))

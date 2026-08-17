@@ -122,12 +122,9 @@ export async function listMcpCatalogServerTools(
 			dontLogErrors: true
 		})) as MCPServerTool[];
 	} catch (error) {
-		if (error instanceof Error && error.message.startsWith('424')) {
-			return [];
-		}
 		if (
 			error instanceof Error &&
-			error.message.includes('oauth callback server is not configured')
+			(error.message.startsWith('424') || error.message.startsWith('412'))
 		) {
 			return [];
 		}

@@ -24,6 +24,44 @@ func Digest(obj any) string {
 	return hex.EncodeToString(hash.Sum(nil))
 }
 
+// JSONCoerce converts JSON-compatible input into the requested type.
+func JSONCoerce[T any](in any, out *T) error {
+	switch s := any(out).(type) {
+	case *string:
+		if inStr, ok := in.(string); ok {
+			*s = inStr
+			return nil
+		}
+		data, err := json.Marshal(in)
+		if err != nil {
+			return err
+		}
+		*s = string(data)
+		return nil
+	}
+
+	if v, ok := in.(T); ok {
+		*out = v
+		return nil
+	}
+
+	var data []byte
+	if inBytes, ok := in.([]byte); ok {
+		data = inBytes
+	} else if inStr, ok := in.(string); ok {
+		data = []byte(inStr)
+	} else if inStrP, ok := in.(*string); ok && inStrP != nil {
+		data = []byte(*inStrP)
+	} else {
+		var err error
+		data, err = json.Marshal(in)
+		if err != nil {
+			return err
+		}
+	}
+	return json.Unmarshal(data, out)
+}
+
 // FirstSet returns the first non-zero value from the input slice, or the zero value if all are zero.
 func FirstSet[T comparable](in ...T) T {
 	var zero T

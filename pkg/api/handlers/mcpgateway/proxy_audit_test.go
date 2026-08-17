@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
+	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
@@ -114,6 +114,37 @@ func TestMCPProxyAuditCollectsRequestAndResponseSeparately(t *testing.T) {
 	}
 	if string(responseEntry.ResponseBody) != `{"jsonrpc":"2.0","id":7,"result":{"content":[]}}` {
 		t.Fatalf("unexpected response body: %s", responseEntry.ResponseBody)
+	}
+}
+
+func TestMCPProxyAuditRecordsSubscriptionsListenSSEStatusImmediately(t *testing.T) {
+	collector := new(recordingProxyAuditCollector)
+	req, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(
+		`{"jsonrpc":"2.0","id":7,"method":"subscriptions/listen"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor.recordRequest()
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader("")),
+	}
+	if err := auditor.wrapResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(collector.entries) != 2 {
+		t.Fatalf("expected request and immediate response entries, got %d", len(collector.entries))
+	}
+	responseEntry := collector.entries[1]
+	if !collector.received[1] || responseEntry.RequestID != "7" || responseEntry.ResponseStatus != http.StatusOK {
+		t.Fatalf("unexpected response audit entry: received=%v request=%q status=%d", collector.received[1], responseEntry.RequestID, responseEntry.ResponseStatus)
 	}
 }
 

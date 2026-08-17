@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
+	"github.com/obot-platform/mmmcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -290,6 +292,44 @@ type clientRegistrationResponse struct {
 	// represented as the number of seconds from 1970-01-01T00:00:00Z as
 	// measured in UTC until the date/time of expiration.
 	ClientSecretExpiresAt *int64 `json:"client_secret_expires_at,omitempty"`
+}
+
+type authorizationErrorOAuthHandler struct{}
+
+func (authorizationErrorOAuthHandler) TokenSource(context.Context) (oauth2.TokenSource, error) {
+	return nil, nil
+}
+
+func (authorizationErrorOAuthHandler) Authorize(_ context.Context, _ *http.Request, resp *http.Response) error {
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
+
+	authErr := &mmmcp.AuthorizationError{StatusCode: resp.StatusCode}
+	challenges, err := oauthex.ParseWWWAuthenticate(resp.Header.Values("WWW-Authenticate"))
+	if err != nil {
+		return authErr
+	}
+	for _, challenge := range challenges {
+		if challenge.Scheme != "bearer" {
+			continue
+		}
+		if authErr.ResourceMetadata == "" {
+			authErr.ResourceMetadata = challenge.Params["resource_metadata"]
+		}
+		if authErr.Scope == "" {
+			authErr.Scope = challenge.Params["scope"]
+			authErr.Scopes = strings.Fields(authErr.Scope)
+		}
+		if authErr.ErrorCode == "" {
+			authErr.ErrorCode = challenge.Params["error"]
+		}
+		if authErr.ErrorDescription == "" {
+			authErr.ErrorDescription = challenge.Params["error_description"]
+		}
+	}
+	return authErr
 }
 
 // RequiresStaticOAuth reports whether a remote MCP server is configured to

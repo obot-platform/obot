@@ -18,22 +18,17 @@ Obot is designed to enable organizations to consume MCP servers in an enterprise
 
 - **MCP Gateway**: A reverse-proxy that authenticates users, ensures servers are deployed, and forwards requests. See [MCP Gateway](../concepts/mcp-gateway.md) for details.
 
-- **MCP Server Shim**: A protocol-aware sidecar that runs alongside each MCP server, handling authorization, audit logging, webhook filters, and token exchange.
-
 - **MCP Hosting**: Infrastructure for running MCP server containers (Docker or Kubernetes).
 
 - **LLM Gateway**: A proxy between chat clients and LLMs that enables monitoring and control of LLM communications.
 
 ## Authentication Flow
 
-All clients first authenticate with Obot via the configured identity provider. The gateway validates the user and proxies the request to the MCP Server Shim. The shim then handles authorization checks and, if the MCP server requires it, performs OAuth token exchange (RFC 8693) to obtain a third-party access token.
-
-![Authentication and Token Exchange Flow](/img/token-exchange-flow.webp)
+All clients first authenticate with Obot via the configured identity provider. The gateway validates and authorizes the user, obtains the user's stored upstream OAuth token when the target server requires one, and proxies the request to the MCP server.
 
 Key security properties:
-- **Gateway**: Handles user authentication only
-- **MCP Server Shim**: Handles authorization, audit logging, and token exchange
-- **Secret isolation**: Credentials for token exchange live in the MCP Server Shim, never exposed to the MCP server. MCP server configuration is never exposed to the MCP Server Shim.
+- **Gateway**: Handles user authentication, authorization, audit logging, and webhook filters
+- **Secret isolation**: Stored OAuth credentials are applied by the gateway and are never exposed as MCP server configuration.
 
 ## Data Persistence
 

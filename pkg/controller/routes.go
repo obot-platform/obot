@@ -26,7 +26,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/nanobotagent"
-	"github.com/obot-platform/obot/pkg/controller/handlers/oauthclients"
 	"github.com/obot-platform/obot/pkg/controller/handlers/oktagroupmigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/project"
@@ -57,7 +56,6 @@ func (c *Controller) setupRoutes() {
 	mcpServerCatalogEntryHandler := mcpservercatalogentry.NewHandler(c.services.GatewayClient)
 	auditLogExportHandler := auditlogexport.NewHandler(c.services.GatewayClient)
 	scheduledAuditLogExportHandler := scheduledauditlogexport.NewHandler()
-	oauthclients := oauthclients.NewHandler(c.services.GatewayClient)
 	systemMCPServerHandler := systemmcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.ServerURL)
 	nanobotAgentHandler := nanobotagent.New(c.services.GatewayClient, c.services.LocalRouter, c.services.NanobotAgentImage, c.services.ServerURL, c.services.MCPServerNamespace, c.services.MCPSessionManager)
 	agentCatalogHandler := agentcatalog.New()
@@ -162,6 +160,7 @@ func (c *Controller) setupRoutes() {
 	// MCPServer
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
+	root.Type(&v1.MCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersForAnonymousUser)
@@ -173,7 +172,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthCredentialStatus)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncOAuthMetadata)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncThirdPartyAuthStatus)
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPServerSecretInfo)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureCompositeComponents)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.ShutdownIdleServers)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SetNonDeployServerStatus)
@@ -208,9 +206,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.ModelAccessPolicy{}).HandlerFunc(modelaccesspolicy.PruneDefaultPolicy)
 
 	// OAuthClients
-	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.OAuthClients)
-	root.Type(&v1.OAuthClient{}).HandlerFunc(cleanup.Cleanup)
-	root.Type(&v1.OAuthClient{}).FinalizeFunc(v1.OAuthClientFinalizer, oauthclients.CleanupOAuthClientCred)
+	root.Type(&v1.OAuthClient{}).IncludeFinalizing().HandlerFunc(cleanup.OAuthClients)
 
 	// OAuthAuthRequests
 	root.Type(&v1.OAuthAuthRequest{}).HandlerFunc(cleanup.OAuthAuth)
@@ -241,7 +237,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.PowerUserWorkspace{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForWorkspace)
 
 	// System MCP Servers
-	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureSecretInfo)
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)

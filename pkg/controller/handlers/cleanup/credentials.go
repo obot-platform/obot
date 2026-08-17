@@ -31,11 +31,6 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		return err
 	}
 
-	// Cleanup the audit log token.
-	if _, err := c.gatewayClient.DeleteCredential(req.Ctx, mcpServer.Name, mcpServer.Name+"-audit-log-token"); err != nil {
-		return err
-	}
-
 	var credCtx string
 	if mcpServer.Spec.IsCatalogServer() {
 		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
@@ -86,4 +81,13 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 	}
 
 	return nil
+}
+
+func (c *Credentials) RemoveAuditLogCred(req router.Request, _ router.Response) error {
+	credentialName := req.Name
+	if _, ok := req.Object.(*v1.SystemMCPServer); ok {
+		credentialName += "-secret-info"
+	}
+	_, err := c.gatewayClient.DeleteCredential(req.Ctx, req.Name, credentialName)
+	return err
 }

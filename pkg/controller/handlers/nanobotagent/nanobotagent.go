@@ -15,12 +15,12 @@ import (
 	"github.com/obot-platform/nah/pkg/backend"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -46,17 +46,27 @@ type Handler struct {
 // resolvedLLMModel pairs the resolved model resource name with its configured provider reference
 // and the dialect declared by that provider (if any).
 type resolvedLLMModel struct {
-	Name            string               // Kubernetes Model resource name
-	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
-	ProviderDialect nanobottypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
+	Name            string           // Kubernetes Model resource name
+	ModelProvider   string           // e.g. "openai-model-provider", "anthropic-model-provider"
+	ProviderDialect llmtypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
 }
 
 // nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
 type nanobotLLMProvider struct {
 	Name    string // key in llmProviders map (e.g. "openai", "anthropic")
-	Dialect nanobottypes.Dialect
+	Dialect llmtypes.Dialect
 	APIKey  string // env var reference derived from Name, e.g. "${OPENAI_MODEL_PROVIDER_API_KEY}"
 	BaseURL string // actual Obot proxy URL
+}
+
+type agentConfig struct {
+	LLMProviders map[string]agentLLMProviderConfig `json:"llmProviders,omitempty"`
+}
+
+type agentLLMProviderConfig struct {
+	Dialect llmtypes.Dialect `json:"dialect,omitempty"`
+	APIKey  string           `json:"apiKey,omitempty"`
+	BaseURL string           `json:"baseURL,omitempty"`
 }
 
 func New(gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
@@ -410,11 +420,11 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 	if dialect == "" {
 		switch model.ModelProvider {
 		case system.AnthropicModelProvider:
-			dialect = nanobottypes.DialectAnthropicMessages
+			dialect = llmtypes.DialectAnthropicMessages
 		case system.OpenAIModelProvider:
-			dialect = nanobottypes.DialectOpenAIResponses
+			dialect = llmtypes.DialectOpenAIResponses
 		default:
-			dialect = nanobottypes.DialectOpenResponses
+			dialect = llmtypes.DialectOpenResponses
 		}
 	}
 
@@ -450,18 +460,18 @@ func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider
 // buildNanobotProviderConfigYAML generates a nanobot Config YAML containing only the
 // providers required by the given LLM and mini-LLM models.
 func buildNanobotProviderConfigYAML(providers ...nanobotLLMProvider) (string, error) {
-	llmProviders := make(map[string]nanobottypes.LLMProvider, len(providers))
+	llmProviders := make(map[string]agentLLMProviderConfig, len(providers))
 	for _, p := range providers {
 		if _, exists := llmProviders[p.Name]; exists {
 			continue
 		}
-		llmProviders[p.Name] = nanobottypes.LLMProvider{
+		llmProviders[p.Name] = agentLLMProviderConfig{
 			Dialect: p.Dialect,
 			APIKey:  p.APIKey,
 			BaseURL: p.BaseURL,
 		}
 	}
-	data, err := sigsyaml.Marshal(nanobottypes.Config{LLMProviders: llmProviders})
+	data, err := sigsyaml.Marshal(agentConfig{LLMProviders: llmProviders})
 	if err != nil {
 		return "", err
 	}
@@ -487,7 +497,7 @@ func getModelForAlias(ctx context.Context, client kclient.Client, namespace stri
 	return resolvedLLMModel{
 		Name:            model.Name,
 		ModelProvider:   model.Spec.Manifest.ModelProvider,
-		ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
+		ProviderDialect: llmtypes.Dialect(model.Spec.Manifest.Dialect),
 	}, nil
 }
 
@@ -547,7 +557,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 				return resolvedLLMModel{
 					Name:            model.Name,
 					ModelProvider:   model.Spec.Manifest.ModelProvider,
-					ProviderDialect: nanobottypes.Dialect(model.Spec.Manifest.Dialect),
+					ProviderDialect: llmtypes.Dialect(model.Spec.Manifest.Dialect),
 				}, nil
 			}
 		}
@@ -561,7 +571,7 @@ func chooseModel(ctx context.Context, client kclient.Client, namespace string, m
 		return resolvedLLMModel{
 			Name:            models[0].Name,
 			ModelProvider:   models[0].Spec.Manifest.ModelProvider,
-			ProviderDialect: nanobottypes.Dialect(models[0].Spec.Manifest.Dialect),
+			ProviderDialect: llmtypes.Dialect(models[0].Spec.Manifest.Dialect),
 		}, nil
 	}
 

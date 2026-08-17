@@ -26,8 +26,7 @@ func TestCleanup(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			correlation := &v1.MCPHookCorrelation{
-				Namespace: "default", Name: "correlation",
-				Spec: v1.MCPHookCorrelationSpec{
+				Namespace: "default", Name: "correlation", Spec: v1.MCPHookCorrelationSpec{
 					ExpiresAt: metav1.NewTime(tt.createdAt.Add(v1.MCPHookCorrelationTTL)),
 				}}
 			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(correlation).Build()

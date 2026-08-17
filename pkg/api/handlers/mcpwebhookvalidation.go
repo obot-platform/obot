@@ -7,10 +7,8 @@ import (
 	"net/http"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -333,7 +331,7 @@ func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
 	}
 
 	if err := m.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return fmt.Errorf("failed to restart mcp webhook validation: %w", err)
@@ -367,13 +365,10 @@ func (m *MCPWebhookValidationHandler) Launch(req api.Context) error {
 		if errors.Is(err, mcp.ErrHealthCheckFailed) || errors.Is(err, mcp.ErrHealthCheckTimeout) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "MCP webhook validation is not healthy, check configuration for errors")
 		}
-		if errors.Is(err, nmcp.ErrNoResult) || strings.HasSuffix(err.Error(), nmcp.ErrNoResult.Error()) {
-			return types.NewErrHTTP(http.StatusServiceUnavailable, "No response from MCP webhook validation, check configuration for errors")
-		}
 		if errors.Is(err, mcp.ErrInsufficientCapacity) {
 			return types.NewErrHTTP(http.StatusServiceUnavailable, "Insufficient capacity to deploy MCP webhook validation. Please contact your administrator.")
 		}
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return fmt.Errorf("failed to launch mcp webhook validation: %w", err)
@@ -403,7 +398,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 
 	logs, err := m.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return err
@@ -437,7 +432,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 
 	details, err := m.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return fmt.Errorf("failed to get server details: %w", err)

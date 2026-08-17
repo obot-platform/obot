@@ -10,7 +10,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -64,7 +64,7 @@ func IsProvider(providerName string) bool {
 	return providerName == system.AzureModelProvider || providerName == system.AzureEntraModelProvider
 }
 
-func BaseURL(providerName string, credentials map[string]string, dialect nanobottypes.Dialect) (url.URL, error) {
+func BaseURL(providerName string, credentials map[string]string, dialect llmtypes.Dialect) (url.URL, error) {
 	endpointEnv := EndpointEnv
 	if providerName == system.AzureEntraModelProvider {
 		endpointEnv = EntraEndpointEnv
@@ -89,9 +89,9 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 		basePath = strings.TrimSuffix(basePath, suffix)
 	}
 	switch dialect {
-	case nanobottypes.DialectOpenAIResponses:
+	case llmtypes.DialectOpenAIResponses:
 		u.Path = basePath + "/openai/v1"
-	case nanobottypes.DialectAnthropicMessages:
+	case llmtypes.DialectAnthropicMessages:
 		u.Path = basePath + "/anthropic/v1"
 	default:
 		return url.URL{}, fmt.Errorf("unsupported Azure model dialect %q", dialect)
