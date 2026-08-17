@@ -1,112 +1,145 @@
+// Package logger installs the process-wide slog default so that the application
+// produces structured logs. Log with log/slog directly; nothing here belongs on
+// the call-site path.
 package logger
 
 import (
-	"maps"
+	"log/slog"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
-// Minimally Viable Logger
+var level = new(slog.LevelVar)
 
-// This Package exists because I couldn't decide on a logging framework that didn't infuriate me.
-// So this is simple place to make a better decision later about logging frameworks. I only care about
-// the interface, not the implementation. Smarter people do that well.
+// root is trimmed off source paths so entries carry a repo-relative location
+// rather than whatever absolute path the build happened to use. This file is
+// <root>/logger/log.go, so its own compiled-in path locates the repo.
+var root = func() string {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	return filepath.Dir(filepath.Dir(file)) + string(filepath.Separator)
+}()
 
+// Format selects the output encoding. The zero value is Text.
+type Format string
+
+const (
+	// Text is human-readable output, for interactive use.
+	Text Format = "text"
+	// JSON is the encoding log collectors parse. Long-running services use it.
+	JSON Format = "json"
+)
+
+// Setup installs the process-wide slog default in the given format.
+//
+// It must be called at run time rather than from an init function.
+// slog.SetDefault is process-global, and dependencies install their own
+// handlers from their init functions - nanobot does, for one. Package
+// initialization order decides who wins, so an init here would be a coin flip.
+// main runs after every init, so a call from there always takes effect.
+func Setup(format Format) {
+	options := slog.HandlerOptions{Level: level}
+
+	var handler slog.Handler
+	switch format {
+	case JSON:
+		// Only the collector cares about source locations and the renamed
+		// keys; both are noise in a terminal.
+		options.AddSource = true
+		options.ReplaceAttr = replace
+		handler = slog.NewJSONHandler(os.Stderr, &options)
+	default:
+		handler = slog.NewTextHandler(os.Stderr, &options)
+	}
+
+	slog.SetDefault(slog.New(handler))
+}
+
+// SetDebug enables debug logging.
 func SetDebug() {
-	logrus.SetLevel(logrus.DebugLevel)
+	level.Set(slog.LevelDebug)
 }
 
+// SetLevel sets the log level.
+func SetLevel(l slog.Level) {
+	level.Set(l)
+}
+
+// Level reports the current log level.
+func Level() slog.Level {
+	return level.Level()
+}
+
+// IsDebug reports whether debug logging is enabled.
 func IsDebug() bool {
-	return logrus.IsLevelEnabled(logrus.DebugLevel)
+	return level.Level() <= slog.LevelDebug
 }
 
-func Package() Logger {
-	_, p, _, _ := runtime.Caller(1)
-	_, suffix, _ := strings.Cut(p, "obot")
-	i := strings.LastIndex(suffix, "/")
-	if i > 0 {
-		return New(suffix[:i])
+// replace renames slog's built-in keys to the ones log collectors recognize.
+func replace(groups []string, a slog.Attr) slog.Attr {
+	// Only the top-level built-ins are special; leave nested groups alone.
+	if len(groups) > 0 {
+		return a
 	}
-	return New(p)
-}
 
-func NewWithFields(fields logrus.Fields) Logger {
-	return NewWithLogger(logrus.StandardLogger(), fields)
-}
-
-// NewWithLogger creates a Logger backed by the provided logrus logger.
-func NewWithLogger(log *logrus.Logger, fields logrus.Fields) Logger {
-	return Logger{
-		log:    log,
-		fields: fields,
-	}
-}
-
-func New(name string) Logger {
-	var fields logrus.Fields
-	if name != "" {
-		fields = logrus.Fields{
-			"logger": name,
+	switch a.Key {
+	case slog.MessageKey:
+		a.Key = "message"
+	case slog.LevelKey:
+		// The built-in level always carries an slog.Level; an attribute that
+		// merely shares the "level" key carries anything. Leave those alone
+		// rather than panicking on the assertion.
+		level, ok := a.Value.Any().(slog.Level)
+		if !ok {
+			return a
+		}
+		a.Key = "severity"
+		// Bucket to the names Cloud Logging accepts. Levels between the four
+		// standard ones occur in practice: klog verbosity arrives through
+		// logr as intermediate levels that slog would render as "DEBUG+2".
+		switch {
+		case level < slog.LevelInfo:
+			a.Value = slog.StringValue("DEBUG")
+		case level < slog.LevelWarn:
+			a.Value = slog.StringValue("INFO")
+		case level < slog.LevelError:
+			a.Value = slog.StringValue("WARNING")
+		default:
+			a.Value = slog.StringValue("ERROR")
+		}
+	case slog.SourceKey:
+		// Flatten to file:line. The function name is both redundant with the
+		// location and long enough to bury the message. The key follows
+		// Cloud Logging's naming and stays clear of attributes named
+		// "source", which several call sites use for domain values.
+		if source, ok := a.Value.Any().(*slog.Source); ok {
+			a.Key = "sourceLocation"
+			a.Value = slog.StringValue(trimSourcePath(source.File) + ":" + strconv.Itoa(source.Line))
 		}
 	}
-	return NewWithFields(fields)
+
+	return a
 }
 
-type Logger struct {
-	log    *logrus.Logger
-	fields logrus.Fields
-}
-
-func (l *Logger) FieldsMap(kv map[string]any) *Logger {
-	newFields := make(map[string]any, len(l.fields)+len(kv))
-	maps.Copy(newFields, l.fields)
-	maps.Copy(newFields, kv)
-	return &Logger{
-		log:    l.log,
-		fields: newFields,
+// trimSourcePath cuts a compiled-in file path down to a stable, readable
+// form: repo-relative for this repository's files, module-path-relative for
+// dependencies, matching what building with -trimpath would have recorded.
+func trimSourcePath(file string) string {
+	if strings.HasPrefix(file, root) {
+		return file[len(root):]
 	}
-}
 
-func (l *Logger) Fields(kv ...any) *Logger {
-	newFields := make(map[string]any, len(l.fields)+len(kv)/2)
-	maps.Copy(newFields, l.fields)
-	for i, v := range kv {
-		if i%2 == 1 {
-			newFields[kv[i-1].(string)] = v
-		}
+	// Dependencies come from the module cache, which by convention lives
+	// under a path ending in /pkg/mod/. What follows is the module path and
+	// version: k8s.io/apiserver@v0.36.2/pkg/....
+	if _, after, ok := strings.Cut(file, "/pkg/mod/"); ok {
+		return after
 	}
-	return &Logger{
-		log:    l.log,
-		fields: newFields,
-	}
-}
 
-func (l *Logger) Infof(msg string, args ...any) {
-	l.log.WithFields(l.fields).Infof(msg, args...)
-}
-
-func (l *Logger) Errorf(msg string, args ...any) {
-	l.log.WithFields(l.fields).Errorf(msg, args...)
-}
-
-func (l *Logger) Tracef(msg string, args ...any) {
-	l.log.WithFields(l.fields).Tracef(msg, args...)
-}
-
-func (l *Logger) Warnf(msg string, args ...any) {
-	l.log.WithFields(l.fields).Warnf(msg, args...)
-}
-
-func (l *Logger) IsDebug() bool {
-	return l.log.IsLevelEnabled(logrus.DebugLevel)
-}
-
-func (l *Logger) Debugf(msg string, args ...any) {
-	l.log.WithFields(l.fields).Debugf(msg, args...)
-}
-
-func (l *Logger) Fatalf(msg string, args ...any) {
-	l.log.WithFields(l.fields).Fatalf(msg, args...)
+	return file
 }
