@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -43,7 +44,7 @@ func (c *Client) runEnforcementDecisionPersistenceLoop(ctx context.Context, flus
 		}
 
 		if err := c.persistEnforcementDecisions(); err != nil {
-			log.Errorf("Failed to persist enforcement decision log: %v", err)
+			slog.Error("Failed to persist enforcement decision log", "error", err)
 		}
 
 		timer.Reset(flushInterval)

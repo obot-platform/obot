@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
@@ -75,7 +76,7 @@ func (f *skillFetcher) skillFiles(ctx context.Context, client kclient.Client, na
 
 		var skill v1.Skill
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: id}, &skill); err != nil {
-			log.Warnf("hosted agent: skipping skill %q: %v", id, err)
+			slog.Warn("Skipping hosted agent skill", "skill", id, "error", err)
 			continue
 		}
 
@@ -84,7 +85,7 @@ func (f *skillFetcher) skillFiles(ctx context.Context, client kclient.Client, na
 
 		skillFiles, err := f.fetch(ctx, &skill, mount)
 		if err != nil {
-			log.Warnf("hosted agent: skipping skill %q: %v", id, err)
+			slog.Warn("Skipping hosted agent skill", "skill", id, "error", err)
 			continue
 		}
 

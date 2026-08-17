@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -168,7 +169,7 @@ func (h *LocalAuthHandler) Delete(req api.Context) error {
 				return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 			}
 
-			log.Infof("Scheduled user cleanup after deletion: targetUserID=%d", gatewayUser.ID)
+			slog.Info("Scheduled user cleanup after deletion", "targetUserID", gatewayUser.ID)
 		}
 	}
 

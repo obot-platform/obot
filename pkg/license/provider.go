@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/google/uuid"
 	keygen "github.com/keygen-sh/keygen-go/v3"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"gorm.io/gorm"
 )
@@ -55,8 +55,6 @@ var (
 
 	// ErrInvalidLicense indicates the provided license key could not be validated.
 	ErrInvalidLicense = errors.New("license key is invalid")
-
-	log = logger.Package()
 )
 
 // Config contains the Keygen settings needed to validate an Obot license.
@@ -110,11 +108,11 @@ func newProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 	}
 
 	if err := k.refresh(ctx, true); err != nil {
-		log.Warnf("initial license refresh failed: %v", err)
+		slog.Warn("initial license refresh failed", "error", err)
 	}
 
 	if k.entitlements != nil {
-		log.Infof("license provider initialized with entitlements: %v", k.entitlements)
+		slog.Info("license provider initialized", "entitlements", k.entitlements)
 	}
 
 	go k.poll(ctx)
@@ -286,7 +284,7 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 	keygenClient := p.keygenClient(licenseKey)
 	lic := &keygen.License{}
 	if _, err := keygenClient.Get(ctx, "me", nil, lic); err != nil {
-		log.Warnf("license lookup failed: %v", err)
+		slog.Warn("license lookup failed", "error", err)
 		return nil, nil
 	}
 
@@ -307,7 +305,7 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 			machine.Cores = runtime.NumCPU()
 			if _, activationErr := keygenClient.Post(ctx, "machines", machine, &keygen.Machine{}); activationErr != nil &&
 				!errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
-				log.Warnf("license activation failed: %v", activationErr)
+				slog.Warn("license activation failed", "error", activationErr)
 				return nil, nil
 			}
 
@@ -318,7 +316,7 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 		}
 	}
 	if !validation.Result.Valid {
-		log.Warnf("license validation failed: code=%s detail=%s", validation.Result.Code, validation.Result.Detail)
+		slog.Warn("license validation failed", "code", validation.Result.Code, "detail", validation.Result.Detail)
 		return nil, nil
 	}
 
@@ -395,13 +393,13 @@ func (p *Provider) poll(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := p.update(ctx); err != nil {
-				log.Warnf("license update failed: %v", err)
+				slog.Warn("license update failed", "error", err)
 			} else {
 				p.lock.RLock()
 				entitlements := p.entitlements
 				p.lock.RUnlock()
 
-				log.Infof("license updated successfully with entitlements: %v", entitlements)
+				slog.Info("license updated successfully", "entitlements", entitlements)
 			}
 		}
 	}

@@ -3,6 +3,7 @@ package localauth
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/mail"
 
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -55,7 +56,7 @@ func (p *Provider) CreateUser(ctx context.Context, email, password string) (*typ
 		return nil, err
 	}
 
-	log.Infof("Created local auth user: id=%d", user.ID)
+	slog.Info("Created local auth user", "id", user.ID)
 
 	return user, nil
 }
@@ -71,7 +72,7 @@ func (p *Provider) SetPassword(ctx context.Context, id uint, password string) er
 		return err
 	}
 
-	log.Infof("Reset password for local auth user: id=%d", id)
+	slog.Info("Reset password for local auth user", "id", id)
 
 	return nil
 }
@@ -83,7 +84,7 @@ func (p *Provider) DeleteUser(ctx context.Context, id uint) error {
 		return err
 	}
 
-	log.Infof("Deleted local auth user: id=%d", id)
+	slog.Info("Deleted local auth user", "id", id)
 
 	return nil
 }

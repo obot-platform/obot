@@ -3,11 +3,11 @@ package mcpservercatalogentry
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -18,8 +18,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 // Handler handles operations for MCP server catalog entries
 type Handler struct {
@@ -79,7 +77,7 @@ func userCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int,
 
 func updateEntryUserCount(req router.Request, entry *v1.MCPServerCatalogEntry, newUserCount int) error {
 	if entry.Status.UserCount != newUserCount {
-		log.Infof("Updated MCP catalog entry user count: entry=%s oldCount=%d newCount=%d", entry.Name, entry.Status.UserCount, newUserCount)
+		slog.Info("Updated MCP catalog entry user count", "entry", entry.Name, "oldCount", entry.Status.UserCount, "newCount", newUserCount)
 		entry.Status.UserCount = newUserCount
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
@@ -101,7 +99,7 @@ func (*Handler) EnsureServerUserType(req router.Request, _ router.Response) erro
 func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 	if string(entry.Spec.Manifest.Runtime) == "" {
-		log.Infof("Deleting MCP catalog entry with empty runtime: entry=%s", entry.Name)
+		slog.Info("Deleting MCP catalog entry with empty runtime", "entry", entry.Name)
 		return req.Client.Delete(req.Ctx, entry)
 	}
 
@@ -116,7 +114,7 @@ func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Re
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
 		entry.Status.LastUpdated = &now
-		log.Infof("Updated MCP catalog entry manifest hash: entry=%s hash=%s", entry.Name, currentHash)
+		slog.Info("Updated MCP catalog entry manifest hash", "entry", entry.Name, "hash", currentHash)
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 
@@ -130,7 +128,7 @@ func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ rou
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
 		entry.Status.LastUpdated = &now
-		log.Infof("Updated system MCP catalog entry manifest hash: entry=%s hash=%s", entry.Name, currentHash)
+		slog.Info("Updated system MCP catalog entry manifest hash", "entry", entry.Name, "hash", currentHash)
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 
@@ -205,7 +203,7 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 	}
 
 	if entry.Status.NeedsUpdate != drifted {
-		log.Infof("MCP catalog entry composite drift status changed: entry=%s needsUpdate=%v", entry.Name, drifted)
+		slog.Info("MCP catalog entry composite drift status changed", "entry", entry.Name, "needsUpdate", drifted)
 		entry.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
@@ -241,7 +239,7 @@ func (*Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Respo
 	}
 
 	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
-	log.Infof("Pruned nested composite components from MCP catalog entry: entry=%s removedComponents=%d", entry.Name, numComponents-len(components))
+	slog.Info("Pruned nested composite components from MCP catalog entry", "entry", entry.Name, "removedComponents", numComponents-len(components))
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
@@ -265,7 +263,7 @@ func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Res
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
 	if deleted {
-		log.Infof("Deleted unused static OAuth credential for MCP catalog entry: entry=%s", entry.Name)
+		slog.Info("Deleted unused static OAuth credential for MCP catalog entry", "entry", entry.Name)
 	}
 
 	return nil
@@ -282,7 +280,7 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 		if err := req.Client.Update(req.Ctx, entry); err != nil {
 			return fmt.Errorf("failed to clear sync annotation: %w", err)
 		}
-		log.Infof("Cleared sync annotation for MCP catalog entry: entry=%s", entry.Name)
+		slog.Info("Cleared sync annotation for MCP catalog entry", "entry", entry.Name)
 	}
 
 	// Only process remote entries that require static OAuth
@@ -292,7 +290,7 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 		// Clear status if not applicable
 		if entry.Status.OAuthCredentialConfigured {
 			entry.Status.OAuthCredentialConfigured = false
-			log.Infof("Cleared static OAuth credential status for MCP catalog entry: entry=%s", entry.Name)
+			slog.Info("Cleared static OAuth credential status for MCP catalog entry", "entry", entry.Name)
 			return req.Client.Status().Update(req.Ctx, entry)
 		}
 
@@ -312,7 +310,7 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 
 	if entry.Status.OAuthCredentialConfigured != configured {
 		entry.Status.OAuthCredentialConfigured = configured
-		log.Infof("Updated static OAuth credential status for MCP catalog entry: entry=%s configured=%v", entry.Name, configured)
+		slog.Info("Updated static OAuth credential status for MCP catalog entry", "entry", entry.Name, "configured", configured)
 		return req.Client.Status().Update(req.Ctx, entry)
 	}
 
@@ -336,7 +334,7 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
 	if deleted {
-		log.Infof("Removed static OAuth credential for deleted MCP catalog entry: entry=%s", entry.Name)
+		slog.Info("Removed static OAuth credential for deleted MCP catalog entry", "entry", entry.Name)
 	}
 
 	return nil

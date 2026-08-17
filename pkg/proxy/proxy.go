@@ -6,13 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesstoken"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auth"
@@ -21,8 +21,6 @@ import (
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
-
-var log = logger.Package()
 
 const (
 	CurrentAuthProviderCookie  = "current_auth_provider"
@@ -181,7 +179,7 @@ func (pm *Manager) ServeHTTP(user user.Info, w http.ResponseWriter, r *http.Requ
 		})
 	}
 
-	log.Infof("forwarding request for %s to provider %s", r.URL.Path, provider)
+	slog.Info("forwarding request to provider", "path", r.URL.Path, "provider", provider)
 
 	proxy.serveHTTP(w, r)
 }

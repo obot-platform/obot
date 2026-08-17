@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -59,7 +60,7 @@ func (c *Client) GetTempUserCache(ctx context.Context) *types.TempSetupUser {
 			return nil
 		}
 		// Log error but return nil to maintain existing behavior
-		log.Errorf("failed to get temp user cache: %v", err)
+		slog.Error("failed to get temp user cache", "error", err)
 		return nil
 	}
 

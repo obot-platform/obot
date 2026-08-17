@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []b
 		return
 	}
 	if c.llmAuditEntries == nil {
-		log.Warnf("dropping LLM audit log: writer is not configured")
+		slog.Warn("dropping LLM audit log: writer is not configured")
 		return
 	}
 
@@ -48,7 +49,7 @@ func (c *Client) LogLLMAuditEntry(auditLog types.LLMAuditLog, responseStream []b
 	select {
 	case c.llmAuditEntries <- llmAuditEntry{log: auditLog, responseStream: responseStream}:
 	default:
-		log.Warnf("dropping LLM audit log: buffer is full")
+		slog.Warn("dropping LLM audit log: buffer is full")
 	}
 }
 
@@ -286,7 +287,7 @@ func (c *Client) flushLLMAuditBatch(batch []llmAuditEntry) []llmAuditEntry {
 		return batch
 	}
 	if err := c.persistLLMAuditLogs(batch); err != nil {
-		log.Errorf("Failed to persist LLM audit logs: %v", err)
+		slog.Error("Failed to persist LLM audit logs", "error", err)
 	}
 	return batch[:0]
 }

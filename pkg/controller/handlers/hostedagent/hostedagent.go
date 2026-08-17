@@ -8,13 +8,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/agentbackend"
 	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/hostedagentrefs"
@@ -24,8 +24,6 @@ import (
 	kfields "k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 const (
 	transitionalPollInterval = 10 * time.Second
@@ -528,7 +526,7 @@ func (b defaultDesiredBuilder) Build(ctx context.Context, in BuildInput) (agentb
 		mcpIDs, unresolvedMCP = resolver.MCPServers(ctx, mcpIDs)
 		skillIDs, unresolvedSkills = resolver.Skills(ctx, skillIDs)
 		for _, ref := range append(unresolvedMCP, unresolvedSkills...) {
-			log.Warnf("hosted agent %s: %q names nothing installed here; leaving it out", instance.Name, ref)
+			slog.Warn("Hosted agent reference names nothing installed here; leaving it out", "instance", instance.Name, "ref", ref)
 		}
 	}
 

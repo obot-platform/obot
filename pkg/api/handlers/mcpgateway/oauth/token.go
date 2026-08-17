@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -15,7 +16,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/auth"
@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 const (
 	tokenExpiration      = 10 * time.Minute
@@ -65,13 +63,13 @@ func (h *handler) token(req api.Context) (err error) {
 		if creds != "" {
 			c, err := base64.StdEncoding.DecodeString(creds)
 			if err != nil {
-				log.Infof("Denied OAuth token request due to invalid basic auth encoding")
+				slog.Info("Denied OAuth token request due to invalid basic auth encoding")
 				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 			}
 
 			idx := bytes.LastIndex(c, []byte{':'})
 			if idx == -1 {
-				log.Infof("Denied OAuth token request due to malformed basic auth credentials")
+				slog.Info("Denied OAuth token request due to malformed basic auth credentials")
 				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 			}
 
@@ -98,7 +96,7 @@ func (h *handler) token(req api.Context) (err error) {
 	}
 
 	if clientID == "" {
-		log.Infof("Denied OAuth token request due to missing client credentials")
+		slog.Info("Denied OAuth token request due to missing client credentials")
 		return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 	}
 
@@ -116,12 +114,12 @@ func (h *handler) token(req api.Context) (err error) {
 	switch client.Spec.Manifest.TokenEndpointAuthMethod {
 	case "client_secret_basic", "client_secret_post":
 		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
-			log.Infof("Denied OAuth token request due to invalid client secret: client=%s/%s", client.Namespace, client.Name)
+			slog.Info("Denied OAuth token request due to invalid client secret", "clientNamespace", client.Namespace, "clientName", client.Name)
 			return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
 		}
 	case "private_key_jwt":
 		if err := h.validatePrivateKeyJWT(req.Context(), req.Form, client, clientID); err != nil {
-			log.Infof("Denied OAuth token request due to invalid private_key_jwt client assertion: client=%s/%s error=%v", client.Namespace, client.Name, err)
+			slog.Info("Denied OAuth token request due to invalid private_key_jwt client assertion", "clientNamespace", client.Namespace, "clientName", client.Name, "error", err)
 			return newInvalidClientErr(http.StatusUnauthorized, err.Error())
 		}
 	}
@@ -134,7 +132,7 @@ func (h *handler) token(req api.Context) (err error) {
 	if len(client.Spec.Manifest.GrantTypes) > 0 && !slices.Contains(client.Spec.Manifest.GrantTypes, grantType) || len(client.Spec.Manifest.GrantTypes) == 0 && grantType != "authorization_code" {
 		return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidClient, "client is not allowed to use authorization_code grant type", ""))
 	}
-	log.Debugf("Processing OAuth token request: client=%s/%s grantType=%s", client.Namespace, client.Name, grantType)
+	slog.Debug("Processing OAuth token request", "clientNamespace", client.Namespace, "clientName", client.Name, "grantType", grantType)
 
 	switch grantType {
 	case "authorization_code":
@@ -173,7 +171,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	// Authorization codes are one-time use
 	if err := req.Storage.Delete(req.Context(), &oauthAuthRequest); err != nil {
 		// Don't return an error if we can't delete the auth request
-		log.Warnf("failed to delete auth request: %v", err)
+		slog.Warn("failed to delete auth request", "error", err)
 	}
 
 	if oauthAuthRequest.Spec.CodeChallenge != "" {
@@ -241,7 +239,7 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create oauth token: %w", err)
 	}
-	log.Infof("Issued OAuth access and refresh token via authorization_code: client=%s userID=%d mcpID=%s", oauthClient.Name, oauthAuthRequest.Spec.UserID, oauthAuthRequest.Spec.MCPID)
+	slog.Info("Issued OAuth access and refresh token via authorization_code", "client", oauthClient.Name, "userID", oauthAuthRequest.Spec.UserID, "mcpID", oauthAuthRequest.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
@@ -344,7 +342,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	if err = req.Create(&oauthToken); err != nil {
 		return fmt.Errorf("failed to create new oauth token: %w", err)
 	}
-	log.Infof("Issued OAuth access and refresh token via refresh_token: client=%s userID=%d mcpID=%s", oauthClient.Name, oauthToken.Spec.UserID, oauthToken.Spec.MCPID)
+	slog.Info("Issued OAuth access and refresh token via refresh_token", "client", oauthClient.Name, "userID", oauthToken.Spec.UserID, "mcpID", oauthToken.Spec.MCPID)
 
 	return req.Write(types.OAuthToken{
 		AccessToken:  tkn,
@@ -387,7 +385,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 		var err error
 		apiKey, err = req.GatewayClient.ValidateAPIKey(req.Context(), subjectToken)
 		if err != nil {
-			log.Infof("Denied token exchange due to invalid API key subject token: client=%s", oauthClient.Name)
+			slog.Info("Denied token exchange due to invalid API key subject token", "client", oauthClient.Name)
 			return types.NewErrBadRequest("%v", newOAuthError(ErrInvalidRequest, "invalid API key", ""))
 		}
 
@@ -399,7 +397,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 		// Check if API key has access to this MCP server
 		if err := validateAPIKeyAccess(req, apiKey, mcpID); err != nil {
-			log.Infof("Denied token exchange due to API key access restrictions: client=%s mcpID=%s", oauthClient.Name, mcpID)
+			slog.Info("Denied token exchange due to API key access restrictions", "client", oauthClient.Name, "mcpID", mcpID)
 			return types.NewErrBadRequest("%v", newOAuthError(ErrAccessDenied, err.Error(), ""))
 		}
 
@@ -453,7 +451,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 				return err
 			}
 
-			log.Infof("Issued token-exchange response for webhook system MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
+			slog.Info("Issued token-exchange response for webhook system MCP server", "client", oauthClient.Name, "mcpID", mcpID, "audienceResource", resource, "subjectTokenType", subjectTokenType)
 			return req.Write(TokenExchangeResponse{
 				AccessToken:     token,
 				IssuedTokenType: tokenTypeAccessToken,
@@ -545,7 +543,7 @@ func (h *handler) doTokenExchange(req api.Context, oauthClient v1.OAuthClient, r
 
 			// For composite MCP servers, return the token.
 			// This ensures it gets passed to the component MCP servers so they can do token exchange.
-			log.Infof("Issued token-exchange response for composite MCP server: client=%s mcpID=%s audienceResource=%s subjectTokenType=%s", oauthClient.Name, mcpID, resource, subjectTokenType)
+			slog.Info("Issued token-exchange response for composite MCP server", "client", oauthClient.Name, "mcpID", mcpID, "audienceResource", resource, "subjectTokenType", subjectTokenType)
 			return req.Write(TokenExchangeResponse{
 				AccessToken:     token,
 				IssuedTokenType: tokenTypeAccessToken,
@@ -650,7 +648,7 @@ func (h *handler) getTokenForMCPConnectResource(ctx context.Context, subjectToke
 
 	_, token, err := h.tokenService.NewToken(ctx, *tokenCtx)
 	if err != nil {
-		log.Infof("Failed to create token for component MCP server: mcpID=%s error=%v", resourceMCPID, err)
+		slog.Info("Failed to create token for component MCP server", "mcpID", resourceMCPID, "error", err)
 		return "", time.Time{}, types.NewErrBadRequest("%v", newOAuthError(ErrServerError, "failed to create token", ""))
 	}
 

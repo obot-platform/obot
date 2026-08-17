@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -72,7 +73,7 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 		idMap[m.OldID] = m.NewID
 	}
 
-	log.Infof("Running Okta group ID migration")
+	slog.Info("Running Okta group ID migration")
 
 	// Claim and run the data migration in a single transaction.
 	// With PostgreSQL READ COMMITTED, another replica trying to INSERT the same claim row

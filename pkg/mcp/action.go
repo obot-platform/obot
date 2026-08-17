@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"strings"
@@ -506,7 +507,7 @@ func (sm *SessionManager) updateLastRequestTime(ctx context.Context, server *v1.
 
 	server.Status.LastRequestTime = metav1.Now()
 	if err := sm.storageClient.Status().Update(ctx, server); err != nil {
-		log.Warnf("failed to update mcp server status: %v", err)
+		slog.Warn("failed to update mcp server status", "error", err)
 	}
 }
 

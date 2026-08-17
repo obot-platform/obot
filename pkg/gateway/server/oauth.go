@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 
@@ -31,7 +32,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != "" && configuredProvider != name {
-		pkgLog.Infof("Rejected OAuth start for unconfigured auth provider: requestedProvider=%s configuredProvider=%s tokenRequestID=%s", name, configuredProvider, apiContext.PathValue("id"))
+		slog.Info("Rejected OAuth start for unconfigured auth provider", "requestedProvider", name, "configuredProvider", configuredProvider, "tokenRequestID", apiContext.PathValue("id"))
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -39,7 +40,7 @@ func (s *Server) oauth(apiContext api.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not create state: %w", err)
 	}
-	pkgLog.Infof("Starting OAuth flow for token request: tokenRequestID=%s provider=%s/%s", apiContext.PathValue("id"), namespace, name)
+	slog.Info("Starting OAuth flow for token request", "tokenRequestID", apiContext.PathValue("id"), "providerNamespace", namespace, "providerName", name)
 
 	// Redirect the user through the oauth proxy flow so that everything is consistent.
 	// The rd query parameter is used to redirect the user back through this oauth flow so a token can be generated.
@@ -75,7 +76,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != "" && configuredProvider != name {
-		pkgLog.Infof("Rejected OAuth redirect for unconfigured auth provider: requestedProvider=%s configuredProvider=%s", name, configuredProvider)
+		slog.Info("Rejected OAuth redirect for unconfigured auth provider", "requestedProvider", name, "configuredProvider", configuredProvider)
 		return types2.NewErrHTTP(http.StatusNotFound, "auth provider not found")
 	}
 
@@ -87,7 +88,7 @@ func (s *Server) redirect(apiContext api.Context) error {
 	if _, err = apiContext.GatewayClient.CreateAPIKeyFromSetupTokenRequest(apiContext.Context(), apiContext.UserID(), tr); err != nil {
 		return s.errorToken(apiContext.Context(), tr, http.StatusInternalServerError, err)
 	}
-	pkgLog.Infof("Completed OAuth redirect and issued auth token: tokenRequestID=%s provider=%s/%s userID=%d", tr.ID, namespace, name, apiContext.UserID())
+	slog.Info("Completed OAuth redirect and issued auth token", "tokenRequestID", tr.ID, "providerNamespace", namespace, "providerName", name, "userID", apiContext.UserID())
 
 	if tr.CompletionRedirectURL == "" {
 		tr.CompletionRedirectURL = s.authCompleteURL()
@@ -103,9 +104,9 @@ func (s *Server) errorToken(ctx context.Context, tr *types.TokenRequest, code in
 		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			return tx.Updates(tr).Error
 		}); err != nil {
-			kcontext.GetLogger(ctx).Errorf("failed to update token: id=%s error=%v", tr.ID, err)
+			kcontext.GetLogger(ctx).Error("failed to update token", "id", tr.ID, "error", err)
 		}
-		pkgLog.Infof("Stored OAuth token flow error on token request: tokenRequestID=%s status=%d", tr.ID, code)
+		slog.Info("Stored OAuth token flow error on token request", "tokenRequestID", tr.ID, "status", code)
 	}
 
 	return types2.NewErrHTTP(code, err.Error())

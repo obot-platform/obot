@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -82,7 +83,7 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 
 	if len(pending) > 0 {
 		// There are still pending second level OAuth requests
-		log.Debugf("Composite OAuth still pending component authentication: compositeMCPID=%s pendingComponents=%d", compositeMCPID, len(pending))
+		slog.Debug("Composite OAuth still pending component authentication", "compositeMCPID", compositeMCPID, "pendingComponents", len(pending))
 		return req.Write(pending)
 	}
 
@@ -90,12 +91,12 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		// Return completion page URL as JSON instead of performing server-side redirect.
 		// This avoids CORS issues when called from JavaScript fetch.
 		redirectURL := oauthCompletionURL(authRequest.Name)
-		log.Infof("Composite OAuth completed; returning completion URI to finish authorization: compositeMCPID=%s authRequest=%s", compositeMCPID, authRequest.Name)
+		slog.Info("Composite OAuth completed; returning completion URI to finish authorization", "compositeMCPID", compositeMCPID, "authRequest", authRequest.Name)
 		return req.Write(map[string]string{
 			"redirect_uri": redirectURL,
 		})
 	}
 
-	log.Infof("Composite OAuth check completed with no pending component authentication: compositeMCPID=%s", compositeMCPID)
+	slog.Info("Composite OAuth check completed with no pending component authentication", "compositeMCPID", compositeMCPID)
 	return req.Write(pending)
 }

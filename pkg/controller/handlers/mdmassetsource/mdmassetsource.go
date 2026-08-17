@@ -3,13 +3,13 @@ package mdmassetsource
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mdmassets"
@@ -20,8 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 // Failed imports retry hourly, matching the SkillRepository controller. A
 // successful source is only reconciled again when an admin requests a refresh
@@ -82,7 +80,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 	if err != nil {
 		message := sanitizedError(err, source.Spec.Source)
-		log.Errorf("Failed to sync MDM asset source %s: %s", source.Name, message)
+		slog.Error("Failed to sync MDM asset source", "source", source.Name, "reason", message)
 		source.Status.LastSyncTime = metav1.NewTime(h.now())
 		source.Status.SyncError = message
 		resp.RetryAfter(retryInterval)
@@ -136,7 +134,7 @@ func (h *Handler) renderConfigurationsForLatest(ctx context.Context, digest stri
 		}
 		rendered, err := h.renderConfiguration(loader, digest, configuration)
 		if err != nil {
-			log.Infof("MDM configuration %d requires review before rendering against the latest release: %v", configuration.ID, err)
+			slog.Info("MDM configuration requires review before rendering against the latest release", "configurationID", configuration.ID, "error", err)
 			continue
 		}
 		if err := h.gatewayClient.UpdateMDMConfiguration(ctx, &rendered); err != nil {

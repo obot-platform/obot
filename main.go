@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	_ "time/tzdata"
 
@@ -31,6 +31,9 @@ func main() {
 		if cli.ErrorAlreadyReported(err) {
 			os.Exit(1)
 		}
-		log.Fatal(err)
+		// Not stdlib log: its slog bridge would demote this to INFO with no
+		// source, and this is the process's last word.
+		slog.Error("exiting", "error", err)
+		os.Exit(1)
 	}
 }

@@ -3,6 +3,7 @@ package mcpcatalog
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -22,7 +23,7 @@ func (h *Handler) HandleUserGroupChange(req router.Request, _ router.Response) e
 	user, err := h.getUserInfoForAccessControl(req.Ctx, userIDStr)
 	if err != nil {
 		// If user doesn't exist anymore, just delete the event
-		log.Infof("User %s not found, deleting UserGroupChange event", userIDStr)
+		slog.Info("User not found, deleting UserGroupChange event", "userID", userIDStr)
 		return req.Delete(userGroupChange)
 	}
 
@@ -82,7 +83,7 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 				Namespace: namespace,
 				Name:      server.Spec.MCPServerCatalogEntryName,
 			}, &entry); getErr != nil {
-				log.Warnf("Failed to get catalog entry %s: %v", server.Spec.MCPServerCatalogEntryName, getErr)
+				slog.Warn("Failed to get catalog entry", "entry", server.Spec.MCPServerCatalogEntryName, "error", getErr)
 				continue
 			}
 
@@ -98,7 +99,7 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 			}
 		} else {
 			// If there's no catalog entry name, skip this server (shouldn't happen in normal operation)
-			log.Warnf("Server %s has no MCPServerCatalogEntryName, skipping access check", server.Name)
+			slog.Warn("Server has no MCPServerCatalogEntryName, skipping access check", "server", server.Name)
 			continue
 		}
 
@@ -107,7 +108,7 @@ func (h *Handler) deleteUnauthorizedServersForUser(ctx context.Context, client k
 		}
 
 		if !hasAccess {
-			log.Infof("Deleting MCP server %q because user %s lost group access", server.Name, userID)
+			slog.Info("Deleting MCP server because user lost group access", "server", server.Name, "userID", userID)
 			if err := client.Delete(ctx, &server); err != nil {
 				return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
 			}
@@ -140,7 +141,7 @@ func (h *Handler) deleteUnauthorizedInstancesForUser(ctx context.Context, client
 			Namespace: namespace,
 			Name:      instance.Spec.MCPServerName,
 		}, &server); err != nil {
-			log.Warnf("Failed to get MCP server %s for instance %s: %v", instance.Spec.MCPServerName, instance.Name, err)
+			slog.Warn("Failed to get MCP server for instance", "server", instance.Spec.MCPServerName, "instance", instance.Name, "error", err)
 			continue
 		}
 
@@ -165,7 +166,7 @@ func (h *Handler) deleteUnauthorizedInstancesForUser(ctx context.Context, client
 		}
 
 		if !hasAccess {
-			log.Infof("Deleting MCPServerInstance %q because user %s lost group access", instance.Name, userID)
+			slog.Info("Deleting MCPServerInstance because user lost group access", "instance", instance.Name, "userID", userID)
 			if err := client.Delete(ctx, &instance); err != nil {
 				return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
 			}

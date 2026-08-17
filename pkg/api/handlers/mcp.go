@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"net/url"
@@ -370,7 +371,7 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
 			components, err = resolveCompositeComponents(req, server, m.secretBindingAllowedLabel)
 			if err != nil {
-				log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+				slog.Warn("failed to resolve composite components for server", "serverName", server.Name, "error", err)
 				return err
 			}
 		}
@@ -434,7 +435,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
 		components, err = resolveCompositeComponents(req, server, m.secretBindingAllowedLabel)
 		if err != nil {
-			log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+			slog.Warn("failed to resolve composite components for server", "serverName", server.Name, "error", err)
 			return err
 		}
 	}
@@ -3174,7 +3175,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 	var catalogEntries v1.MCPServerCatalogEntryList
 	if err := req.List(&catalogEntries); err != nil {
 		// Don't fail if we can't load catalog entries, just continue without previews
-		log.Errorf("failed to load catalog entries: %v", err)
+		slog.Error("failed to load catalog entries", "error", err)
 	}
 
 	catalogEntryMap := make(map[string]v1.MCPServerCatalogEntry, len(catalogEntries.Items))
@@ -3204,7 +3205,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
 			components, err = resolveCompositeComponents(req, server, m.secretBindingAllowedLabel)
 			if err != nil {
-				log.Warnf("failed to resolve composite components for server %s: %v", server.Name, err)
+				slog.Warn("failed to resolve composite components for server", "serverName", server.Name, "error", err)
 				return err
 			}
 		}

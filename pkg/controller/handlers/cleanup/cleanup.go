@@ -1,16 +1,16 @@
 package cleanup
 
 import (
+	"fmt"
+	"log/slog"
+
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
-	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 func Cleanup(req router.Request, _ router.Response) error {
 	toDelete := req.Object.(v1.DeleteRefs)
@@ -50,7 +50,9 @@ func Cleanup(req router.Request, _ router.Response) error {
 
 		if err := req.Get(objType, namespace, ref.Name); apierrors.IsNotFound(err) {
 			if err := req.Get(untriggered.UncachedGet(objType), namespace, ref.Name); apierrors.IsNotFound(err) {
-				log.Infof("Deleting %s %s/%s due to missing %T %s", req.GVK.String(), namespace, req.Name, objType, ref.Name)
+				slog.Info("Deleting object due to missing reference",
+					"gvk", req.GVK.String(), "namespace", namespace, "name", req.Name,
+					"refType", fmt.Sprintf("%T", objType), "refName", ref.Name)
 				return req.Delete(req.Object)
 			}
 		}

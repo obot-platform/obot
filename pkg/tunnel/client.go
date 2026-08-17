@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -16,11 +17,8 @@ import (
 
 	"github.com/gorilla/websocket"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/rancher/remotedialer"
 )
-
-var tunnelLog = logger.Package()
 
 const websocketCloseTimeout = time.Second
 
@@ -112,13 +110,13 @@ func Run(ctx context.Context, serverURL, token string) error {
 
 	backoff := time.Second
 	for {
-		connectionLog := tunnelLog.Fields()
+		connectionLog := slog.Default()
 		connection, name, err := dial(ctx, serverURL, token)
 		if err == nil {
 			if name != "" {
-				connectionLog = connectionLog.Fields("tunnel", name)
+				connectionLog = connectionLog.With("tunnel", name)
 			}
-			connectionLog.Infof("Tunnel connected")
+			connectionLog.Info("Tunnel connected")
 			backoff = time.Second
 			err = serveConnection(ctx, connection, name)
 			_ = connection.Close()
@@ -126,7 +124,7 @@ func Run(ctx context.Context, serverURL, token string) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		connectionLog.Warnf("Tunnel disconnected, retrying in %s: %v", backoff, err)
+		connectionLog.Warn("Tunnel disconnected, retrying", "backoff", backoff, "error", err)
 
 		timer := time.NewTimer(backoff)
 		select {
@@ -164,7 +162,7 @@ func serveConnectionWithClient(ctx context.Context, connection *websocket.Conn, 
 			go func() {
 				if err := forwarder.serve(forwardCtx, handlerConnection); err != nil &&
 					!errors.Is(err, context.Canceled) && !errors.Is(err, net.ErrClosed) {
-					tunnelLog.Debugf("Tunnel forwarding connection closed: %v", err)
+					slog.Debug("Tunnel forwarding connection closed", "error", err)
 				}
 				cancelForward()
 			}()
@@ -295,7 +293,7 @@ func (c *clientForwarder) serve(ctx context.Context, connection net.Conn) error 
 	removeHopHeaders(request.Header)
 	request = request.WithContext(ctx)
 
-	requestLog := tunnelLog.Fields(
+	requestLog := slog.Default().With(
 		"request_id", requestID,
 		"method", request.Method,
 		"url", tunnelRequestLogURL(request.URL),
@@ -303,26 +301,26 @@ func (c *clientForwarder) serve(ctx context.Context, connection net.Conn) error 
 		"request_content_length", request.ContentLength,
 	)
 	if tunnelName != "" {
-		requestLog = requestLog.Fields("tunnel", tunnelName)
+		requestLog = requestLog.With("tunnel", tunnelName)
 	}
-	requestLog.Infof("Tunnel request received")
+	requestLog.Info("Tunnel request received")
 
 	response, err := c.client.Do(request)
 	if err != nil {
-		requestLog = requestLog.Fields("duration", time.Since(started))
+		requestLog = requestLog.With("duration", time.Since(started))
 		if errors.Is(err, context.Canceled) {
-			requestLog.Infof("Tunnel request canceled")
+			requestLog.Info("Tunnel request canceled")
 		} else {
-			requestLog.Warnf("Tunnel request failed: %v", tunnelRequestLogError(err))
+			requestLog.Warn("Tunnel request failed", "error", tunnelRequestLogError(err))
 		}
 		return c.writeError(connection, err)
 	}
 	defer response.Body.Close()
-	requestLog.Fields(
+	requestLog.With(
 		"status", response.StatusCode,
 		"response_content_length", response.ContentLength,
 		"duration", time.Since(started),
-	).Infof("Tunnel response received")
+	).Info("Tunnel response received")
 
 	response.Header = response.Header.Clone()
 	response.Header.Del(forwardTargetHeader)

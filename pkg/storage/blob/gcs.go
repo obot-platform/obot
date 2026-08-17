@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	gcsstorage "cloud.google.com/go/storage"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -21,7 +22,7 @@ func NewGCSStore(config types.GCSConfig) (*GCSStore, error) {
 }
 
 func (g *GCSStore) Upload(ctx context.Context, bucket, key string, data io.Reader) error {
-	log.Debugf("GCS upload: bucket=%s key=%s", bucket, key)
+	slog.Debug("GCS upload", "bucket", bucket, "key", key)
 	client, err := g.createClient(ctx)
 	if err != nil {
 		return err
@@ -37,7 +38,7 @@ func (g *GCSStore) Upload(ctx context.Context, bucket, key string, data io.Reade
 }
 
 func (g *GCSStore) Download(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	log.Debugf("GCS download: bucket=%s key=%s", bucket, key)
+	slog.Debug("GCS download", "bucket", bucket, "key", key)
 	client, err := g.createClient(ctx)
 	if err != nil {
 		return nil, err
@@ -53,7 +54,7 @@ func (g *GCSStore) Download(ctx context.Context, bucket, key string) (io.ReadClo
 }
 
 func (g *GCSStore) Delete(ctx context.Context, bucket, key string) error {
-	log.Debugf("GCS delete: bucket=%s key=%s", bucket, key)
+	slog.Debug("GCS delete", "bucket", bucket, "key", key)
 	client, err := g.createClient(ctx)
 	if err != nil {
 		return err

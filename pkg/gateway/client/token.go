@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -167,7 +168,7 @@ func (c *Client) CreateTokenRequestState(ctx context.Context, id string) (string
 	}); err != nil {
 		return "", fmt.Errorf("failed to create state: %w", err)
 	}
-	log.Infof("Created OAuth state for token request: tokenRequestID=%s", id)
+	slog.Info("Created OAuth state for token request", "tokenRequestID", id)
 
 	return state, nil
 }
@@ -192,7 +193,7 @@ func (c *Client) VerifyTokenRequestState(ctx context.Context, state string) (*ty
 
 		return tx.Model(tr).Clauses(clause.Returning{}).Updates(map[string]any{"state": "", "error": tr.Error}).Error
 	})
-	log.Infof("Verified OAuth state for token request: tokenRequestID=%s success=%v", tr.ID, err == nil)
+	slog.Info("Verified OAuth state for token request", "tokenRequestID", tr.ID, "success", err == nil)
 	return tr, err
 }
 
@@ -218,7 +219,7 @@ func (c *Client) runTokenCleanup(ctx context.Context) {
 			errs = append(errs, tx.Where("no_expiration = ?", false).Where("expires_at < ?", now).Delete(new(types.AuthToken)).Error)
 			return errors.Join(errs...)
 		}); err != nil {
-			log.Errorf("error cleaning up state: error=%v", err)
+			slog.Error("error cleaning up state", "error", err)
 		}
 
 		timer.Reset(tokenCleanupInterval)

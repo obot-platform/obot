@@ -13,13 +13,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -44,8 +44,6 @@ const (
 	// its cookie and log in again. See pkg/proxy/proxy.go.
 	invalidSessionBody = "record not found"
 )
-
-var log = logger.Package()
 
 type Provider struct {
 	gatewayClient *client.Client
@@ -90,7 +88,7 @@ func (p *Provider) Start(ctx context.Context) (url.URL, error) {
 
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Errorf("local auth provider server exited: %v", err)
+			slog.Error("local auth provider server exited", "error", err)
 		}
 	}()
 
@@ -98,7 +96,7 @@ func (p *Provider) Start(ctx context.Context) (url.URL, error) {
 	go p.throttle.run(ctx)
 
 	u := url.URL{Scheme: "http", Host: listener.Addr().String()}
-	log.Infof("Started local auth provider: url=%s", u.String())
+	slog.Info("Started local auth provider", "url", u.String())
 
 	return u, nil
 }
@@ -125,7 +123,7 @@ func (p *Provider) cleanupSessions(ctx context.Context) {
 	defer t.Stop()
 	for {
 		if err := p.gatewayClient.DeleteExpiredLocalAuthSessions(ctx); err != nil {
-			log.Warnf("failed to clean up expired local auth sessions: %v", err)
+			slog.Warn("failed to clean up expired local auth sessions", "error", err)
 		}
 
 		select {
@@ -170,7 +168,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := p.gatewayClient.LocalAuthUserByEmail(r.Context(), email)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		log.Errorf("failed to look up local auth user: %v", err)
+		slog.Error("failed to look up local auth user", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -184,7 +182,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	if err := VerifyPassword(passwordHash, password); err != nil || user == nil {
 		if err != nil && !errors.Is(err, ErrInvalidPassword) {
-			log.Warnf("failed to verify password for local auth user: %v", err)
+			slog.Warn("failed to verify password for local auth user", "error", err)
 		}
 		p.throttle.failed(email)
 		p.loginFailed(w, r, rd, "Incorrect email or password.")
@@ -193,7 +191,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	allowed, err := p.emailDomainAllowed(r.Context(), email)
 	if err != nil {
-		log.Errorf("failed to check allowed email domains: %v", err)
+		slog.Error("failed to check allowed email domains", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	} else if !allowed {
@@ -205,14 +203,14 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 
 	token, err := generateToken()
 	if err != nil {
-		log.Errorf("failed to generate session token: %v", err)
+		slog.Error("failed to generate session token", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	expiresAt := time.Now().Add(sessionDuration)
 	if err := p.gatewayClient.CreateLocalAuthSession(r.Context(), hash.String(token), user.ID, expiresAt); err != nil {
-		log.Errorf("failed to create local auth session: %v", err)
+		slog.Error("failed to create local auth session", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -237,7 +235,7 @@ func (p *Provider) loginFailed(w http.ResponseWriter, r *http.Request, rd, messa
 func (p *Provider) signOut(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(auth.ObotAccessTokenCookie); err == nil {
 		if err := p.gatewayClient.DeleteLocalAuthSession(r.Context(), hash.String(cookie.Value)); err != nil {
-			log.Warnf("failed to delete local auth session: %v", err)
+			slog.Warn("failed to delete local auth session", "error", err)
 		}
 	}
 
@@ -274,7 +272,7 @@ func (p *Provider) getState(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, invalidSessionBody, http.StatusInternalServerError)
 		return
 	} else if err != nil {
-		log.Errorf("failed to look up local auth session: %v", err)
+		slog.Error("failed to look up local auth session", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
@@ -394,6 +392,6 @@ func generateToken() (string, error) {
 func writeJSON(w http.ResponseWriter, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(body); err != nil {
-		log.Warnf("failed to write local auth provider response: %v", err)
+		slog.Warn("failed to write local auth provider response", "error", err)
 	}
 }

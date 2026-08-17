@@ -2,17 +2,15 @@ package setup
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-var log = logger.Package()
 
 type ConfirmOwnerRequest struct {
 	Email string `json:"email"`
@@ -49,14 +47,14 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
-		log.Infof("Rejecting owner confirmation because no temporary user is cached")
+		slog.Info("Rejecting owner confirmation because no temporary user is cached")
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to confirm")
 	}
 
 	// Verify that the email matches the cached user's email
 	// This prevents a race condition where the cached user might change
 	if cached.Email != body.Email {
-		log.Infof("Rejecting owner confirmation due to cached email mismatch: cachedUserID=%d", cached.UserID)
+		slog.Info("Rejecting owner confirmation due to cached email mismatch", "cachedUserID", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
 			fmt.Sprintf("email mismatch: expected %s but got %s in request", cached.Email, body.Email))
 	}
@@ -76,7 +74,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 	if !user.Role.HasRole(types.RoleOwner) {
 		// Don't promote hardcoded Admins - that would override explicit configuration
 		if explicitRole.HasRole(types.RoleAdmin) {
-			log.Infof("Rejecting owner promotion for explicitly configured admin: userID=%d", user.ID)
+			slog.Info("Rejecting owner promotion for explicitly configured admin", "userID", user.ID)
 			return types.NewErrHTTP(http.StatusBadRequest,
 				fmt.Sprintf("cannot promote user %s to Owner: user is configured as Admin via environment variables", user.Email))
 		}
@@ -88,14 +86,14 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 			return fmt.Errorf("failed to update user role: %w", err)
 		}
-		log.Infof("Promoted temporary setup user to owner: userID=%d", user.ID)
+		slog.Info("Promoted temporary setup user to owner", "userID", user.ID)
 	}
 
 	// Clear the temporary cache
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
-	log.Infof("Cleared temporary setup user cache after owner confirmation: userID=%d", user.ID)
+	slog.Info("Cleared temporary setup user cache after owner confirmation", "userID", user.ID)
 
 	// Create the UserRoleChange
 	if err := req.Create(&v1.UserRoleChange{
@@ -107,7 +105,7 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 			UserID: user.ID,
 		},
 	}); err != nil {
-		log.Warnf("failed to create user role change for new owner %d: %v", user.ID, err)
+		slog.Warn("failed to create user role change for new owner", "userID", user.ID, "error", err)
 	}
 
 	return req.Write(ConfirmOwnerResponse{

@@ -1,12 +1,12 @@
 //nolint:revive
 package log
 
-import "github.com/obot-platform/obot/logger"
+import "log/slog"
 
-func NewWithID(id string) *logger.Logger {
-	log := logger.New("gateway")
+func NewWithID(id string) *slog.Logger {
+	log := slog.Default().With("logger", "gateway")
 	if id != "" {
-		return log.Fields("req_id", id)
+		return log.With("req_id", id)
 	}
-	return &log
+	return log
 }

@@ -5,11 +5,8 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 func MetadataFrom(obj kclient.Object, linkKV ...string) types.Metadata {
 	m := types.Metadata{

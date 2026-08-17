@@ -2,6 +2,7 @@ package setup
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -46,7 +47,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 
 	// Check if a temporary user is already cached
 	if cached := req.GatewayClient.GetTempUserCache(req.Context()); cached != nil {
-		log.Infof("Rejecting temporary setup login initiation because another user is already cached: cachedUserID=%d", cached.UserID)
+		slog.Info("Rejecting temporary setup login initiation because another user is already cached", "cachedUserID", cached.UserID)
 		return types.NewErrHTTP(http.StatusConflict,
 			fmt.Sprintf("temporary user already cached: %s", cached.Email))
 	}
@@ -63,7 +64,7 @@ func (h *Handler) InitiateTempLogin(req api.Context) error {
 	if err := req.GatewayClient.CreateTokenRequest(req.Context(), tokenRequest); err != nil {
 		return fmt.Errorf("failed to create token request: %w", err)
 	}
-	log.Infof("Created temporary setup login token request: tokenID=%s provider=%s/%s", tokenID, body.AuthProviderNamespace, body.AuthProviderName)
+	slog.Info("Created temporary setup login token request", "tokenID", tokenID, "providerNamespace", body.AuthProviderNamespace, "providerName", body.AuthProviderName)
 
 	// Build OAuth start URL
 	redirectURL := fmt.Sprintf("%s/oauth/start/%s/%s/%s",

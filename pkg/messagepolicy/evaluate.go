@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -66,12 +67,12 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 		return nil
 	}
 
-	log.Debugf("Evaluating %d message policies for direction=%s", len(policies), direction)
+	slog.Debug("Evaluating message policies", "policyCount", len(policies), "direction", direction)
 
 	// Resolve model once for all policy evaluations.
 	resolved, err := h.resolveModel(ctx)
 	if err != nil {
-		log.Errorf("Failed to resolve llm-mini model for policy evaluation, failing closed: %v", err)
+		slog.Error("Failed to resolve llm-mini model for policy evaluation, failing closed", "error", err)
 		// If we can't resolve the model, fail closed: report a validation error for each policy.
 		var violations []MessagePolicyViolation
 		for _, p := range policies {
@@ -85,7 +86,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 		return violations
 	}
 
-	log.Debugf("Resolved llm-mini to model=%s provider=%s", resolved.targetModel, resolved.providerURL)
+	slog.Debug("Resolved llm-mini to", "model", resolved.targetModel, "provider", resolved.providerURL)
 
 	conversationContext := BuildConversationContext(conversationHistory)
 
@@ -102,17 +103,17 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 
 			compliant := h.checkCompliance(ctx, resolved, p.Manifest, conversationContext, targetMessage)
 			if !compliant {
-				log.Infof("Policy violation detected by stage 1 for policy=%q, running stage 2 review", p.Manifest.DisplayName)
+				slog.Info("Policy violation detected by stage 1, running stage 2 review", "policy", p.Manifest.DisplayName)
 
 				// Stage 2: Use the full Chat model to review the denial and potentially override it.
 				// If it upholds the denial, it also provides the user-facing explanation.
 				review := h.reviewCompliance(ctx, p.Manifest, conversationContext, targetMessage)
 				if review.Compliant {
-					log.Infof("Stage 2 review overrode stage 1 denial for policy=%q", p.Manifest.DisplayName)
+					slog.Info("Stage 2 review overrode stage 1 denial for", "policy", p.Manifest.DisplayName)
 					return
 				}
 
-				log.Infof("Stage 2 review confirmed violation for policy=%q", p.Manifest.DisplayName)
+				slog.Info("Stage 2 review confirmed violation for", "policy", p.Manifest.DisplayName)
 
 				mu.Lock()
 				violations = append(violations, MessagePolicyViolation{
@@ -123,7 +124,7 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 				})
 				mu.Unlock()
 			} else {
-				log.Debugf("Message compliant with policy=%q", p.Manifest.DisplayName)
+				slog.Debug("Message compliant with", "policy", p.Manifest.DisplayName)
 			}
 		}(policy)
 	}
@@ -131,9 +132,9 @@ func (h *Helper) EvaluateMessage(ctx context.Context, policies []ApplicablePolic
 	wg.Wait()
 
 	if len(violations) > 0 {
-		log.Infof("Policy evaluation complete: %d violation(s) found", len(violations))
+		slog.Info("Policy evaluation complete, violations found", "violationCount", len(violations))
 	} else {
-		log.Debugf("Policy evaluation complete: no violations found")
+		slog.Debug("Policy evaluation complete: no violations found")
 	}
 
 	return violations
@@ -146,7 +147,7 @@ func (h *Helper) resolveModel(ctx context.Context) (*resolvedModel, error) {
 
 // resolveModelByAlias resolves the given model alias to get the target model name, provider URL, and credential headers.
 func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.DefaultModelAliasType) (*resolvedModel, error) {
-	log.Debugf("Resolving model alias %s", aliasType)
+	slog.Debug("Resolving model alias", "aliasType", aliasType)
 
 	m, err := alias.GetFromScope(ctx, h.client, "Model", system.DefaultNamespace, string(aliasType))
 	if err != nil {
@@ -340,7 +341,7 @@ func (h *Helper) callStreamingLLM(ctx context.Context, resolved *resolvedModel, 
 	}
 
 	reqURL := strings.TrimSuffix(resolved.providerURL, "/") + endpoint
-	log.Debugf("Making LLM call to model=%s url=%s", resolved.targetModel, reqURL)
+	slog.Debug("Making LLM call to", "model", resolved.targetModel, "url", reqURL)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -356,14 +357,14 @@ func (h *Helper) callStreamingLLM(ctx context.Context, resolved *resolvedModel, 
 	}
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
+		slog.Error("LLM call failed", "model", resolved.targetModel, "error", err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
+		slog.Error("LLM call returned non-OK status", "model", resolved.targetModel, "status", resp.StatusCode, "body", string(respBody))
 		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
@@ -384,7 +385,7 @@ func (h *Helper) callLLMChatCompletions(ctx context.Context, resolved *resolvedM
 	}
 
 	reqURL := resolved.providerURL + "/chat/completions"
-	log.Debugf("Making LLM call to model=%s url=%s", resolved.targetModel, reqURL)
+	slog.Debug("Making LLM call to", "model", resolved.targetModel, "url", reqURL)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(body))
 	if err != nil {
@@ -398,14 +399,14 @@ func (h *Helper) callLLMChatCompletions(ctx context.Context, resolved *resolvedM
 
 	resp, err := http.DefaultClient.Do(httpReq)
 	if err != nil {
-		log.Errorf("LLM call to model=%s failed: %v", resolved.targetModel, err)
+		slog.Error("LLM call failed", "model", resolved.targetModel, "error", err)
 		return "", fmt.Errorf("LLM call failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		respBody, _ := io.ReadAll(resp.Body)
-		log.Errorf("LLM call to model=%s returned status %d: %s", resolved.targetModel, resp.StatusCode, string(respBody))
+		slog.Error("LLM call returned non-OK status", "model", resolved.targetModel, "status", resp.StatusCode, "body", string(respBody))
 		return "", fmt.Errorf("LLM call returned status %d: %s", resp.StatusCode, string(respBody))
 	}
 
@@ -445,7 +446,7 @@ func readStreamingResponse(r io.Reader, extractDelta func(data string) gjson.Res
 // checkCompliance performs Stage 1: a yes/no compliance check. Returns true if compliant.
 // Fails closed: any error or ambiguous response is treated as a violation.
 func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, policy types.MessagePolicyManifest, conversationContext, targetMessage string) bool {
-	log.Debugf("Checking compliance for policy=%q", policy.DisplayName)
+	slog.Debug("Checking compliance for", "policy", policy.DisplayName)
 	var userContent strings.Builder
 	fmt.Fprintf(&userContent, "Policy: %s\n\n---\n\n", policy.Definition)
 
@@ -472,13 +473,13 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 
 	result, err := h.callLLM(ctx, resolved, messages)
 	if err != nil {
-		log.Warnf("Compliance check LLM call failed for policy=%q, failing closed: %v", policy.DisplayName, err)
+		slog.Warn("Compliance check LLM call failed, failing closed", "policy", policy.DisplayName, "error", err)
 		return false // fail closed
 	}
 
 	answer := strings.TrimSpace(strings.ToLower(result))
 	if answer != "yes" && answer != "no" {
-		log.Warnf("Unexpected compliance check response for policy=%q: %q, treating as violation", policy.DisplayName, result)
+		slog.Warn("Unexpected compliance check response, treating as violation", "policy", policy.DisplayName, "response", result)
 	}
 
 	return answer == "yes"
@@ -494,7 +495,7 @@ type reviewResult struct {
 // Returns the review result with a compliance decision and, if denied, a user-facing explanation.
 // Fails closed: any error returns a non-compliant result with a generic explanation.
 func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolicyManifest, conversationContext, targetMessage string) reviewResult {
-	log.Debugf("Reviewing stage 1 denial for policy=%q using Chat model", policy.DisplayName)
+	slog.Debug("Reviewing stage 1 denial using Chat model", "policy", policy.DisplayName)
 
 	genericDenial := reviewResult{
 		Compliant:   false,
@@ -503,7 +504,7 @@ func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolic
 
 	resolved, err := h.resolveModelByAlias(ctx, types.DefaultModelAliasTypeLLM)
 	if err != nil {
-		log.Warnf("Failed to resolve llm model for stage 2 review of policy=%q, upholding denial: %v", policy.DisplayName, err)
+		slog.Warn("Failed to resolve llm model for stage 2 review, upholding denial", "policy", policy.DisplayName, "error", err)
 		return genericDenial
 	}
 
@@ -544,7 +545,7 @@ func (h *Helper) reviewCompliance(ctx context.Context, policy types.MessagePolic
 
 	result, err := h.callLLM(ctx, resolved, messages)
 	if err != nil {
-		log.Warnf("Stage 2 review LLM call failed for policy=%q, upholding denial: %v", policy.DisplayName, err)
+		slog.Warn("Stage 2 review LLM call failed, upholding denial", "policy", policy.DisplayName, "error", err)
 		return genericDenial
 	}
 
@@ -570,7 +571,7 @@ func parseReviewResponse(response string, genericDenial reviewResult) reviewResu
 		return reviewResult{Compliant: false, Explanation: explanation}
 	}
 
-	log.Warnf("Unexpected stage 2 review response format, upholding denial: %q", response)
+	slog.Warn("Unexpected stage 2 review response format, upholding denial", "response", response)
 	return genericDenial
 }
 

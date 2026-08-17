@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
 	"net/url"
@@ -17,7 +18,6 @@ import (
 	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
 	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auditlog"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
@@ -31,8 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 // AuditLogHandler serves audit-log ingestion, normalized reads, filter options, and MCP usage
 // statistics. Read authorization is applied before rows are presented through pkg/auditlog.
@@ -764,13 +762,13 @@ func (h *AuditLogHandler) collectMCPAuditEntry(ctx context.Context, entry auditl
 
 	var auditLog auditLogInput
 	if err := nmcp.JSONCoerce(entry, &auditLog); err != nil {
-		log.Warnf("failed to convert audit log entry: %v", err)
+		slog.Warn("failed to convert audit log entry", "error", err)
 		return
 	}
 
 	convertMCPAuditLog(&auditLog)
 	if err := h.attributeMCPAuditLogAPIKey(ctx, &auditLog); err != nil {
-		log.Warnf("failed to attribute MCP audit log API key: %v", err)
+		slog.Warn("failed to attribute MCP audit log API key", "error", err)
 	}
 	h.gatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
 }

@@ -2,10 +2,10 @@ package alias
 
 import (
 	"fmt"
+	"log/slog"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/alias"
 	"github.com/obot-platform/obot/pkg/create"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -15,8 +15,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 func matches(alias *v1.Alias, obj kclient.Object) bool {
 	return alias.Spec.TargetName == obj.GetName() &&
@@ -93,7 +91,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 
 	target, err := req.Client.Scheme().New(gvk)
 	if runtime.IsNotRegisteredError(err) {
-		log.Infof("Deleting alias %s is targeting an %s because kind is no longer registered", src.Name, src.Spec.TargetKind)
+		slog.Info("Deleting alias because target kind is no longer registered", "alias", src.Name, "targetKind", src.Spec.TargetKind)
 		return req.Delete(src)
 	} else if err != nil {
 		return err
@@ -101,7 +99,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 
 	aliasable, ok := target.(v1.Aliasable)
 	if !ok {
-		log.Infof("Object %s does not support aliasing, invalid alias %s", src.Spec.TargetKind, src.Name)
+		slog.Info("Object does not support aliasing, invalid alias", "targetKind", src.Spec.TargetKind, "alias", src.Name)
 		return req.Delete(src)
 	}
 
@@ -117,7 +115,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 	if err := req.Get(untriggered.UncachedGet(target.(kclient.Object)), src.Spec.TargetNamespace, src.Spec.TargetName); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Target object does not exist, delete alias
-			log.Infof("Target object %s/%s does not exist, deleting alias %s", src.Spec.TargetNamespace, src.Spec.TargetName, src.Name)
+			slog.Info("Target object does not exist, deleting alias", "targetNamespace", src.Spec.TargetNamespace, "targetName", src.Spec.TargetName, "alias", src.Name)
 			return req.Delete(src)
 		}
 		return err
@@ -125,7 +123,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 
 	// Check if alias name algorithm has changed
 	if src.Name != alias.KeyFromScopeID(alias.GetScope(gvk, aliasable), src.Spec.Name) {
-		log.Infof("Alias name algorithm has changed, deleting alias %s", src.Name)
+		slog.Info("Alias name algorithm has changed, deleting alias", "alias", src.Name)
 		return req.Delete(src)
 	}
 
@@ -136,7 +134,7 @@ func UnassignAlias(req router.Request, _ router.Response) error {
 
 	if aliasName != src.Name {
 		// Alias name does not match, delete alias
-		log.Infof("Alias name %q does not match expected %q, deleting alias %q", src.Name, aliasName, src.Name)
+		slog.Info("Alias name does not match expected, deleting alias", "alias", src.Name, "expected", aliasName)
 		return req.Delete(src)
 	}
 

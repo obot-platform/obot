@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"reflect"
 	"slices"
@@ -15,7 +16,6 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -31,8 +31,6 @@ import (
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 const oauthMetadataSyncInterval = time.Hour
 
@@ -93,7 +91,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	}
 
 	if server.Status.NeedsUpdate != drifted {
-		log.Infof("MCP server catalog drift status changed: server=%s catalogEntry=%s needsUpdate=%v", server.Name, server.Spec.MCPServerCatalogEntryName, drifted)
+		slog.Info("MCP server catalog drift status changed", "server", server.Name, "catalogEntry", server.Spec.MCPServerCatalogEntryName, "needsUpdate", drifted)
 		server.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, server)
 	}
@@ -257,7 +255,7 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 	shouldSetNeedsK8sUpdate := server.Status.K8sSettingsHash != currentHash && !server.Status.NeedsK8sUpdate
 
 	if shouldSetNeedsK8sUpdate {
-		log.Infof("MCP server requires K8s redeploy due to K8s settings drift: server=%s previousHash=%s newHash=%s", server.Name, server.Status.K8sSettingsHash, currentHash)
+		slog.Info("MCP server requires K8s redeploy due to K8s settings drift", "server", server.Name, "previousHash", server.Status.K8sSettingsHash, "newHash", currentHash)
 		server.Status.NeedsK8sUpdate = true
 		return req.Client.Status().Update(req.Ctx, server)
 	}
@@ -649,7 +647,7 @@ func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Re
 	}
 
 	if oldUserCount, newUserCount := server.Status.MCPServerInstanceUserCount, len(uniqueUsers); oldUserCount == nil || *oldUserCount != newUserCount {
-		log.Infof("Updated MCP server instance user count: server=%s newCount=%d", server.Name, newUserCount)
+		slog.Info("Updated MCP server instance user count", "server", server.Name, "newCount", newUserCount)
 		server.Status.MCPServerInstanceUserCount = &newUserCount
 		return req.Client.Status().Update(req.Ctx, server)
 	}
@@ -660,7 +658,7 @@ func (*Handler) EnsureMCPServerInstanceUserCount(req router.Request, _ router.Re
 func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 	if string(server.Spec.Manifest.Runtime) == "" {
-		log.Infof("Deleting MCP server with empty runtime: server=%s", server.Name)
+		slog.Info("Deleting MCP server with empty runtime", "server", server.Name)
 		return req.Client.Delete(req.Ctx, server)
 	}
 
@@ -670,7 +668,7 @@ func (h *Handler) DeleteServersWithoutRuntime(req router.Request, _ router.Respo
 func (h *Handler) DeleteServersForAnonymousUser(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 	if server.Spec.UserID == "anonymous" {
-		log.Infof("Deleting MCP server for anonymous user: server=%s", server.Name)
+		slog.Info("Deleting MCP server for anonymous user", "server", server.Name)
 		return req.Client.Delete(req.Ctx, server)
 	}
 
@@ -689,7 +687,7 @@ func (h *Handler) EnsureMCPCatalogID(req router.Request, _ router.Response) erro
 		}
 
 		server.Status.MCPCatalogID = mcpCatalogEntry.Spec.MCPCatalogName
-		log.Infof("Resolved MCP catalog ID for server: server=%s catalogEntry=%s catalogID=%s", server.Name, server.Spec.MCPServerCatalogEntryName, server.Status.MCPCatalogID)
+		slog.Info("Resolved MCP catalog ID for server", "server", server.Name, "catalogEntry", server.Spec.MCPServerCatalogEntryName, "catalogID", server.Status.MCPCatalogID)
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 
@@ -702,7 +700,7 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	if server.Spec.SharedWithinMCPCatalogName != "" && server.Spec.MCPCatalogID == "" {
 		server.Spec.MCPCatalogID = server.Spec.SharedWithinMCPCatalogName
 		server.Spec.SharedWithinMCPCatalogName = ""
-		log.Infof("Migrating MCP server shared catalog field to MCPCatalogID: server=%s catalogID=%s", server.Name, server.Spec.MCPCatalogID)
+		slog.Info("Migrating MCP server shared catalog field to MCPCatalogID", "server", server.Name, "catalogID", server.Spec.MCPCatalogID)
 		return req.Client.Update(req.Ctx, server)
 	}
 
@@ -740,7 +738,7 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 		}
 
 		if server.Status.AuditLogTokenHash != utils.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
-			log.Infof("Audit log token drift detected for MCP server, rotating credential: server=%s", server.Name)
+			slog.Info("Audit log token drift detected for MCP server, rotating credential", "server", server.Name)
 			// Reset the audit log token hash to reset the credential.
 			server.Status.AuditLogTokenHash = ""
 		}
@@ -792,7 +790,7 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 	}
 
 	server.Status.AuditLogTokenHash = utils.Digest(auditLogToken)
-	log.Infof("Provisioned OAuth exchange credentials for MCP server: server=%s oauthClient=%s", server.Name, oauthClient.Name)
+	slog.Info("Provisioned OAuth exchange credentials for MCP server", "server", server.Name, "oauthClient", oauthClient.Name)
 
 	return nil
 }
@@ -812,7 +810,7 @@ func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Res
 
 	// Delete component servers with composite runtimes
 	if server.Spec.CompositeName != "" {
-		log.Infof("Deleting nested composite component server: server=%s parentComposite=%s", server.Name, server.Spec.CompositeName)
+		slog.Info("Deleting nested composite component server", "server", server.Name, "parentComposite", server.Spec.CompositeName)
 		return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, server))
 	}
 	// Remove all composite components from the server's manifest
@@ -829,7 +827,7 @@ func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Res
 	}
 
 	server.Spec.Manifest.CompositeConfig.ComponentServers = components
-	log.Infof("Pruned nested composite components from MCP server manifest: server=%s removedComponents=%d", server.Name, numComponents-len(components))
+	slog.Info("Pruned nested composite components from MCP server manifest", "server", server.Name, "removedComponents", numComponents-len(components))
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, server))
 }
 
@@ -922,7 +920,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				}); err != nil {
 					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
 				}
-				log.Infof("Created component MCPServerInstance for composite server: composite=%s componentServer=%s userID=%s", compositeServer.Name, component.MCPServerID, compositeServer.Spec.UserID)
+				slog.Info("Created component MCPServerInstance for composite server", "composite", compositeServer.Name, "componentServer", component.MCPServerID, "userID", compositeServer.Spec.UserID)
 			} else {
 				existingInstance := existingInstances[component.MCPServerID]
 				var multiUserServer v1.MCPServer
@@ -963,9 +961,9 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 			if err := req.Client.Create(req.Ctx, &newServer); err != nil {
 				return fmt.Errorf("failed to create new component server: %w", err)
 			}
-			log.Infof("Created component MCP server for composite server: composite=%s catalogEntry=%s", compositeServer.Name, component.CatalogEntryID)
+			slog.Info("Created component MCP server for composite server", "composite", compositeServer.Name, "catalogEntry", component.CatalogEntryID)
 		} else if utils.Digest(existingServer.Spec.Manifest) != utils.Digest(component.Manifest) {
-			log.Infof("Updating component MCP server manifest for composite server: composite=%s componentServer=%s", compositeServer.Name, existingServer.Name)
+			slog.Info("Updating component MCP server manifest for composite server", "composite", compositeServer.Name, "componentServer", existingServer.Name)
 			// Ensure the server is shut down before updating it
 			if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
 				return err
@@ -991,7 +989,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 
 	// Delete existing instances that were not in the updated manifest
 	for _, instance := range existingInstances {
-		log.Infof("Deleting stale component MCPServerInstance: composite=%s instance=%s", compositeServer.Name, instance.Name)
+		slog.Info("Deleting stale component MCPServerInstance", "composite", compositeServer.Name, "instance", instance.Name)
 		if err := req.Delete(&instance); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to delete instance %s: %w", instance.Name, err)
 		}
@@ -999,7 +997,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 
 	// Delete existing servers that were not in the updated manifest
 	for _, server := range existingServers {
-		log.Infof("Deleting stale component MCP server: composite=%s server=%s", compositeServer.Name, server.Name)
+		slog.Info("Deleting stale component MCP server", "composite", compositeServer.Name, "server", server.Name)
 		if err := req.Delete(&server); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to delete server %s: %w", server.Name, err)
 		}
@@ -1009,7 +1007,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 	// Update the status hash to reflect the observed state.
 	if manifestHash := utils.Digest(manifest); compositeServer.Status.ObservedCompositeManifestHash != manifestHash {
 		compositeServer.Status.ObservedCompositeManifestHash = manifestHash
-		log.Infof("Updated observed composite manifest hash: composite=%s hash=%s", compositeServer.Name, manifestHash)
+		slog.Info("Updated observed composite manifest hash", "composite", compositeServer.Name, "hash", manifestHash)
 		if err := req.Client.Status().Update(req.Ctx, compositeServer); err != nil {
 			return fmt.Errorf("failed to update composite server status: %w", err)
 		}
@@ -1051,7 +1049,7 @@ func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Respons
 	// Sync status from catalog entry
 	if server.Status.OAuthCredentialConfigured != catalogEntry.Status.OAuthCredentialConfigured {
 		server.Status.OAuthCredentialConfigured = catalogEntry.Status.OAuthCredentialConfigured
-		log.Infof("Updated MCP server OAuth credential status from catalog entry: server=%s catalogEntry=%s configured=%v", server.Name, catalogEntry.Name, server.Status.OAuthCredentialConfigured)
+		slog.Info("Updated MCP server OAuth credential status from catalog entry", "server", server.Name, "catalogEntry", catalogEntry.Name, "configured", server.Status.OAuthCredentialConfigured)
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 
@@ -1074,7 +1072,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 	if server.Spec.Manifest.RemoteConfig.TunnelName == "" {
 		if err := mcp.ValidateRemoteMCPURL(req.Ctx, server.Spec.Manifest.RemoteConfig.URL, blockingConfig); err != nil {
 			// If the URL doesn't pass validation, then don't do anything so that we sync as soon as the configuration is updated.
-			log.Infof("Remote MCP URL validation failed, not checking OAuth metadata: server=%s error=%v", server.Name, err)
+			slog.Info("Remote MCP URL validation failed, not checking OAuth metadata", "server", server.Name, "error", err)
 			return nil
 		}
 	}
@@ -1167,7 +1165,7 @@ func setOAuthMetadata(req router.Request, server *v1.MCPServer, statusMetadata *
 		if syncTime != nil {
 			server.Status.LastOAuthMetadataSync = *syncTime
 		}
-		log.Infof("Updated MCP server OAuth metadata: server=%s", server.Name)
+		slog.Info("Updated MCP server OAuth metadata", "server", server.Name)
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 
@@ -1256,7 +1254,7 @@ func (h *Handler) SetNonDeployServerStatus(req router.Request, _ router.Response
 func clearOAuthStatusIfSet(req router.Request, server *v1.MCPServer) error {
 	if server.Status.OAuthCredentialConfigured {
 		server.Status.OAuthCredentialConfigured = false
-		log.Infof("Cleared MCP server OAuth credential status: server=%s", server.Name)
+		slog.Info("Cleared MCP server OAuth credential status", "server", server.Name)
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 	return nil

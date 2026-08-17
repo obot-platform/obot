@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -22,7 +23,7 @@ func (c *Client) runRetentionCleanup(ctx context.Context, mcpAuditLogRetentionDa
 
 	run := func(now time.Time) {
 		if err := c.cleanupRetainedData(ctx, now.UTC(), mcpAuditLogRetentionDays, llmAuditLogRetentionDays); err != nil && !errors.Is(err, context.Canceled) {
-			log.Errorf("Failed to clean up retained gateway data: %v", err)
+			slog.Error("Failed to clean up retained gateway data", "error", err)
 		}
 	}
 	run(time.Now())

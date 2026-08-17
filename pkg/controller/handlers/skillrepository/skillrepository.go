@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/logger"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gitcredential"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -16,8 +16,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 const syncInterval = time.Hour
 
@@ -68,7 +66,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, repo.Namespace, repo.Spec.GitCredentialID, repo.Spec.RepoURL, repo.Name, SkillRepositoryCredentialToolName)
 	if errors.Is(err, gitcredential.ErrLegacyCredential) {
-		log.Errorf("failed to retrieve legacy credential for repository %s source %s, continuing without authentication: %v", repo.Name, repo.Spec.RepoURL, err)
+		slog.Error("failed to retrieve legacy credential for repository, continuing without authentication", "repository", repo.Name, "source", repo.Spec.RepoURL, "error", err)
 	} else if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {
 			return statusErr
@@ -196,7 +194,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 	var repo v1.SkillRepository
 	if err := c.Get(ctx, router.Key(namespace, name), &repo); err != nil {
 		if !apierrors.IsNotFound(err) {
-			log.Errorf("failed to reload skill repository %s to clear syncing bit: %v", name, err)
+			slog.Error("failed to reload skill repository to clear syncing bit", "repository", name, "error", err)
 		}
 		return
 	}
@@ -207,7 +205,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 
 	repo.Status.IsSyncing = false
 	if err := c.Status().Update(ctx, &repo); err != nil && !apierrors.IsNotFound(err) {
-		log.Errorf("failed to clear syncing bit for skill repository %s: %v", name, err)
+		slog.Error("failed to clear syncing bit for skill repository", "repository", name, "error", err)
 	}
 }
 

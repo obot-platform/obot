@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -44,7 +45,7 @@ func (s *Server) getTokens(apiContext api.Context) error {
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("error getting tokens: %v", err))
 	}
-	pkgLog.Infof("Listed auth tokens for user: userID=%d tokens=%d", apiContext.UserID(), len(tokens))
+	slog.Info("Listed auth tokens for user", "userID", apiContext.UserID(), "tokens", len(tokens))
 
 	return apiContext.Write(tokens)
 }
@@ -63,7 +64,7 @@ func (s *Server) deleteToken(apiContext api.Context) error {
 		}
 		return types2.NewErrHTTP(status, fmt.Sprintf("error deleting token: %v", err))
 	}
-	pkgLog.Infof("Deleted auth token for user: userID=%d tokenID=%s", apiContext.UserID(), id)
+	slog.Info("Deleted auth token for user", "userID", apiContext.UserID(), "tokenID", id)
 
 	return apiContext.Write(map[string]any{"deleted": true})
 }
@@ -82,7 +83,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 		return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 	}
 	if configuredProvider != reqObj.ProviderName {
-		pkgLog.Infof("Rejected token request due to unconfigured auth provider: requestedProvider=%s configuredProvider=%s", reqObj.ProviderName, configuredProvider)
+		slog.Info("Rejected token request due to unconfigured auth provider", "requestedProvider", reqObj.ProviderName, "configuredProvider", configuredProvider)
 		return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", reqObj.ProviderName))
 	}
 
@@ -97,7 +98,7 @@ func (s *Server) tokenRequest(apiContext api.Context) error {
 	if err != nil {
 		return types2.NewErrHTTP(http.StatusInternalServerError, "failed to create token request")
 	}
-	pkgLog.Infof("Created token request for auth flow: tokenRequestID=%s provider=%s/%s noExpiration=%v", tokenReq.ID, reqObj.ProviderNamespace, reqObj.ProviderName, reqObj.NoExpiration)
+	slog.Info("Created token request for auth flow", "tokenRequestID", tokenReq.ID, "providerNamespace", reqObj.ProviderNamespace, "providerName", reqObj.ProviderName, "noExpiration", reqObj.NoExpiration)
 
 	return apiContext.Write(tokenRequestResponse{
 		ID: tokenReq.ID,
@@ -137,7 +138,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 			return types2.NewErrHTTP(http.StatusInternalServerError, fmt.Sprintf("failed to get configured auth provider: %v", err))
 		}
 		if configuredProvider != name {
-			pkgLog.Infof("Rejected redirect-for-token request due to unconfigured auth provider: requestedProvider=%s configuredProvider=%s tokenRequestID=%s", name, configuredProvider, id)
+			slog.Info("Rejected redirect-for-token request due to unconfigured auth provider", "requestedProvider", name, "configuredProvider", configuredProvider, "tokenRequestID", id)
 			return types2.NewErrHTTP(http.StatusBadRequest, fmt.Sprintf("auth provider %q not found", name))
 		}
 	}
@@ -152,7 +153,7 @@ func (s *Server) redirectForTokenRequest(apiContext api.Context) error {
 	if tokenReq.RequestExpiresAt.IsZero() || !time.Now().Before(tokenReq.RequestExpiresAt) {
 		return types2.NewErrNotFound("token not found")
 	}
-	pkgLog.Infof("Resolved token request redirect path: tokenRequestID=%s provider=%s/%s", tokenReq.ID, namespace, name)
+	slog.Info("Resolved token request redirect path", "tokenRequestID", tokenReq.ID, "providerNamespace", namespace, "providerName", name)
 
 	return apiContext.Write(map[string]any{"token-path": fmt.Sprintf("%s/api/oauth/start/%s/%s/%s", s.baseURL, tokenReq.ID, namespace, name)})
 }
@@ -164,18 +165,18 @@ func (s *Server) checkForToken(apiContext api.Context) error {
 	}
 
 	if tr.Error != "" {
-		pkgLog.Infof("Token request completed with error: tokenRequestID=%s", tr.ID)
+		slog.Info("Token request completed with error", "tokenRequestID", tr.ID)
 		return apiContext.Write(map[string]any{"error": tr.Error})
 	}
 	if tr.Token == "" && !tr.RequestExpiresAt.IsZero() && !time.Now().Before(tr.RequestExpiresAt) {
-		pkgLog.Infof("Token request expired: tokenRequestID=%s", tr.ID)
+		slog.Info("Token request expired", "tokenRequestID", tr.ID)
 		return apiContext.Write(map[string]any{"error": "token request expired"})
 	}
 
 	if tr.Token == "" {
-		pkgLog.Debugf("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, false, tr.TokenRetrieved)
+		slog.Debug("Token request polled", "tokenRequestID", tr.ID, "tokenAvailable", false, "tokenRetrieved", tr.TokenRetrieved)
 	} else {
-		pkgLog.Infof("Token request polled: tokenRequestID=%s tokenAvailable=%v tokenRetrieved=%v", tr.ID, true, tr.TokenRetrieved)
+		slog.Info("Token request polled", "tokenRequestID", tr.ID, "tokenAvailable", true, "tokenRetrieved", tr.TokenRetrieved)
 	}
 	return apiContext.Write(refreshTokenResponse{
 		Token:     tr.Token,

@@ -3,15 +3,13 @@ package poweruserworkspace
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/logger"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 // HandleGroupRoleChange processes GroupRoleChange events by reconciling workspaces
 // for all users in the group based on their current effective role.
@@ -29,7 +27,7 @@ func (h *Handler) HandleGroupRoleChange(req router.Request, _ router.Response) e
 	for _, user := range users {
 		if err := h.reconcileUserWorkspace(req.Ctx, req.Client, req.Namespace, user); err != nil {
 			// Log error but continue processing other users
-			log.Errorf("failed to reconcile workspace for user %d: %v", user.ID, err)
+			slog.Error("failed to reconcile workspace for user", "userID", user.ID, "error", err)
 		}
 	}
 

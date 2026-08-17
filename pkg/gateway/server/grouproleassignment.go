@@ -3,6 +3,7 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 
@@ -86,11 +87,11 @@ func (s *Server) createGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to create group role assignment: %v", err)
 	}
-	pkgLog.Infof("Created group role assignment: group=%s role=%d", req.GroupName, req.Role)
+	slog.Info("Created group role assignment", "group", req.GroupName, "role", req.Role)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, req.GroupName); err != nil {
-		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", req.GroupName, err)
+		slog.Warn("failed to trigger reconciliation for group", "group", req.GroupName, "error", err)
 		// Don't fail the request - assignment was created successfully
 	}
 
@@ -125,11 +126,11 @@ func (s *Server) updateGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to update group role assignment: %v", err)
 	}
-	pkgLog.Infof("Updated group role assignment: group=%s role=%d", groupName, req.Role)
+	slog.Info("Updated group role assignment", "group", groupName, "role", req.Role)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
-		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
+		slog.Warn("failed to trigger reconciliation for group", "group", groupName, "error", err)
 		// Don't fail the request - assignment was updated successfully
 	}
 
@@ -149,11 +150,11 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 		}
 		return fmt.Errorf("failed to delete group role assignment: %v", err)
 	}
-	pkgLog.Infof("Deleted group role assignment: group=%s", groupName)
+	slog.Info("Deleted group role assignment", "group", groupName)
 
 	// Trigger reconciliation for all users in this group
 	if err := s.triggerReconciliationForGroup(apiContext, groupName); err != nil {
-		pkgLog.Warnf("failed to trigger reconciliation for group %s: %v", groupName, err)
+		slog.Warn("failed to trigger reconciliation for group", "group", groupName, "error", err)
 		// Don't fail the request - assignment was deleted successfully
 	}
 
@@ -189,7 +190,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// If role includes Owner, only Owners can assign it
 	if baseRole == types2.RoleOwner {
 		if !apiContext.UserIsOwner() {
-			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=owner_role_requires_owner", role)
+			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "owner_role_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the owner role to groups")
 		}
 	}
@@ -197,7 +198,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// If role includes Auditor (even by itself), only Owners can assign it
 	if hasAuditor {
 		if !apiContext.UserIsOwner() {
-			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=auditor_role_requires_owner", role)
+			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "auditor_role_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the auditor role to groups")
 		}
 	}
@@ -205,12 +206,12 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 	// If role includes User Impersonation, only Owners can assign it and it must be combined with Owner or Admin
 	if hasUserImpersonation {
 		if !apiContext.UserIsOwner() {
-			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=user_impersonation_role_requires_owner", role)
+			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "user_impersonation_role_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owners can assign the user impersonation role to groups")
 		}
 
 		if baseRole != types2.RoleOwner && baseRole != types2.RoleAdmin {
-			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=user_impersonation_can_only_be_combined_with_owner_or_admin", role)
+			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "user_impersonation_can_only_be_combined_with_owner_or_admin")
 			return types2.NewErrBadRequest(
 				"user impersonation role can only be combined with owner (%d) or admin (%d)",
 				types2.RoleOwner, types2.RoleAdmin,
@@ -230,7 +231,7 @@ func (s *Server) validateRoleForUser(apiContext api.Context, role types2.Role) e
 		isValid := slices.Contains(validBaseRoles, baseRole)
 
 		if !isValid {
-			pkgLog.Infof("Denied group role assignment request: requestedRole=%d reason=invalid_base_role", role)
+			slog.Info("Denied group role assignment request", "requestedRole", role, "reason", "invalid_base_role")
 			return types2.NewErrBadRequest(
 				"base role must be one of: Owner (%d), Admin (%d), PowerUserPlus (%d), or PowerUser (%d)",
 				types2.RoleOwner, types2.RoleAdmin, types2.RolePowerUserPlus, types2.RolePowerUser,

@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -67,7 +68,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 
 		modelProviderResp, err := mp.convertModelProvider(modelProvider, *mps)
 		if err != nil {
-			log.Errorf("failed to convert model provider %q: %v", modelProvider.Name, err)
+			slog.Error("failed to convert model provider", "modelProviderName", modelProvider.Name, "error", err)
 			continue
 		}
 		resp = append(resp, modelProviderResp)
@@ -86,7 +87,7 @@ func (mp *ModelProviderHandler) Validate(req api.Context) error {
 		return err
 	}
 
-	log.Debugf("Validating model provider %q", modelProvider.Name)
+	slog.Debug("Validating model provider", "modelProviderName", modelProvider.Name)
 
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -26,7 +27,7 @@ var errRuntimeK8sConfigUnavailable = errors.New("runtime Kubernetes config is no
 
 func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 	if err := c.reconcileServiceAccountKeys(ctx); err != nil {
-		log.Errorf("failed to reconcile service account keys: %v", err)
+		slog.Error("failed to reconcile service account keys", "error", err)
 	}
 
 	ticker := time.NewTicker(serviceAccountRotationPeriod)
@@ -38,7 +39,7 @@ func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := c.reconcileServiceAccountKeys(ctx); err != nil {
-				log.Errorf("failed to reconcile service account keys: %v", err)
+				slog.Error("failed to reconcile service account keys", "error", err)
 			}
 		}
 	}

@@ -4,16 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/server/audit/store"
 )
-
-var log = logger.Package()
 
 const (
 	ModeOff  = "off"
@@ -138,12 +136,12 @@ func (l *persistentLogger) runPersistenceLoop(ctx context.Context, flushInterval
 		case <-l.kickPersist:
 			ticker.Stop()
 			if err = l.persist(); err != nil {
-				log.Errorf("Failed to persist audit log: %v", err)
+				slog.Error("Failed to persist audit log", "error", err)
 			}
 			ticker.Reset(flushInterval)
 		case <-ticker.C:
 			if err = l.persist(); err != nil {
-				log.Errorf("Failed to persist audit log: %v", err)
+				slog.Error("Failed to persist audit log", "error", err)
 			}
 		}
 	}

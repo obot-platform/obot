@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -49,7 +50,7 @@ func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProvid
 	if authProviderURL != "" {
 		u, err := url.Parse(authProviderURL + "/obot-list-auth-groups")
 		if err != nil {
-			log.Warnf("failed to parse auth provider URL for group search: %v", err)
+			slog.Warn("failed to parse auth provider URL for group search", "error", err)
 		} else {
 			// We ignore errors here so that clients can still search over cached groups where there
 			// are issues fetching them from the auth provider.
@@ -194,7 +195,7 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 	// This manages its own transactions internally and makes its own HTTP calls.
 	if providerURL != "" && identity.AuthProviderName == "okta-auth-provider" {
 		if err := c.runOktaGroupIDMigrationOnce(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
-			log.Warnf("Okta group ID migration failed (will retry): %v", err)
+			slog.Warn("Okta group ID migration failed (will retry)", "error", err)
 		}
 	}
 
@@ -282,7 +283,7 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity) er
 				UserID: identity.UserID,
 			},
 		}); err != nil {
-			log.Warnf("failed to create user role change event for user %d: %v", identity.UserID, err)
+			slog.Warn("failed to create user role change event for user", "userID", identity.UserID, "error", err)
 			// Don't fail authentication - membership update succeeded
 		}
 	}
@@ -298,7 +299,7 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity) er
 				UserID: identity.UserID,
 			},
 		}); err != nil {
-			log.Warnf("failed to create user group change event for user %d: %v", identity.UserID, err)
+			slog.Warn("failed to create user group change event for user", "userID", identity.UserID, "error", err)
 			// Don't fail authentication - membership update succeeded
 		}
 	}

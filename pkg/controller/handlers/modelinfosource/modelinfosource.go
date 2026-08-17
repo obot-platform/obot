@@ -4,12 +4,12 @@ package modelinfosource
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -18,8 +18,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 const (
 	syncInterval             = time.Hour
@@ -62,7 +60,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		err = apply.New(req.Client).WithOwnerSubContext(modelInfoOwnerSubContext).WithPruneTypes(&v1.ModelInfo{}).Apply(req.Ctx, source, infos...)
 	}
 	if err != nil {
-		log.Errorf("failed to sync model info source %s: %v", source.Name, err)
+		slog.Error("failed to sync model info source", "source", source.Name, "error", err)
 		source.Status.SyncError = err.Error()
 	} else {
 		source.Status.SyncError = ""
@@ -95,7 +93,7 @@ func (h *Handler) SetUpDefaultModelInfoSource(ctx context.Context, c kclient.Cli
 		} else if err != nil {
 			return fmt.Errorf("failed to delete disabled model info source: %w", err)
 		}
-		log.Infof("Deleted default model info source (disabled by empty URL)")
+		slog.Info("Deleted default model info source (disabled by empty URL)")
 
 		return nil
 	}
@@ -106,7 +104,7 @@ func (h *Handler) SetUpDefaultModelInfoSource(ctx context.Context, c kclient.Cli
 		if err := c.Create(ctx, source); err != nil {
 			return fmt.Errorf("failed to create default model info source: %w", err)
 		}
-		log.Infof("Created default model info source: %s (%s)", system.DefaultModelInfoSource, h.defaultSourceURL)
+		slog.Info("Created default model info source", "source", system.DefaultModelInfoSource, "url", h.defaultSourceURL)
 		return nil
 	} else if err != nil {
 		return err
@@ -124,6 +122,6 @@ func (h *Handler) SetUpDefaultModelInfoSource(ctx context.Context, c kclient.Cli
 	if err := c.Update(ctx, &existing); err != nil {
 		return fmt.Errorf("failed to update default model info source URL: %w", err)
 	}
-	log.Infof("Updated default model info source URL: %s (%s)", system.DefaultModelInfoSource, h.defaultSourceURL)
+	slog.Info("Updated default model info source URL", "source", system.DefaultModelInfoSource, "url", h.defaultSourceURL)
 	return nil
 }

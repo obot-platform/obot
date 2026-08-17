@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"strings"
@@ -11,7 +12,6 @@ import (
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -25,8 +25,6 @@ import (
 	"k8s.io/client-go/rest"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.2"`
@@ -161,7 +159,7 @@ func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore G
 		}
 
 		if err := kclient.IgnoreAlreadyExists(client.Create(ctx, namespace)); err != nil {
-			log.Warnf("failed to create MCP namespace, namespace must exist for MCP deployments to work: %v", err)
+			slog.Warn("failed to create MCP namespace, namespace must exist for MCP deployments to work", "error", err)
 		}
 
 		clientset, err := kubernetes.NewForConfig(localK8sConfig)
@@ -296,7 +294,7 @@ func (sm *SessionManager) Close() {
 	sm.sessions.Range(func(id, value any) bool {
 		value.(*sync.Map).Range(func(clientScope, session any) bool {
 			if s, ok := session.(*Client); ok && s.ClientSession != nil {
-				log.Infof("closing MCP session %s, %s", id, clientScope)
+				slog.Info("closing MCP session", "id", id, "clientScope", clientScope)
 				s.Close()
 				_ = s.Wait()
 			}
@@ -491,7 +489,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if cleanupErr := sm.ShutdownServer(ctx, serverConfig.MCPServerName); cleanupErr != nil {
-			log.Errorf("failed to clean up temporary instance %s: %v", tempMCPServer.Name, cleanupErr)
+			slog.Error("failed to clean up temporary instance", "name", tempMCPServer.Name, "error", cleanupErr)
 		}
 	}()
 

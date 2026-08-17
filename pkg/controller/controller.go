@@ -3,10 +3,10 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
@@ -29,12 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	// Enable logrus logging in nah
-	_ "github.com/obot-platform/nah/pkg/logrus"
 )
-
-var log = logger.Package()
 
 type Controller struct {
 	services               *services.Services
@@ -207,7 +202,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		}
 
 		if needsUpdate {
-			log.Infof("Updating obot MCP server (image=%s)", image)
+			slog.Info("Updating obot MCP server", "image", image)
 			return c.services.StorageClient.Update(ctx, &existing)
 		}
 		return nil
@@ -217,7 +212,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 	}
 
 	// Create the SystemMCPServer
-	log.Infof("Creating obot MCP server (image=%s)", image)
+	slog.Info("Creating obot MCP server", "image", image)
 	server := &v1.SystemMCPServer{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:       system.ObotMCPServerName,
@@ -317,11 +312,11 @@ func (c *Controller) retriggerCatalogEntries(ctx context.Context, client kclient
 	if err := client.List(ctx, &entries, &kclient.ListOptions{
 		Namespace: system.DefaultNamespace,
 	}); err != nil {
-		log.Errorf("Failed to list MCPServerCatalogEntries for re-trigger: %v", err)
+		slog.Error("Failed to list MCPServerCatalogEntries for re-trigger", "error", err)
 		return
 	}
 
-	log.Infof("Re-triggering %d MCPServerCatalogEntries to ensure MCPServer watches are established", len(entries.Items))
+	slog.Info("Re-triggering MCPServerCatalogEntries to ensure MCPServer watches are established", "count", len(entries.Items))
 
 	for _, entry := range entries.Items {
 		// Touch the entry's metadata to trigger reconciliation.
@@ -333,12 +328,12 @@ func (c *Controller) retriggerCatalogEntries(ctx context.Context, client kclient
 		entry.Annotations["obot.ai/startup-retrigger"] = time.Now().Format(time.RFC3339)
 
 		if err := client.Patch(ctx, &entry, patch); err != nil {
-			log.Warnf("Failed to re-trigger MCPServerCatalogEntry %s: %v", entry.Name, err)
+			slog.Warn("Failed to re-trigger MCPServerCatalogEntry", "name", entry.Name, "error", err)
 			continue
 		}
 	}
 
-	log.Infof("Completed re-triggering MCPServerCatalogEntries")
+	slog.Info("Completed re-triggering MCPServerCatalogEntries")
 }
 
 func (c *Controller) Start(ctx context.Context) error {

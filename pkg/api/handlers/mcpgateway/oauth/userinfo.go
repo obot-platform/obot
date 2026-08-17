@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -30,7 +31,7 @@ type UserInfoResponse struct {
 func (h *handler) userInfo(req api.Context) error {
 	scope := utils.FirstSet(req.User.GetExtra()["oauthScope"]...)
 	if !slices.Contains(strings.Fields(scope), "profile") {
-		log.Infof("Denied OAuth userinfo request due to insufficient scope: userID=%s", req.User.GetUID())
+		slog.Info("Denied OAuth userinfo request due to insufficient scope", "userID", req.User.GetUID())
 		return h.writeUserInfoError(req, http.StatusUnauthorized,
 			"invalid_scope", "Insufficient scope")
 	}
@@ -39,7 +40,7 @@ func (h *handler) userInfo(req api.Context) error {
 	user, err := req.GatewayClient.UserByID(req.Context(), userID)
 	if err != nil {
 		// Don't reveal whether user exists - return generic error
-		log.Infof("Denied OAuth userinfo request due to invalid token user context: userID=%s", userID)
+		slog.Info("Denied OAuth userinfo request due to invalid token user context", "userID", userID)
 		return h.writeUserInfoError(req, http.StatusForbidden, "invalid_token", "Invalid token")
 	}
 
@@ -58,7 +59,7 @@ func (h *handler) userInfo(req api.Context) error {
 	} else {
 		response.Name = user.Username
 	}
-	log.Infof("Returned OAuth userinfo response: userID=%s", userID)
+	slog.Info("Returned OAuth userinfo response", "userID", userID)
 
 	return req.Write(response)
 }

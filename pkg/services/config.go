@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,6 @@ import (
 	"github.com/obot-platform/nah/pkg/leader"
 	"github.com/obot-platform/nah/pkg/router"
 	apiclienttypes "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/agentbackend"
 	agentbackendfake "github.com/obot-platform/obot/pkg/agentbackend/fake"
@@ -76,12 +76,7 @@ import (
 	"k8s.io/client-go/util/homedir"
 	crcache "sigs.k8s.io/controller-runtime/pkg/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-
-	// Setup nah logging
-	_ "github.com/obot-platform/nah/pkg/logrus"
 )
-
-var pkgLog = logger.Package()
 
 const leaderElectionRequestTimeout = 15 * time.Second
 
@@ -539,31 +534,31 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	// Sanitize DSN for logging (remove credentials)
 	sanitizedDSN := logutil.SanitizeDSN(config.DSN)
-	pkgLog.Infof("Connecting to database: dsn=%s", sanitizedDSN)
+	slog.Info("Connecting to database", "dsn", sanitizedDSN)
 	storageClient, restConfig, dbAccess, storageServices, err := storage.Start(ctx, storageservices.Config{
 		StorageListenPort: config.StorageListenPort,
 		StorageToken:      config.StorageToken,
 		DSN:               config.DSN,
 	})
 	if err != nil {
-		pkgLog.Errorf("Failed to connect to database: dsn=%s error=%v", sanitizedDSN, err)
+		slog.Error("Failed to connect to database", "dsn", sanitizedDSN, "error", err)
 		return nil, err
 	}
-	pkgLog.Infof("Successfully connected to database: dsn=%s", sanitizedDSN)
+	slog.Info("Successfully connected to database", "dsn", sanitizedDSN)
 
 	// For now, always auto-migrate.
-	pkgLog.Infof("Initializing gateway database connection")
+	slog.Info("Initializing gateway database connection")
 	gatewayDB, err := db.New(dbAccess.DB, dbAccess.SQLDB, true)
 	if err != nil {
-		pkgLog.Errorf("Failed to initialize gateway database: error=%v", err)
+		slog.Error("Failed to initialize gateway database", "error", err)
 		return nil, err
 	}
-	pkgLog.Infof("Running database migrations")
+	slog.Info("Running database migrations")
 	if err := gatewayDB.AutoMigrate(); err != nil {
-		pkgLog.Errorf("Failed to run database migrations: error=%v", err)
+		slog.Error("Failed to run database migrations", "error", err)
 		return nil, err
 	}
-	pkgLog.Infof("Database migrations completed successfully")
+	slog.Info("Database migrations completed successfully")
 
 	encryptionConfig, err := encryption.Init(ctx, encryption.Options(config.EncryptionConfig))
 	if err != nil {
@@ -668,7 +663,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		serviceAccountIssuerURL, err = imagepullsecrets.DiscoverServiceAccountIssuer(ctx, localK8sConfig)
 		if err != nil {
 			serviceAccountIssuerError = err.Error()
-			pkgLog.Warnf("Failed to discover Kubernetes service account issuer URL: %v", err)
+			slog.Warn("Failed to discover Kubernetes service account issuer URL", "error", err)
 		}
 
 		tunnelPeerConfig = tunnel.PeerConfig{
@@ -1228,7 +1223,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			agentServerURL = mcpSessionManager.TransformObotHostname(config.Hostname)
 		}
 		if agentServerURL != config.Hostname {
-			pkgLog.Infof("hosted agent sandboxes will reach Obot at %s", agentServerURL)
+			slog.Info("hosted agent sandboxes will reach Obot at a rewritten URL", "agentServerURL", agentServerURL)
 		}
 	}
 

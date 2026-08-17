@@ -121,6 +121,8 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 	maps.Copy(credEnv, d.authProviderExtraEnv)
 
+	credEnv["LOG_LEVEL"] = providerLogLevel()
+
 	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
 }
 
@@ -166,12 +168,12 @@ func (d *Dispatcher) urlForModelProvider(ctx context.Context, key string, modelP
 		credEnv = cred.Secrets
 	}
 
-	credEnv["LOG_LEVEL"] = modelProviderLogLevel()
+	credEnv["LOG_LEVEL"] = providerLogLevel()
 
 	return d.startDaemon(credEnv, key, modelProvider.Spec.Command, modelProvider.Spec.Args...)
 }
 
-func modelProviderLogLevel() string {
+func providerLogLevel() string {
 	if logger.IsDebug() {
 		return "DEBUG"
 	}

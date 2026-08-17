@@ -4,18 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api/router"
 	"github.com/obot-platform/obot/pkg/api/static"
 	"github.com/obot-platform/obot/pkg/controller"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/rs/cors"
 )
-
-var log = logger.Package()
 
 func Run(ctx context.Context, c services.Config) error {
 	servicesCtx, servicesCancel := context.WithCancel(context.Background())
@@ -55,7 +53,7 @@ func Run(ctx context.Context, c services.Config) error {
 	}
 
 	address := fmt.Sprintf("0.0.0.0:%d", c.HTTPListenPort)
-	log.Infof("Starting server on %s", address)
+	slog.Info("Starting server", "address", address)
 	allowEverything := cors.New(cors.Options{
 		AllowedOrigins: []string{c.AllowedOrigin},
 		AllowedMethods: []string{
@@ -86,21 +84,21 @@ func Run(ctx context.Context, c services.Config) error {
 
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
-		log.Infof("Shutting down OTel SDK")
+		slog.Info("Shutting down OTel SDK")
 		err := svcs.Otel.Shutdown(ctx)
 		if err != nil {
-			log.Errorf("Failed to shutdown OTel SDK: %v", err)
+			slog.Error("Failed to shutdown OTel SDK", "error", err)
 		}
 
-		log.Infof("Shutting down server")
+		slog.Info("Shutting down server")
 		if err := s.Shutdown(ctx); err != nil {
-			log.Errorf("Failed to gracefully shutdown server: %v", err)
+			slog.Error("Failed to gracefully shutdown server", "error", err)
 		}
 
 		// Ensure that the audit logs are persisted.
 		svcs.AuditLogger.Close()
 
-		log.Infof("Shutting down MCP servers")
+		slog.Info("Shutting down MCP servers")
 		// Shutdown all MCP servers
 		svcs.MCPSessionManager.Close()
 

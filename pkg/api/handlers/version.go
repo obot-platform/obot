@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"slices"
@@ -200,17 +201,17 @@ func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, 
 		distribution := "oss"
 		hasValidLicense, licenseErr := v.LicenseProvider.HasValidLicense(ctx)
 		if licenseErr != nil {
-			log.Debugf("failed to refresh license state for upgrade check: %v", licenseErr)
+			slog.Debug("failed to refresh license state for upgrade check", "error", licenseErr)
 		} else if hasValidLicense {
 			distribution = "enterprise"
 		}
 		if err = v.checkForUpgrade(ctx, installationID, currentVersion, engine, distribution); err != nil {
-			log.Debugf("failed to check for server upgrade: %v", err)
+			slog.Debug("failed to check for server upgrade", "error", err)
 		}
 
 		select {
 		case <-ctx.Done():
-			log.Debugf("upgrade check context cancelled, exiting")
+			slog.Debug("upgrade check context cancelled, exiting")
 			return
 		case <-timer.C:
 			timer.Reset(updateCheckInterval)

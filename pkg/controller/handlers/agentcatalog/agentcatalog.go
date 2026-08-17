@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -29,7 +30,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	gitpkg "github.com/obot-platform/obot/pkg/git"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
-
-var log = logger.Package()
 
 const (
 	syncInterval       = time.Hour
@@ -435,7 +433,7 @@ func syncDiscovered(ctx context.Context, c client.Client, namespace, sourceID st
 			return fmt.Errorf("failed to list agents for harness %s: %w", harness.Name, err)
 		}
 		if len(agents.Items) > 0 {
-			log.Infof("keeping harness %s dropped by source %s: still referenced by %d agent(s)", harness.Name, sourceID, len(agents.Items))
+			slog.Info("keeping harness dropped by source, still referenced by agents", "harness", harness.Name, "source", sourceID, "agents", len(agents.Items))
 			continue
 		}
 
@@ -622,7 +620,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 	var source v1.AgentCatalog
 	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
 		if !apierrors.IsNotFound(err) {
-			log.Errorf("failed to reload agent catalog %s to clear syncing bit: %v", name, err)
+			slog.Error("failed to reload agent catalog to clear syncing bit", "catalog", name, "error", err)
 		}
 		return
 	}
@@ -633,7 +631,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 
 	source.Status.IsSyncing = false
 	if err := c.Status().Update(ctx, &source); err != nil && !apierrors.IsNotFound(err) {
-		log.Errorf("failed to clear syncing bit for agent catalog %s: %v", name, err)
+		slog.Error("failed to clear syncing bit for agent catalog", "catalog", name, "error", err)
 	}
 }
 

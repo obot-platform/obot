@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/auth"
@@ -68,7 +69,7 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	effectiveRole, err := u.client.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs)
 	if err != nil {
 		// Log error but don't fail authentication - fall back to individual role
-		log.Warnf("failed to resolve effective role for user with ID %d: %s", gatewayUser.ID, err.Error())
+		slog.Warn("failed to resolve effective role for user", "userID", gatewayUser.ID, "error", err)
 		effectiveRole = gatewayUser.Role
 	}
 

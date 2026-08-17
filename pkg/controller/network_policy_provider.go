@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,7 +55,7 @@ type helmLogCapture struct {
 func (h *helmLogCapture) Debugf(format string, args ...any) {
 	message := fmt.Sprintf(format, args...)
 	h.lines = append(h.lines, message)
-	log.Debugf("%s", message)
+	slog.Debug("Helm action log", "line", message)
 }
 
 func (h *helmLogCapture) Details() string {

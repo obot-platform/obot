@@ -2,18 +2,16 @@ package model
 
 import (
 	"errors"
+	"log/slog"
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-var log = logger.Package()
 
 type Handler struct {
 	gatewayClient *client.Client
@@ -40,7 +38,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 
 	var modelProvider v1.ModelProvider
 	if err := req.Get(&modelProvider, model.Namespace, model.Spec.Manifest.ModelProvider); apierrors.IsNotFound(err) {
-		log.Infof("Deleting model %s because model provider %s has been deleted", model.Name, model.Spec.Manifest.ModelProvider)
+		slog.Info("Deleting model because model provider has been deleted", "model", model.Name, "modelProvider", model.Spec.Manifest.ModelProvider)
 		return req.Delete(model)
 	} else if err != nil {
 		return err
@@ -49,7 +47,7 @@ func (h *Handler) Cleanup(req router.Request, _ router.Response) error {
 	// If the credential is not found then the model provider has been deconfigured.
 	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
 	if _, ok := errors.AsType[client.CredentialNotFoundError](err); ok {
-		log.Infof("Deleting model %s because model provider %s has been deconfigured", model.Name, model.Spec.Manifest.ModelProvider)
+		slog.Info("Deleting model because model provider has been deconfigured", "model", model.Name, "modelProvider", model.Spec.Manifest.ModelProvider)
 		return req.Delete(model)
 	}
 	return err

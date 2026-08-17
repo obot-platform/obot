@@ -3,12 +3,12 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
 
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
@@ -19,8 +19,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
-
-var pkgLog = logger.Package()
 
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())
@@ -39,7 +37,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 			return fmt.Errorf("failed to get auth provider URL: %v", err)
 		}
 		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
-			pkgLog.Warnf("failed to update profile icon for user %s: %v", user.Username, err)
+			slog.Warn("failed to update profile icon for user", "username", user.Username, "error", err)
 		}
 	}
 
@@ -47,7 +45,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	authGroupStrs := apiContext.User.GetExtra()["auth_provider_groups"]
 	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, authGroupStrs)
 	if err != nil {
-		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		slog.Warn("failed to resolve effective role for user", "username", user.Username, "error", err)
 		effectiveRole = user.Role
 	}
 
@@ -152,13 +150,13 @@ func (s *Server) getUser(apiContext api.Context) error {
 	// Get user's groups and compute effective role
 	groupIDs, err := apiContext.GatewayClient.ListGroupIDsForUser(apiContext.Context(), user.ID)
 	if err != nil {
-		pkgLog.Warnf("failed to get groups for user %s: %v", user.Username, err)
+		slog.Warn("failed to get groups for user", "username", user.Username, "error", err)
 		groupIDs = nil
 	}
 
 	effectiveRole, err := apiContext.GatewayClient.ResolveUserEffectiveRole(apiContext.Context(), user, groupIDs)
 	if err != nil {
-		pkgLog.Warnf("failed to resolve effective role for user %s: %v", user.Username, err)
+		slog.Warn("failed to resolve effective role for user", "username", user.Username, "error", err)
 		effectiveRole = user.Role
 	}
 
@@ -193,15 +191,15 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 	if !apiContext.UserIsOwner() {
 		if originalUser.Role.HasRole(types2.RoleOwner) != user.Role.HasRole(types2.RoleOwner) {
-			pkgLog.Infof("Denied user role update: targetUserID=%s reason=owner_role_change_requires_owner", userID)
+			slog.Info("Denied user role update", "targetUserID", userID, "reason", "owner_role_change_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove owner role")
 		}
 		if originalUser.Role.HasRole(types2.RoleAuditor) != user.Role.HasRole(types2.RoleAuditor) {
-			pkgLog.Infof("Denied user role update: targetUserID=%s reason=auditor_role_change_requires_owner", userID)
+			slog.Info("Denied user role update", "targetUserID", userID, "reason", "auditor_role_change_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove auditor role")
 		}
 		if originalUser.Role.HasRole(types2.RoleUserImpersonation) != user.Role.HasRole(types2.RoleUserImpersonation) {
-			pkgLog.Infof("Denied user role update: targetUserID=%s reason=user_impersonation_role_change_requires_owner", userID)
+			slog.Info("Denied user role update", "targetUserID", userID, "reason", "user_impersonation_role_change_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can add or remove user impersonation role")
 		}
 	}
@@ -229,7 +227,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 
 	// Create UserRoleChange event to trigger reconciliation if personal role changed
 	if originalUser.Role != existingUser.Role {
-		pkgLog.Infof("User role changed via API: userID=%d oldRole=%d newRole=%d", existingUser.ID, originalUser.Role, existingUser.Role)
+		slog.Info("User role changed via API", "userID", existingUser.ID, "oldRole", originalUser.Role, "newRole", existingUser.Role)
 		if err = apiContext.Create(&v1.UserRoleChange{
 			ObjectMeta: metav1.ObjectMeta{
 				GenerateName: system.UserRoleChangePrefix,
@@ -242,7 +240,7 @@ func (s *Server) updateUser(apiContext api.Context) error {
 			return fmt.Errorf("failed to create user role change event: %v", err)
 		}
 	}
-	pkgLog.Infof("Updated user profile via API: userID=%d", existingUser.ID)
+	slog.Info("Updated user profile via API", "userID", existingUser.ID)
 
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
@@ -289,15 +287,15 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 
 	if !apiContext.UserIsOwner() {
 		if existingUser.Role.HasRole(types2.RoleOwner) {
-			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=owner_delete_requires_owner", userID)
+			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "owner_delete_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an owner")
 		}
 		if existingUser.Role.HasRole(types2.RoleAuditor) {
-			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=auditor_delete_requires_owner", userID)
+			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "auditor_delete_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete an auditor")
 		}
 		if existingUser.Role.HasRole(types2.RoleUserImpersonation) {
-			pkgLog.Infof("Denied user deletion: targetUserID=%s reason=user_impersonation_delete_requires_owner", userID)
+			slog.Info("Denied user deletion", "targetUserID", userID, "reason", "user_impersonation_delete_requires_owner")
 			return types2.NewErrHTTP(http.StatusForbidden, "only owner can delete a user with user impersonation role")
 		}
 	}
@@ -326,7 +324,7 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	}); err != nil {
 		return fmt.Errorf("failed to start deletion of user owned objects: %v", err)
 	}
-	pkgLog.Infof("Scheduled user cleanup after deletion: targetUserID=%d deleteMe=%v", existingUser.ID, isDeleteMe)
+	slog.Info("Scheduled user cleanup after deletion", "targetUserID", existingUser.ID, "deleteMe", isDeleteMe)
 
 	// Only clear the cookie if this is a "delete me" operation
 	if isDeleteMe {
@@ -365,7 +363,7 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return fmt.Errorf("failed to list auth groups: %v", err)
 	}
 
-	pkgLog.Infof("Listed auth provider groups: provider=%s/%s groups=%d", namespace, name, len(groups))
+	slog.Info("Listed auth provider groups", "providerNamespace", namespace, "providerName", name, "groups", len(groups))
 
 	if userIsBasicOrPower(apiContext.User) {
 		trimmedGroups := make([]types.Group, 0, len(groups))

@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
@@ -124,7 +125,7 @@ func migratePublishedArtifactVisibility(ctx context.Context, client kclient.Clie
 		case "private":
 			subjects = nil
 		default:
-			log.Errorf("invalid legacy visibility %q for published artifact %s", artifact.Spec.LegacyVisibility, artifact.Name)
+			slog.Error("invalid legacy visibility for published artifact", "visibility", artifact.Spec.LegacyVisibility, "artifact", artifact.Name)
 			// Make it private to be safe
 			subjects = nil
 		}

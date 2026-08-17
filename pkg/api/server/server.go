@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"slices"
@@ -12,7 +13,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authn"
 	"github.com/obot-platform/obot/pkg/api/authz"
@@ -29,8 +29,6 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
-
-var log = logger.Package()
 
 type Server struct {
 	storageClient           storage.Client
@@ -147,7 +145,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 				// There was an error applying the rate limit.
 				// Log it and move on so that a failure to apply rate limits doesn't take down the entire API.
-				log.Warnf("Failed to apply rate limits: %v", err)
+				slog.Warn("Failed to apply rate limits", "error", err)
 			}
 		}
 
@@ -171,7 +169,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			if authenticated {
 				// Best effort
 				if err := s.gatewayClient.AddActivityForToday(req.Context(), user.GetUID()); err != nil {
-					log.Warnf("Failed to add activity tracking for user %s: %v", user.GetName(), err)
+					slog.Warn("Failed to add activity tracking for user", "user", user.GetName(), "error", err)
 				}
 			}
 		}
@@ -240,7 +238,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 		}
 
 		if shouldLogError {
-			log.Errorf("Error handling request for %s: %v", req.URL.Path, err)
+			slog.Error("Error handling request", "path", req.URL.Path, "error", err)
 		}
 	}
 }
@@ -333,7 +331,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 
 	if err := rw.auditLogger.LogEntry(rw.auditEntry); err != nil {
-		log.Errorf("Failed to log audit entry: %v", err)
+		slog.Error("Failed to log audit entry", "error", err)
 	}
 }
 

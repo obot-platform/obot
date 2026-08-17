@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -33,7 +34,7 @@ func NewCustomS3Store(config types.CustomS3Config) (*CustomS3Store, error) {
 }
 
 func (c *CustomS3Store) Upload(ctx context.Context, bucket, key string, data io.Reader) error {
-	log.Debugf("CustomS3 upload: endpoint=%s bucket=%s key=%s", c.config.Endpoint, bucket, key)
+	slog.Debug("CustomS3 upload", "endpoint", c.config.Endpoint, "bucket", bucket, "key", key)
 	client, err := c.createClient(ctx)
 	if err != nil {
 		return err
@@ -52,7 +53,7 @@ func (c *CustomS3Store) Upload(ctx context.Context, bucket, key string, data io.
 }
 
 func (c *CustomS3Store) Download(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	log.Debugf("CustomS3 download: endpoint=%s bucket=%s key=%s", c.config.Endpoint, bucket, key)
+	slog.Debug("CustomS3 download", "endpoint", c.config.Endpoint, "bucket", bucket, "key", key)
 	client, err := c.createClient(ctx)
 	if err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func (c *CustomS3Store) Download(ctx context.Context, bucket, key string) (io.Re
 }
 
 func (c *CustomS3Store) Delete(ctx context.Context, bucket, key string) error {
-	log.Debugf("CustomS3 delete: endpoint=%s bucket=%s key=%s", c.config.Endpoint, bucket, key)
+	slog.Debug("CustomS3 delete", "endpoint", c.config.Endpoint, "bucket", bucket, "key", key)
 	client, err := c.createClient(ctx)
 	if err != nil {
 		return err

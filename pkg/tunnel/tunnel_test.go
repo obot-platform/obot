@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -22,12 +23,9 @@ import (
 
 	"github.com/gorilla/websocket"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/rancher/remotedialer"
-	"github.com/sirupsen/logrus"
-	logrustest "github.com/sirupsen/logrus/hooks/test"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -313,6 +311,62 @@ func TestTunnelMultiplexesConcurrentRequests(t *testing.T) {
 	}
 }
 
+// capturedEntry is a single log record recorded by captureHandler.
+type capturedEntry struct {
+	message string
+	attrs   map[string]any
+}
+
+// captureHandler records the slog output of the code under test. Handlers
+// returned by WithAttrs share the recorded entries with their parent.
+type captureHandler struct {
+	lock    *sync.Mutex
+	entries *[]capturedEntry
+	attrs   []slog.Attr
+}
+
+func newCaptureHandler() *captureHandler {
+	return &captureHandler{lock: new(sync.Mutex), entries: new([]capturedEntry)}
+}
+
+func (h *captureHandler) Enabled(context.Context, slog.Level) bool {
+	return true
+}
+
+func (h *captureHandler) Handle(_ context.Context, record slog.Record) error {
+	attrs := make(map[string]any, len(h.attrs)+record.NumAttrs())
+	for _, attr := range h.attrs {
+		attrs[attr.Key] = attr.Value.Resolve().Any()
+	}
+	record.Attrs(func(attr slog.Attr) bool {
+		attrs[attr.Key] = attr.Value.Resolve().Any()
+		return true
+	})
+
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	*h.entries = append(*h.entries, capturedEntry{message: record.Message, attrs: attrs})
+	return nil
+}
+
+func (h *captureHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &captureHandler{
+		lock:    h.lock,
+		entries: h.entries,
+		attrs:   append(slices.Clip(h.attrs), attrs...),
+	}
+}
+
+func (h *captureHandler) WithGroup(string) slog.Handler {
+	return h
+}
+
+func (h *captureHandler) allEntries() []capturedEntry {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	return slices.Clone(*h.entries)
+}
+
 func TestTunnelLogsCorrelatedRequestAndResponse(t *testing.T) {
 	target := newIPv4TestServer(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Length", "2")
@@ -321,13 +375,10 @@ func TestTunnelLogsCorrelatedRequestAndResponse(t *testing.T) {
 	}))
 	defer target.Close()
 
-	testLogger, hook := logrustest.NewNullLogger()
-	testLogger.SetLevel(logrus.InfoLevel)
-	previousTunnelLog := tunnelLog
-	tunnelLog = logger.NewWithLogger(testLogger, nil)
-	defer func() {
-		tunnelLog = previousTunnelLog
-	}()
+	handler := newCaptureHandler()
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(handler))
+	defer slog.SetDefault(previousLogger)
 
 	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
 	defer cleanup()
@@ -343,32 +394,32 @@ func TestTunnelLogsCorrelatedRequestAndResponse(t *testing.T) {
 	_, _ = io.Copy(io.Discard, response.Body)
 	response.Body.Close()
 
-	var requestEntry, responseEntry *logrus.Entry
-	for _, entry := range hook.AllEntries() {
-		switch entry.Message {
+	var requestEntry, responseEntry *capturedEntry
+	for _, entry := range handler.allEntries() {
+		switch entry.message {
 		case "Tunnel request received":
-			requestEntry = entry
+			requestEntry = &entry
 		case "Tunnel response received":
-			responseEntry = entry
+			responseEntry = &entry
 		}
 	}
 	if requestEntry == nil || responseEntry == nil {
 		t.Fatalf("request and response log entries = %#v, %#v", requestEntry, responseEntry)
 	}
-	if requestEntry.Data["request_id"] != responseEntry.Data["request_id"] {
-		t.Fatalf("request IDs = %v and %v", requestEntry.Data["request_id"], responseEntry.Data["request_id"])
+	if requestEntry.attrs["request_id"] != responseEntry.attrs["request_id"] {
+		t.Fatalf("request IDs = %v and %v", requestEntry.attrs["request_id"], responseEntry.attrs["request_id"])
 	}
-	if requestEntry.Data["tunnel"] != "office" || requestEntry.Data["method"] != http.MethodGet {
-		t.Fatalf("request log fields = %#v", requestEntry.Data)
+	if requestEntry.attrs["tunnel"] != "office" || requestEntry.attrs["method"] != http.MethodGet {
+		t.Fatalf("request log fields = %#v", requestEntry.attrs)
 	}
-	if requestEntry.Data["url"] != target.URL+"/mcp" || requestEntry.Data["has_query"] != true {
-		t.Fatalf("request URL fields = %#v", requestEntry.Data)
+	if requestEntry.attrs["url"] != target.URL+"/mcp" || requestEntry.attrs["has_query"] != true {
+		t.Fatalf("request URL fields = %#v", requestEntry.attrs)
 	}
-	if responseEntry.Data["status"] != http.StatusAccepted || responseEntry.Data["response_content_length"] != int64(2) {
-		t.Fatalf("response log fields = %#v", responseEntry.Data)
+	if responseEntry.attrs["status"] != int64(http.StatusAccepted) || responseEntry.attrs["response_content_length"] != int64(2) {
+		t.Fatalf("response log fields = %#v", responseEntry.attrs)
 	}
-	if _, ok := responseEntry.Data["duration"]; !ok {
-		t.Fatalf("response log has no duration: %#v", responseEntry.Data)
+	if _, ok := responseEntry.attrs["duration"]; !ok {
+		t.Fatalf("response log has no duration: %#v", responseEntry.attrs)
 	}
 }
 

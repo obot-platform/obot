@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -53,7 +54,7 @@ func (d *DirectoryStore) objectPath(bucket, key string) (string, error) {
 }
 
 func (d *DirectoryStore) Upload(_ context.Context, bucket, key string, data io.Reader) error {
-	log.Debugf("Directory upload: bucket=%s key=%s baseDir=%s", bucket, key, d.baseDir)
+	slog.Debug("Directory upload", "bucket", bucket, "key", key, "baseDir", d.baseDir)
 	p, err := d.objectPath(bucket, key)
 	if err != nil {
 		return err
@@ -84,12 +85,12 @@ func (d *DirectoryStore) Upload(_ context.Context, bucket, key string, data io.R
 		return fmt.Errorf("failed to rename temp file: %w", err)
 	}
 
-	log.Debugf("Directory upload complete: %s", p)
+	slog.Debug("Directory upload complete", "path", p)
 	return nil
 }
 
 func (d *DirectoryStore) Download(_ context.Context, bucket, key string) (io.ReadCloser, error) {
-	log.Debugf("Directory download: bucket=%s key=%s baseDir=%s", bucket, key, d.baseDir)
+	slog.Debug("Directory download", "bucket", bucket, "key", key, "baseDir", d.baseDir)
 	p, err := d.objectPath(bucket, key)
 	if err != nil {
 		return nil, err
@@ -102,7 +103,7 @@ func (d *DirectoryStore) Download(_ context.Context, bucket, key string) (io.Rea
 }
 
 func (d *DirectoryStore) Delete(_ context.Context, bucket, key string) error {
-	log.Debugf("Directory delete: bucket=%s key=%s baseDir=%s", bucket, key, d.baseDir)
+	slog.Debug("Directory delete", "bucket", bucket, "key", key, "baseDir", d.baseDir)
 	p, err := d.objectPath(bucket, key)
 	if err != nil {
 		return err

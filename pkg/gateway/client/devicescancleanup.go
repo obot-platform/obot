@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 )
 
@@ -13,7 +14,7 @@ func (c *Client) runDeviceScanCleanup(ctx context.Context, retentionDays int) {
 
 	err := c.deleteOldDeviceScans(ctx, time.Now().UTC(), retentionDays)
 	if err != nil && !errors.Is(err, context.Canceled) {
-		log.Errorf("Failed to delete old device scans: %v", err)
+		slog.Error("Failed to delete old device scans", "error", err)
 	}
 
 	ticker := time.NewTicker(c.deviceScanCleanupInterval)
@@ -26,7 +27,7 @@ func (c *Client) runDeviceScanCleanup(ctx context.Context, retentionDays int) {
 		case now := <-ticker.C:
 			err = c.deleteOldDeviceScans(ctx, now.UTC(), retentionDays)
 			if err != nil && !errors.Is(err, context.Canceled) {
-				log.Errorf("Failed to delete old device scans: %v", err)
+				slog.Error("Failed to delete old device scans", "error", err)
 			}
 		}
 	}

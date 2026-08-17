@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net"
 	neturl "net/url"
@@ -435,7 +436,7 @@ eventLoop:
 			})
 		case err := <-errs:
 			if err != nil && err != io.EOF {
-				log.Warnf("Error getting container events: %v", err)
+				slog.Warn("Error getting container events", "error", err)
 			}
 			break eventLoop
 		case <-timeout:
@@ -620,7 +621,7 @@ func (d *dockerBackend) removeObjectsForContainer(ctx context.Context, c *contai
 		defer func() {
 			for _, volumeName := range volumeNames {
 				if err := d.client.VolumeRemove(ctx, volumeName, true); err != nil && !cerrdefs.IsNotFound(err) {
-					log.Warnf("Failed to remove volume %s: %v", volumeName, err)
+					slog.Warn("Failed to remove volume", "volumeName", volumeName, "error", err)
 				}
 			}
 		}()
@@ -719,7 +720,7 @@ func (d *dockerBackend) startDeploymentCacheEventWatcher(ctx context.Context) {
 					d.handleDeploymentCacheDockerEvent(eventMessage)
 				case err, ok := <-errs:
 					if ok && err != nil && ctx.Err() == nil {
-						log.Warnf("Docker MCP deployment cache event watcher disconnected: %v", err)
+						slog.Warn("Docker MCP deployment cache event watcher disconnected", "error", err)
 					}
 					disconnected = true
 				}

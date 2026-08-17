@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"math/rand"
 	"net/http"
@@ -17,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/obot-platform/nah/pkg/log"
 	"github.com/obot-platform/nanobot/pkg/system"
 )
 
@@ -127,7 +127,7 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 		return u, err
 	}
 
-	log.Infof("launched [%s][%v] port [%d]", command, cmd.Args, port)
+	slog.Info("Launched provider daemon", "command", command, "args", cmd.Args, "port", port)
 	if err := cmd.Start(); err != nil {
 		stop()
 		delete(d.ports.usedPorts, port)
@@ -143,7 +143,7 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 	d.ports.daemonWG.Go(func() {
 		err := cmd.Wait()
 		if err != nil {
-			log.Debugf("daemon exited tool [%s] %v: %v", command, cmd.Args, err)
+			slog.Debug("Provider daemon exited", "command", command, "args", cmd.Args, "error", err)
 		}
 
 		killedCancel(err)
@@ -192,7 +192,7 @@ func (d *Dispatcher) runCommand(ctx context.Context, envMap map[string]string, c
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdOutAndErr)
 	cmd.Stderr = io.MultiWriter(os.Stderr, &stdOutAndErr)
 
-	log.Infof("launched [%s][%v]", command, cmd.Args)
+	slog.Info("Launched provider command", "command", command, "args", cmd.Args)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("ERROR: %v: %w", stdOutAndErr.String(), err)
 	}

@@ -2,13 +2,11 @@ package client
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
-
-var log = logger.Package()
 
 func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	// Encrypt the audit entry before adding to buffer
@@ -17,7 +15,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 
 	entry.NormalizeMCPFields()
 	if err := entry.ValidateSourceFields(); err != nil {
-		log.Errorf("Invalid MCP audit log source fields: %v", err)
+		slog.Error("Invalid MCP audit log source fields", "error", err)
 		return
 	}
 	mcp := entry.MCP()
@@ -25,7 +23,7 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	mcp.ResponseMutated = len(mcp.OriginalResponseBody) > 0
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
-		log.Errorf("Failed to encrypt MCP audit log: %v", err)
+		slog.Error("Failed to encrypt MCP audit log", "error", err)
 	}
 
 	c.auditLock.Lock()
@@ -54,7 +52,7 @@ func (c *Client) runMCPAuditLogPersistenceLoop(ctx context.Context, flushInterva
 		}
 
 		if err := c.persistMCPAuditLogs(); err != nil {
-			log.Errorf("Failed to persist audit log: %v", err)
+			slog.Error("Failed to persist audit log", "error", err)
 		}
 
 		timer.Reset(flushInterval)

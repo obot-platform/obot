@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -19,14 +20,11 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/cache"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
-	"github.com/obot-platform/obot/logger"
 )
 
 const maxRepoSizeMB = 100
 
 var errRepoTooLarge = errors.New("repository too large")
-
-var log = logger.Package()
 
 type cloneAuthAttempt struct {
 	name  string
@@ -127,7 +125,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 				if errors.Is(err, errRepoTooLarge) || isContextError(err) {
 					return "", "", nil, fmt.Errorf("repository size check failed: %w", err)
 				}
-				log.Warnf("GitHub repository size check failed; continuing with clone-time size limit: repo=%s error=%v", repoPath, err)
+				slog.Warn("GitHub repository size check failed; continuing with clone-time size limit", "repo", repoPath, "error", err)
 			}
 		}
 	case "gitlab.com":
@@ -135,7 +133,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 			if errors.Is(err, errRepoTooLarge) || isContextError(err) {
 				return "", "", nil, fmt.Errorf("repository size check failed: %w", err)
 			}
-			log.Warnf("GitLab repository size check failed; continuing with clone-time size limit: repo=%s error=%v", repoPath, err)
+			slog.Warn("GitLab repository size check failed; continuing with clone-time size limit", "repo", repoPath, "error", err)
 		}
 	}
 

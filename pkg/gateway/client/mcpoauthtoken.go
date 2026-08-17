@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -178,7 +179,7 @@ func (c *Client) runPendingStateCleanup(ctx context.Context) {
 		}
 
 		if err := c.CleanupExpiredMCPOAuthPendingStates(ctx, pendingStateTTL); err != nil {
-			log.Errorf("Failed to cleanup expired MCP OAuth pending states: %v", err)
+			slog.Error("Failed to cleanup expired MCP OAuth pending states", "error", err)
 		}
 
 		timer.Reset(pendingStateTTL)

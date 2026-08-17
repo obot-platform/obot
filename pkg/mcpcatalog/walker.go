@@ -5,17 +5,15 @@ import (
 	"fmt"
 	"io/fs"
 	"iter"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/obot-platform/obot/logger"
 	"sigs.k8s.io/yaml"
 )
 
 const defaultMaxCatalogFiles = 1000
-
-var log = logger.Package()
 
 // WalkCatalogFiles returns catalog manifest paths selected by .obotcatalogs and
 // .ignoreobotcatalogs. Traversal errors are yielded in the second value.
@@ -43,7 +41,7 @@ func WalkCatalogFiles(root string) (iter.Seq2[string, error], bool, error) {
 			}
 			info, err := os.Lstat(path)
 			if err != nil {
-				log.Warnf("Skipping unsafe file %s: failed to get file info: %v", relPath, err)
+				slog.Warn("Skipping unsafe file, failed to get file info", "path", relPath, "error", err)
 				return nil
 			}
 			if info.Mode()&os.ModeSymlink != 0 {
@@ -118,7 +116,7 @@ func readCatalogPatterns(path string, defaults []string) ([]string, bool) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Warnf("Failed to read %s file: %v", filepath.Base(path), err)
+		slog.Warn("Failed to read file", "fileName", filepath.Base(path), "error", err)
 		return defaults, true
 	}
 	if len(patterns) == 0 {

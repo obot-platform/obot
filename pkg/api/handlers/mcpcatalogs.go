@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"slices"
 	"sort"
@@ -856,7 +857,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
 		components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
 		if err != nil {
-			log.Warnf("failed to resolve composite components for catalog server %s: %v", server.Name, err)
+			slog.Warn("failed to resolve composite components for catalog server", "serverName", server.Name, "error", err)
 			return err
 		}
 	}
@@ -2031,11 +2032,11 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	// Best-effort cleanup of per-user OAuth tokens associated with this catalog entry.
 	var mcpServers v1.MCPServerList
 	if err := req.List(&mcpServers, client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
-		log.Warnf("failed to list MCP servers for token cleanup of catalog entry %s: %v", entry.Name, err)
+		slog.Warn("failed to list MCP servers for token cleanup of catalog entry", "catalogEntryName", entry.Name, "error", err)
 	} else {
 		for _, server := range mcpServers.Items {
 			if err := h.gatewayClient.DeleteMCPOAuthTokenForAllUsers(req.Context(), server.Name); err != nil {
-				log.Warnf("failed to delete OAuth tokens for MCP server %s (catalog entry %s): %v", server.Name, entry.Name, err)
+				slog.Warn("failed to delete OAuth tokens for MCP server", "serverName", server.Name, "catalogEntryName", entry.Name, "error", err)
 			}
 		}
 	}

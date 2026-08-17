@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
@@ -31,7 +32,7 @@ func NewS3Store(config types.S3Config) (*S3Store, error) {
 }
 
 func (s *S3Store) Upload(ctx context.Context, bucket, key string, data io.Reader) error {
-	log.Debugf("S3 upload: bucket=%s key=%s", bucket, key)
+	slog.Debug("S3 upload", "bucket", bucket, "key", key)
 	client, err := s.createClient(ctx)
 	if err != nil {
 		return err
@@ -44,13 +45,13 @@ func (s *S3Store) Upload(ctx context.Context, bucket, key string, data io.Reader
 		Body:   data,
 	})
 	if err != nil {
-		log.Errorf("S3 upload failed: bucket=%s key=%s: %v", bucket, key, err)
+		slog.Error("S3 upload failed", "bucket", bucket, "key", key, "error", err)
 	}
 	return err
 }
 
 func (s *S3Store) Download(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	log.Debugf("S3 download: bucket=%s key=%s", bucket, key)
+	slog.Debug("S3 download", "bucket", bucket, "key", key)
 	client, err := s.createClient(ctx)
 	if err != nil {
 		return nil, err
@@ -61,14 +62,14 @@ func (s *S3Store) Download(ctx context.Context, bucket, key string) (io.ReadClos
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		log.Errorf("S3 download failed: bucket=%s key=%s: %v", bucket, key, err)
+		slog.Error("S3 download failed", "bucket", bucket, "key", key, "error", err)
 		return nil, fmt.Errorf("failed to download from S3: %w", err)
 	}
 	return output.Body, nil
 }
 
 func (s *S3Store) Delete(ctx context.Context, bucket, key string) error {
-	log.Debugf("S3 delete: bucket=%s key=%s", bucket, key)
+	slog.Debug("S3 delete", "bucket", bucket, "key", key)
 	client, err := s.createClient(ctx)
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func (s *S3Store) Delete(ctx context.Context, bucket, key string) error {
 		Key:    aws.String(key),
 	})
 	if err != nil {
-		log.Errorf("S3 delete failed: bucket=%s key=%s: %v", bucket, key, err)
+		slog.Error("S3 delete failed", "bucket", bucket, "key", key, "error", err)
 		return fmt.Errorf("failed to delete from S3: %w", err)
 	}
 	return nil

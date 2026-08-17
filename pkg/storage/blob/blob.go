@@ -4,12 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 )
-
-var log = logger.Package()
 
 // BlobStore provides a unified interface for cloud object storage operations.
 // nolint:revive
@@ -30,7 +28,7 @@ type BlobStore interface {
 
 // New creates a BlobStore for the given provider type and config.
 func New(providerType types.StorageProviderType, config types.StorageConfig) (BlobStore, error) {
-	log.Debugf("Creating blob store: provider=%s", providerType)
+	slog.Debug("Creating blob store", "provider", providerType)
 
 	switch providerType {
 	case types.StorageProviderS3:

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -16,7 +17,6 @@ import (
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/git"
@@ -34,8 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
-
-var log = logger.Package()
 
 // CatalogCredentialToolName is the fixed tool name used for the single
 // credential that stores all source-URL tokens for a catalog. Each URL's
@@ -112,13 +110,13 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		// Fetch the catalog again
 		var catalog v1.MCPCatalog
 		if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, mcpCatalog.Name), &catalog); err != nil {
-			log.Errorf("failed to get catalog: %v", err)
+			slog.Error("failed to get catalog", "error", err)
 			return
 		}
 
 		catalog.Status.IsSyncing = false
 		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
-			log.Errorf("failed to update catalog status: %v", err)
+			slog.Error("failed to update catalog status", "error", err)
 		}
 	}()
 
@@ -129,19 +127,19 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
-			log.Errorf("failed to retrieve legacy credential for catalog %s source %s, continuing without authentication: %v", mcpCatalog.Name, sourceURL, err)
+			slog.Error("failed to retrieve legacy credential for catalog source, continuing without authentication", "catalog", mcpCatalog.Name, "source", sourceURL, "error", err)
 			err = nil
 		} else if err != nil {
-			log.Errorf("failed to resolve credential for catalog %s source %s: %v", mcpCatalog.Name, sourceURL, err)
+			slog.Error("failed to resolve credential for catalog source", "catalog", mcpCatalog.Name, "source", sourceURL, "error", err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
 		if err != nil {
-			log.Errorf("failed to read catalog %s: %v", sourceURL, err)
+			slog.Error("failed to read catalog source", "source", sourceURL, "error", err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
-			log.Infof("Read MCP catalog source successfully: catalog=%s source=%s entries=%d", mcpCatalog.Name, sourceURL, len(objs))
+			slog.Info("Read MCP catalog source successfully", "catalog", mcpCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(mcpCatalog.Status.SyncErrors, sourceURL)
 		}
 
@@ -188,7 +186,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 
 	// Missing entries cannot be reconciled safely from a partial desired set.
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
-		log.Infof("Applying MCP catalog entries without reconciling missing entries due to source errors: catalog=%s entries=%d sourceErrors=%d", mcpCatalog.Name, len(toAdd), len(mcpCatalog.Status.SyncErrors))
+		slog.Info("Applying MCP catalog entries without reconciling missing entries due to source errors", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sourceErrors", len(mcpCatalog.Status.SyncErrors))
 		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 	}
 
@@ -196,7 +194,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		return err
 	}
 
-	log.Infof("Applying MCP catalog entries without prune: catalog=%s entries=%d", mcpCatalog.Name, len(toAdd))
+	slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
@@ -286,7 +284,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete catalog entry %q from removed source: %w", entry.Name, err)
 			}
-			log.Infof("Deleted MCP catalog entry from removed source: catalog=%s entry=%s source=%s", catalog.Name, entry.Name, entry.Spec.SourceURL)
+			slog.Info("Deleted MCP catalog entry from removed source", "catalog", catalog.Name, "entry", entry.Name, "source", entry.Spec.SourceURL)
 			continue
 		}
 
@@ -315,14 +313,14 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete unused catalog entry %q: %w", entryName, err)
 		}
-		log.Infof("Deleted unused removed MCP catalog entry: catalog=%s entry=%s", catalog.Name, entryName)
+		slog.Info("Deleted unused removed MCP catalog entry", "catalog", catalog.Name, "entry", entryName)
 	}
 
 	for _, entryName := range referencedNames {
 		if err := detachCatalogEntry(ctx, c, catalog, entryName); err != nil {
 			return fmt.Errorf("failed to detach catalog entry %q: %w", entryName, err)
 		}
-		log.Infof("Detached removed MCP catalog entry with active servers: catalog=%s entry=%s", catalog.Name, entryName)
+		slog.Info("Detached removed MCP catalog entry with active servers", "catalog", catalog.Name, "entry", entryName)
 	}
 
 	return nil
@@ -524,13 +522,13 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	defer func() {
 		var catalog v1.SystemMCPCatalog
 		if err := req.Client.Get(req.Ctx, router.Key(system.DefaultNamespace, systemCatalog.Name), &catalog); err != nil {
-			log.Errorf("failed to get system catalog: %v", err)
+			slog.Error("failed to get system catalog", "error", err)
 			return
 		}
 
 		catalog.Status.IsSyncing = false
 		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
-			log.Errorf("failed to update system catalog status: %v", err)
+			slog.Error("failed to update system catalog status", "error", err)
 		}
 	}()
 
@@ -541,19 +539,19 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
-			log.Errorf("failed to retrieve legacy credential for system catalog %s source %s, continuing without authentication: %v", systemCatalog.Name, sourceURL, err)
+			slog.Error("failed to retrieve legacy credential for system catalog source, continuing without authentication", "catalog", systemCatalog.Name, "source", sourceURL, "error", err)
 			err = nil
 		} else if err != nil {
-			log.Errorf("failed to resolve credential for system catalog %s source %s: %v", systemCatalog.Name, sourceURL, err)
+			slog.Error("failed to resolve credential for system catalog source", "catalog", systemCatalog.Name, "source", sourceURL, "error", err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
 		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
-			log.Errorf("failed to read system catalog %s: %v", sourceURL, err)
+			slog.Error("failed to read system catalog source", "source", sourceURL, "error", err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
-			log.Infof("Read system MCP catalog source successfully: catalog=%s source=%s entries=%d", systemCatalog.Name, sourceURL, len(objs))
+			slog.Info("Read system MCP catalog source successfully", "catalog", systemCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(systemCatalog.Status.SyncErrors, sourceURL)
 		}
 
@@ -579,10 +577,10 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("system-catalog-%s", systemCatalog.Name))
 	if len(systemCatalog.Status.SyncErrors) > 0 {
-		log.Infof("Applying system MCP catalog entries without prune due to source errors: catalog=%s entries=%d sourceErrors=%d", systemCatalog.Name, len(toAdd), len(systemCatalog.Status.SyncErrors))
+		slog.Info("Applying system MCP catalog entries without prune due to source errors", "catalog", systemCatalog.Name, "entries", len(toAdd), "sourceErrors", len(systemCatalog.Status.SyncErrors))
 		app = app.WithNoPrune()
 	} else {
-		log.Infof("Applying system MCP catalog entries with prune enabled: catalog=%s entries=%d", systemCatalog.Name, len(toAdd))
+		slog.Info("Applying system MCP catalog entries with prune enabled", "catalog", systemCatalog.Name, "entries", len(toAdd))
 		app = app.WithPruneTypes(&v1.SystemMCPServerCatalogEntry{})
 	}
 
@@ -779,9 +777,9 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 			continue
 		}
 		if usingObotCatalogsFile {
-			log.Warnf("Failed to parse %s as catalog entry: %v", path, err)
+			slog.Warn("Failed to parse file as catalog entry", "path", path, "error", err)
 		} else {
-			log.Debugf("Failed to parse %s as catalog entry: %v", path, err)
+			slog.Debug("Failed to parse file as catalog entry", "path", path, "error", err)
 		}
 	}
 	return entries, nil
@@ -799,7 +797,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 			if err := c.Update(ctx, &existing); err != nil {
 				return fmt.Errorf("failed to migrate default catalog: %w", err)
 			}
-			log.Infof("Migrated default MCP catalog source URL: catalog=%s source=%s", existing.Name, h.defaultCatalogPath)
+			slog.Info("Migrated default MCP catalog source URL", "catalog", existing.Name, "source", h.defaultCatalogPath)
 		}
 
 		return nil
@@ -824,7 +822,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	}); err != nil {
 		return fmt.Errorf("failed to create default catalog: %w", err)
 	}
-	log.Infof("Created default MCP catalog: catalog=%s sources=%d", system.DefaultCatalog, len(sourceURLs))
+	slog.Info("Created default MCP catalog", "catalog", system.DefaultCatalog, "sources", len(sourceURLs))
 
 	return nil
 }
@@ -852,7 +850,7 @@ func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c client.Cli
 	}); err != nil {
 		return fmt.Errorf("failed to create default system MCP catalog: %w", err)
 	}
-	log.Infof("Created default system MCP catalog: catalog=%s sources=%d", system.DefaultCatalog, len(sourceURLs))
+	slog.Info("Created default system MCP catalog", "catalog", system.DefaultCatalog, "sources", len(sourceURLs))
 
 	return nil
 }
@@ -910,7 +908,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 			}
 
 			if !hasAccess && server.Spec.CompositeName == "" {
-				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
+				slog.Info("Deleting MCP server because it is no longer authorized to exist", "server", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
 				}
@@ -971,7 +969,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 			if server.Spec.PowerUserWorkspaceID != "" {
 				// For multi-user servers in a PowerUserWorkspace, make sure that the user on that workspace is a PowerUserPlus, and not a normal PowerUser
 				if !user.role.HasRole(types.RolePowerUserPlus) {
-					log.Infof("Deleting multi-user MCP server %q because its owner is no longer a PowerUserPlus", server.Name)
+					slog.Info("Deleting multi-user MCP server because its owner is no longer a PowerUserPlus", "server", server.Name)
 					if err := req.Delete(&server); err != nil {
 						return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
 					}
@@ -986,7 +984,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 			}
 
 			if !hasAccess {
-				log.Infof("Deleting MCP server %q because it is no longer authorized to exist", server.Name)
+				slog.Info("Deleting MCP server because it is no longer authorized to exist", "server", server.Name)
 				if err := req.Delete(&server); err != nil {
 					return fmt.Errorf("failed to delete MCP server %s: %w", server.Name, err)
 				}
@@ -1051,7 +1049,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 			}
 
 			if !hasAccess && instance.Spec.CompositeName == "" {
-				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
+				slog.Info("Deleting MCPServerInstance because it is no longer authorized to exist", "instance", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
 				}
@@ -1116,7 +1114,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 			}
 
 			if !hasAccess && instance.Spec.CompositeName == "" {
-				log.Infof("Deleting MCPServerInstance %q because it is no longer authorized to exist", instance.Name)
+				slog.Info("Deleting MCPServerInstance because it is no longer authorized to exist", "instance", instance.Name)
 				if err := req.Delete(&instance); err != nil {
 					return fmt.Errorf("failed to delete MCPServerInstance %s: %w", instance.Name, err)
 				}

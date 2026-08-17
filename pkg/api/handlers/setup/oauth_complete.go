@@ -2,6 +2,7 @@ package setup
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -20,7 +21,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// If the user that just logged in is an Owner, then we can redirect them now.
 	// The setup routes will be disabled, so we can just send the owner through without caching them or anything.
 	if req.UserIsOwner() {
-		log.Infof("Bypassing setup OAuth completion because authenticated user is already owner")
+		slog.Info("Bypassing setup OAuth completion because authenticated user is already owner")
 		// Delete the bootstrap cookie so that there won't be two types of auth happening at once.
 		http.SetCookie(req.ResponseWriter, &http.Cookie{
 			Name:     bootstrap.ObotBootstrapCookie,
@@ -52,7 +53,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// Get the authenticated user info from context
 	authProviderUserID := req.AuthProviderUserID()
 	if authProviderUserID == "" {
-		log.Infof("Rejecting setup OAuth completion due to missing auth provider user ID in context")
+		slog.Info("Rejecting setup OAuth completion due to missing auth provider user ID in context")
 		return types.NewErrHTTP(http.StatusBadRequest,
 			"no auth provider user ID in context")
 	}
@@ -60,7 +61,7 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// Get user by ID
 	userID := req.UserID()
 	if userID == 0 {
-		log.Infof("Rejecting setup OAuth completion due to missing user ID in context")
+		slog.Info("Rejecting setup OAuth completion due to missing user ID in context")
 		return types.NewErrHTTP(http.StatusBadRequest, "no user ID in context")
 	}
 
@@ -75,10 +76,10 @@ func (h *Handler) OAuthComplete(req api.Context) error {
 	// Cache the temporary user
 	// This will fail if another user is already cached
 	if err := req.GatewayClient.SetTempUserCache(req.Context(), user, authProviderName, authProviderNamespace); err != nil {
-		log.Infof("Rejecting setup OAuth completion because temporary user cache is already occupied: userID=%d", user.ID)
+		slog.Info("Rejecting setup OAuth completion because temporary user cache is already occupied", "userID", user.ID)
 		return types.NewErrHTTP(http.StatusConflict, err.Error())
 	}
-	log.Infof("Cached temporary setup user after OAuth completion: userID=%d provider=%s/%s", user.ID, authProviderNamespace, authProviderName)
+	slog.Info("Cached temporary setup user after OAuth completion", "userID", user.ID, "providerNamespace", authProviderNamespace, "providerName", authProviderName)
 
 	// Redirect to admin page with success message
 	// The UI will then call GET /api/setup/temp-user to display details

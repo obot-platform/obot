@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -87,7 +88,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 			if u != "" {
 				// At least one component requires OAuth
-				log.Infof("Composite MCP server requires component OAuth authentication: compositeMCPID=%s componentMCPID=%s", mcpID, componentServer.Name)
+				slog.Info("Composite MCP server requires component OAuth authentication", "compositeMCPID", mcpID, "componentMCPID", componentServer.Name)
 				if oauthAppAuthRequestID != "" {
 					return fmt.Sprintf("%s/auth/mcp/composite/%s?oauth_auth_request=%s", f.baseURL, mcpID, oauthAppAuthRequestID), nil
 				}
@@ -97,7 +98,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		}
 
 		// No component requires OAuth
-		log.Infof("Composite MCP server passed OAuth check with no pending component authentication: compositeMCPID=%s", mcpID)
+		slog.Info("Composite MCP server passed OAuth check with no pending component authentication", "compositeMCPID", mcpID)
 		return "", nil
 	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
 		// Not a remote or composite server, no OAuth required
@@ -144,7 +145,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	case <-req.Context().Done():
 		return "", fmt.Errorf("failed to check for MCP server OAuth: %w", req.Context().Err())
 	case u := <-oauthHandler.URLChan():
-		log.Infof("Remote MCP server requires OAuth authentication: mcpID=%s", mcpID)
+		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
 		return u, nil
 	}
 }
@@ -196,7 +197,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 	if err != nil {
 		return "", err
 	}
-	log.Infof("Remote MCP server requires configured static OAuth authentication: mcpID=%s", oauthHandler.mcpID)
+	slog.Info("Remote MCP server requires configured static OAuth authentication", "mcpID", oauthHandler.mcpID)
 	return authURL, nil
 }
 

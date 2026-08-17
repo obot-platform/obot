@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
@@ -33,7 +34,7 @@ func NewAzureStore(config types.AzureConfig) (*AzureStore, error) {
 }
 
 func (a *AzureStore) Upload(ctx context.Context, bucket, key string, data io.Reader) error {
-	log.Debugf("Azure upload: bucket=%s key=%s", bucket, key)
+	slog.Debug("Azure upload", "bucket", bucket, "key", key)
 	client, err := a.createClient()
 	if err != nil {
 		return err
@@ -47,7 +48,7 @@ func (a *AzureStore) Upload(ctx context.Context, bucket, key string, data io.Rea
 }
 
 func (a *AzureStore) Download(ctx context.Context, bucket, key string) (io.ReadCloser, error) {
-	log.Debugf("Azure download: bucket=%s key=%s", bucket, key)
+	slog.Debug("Azure download", "bucket", bucket, "key", key)
 	client, err := a.createClient()
 	if err != nil {
 		return nil, err
@@ -61,7 +62,7 @@ func (a *AzureStore) Download(ctx context.Context, bucket, key string) (io.ReadC
 }
 
 func (a *AzureStore) Delete(ctx context.Context, bucket, key string) error {
-	log.Debugf("Azure delete: bucket=%s key=%s", bucket, key)
+	slog.Debug("Azure delete", "bucket", bucket, "key", key)
 	client, err := a.createClient()
 	if err != nil {
 		return err

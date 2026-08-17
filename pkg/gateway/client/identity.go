@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"slices"
 	"strings"
@@ -417,7 +418,7 @@ func (c *Client) ensureIdentityProviderData(ctx context.Context, id *types.Ident
 	if id.ProviderGroupLookupID == "" {
 		// HTTP call, outside any transaction.
 		if lookupID, err := c.fetchProviderGroupLookupID(ctx); err != nil {
-			log.Warnf("failed to fetch provider group lookup ID: %v", err)
+			slog.Warn("failed to fetch provider group lookup ID", "error", err)
 		} else if lookupID != "" {
 			id.ProviderGroupLookupID = lookupID
 			if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

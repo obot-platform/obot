@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -77,7 +78,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 
 		authProvider, err := ap.convertAuthProvider(a, *authProviderStatus)
 		if err != nil {
-			log.Warnf("failed to convert auth provider %q: %v", a.Name, err)
+			slog.Warn("failed to convert auth provider", "authProviderName", a.Name, "error", err)
 			continue
 		}
 		resp = append(resp, authProvider)

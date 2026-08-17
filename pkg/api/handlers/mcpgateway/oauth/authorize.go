@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"slices"
@@ -45,7 +46,7 @@ type oauthError struct {
 }
 
 func newOAuthError(code ErrorCode, description, state string) oauthError {
-	log.Infof("OAuth error: code=%s description=%s state=%s", code, description, state)
+	slog.Info("OAuth error", "code", code, "description", description, "state", state)
 	return oauthError{
 		Code:        code,
 		Description: obotErrorPrefix + description,
@@ -221,7 +222,7 @@ func (h *handler) authorize(req api.Context) error {
 		return nil
 	}
 
-	log.Infof("Created OAuth authorization request and redirecting user to authenticate: authRequest=%s client=%s requestedMCPID=%s", oauthAppAuthRequest.Name, oauthClient.Name, mcpID)
+	slog.Info("Created OAuth authorization request and redirecting user to authenticate", "authRequest", oauthAppAuthRequest.Name, "client", oauthClient.Name, "requestedMCPID", mcpID)
 	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/?rd=/oauth/callback/%s", oauthAppAuthRequest.Name), http.StatusFound)
 
 	return nil
@@ -278,7 +279,7 @@ func (h *handler) callback(req api.Context) error {
 		return nil
 	}
 
-	log.Infof("Prepared OAuth consent and redirecting user to consent screen: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	slog.Info("Prepared OAuth consent and redirecting user to consent screen", "authRequest", oauthAppAuthRequest.Name, "client", oauthAppAuthRequest.Spec.ClientID)
 	http.Redirect(req.ResponseWriter, req.Request, fmt.Sprintf("/auth/oauth/consent/%s", oauthAppAuthRequest.Name), http.StatusFound)
 
 	return nil
@@ -379,7 +380,7 @@ func (h *handler) consent(req api.Context) error {
 			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
 			return nil
 		}
-		log.Warnf("Failed to load optional MCP configuration target for OAuth consent: authRequest=%s mcpID=%s error=%v", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID, err)
+		slog.Warn("Failed to load optional MCP configuration target for OAuth consent", "authRequest", oauthAppAuthRequest.Name, "mcpID", oauthAppAuthRequest.Spec.MCPID, "error", err)
 	}
 
 	return req.Write(oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, mcpServer, mcpServerInstance))
@@ -407,12 +408,12 @@ func (h *handler) approveConsent(req api.Context) error {
 			return nil
 		}
 
-		log.Infof("OAuth consent approved; redirecting to second-level MCP authentication: authRequest=%s mcpID=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.MCPID)
+		slog.Info("OAuth consent approved; redirecting to second-level MCP authentication", "authRequest", oauthAppAuthRequest.Name, "mcpID", oauthAppAuthRequest.Spec.MCPID)
 		http.Redirect(req.ResponseWriter, req.Request, oauthAppAuthRequest.Spec.ConsentMCPAuthURL, http.StatusFound)
 		return nil
 	}
 
-	log.Infof("OAuth consent approved; redirecting to completion screen: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	slog.Info("OAuth consent approved; redirecting to completion screen", "authRequest", oauthAppAuthRequest.Name, "client", oauthAppAuthRequest.Spec.ClientID)
 	redirectWithOAuthCompletion(req, oauthAppAuthRequest.Name)
 	return nil
 }
@@ -423,7 +424,7 @@ func (h *handler) cancelConsent(req api.Context) error {
 		return err
 	}
 
-	log.Infof("User denied OAuth consent: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	slog.Info("User denied OAuth consent", "authRequest", oauthAppAuthRequest.Name, "client", oauthAppAuthRequest.Spec.ClientID)
 	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user denied OAuth consent", oauthAppAuthRequest.Spec.State))
 	return nil
 }
@@ -476,7 +477,7 @@ func (h *handler) oauthComplete(req api.Context) error {
 		return types.NewErrHTTP(http.StatusInternalServerError, err.Error())
 	}
 
-	log.Infof("OAuth completion issued authorization code for client redirect: authRequest=%s client=%s", oauthAppAuthRequest.Name, oauthAppAuthRequest.Spec.ClientID)
+	slog.Info("OAuth completion issued authorization code for client redirect", "authRequest", oauthAppAuthRequest.Name, "client", oauthAppAuthRequest.Spec.ClientID)
 	http.Redirect(req.ResponseWriter, req.Request, authorizeResponseURL(oauthAppAuthRequest, code, oauthAppAuthRequest.Spec.Scope), http.StatusFound)
 	return nil
 }
@@ -512,7 +513,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 	if oauthAuthRequestID == "" {
 		// If there is no OAuth request object, then MCP OAuth wasn't started by OAuth; likely the UI kicked it off.
 		// Redirect to the OAuth completion page.
-		log.Infof("Completed MCP OAuth callback without first-level OAuth auth request context")
+		slog.Info("Completed MCP OAuth callback without first-level OAuth auth request context")
 		http.Redirect(req.ResponseWriter, req.Request, "/auth/oauth/complete", http.StatusFound)
 		return nil
 	}
@@ -526,7 +527,7 @@ func (h *handler) oauthCallback(req api.Context) error {
 
 	if !req.UserIsAuthenticated() || req.User.GetName() == system.BootstrapName || authProviderName == system.BootstrapName || authProviderNamespace == system.BootstrapName {
 		// The user is either not authenticated or is authenticated as the bootstrap user.
-		log.Infof("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity: authRequest=%s", oauthAppAuthRequest.Name)
+		slog.Info("Denied MCP OAuth callback because user is not authenticated with a non-bootstrap identity", "authRequest", oauthAppAuthRequest.Name)
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authenticated", ""))
 		return nil
 	}
@@ -543,12 +544,12 @@ func (h *handler) oauthCallback(req api.Context) error {
 		// Redirect to OAuth completion page; the checkCompositeAuth handler will redirect back
 		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the composite server's
 		// component servers are completed.
-		log.Infof("MCP OAuth callback completed for composite component server, awaiting composite finalization: authRequest=%s mcpServer=%s composite=%s", oauthAppAuthRequest.Name, server.Name, server.Spec.CompositeName)
+		slog.Info("MCP OAuth callback completed for composite component server, awaiting composite finalization", "authRequest", oauthAppAuthRequest.Name, "mcpServer", server.Name, "composite", server.Spec.CompositeName)
 		http.Redirect(req.ResponseWriter, req.Request, "/auth/oauth/complete", http.StatusFound)
 		return nil
 	}
 
-	log.Infof("Completed MCP OAuth callback and redirecting to completion screen: authRequest=%s mcpServer=%s", oauthAppAuthRequest.Name, mcpServerID)
+	slog.Info("Completed MCP OAuth callback and redirecting to completion screen", "authRequest", oauthAppAuthRequest.Name, "mcpServer", mcpServerID)
 	redirectWithOAuthCompletion(req, oauthAppAuthRequest.Name)
 
 	return nil
@@ -563,7 +564,7 @@ func authenticatedOAuthUser(req api.Context, oauthAppAuthRequest v1.OAuthAuthReq
 		return authProviderName, authProviderNamespace, true
 	}
 
-	log.Infof("Denied %s because user is not authenticated with a non-bootstrap identity: authRequest=%s", phase, oauthAppAuthRequest.Name)
+	slog.Info("Denied request because user is not authenticated with a non-bootstrap identity", "phase", phase, "authRequest", oauthAppAuthRequest.Name)
 	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authenticated", oauthAppAuthRequest.Spec.State))
 	return "", "", false
 }
@@ -573,7 +574,7 @@ func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuth
 		return true
 	}
 
-	log.Infof("Denied OAuth consent because authenticated user does not match auth request user: authRequest=%s", oauthAppAuthRequest.Name)
+	slog.Info("Denied OAuth consent because authenticated user does not match auth request user", "authRequest", oauthAppAuthRequest.Name)
 	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authorized for this OAuth request", oauthAppAuthRequest.Spec.State))
 	return false
 }

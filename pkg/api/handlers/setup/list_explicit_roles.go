@@ -1,6 +1,8 @@
 package setup
 
 import (
+	"log/slog"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 )
@@ -33,7 +35,7 @@ func (h *Handler) ListExplicitRoleEmails(req api.Context) error {
 			admins = append(admins, email)
 		}
 	}
-	log.Infof("Listed explicit setup role emails: owners=%d admins=%d", len(owners), len(admins))
+	slog.Info("Listed explicit setup role emails", "owners", len(owners), "admins", len(admins))
 
 	return req.Write(ExplicitRoleEmailsResponse{
 		Owners: owners,

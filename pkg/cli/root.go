@@ -24,6 +24,10 @@ func (a *Obot) PersistentPre(*cobra.Command, []string) error {
 		color.NoColor = true
 	}
 
+	// Runs for every subcommand, after all package initialization, so this wins
+	// over any handler a dependency installed from its init.
+	logger.Setup(logger.Text)
+
 	if a.Debug {
 		logger.SetDebug()
 	}

@@ -2,6 +2,7 @@ package setup
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -27,7 +28,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 
 	cached := req.GatewayClient.GetTempUserCache(req.Context())
 	if cached == nil {
-		log.Infof("Rejecting cancel temp login because no temporary user is cached")
+		slog.Info("Rejecting cancel temp login because no temporary user is cached")
 		return types.NewErrHTTP(http.StatusNotFound, "no temporary user to cancel")
 	}
 
@@ -38,7 +39,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 		if clearErr := req.GatewayClient.ClearTempUserCache(req.Context()); clearErr != nil {
 			return fmt.Errorf("failed to clear temp user cache: %w", clearErr)
 		}
-		log.Infof("Cancelled temporary setup login and cleared cache for missing user: cachedUserID=%d", cached.UserID)
+		slog.Info("Cancelled temporary setup login and cleared cache for missing user", "cachedUserID", cached.UserID)
 		return req.Write(CancelTempLoginResponse{
 			Success: true,
 			Message: "Temporary login cancelled",
@@ -55,7 +56,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 			if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
 				return fmt.Errorf("failed to demote user: %w", err)
 			}
-			log.Infof("Demoted temporary setup user to basic role during cancel flow: userID=%d", user.ID)
+			slog.Info("Demoted temporary setup user to basic role during cancel flow", "userID", user.ID)
 		}
 	}
 
@@ -63,7 +64,7 @@ func (h *Handler) CancelTempLogin(req api.Context) error {
 	if err := req.GatewayClient.ClearTempUserCache(req.Context()); err != nil {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
-	log.Infof("Cancelled temporary setup login and cleared cache: userID=%d", user.ID)
+	slog.Info("Cancelled temporary setup login and cleared cache", "userID", user.ID)
 
 	return req.Write(CancelTempLoginResponse{
 		Success: true,

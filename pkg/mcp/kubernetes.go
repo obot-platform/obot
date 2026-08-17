@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"maps"
 	"net/http"
 	"reflect"
@@ -20,7 +21,6 @@ import (
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/imagepullsecrets"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -40,8 +40,6 @@ import (
 )
 
 var (
-	olog = logger.Package()
-
 	remoteMemoryRequest       = resource.MustParse("100Mi")
 	defaultMCPMemoryRequest   = resource.MustParse("200Mi")
 	defaultAgentMemoryRequest = resource.MustParse("400Mi")
@@ -162,7 +160,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 	}
 
 	if shouldDeploy {
-		olog.Infof("Triggering redeploy for MCP server %s", server.MCPServerName)
+		slog.Info("Triggering redeploy for MCP server", "mcpServerName", server.MCPServerName)
 		objs, err := k.k8sObjects(ctx, server)
 		if err != nil {
 			return ServerConfig{}, fmt.Errorf("failed to generate kubernetes objects for server %s: %w", server.MCPServerName, err)
@@ -893,7 +891,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 						"app": id,
 					}),
 				}); listErr != nil {
-					olog.Warnf("failed to list MCP pods for status check: id=%s error=%v", id, listErr)
+					slog.Warn("failed to list MCP pods for status check", "id", id, "error", listErr)
 					return false, nil // Keep waiting; listing failure is transient
 				}
 
@@ -909,7 +907,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 				shouldRetry, podErr := analyzePodStatus(ctx, newestPod, server)
 				if !shouldRetry {
 					// Permanent failure - return the error with the appropriate type already wrapped
-					olog.Debugf("pod in non-retryable state: id=%s error=%v attempt=%d", id, podErr, watchAttempt+1)
+					slog.Debug("pod in non-retryable state", "id", id, "attempt", watchAttempt+1, "error", podErr)
 					return false, podErr
 				}
 
@@ -936,7 +934,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		}
 
 		lastErr = err
-		olog.Debugf("retrying MCP deployment watch after error: id=%s attempt=%d error=%v", id, watchAttempt+1, err)
+		slog.Debug("retrying MCP deployment watch after error", "id", id, "attempt", watchAttempt+1, "error", err)
 	}
 	if totalWatchDur >= server.StartupTimeout {
 		return "", fmt.Errorf("%w after %d watch retries: %v", ErrHealthCheckTimeout, watchAttempt, lastErr)
@@ -1145,11 +1143,11 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 			reason  string
 		)
 		if matches, reason = k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, desiredResources, effectiveImagePullSecrets); matches {
-			olog.Debugf("deployment %s matches desired K8s settings after %d patch attempt(s)", id, attempt)
+			slog.Debug("deployment matches desired K8s settings", "deployment", id, "patchAttempts", attempt)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
 				if apierrors.IsConflict(err) {
-					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					slog.Debug("conflict patching hash for deployment, retrying", "deployment", id, "attempt", attempt+1)
 					continue
 				}
 				return err
@@ -1158,12 +1156,12 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		lastMismatchReason = reason
-		olog.Debugf("deployment %s does not match desired K8s settings before patch attempt %d: %s", id, attempt+1, reason)
+		slog.Debug("deployment does not match desired K8s settings before patch attempt", "deployment", id, "attempt", attempt+1, "reason", reason)
 
 		// Build and apply the patch (without hash - hash is applied only after verification)
 		if err := k.patchDeploymentWithK8sSettings(ctx, &deployment, k8sSettings, psaLevel, desiredResources, effectiveImagePullSecrets); err != nil {
 			if apierrors.IsConflict(err) {
-				olog.Debugf("conflict patching deployment %s on attempt %d, retrying", id, attempt+1)
+				slog.Debug("conflict patching deployment, retrying", "deployment", id, "attempt", attempt+1)
 				continue
 			}
 			return err
@@ -1176,11 +1174,11 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 
 		// Verify the patch was applied correctly (check settings, not hash)
 		if matches, reason = k.deploymentSettingsMatch(&deployment, k8sSettings, psaLevel, desiredResources, effectiveImagePullSecrets); matches {
-			olog.Debugf("deployment %s patched successfully with K8s settings on attempt %d", id, attempt+1)
+			slog.Debug("deployment patched successfully with K8s settings", "deployment", id, "attempt", attempt+1)
 			// Settings match, now apply the hash to mark reconciliation complete
 			if err := k.patchDeploymentHash(ctx, &deployment, k8sSettingsHash); err != nil {
 				if apierrors.IsConflict(err) {
-					olog.Debugf("conflict patching hash for deployment %s on attempt %d, retrying", id, attempt+1)
+					slog.Debug("conflict patching hash for deployment, retrying", "deployment", id, "attempt", attempt+1)
 					continue
 				}
 				return err
@@ -1189,14 +1187,14 @@ func (k *kubernetesBackend) restartServer(ctx context.Context, server ServerConf
 		}
 
 		lastMismatchReason = reason
-		olog.Debugf("deployment %s K8s settings patch incomplete on attempt %d: %s", id, attempt+1, reason)
+		slog.Debug("deployment K8s settings patch incomplete", "deployment", id, "attempt", attempt+1, "reason", reason)
 
-		olog.Debugf("deployment %s retrying K8s settings patch after incomplete attempt %d", id, attempt+1)
+		slog.Debug("deployment retrying K8s settings patch after incomplete attempt", "deployment", id, "attempt", attempt+1)
 	}
 
 	// After max retries, settings still don't match. Don't update the hash so that
 	// NeedsK8sUpdate flag remains set and another reconciliation will be triggered.
-	olog.Warnf("deployment %s failed to fully reconcile K8s settings after %d attempts, hash not updated", id, maxPatchRetries)
+	slog.Warn("deployment failed to fully reconcile K8s settings, hash not updated", "deployment", id, "attempts", maxPatchRetries)
 	if lastMismatchReason != "" {
 		return fmt.Errorf("failed to fully apply K8s settings to deployment %s after %d attempts: %s", id, maxPatchRetries, lastMismatchReason)
 	}
@@ -1820,7 +1818,7 @@ func (k *kubernetesBackend) getK8sSettings(ctx context.Context) v1.K8sSettingsSp
 		Namespace: system.DefaultNamespace,
 		Name:      system.K8sSettingsName,
 	}, &settings); err != nil {
-		log.Warnf("Failed to get K8s settings, using defaults: %v", err)
+		slog.Warn("Failed to get K8s settings, using defaults", "error", err)
 		return v1.K8sSettingsSpec{}
 	}
 

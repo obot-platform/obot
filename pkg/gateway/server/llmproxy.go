@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -22,7 +23,6 @@ import (
 
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
@@ -39,7 +39,6 @@ import (
 const tokenUsageTimePeriod = 24 * time.Hour
 
 var (
-	log              = logger.Package()
 	openAIBaseURL    = "https://api.openai.com/v1"
 	anthropicBaseURL = "https://api.anthropic.com/v1"
 )
@@ -478,7 +477,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 
 	// Evaluate policies against tool calls.
 	targetMessage := buildToolCallTargetMessage(toolCalls)
-	log.Infof("evaluating %d tool calls against %d policies", len(toolCalls), len(r.outputPolicies))
+	slog.Info("evaluating tool calls against policies", "toolCalls", len(toolCalls), "policies", len(r.outputPolicies))
 	violations := r.messagePolicyHelper.EvaluateMessage(ctx, r.outputPolicies, r.conversationHistory, targetMessage, types2.PolicyDirectionToolCalls)
 
 	if len(violations) == 0 {
@@ -695,7 +694,7 @@ func logViolation(ctx context.Context, c *client.Client, v messagepolicy.Message
 		ProjectID:            projectID,
 		ThreadID:             threadID,
 	}); err != nil {
-		log.Warnf("failed to log policy violation for policy %s: %v", v.PolicyID, err)
+		slog.Warn("failed to log policy violation", "policyID", v.PolicyID, "error", err)
 	}
 }
 
@@ -720,7 +719,7 @@ func (r *responseModifier) Close() error {
 		// should still land on whoever created it.
 		activity := newRunTokenActivity(r.user, r.model, usage)
 		if err := r.client.InsertTokenUsage(context.Background(), activity); err != nil {
-			log.Warnf("failed to save token usage for user %s: %v", r.user.GetUID(), err)
+			slog.Warn("failed to save token usage for user", "userID", r.user.GetUID(), "error", err)
 		}
 	}
 	// ReverseProxy does not return body-copy errors to the handler, so Close is
@@ -1108,7 +1107,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 			proxyErr = err
 			audit.recordResponseStatus(http.StatusBadGateway)
 			audit.finish(req.GatewayClient, err)
-			log.Warnf("LLM provider proxy error: %v", err)
+			slog.Warn("LLM provider proxy error", "error", err)
 			http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
 		},
 		ModifyResponse: modifier.modifyResponse,
