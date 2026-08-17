@@ -1222,7 +1222,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
-	if err := validateCatalogConfigurationOptions(manifest, gitManaged, ""); err != nil {
+	if err := validateCatalogConfigurationOptions(manifest, ""); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(manifest.ShortDescription) > maxShortDescriptionLength {
@@ -1455,14 +1455,14 @@ func validateServerConfigurationOptions(manifest types.MCPServerManifest) error 
 	return nil
 }
 
-func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest, gitManaged bool, prefix string) error {
-	if err := validateCatalogConfigurationFields(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), manifest.MultiUserConfig, gitManaged, prefix); err != nil {
+func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest, prefix string) error {
+	if err := validateCatalogConfigurationFields(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), manifest.MultiUserConfig, prefix); err != nil {
 		return err
 	}
 	if manifest.CompositeConfig != nil {
 		for i, component := range manifest.CompositeConfig.ComponentServers {
 			componentPrefix := fmt.Sprintf("%scompositeConfig.componentServers[%d].manifest.", prefix, i)
-			if err := validateCatalogConfigurationOptions(component.Manifest, gitManaged, componentPrefix); err != nil {
+			if err := validateCatalogConfigurationOptions(component.Manifest, componentPrefix); err != nil {
 				return err
 			}
 		}
@@ -1470,35 +1470,25 @@ func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryMan
 	return nil
 }
 
-func validateCatalogConfigurationFields(envs []types.MCPEnv, headers []types.MCPHeader, multiUser *types.MultiUserConfig, gitManaged bool, prefix string) error {
+func validateCatalogConfigurationFields(envs []types.MCPEnv, headers []types.MCPHeader, multiUser *types.MultiUserConfig, prefix string) error {
 	for i, env := range envs {
-		if err := validateCatalogConfigurationField(fmt.Sprintf("%senv[%d]", prefix, i), env.MCPHeader, gitManaged); err != nil {
+		if err := validateConfigurationFieldOptions(fmt.Sprintf("%senv[%d]", prefix, i), env.MCPHeader); err != nil {
 			return err
 		}
 	}
 	for i, header := range headers {
-		if err := validateCatalogConfigurationField(fmt.Sprintf("%sremoteConfig.headers[%d]", prefix, i), header, gitManaged); err != nil {
+		if err := validateConfigurationFieldOptions(fmt.Sprintf("%sremoteConfig.headers[%d]", prefix, i), header); err != nil {
 			return err
 		}
 	}
 	if multiUser != nil {
 		for i, header := range multiUser.UserDefinedHeaders {
-			if err := validateCatalogConfigurationField(fmt.Sprintf("%smultiUserConfig.userDefinedHeaders[%d]", prefix, i), header, gitManaged); err != nil {
+			if err := validateConfigurationFieldOptions(fmt.Sprintf("%smultiUserConfig.userDefinedHeaders[%d]", prefix, i), header); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
-}
-
-func validateCatalogConfigurationField(field string, config types.MCPHeader, gitManaged bool) error {
-	if len(config.Options) == 0 {
-		return nil
-	}
-	if !gitManaged {
-		return fmt.Errorf("%s.options may only be set on Git-managed catalog entries", field)
-	}
-	return validateConfigurationFieldOptions(field, config)
 }
 
 // ValidateConfigurationOptions validates option definitions carried by a deployed server manifest.

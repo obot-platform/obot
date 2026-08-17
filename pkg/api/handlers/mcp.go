@@ -1709,7 +1709,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		// they can create a server with a manifest that is not in the catalog.
 		server.Spec.Manifest = input.MCPServerManifest
 		if mcp.ManifestHasConfigurationOptions(server.Spec.Manifest) {
-			return types.NewErrBadRequest("configuration options may only be defined by Git-managed catalog entries")
+			return types.NewErrBadRequest("configuration options may only be defined by a source catalog entry")
 		}
 	} else {
 		return types.NewErrBadRequest("catalogEntryID is required")
@@ -1824,7 +1824,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 			return types.NewErrBadRequest("invalid catalog configuration: %v", err)
 		}
 	} else if mcp.ManifestHasConfigurationOptions(updated) {
-		return types.NewErrBadRequest("configuration options may only be defined by Git-managed catalog entries")
+		return types.NewErrBadRequest("configuration options may only be defined by a source catalog entry")
 	}
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)

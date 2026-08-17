@@ -68,7 +68,7 @@ func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
 	}
 
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, true, ValidationOptions{}))
-	require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{}), "may only be set on Git-managed catalog entries")
+	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{}))
 
 	tests := []struct {
 		name    string
@@ -88,7 +88,7 @@ func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manifest := *base.DeepCopy()
 			tt.mutate(&manifest)
-			require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}), tt.wantErr)
+			require.ErrorContains(t, ValidateCatalogEntryManifest(t.Context(), manifest, false, ValidationOptions{}), tt.wantErr)
 		})
 	}
 }

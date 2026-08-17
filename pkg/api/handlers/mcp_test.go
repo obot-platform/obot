@@ -1279,6 +1279,40 @@ func TestCreateCatalogEntryRejectsMultiUserHeaderSecretBinding(t *testing.T) {
 	assert.Contains(t, err.Error(), "secretBinding is not supported for user-defined headers")
 }
 
+func TestCreateCatalogEntryAllowsConfigurationOptions(t *testing.T) {
+	storage := newFakeStorage(t, &v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}})
+	options := []types.MCPConfigurationOption{
+		{Name: "United States", Value: "us", Description: "US endpoint"},
+		{Name: "Europe", Value: "eu", Description: "EU endpoint"},
+	}
+	manifest := types.MCPServerCatalogEntryManifest{
+		Name:           "option-entry",
+		Runtime:        types.RuntimeNPX,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		NPXConfig:      &types.NPXRuntimeConfig{Package: "test-server"},
+		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Key: "REGION", Name: "Region", Required: true, Options: options,
+		}}},
+	}
+	body, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp-catalogs/catalog-1/entries", bytes.NewReader(body))
+	req.SetPathValue("catalog_id", "catalog-1")
+
+	err = (&MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}).CreateEntry(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storage,
+		User:           testUserWithRole("admin", types.GroupAdmin),
+	})
+
+	require.NoError(t, err)
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, storage.List(t.Context(), &entries))
+	require.Len(t, entries.Items, 1)
+	assert.Equal(t, options, entries.Items[0].Spec.Manifest.Env[0].Options)
+}
+
 func newCreateServerSecretBindingTestHandler() *MCPHandler {
 	return &MCPHandler{
 		mcpSessionManager:         &mcp.SessionManager{},
