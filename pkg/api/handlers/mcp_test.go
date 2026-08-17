@@ -1491,10 +1491,10 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 	assert.True(t, manifest.RemoteConfig.IsTemplate)
 	assert.Equal(t, template, manifest.RemoteConfig.URLTemplate)
 	assert.Empty(t, manifest.RemoteConfig.URL)
-	assert.ElementsMatch(t, []types.MCPEnv{
-		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
-		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
-	}, manifest.Env)
+	assert.ElementsMatch(t, []types.MCPHeader{
+		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
+		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
+	}, manifest.RemoteConfig.Headers)
 }
 
 func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostname(t *testing.T) {
@@ -1550,11 +1550,11 @@ func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *tes
 	}
 
 	addExtractedEnvVarsToCatalogEntry(&entry)
-	envs := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.Env
-	assert.ElementsMatch(t, []types.MCPEnv{
-		{MCPHeader: types.MCPHeader{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true}},
-		{MCPHeader: types.MCPHeader{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true}},
-	}, envs)
+	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
+	assert.ElementsMatch(t, []types.MCPHeader{
+		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
+		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
+	}, headers)
 }
 
 func TestSyncConnectServerRemoteConfigFromCatalogEntryURLTemplate(t *testing.T) {

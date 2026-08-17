@@ -15,6 +15,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteHeaders(t *testing.T) {
+	manifest := &types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteCatalogConfig{
+			URLTemplate: "https://${EXISTING}.example.com/${DETECTED}",
+			Headers: []types.MCPHeader{{
+				Name: "Existing", Key: "EXISTING", Required: true,
+			}},
+		},
+	}
+
+	addExtractedEnvVarsToCatalogEntryManifest(manifest)
+
+	require.Empty(t, manifest.Env)
+	require.ElementsMatch(t, []types.MCPHeader{
+		{Name: "Existing", Key: "EXISTING", Required: true},
+		{Name: "DETECTED", Key: "DETECTED", Description: "Automatically detected variable", Required: true},
+	}, manifest.RemoteConfig.Headers)
+}
+
 func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *testing.T) {
 	const (
 		entryID = "catalog-entry"

@@ -980,6 +980,9 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 		}
 	case types.RuntimeRemote:
 		if manifest.RemoteConfig != nil {
+			for _, header := range manifest.RemoteConfig.Headers {
+				existing[header.Key] = struct{}{}
+			}
 			toExtract = append(toExtract, manifest.RemoteConfig.URLTemplate)
 		}
 	}
@@ -987,16 +990,25 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 	for _, v := range toExtract {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
-				manifest.Env = append(manifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
+				if manifest.Runtime != types.RuntimeRemote {
+					manifest.Env = append(manifest.Env, types.MCPEnv{
+						MCPHeader: types.MCPHeader{
+							Name:        env,
+							Key:         env,
+							Description: "Automatically detected variable",
+							Sensitive:   true,
+							Required:    true,
+						},
+					})
+				} else if manifest.RemoteConfig != nil {
+					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{
 						Name:        env,
 						Key:         env,
 						Description: "Automatically detected variable",
-						Sensitive:   manifest.Runtime != types.RuntimeRemote,
+						Sensitive:   false,
 						Required:    true,
-					},
-				})
-				existing[env] = struct{}{}
+					})
+				}
 			}
 		}
 	}
