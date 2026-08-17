@@ -31,7 +31,6 @@ docker run -d \
   -v obot-data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 8080:8080 \
-  -e OPENAI_API_KEY=your-openai-key \
   ghcr.io/obot-platform/obot:latest
 ```
 
@@ -53,7 +52,6 @@ docker run -d \
   -v obot-data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 8080:8080 \
-  -e OPENAI_API_KEY=your-openai-key \
   -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
   -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
   ghcr.io/obot-platform/obot:latest
@@ -69,7 +67,6 @@ docker run -d \
   -v obot-data:/data \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -p 9999:8080 \
-  -e OPENAI_API_KEY=your-openai-key \
   -e OBOT_SERVER_HOSTNAME=localhost:9999 \
   -e OBOT_SERVER_ENABLE_AUTHENTICATION=true \
   -e OBOT_BOOTSTRAP_TOKEN=your-bootstrap-token \
