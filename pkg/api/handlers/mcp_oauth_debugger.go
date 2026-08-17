@@ -177,11 +177,7 @@ func (m *MCPHandler) ExchangeOAuthDebuggerToken(req api.Context) error {
 		return err
 	}
 	exchangeContext := context.WithValue(req.Context(), oauth2.HTTPClient, httpClient)
-	exchangeOptions := []oauth2.AuthCodeOption{oauth2.VerifierOption(pendingState.Verifier)}
-	if pendingState.ResourceURL != "" {
-		exchangeOptions = append(exchangeOptions, oauth2.SetAuthURLParam("resource", pendingState.ResourceURL))
-	}
-	token, err := conf.Exchange(exchangeContext, input.Code, exchangeOptions...)
+	token, err := mcp.ExchangeOAuthToken(exchangeContext, conf, input.Code, pendingState.Verifier, pendingState.ResourceURL)
 	if err != nil {
 		return fmt.Errorf("failed to exchange OAuth code: %w", err)
 	}

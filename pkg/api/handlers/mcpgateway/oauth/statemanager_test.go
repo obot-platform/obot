@@ -63,4 +63,10 @@ func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) 
 	require.Equal(t, clientID, form.Get("client_id"))
 	require.Equal(t, redirectURL, form.Get("redirect_uri"))
 	require.Equal(t, verifier, form.Get("code_verifier"))
+
+	conf.Endpoint.AuthURL = "https://login.microsoftonline.com/tenant/oauth2/v2.0/authorize"
+	require.NoError(t, stateManager.store(t.Context(), "user", "mcp", mcpURL, "request", "entra-state", verifier, resourceURL, conf))
+	_, _, err = stateManager.createToken(t.Context(), "entra-state", "authorization-code", "", "")
+	require.NoError(t, err)
+	require.Empty(t, (<-tokenRequest).Get("resource"))
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"golang.org/x/oauth2"
 )
 
@@ -49,11 +50,7 @@ func (sm *stateManager) createToken(ctx context.Context, state, code, errorStr, 
 		conf.Scopes = strings.Split(ps.Scopes, " ")
 	}
 
-	exchangeOptions := []oauth2.AuthCodeOption{oauth2.VerifierOption(ps.Verifier)}
-	if ps.ResourceURL != "" {
-		exchangeOptions = append(exchangeOptions, oauth2.SetAuthURLParam("resource", ps.ResourceURL))
-	}
-	token, err := conf.Exchange(ctx, code, exchangeOptions...)
+	token, err := mcp.ExchangeOAuthToken(ctx, conf, code, ps.Verifier, ps.ResourceURL)
 	if err != nil {
 		_ = sm.gatewayClient.DeleteMCPOAuthPendingState(ctx, ps.HashedState)
 		return "", "", fmt.Errorf("failed to exchange code: %w", err)
