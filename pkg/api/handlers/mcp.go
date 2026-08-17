@@ -1966,8 +1966,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
-	templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars)
-	if err != nil {
+	if err := validateConfiguredOptions(mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars); err != nil {
 		return types.NewErrBadRequest("invalid configuration: %v", err)
 	}
 
@@ -2005,7 +2004,10 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			if err != nil {
 				return err
 			}
-			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, templateValues, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, envVars, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
+				if configErr, ok := errors.AsType[*urlTemplateConfigurationError](err); ok {
+					return types.NewErrBadRequest("invalid configuration: %v", configErr)
+				}
 				return err
 			}
 			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
@@ -2136,10 +2138,8 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			// Skip components we're not configuring
 			continue
 		}
-		var templateValues map[string]string
 		if !config.Disabled {
-			templateValues, err = mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, component.Manifest.RemoteConfig, config.Config)
-			if err != nil {
+			if err := validateConfiguredOptions(component.Manifest.Env, component.Manifest.RemoteConfig, config.Config); err != nil {
 				return types.NewErrBadRequest("invalid configuration for component %s: %v", componentID, err)
 			}
 		}
@@ -2165,11 +2165,17 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, templateValues)
+					validationOptions, err := ValidationOptionsWithResourceMaximums(req, m.mcpSessionManager)
 					if err != nil {
-						return fmt.Errorf("failed to apply URL template %w", err)
+						return err
 					}
-					remoteConfig.URL = finalURL
+					if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, config.Config, false, validationOptions); err != nil {
+						if configErr, ok := errors.AsType[*urlTemplateConfigurationError](err); ok {
+							return types.NewErrBadRequest("invalid configuration for component %s: %v", componentID, configErr)
+						}
+						return fmt.Errorf("failed to apply URL template: %w", err)
+					}
+					remoteConfig = component.Manifest.RemoteConfig
 				} else if remoteConfig.Hostname != "" {
 					remoteConfig.URL = config.URL
 					if remoteConfig.URL != "" && !strings.HasPrefix(remoteConfig.URL, "http") {
@@ -2329,17 +2335,54 @@ func sanitizedConfigCopy(config map[string]string, manifest types.MCPServerManif
 	return result
 }
 
-// applyURLTemplate applies a URL template with environment variables
-// The template uses ${VARIABLE_NAME} syntax for variable substitution
-func applyURLTemplate(templateStr string, envVars map[string]string) (string, error) {
-	result := templateStr
+type urlTemplateConfigurationError struct {
+	key string
+}
 
-	// Replace all ${VARIABLE_NAME} patterns with actual values
-	for key, value := range envVars {
-		placeholder := fmt.Sprintf("${%s}", key)
-		result = strings.ReplaceAll(result, placeholder, value)
+func (e *urlTemplateConfigurationError) Error() string {
+	return fmt.Sprintf("configuration value %q referenced by remoteConfig.urlTemplate is required", e.key)
+}
+
+// validateConfiguredOptions validates submitted env and header selections against their catalog-defined options.
+func validateConfiguredOptions(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, configured map[string]string) error {
+	var headers []types.MCPHeader
+	if remoteConfig != nil {
+		headers = remoteConfig.Headers
+	}
+	missing, err := mcp.ValidateConfiguredOptions(envs, headers, configured)
+	if err != nil {
+		return err
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("configuration %q requires a selection", missing[0])
+	}
+	return nil
+}
+
+// applyURLTemplate resolves submitted and static manifest values into a URL template.
+func applyURLTemplate(templateStr string, envs []types.MCPEnv, headers []types.MCPHeader, configured map[string]string) (string, error) {
+	values := make(map[string]string, len(configured)+len(envs)+len(headers))
+	maps.Copy(values, configured)
+	for _, env := range envs {
+		if values[env.Key] == "" && env.Value != "" {
+			values[env.Key] = env.Value
+		}
+	}
+	for _, header := range headers {
+		if values[header.Key] == "" && header.Value != "" {
+			values[header.Key] = header.Value
+		}
+	}
+	for _, key := range extractEnvVars(templateStr) {
+		if values[key] == "" {
+			return "", &urlTemplateConfigurationError{key: key}
+		}
 	}
 
+	result := templateStr
+	for key, value := range values {
+		result = strings.ReplaceAll(result, fmt.Sprintf("${%s}", key), value)
+	}
 	return result, nil
 }
 
@@ -2349,7 +2392,7 @@ func applyRemoteURLTemplate(ctx context.Context, manifest *types.MCPServerManife
 		return nil
 	}
 
-	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, envVars)
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, manifest.Env, manifest.RemoteConfig.Headers, envVars)
 	if err != nil {
 		return fmt.Errorf("failed to apply URL template: %w", err)
 	}
@@ -4065,10 +4108,11 @@ func (m *MCPHandler) prepareCatalogServerUpdate(req api.Context, server *v1.MCPS
 		return err
 	}
 	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URLTemplate != "" {
-		templateValues, configErr := mcp.ValidateAndResolveURLTemplateConfig(server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, configured)
-		if configErr == nil {
-			if err := applyRemoteURLTemplate(req.Context(), &server.Spec.Manifest, templateValues, !server.Spec.IsSingleUser(), validationOptions); err != nil {
-				return err
+		if configErr := validateConfiguredOptions(server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, configured); configErr == nil {
+			if err := applyRemoteURLTemplate(req.Context(), &server.Spec.Manifest, configured, !server.Spec.IsSingleUser(), validationOptions); err != nil {
+				if _, ok := errors.AsType[*urlTemplateConfigurationError](err); !ok {
+					return err
+				}
 			}
 		}
 		// Invalid persisted selections intentionally leave the template unresolved so the API reports reconfiguration.
@@ -4227,12 +4271,15 @@ func (m *MCPHandler) prepareCompositeCatalogServerUpdate(req api.Context, compos
 			if err != nil {
 				return types.MCPServerManifest{}, fmt.Errorf("failed to resolve configuration for component %s: %w", component.ComponentID(), err)
 			}
-			templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, remoteConfig, configured)
-			if err != nil {
+			if err := validateConfiguredOptions(component.Manifest.Env, remoteConfig, configured); err != nil {
 				// Missing or stale persisted selections intentionally leave the template unresolved.
 				continue
 			}
-			if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, templateValues, false, validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, configured, false, validationOptions); err != nil {
+				if _, ok := errors.AsType[*urlTemplateConfigurationError](err); ok {
+					// Missing persisted template values intentionally leave the template unresolved.
+					continue
+				}
 				return types.MCPServerManifest{}, fmt.Errorf("failed to render URL template for component %s: %w", component.ComponentID(), err)
 			}
 		}

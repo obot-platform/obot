@@ -625,44 +625,6 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	return serverConfig, missingRequiredNames, nil
 }
 
-// ValidateAndResolveURLTemplateConfig validates submitted selections and returns the values used
-// to render a remote URL template, filling omitted static values from declared fields.
-func ValidateAndResolveURLTemplateConfig(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, configured map[string]string) (map[string]string, error) {
-	var headers []types.MCPHeader
-	var template string
-	if remoteConfig != nil {
-		headers = remoteConfig.Headers
-		template = remoteConfig.URLTemplate
-	}
-	missing, err := ValidateConfiguredOptions(envs, headers, configured)
-	if err != nil {
-		return nil, err
-	}
-	if len(missing) > 0 {
-		return nil, fmt.Errorf("configuration %q requires a selection", missing[0])
-	}
-
-	values := make(map[string]string, len(configured)+len(envs)+len(headers))
-	maps.Copy(values, configured)
-	for _, env := range envs {
-		if values[env.Key] == "" && env.Value != "" {
-			values[env.Key] = env.Value
-		}
-	}
-	for _, header := range headers {
-		if values[header.Key] == "" && header.Value != "" {
-			values[header.Key] = header.Value
-		}
-	}
-
-	for _, key := range extractEnvRefs(template) {
-		if values[key] == "" {
-			return nil, fmt.Errorf("configuration value %q referenced by remoteConfig.urlTemplate is required", key)
-		}
-	}
-	return values, nil
-}
-
 func copyHeaders[T header](headers T, keys, values []string) {
 	for i, key := range keys {
 		if i < len(values) {

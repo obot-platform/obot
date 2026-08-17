@@ -903,35 +903,3 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 		})
 	}
 }
-
-func TestValidateAndResolveURLTemplateConfig(t *testing.T) {
-	options := []types.MCPConfigurationOption{{Name: "US", Value: "us"}, {Name: "EU", Value: "eu"}}
-	envs := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Required: true, Options: options}}}
-	remote := &types.RemoteRuntimeConfig{URLTemplate: "https://${REGION}.example.com/mcp"}
-
-	values, err := ValidateAndResolveURLTemplateConfig(envs, remote, map[string]string{"REGION": "eu"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if values["REGION"] != "eu" {
-		t.Fatalf("expected selected region, got %#v", values)
-	}
-	if _, err := ValidateAndResolveURLTemplateConfig(envs, remote, map[string]string{"REGION": "forged"}); err == nil {
-		t.Fatal("expected forged selection to fail")
-	}
-	if _, err := ValidateAndResolveURLTemplateConfig(envs, remote, nil); err == nil {
-		t.Fatal("expected missing required selection to fail")
-	}
-
-	undeclared := &types.RemoteRuntimeConfig{URLTemplate: "https://example.com/mcp/${UNDECLARED}"}
-	values, err = ValidateAndResolveURLTemplateConfig(nil, undeclared, map[string]string{"UNDECLARED": "configured"})
-	if err != nil {
-		t.Fatalf("expected submitted undeclared value to retain pre-existing rendering behavior, got %v", err)
-	}
-	if values["UNDECLARED"] != "configured" {
-		t.Fatalf("expected submitted undeclared value, got %#v", values)
-	}
-	if _, err := ValidateAndResolveURLTemplateConfig(nil, undeclared, nil); err == nil {
-		t.Fatal("expected unresolved undeclared value to fail")
-	}
-}
