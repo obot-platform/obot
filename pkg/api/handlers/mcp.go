@@ -2361,12 +2361,12 @@ func applyURLTemplate(templateStr string, envs []types.MCPEnv, headers []types.M
 	values := make(map[string]string, len(configured)+len(envs)+len(headers))
 	maps.Copy(values, configured)
 	for _, env := range envs {
-		if values[env.Key] == "" && env.Value != "" {
+		if env.Value != "" {
 			values[env.Key] = env.Value
 		}
 	}
 	for _, header := range headers {
-		if values[header.Key] == "" && header.Value != "" {
+		if header.Value != "" {
 			values[header.Key] = header.Value
 		}
 	}

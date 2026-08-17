@@ -740,6 +740,20 @@ func TestApplyRemoteURLTemplate(t *testing.T) {
 	require.Equal(t, manifest.RemoteConfig.URL, serverConfig.URL)
 }
 
+func TestApplyURLTemplateStaticValuesOverrideSubmittedConfiguration(t *testing.T) {
+	result, err := applyURLTemplate(
+		"https://${HOST}/${VERSION}",
+		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "HOST", Value: "catalog.example.com"}}},
+		[]types.MCPHeader{{Key: "VERSION", Value: "v1"}},
+		map[string]string{
+			"HOST":    "forged.example.com",
+			"VERSION": "forged",
+		},
+	)
+	require.NoError(t, err)
+	require.Equal(t, "https://catalog.example.com/v1", result)
+}
+
 func TestApplyRemoteURLTemplateRejectsInvalidRenderedURL(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime: types.RuntimeRemote,
