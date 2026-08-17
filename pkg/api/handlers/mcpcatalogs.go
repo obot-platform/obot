@@ -1619,13 +1619,13 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 }
 
 func prepareTempServerConfig(ctx context.Context, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel string, serverManifest *types.MCPServerManifest, config map[string]string, isMultiUser bool, validationOptions mcp.ValidationOptions) (map[string]string, error) {
-	effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(serverManifest.Env, serverManifest.RemoteConfig, config)
+	templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(serverManifest.Env, serverManifest.RemoteConfig, config)
 	if err != nil {
 		return nil, types.NewErrBadRequest("invalid configuration: %v", err)
 	}
 	// Render templates before resolving bindings so Secret values can only be
 	// used by runtime fields such as headers, never embedded in the URL.
-	if err := applyRemoteURLTemplate(ctx, serverManifest, effectiveConfig, isMultiUser, validationOptions); err != nil {
+	if err := applyRemoteURLTemplate(ctx, serverManifest, templateValues, isMultiUser, validationOptions); err != nil {
 		return nil, err
 	}
 

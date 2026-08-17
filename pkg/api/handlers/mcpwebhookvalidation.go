@@ -519,7 +519,7 @@ func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValid
 	if manifest == nil {
 		return nil
 	}
-	effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(manifest.Env, manifest.RemoteConfig, envVars)
+	templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(manifest.Env, manifest.RemoteConfig, envVars)
 	if err != nil {
 		return types.NewErrBadRequest("invalid configuration: %v", err)
 	}
@@ -527,7 +527,7 @@ func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValid
 		return nil
 	}
 
-	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, effectiveConfig)
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, templateValues)
 	if err != nil {
 		return fmt.Errorf("failed to apply URL template: %w", err)
 	}

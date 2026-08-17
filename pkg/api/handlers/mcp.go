@@ -1966,7 +1966,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
-	effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars)
+	templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars)
 	if err != nil {
 		return types.NewErrBadRequest("invalid configuration: %v", err)
 	}
@@ -2005,7 +2005,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 			if err != nil {
 				return err
 			}
-			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, effectiveConfig, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &mcpServer.Spec.Manifest, templateValues, !mcpServer.Spec.IsSingleUser(), validationOptions); err != nil {
 				return err
 			}
 			if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, mcpServer.Spec.Manifest); err != nil {
@@ -2136,9 +2136,9 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 			// Skip components we're not configuring
 			continue
 		}
-		var effectiveConfig map[string]string
+		var templateValues map[string]string
 		if !config.Disabled {
-			effectiveConfig, err = mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, component.Manifest.RemoteConfig, config.Config)
+			templateValues, err = mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, component.Manifest.RemoteConfig, config.Config)
 			if err != nil {
 				return types.NewErrBadRequest("invalid configuration for component %s: %v", componentID, err)
 			}
@@ -2165,7 +2165,7 @@ func (m *MCPHandler) configureCompositeServer(req api.Context, compositeServer v
 				// Handle URL changes for templates and hostname constraints
 				originalURL := remoteConfig.URL
 				if remoteConfig.URLTemplate != "" {
-					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, effectiveConfig)
+					finalURL, err := applyURLTemplate(remoteConfig.URLTemplate, templateValues)
 					if err != nil {
 						return fmt.Errorf("failed to apply URL template %w", err)
 					}
@@ -4051,9 +4051,9 @@ func (m *MCPHandler) prepareCatalogServerUpdate(req api.Context, server *v1.MCPS
 		return err
 	}
 	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil && server.Spec.Manifest.RemoteConfig.URLTemplate != "" {
-		effectiveConfig, configErr := mcp.ValidateAndResolveURLTemplateConfig(server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, configured)
+		templateValues, configErr := mcp.ValidateAndResolveURLTemplateConfig(server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, configured)
 		if configErr == nil {
-			if err := applyRemoteURLTemplate(req.Context(), &server.Spec.Manifest, effectiveConfig, !server.Spec.IsSingleUser(), validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &server.Spec.Manifest, templateValues, !server.Spec.IsSingleUser(), validationOptions); err != nil {
 				return err
 			}
 		}
@@ -4213,12 +4213,12 @@ func (m *MCPHandler) prepareCompositeCatalogServerUpdate(req api.Context, compos
 			if err != nil {
 				return types.MCPServerManifest{}, fmt.Errorf("failed to resolve configuration for component %s: %w", component.ComponentID(), err)
 			}
-			effectiveConfig, err := mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, remoteConfig, configured)
+			templateValues, err := mcp.ValidateAndResolveURLTemplateConfig(component.Manifest.Env, remoteConfig, configured)
 			if err != nil {
 				// Missing or stale persisted selections intentionally leave the template unresolved.
 				continue
 			}
-			if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, effectiveConfig, false, validationOptions); err != nil {
+			if err := applyRemoteURLTemplate(req.Context(), &component.Manifest, templateValues, false, validationOptions); err != nil {
 				return types.MCPServerManifest{}, fmt.Errorf("failed to render URL template for component %s: %w", component.ComponentID(), err)
 			}
 		}
