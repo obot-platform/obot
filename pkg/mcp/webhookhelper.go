@@ -10,6 +10,19 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
+const DeviceSelectorIndex = "device-selectors"
+
+func IndexDeviceSelectors(obj any) ([]string, error) {
+	mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
+	var results []string
+	for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
+		if resource.Type == types.MCPWebhookValidationResourceTypeDeviceSelector {
+			results = append(results, resource.ID)
+		}
+	}
+	return results, nil
+}
+
 type WebhookHelper struct {
 	indexer cache.Indexer
 	baseURL string
