@@ -567,6 +567,9 @@ func validateManifest(ctx context.Context, m *types.MCPWebhookValidationManifest
 			return fmt.Errorf("invalid resource: %v", err)
 		}
 	}
+	if err := m.ValidateLocalAgentTargeting(); err != nil {
+		return err
+	}
 
 	for i, filter := range m.Selectors {
 		if filter.Method == "*" {

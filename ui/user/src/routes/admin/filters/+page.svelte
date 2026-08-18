@@ -43,6 +43,9 @@
 	let tableData = $derived(
 		filters.map((filter) => ({
 			...filter,
+			allDevices: filter.resources?.some((resource) => resource.type === 'deviceSelector') ?? false,
+			mcpTargetCount:
+				filter.resources?.filter((resource) => resource.type !== 'deviceSelector').length ?? 0,
 			status: filter.disabled ? 'Disabled' : 'Enabled'
 		}))
 	);
@@ -119,7 +122,7 @@
 
 						<Table
 							data={filteredTableData}
-							fields={['name', 'selectors', 'status']}
+							fields={['name', 'mcpTargetCount', 'allDevices', 'status']}
 							onClickRow={(d, isCtrlClick) => {
 								const url = `/admin/filters/${d.id}`;
 								openUrl(url, isCtrlClick);
@@ -134,8 +137,12 @@
 									property: 'name'
 								},
 								{
-									title: 'Selectors',
-									property: 'selectors'
+									title: 'MCP Targets',
+									property: 'mcpTargetCount'
+								},
+								{
+									title: 'Devices',
+									property: 'allDevices'
 								}
 							]}
 							sortable={['name', 'status']}
@@ -161,9 +168,12 @@
 									{d.name || '-'}
 								{:else if property === 'url'}
 									{d.url || '-'}
-								{:else if property === 'selectors'}
-									{@const count = d.selectors?.length || 0}
-									{count > 0 ? `${count} selector${count > 1 ? 's' : ''}` : '-'}
+								{:else if property === 'mcpTargetCount'}
+									{d.mcpTargetCount > 0
+										? `${d.mcpTargetCount} target${d.mcpTargetCount > 1 ? 's' : ''}`
+										: '-'}
+								{:else if property === 'allDevices'}
+									{d.allDevices ? 'All Devices' : '-'}
 								{:else if property === 'status'}
 									<span
 										class={d.status === 'Disabled'

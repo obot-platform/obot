@@ -13,6 +13,7 @@
 			return {
 				name: e.manifest?.name || '',
 				resources: [{ id: 'default', type: 'mcpCatalog' } satisfies MCPFilterResource],
+				localAgentEvents: [],
 				url: '',
 				secret: '',
 				selectors: [] as MCPFilterWebhookSelector[],

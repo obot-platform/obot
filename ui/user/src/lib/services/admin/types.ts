@@ -862,21 +862,23 @@ export interface MCPFilterServerManifest {
 	remoteConfig?: MCPFilterRemoteRuntimeConfig;
 	env?: MCPEnvManifest[];
 }
+export type MCPFilterLocalAgentEvent = '*' | 'toolCallArguments' | 'toolResponse' | 'userPrompt';
 export interface MCPFilterManifest {
+	allowedToMutate?: boolean;
+	disabled?: boolean;
+	localAgentEvents?: MCPFilterLocalAgentEvent[];
+	mcpServerManifest?: MCPFilterServerManifest;
 	name?: string;
 	resources?: MCPFilterResource[];
-	url?: string;
-	toolName?: string;
-	mcpServerManifest?: MCPFilterServerManifest;
-	systemMCPServerCatalogEntryID?: string;
 	secret?: string;
 	selectors?: MCPFilterWebhookSelector[];
-	disabled?: boolean;
-	allowedToMutate?: boolean;
+	systemMCPServerCatalogEntryID?: string;
+	toolName?: string;
+	url?: string;
 }
 export interface MCPFilterResource {
-	type: 'mcpServerCatalogEntry' | 'mcpServer' | 'selector' | 'mcpCatalog';
 	id: string;
+	type: 'deviceSelector' | 'mcpCatalog' | 'mcpServer' | 'mcpServerCatalogEntry' | 'selector';
 }
 export interface MCPFilterWebhookSelector {
 	method?: string;
