@@ -1,11 +1,25 @@
 package mcp
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"regexp"
+	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/moby/moby/api/types/container"
+	"github.com/moby/moby/api/types/network"
+	"github.com/moby/moby/client"
+	otypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/stretchr/testify/require"
 )
+
+var dockerAPIVersionPrefix = regexp.MustCompile(`^/v\d+(?:\.\d+)*`)
 
 func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}
@@ -244,4 +258,227 @@ func TestApplyServerConfigToContainerConfigNoImageNoChanges(t *testing.T) {
 	if _, ok := config.Labels["mcp.file.env.keys.hash"]; ok {
 		t.Fatalf("did not expect mcp.file.env.keys.hash label to be set")
 	}
+}
+
+func TestCreateAndStartContainerUsesInspectFallbackForCreatedNameConflict(t *testing.T) {
+	const (
+		containerName = "sms1obot-mcp-server"
+		containerID   = "17f163b3e3d6685f518c2b4cdbbd2545cc9228b57bb120555675bcf6fdf81d3c"
+		imageName     = "ghcr.io/obot-platform/obot-mcp-server:v0.1.1"
+	)
+
+	var createCalls atomic.Int32
+	var listCalls atomic.Int32
+	var inspectCalls atomic.Int32
+	var startCalls atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := dockerAPIVersionPrefix.ReplaceAllString(r.URL.Path, "")
+		switch {
+		case r.Method == http.MethodPost && path == "/images/create":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, "{}")
+		case r.Method == http.MethodPost && path == "/containers/create":
+			createCalls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"message": "container name \"" + containerName + "\" is already in use by " + containerID,
+			})
+		case r.Method == http.MethodGet && path == "/containers/json":
+			listCalls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, "[]")
+		case r.Method == http.MethodGet && path == "/containers/"+containerName+"/json":
+			inspectCalls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(container.InspectResponse{
+				ContainerJSONBase: &container.ContainerJSONBase{
+					ID:    containerID,
+					Name:  "/" + containerName,
+					Image: imageName,
+					State: &container.State{Status: container.StateCreated},
+				},
+				Config: &container.Config{
+					Image: imageName,
+					Labels: map[string]string{
+						"mcp.config.hash":        "config-hash",
+						"mcp.file.env.keys.hash": "",
+					},
+				},
+				NetworkSettings: &container.NetworkSettings{
+					Networks: map[string]*network.EndpointSettings{"bridge": {}},
+				},
+			})
+		case r.Method == http.MethodPost && path == "/containers/"+containerID+"/start":
+			startCalls.Add(1)
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected docker API request: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	cli, err := client.NewClientWithOpts(
+		client.WithHost("tcp://"+strings.TrimPrefix(server.URL, "http://")),
+		client.WithHTTPClient(server.Client()),
+		client.WithVersion("1.51"),
+	)
+	require.NoError(t, err)
+
+	d := &dockerBackend{
+		client:  cli,
+		network: "bridge",
+	}
+
+	id, port, err := d.createAndStartContainer(t.Context(), ServerConfig{
+		MCPServerName:        containerName,
+		MCPServerDisplayName: "SMS MCP Server",
+		Runtime:              otypes.RuntimeContainerized,
+		ContainerImage:       imageName,
+		ContainerPort:        8080,
+	}, containerName, "config-hash", "")
+	require.NoError(t, err)
+	require.Equal(t, containerID, id)
+	require.Equal(t, 8080, port)
+	require.Equal(t, int32(1), createCalls.Load())
+	require.Equal(t, int32(1), listCalls.Load())
+	require.Equal(t, int32(1), inspectCalls.Load())
+	require.Equal(t, int32(1), startCalls.Load())
+}
+
+func TestGetContainerNotFoundDoesNotInspect(t *testing.T) {
+	const containerName = "missing-mcp-server"
+
+	var inspectCalls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := dockerAPIVersionPrefix.ReplaceAllString(r.URL.Path, "")
+		switch {
+		case r.Method == http.MethodGet && path == "/containers/json":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, "[]")
+		case r.Method == http.MethodGet && path == "/containers/"+containerName+"/json":
+			inspectCalls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "No such container"})
+		default:
+			t.Fatalf("unexpected docker API request: %s %s", r.Method, r.URL.String())
+		}
+	}))
+	defer server.Close()
+
+	cli, err := client.NewClientWithOpts(
+		client.WithHost("tcp://"+strings.TrimPrefix(server.URL, "http://")),
+		client.WithHTTPClient(server.Client()),
+		client.WithVersion("1.51"),
+	)
+	require.NoError(t, err)
+
+	summary, err := (&dockerBackend{client: cli}).getContainer(t.Context(), containerName)
+	require.NoError(t, err)
+	require.Nil(t, summary)
+	require.Zero(t, inspectCalls.Load())
+}
+
+func TestInspectResponseToSummaryPreservesDeploymentFields(t *testing.T) {
+	const containerName = "system-mcp-server"
+
+	summary := inspectResponseToSummary(containerName, container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{
+			ID:    "container-id",
+			Name:  "/" + containerName,
+			Image: "old-image",
+			State: &container.State{Status: container.StateCreated},
+		},
+		Config: &container.Config{
+			Image: "desired-image",
+			Labels: map[string]string{
+				"mcp.config.hash":        "config-hash",
+				"mcp.file.env.keys.hash": "file-env-hash",
+			},
+		},
+		NetworkSettings: &container.NetworkSettings{
+			NetworkSettingsBase: container.NetworkSettingsBase{
+				Ports: nat.PortMap{
+					nat.Port("8080/tcp"): {
+						{HostIP: "127.0.0.1", HostPort: "49152"},
+						{HostIP: "::1", HostPort: "49153"},
+					},
+					nat.Port("9090/udp"): nil,
+					nat.Port("7070/tcp"): {
+						{HostIP: "127.0.0.1", HostPort: ""},
+						{HostIP: "127.0.0.1", HostPort: "not-a-port"},
+					},
+				},
+			},
+			Networks: map[string]*network.EndpointSettings{"bridge": {IPAddress: "172.17.0.2"}},
+		},
+	})
+
+	require.Equal(t, "container-id", summary.ID)
+	require.Equal(t, []string{"/" + containerName}, summary.Names)
+	require.Equal(t, "desired-image", summary.Image)
+	require.Equal(t, container.StateCreated, summary.State)
+	require.Equal(t, "config-hash", summary.Labels["mcp.config.hash"])
+	require.Equal(t, "file-env-hash", summary.Labels["mcp.file.env.keys.hash"])
+	require.ElementsMatch(t, []container.Port{{
+		IP:          "127.0.0.1",
+		PrivatePort: 8080,
+		PublicPort:  49152,
+		Type:        "tcp",
+	}, {
+		IP:          "::1",
+		PrivatePort: 8080,
+		PublicPort:  49153,
+		Type:        "tcp",
+	}, {
+		PrivatePort: 9090,
+		Type:        "udp",
+	}}, summary.Ports)
+	require.Equal(t, "172.17.0.2", summary.NetworkSettings.Networks["bridge"].IPAddress)
+}
+
+func TestInspectResponseToSummaryOrdersPublishedPorts(t *testing.T) {
+	summary := inspectResponseToSummary("system-mcp-server", container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{Name: "/system-mcp-server"},
+		NetworkSettings: &container.NetworkSettings{
+			NetworkSettingsBase: container.NetworkSettingsBase{
+				Ports: nat.PortMap{
+					nat.Port("9090/tcp"): {{HostIP: "::1", HostPort: "49090"}},
+					nat.Port("8080/udp"): nil,
+					nat.Port("8080/tcp"): {
+						{HostIP: "::1", HostPort: "49153"},
+						{HostIP: "192.0.2.10", HostPort: "49154"},
+						{HostIP: "0.0.0.0", HostPort: "49155"},
+						{HostIP: "127.0.0.1", HostPort: "49152"},
+					},
+				},
+			},
+		},
+	})
+
+	require.Equal(t, []container.Port{
+		{IP: "127.0.0.1", PrivatePort: 8080, PublicPort: 49152, Type: "tcp"},
+		{IP: "0.0.0.0", PrivatePort: 8080, PublicPort: 49155, Type: "tcp"},
+		{IP: "192.0.2.10", PrivatePort: 8080, PublicPort: 49154, Type: "tcp"},
+		{IP: "::1", PrivatePort: 8080, PublicPort: 49153, Type: "tcp"},
+		{PrivatePort: 8080, Type: "udp"},
+		{IP: "::1", PrivatePort: 9090, PublicPort: 49090, Type: "tcp"},
+	}, summary.Ports)
+
+	hostPort, err := (&dockerBackend{}).getHostPort(summary, 8080)
+	require.NoError(t, err)
+	require.Equal(t, 49152, hostPort)
+}
+
+func TestInspectResponseToSummaryKeepsLabelsWritable(t *testing.T) {
+	summary := inspectResponseToSummary("system-mcp-server", container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{Name: "/system-mcp-server"},
+		Config:            &container.Config{},
+	})
+
+	require.NotNil(t, summary.Labels)
+	summary.Labels["mcp.config.hash"] = "config-hash"
+	require.Equal(t, "config-hash", summary.Labels["mcp.config.hash"])
 }
