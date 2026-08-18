@@ -32,13 +32,33 @@ func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
 		mutate  func(*types.MCPServerCatalogEntryManifest)
 		wantErr string
 	}{
-		{name: "static value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Value = "us" }, wantErr: "value and options are mutually exclusive"},
-		{name: "secret binding", mutate: func(m *types.MCPServerCatalogEntryManifest) {
-			m.Env[0].SecretBinding = &types.MCPSecretBinding{Name: "secret", Key: "region"}
-		}, wantErr: "secretBinding and options are mutually exclusive"},
-		{name: "blank name", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Name = " " }, wantErr: "name cannot be empty"},
-		{name: "blank value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Value = " " }, wantErr: "value cannot be empty"},
-		{name: "duplicate value", mutate: func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[1].Value = "us" }, wantErr: "duplicate value"},
+		{
+			name:    "static value",
+			mutate:  func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Value = "us" },
+			wantErr: "value and options are mutually exclusive",
+		},
+		{
+			name: "secret binding",
+			mutate: func(m *types.MCPServerCatalogEntryManifest) {
+				m.Env[0].SecretBinding = &types.MCPSecretBinding{Name: "secret", Key: "region"}
+			},
+			wantErr: "secretBinding and options are mutually exclusive",
+		},
+		{
+			name:    "blank name",
+			mutate:  func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Name = " " },
+			wantErr: "name cannot be empty",
+		},
+		{
+			name:    "blank value",
+			mutate:  func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[0].Value = " " },
+			wantErr: "value cannot be empty",
+		},
+		{
+			name:    "duplicate value",
+			mutate:  func(m *types.MCPServerCatalogEntryManifest) { m.Env[0].Options[1].Value = "us" },
+			wantErr: "duplicate value",
+		},
 	}
 
 	for _, tt := range tests {

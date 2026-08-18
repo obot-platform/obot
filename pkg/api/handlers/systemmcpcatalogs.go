@@ -17,7 +17,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type SystemMCPCatalogHandler struct {
@@ -170,7 +170,7 @@ func (*SystemMCPCatalogHandler) ListEntries(req api.Context) error {
 	}
 
 	var list v1.SystemMCPServerCatalogEntryList
-	if err := req.List(&list, client.MatchingFields{"spec.systemMCPCatalogName": catalogName}); err != nil {
+	if err := req.List(&list, kclient.MatchingFields{"spec.systemMCPCatalogName": catalogName}); err != nil {
 		return fmt.Errorf("failed to list system catalog entries: %w", err)
 	}
 

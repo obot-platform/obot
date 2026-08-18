@@ -14,7 +14,7 @@ import (
 	obotgit "github.com/obot-platform/obot/pkg/git"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -94,7 +94,7 @@ func Configured(ctx context.Context, gatewayClient *gclient.Client, credentialID
 }
 
 // ResolveOrReveal resolves a shared Git credential or falls back to a legacy source-specific token.
-func ResolveOrReveal(ctx context.Context, storageClient client.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL, legacyCredentialContext, legacyToolName string) (string, error) {
+func ResolveOrReveal(ctx context.Context, storageClient kclient.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL, legacyCredentialContext, legacyToolName string) (string, error) {
 	if credentialID != "" {
 		return Resolve(ctx, storageClient, gatewayClient, namespace, credentialID, sourceURL)
 	}
@@ -115,13 +115,13 @@ func Delete(ctx context.Context, gatewayClient *gclient.Client, credentialID str
 }
 
 // Resolve validates a Git credential for a source URL and returns its stored token.
-func Resolve(ctx context.Context, storageClient client.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL string) (string, error) {
+func Resolve(ctx context.Context, storageClient kclient.Client, gatewayClient *gclient.Client, namespace, credentialID, sourceURL string) (string, error) {
 	if credentialID == "" {
 		return "", nil
 	}
 
 	var credential v1.GitCredential
-	if err := storageClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: credentialID}, &credential); err != nil {
+	if err := storageClient.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: credentialID}, &credential); err != nil {
 		if apierrors.IsNotFound(err) {
 			return "", fmt.Errorf("git credential %q does not exist", credentialID)
 		}
@@ -145,10 +145,10 @@ func Resolve(ctx context.Context, storageClient client.Client, gatewayClient *gc
 }
 
 // References lists resources in the namespace that use the identified Git credential.
-func References(ctx context.Context, storageClient client.Client, namespace, credentialID string) (v1.GitCredentialReferences, error) {
+func References(ctx context.Context, storageClient kclient.Client, namespace, credentialID string) (v1.GitCredentialReferences, error) {
 	var references v1.GitCredentialReferences
 	var repositories v1.SkillRepositoryList
-	if err := storageClient.List(ctx, &repositories, client.InNamespace(namespace)); err != nil {
+	if err := storageClient.List(ctx, &repositories, kclient.InNamespace(namespace)); err != nil {
 		return references, fmt.Errorf("failed to list skill repositories: %w", err)
 	}
 	for _, repository := range repositories.Items {
@@ -161,7 +161,7 @@ func References(ctx context.Context, storageClient client.Client, namespace, cre
 	}
 
 	var catalogs v1.MCPCatalogList
-	if err := storageClient.List(ctx, &catalogs, client.InNamespace(namespace)); err != nil {
+	if err := storageClient.List(ctx, &catalogs, kclient.InNamespace(namespace)); err != nil {
 		return references, fmt.Errorf("failed to list MCP catalogs: %w", err)
 	}
 	for _, catalog := range catalogs.Items {
@@ -176,7 +176,7 @@ func References(ctx context.Context, storageClient client.Client, namespace, cre
 	}
 
 	var systemCatalogs v1.SystemMCPCatalogList
-	if err := storageClient.List(ctx, &systemCatalogs, client.InNamespace(namespace)); err != nil {
+	if err := storageClient.List(ctx, &systemCatalogs, kclient.InNamespace(namespace)); err != nil {
 		return references, fmt.Errorf("failed to list system MCP catalogs: %w", err)
 	}
 	for _, catalog := range systemCatalogs.Items {

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -120,7 +120,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 	}()
 
-	toAdd := make([]client.Object, 0)
+	toAdd := make([]kclient.Object, 0)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
@@ -206,17 +206,17 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	}
 }
 
-func filterConflictingCatalogEntries(ctx context.Context, c client.Client, namespace string, objs []client.Object) ([]client.Object, map[string]string, error) {
-	result := make([]client.Object, 0, len(objs))
+func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, namespace string, objs []kclient.Object) ([]kclient.Object, map[string]string, error) {
+	result := make([]kclient.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
 	var existingEntries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &existingEntries, client.InNamespace(namespace)); err != nil {
+	if err := c.List(ctx, &existingEntries, kclient.InNamespace(namespace)); err != nil {
 		return nil, nil, err
 	}
-	existingByName := make(map[client.ObjectKey]v1.MCPServerCatalogEntry, len(existingEntries.Items))
+	existingByName := make(map[kclient.ObjectKey]v1.MCPServerCatalogEntry, len(existingEntries.Items))
 	for i := range existingEntries.Items {
 		entry := &existingEntries.Items[i]
-		existingByName[client.ObjectKeyFromObject(entry)] = *entry
+		existingByName[kclient.ObjectKeyFromObject(entry)] = *entry
 	}
 
 	for _, obj := range objs {
@@ -226,7 +226,7 @@ func filterConflictingCatalogEntries(ctx context.Context, c client.Client, names
 			continue
 		}
 
-		key := client.ObjectKeyFromObject(entry)
+		key := kclient.ObjectKeyFromObject(entry)
 		existing, found := existingByName[key]
 		if !found {
 			if err := c.Get(ctx, key, &existing); err == nil {
@@ -253,7 +253,7 @@ func filterConflictingCatalogEntries(ctx context.Context, c client.Client, names
 	return result, errsBySourceURL, nil
 }
 
-func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, desired []client.Object) error {
+func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
 		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
@@ -266,7 +266,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	}
 
 	var entries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &entries, client.InNamespace(catalog.Namespace), client.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
+	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list catalog entries: %w", err)
 	}
 
@@ -296,7 +296,7 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	}
 
 	var servers v1.MCPServerList
-	if err := c.List(ctx, &servers, client.InNamespace(catalog.Namespace)); err != nil {
+	if err := c.List(ctx, &servers, kclient.InNamespace(catalog.Namespace)); err != nil {
 		return fmt.Errorf("failed to list servers for removed catalog entries: %w", err)
 	}
 	referencedNames := make([]string, 0, len(missingNames))
@@ -326,10 +326,10 @@ func reconcileRemovedEntries(ctx context.Context, c client.Client, catalog *v1.M
 	return nil
 }
 
-func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCatalog, entryName string) error {
+func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, entryName string) error {
 	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		var entry v1.MCPServerCatalogEntry
-		if err := c.Get(ctx, client.ObjectKey{Namespace: catalog.Namespace, Name: entryName}, &entry); err != nil {
+		if err := c.Get(ctx, kclient.ObjectKey{Namespace: catalog.Namespace, Name: entryName}, &entry); err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil
 			}
@@ -359,7 +359,7 @@ func detachCatalogEntry(ctx context.Context, c client.Client, catalog *v1.MCPCat
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
 // catalog entry names and snapshots the target manifests. Entries with invalid
 // portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Client, namespace, catalogName string, objs []client.Object, options ...mcp.ValidationOptions) ([]client.Object, map[string]string) {
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
@@ -377,7 +377,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 		}
 	}
 
-	result := make([]client.Object, 0, len(objs))
+	result := make([]kclient.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
 	for _, obj := range objs {
 		entry, ok := obj.(*v1.MCPServerCatalogEntry)
@@ -392,7 +392,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
 			if component.MCPServerID != "" {
 				var server v1.MCPServer
-				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
+				if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
 					errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
 					continue
 				}
@@ -423,7 +423,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c client.Clien
 			}
 			if target == nil && c != nil {
 				var storedEntry v1.MCPServerCatalogEntry
-				if err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
+				if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
 					errs = append(errs, fmt.Errorf("failed to get component catalog entry %q: %w", component.CatalogEntryID, err))
 					continue
 				} else if err == nil {
@@ -532,7 +532,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		}
 	}()
 
-	toAdd := make([]client.Object, 0)
+	toAdd := make([]kclient.Object, 0)
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
@@ -587,13 +587,13 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, systemCatalog, toAdd...)
 }
 
-func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]client.Object, error) {
+func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
 	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
 		return nil, err
 	}
 
-	systemObjs := make([]client.Object, 0, len(entries))
+	systemObjs := make([]kclient.Object, 0, len(entries))
 	var errs []error
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
@@ -630,7 +630,7 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	return systemObjs, errors.Join(errs...)
 }
 
-func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]client.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
@@ -640,7 +640,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		return nil, err
 	}
 
-	objs := make([]client.Object, 0, len(entries))
+	objs := make([]kclient.Object, 0, len(entries))
 	var errs []error
 	uniqueEntryKeys := make(map[string]struct{})
 	for _, entry := range entries {
@@ -785,7 +785,7 @@ func readCatalogDirectory[T any](catalog string) ([]T, error) {
 	return entries, nil
 }
 
-func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) error {
+func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c kclient.Client) error {
 	var existing v1.MCPCatalog
 	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
 		// TODO: Remove this migration logic once we've migrated all Obot deployments to the new catalog path.
@@ -827,7 +827,7 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c client.Client) e
 	return nil
 }
 
-func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c client.Client) error {
+func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c kclient.Client) error {
 	var existing v1.SystemMCPCatalog
 	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); !apierrors.IsNotFound(err) {
 		return err
@@ -860,7 +860,7 @@ func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c client.Cli
 // It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
 func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
-	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
 	}); err != nil {
@@ -868,7 +868,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 	}
 
 	var mcpCatalogEntries v1.MCPServerCatalogEntryList
-	if err := req.List(&mcpCatalogEntries, &client.ListOptions{
+	if err := req.List(&mcpCatalogEntries, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogName", req.Object.GetName()),
 	}); err != nil {
@@ -878,7 +878,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 	usersCache := map[string]*userInfo{}
 	for _, entry := range mcpCatalogEntries.Items {
 		var mcpServers v1.MCPServerList
-		err := req.List(&mcpServers, &client.ListOptions{
+		err := req.List(&mcpServers, &kclient.ListOptions{
 			Namespace:     req.Object.GetNamespace(),
 			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
 		})
@@ -924,7 +924,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 // It does not delete MCPServerInstances, since those have a delete ref to their MCPServer, and will be deleted automatically.
 func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
-	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	}); err != nil {
@@ -932,7 +932,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 	}
 
 	var mcpCatalogEntries v1.MCPServerCatalogEntryList
-	if err := req.List(&mcpCatalogEntries, &client.ListOptions{
+	if err := req.List(&mcpCatalogEntries, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	}); err != nil {
@@ -942,7 +942,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 	usersCache := map[string]*userInfo{}
 	for _, entry := range mcpCatalogEntries.Items {
 		var mcpServers v1.MCPServerList
-		err := req.List(&mcpServers, &client.ListOptions{
+		err := req.List(&mcpServers, &kclient.ListOptions{
 			Namespace:     req.Object.GetNamespace(),
 			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name),
 		})
@@ -1000,7 +1000,7 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 // This can happen whenever AccessControlRules change.
 func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
-	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
 	}); err != nil {
@@ -1008,7 +1008,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 	}
 
 	var mcpServers v1.MCPServerList
-	err := req.List(&mcpServers, &client.ListOptions{
+	err := req.List(&mcpServers, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.mcpCatalogID", req.Object.GetName()),
 	})
@@ -1019,7 +1019,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 	userCache := map[string]*userInfo{}
 	for _, server := range mcpServers.Items {
 		var mcpServerInstances v1.MCPServerInstanceList
-		err = req.List(&mcpServerInstances, &client.ListOptions{
+		err = req.List(&mcpServerInstances, &kclient.ListOptions{
 			Namespace:     req.Object.GetNamespace(),
 			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
 		})
@@ -1065,7 +1065,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 // This can happen whenever AccessControlRules change.
 func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Request, _ router.Response) error {
 	// List AccessControlRules so that this handler gets triggered any time one of them changes.
-	if err := req.List(&v1.AccessControlRuleList{}, &client.ListOptions{
+	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	}); err != nil {
@@ -1073,7 +1073,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 	}
 
 	var mcpServers v1.MCPServerList
-	err := req.List(&mcpServers, &client.ListOptions{
+	err := req.List(&mcpServers, &kclient.ListOptions{
 		Namespace:     req.Object.GetNamespace(),
 		FieldSelector: fields.OneTermEqualSelector("spec.powerUserWorkspaceID", req.Object.GetName()),
 	})
@@ -1084,7 +1084,7 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 	userCache := map[string]*userInfo{}
 	for _, server := range mcpServers.Items {
 		var mcpServerInstances v1.MCPServerInstanceList
-		err = req.List(&mcpServerInstances, &client.ListOptions{
+		err = req.List(&mcpServerInstances, &kclient.ListOptions{
 			Namespace:     req.Object.GetNamespace(),
 			FieldSelector: fields.OneTermEqualSelector("spec.mcpServerName", server.Name),
 		})

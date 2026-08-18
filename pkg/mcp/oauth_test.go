@@ -283,10 +283,29 @@ func TestTokenEndpointAuthStyle(t *testing.T) {
 		hasClientSecret bool
 		want            oauth2.AuthStyle
 	}{
-		{name: "no client secret", method: "client_secret_basic", want: oauth2.AuthStyleInParams},
-		{name: "basic", method: "client_secret_basic", hasClientSecret: true, want: oauth2.AuthStyleInHeader},
-		{name: "post", method: "client_secret_post", hasClientSecret: true, want: oauth2.AuthStyleInParams},
-		{name: "unknown", method: "", hasClientSecret: true, want: oauth2.AuthStyleAutoDetect},
+		{
+			name:   "no client secret",
+			method: "client_secret_basic",
+			want:   oauth2.AuthStyleInParams,
+		},
+		{
+			name:            "basic",
+			method:          "client_secret_basic",
+			hasClientSecret: true,
+			want:            oauth2.AuthStyleInHeader,
+		},
+		{
+			name:            "post",
+			method:          "client_secret_post",
+			hasClientSecret: true,
+			want:            oauth2.AuthStyleInParams,
+		},
+		{
+			name:            "unknown",
+			method:          "",
+			hasClientSecret: true,
+			want:            oauth2.AuthStyleAutoDetect,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -300,8 +319,14 @@ func TestParseProtectedResourceMetadataResourceForms(t *testing.T) {
 		name string
 		json string
 	}{
-		{name: "string", json: `{"resource":"https://example.com/mcp"}`},
-		{name: "singleton array", json: `{"resource":["https://example.com/mcp"]}`},
+		{
+			name: "string",
+			json: `{"resource":"https://example.com/mcp"}`,
+		},
+		{
+			name: "singleton array",
+			json: `{"resource":["https://example.com/mcp"]}`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			metadata, err := parseProtectedResourceMetadata(strings.NewReader(tt.json))
@@ -324,16 +349,46 @@ func TestParseProtectedResourceMetadataRejectsInvalidResourceShapes(t *testing.T
 		name     string
 		resource string
 	}{
-		{name: "empty string", resource: `""`},
-		{name: "empty array", resource: `[]`},
-		{name: "multiple resources", resource: `["https://example.com/one","https://example.com/two"]`},
-		{name: "empty array resource", resource: `[""]`},
-		{name: "number", resource: `42`},
-		{name: "boolean", resource: `true`},
-		{name: "null", resource: `null`},
-		{name: "object", resource: `{}`},
-		{name: "non-string array element", resource: `[42]`},
-		{name: "null array element", resource: `[null]`},
+		{
+			name:     "empty string",
+			resource: `""`,
+		},
+		{
+			name:     "empty array",
+			resource: `[]`,
+		},
+		{
+			name:     "multiple resources",
+			resource: `["https://example.com/one","https://example.com/two"]`,
+		},
+		{
+			name:     "empty array resource",
+			resource: `[""]`,
+		},
+		{
+			name:     "number",
+			resource: `42`,
+		},
+		{
+			name:     "boolean",
+			resource: `true`,
+		},
+		{
+			name:     "null",
+			resource: `null`,
+		},
+		{
+			name:     "object",
+			resource: `{}`,
+		},
+		{
+			name:     "non-string array element",
+			resource: `[42]`,
+		},
+		{
+			name:     "null array element",
+			resource: `[null]`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			_, err := parseProtectedResourceMetadata(strings.NewReader(`{"resource":` + tt.resource + `}`))
@@ -397,9 +452,20 @@ func TestAuthServerMetadataToClientRegistrationFiltersGrantTypes(t *testing.T) {
 		supported []string
 		want      []string
 	}{
-		{name: "keeps only authorization code and refresh token", supported: []string{"client_credentials", "refresh_token", "authorization_code", "implicit"}, want: []string{"authorization_code", "refresh_token"}},
-		{name: "omits unsupported grant types", supported: []string{"client_credentials", "implicit"}},
-		{name: "keeps refresh token when advertised", supported: []string{"refresh_token"}, want: []string{"refresh_token"}},
+		{
+			name:      "keeps only authorization code and refresh token",
+			supported: []string{"client_credentials", "refresh_token", "authorization_code", "implicit"},
+			want:      []string{"authorization_code", "refresh_token"},
+		},
+		{
+			name:      "omits unsupported grant types",
+			supported: []string{"client_credentials", "implicit"},
+		},
+		{
+			name:      "keeps refresh token when advertised",
+			supported: []string{"refresh_token"},
+			want:      []string{"refresh_token"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

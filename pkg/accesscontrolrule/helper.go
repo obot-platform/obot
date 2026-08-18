@@ -9,15 +9,15 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Helper struct {
 	acrIndexer gocache.Indexer
-	client     client.Client
+	client     kclient.Client
 }
 
-func NewAccessControlRuleHelper(acrIndexer gocache.Indexer, client client.Client) *Helper {
+func NewAccessControlRuleHelper(acrIndexer gocache.Indexer, client kclient.Client) *Helper {
 	return &Helper{
 		acrIndexer: acrIndexer,
 		client:     client,
@@ -523,7 +523,7 @@ func (h *Helper) UserHasAccessToMCPServerCatalogEntryInWorkspace(ctx context.Con
 	// If the workspace is owned by the current user, they have access to all entries in the workspace
 	if workspaceID != "" {
 		var workspace v1.PowerUserWorkspace
-		if err := h.client.Get(ctx, client.ObjectKey{Namespace: system.DefaultNamespace, Name: workspaceID}, &workspace); err != nil {
+		if err := h.client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: workspaceID}, &workspace); err != nil {
 			return false, err
 		}
 		if workspace.Spec.UserID == userID {

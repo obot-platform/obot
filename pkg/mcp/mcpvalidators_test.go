@@ -647,33 +647,133 @@ func TestRemoteValidator_validateRemoteCatalogConfig_HostnameRegexEdgeCases(t *t
 		expectError bool
 	}{
 		// Valid cases that might be edge cases for regex
-		{"valid single letter domain", "a.b", false},
-		{"valid numbers only", "123.456", false},
-		{"valid mixed alphanumeric", "a1b2.c3d4", false},
-		{"valid long hostname", "very-long-subdomain-name.very-long-domain-name.com", false},
-		{"valid wildcard with single char", "*.a", false},
-		{"valid deep subdomain", "a.b.c.d.e.f.g.h", false},
+		{
+			name:        "valid single letter domain",
+			hostname:    "a.b",
+			expectError: false,
+		},
+		{
+			name:        "valid numbers only",
+			hostname:    "123.456",
+			expectError: false,
+		},
+		{
+			name:        "valid mixed alphanumeric",
+			hostname:    "a1b2.c3d4",
+			expectError: false,
+		},
+		{
+			name:        "valid long hostname",
+			hostname:    "very-long-subdomain-name.very-long-domain-name.com",
+			expectError: false,
+		},
+		{
+			name:        "valid wildcard with single char",
+			hostname:    "*.a",
+			expectError: false,
+		},
+		{
+			name:        "valid deep subdomain",
+			hostname:    "a.b.c.d.e.f.g.h",
+			expectError: false,
+		},
 
 		// Invalid cases for regex
-		{"empty string", "", true},
-		{"just wildcard", "*", true},
-		{"just dot", ".", true},
-		{"starts with dot", ".example.com", true},
-		{"ends with dot", "example.com.", true},
-		{"consecutive dots", "example..com", true},
-		{"wildcard not at start", "sub.*.example.com", true},
-		{"multiple wildcards", "*.*.example.com", true},
-		{"wildcard without dot", "*example.com", true},
-		{"contains slash", "example.com/path", true},
-		{"contains colon", "example.com:8080", true},
-		{"contains question mark", "example.com?query", true},
-		{"contains hash", "example.com#fragment", true},
-		{"contains at sign", "user@example.com", true},
-		{"contains space", "example .com", true},
-		{"contains tab", "example\t.com", true},
-		{"contains newline", "example\n.com", true},
-		{"unicode characters", "exämple.com", true},
-		{"chinese characters", "例え.com", true},
+		{
+			name:        "empty string",
+			hostname:    "",
+			expectError: true,
+		},
+		{
+			name:        "just wildcard",
+			hostname:    "*",
+			expectError: true,
+		},
+		{
+			name:        "just dot",
+			hostname:    ".",
+			expectError: true,
+		},
+		{
+			name:        "starts with dot",
+			hostname:    ".example.com",
+			expectError: true,
+		},
+		{
+			name:        "ends with dot",
+			hostname:    "example.com.",
+			expectError: true,
+		},
+		{
+			name:        "consecutive dots",
+			hostname:    "example..com",
+			expectError: true,
+		},
+		{
+			name:        "wildcard not at start",
+			hostname:    "sub.*.example.com",
+			expectError: true,
+		},
+		{
+			name:        "multiple wildcards",
+			hostname:    "*.*.example.com",
+			expectError: true,
+		},
+		{
+			name:        "wildcard without dot",
+			hostname:    "*example.com",
+			expectError: true,
+		},
+		{
+			name:        "contains slash",
+			hostname:    "example.com/path",
+			expectError: true,
+		},
+		{
+			name:        "contains colon",
+			hostname:    "example.com:8080",
+			expectError: true,
+		},
+		{
+			name:        "contains question mark",
+			hostname:    "example.com?query",
+			expectError: true,
+		},
+		{
+			name:        "contains hash",
+			hostname:    "example.com#fragment",
+			expectError: true,
+		},
+		{
+			name:        "contains at sign",
+			hostname:    "user@example.com",
+			expectError: true,
+		},
+		{
+			name:        "contains space",
+			hostname:    "example .com",
+			expectError: true,
+		},
+		{
+			name:        "contains tab",
+			hostname:    "example\t.com",
+			expectError: true,
+		},
+		{
+			name:        "contains newline",
+			hostname:    "example\n.com",
+			expectError: true,
+		},
+		{
+			name:        "unicode characters",
+			hostname:    "exämple.com",
+			expectError: true,
+		},
+		{
+			name:        "chinese characters",
+			hostname:    "例え.com",
+			expectError: true,
+		},
 	}
 
 	for _, tt := range regexTests {
@@ -1028,9 +1128,18 @@ func TestValidateRemoteManifestURLWithOptions(t *testing.T) {
 				name string
 				fn   func(context.Context, string, string, ValidationOptions) error
 			}{
-				{name: "server", fn: validateServerManifest},
-				{name: "catalog entry", fn: validateCatalogEntryManifest},
-				{name: "system server", fn: validateSystemManifest},
+				{
+					name: "server",
+					fn:   validateServerManifest,
+				},
+				{
+					name: "catalog entry",
+					fn:   validateCatalogEntryManifest,
+				},
+				{
+					name: "system server",
+					fn:   validateSystemManifest,
+				},
 			} {
 				t.Run(validator.name, func(t *testing.T) {
 					err := validator.fn(t.Context(), tt.rawURL, tt.tunnelName, tt.options)

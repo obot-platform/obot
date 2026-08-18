@@ -19,7 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Context struct {
@@ -33,7 +33,7 @@ type Context struct {
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
 	// secretBindings live. Nil on the docker backend
-	LocalK8sClient client.Client
+	LocalK8sClient kclient.Client
 
 	// ObotNamespace is the Kubernetes namespace in which the obot server
 	// runs; mcp.MergeBoundCreds reads source Secrets from here. Empty
@@ -163,16 +163,16 @@ func (r *Context) Flush() {
 	}
 }
 
-func (r *Context) List(obj client.ObjectList, opts ...client.ListOption) error {
+func (r *Context) List(obj kclient.ObjectList, opts ...kclient.ListOption) error {
 	namespace := r.Namespace()
-	return r.Storage.List(r.Context(), obj, slices.Concat([]client.ListOption{
-		&client.ListOptions{
+	return r.Storage.List(r.Context(), obj, slices.Concat([]kclient.ListOption{
+		&kclient.ListOptions{
 			Namespace: namespace,
 		},
 	}, opts)...)
 }
 
-func (r *Context) Delete(obj client.Object) error {
+func (r *Context) Delete(obj kclient.Object) error {
 	err := r.Storage.Delete(r.Context(), obj)
 	if apierrors.IsNotFound(err) {
 		return nil
@@ -180,16 +180,16 @@ func (r *Context) Delete(obj client.Object) error {
 	return err
 }
 
-func (r *Context) Get(obj client.Object, name string) error {
+func (r *Context) Get(obj kclient.Object, name string) error {
 	namespace := r.Namespace()
-	return r.Storage.Get(r.Context(), client.ObjectKey{Namespace: namespace, Name: name}, obj)
+	return r.Storage.Get(r.Context(), kclient.ObjectKey{Namespace: namespace, Name: name}, obj)
 }
 
-func (r *Context) Create(obj client.Object) error {
+func (r *Context) Create(obj kclient.Object) error {
 	return r.Storage.Create(r.Context(), obj)
 }
 
-func (r *Context) Update(obj client.Object) error {
+func (r *Context) Update(obj kclient.Object) error {
 	return r.Storage.Update(r.Context(), obj)
 }
 

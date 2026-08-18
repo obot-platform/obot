@@ -7,10 +7,6 @@ import (
 )
 
 const (
-	SystemThreadPrefix            = "st1"
-	ThreadPrefix                  = "t1"
-	ThreadAuthorizationPrefix     = "ta1"
-	RunPrefix                     = "r1"
 	ModelPrefix                   = "m1"
 	AliasPrefix                   = "al1"
 	DefaultModelAliasPrefix       = "dma1"

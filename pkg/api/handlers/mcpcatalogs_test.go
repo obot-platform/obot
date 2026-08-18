@@ -19,7 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -125,7 +125,7 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := &fakeCapacityInfoProvider{info: tt.providerInfo, err: tt.providerErr}
-			objects := []client.Object{
+			objects := []kclient.Object{
 				&v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}},
 				&v1.MCPServerCatalogEntry{
 					ObjectMeta: metav1.ObjectMeta{Name: "entry-1", Namespace: system.DefaultNamespace},
@@ -570,7 +570,7 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 	assert.Equal(t, "@example/component", component.Manifest.NPXConfig.Package)
 }
 
-func newPopulateComponentManifestsRequest(objects ...client.Object) api.Context {
+func newPopulateComponentManifestsRequest(objects ...kclient.Object) api.Context {
 	return api.Context{
 		Request:        httptest.NewRequest(http.MethodGet, "/", nil),
 		ResponseWriter: httptest.NewRecorder(),

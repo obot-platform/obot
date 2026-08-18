@@ -9,7 +9,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -39,7 +39,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	}
 
 	var exports v1.AuditLogExportList
-	if err := c.List(t.Context(), &exports, client.InNamespace("default")); err != nil {
+	if err := c.List(t.Context(), &exports, kclient.InNamespace("default")); err != nil {
 		t.Fatal(err)
 	}
 	if len(exports.Items) != 1 {

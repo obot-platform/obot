@@ -418,7 +418,7 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 		// Once we see the first tool_call chunk, buffer everything remaining
 		// so we can evaluate policies before deciding what to send.
 		if seenToolCalls {
-			buffered = append(buffered, append([]byte(nil), line...))
+			buffered = append(buffered, slices.Clone(line))
 
 			rest, isData := bytes.CutPrefix(line, []byte("data: "))
 			if isData {
@@ -451,13 +451,13 @@ func (r *responseModifier) streamAndEvaluateToolCallsSSE(ctx context.Context, pw
 			// Anthropic-format tool calls (content_block_start with type "tool_use").
 			seenToolCalls = true
 			anthropicBlockToTool = make(map[int]int)
-			buffered = append(buffered, append([]byte(nil), line...))
+			buffered = append(buffered, slices.Clone(line))
 			accumulateAnthropicToolCallInfo(rest, &toolCalls, anthropicBlockToTool)
 		} else if isResponsesAPIToolCallEvent(rest) {
 			// OpenAI Responses API tool calls (response.output_item.added with function_call).
 			seenToolCalls = true
 			responsesItemToTool = make(map[int]int)
-			buffered = append(buffered, append([]byte(nil), line...))
+			buffered = append(buffered, slices.Clone(line))
 			accumulateResponsesAPIToolCallInfo(rest, &toolCalls, responsesItemToTool)
 		} else {
 			_, _ = pw.Write(line)

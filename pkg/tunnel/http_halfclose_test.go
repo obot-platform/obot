@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"testing"
 	"time"
 )
@@ -267,7 +268,7 @@ func TestTunnelChunkedRequestEOFAllowsStreamingResponse(t *testing.T) {
 			body:             body,
 			err:              err,
 			contentLength:    r.ContentLength,
-			transferEncoding: append([]string(nil), r.TransferEncoding...),
+			transferEncoding: slices.Clone(r.TransferEncoding),
 		}
 
 		w.Header().Set("Content-Type", "text/event-stream")

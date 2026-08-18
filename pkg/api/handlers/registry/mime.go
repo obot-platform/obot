@@ -57,7 +57,7 @@ func (m *mimeFetcher) fetchAndDetectMimeType(ctx context.Context, url string) st
 	defer cancel()
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return ""
 	}

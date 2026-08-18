@@ -14,7 +14,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const syncInterval = time.Hour
@@ -110,7 +110,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return nil
 }
 
-func upsertSkills(ctx context.Context, c client.Client, namespace, repoID string, skills []*v1.Skill) error {
+func upsertSkills(ctx context.Context, c kclient.Client, namespace, repoID string, skills []*v1.Skill) error {
 	existingSkills, err := listSkillsForRepo(ctx, c, namespace, repoID)
 	if err != nil {
 		return err
@@ -153,9 +153,9 @@ func upsertSkills(ctx context.Context, c client.Client, namespace, repoID string
 	return nil
 }
 
-func listSkillsForRepo(ctx context.Context, c client.Client, namespace, repoID string) (map[string]*v1.Skill, error) {
+func listSkillsForRepo(ctx context.Context, c kclient.Client, namespace, repoID string) (map[string]*v1.Skill, error) {
 	var list v1.SkillList
-	if err := c.List(ctx, &list, client.InNamespace(namespace), client.MatchingFields{"spec.repoID": repoID}); err != nil {
+	if err := c.List(ctx, &list, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.repoID": repoID}); err != nil {
 		return nil, fmt.Errorf("failed to list indexed skills: %w", err)
 	}
 
@@ -166,7 +166,7 @@ func listSkillsForRepo(ctx context.Context, c client.Client, namespace, repoID s
 	return result, nil
 }
 
-func (h *Handler) recordFailure(ctx context.Context, c client.Client, namespace, name string, syncErr error) error {
+func (h *Handler) recordFailure(ctx context.Context, c kclient.Client, namespace, name string, syncErr error) error {
 	var repo v1.SkillRepository
 	if err := c.Get(ctx, router.Key(namespace, name), &repo); err != nil {
 		return fmt.Errorf("failed to reload skill repository: %w", err)
@@ -177,7 +177,7 @@ func (h *Handler) recordFailure(ctx context.Context, c client.Client, namespace,
 	return c.Status().Update(ctx, &repo)
 }
 
-func (h *Handler) recordSuccess(ctx context.Context, c client.Client, namespace, name, commitSHA string, skillCount int) error {
+func (h *Handler) recordSuccess(ctx context.Context, c kclient.Client, namespace, name, commitSHA string, skillCount int) error {
 	var repo v1.SkillRepository
 	if err := c.Get(ctx, router.Key(namespace, name), &repo); err != nil {
 		return fmt.Errorf("failed to reload skill repository: %w", err)
@@ -190,7 +190,7 @@ func (h *Handler) recordSuccess(ctx context.Context, c client.Client, namespace,
 	return c.Status().Update(ctx, &repo)
 }
 
-func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace, name string) {
+func (h *Handler) clearIsSyncing(ctx context.Context, c kclient.Client, namespace, name string) {
 	var repo v1.SkillRepository
 	if err := c.Get(ctx, router.Key(namespace, name), &repo); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -209,7 +209,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 	}
 }
 
-func clearSyncAnnotation(ctx context.Context, c client.Client, namespace, name string) error {
+func clearSyncAnnotation(ctx context.Context, c kclient.Client, namespace, name string) error {
 	var repo v1.SkillRepository
 	if err := c.Get(ctx, router.Key(namespace, name), &repo); err != nil {
 		return fmt.Errorf("failed to reload skill repository for annotation cleanup: %w", err)

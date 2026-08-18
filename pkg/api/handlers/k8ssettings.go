@@ -15,7 +15,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/util/retry"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -26,7 +26,7 @@ type K8sSettingsHandler struct {
 	mcpRuntimeBackend string
 	serviceName       string
 	serviceNamespace  string
-	localK8sClient    client.Client
+	localK8sClient    kclient.Client
 }
 
 func NewK8sSettingsHandler(
@@ -34,7 +34,7 @@ func NewK8sSettingsHandler(
 	mcpRuntimeBackend string,
 	serviceName string,
 	serviceNamespace string,
-	localK8sClient client.Client,
+	localK8sClient kclient.Client,
 ) *K8sSettingsHandler {
 	return &K8sSettingsHandler{
 		mcpSessionManager: mcpSessionManager,
@@ -64,7 +64,7 @@ func (h *K8sSettingsHandler) GetApp(req api.Context) error {
 	return req.Write(settings)
 }
 
-func appK8sSettingsFromDeployment(ctx context.Context, k8sClient client.Client, namespace, deploymentName, containerName string) (types.AppK8sSettings, error) {
+func appK8sSettingsFromDeployment(ctx context.Context, k8sClient kclient.Client, namespace, deploymentName, containerName string) (types.AppK8sSettings, error) {
 	if k8sClient == nil || namespace == "" || deploymentName == "" {
 		return types.AppK8sSettings{}, nil
 	}
@@ -73,7 +73,7 @@ func appK8sSettingsFromDeployment(ctx context.Context, k8sClient client.Client, 
 	}
 
 	var deployment appsv1.Deployment
-	if err := k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, &deployment); err != nil {
+	if err := k8sClient.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: deploymentName}, &deployment); err != nil {
 		if apierrors.IsNotFound(err) || apierrors.IsForbidden(err) {
 			return types.AppK8sSettings{}, err
 		}
@@ -110,7 +110,7 @@ func appK8sSettingsFromDeployment(ctx context.Context, k8sClient client.Client, 
 
 func (h *K8sSettingsHandler) Get(req api.Context) error {
 	var settings v1.K8sSettings
-	if err := req.Storage.Get(req.Context(), client.ObjectKey{
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 		Namespace: req.Namespace(),
 		Name:      system.K8sSettingsName,
 	}, &settings); err != nil {
@@ -127,7 +127,7 @@ func (h *K8sSettingsHandler) Get(req api.Context) error {
 
 func (h *K8sSettingsHandler) Defaults(req api.Context) error {
 	var settings v1.K8sSettings
-	if err := req.Storage.Get(req.Context(), client.ObjectKey{
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 		Namespace: req.Namespace(),
 		Name:      system.K8sSettingsName,
 	}, &settings); err != nil && !apierrors.IsNotFound(err) {
@@ -210,7 +210,7 @@ func (h *K8sSettingsHandler) Update(req api.Context) error {
 	// object concurrently, or when two admins save settings at the same time.
 	var settings v1.K8sSettings
 	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-		if err := req.Storage.Get(req.Context(), client.ObjectKey{
+		if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
 			Namespace: req.Namespace(),
 			Name:      system.K8sSettingsName,
 		}, &settings); err != nil {

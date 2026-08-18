@@ -26,7 +26,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
@@ -208,11 +208,11 @@ func (h *MCPCatalogHandler) ListEntries(req api.Context) error {
 		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
 
-	var fieldSelector client.MatchingFields
+	var fieldSelector kclient.MatchingFields
 	if catalogName != "" {
-		fieldSelector = client.MatchingFields{"spec.mcpCatalogName": catalogName}
+		fieldSelector = kclient.MatchingFields{"spec.mcpCatalogName": catalogName}
 	} else if workspaceID != "" {
-		fieldSelector = client.MatchingFields{"spec.powerUserWorkspaceID": workspaceID}
+		fieldSelector = kclient.MatchingFields{"spec.powerUserWorkspaceID": workspaceID}
 	} else {
 		return types.NewErrBadRequest("either catalog_id or workspace_id is required")
 	}
@@ -536,7 +536,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 	}
 
 	var list v1.MCPServerList
-	if err := req.List(&list, client.MatchingFields{
+	if err := req.List(&list, kclient.MatchingFields{
 		"spec.mcpServerCatalogEntryName": entryName,
 	}); err != nil {
 		return fmt.Errorf("failed to list servers: %w", err)
@@ -608,7 +608,7 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 	}
 
 	var list v1.MCPServerList
-	if err := req.List(&list, client.MatchingFields{
+	if err := req.List(&list, kclient.MatchingFields{
 		"spec.mcpServerCatalogEntryName": entryName,
 	}); err != nil {
 		return fmt.Errorf("failed to list servers: %w", err)
@@ -645,7 +645,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 
 	// Get all entries in the catalog using field selector
 	var entriesList v1.MCPServerCatalogEntryList
-	if err := req.List(&entriesList, client.MatchingFields{
+	if err := req.List(&entriesList, kclient.MatchingFields{
 		"spec.mcpCatalogName": catalogName,
 	}); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
@@ -657,7 +657,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 	var allServers []v1.MCPServer
 	for _, entry := range catalogEntries {
 		var serverList v1.MCPServerList
-		if err := req.List(&serverList, client.MatchingFields{
+		if err := req.List(&serverList, kclient.MatchingFields{
 			"spec.mcpServerCatalogEntryName": entry.Name,
 		}); err != nil {
 			return fmt.Errorf("failed to list servers for entry %s: %w", entry.Name, err)
@@ -748,7 +748,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 	}
 
 	var list v1.MCPServerList
-	if err := req.List(&list, client.MatchingFields{
+	if err := req.List(&list, kclient.MatchingFields{
 		"spec.mcpServerCatalogEntryName": entryName,
 	}); err != nil {
 		return fmt.Errorf("failed to list servers: %w", err)
@@ -1535,7 +1535,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client client.Client, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel, namespace, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client kclient.Client, localK8sClient kclient.Client, obotNamespace, secretBindingAllowedLabel, namespace, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1618,7 +1618,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	return tempMCPServer, serverConfig, nil
 }
 
-func prepareTempServerConfig(ctx context.Context, localK8sClient client.Client, obotNamespace, secretBindingAllowedLabel string, serverManifest *types.MCPServerManifest, config map[string]string, isMultiUser bool, validationOptions mcp.ValidationOptions) (map[string]string, error) {
+func prepareTempServerConfig(ctx context.Context, localK8sClient kclient.Client, obotNamespace, secretBindingAllowedLabel string, serverManifest *types.MCPServerManifest, config map[string]string, isMultiUser bool, validationOptions mcp.ValidationOptions) (map[string]string, error) {
 	if err := validateConfiguredOptions(serverManifest.Env, serverManifest.RemoteConfig, config); err != nil {
 		return nil, types.NewErrBadRequest("invalid configuration: %v", err)
 	}
@@ -1643,7 +1643,7 @@ func (h *MCPCatalogHandler) ListCategoriesForCatalog(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
 
 	var list v1.MCPServerCatalogEntryList
-	if err := req.List(&list, client.MatchingFields{
+	if err := req.List(&list, kclient.MatchingFields{
 		"spec.mcpCatalogName": catalogName,
 	}); err != nil {
 		return fmt.Errorf("failed to list entries: %w", err)
@@ -2033,7 +2033,7 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 
 	// Best-effort cleanup of per-user OAuth tokens associated with this catalog entry.
 	var mcpServers v1.MCPServerList
-	if err := req.List(&mcpServers, client.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
+	if err := req.List(&mcpServers, kclient.MatchingFields{"spec.mcpServerCatalogEntryName": entry.Name}); err != nil {
 		slog.Warn("failed to list MCP servers for token cleanup of catalog entry", "catalogEntryName", entry.Name, "error", err)
 	} else {
 		for _, server := range mcpServers.Items {

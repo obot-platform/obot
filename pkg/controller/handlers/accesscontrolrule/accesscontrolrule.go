@@ -8,7 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 type Handler struct {
@@ -55,7 +55,7 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 					newResources = append(newResources, resource)
 				}
 				// If entry belongs to different catalog or workspace, remove it from the rule
-			} else if !errors.IsNotFound(err) {
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServerCatalogEntry %s: %w", resource.ID, err)
 			}
 			// If entry not found, remove it from the rule
@@ -72,7 +72,7 @@ func (h *Handler) PruneDeletedResources(req router.Request, _ router.Response) e
 					newResources = append(newResources, resource)
 				}
 				// If server belongs to different catalog or workspace, remove it from the rule
-			} else if !errors.IsNotFound(err) {
+			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get MCPServer %s: %w", resource.ID, err)
 			}
 			// If server not found, remove it from the rule

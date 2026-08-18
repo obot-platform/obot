@@ -16,7 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	ktypes "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -38,7 +38,7 @@ func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var updated v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &updated))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &updated))
 	assert.False(t, updated.Spec.Editable)
 	assert.Equal(t, entry.Spec.SourceURL, updated.Spec.SourceURL)
 	assert.Equal(t, entry.Spec.Manifest.EntryKey, updated.Spec.Manifest.EntryKey)
@@ -55,8 +55,8 @@ func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	assert.Empty(t, updated.OwnerReferences)
 
 	var existingServer v1.MCPServer
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(server), &existingServer))
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(secondServer), &existingServer))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(server), &existingServer))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(secondServer), &existingServer))
 }
 
 func TestUnreferencedRemovedEntryIsDeleted(t *testing.T) {
@@ -67,7 +67,7 @@ func TestUnreferencedRemovedEntryIsDeleted(t *testing.T) {
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var deleted v1.MCPServerCatalogEntry
-	err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &deleted)
 	require.True(t, apierrors.IsNotFound(err))
 }
 
@@ -91,7 +91,7 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 
 	for _, entry := range []*v1.MCPServerCatalogEntry{managed, other} {
 		var deleted v1.MCPServerCatalogEntry
-		err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+		err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &deleted)
 		require.True(t, apierrors.IsNotFound(err), "entry %q was not deleted", entry.Name)
 	}
 }
@@ -107,7 +107,7 @@ func TestEditableEntryIsPreserved(t *testing.T) {
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var preserved v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &preserved))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
 	assert.Equal(t, entry.Spec, preserved.Spec)
 }
 
@@ -121,7 +121,7 @@ func TestEntryFromRemovedSourceWithoutApplyLabelsIsDeleted(t *testing.T) {
 	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
 
 	var deleted v1.MCPServerCatalogEntry
-	err := c.Get(t.Context(), client.ObjectKeyFromObject(entry), &deleted)
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &deleted)
 	require.True(t, apierrors.IsNotFound(err))
 }
 
@@ -133,10 +133,10 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	desired.Spec.SourceURL = catalog.Spec.SourceURLs[0]
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, []client.Object{desired}))
+	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, []kclient.Object{desired}))
 
 	var existing v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(entry), &existing))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &existing))
 }
 
 func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T) {
@@ -153,7 +153,7 @@ func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T)
 	desired.Spec.Manifest.Name = "Context7"
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []client.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{desired})
 	require.NoError(t, err)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with an Obot-managed entry")
@@ -173,7 +173,7 @@ func TestFilterConflictingCatalogEntriesChecksExactEntryAfterStaleList(t *testin
 	desired.Spec.Manifest.Name = "Context7"
 	c := &staleCatalogEntryListClient{Client: newCatalogFakeClient(existing)}
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []client.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{desired})
 	require.NoError(t, err)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with an Obot-managed entry")
@@ -200,7 +200,7 @@ func TestFilterConflictingCatalogEntriesAllowsDetachedEntryReattachment(t *testi
 	existing.OwnerReferences = nil
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []client.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []kclient.Object{desired})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
@@ -209,7 +209,7 @@ func TestFilterConflictingCatalogEntriesAllowsDetachedEntryReattachment(t *testi
 	require.NoError(t, apply.New(c).WithOwnerSubContext("catalog-"+catalog.Name).WithNoPrune().Apply(t.Context(), catalog, filtered...))
 
 	var reattached v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(existing), &reattached))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(existing), &reattached))
 	assert.False(t, reattached.Spec.Detached)
 	assert.False(t, reattached.Spec.Editable)
 	assert.True(t, reattached.IsGitManaged())
@@ -225,7 +225,7 @@ func TestFilterConflictingCatalogEntriesAllowsGitManagedEntry(t *testing.T) {
 	desired.OwnerReferences = nil
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []client.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []kclient.Object{desired})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
@@ -238,7 +238,7 @@ func TestFilterConflictingCatalogEntriesPreservesDuplicateOrder(t *testing.T) {
 	second.Spec.SourceURL = "second"
 	c := newCatalogFakeClient()
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []client.Object{first, second})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{first, second})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 2)
@@ -262,12 +262,12 @@ func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
 	assert.Equal(t, 1, c.serverListCalls)
 
 	var converted v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(referenced), &converted))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(referenced), &converted))
 	assert.False(t, converted.Spec.Editable)
 	assert.True(t, converted.Spec.Detached)
 
 	var deleted v1.MCPServerCatalogEntry
-	err := c.Get(t.Context(), client.ObjectKeyFromObject(unused), &deleted)
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(unused), &deleted)
 	require.True(t, apierrors.IsNotFound(err))
 }
 
@@ -317,21 +317,21 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 	}
 }
 
-func newCatalogFakeClient(objects ...client.Object) client.Client {
+func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
 	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPCatalog"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServerCatalogEntry"), meta.RESTScopeNamespace)
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
 		WithRESTMapper(restMapper).
-		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(obj client.Object) []string {
+		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(obj kclient.Object) []string {
 			entry := obj.(*v1.MCPServerCatalogEntry)
 			if entry.Spec.MCPCatalogName == "" {
 				return nil
 			}
 			return []string{entry.Spec.MCPCatalogName}
 		}).
-		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj client.Object) []string {
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
 			server := obj.(*v1.MCPServer)
 			if server.Spec.MCPServerCatalogEntryName == "" {
 				return nil
@@ -343,15 +343,15 @@ func newCatalogFakeClient(objects ...client.Object) client.Client {
 }
 
 type serverListCountingClient struct {
-	client.Client
+	kclient.Client
 	serverListCalls int
 }
 
 type staleCatalogEntryListClient struct {
-	client.Client
+	kclient.Client
 }
 
-func (c *staleCatalogEntryListClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+func (c *staleCatalogEntryListClient) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
 	if entries, ok := list.(*v1.MCPServerCatalogEntryList); ok {
 		entries.Items = nil
 		return nil
@@ -359,7 +359,7 @@ func (c *staleCatalogEntryListClient) List(ctx context.Context, list client.Obje
 	return c.Client.List(ctx, list, opts...)
 }
 
-func (c *serverListCountingClient) List(ctx context.Context, list client.ObjectList, opts ...client.ListOption) error {
+func (c *serverListCountingClient) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
 	if _, ok := list.(*v1.MCPServerList); ok {
 		c.serverListCalls++
 	}

@@ -17,10 +17,10 @@ import (
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apiserver/pkg/server/healthz"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Client client.WithWatch
+type Client kclient.WithWatch
 
 func Start(ctx context.Context, config sservices.Config) (Client, *rest.Config, *db.Factory, *sservices.Services, error) {
 	services, err := sservices.New(config)
@@ -97,7 +97,7 @@ func startMinkServer(ctx context.Context, config sservices.Config, services *sse
 
 	httpClient.Transport = otelhttp.NewTransport(httpClient.Transport)
 
-	c, err := client.NewWithWatch(cfg, client.Options{
+	c, err := kclient.NewWithWatch(cfg, kclient.Options{
 		Scheme:     scheme.Scheme,
 		HTTPClient: httpClient,
 	})

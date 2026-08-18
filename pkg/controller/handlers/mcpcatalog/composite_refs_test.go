@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -38,7 +38,7 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
@@ -152,7 +152,7 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
@@ -181,7 +181,7 @@ func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
@@ -213,7 +213,7 @@ func TestResolveCompositeSourceRefsHydratesUICreatedSameCatalogEntry(t *testing.
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(target).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
@@ -246,7 +246,7 @@ func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testin
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
@@ -282,7 +282,7 @@ func TestResolveCompositeSourceRefsRejectsMultiUserServerOutsideCatalog(t *testi
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
 
 	assert.Empty(t, result)
 	assert.Contains(t, errsBySourceURL["source"], `multi-user server "shared-server" not found in catalog "default"`)
@@ -360,7 +360,7 @@ func TestResolveCompositeSourceRefsResolvesExplicitSourceRefWithoutCurrentSource
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
 
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
@@ -391,7 +391,7 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{target, composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
 
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
@@ -411,7 +411,7 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []client.Object{composite})
+	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite})
 
 	assert.Empty(t, result)
 	assert.Contains(t, errsBySourceURL["source"], `invalid catalogEntryID source ref "source::"`)

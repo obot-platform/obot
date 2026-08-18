@@ -840,7 +840,7 @@ func (c *Client) deviceClientFleetSummariesForNames(ctx context.Context, names [
 			if _, ok := argsByHash[row.ConfigHash]; ok {
 				continue
 			}
-			argsByHash[row.ConfigHash] = append([]string(nil), row.Args...)
+			argsByHash[row.ConfigHash] = slices.Clone(row.Args)
 		}
 	}
 

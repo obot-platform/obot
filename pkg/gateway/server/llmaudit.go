@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -226,7 +227,7 @@ func redactedHeaders(headers http.Header) json.RawMessage {
 			out[k] = []string{"[REDACTED]"}
 			continue
 		}
-		out[k] = append([]string(nil), values...)
+		out[k] = slices.Clone(values)
 	}
 	b, _ := json.Marshal(out)
 	return b

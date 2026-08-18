@@ -110,7 +110,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	req := api.Context{
 		ResponseWriter: recorder,
-		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
 	}
@@ -135,7 +135,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	err = h.doRefreshToken(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
-		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
 		Storage:        storage,
 	}, oauthClient, refreshToken)
 	require.Error(t, err)
@@ -165,7 +165,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	err = h.doRefreshToken(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
-		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
 	}, oauthClient, staleRefreshToken)
@@ -196,7 +196,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	err = h.doRefreshToken(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
-		Request:        httptest.NewRequest("POST", "/oauth/token", nil),
+		Request:        httptest.NewRequest(http.MethodPost, "/oauth/token", nil),
 		Storage:        &consumeOAuthTokenAfterGetStorage{Client: storage},
 		GatewayClient:  gatewayClient,
 	}, oauthClient, racedRefreshToken)

@@ -9,6 +9,7 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -305,7 +306,7 @@ func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
 			MCPServerName:        system.SystemMCPServerPrefix + webhook.Name,
 			MCPServerDisplayName: webhook.DisplayName,
 			SystemMCPServer:      true,
-			Audiences:            append([]string(nil), server.Audiences...),
+			Audiences:            slices.Clone(server.Audiences),
 		}
 	}
 	return hooks, servers

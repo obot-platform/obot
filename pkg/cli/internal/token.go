@@ -355,7 +355,7 @@ func get(ctx context.Context, baseURL, uuid string) (string, error) {
 }
 
 func testToken(ctx context.Context, baseURL, token string, scopes ...string) bool {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/me", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/me", nil)
 	if err != nil {
 		return false
 	}
@@ -388,7 +388,7 @@ func testToken(ctx context.Context, baseURL, token string, scopes ...string) boo
 }
 
 func getAuthProviderServiceInfo(ctx context.Context, baseURL string) ([]types2.AuthProvider, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/auth-providers", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/auth-providers", nil)
 	if err != nil {
 		return nil, err
 	}

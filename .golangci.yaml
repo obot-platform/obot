@@ -6,12 +6,15 @@ linters:
   enable:
     - errcheck
     - govet
+    - importas
     - ineffassign
     - modernize
     - revive
     - staticcheck
     - thelper
+    - unconvert
     - unused
+    - usestdlibvars
     - whitespace
   exclusions:
     generated: lax
@@ -24,6 +27,14 @@ linters:
       - third_party$
       - builtin$
       - examples$
+  settings:
+    importas:
+      no-unaliased: true
+      alias:
+        - pkg: sigs.k8s.io/controller-runtime/pkg/client
+          alias: kclient
+        - pkg: k8s.io/apimachinery/pkg/api/errors
+          alias: apierrors
 formatters:
   enable:
     - gofmt

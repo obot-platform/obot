@@ -13,13 +13,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestCheckMCPIDAllowsAnonymousMCPConnect(t *testing.T) {
 	authorizer := &Authorizer{}
-	req := httptest.NewRequest("GET", "/mcp-connect/ms1test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/ms1test", nil)
 
 	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
 	if err != nil {
@@ -33,7 +33,7 @@ func TestCheckMCPIDAllowsAnonymousMCPConnect(t *testing.T) {
 func TestCheckMCPIDDoesNotBypassNonMCPConnectForAnonymous(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
 	authorizer := &Authorizer{cache: storage, uncached: storage}
-	req := httptest.NewRequest("GET", "/oauth/authorize/ms1test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/oauth/authorize/ms1test", nil)
 
 	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1test"}, newUser(&user.DefaultInfo{Name: "anonymous"}))
 	if err == nil {
@@ -55,7 +55,7 @@ func TestCheckMCPIDChecksMCPServerInstanceOwner(t *testing.T) {
 		},
 	}).Build()
 	authorizer := &Authorizer{cache: storage, uncached: storage}
-	req := httptest.NewRequest("GET", "/mcp-connect/msi1test", nil)
+	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/msi1test", nil)
 
 	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "msi1test"}, newUser(&user.DefaultInfo{
 		Name: "user",
@@ -284,7 +284,7 @@ func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 func TestMCPIDIsAuthorized(t *testing.T) {
 	tests := []struct {
 		name       string
-		objects    []client.Object
+		objects    []kclient.Object
 		authorized []string
 		userID     string
 		mcpID      string
@@ -307,7 +307,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "server composite parent allows component server",
-			objects: []client.Object{&v1.MCPServer{
+			objects: []kclient.Object{&v1.MCPServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ms1component",
 					Namespace: system.DefaultNamespace,
@@ -323,7 +323,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "server without authorized composite is denied",
-			objects: []client.Object{&v1.MCPServer{
+			objects: []kclient.Object{&v1.MCPServer{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "ms1component",
 					Namespace: system.DefaultNamespace,
@@ -346,7 +346,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "instance direct ID allows without storage lookup",
-			objects: []client.Object{&v1.MCPServerInstance{
+			objects: []kclient.Object{&v1.MCPServerInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "msi1instance",
 					Namespace: system.DefaultNamespace,
@@ -359,7 +359,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "instance composite parent allows component instance",
-			objects: []client.Object{&v1.MCPServerInstance{
+			objects: []kclient.Object{&v1.MCPServerInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "msi1component",
 					Namespace: system.DefaultNamespace,
@@ -375,7 +375,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "instance checks associated server composite parent",
-			objects: []client.Object{
+			objects: []kclient.Object{
 				&v1.MCPServerInstance{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "msi1instance",
@@ -402,7 +402,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "catalog entry allows matching user server",
-			objects: []client.Object{
+			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "entry-test",
@@ -427,7 +427,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "catalog entry allows matching user server composite parent",
-			objects: []client.Object{
+			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "entry-test",
@@ -453,7 +453,7 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		},
 		{
 			name: "catalog entry ignores matching server for different user",
-			objects: []client.Object{
+			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "entry-test",
@@ -714,17 +714,17 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	}
 }
 
-func newMCPIDIsAuthorizedTestStorage(objects ...client.Object) client.Client {
+func newMCPIDIsAuthorizedTestStorage(objects ...kclient.Object) kclient.Client {
 	return clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj client.Object) []string {
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
 			server := obj.(*v1.MCPServer)
 			if server.Spec.MCPServerCatalogEntryName == "" {
 				return nil
 			}
 			return []string{server.Spec.MCPServerCatalogEntryName}
 		}).
-		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj client.Object) []string {
+		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
 			server := obj.(*v1.MCPServer)
 			if server.Spec.UserID == "" {
 				return nil
@@ -735,7 +735,7 @@ func newMCPIDIsAuthorizedTestStorage(objects ...client.Object) client.Client {
 		Build()
 }
 
-func newMCPIDTestAuthorizer(t *testing.T, storage client.Client, acrs ...*v1.AccessControlRule) *Authorizer {
+func newMCPIDTestAuthorizer(t *testing.T, storage kclient.Client, acrs ...*v1.AccessControlRule) *Authorizer {
 	t.Helper()
 
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{

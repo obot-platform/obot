@@ -1,6 +1,7 @@
 package ratelimiter
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -22,7 +23,7 @@ func TestTunnelBridgeIsExemptFromRateLimiting(t *testing.T) {
 		UID:    "obot-tunnel-bridge",
 		Groups: []string{types.GroupTunnelBridge},
 	}
-	request := httptest.NewRequest("POST", "/tunnel/bridge/target", nil)
+	request := httptest.NewRequest(http.MethodPost, "/tunnel/bridge/target", nil)
 	response := httptest.NewRecorder()
 
 	for range 2 {
@@ -49,7 +50,7 @@ func TestTunnelPeerIsExemptFromRateLimiting(t *testing.T) {
 		UID:    "obot-tunnel-peer",
 		Groups: []string{types.GroupTunnelPeer},
 	}
-	request := httptest.NewRequest("GET", "/tunnel/peer", nil)
+	request := httptest.NewRequest(http.MethodGet, "/tunnel/peer", nil)
 	response := httptest.NewRecorder()
 
 	for range 2 {

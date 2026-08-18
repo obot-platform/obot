@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -1003,11 +1003,11 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 type fakeWithWatch struct {
-	client.Client // controller-runtime fake for Get/List/Create etc.
-	watcher       *watch.FakeWatcher
+	kclient.Client // controller-runtime fake for Get/List/Create etc.
+	watcher        *watch.FakeWatcher
 }
 
-func (f *fakeWithWatch) Watch(_ context.Context, _ client.ObjectList, _ ...client.ListOption) (watch.Interface, error) {
+func (f *fakeWithWatch) Watch(_ context.Context, _ kclient.ObjectList, _ ...kclient.ListOption) (watch.Interface, error) {
 	return f.watcher, nil
 }
 
@@ -1182,7 +1182,7 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 		},
 	}
 
-	objs := make([]client.Object, 0, len(managedSecrets))
+	objs := make([]kclient.Object, 0, len(managedSecrets))
 	for i := range managedSecrets {
 		objs = append(objs, &managedSecrets[i])
 	}
@@ -1295,7 +1295,7 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 	}
 
 	var updated appsv1.Deployment
-	if err := k.client.Get(t.Context(), client.ObjectKey{Name: "test-server", Namespace: "obot-mcp"}, &updated); err != nil {
+	if err := k.client.Get(t.Context(), kclient.ObjectKey{Name: "test-server", Namespace: "obot-mcp"}, &updated); err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
 	assertImagePullSecrets(t, &updated, []string{"managed"})
@@ -1411,7 +1411,7 @@ func TestTolerationsMatchIgnoresExtraActualTolerations(t *testing.T) {
 	}
 }
 
-func newTestKubernetesBackend(t *testing.T, objs ...client.Object) *kubernetesBackend {
+func newTestKubernetesBackend(t *testing.T, objs ...kclient.Object) *kubernetesBackend {
 	t.Helper()
 
 	scheme := runtime.NewScheme()
@@ -1446,7 +1446,7 @@ func testK8sServerConfig() ServerConfig {
 	}
 }
 
-func findSecret(t *testing.T, objs []client.Object, secretName string) *corev1.Secret {
+func findSecret(t *testing.T, objs []kclient.Object, secretName string) *corev1.Secret {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -1460,7 +1460,7 @@ func findSecret(t *testing.T, objs []client.Object, secretName string) *corev1.S
 	return nil
 }
 
-func findService(t *testing.T, objs []client.Object, serviceName string) *corev1.Service {
+func findService(t *testing.T, objs []kclient.Object, serviceName string) *corev1.Service {
 	t.Helper()
 
 	for _, obj := range objs {
@@ -1474,7 +1474,7 @@ func findService(t *testing.T, objs []client.Object, serviceName string) *corev1
 	return nil
 }
 
-func findDeployment(t *testing.T, objs []client.Object, deploymentName string) *appsv1.Deployment {
+func findDeployment(t *testing.T, objs []kclient.Object, deploymentName string) *appsv1.Deployment {
 	t.Helper()
 
 	for _, obj := range objs {

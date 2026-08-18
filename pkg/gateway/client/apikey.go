@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -33,7 +34,7 @@ type apiKeyValidationCacheEntry struct {
 func cloneAPIKey(apiKey types.APIKey) types.APIKey {
 	cloned := apiKey
 	if apiKey.MCPServerIDs != nil {
-		cloned.MCPServerIDs = append([]string(nil), apiKey.MCPServerIDs...)
+		cloned.MCPServerIDs = slices.Clone(apiKey.MCPServerIDs)
 	}
 	if apiKey.LastUsedAt != nil {
 		cloned.LastUsedAt = new(*apiKey.LastUsedAt)

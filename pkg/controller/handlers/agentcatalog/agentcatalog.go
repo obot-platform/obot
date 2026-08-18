@@ -35,7 +35,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
 
@@ -413,7 +413,7 @@ func resolveHarnessReferences(agents []*v1.HostedAgent, harnesses []*v1.Harness)
 // intact at every step: new harnesses are stored before the agents that
 // reference them, and stale agents are removed before the harnesses they
 // referenced.
-func syncDiscovered(ctx context.Context, c client.Client, namespace, sourceID string, found *discovered) error {
+func syncDiscovered(ctx context.Context, c kclient.Client, namespace, sourceID string, found *discovered) error {
 	staleHarnesses, err := upsertHarnesses(ctx, c, namespace, sourceID, found.Harnesses)
 	if err != nil {
 		return err
@@ -429,7 +429,7 @@ func syncDiscovered(ctx context.Context, c client.Client, namespace, sourceID st
 		// agent; it keeps its SourceID, so a later sync retries once the
 		// reference is gone.
 		var agents v1.HostedAgentList
-		if err := c.List(ctx, &agents, client.InNamespace(namespace), client.MatchingFields{"spec.harnessID": harness.Name}); err != nil {
+		if err := c.List(ctx, &agents, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.harnessID": harness.Name}); err != nil {
 			return fmt.Errorf("failed to list agents for harness %s: %w", harness.Name, err)
 		}
 		if len(agents.Items) > 0 {
@@ -450,9 +450,9 @@ func syncDiscovered(ctx context.Context, c client.Client, namespace, sourceID st
 // rather than deleted, so the caller can remove them after the agents that
 // referenced them are gone. Harnesses registered by hand carry no SourceID
 // and are never listed here, so they are untouched.
-func upsertHarnesses(ctx context.Context, c client.Client, namespace, sourceID string, harnesses []*v1.Harness) ([]*v1.Harness, error) {
+func upsertHarnesses(ctx context.Context, c kclient.Client, namespace, sourceID string, harnesses []*v1.Harness) ([]*v1.Harness, error) {
 	var list v1.HarnessList
-	if err := c.List(ctx, &list, client.InNamespace(namespace), client.MatchingFields{"spec.sourceID": sourceID}); err != nil {
+	if err := c.List(ctx, &list, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.sourceID": sourceID}); err != nil {
 		return nil, fmt.Errorf("failed to list harnesses for source: %w", err)
 	}
 
@@ -540,7 +540,7 @@ func sanitizeNameFragment(value string) string {
 // stored for it: create what is new, update what changed, delete what the source
 // no longer lists. Agents registered by hand carry no SourceID and are never
 // listed here, so they are untouched.
-func upsertAgents(ctx context.Context, c client.Client, namespace, sourceID string, agents []*v1.HostedAgent) error {
+func upsertAgents(ctx context.Context, c kclient.Client, namespace, sourceID string, agents []*v1.HostedAgent) error {
 	existing, err := listAgentsForSource(ctx, c, namespace, sourceID)
 	if err != nil {
 		return err
@@ -578,9 +578,9 @@ func upsertAgents(ctx context.Context, c client.Client, namespace, sourceID stri
 	return nil
 }
 
-func listAgentsForSource(ctx context.Context, c client.Client, namespace, sourceID string) (map[string]*v1.HostedAgent, error) {
+func listAgentsForSource(ctx context.Context, c kclient.Client, namespace, sourceID string) (map[string]*v1.HostedAgent, error) {
 	var list v1.HostedAgentList
-	if err := c.List(ctx, &list, client.InNamespace(namespace), client.MatchingFields{"spec.sourceID": sourceID}); err != nil {
+	if err := c.List(ctx, &list, kclient.InNamespace(namespace), kclient.MatchingFields{"spec.sourceID": sourceID}); err != nil {
 		return nil, fmt.Errorf("failed to list agents for source: %w", err)
 	}
 
@@ -591,7 +591,7 @@ func listAgentsForSource(ctx context.Context, c client.Client, namespace, source
 	return result, nil
 }
 
-func (h *Handler) recordFailure(ctx context.Context, c client.Client, namespace, name string, syncErr error) error {
+func (h *Handler) recordFailure(ctx context.Context, c kclient.Client, namespace, name string, syncErr error) error {
 	var source v1.AgentCatalog
 	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
 		return fmt.Errorf("failed to reload agent catalog: %w", err)
@@ -602,7 +602,7 @@ func (h *Handler) recordFailure(ctx context.Context, c client.Client, namespace,
 	return c.Status().Update(ctx, &source)
 }
 
-func (h *Handler) recordSuccess(ctx context.Context, c client.Client, namespace, sourceName, commitSHA string, agentCount, harnessCount int) error {
+func (h *Handler) recordSuccess(ctx context.Context, c kclient.Client, namespace, sourceName, commitSHA string, agentCount, harnessCount int) error {
 	var source v1.AgentCatalog
 	if err := c.Get(ctx, router.Key(namespace, sourceName), &source); err != nil {
 		return fmt.Errorf("failed to reload agent catalog: %w", err)
@@ -616,7 +616,7 @@ func (h *Handler) recordSuccess(ctx context.Context, c client.Client, namespace,
 	return c.Status().Update(ctx, &source)
 }
 
-func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace, name string) {
+func (h *Handler) clearIsSyncing(ctx context.Context, c kclient.Client, namespace, name string) {
 	var source v1.AgentCatalog
 	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -635,7 +635,7 @@ func (h *Handler) clearIsSyncing(ctx context.Context, c client.Client, namespace
 	}
 }
 
-func clearSyncAnnotation(ctx context.Context, c client.Client, namespace, name string) error {
+func clearSyncAnnotation(ctx context.Context, c kclient.Client, namespace, name string) error {
 	var source v1.AgentCatalog
 	if err := c.Get(ctx, router.Key(namespace, name), &source); err != nil {
 		return fmt.Errorf("failed to reload agent catalog for annotation cleanup: %w", err)

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -81,7 +82,7 @@ func (p *fakeCommunityLicenseProvider) HasValidLicense(context.Context) (bool, e
 func (p *fakeCommunityLicenseProvider) Entitlements(context.Context) ([]string, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
-	return append([]string(nil), p.entitlements...), p.entitlementsError
+	return slices.Clone(p.entitlements), p.entitlementsError
 }
 
 type fakeCommunityIssuer struct {

@@ -145,7 +145,7 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 		"client_assertion_type": {clientAssertionTypeJWTBearer},
 		"client_assertion":      {signClientAssertion(t, key, "test-key", clientID, "https://obot.example/oauth/token")},
 	}
-	req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+	req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	err = (&handler{
@@ -180,7 +180,7 @@ func TestTokenInvalidClientErrors(t *testing.T) {
 	t.Run("missing credentials", func(t *testing.T) {
 		t.Parallel()
 
-		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader("grant_type=authorization_code"))
+		req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader("grant_type=authorization_code"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		err := (&handler{}).token(api.Context{
@@ -197,7 +197,7 @@ func TestTokenInvalidClientErrors(t *testing.T) {
 			"grant_type": {"authorization_code"},
 			"client_id":  {system.DefaultNamespace + ":missing-client"},
 		}
-		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		err := (&handler{
@@ -241,7 +241,7 @@ func TestTokenInvalidClientErrors(t *testing.T) {
 			"client_id":     {system.DefaultNamespace + ":" + clientName},
 			"client_secret": {"wrong-secret"},
 		}
-		req := httptest.NewRequest("POST", "/oauth/token", strings.NewReader(form.Encode()))
+		req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 		err = (&handler{

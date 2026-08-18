@@ -5,7 +5,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type UserDefaultRoleSettingHandler struct{}
@@ -16,7 +16,7 @@ func NewUserDefaultRoleSettingHandler() *UserDefaultRoleSettingHandler {
 
 func (*UserDefaultRoleSettingHandler) Get(req api.Context) error {
 	var setting v1.UserDefaultRoleSetting
-	if err := req.Storage.Get(req.Context(), client.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
 		return err
 	}
 	return req.Write(convertUserDefaultRoleSetting(setting))
@@ -29,7 +29,7 @@ func (*UserDefaultRoleSettingHandler) Set(req api.Context) error {
 	}
 
 	var setting v1.UserDefaultRoleSetting
-	if err := req.Storage.Get(req.Context(), client.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
+	if err := req.Storage.Get(req.Context(), kclient.ObjectKey{Namespace: req.Namespace(), Name: system.DefaultRoleSettingName}, &setting); err != nil {
 		return err
 	}
 
