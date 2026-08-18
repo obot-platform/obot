@@ -9,6 +9,7 @@
 		duplicateToolNames,
 		effectiveToolName,
 		isDeprecatedMCPServer,
+		isToolCustomized,
 		MAX_TOOL_PREFIX_LENGTH,
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
@@ -233,13 +234,9 @@
 			placeholder="Search tools..."
 		/>
 		{#each visibleTools as tool (tool.id)}
-			{@const overrideName = (tool.overrideName || '').trim()}
-			{@const overrideDescription = (tool.overrideDescription || '').trim()}
-			{@const currentName = overrideName || tool.name}
-			{@const currentDescription = overrideDescription || tool.description}
-			{@const isCustomized =
-				(overrideName !== '' && overrideName !== tool.name) ||
-				(overrideDescription !== '' && overrideDescription !== tool.description)}
+			{@const currentName = (tool.overrideName || '').trim() || tool.name}
+			{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}
+			{@const isCustomized = isToolCustomized(tool)}
 
 			{@const effectiveName = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
 			{@const conflict = tool.enabled ? conflictIssue(effectiveName, conflictSet) : undefined}

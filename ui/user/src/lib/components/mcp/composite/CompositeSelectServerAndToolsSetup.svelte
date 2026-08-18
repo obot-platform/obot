@@ -18,7 +18,8 @@
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
-		isDeprecatedMCPServer
+		isDeprecatedMCPServer,
+		toolOverrideValue
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
@@ -526,22 +527,14 @@
 		onSuccess?.(
 			{
 				...componentConfig,
-				toolOverrides: tools.map((t) => {
-					const overrideName = (t.overrideName || '').trim() || t.overrideName;
-					const overrideDescription = (t.overrideDescription || '').trim() || t.overrideDescription;
-
-					return {
-						name: t.name,
-						// Persist the description snapshot for display in future edits.
-						description: t.description,
-						// Only store an override name if it differs from the original.
-						overrideName: overrideName !== t.name ? overrideName : undefined,
-						// Only store an override description if it differs from the original snapshot.
-						overrideDescription:
-							overrideDescription !== t.description ? overrideDescription : undefined,
-						enabled: t.enabled
-					};
-				})
+				toolOverrides: tools.map((t) => ({
+					name: t.name,
+					// Persist the description snapshot for display in future edits.
+					description: t.description,
+					overrideName: toolOverrideValue(t.overrideName, t.name),
+					overrideDescription: toolOverrideValue(t.overrideDescription, t.description),
+					enabled: t.enabled
+				}))
 			},
 			configuringEntry,
 			tools

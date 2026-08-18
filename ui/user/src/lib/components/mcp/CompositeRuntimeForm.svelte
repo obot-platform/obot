@@ -17,6 +17,7 @@
 		TOOL_NAME_CHARSET_REGEX,
 		TOOL_NAME_SPECIAL_CHAR_WARNING,
 		isDeprecatedMCPServer,
+		isToolCustomized,
 		toolNameIssue,
 		type ToolNameIssue
 	} from '$lib/services/user/mcp';
@@ -501,8 +502,7 @@
 										{@const currentName = (tool.overrideName || '').trim() || tool.name}
 										{@const currentDescription =
 											(tool.overrideDescription || '').trim() || tool.description}
-										{@const isCustomized =
-											currentName !== tool.name || currentDescription !== tool.description}
+										{@const isCustomized = isToolCustomized(tool)}
 										{@const effectiveName = effectiveToolName(
 											tool.name,
 											tool.overrideName,

@@ -977,6 +977,29 @@ export function effectiveToolName(
 	return (toolPrefix ?? '') + base;
 }
 
+// toolOverrideValue returns the override to persist, or undefined when it only
+// differs from the server's own value by surrounding whitespace.
+export function toolOverrideValue(
+	override: string | undefined,
+	original: string | undefined
+): string | undefined {
+	const normalized = (override ?? '').trim();
+	if (!normalized || normalized === (original ?? '').trim()) return undefined;
+	return normalized;
+}
+
+export function isToolCustomized(tool: {
+	name: string;
+	description?: string;
+	overrideName?: string;
+	overrideDescription?: string;
+}): boolean {
+	return (
+		toolOverrideValue(tool.overrideName, tool.name) !== undefined ||
+		toolOverrideValue(tool.overrideDescription, tool.description) !== undefined
+	);
+}
+
 // toolNameIssue returns the highest-priority interop issue with an effective
 // tool name, or undefined if the name is clean. Callers pass the FINAL name
 // (prefix + override || original). Errors are checked before warnings; within

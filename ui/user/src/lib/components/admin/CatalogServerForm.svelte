@@ -25,6 +25,7 @@
 		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
 		sanitizeResourceRuntimeConfig,
+		toolOverrideValue,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
 	import { errors, profile, version } from '$lib/stores';
@@ -529,7 +530,14 @@
 			case 'composite':
 				if (baseData.compositeConfig) {
 					manifest.compositeConfig = {
-						componentServers: baseData.compositeConfig.componentServers
+						componentServers: baseData.compositeConfig.componentServers.map((component) => ({
+							...component,
+							toolOverrides: component.toolOverrides?.map((tool) => ({
+								...tool,
+								overrideName: toolOverrideValue(tool.overrideName, tool.name),
+								overrideDescription: toolOverrideValue(tool.overrideDescription, tool.description)
+							}))
+						}))
 					};
 				}
 				break;
