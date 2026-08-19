@@ -37,8 +37,16 @@ func seedGroups(t *testing.T, c *Client, n int) {
 	}
 }
 
-// newProviderStub serves the paginated /obot-list-auth-groups contract over `total` groups.
-func newProviderStub(t *testing.T, total int) *httptest.Server {
+// providerStub serves the cursor-based /obot-list-auth-groups contract over `total` groups, using
+// an offset as its cursor. It records the cursor of every request so tests can assert what the
+// client actually sent.
+type providerStub struct {
+	total    int
+	cursors  []string
+	requests int
+}
+
+func (p *providerStub) server(t *testing.T) *httptest.Server {
 	t.Helper()
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -47,8 +55,12 @@ func newProviderStub(t *testing.T, total int) *httptest.Server {
 			return
 		}
 
-		all := make([]auth.GroupInfo, 0, total)
-		for i := range total {
+		p.requests++
+		cursor := r.URL.Query().Get("cursor")
+		p.cursors = append(p.cursors, cursor)
+
+		all := make([]auth.GroupInfo, 0, p.total)
+		for i := range p.total {
 			all = append(all, auth.GroupInfo{
 				ID:   fmt.Sprintf("entra/%04d", i),
 				Name: fmt.Sprintf("group-%04d", i),
@@ -56,283 +68,408 @@ func newProviderStub(t *testing.T, total int) *httptest.Server {
 		}
 
 		limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-		offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
+		start := 0
+		if cursor != "" {
+			start, _ = strconv.Atoi(cursor)
+		}
+		start = min(start, len(all))
+		end := min(start+limit, len(all))
 
-		items := []auth.GroupInfo{}
-		if offset < len(all) {
-			items = all[offset:min(offset+limit, len(all))]
+		body := map[string]any{"items": all[start:end]}
+		if end < len(all) {
+			body["nextCursor"] = strconv.Itoa(end)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"items": items, "total": len(all)})
+		_ = json.NewEncoder(w).Encode(body)
 	}))
 	t.Cleanup(srv.Close)
 
 	return srv
 }
 
+// walkAll pages the whole listing and returns the IDs it saw, failing on a repeat or a runaway.
+func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOptions) ([]string, ListAuthGroupsResult) {
+	t.Helper()
+
+	var (
+		seen []string
+		last ListAuthGroupsResult
+	)
+	unique := map[string]struct{}{}
+
+	for pages := 0; ; pages++ {
+		if pages > 1000 {
+			t.Fatal("pagination did not terminate")
+		}
+
+		result, err := c.ListAuthGroups(t.Context(), providerURL, testAuthProviderNamespace, testAuthProviderName, opts)
+		if err != nil {
+			t.Fatalf("ListAuthGroups() error = %v", err)
+		}
+		last = result
+
+		for _, group := range result.Groups {
+			if _, ok := unique[group.ID]; ok {
+				t.Fatalf("group %s was returned more than once", group.ID)
+			}
+			unique[group.ID] = struct{}{}
+			seen = append(seen, group.ID)
+		}
+
+		if result.NextCursor == "" {
+			break
+		}
+		opts.Cursor = result.NextCursor
+	}
+
+	return seen, last
+}
+
 // TestListAuthGroupsPagesEntireDirectory is the regression guard for the reported bug: every group
 // in a large directory must be reachable through paging.
 func TestListAuthGroupsPagesEntireDirectory(t *testing.T) {
 	c := newTestClient(t)
-	srv := newProviderStub(t, 10000)
+	stub := &providerStub{total: 10000}
+	srv := stub.server(t)
 
-	seen := make(map[string]struct{}, 10000)
-	for offset := 0; offset < 10000; offset += 50 {
-		groups, total, source, degraded, err := c.ListAuthGroups(
-			t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName,
-			ListAuthGroupsOptions{Limit: 50, Offset: offset},
-		)
-		if err != nil {
-			t.Fatalf("offset %d: unexpected error: %v", offset, err)
-		}
-		if total != 10000 {
-			t.Fatalf("offset %d: total = %d, want 10000", offset, total)
-		}
-		if source != types.GroupSourceProvider {
-			t.Fatalf("offset %d: source = %q, want %q", offset, source, types.GroupSourceProvider)
-		}
-		if degraded {
-			t.Fatalf("offset %d: degraded = true, want false", offset)
-		}
-
-		for _, group := range groups {
-			if _, dup := seen[group.ID]; dup {
-				t.Fatalf("group %s returned on more than one page", group.ID)
-			}
-			seen[group.ID] = struct{}{}
-		}
-	}
+	seen, _ := walkAll(t, c, srv.URL, ListAuthGroupsOptions{Limit: 100})
 
 	if len(seen) != 10000 {
-		t.Fatalf("paged over %d groups, want 10000", len(seen))
+		t.Errorf("collected %d groups, want 10000", len(seen))
+	}
+	// One request per page and no more: the client must never enumerate on the provider's behalf.
+	if stub.requests != 100 {
+		t.Errorf("made %d provider requests, want 100", stub.requests)
+	}
+	if stub.cursors[0] != "" {
+		t.Errorf("the first request carried cursor %q, want none", stub.cursors[0])
+	}
+}
+
+func TestListAuthGroupsForwardsProviderCursor(t *testing.T) {
+	c := newTestClient(t)
+	stub := &providerStub{total: 500}
+	srv := stub.server(t)
+
+	first, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+	if first.NextCursor == "" {
+		t.Fatal("NextCursor should be set when more groups remain")
+	}
+	// The provider's own cursor must not leak to callers unwrapped.
+	if first.NextCursor == "50" {
+		t.Error("the provider cursor should be wrapped, not passed through verbatim")
+	}
+
+	if _, err = c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: first.NextCursor}); err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+	if got := stub.cursors[1]; got != "50" {
+		t.Errorf("the provider received cursor %q, want %q", got, "50")
+	}
+}
+
+// A cursor is bound to the search it was minted for. Changing the filter restarts the listing
+// rather than returning a page from the wrong result set.
+func TestListAuthGroupsResetsWhenNameFilterChanges(t *testing.T) {
+	c := newTestClient(t)
+	stub := &providerStub{total: 500}
+	srv := stub.server(t)
+
+	first, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, NameFilter: "eng"})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if _, err = c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{
+		Limit:      50,
+		NameFilter: "sales",
+		Cursor:     first.NextCursor,
+	}); err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if got := stub.cursors[1]; got != "" {
+		t.Errorf("the provider received cursor %q after the filter changed, want none", got)
+	}
+}
+
+// A cursor minted while the provider was serving must not be replayed against the cache, and vice
+// versa, because neither can interpret the other's position.
+func TestListAuthGroupsIgnoresCursorFromTheOtherSource(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 120)
+	stub := &providerStub{total: 500}
+	srv := stub.server(t)
+
+	fromProvider, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	// Same cursor, but now there is no provider, so the cache answers.
+	fromCache, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: fromProvider.NextCursor})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if fromCache.Source != types.GroupSourceCache {
+		t.Fatalf("Source = %q, want %q", fromCache.Source, types.GroupSourceCache)
+	}
+	if len(fromCache.Groups) == 0 {
+		t.Fatal("expected a page of cached groups")
+	}
+	if got, want := fromCache.Groups[0].ID, "entra/0000"; got != want {
+		t.Errorf("first group = %q, want %q; a provider cursor should restart the cached listing", got, want)
 	}
 }
 
 func TestListAuthGroupsFallsBackToCacheOnProviderError(t *testing.T) {
 	c := newTestClient(t)
-	seedGroups(t, c, 120)
+	seedGroups(t, c, 10)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "directory read permission not granted", http.StatusForbidden)
+		http.Error(w, "boom", http.StatusInternalServerError)
 	}))
 	t.Cleanup(srv.Close)
 
-	groups, total, source, degraded, err := c.ListAuthGroups(
-		t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName,
-		ListAuthGroupsOptions{Limit: 50, Offset: 0},
-	)
+	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
-	if source != types.GroupSourceCache {
-		t.Errorf("source = %q, want %q", source, types.GroupSourceCache)
+
+	if result.Source != types.GroupSourceCache {
+		t.Errorf("Source = %q, want %q", result.Source, types.GroupSourceCache)
 	}
-	if !degraded {
-		t.Error("degraded = false, want true when the provider fails")
+	if !result.Degraded {
+		t.Error("Degraded should be true when the provider could not be listed")
 	}
-	if total != 120 {
-		t.Errorf("total = %d, want 120", total)
-	}
-	if len(groups) != 50 {
-		t.Errorf("len = %d, want 50", len(groups))
+	if len(result.Groups) != 10 {
+		t.Errorf("got %d groups, want 10", len(result.Groups))
 	}
 }
 
-// A provider without group support 404s. That is not a degraded response: the cached groups are
-// all that has ever existed for it.
-func TestListAuthGroupsNotFoundIsNotDegraded(t *testing.T) {
+// A provider that rejects the cursor has usually expired its own continuation token. That is a
+// restart, not an outage, so the listing must come back from the provider rather than the cache.
+func TestListAuthGroupsRetriesFromFirstPageOnRejectedCursor(t *testing.T) {
 	c := newTestClient(t)
 	seedGroups(t, c, 10)
 
-	srv := httptest.NewServer(http.HandlerFunc(http.NotFound))
-	t.Cleanup(srv.Close)
-
-	groups, total, source, degraded, err := c.ListAuthGroups(
-		t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName,
-		ListAuthGroupsOptions{Limit: 50, Offset: 0},
-	)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if source != types.GroupSourceCache {
-		t.Errorf("source = %q, want %q", source, types.GroupSourceCache)
-	}
-	if degraded {
-		t.Error("degraded = true, want false for a provider without group support")
-	}
-	if total != 10 || len(groups) != 10 {
-		t.Errorf("total/len = %d/%d, want 10/10", total, len(groups))
-	}
-}
-
-// A provider predating pagination ignores the limit and returns a bare array; Obot must page it.
-func TestListAuthGroupsHandlesUnpaginatedProvider(t *testing.T) {
-	c := newTestClient(t)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		all := make([]auth.GroupInfo, 0, 300)
-		for i := range 300 {
-			all = append(all, auth.GroupInfo{ID: fmt.Sprintf("entra/%04d", i), Name: fmt.Sprintf("group-%04d", i)})
+	var requests int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.URL.Query().Get("cursor") != "" {
+			http.Error(w, "invalid cursor", http.StatusBadRequest)
+			return
 		}
+
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(all)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []auth.GroupInfo{{ID: "entra/0000", Name: "group-0000"}},
+		})
 	}))
 	t.Cleanup(srv.Close)
 
-	groups, total, source, _, err := c.ListAuthGroups(
-		t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName,
-		ListAuthGroupsOptions{Limit: 25, Offset: 275},
-	)
+	stale, err := encodeGroupCursor(groupCursor{Source: types.GroupSourceProvider, ProviderCursor: "999"})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("encodeGroupCursor() error = %v", err)
 	}
-	if source != types.GroupSourceProvider {
-		t.Errorf("source = %q, want %q", source, types.GroupSourceProvider)
+
+	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: stale})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
-	if total != 300 {
-		t.Errorf("total = %d, want 300", total)
+
+	if result.Source != types.GroupSourceProvider {
+		t.Errorf("Source = %q, want %q; an expired cursor should restart, not degrade", result.Source, types.GroupSourceProvider)
 	}
-	if len(groups) != 25 {
-		t.Fatalf("len = %d, want 25", len(groups))
+	if result.Degraded {
+		t.Error("Degraded should be false when the retry succeeded")
 	}
-	if groups[0].ID != "entra/0275" {
-		t.Errorf("first = %s, want entra/0275", groups[0].ID)
+	if requests != 2 {
+		t.Errorf("made %d requests, want 2 (the rejected cursor then the restart)", requests)
 	}
 }
 
-func TestListAuthGroupsCachePagingBoundaries(t *testing.T) {
+func TestListAuthGroupsNotFoundIsNotDegraded(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 3)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if result.Source != types.GroupSourceCache {
+		t.Errorf("Source = %q, want %q", result.Source, types.GroupSourceCache)
+	}
+	// A provider without group support has nothing to be degraded from.
+	if result.Degraded {
+		t.Error("Degraded should be false when the provider does not implement group listing")
+	}
+}
+
+func TestListAuthGroupsCachePagesEveryGroupExactlyOnce(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 250)
+
+	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50})
+
+	if len(seen) != 250 {
+		t.Errorf("collected %d groups, want 250", len(seen))
+	}
+	for i, id := range seen {
+		if want := fmt.Sprintf("entra/%04d", i); id != want {
+			t.Fatalf("group at position %d = %q, want %q", i, id, want)
+		}
+	}
+}
+
+// Keyset paging orders by (name, id), so groups sharing a name must not shadow one another.
+func TestListAuthGroupsCachePagesDuplicateNames(t *testing.T) {
+	c := newTestClient(t)
+
+	groups := []types.Group{
+		{ID: "entra/a", AuthProviderName: testAuthProviderName, AuthProviderNamespace: testAuthProviderNamespace, Name: "duplicate"},
+		{ID: "entra/b", AuthProviderName: testAuthProviderName, AuthProviderNamespace: testAuthProviderNamespace, Name: "duplicate"},
+		{ID: "entra/c", AuthProviderName: testAuthProviderName, AuthProviderNamespace: testAuthProviderNamespace, Name: "duplicate"},
+	}
+	if err := c.db.WithContext(t.Context()).Create(&groups).Error; err != nil {
+		t.Fatalf("failed to seed groups: %v", err)
+	}
+
+	// A page size of one forces the tiebreak to do the work.
+	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 1})
+
+	if len(seen) != 3 {
+		t.Errorf("collected %d groups, want 3; the id tiebreak should separate identical names", len(seen))
+	}
+}
+
+func TestListAuthGroupsCacheLastPageHasNoCursor(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 50)
+
+	result, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if len(result.Groups) != 50 {
+		t.Errorf("got %d groups, want 50", len(result.Groups))
+	}
+	// Exactly one full page and nothing beyond it.
+	if result.NextCursor != "" {
+		t.Error("an exactly-full final page should not advertise a successor")
+	}
+}
+
+func TestListAuthGroupsCacheNameFilter(t *testing.T) {
 	c := newTestClient(t)
 	seedGroups(t, c, 120)
 
+	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50, NameFilter: "group-001"})
+
+	// group-0010 through group-0019, plus group-0011's siblings: ten matches in total.
+	if len(seen) != 10 {
+		t.Errorf("collected %d groups, want 10", len(seen))
+	}
+}
+
+func TestGroupCursorRoundTrip(t *testing.T) {
+	original := groupCursor{Source: types.GroupSourceCache, FilterFingerprint: groupFilterFingerprint("eng"), LastName: "group-0010", LastID: "entra/0010"}
+
+	encoded, err := encodeGroupCursor(original)
+	if err != nil {
+		t.Fatalf("encodeGroupCursor() error = %v", err)
+	}
+
+	decoded, ok := decodeGroupCursor(encoded, "eng")
+	if !ok {
+		t.Fatal("decodeGroupCursor() reported the cursor as unusable")
+	}
+	if decoded.LastName != original.LastName || decoded.LastID != original.LastID || decoded.Source != original.Source {
+		t.Errorf("decoded = %+v, want %+v", decoded, original)
+	}
+}
+
+func TestDecodeGroupCursorRejectsUnusableCursors(t *testing.T) {
+	valid, err := encodeGroupCursor(groupCursor{Source: types.GroupSourceCache, FilterFingerprint: groupFilterFingerprint("eng"), LastName: "n", LastID: "i"})
+	if err != nil {
+		t.Fatalf("encodeGroupCursor() error = %v", err)
+	}
+
 	tests := []struct {
-		name          string
-		limit, offset int
-		wantLen       int
-		wantFirst     string
+		name   string
+		cursor string
+		filter string
 	}{
 		{
-			name:      "first page",
-			limit:     50,
-			offset:    0,
-			wantLen:   50,
-			wantFirst: "entra/0000",
+			name:   "empty",
+			cursor: "",
+			filter: "eng",
 		},
 		{
-			name:      "partial last page",
-			limit:     50,
-			offset:    100,
-			wantLen:   20,
-			wantFirst: "entra/0100",
+			name:   "not base64",
+			cursor: "not!base64",
+			filter: "eng",
 		},
 		{
-			name:    "offset at end",
-			limit:   50,
-			offset:  120,
-			wantLen: 0,
+			name:   "filter changed",
+			cursor: valid,
+			filter: "sales",
 		},
 		{
-			name:    "offset past end",
-			limit:   50,
-			offset:  9999,
-			wantLen: 0,
+			name:   "filter dropped",
+			cursor: valid,
+			filter: "",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			groups, total, _, _, err := c.ListAuthGroups(
-				t.Context(), "", testAuthProviderNamespace, testAuthProviderName,
-				ListAuthGroupsOptions{Limit: tt.limit, Offset: tt.offset},
-			)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if total != 120 {
-				t.Errorf("total = %d, want 120", total)
-			}
-			if len(groups) != tt.wantLen {
-				t.Fatalf("len = %d, want %d", len(groups), tt.wantLen)
-			}
-			if tt.wantLen > 0 && groups[0].ID != tt.wantFirst {
-				t.Errorf("first = %s, want %s", groups[0].ID, tt.wantFirst)
+			if _, ok := decodeGroupCursor(tt.cursor, tt.filter); ok {
+				t.Error("decodeGroupCursor() accepted a cursor it should have rejected")
 			}
 		})
 	}
 }
 
-func TestListAuthGroupsCacheNameFilterAffectsTotal(t *testing.T) {
-	c := newTestClient(t)
-	seedGroups(t, c, 120)
-
-	_, total, _, _, err := c.ListAuthGroups(
-		t.Context(), "", testAuthProviderNamespace, testAuthProviderName,
-		ListAuthGroupsOptions{NameFilter: "group-001", Limit: 50, Offset: 0},
-	)
+func TestEncodeGroupCursorEmptyPositionIsEmpty(t *testing.T) {
+	encoded, err := encodeGroupCursor(groupCursor{Source: types.GroupSourceCache, FilterFingerprint: groupFilterFingerprint("eng")})
 	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+		t.Fatalf("encodeGroupCursor() error = %v", err)
 	}
-
-	// group-0010 through group-0019.
-	if total != 10 {
-		t.Errorf("total = %d, want 10 (the filtered count, not the full 120)", total)
+	if encoded != "" {
+		t.Errorf("encodeGroupCursor() = %q, want an empty cursor when there is no position", encoded)
 	}
 }
 
 func TestResolveAuthGroups(t *testing.T) {
 	c := newTestClient(t)
-	seedGroups(t, c, 20)
+	seedGroups(t, c, 5)
 
-	t.Run("resolves known IDs to names", func(t *testing.T) {
-		groups, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName,
-			[]string{"entra/0003", "entra/0007"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(groups) != 2 {
-			t.Fatalf("len = %d, want 2", len(groups))
-		}
-		if groups[0].Name != "group-0003" || groups[1].Name != "group-0007" {
-			t.Errorf("names = %q/%q, want group-0003/group-0007", groups[0].Name, groups[1].Name)
-		}
-	})
+	resolved, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
+	if err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
 
-	// An assignment on a group the cache has never seen must still produce a row, otherwise it
-	// disappears from the Group Role Assignments table entirely.
-	t.Run("unknown IDs are returned rather than dropped", func(t *testing.T) {
-		groups, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName,
-			[]string{"entra/0003", "entra/9999"})
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(groups) != 2 {
-			t.Fatalf("len = %d, want 2", len(groups))
-		}
-		if groups[1].ID != "entra/9999" || groups[1].Name != "entra/9999" {
-			t.Errorf("unresolved group = %+v, want ID and Name both entra/9999", groups[1])
-		}
-	})
-
-	t.Run("preserves requested order", func(t *testing.T) {
-		want := []string{"entra/0005", "entra/0001", "entra/0009"}
-		groups, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName, want)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		for i, id := range want {
-			if groups[i].ID != id {
-				t.Errorf("position %d = %s, want %s", i, groups[i].ID, id)
-			}
-		}
-	})
-
-	t.Run("empty input", func(t *testing.T) {
-		groups, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName, nil)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if len(groups) != 0 {
-			t.Errorf("len = %d, want 0", len(groups))
-		}
-	})
+	if len(resolved) != 2 {
+		t.Fatalf("got %d groups, want 2", len(resolved))
+	}
+	if resolved[0].Name != "group-0001" {
+		t.Errorf("known group name = %q, want %q", resolved[0].Name, "group-0001")
+	}
+	// An unknown ID renders as itself rather than being dropped.
+	if resolved[1].Name != "entra/9999" {
+		t.Errorf("unknown group name = %q, want the ID itself", resolved[1].Name)
+	}
 }

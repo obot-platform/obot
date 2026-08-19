@@ -25,7 +25,7 @@
 	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
 	let filteredUsers = $state<OrgUser[]>([]);
 	let filteredGroups = $state<OrgGroup[]>([]);
-	let groupsTotal = $state(0);
+	let groupsHasMore = $state(false);
 	let groupsDegraded = $state(false);
 
 	// Only the first page of groups is fetched; the search box narrows it server-side.
@@ -75,7 +75,7 @@
 			});
 
 			filteredGroups = [...page.items].sort((a, b) => a.name.localeCompare(b.name));
-			groupsTotal = page.total;
+			groupsHasMore = Boolean(page.nextCursor);
 			groupsDegraded = page.degraded;
 		} catch (error) {
 			console.error('Error loading groups:', error);
@@ -117,7 +117,7 @@
 		selectedUsers = [];
 		filteredUsers = [];
 		filteredGroups = [];
-		groupsTotal = 0;
+		groupsHasMore = false;
 		groupsDegraded = false;
 	}
 </script>
@@ -154,9 +154,9 @@
 					permission may not be granted.
 				</span>
 			</div>
-		{:else if groupsTotal > filteredGroups.length}
+		{:else if groupsHasMore}
 			<p class="text-muted-content px-4 text-xs">
-				Showing {filteredGroups.length} of {groupsTotal} groups. Refine your search to narrow the list.
+				Showing the first {filteredGroups.length} groups. Refine your search to narrow the list.
 			</p>
 		{/if}
 		{#if loading}

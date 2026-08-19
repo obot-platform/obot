@@ -632,19 +632,21 @@ export async function listGlobalModelProviders(opts?: {
  * Fetches one page of the auth provider's groups.
  *
  * A directory can hold tens of thousands of groups, so callers must page rather than expect the
- * whole collection. Use `resolveGroups` instead when you already know which group IDs you need.
+ * whole collection. Paging is by opaque cursor, forwarded to the identity provider, so there is no
+ * total and no way to jump to an arbitrary page. Use `resolveGroups` instead when you already know
+ * which group IDs you need.
  */
 export async function listGroups(opts?: {
 	fetch?: Fetcher;
 	query?: string;
 	limit?: number;
-	offset?: number;
+	cursor?: string;
 	signal?: AbortSignal;
 }): Promise<OrgGroupPage> {
 	const queryString = buildQueryString({
 		name: opts?.query,
 		limit: opts?.limit,
-		offset: opts?.offset
+		cursor: opts?.cursor
 	});
 	const response = (await doGet(
 		`/groups${queryString ? `?${queryString}` : ''}`,
@@ -653,9 +655,7 @@ export async function listGroups(opts?: {
 
 	return {
 		items: response?.items ?? [],
-		total: response?.total ?? 0,
-		limit: response?.limit ?? 0,
-		offset: response?.offset ?? 0,
+		nextCursor: response?.nextCursor || undefined,
 		source: response?.source ?? 'provider',
 		degraded: response?.degraded ?? false
 	};

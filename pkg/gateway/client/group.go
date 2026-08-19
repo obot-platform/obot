@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log/slog"
 	"net/http"
@@ -39,16 +41,106 @@ func (e *FetchUserGroupsError) Error() string {
 }
 
 type ListAuthGroupsOptions struct {
-	// NameFilter, when set, restricts results to groups whose name matches it.
 	NameFilter string
+	Limit      int
+	Cursor     string
+}
 
-	Limit  int
-	Offset int
+type ListAuthGroupsResult struct {
+	Groups     []types.Group
+	NextCursor string
+
+	// Source is where the items came from: types.GroupSourceProvider or types.GroupSourceCache.
+	Source string
+
+	// Degraded is true when the auth provider could not be listed and the response fell back to
+	// cached groups.
+	Degraded bool
 }
 
 type listAuthGroupsPage struct {
-	Items []auth.GroupInfo `json:"items"`
-	Total int              `json:"total"`
+	Items      []auth.GroupInfo `json:"items"`
+	NextCursor string           `json:"nextCursor"`
+}
+
+// groupCursor is the opaque position handed to callers. It wraps the auth provider's own cursor
+// rather than exposing it, because the cached fallback pages differently and a position from one
+// source is meaningless to the other. Recording which source minted it lets a caller that switches
+// sources mid-listing restart cleanly instead of replaying an uninterpretable token.
+//
+// The JSON names are single letters because the encoded cursor travels in a query string and the
+// auth provider cursor it wraps can already be long.
+type groupCursor struct {
+	Version           int    `json:"v"`
+	Source            string `json:"s"`
+	FilterFingerprint string `json:"f,omitempty"`
+
+	// ProviderCursor is the auth provider's cursor, carried verbatim.
+	ProviderCursor string `json:"p,omitempty"`
+
+	// LastName and LastID are the keyset position of the last row of the previous page, used when
+	// paging the cached listing out of the database.
+	LastName string `json:"n,omitempty"`
+	LastID   string `json:"i,omitempty"`
+}
+
+const groupCursorVersion = 1
+
+// encodeGroupCursor renders a position as an opaque token. An empty position stays empty, which is
+// what tells a caller it has reached the end.
+func encodeGroupCursor(cursor groupCursor) (string, error) {
+	if cursor.ProviderCursor == "" && cursor.LastName == "" && cursor.LastID == "" {
+		return "", nil
+	}
+
+	cursor.Version = groupCursorVersion
+	payload, err := json.Marshal(cursor)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode group cursor: %w", err)
+	}
+
+	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+// decodeGroupCursor reads a position back. A cursor that cannot be trusted is reported as absent
+// rather than as an error: the caller then starts over at the first page, which is always a
+// sensible answer and never surfaces a failure to someone who simply retyped a search.
+func decodeGroupCursor(encoded, nameFilter string) (groupCursor, bool) {
+	if encoded == "" {
+		return groupCursor{}, false
+	}
+
+	raw, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return groupCursor{}, false
+	}
+
+	var cursor groupCursor
+	if err := json.Unmarshal(raw, &cursor); err != nil {
+		return groupCursor{}, false
+	}
+
+	if cursor.Version != groupCursorVersion || cursor.FilterFingerprint != groupFilterFingerprint(nameFilter) {
+		// Either the format moved on, or the caller changed the search between pages, which makes
+		// the recorded position meaningless.
+		return groupCursor{}, false
+	}
+
+	return cursor, true
+}
+
+// groupFilterFingerprint reduces a name filter to a short token, used to notice that a cursor is
+// being replayed against a different search. Hashing rather than storing the filter keeps
+// directory search terms out of URLs, which tend to end up in logs.
+func groupFilterFingerprint(nameFilter string) string {
+	if nameFilter == "" {
+		return ""
+	}
+
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(nameFilter))
+
+	return strconv.FormatUint(h.Sum64(), 16)
 }
 
 // ListAuthGroups returns one page of the auth provider's groups.
@@ -56,92 +148,96 @@ type listAuthGroupsPage struct {
 // The auth provider is the authoritative source. When it cannot be listed, the response falls back
 // to the groups table, which only ever contains groups observed during a user sign-in and is
 // therefore partial.
-func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, string, bool, error) {
+func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) (ListAuthGroupsResult, error) {
+	cursor, _ := decodeGroupCursor(opts.Cursor, opts.NameFilter)
+
 	if authProviderURL != "" {
-		groups, total, status, err := c.listAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, opts)
+		// A cursor minted by the cached listing cannot be replayed against the provider, so drop
+		// it and restart from the provider's first page.
+		providerCursor := ""
+		if cursor.Source == types.GroupSourceProvider {
+			providerCursor = cursor.ProviderCursor
+		}
+
+		result, status, err := c.listAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, opts, providerCursor)
 		switch {
 		case err == nil:
-			return groups, total, types.GroupSourceProvider, false, nil
+			return result, nil
 		case status == http.StatusNotFound:
 			// The provider does not implement group listing (e.g. github, google, local). The
 			// cached groups are all there has ever been, so this is not a degraded response.
 			slog.Debug("auth provider does not support group listing, using cached groups",
 				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace)
+		case status == http.StatusBadRequest:
+			// The provider rejected the cursor, most often because its own continuation token
+			// expired. Retry from the first page rather than reporting an outage.
+			slog.Debug("auth provider rejected the group listing cursor, restarting from the first page",
+				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace, "error", err)
+
+			result, _, retryErr := c.listAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, opts, "")
+			if retryErr == nil {
+				return result, nil
+			}
+
+			slog.Warn("failed to list groups from auth provider, falling back to cached groups",
+				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace, "error", retryErr)
+
+			return c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts, cursor, true)
 		default:
 			// Fall back to cached groups so the UI keeps working when the provider is unreachable
 			// or the credentials lack directory-wide read permission.
 			slog.Warn("failed to list groups from auth provider, falling back to cached groups",
 				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace, "error", err)
 
-			cached, cachedTotal, cacheErr := c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts)
-			if cacheErr != nil {
-				return nil, 0, "", false, cacheErr
-			}
-			return cached, cachedTotal, types.GroupSourceCache, true, nil
+			return c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts, cursor, true)
 		}
 	}
 
-	cached, total, err := c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts)
-	if err != nil {
-		return nil, 0, "", false, err
-	}
-
-	return cached, total, types.GroupSourceCache, false, nil
+	return c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts, cursor, false)
 }
 
 // listAuthGroupsFromProvider asks the auth provider for a page of groups. It returns the provider's
-// HTTP status alongside the error so the caller can tell "not implemented" apart from a failure.
-func (c *Client) listAuthGroupsFromProvider(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, int, error) {
+// HTTP status alongside the error so the caller can tell "not implemented" and "bad cursor" apart
+// from a failure.
+func (c *Client) listAuthGroupsFromProvider(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions, providerCursor string) (ListAuthGroupsResult, int, error) {
 	u, err := url.Parse(authProviderURL + "/obot-list-auth-groups")
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("failed to parse auth provider URL for group search: %w", err)
+		return ListAuthGroupsResult{}, 0, fmt.Errorf("failed to parse auth provider URL for group search: %w", err)
 	}
 
 	q := u.Query()
 	if opts.NameFilter != "" {
 		q.Set("name", opts.NameFilter)
 	}
-	// Always send a limit: it is what selects the paginated response shape, so a provider that
-	// predates pagination still answers with a plain array and is handled below.
 	q.Set("limit", strconv.Itoa(opts.Limit))
-	q.Set("offset", strconv.Itoa(opts.Offset))
+	if providerCursor != "" {
+		q.Set("cursor", providerCursor)
+	}
 	u.RawQuery = q.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("failed to build group listing request: %w", err)
+		return ListAuthGroupsResult{}, 0, fmt.Errorf("failed to build group listing request: %w", err)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("failed to call auth provider group listing: %w", err)
+		return ListAuthGroupsResult{}, 0, fmt.Errorf("failed to call auth provider group listing: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-		return nil, 0, resp.StatusCode, fmt.Errorf("auth provider group listing returned status %d: %s", resp.StatusCode, string(body))
+		return ListAuthGroupsResult{}, resp.StatusCode, fmt.Errorf("auth provider group listing returned status %d: %s", resp.StatusCode, string(body))
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, 0, resp.StatusCode, fmt.Errorf("failed to read auth provider group listing: %w", err)
+	var page listAuthGroupsPage
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		return ListAuthGroupsResult{}, resp.StatusCode, fmt.Errorf("failed to decode auth provider group listing: %w", err)
 	}
 
-	var (
-		page      listAuthGroupsPage
-		infos     []auth.GroupInfo
-		total     int
-		paginated bool
-	)
-	if err := json.Unmarshal(body, &page); err == nil && page.Items != nil {
-		infos, total, paginated = page.Items, page.Total, true
-	} else if err := json.Unmarshal(body, &infos); err != nil {
-		return nil, 0, resp.StatusCode, fmt.Errorf("failed to decode auth provider group listing: %w", err)
-	}
-
-	groups := make([]types.Group, 0, len(infos))
-	for _, info := range infos {
+	groups := make([]types.Group, 0, len(page.Items))
+	for _, info := range page.Items {
 		if info.ID == "" {
 			continue
 		}
@@ -154,20 +250,36 @@ func (c *Client) listAuthGroupsFromProvider(ctx context.Context, authProviderURL
 		})
 	}
 
-	if !paginated {
-		// An older provider ignored the limit and returned everything, so page it here instead.
-		total = len(groups)
-		groups = pageGroups(groups, opts.Limit, opts.Offset)
+	nextCursor, err := encodeGroupCursor(groupCursor{
+		Source:            types.GroupSourceProvider,
+		FilterFingerprint: groupFilterFingerprint(opts.NameFilter),
+		ProviderCursor:    page.NextCursor,
+	})
+	if err != nil {
+		return ListAuthGroupsResult{}, resp.StatusCode, err
 	}
 
-	return groups, total, resp.StatusCode, nil
+	return ListAuthGroupsResult{
+		Groups:     groups,
+		NextCursor: nextCursor,
+		Source:     types.GroupSourceProvider,
+	}, resp.StatusCode, nil
 }
 
 // listAuthGroupsFromCache pages over the groups table, which holds the groups seen during previous
 // user sign-ins.
-func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, error) {
+//
+// It pages by keyset rather than by offset: there is no total to page against, and a keyset seek
+// stays on the (name, id) ordering index no matter how deep the listing goes.
+func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions, cursor groupCursor, degraded bool) (ListAuthGroupsResult, error) {
+	result := ListAuthGroupsResult{
+		Groups:   []types.Group{},
+		Source:   types.GroupSourceCache,
+		Degraded: degraded,
+	}
+
 	if authProviderNamespace == "" || authProviderName == "" {
-		return []types.Group{}, 0, nil
+		return result, nil
 	}
 
 	query := c.db.WithContext(ctx).Model(&types.Group{}).
@@ -178,17 +290,40 @@ func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamesp
 		query = query.Where("LOWER(name) LIKE LOWER(?)", "%"+opts.NameFilter+"%")
 	}
 
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to count groups in database: %w", err)
+	// A cursor minted by the provider says nothing about a position in this table, so start over.
+	if cursor.Source == types.GroupSourceCache && (cursor.LastName != "" || cursor.LastID != "") {
+		// Written out rather than as a row-value comparison, which SQLite and PostgreSQL do not
+		// both support.
+		query = query.Where("(name > ? OR (name = ? AND id > ?))", cursor.LastName, cursor.LastName, cursor.LastID)
 	}
 
+	// One more than the page, so the presence of a further page is known without a second query.
 	var groups []types.Group
-	if err := query.Order("name").Limit(opts.Limit).Offset(opts.Offset).Find(&groups).Error; err != nil {
-		return nil, 0, fmt.Errorf("failed to fetch groups from database: %w", err)
+	if err := query.Order("name, id").Limit(opts.Limit + 1).Find(&groups).Error; err != nil {
+		return ListAuthGroupsResult{}, fmt.Errorf("failed to fetch groups from database: %w", err)
 	}
 
-	return groups, int(total), nil
+	var next groupCursor
+	if len(groups) > opts.Limit {
+		groups = groups[:opts.Limit]
+		last := groups[len(groups)-1]
+		next = groupCursor{
+			Source:            types.GroupSourceCache,
+			FilterFingerprint: groupFilterFingerprint(opts.NameFilter),
+			LastName:          last.Name,
+			LastID:            last.ID,
+		}
+	}
+
+	nextCursor, err := encodeGroupCursor(next)
+	if err != nil {
+		return ListAuthGroupsResult{}, err
+	}
+
+	result.Groups = groups
+	result.NextCursor = nextCursor
+
+	return result, nil
 }
 
 // ResolveAuthGroups looks up specific groups by ID, which is what the UI needs to render a name for
@@ -228,14 +363,6 @@ func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderNamespace, a
 	}
 
 	return resolved, nil
-}
-
-// pageGroups returns the requested window of a listing.
-func pageGroups(groups []types.Group, limit, offset int) []types.Group {
-	if offset >= len(groups) {
-		return []types.Group{}
-	}
-	return groups[offset:min(offset+limit, len(groups))]
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.

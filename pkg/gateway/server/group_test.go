@@ -10,30 +10,27 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func TestParseGroupPageParams(t *testing.T) {
+func TestParseGroupListParams(t *testing.T) {
 	tests := []struct {
 		name       string
 		query      string
 		wantLimit  int
-		wantOffset int
+		wantCursor string
 	}{
 		{
-			name:       "defaults when absent",
-			query:      "",
-			wantLimit:  defaultGroupPageSize,
-			wantOffset: 0,
+			name:      "defaults when absent",
+			query:     "",
+			wantLimit: defaultGroupPageSize,
 		},
 		{
-			name:       "explicit values",
-			query:      "limit=25&offset=100",
-			wantLimit:  25,
-			wantOffset: 100,
+			name:      "explicit limit",
+			query:     "limit=25",
+			wantLimit: 25,
 		},
 		{
-			name:       "limit capped",
-			query:      "limit=100000",
-			wantLimit:  maxGroupPageSize,
-			wantOffset: 0,
+			name:      "limit capped",
+			query:     "limit=100000",
+			wantLimit: maxGroupPageSize,
 		},
 		{
 			name:      "zero limit falls back to default",
@@ -51,16 +48,10 @@ func TestParseGroupPageParams(t *testing.T) {
 			wantLimit: defaultGroupPageSize,
 		},
 		{
-			name:       "negative offset clamps",
-			query:      "limit=10&offset=-5",
+			name:       "cursor is carried through opaquely",
+			query:      "limit=10&cursor=eyJ2IjoxfQ",
 			wantLimit:  10,
-			wantOffset: 0,
-		},
-		{
-			name:       "unparseable offset clamps",
-			query:      "limit=10&offset=abc",
-			wantLimit:  10,
-			wantOffset: 0,
+			wantCursor: "eyJ2IjoxfQ",
 		},
 	}
 
@@ -71,12 +62,12 @@ func TestParseGroupPageParams(t *testing.T) {
 				t.Fatalf("bad test query: %v", err)
 			}
 
-			limit, offset := parseGroupPageParams(query)
+			limit, cursor := parseGroupListParams(query)
 			if limit != tt.wantLimit {
 				t.Errorf("limit = %d, want %d", limit, tt.wantLimit)
 			}
-			if offset != tt.wantOffset {
-				t.Errorf("offset = %d, want %d", offset, tt.wantOffset)
+			if cursor != tt.wantCursor {
+				t.Errorf("cursor = %q, want %q", cursor, tt.wantCursor)
 			}
 		})
 	}

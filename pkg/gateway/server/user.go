@@ -344,9 +344,10 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
 
-// GET /api/groups?name=&limit=&offset=&ids=
-// Returns one page of the auth provider's groups, optionally filtered by name. Passing ids instead
-// resolves those specific group IDs to their display names.
+// GET /api/groups?name=&limit=&cursor=&ids=
+// Returns one page of the auth provider's groups, optionally filtered by name. Paging is by opaque
+// cursor: the response carries the position of the next page, or nothing when there are no more.
+// Passing ids instead resolves those specific group IDs to their display names.
 func (s *Server) listAuthGroups(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 	if name == "" || namespace == "" {
@@ -369,8 +370,6 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 
 		return apiContext.Write(types.GroupListResponse{
 			Items:  trimGroupsForUser(apiContext.User, groups),
-			Total:  len(groups),
-			Limit:  len(groups),
 			Source: types.GroupSourceCache,
 		})
 	}
@@ -380,8 +379,8 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return fmt.Errorf("failed to get auth provider URL: %w", err)
 	}
 
-	limit, offset := parseGroupPageParams(query)
-	groups, total, source, degraded, err := apiContext.GatewayClient.ListAuthGroups(
+	limit, cursor := parseGroupListParams(query)
+	result, err := apiContext.GatewayClient.ListAuthGroups(
 		apiContext.Context(),
 		providerURL.String(),
 		namespace,
@@ -389,7 +388,7 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		client.ListAuthGroupsOptions{
 			NameFilter: query.Get("name"),
 			Limit:      limit,
-			Offset:     offset,
+			Cursor:     cursor,
 		},
 	)
 	if err != nil {
@@ -398,36 +397,34 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 
 	slog.Info("Listed auth provider groups",
 		"providerNamespace", namespace, "providerName", name,
-		"groups", len(groups), "total", total, "source", source, "degraded", degraded)
+		"groups", len(result.Groups), "hasMore", result.NextCursor != "",
+		"source", result.Source, "degraded", result.Degraded)
 
 	return apiContext.Write(types.GroupListResponse{
-		Items:    trimGroupsForUser(apiContext.User, groups),
-		Total:    total,
-		Limit:    limit,
-		Offset:   offset,
-		Source:   source,
-		Degraded: degraded,
+		Items:      trimGroupsForUser(apiContext.User, result.Groups),
+		NextCursor: result.NextCursor,
+		Source:     result.Source,
+		Degraded:   result.Degraded,
 	})
 }
 
 const (
-	defaultGroupPageSize  = 50
-	maxGroupPageSize      = 500
+	defaultGroupPageSize = 50
+
+	// maxGroupPageSize matches the ceiling the auth providers enforce, which is set by the
+	// smallest page any of the identity providers will serve in a single request.
+	maxGroupPageSize = 100
+
 	maxGroupIDsPerRequest = 500
 )
 
-func parseGroupPageParams(query url.Values) (limit int, offset int) {
+func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	limit, err := strconv.Atoi(query.Get("limit"))
 	if err != nil || limit <= 0 {
 		limit = defaultGroupPageSize
 	}
-	limit = min(limit, maxGroupPageSize)
 
-	if offset, err = strconv.Atoi(query.Get("offset")); err != nil || offset < 0 {
-		offset = 0
-	}
-
-	return limit, offset
+	return min(limit, maxGroupPageSize), query.Get("cursor")
 }
 
 // splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.

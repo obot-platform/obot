@@ -2,7 +2,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup } from '$lib/services';
 	import Search from '../Search.svelte';
-	import Pagination from '../table/Pagination.svelte';
+	import CursorPagination from '../table/CursorPagination.svelte';
 	import { Check, TriangleAlert } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -26,8 +26,12 @@
 
 	let query = $state('');
 	let pageIndex = $state(0);
+	// One cursor per visited page: the first page has none, and every Next pushes the cursor that
+	// reaches the following page. Going back needs the stack rather than a single saved cursor,
+	// because a cursor only ever points forwards.
+	let cursorStack = $state<(string | undefined)[]>([undefined]);
+	let nextCursor = $state<string | undefined>(undefined);
 	let groups = $state<OrgGroup[]>([]);
-	let total = $state(0);
 	let degraded = $state(false);
 	let loading = $state(false);
 	let errored = $state(false);
@@ -47,19 +51,19 @@
 			const page = await UserService.listGroups({
 				query,
 				limit: pageSize,
-				offset: pageIndex * pageSize,
+				cursor: cursorStack[pageIndex],
 				signal: controller.signal
 			});
 			if (controller.signal.aborted) return;
 
 			groups = page.items;
-			total = page.total;
+			nextCursor = page.nextCursor;
 			degraded = page.degraded;
 		} catch (error) {
 			if (controller.signal.aborted) return;
 			console.error('Failed to load groups:', error);
 			groups = [];
-			total = 0;
+			nextCursor = undefined;
 			errored = true;
 		} finally {
 			if (!controller.signal.aborted) {
@@ -77,11 +81,17 @@
 
 	const excluded = $derived(new Set(excludeIds ?? []));
 	const visibleGroups = $derived(groups.filter((group) => !excluded.has(group.id)));
-	const lastPageIndex = $derived(Math.max(0, Math.ceil(total / pageSize) - 1));
 
 	function handleSearch(value: string) {
 		query = value;
+		// A cursor belongs to the search it was created for, so a new search starts over.
+		cursorStack = [undefined];
 		pageIndex = 0;
+	}
+
+	function goToNextPage() {
+		cursorStack = [...cursorStack.slice(0, pageIndex + 1), nextCursor];
+		pageIndex += 1;
 	}
 
 	export function refresh() {
@@ -149,15 +159,15 @@
 		{/if}
 	</div>
 
-	{#if total > pageSize}
+	{#if pageIndex > 0 || nextCursor}
 		<div class="shrink-0">
-			<Pagination
+			<CursorPagination
 				{pageIndex}
-				{lastPageIndex}
-				{total}
+				hasPrevious={pageIndex > 0}
+				hasNext={Boolean(nextCursor)}
 				{loading}
-				itemLabelSingular="group"
-				onPageChange={(idx) => (pageIndex = idx)}
+				onPrevious={() => (pageIndex -= 1)}
+				onNext={goToNextPage}
 			/>
 		</div>
 	{/if}

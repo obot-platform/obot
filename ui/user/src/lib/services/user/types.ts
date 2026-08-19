@@ -810,9 +810,7 @@ export type OrgGroupSource = 'provider' | 'cache';
 
 export interface OrgGroupPage {
 	items: OrgGroup[];
-	total: number;
-	limit: number;
-	offset: number;
+	nextCursor?: string;
 	source: OrgGroupSource;
 	/** True when the auth provider could not be listed and this fell back to cached groups. */
 	degraded: boolean;

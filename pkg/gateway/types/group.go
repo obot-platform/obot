@@ -7,7 +7,7 @@ import "time"
 type Group struct {
 	// ID is the globally unique identifier for the group.
 	// Each auth provider should use a different prefix for their groups to avoid collisions with other providers.
-	ID string `json:"id" gorm:"primaryKey;unique"`
+	ID string `json:"id" gorm:"primaryKey;unique;index:idx_group_auth_provider_name,priority:4"`
 
 	// AuthProviderName is the name of the auth provider that the group belongs to.
 	// This is used to identify the auth provider that the group belongs to.
@@ -18,7 +18,7 @@ type Group struct {
 	AuthProviderNamespace string `json:"authProviderNamespace" gorm:"primaryKey;index:idx_group_auth_provider;index:idx_group_auth_provider_name,priority:2"`
 
 	// Name is the display name of the group.
-	// Indexed because cached group listings are paged in name order.
+	// Indexed because cached group listings are paged by keyset in (name, id) order.
 	Name string `json:"name" gorm:"index:idx_group_auth_provider_name,priority:3"`
 
 	// IconURL is the URL of the group's icon.
@@ -38,10 +38,11 @@ const (
 
 // GroupListResponse is the paginated response for a group listing.
 type GroupListResponse struct {
-	Items  []Group `json:"items"`
-	Total  int     `json:"total"`
-	Limit  int     `json:"limit"`
-	Offset int     `json:"offset"`
+	Items []Group `json:"items"`
+
+	// NextCursor is the opaque position to pass back to fetch the following page. It is absent on
+	// the last page, and its presence is the only indication that more results exist.
+	NextCursor string `json:"nextCursor,omitempty"`
 
 	// Source is where the items came from: GroupSourceProvider or GroupSourceCache.
 	Source string `json:"source"`

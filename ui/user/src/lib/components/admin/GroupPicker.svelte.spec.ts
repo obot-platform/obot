@@ -10,6 +10,7 @@ interface GroupPageOverrides {
 	degraded?: boolean;
 }
 
+// The server hands out opaque cursors; a stringified offset is enough to stand in for one here.
 function mockGroups(overrides: GroupPageOverrides = {}) {
 	const total = overrides.total ?? 3;
 	const requests = vi.fn();
@@ -19,8 +20,8 @@ function mockGroups(overrides: GroupPageOverrides = {}) {
 			const url = new URL(request.url);
 			const name = url.searchParams.get('name') ?? '';
 			const limit = Number(url.searchParams.get('limit') ?? 50);
-			const offset = Number(url.searchParams.get('offset') ?? 0);
-			requests({ name, limit, offset });
+			const cursor = url.searchParams.get('cursor');
+			requests({ name, limit, cursor });
 
 			const all = Array.from({ length: total }, (_, i) => ({
 				id: `entra/${String(i).padStart(4, '0')}`,
@@ -28,11 +29,12 @@ function mockGroups(overrides: GroupPageOverrides = {}) {
 			}));
 			const matched = name ? all.filter((g) => g.name.includes(name)) : all;
 
+			const start = cursor ? Number(cursor) : 0;
+			const end = Math.min(start + limit, matched.length);
+
 			return HttpResponse.json({
-				items: matched.slice(offset, offset + limit),
-				total: matched.length,
-				limit,
-				offset,
+				items: matched.slice(start, end),
+				nextCursor: end < matched.length ? String(end) : undefined,
 				source: overrides.degraded ? 'cache' : 'provider',
 				degraded: overrides.degraded ?? false
 			});
@@ -66,7 +68,7 @@ describe('GroupPicker', () => {
 		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
 
 		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
-		expect(requests).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, offset: 0 }));
+		expect(requests).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, cursor: null }));
 	});
 
 	it('pages forward through a large directory', async () => {
@@ -77,7 +79,49 @@ describe('GroupPicker', () => {
 		await page.getByRole('button', { name: /Next/ }).click();
 
 		await expect.element(page.getByText('group-0050')).toBeInTheDocument();
-		expect(requests).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, offset: 50 }));
+		// The cursor the first page returned has to come back on the next request.
+		expect(requests).toHaveBeenCalledWith(expect.objectContaining({ limit: 50, cursor: '50' }));
+	});
+
+	it('pages backward to the page it came from', async () => {
+		mockGroups({ total: 10000 });
+		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
+
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+		await page.getByRole('button', { name: /Next/ }).click();
+		await expect.element(page.getByText('group-0050')).toBeInTheDocument();
+
+		await page.getByRole('button', { name: /Previous/ }).click();
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+	});
+
+	it('starts over when the search changes mid-listing', async () => {
+		const requests = mockGroups({ total: 10000 });
+		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
+
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+		await page.getByRole('button', { name: /Next/ }).click();
+		await expect.element(page.getByText('group-0050')).toBeInTheDocument();
+
+		// A cursor belongs to the search it was minted for, so a new search must not reuse it.
+		await page.getByRole('textbox').fill('group-01');
+
+		await vi.waitFor(() =>
+			expect(requests).toHaveBeenCalledWith(
+				expect.objectContaining({ name: 'group-01', cursor: null })
+			)
+		);
+	});
+
+	it('hides Next on the last page', async () => {
+		mockGroups({ total: 60 });
+		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
+
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+		await page.getByRole('button', { name: /Next/ }).click();
+
+		await expect.element(page.getByText('group-0050')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /Next/ })).toBeDisabled();
 	});
 
 	it('hides pagination when everything fits on one page', async () => {
