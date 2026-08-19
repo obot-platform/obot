@@ -699,18 +699,52 @@ export const getMcpServerDeploymentStatus = (
 	return { updateStatus, updatesAvailable, updateStatusTooltip };
 };
 
+function hasCompleteConfigurationOptions(env: NonNullable<MCPServerInfo['env']>[number]) {
+	if (!env.options?.length) return false;
+	if (env.value || hasSecretBinding(env)) return false;
+
+	return env.options.every((option) => Boolean(option.name.trim() && option.value.trim()));
+}
+
+function hasDuplicateConfigurationOptionValues(
+	fields: MCPServerInfo['env'] | MCPServerInfo['headers']
+) {
+	return fields?.some((field) => {
+		const values = new Set<string>();
+		return field.options?.some((option) => {
+			if (!option.value.trim()) return false;
+			if (values.has(option.value)) return true;
+			values.add(option.value);
+			return false;
+		});
+	});
+}
+
 function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['env']) {
 	if (!envs || type === 'composite') return true;
 
 	if (type === 'remote') {
-		return envs.every((env) => Boolean(env.key.trim()));
+		return envs.every(
+			(env) =>
+				Boolean(env.key.trim()) && (!env.options?.length || hasCompleteConfigurationOptions(env))
+		);
 	}
 
-	return envs.every(
-		(env) =>
-			Boolean(env.key.trim()) &&
-			(Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim()))
-	);
+	return envs.every((env) => {
+		if (!env.key.trim()) return false;
+		if (env.options?.length) return hasCompleteConfigurationOptions(env);
+		return Boolean(env.value?.trim()) || hasSecretBinding(env) || Boolean(env.name.trim());
+	});
+}
+
+function validateHeaders(type: LaunchServerType | 'filter', headers: MCPServerInfo['headers']) {
+	if (!headers || type === 'composite') return true;
+
+	return headers.every((header) => {
+		if (!header.key.trim()) return false;
+		if (header.options?.length) return hasCompleteConfigurationOptions(header);
+		return Boolean(header.value?.trim()) || hasSecretBinding(header) || Boolean(header.name.trim());
+	});
 }
 
 export const validateRuntimeForm = (
@@ -743,6 +777,9 @@ export const validateRuntimeForm = (
 
 	if (!validateEnvs(type, formData.env)) {
 		missingFields.env = true;
+	}
+	if (type !== 'composite' && hasDuplicateConfigurationOptionValues(formData.env)) {
+		invalid.env = true;
 	}
 
 	// Runtime-specific validation
@@ -779,6 +816,13 @@ export const validateRuntimeForm = (
 					missingFields.fixedURL = true;
 					missingFields.hostname = true;
 					missingFields.urlTemplate = true;
+				}
+
+				if (!validateHeaders(type, formData.remoteConfig?.headers)) {
+					missingFields.headers = true;
+				}
+				if (hasDuplicateConfigurationOptionValues(formData.remoteConfig?.headers)) {
+					invalid.headers = true;
 				}
 				break;
 			} else {

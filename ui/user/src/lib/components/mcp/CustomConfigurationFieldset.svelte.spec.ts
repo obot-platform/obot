@@ -22,6 +22,7 @@ async function renderFieldset(
 		serverUserType: 'singleUser' | 'multiUser';
 		readonly: boolean;
 		showRequired: boolean;
+		showInvalid: boolean;
 	}> = {}
 ) {
 	await render(CustomConfigurationFieldset, {
@@ -82,6 +83,45 @@ describe('CustomConfigurationFieldset.svelte', () => {
 		await expect
 			.element(page.getByLabelText('Static Value'))
 			.toHaveAttribute('aria-invalid', 'true');
+	});
+
+	it('clears a secret binding when switching to options', async () => {
+		const data: MCPSubField & { secretBindingSource?: string } = field({
+			key: 'API_KEY',
+			secretBinding: { name: 'api-credentials', key: 'api-key' }
+		});
+		data.secretBindingSource = 'secret';
+		await renderFieldset({ data });
+
+		await page.getByCSS('#env-value-type-test').click();
+		await page.getByRole('button', { name: 'Options', exact: true }).click();
+
+		expect(data.secretBinding).toBeUndefined();
+		expect(data.secretBindingSource).toBe('value');
+		expect(data.options).toEqual([{ name: '', value: '', description: '' }]);
+	});
+
+	it('shows an error on duplicate option values after invalid validation', async () => {
+		await renderFieldset({
+			data: field({
+				key: 'REGION',
+				options: [
+					{ name: 'United States', value: 'us' },
+					{ name: 'US fallback', value: 'us' }
+				]
+			}),
+			showInvalid: true
+		});
+
+		await expect
+			.element(page.getByCSS('#env-option-value-test-0'))
+			.not.toHaveAttribute('aria-invalid', 'true');
+		await expect
+			.element(page.getByCSS('#env-option-value-test-1'))
+			.toHaveAttribute('aria-invalid', 'true');
+		await expect
+			.element(page.getByCSS('#env-option-value-test-1-error'))
+			.toHaveTextContent('Option values must be unique.');
 	});
 
 	it('omits aria-required when the fieldset is readonly', async () => {

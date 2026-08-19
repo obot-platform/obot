@@ -19,6 +19,7 @@
 		overrideEnvField?: string[];
 		overrideEnvTemplate?: Snippet<[{ config: MCPCatalogEntryFieldManifest; index: number }]>;
 		showRequired?: boolean;
+		showInvalid?: boolean;
 		urlTemplateVariables?: boolean;
 	}
 
@@ -32,6 +33,7 @@
 		overrideEnvField,
 		overrideEnvTemplate,
 		showRequired,
+		showInvalid,
 		urlTemplateVariables = false
 	}: Props = $props();
 
@@ -84,7 +86,7 @@
 				{@render overrideEnvTemplate({ config: config![i], index: i })}
 			{:else}
 				<div
-					class="dark:border-base-400 bg-base-300 flex w-full items-center gap-4 rounded-lg border border-transparent p-4"
+					class="dark:border-base-400 bg-base-200 dark:bg-base-300 flex w-full items-start gap-4 rounded-lg border border-transparent p-4"
 				>
 					<div class="flex w-full flex-col gap-4">
 						{#if !urlTemplateVariables}
@@ -140,11 +142,13 @@
 								input: inputClass
 							}}
 							{showRequired}
+							{showInvalid}
 							urlTemplateVariable={urlTemplateVariables}
 						/>
 					</div>
 					{#if !readonly && !isPrebuiltEntry}
 						<IconButton
+							class="mt-6"
 							id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
 							variant="danger"
 							onclick={() => {

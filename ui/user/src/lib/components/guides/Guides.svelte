@@ -44,7 +44,7 @@
 		// avoid showing guide on edit pages route (for admin routes: depth 4, power user plus routes: depth 3)
 		// also avoid on routes with create new param (?new=true)
 		const depthLimit = isAdminRoute ? 4 : 3;
-		const hasCreateNewParam = page.url.searchParams.get('new') === 'true';
+		const hasCreateNewParam = page.url.searchParams.has('new');
 		if (page.url.pathname.split('/').length >= depthLimit || hasCreateNewParam) return false;
 
 		// avoid showing when initial required configuration is incomplete

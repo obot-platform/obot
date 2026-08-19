@@ -544,8 +544,9 @@
 													<Select
 														id={`${compId}-${env.data.key}`}
 														class={twMerge(
-															'border-base-300 border',
-															highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+															'bg-base-200 border-base-300 dark:border-base-400 border',
+															highlightRequired &&
+																'border-error dark:border-error bg-error/20 ring-error ring-1'
 														)}
 														options={configurationSelectOptions(env.data.options)}
 														selected={comp.envs![env.index].value}
@@ -652,8 +653,9 @@
 													<Select
 														id={`${compId}-${header.data.key}`}
 														class={twMerge(
-															'border-base-300 border',
-															highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+															'bg-base-200 border-base-300 dark:border-base-400 border',
+															highlightRequired &&
+																'border-error dark:border-error bg-error/20 ring-error ring-1'
 														)}
 														options={configurationSelectOptions(header.data.options)}
 														selected={comp.headers![header.index].value}
@@ -767,8 +769,9 @@
 									<Select
 										id={env.data.key}
 										class={twMerge(
-											'border-base-300 border',
-											highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+											'bg-base-200 border-base-300 dark:border-base-400 border',
+											highlightRequired &&
+												'border-error dark:border-error bg-error/20 ring-error ring-1'
 										)}
 										options={configurationSelectOptions(env.data.options)}
 										selected={form.envs![env.index].value}
@@ -862,8 +865,9 @@
 									<Select
 										id={header.data.key}
 										class={twMerge(
-											'border-base-300 border',
-											highlightRequired && 'border-error bg-error/20 ring-error ring-1'
+											'bg-base-200 border-base-300 dark:border-base-400 border',
+											highlightRequired &&
+												'border-error dark:border-error bg-error/20 ring-error ring-1'
 										)}
 										options={configurationSelectOptions(header.data.options)}
 										selected={form.headers![header.index].value}
