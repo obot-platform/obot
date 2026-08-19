@@ -163,7 +163,7 @@
 				response?.options
 					?.filter((d) => isAuditLogAPIKeyFilterOption(d) || (filterOptions?.(d, filterId) ?? true))
 					?.map((d) => {
-						const option = toAuditLogFilterSelectOption(d);
+						const option = toAuditLogFilterSelectOption(d, getUserDisplayName);
 						return isAuditLogAPIKeyFilterOption(d)
 							? option
 							: { ...option, label: getFilterOptionLabel?.(filterId, d) ?? option.label };

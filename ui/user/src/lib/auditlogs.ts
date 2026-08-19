@@ -13,9 +13,15 @@ export function isAuditLogAPIKeyFilterOption(
 	);
 }
 
-export function getAuditLogAPIKeyFilterOptionLabel(option: AuditLogAPIKeyFilterOption): string {
+export function getAuditLogAPIKeyFilterOptionLabel(
+	option: AuditLogAPIKeyFilterOption,
+	getUserDisplayName?: (userID: string) => string
+): string {
 	const key = formatAuditLogAPIKeyName(option.name, option.maskedKey);
-	const owner = option.userDisplayName || option.userID;
+	const owner =
+		(option.userID && getUserDisplayName?.(option.userID)) ||
+		option.userDisplayName ||
+		option.userID;
 	return [key, owner, option.revoked ? 'Revoked' : ''].filter(Boolean).join(' · ');
 }
 
@@ -29,12 +35,15 @@ export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | un
 		: '';
 }
 
-export function toAuditLogFilterSelectOption(option: AuditLogFilterOption): {
+export function toAuditLogFilterSelectOption(
+	option: AuditLogFilterOption,
+	getUserDisplayName?: (userID: string) => string
+): {
 	id: string;
 	label: string;
 } {
 	return isAuditLogAPIKeyFilterOption(option)
-		? { id: option.value, label: getAuditLogAPIKeyFilterOptionLabel(option) }
+		? { id: option.value, label: getAuditLogAPIKeyFilterOptionLabel(option, getUserDisplayName) }
 		: { id: option, label: option };
 }
 

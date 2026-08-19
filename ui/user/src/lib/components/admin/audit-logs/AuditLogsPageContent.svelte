@@ -208,7 +208,9 @@
 	function formatSingleFilterValue(key: string, value: string): string {
 		if (key === 'api_key_id') {
 			const option = apiKeyFilterOptions.get(value);
-			return option ? getAuditLogAPIKeyFilterOptionLabel(option) : value;
+			return option
+				? getAuditLogAPIKeyFilterOptionLabel(option, (id) => getUserDisplayName(users, id))
+				: value;
 		}
 		if (key === 'actor') return actorDisplay(value);
 		if (key === 'duration') return durationBucketLabel(value);

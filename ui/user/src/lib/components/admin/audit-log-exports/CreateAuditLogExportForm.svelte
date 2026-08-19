@@ -672,7 +672,7 @@
 			return toStringFilterSelectOptions(opts, (id) => usersMap.get(id)?.displayName ?? id);
 		}
 		return opts.map((d) => {
-			const option = toAuditLogFilterSelectOption(d);
+			const option = toAuditLogFilterSelectOption(d, (id) => usersMap.get(id)?.displayName ?? id);
 			return typeof d === 'string' && field.getOptionLabel
 				? { ...option, label: field.getOptionLabel(d) }
 				: option;

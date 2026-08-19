@@ -362,8 +362,9 @@
 	};
 
 	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
-		const sameLabel = (d: AuditLogFilterOption) => toAuditLogFilterSelectOption(d);
 		const getUserDisplayName = (id: string) => usersMap.get(id)?.displayName ?? id;
+		const sameLabel = (d: AuditLogFilterOption) =>
+			toAuditLogFilterSelectOption(d, getUserDisplayName);
 		if (logType === 'llm') {
 			return [
 				{

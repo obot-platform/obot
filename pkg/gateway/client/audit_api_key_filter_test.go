@@ -9,6 +9,9 @@ import (
 	"github.com/google/uuid"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
+	"k8s.io/apiserver/pkg/storage/value"
 )
 
 func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
@@ -88,6 +91,18 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		t.Fatalf("insert local-agent audit log: %v", err)
 	}
 
+	c.encryptionConfig = &encryptionconfig.EncryptionConfiguration{
+		Transformers: map[schema.GroupResource]value.Transformer{
+			userGroupResource: testTransformer{},
+		},
+	}
+	if err := c.encryptUser(ctx, &user); err != nil {
+		t.Fatalf("encrypt user: %v", err)
+	}
+	if err := c.db.WithContext(ctx).Save(&user).Error; err != nil {
+		t.Fatalf("save encrypted user: %v", err)
+	}
+
 	assertOptions := func(t *testing.T, options []apitypes.AuditLogAPIKeyFilterOption) {
 		t.Helper()
 		if len(options) != 4 {
@@ -106,8 +121,8 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 			if option.Value == fmt.Sprint(missingKeyID) {
 				continue
 			}
-			if option.UserID != "7" || option.UserDisplayName != "Calvin McLean" {
-				t.Fatalf("missing owner context: %#v", option)
+			if option.UserID != "7" || option.UserDisplayName != "" {
+				t.Fatalf("unexpected owner metadata: %#v", option)
 			}
 			if option.MaskedKey != fmt.Sprintf("ok1-7-%s-*****", option.Value) {
 				t.Fatalf("unexpected masked key: %#v", option)

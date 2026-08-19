@@ -12,13 +12,10 @@ import (
 )
 
 type auditLogAPIKeyOptionRow struct {
-	APIKeyID        uint
-	APIKeyName      string
-	UserID          uint
-	Revoked         bool
-	UserDisplayName string
-	Username        string
-	Email           string
+	APIKeyID   uint
+	APIKeyName string
+	UserID     uint
+	Revoked    bool
 }
 
 // GetMCPAuditLogAPIKeyFilterOptions returns the API keys present in the
@@ -65,12 +62,8 @@ func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.D
 		Select(`audit_key_snapshots.api_key_id,
 			audit_key_snapshots.api_key_name,
 			COALESCE(api_keys.user_id, 0) AS user_id,
-			(api_keys.revoked_at IS NOT NULL) AS revoked,
-			COALESCE(users.display_name, '') AS user_display_name,
-			COALESCE(users.username, '') AS username,
-			COALESCE(users.email, '') AS email`).
+			(api_keys.revoked_at IS NOT NULL) AS revoked`).
 		Joins("LEFT JOIN api_keys ON api_keys.id = audit_key_snapshots.api_key_id").
-		Joins("LEFT JOIN users ON users.id = api_keys.user_id").
 		Order("audit_key_snapshots.api_key_name, audit_key_snapshots.api_key_id")
 	if limit > 0 {
 		query = query.Limit(limit)
@@ -91,23 +84,8 @@ func (c *Client) scanAuditLogAPIKeyFilterOptions(ctx context.Context, db *gorm.D
 		if row.UserID != 0 {
 			option.UserID = strconv.FormatUint(uint64(row.UserID), 10)
 			option.MaskedKey = principal.MaskedAPIKeyName(option.UserID, row.APIKeyID)
-			option.UserDisplayName = auditLogAPIKeyUserDisplayName(
-				row.UserDisplayName, row.Username, row.Email, option.UserID)
 		}
 		options = append(options, option)
 	}
 	return options, nil
-}
-
-func auditLogAPIKeyUserDisplayName(displayName, username, email, fallback string) string {
-	if displayName != "" {
-		return displayName
-	}
-	if username != "" {
-		return username
-	}
-	if email != "" {
-		return email
-	}
-	return fallback
 }

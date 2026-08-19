@@ -268,7 +268,9 @@
 	function getFilterValue(label: keyof LLMAuditLogURLFilters, value: string | number) {
 		if (label === 'api_key_id') {
 			const option = apiKeyFilterOptions[value.toString()];
-			return option ? getAuditLogAPIKeyFilterOptionLabel(option) : value.toString();
+			return option
+				? getAuditLogAPIKeyFilterOptionLabel(option, (id) => getUserDisplayName(usersMap, id))
+				: value.toString();
 		}
 		if (label === 'user_id') {
 			return getUserDisplayName(usersMap, value + '');
