@@ -25,6 +25,7 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
 	import { TriangleAlert, GlobeIcon, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -293,7 +294,7 @@
 	let filtersOptions: Record<string, AuditLogFilterOption[]> = $state({});
 
 	$effect(() => {
-		UserService.listUsers().then((res) => {
+		UserService.listUsersIncludeDeleted().then((res) => {
 			res.forEach((user) => {
 				usersMap.set(user.id, user);
 			});
@@ -362,9 +363,10 @@
 	};
 
 	let auditScheduleAdvancedFilterRows = $derived.by((): AuditScheduleAdvancedFilterRow[] => {
-		const getUserDisplayName = (id: string) => usersMap.get(id)?.displayName ?? id;
+		const resolveUserDisplayName = (id: string) =>
+			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
 		const sameLabel = (d: AuditLogFilterOption) =>
-			toAuditLogFilterSelectOption(d, getUserDisplayName);
+			toAuditLogFilterSelectOption(d, resolveUserDisplayName);
 		if (logType === 'llm') {
 			return [
 				{
@@ -379,7 +381,7 @@
 					filterKey: 'user_id',
 					label: 'Users',
 					description: 'Comma-separated user IDs',
-					options: toStringFilterSelectOptions(filtersOptions['user_id'], getUserDisplayName)
+					options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
 				},
 				{
 					fieldId: 'model_provider',
@@ -450,7 +452,7 @@
 				filterKey: 'actor',
 				label: 'Actors',
 				description: 'Users and enrolled devices',
-				options: toStringFilterSelectOptions(filtersOptions['actor'], getUserDisplayName)
+				options: toStringFilterSelectOptions(filtersOptions['actor'], resolveUserDisplayName)
 			},
 			{
 				fieldId: 'tool',
@@ -536,7 +538,7 @@
 				filterKey: 'user_id',
 				label: 'User IDs',
 				description: 'Comma-separated user IDs',
-				options: toStringFilterSelectOptions(filtersOptions['user_id'], getUserDisplayName)
+				options: toStringFilterSelectOptions(filtersOptions['user_id'], resolveUserDisplayName)
 			},
 			{
 				fieldId: 'mcp_id',

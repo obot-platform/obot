@@ -27,6 +27,7 @@
 		type AuditLogURLFilters
 	} from '$lib/services';
 	import { profile } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
 	import { TriangleAlert, ChevronDown, ChevronUp } from '@lucide/svelte';
 	import { subDays, set } from 'date-fns';
 	import { onMount } from 'svelte';
@@ -467,7 +468,7 @@
 	});
 
 	$effect(() => {
-		UserService.listUsers().then((res) => {
+		UserService.listUsersIncludeDeleted().then((res) => {
 			res.forEach((user) => {
 				usersMap.set(user.id, user);
 			});
@@ -668,11 +669,13 @@
 	): { id: string; label: string }[] {
 		const opts = filtersOptions[field.filterKey];
 		if (!opts?.map) return [];
+		const resolveUserDisplayName = (id: string) =>
+			usersMap.has(id) ? getUserDisplayName(usersMap, id) : id;
 		if (field.useUserDisplayNames) {
-			return toStringFilterSelectOptions(opts, (id) => usersMap.get(id)?.displayName ?? id);
+			return toStringFilterSelectOptions(opts, resolveUserDisplayName);
 		}
 		return opts.map((d) => {
-			const option = toAuditLogFilterSelectOption(d, (id) => usersMap.get(id)?.displayName ?? id);
+			const option = toAuditLogFilterSelectOption(d, resolveUserDisplayName);
 			return typeof d === 'string' && field.getOptionLabel
 				? { ...option, label: field.getOptionLabel(d) }
 				: option;
