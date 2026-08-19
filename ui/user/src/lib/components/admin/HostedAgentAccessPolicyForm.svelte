@@ -100,7 +100,10 @@
 
 		// Groups are resolved by ID, not listed: the directory can hold tens of thousands of them and
 		// only the ones attached here are needed.
-		resolveSubjects(policy.subjects, usersAndGroups)
+		resolveSubjects(
+			policy.subjects,
+			untrack(() => usersAndGroups)
+		)
 			.then((resolved) => {
 				usersAndGroups = resolved;
 				loadingUsersAndGroups = false;

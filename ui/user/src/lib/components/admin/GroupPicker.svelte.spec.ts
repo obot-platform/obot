@@ -119,9 +119,7 @@ describe('GroupPicker', () => {
 		mockGroups({ total: 2, degraded: true });
 		render(GroupPicker, { onSelect: vi.fn() });
 
-		await expect
-			.element(page.getByText(/groups seen from previous sign-ins/i))
-			.toBeInTheDocument();
+		await expect.element(page.getByText(/groups seen from previous sign-ins/i)).toBeInTheDocument();
 	});
 
 	it('does not warn when the provider answered', async () => {
