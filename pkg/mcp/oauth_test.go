@@ -39,6 +39,18 @@ func TestRequiresStaticOAuth(t *testing.T) {
 	require.False(t, RequiresStaticOAuth(server))
 }
 
+func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {
+	headers := serverConfigHeaders(ServerConfig{
+		PassthroughHeaderNames:  []string{"x-request-id"},
+		PassthroughHeaderValues: []string{"request-1"},
+		Headers:                 []string{"AUTHORIZATION=Bearer token"},
+	})
+
+	require.Equal(t, []string{"Bearer token"}, headers["Authorization"])
+	require.Equal(t, []string{"request-1"}, headers["X-Request-Id"])
+	require.NotContains(t, headers, "AUTHORIZATION")
+}
+
 func TestGetOAuthMetadataAssumesOAuthAfterSuccessfulInitialize(t *testing.T) {
 	var initializeRequests atomic.Int32
 	var serverURL string
