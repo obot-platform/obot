@@ -3,7 +3,6 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		UserService,
 		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
@@ -19,6 +18,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchHostedAgents from './SearchHostedAgents.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import { resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -98,33 +98,11 @@
 
 		loadingUsersAndGroups = true;
 
-		// Prevent refetching when adding new users or groups
-		const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
-			Promise.resolve(undefined),
-			Promise.resolve(undefined)
-		];
-
-		if (!usersAndGroups?.users) {
-			promises[0] = UserService.listUsers();
-		}
-		if (!usersAndGroups?.groups) {
-			promises[1] = UserService.listGroups();
-		}
-
-		Promise.all(promises)
-			.then(([users, groups]) => {
-				if (!usersAndGroups) {
-					usersAndGroups = { users: [], groups: [] };
-				}
-
-				if (users) {
-					usersAndGroups!.users = users;
-				}
-
-				if (groups) {
-					usersAndGroups!.groups = groups;
-				}
-
+		// Groups are resolved by ID, not listed: the directory can hold tens of thousands of them and
+		// only the ones attached here are needed.
+		resolveSubjects(policy.subjects, usersAndGroups)
+			.then((resolved) => {
+				usersAndGroups = resolved;
 				loadingUsersAndGroups = false;
 			})
 			.catch((error) => {

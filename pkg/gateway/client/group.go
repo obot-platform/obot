@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,96 +38,204 @@ func (e *FetchUserGroupsError) Error() string {
 	return fmt.Sprintf("auth provider failed to check groups for user with ID %s: %s", e.ProviderUserID, e.Message)
 }
 
-// ListAuthGroups lists the auth provider groups for the given auth provider.
+type ListAuthGroupsOptions struct {
+	// NameFilter, when set, restricts results to groups whose name matches it.
+	NameFilter string
+
+	Limit  int
+	Offset int
+}
+
+type listAuthGroupsPage struct {
+	Items []auth.GroupInfo `json:"items"`
+	Total int              `json:"total"`
+}
+
+// ListAuthGroups returns one page of the auth provider's groups.
 //
-// It supports fuzzy finding group names using on the given nameFilter.
-// It queries the auth provider for "live" group search from the auth provider, then combines the
-// results with cached groups from the database.
-// This allows admins to discover groups that authenticated users belong to for auth providers
-// limited group search capabilities.
-func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName, nameFilter string) ([]types.Group, error) {
-	// Fetch groups from the auth provider
-	var providerGroups []auth.GroupInfo
+// The auth provider is the authoritative source. When it cannot be listed, the response falls back
+// to the groups table, which only ever contains groups observed during a user sign-in and is
+// therefore partial.
+func (c *Client) ListAuthGroups(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, string, bool, error) {
 	if authProviderURL != "" {
-		u, err := url.Parse(authProviderURL + "/obot-list-auth-groups")
-		if err != nil {
-			slog.Warn("failed to parse auth provider URL for group search", "error", err)
-		} else {
-			// We ignore errors here so that clients can still search over cached groups where there
-			// are issues fetching them from the auth provider.
-			if nameFilter != "" {
-				q := u.Query()
-				q.Set("name", nameFilter)
-				u.RawQuery = q.Encode()
+		groups, total, status, err := c.listAuthGroupsFromProvider(ctx, authProviderURL, authProviderNamespace, authProviderName, opts)
+		switch {
+		case err == nil:
+			return groups, total, types.GroupSourceProvider, false, nil
+		case status == http.StatusNotFound:
+			// The provider does not implement group listing (e.g. github, google, local). The
+			// cached groups are all there has ever been, so this is not a degraded response.
+			slog.Debug("auth provider does not support group listing, using cached groups",
+				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace)
+		default:
+			// Fall back to cached groups so the UI keeps working when the provider is unreachable
+			// or the credentials lack directory-wide read permission.
+			slog.Warn("failed to list groups from auth provider, falling back to cached groups",
+				"authProviderName", authProviderName, "authProviderNamespace", authProviderNamespace, "error", err)
+
+			cached, cachedTotal, cacheErr := c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts)
+			if cacheErr != nil {
+				return nil, 0, "", false, cacheErr
 			}
-
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-			if err == nil {
-				resp, err := http.DefaultClient.Do(req)
-				if err == nil {
-					defer resp.Body.Close()
-					if resp.StatusCode == http.StatusOK {
-						_ = json.NewDecoder(resp.Body).Decode(&providerGroups)
-					}
-				}
-			}
+			return cached, cachedTotal, types.GroupSourceCache, true, nil
 		}
 	}
 
-	// Fetch groups from the database if we have auth provider info
-	var dbGroups []types.Group
-	if authProviderNamespace != "" && authProviderName != "" {
-		query := c.db.WithContext(ctx).Where("auth_provider_namespace = ? AND auth_provider_name = ?",
-			authProviderNamespace, authProviderName)
-
-		// Apply name filter if provided (case-insensitive, compatible with SQLite and PostgreSQL)
-		if nameFilter != "" {
-			query = query.Where("LOWER(name) LIKE LOWER(?)", "%"+nameFilter+"%")
-		}
-
-		if err := query.Find(&dbGroups).Error; err != nil {
-			return nil, fmt.Errorf("failed to fetch groups from database: %w", err)
-		}
+	cached, total, err := c.listAuthGroupsFromCache(ctx, authProviderNamespace, authProviderName, opts)
+	if err != nil {
+		return nil, 0, "", false, err
 	}
 
-	groups := make(map[string]types.Group, len(dbGroups))
-	for _, group := range dbGroups {
-		groups[group.ID] = group
+	return cached, total, types.GroupSourceCache, false, nil
+}
+
+// listAuthGroupsFromProvider asks the auth provider for a page of groups. It returns the provider's
+// HTTP status alongside the error so the caller can tell "not implemented" apart from a failure.
+func (c *Client) listAuthGroupsFromProvider(ctx context.Context, authProviderURL, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, int, error) {
+	u, err := url.Parse(authProviderURL + "/obot-list-auth-groups")
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to parse auth provider URL for group search: %w", err)
 	}
 
-	// Add/merge provider groups
-	for _, providerGroup := range providerGroups {
-		if providerGroup.ID == "" {
+	q := u.Query()
+	if opts.NameFilter != "" {
+		q.Set("name", opts.NameFilter)
+	}
+	// Always send a limit: it is what selects the paginated response shape, so a provider that
+	// predates pagination still answers with a plain array and is handled below.
+	q.Set("limit", strconv.Itoa(opts.Limit))
+	q.Set("offset", strconv.Itoa(opts.Offset))
+	u.RawQuery = q.Encode()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to build group listing request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, 0, 0, fmt.Errorf("failed to call auth provider group listing: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return nil, 0, resp.StatusCode, fmt.Errorf("auth provider group listing returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, resp.StatusCode, fmt.Errorf("failed to read auth provider group listing: %w", err)
+	}
+
+	var (
+		page      listAuthGroupsPage
+		infos     []auth.GroupInfo
+		total     int
+		paginated bool
+	)
+	if err := json.Unmarshal(body, &page); err == nil && page.Items != nil {
+		infos, total, paginated = page.Items, page.Total, true
+	} else if err := json.Unmarshal(body, &infos); err != nil {
+		return nil, 0, resp.StatusCode, fmt.Errorf("failed to decode auth provider group listing: %w", err)
+	}
+
+	groups := make([]types.Group, 0, len(infos))
+	for _, info := range infos {
+		if info.ID == "" {
 			continue
 		}
-
-		if existing, ok := groups[providerGroup.ID]; ok {
-			// Keep database timestamps but update other fields from provider
-			if providerGroup.Name != "" {
-				existing.Name = providerGroup.Name
-			}
-			if providerGroup.IconURL != nil {
-				existing.IconURL = providerGroup.IconURL
-			}
-			groups[providerGroup.ID] = existing
-			continue
-		}
-
-		groups[providerGroup.ID] = types.Group{
-			ID:                    providerGroup.ID,
+		groups = append(groups, types.Group{
+			ID:                    info.ID,
 			AuthProviderName:      authProviderName,
 			AuthProviderNamespace: authProviderNamespace,
-			Name:                  providerGroup.Name,
-			IconURL:               providerGroup.IconURL,
+			Name:                  info.Name,
+			IconURL:               info.IconURL,
+		})
+	}
+
+	if !paginated {
+		// An older provider ignored the limit and returned everything, so page it here instead.
+		total = len(groups)
+		groups = pageGroups(groups, opts.Limit, opts.Offset)
+	}
+
+	return groups, total, resp.StatusCode, nil
+}
+
+// listAuthGroupsFromCache pages over the groups table, which holds the groups seen during previous
+// user sign-ins.
+func (c *Client) listAuthGroupsFromCache(ctx context.Context, authProviderNamespace, authProviderName string, opts ListAuthGroupsOptions) ([]types.Group, int, error) {
+	if authProviderNamespace == "" || authProviderName == "" {
+		return []types.Group{}, 0, nil
+	}
+
+	query := c.db.WithContext(ctx).Model(&types.Group{}).
+		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName)
+
+	// Case-insensitive, compatible with SQLite and PostgreSQL.
+	if opts.NameFilter != "" {
+		query = query.Where("LOWER(name) LIKE LOWER(?)", "%"+opts.NameFilter+"%")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to count groups in database: %w", err)
+	}
+
+	var groups []types.Group
+	if err := query.Order("name").Limit(opts.Limit).Offset(opts.Offset).Find(&groups).Error; err != nil {
+		return nil, 0, fmt.Errorf("failed to fetch groups from database: %w", err)
+	}
+
+	return groups, int(total), nil
+}
+
+// ResolveAuthGroups looks up specific groups by ID, which is what the UI needs to render a name for
+// a group that already has a role or policy attached. Unknown IDs come back as a group whose name
+// is the ID itself, so a caller renders something identifiable instead of dropping the row.
+func (c *Client) ResolveAuthGroups(ctx context.Context, authProviderNamespace, authProviderName string, ids []string) ([]types.Group, error) {
+	if len(ids) == 0 {
+		return []types.Group{}, nil
+	}
+
+	var cached []types.Group
+	query := c.db.WithContext(ctx).Where("id IN ?", ids)
+	if authProviderNamespace != "" && authProviderName != "" {
+		query = query.Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName)
+	}
+	if err := query.Find(&cached).Error; err != nil {
+		return nil, fmt.Errorf("failed to resolve groups from database: %w", err)
+	}
+
+	byID := make(map[string]types.Group, len(cached))
+	for _, group := range cached {
+		byID[group.ID] = group
+	}
+
+	resolved := make([]types.Group, 0, len(ids))
+	for _, id := range ids {
+		if group, ok := byID[id]; ok {
+			resolved = append(resolved, group)
+			continue
 		}
+		resolved = append(resolved, types.Group{
+			ID:                    id,
+			AuthProviderName:      authProviderName,
+			AuthProviderNamespace: authProviderNamespace,
+			Name:                  id,
+		})
 	}
 
-	result := make([]types.Group, 0, len(groups))
-	for _, group := range groups {
-		result = append(result, group)
-	}
+	return resolved, nil
+}
 
-	return result, nil
+// pageGroups returns the requested window of a listing.
+func pageGroups(groups []types.Group, limit, offset int) []types.Group {
+	if offset >= len(groups) {
+		return []types.Group{}
+	}
+	return groups[offset:min(offset+limit, len(groups))]
 }
 
 // ListGroupIDsForUser lists the group IDs that the given user is a member of.

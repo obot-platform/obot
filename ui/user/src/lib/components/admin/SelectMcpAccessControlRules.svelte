@@ -45,7 +45,16 @@
 				? await UserService.listWorkspaceAccessControlRules(id)
 				: await AdminService.listAccessControlRules();
 		users = await UserService.listUsers();
-		groups = await UserService.listGroups();
+		// Resolve only the groups these rules actually reference; the directory may hold tens of
+		// thousands and this dialog just needs their display names.
+		groups = await UserService.resolveGroups([
+			...new Set(
+				accessControlRules
+					.flatMap((rule) => rule.subjects ?? [])
+					.filter((subject) => subject.type === 'group' && subject.id !== '*')
+					.map((subject) => subject.id)
+			)
+		]);
 		dialog?.open();
 	}
 

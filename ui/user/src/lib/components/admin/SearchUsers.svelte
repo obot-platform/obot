@@ -5,7 +5,7 @@
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
-	import { Check, User, Users } from '@lucide/svelte';
+	import { Check, TriangleAlert, User, Users } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
 	import { twMerge } from 'tailwind-merge';
 
@@ -13,27 +13,27 @@
 		onAdd: (users: OrgUser[], groups: OrgGroup[]) => void;
 		filterIds?: string[];
 		initialUsers?: OrgUser[];
-		initialGroups?: OrgGroup[];
 	}
 
-	let { onAdd, filterIds, initialUsers = [], initialGroups = [] }: Props = $props();
+	let { onAdd, filterIds, initialUsers = [] }: Props = $props();
 
 	let addUserGroupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let users = $state<OrgUser[]>([]);
-	let groups = $state<OrgGroup[]>([]);
 	let loading = $state(false);
 	let searchNames = $state('');
 	let selectedUsers = $state<(OrgUser | OrgGroup)[]>([]);
 	let selectedUsersMap = $derived(new Set(selectedUsers.map((user) => user.id)));
 	let filteredUsers = $state<OrgUser[]>([]);
 	let filteredGroups = $state<OrgGroup[]>([]);
+	let groupsTotal = $state(0);
+	let groupsDegraded = $state(false);
+
+	// Only the first page of groups is fetched; the search box narrows it server-side.
+	const GROUP_PAGE_SIZE = 50;
 
 	$effect(() => {
 		if (initialUsers.length > 0) {
 			users = initialUsers;
-		}
-		if (initialGroups.length > 0) {
-			groups = initialGroups;
 		}
 	});
 
@@ -67,18 +67,16 @@
 				: users;
 
 		try {
-			// Fetch groups with server-side search
-			filteredGroups =
-				searchNames.length === 0 && groups.length > 0
-					? [...groups].sort((a, b) => a.name.localeCompare(b.name))
-					: (
-							await UserService.listGroups(
-								searchNames.length > 0 ? { query: searchNames } : undefined
-							)
-						).sort((a, b) => a.name.localeCompare(b.name));
-			if (searchNames.length === 0) {
-				groups = filteredGroups;
-			}
+			// Groups are searched and paged server-side: a directory can hold far more than can be
+			// listed at once, so only the first page is fetched and the user narrows with the query.
+			const page = await UserService.listGroups({
+				query: searchNames.length > 0 ? searchNames : undefined,
+				limit: GROUP_PAGE_SIZE
+			});
+
+			filteredGroups = [...page.items].sort((a, b) => a.name.localeCompare(b.name));
+			groupsTotal = page.total;
+			groupsDegraded = page.degraded;
 		} catch (error) {
 			console.error('Error loading groups:', error);
 		} finally {
@@ -119,6 +117,8 @@
 		selectedUsers = [];
 		filteredUsers = [];
 		filteredGroups = [];
+		groupsTotal = 0;
+		groupsDegraded = false;
 	}
 </script>
 
@@ -143,6 +143,22 @@
 				placeholder="Search by user name, email, or group name..."
 			/>
 		</div>
+		{#if groupsDegraded}
+			<div
+				class="mx-4 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs"
+				role="status"
+			>
+				<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+				<span>
+					Showing only groups seen from previous sign-ins &mdash; directory-wide group read
+					permission may not be granted.
+				</span>
+			</div>
+		{:else if groupsTotal > filteredGroups.length}
+			<p class="text-muted-content px-4 text-xs">
+				Showing {filteredGroups.length} of {groupsTotal} groups. Refine your search to narrow the list.
+			</p>
+		{/if}
 		{#if loading}
 			<div class="flex grow items-center justify-center">
 				<Loading class="size-6" />

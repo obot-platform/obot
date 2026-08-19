@@ -11,17 +11,44 @@ type Group struct {
 
 	// AuthProviderName is the name of the auth provider that the group belongs to.
 	// This is used to identify the auth provider that the group belongs to.
-	AuthProviderName string `json:"authProviderName" gorm:"primaryKey;index:idx_group_auth_provider"`
+	AuthProviderName string `json:"authProviderName" gorm:"primaryKey;index:idx_group_auth_provider;index:idx_group_auth_provider_name,priority:1"`
 
 	// AuthProviderNamespace is the namespace of the auth provider that the group belongs to.
 	// Note: This is pretty much always "default", but we're keeping it here for parity with the Identity type.
-	AuthProviderNamespace string `json:"authProviderNamespace" gorm:"primaryKey;index:idx_group_auth_provider"`
+	AuthProviderNamespace string `json:"authProviderNamespace" gorm:"primaryKey;index:idx_group_auth_provider;index:idx_group_auth_provider_name,priority:2"`
 
 	// Name is the display name of the group.
-	Name string `json:"name"`
+	// Indexed because cached group listings are paged in name order.
+	Name string `json:"name" gorm:"index:idx_group_auth_provider_name,priority:3"`
 
 	// IconURL is the URL of the group's icon.
 	IconURL *string `json:"iconURL"`
+}
+
+// Group listing sources, reported on GroupListResponse so callers can tell a live directory
+// listing apart from the partial view built up from previous sign-ins.
+const (
+	// GroupSourceProvider means the listing came from the auth provider and is complete.
+	GroupSourceProvider = "provider"
+
+	// GroupSourceCache means the listing came from the groups table, which only ever contains
+	// groups observed during a user sign-in and is therefore partial.
+	GroupSourceCache = "cache"
+)
+
+// GroupListResponse is the paginated response for a group listing.
+type GroupListResponse struct {
+	Items  []Group `json:"items"`
+	Total  int     `json:"total"`
+	Limit  int     `json:"limit"`
+	Offset int     `json:"offset"`
+
+	// Source is where the items came from: GroupSourceProvider or GroupSourceCache.
+	Source string `json:"source"`
+
+	// Degraded is true when the auth provider could not be listed and the response fell back to
+	// cached groups. It distinguishes a real failure from a provider that has no group support.
+	Degraded bool `json:"degraded"`
 }
 
 // GroupMemberships represents a user's membership in a group.

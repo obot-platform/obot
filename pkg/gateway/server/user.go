@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,7 +36,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	if name != "" && namespace != "" {
 		providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 		if err != nil {
-			return fmt.Errorf("failed to get auth provider URL: %v", err)
+			return fmt.Errorf("failed to get auth provider URL: %w", err)
 		}
 		if err = apiContext.GatewayClient.UpdateProfileIfNeeded(apiContext.Context(), user, name, namespace, providerURL.String()); err != nil {
 			slog.Warn("failed to update profile icon for user", "username", user.Username, "error", err)
@@ -342,41 +344,132 @@ func (s *Server) deleteUser(apiContext api.Context) (err error) {
 	return apiContext.Write(types.ConvertUser(existingUser, apiContext.GatewayClient.HasExplicitRole(existingUser.Email) != types2.RoleUnknown, ""))
 }
 
+// GET /api/groups?name=&limit=&offset=&ids=
+// Returns one page of the auth provider's groups, optionally filtered by name. Passing ids instead
+// resolves those specific group IDs to their display names.
 func (s *Server) listAuthGroups(apiContext api.Context) error {
 	name, namespace := apiContext.AuthProviderNameAndNamespace()
 	if name == "" || namespace == "" {
-		return apiContext.Write([]types.Group{})
+		return apiContext.Write(types.GroupListResponse{
+			Items:  []types.Group{},
+			Source: types.GroupSourceCache,
+		})
+	}
+
+	query := apiContext.URL.Query()
+
+	// Resolving specific IDs never needs the provider directory, so handle it before paying for a
+	// provider URL lookup.
+	if rawIDs := query.Get("ids"); rawIDs != "" {
+		ids := splitGroupIDs(rawIDs)
+		groups, err := apiContext.GatewayClient.ResolveAuthGroups(apiContext.Context(), namespace, name, ids)
+		if err != nil {
+			return fmt.Errorf("failed to resolve auth groups: %w", err)
+		}
+
+		return apiContext.Write(types.GroupListResponse{
+			Items:  trimGroupsForUser(apiContext.User, groups),
+			Total:  len(groups),
+			Limit:  len(groups),
+			Source: types.GroupSourceCache,
+		})
 	}
 
 	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
 	if err != nil {
-		return fmt.Errorf("failed to get auth provider URL: %v", err)
+		return fmt.Errorf("failed to get auth provider URL: %w", err)
 	}
-	groups, err := apiContext.GatewayClient.ListAuthGroups(
+
+	limit, offset := parseGroupPageParams(query)
+	groups, total, source, degraded, err := apiContext.GatewayClient.ListAuthGroups(
 		apiContext.Context(),
 		providerURL.String(),
 		namespace,
 		name,
-		apiContext.URL.Query().Get("name"),
+		client.ListAuthGroupsOptions{
+			NameFilter: query.Get("name"),
+			Limit:      limit,
+			Offset:     offset,
+		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to list auth groups: %v", err)
+		return fmt.Errorf("failed to list auth groups: %w", err)
 	}
 
-	slog.Info("Listed auth provider groups", "providerNamespace", namespace, "providerName", name, "groups", len(groups))
+	slog.Info("Listed auth provider groups",
+		"providerNamespace", namespace, "providerName", name,
+		"groups", len(groups), "total", total, "source", source, "degraded", degraded)
 
-	if userIsBasicOrPower(apiContext.User) {
-		trimmedGroups := make([]types.Group, 0, len(groups))
-		for _, group := range groups {
-			trimmedGroups = append(trimmedGroups, types.Group{
-				ID:   group.ID,
-				Name: group.Name,
-			})
+	return apiContext.Write(types.GroupListResponse{
+		Items:    trimGroupsForUser(apiContext.User, groups),
+		Total:    total,
+		Limit:    limit,
+		Offset:   offset,
+		Source:   source,
+		Degraded: degraded,
+	})
+}
+
+const (
+	defaultGroupPageSize  = 50
+	maxGroupPageSize      = 500
+	maxGroupIDsPerRequest = 500
+)
+
+func parseGroupPageParams(query url.Values) (limit int, offset int) {
+	limit, err := strconv.Atoi(query.Get("limit"))
+	if err != nil || limit <= 0 {
+		limit = defaultGroupPageSize
+	}
+	limit = min(limit, maxGroupPageSize)
+
+	if offset, err = strconv.Atoi(query.Get("offset")); err != nil || offset < 0 {
+		offset = 0
+	}
+
+	return limit, offset
+}
+
+// splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
+func splitGroupIDs(raw string) []string {
+	parts := strings.Split(raw, ",")
+	ids := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
+
+	for _, part := range parts {
+		id := strings.TrimSpace(part)
+		if id == "" {
+			continue
 		}
-		return apiContext.Write(trimmedGroups)
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+
+		if ids = append(ids, id); len(ids) >= maxGroupIDsPerRequest {
+			break
+		}
 	}
 
-	return apiContext.Write(groups)
+	return ids
+}
+
+// trimGroupsForUser strips everything but the ID and name for users who should not see which auth
+// provider a group belongs to.
+func trimGroupsForUser(u user.Info, groups []types.Group) []types.Group {
+	if !userIsBasicOrPower(u) {
+		return groups
+	}
+
+	trimmed := make([]types.Group, 0, len(groups))
+	for _, group := range groups {
+		trimmed = append(trimmed, types.Group{
+			ID:   group.ID,
+			Name: group.Name,
+		})
+	}
+
+	return trimmed
 }
 
 func userIsBasicOrPower(u user.Info) bool {

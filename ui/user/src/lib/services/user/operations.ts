@@ -49,6 +49,7 @@ import {
 	type Model,
 	type ModelProviderList,
 	type OrgGroup,
+	type OrgGroupPage,
 	type OrgUser,
 	type Profile,
 	type McpServerOrInstanceAuditLogStatsFilters,
@@ -627,14 +628,51 @@ export async function listGlobalModelProviders(opts?: {
 
 // Organization
 
-export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
-	const params: string[] = [];
-	if (opts?.query !== undefined) {
-		params.push(`name=${encodeURIComponent(opts.query)}`);
-	}
-	const queryString = params.length ? `?${params.join('&')}` : '';
-	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
-	return response ?? [];
+/**
+ * Fetches one page of the auth provider's groups.
+ *
+ * A directory can hold tens of thousands of groups, so callers must page rather than expect the
+ * whole collection. Use `resolveGroups` instead when you already know which group IDs you need.
+ */
+export async function listGroups(opts?: {
+	fetch?: Fetcher;
+	query?: string;
+	limit?: number;
+	offset?: number;
+	signal?: AbortSignal;
+}): Promise<OrgGroupPage> {
+	const queryString = buildQueryString({
+		name: opts?.query,
+		limit: opts?.limit,
+		offset: opts?.offset
+	});
+	const response = (await doGet(
+		`/groups${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as OrgGroupPage;
+
+	return {
+		items: response?.items ?? [],
+		total: response?.total ?? 0,
+		limit: response?.limit ?? 0,
+		offset: response?.offset ?? 0,
+		source: response?.source ?? 'provider',
+		degraded: response?.degraded ?? false
+	};
+}
+
+/**
+ * Resolves specific group IDs to their display names.
+ */
+export async function resolveGroups(
+	ids: string[],
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<OrgGroup[]> {
+	if (ids.length === 0) return [];
+
+	const queryString = buildQueryString({ ids });
+	const response = (await doGet(`/groups?${queryString}`, opts)) as OrgGroupPage;
+	return response?.items ?? [];
 }
 
 export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {

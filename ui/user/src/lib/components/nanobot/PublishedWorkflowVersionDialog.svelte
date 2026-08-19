@@ -58,9 +58,19 @@
 	let activeSubjects = $derived(activeVersion?.subjects ?? []);
 
 	$effect(() => {
+		// Groups are resolved by ID rather than listed: only the ones attached to this version are
+		// needed, and the directory can be far too large to fetch whole.
+		const groupIds = [
+			...new Set(
+				activeSubjects
+					.filter((subject) => subject.type === 'group' && subject.id !== '*')
+					.map((subject) => subject.id)
+			)
+		];
+
 		Promise.all([
 			UserService.listUsers().catch(() => []),
-			UserService.listGroups().catch(() => [])
+			UserService.resolveGroups(groupIds).catch(() => [])
 		]).then(([loadedUsers, loadedGroups]) => {
 			users = loadedUsers;
 			groups = loadedGroups;
@@ -316,7 +326,6 @@
 	bind:this={addUserGroupDialog}
 	filterIds={activeSubjects.map((subject) => subject.id)}
 	initialUsers={users}
-	initialGroups={groups}
 	onAdd={(addedUsers: OrgUser[], addedGroups: OrgGroup[]) => {
 		const existingSubjectIds = new Set(activeSubjects.map((subject) => subject.id));
 		const nextSubjects = addedGroups.some((entry) => entry.id === '*')

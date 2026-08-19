@@ -805,6 +805,19 @@ export interface OrgGroup {
 	iconURL?: string;
 }
 
+/** Where a group listing came from. `cache` only contains groups seen during previous sign-ins. */
+export type OrgGroupSource = 'provider' | 'cache';
+
+export interface OrgGroupPage {
+	items: OrgGroup[];
+	total: number;
+	limit: number;
+	offset: number;
+	source: OrgGroupSource;
+	/** True when the auth provider could not be listed and this fell back to cached groups. */
+	degraded: boolean;
+}
+
 // Profile
 
 export interface Profile {

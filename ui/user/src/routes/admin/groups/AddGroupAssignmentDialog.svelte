@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
-	import Search from '$lib/components/Search.svelte';
+	import GroupPicker from '$lib/components/admin/GroupPicker.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { Role, type OrgGroup, type GroupRoleAssignment } from '$lib/services';
@@ -9,12 +9,10 @@
 	import GroupRoleForm from './GroupRoleForm.svelte';
 	import type { GroupAssignment } from './types';
 	import { ChevronLeft } from '@lucide/svelte';
-	import { debounce } from 'es-toolkit';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		open?: boolean;
-		groups: OrgGroup[];
 		groupRoleMap: Record<string, GroupRoleAssignment>;
 		loading?: boolean;
 		onClose: () => void;
@@ -42,7 +40,6 @@
 
 	let {
 		open,
-		groups,
 		groupRoleMap,
 		loading = false,
 		onClose,
@@ -53,7 +50,6 @@
 	}: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let searchQuery = $state('');
 	let selectedGroup = $state<OrgGroup | undefined>();
 	let draftRoleId = $state(0);
 	let draftHaveAuditorPrivilege = $state(false);
@@ -61,13 +57,7 @@
 
 	let isSmallScreen = $derived(responsive.isMobile);
 
-	// Filter groups by search query
-	const availableGroups = $derived(
-		groups.filter((group) => group.name.toLowerCase().includes(searchQuery.toLowerCase()))
-	);
-
 	function resetForm() {
-		searchQuery = '';
 		selectedGroup = undefined;
 		draftRoleId = 0;
 		draftHaveAuditorPrivilege = false;
@@ -149,50 +139,21 @@
 		handleClose();
 	}
 
-	const updateSearch = debounce((value: string) => {
-		searchQuery = value;
-	}, 100);
-
 	export function clear() {
 		resetForm();
 	}
 </script>
 
 {#snippet groupList()}
-	<div class="flex h-full flex-col gap-4 overflow-y-auto px-1 pr-2">
-		<div class="bg-base-100 dark:bg-base-300 sticky top-0 w-full pt-1">
-			<Search value={searchQuery} onChange={updateSearch} />
-		</div>
-
-		<div class="flex flex-col gap-2">
-			{#if availableGroups.length === 0}
-				<p class="text-muted-content py-8 text-center text-sm">
-					{searchQuery ? 'No groups found matching your search.' : 'No groups available.'}
-				</p>
-			{:else}
-				{#each availableGroups as group (group.id)}
-					{@const hasAssignment = !!groupRoleMap[group.id]}
-					{@const assignedRole = groupRoleMap[group.id]?.role}
-					<button
-						onclick={() => handleGroupSelect(group)}
-						class={twMerge(
-							'border-base-400 hover:bg-base-100/5 flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-							selectedGroup?.id === group.id && 'bg-primary/10 border-primary'
-						)}
-					>
-						<div class="flex flex-1 items-center gap-3">
-							<div class="flex flex-1 flex-col">
-								<span class="font-medium">{group.name}</span>
-								{#if hasAssignment && assignedRole}
-									<span class="text-muted-content text-xs">{getUserRoleLabel(assignedRole)}</span>
-								{/if}
-							</div>
-						</div>
-					</button>
-				{/each}
-			{/if}
-		</div>
-	</div>
+	<GroupPicker
+		onSelect={handleGroupSelect}
+		selectedId={selectedGroup?.id}
+		subtitle={(group) => {
+			const role = groupRoleMap[group.id]?.role;
+			return role ? getUserRoleLabel(role) : undefined;
+		}}
+		placeholder="Search groups..."
+	/>
 {/snippet}
 
 {#snippet roleForm()}
