@@ -226,11 +226,12 @@ For more examples and storage-class guidance, see [Persistent Storage in Kuberne
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers.md)
-2. **Add Model Providers**: Configure [model providers](../configuration/model-providers.md)
-3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md)
-4. **Configure Monitoring**: Set up logging and metrics
-5. **Review Security**: Enable authentication and encryption
+1. **Register Obot Community**: Complete the free, one-time registration in the startup modal when you first open Obot
+2. **Configure Authentication**: Set up [auth providers](../configuration/auth-providers.md)
+3. **Add Model Providers**: Configure [model providers](../configuration/model-providers.md)
+4. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md)
+5. **Configure Monitoring**: Set up logging and metrics
+6. **Review Security**: Enable authentication and encryption
 
 ## Related Documentation
 

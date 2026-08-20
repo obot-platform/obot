@@ -6,21 +6,14 @@ The Model Providers page allows administrators to configure and manage various A
 
 Obot supports a variety of model providers, including:
 
-**Community**
 - OpenAI
 - Anthropic
 - [Generic Responses Compatible Provider](#generic-responses-compatible-provider)
-
-**Enterprise**
 - [Azure OpenAI / Microsoft Foundry](#azure-enterprise-only)
 - [Amazon Bedrock](#amazon-bedrock-enterprise-only)
 - Google Vertex (Gemini models)
 
 The UI will indicate whether each provider has been configured. If a provider is configured you will have the ability to modify or deconfigure it.
-
-:::note
-Our Enterprise release adds support for additional Enterprise-grade model providers. [See here](../enterprise/overview.md) for more details.
-:::
 
 #### Configuring and enabling a provider
 
@@ -63,7 +56,7 @@ Setting a default model here does not automatically grant users access to it. Us
 
 ### Instructions for configuring specific providers
 
-#### Azure (Enterprise only)
+#### Azure {#azure-enterprise-only}
 
 Obot supports two Azure providers, each with a different authentication method. These are compatible with both Azure OpenAI deployments and Foundry deployments.
 
@@ -124,7 +117,7 @@ Official references:
 - [Claude Code on Microsoft Foundry](https://code.claude.com/docs/en/microsoft-foundry#azure-rbac-configuration) — Claude Code RBAC requirements
 - [Assign Azure roles using the Azure portal](https://learn.microsoft.com/en-us/azure/role-based-access-control/role-assignments-portal) — portal instructions and role-assignment permissions
 
-#### Amazon Bedrock (Enterprise only)
+#### Amazon Bedrock {#amazon-bedrock-enterprise-only}
 
 Obot supports two Amazon Bedrock providers, each with a different authentication method.
 

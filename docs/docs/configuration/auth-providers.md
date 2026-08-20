@@ -95,7 +95,7 @@ Follow the instructions [here](https://developers.google.com/identity/protocols/
 
 You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
 
-### Entra (Enterprise Only)
+### Entra {#entra-enterprise-only}
 
 Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.
 
@@ -159,7 +159,7 @@ You can restrict login access to specific Entra users and groups by taking the f
 
 For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
 
-### Okta (Enterprise Only)
+### Okta {#okta-enterprise-only}
 
 :::note
 Only the org-level authorization server is supported (no custom authorization servers).
@@ -191,7 +191,7 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
-### JumpCloud (Enterprise Only)
+### JumpCloud {#jumpcloud-enterprise-only}
 
 Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jumpcloud.com/). When configuring the app:
 
@@ -242,7 +242,7 @@ You can now return to Obot and finish configuring JumpCloud. Use the table below
 The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
 :::
 
-### Auth0 (Enterprise Only)
+### Auth0 {#auth0-enterprise-only}
 
 Create a **Regular Web Application** in the [Auth0 Dashboard](https://manage.auth0.com) by navigating to Applications > Applications > Create Application.
 

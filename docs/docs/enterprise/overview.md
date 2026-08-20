@@ -1,25 +1,27 @@
 ---
-title: Obot Editions
+title: Obot Offerings
 ---
 
-# Obot Editions
+# Obot Offerings
 
-Obot is available in three editions. They are all delivered in the same container image, and you can
-upgrade from one to the next in the app. The editions differ in which capabilities are enabled and
-what usage limits apply.
-
-## Obot
-
-The default edition. It supports up to 100 users and 100 devices and does not include enterprise-grade auth providers like Entra, Okta, JumpCloud, or Auth0.
+Obot is available in three offerings: Obot Community for free self-hosting, Obot Enterprise for
+commercial self-hosted deployments, and Obot Cloud as a managed hosted service.
 
 ## Obot Community
 
-Adds the enterprise-grade [auth providers](../configuration/auth-providers.md), Entra, Okta, JumpCloud, and
-Auth0, so your users can log in through your existing identity provider. The 100 user and device limits still apply.
+Obot Community is the free, self-hosted offering. It includes all features and supports up to 100 users and 100 devices.
 
-Obot Community is free and just requires a one-time registration. To enable it, go to the **License** page in the admin UI.
+You'll be asked to register when you first open Obot.
 
 ## Obot Enterprise
 
-Everything in Obot Community, with unlimited users and devices and enterprise support. To get an Enterprise license,
-[contact us](https://obot.ai/contact-us/).
+Obot Enterprise is the commercial self-hosted offering. It includes unlimited users and devices and enterprise support. To get an Enterprise license, [contact us](https://obot.ai/contact-us/).
+
+## Obot Cloud
+
+Obot Cloud is the managed, hosted Obot offering. Obot operates the underlying infrastructure for you.
+[Start an Obot Cloud trial](https://obot.ai/obot-cloud-trial/).
+
+## So, what's open source?
+
+Everything. All Obot offerings are built from the same MIT-licensed open source codebase, and all features are open source. Obot Community and Obot Enterprise use the same container image. The offerings differ in how Obot is hosted, the usage limits that apply, and the support provided.

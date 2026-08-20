@@ -80,6 +80,8 @@ docker run -d \
 
 Once started, access Obot at http://localhost:8080.
 
+Complete the free, one-time registration in the startup modal when you first open Obot.
+
 If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
 
 ## Workflow Sharing Storage
@@ -93,9 +95,10 @@ If you want published workflows in Docker to use external object storage instead
 
 ## Next Steps
 
-1. **Configure Authentication**: Set up [auth providers](./enabling-authentication.md) for secure access
-2. **Configure Model Providers**: Configure [model providers](../configuration/model-providers.md) (OpenAI, Anthropic, etc.)
-3. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md) for extended functionality
+1. **Register Obot Community**: Complete the free, one-time registration in the startup modal
+2. **Configure Authentication**: Set up [auth providers](./enabling-authentication.md) for secure access
+3. **Configure Model Providers**: Configure [model providers](../configuration/model-providers.md) (OpenAI, Anthropic, etc.)
+4. **Set Up MCP Servers**: Configure [MCP servers](../functionality/mcp-servers.md) for extended functionality
 
 ## Related Documentation
 

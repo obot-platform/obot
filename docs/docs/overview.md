@@ -127,7 +127,7 @@ docker run -d \
 
 The bootstrap token must be at least six characters. If you omit `OBOT_BOOTSTRAP_TOKEN`, Obot generates one and prints it in the container logs.
 
-Open [http://localhost:8080](http://localhost:8080), sign in with the bootstrap token, and then:
+Open [http://localhost:8080](http://localhost:8080), complete the free registration in the startup modal, sign in with the bootstrap token, and then:
 
 1. [Configure authentication](configuration/auth-providers.md).
 2. Add MCP servers, model providers, or skill sources.
