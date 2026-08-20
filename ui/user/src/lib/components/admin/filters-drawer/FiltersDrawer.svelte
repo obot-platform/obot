@@ -93,7 +93,37 @@
 	}
 
 	type FilterOptions = Record<FilterKey, FilterOption[]>;
-	let filtersOptions: FilterOptions = $state({} as FilterOptions);
+	type RawFilterOptions = Record<FilterKey, AuditLogFilterOption[]>;
+	let rawFilterOptions: RawFilterOptions = $state({} as RawFilterOptions);
+
+	function formatFilterOptions(filterId: FilterKey, options: AuditLogFilterOption[]) {
+		if (['user_id', 'user_ids'].includes(filterId)) {
+			return options
+				.filter((d): d is string => typeof d === 'string')
+				.filter((d) => filterOptions?.(d, filterId) ?? true)
+				.map((d) => ({
+					id: d,
+					label: getUserDisplayName(d, () => options.some((id) => id === d))
+				}));
+		}
+
+		return options
+			.filter((d) => isAuditLogAPIKeyFilterOption(d) || (filterOptions?.(d, filterId) ?? true))
+			.map((d) => {
+				const option = toAuditLogFilterSelectOption(d, getUserDisplayName);
+				return isAuditLogAPIKeyFilterOption(d)
+					? option
+					: { ...option, label: getFilterOptionLabel?.(filterId, d) ?? option.label };
+			});
+	}
+
+	let filtersOptions: FilterOptions = $derived.by(() => {
+		const formatted = {} as FilterOptions;
+		for (const [filterId, options] of Object.entries(rawFilterOptions)) {
+			formatted[filterId as FilterKey] = formatFilterOptions(filterId as FilterKey, options);
+		}
+		return formatted;
+	});
 
 	type FilterInputs = Record<FilterKey, FilterInput>;
 	let filterInputs = $derived(
@@ -145,30 +175,7 @@
 			const otherFilters = Object.fromEntries(
 				Object.entries(filters ?? {}).filter(([k]) => k !== filterId)
 			) as Partial<T>;
-			const response = await endpoint(filterId, otherFilters);
-
-			if (['user_id', 'user_ids'].includes(filterId)) {
-				return (
-					response?.options
-						?.filter((d): d is string => typeof d === 'string')
-						?.filter((d) => filterOptions?.(d, filterId) ?? true)
-						?.map((d) => ({
-							id: d,
-							label: getUserDisplayName(d, () => response.options.some((id) => id === d))
-						})) ?? []
-				);
-			}
-
-			return (
-				response?.options
-					?.filter((d) => isAuditLogAPIKeyFilterOption(d) || (filterOptions?.(d, filterId) ?? true))
-					?.map((d) => {
-						const option = toAuditLogFilterSelectOption(d, getUserDisplayName);
-						return isAuditLogAPIKeyFilterOption(d)
-							? option
-							: { ...option, label: getFilterOptionLabel?.(filterId, d) ?? option.label };
-					}) ?? []
-			);
+			return (await endpoint(filterId, otherFilters))?.options ?? [];
 		};
 
 		const filterInputKeys = Object.keys(filterInputs) as FilterKey[];
@@ -176,7 +183,7 @@
 		filterInputKeys.forEach((id) => {
 			processLog(id).then((options) => {
 				untrack(() => {
-					filtersOptions[id] = options;
+					rawFilterOptions[id] = options;
 				});
 			});
 		});
