@@ -284,15 +284,7 @@ func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
 					Name:    "Operations Composite",
 					Runtime: types.RuntimeComposite,
 					CompositeConfig: &types.CompositeCatalogConfig{
-						ComponentServers: []types.CatalogComponentServer{{
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:   "https://operations.internal/mcp",
-									TunnelName: tunnelName,
-								},
-							},
-						}},
+						ComponentServers: []types.CatalogComponentServer{{CatalogEntryID: "mcp1z-accounting"}},
 					},
 				},
 			},
@@ -371,15 +363,7 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 					Name:    "Operations Composite",
 					Runtime: types.RuntimeComposite,
 					CompositeConfig: &types.CompositeCatalogConfig{
-						ComponentServers: []types.CatalogComponentServer{{
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:   "https://operations.internal/mcp",
-									TunnelName: tunnelName,
-								},
-							},
-						}},
+						ComponentServers: []types.CatalogComponentServer{{CatalogEntryID: "mcp1z-accounting"}},
 					},
 				},
 			},

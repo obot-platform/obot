@@ -1281,6 +1281,12 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 			}
 			return []string{policy.Spec.MCPServerName}
 		}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.CompositeName}
+		}).
 		WithObjects(objects...).
 		Build()
 }

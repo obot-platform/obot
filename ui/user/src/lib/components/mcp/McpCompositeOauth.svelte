@@ -49,26 +49,20 @@
 		try {
 			compositeServer = await UserService.getSingleOrRemoteMcpServer(compositeMcpId);
 
-			const componentServers = compositeServer?.manifest?.compositeConfig?.componentServers || [];
-			componentInfos = componentServers.reduce(
-				(
-					acc: Record<string, { name?: string; icon?: string; deprecated?: boolean }>,
-					c: {
-						catalogEntryID?: string;
-						manifest?: { name?: string; icon?: string; metadata?: { deprecated?: string } };
-					}
-				) => {
-					const id = c.catalogEntryID;
-					if (!id) return acc;
-					acc[id] = {
-						name: c.manifest?.name,
-						icon: c.manifest?.icon,
-						deprecated: isDeprecatedMCPServer(c)
-					};
-					return acc;
-				},
-				{}
-			);
+			// Key on catalogEntryID || mcpServerID; keying on catalogEntryID alone silently skips
+			// multi-user components.
+			componentInfos = (compositeServer?.components ?? []).reduce<
+				Record<string, { name?: string; icon?: string; deprecated?: boolean }>
+			>((acc, c) => {
+				const id = c.catalogEntryID || c.mcpServerID;
+				if (!id) return acc;
+				acc[id] = {
+					name: c.manifest?.name,
+					icon: c.manifest?.icon,
+					deprecated: isDeprecatedMCPServer({ manifest: c.manifest })
+				};
+				return acc;
+			}, {});
 		} catch (_err) {
 			// ignore; UI will fallback to IDs
 		}
@@ -172,28 +166,20 @@
 		{:else}
 			<div class="flex flex-col gap-4">
 				{#each pending as item (item.mcpServerID)}
+					{@const info = componentInfos[item.catalogEntryID || item.mcpServerID || '']}
 					<div
 						class="border-base-400 bg-base-200 flex items-center justify-between rounded-lg border p-4"
 					>
 						<div class="flex items-center gap-3">
-							{#if componentInfos[item.catalogEntryID || '']?.icon}
-								<img
-									src={componentInfos[item.catalogEntryID || '']?.icon}
-									alt="icon"
-									class="size-6"
-								/>
+							{#if info?.icon}
+								<img src={info.icon} alt="icon" class="size-6" />
 							{:else}
 								<Server class="size-6" />
 							{/if}
 							<span class="text-base font-medium"
-								>{componentInfos[item.catalogEntryID || '']?.name ||
-									item.catalogEntryID ||
-									item.mcpServerID}</span
+								>{info?.name || item.catalogEntryID || item.mcpServerID}</span
 							>
-							<McpDeprecatedNotice
-								deprecated={componentInfos[item.catalogEntryID || '']?.deprecated}
-								child
-							/>
+							<McpDeprecatedNotice deprecated={info?.deprecated} child />
 						</div>
 						<div class="flex items-center gap-2">
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->

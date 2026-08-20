@@ -36,7 +36,6 @@ var (
 	toolNameRegex = regexp.MustCompile(`^[A-Za-z0-9._/-]*$`)
 	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
 	// envVarRefRegex matches ${VAR} references inside command/args/URL templates.
-	envVarRefRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
 // RuntimeValidator defines the interface for validating runtime-specific configurations
@@ -49,11 +48,19 @@ type RuntimeValidator interface {
 // RuntimeValidators is a map type for storing validators by runtime type
 type RuntimeValidators map[types.Runtime]RuntimeValidator
 
+// ResolveComponentFunc resolves one composite component reference to the upstream it points at, so
+// the composite validator can check the kind of object a component references rather than trusting
+// a snapshot. A reference that does not resolve yields Missing and no error.
+type ResolveComponentFunc func(ctx context.Context, ref types.ComponentRef) (ResolvedComponent, error)
+
 // Options configures runtime validation behavior.
 type ValidationOptions struct {
 	AllowMissingURL              bool
 	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 	ResourceMaximums             ResourceMaximums
+	// ResolveComponent lets the composite validator check what each component references. Callers
+	// without storage access leave it nil, which skips those checks.
+	ResolveComponent ResolveComponentFunc
 }
 
 // UVXValidator implements RuntimeValidator for UVX runtime
@@ -72,7 +79,10 @@ type RemoteValidator struct {
 }
 
 // CompositeValidator implements RuntimeValidator for composite runtime
-type CompositeValidator struct{}
+type CompositeValidator struct {
+	// ResolveComponent is optional; when nil the reference-kind checks are skipped.
+	ResolveComponent ResolveComponentFunc
+}
 
 func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
 	if denyAllEgress != nil && *denyAllEgress && len(domains) > 0 {
@@ -517,7 +527,7 @@ func (v RemoteValidator) ValidateSystemConfig(ctx context.Context, manifest type
 func (v RemoteValidator) validateRemoteConfig(ctx context.Context, config types.RemoteRuntimeConfig) error {
 	config.TunnelName = strings.TrimSpace(config.TunnelName)
 	if config.TunnelName != "" &&
-		(config.IsTemplate || strings.TrimSpace(config.URLTemplate) != "" || len(extractEnvRefs(config.URL)) > 0) {
+		(config.IsTemplate || strings.TrimSpace(config.URLTemplate) != "" || len(ExtractEnvVars(config.URL)) > 0) {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "remoteConfig",
@@ -592,7 +602,7 @@ func (v RemoteValidator) validateRemoteCatalogConfig(ctx context.Context, config
 			Message: "tunnelName cannot be used with urlTemplate",
 		}
 	}
-	if hasTunnel && len(extractEnvRefs(config.FixedURL)) > 0 {
+	if hasTunnel && len(ExtractEnvVars(config.FixedURL)) > 0 {
 		return types.RuntimeValidationError{
 			Runtime: types.RuntimeRemote,
 			Field:   "remoteConfig",
@@ -731,7 +741,42 @@ func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL
 	return nil
 }
 
-func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
+// validateComponentKind rejects a component that references the wrong kind of object: a composite,
+// which would nest, or a multi-user catalog entry, which must be referenced as its deployed
+// multi-user server instead. A reference that does not resolve is left alone, since a dangling
+// reference degrades the composite rather than invalidating it.
+func (v CompositeValidator) validateComponentKind(ctx context.Context, ref types.ComponentRef, field string) error {
+	if v.ResolveComponent == nil {
+		return nil
+	}
+
+	upstream, err := v.ResolveComponent(ctx, ref)
+	if err != nil {
+		return err
+	}
+	if upstream.Missing {
+		return nil
+	}
+
+	if upstream.Manifest.Runtime == types.RuntimeComposite {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   field,
+			Message: "composite servers cannot be nested",
+		}
+	}
+	if ref.CatalogEntryID != "" && upstream.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   field,
+			Message: "multi-user catalog entries cannot be included in a composite server; use the multi-user MCP server instead",
+		}
+	}
+
+	return nil
+}
+
+func (v CompositeValidator) ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -773,13 +818,8 @@ func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCP
 			}
 		}
 
-		// Prevent composite MCP servers from being nested
-		if component.Manifest.Runtime == types.RuntimeComposite {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
-				Message: "runtime cannot be composite",
-			}
+		if err := v.validateComponentKind(ctx, component.ComponentRef, fmt.Sprintf("compositeConfig.componentServers[%d]", i)); err != nil {
+			return err
 		}
 
 		// Validate the tool prefix
@@ -874,7 +914,7 @@ func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCP
 	return nil
 }
 
-func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
+func (v CompositeValidator) ValidateCatalogConfig(ctx context.Context, manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
@@ -916,21 +956,8 @@ func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest ty
 			}
 		}
 
-		if hasCatalogEntry && component.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-				Message: "multi-user catalog entries cannot be included in a composite server; use the multi-user MCP server instead",
-			}
-		}
-
-		// Prevent composite MCP servers from being nested
-		if component.Manifest.Runtime == types.RuntimeComposite {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
-				Message: "runtime cannot be composite",
-			}
+		if err := v.validateComponentKind(ctx, component.ComponentRef, fmt.Sprintf("compositeConfig.componentServers[%d]", i)); err != nil {
+			return err
 		}
 
 		// Validate the tool prefix
@@ -1051,7 +1078,7 @@ func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
 			AllowMissingURL:              options.AllowMissingURL,
 		},
-		types.RuntimeComposite: CompositeValidator{},
+		types.RuntimeComposite: CompositeValidator{ResolveComponent: options.ResolveComponent},
 	}
 }
 
@@ -1133,36 +1160,6 @@ func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maxim
 	return maximums.Validate(*coreResources)
 }
 
-// validateCompositeServerResourceMaximums validates the resource maximums for a composite server.
-// No-op if the server is not a composite server.
-func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums ResourceMaximums) error {
-	if maximums.Empty() || manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// validateCompositeCatalogEntryResourceMaximums validates the resource maximums for a composite catalog entry.
-// No-op if the catalog entry is not a composite entry.
-func validateCompositeCatalogEntryResourceMaximums(manifest types.MCPServerCatalogEntryManifest, maximums ResourceMaximums) error {
-	if maximums.Empty() || manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options ValidationOptions) error {
 	if err := validateServerConfigurationOptions(manifest); err != nil {
 		return err
@@ -1182,10 +1179,6 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 		}
 	}
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
-		return err
-	}
-
-	if err := validateCompositeServerResourceMaximums(manifest, options.ResourceMaximums); err != nil {
 		return err
 	}
 
@@ -1222,7 +1215,7 @@ func ValidateCatalogEntryForRoute(manifest types.MCPServerCatalogEntryManifest, 
 }
 
 func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerCatalogEntryManifest, gitManaged bool, options ValidationOptions) error {
-	if err := validateCatalogConfigurationOptions(manifest, ""); err != nil {
+	if err := validateCatalogConfigurationOptions(manifest); err != nil {
 		return err
 	}
 	if utf8.RuneCountInString(manifest.ShortDescription) > maxShortDescriptionLength {
@@ -1259,10 +1252,6 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 		return err
 	}
 
-	if err := validateCompositeCatalogEntryResourceMaximums(manifest, options.ResourceMaximums); err != nil {
-		return err
-	}
-
 	if gitManaged {
 		if err := validateGitManagedCatalogEntryManifest(manifest); err != nil {
 			return err
@@ -1281,7 +1270,7 @@ func ValidateCatalogEntryManifest(ctx context.Context, manifest types.MCPServerC
 }
 
 func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntryManifest) error {
-	if err := validateCatalogSyncedTunnelName(manifest, ""); err != nil {
+	if err := validateCatalogSyncedTunnelName(manifest); err != nil {
 		return err
 	}
 
@@ -1304,25 +1293,12 @@ func validateGitManagedCatalogEntryManifest(manifest types.MCPServerCatalogEntry
 	return nil
 }
 
-func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifest, fieldPrefix string) error {
+func validateCatalogSyncedTunnelName(manifest types.MCPServerCatalogEntryManifest) error {
 	if manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName != "" {
 		return types.RuntimeValidationError{
 			Runtime: manifest.Runtime,
-			Field:   fieldPrefix + "remoteConfig.tunnelName",
+			Field:   "remoteConfig.tunnelName",
 			Message: "cannot be set on catalog-synced entries",
-		}
-	}
-
-	if manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	for i, component := range manifest.CompositeConfig.ComponentServers {
-		if err := validateCatalogSyncedTunnelName(
-			component.Manifest,
-			fmt.Sprintf("%scompositeConfig.componentServers[%d].manifest.", fieldPrefix, i),
-		); err != nil {
-			return err
 		}
 	}
 
@@ -1528,7 +1504,7 @@ func ValidateSecretBindingsCatalogEntry(manifest types.MCPServerCatalogEntryMani
 				bound[env.Key] = true
 			}
 		}
-		for _, ref := range extractEnvRefs(manifest.RemoteConfig.URLTemplate) {
+		for _, ref := range ExtractEnvVars(manifest.RemoteConfig.URLTemplate) {
 			if bound[ref] {
 				return fmt.Errorf("remoteConfig.urlTemplate references secret-bound env var %q; use a header binding instead", ref)
 			}
@@ -1558,13 +1534,6 @@ func validateNoAdminAddedCatalogBindings(manifest types.MCPServerCatalogEntryMan
 			}
 		}
 	}
-	if manifest.CompositeConfig != nil {
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			if err := validateNoAdminAddedCatalogBindings(component.Manifest); err != nil {
-				return err
-			}
-		}
-	}
 	return nil
 }
 
@@ -1576,22 +1545,6 @@ func remoteCatalogToRuntime(c *types.RemoteCatalogConfig) *types.RemoteRuntimeCo
 }
 
 // extractEnvRefs returns the variable names referenced by ${name} patterns in s.
-func extractEnvRefs(s string) []string {
-	if s == "" {
-		return nil
-	}
-	matches := envVarRefRegex.FindAllStringSubmatch(s, -1)
-	if len(matches) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(matches))
-	for _, m := range matches {
-		if len(m) > 1 {
-			out = append(out, m[1])
-		}
-	}
-	return out
-}
 
 // serverTemplateFields returns every command/args/URL string in a server
 // manifest that may carry ${VAR} references.
@@ -1666,7 +1619,7 @@ func validateTemplateReferences(envs []types.MCPEnv, fields []string, requireDec
 		required[env.Key] = env.Required
 	}
 	for _, f := range fields {
-		for _, name := range extractEnvRefs(f) {
+		for _, name := range ExtractEnvVars(f) {
 			req, ok := required[name]
 			if !ok {
 				if requireDeclared {
@@ -1685,7 +1638,7 @@ func validateTemplateReferences(envs []types.MCPEnv, fields []string, requireDec
 // ValidateTemplateReferences enforces that any ${VAR} reference inside a
 // server manifest's command/args/URL fields points to an env entry with
 // Required=true. Undeclared references are tolerated here because
-// addExtractedEnvVars in the server-create path auto-stamps a Required=true
+// AddExtractedEnvVars in the server-create path auto-stamps a Required=true
 // entry for them; this validator catches the case where the user pre-supplied
 // the same key with Required=false, which today produces a literal
 // "${VAR}" string at runtime instead of a substituted value.

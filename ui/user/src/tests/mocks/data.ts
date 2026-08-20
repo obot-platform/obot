@@ -448,21 +448,17 @@ export function createMcpServerDetailsFixtures() {
 		serverUserType: 'singleUser',
 		manifest: {
 			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: entryCompositeChild.id,
-						manifest: {
-							name: 'Composite Child Entry',
-							runtime: 'npx',
-							serverUserType: 'singleUser',
-							icon: '',
-							shortDescription: '',
-							description: ''
-						}
-					}
-				]
+				componentServers: [{ catalogEntryID: entryCompositeChild.id }]
 			}
-		}
+		},
+		components: [
+			{
+				catalogEntryID: entryCompositeChild.id,
+				name: 'Composite Child Entry',
+				icon: '',
+				manifest: entryCompositeChild.manifest
+			}
+		]
 	});
 	const entryMulti = createMCPCatalogEntry({
 		id: 'entry-details-multi',
@@ -504,20 +500,22 @@ export function createMcpServerDetailsFixtures() {
 			name: 'Composite Server',
 			runtime: 'composite',
 			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: entryCompositeChild.id,
-						manifest: {
-							name: 'Composite Child Entry',
-							runtime: 'npx',
-							icon: '',
-							shortDescription: '',
-							description: ''
-						}
-					}
-				]
+				componentServers: [{ catalogEntryID: entryCompositeChild.id }]
 			}
-		}
+		},
+		components: [
+			{
+				catalogEntryID: entryCompositeChild.id,
+				configured: true,
+				manifest: {
+					name: 'Composite Child Entry',
+					runtime: 'npx',
+					icon: '',
+					shortDescription: '',
+					description: ''
+				}
+			}
+		]
 	});
 	const serverCompositeChild = createMCPCatalogServer({
 		id: 'server-details-composite-child',

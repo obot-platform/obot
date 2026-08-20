@@ -181,6 +181,24 @@
 			}, {})
 	);
 
+	// Component state comes from the components' own rows; a filtered `servers` prop may omit some.
+	let compositeChildren = $derived(
+		serversData.reduce<Record<string, MCPCatalogServer[]>>((acc, server) => {
+			if (!server.compositeName) return acc;
+			(acc[server.compositeName] ??= []).push(server);
+			return acc;
+		}, {})
+	);
+
+	const UNHEALTHY_DEPLOYMENT_STATUSES = new Set(['Unavailable', 'Needs Attention']);
+	function needsAttention(server: MCPCatalogServer) {
+		return (
+			!server.configured ||
+			server.needsURL === true ||
+			UNHEALTHY_DEPLOYMENT_STATUSES.has(server.deploymentStatus ?? '')
+		);
+	}
+
 	let tableData = $derived.by(() => {
 		function isCompositeDescendantDisabled(parent: MCPCatalogServer, id: string) {
 			const match = parent.manifest.compositeConfig?.componentServers.find(
@@ -206,6 +224,14 @@
 					deployment.compositeName && compositeMapping[deployment.compositeName];
 				const compositeParentName = compositeParent ? getMCPDisplayName(compositeParent) : '';
 
+				const components = (compositeChildren[deployment.id] ?? []).filter(
+					(component) =>
+						!isCompositeDescendantDisabled(
+							deployment,
+							component.catalogEntryID || component.mcpCatalogID || component.id
+						)
+				);
+
 				const instance = instancesMap.get(deployment.id);
 				const tunnelDisconnected = isMcpTunnelDisconnected(
 					deployment,
@@ -228,6 +254,9 @@
 					type: getServerTypeLabel(deployment),
 					powerUserWorkspaceID,
 					compositeParentName,
+					componentCount: components.length,
+					componentsNeedingUpdate: components.filter((component) => component.needsUpdate).length,
+					componentsNeedingAttention: components.filter(needsAttention).length,
 					disabled: compositeParent
 						? isCompositeDescendantDisabled(
 								compositeParent,
@@ -320,7 +349,6 @@
 	}
 
 	function canTriggerUpdate(server: MCPCatalogServer) {
-		if (server.compositeName) return false;
 		if (!isMultiUserServer(server)) return true;
 		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
 	}
@@ -725,6 +753,26 @@
 									<CircleFadingArrowUp class="text-primary size-4" />
 								</div>
 							{/if}
+							{#if d.componentsNeedingAttention > 0}
+								<div
+									class="text-warning"
+									use:tooltip={{
+										text: `${d.componentsNeedingAttention} of ${d.componentCount} component servers need attention. Open each component's own row to see why.`,
+										classes: ['wrap-break-word', 'w-58']
+									}}
+								>
+									<TriangleAlert class="size-4" />
+								</div>
+							{:else if d.componentsNeedingUpdate > 0 && !d.needsUpdate}
+								<div
+									use:tooltip={{
+										text: `${d.componentsNeedingUpdate} of ${d.componentCount} component servers need an update. Update each from its own row.`,
+										classes: ['wrap-break-word', 'w-58']
+									}}
+								>
+									<CircleFadingArrowUp class="text-primary size-4" />
+								</div>
+							{/if}
 						</div>
 					{:else if property === 'created'}
 						{formatTimeAgo(d.created).relativeTime}
@@ -796,7 +844,7 @@
 								{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										disabled={updating[d.id]?.inProgress || readonly}
 										onclick={(e) => {
 											e.stopPropagation();
 											if (!d) return;
@@ -806,13 +854,6 @@
 											};
 											toggle(false);
 										}}
-										use:tooltip={d.compositeName
-											? {
-													text: 'This is a component of a composite server and cannot be updated independently; update the composite MCP server instead',
-													classes: ['w-md'],
-													disablePortal: true
-												}
-											: undefined}
 									>
 										{#if updating[d.id]?.inProgress}
 											<Loading class="size-4" />
@@ -826,7 +867,7 @@
 								{#if d.catalogEntryID && d.needsUpdate}
 									<button
 										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
+										disabled={updating[d.id]?.inProgress || readonly}
 										onclick={(e) => {
 											e.stopPropagation();
 											if (!d.catalogEntryID) return;

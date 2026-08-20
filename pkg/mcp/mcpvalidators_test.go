@@ -1508,13 +1508,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "",
-							MCPServerID:    "",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
+						{CatalogEntryID: "", MCPServerID: ""},
 					},
 				},
 			},
@@ -1530,13 +1524,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							MCPServerID:    "server-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
+						{CatalogEntryID: "entry-1", MCPServerID: "server-1"},
 					},
 				},
 			},
@@ -1547,84 +1535,13 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "nested composite runtime not allowed in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeComposite,
-							},
-						},
-					},
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers[0].manifest.runtime",
-				Message: "runtime cannot be composite",
-			},
-		},
-		{
-			name: "multi-user catalog entry component not allowed in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime:        types.RuntimeRemote,
-								ServerUserType: types.ServerUserTypeMultiUser,
-							},
-						},
-					},
-				},
-			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers[0]",
-				Message: "multi-user catalog entries cannot be included in a composite server; use the multi-user MCP server instead",
-			},
-		},
-		{
-			name: "multi-user MCP server component is allowed in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							MCPServerID: "server-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime:        types.RuntimeRemote,
-								ServerUserType: types.ServerUserTypeMultiUser,
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
 			name: "duplicate component servers detected in catalog",
 			manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
+						{CatalogEntryID: "entry-1"},
+						{CatalogEntryID: "entry-1"},
 					},
 				},
 			},
@@ -1640,67 +1557,14 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{
+								Name:         "tool-1",
+								OverrideName: "tool-1",
+								Enabled:      true,
 							},
-							ToolOverrides: []types.ToolOverride{
-								{
-									Name:         "tool-1",
-									OverrideName: "tool-1",
-									Enabled:      true,
-								},
-							},
-						},
-						{
-							MCPServerID: "server-2",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "remote component with static OAuth is allowed in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:            "https://example.com/mcp",
-									StaticOAuthRequired: true,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "remote component without static OAuth is allowed in catalog",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:            "https://example.com/mcp",
-									StaticOAuthRequired: false,
-								},
-							},
-						},
+						}},
+						{MCPServerID: "server-2"},
 					},
 				},
 			},
@@ -1712,16 +1576,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-							ToolPrefix: "gh space",
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}, ToolPrefix: "gh space"},
 					},
 				},
 			},
@@ -1737,13 +1594,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: "gh_",
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: "gh_"},
 					},
 				},
 			},
@@ -1755,26 +1606,12 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-							ToolPrefix: "gh_",
-						},
-						{
-							CatalogEntryID: "entry-2",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-							ToolPrefix: "gh_",
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}, ToolPrefix: "gh_"},
+						{CatalogEntryID: "entry-2", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}, ToolPrefix: "gh_"},
 					},
 				},
 			},
@@ -1790,16 +1627,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-							ToolPrefix: "gh_",
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}, ToolPrefix: "gh_"},
 					},
 				},
 			},
@@ -1811,13 +1641,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: strings.Repeat("a", maxToolPrefixLength)},
 					},
 				},
 			},
@@ -1829,13 +1653,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1)},
 					},
 				},
 			},
@@ -1851,18 +1669,8 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
-						{
-							CatalogEntryID: "entry-2",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-						},
+						{CatalogEntryID: "entry-1"},
+						{CatalogEntryID: "entry-2"},
 					},
 				},
 			},
@@ -1874,15 +1682,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "", Enabled: true},
-							},
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "", Enabled: true},
+						}},
 					},
 				},
 			},
@@ -1898,16 +1700,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
-							ToolOverrides: []types.ToolOverride{
-								{Name: strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1), Enabled: true},
-							},
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: strings.Repeat("a", maxToolPrefixLength), ToolOverrides: []types.ToolOverride{
+							{Name: strings.Repeat("b", maxToolNameLength-maxToolPrefixLength+1), Enabled: true},
+						}},
 					},
 				},
 			},
@@ -1926,15 +1721,9 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list things", Enabled: true},
-							},
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "list things", Enabled: true},
+						}},
 					},
 				},
 			},
@@ -1950,24 +1739,12 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeCatalogConfig{
 					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-						},
-						{
-							CatalogEntryID: "entry-2",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolOverrides: []types.ToolOverride{
-								{Name: "list", Enabled: true},
-							},
-						},
+						{CatalogEntryID: "entry-1", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}},
+						{CatalogEntryID: "entry-2", ToolOverrides: []types.ToolOverride{
+							{Name: "list", Enabled: true},
+						}},
 					},
 				},
 			},
@@ -1987,117 +1764,6 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 	}
 }
 
-func TestCompositeValidator_ValidateConfig_StaticOAuth(t *testing.T) {
-	validator := CompositeValidator{}
-
-	tests := []struct {
-		name          string
-		manifest      types.MCPServerManifest
-		expectedError error
-	}{
-		{
-			name: "remote component with static OAuth is allowed",
-			manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{
-					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteRuntimeConfig{
-									URL:                 "https://example.com/mcp",
-									StaticOAuthRequired: true,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "remote component without static OAuth is allowed",
-			manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{
-					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteRuntimeConfig{
-									URL:                 "https://example.com/mcp",
-									StaticOAuthRequired: false,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "non-remote component in composite is allowed",
-			manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{
-					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeUVX,
-								UVXConfig: &types.UVXRuntimeConfig{
-									Package: "mcp-server-test",
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-		{
-			name: "mixed components with one having static OAuth is allowed",
-			manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{
-					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteRuntimeConfig{
-									URL:                 "https://example.com/mcp",
-									StaticOAuthRequired: false,
-								},
-							},
-						},
-						{
-							CatalogEntryID: "entry-2",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteRuntimeConfig{
-									URL:                 "https://oauth.example.com/mcp",
-									StaticOAuthRequired: true,
-								},
-							},
-						},
-					},
-				},
-			},
-			expectedError: nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validator.ValidateConfig(t.Context(), tt.manifest)
-			require.Equal(t, tt.expectedError, err)
-		})
-	}
-}
-
 func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 	validator := CompositeValidator{}
 
@@ -2112,13 +1778,7 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeRuntimeConfig{
 					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: strings.Repeat("a", maxToolPrefixLength),
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: strings.Repeat("a", maxToolPrefixLength)},
 					},
 				},
 			},
@@ -2129,13 +1789,7 @@ func TestCompositeValidator_ValidateConfig_ToolPrefixLength(t *testing.T) {
 				Runtime: types.RuntimeComposite,
 				CompositeConfig: &types.CompositeRuntimeConfig{
 					ComponentServers: []types.ComponentServer{
-						{
-							CatalogEntryID: "entry-1",
-							Manifest: types.MCPServerManifest{
-								Runtime: types.RuntimeRemote,
-							},
-							ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1),
-						},
+						{CatalogEntryID: "entry-1", ToolPrefix: strings.Repeat("a", maxToolPrefixLength+1)},
 					},
 				},
 			},
@@ -2419,54 +2073,6 @@ func TestValidateMCPResourceMaximums(t *testing.T) {
 			Resources: &types.MCPResourceRequirements{
 				Requests: types.MCPResourceRequests{
 					CPU: "250m",
-				},
-			},
-		}, false, options)
-		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
-	})
-
-	t.Run("composite server manifest rejects component resources above maximum", func(t *testing.T) {
-		err := ValidateServerManifest(t.Context(), types.MCPServerManifest{
-			Runtime: types.RuntimeComposite,
-			CompositeConfig: &types.CompositeRuntimeConfig{
-				ComponentServers: []types.ComponentServer{
-					{
-						CatalogEntryID: "component",
-						Manifest: types.MCPServerManifest{
-							Runtime:   types.RuntimeNPX,
-							NPXConfig: &types.NPXRuntimeConfig{Package: "test-package"},
-							Resources: &types.MCPResourceRequirements{
-								Requests: types.MCPResourceRequests{
-									CPU: "250m",
-								},
-							},
-						},
-					},
-				},
-			},
-		}, false, options)
-		require.ErrorContains(t, err, "resources.requests.cpu 250m exceeds configured maximum 100m")
-	})
-
-	t.Run("composite catalog manifest rejects component resources above maximum", func(t *testing.T) {
-		err := ValidateCatalogEntryManifest(t.Context(), types.MCPServerCatalogEntryManifest{
-			ServerUserType: types.ServerUserTypeSingleUser,
-			Runtime:        types.RuntimeComposite,
-			CompositeConfig: &types.CompositeCatalogConfig{
-				ComponentServers: []types.CatalogComponentServer{
-					{
-						CatalogEntryID: "component",
-						Manifest: types.MCPServerCatalogEntryManifest{
-							ServerUserType: types.ServerUserTypeSingleUser,
-							Runtime:        types.RuntimeNPX,
-							NPXConfig:      &types.NPXRuntimeConfig{Package: "test-package"},
-							Resources: &types.MCPResourceRequirements{
-								Requests: types.MCPResourceRequests{
-									CPU: "250m",
-								},
-							},
-						},
-					},
 				},
 			},
 		}, false, options)
@@ -2788,20 +2394,6 @@ func TestValidateSecretBindingsCatalogEntryRejectsAdminAdded(t *testing.T) {
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{
 					Key: "Authorization", SecretBinding: binding,
-				}}},
-			},
-			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
-		},
-		{
-			name: "composite component adminAdded rejected",
-			manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
-					Manifest: types.MCPServerCatalogEntryManifest{
-						Runtime: types.RuntimeNPX,
-						Env: []types.MCPEnv{{
-							Key: "TOKEN", SecretBinding: binding}},
-					},
 				}}},
 			},
 			wantErr: "secretBinding.adminAdded is not valid for catalog entry",
@@ -3247,23 +2839,106 @@ func TestValidateCatalogEntryManifestCatalogSyncedRejectsTunnelName(t *testing.T
 		Field:   "remoteConfig.tunnelName",
 		Message: "cannot be set on catalog-synced entries",
 	}, ValidateCatalogEntryManifest(t.Context(), manifest, true, ValidationOptions{}))
+}
 
-	composite := types.MCPServerCatalogEntryManifest{
-		Name:           "Composite",
-		ServerUserType: types.ServerUserTypeSingleUser,
-		Runtime:        types.RuntimeComposite,
-		CompositeConfig: &types.CompositeCatalogConfig{
-			ComponentServers: []types.CatalogComponentServer{{
-				CatalogEntryID: "remote",
-				Manifest:       manifest,
-			}},
+func TestCompositeValidatorRejectsWrongComponentKind(t *testing.T) {
+	upstreams := map[string]types.MCPServerCatalogEntryManifest{
+		"nested": {
+			Runtime:         types.RuntimeComposite,
+			ServerUserType:  types.ServerUserTypeSingleUser,
+			CompositeConfig: &types.CompositeCatalogConfig{},
+		},
+		"multi-user": {
+			Runtime:        types.RuntimeNPX,
+			ServerUserType: types.ServerUserTypeMultiUser,
+			NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/multi"},
+		},
+		"single-user": {
+			Runtime:        types.RuntimeNPX,
+			ServerUserType: types.ServerUserTypeSingleUser,
+			NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/single"},
+		},
+		"composite-server": {
+			Runtime:         types.RuntimeComposite,
+			CompositeConfig: &types.CompositeCatalogConfig{},
+		},
+	}
+	validator := CompositeValidator{
+		ResolveComponent: func(_ context.Context, ref types.ComponentRef) (ResolvedComponent, error) {
+			manifest, ok := upstreams[ref.ComponentID()]
+			if !ok {
+				return ResolvedComponent{Missing: true}, nil
+			}
+			return ResolvedComponent{Manifest: manifest}, nil
 		},
 	}
 
-	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), composite, false, ValidationOptions{}))
-	require.Equal(t, types.RuntimeValidationError{
-		Runtime: types.RuntimeRemote,
-		Field:   "compositeConfig.componentServers[0].manifest.remoteConfig.tunnelName",
-		Message: "cannot be set on catalog-synced entries",
-	}, ValidateCatalogEntryManifest(t.Context(), composite, true, ValidationOptions{}))
+	tests := []struct {
+		name    string
+		ref     types.ComponentRef
+		wantErr string
+	}{
+		{
+			name:    "composite catalog entry cannot be nested",
+			ref:     types.ComponentRef{CatalogEntryID: "nested"},
+			wantErr: "composite servers cannot be nested",
+		},
+		{
+			name:    "composite multi-user server cannot be nested",
+			ref:     types.ComponentRef{MCPServerID: "composite-server"},
+			wantErr: "composite servers cannot be nested",
+		},
+		{
+			name:    "multi-user catalog entry must be referenced as its server",
+			ref:     types.ComponentRef{CatalogEntryID: "multi-user"},
+			wantErr: "multi-user catalog entries cannot be included in a composite server",
+		},
+		{
+			name: "single-user catalog entry is allowed",
+			ref:  types.ComponentRef{CatalogEntryID: "single-user"},
+		},
+		{
+			// A multi-user server is exactly what a component should reference, and its own manifest
+			// is single-user shaped, so the entry-only check must not fire for it.
+			name: "multi-user server reference is allowed",
+			ref:  types.ComponentRef{MCPServerID: "multi-user"},
+		},
+		{
+			name: "unresolvable reference is left alone",
+			ref:  types.ComponentRef{CatalogEntryID: "deleted"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest := types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeCatalogConfig{
+					ComponentServers: []types.CatalogComponentServer{{ComponentRef: tt.ref}},
+				},
+			}
+
+			err := validator.ValidateCatalogConfig(t.Context(), manifest)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tt.wantErr)
+		})
+	}
+}
+
+// Without a resolver the validator cannot know what a component references, so the kind checks are
+// skipped rather than guessed at.
+func TestCompositeValidatorSkipsComponentKindWithoutResolver(t *testing.T) {
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{
+				{CatalogEntryID: "anything"},
+			},
+		},
+	}
+
+	require.NoError(t, CompositeValidator{}.ValidateCatalogConfig(t.Context(), manifest))
 }

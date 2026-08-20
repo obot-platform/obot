@@ -584,11 +584,24 @@
 		}
 	}
 
+	// `entry` may be a catalog entry or a deployed server: the catalog side stamps name and icon
+	// alongside the manifest, the server side carries them only inside it.
+	function componentLabel(component: {
+		name?: string;
+		icon?: string;
+		manifest?: { name?: string; icon?: string };
+	}) {
+		return {
+			name: component.manifest?.name || component.name,
+			icon: component.manifest?.icon || component.icon
+		};
+	}
+
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
 
 		if (entry.manifest?.runtime === 'composite') {
-			const comps = entry.manifest?.compositeConfig?.componentServers || [];
+			const comps = entry.components || [];
 			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
 			for (const c of comps) {
 				// Use catalogEntryID when present (catalog-based component), otherwise fall
@@ -600,12 +613,13 @@
 				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
 				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
 				const isMultiUser = Boolean(c.mcpServerID && !c.catalogEntryID);
+				const label = componentLabel(c);
 				componentConfigs[id] = isMultiUser
 					? {
 							// Multi-user server components are configured at the org/admin level;
 							// for composite previews we only expose the enable/disable toggle.
-							name: c.manifest?.name || id,
-							icon: c.manifest?.icon,
+							name: label.name || id,
+							icon: label.icon,
 							disabled: false,
 							isMultiUser: true
 						}
@@ -615,8 +629,8 @@
 							...(hasHostname
 								? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
 								: {}),
-							name: c.manifest?.name || id,
-							icon: c.manifest?.icon,
+							name: label.name || id,
+							icon: label.icon,
 							disabled: false
 						};
 			}
@@ -1468,14 +1482,16 @@
 				Multiple components require authentication. Please authenticate each component below:
 			</p>
 			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
-				{@const component = entry?.manifest?.compositeConfig?.componentServers?.find(
+				{@const component = entry?.components?.find(
 					(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
 				)}
-				{@const componentName = component?.manifest?.name || componentId}
+				{@const label = component ? componentLabel(component) : undefined}
+				{@const componentIcon = label?.icon}
+				{@const componentName = label?.name || componentId}
 				<div class="flex items-center justify-between gap-2 rounded border border-base-400 p-3">
 					<div class="flex items-center gap-2">
-						{#if component?.manifest?.icon}
-							<img src={component.manifest.icon} alt={componentName} class="size-6 shrink-0" />
+						{#if componentIcon}
+							<img src={componentIcon} alt={componentName} class="size-6 shrink-0" />
 						{/if}
 						<span class="text-sm font-medium">{componentName}</span>
 					</div>

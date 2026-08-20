@@ -41,32 +41,11 @@ func multiUserHeaders(config *types.MultiUserConfig) []types.MCPHeader {
 }
 
 func validateServerConfigurationOptions(manifest types.MCPServerManifest) error {
-	if err := validateConfigurationOptions(manifest.Env, remoteHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig), ""); err != nil {
-		return err
-	}
-	if manifest.CompositeConfig != nil {
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := validateServerConfigurationOptions(component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d].manifest: %w", i, err)
-			}
-		}
-	}
-	return nil
+	return validateConfigurationOptions(manifest.Env, remoteHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig), "")
 }
 
-func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest, prefix string) error {
-	if err := validateConfigurationOptions(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig), prefix); err != nil {
-		return err
-	}
-	if manifest.CompositeConfig != nil {
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			componentPrefix := fmt.Sprintf("%scompositeConfig.componentServers[%d].manifest.", prefix, i)
-			if err := validateCatalogConfigurationOptions(component.Manifest, componentPrefix); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+func validateCatalogConfigurationOptions(manifest types.MCPServerCatalogEntryManifest) error {
+	return validateConfigurationOptions(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig), "")
 }
 
 func validateConfigurationOptions(envs []types.MCPEnv, remote, multiUser []types.MCPHeader, prefix string) error {
@@ -164,31 +143,7 @@ func ConfigurationOptionValueValid(field types.MCPHeader, values map[string]stri
 
 // ManifestHasConfigurationOptions reports whether a server manifest defines catalog-owned options.
 func ManifestHasConfigurationOptions(manifest types.MCPServerManifest) bool {
-	if fieldsHaveConfigurationOptions(manifest.Env, remoteHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig)) {
-		return true
-	}
-	if manifest.CompositeConfig != nil {
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			if ManifestHasConfigurationOptions(component.Manifest) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func catalogManifestHasConfigurationOptions(manifest types.MCPServerCatalogEntryManifest) bool {
-	if fieldsHaveConfigurationOptions(manifest.Env, remoteCatalogHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig)) {
-		return true
-	}
-	if manifest.CompositeConfig != nil {
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			if catalogManifestHasConfigurationOptions(component.Manifest) {
-				return true
-			}
-		}
-	}
-	return false
+	return fieldsHaveConfigurationOptions(manifest.Env, remoteHeaders(manifest.RemoteConfig), multiUserHeaders(manifest.MultiUserConfig))
 }
 
 func fieldsHaveConfigurationOptions(envs []types.MCPEnv, headerGroups ...[]types.MCPHeader) bool {
@@ -217,39 +172,6 @@ func ValidateCatalogConfigurationConstraints(manifest types.MCPServerManifest, c
 	}
 	if err := validateOptionConstraints("multi-user header", headerOptionConstraints(multiUserHeaders(manifest.MultiUserConfig)), headerOptionConstraints(multiUserHeaders(catalog.MultiUserConfig))); err != nil {
 		return err
-	}
-
-	var runtimeComponents []types.ComponentServer
-	if manifest.CompositeConfig != nil {
-		runtimeComponents = manifest.CompositeConfig.ComponentServers
-	}
-	var catalogComponents []types.CatalogComponentServer
-	if catalog.CompositeConfig != nil {
-		catalogComponents = catalog.CompositeConfig.ComponentServers
-	}
-
-	runtimeByID := make(map[string]types.ComponentServer, len(runtimeComponents))
-	for _, component := range runtimeComponents {
-		runtimeByID[component.ComponentID()] = component
-	}
-	catalogByID := make(map[string]types.CatalogComponentServer, len(catalogComponents))
-	for _, component := range catalogComponents {
-		catalogByID[component.ComponentID()] = component
-		runtimeComponent, ok := runtimeByID[component.ComponentID()]
-		if !ok {
-			if catalogManifestHasConfigurationOptions(component.Manifest) {
-				return fmt.Errorf("component %q catalog-owned configuration options are missing", component.ComponentID())
-			}
-			continue
-		}
-		if err := ValidateCatalogConfigurationConstraints(runtimeComponent.Manifest, component.Manifest); err != nil {
-			return fmt.Errorf("component %q: %w", component.ComponentID(), err)
-		}
-	}
-	for _, component := range runtimeComponents {
-		if _, ok := catalogByID[component.ComponentID()]; !ok && ManifestHasConfigurationOptions(component.Manifest) {
-			return fmt.Errorf("component %q configuration options must be defined by the source catalog entry", component.ComponentID())
-		}
 	}
 	return nil
 }
