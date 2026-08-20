@@ -10,6 +10,8 @@ interface GroupPageOverrides {
 	degraded?: boolean;
 	/** When set, any request carrying a cursor is answered with the first page and reset: true. */
 	resetOnCursor?: boolean;
+	/** When set, any request carrying a cursor fails, standing in for the directory going away. */
+	failOnCursor?: boolean;
 }
 
 // The server hands out opaque cursors; a stringified offset is enough to stand in for one here.
@@ -24,6 +26,10 @@ function mockGroups(overrides: GroupPageOverrides = {}) {
 			const limit = Number(url.searchParams.get('limit') ?? 50);
 			const cursor = url.searchParams.get('cursor');
 			requests({ name, limit, cursor });
+
+			if (overrides.failOnCursor && cursor) {
+				return new HttpResponse(null, { status: 500 });
+			}
 
 			const all = Array.from({ length: total }, (_, i) => ({
 				id: `entra/${String(i).padStart(4, '0')}`,
@@ -188,6 +194,21 @@ describe('GroupPicker', () => {
 		render(GroupPicker, { onSelect: vi.fn() });
 
 		await expect.element(page.getByText(/groups Obot has already recorded/i)).toBeInTheDocument();
+	});
+
+	it('drops the cached-directory warning when the next page fails to load', async () => {
+		mockGroups({ total: 100, degraded: true, failOnCursor: true });
+		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
+
+		await expect.element(page.getByText(/groups Obot has already recorded/i)).toBeInTheDocument();
+		await page.getByRole('button', { name: /Next/ }).click();
+
+		await expect.element(page.getByText(/Failed to load groups/i)).toBeInTheDocument();
+		// The warning describes where the listed groups came from, and the failure listed none, so
+		// showing it next to "Failed to load groups" would claim cached groups are on screen.
+		await expect
+			.element(page.getByText(/groups Obot has already recorded/i))
+			.not.toBeInTheDocument();
 	});
 
 	it('does not warn when the provider answered', async () => {

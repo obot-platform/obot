@@ -74,6 +74,7 @@
 			console.error('Failed to load groups:', error);
 			groups = [];
 			nextCursor = undefined;
+			degraded = false;
 			errored = true;
 		} finally {
 			if (!controller.signal.aborted) {
