@@ -892,14 +892,6 @@ func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest ty
 	}
 
 	numComponents := len(manifest.CompositeConfig.ComponentServers)
-	if numComponents < 1 {
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeComposite,
-			Field:   "compositeConfig.componentServers",
-			Message: "must contain at least one component server",
-		}
-	}
-
 	var (
 		componentServerIDs = make(map[string]struct{}, numComponents)
 		toolPrefixes       = make(map[string]struct{}, numComponents)

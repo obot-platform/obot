@@ -36,6 +36,12 @@ export default defineConfig(({ mode }) => {
 						}
 		},
 		plugins: [sveltekit()],
+		optimizeDeps: {
+			// Only reachable via lazily-imported route nodes, so Vite would otherwise
+			// discover them mid-navigation and re-bundle, failing in-flight route
+			// imports with a 504.
+			include: ['d3', 'd3-time-format', 'date-fns', 'es-toolkit']
+		},
 		test: {
 			projects: [
 				{

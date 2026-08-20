@@ -7,10 +7,11 @@
 	interface Props {
 		onSelectServerType: (type: LaunchServerType) => void;
 		entity?: 'catalog' | 'workspace';
+		hideComposite?: boolean;
 	}
 
 	let selectServerTypeDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let { onSelectServerType, entity = 'catalog' }: Props = $props();
+	let { onSelectServerType, entity = 'catalog', hideComposite }: Props = $props();
 
 	export function open() {
 		selectServerTypeDialog?.open();
@@ -56,7 +57,7 @@
 				</span>
 			</div>
 		</button>
-		{#if entity === 'catalog' && profile.current?.groups.includes(Group.ADMIN)}
+		{#if entity === 'catalog' && profile.current?.groups.includes(Group.ADMIN) && !hideComposite}
 			<button
 				id="add-composite-server-button"
 				class="dark:bg-base-300 hover:bg-base-200 dark:hover:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"

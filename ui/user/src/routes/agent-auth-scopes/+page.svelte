@@ -88,7 +88,7 @@
 </script>
 
 <Layout
-	title={showCreateNew ? 'Create Agent Auth Scope' : 'Agent Auth Scopes'}
+	title={showCreateNew ? 'Create Agent Identity' : 'Agent Identities'}
 	showBackButton={showCreateNew}
 >
 	{#if showCreateNew}
@@ -109,7 +109,7 @@
 			{#if apiKeys.length === 0}
 				<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 					<KeyRound class="text-base-content/80 size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">No agent auth scopes</h4>
+					<h4 class="text-muted-content text-lg font-semibold">No Agent Identities</h4>
 					<p class="text-muted-content text-sm font-light">
 						{isAdminPage
 							? "Looks like there aren't any agent auth scopes in the system yet."

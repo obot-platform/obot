@@ -125,6 +125,16 @@
 					classes?.actions
 				)}
 			>
+				{#if !hideCancelButton}
+					<button
+						onclick={oncancel}
+						type="button"
+						class="btn btn-secondary flex-1 flex justify-center p-2 w-full"
+						disabled={loading}
+					>
+						{cancelText}
+					</button>
+				{/if}
 				{#if onsuccess}
 					<button
 						onclick={onsuccess}
@@ -141,16 +151,6 @@
 						{:else}
 							{submitText}
 						{/if}
-					</button>
-				{/if}
-				{#if !hideCancelButton}
-					<button
-						onclick={oncancel}
-						type="button"
-						class="btn btn-secondary flex-1 flex justify-center p-2 w-full"
-						disabled={loading}
-					>
-						{cancelText}
 					</button>
 				{/if}
 			</div>

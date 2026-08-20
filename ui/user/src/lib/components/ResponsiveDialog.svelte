@@ -30,6 +30,12 @@
 		hideClose?: boolean;
 		disableClickOutside?: boolean;
 		disableMobileStyles?: boolean;
+		/**
+		 * Width in px of a panel on the right edge of the viewport that should stay visible and
+		 * usable while the dialog is open. The dialog and its dimming overlay are inset by this
+		 * much, and the dialog opens non-modal so the panel is not made inert.
+		 */
+		rightPanelWidth?: number;
 	}
 
 	let {
@@ -45,9 +51,17 @@
 		animate,
 		hideClose,
 		disableClickOutside,
-		disableMobileStyles
+		disableMobileStyles,
+		rightPanelWidth
 	}: Props = $props();
 	let dialog = $state<HTMLDialogElement>();
+
+	// max() so a dialog inset for its own panel still clears a wider open guide panel.
+	let inset = $derived(
+		rightPanelWidth
+			? `right: max(${rightPanelWidth}px, var(--guide-panel-width, 0px)); width: auto;`
+			: undefined
+	);
 
 	export function open() {
 		onOpen?.();
@@ -63,6 +77,8 @@
 <dialog
 	bind:this={dialog}
 	class="dialog"
+	style={inset}
+	data-non-modal={rightPanelWidth ? 'true' : undefined}
 	use:dialogAnimation={{ type: animate }}
 	onclose={() => {
 		// Handle native dialog close (e.g., Escape key)

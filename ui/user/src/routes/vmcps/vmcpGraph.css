@@ -1,0 +1,201 @@
+.vmcp-wire-x,
+.vmcp-wire-y,
+.vmcp-trunk,
+.vmcp-branch {
+	--vmcp-dash-length: 3px;
+	--vmcp-dash-period: 9px;
+	--vmcp-dash-duration: 0.5s;
+	overflow: hidden;
+	background-color: transparent;
+}
+
+.vmcp-wire-x::before,
+.vmcp-wire-y::before,
+.vmcp-trunk::before,
+.vmcp-branch::before {
+	content: '';
+	position: absolute;
+	animation-duration: var(--vmcp-dash-duration);
+	animation-timing-function: linear;
+	animation-delay: var(--wire-delay, 0ms);
+	animation-iteration-count: infinite;
+}
+
+.vmcp-wire-x::before,
+.vmcp-branch::before {
+	inset: 0 0 0 calc(-1 * var(--vmcp-dash-period));
+	background-image: repeating-linear-gradient(
+		to right,
+		color-mix(in oklch, currentColor 70%, transparent) 0 var(--vmcp-dash-length),
+		transparent var(--vmcp-dash-length) var(--vmcp-dash-period)
+	);
+	animation-name: vmcp-dashflow-x;
+}
+
+.vmcp-wire-y::before,
+.vmcp-trunk::before {
+	inset: calc(-1 * var(--vmcp-dash-period)) 0 0 0;
+	background-image: repeating-linear-gradient(
+		to bottom,
+		color-mix(in oklch, currentColor 70%, transparent) 0 var(--vmcp-dash-length),
+		transparent var(--vmcp-dash-length) var(--vmcp-dash-period)
+	);
+	animation-name: vmcp-dashflow-y;
+}
+
+.vmcp-wire-x,
+.vmcp-wire-y {
+	position: relative;
+	flex: none;
+}
+
+.vmcp-wire-x {
+	width: 5.5rem;
+	height: 2px;
+	transform-origin: left center;
+	animation: vmcp-wire-grow-x var(--create-wire-ms, 520ms) cubic-bezier(0.16, 1, 0.3, 1)
+		var(--wire-delay, 0ms) both;
+}
+
+.vmcp-wire-y {
+	width: 2px;
+	height: 3.5rem;
+	transform-origin: top center;
+	animation: vmcp-wire-grow-y var(--create-wire-ms, 520ms) cubic-bezier(0.16, 1, 0.3, 1)
+		var(--wire-delay, 0ms) both;
+}
+
+.vmcp-trunk {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 2px;
+	transform-origin: top center;
+	animation: vmcp-wire-grow-y var(--create-wire-ms, 520ms) cubic-bezier(0.16, 1, 0.3, 1)
+		var(--wire-delay, 0ms) both;
+}
+
+.vmcp-trunk-first {
+	top: 50%;
+}
+
+.vmcp-trunk-last {
+	bottom: 50%;
+}
+
+.vmcp-branch {
+	position: absolute;
+	top: 50%;
+	right: 0;
+	left: 0;
+	height: 2px;
+	margin-top: -1px;
+	transform-origin: left center;
+	animation: vmcp-wire-grow-x var(--create-wire-ms, 520ms) cubic-bezier(0.16, 1, 0.3, 1)
+		var(--wire-delay, 0ms) both;
+}
+
+@keyframes vmcp-wire-grow-x {
+	from {
+		opacity: 0.35;
+		transform: scaleX(0);
+	}
+	to {
+		opacity: 1;
+		transform: scaleX(1);
+	}
+}
+
+@keyframes vmcp-wire-grow-y {
+	from {
+		opacity: 0.35;
+		transform: scaleY(0);
+	}
+	to {
+		opacity: 1;
+		transform: scaleY(1);
+	}
+}
+
+@keyframes vmcp-dashflow-x {
+	to {
+		transform: translateX(var(--vmcp-dash-period));
+	}
+}
+
+@keyframes vmcp-dashflow-y {
+	to {
+		transform: translateY(var(--vmcp-dash-period));
+	}
+}
+
+.vmcp-link-halo,
+.vmcp-link-core {
+	fill: none;
+	stroke: currentColor;
+	stroke-linecap: round;
+}
+
+.vmcp-link-halo {
+	stroke-width: 8;
+	opacity: 0.22;
+	filter: blur(5px);
+}
+
+.vmcp-link-core {
+	stroke-width: 2;
+	stroke-dasharray: 7 7;
+	filter: drop-shadow(0 0 5px color-mix(in oklch, currentColor 70%, transparent))
+		drop-shadow(0 0 12px color-mix(in oklch, currentColor 35%, transparent));
+	animation: vmcp-link-flow 0.7s linear infinite;
+}
+
+.vmcp-link-node {
+	fill: currentColor;
+	filter: drop-shadow(0 0 6px currentColor);
+}
+
+.vmcp-drop-target {
+	box-shadow:
+		0 0 0 1px color-mix(in oklch, var(--color-primary) 55%, transparent),
+		0 0 28px color-mix(in oklch, var(--color-primary) 35%, transparent);
+}
+
+@keyframes vmcp-link-flow {
+	to {
+		stroke-dashoffset: -14px;
+	}
+}
+
+@media (min-width: 1024px) {
+	.vmcp-wire-x {
+		width: 7rem;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.vmcp-wire-x,
+	.vmcp-wire-y,
+	.vmcp-trunk,
+	.vmcp-branch {
+		animation: none;
+		opacity: 1;
+	}
+
+	.vmcp-wire-x::before,
+	.vmcp-wire-y::before,
+	.vmcp-trunk::before,
+	.vmcp-branch::before {
+		animation: none;
+	}
+
+	.vmcp-wire-x,
+	.vmcp-wire-y {
+		transform: none;
+	}
+
+	.vmcp-link-core {
+		animation: none;
+	}
+}

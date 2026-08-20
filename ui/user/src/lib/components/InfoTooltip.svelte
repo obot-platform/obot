@@ -16,6 +16,7 @@
 		popoverWidth?: 'sm' | 'md' | 'lg' | 'fit';
 		icon?: Component | typeof CircleQuestionMark;
 		interactive?: boolean;
+		ariaLabel?: string;
 	}
 
 	let {
@@ -26,7 +27,8 @@
 		placement,
 		popoverWidth = 'md',
 		icon: Icon = CircleHelpIcon,
-		interactive = false
+		interactive = false,
+		ariaLabel
 	}: Props = $props();
 
 	function getPopoverWidth() {
@@ -54,10 +56,21 @@
 		if (!t) return undefined;
 		return { ...base, text: t };
 	});
+
+	const accessibleName = $derived(ariaLabel?.trim() || text?.trim() || 'More information');
 </script>
 
 {#if tooltipOpts}
-	<span class={twMerge('inline-flex size-3', klass)} use:tooltip={tooltipOpts}>
-		<Icon class={twMerge('text-gray size-3', classes?.icon)} />
-	</span>
+	<button
+		type="button"
+		class={twMerge(
+			'inline-flex size-3 cursor-pointer appearance-none items-center justify-center border-0 bg-transparent p-0',
+			'rounded-sm focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:outline-none',
+			klass
+		)}
+		aria-label={accessibleName}
+		use:tooltip={tooltipOpts}
+	>
+		<Icon class={twMerge('text-gray size-3', classes?.icon)} aria-hidden="true" />
+	</button>
 {/if}

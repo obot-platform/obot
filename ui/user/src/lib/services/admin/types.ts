@@ -765,6 +765,7 @@ export interface MCPCatalogEntry {
 	needsK8sUpdate?: boolean;
 	oauthCredentialConfigured?: boolean;
 	connectURL?: string;
+	userID?: string;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing

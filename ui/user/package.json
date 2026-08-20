@@ -93,7 +93,7 @@
 		"@xterm/xterm": "^5.5.0",
 		"d3": "^7.9.0",
 		"d3-time-format": "^4.1.0",
-		"daisyui": "^5.5.19",
+		"daisyui": "^5.7.18",
 		"date-fns": "^4.1.0",
 		"devicon": "^2.17.0",
 		"docx-preview": "^0.3.7",

@@ -6,6 +6,7 @@ import {
 	AdminService,
 	UserService,
 	type AccessControlRule,
+	type CompositeServerToolRow,
 	type LaunchServerType,
 	type MCPCatalogEntry,
 	type MCPCatalogEntryServerManifest,
@@ -18,7 +19,8 @@ import {
 	type MCPSubField,
 	type OrgUser,
 	type RuntimeFormData,
-	type SystemMCPServerCatalogEntry
+	type SystemMCPServerCatalogEntry,
+	type ToolOverride
 } from '..';
 import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
 
@@ -1071,6 +1073,22 @@ export function toolNameIssue(effectiveName: string): ToolNameIssue | undefined 
 		};
 	}
 	return undefined;
+}
+
+export function toolOverridesFromRows(rows: CompositeServerToolRow[]): ToolOverride[] {
+	return rows.map((row) => {
+		// Persist the description snapshot for display in future edits.
+		const overrideName = toolOverrideValue(row.overrideName, row.name);
+		const overrideDescription = toolOverrideValue(row.overrideDescription, row.description);
+
+		return {
+			name: row.name,
+			description: row.description,
+			overrideName,
+			overrideDescription,
+			enabled: row.enabled
+		};
+	});
 }
 
 type ToolOverrideLike = { name: string; overrideName?: string; enabled?: boolean };

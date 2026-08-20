@@ -90,7 +90,6 @@
 		ChevronLeft,
 		ChevronUp,
 		RadioTower,
-		Server,
 		Users,
 		BotMessageSquare,
 		PencilRuler,
@@ -107,7 +106,8 @@
 		LayoutGrid,
 		KeyRound,
 		Menu,
-		X
+		X,
+		Layers
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -178,6 +178,7 @@
 		rightMenu?: Snippet;
 		leftMenu?: Snippet;
 		title?: string;
+		titleContent?: Snippet;
 		subtitle?: string;
 		showBackButton?: boolean;
 		onBackButtonClick?: () => void;
@@ -212,7 +213,8 @@
 		layoutContext,
 		disableResize,
 		hideProfileButton,
-		alwaysShowHeaderTitle
+		alwaysShowHeaderTitle,
+		titleContent
 	}: Props = $props();
 	let nav = $state<HTMLDivElement>();
 	let sidebarScroll = $state<HTMLDivElement>();
@@ -254,10 +256,10 @@
 
 	let defaultLinks = $derived<NavLink[]>([
 		{
-			id: 'mcp-servers',
-			icon: Server,
-			label: 'MCP Servers',
-			href: '/mcp-servers'
+			id: 'vmcps',
+			icon: Layers,
+			label: 'vMCPs',
+			href: '/vmcps'
 		},
 		{
 			id: 'mcp-skills',
@@ -285,7 +287,7 @@
 		{
 			id: 'agent-auth-scope',
 			icon: KeyRound,
-			label: 'Agent Auth Scopes',
+			label: 'Agent Identities',
 			href: '/agent-auth-scopes',
 			collapsible: false
 		},
@@ -521,7 +523,7 @@
 							{
 								id: 'agent-auth-scopes',
 								href: '/admin/agent-auth-scopes',
-								label: 'Agent Auth Scopes',
+								label: 'Agent Identities',
 								disabled: !version.current.authEnabled,
 								collapsible: false
 							}
@@ -1031,7 +1033,7 @@
 			<ChevronLeft class="size-6" />
 		</IconButton>
 	{/if}
-	{#if title}
+	{#if title || titleContent}
 		<div class="flex flex-col md:w-full">
 			{#if subtitle}
 				<span class="text-xs font-light text-muted-content">{subtitle}</span>
@@ -1042,9 +1044,13 @@
 					!layout.sidebarOpen && classes?.noSidebarTitle
 				)}
 			>
-				{title}
-				{#if isBetaRoute}
-					<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+				{#if titleContent}
+					{@render titleContent()}
+				{:else}
+					{title}
+					{#if isBetaRoute}
+						<span class="badge badge-primary badge-sm font-medium uppercase">Beta</span>
+					{/if}
 				{/if}
 			</h1>
 		</div>

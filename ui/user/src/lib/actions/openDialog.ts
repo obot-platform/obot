@@ -14,8 +14,11 @@ export function getOpenGuidePanelWidth(): number {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
-/** True when an app dialog should avoid showModal so the guide panel stays interactive. */
+/** True when an app dialog should avoid showModal so content outside it stays interactive. */
 export function shouldOpenDialogNonModal(dialog: HTMLDialogElement) {
+	// Opted in by a dialog that deliberately leaves a side panel usable while open.
+	if (dialog.dataset.nonModal === 'true') return true;
+
 	const guidePanel = document.getElementById(GUIDE_PANEL_ID);
 	return Boolean(guidePanel?.matches(':popover-open') && !guidePanel.contains(dialog));
 }

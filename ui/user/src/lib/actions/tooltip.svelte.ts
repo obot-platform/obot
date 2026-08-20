@@ -20,6 +20,39 @@ function resolveDataTheme(trigger: HTMLElement): string {
 	);
 }
 
+const HOST_CLASS = 'tooltip-portal-daisy-host';
+
+const themeListeners: (() => void)[] = [];
+let themeObserver: MutationObserver | null = null;
+
+function watchDataTheme(sync: () => void) {
+	themeListeners.push(sync);
+
+	if (!themeObserver) {
+		themeObserver = new MutationObserver((records) => {
+			const themeChanged = records.some(
+				(record) => !(record.target as Element).classList?.contains(HOST_CLASS)
+			);
+			if (!themeChanged) return;
+
+			for (const listener of themeListeners) listener();
+		});
+		themeObserver.observe(document.documentElement, {
+			attributes: true,
+			attributeFilter: ['data-theme'],
+			subtree: true
+		});
+	}
+
+	return () => {
+		const index = themeListeners.indexOf(sync);
+		if (index >= 0) themeListeners.splice(index, 1);
+		if (themeListeners.length > 0) return;
+		themeObserver?.disconnect();
+		themeObserver = null;
+	};
+}
+
 function placementAttr(placement: Placement | undefined): string {
 	return placement ?? 'top';
 }
@@ -30,6 +63,7 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	let isEnabled = false;
 	let snippetMount: ReturnType<typeof mount> | null = null;
 	let popoverTooltipParams: { update: (p?: Record<string, unknown>) => void } | null = null;
+	let unwatchDataTheme: (() => void) | null = null;
 
 	function capturePopoverTooltipHandle(ret: unknown) {
 		popoverTooltipParams =
@@ -46,14 +80,9 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	};
 
 	function applyLookClasses(el: HTMLElement, o: TooltipOptions | string | undefined) {
-		el.classList.remove(
-			'tooltip-portal-daisy-host',
-			'tooltip-portal-daisy',
-			'tooltip',
-			'text-left'
-		);
+		el.classList.remove(HOST_CLASS, 'tooltip-portal-daisy', 'tooltip', 'text-left');
 		const extra = typeof o === 'object' ? (o.classes ?? []) : [];
-		el.classList.add('tooltip-portal-daisy-host', ...extra);
+		el.classList.add(HOST_CLASS, ...extra);
 	}
 
 	function syncDaisyPortal(
@@ -70,6 +99,8 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		const host = document.createElement('div');
 		const bubble = document.createElement('div');
 		const caret = document.createElement('span');
+		host.setAttribute('role', 'tooltip');
+		host.setAttribute('aria-hidden', 'true');
 		bubble.className = 'tooltip-portal-daisy-host__bubble';
 		caret.className = 'tooltip-portal-daisy-host__caret';
 		caret.setAttribute('aria-hidden', 'true');
@@ -86,7 +117,10 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		tt = popover({
 			placement,
 			delay: 0,
-			strategy: 'fixed'
+			strategy: 'fixed',
+			onOpenChange(isOpen) {
+				portalRoot?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+			}
 		});
 
 		portalRoot = buildDaisyPortal();
@@ -99,6 +133,12 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 		} else {
 			document.body.appendChild(portalRoot);
 		}
+
+		unwatchDataTheme = watchDataTheme(() => {
+			const theme = resolveDataTheme(node);
+			if (!portalRoot || portalRoot.getAttribute('data-theme') === theme) return;
+			portalRoot.setAttribute('data-theme', theme);
+		});
 
 		tt.ref(node);
 		capturePopoverTooltipHandle(
@@ -123,7 +163,10 @@ export function tooltip(node: HTMLElement, opts: TooltipOptions | string | undef
 	const disable = () => {
 		if (!isEnabled) return;
 		clearSnippetMount();
+		unwatchDataTheme?.();
+		unwatchDataTheme = null;
 		popoverTooltipParams = null;
+		tt?.toggle(false);
 		portalRoot?.remove();
 		portalRoot = null;
 		tt = null;

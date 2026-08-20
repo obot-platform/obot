@@ -386,6 +386,19 @@
 			transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
 	}
 
+	.tooltip-portal-daisy-host.tooltip-surface {
+		--tt-bg: var(--color-base-100);
+
+		.tooltip-portal-daisy-host__bubble {
+			color: var(--color-base-content);
+			border: 1px solid var(--color-base-300);
+		}
+	}
+
+	.tooltip-portal-daisy-host.tooltip-surface[data-theme='nanobotdark'] {
+		--tt-bg: var(--color-base-400);
+	}
+
 	.tooltip-portal-daisy-host:not(.tooltip-portal-daisy-host--inactive) {
 		transform: none;
 	}
@@ -1425,6 +1438,10 @@
 }
 
 @layer utilities {
+	.z-above-dialog {
+		z-index: 10000;
+	}
+
 	.toggle {
 		border-color: transparent;
 		background-color: var(--color-base-400);

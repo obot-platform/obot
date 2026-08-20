@@ -123,6 +123,17 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			}
 		};
 
+		const dismiss = () => {
+			if (hoverTimeout) {
+				clearTimeout(hoverTimeout);
+				hoverTimeout = null;
+			}
+			clearCloseTimer();
+			if (!open) return;
+			open = false;
+			options.onOpenChange?.(open);
+		};
+
 		const onRefEnter = () => {
 			clearCloseTimer();
 			if (hoverTimeout) return;
@@ -154,6 +165,12 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			}
 		};
 
+		// Modal dialogs (and pointer capture) can swallow mouseleave, leaving the
+		// hover tooltip stuck open after a click. Dismiss on press instead.
+		const onRefPointerDown = () => {
+			dismiss();
+		};
+
 		const onTooltipEnter = () => {
 			clearCloseTimer();
 		};
@@ -165,21 +182,56 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 			}
 		};
 
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key !== 'Escape' || !open) return;
+			e.stopPropagation();
+			dismiss();
+		};
+
+		const relatedInside = (related: EventTarget | null) => {
+			if (!(related instanceof Node)) return false;
+			return ref.contains(related) || tooltip.contains(related);
+		};
+
+		const onRefBlur = (e: FocusEvent) => {
+			if (interactive && relatedInside(e.relatedTarget)) return;
+			onRefLeave();
+		};
+
+		const onTooltipFocusOut = (e: FocusEvent) => {
+			if (relatedInside(e.relatedTarget)) return;
+			onTooltipLeave();
+		};
+
 		ref.addEventListener('mouseenter', onRefEnter);
 		ref.addEventListener('mouseleave', onRefLeave);
+		ref.addEventListener('pointerdown', onRefPointerDown);
+		ref.addEventListener('focus', onRefEnter);
+		ref.addEventListener('blur', onRefBlur);
+		ref.addEventListener('keydown', onKeyDown);
 
 		const tooltipCleanups: (() => void)[] = [];
 		if (interactive) {
 			tooltip.addEventListener('mouseenter', onTooltipEnter);
 			tooltip.addEventListener('mouseleave', onTooltipLeave);
+			tooltip.addEventListener('focusin', onTooltipEnter);
+			tooltip.addEventListener('focusout', onTooltipFocusOut);
+			tooltip.addEventListener('keydown', onKeyDown);
 			tooltipCleanups.push(() => tooltip.removeEventListener('mouseenter', onTooltipEnter));
 			tooltipCleanups.push(() => tooltip.removeEventListener('mouseleave', onTooltipLeave));
+			tooltipCleanups.push(() => tooltip.removeEventListener('focusin', onTooltipEnter));
+			tooltipCleanups.push(() => tooltip.removeEventListener('focusout', onTooltipFocusOut));
+			tooltipCleanups.push(() => tooltip.removeEventListener('keydown', onKeyDown));
 		}
 
 		return () => {
 			clearCloseTimer();
 			ref.removeEventListener('mouseenter', onRefEnter);
 			ref.removeEventListener('mouseleave', onRefLeave);
+			ref.removeEventListener('pointerdown', onRefPointerDown);
+			ref.removeEventListener('focus', onRefEnter);
+			ref.removeEventListener('blur', onRefBlur);
+			ref.removeEventListener('keydown', onKeyDown);
 			for (const u of tooltipCleanups) u();
 		};
 	});

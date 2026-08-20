@@ -15,6 +15,7 @@
 		SquareMinus
 	} from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 
@@ -59,6 +60,8 @@
 		remeasureKey?: string | number;
 		/** Field names that should not be auto-hidden when the table is too narrow. Users can still hide them manually. */
 		noAutoHideFields?: string[];
+		/** Attachment applied to each data row, e.g. to register the row as a drop target. */
+		rowAttachment?: (row: T) => Attachment<HTMLElement> | undefined;
 	}
 
 	const {
@@ -90,7 +93,8 @@
 		disablePortal,
 		columnMaxWidths,
 		remeasureKey,
-		noAutoHideFields
+		noAutoHideFields,
+		rowAttachment
 	}: Props<T> = $props();
 
 	let page = $state(0);
@@ -875,6 +879,7 @@
 			const isCtrlClick = isTouchDevice ? false : e.metaKey || e.ctrlKey;
 			onClickRow?.(d, isCtrlClick);
 		}}
+		{@attach rowAttachment?.(d)}
 	>
 		{#if tableSelectActions}
 			{@const canSelect = validateSelect ? validateSelect(d) : true}

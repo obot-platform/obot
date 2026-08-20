@@ -19,12 +19,13 @@
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
 		isDeprecatedMCPServer,
-		toolOverrideValue
+		toolOverridesFromRows
 	} from '$lib/services/user/mcp';
 	import { mcpServersAndEntries, version } from '$lib/stores';
 	import CatalogConfigureForm, { type LaunchFormData } from '../CatalogConfigureForm.svelte';
 	import McpDeprecatedNotice from '../McpDeprecatedNotice.svelte';
 	import CompositeEditTools from './CompositeEditTools.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		catalogId?: string;
@@ -49,6 +50,7 @@
 		// so the modal can flag cross-component final-name conflicts live.
 		otherEffectiveNames?: string[];
 		otherToolPrefixes?: string[];
+		additionalActions?: Snippet;
 	}
 
 	let {
@@ -63,7 +65,8 @@
 		existingTools,
 		existingToolPrefix,
 		otherEffectiveNames,
-		otherToolPrefixes
+		otherToolPrefixes,
+		additionalActions: additionalActionsSnippet
 	}: Props = $props();
 	let searchDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let choiceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -126,6 +129,13 @@
 				} as unknown as MCPCatalogEntryServerManifest);
 	}
 
+	export function close() {
+		modifyToolsDialog?.close();
+		initConfigureToolsDialog?.close();
+		choiceDialog?.close();
+		configDialog?.close();
+	}
+
 	export function open() {
 		resetConfigureTool();
 		if (presetConfiguringEntry) {
@@ -144,6 +154,7 @@
 							toolOverrides: [],
 							toolPrefix: existingToolPrefix
 						};
+			choiceDialog?.close();
 			initConfigureToolsDialog?.open();
 		} else {
 			searchDialog?.open();
@@ -527,20 +538,19 @@
 		onSuccess?.(
 			{
 				...componentConfig,
-				toolOverrides: tools.map((t) => ({
-					name: t.name,
-					// Persist the description snapshot for display in future edits.
-					description: t.description,
-					overrideName: toolOverrideValue(t.overrideName, t.name),
-					overrideDescription: toolOverrideValue(t.overrideDescription, t.description),
-					enabled: t.enabled
-				}))
+				toolOverrides: toolOverridesFromRows(tools)
 			},
 			configuringEntry,
 			tools
 		);
 	}}
-/>
+>
+	{#snippet additionalActions()}
+		{#if additionalActionsSnippet}
+			{@render additionalActionsSnippet()}
+		{/if}
+	{/snippet}
+</CompositeEditTools>
 
 <CatalogConfigureForm
 	bind:this={configDialog}

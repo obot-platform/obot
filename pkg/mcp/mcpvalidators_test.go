@@ -1496,11 +1496,7 @@ func TestCompositeValidator_ValidateCatalogConfig(t *testing.T) {
 					ComponentServers: []types.CatalogComponentServer{},
 				},
 			},
-			expectedError: types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   "compositeConfig.componentServers",
-				Message: "must contain at least one component server",
-			},
+			expectedError: nil,
 		},
 		{
 			name: "component missing both IDs",

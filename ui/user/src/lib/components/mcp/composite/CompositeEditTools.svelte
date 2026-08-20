@@ -18,6 +18,7 @@
 	import McpDeprecatedNotice from '../McpDeprecatedNotice.svelte';
 	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
 	import { TriangleAlert } from '@lucide/svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		configuringEntry?: MCPCatalogEntry | MCPCatalogServer;
@@ -31,6 +32,7 @@
 		// admin edits overrides or the prefix.
 		otherEffectiveNames?: string[];
 		otherToolPrefixes?: string[];
+		additionalActions?: Snippet;
 	}
 
 	let {
@@ -41,7 +43,8 @@
 		otherToolPrefixes,
 		onClose,
 		onCancel,
-		onSuccess
+		onSuccess,
+		additionalActions
 	}: Props = $props();
 
 	let ownEnabledEffectiveNames = $derived(
@@ -336,17 +339,24 @@
 			</div>
 		{/each}
 	</div>
-	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-end gap-2 p-4">
-		<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
-		<button
-			id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
-			class="btn btn-primary"
-			disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
-			onclick={() => {
-				onSuccess?.();
-				dialog?.close();
-			}}>Confirm</button
-		>
+	<div class="bg-base-200 sticky bottom-0 left-0 mt-4 flex w-full justify-between gap-2 p-4">
+		<div>
+			{#if additionalActions}
+				{@render additionalActions()}
+			{/if}
+		</div>
+		<div class="flex gap-2 items-center">
+			<button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
+			<button
+				id={CATALOG_SERVER_FIELD_IDS.compositeEntryConfigureToolsConfirmBtn}
+				class="btn btn-primary"
+				disabled={hasBlockingToolNameErrors || prefixIssue?.severity === 'error'}
+				onclick={() => {
+					onSuccess?.();
+					dialog?.close();
+				}}>Confirm</button
+			>
+		</div>
 	</div>
 </ResponsiveDialog>
 
