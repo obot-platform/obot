@@ -11,8 +11,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ValidateCatalogEntryTunnelReferences verifies every tunnel reference in a
-// catalog manifest, including remote components embedded in a composite.
+// ValidateCatalogEntryTunnelReferences verifies the tunnel reference in a
+// catalog manifest.
 func ValidateCatalogEntryTunnelReferences(ctx context.Context, client kclient.Client, manifest types.MCPServerCatalogEntryManifest) error {
 	switch manifest.Runtime {
 	case types.RuntimeRemote:
@@ -31,21 +31,12 @@ func ValidateCatalogEntryTunnelReferences(ctx context.Context, client kclient.Cl
 			return fmt.Errorf("remoteConfig.tunnelName requires a fixedURL or hostname")
 		}
 		return ValidateReference(ctx, client, manifest.RemoteConfig.TunnelName, target)
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return nil
-		}
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := ValidateCatalogEntryTunnelReferences(ctx, client, component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d]: %w", i, err)
-			}
-		}
 	}
 	return nil
 }
 
-// ValidateServerTunnelReferences verifies every tunnel reference in a runtime
-// server manifest, including remote components embedded in a composite.
+// ValidateServerTunnelReferences verifies the tunnel reference in a runtime
+// server manifest.
 func ValidateServerTunnelReferences(ctx context.Context, client kclient.Client, manifest types.MCPServerManifest) error {
 	switch manifest.Runtime {
 	case types.RuntimeRemote:
@@ -64,15 +55,6 @@ func ValidateServerTunnelReferences(ctx context.Context, client kclient.Client, 
 			return fmt.Errorf("remoteConfig.tunnelName requires a URL or hostname")
 		}
 		return ValidateReference(ctx, client, manifest.RemoteConfig.TunnelName, target)
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return nil
-		}
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := ValidateServerTunnelReferences(ctx, client, component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d]: %w", i, err)
-			}
-		}
 	}
 	return nil
 }

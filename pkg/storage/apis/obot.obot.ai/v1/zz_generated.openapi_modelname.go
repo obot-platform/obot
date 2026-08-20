@@ -136,6 +136,11 @@ func (in AuthProviderStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in CatalogComponentServerStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.CatalogComponentServerStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in DefaultModelAlias) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.DefaultModelAlias"
 }

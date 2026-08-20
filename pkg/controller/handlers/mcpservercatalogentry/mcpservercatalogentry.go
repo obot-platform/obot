@@ -4,16 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -109,7 +107,7 @@ func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Respo
 // UpdateManifestHashAndLastUpdated updates the manifest hash and last updated timestamp when configuration changes
 func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	currentHash := utils.Digest(entry.Spec.Manifest)
+	currentHash := manifestHash(entry.Spec.Manifest)
 	if entry.Status.ManifestHash != currentHash {
 		now := metav1.Now()
 		entry.Status.ManifestHash = currentHash
@@ -119,6 +117,22 @@ func (*Handler) UpdateManifestHashAndLastUpdated(req router.Request, _ router.Re
 	}
 
 	return nil
+}
+
+// manifestHash digests a catalog entry manifest with every composite component's SourceDigest
+// cleared, so regenerating tool overrides that come back identical does not move ManifestHash or
+// LastUpdated.
+func manifestHash(manifest types.MCPServerCatalogEntryManifest) string {
+	if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
+		return utils.Digest(manifest)
+	}
+
+	manifest = *manifest.DeepCopy()
+	for i := range manifest.CompositeConfig.ComponentServers {
+		manifest.CompositeConfig.ComponentServers[i].SourceDigest = ""
+	}
+
+	return utils.Digest(manifest)
 }
 
 func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ router.Response) error {
@@ -135,116 +149,63 @@ func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ rou
 	return nil
 }
 
-// DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
-// from their source catalog entries or multi-user servers
+// DetectCompositeDrift stamps each component of a composite catalog entry with what its upstream
+// currently reports. Nothing is copied into the entry's manifest: Name and Icon are status only,
+// kept at their last values once the upstream stops resolving.
 func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
-		if entry.Status.NeedsUpdate {
+	if entry.Spec.Manifest.Runtime != types.RuntimeComposite || entry.Spec.Manifest.CompositeConfig == nil {
+		if entry.Status.NeedsUpdate || entry.Status.Components != nil {
 			entry.Status.NeedsUpdate = false
+			entry.Status.Components = nil
 			return req.Client.Status().Update(req.Ctx, entry)
 		}
 		return nil
 	}
 
-	// Check each component for drift
-	var drifted bool
-	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-		// Handle multi-user component drift
-		if component.MCPServerID != "" {
-			var server v1.MCPServer
-			if err := req.Get(&server, entry.Namespace, component.MCPServerID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
-				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
-			}
-
-			hasDrifted, err := mcpserver.ConfigurationHasDrifted(req.Ctx, h.gatewayClient, &server, component.Manifest, false)
-			if err != nil {
-				return fmt.Errorf("failed to detect drift for multi-user server %s: %w", component.MCPServerID, err)
-			}
-			if hasDrifted {
-				drifted = true
-				break
-			}
-		} else {
-			// Handle catalog entry component drift
-			var componentEntry v1.MCPServerCatalogEntry
-			if err := req.Get(&componentEntry, entry.Namespace, component.CatalogEntryID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
-				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
-			}
-
-			// We added the EntryKey field, but it really shouldn't affect drift detection here.
-			if component.Manifest.EntryKey == "" && componentEntry.Spec.Manifest.EntryKey != "" {
-				component.Manifest.EntryKey = componentEntry.Spec.Manifest.EntryKey
-			}
-
-			// Same for serverUserType
-			if component.Manifest.ServerUserType == "" && componentEntry.Spec.Manifest.ServerUserType != "" {
-				component.Manifest.ServerUserType = componentEntry.Spec.Manifest.ServerUserType
-			}
-
-			// UpgradeNote is informational metadata and should not affect configuration drift.
-			component.Manifest.UpgradeNote = ""
-			componentEntry.Spec.Manifest.UpgradeNote = ""
-
-			var (
-				snapshotHash = utils.Digest(component.Manifest)
-				currentHash  = utils.Digest(componentEntry.Spec.Manifest)
-			)
-			if snapshotHash != currentHash {
-				drifted = true
-				break
-			}
+	// Index what the last pass stamped, so a component whose upstream is gone keeps its name and icon.
+	stamped := make(map[string]v1.CatalogComponentServerStatus, len(entry.Status.Components))
+	for _, component := range entry.Status.Components {
+		if id := component.ComponentID(); id != "" {
+			stamped[id] = component
 		}
 	}
 
-	if entry.Status.NeedsUpdate != drifted {
-		slog.Info("MCP catalog entry composite drift status changed", "entry", entry.Name, "needsUpdate", drifted)
-		entry.Status.NeedsUpdate = drifted
-		return req.Client.Status().Update(req.Ctx, entry)
+	var (
+		components  = make([]v1.CatalogComponentServerStatus, 0, len(entry.Spec.Manifest.CompositeConfig.ComponentServers))
+		needsUpdate bool
+	)
+	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+		upstream, err := mcp.ResolveComponentUpstream(req.Ctx, req.Client, component.ComponentRef)
+		if err != nil {
+			return err
+		}
+
+		status := v1.CatalogComponentServerStatus{CatalogEntryID: component.CatalogEntryID, MCPServerID: component.MCPServerID}
+		if previous, ok := stamped[component.ComponentID()]; ok {
+			status.Name, status.Icon = previous.Name, previous.Icon
+		}
+
+		if upstream.Missing {
+			status.Missing = true
+		} else {
+			status.Name, status.Icon = upstream.Manifest.Name, upstream.Manifest.Icon
+			status.ToolOverridesStale = mcp.ComponentToolOverridesStale(component, upstream)
+		}
+
+		needsUpdate = needsUpdate || status.Missing || status.ToolOverridesStale
+		components = append(components, status)
 	}
 
-	return nil
-}
-
-// CleanupNestedCompositeServers removes component servers with composite runtimes from composite catalog entries.
-// This handler cleans up entries that were created before API validation to prevent nested composite servers.
-func (*Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
-	var (
-		entry    = req.Object.(*v1.MCPServerCatalogEntry)
-		manifest = entry.Spec.Manifest
-	)
-
-	if manifest.Runtime != types.RuntimeComposite ||
-		manifest.CompositeConfig == nil {
+	if entry.Status.NeedsUpdate == needsUpdate && utils.Digest(entry.Status.Components) == utils.Digest(components) {
 		return nil
 	}
 
-	// Remove all composite components from the server's manifest
-	var (
-		components    = manifest.CompositeConfig.ComponentServers
-		numComponents = len(components)
-	)
-	components = slices.DeleteFunc(components, func(component types.CatalogComponentServer) bool {
-		return component.Manifest.Runtime == types.RuntimeComposite
-	})
-
-	if numComponents == len(components) {
-		// No components were removed, so no need to update the manifest.
-		return nil
-	}
-
-	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
-	slog.Info("Pruned nested composite components from MCP catalog entry", "entry", entry.Name, "removedComponents", numComponents-len(components))
-	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
+	slog.Info("MCP catalog entry composite component status changed", "entry", entry.Name, "needsUpdate", needsUpdate)
+	entry.Status.NeedsUpdate = needsUpdate
+	entry.Status.Components = components
+	return req.Client.Status().Update(req.Ctx, entry)
 }
 
 // CleanupUnusedOAuthCredentials removes OAuth credentials for remote catalog entries

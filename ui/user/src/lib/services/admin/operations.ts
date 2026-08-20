@@ -38,6 +38,7 @@ import type {
 	MCPCatalogEntry,
 	MCPCatalogEntryServerManifest,
 	MCPCatalogManifest,
+	MCPServerToolPreview,
 	MCPCatalogServerManifest,
 	ModelAccessPolicy,
 	ModelAccessPolicyManifest,
@@ -944,22 +945,6 @@ export async function deleteMCPCatalogEntryOAuthCredentials(
 	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}/oauth-credentials`, opts);
 }
 
-export async function refreshCompositeComponents(
-	catalogID: string,
-	entryID: string,
-	opts?: { fetch?: Fetcher }
-): Promise<MCPCatalogEntry> {
-	const response = (await doPost(
-		`/mcp-catalogs/${catalogID}/entries/${entryID}/refresh-components`,
-		{},
-		opts
-	)) as MCPCatalogEntry;
-	return {
-		...response,
-		isCatalogEntry: true
-	};
-}
-
 export async function generateMcpCatalogEntryToolPreviews(
 	catalogID: string,
 	entryID: string,
@@ -968,14 +953,14 @@ export async function generateMcpCatalogEntryToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry> {
+): Promise<MCPServerToolPreview> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${entryID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return resp as MCPCatalogEntry;
+	return resp as MCPServerToolPreview;
 }
 
 export async function generateMcpCompositeComponentToolPreviews(
@@ -987,14 +972,14 @@ export async function generateMcpCompositeComponentToolPreviews(
 		url?: string;
 	},
 	opts?: { fetch?: Fetcher; dryRun?: boolean }
-): Promise<MCPCatalogEntry> {
+): Promise<MCPServerToolPreview> {
 	const path = `/mcp-catalogs/${catalogID}/entries/${compositeEntryID}/${componentID}/generate-tool-previews`;
 	const url = opts?.dryRun ? `${path}?dryRun=true` : path;
 	const resp = await doPost(url, body ?? {}, {
 		...opts,
 		dontLogErrors: true
 	});
-	return resp as MCPCatalogEntry;
+	return resp as MCPServerToolPreview;
 }
 
 export async function getMcpCatalogToolPreviewsOauth(

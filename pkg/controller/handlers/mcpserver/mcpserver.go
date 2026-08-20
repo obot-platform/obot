@@ -17,6 +17,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -45,6 +46,13 @@ type Handler struct {
 	mcpImagePullSecrets          []string
 }
 
+type compositeChildren struct {
+	servers            map[string]v1.MCPServer
+	instances          map[string]v1.MCPServerInstance
+	duplicateServers   []v1.MCPServer
+	duplicateInstances []v1.MCPServerInstance
+}
+
 func effectiveDenyAllEgress(v *bool, domains []string, defaultWhenEmpty bool) bool {
 	if v != nil {
 		return *v
@@ -68,10 +76,15 @@ func New(gatewayClient *gateway.Client, mcpSessionManager *mcp.SessionManager, t
 	}
 }
 
+// DetectDrift reports whether this server is behind its own catalog entry. A component server is
+// an ordinary server here, with no composite special case. A composite additionally rolls up its
+// component servers' drift, since list responses drive the update badge but carry no per-component
+// detail. A multi-user component's shared server is not rolled up: a composite update cannot clear
+// its drift, so the badge would never go away.
 func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 
-	if server.Spec.MCPServerCatalogEntryName == "" || server.Spec.CompositeName != "" {
+	if server.Spec.MCPServerCatalogEntryName == "" {
 		return nil
 	}
 
@@ -87,12 +100,36 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 
+	if !drifted && server.Spec.Manifest.Runtime == types.RuntimeComposite {
+		drifted, err = h.componentServersHaveDrifted(req, server)
+		if err != nil {
+			return err
+		}
+	}
+
 	if server.Status.NeedsUpdate != drifted {
 		slog.Info("MCP server catalog drift status changed", "server", server.Name, "catalogEntry", server.Spec.MCPServerCatalogEntryName, "needsUpdate", drifted)
 		server.Status.NeedsUpdate = drifted
 		return req.Client.Status().Update(req.Ctx, server)
 	}
 	return nil
+}
+
+// componentServersHaveDrifted reports whether any of the composite's component servers is behind
+// its own upstream. Listing here registers a watch trigger, so this handler is woken when one of
+// them updates its status.
+func (*Handler) componentServersHaveDrifted(req router.Request, compositeServer *v1.MCPServer) (bool, error) {
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return false, fmt.Errorf("failed to list component servers: %w", err)
+	}
+
+	return slices.ContainsFunc(componentServers.Items, func(component v1.MCPServer) bool {
+		return component.Status.NeedsUpdate
+	}), nil
 }
 
 func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) error {
@@ -333,11 +370,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	case types.RuntimeComposite:
-		var err error
-		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig, defaultDenyAllEgress)
-		if err != nil {
-			return false, err
-		}
+		drifted = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig)
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -564,18 +597,19 @@ func adminAddedSecretBinding(binding *types.MCPSecretBinding) bool {
 	return binding != nil && binding.AdminAdded
 }
 
-// compositeConfigHasDrifted checks if the composite configuration has drifted
-func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig, defaultDenyAllEgress bool) (bool, error) {
+// compositeConfigHasDrifted compares only what a composite owns against its catalog entry:
+// membership, tool prefixes, and tool overrides. Disabled is per-deployment, has no counterpart on
+// the entry, and is ignored.
+func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig) bool {
 	if serverConfig == nil && entryConfig == nil {
-		return false, nil
+		return false
 	}
 	if serverConfig == nil || entryConfig == nil {
-		return true, nil
+		return true
 	}
 
-	// Fast length check
 	if len(serverConfig.ComponentServers) != len(entryConfig.ComponentServers) {
-		return true, nil
+		return true
 	}
 
 	entryComponents := make(map[string]types.CatalogComponentServer, len(entryConfig.ComponentServers))
@@ -588,27 +622,19 @@ func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entry
 	for _, serverComponent := range serverConfig.ComponentServers {
 		entryComponent, ok := entryComponents[serverComponent.ComponentID()]
 		if !ok {
-			return true, nil
+			return true
 		}
 
-		// Compare tool prefix
 		if serverComponent.ToolPrefix != entryComponent.ToolPrefix {
-			return true, nil
+			return true
 		}
 
-		// Compare tool overrides
 		if utils.Digest(serverComponent.ToolOverrides) != utils.Digest(entryComponent.ToolOverrides) {
-			return true, nil
-		}
-
-		// Compare manifests
-		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
-		if err != nil || drifted {
-			return drifted, err
+			return true
 		}
 	}
 
-	return false, nil
+	return false
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
@@ -702,221 +728,293 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	return nil
 }
 
-// CleanupNestedCompositeServers removes component servers with composite runtimes from composite MCP servers.
-// This handler cleans up servers that were created before API validation to prevent nested composite servers.
-func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Response) error {
-	var (
-		server   = req.Object.(*v1.MCPServer)
-		manifest = server.Spec.Manifest
-	)
-
-	if manifest.Runtime != types.RuntimeComposite ||
-		manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	// Delete component servers with composite runtimes
-	if server.Spec.CompositeName != "" {
-		slog.Info("Deleting nested composite component server", "server", server.Name, "parentComposite", server.Spec.CompositeName)
-		return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, server))
-	}
-	// Remove all composite components from the server's manifest
-	var (
-		components    = manifest.CompositeConfig.ComponentServers
-		numComponents = len(components)
-	)
-	components = slices.DeleteFunc(components, func(component types.ComponentServer) bool {
-		return component.Manifest.Runtime == types.RuntimeComposite
-	})
-
-	if numComponents == len(components) {
-		return nil
-	}
-
-	server.Spec.Manifest.CompositeConfig.ComponentServers = components
-	slog.Info("Pruned nested composite components from MCP server manifest", "server", server.Name, "removedComponents", numComponents-len(components))
-	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, server))
-}
-
+// EnsureCompositeComponents reconciles a composite's references with its child servers and instances.
 func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Response) error {
 	var (
 		compositeServer = req.Object.(*v1.MCPServer)
 		manifest        = compositeServer.Spec.Manifest
+		syncRequest     = compositeServer.Annotations[v1.MCPServerCompositeSyncRequestedAtAnnotation]
 	)
 
-	if manifest.Runtime != types.RuntimeComposite ||
-		manifest.CompositeConfig == nil ||
-		len(manifest.CompositeConfig.ComponentServers) < 1 {
+	if manifest.Runtime != types.RuntimeComposite || manifest.CompositeConfig == nil {
 		return nil
 	}
 
-	// Load all existing component servers
-	var componentServers v1.MCPServerList
-	if err := req.List(&componentServers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
-		Namespace:     compositeServer.Namespace,
-	}); err != nil {
-		return fmt.Errorf("failed to list component servers: %w", err)
+	children, err := h.listCompositeChildren(req, compositeServer)
+	if err != nil {
+		return err
 	}
 
-	// Load all existing component instances (for multi-user components)
-	var componentInstances v1.MCPServerInstanceList
-	if err := req.List(&componentInstances, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
-		Namespace:     compositeServer.Namespace,
-	}); err != nil {
-		return fmt.Errorf("failed to list component instances: %w", err)
-	}
-
-	// Create index of existing catalog entry components by ID
-	existingServers := make(map[string]v1.MCPServer, len(componentServers.Items))
-	for _, existing := range componentServers.Items {
-		if id := existing.Spec.MCPServerCatalogEntryName; id != "" {
-			existingServers[id] = existing
-		}
-	}
-
-	// Create index of existing multi-user component instances by MCPServerID
-	existingInstances := make(map[string]v1.MCPServerInstance, len(componentInstances.Items))
-	for _, existing := range componentInstances.Items {
-		if id := existing.Spec.MCPServerName; id != "" {
-			existingInstances[existing.Spec.MCPServerName] = existing
-		}
-	}
-
-	// withNeedsURL returns the given MCP server with a NeedsURL field set according to its hostname constraint and url.
-	// If the server is not remote, or does not have a hostname constraint, it returns the unmodified server.
-	withNeedsURL := func(server v1.MCPServer) v1.MCPServer {
-		remoteConfig := compositeServer.Spec.Manifest.RemoteConfig
-		if compositeServer.Spec.Manifest.Runtime != types.RuntimeRemote || remoteConfig == nil || remoteConfig.Hostname == "" {
-			return server
-		}
-
-		server.Spec.NeedsURL = types.ValidateURLHostname(remoteConfig.URL, remoteConfig.Hostname) != nil
-		return server
-	}
-
-	// Ensuring a composite server is up-to-date has 3 steps:
-	// 1. Create new component servers and instances
-	// 2. Update existing component servers (no-op on existing instances, since there's nothing to change)
-	// 3. Delete removed component servers and instances
+	componentErrors := make(map[string]string)
 	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if component.MCPServerID != "" {
-			// Multi-user component
-			if _, exists := existingInstances[component.MCPServerID]; !exists {
-				// New instance, create it
-				var multiUserServer v1.MCPServer
-				if err := req.Get(&multiUserServer, compositeServer.Namespace, component.MCPServerID); err != nil {
-					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
-				}
-
-				if err := req.Client.Create(req.Ctx, &v1.MCPServerInstance{
-					GenerateName: system.MCPServerInstancePrefix,
-					Namespace:    compositeServer.Namespace,
-					Finalizers:   []string{v1.MCPServerInstanceFinalizer},
-					Spec: v1.MCPServerInstanceSpec{
-						MCPServerName:        component.MCPServerID,
-						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
-						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
-						MultiUserConfig:      multiUserServer.Spec.Manifest.MultiUserConfig,
-						UserID:               compositeServer.Spec.UserID,
-						CompositeName:        compositeServer.Name,
-					},
-				}); err != nil {
-					return fmt.Errorf("failed to create instance for multi-user component: %w", err)
-				}
-				slog.Info("Created component MCPServerInstance for composite server", "composite", compositeServer.Name, "componentServer", component.MCPServerID, "userID", compositeServer.Spec.UserID)
-			} else {
-				existingInstance := existingInstances[component.MCPServerID]
-				var multiUserServer v1.MCPServer
-				if err := req.Get(&multiUserServer, compositeServer.Namespace, component.MCPServerID); err != nil {
-					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
-				}
-
-				if utils.Digest(existingInstance.Spec.MultiUserConfig) != utils.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
-					existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
-					if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
-						return fmt.Errorf("failed to update instance for multi-user component: %w", err)
-					}
-				}
-			}
-
-			// Remove the instance to build the list of existing instances to delete
-			delete(existingInstances, component.MCPServerID)
+		if err := h.reconcileComponent(req, compositeServer, component, children.servers, children.instances); err != nil {
+			slog.Info("Composite component could not be reconciled", "composite", compositeServer.Name, "component", component.ComponentID(), "error", err)
+			componentErrors[component.ComponentID()] = err.Error()
 			continue
 		}
-
-		// Catalog entry component
-		if existingServer, exists := existingServers[component.CatalogEntryID]; !exists {
-			// New server, create it
-			newServer := withNeedsURL(v1.MCPServer{
-				GenerateName: system.MCPServerPrefix,
-				Namespace:    compositeServer.Namespace,
-				Finalizers:   []string{v1.MCPServerFinalizer},
-				Spec: v1.MCPServerSpec{
-					Manifest:                  component.Manifest,
-					MCPServerCatalogEntryName: component.CatalogEntryID,
-					UserID:                    compositeServer.Spec.UserID,
-					CompositeName:             compositeServer.Name,
-				},
-			})
-
-			if err := req.Client.Create(req.Ctx, &newServer); err != nil {
-				return fmt.Errorf("failed to create new component server: %w", err)
-			}
-			slog.Info("Created component MCP server for composite server", "composite", compositeServer.Name, "catalogEntry", component.CatalogEntryID)
-		} else if utils.Digest(existingServer.Spec.Manifest) != utils.Digest(component.Manifest) {
-			slog.Info("Updating component MCP server manifest for composite server", "composite", compositeServer.Name, "componentServer", existingServer.Name)
-			// Ensure the server is shut down before updating it
-			if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
-				return err
-			}
-
-			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
-				var latestServer v1.MCPServer
-				if err := req.Get(&latestServer, compositeServer.Namespace, existingServer.Name); err != nil {
-					return err
-				}
-
-				latestServer.Spec.Manifest = component.Manifest
-				latestServer = withNeedsURL(latestServer)
-				return req.Client.Update(req.Ctx, &latestServer)
-			}); err != nil {
-				return fmt.Errorf("failed to update existing component server: %w", err)
-			}
-		}
-
-		// Remove the server to build the list of existing servers to delete
-		delete(existingServers, component.CatalogEntryID)
 	}
 
-	// Delete existing instances that were not in the updated manifest
-	for _, instance := range existingInstances {
+	// Unresolvable references are removed from children before cleanup so existing children survive.
+	for _, instance := range slices.Concat(slices.Collect(maps.Values(children.instances)), children.duplicateInstances) {
 		slog.Info("Deleting stale component MCPServerInstance", "composite", compositeServer.Name, "instance", instance.Name)
 		if err := req.Delete(&instance); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to delete instance %s: %w", instance.Name, err)
 		}
 	}
-
-	// Delete existing servers that were not in the updated manifest
-	for _, server := range existingServers {
+	for _, server := range slices.Concat(slices.Collect(maps.Values(children.servers)), children.duplicateServers) {
 		slog.Info("Deleting stale component MCP server", "composite", compositeServer.Name, "server", server.Name)
 		if err := req.Delete(&server); kclient.IgnoreNotFound(err) != nil {
 			return fmt.Errorf("failed to delete server %s: %w", server.Name, err)
 		}
 	}
 
-	// All of the component MCP servers should now match the manifest of the composite.
-	// Update the status hash to reflect the observed state.
-	if manifestHash := utils.Digest(manifest); compositeServer.Status.ObservedCompositeManifestHash != manifestHash {
-		compositeServer.Status.ObservedCompositeManifestHash = manifestHash
-		slog.Info("Updated observed composite manifest hash", "composite", compositeServer.Name, "hash", manifestHash)
-		if err := req.Client.Status().Update(req.Ctx, compositeServer); err != nil {
-			return fmt.Errorf("failed to update composite server status: %w", err)
+	if compositeServer.Status.ObservedCompositeGeneration == compositeServer.Generation &&
+		compositeServer.Status.ObservedCompositeSyncRequest == syncRequest &&
+		utils.Digest(compositeServer.Status.ComponentErrors) == utils.Digest(nonEmpty(componentErrors)) {
+		return nil
+	}
+
+	compositeServer.Status.ObservedCompositeGeneration = compositeServer.Generation
+	compositeServer.Status.ObservedCompositeSyncRequest = syncRequest
+	compositeServer.Status.ComponentErrors = nonEmpty(componentErrors)
+	return req.Client.Status().Update(req.Ctx, compositeServer)
+}
+
+func nonEmpty(errs map[string]string) map[string]string {
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
+}
+
+func (*Handler) listCompositeChildren(req router.Request, compositeServer *v1.MCPServer) (compositeChildren, error) {
+	var componentServers v1.MCPServerList
+	if err := req.List(&componentServers, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return compositeChildren{}, fmt.Errorf("failed to list component servers: %w", err)
+	}
+
+	var componentInstances v1.MCPServerInstanceList
+	if err := req.List(&componentInstances, &kclient.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector("spec.compositeName", compositeServer.Name),
+		Namespace:     compositeServer.Namespace,
+	}); err != nil {
+		return compositeChildren{}, fmt.Errorf("failed to list component instances: %w", err)
+	}
+
+	children := compositeChildren{
+		servers:   make(map[string]v1.MCPServer, len(componentServers.Items)),
+		instances: make(map[string]v1.MCPServerInstance, len(componentInstances.Items)),
+	}
+	for _, existing := range componentServers.Items {
+		id := existing.Spec.MCPServerCatalogEntryName
+		if id == "" {
+			continue
 		}
+		kept, ok := children.servers[id]
+		if !ok {
+			children.servers[id] = existing
+			continue
+		}
+		if kept.CreationTimestamp.Before(&existing.CreationTimestamp) {
+			children.duplicateServers = append(children.duplicateServers, existing)
+			continue
+		}
+		children.duplicateServers = append(children.duplicateServers, kept)
+		children.servers[id] = existing
+	}
+
+	for _, existing := range componentInstances.Items {
+		id := existing.Spec.MCPServerName
+		if id == "" {
+			continue
+		}
+		kept, ok := children.instances[id]
+		if !ok {
+			children.instances[id] = existing
+			continue
+		}
+		if kept.CreationTimestamp.Before(&existing.CreationTimestamp) {
+			children.duplicateInstances = append(children.duplicateInstances, existing)
+			continue
+		}
+		children.duplicateInstances = append(children.duplicateInstances, kept)
+		children.instances[id] = existing
+	}
+
+	return children, nil
+}
+
+func (h *Handler) reconcileComponent(
+	req router.Request,
+	compositeServer *v1.MCPServer,
+	component types.ComponentServer,
+	componentServers map[string]v1.MCPServer,
+	componentInstances map[string]v1.MCPServerInstance,
+) error {
+	if component.MCPServerID != "" {
+		existingInstance, exists := componentInstances[component.MCPServerID]
+		delete(componentInstances, component.MCPServerID)
+
+		var multiUserServer v1.MCPServer
+		if err := req.Get(&multiUserServer, compositeServer.Namespace, component.MCPServerID); err != nil {
+			if apierrors.IsNotFound(err) {
+				return nil
+			}
+			return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
+		}
+
+		if !exists {
+			if err := req.Client.Create(req.Ctx, &v1.MCPServerInstance{
+				GenerateName: system.MCPServerInstancePrefix,
+				Namespace:    compositeServer.Namespace,
+				Finalizers:   []string{v1.MCPServerInstanceFinalizer},
+
+				Spec: v1.MCPServerInstanceSpec{
+					MCPServerName:        component.MCPServerID,
+					MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
+					PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
+					MultiUserConfig:      multiUserServer.Spec.Manifest.MultiUserConfig,
+					UserID:               compositeServer.Spec.UserID,
+					CompositeName:        compositeServer.Name,
+				},
+			}); err != nil {
+				return fmt.Errorf("failed to create instance for multi-user component: %w", err)
+			}
+			slog.Info("Created component MCPServerInstance for composite server", "composite", compositeServer.Name, "componentServer", component.MCPServerID, "userID", compositeServer.Spec.UserID)
+			return nil
+		}
+
+		if utils.Digest(existingInstance.Spec.MultiUserConfig) != utils.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
+			existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
+			if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
+				return fmt.Errorf("failed to update instance for multi-user component: %w", err)
+			}
+		}
+
+		return nil
+	}
+
+	existingServer, exists := componentServers[component.CatalogEntryID]
+	delete(componentServers, component.CatalogEntryID)
+
+	syncRequest := compositeServer.Annotations[v1.MCPServerCompositeSyncRequestedAtAnnotation]
+	if exists && (syncRequest == "" || syncRequest == compositeServer.Status.ObservedCompositeSyncRequest) {
+		return nil
+	}
+
+	// Router reads register a watch; a missing upstream leaves an existing child running.
+	var entry v1.MCPServerCatalogEntry
+	if err := req.Get(&entry, compositeServer.Namespace, component.CatalogEntryID); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
+	}
+
+	if !exists {
+		return h.createCompositeChildServer(req, compositeServer, component, entry)
+	}
+
+	return h.updateCompositeChildServer(req, compositeServer, existingServer, entry)
+}
+
+func (h *Handler) createCompositeChildServer(req router.Request, compositeServer *v1.MCPServer, component types.ComponentServer, entry v1.MCPServerCatalogEntry) error {
+	manifest, needsURL, err := h.buildComponentServerManifest(req, entry, "", component.Disabled)
+	if err != nil {
+		return err
+	}
+
+	newServer := v1.MCPServer{
+		GenerateName: system.MCPServerPrefix,
+		Namespace:    compositeServer.Namespace,
+		Finalizers:   []string{v1.MCPServerFinalizer},
+
+		Spec: v1.MCPServerSpec{
+			Manifest:                  manifest,
+			MCPServerCatalogEntryName: component.CatalogEntryID,
+			UserID:                    compositeServer.Spec.UserID,
+			CompositeName:             compositeServer.Name,
+			NeedsURL:                  needsURL,
+		},
+	}
+
+	if err := req.Client.Create(req.Ctx, &newServer); err != nil {
+		return fmt.Errorf("failed to create new component server: %w", err)
+	}
+	slog.Info("Created component MCP server for composite server", "composite", compositeServer.Name, "catalogEntry", component.CatalogEntryID)
+
+	return nil
+}
+
+// updateCompositeChildServer rebuilds a child while preserving its volumes.
+func (h *Handler) updateCompositeChildServer(req router.Request, compositeServer *v1.MCPServer, existingServer v1.MCPServer, entry v1.MCPServerCatalogEntry) error {
+	var currentURL string
+	if existingServer.Spec.Manifest.RemoteConfig != nil {
+		currentURL = existingServer.Spec.Manifest.RemoteConfig.URL
+	}
+
+	manifest, needsURL, err := h.buildComponentServerManifest(req, entry, currentURL, false)
+	if err != nil {
+		return err
+	}
+
+	if utils.Digest(existingServer.Spec.Manifest) == utils.Digest(manifest) && existingServer.Spec.NeedsURL == needsURL {
+		return nil
+	}
+
+	slog.Info("Updating component MCP server manifest for composite server", "composite", compositeServer.Name, "componentServer", existingServer.Name)
+	if err := h.mcpSessionManager.ShutdownIdleServer(req.Ctx, existingServer.Name); err != nil {
+		return err
+	}
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		var latestServer v1.MCPServer
+		if err := req.Get(&latestServer, compositeServer.Namespace, existingServer.Name); err != nil {
+			return err
+		}
+
+		latestServer.Spec.Manifest = manifest
+		latestServer.Spec.NeedsURL = needsURL
+		return req.Client.Update(req.Ctx, &latestServer)
+	}); err != nil {
+		return fmt.Errorf("failed to update existing component server: %w", err)
 	}
 
 	return nil
+}
+
+// buildComponentServerManifest builds and validates a child manifest from its current catalog entry.
+func (h *Handler) buildComponentServerManifest(req router.Request, entry v1.MCPServerCatalogEntry, userURL string, disabled bool) (types.MCPServerManifest, bool, error) {
+	allowMissingURL := mcp.CatalogEntryRequiresUserURL(entry.Spec.Manifest)
+
+	manifest, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, userURL, disabled || allowMissingURL)
+	if err != nil {
+		return types.MCPServerManifest{}, false, fmt.Errorf("failed to convert component manifest: %w", err)
+	}
+
+	resourceMaximums, err := h.mcpSessionManager.EffectiveKubernetesResourceMaximums(req.Ctx, req.Client)
+	if err != nil {
+		return types.MCPServerManifest{}, false, fmt.Errorf("failed to resolve resource maximums: %w", err)
+	}
+
+	if err := mcp.ValidateServerManifest(req.Ctx, manifest, false, mcp.ValidationOptions{
+		AllowMissingURL:              allowMissingURL,
+		RemoteMCPURLValidationConfig: h.mcpSessionManager.RemoteMCPURLValidationConfig(),
+		ResourceMaximums:             resourceMaximums,
+	}); err != nil {
+		return types.MCPServerManifest{}, false, fmt.Errorf("validation failed: %w", err)
+	}
+
+	if err := tunnel.ValidateServerTunnelReferences(req.Ctx, req.Client, manifest); err != nil {
+		return types.MCPServerManifest{}, false, fmt.Errorf("validation failed: %w", err)
+	}
+
+	needsURL := allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == "")
+
+	return manifest, needsURL, nil
 }
 
 // SyncOAuthCredentialStatus syncs the OAuthCredentialConfigured status from the catalog entry.

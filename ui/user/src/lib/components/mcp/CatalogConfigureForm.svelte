@@ -199,9 +199,7 @@
 
 	function componentHasConfig(comp?: ComponentLaunchFormData) {
 		if (!comp) return false;
-		// Multi-user component entries should not expose any configuration
-		// fields in this dialog; they are configured at the multi-user level.
-		if (comp.isMultiUser) return false;
+		// A multi-user component exposes only its user-defined headers; its envs and URL stay empty.
 		const hasEnvs =
 			Array.isArray(comp.envs) &&
 			(secretBindingTargets !== undefined || comp.envs.some((e) => !hasSecretBinding(e)));

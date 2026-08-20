@@ -97,6 +97,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 	validationOptions := h.remoteURLValidationConfig
 	validationOptions.ResourceMaximums = maximums
+	validationOptions.ResolveComponent = mcp.ComponentUpstreamResolver(req.Client)
 
 	forceSync := mcpCatalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true" || mcpCatalog.Annotations[forceSyncStartupAnnotation] != startupSyncGeneration
 	if !forceSync && !mcpCatalog.Status.LastSyncTime.IsZero() {
@@ -362,9 +363,9 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 	})
 }
 
-// resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
-// catalog entry names and snapshots the target manifests. Entries with invalid
-// portable refs are skipped so bad composites do not get applied.
+// resolveCompositeSourceRefs rewrites GitOps portable component refs to stored catalog entry
+// names. A reference that does not resolve is left as authored and surfaces as a missing
+// component, so one hard-deleted upstream cannot remove an entire Git-sourced composite.
 func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
@@ -396,9 +397,18 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 		var errs []error
 		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
 			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-			if component.MCPServerID != "" {
+			switch {
+			case component.MCPServerID != "":
+				if c == nil {
+					errs = append(errs, fmt.Errorf("cannot validate multi-user server %q without storage", component.MCPServerID))
+					continue
+				}
+
 				var server v1.MCPServer
 				if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
+					if apierrors.IsNotFound(err) {
+						continue
+					}
 					errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
 					continue
 				}
@@ -410,12 +420,8 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
 					continue
 				}
-
-				component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
-				changed = true
 				continue
-			}
-			if component.CatalogEntryID == "" {
+			case component.CatalogEntryID == "":
 				continue
 			}
 
@@ -444,9 +450,21 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 				continue
 			}
 
-			component.CatalogEntryID = target.Name
-			component.Manifest = target.Spec.Manifest
-			changed = true
+			// Checked here as well as in the manifest validator, because a component authored in the
+			// same sync batch is not stored yet and so cannot be resolved through the client.
+			if target.Spec.Manifest.Runtime == types.RuntimeComposite {
+				errs = append(errs, fmt.Errorf("component %q is a composite server; composite servers cannot be nested", component.CatalogEntryID))
+				continue
+			}
+			if target.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+				errs = append(errs, fmt.Errorf("component %q is a multi-user catalog entry; reference its deployed multi-user server instead", component.CatalogEntryID))
+				continue
+			}
+
+			if component.CatalogEntryID != target.Name {
+				component.CatalogEntryID = target.Name
+				changed = true
+			}
 		}
 
 		if len(errs) > 0 {
@@ -475,8 +493,10 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 // scoped to the current source; source::entryKey targets another source. If the
 // ref has no separator and no same-source match, callers can treat it as a
 // normal internal catalog entry ID.
+// A well-formed ref whose target is absent returns no target and no error, so the reference is
+// applied as authored. Only a malformed ref is an error.
 func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
-	refSourceID, entryKey, hasSep, valid := parseSourceRef(sourceID, catalogEntryID)
+	refSourceID, entryKey, _, valid := parseSourceRef(sourceID, catalogEntryID)
 	if !valid {
 		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
 	}
@@ -484,11 +504,7 @@ func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, source
 		return nil, nil
 	}
 
-	target := refs[sourceRef(refSourceID, entryKey)]
-	if hasSep && target == nil {
-		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
-	}
-	return target, nil
+	return refs[sourceRef(refSourceID, entryKey)], nil
 }
 
 // parseSourceRef returns the source/key pair for either an explicit

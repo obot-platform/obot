@@ -3,6 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
+		type CatalogComponentServer,
 		type CompositeCatalogConfig,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
@@ -48,6 +49,11 @@
 		// (length > 128 or cross-component duplicate). Parent forms read this
 		// to gate the Save button.
 		hasToolNameErrors?: boolean;
+		components?: {
+			catalogEntryID?: string;
+			mcpServerID?: string;
+			toolOverridesStale?: boolean;
+		}[];
 	}
 
 	let {
@@ -55,6 +61,7 @@
 		readonly,
 		catalogId,
 		id,
+		components,
 		// eslint-disable-next-line no-useless-assignment -- bindable prop default is read by the parent via two-way binding
 		hasToolNameErrors = $bindable(false)
 	}: Props = $props();
@@ -190,42 +197,29 @@
 		return c.catalogEntryID || c.mcpServerID || '';
 	}
 
-	// Build a configuring entry backed by the composite's manifest snapshot when
-	// configuring tools for an existing entry
-	function buildCompositeConfiguringEntry(
+	// Resolves a component reference against what loadComponentEntries fetched, and is the only
+	// source of its name, icon, and tool preview. Undefined when the upstream is gone.
+	function componentUpstream(
+		component: CatalogComponentServer
+	): MCPCatalogEntry | MCPCatalogServer | undefined {
+		if (component.mcpServerID) return componentServers.get(component.mcpServerID);
+		return componentEntries.find((e) => e.id === component.catalogEntryID);
+	}
+
+	let staleComponentIds = $derived(
+		new Set(
+			(components ?? [])
+				.filter((component) => component.toolOverridesStale)
+				.map((component) => component.catalogEntryID || component.mcpServerID)
+				.filter((componentId): componentId is string => !!componentId)
+		)
+	);
+
+	function componentUpstreamById(
 		componentId: string
 	): MCPCatalogEntry | MCPCatalogServer | undefined {
 		const component = config.componentServers?.find((c) => getComponentId(c) === componentId);
-		if (!component || !component.manifest || (!component.catalogEntryID && !component.mcpServerID))
-			return undefined;
-
-		if (component.mcpServerID) {
-			// This is a multi-user server, we should always use the live value since they should always exist
-			const catalogServer = componentServers.get(component.mcpServerID);
-			if (catalogServer) return catalogServer;
-
-			throw new Error(`Catalog server not found for ID: ${component.mcpServerID}`);
-		}
-
-		const catalogEntry = componentEntries.find((e) => e.id === componentId);
-		if (catalogEntry) {
-			return {
-				...catalogEntry,
-				manifest: component.manifest
-			};
-		}
-
-		// Fallback minimal entry if metadata isn't loaded; sufficient for Configure Tools.
-		return {
-			id: componentId,
-			created: new Date().toISOString(),
-			manifest: component.manifest,
-			sourceURL: undefined,
-			userCount: undefined,
-			type: 'catalog-entry',
-			isCatalogEntry: !component.mcpServerID,
-			needsUpdate: false
-		};
+		return component ? componentUpstream(component) : undefined;
 	}
 
 	// Check if a component is newly added (not yet persisted to the composite entry)
@@ -262,9 +256,7 @@
 			if (!overrides.length) continue;
 
 			const componentId = getComponentId(component);
-			const manifestPreview = component.manifest?.toolPreview || [];
-			const entryPreview = entryById.get(componentId)?.manifest?.toolPreview || [];
-			const preview = manifestPreview.length ? manifestPreview : entryPreview;
+			const preview = entryById.get(componentId)?.manifest?.toolPreview || [];
 
 			// If overrides exist, only show those overrides (use preview to enrich descriptions when present)
 			// Preview of all tools should only be used when user explicitly populates for the first time
@@ -372,20 +364,39 @@
 			{#each config.componentServers as entry (getComponentId(entry))}
 				{@const componentId = getComponentId(entry)}
 				{@const headerSeverity = componentSeverity(entry)}
-				{@const deprecated = isDeprecatedMCPServer(entry)}
+				{@const upstream = componentUpstream(entry)}
+				{@const upstreamManifest = upstream?.manifest}
+				{@const componentName = upstreamManifest?.name || componentId}
+				{@const deprecated = isDeprecatedMCPServer(upstream)}
 				<div
 					class="dark:bg-base-300 dark:border-base-400 rounded-lg border border-gray-200 bg-gray-50"
 				>
 					<div class="flex items-center gap-3 p-3">
-						{#if entry.manifest?.icon}
-							<img src={entry.manifest.icon} alt={entry.manifest.name} class="size-8" />
+						{#if upstreamManifest?.icon}
+							<img src={upstreamManifest.icon} alt={componentName} class="size-8" />
 						{:else}
 							<Server class="text-muted-content size-8" />
 						{/if}
 						<div class="flex min-w-0 flex-1 items-center gap-1.5">
-							<div class="truncate font-medium" title={entry.manifest?.name || 'Unnamed Server'}>
-								{entry.manifest?.name || 'Unnamed Server'}
+							<div class="truncate font-medium" title={componentName}>
+								{componentName}
 							</div>
+							{#if !loading && !upstream}
+								<span
+									class="rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:text-yellow-500"
+									title="This component's source no longer exists. Remove the reference or point it at another server."
+								>
+									Missing
+								</span>
+							{/if}
+							{#if staleComponentIds.has(componentId)}
+								<span
+									class="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-xs font-medium"
+									title="This component's tools changed after these selections were made. Refresh the tool overrides to pick them up."
+								>
+									Tool selections out of date
+								</span>
+							{/if}
 							<McpDeprecatedNotice {deprecated} child />
 							{#if headerSeverity}
 								<ToolNameIssueIcon
@@ -480,8 +491,7 @@
 											class="btn btn-primary text-sm"
 											disabled={loadingByEntry[componentId]}
 											onclick={async () => {
-												const entry = buildCompositeConfiguringEntry(componentId);
-												configuringEntry = entry;
+												configuringEntry = componentUpstreamById(componentId);
 												configuringComponentId = componentId;
 												configuringIsNewComponent = isComponentNew(componentId);
 												compositeToolsSetupDialog?.open();

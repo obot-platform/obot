@@ -2,33 +2,12 @@ import { normalizeManifestsForDiff } from './diff';
 import { describe, expect, it } from 'vitest';
 
 describe('normalizeManifestsForDiff', () => {
-	it('ignores upgrade notes on root and composite component manifests', () => {
+	it('ignores the upgrade note on the root manifest', () => {
 		const catalogManifest = {
-			name: 'Composite server',
-			upgradeNote: 'Review settings before upgrading.',
-			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: 'component',
-						manifest: {
-							name: 'Component server',
-							upgradeNote: 'Back up component settings.'
-						}
-					}
-				]
-			}
+			name: 'Server',
+			upgradeNote: 'Review settings before upgrading.'
 		};
-		const deployedManifest = {
-			name: 'Composite server',
-			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: 'component',
-						manifest: { name: 'Component server' }
-					}
-				]
-			}
-		};
+		const deployedManifest = { name: 'Server' };
 
 		const [normalizedCatalog, normalizedDeployed] = normalizeManifestsForDiff(
 			catalogManifest,
@@ -37,8 +16,5 @@ describe('normalizeManifestsForDiff', () => {
 
 		expect(normalizedCatalog).toEqual(normalizedDeployed);
 		expect(normalizedCatalog).not.toHaveProperty('upgradeNote');
-		expect(normalizedCatalog).not.toHaveProperty(
-			'compositeConfig.componentServers.0.manifest.upgradeNote'
-		);
 	});
 });

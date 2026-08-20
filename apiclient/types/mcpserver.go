@@ -94,17 +94,22 @@ type CompositeCatalogConfig struct {
 	ComponentServers []CatalogComponentServer `json:"componentServers"`
 }
 
-type CatalogComponentServer struct {
+// ComponentRef references one component of a composite server. Exactly one of the two IDs is set.
+type ComponentRef struct {
 	// CatalogEntryID if set, reference the catalog entry the component server is sourced from
 	CatalogEntryID string `json:"catalogEntryID,omitempty"`
 	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
 	MCPServerID string `json:"mcpServerID,omitempty"`
-	// Manifest is the catalog entry manifest of the component server
-	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitzero"`
+}
+
+type CatalogComponentServer struct {
+	ComponentRef `json:",inline"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
 	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
 	ToolPrefix string `json:"toolPrefix,omitempty"`
+	// SourceDigest is the upstream's runtime-identity digest when ToolOverrides were generated.
+	SourceDigest string `json:"sourceDigest,omitempty"`
 }
 
 type CompositeRuntimeConfig struct {
@@ -112,12 +117,7 @@ type CompositeRuntimeConfig struct {
 }
 
 type ComponentServer struct {
-	// CatalogEntryID if set, reference the catalog entry the component server is sourced from
-	CatalogEntryID string `json:"catalogEntryID,omitempty"`
-	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
-	MCPServerID string `json:"mcpServerID,omitempty"`
-	// Manifest is the runtime manifest of the component server
-	Manifest MCPServerManifest `json:"manifest,omitzero"`
+	ComponentRef `json:",inline"`
 	// ToolOverrides restrict the tools exposed by the component server
 	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
 	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
@@ -126,20 +126,46 @@ type ComponentServer struct {
 	Disabled bool `json:"disabled,omitempty"`
 }
 
+// ComponentMCPServerCatalogEntry is the resolved state of a composite catalog entry component.
+type ComponentMCPServerCatalogEntry struct {
+	ComponentRef `json:",inline"`
+	Name         string                        `json:"name,omitempty"`
+	Icon         string                        `json:"icon,omitempty"`
+	Manifest     MCPServerCatalogEntryManifest `json:"manifest,omitzero"`
+	// Missing indicates the upstream component catalog entry or server could not be found.
+	Missing bool `json:"missing,omitempty"`
+	// ToolOverridesStale indicates the upstream's runtime configuration changed after ToolOverrides
+	// were generated, so they may no longer match the tools it serves.
+	ToolOverridesStale bool `json:"toolOverridesStale,omitempty"`
+}
+
+// ComponentMCPServer is the resolved state of a composite MCP server component.
+type ComponentMCPServer struct {
+	ComponentRef `json:",inline"`
+	Manifest     MCPServerManifest `json:"manifest,omitzero"`
+	// Error is why this component could not be reconciled, if it could not be.
+	Error                  string   `json:"error,omitempty"`
+	NeedsUpdate            bool     `json:"needsUpdate,omitempty"`
+	Configured             bool     `json:"configured"`
+	MissingRequiredEnvVars []string `json:"missingRequiredEnvVars,omitempty"`
+	MissingRequiredHeaders []string `json:"missingRequiredHeader,omitempty"`
+}
+
 type MCPServerCatalogEntry struct {
 	Metadata
-	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
-	Editable                  bool                          `json:"editable,omitempty"`
-	Detached                  bool                          `json:"detached,omitempty"`
-	CatalogName               string                        `json:"catalogName,omitempty"`
-	SourceURL                 string                        `json:"sourceURL,omitempty"`
-	UserCount                 int                           `json:"userCount,omitempty"`
-	LastUpdated               *Time                         `json:"lastUpdated,omitempty"`
-	ToolPreviewsLastGenerated *Time                         `json:"toolPreviewsLastGenerated,omitempty"`
-	PowerUserWorkspaceID      string                        `json:"powerUserWorkspaceID,omitempty"`
-	PowerUserID               string                        `json:"powerUserID,omitempty"`
-	NeedsUpdate               bool                          `json:"needsUpdate,omitempty"`
-	OAuthCredentialConfigured bool                          `json:"oauthCredentialConfigured,omitempty"`
+	Manifest                  MCPServerCatalogEntryManifest    `json:"manifest"`
+	Editable                  bool                             `json:"editable,omitempty"`
+	Detached                  bool                             `json:"detached,omitempty"`
+	CatalogName               string                           `json:"catalogName,omitempty"`
+	SourceURL                 string                           `json:"sourceURL,omitempty"`
+	UserCount                 int                              `json:"userCount,omitempty"`
+	LastUpdated               *Time                            `json:"lastUpdated,omitempty"`
+	ToolPreviewsLastGenerated *Time                            `json:"toolPreviewsLastGenerated,omitempty"`
+	PowerUserWorkspaceID      string                           `json:"powerUserWorkspaceID,omitempty"`
+	PowerUserID               string                           `json:"powerUserID,omitempty"`
+	NeedsUpdate               bool                             `json:"needsUpdate,omitempty"`
+	OAuthCredentialConfigured bool                             `json:"oauthCredentialConfigured,omitempty"`
+	Components                []ComponentMCPServerCatalogEntry `json:"components,omitempty"`
 
 	// ConnectURL is the default URL clients can use to connect before configuring a personal server.
 	ConnectURL string `json:"connectURL,omitempty"`
@@ -260,6 +286,12 @@ type MCPEnv struct {
 	DynamicFile bool `json:"dynamicFile,omitempty"`
 }
 
+// MCPServerToolPreview is a tool-preview response with its source digest.
+type MCPServerToolPreview struct {
+	MCPServerCatalogEntry
+	SourceDigest string `json:"sourceDigest,omitempty"`
+}
+
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
 
 type MCPServerManifest struct {
@@ -326,6 +358,9 @@ type MCPServer struct {
 
 	// PreviousURL contains the URL of the server before it was updated to match the catalog entry.
 	PreviousURL string `json:"previousURL,omitempty"`
+
+	// Components contains the resolved state of a composite server's components.
+	Components []ComponentMCPServer `json:"components,omitempty"`
 
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	// This is only set for multi-user servers.
@@ -456,17 +491,7 @@ func (t ServerUserType) IsSingleUser() bool {
 
 // ComponentID returns the ID of the component server.
 // It's used to uniquely identify a component server in a composite server.
-func (c CatalogComponentServer) ComponentID() string {
-	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID
-	}
-
-	return c.MCPServerID
-}
-
-// ComponentID returns the ID of the component server.
-// It's used to uniquely identify a component server in a composite server.
-func (c ComponentServer) ComponentID() string {
+func (c ComponentRef) ComponentID() string {
 	if c.CatalogEntryID != "" {
 		return c.CatalogEntryID
 	}
@@ -557,11 +582,9 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 			componentServers := make([]CatalogComponentServer, len(m.CompositeConfig.ComponentServers))
 			for i, comp := range m.CompositeConfig.ComponentServers {
 				componentServers[i] = CatalogComponentServer{
-					CatalogEntryID: comp.CatalogEntryID,
-					MCPServerID:    comp.MCPServerID,
-					Manifest:       comp.Manifest.ConvertToCatalogEntry(),
-					ToolOverrides:  comp.ToolOverrides,
-					ToolPrefix:     comp.ToolPrefix,
+					ComponentRef:  comp.ComponentRef,
+					ToolOverrides: comp.ToolOverrides,
+					ToolPrefix:    comp.ToolPrefix,
 				}
 			}
 			catalogManifest.CompositeConfig = &CompositeCatalogConfig{ComponentServers: componentServers}

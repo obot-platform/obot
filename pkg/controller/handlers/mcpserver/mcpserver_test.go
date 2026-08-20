@@ -1281,6 +1281,12 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 			}
 			return []string{policy.Spec.MCPServerName}
 		}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServerInstance).Spec.CompositeName}
+		}).
 		WithObjects(objects...).
 		Build()
 }
@@ -1298,7 +1304,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
 	}
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1341,7 +1347,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 }
 
 func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing.T) {
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1380,7 +1386,7 @@ func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing
 }
 
 func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatches(t *testing.T) {
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1420,7 +1426,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 }
 
 func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1460,7 +1466,7 @@ func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
 }
 
 func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBinding(t *testing.T) {
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1511,7 +1517,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 }
 
 func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
-	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
 	server := newMCPServer("shared-server")
 	server.Spec.MCPServerCatalogEntryName = entry.Name
 	server.Spec.Manifest.Runtime = types.Runtime("invalid")
@@ -1527,11 +1533,11 @@ func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
 	require.EqualError(t, err, "unknown runtime type: invalid")
 }
 
-func newMCPServerCatalogEntry(manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
 		APIVersion: v1.SchemeGroupVersion.String(),
 		Kind:       "MCPServerCatalogEntry",
-		Name:       "template-entry",
+		Name:       name,
 		Namespace:  "default",
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: manifest,

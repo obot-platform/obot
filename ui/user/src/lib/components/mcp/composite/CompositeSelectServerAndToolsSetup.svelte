@@ -9,7 +9,6 @@
 		type CatalogComponentServer,
 		type CompositeServerToolRow,
 		type MCPCatalogEntry,
-		type MCPCatalogEntryServerManifest,
 		type MCPCatalogServer
 	} from '$lib/services';
 	import {
@@ -77,6 +76,8 @@
 	let ready = $state(false);
 	let loading = $state(false);
 	let tools = $state<CompositeServerToolRow[]>([]);
+	// The runtime-identity digest of the upstream the current previews were generated from.
+	let previewedSourceDigest = $state<string | undefined>();
 	let oauthURL = $state<string>();
 	let listeningOauthVisibility = $state(false);
 	let error = $state<string>();
@@ -108,22 +109,12 @@
 	function resetConfigureTool() {
 		ready = false;
 		tools = [];
+		previewedSourceDigest = undefined;
 		componentConfig = undefined;
 		configuringEntry = undefined;
 		oauthURL = undefined;
 		listeningOauthVisibility = false;
 		error = undefined;
-	}
-
-	function componentManifest(
-		entry: MCPCatalogEntry | MCPCatalogServer
-	): MCPCatalogEntryServerManifest {
-		return 'isCatalogEntry' in entry
-			? entry.manifest
-			: ({
-					...entry.manifest,
-					serverUserType: entry.serverUserType
-				} as unknown as MCPCatalogEntryServerManifest);
 	}
 
 	export function open() {
@@ -134,13 +125,11 @@
 				'isCatalogEntry' in configuringEntry
 					? {
 							catalogEntryID: configuringEntry.id,
-							manifest: componentManifest(configuringEntry),
 							toolOverrides: [],
 							toolPrefix: existingToolPrefix
 						}
 					: {
 							mcpServerID: configuringEntry.id,
-							manifest: componentManifest(configuringEntry),
 							toolOverrides: [],
 							toolPrefix: existingToolPrefix
 						};
@@ -198,6 +187,8 @@
 				: await AdminService.generateMcpCatalogEntryToolPreviews(catalogId, entryId, body, {
 						dryRun: true
 					});
+		// Round-tripped: submitted back as the component's sourceDigest on save.
+		previewedSourceDigest = resp?.sourceDigest;
 		const preview = resp?.manifest?.toolPreview || [];
 		return preview.map((t) => {
 			return {
@@ -328,13 +319,11 @@
 			'isCatalogEntry' in configuringEntry
 				? {
 						catalogEntryID: configuringEntry.id,
-						manifest: componentManifest(configuringEntry),
 						toolOverrides: [],
 						toolPrefix: defaultPrefix
 					}
 				: {
 						mcpServerID: configuringEntry.id,
-						manifest: componentManifest(configuringEntry),
 						toolOverrides: [],
 						toolPrefix: defaultPrefix
 					};
@@ -527,6 +516,7 @@
 		onSuccess?.(
 			{
 				...componentConfig,
+				sourceDigest: previewedSourceDigest,
 				toolOverrides: tools.map((t) => ({
 					name: t.name,
 					// Persist the description snapshot for display in future edits.

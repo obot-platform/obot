@@ -136,7 +136,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 	servers := make([]types.MCPServer, 0, len(filteredServers))
 	for _, server := range filteredServers {
 		// Add extracted env vars to the server definition
-		addExtractedEnvVars(&server)
+		mcp.AddExtractedEnvVars(&server)
 
 		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", server.Spec.PowerUserWorkspaceID)
 		if err != nil {
@@ -241,7 +241,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 	servers := make([]types.MCPServer, 0, len(filteredServers))
 	for _, server := range filteredServers {
 		// Add extracted env vars to the server definition
-		addExtractedEnvVars(&server)
+		mcp.AddExtractedEnvVars(&server)
 
 		slug, err := SlugForMCPServer(req.Context(), req.Storage, server, req.User.GetUID(), "", "")
 		if err != nil {

@@ -274,7 +274,6 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateToolPreviewsOAuthURL)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/{component_id}/generate-tool-previews", mcpCatalogs.GenerateComponentToolPreviews)
 	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateComponentToolPreviewsOAuthURL)
-	mux.HandleFunc("POST /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/refresh-components", mcpCatalogs.RefreshCompositeComponents)
 
 	// MCP Catalog Entry OAuth Credentials (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs/{catalog_id}/entries/{entry_id}/oauth-credentials", mcpCatalogs.GetOAuthCredentials)

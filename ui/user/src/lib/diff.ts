@@ -18,10 +18,9 @@ type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
  * - `secretBinding.adminAdded`: runtime-only ownership metadata
  *
- * For composite manifests, the same fields are stripped from each component's
- * nested manifest at `compositeConfig.componentServers[].manifest`. Nested
- * composites are not possible — the backend rejects them — so a single pass over
- * the component list is sufficient.
+ * For a composite manifest, each component keeps only its reference plus composite-owned state, so
+ * `disabled` (per-deployment, no catalog counterpart) and `sourceDigest` (tool-override staleness)
+ * are stripped there instead. Neither should read as a change.
  */
 export function stripManifestMetadata<T>(
 	manifest: T,
@@ -49,7 +48,9 @@ export function stripManifestMetadata<T>(
 
 	stripFields(clone);
 	for (const component of clone.compositeConfig?.componentServers ?? []) {
-		stripFields(component?.manifest);
+		if (!component || typeof component !== 'object') continue;
+		delete component.disabled;
+		delete component.sourceDigest;
 	}
 
 	return clone as T;
@@ -81,11 +82,6 @@ export function normalizeManifestsForDiff<T>(currentManifest: T, newManifest: T)
 	};
 
 	normalize(current, next);
-	for (let i = 0; i < (current.compositeConfig?.componentServers ?? []).length; i++) {
-		const currentComponent = current.compositeConfig?.componentServers?.[i];
-		const nextComponent = next.compositeConfig?.componentServers?.[i];
-		normalize(currentComponent?.manifest, nextComponent?.manifest);
-	}
 
 	stripSecretBindingMetadata(current);
 	stripSecretBindingMetadata(next);
@@ -159,9 +155,6 @@ function stripSecretBindingMetadata(manifest?: ManifestDiff) {
 	};
 
 	stripFields(manifest);
-	for (const component of manifest.compositeConfig?.componentServers ?? []) {
-		stripFields(component?.manifest);
-	}
 }
 
 export function formatJsonWithHighlighting(json: unknown): string {

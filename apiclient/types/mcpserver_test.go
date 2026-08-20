@@ -88,15 +88,8 @@ func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.
 
 func TestMCPServerManifestConvertToCatalogEntryPreservesCompositeToolPrefix(t *testing.T) {
 	manifest := MCPServerManifest{
-		Runtime: RuntimeComposite,
-		CompositeConfig: &CompositeRuntimeConfig{ComponentServers: []ComponentServer{{
-			CatalogEntryID: "component",
-			ToolPrefix:     "prefix_",
-			Manifest: MCPServerManifest{
-				Runtime:   RuntimeNPX,
-				NPXConfig: &NPXRuntimeConfig{Package: "component"},
-			},
-		}}},
+		Runtime:         RuntimeComposite,
+		CompositeConfig: &CompositeRuntimeConfig{ComponentServers: []ComponentServer{{ComponentRef: ComponentRef{CatalogEntryID: "component"}, ToolPrefix: "prefix_"}}},
 	}
 
 	result := manifest.ConvertToCatalogEntry()

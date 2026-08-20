@@ -66,6 +66,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                    schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                    schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                      schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ComponentMCPServer":                        schema_obot_platform_obot_apiclient_types_ComponentMCPServer(ref),
+		"github.com/obot-platform/obot/apiclient/types.ComponentMCPServerCatalogEntry":            schema_obot_platform_obot_apiclient_types_ComponentMCPServerCatalogEntry(ref),
+		"github.com/obot-platform/obot/apiclient/types.ComponentRef":                              schema_obot_platform_obot_apiclient_types_ComponentRef(ref),
 		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                           schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig":                    schema_obot_platform_obot_apiclient_types_CompositeCatalogConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                    schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
@@ -209,6 +212,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialRequest":           schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":            schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                             schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerToolPreview":                      schema_obot_platform_obot_apiclient_types_MCPServerToolPreview(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":            schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                          schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                      schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
@@ -380,6 +384,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.AuthProviderList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_AuthProviderList(ref),
 		v1.AuthProviderSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref),
 		v1.AuthProviderStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_AuthProviderStatus(ref),
+		v1.CatalogComponentServerStatus{}.OpenAPIModelName():                                      schema_storage_apis_obotobotai_v1_CatalogComponentServerStatus(ref),
 		v1.DefaultModelAlias{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref),
 		v1.DefaultModelAliasList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_DefaultModelAliasList(ref),
 		v1.DefaultModelAliasSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_DefaultModelAliasSpec(ref),
@@ -2967,13 +2972,6 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							Format:      "",
 						},
 					},
-					"manifest": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Manifest is the catalog entry manifest of the component server",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
-						},
-					},
 					"toolOverrides": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ToolOverrides restrict the tools exposed by the component server",
@@ -2994,12 +2992,18 @@ func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common
 							Format:      "",
 						},
 					},
+					"sourceDigest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SourceDigest is the upstream's runtime-identity digest when ToolOverrides were generated.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.ToolOverride"},
+			"github.com/obot-platform/obot/apiclient/types.ToolOverride"},
 	}
 }
 
@@ -3151,6 +3155,177 @@ func schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref common.R
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_ComponentMCPServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentMCPServer is the resolved state of a composite MCP server component.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error is why this component could not be reconciled, if it could not be.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"missingRequiredEnvVars": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"missingRequiredHeader": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"manifest", "configured"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ComponentMCPServerCatalogEntry(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentMCPServerCatalogEntry is the resolved state of a composite catalog entry component.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+						},
+					},
+					"missing": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Missing indicates the upstream component catalog entry or server could not be found.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"toolOverridesStale": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ToolOverridesStale indicates the upstream's runtime configuration changed after ToolOverrides were generated, so they may no longer match the tools it serves.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"manifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ComponentRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ComponentRef references one component of a composite server. Exactly one of the two IDs is set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3169,13 +3344,6 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
 							Type:        []string{"string"},
 							Format:      "",
-						},
-					},
-					"manifest": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Manifest is the runtime manifest of the component server",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerManifest"),
 						},
 					},
 					"toolOverrides": {
@@ -3206,11 +3374,10 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 						},
 					},
 				},
-				Required: []string{"manifest"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.ToolOverride"},
+			"github.com/obot-platform/obot/apiclient/types.ToolOverride"},
 	}
 }
 
@@ -10332,6 +10499,19 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components contains the resolved state of a composite server's components.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.ComponentMCPServer"),
+									},
+								},
+							},
+						},
+					},
 					"mcpServerInstanceUserCount": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server. This is only set for multi-user servers.",
@@ -10412,7 +10592,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthMetadata"},
+			"github.com/obot-platform/obot/apiclient/types.ComponentMCPServer", "github.com/obot-platform/obot/apiclient/types.DeploymentCondition", "github.com/obot-platform/obot/apiclient/types.MCPServerManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.OAuthMetadata"},
 	}
 }
 
@@ -10498,6 +10678,18 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Format: "",
 						},
 					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.ComponentMCPServerCatalogEntry"),
+									},
+								},
+							},
+						},
+					},
 					"connectURL": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ConnectURL is the default URL clients can use to connect before configuring a personal server.",
@@ -10510,7 +10702,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
+			"github.com/obot-platform/obot/apiclient/types.ComponentMCPServerCatalogEntry", "github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 
@@ -11306,6 +11498,34 @@ func schema_obot_platform_obot_apiclient_types_MCPServerTool(ref common.Referenc
 				Required: []string{"id", "name"},
 			},
 		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPServerToolPreview(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerToolPreview is a tool-preview response with its source digest.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"MCPServerCatalogEntry": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry"),
+						},
+					},
+					"sourceDigest": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"MCPServerCatalogEntry"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry"},
 	}
 }
 
@@ -19388,6 +19608,57 @@ func schema_storage_apis_obotobotai_v1_AuthProviderStatus(ref common.ReferenceCa
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_CatalogComponentServerStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "CatalogComponentServerStatus is the catalog entry controller's view of one component. Name and Icon are stamped from the upstream each pass and kept at their last values once it stops resolving, so a deleted component still renders as something other than a bare ID.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"catalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mcpServerID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolOverridesStale": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"missing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_DefaultModelAlias(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -22203,9 +22474,22 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 					},
 					"needsUpdate": {
 						SchemaProps: spec.SchemaProps{
-							Description: "NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.",
+							Description: "NeedsUpdate indicates whether any component of this composite catalog entry has stale tool overrides or a reference that no longer resolves.",
 							Type:        []string{"boolean"},
 							Format:      "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Components carries per-component state for a composite catalog entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.CatalogComponentServerStatus{}.OpenAPIModelName()),
+									},
+								},
+							},
 						},
 					},
 					"oauthCredentialConfigured": {
@@ -22219,7 +22503,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntryStatus(ref common.Re
 			},
 		},
 		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
+			v1.CatalogComponentServerStatus{}.OpenAPIModelName(), metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -22559,6 +22843,35 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"observedCompositeGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedCompositeGeneration is the last spec generation the composite controller reconciled.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"observedCompositeSyncRequest": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedCompositeSyncRequest is the last explicit component sync request reconciled.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"componentErrors": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentErrors maps a component reference to the reason it could not be reconciled. An absent key means the component is healthy. This field is only populated for composite MCP servers.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"mcpInstanceUserCount": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.",
@@ -22618,13 +22931,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 						SchemaProps: spec.SchemaProps{
 							Description: "NeedsK8sUpdate indicates whether this server needs redeployment with new K8s settings",
 							Type:        []string{"boolean"},
-							Format:      "",
-						},
-					},
-					"observedCompositeManifestHash": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server. This field is only populated for composite MCP servers.",
-							Type:        []string{"string"},
 							Format:      "",
 						},
 					},

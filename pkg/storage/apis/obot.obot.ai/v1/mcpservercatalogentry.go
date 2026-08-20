@@ -44,11 +44,25 @@ type MCPServerCatalogEntryStatus struct {
 	ToolPreviewsLastGenerated *metav1.Time `json:"toolPreviewsLastGenerated,omitempty"`
 	// ManifestHash is a SHA256 hash of the catalog entry configuration used to detect changes.
 	ManifestHash string `json:"manifestHash,omitempty"`
-	// NeedsUpdate indicates whether this composite catalog entry's component snapshots have drifted from their sources.
+	// NeedsUpdate indicates whether any component of this composite catalog entry has stale tool
+	// overrides or a reference that no longer resolves.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// Components carries per-component state for a composite catalog entry.
+	Components []CatalogComponentServerStatus `json:"components,omitempty"`
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured for this remote catalog entry.
 	// Only relevant when Runtime is "remote" and RemoteConfig.StaticOAuthRequired is true.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+}
+
+// CatalogComponentServerStatus is the catalog entry controller's view of one component. Name and Icon
+// are stamped from the upstream each pass and kept at their last values once it stops resolving,
+// so a deleted component still renders as something other than a bare ID.
+type CatalogComponentServerStatus struct {
+	types.ComponentRef `json:",inline"`
+	Name               string `json:"name,omitempty"`
+	Icon               string `json:"icon,omitempty"`
+	ToolOverridesStale bool   `json:"toolOverridesStale,omitempty"`
+	Missing            bool   `json:"missing,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

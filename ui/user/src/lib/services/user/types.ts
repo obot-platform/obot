@@ -532,6 +532,7 @@ export interface MCPCatalogServer {
 	deploymentStatus?: string;
 	compositeName?: string;
 	canConnect?: boolean;
+	components?: ComponentMCPServer[];
 }
 export interface OAuthMetadata {
 	protectedResourceUrl?: string;
@@ -647,10 +648,21 @@ export interface CompositeRuntimeConfig {
 export interface ComponentServer {
 	catalogEntryID?: string;
 	mcpServerID?: string;
-	manifest?: MCPServer;
 	toolOverrides?: ToolOverride[];
 	toolPrefix?: string;
 	disabled?: boolean;
+}
+// One component of a composite MCP server, reporting what is deployed rather than what is available.
+export interface ComponentMCPServer {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	manifest?: MCPServer;
+	error?: string;
+	// This component server's own drift against its own upstream, not the composite's.
+	needsUpdate?: boolean;
+	configured: boolean;
+	missingRequiredEnvVars?: string[];
+	missingRequiredHeader?: string[];
 }
 export interface ToolOverride {
 	name: string;
