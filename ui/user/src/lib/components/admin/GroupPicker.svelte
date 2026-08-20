@@ -93,6 +93,7 @@
 		}
 
 		load();
+		return () => inFlight?.abort();
 	});
 
 	const excluded = $derived(new Set(excludeIds ?? []));
