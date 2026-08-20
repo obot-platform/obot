@@ -312,18 +312,16 @@ func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientS
 
 func (m *MCPHandler) oauthDebuggerCIMDClient(authServer mcp.AuthorizationServerMetadata, registration mcp.ClientRegistrationMetadata) types.OAuthClient {
 	return types.OAuthClient{
-		OAuthClientManifest: types.OAuthClientManifest{
-			RedirectURIs:            registration.RedirectURIs,
-			TokenEndpointAuthMethod: "none",
-			GrantTypes:              registration.GrantTypes,
-			ResponseTypes:           registration.ResponseTypes,
-			ClientName:              registration.ClientName,
-			ClientURI:               m.serverURL,
-			Scope:                   registration.Scope,
-		},
-		ClientID:     system.OAuthClientIDMetadataURL(m.serverURL),
-		AuthorizeURL: authServer.AuthorizationEndpoint,
-		TokenURL:     authServer.TokenEndpoint,
+		RedirectURIs:            registration.RedirectURIs,
+		TokenEndpointAuthMethod: "none",
+		GrantTypes:              registration.GrantTypes,
+		ResponseTypes:           registration.ResponseTypes,
+		ClientName:              registration.ClientName,
+		ClientURI:               m.serverURL,
+		Scope:                   registration.Scope,
+		ClientID:                system.OAuthClientIDMetadataURL(m.serverURL),
+		AuthorizeURL:            authServer.AuthorizationEndpoint,
+		TokenURL:                authServer.TokenEndpoint,
 	}
 }
 

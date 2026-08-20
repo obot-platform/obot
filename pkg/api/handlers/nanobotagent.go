@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -87,10 +86,8 @@ func (h *NanobotAgentHandler) Create(req api.Context) error {
 	}
 
 	agent := v1.NanobotAgent{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.NanobotAgentPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.NanobotAgentPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.NanobotAgentSpec{
 			NanobotAgentManifest: manifest,
 			UserID:               req.User.GetUID(),
@@ -172,10 +169,8 @@ func (h *NanobotAgentHandler) Delete(req api.Context) error {
 	}
 
 	return req.Delete(&v1.NanobotAgent{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: req.Namespace(),
-		},
+		Name:      id,
+		Namespace: req.Namespace(),
 	})
 }
 
@@ -190,10 +185,8 @@ func (h *NanobotAgentHandler) Launch(req api.Context) error {
 	}
 
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: req.Namespace(),
-			Name:      system.MCPServerPrefix + req.PathValue("nanobot_agent_id"),
-		},
+		Namespace: req.Namespace(),
+		Name:      system.MCPServerPrefix + req.PathValue("nanobot_agent_id"),
 	}
 
 	ctx, cancel := context.WithTimeout(req.Context(), 15*time.Second)

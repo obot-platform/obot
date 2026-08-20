@@ -13,7 +13,6 @@ import (
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -22,11 +21,9 @@ func TestEffectiveKubernetesResourceMaximums(t *testing.T) {
 	storageClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(&v1.K8sSettings{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.K8sSettingsName,
-				Namespace: system.DefaultNamespace,
-			},
-			Spec: v1.K8sSettingsSpec{MaxCPURequest: &maximum},
+			Name:      system.K8sSettingsName,
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.K8sSettingsSpec{MaxCPURequest: &maximum},
 		}).
 		Build()
 

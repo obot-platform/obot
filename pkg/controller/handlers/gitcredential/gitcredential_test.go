@@ -8,30 +8,29 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestSyncReferences(t *testing.T) {
 	credential := &v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: "default"},
+		Name: "gc1-test", Namespace: "default",
 	}
 	storage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.SkillRepository{
-			ObjectMeta: metav1.ObjectMeta{Name: "skills", Namespace: "default"},
+			Name: "skills", Namespace: "default",
 			Spec: v1.SkillRepositorySpec{
 				DisplayName:     "Team Skills",
 				GitCredentialID: credential.Name,
 			},
 		},
 		&v1.MCPCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "catalog", Namespace: "default"},
+			Name: "catalog", Namespace: "default",
 			Spec: v1.MCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/obot-platform/catalog": credential.Name,
 			}},
 		},
 		&v1.SystemMCPCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "system-catalog", Namespace: "default"},
+			Name: "system-catalog", Namespace: "default",
 			Spec: v1.SystemMCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/obot-platform/system-catalog": credential.Name,
 			}},
@@ -61,7 +60,7 @@ func TestSyncReferences(t *testing.T) {
 
 func TestSyncReferencesClearsRemovedReferences(t *testing.T) {
 	credential := &v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: "default"},
+		Name: "gc1-test", Namespace: "default",
 		Status: v1.GitCredentialStatus{References: v1.GitCredentialReferences{
 			SkillRepositories: []v1.GitCredentialReference{{ID: "removed"}},
 		}},

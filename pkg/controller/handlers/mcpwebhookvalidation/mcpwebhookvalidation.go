@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Handler struct {
@@ -128,13 +127,13 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 			},
 			Env: []types.MCPEnv{
 				{
-					MCPHeader: types.MCPHeader{Key: "WEBHOOK_URL", Value: webhookValidation.Spec.Manifest.URL},
+					Key: "WEBHOOK_URL", Value: webhookValidation.Spec.Manifest.URL,
 				},
 				{
-					MCPHeader: types.MCPHeader{Key: "WEBHOOK_SECRET", Sensitive: true},
+					Key: "WEBHOOK_SECRET", Sensitive: true,
 				},
 				{
-					MCPHeader: types.MCPHeader{Key: "PORT", Value: "8099"},
+					Key: "PORT", Value: "8099",
 				},
 			},
 		}
@@ -149,11 +148,9 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 	}
 
 	return v1.SystemMCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       system.SystemMCPServerPrefix + webhookValidation.Name,
-			Namespace:  webhookValidation.Namespace,
-			Finalizers: []string{v1.SystemMCPServerFinalizer},
-		},
+		Name:       system.SystemMCPServerPrefix + webhookValidation.Name,
+		Namespace:  webhookValidation.Namespace,
+		Finalizers: []string{v1.SystemMCPServerFinalizer},
 		Spec: v1.SystemMCPServerSpec{
 			WebhookValidationName: webhookValidation.Name,
 			Manifest:              manifest,

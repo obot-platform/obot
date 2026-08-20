@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type MessagePolicyHandler struct{}
@@ -57,10 +56,8 @@ func (*MessagePolicyHandler) Create(req api.Context) error {
 	}
 
 	policy := v1.MessagePolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.MessagePolicyPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.MessagePolicyPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.MessagePolicySpec{
 			Manifest: manifest,
 		},
@@ -104,10 +101,8 @@ func (*MessagePolicyHandler) Delete(req api.Context) error {
 	policyID := req.PathValue("id")
 
 	return req.Delete(&v1.MessagePolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyID,
-			Namespace: req.Namespace(),
-		},
+		Name:      policyID,
+		Namespace: req.Namespace(),
 	})
 }
 

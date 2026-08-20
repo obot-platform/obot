@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -122,10 +121,8 @@ func (h *Handler) createWorkspaceWithRole(ctx context.Context, client kclient.Cl
 	userIDStr := strconv.Itoa(int(user.ID))
 
 	workspace := &v1.PowerUserWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      system.GetPowerUserWorkspaceID(userIDStr),
-		},
+		Namespace: namespace,
+		Name:      system.GetPowerUserWorkspaceID(userIDStr),
 		Spec: v1.PowerUserWorkspaceSpec{
 			UserID: userIDStr,
 			Role:   role,
@@ -266,11 +263,9 @@ func (h *Handler) createDefaultAccessControlRule(ctx context.Context, client kcl
 
 	// For power user plus and admin, generate a rule that gives all users access
 	defaultACR := &v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace:    namespace,
-			GenerateName: system.AccessControlRulePrefix,
-			Finalizers:   []string{v1.AccessControlRuleFinalizer},
-		},
+		Namespace:    namespace,
+		GenerateName: system.AccessControlRulePrefix,
+		Finalizers:   []string{v1.AccessControlRuleFinalizer},
 		Spec: v1.AccessControlRuleSpec{
 			PowerUserWorkspaceID: workspace.Name,
 			Generated:            true,

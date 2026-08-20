@@ -11,7 +11,7 @@ import (
 
 func waitingPod(reason, message string) corev1.Pod {
 	return corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "sandbox"},
+		Name: "sandbox",
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
 			ContainerStatuses: []corev1.ContainerStatus{{
@@ -63,7 +63,7 @@ func TestClassifyDeploymentReportsQuotaRejection(t *testing.T) {
 // sandbox never recovers by moving. Reporting pending would hide a full pool.
 func TestClassifyDeploymentTreatsUnschedulableAsError(t *testing.T) {
 	pod := corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "sandbox"},
+		Name: "sandbox",
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
 			Conditions: []corev1.PodCondition{{

@@ -265,10 +265,8 @@ func (h *Handler) createECRServiceAccountToken(ctx context.Context, ecrSpec *api
 	expirationSeconds := int64(3600)
 
 	serviceAccount := &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      h.serviceAccountName,
-			Namespace: h.serviceNamespace,
-		},
+		Name:      h.serviceAccountName,
+		Namespace: h.serviceNamespace,
 	}
 	tokenRequest := &authenticationv1.TokenRequest{
 		Spec: authenticationv1.TokenRequestSpec{
@@ -338,10 +336,8 @@ func (h *Handler) writeDockerConfigSecret(ctx context.Context, imagePullSecret *
 	err := h.runtimeClient.Get(ctx, types.NamespacedName{Namespace: h.mcpNamespace, Name: imagePullSecret.Name}, existing)
 	if apierrors.IsNotFound(err) {
 		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      imagePullSecret.Name,
-				Namespace: h.mcpNamespace,
-			},
+			Name:      imagePullSecret.Name,
+			Namespace: h.mcpNamespace,
 		}
 		apply(secret)
 		return h.runtimeClient.Create(ctx, secret)

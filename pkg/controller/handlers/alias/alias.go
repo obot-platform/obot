@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/create"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -55,9 +54,7 @@ func AssignAlias(req router.Request, resp router.Response) (err error) {
 	}
 
 	alias := &v1.Alias{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: key,
-		},
+		Name: key,
 		Spec: v1.AliasSpec{
 			Name:            aliasable.GetAliasName(),
 			TargetName:      req.Object.GetName(),

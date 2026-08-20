@@ -57,9 +57,7 @@ func (h *MDMConfigurationsHandler) Create(req api.Context) error {
 			source.Annotations[v1.MDMAssetSourceSyncAnnotation] != "true" &&
 			source.Status.LatestDigest != "" {
 			auto, err := h.mdmConfigurationFromInput(req, types.MDMConfiguration{
-				MDMConfigurationManifest: types.MDMConfigurationManifest{
-					AssetDigest: source.Status.LatestDigest,
-				},
+				AssetDigest: source.Status.LatestDigest,
 			}, nil, in.EnforcementEnabled)
 			if err == nil {
 				configuration = auto
@@ -461,13 +459,11 @@ func (h *MDMConfigurationsHandler) mdmConfigurationFromInput(req api.Context, in
 
 func convertMDMConfiguration(configuration gtypes.MDMConfiguration) (types.MDMConfiguration, error) {
 	result := types.MDMConfiguration{
-		ID:                configuration.ID,
-		IsDefault:         configuration.IsDefault,
-		CreatedAt:         *types.NewTime(configuration.CreatedAt),
-		ObotSentryVersion: configuration.ObotSentryVersion,
-		MDMConfigurationManifest: types.MDMConfigurationManifest{
-			AssetDigest: configuration.AssetDigest,
-		},
+		ID:                   configuration.ID,
+		IsDefault:            configuration.IsDefault,
+		CreatedAt:            *types.NewTime(configuration.CreatedAt),
+		ObotSentryVersion:    configuration.ObotSentryVersion,
+		AssetDigest:          configuration.AssetDigest,
 		Artifacts:            make([]types.MDMConfigurationArtifact, 0, len(configuration.Artifacts)),
 		EnforcementEnabled:   configuration.EnforcementEnabled,
 		EnforcementAllowlist: configuration.EnforcementAllowlist,

@@ -21,7 +21,7 @@ func TestCreateExportFromSchedule(t *testing.T) {
 	c := fake.NewClientBuilder().WithScheme(scheme).Build()
 	next := time.Date(2026, 7, 1, 12, 0, 0, 0, time.UTC)
 	scheduled := &v1.ScheduledAuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{Name: "scheduled", Namespace: "default"},
+		Name: "scheduled", Namespace: "default",
 		Spec: v1.ScheduledAuditLogExportSpec{
 			Name:                   "weekly",
 			Type:                   types.AuditLogTypeLLM,
@@ -84,8 +84,8 @@ func TestGetScheduleAndTimezone(t *testing.T) {
 
 func TestCalculateNextRunTimeWithNilLastRunAt(t *testing.T) {
 	scheduledExport := &v1.ScheduledAuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC))},
-		Spec:       v1.ScheduledAuditLogExportSpec{Schedule: v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"}},
+		CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 10, 0, 0, 0, time.UTC)),
+		Spec:              v1.ScheduledAuditLogExportSpec{Schedule: v1.Schedule{Interval: "hourly", Minute: 30, TimeZone: "UTC"}},
 	}
 
 	next, err := calculateNextRunTime(scheduledExport)

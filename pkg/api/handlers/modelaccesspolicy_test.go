@@ -14,7 +14,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -85,10 +84,8 @@ func TestModelAccessPolicyHandlerUpdateRejectsPersistedNonLLMModel(t *testing.T)
 		WithObjects(
 			modelForAccessPolicyHandlerTest("m1-embedding", types.ModelUsageEmbedding),
 			&v1.ModelAccessPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      policyID,
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      policyID,
+				Namespace: system.DefaultNamespace,
 				Spec: v1.ModelAccessPolicySpec{
 					Manifest: initialManifest,
 				},
@@ -124,10 +121,8 @@ func TestModelAccessPolicyHandlerUpdateRejectsPersistedNonLLMModel(t *testing.T)
 
 func modelForAccessPolicyHandlerTest(name string, usage types.ModelUsage) *v1.Model {
 	return &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      name,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{
 			Manifest: types.ModelManifest{
 				Usage: usage,

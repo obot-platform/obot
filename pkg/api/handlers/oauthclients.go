@@ -11,7 +11,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -70,10 +69,8 @@ func (h *OAuthClientsHandler) Create(req api.Context) error {
 	}
 
 	client := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.OAuthClientPrefix + strings.ToLower(rand.Text()),
-			Namespace: req.Namespace(),
-		},
+		Name:      system.OAuthClientPrefix + strings.ToLower(rand.Text()),
+		Namespace: req.Namespace(),
 		Spec: v1.OAuthClientSpec{
 			Manifest: input,
 			Static:   true,
@@ -135,10 +132,8 @@ func (h *OAuthClientsHandler) Delete(req api.Context) error {
 		return types.NewErrBadRequest("invalid client ID: %s", req.PathValue("client_id"))
 	}
 	return req.Delete(&v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		Name:      name,
+		Namespace: namespace,
 	})
 }
 

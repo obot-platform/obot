@@ -55,10 +55,8 @@ func createExportFromSchedule(req router.Request, scheduledExport *v1.ScheduledA
 	}
 
 	export := &v1.AuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.AuditLogExportPrefix,
-			Namespace:    scheduledExport.Namespace,
-		},
+		GenerateName: system.AuditLogExportPrefix,
+		Namespace:    scheduledExport.Namespace,
 		Spec: v1.AuditLogExportSpec{
 			Name:                   fmt.Sprintf("%s-%d", scheduledExport.Spec.Name, scheduledExport.Status.TotalExportsCreated+1),
 			Type:                   scheduledExport.Spec.EffectiveType(),

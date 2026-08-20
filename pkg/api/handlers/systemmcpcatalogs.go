@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -78,10 +77,8 @@ func (h *SystemMCPCatalogHandler) Create(req api.Context) error {
 	}
 
 	catalog := v1.SystemMCPCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.SystemCatalogPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.SystemCatalogPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.SystemMCPCatalogSpec{
 			DisplayName:               manifest.DisplayName,
 			SourceURLs:                manifest.SourceURLs,
@@ -204,10 +201,8 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	}
 
 	entry := v1.SystemMCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: name.SafeHashConcatName(catalogName, normalizeMCPCatalogEntryName(manifest.Name)),
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: name.SafeHashConcatName(catalogName, normalizeMCPCatalogEntryName(manifest.Name)),
+		Namespace:    req.Namespace(),
 		Spec: v1.SystemMCPServerCatalogEntrySpec{
 			SystemMCPCatalogName: catalogName,
 			Editable:             true,
@@ -402,16 +397,14 @@ func maskCatalogCredentials(sourceURLs []string, tokenEnv map[string]string) map
 
 func convertSystemMCPCatalog(catalog v1.SystemMCPCatalog, tokenEnv map[string]string) types.SystemMCPCatalog {
 	return types.SystemMCPCatalog{
-		Metadata: MetadataFrom(&catalog),
-		SystemMCPCatalogManifest: types.SystemMCPCatalogManifest{
-			DisplayName:               catalog.Spec.DisplayName,
-			SourceURLs:                catalog.Spec.SourceURLs,
-			SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
-			SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
-		},
-		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
-		SyncErrors: catalog.Status.SyncErrors,
-		IsSyncing:  catalog.Status.IsSyncing || catalog.Annotations[v1.SystemMCPCatalogSyncAnnotation] == "true",
+		Metadata:                  MetadataFrom(&catalog),
+		DisplayName:               catalog.Spec.DisplayName,
+		SourceURLs:                catalog.Spec.SourceURLs,
+		SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+		SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
+		LastSynced:                *types.NewTime(catalog.Status.LastSyncTime.Time),
+		SyncErrors:                catalog.Status.SyncErrors,
+		IsSyncing:                 catalog.Status.IsSyncing || catalog.Annotations[v1.SystemMCPCatalogSyncAnnotation] == "true",
 	}
 }
 

@@ -4,7 +4,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // The icons are inlined so that the provider has no external dependencies, unlike the other
@@ -20,10 +19,8 @@ const (
 // a daemon for it.
 func AuthProvider() *v1.AuthProvider {
 	return &v1.AuthProvider{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ProviderName,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      ProviderName,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AuthProviderSpec{
 			AuthProviderManifest: types.AuthProviderManifest{
 				CommonProviderMetadata: types.CommonProviderMetadata{

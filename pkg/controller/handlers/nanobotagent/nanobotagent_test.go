@@ -8,7 +8,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	sigsyaml "sigs.k8s.io/yaml"
 )
@@ -16,7 +15,7 @@ import (
 func TestChooseModelPrefersKnownNames(t *testing.T) {
 	models := []v1.Model{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "ollama-qwen3"},
+			Name: "ollama-qwen3",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "other",
@@ -27,7 +26,7 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 			},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
+			Name: "openai-gpt-5.4",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",
@@ -52,7 +51,7 @@ func TestChooseModelPrefersKnownNames(t *testing.T) {
 func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 	models := []v1.Model{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "groq-llama-3.1-70b-versatile"},
+			Name: "groq-llama-3.1-70b-versatile",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "model-a",
@@ -77,7 +76,7 @@ func TestChooseModelFallsBackToFirstActiveModel(t *testing.T) {
 func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 	models := []v1.Model{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "anthropic-claude-sonnet-4-6"},
+			Name: "anthropic-claude-sonnet-4-6",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "claude-sonnet-4-6",
@@ -88,7 +87,7 @@ func TestChooseModelPrefersSuggestedOrder(t *testing.T) {
 			},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
+			Name: "openai-gpt-5.4",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",
@@ -388,15 +387,15 @@ func TestResolveModelCarriesProviderAndDialect(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(
 			&v1.DefaultModelAlias{
-				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "DefaultModelAlias"},
-				ObjectMeta: metav1.ObjectMeta{Name: "llm"},
+				APIVersion: v1.SchemeGroupVersion.String(), Kind: "DefaultModelAlias",
+				Name: "llm",
 				Spec: v1.DefaultModelAliasSpec{
 					Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: "groq-llama"},
 				},
 			},
 			&v1.Model{
-				TypeMeta:   metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "Model"},
-				ObjectMeta: metav1.ObjectMeta{Name: "groq-llama"},
+				APIVersion: v1.SchemeGroupVersion.String(), Kind: "Model",
+				Name: "groq-llama",
 				Spec: v1.ModelSpec{
 					Manifest: types.ModelManifest{
 						Name:          "groq-llama",
@@ -482,13 +481,9 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(
 			&v1.DefaultModelAlias{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "DefaultModelAlias",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "llm",
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "DefaultModelAlias",
+				Name:       "llm",
 				Spec: v1.DefaultModelAliasSpec{
 					Manifest: types.DefaultModelAliasManifest{
 						Alias: "llm",
@@ -497,13 +492,9 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 				},
 			},
 			&v1.Model{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "Model",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "openai-gpt-5.4",
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "Model",
+				Name:       "openai-gpt-5.4",
 				Spec: v1.ModelSpec{
 					Manifest: types.ModelManifest{
 						Name:        "gpt-5.4",
@@ -518,7 +509,7 @@ func TestChooseModelMiniFallsBackToResolvedLLM(t *testing.T) {
 
 	models := []v1.Model{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "openai-gpt-5.4"},
+			Name: "openai-gpt-5.4",
 			Spec: v1.ModelSpec{
 				Manifest: types.ModelManifest{
 					Name:        "gpt-5.4",

@@ -25,11 +25,11 @@ func TestCleanup(t *testing.T) {
 		{name: "deletes expired correlation", createdAt: now.Add(-25 * time.Hour), deleted: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			correlation := &v1.MCPHookCorrelation{ObjectMeta: metav1.ObjectMeta{
+			correlation := &v1.MCPHookCorrelation{
 				Namespace: "default", Name: "correlation",
-			}, Spec: v1.MCPHookCorrelationSpec{
-				ExpiresAt: metav1.NewTime(tt.createdAt.Add(v1.MCPHookCorrelationTTL)),
-			}}
+				Spec: v1.MCPHookCorrelationSpec{
+					ExpiresAt: metav1.NewTime(tt.createdAt.Add(v1.MCPHookCorrelationTTL)),
+				}}
 			client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(correlation).Build()
 			handler := &Handler{now: func() time.Time { return now }}
 			req := router.Request{Client: client, Object: correlation, Ctx: t.Context(), Namespace: correlation.Namespace, Name: correlation.Name}

@@ -38,10 +38,8 @@ func saveMCPClientSession(ctx context.Context, client kclient.Client, entry *aud
 			return nil
 		}
 		session = v1.MCPClientSession{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: key.Namespace,
-				Name:      key.Name,
-			},
+			Namespace: key.Namespace,
+			Name:      key.Name,
 			Spec: v1.MCPClientSessionSpec{
 				MCPServerID:   entry.Metadata["mcpID"],
 				UserID:        entry.Metadata["userID"],

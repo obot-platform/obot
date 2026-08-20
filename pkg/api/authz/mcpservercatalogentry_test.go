@@ -10,7 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -19,19 +18,15 @@ import (
 
 func TestAllMCPCatalogEntryAuthorizationUsesAccessControlRules(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "entry-test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "entry-test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: system.DefaultCatalog,
 		},
 	}).Build()
 	authorizer := newCatalogEntryTestAuthorizer(t, storage, &v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "entry-access",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "entry-access",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AccessControlRuleSpec{
 			MCPCatalogID: system.DefaultCatalog,
 			Manifest: types.AccessControlRuleManifest{

@@ -194,16 +194,10 @@ func TestTokenStoresNewTokenByAppURL(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
-				Metadata: types.Metadata{ID: "github"},
-				AuthProviderManifest: types.AuthProviderManifest{
-					CommonProviderMetadata: types.CommonProviderMetadata{
-						Name: "GitHub",
-					},
-				},
-				AuthProviderStatus: types.AuthProviderStatus{
-					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
-					Namespace:            "default",
-				},
+				ID:         "github",
+				Name:       "GitHub",
+				Configured: true,
+				Namespace:  "default",
 			}}})
 		case "/api/token-request":
 			writeDeviceLoginResponse(t, w, "server-request-id")
@@ -303,16 +297,10 @@ func TestTokenRequestIncludesRequestedScopes(t *testing.T) {
 					_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
 				case "/api/auth-providers":
 					_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
-						Metadata: types.Metadata{ID: "github"},
-						AuthProviderManifest: types.AuthProviderManifest{
-							CommonProviderMetadata: types.CommonProviderMetadata{
-								Name: "GitHub",
-							},
-						},
-						AuthProviderStatus: types.AuthProviderStatus{
-							CommonProviderStatus: types.CommonProviderStatus{Configured: true},
-							Namespace:            "default",
-						},
+						ID:         "github",
+						Name:       "GitHub",
+						Configured: true,
+						Namespace:  "default",
 					}}})
 				case "/api/token-request":
 					if err := json.NewDecoder(r.Body).Decode(&gotBody); err != nil {
@@ -398,16 +386,10 @@ func TestTokenRefreshesValidKeyringTokenMissingRequestedScopes(t *testing.T) {
 			})
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
-				Metadata: types.Metadata{ID: "github"},
-				AuthProviderManifest: types.AuthProviderManifest{
-					CommonProviderMetadata: types.CommonProviderMetadata{
-						Name: "GitHub",
-					},
-				},
-				AuthProviderStatus: types.AuthProviderStatus{
-					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
-					Namespace:            "default",
-				},
+				ID:         "github",
+				Name:       "GitHub",
+				Configured: true,
+				Namespace:  "default",
 			}}})
 		case "/api/token-request":
 			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
@@ -527,16 +509,10 @@ func TestTokenRefreshesAPIKeyringTokenForMCPScope(t *testing.T) {
 			})
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
-				Metadata: types.Metadata{ID: "github"},
-				AuthProviderManifest: types.AuthProviderManifest{
-					CommonProviderMetadata: types.CommonProviderMetadata{
-						Name: "GitHub",
-					},
-				},
-				AuthProviderStatus: types.AuthProviderStatus{
-					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
-					Namespace:            "default",
-				},
+				ID:         "github",
+				Name:       "GitHub",
+				Configured: true,
+				Namespace:  "default",
 			}}})
 		case "/api/token-request":
 			if err := json.NewDecoder(r.Body).Decode(&createdRequest); err != nil {
@@ -587,16 +563,10 @@ func TestTokenNonInteractiveSkipsBrowserEnterGate(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(types.User{Username: "anonymous"})
 		case "/api/auth-providers":
 			_ = json.NewEncoder(w).Encode(types.AuthProviderList{Items: []types.AuthProvider{{
-				Metadata: types.Metadata{ID: "github"},
-				AuthProviderManifest: types.AuthProviderManifest{
-					CommonProviderMetadata: types.CommonProviderMetadata{
-						Name: "GitHub",
-					},
-				},
-				AuthProviderStatus: types.AuthProviderStatus{
-					CommonProviderStatus: types.CommonProviderStatus{Configured: true},
-					Namespace:            "default",
-				},
+				ID:         "github",
+				Name:       "GitHub",
+				Configured: true,
+				Namespace:  "default",
 			}}})
 		case "/api/token-request":
 			writeDeviceLoginResponse(t, w, "returned-request-id")

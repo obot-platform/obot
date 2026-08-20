@@ -54,14 +54,10 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 // newSkillRepository creates a test SkillRepository resource.
 func newSkillRepository(name, namespace string) *v1.SkillRepository {
 	return &v1.SkillRepository{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "SkillRepository",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "SkillRepository",
+		Name:       name,
+		Namespace:  namespace,
 		Spec: v1.SkillRepositorySpec{
 			RepoURL:     "https://github.com/owner/repo",
 			Ref:         "main",
@@ -73,14 +69,10 @@ func newSkillRepository(name, namespace string) *v1.SkillRepository {
 // newSkill creates a test Skill resource for the given repo.
 func newSkill(name, namespace, repoID, description string) *v1.Skill {
 	return &v1.Skill{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "Skill",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "Skill",
+		Name:       name,
+		Namespace:  namespace,
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{
 				Name:        name,
@@ -692,7 +684,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 
 	t.Run("missing repoURL", func(t *testing.T) {
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				CommitSHA:    "abc123",
 				RelativePath: "my-skill",
@@ -705,7 +697,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 
 	t.Run("missing commitSHA", func(t *testing.T) {
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
 				RelativePath: "my-skill",
@@ -718,7 +710,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 
 	t.Run("missing relativePath", func(t *testing.T) {
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:   "https://github.com/owner/repo",
 				CommitSHA: "abc123",
@@ -749,7 +741,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
 				RepoRef:      "main",
@@ -783,7 +775,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
 				CommitSHA:    "abc123",
@@ -810,7 +802,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
 				CommitSHA:    "abc123",
@@ -843,7 +835,7 @@ func TestMaterializeSkillSource(t *testing.T) {
 		}
 
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-skill"},
+			Name: "test-skill",
 			Spec: v1.SkillSpec{
 				RepoURL:      "https://github.com/owner/repo",
 				CommitSHA:    "abc123",

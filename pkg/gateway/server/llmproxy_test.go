@@ -22,7 +22,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
@@ -591,7 +590,7 @@ func TestAPIKeyTransportHeaders(t *testing.T) {
 func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 	const apiKeyEnv = "OPENAI_MODEL_PROVIDER_API_KEY"
 	provider := v1.ModelProvider{
-		ObjectMeta: metav1.ObjectMeta{Name: system.OpenAIModelProvider},
+		Name: system.OpenAIModelProvider,
 		Spec: v1.ModelProviderSpec{ModelProviderManifest: types2.ModelProviderManifest{
 			CommonProviderMetadata: types2.CommonProviderMetadata{
 				RequiredConfigurationParameters: []types2.ProviderConfigurationParameter{{Name: apiKeyEnv}},

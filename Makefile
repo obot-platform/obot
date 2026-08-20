@@ -65,7 +65,7 @@ lint: lint-go
 tidy:
 	go mod tidy
 
-GOLANGCI_LINT_VERSION ?= v2.12.2
+GOLANGCI_LINT_VERSION ?= v2.13.0
 setup-env:
 	if ! command -v golangci-lint >/dev/null 2>&1; then \
 		echo "Could not find golangci-lint, installing version $(GOLANGCI_LINT_VERSION)."; \

@@ -38,10 +38,10 @@ func (h *LLMAuditLogHandler) List(req api.Context) error {
 	}
 
 	return req.Write(types.LLMAuditLogResponse{
-		LLMAuditLogList: types.LLMAuditLogList{Items: items},
-		Total:           total,
-		Limit:           opts.Limit,
-		Offset:          opts.Offset,
+		Items:  items,
+		Total:  total,
+		Limit:  opts.Limit,
+		Offset: opts.Offset,
 	})
 }
 

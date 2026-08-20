@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -56,10 +55,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 	storage := clientfake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
 		WithObjects(&v1.SystemMCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.DefaultNamespace,
-				Name:      mcpID,
-			},
+			Namespace: system.DefaultNamespace,
+			Name:      mcpID,
 		}).
 		Build()
 
@@ -91,10 +88,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	tokenName := fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken)))
 	storageToken := &v1.OAuthToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.DefaultNamespace,
-			Name:      tokenName,
-		},
+		Namespace: system.DefaultNamespace,
+		Name:      tokenName,
 		Spec: v1.OAuthTokenSpec{
 			ClientID: clientName,
 			Resource: baseURL,
@@ -115,10 +110,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 		GatewayClient:  gatewayClient,
 	}
 	oauthClient := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.DefaultNamespace,
-			Name:      clientName,
-		},
+		Namespace: system.DefaultNamespace,
+		Name:      clientName,
 	}
 	h := &handler{tokenService: tokenService}
 	err = h.doRefreshToken(req, oauthClient, refreshToken)
@@ -151,10 +144,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	staleRefreshToken := "deleted-server-refresh-token"
 	require.NoError(t, storage.Create(t.Context(), &v1.OAuthToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.DefaultNamespace,
-			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),
-		},
+		Namespace: system.DefaultNamespace,
+		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(staleRefreshToken))),
 		Spec: v1.OAuthTokenSpec{
 			ClientID: clientName,
 			Resource: baseURL,
@@ -182,10 +173,8 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	racedRefreshToken := "concurrently-consumed-refresh-token"
 	require.NoError(t, storage.Create(t.Context(), &v1.OAuthToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.DefaultNamespace,
-			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(racedRefreshToken))),
-		},
+		Namespace: system.DefaultNamespace,
+		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(racedRefreshToken))),
 		Spec: v1.OAuthTokenSpec{
 			ClientID: clientName,
 			Resource: baseURL,

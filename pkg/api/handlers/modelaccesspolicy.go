@@ -8,7 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type ModelAccessPolicyHandler struct{}
@@ -54,10 +53,8 @@ func (*ModelAccessPolicyHandler) Create(req api.Context) error {
 	}
 
 	policy := v1.ModelAccessPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ModelAccessPolicyPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.ModelAccessPolicyPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.ModelAccessPolicySpec{
 			Manifest: manifest,
 		},
@@ -97,10 +94,8 @@ func (*ModelAccessPolicyHandler) Delete(req api.Context) error {
 	policyID := req.PathValue("id")
 
 	return req.Delete(&v1.ModelAccessPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      policyID,
-			Namespace: req.Namespace(),
-		},
+		Name:      policyID,
+		Namespace: req.Namespace(),
 	})
 }
 

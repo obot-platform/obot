@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AgentCatalogHandler struct {
@@ -51,10 +50,8 @@ func (h *AgentCatalogHandler) Create(req api.Context) error {
 	}
 
 	source := v1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.AgentCatalogPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.AgentCatalogPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.AgentCatalogSpec{
 			AgentCatalogManifest: *manifest,
 		},
@@ -88,10 +85,8 @@ func (h *AgentCatalogHandler) Update(req api.Context) error {
 
 func (*AgentCatalogHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("agent_catalog_id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("agent_catalog_id"),
+		Namespace: req.Namespace(),
 	})
 }
 

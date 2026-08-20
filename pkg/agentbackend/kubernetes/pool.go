@@ -136,14 +136,12 @@ func (b *Backend) poolObjects(ctx context.Context, desired agentbackend.DesiredP
 	}
 
 	priorityClass := &schedulingv1.PriorityClass{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        pool,
-			Labels:      labels,
-			Annotations: annotations,
-			// Cluster-scoped dependents may only name cluster-scoped owners, and
-			// a Namespace is cluster-scoped, so this is a valid reference.
-			OwnerReferences: []metav1.OwnerReference{*owner},
-		},
+		Name:        pool,
+		Labels:      labels,
+		Annotations: annotations,
+		// Cluster-scoped dependents may only name cluster-scoped owners, and
+		// a Namespace is cluster-scoped, so this is a valid reference.
+		OwnerReferences:  []metav1.OwnerReference{*owner},
 		Value:            poolPriorityValue,
 		GlobalDefault:    false,
 		PreemptionPolicy: new(corev1.PreemptNever),
@@ -151,12 +149,10 @@ func (b *Backend) poolObjects(ctx context.Context, desired agentbackend.DesiredP
 	}
 
 	quota := &corev1.ResourceQuota{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        pool,
-			Namespace:   b.opts.Namespace,
-			Labels:      labels,
-			Annotations: annotations,
-		},
+		Name:        pool,
+		Namespace:   b.opts.Namespace,
+		Labels:      labels,
+		Annotations: annotations,
 		Spec: corev1.ResourceQuotaSpec{
 			Hard: quotaHard(desired),
 			// PriorityClass is the only per-pod attribute a ResourceQuota can
@@ -176,12 +172,10 @@ func (b *Backend) poolObjects(ctx context.Context, desired agentbackend.DesiredP
 	// revision bump should attempt.
 	claimAnnotations[apply.AnnotationUpdate] = "false"
 	claim := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        pool,
-			Namespace:   b.opts.Namespace,
-			Labels:      labels,
-			Annotations: claimAnnotations,
-		},
+		Name:        pool,
+		Namespace:   b.opts.Namespace,
+		Labels:      labels,
+		Annotations: claimAnnotations,
 		Spec: corev1.PersistentVolumeClaimSpec{
 			// ReadWriteOnce is node-scoped, not pod-scoped: every sandbox in the
 			// pool mounts this claim from the same node. That co-location is the

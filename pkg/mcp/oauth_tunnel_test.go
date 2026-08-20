@@ -16,7 +16,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -78,10 +77,8 @@ func TestHTTPClientRoutesOAuthDiscoveryThroughTunnel(t *testing.T) {
 		t.Fatal(err)
 	}
 	tunnelConfig := &v1.MCPTunnel{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      tunnelName,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      tunnelName,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPTunnelSpec{
 			Manifest: types.MCPTunnelManifest{
 				DisplayName: "Office",

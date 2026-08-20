@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -191,12 +190,10 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		}
 		if !foundOBOTURLEntry {
 			existing.Spec.Manifest.Env = append(existing.Spec.Manifest.Env, types.MCPEnv{
-				MCPHeader: types.MCPHeader{
-					Name:     "OBOT_URL",
-					Key:      "OBOT_URL",
-					Required: true,
-					Value:    internalURL,
-				},
+				Name:     "OBOT_URL",
+				Key:      "OBOT_URL",
+				Required: true,
+				Value:    internalURL,
 			})
 			needsUpdate = true
 		}
@@ -214,11 +211,9 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 	// Create the SystemMCPServer
 	slog.Info("Creating obot MCP server", "image", image)
 	server := &v1.SystemMCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       system.ObotMCPServerName,
-			Namespace:  system.DefaultNamespace,
-			Finalizers: []string{v1.SystemMCPServerFinalizer},
-		},
+		Name:       system.ObotMCPServerName,
+		Namespace:  system.DefaultNamespace,
+		Finalizers: []string{v1.SystemMCPServerFinalizer},
 		Spec: v1.SystemMCPServerSpec{
 			Manifest: types.SystemMCPServerManifest{
 				Name:             "Obot MCP Server",
@@ -231,12 +226,10 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 				},
 				Env: []types.MCPEnv{
 					{
-						MCPHeader: types.MCPHeader{
-							Name:     "OBOT_URL",
-							Key:      "OBOT_URL",
-							Required: true,
-							Value:    internalURL,
-						},
+						Name:     "OBOT_URL",
+						Key:      "OBOT_URL",
+						Required: true,
+						Value:    internalURL,
 					},
 				},
 			},
@@ -362,10 +355,8 @@ func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) er
 	var defaultRoleSetting v1.UserDefaultRoleSetting
 	if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.DefaultRoleSettingName}, &defaultRoleSetting); apierrors.IsNotFound(err) {
 		defaultRoleSetting = v1.UserDefaultRoleSetting{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.DefaultRoleSettingName,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      system.DefaultRoleSettingName,
+			Namespace: system.DefaultNamespace,
 			Spec: v1.UserDefaultRoleSettingSpec{
 				Role: types.RoleBasic,
 			},
@@ -407,10 +398,8 @@ func ensureHostedAgentPoolDefaults(ctx context.Context, client kclient.Client) e
 	}
 
 	return client.Create(ctx, &v1.HostedAgentPoolDefaults{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
+		Name:      key.Name,
+		Namespace: key.Namespace,
 		Spec: v1.HostedAgentPoolDefaultsSpec{
 			Manifest: types.HostedAgentPoolDefaultsManifest{
 				Capacity: types.HostedAgentResourceQuantity{
@@ -448,10 +437,8 @@ func ensureK8sSettings(ctx context.Context, client kclient.Client, podScheduling
 		// Create default settings
 		// SetViaHelm only applies to pod scheduling settings, not PSA
 		k8sSettings = v1.K8sSettings{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.K8sSettingsName,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      system.K8sSettingsName,
+			Namespace: system.DefaultNamespace,
 			Spec: v1.K8sSettingsSpec{
 				SetViaHelm:         settingsSetViaHelm,
 				MaximumsSetViaHelm: maximumsSetViaHelm,
@@ -657,10 +644,8 @@ func ensureAppPreferences(ctx context.Context, client kclient.Client) error {
 	if apierrors.IsNotFound(err) {
 		// Create default preferences
 		appPrefs = v1.AppPreferences{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.AppPreferencesName,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      system.AppPreferencesName,
+			Namespace: system.DefaultNamespace,
 		}
 		return kclient.IgnoreAlreadyExists(client.Create(ctx, &appPrefs))
 	}

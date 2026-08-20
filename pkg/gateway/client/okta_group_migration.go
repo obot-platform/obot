@@ -15,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const oktaGroupMigrationName = "okta_group_id_migration"
@@ -170,11 +169,9 @@ func (c *Client) migrateOktaGroupIDs(ctx context.Context, authProviderURL, authP
 		// creates the object, and if creation fails the claim row is rolled back,
 		// allowing a retry on the next authentication request.
 		if err := c.storageClient.Create(ctx, &v1.OktaGroupMigration{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.OktaGroupMigrationPrefix,
-				Namespace:    system.DefaultNamespace,
-			},
-			Spec: v1.OktaGroupMigrationSpec{IDMapping: idMap},
+			GenerateName: system.OktaGroupMigrationPrefix,
+			Namespace:    system.DefaultNamespace,
+			Spec:         v1.OktaGroupMigrationSpec{IDMapping: idMap},
 		}); err != nil {
 			return fmt.Errorf("failed to create OktaGroupMigration task: %w", err)
 		}

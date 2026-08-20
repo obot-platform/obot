@@ -200,11 +200,11 @@ func TestMessageTokenUsageTracker_CacheWriteSplitPricing(t *testing.T) {
 func TestEffectiveTokenCost_ContextTier(t *testing.T) {
 	size := 200000
 	cost := types2.ModelCost{
-		TokenUsageCost: types2.TokenUsageCost{Input: 2.5, Output: 15, CacheRead: 0.25},
+		Input: 2.5, Output: 15, CacheRead: 0.25,
 		Tiers: []types2.ModelCostTier{{
-			TokenUsageCost: types2.TokenUsageCost{Input: 5, Output: 22.5, CacheRead: 0.5},
-			Type:           types2.ModelCostTierTypeContext,
-			Size:           &size,
+			Input: 5, Output: 22.5, CacheRead: 0.5,
+			Type: types2.ModelCostTierTypeContext,
+			Size: &size,
 		}},
 	}
 
@@ -223,8 +223,8 @@ func TestEffectiveTokenCost_ContextTier(t *testing.T) {
 func TestMessageTokenUsageTracker_TierByContextSize(t *testing.T) {
 	size := 200000
 	cost := types2.ModelCost{
-		TokenUsageCost: types2.TokenUsageCost{Input: 5},
-		Tiers:          []types2.ModelCostTier{{TokenUsageCost: types2.TokenUsageCost{Input: 10}, Type: types2.ModelCostTierTypeContext, Size: &size}},
+		Input: 5,
+		Tiers: []types2.ModelCostTier{{Input: 10, Type: types2.ModelCostTierTypeContext, Size: &size}},
 	}
 	c := &messageTokenUsageTracker{cost: cost}
 	c.addTokenUsage([]byte(`{"usage":{"input_tokens":150000,"cache_read_input_tokens":60000,"output_tokens":0}}`))

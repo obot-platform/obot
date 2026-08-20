@@ -25,7 +25,6 @@ import (
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -141,9 +140,9 @@ func TestAttributeMCPAuditLogAPIKeyUsesMaskedUnnamedFallback(t *testing.T) {
 		t.Fatalf("create API key: %v", err)
 	}
 
-	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{MCPFields: &gatewaytypes.MCPAuditLogFields{
+	input := auditLogInput{MCPFields: &gatewaytypes.MCPAuditLogFields{
 		APIKey: auditlogs.RedactAPIKey(created.Key),
-	}}}
+	}}
 	if err := NewAuditLogHandler(gatewayClient).attributeMCPAuditLogAPIKey(t.Context(), &input); err != nil {
 		t.Fatal(err)
 	}
@@ -157,11 +156,10 @@ func TestAttributeMCPAuditLogAPIKeyUsesMaskedUnnamedFallback(t *testing.T) {
 func TestAttributeMCPAuditLogAPIKeyPreservesPrincipalSnapshot(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
 	id := uint(42)
-	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{
+	input := auditLogInput{
 		APIKeyID:   &id,
 		APIKeyName: "event-time name",
-		MCPFields:  &gatewaytypes.MCPAuditLogFields{APIKey: "ok1-7-1-"},
-	}}
+		MCPFields:  &gatewaytypes.MCPAuditLogFields{APIKey: "ok1-7-1-"}}
 
 	if err := NewAuditLogHandler(gatewayClient).attributeMCPAuditLogAPIKey(t.Context(), &input); err != nil {
 		t.Fatal(err)
@@ -846,19 +844,19 @@ func newAuditLogScopeTestFixture(t *testing.T, userID string) (storage.Client, [
 	workspaceID := system.GetPowerUserWorkspaceID(userID)
 	objects := []kclient.Object{
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{Name: "mcp-owned", Namespace: system.DefaultNamespace},
-			Spec:       v1.MCPServerSpec{UserID: userID},
+			Name: "mcp-owned", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{UserID: userID},
 		},
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{Name: "mcp-workspace", Namespace: system.DefaultNamespace},
+			Name: "mcp-workspace", Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerSpec{
 				UserID:               userID,
 				PowerUserWorkspaceID: workspaceID,
 			},
 		},
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{Name: "mcp-unrelated", Namespace: system.DefaultNamespace},
-			Spec:       v1.MCPServerSpec{UserID: "another-user"},
+			Name: "mcp-unrelated", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{UserID: "another-user"},
 		},
 	}
 	storageClient := storage.Client(fake.NewClientBuilder().

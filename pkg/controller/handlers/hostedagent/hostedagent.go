@@ -141,10 +141,8 @@ func (h *Handler) EnsurePool(req router.Request, _ router.Response) error {
 
 	poolID, assignmentID := initialPoolNames(instance.Spec.UserID)
 	pool := &v1.HostedAgentPool{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      poolID,
-			Namespace: req.Namespace,
-		},
+		Name:      poolID,
+		Namespace: req.Namespace,
 		Spec: v1.HostedAgentPoolSpec{
 			Manifest: types.HostedAgentPoolManifest{
 				Capacity:     defaults.Spec.Manifest.Capacity,
@@ -158,10 +156,8 @@ func (h *Handler) EnsurePool(req router.Request, _ router.Response) error {
 	}
 
 	assignment := &v1.HostedAgentPoolAssignment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      assignmentID,
-			Namespace: req.Namespace,
-		},
+		Name:      assignmentID,
+		Namespace: req.Namespace,
 		Spec: v1.HostedAgentPoolAssignmentSpec{
 			Manifest: types.HostedAgentPoolAssignmentManifest{
 				UserID:  instance.Spec.UserID,

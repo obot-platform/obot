@@ -14,7 +14,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -25,10 +24,8 @@ func newIdentityUserLimitTestClient(t *testing.T) *Client {
 	c.storageClient = fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(&v1.UserDefaultRoleSetting{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.DefaultNamespace,
-				Name:      system.DefaultRoleSettingName,
-			},
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultRoleSettingName,
 			Spec: v1.UserDefaultRoleSettingSpec{
 				Role: apitypes.RoleBasic,
 			},

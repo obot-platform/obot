@@ -21,7 +21,7 @@ func TestIconResolutionOrder(t *testing.T) {
 
 	// The user's own choice wins.
 	got := resolverFor(agent, harness).apply(
-		types.HostedAgentInstance{HostedAgentInstanceManifest: types.HostedAgentInstanceManifest{Icon: "mine.svg"}}, "ha1")
+		types.HostedAgentInstance{Icon: "mine.svg"}, "ha1")
 	if got.ResolvedIcon != "mine.svg" {
 		t.Errorf("instance icon = %q, want the instance's own", got.ResolvedIcon)
 	}
@@ -62,7 +62,7 @@ func TestNoIconAnywhereResolvesEmpty(t *testing.T) {
 // An instance whose agent has been deleted still renders; it just has no icon.
 func TestUnknownAgentDoesNotPanic(t *testing.T) {
 	got := resolverFor(types.HostedAgentManifest{}, types.HarnessManifest{}).
-		apply(types.HostedAgentInstance{HostedAgentInstanceManifest: types.HostedAgentInstanceManifest{Icon: "mine.svg"}}, "gone")
+		apply(types.HostedAgentInstance{Icon: "mine.svg"}, "gone")
 	if got.ResolvedIcon != "mine.svg" {
 		t.Errorf("resolved = %q, want the instance's own icon", got.ResolvedIcon)
 	}

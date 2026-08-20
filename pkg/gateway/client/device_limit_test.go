@@ -95,8 +95,7 @@ func TestEnrollDeviceAllowsExistingDeviceWhenOverLimit(t *testing.T) {
 	if err == nil {
 		t.Fatal("re-enrolling existing device with a different key succeeded")
 	}
-	var httpErr *apitypes.ErrHTTP
-	if errors.As(err, &httpErr) {
+	if httpErr, ok := errors.AsType[*apitypes.ErrHTTP](err); ok {
 		t.Fatalf("different-key error = HTTP %d, want identity-key error", httpErr.Code)
 	}
 

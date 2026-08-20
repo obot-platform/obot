@@ -82,11 +82,9 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 	}
 
 	systemServer := v1.SystemMCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.SystemMCPServerPrefix,
-			Namespace:    req.Namespace(),
-			Finalizers:   []string{v1.SystemMCPServerFinalizer},
-		},
+		GenerateName: system.SystemMCPServerPrefix,
+		Namespace:    req.Namespace(),
+		Finalizers:   []string{v1.SystemMCPServerFinalizer},
 		Spec: v1.SystemMCPServerSpec{
 			Manifest: manifest,
 		},

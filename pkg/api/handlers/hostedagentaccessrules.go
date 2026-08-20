@@ -8,7 +8,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type HostedAgentAccessRuleHandler struct{}
@@ -47,10 +46,8 @@ func (*HostedAgentAccessRuleHandler) Create(req api.Context) error {
 	}
 
 	rule := v1.HostedAgentAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.HostedAgentAccessRulePrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.HostedAgentAccessRulePrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.HostedAgentAccessRuleSpec{
 			Manifest: *manifest,
 		},
@@ -84,10 +81,8 @@ func (*HostedAgentAccessRuleHandler) Update(req api.Context) error {
 
 func (*HostedAgentAccessRuleHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.HostedAgentAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("hosted_agent_access_rule_id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("hosted_agent_access_rule_id"),
+		Namespace: req.Namespace(),
 	})
 }
 

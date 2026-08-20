@@ -189,10 +189,8 @@ func (h *Handler) sync(ctx context.Context, c kclient.Client, source *v1.MDMAsse
 
 	manifest := loader.Manifest()
 	asset := &v1.MDMAsset{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.MDMAssetName(digest),
-			Namespace: source.Namespace,
-		},
+		Name:      v1.MDMAssetName(digest),
+		Namespace: source.Namespace,
 		Spec: v1.MDMAssetSpec{
 			Digest:            digest,
 			SchemaVersion:     manifest.SchemaVersion,
@@ -282,10 +280,8 @@ func (h *Handler) pruneUnused(ctx context.Context, c kclient.Client, retainDiges
 // Changes to the default source value are picked up by `Handler.Sync` during normal reconciliation.
 func (h *Handler) SetUpDefaultMDMAssetSource(ctx context.Context, c kclient.Client) error {
 	source := v1.MDMAssetSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultMDMAssetSource,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.DefaultMDMAssetSource,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MDMAssetSourceSpec{
 			MDMAssetSourceManifest: types.MDMAssetSourceManifest{Source: h.defaultSource},
 		},

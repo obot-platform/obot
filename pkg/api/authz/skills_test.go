@@ -11,7 +11,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -230,10 +229,8 @@ func TestSkillRouteAuthorization(t *testing.T) {
 func TestSkillGetAuthorizationUsesAccessRules(t *testing.T) {
 	authorizer := newSkillAccessRuleTestAuthorizer(t,
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "sk1",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "sk1",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				RepoID: "repo-1",
 			},
@@ -242,10 +239,8 @@ func TestSkillGetAuthorizationUsesAccessRules(t *testing.T) {
 			},
 		},
 		&v1.SkillAccessRule{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "allow-user1-sk1",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "allow-user1-sk1",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.SkillAccessRuleSpec{
 				Manifest: types.SkillAccessRuleManifest{
 					Subjects:  []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}},
@@ -282,10 +277,8 @@ func newSkillRouteTestAuthorizer(t *testing.T) *Authorizer {
 	t.Helper()
 
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "some-skill-id",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "some-skill-id",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillSpec{
 			RepoID: "repo-1",
 		},
@@ -307,10 +300,8 @@ func newSkillRouteTestAuthorizer(t *testing.T) *Authorizer {
 		},
 	})
 	_ = indexer.Add(&v1.SkillAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "allow-all",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "allow-all",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillAccessRuleSpec{
 			Manifest: types.SkillAccessRuleManifest{
 				Subjects:  []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},

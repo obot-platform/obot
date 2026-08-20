@@ -19,7 +19,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -565,10 +564,8 @@ func (c *Client) createUserRoleChangeForNewUser(ctx context.Context, user *types
 	// Always create UserRoleChange for new users to trigger reconciliation
 	// The handler will check effective role and create workspace if needed
 	if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.UserRoleChangePrefix,
-			Namespace:    system.DefaultNamespace,
-		},
+		GenerateName: system.UserRoleChangePrefix,
+		Namespace:    system.DefaultNamespace,
 		Spec: v1.UserRoleChangeSpec{
 			UserID: user.ID,
 		},

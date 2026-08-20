@@ -74,8 +74,7 @@ func TestTunnelAuthenticator(t *testing.T) {
 	}
 
 	newStoredTunnel := func(name, storedCredential string) v1.MCPTunnel {
-		tunnel := v1.MCPTunnel{}
-		tunnel.Name = name
+		tunnel := v1.MCPTunnel{Name: name}
 		tunnel.Spec.Credential = storedCredential
 		credentialID, err := CredentialID(storedCredential)
 		if err != nil {

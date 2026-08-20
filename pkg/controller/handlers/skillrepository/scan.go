@@ -116,14 +116,10 @@ func buildSkill(dirPath, relPath string, repo *v1.SkillRepository, commitSHA str
 	}
 
 	skill := &v1.Skill{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "Skill",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      skillObjectName(repo.Name, relPath),
-			Namespace: repo.Namespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "Skill",
+		Name:       skillObjectName(repo.Name, relPath),
+		Namespace:  repo.Namespace,
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{
 				Name:           skillName,

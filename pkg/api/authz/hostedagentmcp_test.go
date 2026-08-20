@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -33,7 +32,7 @@ func agentUser(grants ...string) User {
 // was configured with.
 func TestHostedAgentReachesItsGrantedServer(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "ms1github", Namespace: "obot"}},
+		&v1.MCPServer{Name: "ms1github", Namespace: "obot"},
 	).Build()
 	authorizer := &Authorizer{uncached: client}
 
@@ -50,7 +49,7 @@ func TestHostedAgentReachesItsGrantedServer(t *testing.T) {
 // The grant list is the whole authority, so a server absent from it is denied.
 func TestHostedAgentCannotReachAnUngrantedServer(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "ms1secret", Namespace: "obot"}},
+		&v1.MCPServer{Name: "ms1secret", Namespace: "obot"},
 	).Build()
 	authorizer := &Authorizer{uncached: client}
 
@@ -65,7 +64,7 @@ func TestHostedAgentCannotReachAnUngrantedServer(t *testing.T) {
 // empty list is how a caller with no grants ends up with every grant.
 func TestHostedAgentWithNoGrantsReachesNothing(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "ms1github", Namespace: "obot"}},
+		&v1.MCPServer{Name: "ms1github", Namespace: "obot"},
 	).Build()
 	authorizer := &Authorizer{uncached: client}
 

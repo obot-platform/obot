@@ -441,13 +441,13 @@ func TestValidateSpec(t *testing.T) {
 func TestEffectiveSecretNames(t *testing.T) {
 	deletionTime := metav1.Now()
 	managed := []v1.ImagePullSecret{
-		{ObjectMeta: metav1.ObjectMeta{Name: "managed-b"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "disabled"}, Spec: v1.ImagePullSecretSpec{Enabled: false}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "managed-a"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "managed-a"}, Spec: v1.ImagePullSecretSpec{Enabled: true}},
+		{Name: "managed-b", Spec: v1.ImagePullSecretSpec{Enabled: true}},
+		{Name: "disabled", Spec: v1.ImagePullSecretSpec{Enabled: false}},
+		{Name: "managed-a", Spec: v1.ImagePullSecretSpec{Enabled: true}},
+		{Name: "managed-a", Spec: v1.ImagePullSecretSpec{Enabled: true}},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "deleting", DeletionTimestamp: &deletionTime},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+			Name: "deleting", DeletionTimestamp: &deletionTime,
+			Spec: v1.ImagePullSecretSpec{Enabled: true},
 		},
 	}
 

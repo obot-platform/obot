@@ -62,8 +62,8 @@ func TestCleanup(t *testing.T) {
 
 func testSession(name string, lastUsed time.Time) *v1.MCPClientSession {
 	return &v1.MCPClientSession{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
-		Spec:       v1.MCPClientSessionSpec{},
+		Name: name, Namespace: "default",
+		Spec: v1.MCPClientSessionSpec{},
 		Status: v1.MCPClientSessionStatus{
 			LastUsed: metav1.NewTime(lastUsed),
 		},

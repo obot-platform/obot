@@ -9,7 +9,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -121,12 +120,11 @@ func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
 			Port:  8080,
 			Path:  "/mcp",
 		},
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+		Env: []types.MCPEnv{{
 			Key:       "API_KEY",
 			Name:      "API Key",
 			Required:  true,
-			Sensitive: true,
-		}}},
+			Sensitive: true}},
 	}
 	compositeEntry := newMCPServerCatalogEntry("composite-entry", types.MCPServerCatalogEntryManifest{
 		Name:    "Composite Entry",
@@ -147,13 +145,12 @@ func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
 			Port:  8080,
 			Path:  "/mcp",
 		},
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+		Env: []types.MCPEnv{{
 			Key:           "API_KEY",
 			Name:          "API Key",
 			Required:      true,
 			Sensitive:     true,
-			SecretBinding: binding,
-		}}},
+			SecretBinding: binding}},
 	})
 	client := newFakeClient(compositeEntry, sharedServer)
 	err := (&Handler{}).DetectCompositeDrift(router.Request{
@@ -236,14 +233,10 @@ func newFakeClient(objects ...kclient.Object) kclient.WithWatch {
 
 func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "MCPServerCatalogEntry",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "MCPServerCatalogEntry",
+		Name:       name,
+		Namespace:  "default",
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: manifest,
 		},
@@ -386,14 +379,10 @@ func TestEnsureUserCountSingleUserEntryCountsUniqueServerUsers(t *testing.T) {
 
 func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
 	return &v1.MCPServer{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "MCPServer",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "MCPServer",
+		Name:       name,
+		Namespace:  "default",
 		Spec: v1.MCPServerSpec{
 			Manifest: manifest,
 		},

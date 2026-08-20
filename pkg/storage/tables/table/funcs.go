@@ -112,7 +112,7 @@ func toKObject(obj any) (kclient.Object, bool) {
 	if !ok {
 		newObj := reflect.New(reflect.TypeOf(obj))
 		newObj.Elem().Set(reflect.ValueOf(obj))
-		ro, ok = newObj.Interface().(kclient.Object)
+		ro, ok = reflect.TypeAssert[kclient.Object](newObj)
 	}
 	return ro, ok
 }

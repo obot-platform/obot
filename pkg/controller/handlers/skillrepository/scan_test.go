@@ -132,14 +132,10 @@ func TestDiscoverSkillDirectories(t *testing.T) {
 
 func testRepo(name, namespace string) *v1.SkillRepository {
 	return &v1.SkillRepository{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "SkillRepository",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "SkillRepository",
+		Name:       name,
+		Namespace:  namespace,
 		Spec: v1.SkillRepositorySpec{
 			RepoURL: "https://github.com/owner/repo",
 			Ref:     "main",

@@ -6,7 +6,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/agentbackend"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestDesiredPoolIsStableAndUsesObotID(t *testing.T) {
@@ -82,7 +81,7 @@ func TestApplyObservationRequiresMatchingReadyRevision(t *testing.T) {
 
 func validPool() *v1.HostedAgentPool {
 	return &v1.HostedAgentPool{
-		ObjectMeta: metav1.ObjectMeta{Name: "pool-1"},
+		Name: "pool-1",
 		Spec: v1.HostedAgentPoolSpec{
 			Manifest: types.HostedAgentPoolManifest{
 				Capacity: types.HostedAgentResourceQuantity{

@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/tunnel"
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -219,12 +218,10 @@ func endpointSlice(name string, addressType discoveryv1.AddressType, port int32,
 
 func endpointSliceWithPorts(name string, addressType discoveryv1.AddressType, ports []discoveryv1.EndpointPort, endpoints ...discoveryv1.Endpoint) *discoveryv1.EndpointSlice {
 	return &discoveryv1.EndpointSlice{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "obot-system",
-			Labels: map[string]string{
-				discoveryv1.LabelServiceName: "obot",
-			},
+		Name:      name,
+		Namespace: "obot-system",
+		Labels: map[string]string{
+			discoveryv1.LabelServiceName: "obot",
 		},
 		AddressType: addressType,
 		Ports:       ports,

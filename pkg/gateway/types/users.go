@@ -53,10 +53,8 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 	}
 
 	user := &types2.User{
-		Metadata: types2.Metadata{
-			ID:      fmt.Sprint(u.ID),
-			Created: *types2.NewTime(u.CreatedAt),
-		},
+		ID:                     fmt.Sprint(u.ID),
+		Created:                *types2.NewTime(u.CreatedAt),
 		DisplayName:            u.DisplayName,
 		Username:               u.Username,
 		Email:                  u.Email,

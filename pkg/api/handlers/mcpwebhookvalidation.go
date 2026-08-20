@@ -87,10 +87,8 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 	}
 
 	webhookValidation := v1.MCPWebhookValidation{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.MCPWebhookValidationPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.MCPWebhookValidationPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.MCPWebhookValidationSpec{
 			Manifest: manifest,
 		},
@@ -298,10 +296,8 @@ func getCredentialsForWebhookValidation(ctx context.Context, gatewayClient *gate
 
 func (m *MCPWebhookValidationHandler) getSystemServerForWebhookValidation(req api.Context) (v1.SystemMCPServer, error) {
 	systemServer := &v1.SystemMCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: req.Namespace(),
-			Name:      system.SystemMCPServerPrefix + req.PathValue("mcp_webhook_validation_id"),
-		},
+		Namespace: req.Namespace(),
+		Name:      system.SystemMCPServerPrefix + req.PathValue("mcp_webhook_validation_id"),
 	}
 
 	systemServer, err := wait.For(req.Context(), req.Storage, systemServer, func(s *v1.SystemMCPServer) (bool, error) {

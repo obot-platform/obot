@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -244,10 +243,8 @@ func TestDataSeedsDefaultAgentCatalogOnFirstBoot(t *testing.T) {
 	// catalog an admin deleted is not resurrected.
 	t.Run("does not seed when catalogs already exist", func(t *testing.T) {
 		c := newFakeClient(t, &v1.MCPCatalog{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.DefaultCatalog,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      system.DefaultCatalog,
+			Namespace: system.DefaultNamespace,
 		})
 		require.NoError(t, Data(ctx, c, Defaults{HostedAgentsCatalogURL: repoURL}))
 

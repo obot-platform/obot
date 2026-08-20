@@ -10,7 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,10 +45,8 @@ func TestCheckMCPIDDoesNotBypassNonMCPConnectForAnonymous(t *testing.T) {
 
 func TestCheckMCPIDChecksMCPServerInstanceOwner(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "msi1test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "msi1test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerInstanceSpec{
 			UserID: "user-uid",
 		},
@@ -94,10 +91,8 @@ func TestCheckMCPIDChecksSystemMCPServerEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.SystemMCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "sms1test",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "sms1test",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.SystemMCPServerSpec{
 					Manifest: types.SystemMCPServerManifest{
 						Enabled: tt.enabled,
@@ -124,20 +119,16 @@ func TestCheckMCPIDChecksSystemMCPServerEnabled(t *testing.T) {
 
 func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ms1catalog",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "ms1catalog",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			MCPCatalogID: "catalog-a",
 			UserID:       "owner-uid",
 		},
 	}).Build()
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "acr1server",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "acr1server",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AccessControlRuleSpec{
 			MCPCatalogID: "catalog-a",
 			Manifest: types.AccessControlRuleManifest{
@@ -167,19 +158,15 @@ func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 
 func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "entry-test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "entry-test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: "catalog-a",
 		},
 	}).Build()
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "acr1entry",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "acr1entry",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AccessControlRuleSpec{
 			MCPCatalogID: "catalog-a",
 			Manifest: types.AccessControlRuleManifest{
@@ -210,39 +197,31 @@ func TestCheckMCPIDChecksCatalogEntryAccess(t *testing.T) {
 func TestCheckMCPIDChecksWorkspaceAccess(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ms1workspace",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "ms1workspace",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerSpec{
 				PowerUserWorkspaceID: "puw1test",
 				UserID:               "owner-uid",
 			},
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "workspace-entry",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "workspace-entry",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				PowerUserWorkspaceID: "puw1test",
 			},
 		},
 		&v1.PowerUserWorkspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "puw1test",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "puw1test",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.PowerUserWorkspaceSpec{
 				UserID: "owner-uid",
 			},
 		},
 	).Build()
 	authorizer := newMCPIDTestAuthorizer(t, storage, &v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "acr1workspace",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "acr1workspace",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AccessControlRuleSpec{
 			PowerUserWorkspaceID: "puw1test",
 			Manifest: types.AccessControlRuleManifest{
@@ -308,10 +287,8 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		{
 			name: "server composite parent allows component server",
 			objects: []kclient.Object{&v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ms1component",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "ms1component",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.MCPServerSpec{
 					CompositeName: "ms1composite",
 				},
@@ -324,10 +301,8 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		{
 			name: "server without authorized composite is denied",
 			objects: []kclient.Object{&v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "ms1component",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "ms1component",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.MCPServerSpec{
 					CompositeName: "ms1composite",
 				},
@@ -347,10 +322,8 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		{
 			name: "instance direct ID allows without storage lookup",
 			objects: []kclient.Object{&v1.MCPServerInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "msi1instance",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "msi1instance",
+				Namespace: system.DefaultNamespace,
 			}},
 			authorized: []string{"msi1instance"},
 			userID:     "user-uid",
@@ -360,10 +333,8 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 		{
 			name: "instance composite parent allows component instance",
 			objects: []kclient.Object{&v1.MCPServerInstance{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "msi1component",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "msi1component",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.MCPServerInstanceSpec{
 					CompositeName: "ms1composite",
 				},
@@ -377,19 +348,15 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 			name: "instance checks associated server composite parent",
 			objects: []kclient.Object{
 				&v1.MCPServerInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "msi1instance",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "msi1instance",
+					Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerInstanceSpec{
 						MCPServerName: "ms1component",
 					},
 				},
 				&v1.MCPServer{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ms1component",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "ms1component",
+					Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerSpec{
 						CompositeName: "ms1composite",
 					},
@@ -404,16 +371,12 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 			name: "catalog entry allows matching user server",
 			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "entry-test",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "entry-test",
+					Namespace: system.DefaultNamespace,
 				},
 				&v1.MCPServer{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ms1fromentry",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "ms1fromentry",
+					Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerSpec{
 						MCPServerCatalogEntryName: "entry-test",
 						UserID:                    "user-uid",
@@ -429,16 +392,12 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 			name: "catalog entry allows matching user server composite parent",
 			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "entry-test",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "entry-test",
+					Namespace: system.DefaultNamespace,
 				},
 				&v1.MCPServer{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ms1fromentry",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "ms1fromentry",
+					Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerSpec{
 						MCPServerCatalogEntryName: "entry-test",
 						UserID:                    "user-uid",
@@ -455,16 +414,12 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 			name: "catalog entry ignores matching server for different user",
 			objects: []kclient.Object{
 				&v1.MCPServerCatalogEntry{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "entry-test",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "entry-test",
+					Namespace: system.DefaultNamespace,
 				},
 				&v1.MCPServer{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "ms1fromentry",
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      "ms1fromentry",
+					Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerSpec{
 						MCPServerCatalogEntryName: "entry-test",
 						UserID:                    "other-uid",
@@ -503,37 +458,29 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ms1test",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "ms1test",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerSpec{
 				UserID: "user-uid",
 			},
 		},
 		&v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "ms1keytest",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "ms1keytest",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerSpec{
 				UserID: "key-user-uid",
 			},
 		},
 		&v1.MCPServerInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "msi1test",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "msi1test",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
 				UserID: "user-uid",
 			},
 		},
 		&v1.MCPServerInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "msi1keytest",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "msi1keytest",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
 				UserID: "key-user-uid",
 			},

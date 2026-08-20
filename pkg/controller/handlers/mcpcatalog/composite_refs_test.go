@@ -11,7 +11,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -420,7 +419,7 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 func testCatalogEntry(name, sourceID, entryKey string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	manifest.EntryKey = entryKey
 	return &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: name},
+		Name: name,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			SourceURL: sourceID,
 			Manifest:  manifest,
@@ -431,7 +430,7 @@ func testCatalogEntry(name, sourceID, entryKey string, manifest types.MCPServerC
 
 func testMCPServer(name, namespace string, manifest types.MCPServerManifest) *v1.MCPServer {
 	return &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Name: name, Namespace: namespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: manifest,
 		},

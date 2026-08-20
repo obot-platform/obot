@@ -42,10 +42,8 @@ func (*ModelInfoSourceHandler) Refresh(req api.Context) error {
 
 func convertModelInfoSource(source v1.ModelInfoSource) types.ModelInfoSource {
 	return types.ModelInfoSource{
-		Metadata: MetadataFrom(&source),
-		ModelInfoSourceManifest: types.ModelInfoSourceManifest{
-			URL: source.Spec.Manifest.URL,
-		},
+		Metadata:   MetadataFrom(&source),
+		URL:        source.Spec.Manifest.URL,
 		LastSynced: *types.NewTime(source.Status.LastSyncTime.Time),
 		SyncError:  source.Status.SyncError,
 		IsSyncing:  source.Annotations[v1.ModelInfoSourceSyncAnnotation] == "true",

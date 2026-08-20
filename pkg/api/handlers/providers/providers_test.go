@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestAuthProviderStatus(t *testing.T) {
@@ -266,9 +265,7 @@ func modelProvider(requiredConfig []types.ProviderConfigurationParameter, missin
 	statusPopulated := missingConfig != nil
 
 	return v1.ModelProvider{
-		ObjectMeta: metav1.ObjectMeta{
-			Generation: generation,
-		},
+		Generation: generation,
 		Spec: v1.ModelProviderSpec{
 			ModelProviderManifest: types.ModelProviderManifest{
 				CommonProviderMetadata: types.CommonProviderMetadata{

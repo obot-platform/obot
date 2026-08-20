@@ -27,7 +27,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,11 +113,11 @@ func TestParseSkillRepositoryRequest(t *testing.T) {
 func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
-			Spec:       v1.SkillSpec{RepoID: "skr1"},
+			Name: "sk1", Namespace: system.DefaultNamespace,
+			Spec: v1.SkillSpec{RepoID: "skr1"},
 		},
 		&v1.SkillRepository{
-			ObjectMeta: metav1.ObjectMeta{Name: "skr1", Namespace: system.DefaultNamespace},
+			Name: "skr1", Namespace: system.DefaultNamespace,
 		},
 	)
 
@@ -155,10 +154,8 @@ func TestSkillAccessRuleHandlerReadAndValidateManifest(t *testing.T) {
 
 func TestSkillRepositoryHandlerRefresh(t *testing.T) {
 	storage := newFakeStorage(t, &v1.SkillRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "skr1",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "skr1",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillRepositorySpec{
 			RepoURL: "https://github.com/example/repo",
 		},
@@ -200,7 +197,7 @@ func TestSkillRepositoryHandlerRejectsDuplicateNameAndURL(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			storage := newFakeStorage(t, &v1.SkillRepository{
-				ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+				Name: "skr-existing", Namespace: system.DefaultNamespace,
 				Spec: v1.SkillRepositorySpec{
 					DisplayName: "Existing Source",
 					RepoURL:     "https://github.com/example/repo",
@@ -243,14 +240,14 @@ func TestSkillRepositoryHandlerUpdateRejectsAnotherSourceNameAndURL(t *testing.T
 		t.Run(test.name, func(t *testing.T) {
 			storage := newFakeStorage(t,
 				&v1.SkillRepository{
-					ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+					Name: "skr-existing", Namespace: system.DefaultNamespace,
 					Spec: v1.SkillRepositorySpec{
 						DisplayName: "Existing Source",
 						RepoURL:     "https://github.com/example/repo",
 					},
 				},
 				&v1.SkillRepository{
-					ObjectMeta: metav1.ObjectMeta{Name: "skr-updating", Namespace: system.DefaultNamespace},
+					Name: "skr-updating", Namespace: system.DefaultNamespace,
 					Spec: v1.SkillRepositorySpec{
 						DisplayName: "Current Source",
 						RepoURL:     "https://github.com/example/current",
@@ -273,7 +270,7 @@ func TestSkillRepositoryHandlerUpdateRejectsAnotherSourceNameAndURL(t *testing.T
 
 func TestSkillRepositoryHandlerUpdateAllowsOwnNameAndURL(t *testing.T) {
 	storage := newFakeStorage(t, &v1.SkillRepository{
-		ObjectMeta: metav1.ObjectMeta{Name: "skr-existing", Namespace: system.DefaultNamespace},
+		Name: "skr-existing", Namespace: system.DefaultNamespace,
 		Spec: v1.SkillRepositorySpec{
 			DisplayName: "Existing Source",
 			RepoURL:     "https://github.com/example/repo",
@@ -296,7 +293,7 @@ func TestSkillRepositoryHandlerUpdateAllowsOwnNameAndURL(t *testing.T) {
 func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-allowed", Namespace: system.DefaultNamespace},
+			Name: "sk-allowed", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{
 					Name:        "postgres-helper",
@@ -308,7 +305,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 			Status: v1.SkillStatus{Valid: true},
 		},
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-invalid", Namespace: system.DefaultNamespace},
+			Name: "sk-invalid", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{
 					Name: "broken-helper",
@@ -318,7 +315,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 			Status: v1.SkillStatus{Valid: false},
 		},
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-direct", Namespace: system.DefaultNamespace},
+			Name: "sk-direct", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{
 					Name:        "redis-helper",
@@ -330,7 +327,7 @@ func TestSkillHandlerListFiltersByAccessAndValidity(t *testing.T) {
 			Status: v1.SkillStatus{Valid: true},
 		},
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-denied", Namespace: system.DefaultNamespace},
+			Name: "sk-denied", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{
 					Name: "denied-helper",
@@ -381,7 +378,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 	// Skills in repo-1 (in scope for user1) and repo-3 (out of scope)
 	storage := newFakeStorage(t,
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-in-scope", Namespace: system.DefaultNamespace},
+			Name: "sk-in-scope", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{Name: "in-scope-skill"},
 				RepoID:        "repo-1",
@@ -389,7 +386,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 			Status: v1.SkillStatus{Valid: true},
 		},
 		&v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk-out-scope", Namespace: system.DefaultNamespace},
+			Name: "sk-out-scope", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillSpec{
 				SkillManifest: types.SkillManifest{Name: "out-of-scope-skill"},
 				RepoID:        "repo-3",
@@ -463,7 +460,7 @@ func TestSkillHandlerListAllTrueScopeBypass(t *testing.T) {
 
 func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 	skill := &v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
+		Name: "sk1", Namespace: system.DefaultNamespace,
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{Name: "postgres-helper"},
 			RepoID:        "repo-1",
@@ -526,7 +523,7 @@ func TestSkillHandlerDownloadPackagesMaterializedSkill(t *testing.T) {
 func TestSkillHandlerPreviewReturnsSkillMD(t *testing.T) {
 	want := []byte("---\nname: postgres-helper\ndescription: Preview me\n---\n\n# Instructions\n")
 	skill := &v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: "sk1", Namespace: system.DefaultNamespace},
+		Name: "sk1", Namespace: system.DefaultNamespace,
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{Name: "postgres-helper"},
 			RepoID:        "repo-1",
@@ -719,10 +716,8 @@ func newSkillAccessRuleHelper(t *testing.T, rules ...*v1.SkillAccessRule) *skill
 
 func newSkillRule(name string, subjects []types.Subject, resources []types.SkillResource) *v1.SkillAccessRule {
 	return &v1.SkillAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      name,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillAccessRuleSpec{
 			Manifest: types.SkillAccessRuleManifest{
 				Subjects:  subjects,

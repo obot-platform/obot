@@ -109,10 +109,8 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 			}
 			if len(instances.Items) == 0 {
 				instance := v1.MCPServerInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: system.MCPServerInstancePrefix,
-						Namespace:    server.Namespace,
-					},
+					GenerateName: system.MCPServerInstancePrefix,
+					Namespace:    server.Namespace,
 					Spec: v1.MCPServerInstanceSpec{
 						MCPServerName:             id,
 						MCPCatalogName:            server.Spec.MCPCatalogID,
@@ -183,10 +181,8 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 			}
 
 			server := v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.MCPServerPrefix,
-					Namespace:    system.DefaultNamespace,
-				},
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    system.DefaultNamespace,
 				Spec: v1.MCPServerSpec{
 					Manifest:                  manifest,
 					UnsupportedTools:          entry.Spec.UnsupportedTools,
@@ -925,13 +921,11 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
 				server.Spec.Manifest.Env = append(server.Spec.Manifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
-						Name:        env,
-						Key:         env,
-						Description: "Automatically detected variable",
-						Sensitive:   true,
-						Required:    true,
-					},
+					Name:        env,
+					Key:         env,
+					Description: "Automatically detected variable",
+					Sensitive:   true,
+					Required:    true,
 				})
 			}
 		}
@@ -992,13 +986,11 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 			if _, exists := existing[env]; !exists {
 				if manifest.Runtime != types.RuntimeRemote {
 					manifest.Env = append(manifest.Env, types.MCPEnv{
-						MCPHeader: types.MCPHeader{
-							Name:        env,
-							Key:         env,
-							Description: "Automatically detected variable",
-							Sensitive:   true,
-							Required:    true,
-						},
+						Name:        env,
+						Key:         env,
+						Description: "Automatically detected variable",
+						Sensitive:   true,
+						Required:    true,
 					})
 				} else if manifest.RemoteConfig != nil {
 					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{

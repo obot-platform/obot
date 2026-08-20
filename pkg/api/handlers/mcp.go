@@ -31,7 +31,6 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -753,9 +752,8 @@ func (m *MCPHandler) serverNeedsOAuth(ctx context.Context, server *v1.MCPServer,
 		return false, nil
 	}
 
-	var authRequired nmcp.AuthRequiredErr
 	if err := m.mcpSessionManager.PingServer(ctx, serverConfig); err != nil {
-		if errors.As(err, &authRequired) {
+		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return true, nil
 		}
 		return false, fmt.Errorf("failed to ping MCP server %s: %w", server.Name, err)
@@ -857,8 +855,7 @@ func (m *MCPHandler) GetResources(req api.Context) error {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		var are nmcp.AuthRequiredErr
-		if errors.As(err, &are) {
+		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
@@ -898,8 +895,7 @@ func (m *MCPHandler) ReadResource(req api.Context) error {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		var are nmcp.AuthRequiredErr
-		if errors.As(err, &are) {
+		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list resources: %w", err)
@@ -942,8 +938,7 @@ func (m *MCPHandler) GetPrompts(req api.Context) error {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 
-		var are nmcp.AuthRequiredErr
-		if errors.As(err, &are) {
+		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to list prompts: %w", err)
@@ -990,8 +985,7 @@ func (m *MCPHandler) GetPrompt(req api.Context) error {
 		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
-		var are nmcp.AuthRequiredErr
-		if errors.As(err, &are) {
+		if _, ok := errors.AsType[nmcp.AuthRequiredErr](err); ok {
 			return types.NewErrHTTP(http.StatusPreconditionFailed, "MCP server requires authentication")
 		}
 		return fmt.Errorf("failed to get prompt: %w", err)
@@ -1031,10 +1025,8 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 			if len(instances.Items) == 0 {
 				// If none exist, then create one for the user.
 				instance := v1.MCPServerInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: system.MCPServerInstancePrefix,
-						Namespace:    server.Namespace,
-					},
+					GenerateName: system.MCPServerInstancePrefix,
+					Namespace:    server.Namespace,
 					Spec: v1.MCPServerInstanceSpec{
 						MCPServerName:             id,
 						MCPCatalogName:            server.Spec.MCPCatalogID,
@@ -1105,10 +1097,8 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 
 			// Create a new MCP server for the user.
 			server := v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.MCPServerPrefix,
-					Namespace:    req.Namespace(),
-				},
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    req.Namespace(),
 				Spec: v1.MCPServerSpec{
 					Manifest:                  manifest,
 					UnsupportedTools:          entry.Spec.UnsupportedTools,
@@ -1607,11 +1597,9 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	server := v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.MCPServerPrefix,
-			Namespace:    req.Namespace(),
-			Finalizers:   []string{v1.MCPServerFinalizer},
-		},
+		GenerateName: system.MCPServerPrefix,
+		Namespace:    req.Namespace(),
+		Finalizers:   []string{v1.MCPServerFinalizer},
 		Spec: v1.MCPServerSpec{
 			Alias:                     input.Alias,
 			MCPServerCatalogEntryName: input.CatalogEntryID,
@@ -2739,13 +2727,11 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 		for _, env := range extractEnvVars(v) {
 			if _, exists := existing[env]; !exists {
 				server.Spec.Manifest.Env = append(server.Spec.Manifest.Env, types.MCPEnv{
-					MCPHeader: types.MCPHeader{
-						Name:        env,
-						Key:         env,
-						Description: "Automatically detected variable",
-						Sensitive:   true,
-						Required:    true,
-					},
+					Name:        env,
+					Key:         env,
+					Description: "Automatically detected variable",
+					Sensitive:   true,
+					Required:    true,
 				})
 			}
 		}
@@ -2812,13 +2798,11 @@ func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogE
 			if _, exists := existing[env]; !exists {
 				if manifest.Runtime != types.RuntimeRemote {
 					manifest.Env = append(manifest.Env, types.MCPEnv{
-						MCPHeader: types.MCPHeader{
-							Name:        env,
-							Key:         env,
-							Description: "Automatically detected variable",
-							Sensitive:   true,
-							Required:    true,
-						},
+						Name:        env,
+						Key:         env,
+						Description: "Automatically detected variable",
+						Sensitive:   true,
+						Required:    true,
 					})
 				} else if manifest.RemoteConfig != nil {
 					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{

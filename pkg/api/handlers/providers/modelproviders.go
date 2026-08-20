@@ -39,11 +39,9 @@ func ModelProviderStatus(ctx context.Context, modelProvider v1.ModelProvider, cr
 	}
 
 	return &types.ModelProviderStatus{
-		CommonProviderStatus: types.CommonProviderStatus{
-			Configured:                     len(missingEnvVars) == 0,
-			MissingEntitlements:            missingEntitlements,
-			MissingConfigurationParameters: missingEnvVars,
-		},
-		ModelsBackPopulated: modelsPopulated,
+		Configured:                     len(missingEnvVars) == 0,
+		MissingEntitlements:            missingEntitlements,
+		MissingConfigurationParameters: missingEnvVars,
+		ModelsBackPopulated:            modelsPopulated,
 	}, nil
 }

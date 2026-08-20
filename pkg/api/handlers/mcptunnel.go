@@ -10,7 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	tunnelpkg "github.com/obot-platform/obot/pkg/tunnel"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -73,10 +72,8 @@ func (*MCPTunnelHandler) Create(req api.Context) error {
 	}
 
 	tunnel := v1.MCPTunnel{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.MCPTunnelPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.MCPTunnelPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.MCPTunnelSpec{
 			Manifest:     manifest,
 			Credential:   credential,

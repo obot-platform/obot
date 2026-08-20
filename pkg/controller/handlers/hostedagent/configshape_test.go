@@ -12,7 +12,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -26,7 +25,7 @@ func TestAgentConfigShape(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(
 			&v1.Model{
-				ObjectMeta: metav1.ObjectMeta{Name: "m1sonnet", Namespace: "obot"},
+				Name: "m1sonnet", Namespace: "obot",
 				Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 					Name:          "claude-sonnet",
 					TargetModel:   "claude-sonnet-4-5",
@@ -36,7 +35,7 @@ func TestAgentConfigShape(t *testing.T) {
 				}},
 			},
 			&v1.Model{
-				ObjectMeta: metav1.ObjectMeta{Name: "m1gpt", Namespace: "obot"},
+				Name: "m1gpt", Namespace: "obot",
 				Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 					Name:          "gpt",
 					TargetModel:   "gpt-5",
@@ -46,7 +45,7 @@ func TestAgentConfigShape(t *testing.T) {
 				}},
 			},
 			&v1.Model{
-				ObjectMeta: metav1.ObjectMeta{Name: "m1mini", Namespace: "obot"},
+				Name: "m1mini", Namespace: "obot",
 				Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 					Name:          "gpt-mini",
 					TargetModel:   "gpt-5-mini",
@@ -56,18 +55,18 @@ func TestAgentConfigShape(t *testing.T) {
 				}},
 			},
 			&v1.DefaultModelAlias{
-				ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: "obot"},
-				Spec:       v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: "m1sonnet"}},
+				Name: "llm", Namespace: "obot",
+				Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm", Model: "m1sonnet"}},
 			},
 			&v1.DefaultModelAlias{
-				ObjectMeta: metav1.ObjectMeta{Name: "llm-mini", Namespace: "obot"},
-				Spec:       v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm-mini", Model: "m1mini"}},
+				Name: "llm-mini", Namespace: "obot",
+				Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: "llm-mini", Model: "m1mini"}},
 			},
 		).
 		Build()
 
 	instance := &v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: "hai1g26fc", Namespace: "obot", UID: "d47613e8-aede-42f6-a599-9a641f99d8b7"},
+		Name: "hai1g26fc", Namespace: "obot", UID: "d47613e8-aede-42f6-a599-9a641f99d8b7",
 		Spec: v1.HostedAgentInstanceSpec{
 			UserID: "3",
 			Manifest: types.HostedAgentInstanceManifest{
@@ -232,7 +231,7 @@ func TestAgentConfigShape(t *testing.T) {
 func TestCredentialsNeverReachTheRevision(t *testing.T) {
 	builder := defaultDesiredBuilder{ServerURL: "https://obot.example.com"}
 	desired, err := builder.Build(context.Background(), BuildInput{
-		Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1", UID: "uid-1"}},
+		Instance: &v1.HostedAgentInstance{Name: "hai1", UID: "uid-1"},
 		Agent: &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: types.HostedAgentManifest{
 			MCPServers: []string{"ms1github"},
 		}}},
@@ -258,7 +257,7 @@ func TestConfigChangeChangesTheRevision(t *testing.T) {
 	build := func(servers ...string) string {
 		t.Helper()
 		desired, err := defaultDesiredBuilder{ServerURL: "https://obot.example.com"}.Build(context.Background(), BuildInput{
-			Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1", UID: "uid-1"}},
+			Instance: &v1.HostedAgentInstance{Name: "hai1", UID: "uid-1"},
 			Agent:    &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: types.HostedAgentManifest{MCPServers: servers}}},
 			Harness:  &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}},
 		})
@@ -282,7 +281,7 @@ func TestPublishedAgentIsToldWhereItIsPublished(t *testing.T) {
 		t.Helper()
 		desired, err := (defaultDesiredBuilder{ServerURL: "https://obot.example.com"}).Build(
 			context.Background(), BuildInput{
-				Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1qhtrt", UID: "uid-1"}},
+				Instance: &v1.HostedAgentInstance{Name: "hai1qhtrt", UID: "uid-1"},
 				Agent:    &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: types.HostedAgentManifest{Port: port}}},
 				Harness:  &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}},
 			})
@@ -331,7 +330,7 @@ func TestSandboxEndpointsUseTheInternalAddress(t *testing.T) {
 
 	desired, err := (defaultDesiredBuilder{ServerURL: public, InternalURL: internal}).Build(
 		context.Background(), BuildInput{
-			Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1qhtrt", UID: "uid-1"}},
+			Instance: &v1.HostedAgentInstance{Name: "hai1qhtrt", UID: "uid-1"},
 			Agent: &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: types.HostedAgentManifest{
 				Port:       8000,
 				MCPServers: []string{"ms1github"},
@@ -373,7 +372,7 @@ func TestSandboxEndpointsUseTheInternalAddress(t *testing.T) {
 func TestInternalAddressFallsBackToPublic(t *testing.T) {
 	desired, err := (defaultDesiredBuilder{ServerURL: "https://obot.example.com"}).Build(
 		context.Background(), BuildInput{
-			Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1qhtrt", UID: "uid-1"}},
+			Instance: &v1.HostedAgentInstance{Name: "hai1qhtrt", UID: "uid-1"},
 			Agent:    &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: types.HostedAgentManifest{MCPServers: []string{"ms1github"}}}},
 			Harness:  &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}},
 		})

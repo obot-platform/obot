@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -26,7 +25,7 @@ func clientWith(objs ...kclient.Object) kclient.Client {
 
 func entry(name, sourceURL, entryKey string) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
+		Name: name, Namespace: "obot",
 		Spec: v1.MCPServerCatalogEntrySpec{
 			SourceURL: sourceURL,
 			Manifest:  types.MCPServerCatalogEntryManifest{EntryKey: entryKey},
@@ -36,8 +35,8 @@ func entry(name, sourceURL, entryKey string) *v1.MCPServerCatalogEntry {
 
 func skill(name, repoURL, relPath string) *v1.Skill {
 	return &v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
-		Spec:       v1.SkillSpec{RepoURL: repoURL, RelativePath: relPath},
+		Name: name, Namespace: "obot",
+		Spec: v1.SkillSpec{RepoURL: repoURL, RelativePath: relPath},
 	}
 }
 

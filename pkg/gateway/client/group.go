@@ -18,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -275,10 +274,8 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity) er
 	// If memberships changed, trigger reconciliation for this user
 	if membershipsChanged {
 		if err := c.storageClient.Create(ctx, &v1.UserRoleChange{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.UserRoleChangePrefix,
-				Namespace:    system.DefaultNamespace,
-			},
+			GenerateName: system.UserRoleChangePrefix,
+			Namespace:    system.DefaultNamespace,
 			Spec: v1.UserRoleChangeSpec{
 				UserID: identity.UserID,
 			},
@@ -291,10 +288,8 @@ func (c *Client) persistGroups(ctx context.Context, identity *types.Identity) er
 	// If user lost groups, trigger MCP server cleanup
 	if groupsLost {
 		if err := c.storageClient.Create(ctx, &v1.UserGroupChange{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.UserGroupChangePrefix,
-				Namespace:    system.DefaultNamespace,
-			},
+			GenerateName: system.UserGroupChangePrefix,
+			Namespace:    system.DefaultNamespace,
 			Spec: v1.UserGroupChangeSpec{
 				UserID: identity.UserID,
 			},

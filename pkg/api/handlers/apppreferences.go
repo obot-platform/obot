@@ -6,7 +6,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,10 +46,8 @@ func (*AppPreferencesHandler) Update(req api.Context) error {
 	if apierrors.IsNotFound(err) {
 		// Create new preferences
 		prefs = v1.AppPreferences{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.AppPreferencesName,
-				Namespace: req.Namespace(),
-			},
+			Name:      system.AppPreferencesName,
+			Namespace: req.Namespace(),
 			Spec: v1.AppPreferencesSpec{
 				Logos: input.Logos,
 				Theme: input.Theme,

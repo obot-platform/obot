@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -73,7 +72,7 @@ func setup(t *testing.T, opts Options) (*Backend, kclient.Client, context.Contex
 	client := testClient(t)
 	ctx := t.Context()
 
-	namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}
+	namespace := &corev1.Namespace{Name: testNamespace}
 	if err := client.Create(ctx, namespace); err != nil && !apierrors.IsAlreadyExists(err) {
 		t.Fatalf("create namespace: %v", err)
 	}

@@ -6,7 +6,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestMaskCatalogCredential(t *testing.T) {
@@ -118,7 +117,7 @@ func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
 	}
 
 	entry := ConvertSystemMCPServerCatalogEntry(v1.SystemMCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: "entry"},
+		Name: "entry",
 		Spec: v1.SystemMCPServerCatalogEntrySpec{
 			Manifest: types.SystemMCPServerCatalogEntryManifest{
 				Name:      "entry",

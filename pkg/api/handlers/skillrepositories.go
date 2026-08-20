@@ -13,7 +13,6 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -67,10 +66,8 @@ func (*SkillRepositoryHandler) Create(req api.Context) error {
 	}
 
 	repo := v1.SkillRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.SkillRepositoryPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.SkillRepositoryPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.SkillRepositorySpec{
 			DisplayName:     manifest.DisplayName,
 			RepoURL:         manifest.RepoURL,
@@ -141,10 +138,8 @@ func (*SkillRepositoryHandler) Update(req api.Context) error {
 func (*SkillRepositoryHandler) Delete(req api.Context) error {
 	repoName := req.PathValue("skill_repository_id")
 	if err := req.Delete(&v1.SkillRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      repoName,
-			Namespace: req.Namespace(),
-		},
+		Name:      repoName,
+		Namespace: req.Namespace(),
 	}); err != nil {
 		return err
 	}

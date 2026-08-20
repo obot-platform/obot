@@ -9,17 +9,14 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPublishedArtifactAuthorization(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.PublishedArtifact{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pa1test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "pa1test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.PublishedArtifactSpec{
 			AuthorID:      "owner",
 			LatestVersion: 2,

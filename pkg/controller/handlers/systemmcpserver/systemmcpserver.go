@@ -20,7 +20,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kwait "k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/retry"
@@ -106,11 +105,9 @@ func (h *Handler) EnsureSecretInfo(req router.Request, _ router.Response) error 
 	}
 
 	oauthClient := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       clientID,
-			Namespace:  req.Namespace,
-			Finalizers: []string{v1.OAuthClientFinalizer},
-		},
+		Name:       clientID,
+		Namespace:  req.Namespace,
+		Finalizers: []string{v1.OAuthClientFinalizer},
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
 				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},

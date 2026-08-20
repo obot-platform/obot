@@ -18,12 +18,11 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 	converted := convertGitCredential(v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: system.DefaultNamespace},
+		Name: "gc1-test", Namespace: system.DefaultNamespace,
 		Spec: v1.GitCredentialSpec{
 			DisplayName: "Shared GitHub",
 			Host:        "github.com",
@@ -74,21 +73,21 @@ func TestReadGitCredentialManifestTrimsToken(t *testing.T) {
 func TestGitCredentialReferences(t *testing.T) {
 	storage := newFakeStorage(t,
 		&v1.SkillRepository{
-			ObjectMeta: metav1.ObjectMeta{Name: "skills", Namespace: system.DefaultNamespace},
+			Name: "skills", Namespace: system.DefaultNamespace,
 			Spec: v1.SkillRepositorySpec{
 				DisplayName:     "Team Skills",
 				GitCredentialID: "gc1-test",
 			},
 		},
 		&v1.MCPCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "catalog", Namespace: system.DefaultNamespace},
+			Name: "catalog", Namespace: system.DefaultNamespace,
 			Spec: v1.MCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/org/catalog": "gc1-test",
 				"https://github.com/org/other":   "gc1-test",
 			}},
 		},
 		&v1.SystemMCPCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "system-catalog", Namespace: system.DefaultNamespace},
+			Name: "system-catalog", Namespace: system.DefaultNamespace,
 			Spec: v1.SystemMCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
 				"https://github.com/org/system-catalog": "gc1-test",
 				"https://github.com/org/system-other":   "gc1-test",
@@ -136,16 +135,16 @@ func TestValidateCatalogGitCredentials(t *testing.T) {
 		Request: httptest.NewRequest(http.MethodPut, "/api/mcp-catalogs/default", nil),
 		Storage: newFakeStorage(t,
 			&v1.GitCredential{
-				ObjectMeta: metav1.ObjectMeta{Name: "gc1-github", Namespace: system.DefaultNamespace},
-				Spec:       v1.GitCredentialSpec{Host: "github.com"},
+				Name: "gc1-github", Namespace: system.DefaultNamespace,
+				Spec: v1.GitCredentialSpec{Host: "github.com"},
 			},
 			&v1.GitCredential{
-				ObjectMeta: metav1.ObjectMeta{Name: "gc1-gitlab", Namespace: system.DefaultNamespace},
-				Spec:       v1.GitCredentialSpec{Host: "gitlab.com"},
+				Name: "gc1-gitlab", Namespace: system.DefaultNamespace,
+				Spec: v1.GitCredentialSpec{Host: "gitlab.com"},
 			},
 			&v1.GitCredential{
-				ObjectMeta: metav1.ObjectMeta{Name: "gc1-empty", Namespace: system.DefaultNamespace},
-				Spec:       v1.GitCredentialSpec{Host: "github.com"},
+				Name: "gc1-empty", Namespace: system.DefaultNamespace,
+				Spec: v1.GitCredentialSpec{Host: "github.com"},
 			},
 		),
 		GatewayClient: gatewayClient,

@@ -10,17 +10,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestEnsureK8sSettingsRejectsExistingConfiguredResourcesAboveStartupMaximum(t *testing.T) {
 	ctx := t.Context()
 	client := newFakeClient(t, &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.K8sSettingsName,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.K8sSettingsName,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.K8sSettingsSpec{
 			Resources: &corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
@@ -85,11 +82,9 @@ func TestEnsureK8sSettingsLocksMaximumsConfiguredThroughHelm(t *testing.T) {
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("250m")},
 	}
 	client := newFakeClient(t, &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.K8sSettingsName,
-			Namespace: system.DefaultNamespace,
-		},
-		Spec: v1.K8sSettingsSpec{Resources: existingResources},
+		Name:      system.K8sSettingsName,
+		Namespace: system.DefaultNamespace,
+		Spec:      v1.K8sSettingsSpec{Resources: existingResources},
 	})
 	maximum := resource.MustParse("2Gi")
 

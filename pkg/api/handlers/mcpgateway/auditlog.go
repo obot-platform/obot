@@ -394,10 +394,10 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 		// Return empty if no access scope
 		if len(opts.OwnServerMCPIDs) == 0 && len(opts.PowerUserWorkspaceID) == 0 {
 			return req.Write(types.AuditLogEventResponse{
-				AuditLogEventList: types.AuditLogEventList{Items: []types.AuditLogEvent{}},
-				Total:             0,
-				Limit:             opts.Limit,
-				Offset:            opts.Offset,
+				Items:  []types.AuditLogEvent{},
+				Total:  0,
+				Limit:  opts.Limit,
+				Offset: opts.Offset,
 			})
 		}
 	}
@@ -423,9 +423,7 @@ func (h *AuditLogHandler) ListAuditLogs(req api.Context) error {
 	}
 
 	return req.Write(types.AuditLogEventResponse{
-		AuditLogEventList: types.AuditLogEventList{
-			Items: result,
-		},
+		Items:  result,
 		Total:  total,
 		Limit:  opts.Limit,
 		Offset: opts.Offset,

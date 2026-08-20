@@ -47,10 +47,10 @@ func (*MessagePolicyViolationHandler) List(req api.Context) error {
 	}
 
 	return req.Write(types.MessagePolicyViolationResponse{
-		MessagePolicyViolationList: types.MessagePolicyViolationList{Items: result},
-		Total:                      total,
-		Limit:                      opts.Limit,
-		Offset:                     opts.Offset,
+		Items:  result,
+		Total:  total,
+		Limit:  opts.Limit,
+		Offset: opts.Offset,
 	})
 }
 

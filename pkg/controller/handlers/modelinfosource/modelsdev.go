@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -91,10 +90,8 @@ func parseModelInfos(namespace, sourceName string, doc modelsDevDocument) ([]kcl
 
 		for modelID, m := range provider.Models {
 			infos = append(infos, &v1.ModelInfo{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace,
-					Name:      v1.ModelInfoName(obotProvider, modelID),
-				},
+				Namespace: namespace,
+				Name:      v1.ModelInfoName(obotProvider, modelID),
 				Spec: v1.ModelInfoSpec{
 					ModelInfoSourceName: sourceName,
 					Provider:            obotProvider,

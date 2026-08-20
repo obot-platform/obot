@@ -69,10 +69,8 @@ func getMDMAssetSource(req api.Context) (*v1.MDMAssetSource, error) {
 
 func convertMDMAssetSource(source v1.MDMAssetSource) types.MDMAssetSource {
 	return types.MDMAssetSource{
-		Metadata: MetadataFrom(&source),
-		MDMAssetSourceManifest: types.MDMAssetSourceManifest{
-			Source: mdmassets.RedactSource(source.Spec.Source),
-		},
+		Metadata:     MetadataFrom(&source),
+		Source:       mdmassets.RedactSource(source.Spec.Source),
 		LastSyncTime: *types.NewTime(source.Status.LastSyncTime.Time),
 		IsSyncing:    source.Annotations[v1.MDMAssetSourceSyncAnnotation] == "true",
 		SyncError:    source.Status.SyncError,
@@ -82,14 +80,12 @@ func convertMDMAssetSource(source v1.MDMAssetSource) types.MDMAssetSource {
 
 func convertMDMAsset(asset v1.MDMAsset) types.MDMAsset {
 	return types.MDMAsset{
-		Metadata: MetadataFrom(&asset),
-		Digest:   asset.Spec.Digest,
-		MDMAssetManifest: types.MDMAssetManifest{
-			SchemaVersion:     asset.Spec.SchemaVersion,
-			ObotSentryVersion: asset.Spec.ObotSentryVersion,
-			Fields:            asset.Spec.Fields.Raw,
-			Platforms:         asset.Spec.Platforms,
-			Configurations:    asset.Spec.Configurations,
-		},
+		Metadata:          MetadataFrom(&asset),
+		Digest:            asset.Spec.Digest,
+		SchemaVersion:     asset.Spec.SchemaVersion,
+		ObotSentryVersion: asset.Spec.ObotSentryVersion,
+		Fields:            asset.Spec.Fields.Raw,
+		Platforms:         asset.Spec.Platforms,
+		Configurations:    asset.Spec.Configurations,
 	}
 }

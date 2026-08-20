@@ -16,7 +16,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -143,7 +142,7 @@ func TestModelAllowedForAgent(t *testing.T) {
 
 func llmModel(name, target, provider string) *v1.Model {
 	return &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace},
+		Name: name, Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{Manifest: types2.ModelManifest{
 			Name: name, TargetModel: target, ModelProvider: provider,
 			Active: true, Usage: types2.ModelUsageLLM,
@@ -174,8 +173,8 @@ func TestAgentModelAliasesAreExpandedForAuthorization(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		llmModel("m1sonnet", "claude-sonnet-4-5", "anthropic-model-provider"),
 		&v1.DefaultModelAlias{
-			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: system.DefaultNamespace},
-			Spec:       v1.DefaultModelAliasSpec{Manifest: types2.DefaultModelAliasManifest{Alias: "llm", Model: "m1sonnet"}},
+			Name: "llm", Namespace: system.DefaultNamespace,
+			Spec: v1.DefaultModelAliasSpec{Manifest: types2.DefaultModelAliasManifest{Alias: "llm", Model: "m1sonnet"}},
 		},
 	).Build()
 
@@ -198,8 +197,8 @@ func TestAgentModelAliasesAreExpandedForAuthorization(t *testing.T) {
 func TestUnboundAliasGrantsNothing(t *testing.T) {
 	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
 		&v1.DefaultModelAlias{
-			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: system.DefaultNamespace},
-			Spec:       v1.DefaultModelAliasSpec{Manifest: types2.DefaultModelAliasManifest{Alias: "llm"}},
+			Name: "llm", Namespace: system.DefaultNamespace,
+			Spec: v1.DefaultModelAliasSpec{Manifest: types2.DefaultModelAliasManifest{Alias: "llm"}},
 		},
 	).Build()
 

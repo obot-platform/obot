@@ -22,12 +22,10 @@ import (
 func TestMDMAssetSourceHandlerGetRedactsSourceAndReportsPendingRefresh(t *testing.T) {
 	lastSyncTime := metav1.NewTime(time.Date(2026, time.July, 17, 12, 0, 0, 0, time.UTC))
 	storage := newFakeStorage(t, &v1.MDMAssetSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultMDMAssetSource,
-			Namespace: system.DefaultNamespace,
-			Annotations: map[string]string{
-				v1.MDMAssetSourceSyncAnnotation: "true",
-			},
+		Name:      system.DefaultMDMAssetSource,
+		Namespace: system.DefaultNamespace,
+		Annotations: map[string]string{
+			v1.MDMAssetSourceSyncAnnotation: "true",
 		},
 		Spec: v1.MDMAssetSourceSpec{
 			MDMAssetSourceManifest: apitypes.MDMAssetSourceManifest{
@@ -64,10 +62,8 @@ func TestMDMAssetSourceHandlerGetRedactsSourceAndReportsPendingRefresh(t *testin
 func TestMDMAssetSourceHandlerRefreshOnlyRequestsReconciliation(t *testing.T) {
 	const configuredSource = "/etc/obot/mdm-assets.tar.gz"
 	storage := newFakeStorage(t, &v1.MDMAssetSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultMDMAssetSource,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.DefaultMDMAssetSource,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MDMAssetSourceSpec{
 			MDMAssetSourceManifest: apitypes.MDMAssetSourceManifest{Source: configuredSource},
 		},
@@ -119,10 +115,8 @@ func TestMDMAssetHandlerListExposesManifestMetadata(t *testing.T) {
 		},
 	}
 	storage := newFakeStorage(t, &v1.MDMAsset{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.MDMAssetName(digest),
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      v1.MDMAssetName(digest),
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MDMAssetSpec{
 			Digest:            digest,
 			SchemaVersion:     manifest.SchemaVersion,

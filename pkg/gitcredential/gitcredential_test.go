@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -84,8 +83,8 @@ func TestResolveSharedCredential(t *testing.T) {
 	ctx := context.Background()
 	gatewayClient := newTestGatewayClient(t)
 	repositoryClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: system.DefaultNamespace},
-		Spec:       v1.GitCredentialSpec{DisplayName: "Shared GitHub", Host: "github.com"},
+		Name: "gc1-test", Namespace: system.DefaultNamespace,
+		Spec: v1.GitCredentialSpec{DisplayName: "Shared GitHub", Host: "github.com"},
 	}).Build()
 
 	require.NoError(t, Store(ctx, gatewayClient, "gc1-test", "shared-token"))
@@ -107,8 +106,8 @@ func TestResolveRejectsCredentialWithoutToken(t *testing.T) {
 	ctx := context.Background()
 	gatewayClient := newTestGatewayClient(t)
 	repositoryClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-empty", Namespace: system.DefaultNamespace},
-		Spec:       v1.GitCredentialSpec{DisplayName: "Empty GitHub", Host: "github.com"},
+		Name: "gc1-empty", Namespace: system.DefaultNamespace,
+		Spec: v1.GitCredentialSpec{DisplayName: "Empty GitHub", Host: "github.com"},
 	}).Build()
 	require.NoError(t, gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
 		Context: credentialContext,
@@ -122,8 +121,8 @@ func TestResolveRejectsCredentialWithoutToken(t *testing.T) {
 func TestResolveOrReveal(t *testing.T) {
 	ctx := t.Context()
 	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{Name: "gc1-test", Namespace: system.DefaultNamespace},
-		Spec:       v1.GitCredentialSpec{DisplayName: "Shared GitHub", Host: "github.com"},
+		Name: "gc1-test", Namespace: system.DefaultNamespace,
+		Spec: v1.GitCredentialSpec{DisplayName: "Shared GitHub", Host: "github.com"},
 	}).Build()
 	const sourceURL = "https://github.com/obot-platform/skills"
 

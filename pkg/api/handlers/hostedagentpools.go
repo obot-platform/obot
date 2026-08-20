@@ -9,7 +9,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -65,11 +64,9 @@ func (*HostedAgentPoolHandler) Create(req api.Context) error {
 		return err
 	}
 	pool := v1.HostedAgentPool{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: "hp1",
-			Namespace:    req.Namespace(),
-		},
-		Spec: v1.HostedAgentPoolSpec{Manifest: manifest},
+		GenerateName: "hp1",
+		Namespace:    req.Namespace(),
+		Spec:         v1.HostedAgentPoolSpec{Manifest: manifest},
 	}
 	if err := req.Create(&pool); err != nil {
 		return fmt.Errorf("failed to create hosted agent pool: %w", err)
@@ -104,10 +101,9 @@ func (*HostedAgentPoolHandler) Delete(req api.Context) error {
 	if len(assignments.Items) > 0 {
 		return types.NewErrBadRequest("hosted agent pool %s is still assigned", poolID)
 	}
-	return req.Delete(&v1.HostedAgentPool{ObjectMeta: metav1.ObjectMeta{
+	return req.Delete(&v1.HostedAgentPool{
 		Name:      poolID,
-		Namespace: req.Namespace(),
-	}})
+		Namespace: req.Namespace()})
 }
 
 func (h *HostedAgentPoolHandler) Utilization(req api.Context) error {
@@ -215,8 +211,8 @@ func (*HostedAgentPoolDefaultsHandler) Create(req api.Context) error {
 		return err
 	}
 	defaults := v1.HostedAgentPoolDefaults{
-		ObjectMeta: metav1.ObjectMeta{Name: hostedAgentPoolDefaultsName, Namespace: req.Namespace()},
-		Spec:       v1.HostedAgentPoolDefaultsSpec{Manifest: manifest},
+		Name: hostedAgentPoolDefaultsName, Namespace: req.Namespace(),
+		Spec: v1.HostedAgentPoolDefaultsSpec{Manifest: manifest},
 	}
 	if err := req.Create(&defaults); err != nil {
 		return fmt.Errorf("failed to create hosted agent pool defaults: %w", err)
@@ -241,9 +237,8 @@ func (*HostedAgentPoolDefaultsHandler) Update(req api.Context) error {
 }
 
 func (*HostedAgentPoolDefaultsHandler) Delete(req api.Context) error {
-	return req.Delete(&v1.HostedAgentPoolDefaults{ObjectMeta: metav1.ObjectMeta{
-		Name: hostedAgentPoolDefaultsName, Namespace: req.Namespace(),
-	}})
+	return req.Delete(&v1.HostedAgentPoolDefaults{
+		Name: hostedAgentPoolDefaultsName, Namespace: req.Namespace()})
 }
 
 func readHostedAgentPoolDefaultsManifest(req api.Context) (types.HostedAgentPoolDefaultsManifest, error) {
@@ -306,8 +301,8 @@ func (*HostedAgentPoolAssignmentHandler) Create(req api.Context) error {
 		return err
 	}
 	assignment := v1.HostedAgentPoolAssignment{
-		ObjectMeta: metav1.ObjectMeta{GenerateName: "hpa1", Namespace: req.Namespace()},
-		Spec:       v1.HostedAgentPoolAssignmentSpec{Manifest: manifest},
+		GenerateName: "hpa1", Namespace: req.Namespace(),
+		Spec: v1.HostedAgentPoolAssignmentSpec{Manifest: manifest},
 	}
 	if err := req.Create(&assignment); err != nil {
 		return fmt.Errorf("failed to create hosted agent pool assignment: %w", err)
@@ -335,10 +330,9 @@ func (*HostedAgentPoolAssignmentHandler) Update(req api.Context) error {
 }
 
 func (*HostedAgentPoolAssignmentHandler) Delete(req api.Context) error {
-	return req.Delete(&v1.HostedAgentPoolAssignment{ObjectMeta: metav1.ObjectMeta{
+	return req.Delete(&v1.HostedAgentPoolAssignment{
 		Name:      req.PathValue("hosted_agent_pool_assignment_id"),
-		Namespace: req.Namespace(),
-	}})
+		Namespace: req.Namespace()})
 }
 
 func readHostedAgentPoolAssignmentManifest(req api.Context) (types.HostedAgentPoolAssignmentManifest, error) {

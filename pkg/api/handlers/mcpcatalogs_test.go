@@ -18,17 +18,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				"example.com/keep": "true",
-			},
+		Annotations: map[string]string{
+			"example.com/keep": "true",
 		},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Editable:  false,
@@ -77,8 +74,8 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			entryCatalogName: "catalog-1",
 			entryRuntime:     types.RuntimeContainerized,
 			servers: []v1.MCPServer{{
-				ObjectMeta: metav1.ObjectMeta{Name: "server-1", Namespace: system.DefaultNamespace},
-				Spec:       v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
+				Name: "server-1", Namespace: system.DefaultNamespace,
+				Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"},
 			}},
 			providerInfo:    types.MCPCapacityInfo{Source: types.CapacitySourceDeployments, ActiveDeployments: 1},
 			wantServerNames: []string{"server-1"},
@@ -89,8 +86,8 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 			entryCatalogName: "catalog-1",
 			entryRuntime:     types.RuntimeContainerized,
 			servers: []v1.MCPServer{
-				{ObjectMeta: metav1.ObjectMeta{Name: "template-server", Namespace: system.DefaultNamespace}, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1", Template: true}},
-				{ObjectMeta: metav1.ObjectMeta{Name: "server-1", Namespace: system.DefaultNamespace}, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"}},
+				{Name: "template-server", Namespace: system.DefaultNamespace, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1", Template: true}},
+				{Name: "server-1", Namespace: system.DefaultNamespace, Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "entry-1"}},
 			},
 			providerInfo:    types.MCPCapacityInfo{ActiveDeployments: 1},
 			wantServerNames: []string{"server-1"},
@@ -126,9 +123,9 @@ func TestMCPCatalogHandlerGetEntryCapacity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			provider := &fakeCapacityInfoProvider{info: tt.providerInfo, err: tt.providerErr}
 			objects := []kclient.Object{
-				&v1.MCPCatalog{ObjectMeta: metav1.ObjectMeta{Name: "catalog-1", Namespace: system.DefaultNamespace}},
+				&v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace},
 				&v1.MCPServerCatalogEntry{
-					ObjectMeta: metav1.ObjectMeta{Name: "entry-1", Namespace: system.DefaultNamespace},
+					Name: "entry-1", Namespace: system.DefaultNamespace,
 					Spec: v1.MCPServerCatalogEntrySpec{
 						MCPCatalogName: tt.entryCatalogName,
 						Manifest:       types.MCPServerCatalogEntryManifest{Runtime: tt.entryRuntime},
@@ -451,14 +448,13 @@ func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
 		key       = "WORKSPACE"
 	)
 	localK8sClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{Name: "remote-secret", Namespace: namespace, Labels: map[string]string{label: "true"}},
-		Data:       map[string][]byte{"token": []byte("secret-value")},
+		Name: "remote-secret", Namespace: namespace, Labels: map[string]string{label: "true"},
+		Data: map[string][]byte{"token": []byte("secret-value")},
 	}).Build()
 	manifest := types.MCPServerManifest{
 		Runtime: types.RuntimeRemote,
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-			Key: key, Required: true,
-		}}},
+		Env: []types.MCPEnv{{
+			Key: key, Required: true}},
 		RemoteConfig: &types.RemoteRuntimeConfig{
 			IsTemplate:  true,
 			URLTemplate: "https://example.com/mcp/${WORKSPACE}",
@@ -485,10 +481,9 @@ func TestPrepareTempServerConfigDoesNotUseBoundSecretInURL(t *testing.T) {
 func TestPrepareTempServerConfigRejectsUnknownOption(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Runtime: types.RuntimeRemote,
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+		Env: []types.MCPEnv{{
 			Key: "REGION", Required: true,
-			Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
-		}}},
+			Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}}}},
 		RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
 	}
 	_, err := prepareTempServerConfig(t.Context(), fake.NewClientBuilder().Build(), "obot-ns", "allowed", &manifest, map[string]string{"REGION": "forged"}, false, mcp.ValidationOptions{})
@@ -501,7 +496,7 @@ func TestPrepareTempServerConfigRejectsUnknownOption(t *testing.T) {
 
 func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "shared-server", Namespace: system.DefaultNamespace},
+		Name: "shared-server", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			MCPCatalogID: "default",
 			Manifest: types.MCPServerManifest{
@@ -539,7 +534,7 @@ func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 
 func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: "component-entry", Namespace: system.DefaultNamespace},
+		Name: "component-entry", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: "custom",
 			Manifest: types.MCPServerCatalogEntryManifest{

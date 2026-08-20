@@ -10,7 +10,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,14 +36,12 @@ func (h *Handler) MigrateProjectV2(req router.Request, _ router.Response) error 
 	}
 
 	project := &v1.Project{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ProjectPrefix,
-			Namespace:    projectV2.Namespace,
-			Labels:       maps.Clone(projectV2.Labels),
-			Annotations:  maps.Clone(projectV2.Annotations),
-		},
-		Spec:   projectV2.Spec,
-		Status: projectV2.Status,
+		GenerateName: system.ProjectPrefix,
+		Namespace:    projectV2.Namespace,
+		Labels:       maps.Clone(projectV2.Labels),
+		Annotations:  maps.Clone(projectV2.Annotations),
+		Spec:         projectV2.Spec,
+		Status:       projectV2.Status,
 	}
 
 	if err := req.Client.Create(req.Ctx, project); err != nil {

@@ -37,14 +37,12 @@ func TestSkillsSearchCallsAPIWithQueryAndLimit(t *testing.T) {
 		}
 
 		_ = json.NewEncoder(w).Encode(types.SkillList{Items: []types.Skill{{
-			Metadata: types.Metadata{ID: "sk1"},
-			SkillManifest: types.SkillManifest{
-				Name:          "github-review",
-				DisplayName:   "GitHub Review",
-				Description:   "Review GitHub pull requests",
-				Compatibility: "claude-code",
-			},
-			RepoID: "default/github",
+			ID:            "sk1",
+			Name:          "github-review",
+			DisplayName:   "GitHub Review",
+			Description:   "Review GitHub pull requests",
+			Compatibility: "claude-code",
+			RepoID:        "default/github",
 		}}})
 	}))
 	defer server.Close()
@@ -81,8 +79,8 @@ func TestSkillsSearchEmptyResult(t *testing.T) {
 func TestSkillsSearchJSONMode(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(types.SkillList{Items: []types.Skill{{
-			Metadata:      types.Metadata{ID: "sk1"},
-			SkillManifest: types.SkillManifest{Name: "github-review"},
+			ID:   "sk1",
+			Name: "github-review",
 		}}})
 	}))
 	defer server.Close()
@@ -289,13 +287,11 @@ func skillInstallTestServer(t *testing.T, skills []skillInstallTestResponse) *ht
 
 func skillTestType(skill skillInstallTestResponse) types.Skill {
 	return types.Skill{
-		Metadata: types.Metadata{ID: skill.ID},
-		SkillManifest: types.SkillManifest{
-			Name:        skill.Name,
-			DisplayName: skill.DisplayName,
-			Description: skill.Description,
-		},
-		RepoID: "default/test",
+		ID:          skill.ID,
+		Name:        skill.Name,
+		DisplayName: skill.DisplayName,
+		Description: skill.Description,
+		RepoID:      "default/test",
 	}
 }
 

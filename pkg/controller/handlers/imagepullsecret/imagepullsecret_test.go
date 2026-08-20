@@ -31,10 +31,8 @@ func TestShouldRefreshECRHonorsManualRequest(t *testing.T) {
 	lastSuccess := metav1.NewTime(now.Add(-time.Hour))
 	lastReconciled := metav1.NewTime(now.Add(-time.Minute))
 	secret := &obotv1.ImagePullSecret{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				imagepullsecrets.AnnotationECRRefreshRequestedAt: now.Format(time.RFC3339Nano),
-			},
+		Annotations: map[string]string{
+			imagepullsecrets.AnnotationECRRefreshRequestedAt: now.Format(time.RFC3339Nano),
 		},
 		Spec: obotv1.ImagePullSecretSpec{
 			ECR: &types.ECRImagePullSecretConfig{

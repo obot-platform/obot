@@ -6,7 +6,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/agentbackend"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestConvertPoolUtilization(t *testing.T) {
@@ -38,7 +37,7 @@ func TestConvertPoolUtilization(t *testing.T) {
 
 func TestConvertHostedAgentInstanceIncludesPool(t *testing.T) {
 	got := convertHostedAgentInstance(v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: "instance-1"},
+		Name: "instance-1",
 		Spec: v1.HostedAgentInstanceSpec{
 			UserID:          "user-1",
 			HostedAgentName: "agent-1",
@@ -56,7 +55,7 @@ func TestConvertHostedAgentInstanceIncludesPool(t *testing.T) {
 // whole; the per-instance breakdown must not expose anyone else's instances.
 func TestNarrowInstanceUtilizationHidesOtherUsersInstances(t *testing.T) {
 	mine := v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{Name: "hai-mine", UID: "uid-mine"},
+		Name: "hai-mine", UID: "uid-mine",
 	}
 	usages := []agentbackend.InstanceUtilization{
 		{Ref: agentbackend.InstanceRef{ID: "uid-theirs-1"}, Utilization: agentbackend.ResourceUtilization{CPUVCPUs: 1}},
@@ -81,8 +80,8 @@ func TestNarrowInstanceUtilizationHidesOtherUsersInstances(t *testing.T) {
 // An admin passes the full instance list, so nothing is dropped.
 func TestNarrowInstanceUtilizationKeepsEverythingVisible(t *testing.T) {
 	instances := []v1.HostedAgentInstance{
-		{ObjectMeta: metav1.ObjectMeta{Name: "hai-a", UID: "uid-a"}},
-		{ObjectMeta: metav1.ObjectMeta{Name: "hai-b", UID: "uid-b"}},
+		{Name: "hai-a", UID: "uid-a"},
+		{Name: "hai-b", UID: "uid-b"},
 	}
 	usages := []agentbackend.InstanceUtilization{
 		{Ref: agentbackend.InstanceRef{ID: "uid-a"}},

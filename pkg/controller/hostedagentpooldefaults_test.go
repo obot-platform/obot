@@ -8,7 +8,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -54,7 +53,7 @@ func TestEnsureHostedAgentPoolDefaults(t *testing.T) {
 
 func TestEnsureHostedAgentPoolDefaultsPreservesExisting(t *testing.T) {
 	existing := &v1.HostedAgentPoolDefaults{
-		ObjectMeta: metav1.ObjectMeta{Name: "default", Namespace: system.DefaultNamespace},
+		Name: "default", Namespace: system.DefaultNamespace,
 		Spec: v1.HostedAgentPoolDefaultsSpec{
 			Manifest: types.HostedAgentPoolDefaultsManifest{
 				Capacity: types.HostedAgentResourceQuantity{

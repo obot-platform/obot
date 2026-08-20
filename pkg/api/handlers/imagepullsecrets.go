@@ -112,11 +112,9 @@ func (h *ImagePullSecretHandler) Create(req api.Context) error {
 	}
 
 	secret := v1.ImagePullSecret{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ImagePullSecretPrefix,
-			Namespace:    req.Namespace(),
-		},
-		Spec: spec,
+		GenerateName: system.ImagePullSecretPrefix,
+		Namespace:    req.Namespace(),
+		Spec:         spec,
 	}
 
 	if err := req.Create(&secret); err != nil {

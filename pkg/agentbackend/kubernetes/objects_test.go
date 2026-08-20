@@ -663,7 +663,7 @@ func TestVolumeIsDedicated(t *testing.T) {
 func TestPoolNodeIgnoresTerminatingPods(t *testing.T) {
 	now := metav1.Now()
 	pods := []corev1.Pod{
-		{ObjectMeta: metav1.ObjectMeta{DeletionTimestamp: &now}, Spec: corev1.PodSpec{NodeName: "going-away"}},
+		{DeletionTimestamp: &now, Spec: corev1.PodSpec{NodeName: "going-away"}},
 		{Spec: corev1.PodSpec{NodeName: "live-node"}},
 	}
 

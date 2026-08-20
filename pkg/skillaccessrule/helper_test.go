@@ -126,8 +126,8 @@ func TestUserHasAccessToSkillUsesSkillObject(t *testing.T) {
 	)
 
 	hasAccess, err := helper.UserHasAccessToSkill(testUser("user1"), &v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: "sk1"},
-		Spec:       v1.SkillSpec{RepoID: "skr1"},
+		Name: "sk1",
+		Spec: v1.SkillSpec{RepoID: "skr1"},
 	})
 	require.NoError(t, err)
 	assert.True(t, hasAccess)
@@ -244,10 +244,8 @@ func newTestHelper(t *testing.T, rules ...*v1.SkillAccessRule) *Helper {
 
 func newRule(name string, subjects []types.Subject, resources []types.SkillResource, opts ...ruleOpt) *v1.SkillAccessRule {
 	rule := &v1.SkillAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      name,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillAccessRuleSpec{
 			Manifest: types.SkillAccessRuleManifest{
 				Subjects:  subjects,

@@ -6,7 +6,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func buildSource(t *testing.T, agent types.HostedAgentManifest, instance types.HostedAgentInstanceManifest) (string, string) {
@@ -14,8 +13,8 @@ func buildSource(t *testing.T, agent types.HostedAgentManifest, instance types.H
 
 	desired, err := defaultDesiredBuilder{}.Build(context.Background(), BuildInput{
 		Instance: &v1.HostedAgentInstance{
-			ObjectMeta: metav1.ObjectMeta{Name: "hai1", Namespace: "n", UID: "uid-1"},
-			Spec:       v1.HostedAgentInstanceSpec{Manifest: instance, UserID: "u1"},
+			Name: "hai1", Namespace: "n", UID: "uid-1",
+			Spec: v1.HostedAgentInstanceSpec{Manifest: instance, UserID: "u1"},
 		},
 		Agent:   &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: agent}},
 		Harness: &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}},
@@ -69,7 +68,7 @@ func TestChangingTheRefChangesTheRevision(t *testing.T) {
 	instance := types.HostedAgentInstanceManifest{Name: "i"}
 
 	first, err := defaultDesiredBuilder{}.Build(context.Background(), BuildInput{
-		Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1", UID: "uid-1"}, Spec: v1.HostedAgentInstanceSpec{Manifest: instance}},
+		Instance: &v1.HostedAgentInstance{Name: "hai1", UID: "uid-1", Spec: v1.HostedAgentInstanceSpec{Manifest: instance}},
 		Agent:    &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: base}},
 		Harness:  &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}}})
 	if err != nil {
@@ -78,7 +77,7 @@ func TestChangingTheRefChangesTheRevision(t *testing.T) {
 
 	base.GitRef = "v2"
 	second, err := defaultDesiredBuilder{}.Build(context.Background(), BuildInput{
-		Instance: &v1.HostedAgentInstance{ObjectMeta: metav1.ObjectMeta{Name: "hai1", UID: "uid-1"}, Spec: v1.HostedAgentInstanceSpec{Manifest: instance}},
+		Instance: &v1.HostedAgentInstance{Name: "hai1", UID: "uid-1", Spec: v1.HostedAgentInstanceSpec{Manifest: instance}},
 		Agent:    &v1.HostedAgent{Spec: v1.HostedAgentSpec{Manifest: base}},
 		Harness:  &v1.Harness{Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Image: "img"}}}})
 	if err != nil {

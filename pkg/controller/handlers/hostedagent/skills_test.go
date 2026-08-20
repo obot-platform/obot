@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/agentbackend"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -55,7 +54,7 @@ func TestSkillFilesArePlacedInTheSandbox(t *testing.T) {
 	fetcher := &skillFetcher{cache: map[string][]agentbackend.File{}, clone: clone}
 
 	client := skillClient(&v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: "sk1pdf", Namespace: "obot"},
+		Name: "sk1pdf", Namespace: "obot",
 		Spec: v1.SkillSpec{
 			SkillManifest: types.SkillManifest{Name: "pdf", Description: "Work with PDFs"},
 			RepoURL:       "https://example.com/skills.git",
@@ -109,8 +108,8 @@ func TestSkillNameCannotEscapeTheSkillsDirectory(t *testing.T) {
 		{"", "sk1"},
 	} {
 		skill := &v1.Skill{
-			ObjectMeta: metav1.ObjectMeta{Name: "sk1"},
-			Spec:       v1.SkillSpec{SkillManifest: types.SkillManifest{Name: tt.name}},
+			Name: "sk1",
+			Spec: v1.SkillSpec{SkillManifest: types.SkillManifest{Name: tt.name}},
 		}
 		if got := skillDirName(skill); got != tt.want {
 			t.Errorf("skillDirName(%q) = %q, want %q", tt.name, got, tt.want)
@@ -122,8 +121,8 @@ func TestSkillNameCannotEscapeTheSkillsDirectory(t *testing.T) {
 func TestUnfetchableSkillIsSkipped(t *testing.T) {
 	fetcher := &skillFetcher{cache: map[string][]agentbackend.File{}}
 	client := skillClient(&v1.Skill{
-		ObjectMeta: metav1.ObjectMeta{Name: "sk1broken", Namespace: "obot"},
-		Spec:       v1.SkillSpec{SkillManifest: types.SkillManifest{Name: "broken"}},
+		Name: "sk1broken", Namespace: "obot",
+		Spec: v1.SkillSpec{SkillManifest: types.SkillManifest{Name: "broken"}},
 	}).Build()
 
 	files, entries := fetcher.skillFiles(context.Background(), client, "obot", []string{"sk1broken", "sk1missing"})

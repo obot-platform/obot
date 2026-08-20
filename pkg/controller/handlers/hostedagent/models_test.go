@@ -8,13 +8,12 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func modelObj(name, target, provider string) *v1.Model {
 	return &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
+		Name: name, Namespace: "obot",
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			Name:          name,
 			TargetModel:   target,
@@ -27,8 +26,8 @@ func modelObj(name, target, provider string) *v1.Model {
 
 func aliasObj(name, model string) *v1.DefaultModelAlias {
 	return &v1.DefaultModelAlias{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
-		Spec:       v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: model}},
+		Name: name, Namespace: "obot",
+		Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{Alias: name, Model: model}},
 	}
 }
 

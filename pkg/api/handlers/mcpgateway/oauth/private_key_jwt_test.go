@@ -21,7 +21,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"golang.org/x/crypto/bcrypt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -57,7 +56,7 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		},
 	}
 	client := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{Name: clientID},
+		Name: clientID,
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
 				RedirectURIs:            []string{"http://127.0.0.1/callback"},
@@ -127,10 +126,8 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 	const clientName = "test-client"
 	clientID := system.DefaultNamespace + ":" + clientName
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: system.DefaultNamespace,
-			Name:      clientName,
-		},
+		Namespace: system.DefaultNamespace,
+		Name:      clientName,
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
 				RedirectURIs:            []string{"http://127.0.0.1/callback"},
@@ -223,10 +220,8 @@ func TestTokenInvalidClientErrors(t *testing.T) {
 		}
 		const clientName = "test-client"
 		storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.OAuthClient{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.DefaultNamespace,
-				Name:      clientName,
-			},
+			Namespace: system.DefaultNamespace,
+			Name:      clientName,
 			Spec: v1.OAuthClientSpec{
 				ClientSecretHash: secretHash,
 				Manifest: types.OAuthClientManifest{

@@ -82,10 +82,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 // SetUpDefaultModelInfoSource reconciles the default ModelInfoSource from config.
 func (h *Handler) SetUpDefaultModelInfoSource(ctx context.Context, c kclient.Client) error {
 	source := &v1.ModelInfoSource{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultModelInfoSource,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.DefaultModelInfoSource,
+		Namespace: system.DefaultNamespace,
 	}
 	if h.defaultSourceURL == "" {
 		if err := c.Delete(ctx, source); apierrors.IsNotFound(err) {

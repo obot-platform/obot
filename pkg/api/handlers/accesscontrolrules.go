@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AccessControlRuleHandler struct{}
@@ -134,11 +133,9 @@ func (*AccessControlRuleHandler) Create(req api.Context) error {
 	}
 
 	rule := v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.AccessControlRulePrefix,
-			Namespace:    req.Namespace(),
-			Finalizers:   []string{v1.AccessControlRuleFinalizer},
-		},
+		GenerateName: system.AccessControlRulePrefix,
+		Namespace:    req.Namespace(),
+		Finalizers:   []string{v1.AccessControlRuleFinalizer},
 		Spec: v1.AccessControlRuleSpec{
 			Manifest:             manifest,
 			MCPCatalogID:         catalogID,
@@ -292,10 +289,8 @@ func (*AccessControlRuleHandler) Delete(req api.Context) error {
 	}
 
 	return req.Delete(&v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ruleID,
-			Namespace: req.Namespace(),
-		},
+		Name:      ruleID,
+		Namespace: req.Namespace(),
 	})
 }
 

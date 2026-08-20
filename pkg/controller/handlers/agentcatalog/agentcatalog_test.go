@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -37,7 +36,7 @@ questions:
 	require.NoError(t, os.WriteFile(filepath.Join(root, "ignored.yaml"), []byte("not: a definition"), 0o600))
 
 	source := &v1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{Name: "as1source", Namespace: "default"},
+		Name: "as1source", Namespace: "default",
 	}
 	found, err := buildFromSource(root, source, "abc123")
 	require.NoError(t, err)
@@ -69,7 +68,7 @@ unknown: value
 `), 0o600))
 
 		_, err := buildFromSource(root, &v1.AgentCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "as1source"},
+			Name: "as1source",
 		}, "abc123")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), `unknown field "unknown"`)
@@ -87,7 +86,7 @@ env:
 `), 0o600))
 
 		_, err := buildFromSource(root, &v1.AgentCatalog{
-			ObjectMeta: metav1.ObjectMeta{Name: "as1source"},
+			Name: "as1source",
 		}, "abc123")
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must not be stored in source control")
@@ -133,7 +132,7 @@ func TestGitSourceFetcherLocalRepository(t *testing.T) {
 
 func discoveredHarness(sourceID, relPath string) *v1.Harness {
 	return &v1.Harness{
-		ObjectMeta: metav1.ObjectMeta{Name: harnessObjectName(sourceID, relPath)},
+		Name: harnessObjectName(sourceID, relPath),
 		Spec: v1.HarnessSpec{
 			SourceID:     sourceID,
 			RelativePath: relPath,
@@ -143,7 +142,7 @@ func discoveredHarness(sourceID, relPath string) *v1.Harness {
 
 func discoveredAgent(sourceID, relPath, harnessRef string) *v1.HostedAgent {
 	agent := &v1.HostedAgent{
-		ObjectMeta: metav1.ObjectMeta{Name: agentObjectName(sourceID, relPath)},
+		Name: agentObjectName(sourceID, relPath),
 		Spec: v1.HostedAgentSpec{
 			SourceID:     sourceID,
 			RelativePath: relPath,

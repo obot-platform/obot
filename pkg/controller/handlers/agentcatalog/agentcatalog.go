@@ -187,14 +187,10 @@ func buildFromSource(repoRoot string, source *v1.AgentCatalog, commitSHA string)
 				return nil, fmt.Errorf("%s: invalid harness: %w", relPath, err)
 			}
 			result.Harnesses = append(result.Harnesses, &v1.Harness{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "Harness",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      harnessObjectName(source.Name, relPath),
-					Namespace: source.Namespace,
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "Harness",
+				Name:       harnessObjectName(source.Name, relPath),
+				Namespace:  source.Namespace,
 				Spec: v1.HarnessSpec{
 					Manifest:     manifest,
 					SourceID:     source.Name,
@@ -216,14 +212,10 @@ func buildFromSource(repoRoot string, source *v1.AgentCatalog, commitSHA string)
 				}
 			}
 			result.Agents = append(result.Agents, &v1.HostedAgent{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "HostedAgent",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      agentObjectName(source.Name, relPath),
-					Namespace: source.Namespace,
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "HostedAgent",
+				Name:       agentObjectName(source.Name, relPath),
+				Namespace:  source.Namespace,
 				Spec: v1.HostedAgentSpec{
 					Manifest:     manifest,
 					SourceID:     source.Name,

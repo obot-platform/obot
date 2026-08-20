@@ -32,11 +32,9 @@ func AuthProviderStatus(ctx context.Context, authProvider v1.AuthProvider, cred 
 	}
 
 	return &types.AuthProviderStatus{
-		CommonProviderStatus: types.CommonProviderStatus{
-			Configured:                     len(missingEnvVars) == 0,
-			MissingEntitlements:            missingEntitlements,
-			MissingConfigurationParameters: missingEnvVars,
-		},
-		Namespace: authProvider.Namespace,
+		Configured:                     len(missingEnvVars) == 0,
+		MissingEntitlements:            missingEntitlements,
+		MissingConfigurationParameters: missingEnvVars,
+		Namespace:                      authProvider.Namespace,
 	}, nil
 }

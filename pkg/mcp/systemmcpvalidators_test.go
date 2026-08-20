@@ -160,12 +160,10 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 					Package: "@example/server",
 				},
 				Env: []types.MCPEnv{{
-					MCPHeader: types.MCPHeader{
-						Key: "API_KEY",
-						SecretBinding: &types.MCPSecretBinding{
-							Name: "my-secret",
-							Key:  "token",
-						},
+					Key: "API_KEY",
+					SecretBinding: &types.MCPSecretBinding{
+						Name: "my-secret",
+						Key:  "token",
 					},
 				}},
 			},

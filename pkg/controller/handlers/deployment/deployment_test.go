@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -44,10 +43,8 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 	require.NotEqual(t, oldHash, newHash)
 
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "mcp-server",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "mcp-server",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{Runtime: types.RuntimeNPX},
 		},
@@ -57,11 +54,9 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 		},
 	}
 	settings := &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.K8sSettingsName,
-			Namespace: system.DefaultNamespace,
-		},
-		Spec: newSettingsSpec,
+		Name:      system.K8sSettingsName,
+		Namespace: system.DefaultNamespace,
+		Spec:      newSettingsSpec,
 	}
 	storageClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
@@ -77,11 +72,9 @@ func TestUpdateMCPServerStatusUsesCurrentResourceMaximums(t *testing.T) {
 		mcpSessionManager:      manager,
 	}
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        server.Name,
-			Annotations: map[string]string{"obot.ai/k8s-settings-hash": newHash},
-			Labels:      map[string]string{"app": server.Name},
-		},
+		Name:        server.Name,
+		Annotations: map[string]string{"obot.ai/k8s-settings-hash": newHash},
+		Labels:      map[string]string{"app": server.Name},
 	}
 
 	err := handler.UpdateMCPServerStatus(router.Request{

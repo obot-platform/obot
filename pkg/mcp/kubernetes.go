@@ -436,12 +436,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	}
 
 	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "files"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		Data: secretVolumeData,
+		Name:        name.SafeConcatName(server.MCPServerName, "mcp", "files"),
+		Namespace:   k.mcpNamespace,
+		Annotations: annotations,
+		Data:        secretVolumeData,
 	})
 
 	for _, env := range server.Env {
@@ -530,11 +528,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		// Apply the annotation to prevent the PVC from being updated after creation.
 		pvcAnnotations[apply.AnnotationUpdate] = "false"
 		objs = append(objs, &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        workspacePVCName,
-				Namespace:   k.mcpNamespace,
-				Annotations: pvcAnnotations,
-			},
+			Name:        workspacePVCName,
+			Namespace:   k.mcpNamespace,
+			Annotations: pvcAnnotations,
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
 				Resources: corev1.VolumeResourceRequirements{
@@ -559,12 +555,10 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	}
 
 	objs = append(objs, &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config"),
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
-		Data: secretEnvData,
+		Name:        name.SafeConcatName(server.MCPServerName, "mcp", "config"),
+		Namespace:   k.mcpNamespace,
+		Annotations: annotations,
+		Data:        secretEnvData,
 	})
 
 	volumeMounts := []corev1.VolumeMount{
@@ -601,23 +595,19 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		}(),
 		EnvFrom: []corev1.EnvFromSource{{
 			SecretRef: &corev1.SecretEnvSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: name.SafeConcatName(server.MCPServerName, "mcp", "config"),
-				},
+				Name: name.SafeConcatName(server.MCPServerName, "mcp", "config"),
 			},
 		}},
 		VolumeMounts: volumeMounts,
 	})
 
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        server.MCPServerName,
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-			Labels: map[string]string{
-				"app":         server.MCPServerName,
-				"mcp-user-id": server.OwnerUserID,
-			},
+		Name:        server.MCPServerName,
+		Namespace:   k.mcpNamespace,
+		Annotations: annotations,
+		Labels: map[string]string{
+			"app":         server.MCPServerName,
+			"mcp-user-id": server.OwnerUserID,
 		},
 		Spec: appsv1.DeploymentSpec{
 			ProgressDeadlineSeconds: new(int32(server.StartupTimeout.Seconds())),
@@ -643,10 +633,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 						volumes := []corev1.Volume{
 							{
 								Name: "files",
-								VolumeSource: corev1.VolumeSource{
-									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "files"),
-									},
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "files"),
 								},
 							},
 						}
@@ -654,10 +642,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 						if server.Runtime != types.RuntimeContainerized {
 							volumes = append(volumes, corev1.Volume{
 								Name: "run-file",
-								VolumeSource: corev1.VolumeSource{
-									Secret: &corev1.SecretVolumeSource{
-										SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run"),
-									},
+								Secret: &corev1.SecretVolumeSource{
+									SecretName: name.SafeConcatName(server.MCPServerName, "mcp", "run"),
 								},
 							})
 						}
@@ -665,10 +651,8 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 						if workspacePVCName != "" {
 							volumes = append(volumes, corev1.Volume{
 								Name: nanobotWorkspaceVolumeName,
-								VolumeSource: corev1.VolumeSource{
-									PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-										ClaimName: workspacePVCName,
-									},
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: workspacePVCName,
 								},
 							})
 						}
@@ -698,11 +682,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		}
 
 		objs = append(objs, &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run"),
-				Namespace:   k.mcpNamespace,
-				Annotations: annotations,
-			},
+			Name:        name.SafeConcatName(server.MCPServerName, "mcp", "run"),
+			Namespace:   k.mcpNamespace,
+			Annotations: annotations,
 			Data: map[string][]byte{
 				"nanobot.yaml": nanobotFileString,
 			},
@@ -715,11 +697,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 		})
 
 		dep.Spec.Template.Spec.Containers[len(containers)-1].ReadinessProbe = &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/healthz",
-					Port: intstr.FromInt(port),
-				},
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: "/healthz",
+				Port: intstr.FromInt(port),
 			},
 		}
 	}
@@ -750,11 +730,9 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	}
 
 	objs = append(objs, &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        server.MCPServerName,
-			Namespace:   k.mcpNamespace,
-			Annotations: annotations,
-		},
+		Name:        server.MCPServerName,
+		Namespace:   k.mcpNamespace,
+		Annotations: annotations,
 		Spec: corev1.ServiceSpec{
 			Ports: servicePorts,
 			Selector: map[string]string{
@@ -877,7 +855,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	const watchTimeout = 5 * time.Second
 	start := time.Now()
 	for ; totalWatchDur < server.StartupTimeout; totalWatchDur, watchAttempt = time.Since(start), watchAttempt+1 {
-		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: k.mcpNamespace}},
+		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{Name: id, Namespace: k.mcpNamespace},
 			func(dep *appsv1.Deployment) (bool, error) {
 				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil

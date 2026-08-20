@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gitcredential"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type GitCredentialHandler struct{}
@@ -58,11 +57,9 @@ func (*GitCredentialHandler) Create(req api.Context) error {
 	}
 
 	credential := v1.GitCredential{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.GitCredentialPrefix,
-			Namespace:    req.Namespace(),
-			Finalizers:   []string{v1.GitCredentialFinalizer},
-		},
+		GenerateName: system.GitCredentialPrefix,
+		Namespace:    req.Namespace(),
+		Finalizers:   []string{v1.GitCredentialFinalizer},
 		Spec: v1.GitCredentialSpec{
 			DisplayName: manifest.DisplayName,
 			Host:        host,

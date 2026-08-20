@@ -9,7 +9,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -26,14 +25,14 @@ func availabilityFor(t *testing.T, objs ...kclient.Object) *agentAvailability {
 
 func harnessObj(name string) *v1.Harness {
 	return &v1.Harness{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
-		Spec:       v1.HarnessSpec{Manifest: types.HarnessManifest{Name: name, Image: "img"}},
+		Name: name, Namespace: "obot",
+		Spec: v1.HarnessSpec{Manifest: types.HarnessManifest{Name: name, Image: "img"}},
 	}
 }
 
 func modelObj(name, provider string) *v1.Model {
 	return &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "obot"},
+		Name: name, Namespace: "obot",
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			Name: name, TargetModel: name, ModelProvider: provider,
 			Active: true, Usage: types.ModelUsageLLM,
@@ -96,7 +95,7 @@ func TestMissingMCPServerMakesAnAgentUnavailable(t *testing.T) {
 	availability := availabilityFor(t,
 		harnessObj("hrn1any"),
 		modelObj("m1gpt", system.OpenAIModelProvider),
-		&v1.MCPServer{ObjectMeta: metav1.ObjectMeta{Name: "ms1here", Namespace: "obot"}},
+		&v1.MCPServer{Name: "ms1here", Namespace: "obot"},
 	)
 
 	reasons := availability.reasons(context.Background(), types.HostedAgentManifest{

@@ -26,7 +26,7 @@ func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	entry.Labels["example.com/label"] = "keep"
 	entry.Annotations["example.com/annotation"] = "keep"
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "ms1context7", Namespace: catalog.Namespace},
+		Name: "ms1context7", Namespace: catalog.Namespace,
 		Spec: v1.MCPServerSpec{
 			MCPServerCatalogEntryName: entry.Name,
 		},
@@ -79,7 +79,7 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	other.Spec.Detached = true
 	delete(other.Labels, apply.LabelHash)
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "ms1context7", Namespace: catalog.Namespace},
+		Name: "ms1context7", Namespace: catalog.Namespace,
 		Spec: v1.MCPServerSpec{
 			MCPServerCatalogEntryName: managed.Name,
 		},
@@ -141,11 +141,9 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 
 func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T) {
 	existing := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default-context7-12345678",
-			Namespace: "default",
-		},
-		Spec: v1.MCPServerCatalogEntrySpec{Editable: true},
+		Name:      "default-context7-12345678",
+		Namespace: "default",
+		Spec:      v1.MCPServerCatalogEntrySpec{Editable: true},
 	}
 	desired := existing.DeepCopy()
 	desired.Spec.Editable = false
@@ -161,11 +159,9 @@ func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T)
 
 func TestFilterConflictingCatalogEntriesChecksExactEntryAfterStaleList(t *testing.T) {
 	existing := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default-context7-12345678",
-			Namespace: "default",
-		},
-		Spec: v1.MCPServerCatalogEntrySpec{Editable: true},
+		Name:      "default-context7-12345678",
+		Namespace: "default",
+		Spec:      v1.MCPServerCatalogEntrySpec{Editable: true},
 	}
 	desired := existing.DeepCopy()
 	desired.Spec.Editable = false
@@ -233,7 +229,7 @@ func TestFilterConflictingCatalogEntriesAllowsGitManagedEntry(t *testing.T) {
 }
 
 func TestFilterConflictingCatalogEntriesPreservesDuplicateOrder(t *testing.T) {
-	first := &v1.MCPServerCatalogEntry{ObjectMeta: metav1.ObjectMeta{Name: "same", Namespace: "default"}, Spec: v1.MCPServerCatalogEntrySpec{SourceURL: "first"}}
+	first := &v1.MCPServerCatalogEntry{Name: "same", Namespace: "default", Spec: v1.MCPServerCatalogEntrySpec{SourceURL: "first"}}
 	second := first.DeepCopy()
 	second.Spec.SourceURL = "second"
 	c := newCatalogFakeClient()
@@ -251,7 +247,7 @@ func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
 	referenced := managedCatalogEntry(t, catalog, "default-referenced-12345678")
 	unused := managedCatalogEntry(t, catalog, "default-unused-12345678")
 	server := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "server", Namespace: catalog.Namespace},
+		Name: "server", Namespace: catalog.Namespace,
 		Spec: v1.MCPServerSpec{
 			MCPServerCatalogEntryName: referenced.Name,
 		},
@@ -279,13 +275,11 @@ func TestDetachCatalogEntryIgnoresNotFound(t *testing.T) {
 
 func testCatalog() *v1.MCPCatalog {
 	return &v1.MCPCatalog{
-		TypeMeta: metav1.TypeMeta{APIVersion: v1.SchemeGroupVersion.String(), Kind: "MCPCatalog"},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: "default",
-			UID:       ktypes.UID("catalog-uid"),
-		},
-		Spec: v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot-platform/catalog"}},
+		APIVersion: v1.SchemeGroupVersion.String(), Kind: "MCPCatalog",
+		Name:      "default",
+		Namespace: "default",
+		UID:       ktypes.UID("catalog-uid"),
+		Spec:      v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot-platform/catalog"}},
 	}
 }
 
@@ -294,18 +288,16 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 	labels, annotations, err := apply.GetLabelsAndAnnotations(scheme.Scheme, "catalog-"+catalog.Name, catalog)
 	require.NoError(t, err)
 	return &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   catalog.Namespace,
-			Labels:      labels,
-			Annotations: annotations,
-			OwnerReferences: []metav1.OwnerReference{{
-				APIVersion: v1.SchemeGroupVersion.String(),
-				Kind:       "MCPCatalog",
-				Name:       catalog.Name,
-				UID:        catalog.UID,
-			}},
-		},
+		Name:        name,
+		Namespace:   catalog.Namespace,
+		Labels:      labels,
+		Annotations: annotations,
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "MCPCatalog",
+			Name:       catalog.Name,
+			UID:        catalog.UID,
+		}},
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: catalog.Name,
 			SourceURL:      "github.com/obot-platform/catalog",

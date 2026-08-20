@@ -93,7 +93,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 			models = append(models, types2.ModelResource{ID: id})
 		}
 		return &v1.ModelAccessPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: "p-user", Namespace: "default"},
+			Name: "p-user", Namespace: "default",
 			Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
 				Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: userID}},
 				Models:   models,
@@ -103,7 +103,7 @@ func TestGetUserAllowedTargetModels(t *testing.T) {
 
 	// wildcardPolicy grants every eligible model to every user.
 	wildcardPolicy := &v1.ModelAccessPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "p-wildcard", Namespace: "default"},
+		Name: "p-wildcard", Namespace: "default",
 		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
 			Subjects: []types2.Subject{{Type: types2.SubjectTypeSelector, ID: "*"}},
 			Models:   []types2.ModelResource{{ID: "*"}},
@@ -275,7 +275,7 @@ func TestUserHasAccessToModelWithWildcardSuffix(t *testing.T) {
 	}
 
 	policy := &v1.ModelAccessPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "p-pattern", Namespace: "default"},
+		Name: "p-pattern", Namespace: "default",
 		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
 			Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: userID}},
 			Models:   []types2.ModelResource{{ID: "claude-haiku-4-5*"}},
@@ -347,10 +347,8 @@ func withUsage(usage types2.ModelUsage) modelOpt {
 
 func newModel(name, provider, targetModel string, active bool, opts ...modelOpt) *v1.Model {
 	m := &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-		},
+		Name:      name,
+		Namespace: "default",
 		Spec: v1.ModelSpec{Manifest: types2.ModelManifest{
 			TargetModel:   targetModel,
 			ModelProvider: provider,
@@ -380,7 +378,7 @@ func TestGetAgentAllowedTargetModels(t *testing.T) {
 	// The owner is granted nothing, so any result drawn from policy is empty.
 	// That is what makes these cases prove the agent is not evaluated that way.
 	restrictive := &v1.ModelAccessPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "p-none", Namespace: "default"},
+		Name: "p-none", Namespace: "default",
 		Spec: v1.ModelAccessPolicySpec{Manifest: types2.ModelAccessPolicyManifest{
 			Subjects: []types2.Subject{{Type: types2.SubjectTypeUser, ID: "someone-else"}},
 			Models:   []types2.ModelResource{},

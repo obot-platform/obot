@@ -5,15 +5,14 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func nodeClient(addresses ...corev1.NodeAddress) *fake.ClientBuilder {
 	return fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(&corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "node-1"},
-		Status:     corev1.NodeStatus{Addresses: addresses},
+		Name:   "node-1",
+		Status: corev1.NodeStatus{Addresses: addresses},
 	})
 }
 

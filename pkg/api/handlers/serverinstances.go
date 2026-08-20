@@ -17,7 +17,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -141,11 +140,9 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 	}
 
 	instance := v1.MCPServerInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
-			Namespace:  req.Namespace(),
-			Finalizers: []string{v1.MCPServerInstanceFinalizer},
-		},
+		Name:       fmt.Sprintf("%s-%s-%s", system.MCPServerInstancePrefix, req.User.GetUID(), input.MCPServerID),
+		Namespace:  req.Namespace(),
+		Finalizers: []string{v1.MCPServerInstanceFinalizer},
 		Spec: v1.MCPServerInstanceSpec{
 			UserID:                    req.User.GetUID(),
 			MCPServerName:             input.MCPServerID,
@@ -173,10 +170,8 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 
 func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
 	return req.Delete(&v1.MCPServerInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("mcp_server_instance_id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("mcp_server_instance_id"),
+		Namespace: req.Namespace(),
 	})
 }
 

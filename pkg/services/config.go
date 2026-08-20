@@ -65,7 +65,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kvalidation "k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apiserver/pkg/authentication/request/union"
 	"k8s.io/apiserver/pkg/server/options/encryptionconfig"
@@ -1106,10 +1105,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		} else if id != 0 {
 			// Create this UserDelete object so that their stuff gets deleted.
 			if err = storageClient.Create(ctx, &v1.UserDelete{
-				ObjectMeta: metav1.ObjectMeta{
-					Namespace:    system.DefaultNamespace,
-					GenerateName: system.UserDeletePrefix,
-				},
+				Namespace:    system.DefaultNamespace,
+				GenerateName: system.UserDeletePrefix,
 				Spec: v1.UserDeleteSpec{
 					UserID: id,
 				},
@@ -1563,10 +1560,8 @@ func newHostedAgentsBackend(config Config, restConfig *rest.Config, client, cach
 
 func startDevMode(ctx context.Context, storageClient storage.Client) {
 	_ = storageClient.Delete(ctx, &coordinationv1.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "obot-controller",
-			Namespace: "kube-system",
-		},
+		Name:      "obot-controller",
+		Namespace: "kube-system",
 	})
 }
 

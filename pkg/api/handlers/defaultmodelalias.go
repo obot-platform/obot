@@ -5,7 +5,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type DefaultModelAliasHandler struct{}
@@ -21,10 +20,8 @@ func (*DefaultModelAliasHandler) Create(req api.Context) error {
 	}
 
 	dma := v1.DefaultModelAlias{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.DefaultModelAliasPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.DefaultModelAliasPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.DefaultModelAliasSpec{
 			Manifest: manifest,
 		},
@@ -79,10 +76,8 @@ func (*DefaultModelAliasHandler) Update(req api.Context) error {
 
 func (*DefaultModelAliasHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.DefaultModelAlias{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("id"),
+		Namespace: req.Namespace(),
 	})
 }
 

@@ -8,7 +8,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type SkillAccessRuleHandler struct{}
@@ -47,10 +46,8 @@ func (*SkillAccessRuleHandler) Create(req api.Context) error {
 	}
 
 	rule := v1.SkillAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.SkillAccessRulePrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.SkillAccessRulePrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.SkillAccessRuleSpec{
 			Manifest: *manifest,
 		},
@@ -84,10 +81,8 @@ func (*SkillAccessRuleHandler) Update(req api.Context) error {
 
 func (*SkillAccessRuleHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.SkillAccessRule{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("skill_access_rule_id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("skill_access_rule_id"),
+		Namespace: req.Namespace(),
 	})
 }
 

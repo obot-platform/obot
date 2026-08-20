@@ -53,10 +53,8 @@ func (*AppNotificationHandler) Update(req api.Context) error {
 	if apierrors.IsNotFound(err) {
 		// Create new notification
 		notification = v1.AppNotification{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.AppNotificationName,
-				Namespace: req.Namespace(),
-			},
+			Name:      system.AppNotificationName,
+			Namespace: req.Namespace(),
 			Spec: v1.AppNotificationSpec{
 				Banner:  input.Banner,
 				Updated: metav1.Now(),

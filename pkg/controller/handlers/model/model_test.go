@@ -9,20 +9,18 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestRemoveApplyUpdateAnnotation(t *testing.T) {
-	model := &v1.Model{ObjectMeta: metav1.ObjectMeta{
+	model := &v1.Model{
 		Name:      "model",
 		Namespace: "default",
 		Annotations: map[string]string{
 			apply.AnnotationUpdate: "false",
 			"keep":                 "value",
-		},
-	}}
+		}}
 	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(model).Build()
 
 	if err := new(Handler).RemoveApplyUpdateAnnotation(router.Request{
@@ -47,17 +45,15 @@ func TestRemoveApplyUpdateAnnotation(t *testing.T) {
 
 func TestEnsureModelInfoUsesExactProviderAndTargetModel(t *testing.T) {
 	model := &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{Name: "gpt-4o", Namespace: system.DefaultNamespace},
+		Name: "gpt-4o", Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			ModelProvider: system.AzureEntraModelProvider,
 			TargetModel:   "gpt-4o",
 		}},
 	}
 	modelInfo := &v1.ModelInfo{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.ModelInfoName(system.AzureEntraModelProvider, "gpt-4o"),
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      v1.ModelInfoName(system.AzureEntraModelProvider, "gpt-4o"),
+		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelInfoSpec{
 			Provider: system.AzureEntraModelProvider,
 			Model:    "gpt-4o",

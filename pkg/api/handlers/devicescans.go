@@ -83,10 +83,10 @@ func (*DeviceScansHandler) List(req api.Context) error {
 		items = append(items, gtypes.ConvertDeviceScan(s))
 	}
 	return req.Write(types.DeviceScanResponse{
-		DeviceScanList: types.DeviceScanList{Items: items},
-		Total:          total,
-		Limit:          opts.Limit,
-		Offset:         opts.Offset,
+		Items:  items,
+		Total:  total,
+		Limit:  opts.Limit,
+		Offset: opts.Offset,
 	})
 }
 
@@ -233,10 +233,10 @@ func (*DeviceScansHandler) ListMCPServerOccurrences(req api.Context) error {
 		})
 	}
 	return req.Write(types.DeviceMCPServerOccurrenceResponse{
-		DeviceMCPServerOccurrenceList: types.DeviceMCPServerOccurrenceList{Items: items},
-		Total:                         total,
-		Limit:                         limit,
-		Offset:                        offset,
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	})
 }
 
@@ -265,10 +265,10 @@ func (*DeviceScansHandler) ListSkills(req api.Context) error {
 		})
 	}
 	return req.Write(types.DeviceSkillStatResponse{
-		DeviceSkillStatList: types.DeviceSkillStatList{Items: items},
-		Total:               total,
-		Limit:               opts.Limit,
-		Offset:              opts.Offset,
+		Items:  items,
+		Total:  total,
+		Limit:  opts.Limit,
+		Offset: opts.Offset,
 	})
 }
 
@@ -321,16 +321,14 @@ func (*DeviceScansHandler) GetSkill(req api.Context) error {
 		return err
 	}
 	return req.Write(types.DeviceSkillDetail{
-		DeviceSkillStat: types.DeviceSkillStat{
-			Name:             detail.Name,
-			DeviceCount:      detail.DeviceCount,
-			UserCount:        detail.UserCount,
-			ObservationCount: detail.ObservationCount,
-		},
-		Description:  detail.Description,
-		HasScripts:   detail.HasScripts,
-		GitRemoteURL: detail.GitRemoteURL,
-		Files:        detail.Files,
+		Name:             detail.Name,
+		DeviceCount:      detail.DeviceCount,
+		UserCount:        detail.UserCount,
+		ObservationCount: detail.ObservationCount,
+		Description:      detail.Description,
+		HasScripts:       detail.HasScripts,
+		GitRemoteURL:     detail.GitRemoteURL,
+		Files:            detail.Files,
 	})
 }
 
@@ -373,10 +371,10 @@ func (*DeviceScansHandler) ListSkillOccurrences(req api.Context) error {
 		})
 	}
 	return req.Write(types.DeviceSkillOccurrenceResponse{
-		DeviceSkillOccurrenceList: types.DeviceSkillOccurrenceList{Items: items},
-		Total:                     total,
-		Limit:                     limit,
-		Offset:                    offset,
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	})
 }
 
@@ -509,10 +507,10 @@ func (*DeviceScansHandler) ListClients(req api.Context) error {
 		items = append(items, convertDeviceClientFleetSummary(r))
 	}
 	return req.Write(types.DeviceClientFleetSummaryResponse{
-		DeviceClientFleetSummaryList: types.DeviceClientFleetSummaryList{Items: items},
-		Total:                        total,
-		Limit:                        limit,
-		Offset:                       offset,
+		Items:  items,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	})
 }
 

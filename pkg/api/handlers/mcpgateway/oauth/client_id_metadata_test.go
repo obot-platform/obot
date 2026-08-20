@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,11 +241,9 @@ func TestClientIDNativeExceptionsDefaultToNative(t *testing.T) {
 			t.Parallel()
 
 			client, err := h.oauthClientFromMetadataDocument(clientID, clientIDMetadataDocument{
-				OAuthClientManifest: types.OAuthClientManifest{
-					ClientName:   "Example Client",
-					RedirectURIs: []string{"http://127.0.0.1/callback"},
-				},
-				ClientID: clientID,
+				ClientName:   "Example Client",
+				RedirectURIs: []string{"http://127.0.0.1/callback"},
+				ClientID:     clientID,
 			})
 			if err != nil {
 				t.Fatalf("resolve metadata: %v", err)
@@ -319,7 +316,7 @@ func TestCacheClientMetadataEvictsOldestEntryAtLimit(t *testing.T) {
 
 	const oldestClientID = "https://client.example/client-0.json"
 	const newClientID = "https://client.example/new-client.json"
-	h.cacheClientMetadata(newClientID, v1.OAuthClient{ObjectMeta: metav1.ObjectMeta{Name: newClientID}}, now.Add(time.Hour))
+	h.cacheClientMetadata(newClientID, v1.OAuthClient{Name: newClientID}, now.Add(time.Hour))
 
 	if len(h.clientMetadataCache) != clientMetadataCacheMaxEntries {
 		t.Fatalf("expected cache size %d, got %d", clientMetadataCacheMaxEntries, len(h.clientMetadataCache))

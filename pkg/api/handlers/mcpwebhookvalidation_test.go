@@ -124,8 +124,8 @@ func TestApplyRemoteURLTemplateToWebhookValidation(t *testing.T) {
 					Name:    "validator",
 					Runtime: types.RuntimeRemote,
 					Env: []types.MCPEnv{
-						{MCPHeader: types.MCPHeader{Key: "HOST", Required: true}},
-						{MCPHeader: types.MCPHeader{Key: "SPACE", Required: true}},
+						{Key: "HOST", Required: true},
+						{Key: "SPACE", Required: true},
 					},
 					RemoteConfig: &types.RemoteRuntimeConfig{
 						IsTemplate:  true,
@@ -154,10 +154,9 @@ func TestApplyRemoteURLTemplateToWebhookValidationRejectsUnknownOption(t *testin
 	validation := &v1.MCPWebhookValidation{Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
 		SystemMCPServerManifest: &types.SystemMCPServerManifest{
 			Runtime: types.RuntimeRemote,
-			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Env: []types.MCPEnv{{
 				Key: "REGION", Required: true,
-				Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}},
-			}}},
+				Options: []types.MCPConfigurationOption{{Name: "US", Value: "us"}}}},
 			RemoteConfig: &types.RemoteRuntimeConfig{IsTemplate: true, URLTemplate: "https://${REGION}.example.com/mcp"},
 		},
 	}}}

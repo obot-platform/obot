@@ -7,7 +7,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -51,10 +50,8 @@ func (*HarnessHandler) Create(req api.Context) error {
 	}
 
 	harness := v1.Harness{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.HarnessPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.HarnessPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.HarnessSpec{
 			Manifest: manifest,
 		},
@@ -104,10 +101,8 @@ func (*HarnessHandler) Delete(req api.Context) error {
 	}
 
 	return req.Delete(&v1.Harness{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: req.Namespace(),
-		},
+		Name:      id,
+		Namespace: req.Namespace(),
 	})
 }
 

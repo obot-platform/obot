@@ -1045,8 +1045,7 @@ func TestManagerServeConnectRechecksCredential(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	configuredTunnel := v1.MCPTunnel{}
-	configuredTunnel.Name = tunnelName
+	configuredTunnel := v1.MCPTunnel{Name: tunnelName}
 	configuredTunnel.Spec.Credential = currentCredential
 	reader := &staticTunnelTestReader{
 		tunnels: map[string]v1.MCPTunnel{tunnelName: configuredTunnel},
@@ -1501,9 +1500,7 @@ func testTunnelCredential(name string) string {
 func testConfiguredTunnel(name string) v1.MCPTunnel {
 	credential := testTunnelCredential(name)
 	credentialID, _ := CredentialID(credential)
-	tunnel := v1.MCPTunnel{}
-	tunnel.Name = name
-	tunnel.Namespace = system.DefaultNamespace
+	tunnel := v1.MCPTunnel{Name: name, Namespace: system.DefaultNamespace}
 	tunnel.Spec.Credential = credential
 	tunnel.Spec.CredentialID = credentialID
 	tunnel.Spec.Manifest.AllowedURLs = []string{"*"}

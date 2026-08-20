@@ -23,7 +23,7 @@ func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
 			Path:  "/custom",
 		},
 		Env: []types.MCPEnv{{
-			MCPHeader: types.MCPHeader{Key: "CUSTOM", Value: "1"},
+			Key: "CUSTOM", Value: "1",
 		}},
 	}
 

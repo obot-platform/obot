@@ -22,7 +22,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -282,12 +281,12 @@ func newTokenRequestTestServer(t *testing.T) (*Server, *client.Client) {
 	}
 
 	provider := &v1.AuthProvider{
-		ObjectMeta: metav1.ObjectMeta{Name: "github", Namespace: system.DefaultNamespace},
-		Status:     v1.AuthProviderStatus{Configured: true},
+		Name: "github", Namespace: system.DefaultNamespace,
+		Status: v1.AuthProviderStatus{Configured: true},
 	}
 	defaultRole := &v1.UserDefaultRoleSetting{
-		ObjectMeta: metav1.ObjectMeta{Name: system.DefaultRoleSettingName, Namespace: system.DefaultNamespace},
-		Spec:       v1.UserDefaultRoleSettingSpec{Role: clienttypes.RoleBasic},
+		Name: system.DefaultRoleSettingName, Namespace: system.DefaultNamespace,
+		Spec: v1.UserDefaultRoleSettingSpec{Role: clienttypes.RoleBasic},
 	}
 	storageClient := clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).

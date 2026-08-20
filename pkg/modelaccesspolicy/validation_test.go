@@ -9,7 +9,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -101,10 +100,8 @@ func TestValidateModelResource(t *testing.T) {
 
 func modelForValidationTest(name string, usage types.ModelUsage) *v1.Model {
 	return &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      name,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{
 			Manifest: types.ModelManifest{
 				Usage: usage,

@@ -138,7 +138,7 @@ func TestConvertLLMExportToAPI(t *testing.T) {
 	started := metav1.NewTime(time.Date(2026, 7, 1, 1, 0, 0, 0, time.UTC))
 	completed := metav1.NewTime(time.Date(2026, 7, 1, 1, 5, 0, 0, time.UTC))
 	export := &v1.AuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{Name: "ael1abc", CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC))},
+		Name: "ael1abc", CreationTimestamp: metav1.NewTime(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)),
 		Spec: v1.AuditLogExportSpec{
 			Name:       "daily",
 			Type:       types.AuditLogTypeLLM,

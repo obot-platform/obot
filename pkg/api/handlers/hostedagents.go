@@ -13,7 +13,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type HostedAgentHandler struct {
@@ -86,10 +85,8 @@ func (h *HostedAgentHandler) Create(req api.Context) error {
 	secrets := extractHostedAgentSecrets(&manifest)
 
 	agent := v1.HostedAgent{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.HostedAgentPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.HostedAgentPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.HostedAgentSpec{
 			Manifest: manifest,
 		},
@@ -181,10 +178,8 @@ func (h *HostedAgentHandler) Delete(req api.Context) error {
 	}
 
 	return req.Delete(&v1.HostedAgent{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      agent.Name,
-			Namespace: req.Namespace(),
-		},
+		Name:      agent.Name,
+		Namespace: req.Namespace(),
 	})
 }
 

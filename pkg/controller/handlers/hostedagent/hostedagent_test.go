@@ -15,11 +15,9 @@ import (
 
 func TestDefaultDesiredBuilder(t *testing.T) {
 	instance := &v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance",
-			Namespace: "default",
-			UID:       ktypes.UID("instance-uid"),
-		},
+		Name:      "instance",
+		Namespace: "default",
+		UID:       ktypes.UID("instance-uid"),
 		Spec: v1.HostedAgentInstanceSpec{
 			UserID: "user-1",
 			PoolID: "pool-1",

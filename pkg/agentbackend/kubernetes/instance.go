@@ -272,21 +272,17 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 	}
 
 	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   b.opts.Namespace,
-			Labels:      labels,
-			Annotations: annotations,
-		},
-		Data: secretData,
+		Name:        name,
+		Namespace:   b.opts.Namespace,
+		Labels:      labels,
+		Annotations: annotations,
+		Data:        secretData,
 	}
 
 	volumes := append([]corev1.Volume{{
 		Name: workspaceVolumeName,
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: pool,
-			},
+		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+			ClaimName: pool,
 		},
 	}}, fileVolumes...)
 
@@ -308,12 +304,10 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 	}
 
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   b.opts.Namespace,
-			Labels:      labels,
-			Annotations: annotations,
-		},
+		Name:        name,
+		Namespace:   b.opts.Namespace,
+		Labels:      labels,
+		Annotations: annotations,
 		Spec: appsv1.DeploymentSpec{
 			Replicas: new(int32(1)),
 			Selector: &metav1.LabelSelector{
@@ -350,7 +344,7 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 						Env:   env,
 						EnvFrom: []corev1.EnvFromSource{{
 							SecretRef: &corev1.SecretEnvSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: name},
+								Name: name,
 							},
 						}},
 						VolumeMounts:    mounts,
@@ -383,12 +377,10 @@ func (b *Backend) instanceObjects(desired agentbackend.DesiredInstance) ([]kclie
 	// instance never leaves pending.
 	if len(servicePorts(desired.Port)) > 0 {
 		objects = append(objects, &corev1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name,
-				Namespace:   b.opts.Namespace,
-				Labels:      labels,
-				Annotations: annotations,
-			},
+			Name:        name,
+			Namespace:   b.opts.Namespace,
+			Labels:      labels,
+			Annotations: annotations,
 			Spec: corev1.ServiceSpec{
 				Type:     corev1.ServiceTypeClusterIP,
 				Selector: map[string]string{instanceLabel: sanitize(desired.Ref.ID)},
@@ -460,11 +452,9 @@ func renderFiles(secretName string, files []agentbackend.File, secretData map[st
 		volumeName := fmt.Sprintf("%s-%d", filesVolumePrefix, i)
 		volumes = append(volumes, corev1.Volume{
 			Name: volumeName,
-			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretName,
-					Items:      items,
-				},
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: secretName,
+				Items:      items,
 			},
 		})
 		mounts = append(mounts, corev1.VolumeMount{
@@ -497,8 +487,8 @@ func secretRefEnv(refs []agentbackend.SecretRef) ([]corev1.EnvVar, error) {
 			Name: ref.EnvName,
 			ValueFrom: &corev1.EnvVarSource{
 				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{Name: ref.ID},
-					Key:                  ref.EnvName,
+					Name: ref.ID,
+					Key:  ref.EnvName,
 				},
 			},
 		})
@@ -530,14 +520,12 @@ func (b *Backend) cleanupJob(instanceID, poolID string) (*batchv1.Job, error) {
 		return nil, err
 	}
 	job := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cleanupJobName(instanceID),
-			Namespace: b.opts.Namespace,
-			Labels: map[string]string{
-				managedLabel:  managedValue,
-				instanceLabel: subdir,
-				poolLabel:     sanitize(poolID),
-			},
+		Name:      cleanupJobName(instanceID),
+		Namespace: b.opts.Namespace,
+		Labels: map[string]string{
+			managedLabel:  managedValue,
+			instanceLabel: subdir,
+			poolLabel:     sanitize(poolID),
 		},
 		Spec: batchv1.JobSpec{
 			BackoffLimit: new(int32(4)),
@@ -556,10 +544,8 @@ func (b *Backend) cleanupJob(instanceID, poolID string) (*batchv1.Job, error) {
 					SecurityContext:   b.podSecurityContext(),
 					Volumes: []corev1.Volume{{
 						Name: workspaceVolumeName,
-						VolumeSource: corev1.VolumeSource{
-							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-								ClaimName: poolName(poolID),
-							},
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: poolName(poolID),
 						},
 					}},
 					Containers: []corev1.Container{{

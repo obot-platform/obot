@@ -8,7 +8,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -17,10 +16,8 @@ func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(
 			&v1.MCPTunnel{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mcptunnel-office",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "mcptunnel-office",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.MCPTunnelSpec{
 					Manifest: types.MCPTunnelManifest{
 						DisplayName: "Office",
@@ -32,10 +29,8 @@ func TestValidateCatalogEntryTunnelReferences(t *testing.T) {
 				},
 			},
 			&v1.MCPTunnel{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "mcptunnel-legacy",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "mcptunnel-legacy",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.MCPTunnelSpec{
 					Manifest: types.MCPTunnelManifest{
 						AllowedURLs: []string{"https://fixed.example.com/mcp"},
@@ -147,10 +142,8 @@ func TestValidateServerTunnelReferences(t *testing.T) {
 	client := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(&v1.MCPTunnel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcptunnel-office",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcptunnel-office",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPTunnelSpec{
 				Manifest: types.MCPTunnelManifest{
 					DisplayName: "Office",

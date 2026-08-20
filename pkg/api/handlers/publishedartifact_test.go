@@ -336,9 +336,7 @@ func TestWithArtifactMetadata(t *testing.T) {
 
 func TestConvertPublishedArtifact(t *testing.T) {
 	input := &v1.PublishedArtifact{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pa1abc123",
-		},
+		Name: "pa1abc123",
 		Spec: v1.PublishedArtifactSpec{
 			PublishedArtifactManifest: types.PublishedArtifactManifest{
 				Name:         "my-workflow",
@@ -570,10 +568,8 @@ func TestPublishedArtifactCreate_InheritsSubjectsFromPreviousVersion(t *testing.
 	artifactName := system.PublishedArtifactPrefix + hash.String("owner" + string(types.PublishedArtifactTypeWorkflow) + "workflow-a")[:12]
 
 	storage := newPublishedArtifactTestStorage(t, &v1.PublishedArtifact{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      artifactName,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      artifactName,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.PublishedArtifactSpec{
 			PublishedArtifactManifest: types.PublishedArtifactManifest{
 				Name:         "workflow-a",

@@ -10,17 +10,14 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestPruneDefaultPolicy(t *testing.T) {
 	existingModel := &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "m1-existing",
-			Namespace: "default",
-		},
+		Name:      "m1-existing",
+		Namespace: "default",
 		Spec: v1.ModelSpec{
 			Manifest: types.ModelManifest{
 				Usage: types.ModelUsageLLM,
@@ -28,10 +25,8 @@ func TestPruneDefaultPolicy(t *testing.T) {
 		},
 	}
 	embeddingModel := &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "m1-embedding",
-			Namespace: "default",
-		},
+		Name:      "m1-embedding",
+		Namespace: "default",
 		Spec: v1.ModelSpec{
 			Manifest: types.ModelManifest{
 				Usage: types.ModelUsageEmbedding,
@@ -139,10 +134,8 @@ func TestPruneDefaultPolicy(t *testing.T) {
 			client := fake.NewClientBuilder().
 				WithScheme(storagescheme.Scheme).
 				WithObjects(existingModel, embeddingModel, &v1.ModelAccessPolicy{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      policyName,
-						Namespace: system.DefaultNamespace,
-					},
+					Name:      policyName,
+					Namespace: system.DefaultNamespace,
 					Spec: v1.ModelAccessPolicySpec{
 						Manifest: types.ModelAccessPolicyManifest{
 							Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "u1"}},

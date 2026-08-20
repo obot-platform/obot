@@ -433,7 +433,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 
 func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	k := newTestKubernetesBackend(t, &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+		Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
 		Spec: v1.K8sSettingsSpec{
 			Resources: &corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
@@ -599,7 +599,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				Runtime: types.RuntimeContainerized,
 			},
 			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
 				Spec: v1.K8sSettingsSpec{
 					MaxCPURequest:    new(resource.MustParse("5m")),
 					MaxMemoryRequest: new(resource.MustParse("128Mi")),
@@ -623,7 +623,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				NanobotAgentName: "agent-1",
 			},
 			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
 				Spec: v1.K8sSettingsSpec{
 					MaxCPURequest:    new(resource.MustParse("5m")),
 					MaxMemoryRequest: new(resource.MustParse("256Mi")),
@@ -639,7 +639,7 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 				NanobotAgentName: "agent-1",
 			},
 			settings: &v1.K8sSettings{
-				ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
+				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
 				Spec: v1.K8sSettingsSpec{
 					Resources: &corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{corev1.ResourceMemory: resource.MustParse("250Mi")},
@@ -716,11 +716,9 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 func TestK8sObjectsUsesStoredMaximums(t *testing.T) {
 	storedMaximum := resource.MustParse("20m")
 	settings := &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.K8sSettingsName,
-			Namespace: system.DefaultNamespace,
-		},
-		Spec: v1.K8sSettingsSpec{MaxCPURequest: &storedMaximum},
+		Name:      system.K8sSettingsName,
+		Namespace: system.DefaultNamespace,
+		Spec:      v1.K8sSettingsSpec{MaxCPURequest: &storedMaximum},
 	}
 	k := newTestKubernetesBackend(t, settings)
 	server := testK8sServerConfig()
@@ -1039,23 +1037,19 @@ func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 			}
 
 			deployment := &appsv1.Deployment{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-server",
-					Namespace: "obot-mcp",
-				},
+				Name:      "test-server",
+				Namespace: "obot-mcp",
 				Status: appsv1.DeploymentStatus{
 					ObservedGeneration: 1,
 					UpdatedReplicas:    1,
 				},
 			}
 			pod := &corev1.Pod{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:              "test-server-pod",
-					Namespace:         "obot-mcp",
-					CreationTimestamp: metav1.Now(),
-					Labels: map[string]string{
-						"app": "test-server",
-					},
+				Name:              "test-server-pod",
+				Namespace:         "obot-mcp",
+				CreationTimestamp: metav1.Now(),
+				Labels: map[string]string{
+					"app": "test-server",
 				},
 				Status: corev1.PodStatus{
 					Phase: corev1.PodSucceeded,
@@ -1105,23 +1099,19 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 
 	now := time.Now()
 	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-server",
-			Namespace: "obot-mcp",
-		},
+		Name:      "test-server",
+		Namespace: "obot-mcp",
 		Status: appsv1.DeploymentStatus{
 			ObservedGeneration: 1,
 			UpdatedReplicas:    1,
 		},
 	}
 	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              "test-server-pod",
-			Namespace:         "obot-mcp",
-			CreationTimestamp: metav1.NewTime(now.Add(-time.Minute)),
-			Labels: map[string]string{
-				"app": "test-server",
-			},
+		Name:              "test-server-pod",
+		Namespace:         "obot-mcp",
+		CreationTimestamp: metav1.NewTime(now.Add(-time.Minute)),
+		Labels: map[string]string{
+			"app": "test-server",
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
@@ -1138,7 +1128,7 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 
 	go func() {
 		watcher.Add(&appsv1.Deployment{
-			ObjectMeta: metav1.ObjectMeta{Name: "test-server", Namespace: "obot-mcp"},
+			Name: "test-server", Namespace: "obot-mcp",
 		})
 		watcher.Stop()
 	}()
@@ -1169,16 +1159,16 @@ func TestUpdatedMCPPodName_ContainerStartupDeadlineExceeded(t *testing.T) {
 func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 	managedSecrets := []v1.ImagePullSecret{
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed-b", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+			Name: "managed-b", Namespace: system.DefaultNamespace,
+			Spec: v1.ImagePullSecretSpec{Enabled: true},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "disabled", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: false},
+			Name: "disabled", Namespace: system.DefaultNamespace,
+			Spec: v1.ImagePullSecretSpec{Enabled: false},
 		},
 		{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed-a", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+			Name: "managed-a", Namespace: system.DefaultNamespace,
+			Spec: v1.ImagePullSecretSpec{Enabled: true},
 		},
 	}
 
@@ -1222,8 +1212,8 @@ func TestK8sObjects_ManagedImagePullSecrets(t *testing.T) {
 func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 	k := newTestKubernetesBackend(t,
 		&v1.ImagePullSecret{
-			ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
-			Spec:       v1.ImagePullSecretSpec{Enabled: true},
+			Name: "managed", Namespace: system.DefaultNamespace,
+			Spec: v1.ImagePullSecretSpec{Enabled: true},
 		},
 	)
 	k.imagePullSecrets = []string{"static-b", "static-a", "static-a"}
@@ -1251,8 +1241,8 @@ func TestK8sObjects_StaticImagePullSecretsOverrideManaged(t *testing.T) {
 func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T) {
 	k := newTestKubernetesBackend(t,
 		&v1.K8sSettings{
-			ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-			Spec:       v1.K8sSettingsSpec{},
+			Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
+			Spec: v1.K8sSettingsSpec{},
 		},
 	)
 	server := ServerConfig{
@@ -1284,8 +1274,8 @@ func TestRestartServerAddsManagedImagePullSecretsToFreshDeployment(t *testing.T)
 	k.client = fake.NewClientBuilder().WithScheme(runtimeScheme).WithObjects(dep).Build()
 
 	if err := k.obotClient.Create(t.Context(), &v1.ImagePullSecret{
-		ObjectMeta: metav1.ObjectMeta{Name: "managed", Namespace: system.DefaultNamespace},
-		Spec:       v1.ImagePullSecretSpec{Enabled: true},
+		Name: "managed", Namespace: system.DefaultNamespace,
+		Spec: v1.ImagePullSecretSpec{Enabled: true},
 	}); err != nil {
 		t.Fatalf("Create() error = %v", err)
 	}

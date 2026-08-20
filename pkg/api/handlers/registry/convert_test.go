@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestConvertMCPServerCatalogEntryToRegistryRemoteFixedURLHasRemote(t *testing.T) {
@@ -99,9 +98,7 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteStaticOAuthRequiresConfigur
 
 func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 	server := v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "ms1needsurl",
-		},
+		Name: "ms1needsurl",
 		Spec: v1.MCPServerSpec{
 			UserID:   "user-1",
 			NeedsURL: true,
@@ -130,9 +127,7 @@ func TestConvertMCPServerToRegistryNeedsURLRequiresConfiguration(t *testing.T) {
 
 func registryTestCatalogEntry(remoteConfig types.RemoteCatalogConfig) v1.MCPServerCatalogEntry {
 	return v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "remote-entry",
-		},
+		Name: "remote-entry",
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Name:        "Remote Entry",

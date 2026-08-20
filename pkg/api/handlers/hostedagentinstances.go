@@ -16,7 +16,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -167,10 +166,8 @@ func (h *HostedAgentInstanceHandler) Create(req api.Context) error {
 	}
 
 	instance := v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.HostedAgentInstancePrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.HostedAgentInstancePrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.HostedAgentInstanceSpec{
 			UserID:          req.User.GetUID(),
 			HostedAgentName: agent.Name,
@@ -369,10 +366,8 @@ func resolveModelReference(req api.Context, ref string) (string, error) {
 
 func (h *HostedAgentInstanceHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.HostedAgentInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("hosted_agent_instance_id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("hosted_agent_instance_id"),
+		Namespace: req.Namespace(),
 	})
 }
 

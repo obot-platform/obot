@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -42,10 +41,8 @@ func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *te
 	)
 
 	entry := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      entryID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      entryID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
 				ServerUserType: types.ServerUserTypeSingleUser,
@@ -95,7 +92,7 @@ func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *
 
 	maximum := resource.MustParse("500m")
 	entry := &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: entryID, Namespace: system.DefaultNamespace},
+		Name: entryID, Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
 				ServerUserType: types.ServerUserTypeSingleUser,
@@ -108,8 +105,8 @@ func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *
 		},
 	}
 	settings := &v1.K8sSettings{
-		ObjectMeta: metav1.ObjectMeta{Name: system.K8sSettingsName, Namespace: system.DefaultNamespace},
-		Spec:       v1.K8sSettingsSpec{MaxCPURequest: &maximum},
+		Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
+		Spec: v1.K8sSettingsSpec{MaxCPURequest: &maximum},
 	}
 
 	storageClient := fake.NewClientBuilder().

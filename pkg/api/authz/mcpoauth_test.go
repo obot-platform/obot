@@ -9,17 +9,14 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServerInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "msi1test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "msi1test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerInstanceSpec{
 			UserID: "mcpoauth-user-uid",
 		},
@@ -65,10 +62,8 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 
 func TestDefaultAuthorizerAllowsMCPProxyRoutes(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ms1test",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "ms1test",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			UserID: "mcp-user-uid",
 		},

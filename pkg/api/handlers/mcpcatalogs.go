@@ -351,9 +351,7 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 	cleanName := normalizeMCPCatalogEntryName(manifest.Name)
 
 	entry := v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: req.Namespace(),
-		},
+		Namespace: req.Namespace(),
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Editable: true,
 			Manifest: manifest,
@@ -624,8 +622,7 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 
 	info, err := h.capacityInfoProvider.GetCapacityInfoForServers(req.Context(), serverNames)
 	if err != nil {
-		var notSupported *mcp.ErrNotSupportedByBackend
-		if errors.As(err, &notSupported) {
+		if notSupported, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrBadRequest("%s", notSupported.Error())
 		}
 		return err
@@ -1322,10 +1319,8 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	// - it may no longer exist
 	// - we already have enough information to generate composite tool overrides for the component
 	entry := v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      component.CatalogEntryID,
-			Namespace: composite.Namespace,
-		},
+		Name:      component.CatalogEntryID,
+		Namespace: composite.Namespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName: composite.Spec.MCPCatalogName,
 			Manifest:       component.Manifest,
@@ -1553,9 +1548,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	// Create temporary MCPServer object to use existing conversion logic
 	tempName := "tool-preview-" + utils.Digest(serverManifest)[:16]
 	tempMCPServer := v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: tempName,
-		},
+		Name: tempName,
 		Spec: v1.MCPServerSpec{
 			Manifest:                  serverManifest,
 			MCPServerCatalogEntryName: entryName,
@@ -1583,11 +1576,9 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 	}
 
 	oauthClient := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       clientID,
-			Namespace:  namespace,
-			Finalizers: []string{v1.OAuthClientFinalizer},
-		},
+		Name:       clientID,
+		Namespace:  namespace,
+		Finalizers: []string{v1.OAuthClientFinalizer},
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
 				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
@@ -1688,16 +1679,14 @@ func revealCatalogTokens(req api.Context, catalogName string) (map[string]string
 
 func convertMCPCatalog(catalog v1.MCPCatalog, tokenEnv map[string]string) types.MCPCatalog {
 	return types.MCPCatalog{
-		Metadata: MetadataFrom(&catalog),
-		MCPCatalogManifest: types.MCPCatalogManifest{
-			DisplayName:               catalog.Spec.DisplayName,
-			SourceURLs:                catalog.Spec.SourceURLs,
-			SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
-			SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
-		},
-		LastSynced: *types.NewTime(catalog.Status.LastSyncTime.Time),
-		SyncErrors: catalog.Status.SyncErrors,
-		IsSyncing:  catalog.Status.IsSyncing || catalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true",
+		Metadata:                  MetadataFrom(&catalog),
+		DisplayName:               catalog.Spec.DisplayName,
+		SourceURLs:                catalog.Spec.SourceURLs,
+		SourceURLCredentials:      maskCatalogCredentials(catalog.Spec.SourceURLs, tokenEnv),
+		SourceURLGitCredentialIDs: catalog.Spec.SourceURLGitCredentialIDs,
+		LastSynced:                *types.NewTime(catalog.Status.LastSyncTime.Time),
+		SyncErrors:                catalog.Status.SyncErrors,
+		IsSyncing:                 catalog.Status.IsSyncing || catalog.Annotations[v1.MCPCatalogSyncAnnotation] == "true",
 	}
 }
 

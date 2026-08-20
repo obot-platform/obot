@@ -19,9 +19,8 @@ func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
 		ServerUserType: types.ServerUserTypeSingleUser,
 		Runtime:        types.RuntimeNPX,
 		NPXConfig:      &types.NPXRuntimeConfig{Package: "test-server"},
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-			Key: "REGION", Name: "Region", Required: true, Options: testConfigurationOptions(),
-		}}},
+		Env: []types.MCPEnv{{
+			Key: "REGION", Name: "Region", Required: true, Options: testConfigurationOptions()}},
 	}
 
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, true, ValidationOptions{}))
@@ -71,7 +70,7 @@ func TestValidateCatalogEntryManifestConfigurationOptions(t *testing.T) {
 }
 
 func TestValidateConfiguredOptions(t *testing.T) {
-	field := types.MCPEnv{MCPHeader: types.MCPHeader{Key: "REGION", Required: true, Options: testConfigurationOptions()}}
+	field := types.MCPEnv{Key: "REGION", Required: true, Options: testConfigurationOptions()}
 
 	missing, err := ValidateConfiguredOptions([]types.MCPEnv{field}, nil, map[string]string{"REGION": "eu"})
 	require.NoError(t, err)
@@ -102,9 +101,8 @@ func TestValidateConfiguredOptions(t *testing.T) {
 func TestValidateCatalogConfigurationConstraints(t *testing.T) {
 	catalog := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
-		Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-			Key: "REGION", Prefix: "region-", Required: true, Sensitive: true, Options: testConfigurationOptions(),
-		}}},
+		Env: []types.MCPEnv{{
+			Key: "REGION", Prefix: "region-", Required: true, Sensitive: true, Options: testConfigurationOptions()}},
 		RemoteConfig: &types.RemoteCatalogConfig{URLTemplate: "https://${REGION}.example.com/mcp"},
 	}
 	server, err := types.MapCatalogEntryToServer(catalog, "", false)
@@ -125,9 +123,8 @@ func TestValidateCatalogConfigurationConstraints(t *testing.T) {
 
 	t.Run("option field injected", func(t *testing.T) {
 		changed := *server.DeepCopy()
-		changed.Env = append(changed.Env, types.MCPEnv{MCPHeader: types.MCPHeader{
-			Key: "INJECTED", Options: []types.MCPConfigurationOption{{Name: "Injected", Value: "injected"}},
-		}})
+		changed.Env = append(changed.Env, types.MCPEnv{
+			Key: "INJECTED", Options: []types.MCPConfigurationOption{{Name: "Injected", Value: "injected"}}})
 		require.ErrorContains(t, ValidateCatalogConfigurationConstraints(changed, catalog), `env "INJECTED" configuration must match`)
 	})
 
@@ -143,7 +140,7 @@ func TestValidateCatalogConfigurationConstraintsCompositeOptions(t *testing.T) {
 	componentCatalog := types.MCPServerCatalogEntryManifest{
 		Runtime:   types.RuntimeNPX,
 		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
-		Env:       []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Options: testConfigurationOptions()}}},
+		Env:       []types.MCPEnv{{Key: "REGION", Options: testConfigurationOptions()}},
 	}
 	matchingComponent, err := types.MapCatalogEntryToServer(componentCatalog, "", false)
 	require.NoError(t, err)
@@ -169,9 +166,8 @@ func TestValidateCatalogConfigurationConstraintsCompositeOptions(t *testing.T) {
 		Runtime: types.RuntimeComposite,
 		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
 			CatalogEntryID: "injected",
-			Manifest: types.MCPServerManifest{Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
-				Key: "REGION", Options: testConfigurationOptions(),
-			}}}},
+			Manifest: types.MCPServerManifest{Env: []types.MCPEnv{{
+				Key: "REGION", Options: testConfigurationOptions()}}},
 		}}},
 	}
 	require.ErrorContains(t, ValidateCatalogConfigurationConstraints(injected, types.MCPServerCatalogEntryManifest{}), `component "injected" configuration options must be defined by the source catalog entry`)

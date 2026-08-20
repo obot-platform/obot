@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // getGroupRoleAssignments returns all group role assignments.
@@ -166,10 +165,8 @@ func (s *Server) deleteGroupRoleAssignment(apiContext api.Context) error {
 func (s *Server) triggerReconciliationForGroup(apiContext api.Context, groupName string) error {
 	// Create a single GroupRoleChange event that will trigger reconciliation for all users in the group
 	if err := apiContext.Create(&v1.GroupRoleChange{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.GroupRoleChangePrefix,
-			Namespace:    apiContext.Namespace(),
-		},
+		GenerateName: system.GroupRoleChangePrefix,
+		Namespace:    apiContext.Namespace(),
 		Spec: v1.GroupRoleChangeSpec{
 			GroupName: groupName,
 		},

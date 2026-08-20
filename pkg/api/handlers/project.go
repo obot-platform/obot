@@ -5,7 +5,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -45,10 +44,8 @@ func (*ProjectHandler) Create(req api.Context) error {
 	}
 
 	project := v1.Project{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ProjectPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.ProjectPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.ProjectSpec{
 			ProjectManifest: manifest,
 			UserID:          req.User.GetUID(),
@@ -98,10 +95,8 @@ func (*ProjectHandler) Delete(req api.Context) error {
 	var id = req.PathValue("project_id")
 
 	return req.Delete(&v1.Project{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id,
-			Namespace: req.Namespace(),
-		},
+		Name:      id,
+		Namespace: req.Namespace(),
 	})
 }
 

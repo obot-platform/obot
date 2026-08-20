@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -29,13 +28,13 @@ func TestMergeBoundCreds(t *testing.T) {
 	}
 
 	t.Run("does not mutate input cred map and overrides stale values", func(t *testing.T) {
-		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}}
+		manifestEnv := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}
 		input := map[string]string{"API_KEY": "stale", "UNCHANGED": "keep"}
 		inputBefore := map[string]string{"API_KEY": "stale", "UNCHANGED": "keep"}
 
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"api_key": []byte("fresh")},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		out, err := MergeBoundCreds(t.Context(), c, ns, manifestEnv, nil, input, label)
@@ -46,7 +45,7 @@ func TestMergeBoundCreds(t *testing.T) {
 	})
 
 	t.Run("omits missing secret and missing key", func(t *testing.T) {
-		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("missing-secret", "api_key")}}}
+		manifestEnv := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("missing-secret", "api_key")}}
 		input := map[string]string{"API_KEY": "stale", "OTHER": "ok"}
 
 		out, err := MergeBoundCreds(t.Context(), newClient(t), ns, manifestEnv, nil, input, label)
@@ -56,8 +55,8 @@ func TestMergeBoundCreds(t *testing.T) {
 
 		manifestEnv[0].SecretBinding = binding("present-secret", "missing-key")
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"other": []byte("x")},
-			ObjectMeta: metav1.ObjectMeta{Name: "present-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"other": []byte("x")},
+			Name: "present-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 		out, err = MergeBoundCreds(t.Context(), c, ns, manifestEnv, nil, input, label)
 		require.NoError(t, err)
@@ -67,8 +66,8 @@ func TestMergeBoundCreds(t *testing.T) {
 	t.Run("merges remote header bindings", func(t *testing.T) {
 		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("auth-secret", "token")}}}
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"token": []byte("Bearer abc")},
-			ObjectMeta: metav1.ObjectMeta{Name: "auth-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"token": []byte("Bearer abc")},
+			Name: "auth-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		out, err := MergeBoundCreds(t.Context(), c, ns, nil, remote, map[string]string{"Authorization": "stale"}, label)
@@ -77,7 +76,7 @@ func TestMergeBoundCreds(t *testing.T) {
 	})
 
 	t.Run("nil client strips bound keys and keeps others", func(t *testing.T) {
-		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("s", "k")}}}
+		manifestEnv := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("s", "k")}}
 		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("s", "token")}}}
 		in := map[string]string{"API_KEY": "x", "Authorization": "y", "OTHER": "ok"}
 
@@ -89,11 +88,11 @@ func TestMergeBoundCreds(t *testing.T) {
 	})
 
 	t.Run("empty secret value is treated as missing", func(t *testing.T) {
-		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}}
+		manifestEnv := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}
 		in := map[string]string{"API_KEY": "stale"}
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"api_key": []byte("")},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		out, err := MergeBoundCreds(t.Context(), c, ns, manifestEnv, nil, in, label)
@@ -102,11 +101,11 @@ func TestMergeBoundCreds(t *testing.T) {
 	})
 
 	t.Run("unlabeled secret is treated as missing", func(t *testing.T) {
-		manifestEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}}
+		manifestEnv := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("bound-secret", "api_key")}}
 		in := map[string]string{"API_KEY": "stale", "OTHER": "ok"}
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns},
+			Data: map[string][]byte{"api_key": []byte("fresh")},
+			Name: "bound-secret", Namespace: ns,
 		})
 
 		out, err := MergeBoundCreds(t.Context(), c, ns, manifestEnv, nil, in, label)
@@ -127,12 +126,12 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 	}
 
-	requiredEnv := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", Required: true, SecretBinding: binding("bound-secret", "api_key")}}}
+	requiredEnv := []types.MCPEnv{{Key: "API_KEY", Required: true, SecretBinding: binding("bound-secret", "api_key")}}
 
 	t.Run("valid secret", func(t *testing.T) {
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"api_key": []byte("fresh")},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		require.NoError(t, ValidateSecretBindingsAvailable(t.Context(), c, ns, requiredEnv, nil, label))
@@ -146,8 +145,8 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 
 	t.Run("missing key", func(t *testing.T) {
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"other": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"other": []byte("fresh")},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		err := ValidateSecretBindingsAvailable(t.Context(), c, ns, requiredEnv, nil, label)
@@ -157,8 +156,8 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 
 	t.Run("empty value is treated as unavailable", func(t *testing.T) {
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"api_key": []byte("")},
+			Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		err := ValidateSecretBindingsAvailable(t.Context(), c, ns, requiredEnv, nil, label)
@@ -168,8 +167,8 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 
 	t.Run("unlabeled secret", func(t *testing.T) {
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"api_key": []byte("fresh")},
-			ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns},
+			Data: map[string][]byte{"api_key": []byte("fresh")},
+			Name: "bound-secret", Namespace: ns,
 		})
 
 		err := ValidateSecretBindingsAvailable(t.Context(), c, ns, requiredEnv, nil, label)
@@ -178,7 +177,7 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 	})
 
 	t.Run("binding is checked even when optional", func(t *testing.T) {
-		env := []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "API_KEY", SecretBinding: binding("missing", "api_key")}}}
+		env := []types.MCPEnv{{Key: "API_KEY", SecretBinding: binding("missing", "api_key")}}
 
 		err := ValidateSecretBindingsAvailable(t.Context(), newClient(t), ns, env, nil, label)
 		require.Error(t, err)
@@ -188,8 +187,8 @@ func TestValidateSecretBindingsAvailable(t *testing.T) {
 	t.Run("remote header", func(t *testing.T) {
 		remote := &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", Required: true, SecretBinding: binding("auth-secret", "token")}}}
 		c := newClient(t, &corev1.Secret{
-			Data:       map[string][]byte{"token": []byte("Bearer abc")},
-			ObjectMeta: metav1.ObjectMeta{Name: "auth-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Data: map[string][]byte{"token": []byte("Bearer abc")},
+			Name: "auth-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 		})
 
 		require.NoError(t, ValidateSecretBindingsAvailable(t.Context(), c, ns, nil, remote, label))
@@ -211,12 +210,12 @@ func TestMissingSecretBindings(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&corev1.Secret{
-		Data:       map[string][]byte{"env_key": []byte("fresh")},
-		ObjectMeta: metav1.ObjectMeta{Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
+		Data: map[string][]byte{"env_key": []byte("fresh")},
+		Name: "bound-secret", Namespace: ns, Labels: map[string]string{label: "true"},
 	}).Build()
 
 	missing, err := MissingSecretBindings(t.Context(), c, ns,
-		[]types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "ENV_KEY", SecretBinding: binding("bound-secret", "env_key")}}},
+		[]types.MCPEnv{{Key: "ENV_KEY", SecretBinding: binding("bound-secret", "env_key")}},
 		&types.RemoteRuntimeConfig{Headers: []types.MCPHeader{{Key: "Authorization", SecretBinding: binding("missing-secret", "token")}}},
 		label,
 	)
@@ -235,19 +234,19 @@ func TestListAllowedSecretBindingTargets(t *testing.T) {
 	require.NoError(t, corev1.AddToScheme(scheme))
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(
 		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "z-secret", Namespace: ns, Labels: map[string]string{label: "false"}},
-			Data:       map[string][]byte{"b": []byte("value-b"), "a": []byte("value-a")},
+			Name: "z-secret", Namespace: ns, Labels: map[string]string{label: "false"},
+			Data: map[string][]byte{"b": []byte("value-b"), "a": []byte("value-a")},
 		},
 		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "a-secret", Namespace: ns, Labels: map[string]string{label: "true"}},
-			Data:       map[string][]byte{"token": []byte("secret-value")},
+			Name: "a-secret", Namespace: ns, Labels: map[string]string{label: "true"},
+			Data: map[string][]byte{"token": []byte("secret-value")},
 		},
 		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "empty", Namespace: ns, Labels: map[string]string{label: "true"}},
+			Name: "empty", Namespace: ns, Labels: map[string]string{label: "true"},
 		},
 		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{Name: "unlabeled", Namespace: ns},
-			Data:       map[string][]byte{"token": []byte("hidden")},
+			Name: "unlabeled", Namespace: ns,
+			Data: map[string][]byte{"token": []byte("hidden")},
 		},
 	).Build()
 

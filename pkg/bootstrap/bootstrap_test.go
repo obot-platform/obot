@@ -13,7 +13,6 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -46,10 +45,8 @@ func newBootstrapTestClient(t *testing.T) (*client.Client, context.Context) {
 	storageClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithObjects(&v1.UserDefaultRoleSetting{
-			ObjectMeta: metav1.ObjectMeta{
-				Namespace: system.DefaultNamespace,
-				Name:      system.DefaultRoleSettingName,
-			},
+			Namespace: system.DefaultNamespace,
+			Name:      system.DefaultRoleSettingName,
 			Spec: v1.UserDefaultRoleSettingSpec{
 				Role: types2.RoleBasic,
 			},

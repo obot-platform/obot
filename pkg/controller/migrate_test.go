@@ -40,10 +40,8 @@ func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {
 		}}
 		client := newFakeClient(t,
 			&v1.ModelAccessPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      defaultPolicyName,
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      defaultPolicyName,
+				Namespace: system.DefaultNamespace,
 				Spec: v1.ModelAccessPolicySpec{
 					Manifest: types.ModelAccessPolicyManifest{
 						DisplayName: "Customized Default Policy",
@@ -61,10 +59,8 @@ func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {
 				},
 			},
 			&v1.ModelAccessPolicy{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "custom-policy",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "custom-policy",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.ModelAccessPolicySpec{
 					Manifest: types.ModelAccessPolicyManifest{
 						Subjects: subjects,
@@ -79,10 +75,8 @@ func TestMigrateDefaultModelAccessPolicyModels(t *testing.T) {
 				},
 			},
 			&v1.Model{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "m1-custom",
-					Namespace: system.DefaultNamespace,
-				},
+				Name:      "m1-custom",
+				Namespace: system.DefaultNamespace,
 				Spec: v1.ModelSpec{
 					Manifest: types.ModelManifest{
 						Usage: types.ModelUsageLLM,
@@ -129,14 +123,10 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 	t.Run("migrates public and private artifacts", func(t *testing.T) {
 		client := newFakeClient(t,
 			&v1.PublishedArtifact{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "PublishedArtifact",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "public-artifact",
-					Namespace: system.DefaultNamespace,
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "PublishedArtifact",
+				Name:       "public-artifact",
+				Namespace:  system.DefaultNamespace,
 				Spec: v1.PublishedArtifactSpec{
 					LegacyVisibility: "public",
 				},
@@ -148,14 +138,10 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 				},
 			},
 			&v1.PublishedArtifact{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "PublishedArtifact",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "private-artifact",
-					Namespace: system.DefaultNamespace,
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "PublishedArtifact",
+				Name:       "private-artifact",
+				Namespace:  system.DefaultNamespace,
 				Spec: v1.PublishedArtifactSpec{
 					LegacyVisibility: "private",
 				},
@@ -196,14 +182,10 @@ func TestMigratePublishedArtifactVisibility(t *testing.T) {
 	t.Run("sets no subjects for invalid legacy visibility", func(t *testing.T) {
 		client := newFakeClient(t,
 			&v1.PublishedArtifact{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: v1.SchemeGroupVersion.String(),
-					Kind:       "PublishedArtifact",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "bad-artifact",
-					Namespace: system.DefaultNamespace,
-				},
+				APIVersion: v1.SchemeGroupVersion.String(),
+				Kind:       "PublishedArtifact",
+				Name:       "bad-artifact",
+				Namespace:  system.DefaultNamespace,
 				Spec: v1.PublishedArtifactSpec{
 					LegacyVisibility: "friends-only",
 				},
@@ -231,30 +213,30 @@ func TestMigrateAuditLogExportSourceTypes(t *testing.T) {
 	ctx := t.Context()
 	client := newFakeClient(t,
 		&v1.ScheduledAuditLogExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "legacy-with-filters", Namespace: system.DefaultNamespace},
+			Name: "legacy-with-filters", Namespace: system.DefaultNamespace,
 			Spec: v1.ScheduledAuditLogExportSpec{
 				Filters: &types.AuditLogExportFilters{MCPIDs: []string{"mcp-1"}},
 			},
 		},
 		&v1.ScheduledAuditLogExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "legacy-without-filters", Namespace: system.DefaultNamespace},
+			Name: "legacy-without-filters", Namespace: system.DefaultNamespace,
 		},
 		&v1.ScheduledAuditLogExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "already-explicit", Namespace: system.DefaultNamespace},
+			Name: "already-explicit", Namespace: system.DefaultNamespace,
 			Spec: v1.ScheduledAuditLogExportSpec{
 				Filters: &types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}},
 			},
 		},
 		&v1.ScheduledAuditLogExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "local-agent", Namespace: system.DefaultNamespace},
+			Name: "local-agent", Namespace: system.DefaultNamespace,
 			Spec: v1.ScheduledAuditLogExportSpec{
 				Type:    types.AuditLogTypeMCP,
 				Filters: &types.AuditLogExportFilters{SourceTypes: []types.AuditLogSourceType{types.AuditLogSourceTypeLocalAgentToolCall}},
 			},
 		},
 		&v1.ScheduledAuditLogExport{
-			ObjectMeta: metav1.ObjectMeta{Name: "llm", Namespace: system.DefaultNamespace},
-			Spec:       v1.ScheduledAuditLogExportSpec{Type: types.AuditLogTypeLLM},
+			Name: "llm", Namespace: system.DefaultNamespace,
+			Spec: v1.ScheduledAuditLogExportSpec{Type: types.AuditLogTypeLLM},
 		},
 	)
 
@@ -288,50 +270,38 @@ func TestDeleteToolReferenceOwnedModels(t *testing.T) {
 	ctx := t.Context()
 	client := newFakeClient(t,
 		&v1.Model{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: v1.SchemeGroupVersion.String(),
-				Kind:       "Model",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "tool-reference-owned",
-				Namespace: system.DefaultNamespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: v1.SchemeGroupVersion.String(),
-						Kind:       "ToolReference",
-						Name:       "tool",
-						UID:        ktypes.UID("tool-uid"),
-					},
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "Model",
+			Name:       "tool-reference-owned",
+			Namespace:  system.DefaultNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       "ToolReference",
+					Name:       "tool",
+					UID:        ktypes.UID("tool-uid"),
 				},
 			},
 		},
 		&v1.Model{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: v1.SchemeGroupVersion.String(),
-				Kind:       "Model",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "model-provider-owned",
-				Namespace: system.DefaultNamespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: v1.SchemeGroupVersion.String(),
-						Kind:       "ModelProvider",
-						Name:       "provider",
-						UID:        ktypes.UID("provider-uid"),
-					},
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "Model",
+			Name:       "model-provider-owned",
+			Namespace:  system.DefaultNamespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: v1.SchemeGroupVersion.String(),
+					Kind:       "ModelProvider",
+					Name:       "provider",
+					UID:        ktypes.UID("provider-uid"),
 				},
 			},
 		},
 		&v1.Model{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: v1.SchemeGroupVersion.String(),
-				Kind:       "Model",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "unowned",
-				Namespace: system.DefaultNamespace,
-			},
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       "Model",
+			Name:       "unowned",
+			Namespace:  system.DefaultNamespace,
 		},
 	)
 
@@ -358,20 +328,14 @@ func TestExtractAndClearMCPServerConfigValues(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Env: []types.MCPEnv{
 			{
-				MCPHeader: types.MCPHeader{
-					Key:   "TOKEN",
-					Value: "secret-token",
-				},
+				Key:   "TOKEN",
+				Value: "secret-token",
 			},
 			{
-				MCPHeader: types.MCPHeader{
-					Key: "EMPTY",
-				},
+				Key: "EMPTY",
 			},
 			{
-				MCPHeader: types.MCPHeader{
-					Value: "missing-key",
-				},
+				Value: "missing-key",
 			},
 		},
 		RemoteConfig: &types.RemoteRuntimeConfig{
@@ -405,9 +369,7 @@ func TestExtractAndClearMCPServerConfigValuesNoValues(t *testing.T) {
 	manifest := types.MCPServerManifest{
 		Env: []types.MCPEnv{
 			{
-				MCPHeader: types.MCPHeader{
-					Key: "TOKEN",
-				},
+				Key: "TOKEN",
 			},
 		},
 	}
@@ -420,20 +382,20 @@ func TestExtractAndClearMCPServerConfigValuesNoValues(t *testing.T) {
 
 func TestMCPServerCredentialContext(t *testing.T) {
 	assert.Equal(t, "default-server-1", mcpServerCredentialContext(v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "server-1"},
+		Name: "server-1",
 		Spec: v1.MCPServerSpec{
 			MCPCatalogID: "default",
 		},
 	}))
 
 	assert.Equal(t, "workspace-1-server-2", mcpServerCredentialContext(v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "server-2"},
+		Name: "server-2",
 		Spec: v1.MCPServerSpec{
 			PowerUserWorkspaceID: "workspace-1",
 		},
 	}))
 
 	assert.Empty(t, mcpServerCredentialContext(v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{Name: "server-3"},
+		Name: "server-3",
 	}))
 }

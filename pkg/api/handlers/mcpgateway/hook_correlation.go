@@ -53,7 +53,7 @@ func (s *hookCorrelationStore) save(ctx context.Context, sessionID, requestID st
 			Reasons: slices.Clone(mutation.Reasons),
 		}
 	}
-	correlation := &v1.MCPHookCorrelation{ObjectMeta: metav1.ObjectMeta{Namespace: key.Namespace, Name: key.Name}, Spec: spec}
+	correlation := &v1.MCPHookCorrelation{Namespace: key.Namespace, Name: key.Name, Spec: spec}
 	if err := s.client.Create(ctx, correlation); err == nil {
 		return nil
 	} else if !apierrors.IsAlreadyExists(err) {
@@ -106,7 +106,7 @@ func (s *hookCorrelationStore) delete(ctx context.Context, sessionID, requestID 
 	if s == nil || sessionID == "" || requestID == "" {
 		return
 	}
-	correlation := &v1.MCPHookCorrelation{ObjectMeta: metav1.ObjectMeta{Namespace: system.DefaultNamespace, Name: s.key(sessionID, requestID, origin).Name}}
+	correlation := &v1.MCPHookCorrelation{Namespace: system.DefaultNamespace, Name: s.key(sessionID, requestID, origin).Name}
 	_ = s.client.Delete(ctx, correlation)
 }
 

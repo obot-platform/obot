@@ -334,14 +334,10 @@ func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
 
 func newTestMDMAssetSource(source string) *v1.MDMAssetSource {
 	return &v1.MDMAssetSource{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "MDMAssetSource",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultMDMAssetSource,
-			Namespace: system.DefaultNamespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "MDMAssetSource",
+		Name:       system.DefaultMDMAssetSource,
+		Namespace:  system.DefaultNamespace,
 		Spec: v1.MDMAssetSourceSpec{
 			MDMAssetSourceManifest: clienttypes.MDMAssetSourceManifest{Source: source},
 		},
@@ -350,11 +346,9 @@ func newTestMDMAssetSource(source string) *v1.MDMAssetSource {
 
 func newTestMDMAsset(digest string) *v1.MDMAsset {
 	return &v1.MDMAsset{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      v1.MDMAssetName(digest),
-			Namespace: system.DefaultNamespace,
-		},
-		Spec: v1.MDMAssetSpec{Digest: digest},
+		Name:      v1.MDMAssetName(digest),
+		Namespace: system.DefaultNamespace,
+		Spec:      v1.MDMAssetSpec{Digest: digest},
 	}
 }
 

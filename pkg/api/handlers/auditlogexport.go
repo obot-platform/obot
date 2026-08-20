@@ -43,10 +43,8 @@ func (h *AuditLogExportHandler) CreateAuditLogExport(req api.Context) error {
 
 	// Create the AuditLogExport resource
 	export := &v1.AuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.AuditLogExportPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.AuditLogExportPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.AuditLogExportSpec{
 			Name:                   createReq.Name,
 			Type:                   createReq.Type,
@@ -121,10 +119,8 @@ func (h *AuditLogExportHandler) DeleteAuditLogExport(req api.Context) error {
 	}
 
 	export := &v1.AuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      exportName,
-			Namespace: req.Namespace(),
-		},
+		Name:      exportName,
+		Namespace: req.Namespace(),
 	}
 
 	return req.Storage.Delete(req.Context(), export)
@@ -144,10 +140,8 @@ func (h *AuditLogExportHandler) CreateScheduledAuditLogExport(req api.Context) e
 
 	// Create the ScheduledAuditLogExport resource
 	scheduledExport := &v1.ScheduledAuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ScheduledAuditLogExportPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.ScheduledAuditLogExportPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.ScheduledAuditLogExportSpec{
 			Name:                   createReq.Name,
 			Type:                   createReq.Type,
@@ -301,10 +295,8 @@ func (h *AuditLogExportHandler) DeleteScheduledAuditLogExport(req api.Context) e
 	}
 
 	scheduledExport := &v1.ScheduledAuditLogExport{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      exportName,
-			Namespace: req.Namespace(),
-		},
+		Name:      exportName,
+		Namespace: req.Namespace(),
 	}
 
 	return req.Storage.Delete(req.Context(), scheduledExport)

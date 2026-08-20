@@ -13,7 +13,7 @@ func TestConvertSystemMCPServerConfigurationStatus(t *testing.T) {
 	server := v1.SystemMCPServer{
 		Spec: v1.SystemMCPServerSpec{
 			Manifest: types.SystemMCPServerManifest{
-				Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{Key: "REGION", Required: true, Options: options}}},
+				Env: []types.MCPEnv{{Key: "REGION", Required: true, Options: options}},
 				RemoteConfig: &types.RemoteRuntimeConfig{Headers: []types.MCPHeader{
 					{Key: "TENANT", Required: true, Options: options},
 					{Key: "MODE", Options: options},

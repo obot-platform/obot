@@ -171,10 +171,8 @@ func withDeleted() policyOpt {
 
 func newPolicy(name, definition string, direction types.PolicyDirection, subjects []types.Subject, opts ...policyOpt) *v1.MessagePolicy {
 	p := &v1.MessagePolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-		},
+		Name:      name,
+		Namespace: "default",
 		Spec: v1.MessagePolicySpec{
 			Manifest: types.MessagePolicyManifest{
 				DisplayName: name,

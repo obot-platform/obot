@@ -13,7 +13,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -75,10 +74,8 @@ func Data(ctx context.Context, c kclient.Client, defaults Defaults) error {
 		return err
 	} else if len(policies.Items) == 0 && len(defaultModelAccessPolicyResources) > 0 {
 		if err := kclient.IgnoreAlreadyExists(c.Create(ctx, &v1.ModelAccessPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      system.ModelAccessPolicyPrefix + "-default",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      system.ModelAccessPolicyPrefix + "-default",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.ModelAccessPolicySpec{
 				Manifest: types.ModelAccessPolicyManifest{
 					DisplayName: "Default Policy",
@@ -156,10 +153,8 @@ func createDefaultSkillRepository(ctx context.Context, c kclient.Client, repoURL
 	}
 
 	return kclient.IgnoreAlreadyExists(c.Create(ctx, &v1.SkillRepository{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultSkillRepository,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.DefaultSkillRepository,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.SkillRepositorySpec{
 			DisplayName: "Default",
 			RepoURL:     repoURL,
@@ -193,10 +188,8 @@ func createDefaultAgentCatalog(ctx context.Context, c kclient.Client, repoURL, r
 	}
 
 	return kclient.IgnoreAlreadyExists(c.Create(ctx, &v1.AgentCatalog{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.DefaultAgentCatalog,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      system.DefaultAgentCatalog,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.AgentCatalogSpec{
 			AgentCatalogManifest: manifest,
 		},

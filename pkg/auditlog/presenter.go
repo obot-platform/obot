@@ -215,10 +215,8 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 		Kind:      local.ActionKind,
 	}
 	event.Target = api.AuditLogTarget{
-		AuditLogTargetRef: api.AuditLogTargetRef{
-			TargetType: local.TargetType,
-			Name:       local.TargetName,
-		},
+		TargetType: local.TargetType,
+		Name:       local.TargetName,
 	}
 	if local.TargetParentType != "" {
 		event.Target.Parent = &api.AuditLogTargetRef{

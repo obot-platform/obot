@@ -47,9 +47,9 @@ func TestCollectMCPAuditEntryPersistsWhenAPIKeyAttributionFails(t *testing.T) {
 
 func TestAttributeMCPAuditLogAPIKeyFallsBackOnlyWhenKeyIsMissing(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{MCPFields: &gatewaytypes.MCPAuditLogFields{
+	input := auditLogInput{MCPFields: &gatewaytypes.MCPAuditLogFields{
 		APIKey: auditlogs.RedactAPIKey("ok1-7-42-abcdefghijklmnopqrstuvwxyz"),
-	}}}
+	}}
 
 	if err := NewAuditLogHandler(gatewayClient).attributeMCPAuditLogAPIKey(t.Context(), &input); err != nil {
 		t.Fatal(err)
@@ -62,9 +62,9 @@ func TestAttributeMCPAuditLogAPIKeyFallsBackOnlyWhenKeyIsMissing(t *testing.T) {
 
 func TestAttributeMCPAuditLogAPIKeyReturnsTransientLookupError(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	input := auditLogInput{MCPAuditLog: gatewaytypes.MCPAuditLog{MCPFields: &gatewaytypes.MCPAuditLogFields{
+	input := auditLogInput{MCPFields: &gatewaytypes.MCPAuditLogFields{
 		APIKey: auditlogs.RedactAPIKey("ok1-7-42-abcdefghijklmnopqrstuvwxyz"),
-	}}}
+	}}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 

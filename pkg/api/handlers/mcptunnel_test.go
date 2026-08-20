@@ -19,7 +19,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	tunnelpkg "github.com/obot-platform/obot/pkg/tunnel"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -215,10 +214,8 @@ func TestMCPTunnelHandlerLifecycle(t *testing.T) {
 func TestMCPTunnelHandlerDeleteDoesNotDisconnectOnFailure(t *testing.T) {
 	const tunnelName = "mt1office"
 	baseStorage := newMCPTunnelTestStorage(&v1.MCPTunnel{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      tunnelName,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      tunnelName,
+		Namespace: system.DefaultNamespace,
 	})
 	storage := &failingMCPTunnelDeleteStorage{WithWatch: baseStorage.WithWatch}
 	closer := &mcpTunnelTestCloser{}
@@ -251,10 +248,8 @@ func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
 	}
 	storage := newMCPTunnelTestStorage(
 		&v1.MCPTunnel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      tunnelName,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      tunnelName,
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPTunnelSpec{
 				Manifest: types.MCPTunnelManifest{
 					DisplayName: "Office",
@@ -268,10 +263,8 @@ func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
 			},
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcp1z-accounting",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcp1z-accounting",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				Manifest: types.MCPServerCatalogEntryManifest{
 					Name:    "Accounting MCP",
@@ -284,10 +277,8 @@ func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
 			},
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcp1a-composite",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcp1a-composite",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				Manifest: types.MCPServerCatalogEntryManifest{
 					Name:    "Operations Composite",
@@ -355,16 +346,12 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 	const tunnelName = "mt1office"
 	storage := newMCPTunnelTestStorage(
 		&v1.MCPTunnel{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      tunnelName,
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      tunnelName,
+			Namespace: system.DefaultNamespace,
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcp1z-accounting",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcp1z-accounting",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				Manifest: types.MCPServerCatalogEntryManifest{
 					Name:    "Accounting MCP",
@@ -377,10 +364,8 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 			},
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcp1a-composite",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcp1a-composite",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				Manifest: types.MCPServerCatalogEntryManifest{
 					Name:    "Operations Composite",
@@ -400,10 +385,8 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 			},
 		},
 		&v1.MCPServerCatalogEntry{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "mcp1unrelated",
-				Namespace: system.DefaultNamespace,
-			},
+			Name:      "mcp1unrelated",
+			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerCatalogEntrySpec{
 				Manifest: types.MCPServerCatalogEntryManifest{
 					Name:    "Unrelated MCP",

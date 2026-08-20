@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -23,14 +22,14 @@ func TestResolveModelReference(t *testing.T) {
 	model := newModel("openai-gpt-4o", provider, "openai/gpt-4o", true)
 	model.Spec.Manifest.Name = "catalog-model-name"
 	defaultAlias := &v1.DefaultModelAlias{
-		ObjectMeta: metav1.ObjectMeta{Name: "default-llm"},
+		Name: "default-llm",
 		Spec: v1.DefaultModelAliasSpec{Manifest: types.DefaultModelAliasManifest{
 			Alias: "llm",
 			Model: model.Name,
 		}},
 	}
 	modelAlias := &v1.Alias{
-		ObjectMeta: metav1.ObjectMeta{Name: alias.KeyFromScopeID("Model", "llm")},
+		Name: alias.KeyFromScopeID("Model", "llm"),
 		Spec: v1.AliasSpec{
 			TargetKind: "DefaultModelAlias",
 			TargetName: defaultAlias.Name,

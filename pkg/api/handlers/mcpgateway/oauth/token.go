@@ -27,7 +27,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -220,10 +219,8 @@ func (h *handler) doAuthorizationCode(req api.Context, oauthClient v1.OAuthClien
 	refreshToken := strings.ToLower(rand.Text() + rand.Text())
 
 	oauthToken := v1.OAuthToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: oauthClient.Namespace,
-			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
-		},
+		Namespace: oauthClient.Namespace,
+		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		Spec: v1.OAuthTokenSpec{
 			ClientID:              oauthClient.Name,
 			Resource:              oauthAuthRequest.Spec.Resource,
@@ -323,10 +320,8 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 	refreshToken = strings.ToLower(rand.Text() + rand.Text())
 
 	oauthToken = v1.OAuthToken{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: oauthClient.Namespace,
-			Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
-		},
+		Namespace: oauthClient.Namespace,
+		Name:      fmt.Sprintf("%x", sha256.Sum256([]byte(refreshToken))),
 		Spec: v1.OAuthTokenSpec{
 			Scope:                 oauthToken.Spec.Scope,
 			Resource:              oauthToken.Spec.Resource,

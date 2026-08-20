@@ -26,7 +26,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	sigsyaml "sigs.k8s.io/yaml"
 )
@@ -100,24 +99,20 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 
 		expectedEnv := []types.MCPEnv{
 			{
-				MCPHeader: types.MCPHeader{
-					Name:        "NANOBOT_ENV_FILE",
-					Description: "Environment variables file for Nanobot",
-					Key:         "NANOBOT_ENV_FILE",
-					Sensitive:   true,
-					Required:    true,
-				},
+				Name:        "NANOBOT_ENV_FILE",
+				Description: "Environment variables file for Nanobot",
+				Key:         "NANOBOT_ENV_FILE",
+				Sensitive:   true,
+				Required:    true,
 				File:        true,
 				DynamicFile: true,
 			},
 			{
-				MCPHeader: types.MCPHeader{
-					Name:        "NANOBOT_CONFIG_FILE",
-					Description: "Provider config YAML for Nanobot",
-					Key:         "NANOBOT_CONFIG_FILE",
-					Sensitive:   true,
-					Required:    true,
-				},
+				Name:        "NANOBOT_CONFIG_FILE",
+				Description: "Provider config YAML for Nanobot",
+				Key:         "NANOBOT_CONFIG_FILE",
+				Sensitive:   true,
+				Required:    true,
 				File:        true,
 				DynamicFile: true,
 			},
@@ -160,10 +155,8 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 	}
 
 	mcpServer := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      mcpServerName,
-			Namespace: agent.Namespace,
-		},
+		Name:      mcpServerName,
+		Namespace: agent.Namespace,
 		Spec: v1.MCPServerSpec{
 			UserID:         agent.Spec.UserID,
 			NanobotAgentID: agent.Name,
@@ -182,24 +175,20 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 				},
 				Env: []types.MCPEnv{
 					{
-						MCPHeader: types.MCPHeader{
-							Name:        "NANOBOT_ENV_FILE",
-							Description: "Environment variables file for Nanobot",
-							Key:         "NANOBOT_ENV_FILE",
-							Sensitive:   true,
-							Required:    true,
-						},
+						Name:        "NANOBOT_ENV_FILE",
+						Description: "Environment variables file for Nanobot",
+						Key:         "NANOBOT_ENV_FILE",
+						Sensitive:   true,
+						Required:    true,
 						File:        true,
 						DynamicFile: true,
 					},
 					{
-						MCPHeader: types.MCPHeader{
-							Name:        "NANOBOT_CONFIG_FILE",
-							Description: "Provider config YAML for Nanobot",
-							Key:         "NANOBOT_CONFIG_FILE",
-							Sensitive:   true,
-							Required:    true,
-						},
+						Name:        "NANOBOT_CONFIG_FILE",
+						Description: "Provider config YAML for Nanobot",
+						Key:         "NANOBOT_CONFIG_FILE",
+						Sensitive:   true,
+						Required:    true,
 						File:        true,
 						DynamicFile: true,
 					},

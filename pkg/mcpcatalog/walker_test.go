@@ -88,7 +88,7 @@ npxConfig:
 func TestNormalizeManifest(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
 		Runtime:      types.RuntimeRemote,
-		Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Name: "config-file.json"}}},
+		Env:          []types.MCPEnv{{Name: "config-file.json"}},
 		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Name: "api_key"}}},
 	}
 
@@ -103,7 +103,7 @@ func TestNormalizeManifest(t *testing.T) {
 func TestNormalizeSystemManifest(t *testing.T) {
 	entry := types.SystemMCPServerCatalogEntryManifest{
 		Runtime:      types.RuntimeRemote,
-		Env:          []types.MCPEnv{{MCPHeader: types.MCPHeader{Name: "config-file.json"}}},
+		Env:          []types.MCPEnv{{Name: "config-file.json"}},
 		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Name: "api_key"}}},
 	}
 

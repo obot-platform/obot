@@ -145,10 +145,8 @@ func (h *Handler) EnsureMCPNetworkPolicy(req router.Request, _ router.Response) 
 
 	if len(policies.Items) == 0 {
 		return req.Client.Create(req.Ctx, &v1.MCPNetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				GenerateName: system.MCPNetworkPolicyPrefix,
-				Namespace:    server.Namespace,
-			},
+			GenerateName: system.MCPNetworkPolicyPrefix,
+			Namespace:    server.Namespace,
 			Spec: v1.MCPNetworkPolicySpec{
 				MCPServerName: server.Name,
 				PodSelector: map[string]string{
@@ -771,11 +769,9 @@ func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Respons
 	}
 
 	oauthClient := v1.OAuthClient{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:       clientID,
-			Namespace:  req.Namespace,
-			Finalizers: []string{v1.OAuthClientFinalizer},
-		},
+		Name:       clientID,
+		Namespace:  req.Namespace,
+		Finalizers: []string{v1.OAuthClientFinalizer},
 		Spec: v1.OAuthClientSpec{
 			Manifest: types.OAuthClientManifest{
 				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
@@ -904,11 +900,9 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				}
 
 				if err := req.Client.Create(req.Ctx, &v1.MCPServerInstance{
-					ObjectMeta: metav1.ObjectMeta{
-						GenerateName: system.MCPServerInstancePrefix,
-						Namespace:    compositeServer.Namespace,
-						Finalizers:   []string{v1.MCPServerInstanceFinalizer},
-					},
+					GenerateName: system.MCPServerInstancePrefix,
+					Namespace:    compositeServer.Namespace,
+					Finalizers:   []string{v1.MCPServerInstanceFinalizer},
 					Spec: v1.MCPServerInstanceSpec{
 						MCPServerName:        component.MCPServerID,
 						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
@@ -945,11 +939,9 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 		if existingServer, exists := existingServers[component.CatalogEntryID]; !exists {
 			// New server, create it
 			newServer := withNeedsURL(v1.MCPServer{
-				ObjectMeta: metav1.ObjectMeta{
-					GenerateName: system.MCPServerPrefix,
-					Namespace:    compositeServer.Namespace,
-					Finalizers:   []string{v1.MCPServerFinalizer},
-				},
+				GenerateName: system.MCPServerPrefix,
+				Namespace:    compositeServer.Namespace,
+				Finalizers:   []string{v1.MCPServerFinalizer},
 				Spec: v1.MCPServerSpec{
 					Manifest:                  component.Manifest,
 					MCPServerCatalogEntryName: component.CatalogEntryID,

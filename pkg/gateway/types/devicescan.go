@@ -130,18 +130,16 @@ type DeviceScanFile struct {
 // must already be loaded (via Preload) for them to appear in the result.
 func ConvertDeviceScan(s DeviceScan) types2.DeviceScan {
 	out := types2.DeviceScan{
-		ID:          s.ID,
-		ReceivedAt:  *types2.NewTime(s.CreatedAt),
-		SubmittedBy: s.SubmittedBy,
-		DeviceScanManifest: types2.DeviceScanManifest{
-			ScannerVersion: s.ScannerVersion,
-			ScannedAt:      *types2.NewTime(s.ScannedAt),
-			DeviceID:       s.DeviceID,
-			Hostname:       s.Hostname,
-			OS:             s.OS,
-			Arch:           s.Arch,
-			Username:       s.Username,
-		},
+		ID:             s.ID,
+		ReceivedAt:     *types2.NewTime(s.CreatedAt),
+		SubmittedBy:    s.SubmittedBy,
+		ScannerVersion: s.ScannerVersion,
+		ScannedAt:      *types2.NewTime(s.ScannedAt),
+		DeviceID:       s.DeviceID,
+		Hostname:       s.Hostname,
+		OS:             s.OS,
+		Arch:           s.Arch,
+		Username:       s.Username,
 	}
 	if len(s.Files) > 0 {
 		out.Files = make([]types2.DeviceScanFile, len(s.Files))

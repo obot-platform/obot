@@ -284,7 +284,7 @@ func (b *Backend) namespaceOwner(ctx context.Context) (*metav1.OwnerReference, e
 			// and mirrors what pkg/mcp does for the same namespace rather than
 			// leaving hosted agents the only feature that cannot start without
 			// one being made for it.
-			created := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: b.opts.Namespace}}
+			created := &corev1.Namespace{Name: b.opts.Namespace}
 			if createErr := b.client.Create(ctx, created); createErr != nil && !apierrors.IsAlreadyExists(createErr) {
 				b.namespaceErr = fmt.Errorf("failed to create namespace %s: %w", b.opts.Namespace, createErr)
 				return

@@ -9,7 +9,6 @@ import (
 	types2 "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -71,10 +70,8 @@ func (h *Handler) ensureAdminOrOwnerWorkspace(ctx context.Context, client kclien
 
 	// Create PowerUserWorkspace directly for the user
 	workspace := &v1.PowerUserWorkspace{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace,
-			Name:      system.GetPowerUserWorkspaceID(userIDStr),
-		},
+		Namespace: namespace,
+		Name:      system.GetPowerUserWorkspaceID(userIDStr),
 		Spec: v1.PowerUserWorkspaceSpec{
 			UserID: userIDStr,
 			Role:   user.Role,

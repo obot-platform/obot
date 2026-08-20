@@ -161,10 +161,10 @@ func (h *EnforcementHandler) ListDecisions(req api.Context) error {
 	}
 
 	return req.Write(types.EnforcementDecisionEventResponse{
-		EnforcementDecisionEventList: types.EnforcementDecisionEventList{Items: items},
-		Total:                        total,
-		Limit:                        opts.Limit,
-		Offset:                       opts.Offset,
+		Items:  items,
+		Total:  total,
+		Limit:  opts.Limit,
+		Offset: opts.Offset,
 	})
 }
 

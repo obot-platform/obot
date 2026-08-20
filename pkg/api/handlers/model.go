@@ -10,7 +10,6 @@ import (
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -147,10 +146,8 @@ func (a *ModelHandler) Create(req api.Context) error {
 	}
 
 	model := &v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: system.ModelPrefix,
-			Namespace:    req.Namespace(),
-		},
+		GenerateName: system.ModelPrefix,
+		Namespace:    req.Namespace(),
 		Spec: v1.ModelSpec{
 			Manifest: modelManifest,
 		},
@@ -174,10 +171,8 @@ func (a *ModelHandler) Create(req api.Context) error {
 
 func (a *ModelHandler) Delete(req api.Context) error {
 	return req.Delete(&v1.Model{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      req.PathValue("id"),
-			Namespace: req.Namespace(),
-		},
+		Name:      req.PathValue("id"),
+		Namespace: req.Namespace(),
 	})
 }
 
@@ -188,15 +183,13 @@ func convertModel(model v1.Model, modelProvider v1.ModelProvider) (types.Model, 
 	}
 
 	return types.Model{
-		Metadata:      MetadataFrom(&model),
-		ModelManifest: model.Spec.Manifest,
-		ModelStatus: types.ModelStatus{
-			AliasAssigned:     aliasAssigned,
-			ModelProviderName: modelProvider.Name,
-			Icon:              modelProvider.Spec.Icon,
-			IconDark:          modelProvider.Spec.IconDark,
-			Cost:              model.Status.Cost,
-		},
+		Metadata:          MetadataFrom(&model),
+		ModelManifest:     model.Spec.Manifest,
+		AliasAssigned:     aliasAssigned,
+		ModelProviderName: modelProvider.Name,
+		Icon:              modelProvider.Spec.Icon,
+		IconDark:          modelProvider.Spec.IconDark,
+		Cost:              model.Status.Cost,
 	}, nil
 }
 

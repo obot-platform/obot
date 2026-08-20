@@ -5,15 +5,12 @@ import (
 	"testing"
 
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestSavedPoolIDs(t *testing.T) {
 	userDelete := &v1.UserDelete{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				hostedAgentPoolCleanupAnnotation: `["pool-a","pool-b"]`,
-			},
+		Annotations: map[string]string{
+			hostedAgentPoolCleanupAnnotation: `["pool-a","pool-b"]`,
 		},
 	}
 	got, err := savedPoolIDs(userDelete)
@@ -27,10 +24,8 @@ func TestSavedPoolIDs(t *testing.T) {
 
 func TestSavedPoolIDsRejectsInvalidCheckpoint(t *testing.T) {
 	userDelete := &v1.UserDelete{
-		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{
-				hostedAgentPoolCleanupAnnotation: "not-json",
-			},
+		Annotations: map[string]string{
+			hostedAgentPoolCleanupAnnotation: "not-json",
 		},
 	}
 	if _, err := savedPoolIDs(userDelete); err == nil {

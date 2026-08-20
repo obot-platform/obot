@@ -174,14 +174,10 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 
 func newModelInfoSource(sourceURL string) *v1.ModelInfoSource {
 	return &v1.ModelInfoSource{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: v1.SchemeGroupVersion.String(),
-			Kind:       "ModelInfoSource",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "default",
-			Namespace: system.DefaultNamespace,
-		},
+		APIVersion: v1.SchemeGroupVersion.String(),
+		Kind:       "ModelInfoSource",
+		Name:       "default",
+		Namespace:  system.DefaultNamespace,
 		Spec: v1.ModelInfoSourceSpec{
 			Manifest: types.ModelInfoSourceManifest{URL: sourceURL},
 		},
