@@ -556,14 +556,6 @@
 															disabled={readonly}
 															onclick={() => {
 																const toolKey = `${componentId}-${tool.name}`;
-																// When expanding, initialize inputs with current effective values
-																if (!expandedTools[toolKey]) {
-																	tool.overrideName = (tool.overrideName || '').trim() || tool.name;
-																	tool.overrideDescription =
-																		(tool.overrideDescription || '').trim() ||
-																		tool.description ||
-																		'';
-																}
 																expandedTools[toolKey] = !expandedTools[toolKey];
 															}}
 														>
@@ -591,7 +583,10 @@
 															<input
 																class="text-input-filled flex-1 text-sm"
 																disabled={readonly}
-																bind:value={tool.overrideName}
+																bind:value={
+																	() => tool.overrideName ?? tool.name,
+																	(v) => (tool.overrideName = v)
+																}
 															/>
 														</div>
 
@@ -600,7 +595,10 @@
 															<textarea
 																class="text-input-filled h-24 resize-none text-xs"
 																disabled={readonly}
-																bind:value={tool.overrideDescription}
+																bind:value={
+																	() => tool.overrideDescription ?? tool.description ?? '',
+																	(v) => (tool.overrideDescription = v)
+																}
 																placeholder="Enter tool description..."
 															></textarea>
 														</div>
@@ -611,8 +609,8 @@
 																class="btn btn-sm btn-secondary text-xs"
 																disabled={readonly}
 																onclick={() => {
-																	tool.overrideName = tool.name;
-																	tool.overrideDescription = tool.description;
+																	tool.overrideName = undefined;
+																	tool.overrideDescription = undefined;
 																}}
 															>
 																Reset to default
