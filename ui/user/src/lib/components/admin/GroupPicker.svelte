@@ -40,6 +40,8 @@
 	// server. Only the current page is ever held here.
 	let inFlight: AbortController | undefined;
 
+	let skipNextLoad = false;
+
 	async function load() {
 		inFlight?.abort();
 		const controller = new AbortController();
@@ -55,6 +57,14 @@
 				signal: controller.signal
 			});
 			if (controller.signal.aborted) return;
+
+			if (page.reset) {
+				cursorStack = [undefined];
+				if (pageIndex !== 0) {
+					skipNextLoad = true;
+					pageIndex = 0;
+				}
+			}
 
 			groups = page.items;
 			nextCursor = page.nextCursor;
@@ -76,6 +86,12 @@
 		// Re-runs whenever the query or page changes.
 		void query;
 		void pageIndex;
+
+		if (skipNextLoad) {
+			skipNextLoad = false;
+			return;
+		}
+
 		load();
 	});
 
@@ -107,8 +123,8 @@
 		>
 			<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 			<span>
-				Showing only groups seen from previous sign-ins. Obot could not list your identity
-				provider's directory &mdash; directory-wide group read permission may not be granted.
+				Showing only groups Obot has already recorded. Obot could not list your identity provider's
+				directory &mdash; directory-wide group read permission may not be granted.
 			</span>
 		</div>
 	{/if}

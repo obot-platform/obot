@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/pkg/auth"
@@ -378,7 +379,7 @@ func TestListAuthGroupsCacheNameFilter(t *testing.T) {
 
 	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50, NameFilter: "group-001"})
 
-	// group-0010 through group-0019, plus group-0011's siblings: ten matches in total.
+	// group-0010 through group-0019: ten matches.
 	if len(seen) != 10 {
 		t.Errorf("collected %d groups, want 10", len(seen))
 	}
@@ -457,7 +458,7 @@ func TestResolveAuthGroups(t *testing.T) {
 	c := newTestClient(t)
 	seedGroups(t, c, 5)
 
-	resolved, err := c.ResolveAuthGroups(t.Context(), testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
+	resolved, err := c.ResolveAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
 	if err != nil {
 		t.Fatalf("ResolveAuthGroups() error = %v", err)
 	}
@@ -471,5 +472,236 @@ func TestResolveAuthGroups(t *testing.T) {
 	// An unknown ID renders as itself rather than being dropped.
 	if resolved[1].Name != "entra/9999" {
 		t.Errorf("unknown group name = %q, want the ID itself", resolved[1].Name)
+	}
+}
+
+// resolverStub serves the /obot-get-auth-groups contract, naming every ID it is asked about except
+// those in unknown. It records each batch so tests can assert what the client actually sent.
+type resolverStub struct {
+	unknown  map[string]bool
+	requests [][]string
+	status   int
+}
+
+func (s *resolverStub) server(t *testing.T) *httptest.Server {
+	t.Helper()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/obot-get-auth-groups" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		if s.status != 0 {
+			w.WriteHeader(s.status)
+			return
+		}
+
+		ids := strings.Split(r.URL.Query().Get("ids"), ",")
+		s.requests = append(s.requests, ids)
+
+		items := make([]auth.GroupInfo, 0, len(ids))
+		for _, id := range ids {
+			if s.unknown[id] {
+				continue
+			}
+			items = append(items, auth.GroupInfo{ID: id, Name: "Directory " + id})
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]any{"items": items})
+	}))
+	t.Cleanup(srv.Close)
+
+	return srv
+}
+
+func TestResolveAuthGroupsFallsBackToTheProvider(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 5)
+
+	stub := &resolverStub{}
+	srv := stub.server(t)
+
+	// entra/0001 is cached; entra/9999 has never been seen at sign-in and only the provider knows it.
+	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
+	if err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
+
+	if len(resolved) != 2 {
+		t.Fatalf("got %d groups, want 2", len(resolved))
+	}
+	if resolved[0].Name != "group-0001" {
+		t.Errorf("cached group name = %q, want %q", resolved[0].Name, "group-0001")
+	}
+	if resolved[1].Name != "Directory entra/9999" {
+		t.Errorf("provider-resolved name = %q, want the directory name", resolved[1].Name)
+	}
+
+	// Only the ID the cache could not answer for is worth asking about.
+	if len(stub.requests) != 1 {
+		t.Fatalf("made %d provider requests, want 1", len(stub.requests))
+	}
+	if len(stub.requests[0]) != 1 || stub.requests[0][0] != "entra/9999" {
+		t.Errorf("asked the provider for %v, want only the uncached id", stub.requests[0])
+	}
+}
+
+func TestResolveAuthGroupsCachesWhatTheProviderResolved(t *testing.T) {
+	c := newTestClient(t)
+
+	stub := &resolverStub{}
+	srv := stub.server(t)
+
+	if _, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"}); err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
+
+	// The second call is served from the table, so the provider is not asked again.
+	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
+	if err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
+
+	if resolved[0].Name != "Directory entra/9999" {
+		t.Errorf("name = %q, want the directory name to have been cached", resolved[0].Name)
+	}
+	if len(stub.requests) != 1 {
+		t.Errorf("made %d provider requests, want 1; the first answer should have been cached", len(stub.requests))
+	}
+}
+
+func TestResolveAuthGroupsDegradesToIDs(t *testing.T) {
+	tests := []struct {
+		name   string
+		status int
+	}{
+		{
+			name:   "provider does not implement resolution",
+			status: http.StatusNotFound,
+		},
+		{
+			name:   "provider is failing",
+			status: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestClient(t)
+
+			stub := &resolverStub{status: tt.status}
+			srv := stub.server(t)
+
+			resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
+			if err != nil {
+				t.Fatalf("resolution is best effort and should not fail the caller: %v", err)
+			}
+
+			if len(resolved) != 1 {
+				t.Fatalf("got %d groups, want 1", len(resolved))
+			}
+			if resolved[0].Name != "entra/9999" {
+				t.Errorf("name = %q, want the ID itself", resolved[0].Name)
+			}
+		})
+	}
+}
+
+func TestResolveAuthGroupsKeepsUnknownIDsWhenTheProviderHasNoAnswer(t *testing.T) {
+	c := newTestClient(t)
+
+	stub := &resolverStub{unknown: map[string]bool{"entra/deleted": true}}
+	srv := stub.server(t)
+
+	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/deleted"})
+	if err != nil {
+		t.Fatalf("ResolveAuthGroups() error = %v", err)
+	}
+
+	// A group deleted in the directory still has a policy pointing at it, so the row has to render.
+	if len(resolved) != 1 || resolved[0].Name != "entra/deleted" {
+		t.Errorf("resolved = %+v, want the ID rendered as its own name", resolved)
+	}
+}
+
+func TestListAuthGroupsCacheEmptyPageIsNotNil(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 5)
+
+	result, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, NameFilter: "nothing-matches-this"})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	// Not just empty: non-nil, so that the response serializes items as [] rather than null.
+	if result.Groups == nil {
+		t.Error("an empty page should be an empty slice, not nil")
+	}
+	if len(result.Groups) != 0 {
+		t.Errorf("got %d groups, want 0", len(result.Groups))
+	}
+}
+
+func TestListAuthGroupsCacheDefaultsAnUnsetLimit(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 5)
+
+	// Limit is exported and a caller can leave it unset; the truncation below it must not run off
+	// the end of the slice.
+	result, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if len(result.Groups) != 5 {
+		t.Errorf("got %d groups, want 5", len(result.Groups))
+	}
+}
+
+func TestListAuthGroupsReportsACursorItCouldNotHonor(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 120)
+
+	// A cursor minted by the provider says nothing about a position in the cached table, so the
+	// cached listing starts over. The caller has to be told, or it labels page one as page two.
+	providerCursor, err := encodeGroupCursor(groupCursor{
+		Source:         types.GroupSourceProvider,
+		ProviderCursor: "some-provider-token",
+	})
+	if err != nil {
+		t.Fatalf("encodeGroupCursor() error = %v", err)
+	}
+
+	result, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: providerCursor})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+
+	if !result.Reset {
+		t.Error("a cursor that could not be honored should be reported as a reset")
+	}
+	if len(result.Groups) == 0 || result.Groups[0].Name != "group-0000" {
+		t.Error("the listing should have restarted at the first page")
+	}
+}
+
+func TestListAuthGroupsDoesNotReportAResetWhenTheCursorWasHonored(t *testing.T) {
+	c := newTestClient(t)
+	seedGroups(t, c, 120)
+
+	first, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+	if first.Reset {
+		t.Error("a first page was not asked to continue from anywhere and cannot be a reset")
+	}
+
+	second, err := c.ListAuthGroups(t.Context(), "", testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: first.NextCursor})
+	if err != nil {
+		t.Fatalf("ListAuthGroups() error = %v", err)
+	}
+	if second.Reset {
+		t.Error("a cursor the cache minted itself should be honored, not reset")
 	}
 }

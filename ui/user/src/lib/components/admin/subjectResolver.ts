@@ -19,10 +19,14 @@ export interface ResolvedSubjects {
  *
  * `existing` lets a caller keep whatever it already has: users are fetched only once, and groups
  * only for IDs that are not already known.
+ *
+ * Pass `signal` from a caller that can ask again before the first answer arrives, so that a
+ * superseded request is dropped rather than left to land last and overwrite current state.
  */
 export async function resolveSubjects(
 	subjects: AccessControlRuleSubject[] | undefined,
-	existing?: Partial<ResolvedSubjects>
+	existing?: Partial<ResolvedSubjects>,
+	opts?: { signal?: AbortSignal }
 ): Promise<ResolvedSubjects> {
 	const resolved: ResolvedSubjects = {
 		users: existing?.users ?? [],
@@ -45,8 +49,10 @@ export async function resolveSubjects(
 	];
 
 	const [users, groups] = await Promise.all([
-		existing?.users?.length ? Promise.resolve(undefined) : UserService.listUsers(),
-		missingGroupIds.length > 0 ? UserService.resolveGroups(missingGroupIds) : Promise.resolve([])
+		existing?.users?.length ? Promise.resolve(undefined) : UserService.listUsers(opts),
+		missingGroupIds.length > 0
+			? UserService.resolveGroups(missingGroupIds, opts)
+			: Promise.resolve([])
 	]);
 
 	if (users) {

@@ -359,11 +359,18 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 
 	query := apiContext.URL.Query()
 
-	// Resolving specific IDs never needs the provider directory, so handle it before paying for a
-	// provider URL lookup.
+	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
+	if err != nil {
+		return fmt.Errorf("failed to get auth provider URL: %w", err)
+	}
+
 	if rawIDs := query.Get("ids"); rawIDs != "" {
-		ids := splitGroupIDs(rawIDs)
-		groups, err := apiContext.GatewayClient.ResolveAuthGroups(apiContext.Context(), namespace, name, ids)
+		ids, err := splitGroupIDs(rawIDs)
+		if err != nil {
+			return types2.NewErrHTTP(http.StatusBadRequest, err.Error())
+		}
+
+		groups, err := apiContext.GatewayClient.ResolveAuthGroups(apiContext.Context(), providerURL.String(), namespace, name, ids)
 		if err != nil {
 			return fmt.Errorf("failed to resolve auth groups: %w", err)
 		}
@@ -372,11 +379,6 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 			Items:  trimGroupsForUser(apiContext.User, groups),
 			Source: types.GroupSourceCache,
 		})
-	}
-
-	providerURL, err := s.dispatcher.URLForAuthProvider(apiContext.Context(), namespace, name)
-	if err != nil {
-		return fmt.Errorf("failed to get auth provider URL: %w", err)
 	}
 
 	limit, cursor := parseGroupListParams(query)
@@ -395,41 +397,38 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		return fmt.Errorf("failed to list auth groups: %w", err)
 	}
 
-	slog.Info("Listed auth provider groups",
+	slog.Debug("Listed auth provider groups",
 		"providerNamespace", namespace, "providerName", name,
 		"groups", len(result.Groups), "hasMore", result.NextCursor != "",
-		"source", result.Source, "degraded", result.Degraded)
+		"source", result.Source, "degraded", result.Degraded, "reset", result.Reset)
 
 	return apiContext.Write(types.GroupListResponse{
 		Items:      trimGroupsForUser(apiContext.User, result.Groups),
 		NextCursor: result.NextCursor,
 		Source:     result.Source,
 		Degraded:   result.Degraded,
+		Reset:      result.Reset,
 	})
 }
 
-const (
-	defaultGroupPageSize = 50
-
-	// maxGroupPageSize matches the ceiling the auth providers enforce, which is set by the
-	// smallest page any of the identity providers will serve in a single request.
-	maxGroupPageSize = 100
-
-	maxGroupIDsPerRequest = 500
-)
+const maxGroupIDsPerRequest = 100
 
 func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	limit, err := strconv.Atoi(query.Get("limit"))
 	if err != nil || limit <= 0 {
-		limit = defaultGroupPageSize
+		limit = client.DefaultGroupPageSize
 	}
 
-	return min(limit, maxGroupPageSize), query.Get("cursor")
+	return min(limit, client.MaxGroupPageSize), query.Get("cursor")
 }
 
 // splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
-func splitGroupIDs(raw string) []string {
+func splitGroupIDs(raw string) ([]string, error) {
 	parts := strings.Split(raw, ",")
+	if len(parts) > maxGroupIDsPerRequest {
+		return nil, fmt.Errorf("too many group ids: %d, limit is %d", len(parts), maxGroupIDsPerRequest)
+	}
+
 	ids := make([]string, 0, len(parts))
 	seen := make(map[string]struct{}, len(parts))
 
@@ -441,14 +440,12 @@ func splitGroupIDs(raw string) []string {
 		if _, ok := seen[id]; ok {
 			continue
 		}
-		seen[id] = struct{}{}
 
-		if ids = append(ids, id); len(ids) >= maxGroupIDsPerRequest {
-			break
-		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
 	}
 
-	return ids
+	return ids, nil
 }
 
 // trimGroupsForUser strips everything but the ID and name for users who should not see which auth

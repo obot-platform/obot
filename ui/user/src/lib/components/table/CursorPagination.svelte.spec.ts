@@ -69,10 +69,10 @@ describe('CursorPagination', () => {
 
 		const previous = page.getByRole('button', { name: /Previous/ });
 		await expect.element(previous).toBeDisabled();
-		expect(getComputedStyle((await previous.element()) as HTMLElement).opacity).toBe('0.5');
+		await expect.element(previous).toHaveStyle({ opacity: '0.5' });
 
 		const next = page.getByRole('button', { name: /Next/ });
-		expect(getComputedStyle((await next.element()) as HTMLElement).opacity).toBe('1');
+		await expect.element(next).toHaveStyle({ opacity: '1' });
 	});
 
 	it('reports which direction was clicked', async () => {

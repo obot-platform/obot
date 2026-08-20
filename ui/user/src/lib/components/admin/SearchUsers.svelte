@@ -31,6 +31,10 @@
 	// Only the first page of groups is fetched; the search box narrows it server-side.
 	const GROUP_PAGE_SIZE = 50;
 
+	// Searches are debounced but not serialized, so a slow request for an earlier query can land
+	// after a fast one for a later query. Only the newest request is allowed to write state.
+	let inFlight: AbortController | undefined;
+
 	$effect(() => {
 		if (initialUsers.length > 0) {
 			users = initialUsers;
@@ -54,6 +58,10 @@
 	});
 
 	async function search() {
+		inFlight?.abort();
+		const controller = new AbortController();
+		inFlight = controller;
+
 		loading = true;
 
 		filteredUsers =
@@ -71,16 +79,21 @@
 			// listed at once, so only the first page is fetched and the user narrows with the query.
 			const page = await UserService.listGroups({
 				query: searchNames.length > 0 ? searchNames : undefined,
-				limit: GROUP_PAGE_SIZE
+				limit: GROUP_PAGE_SIZE,
+				signal: controller.signal
 			});
+			if (controller.signal.aborted) return;
 
 			filteredGroups = [...page.items].sort((a, b) => a.name.localeCompare(b.name));
 			groupsHasMore = Boolean(page.nextCursor);
 			groupsDegraded = page.degraded;
 		} catch (error) {
+			if (controller.signal.aborted) return;
 			console.error('Error loading groups:', error);
 		} finally {
-			loading = false;
+			if (!controller.signal.aborted) {
+				loading = false;
+			}
 		}
 	}
 
@@ -112,6 +125,10 @@
 	}
 
 	function onClose() {
+		// A response landing after the dialog closed would repopulate the list behind it.
+		inFlight?.abort();
+		inFlight = undefined;
+
 		loading = false;
 		searchNames = '';
 		selectedUsers = [];
@@ -150,8 +167,8 @@
 			>
 				<TriangleAlert class="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
 				<span>
-					Showing only groups seen from previous sign-ins &mdash; directory-wide group read
-					permission may not be granted.
+					Showing only groups Obot has already recorded &mdash; directory-wide group read permission
+					may not be granted.
 				</span>
 			</div>
 		{:else if groupsHasMore}

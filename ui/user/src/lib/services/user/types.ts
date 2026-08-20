@@ -805,7 +805,10 @@ export interface OrgGroup {
 	iconURL?: string;
 }
 
-/** Where a group listing came from. `cache` only contains groups seen during previous sign-ins. */
+/**
+ * Where a group listing came from. `cache` is Obot's own record of groups, which holds the ones seen
+ * during previous sign-ins plus any resolved by ID for a policy, and is therefore partial.
+ */
 export type OrgGroupSource = 'provider' | 'cache';
 
 export interface OrgGroupPage {
@@ -814,6 +817,11 @@ export interface OrgGroupPage {
 	source: OrgGroupSource;
 	/** True when the auth provider could not be listed and this fell back to cached groups. */
 	degraded: boolean;
+	/**
+	 * True when the cursor that was sent could not be honored, so these items are the first page of
+	 * a fresh listing rather than the page that was asked for.
+	 */
+	reset: boolean;
 }
 
 // Profile

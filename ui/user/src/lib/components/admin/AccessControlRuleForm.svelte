@@ -113,18 +113,25 @@
 
 		// Groups are resolved by ID, not listed: the directory can hold tens of thousands of them and
 		// only the ones attached here are needed.
+		const controller = new AbortController();
+
 		resolveSubjects(
 			accessControlRule.subjects,
-			untrack(() => usersAndGroups)
+			untrack(() => usersAndGroups),
+			{ signal: controller.signal }
 		)
 			.then((resolved) => {
+				if (controller.signal.aborted) return;
 				usersAndGroups = resolved;
 				loadingUsersAndGroups = false;
 			})
 			.catch((error) => {
+				if (controller.signal.aborted) return;
 				console.error('Failed to load users and groups:', error);
 				loadingUsersAndGroups = false;
 			});
+
+		return () => controller.abort();
 	});
 
 	$effect(() => {

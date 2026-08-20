@@ -8,6 +8,8 @@ import { page } from 'vitest/browser';
 interface GroupPageOverrides {
 	total?: number;
 	degraded?: boolean;
+	/** When set, any request carrying a cursor is answered with the first page and reset: true. */
+	resetOnCursor?: boolean;
 }
 
 // The server hands out opaque cursors; a stringified offset is enough to stand in for one here.
@@ -29,14 +31,19 @@ function mockGroups(overrides: GroupPageOverrides = {}) {
 			}));
 			const matched = name ? all.filter((g) => g.name.includes(name)) : all;
 
-			const start = cursor ? Number(cursor) : 0;
+			// The server could not honor the cursor and restarted the listing: the caller is handed
+			// the first page and told its page number no longer means anything.
+			const didReset = Boolean(overrides.resetOnCursor && cursor);
+
+			const start = didReset || !cursor ? 0 : Number(cursor);
 			const end = Math.min(start + limit, matched.length);
 
 			return HttpResponse.json({
 				items: matched.slice(start, end),
 				nextCursor: end < matched.length ? String(end) : undefined,
 				source: overrides.degraded ? 'cache' : 'provider',
-				degraded: overrides.degraded ?? false
+				degraded: overrides.degraded ?? false,
+				reset: didReset
 			});
 		})
 	);
@@ -113,6 +120,23 @@ describe('GroupPicker', () => {
 		);
 	});
 
+	it('rewinds to the first page when the server could not honor the cursor', async () => {
+		const requests = mockGroups({ total: 10000, resetOnCursor: true });
+		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
+
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+		await page.getByRole('button', { name: /Next/ }).click();
+
+		// The server restarted the listing, so this is page one again. Leaving the page number where
+		// it was would label it page two and repeat every page after it.
+		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: /Previous/ })).toBeDisabled();
+
+		// Rewinding must not cost an extra round trip for a page already in hand.
+		const cursorRequests = requests.mock.calls.filter(([call]) => call.cursor !== null);
+		expect(cursorRequests).toHaveLength(1);
+	});
+
 	it('hides Next on the last page', async () => {
 		mockGroups({ total: 60 });
 		render(GroupPicker, { onSelect: vi.fn(), pageSize: 50 });
@@ -163,7 +187,7 @@ describe('GroupPicker', () => {
 		mockGroups({ total: 2, degraded: true });
 		render(GroupPicker, { onSelect: vi.fn() });
 
-		await expect.element(page.getByText(/groups seen from previous sign-ins/i)).toBeInTheDocument();
+		await expect.element(page.getByText(/groups Obot has already recorded/i)).toBeInTheDocument();
 	});
 
 	it('does not warn when the provider answered', async () => {
@@ -172,7 +196,7 @@ describe('GroupPicker', () => {
 
 		await expect.element(page.getByText('group-0000')).toBeInTheDocument();
 		await expect
-			.element(page.getByText(/groups seen from previous sign-ins/i))
+			.element(page.getByText(/groups Obot has already recorded/i))
 			.not.toBeInTheDocument();
 	});
 

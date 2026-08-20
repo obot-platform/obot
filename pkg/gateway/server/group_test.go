@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	types2 "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -20,7 +22,7 @@ func TestParseGroupListParams(t *testing.T) {
 		{
 			name:      "defaults when absent",
 			query:     "",
-			wantLimit: defaultGroupPageSize,
+			wantLimit: client.DefaultGroupPageSize,
 		},
 		{
 			name:      "explicit limit",
@@ -30,22 +32,22 @@ func TestParseGroupListParams(t *testing.T) {
 		{
 			name:      "limit capped",
 			query:     "limit=100000",
-			wantLimit: maxGroupPageSize,
+			wantLimit: client.MaxGroupPageSize,
 		},
 		{
 			name:      "zero limit falls back to default",
 			query:     "limit=0",
-			wantLimit: defaultGroupPageSize,
+			wantLimit: client.DefaultGroupPageSize,
 		},
 		{
 			name:      "negative limit falls back to default",
 			query:     "limit=-1",
-			wantLimit: defaultGroupPageSize,
+			wantLimit: client.DefaultGroupPageSize,
 		},
 		{
 			name:      "unparseable limit falls back to default",
 			query:     "limit=many",
-			wantLimit: defaultGroupPageSize,
+			wantLimit: client.DefaultGroupPageSize,
 		},
 		{
 			name:       "cursor is carried through opaquely",
@@ -113,7 +115,10 @@ func TestSplitGroupIDs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := splitGroupIDs(tt.raw)
+			got, err := splitGroupIDs(tt.raw)
+			if err != nil {
+				t.Fatalf("splitGroupIDs() error = %v", err)
+			}
 			if len(got) != len(tt.want) {
 				t.Fatalf("len = %d, want %d (%v)", len(got), len(tt.want), got)
 			}
@@ -126,13 +131,30 @@ func TestSplitGroupIDs(t *testing.T) {
 	}
 }
 
-func TestSplitGroupIDsCapsBatchSize(t *testing.T) {
-	ids := make([]string, 0, maxGroupIDsPerRequest*2)
-	for i := range maxGroupIDsPerRequest * 2 {
+func TestSplitGroupIDsRejectsAnOversizedBatch(t *testing.T) {
+	ids := make([]string, 0, maxGroupIDsPerRequest+1)
+	for i := range maxGroupIDsPerRequest + 1 {
 		ids = append(ids, fmt.Sprintf("entra/%d", i))
 	}
 
-	if got := splitGroupIDs(strings.Join(ids, ",")); len(got) != maxGroupIDsPerRequest {
+	// Silently answering for the first N would leave the caller rendering raw IDs for the rest with
+	// nothing to say why, so the caller has to chunk instead.
+	if _, err := splitGroupIDs(strings.Join(ids, ",")); err == nil {
+		t.Error("expected an error for a batch over the limit")
+	}
+}
+
+func TestSplitGroupIDsAcceptsAFullBatch(t *testing.T) {
+	ids := make([]string, 0, maxGroupIDsPerRequest)
+	for i := range maxGroupIDsPerRequest {
+		ids = append(ids, fmt.Sprintf("entra/%d", i))
+	}
+
+	got, err := splitGroupIDs(strings.Join(ids, ","))
+	if err != nil {
+		t.Fatalf("splitGroupIDs() error = %v", err)
+	}
+	if len(got) != maxGroupIDsPerRequest {
 		t.Errorf("len = %d, want %d", len(got), maxGroupIDsPerRequest)
 	}
 }
@@ -146,7 +168,7 @@ func TestTrimGroupsForUser(t *testing.T) {
 	}}
 
 	t.Run("basic users only see id and name", func(t *testing.T) {
-		got := trimGroupsForUser(&user.DefaultInfo{Groups: []string{"basic"}}, groups)
+		got := trimGroupsForUser(&user.DefaultInfo{Groups: []string{types2.GroupBasic}}, groups)
 		if len(got) != 1 {
 			t.Fatalf("len = %d, want 1", len(got))
 		}
@@ -159,7 +181,15 @@ func TestTrimGroupsForUser(t *testing.T) {
 	})
 
 	t.Run("admins see everything", func(t *testing.T) {
-		got := trimGroupsForUser(&user.DefaultInfo{Groups: []string{"admin"}}, groups)
+		got := trimGroupsForUser(&user.DefaultInfo{Groups: []string{types2.GroupAdmin}}, groups)
+		if got[0].AuthProviderName != "entra-auth-provider" {
+			t.Errorf("AuthProviderName = %q, want entra-auth-provider", got[0].AuthProviderName)
+		}
+	})
+
+	// userIsBasicOrPower counts power-user-plus as privileged, so it sees the untrimmed group.
+	t.Run("power users plus see everything", func(t *testing.T) {
+		got := trimGroupsForUser(&user.DefaultInfo{Groups: []string{types2.GroupPowerUserPlus}}, groups)
 		if got[0].AuthProviderName != "entra-auth-provider" {
 			t.Errorf("AuthProviderName = %q, want entra-auth-provider", got[0].AuthProviderName)
 		}

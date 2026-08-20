@@ -657,12 +657,18 @@ export async function listGroups(opts?: {
 		items: response?.items ?? [],
 		nextCursor: response?.nextCursor || undefined,
 		source: response?.source ?? 'provider',
-		degraded: response?.degraded ?? false
+		degraded: response?.degraded ?? false,
+		reset: response?.reset ?? false
 	};
 }
 
+const RESOLVE_GROUPS_CHUNK_SIZE = 100;
+
 /**
  * Resolves specific group IDs to their display names.
+ *
+ * Larger inputs are split across several requests and recombined, so a caller never has to think
+ * about the batch limit. IDs that cannot be resolved come back named after themselves.
  */
 export async function resolveGroups(
 	ids: string[],
@@ -670,12 +676,24 @@ export async function resolveGroups(
 ): Promise<OrgGroup[]> {
 	if (ids.length === 0) return [];
 
-	const queryString = buildQueryString({ ids });
-	const response = (await doGet(`/groups?${queryString}`, opts)) as OrgGroupPage;
-	return response?.items ?? [];
+	const batches: string[][] = [];
+	for (let i = 0; i < ids.length; i += RESOLVE_GROUPS_CHUNK_SIZE) {
+		batches.push(ids.slice(i, i + RESOLVE_GROUPS_CHUNK_SIZE));
+	}
+
+	const pages = await Promise.all(
+		batches.map(
+			(batch) => doGet(`/groups?${buildQueryString({ ids: batch })}`, opts) as Promise<OrgGroupPage>
+		)
+	);
+
+	return pages.flatMap((page) => page?.items ?? []);
 }
 
-export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
+export async function listUsers(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+}): Promise<OrgUser[]> {
 	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
 	return response.items ?? [];
 }

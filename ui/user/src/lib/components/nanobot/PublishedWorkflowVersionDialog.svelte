@@ -68,13 +68,19 @@
 			)
 		];
 
+		const controller = new AbortController();
+		const opts = { signal: controller.signal };
+
 		Promise.all([
-			UserService.listUsers().catch(() => []),
-			UserService.resolveGroups(groupIds).catch(() => [])
+			UserService.listUsers(opts).catch(() => []),
+			UserService.resolveGroups(groupIds, opts).catch(() => [])
 		]).then(([loadedUsers, loadedGroups]) => {
+			if (controller.signal.aborted) return;
 			users = loadedUsers;
 			groups = loadedGroups;
 		});
+
+		return () => controller.abort();
 	});
 
 	async function fetchVersionContents(selectedVersion: PublishedArtifactVersion) {
