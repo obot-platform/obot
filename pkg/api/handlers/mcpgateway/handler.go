@@ -230,43 +230,7 @@ func (h *Handler) Proxy(req api.Context) error {
 		(&httputil.ReverseProxy{
 			Transport: client.Transport,
 			Rewrite: func(r *httputil.ProxyRequest) {
-				// SetXForwarded preserves the X-Forwarded-For handling that
-				// ReverseProxy applied automatically under the deprecated Director.
-				// It also writes X-Forwarded-Host and X-Forwarded-Proto, so the
-				// values this handler cares about are re-applied afterwards: the
-				// scheme is derived from the inbound host rather than from whether
-				// this hop happens to be TLS.
-				r.SetXForwarded()
-
-				r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-				scheme := "https"
-				if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
-					scheme = "http"
-				}
-				r.Out.Header.Set("X-Forwarded-Proto", scheme)
-
-				r.Out.Host = u.Host
-				r.Out.URL.Scheme = u.Scheme
-				r.Out.URL.Host = u.Host
-				r.Out.URL.Path = u.Path
-				if rest := r.In.PathValue("rest"); rest != "" {
-					if strings.HasPrefix(rest, "/") {
-						r.Out.URL.Path = rest
-					} else {
-						r.Out.URL.Path = "/" + rest
-					}
-				}
-
-				// Merge query parameters from the incoming request and the upstream URL.
-				// Preserve all values; if a key exists in both, both values will be present.
-				upstreamQuery := u.Query()
-				origQuery := r.In.URL.Query()
-				for k, vs := range origQuery {
-					for _, v := range vs {
-						upstreamQuery.Add(k, v)
-					}
-				}
-				r.Out.URL.RawQuery = upstreamQuery.Encode()
+				rewriteProxyRequest(r, u)
 			},
 			ModifyResponse: func(resp *http.Response) error {
 				if err := hooks.filterResponse(resp); err != nil {
@@ -311,6 +275,50 @@ func (h *Handler) Proxy(req api.Context) error {
 
 	h.nanobot.ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 	return nil
+}
+
+func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
+	// Authorization authenticates the client to Obot and must not be forwarded
+	// to the upstream MCP server. The transport adds any configured or OAuth
+	// Authorization header after this rewrite.
+	r.Out.Header.Del("Authorization")
+
+	// SetXForwarded preserves the X-Forwarded-For handling that ReverseProxy
+	// applied automatically under the deprecated Director. It also writes
+	// X-Forwarded-Host and X-Forwarded-Proto, so the values this handler cares
+	// about are re-applied afterwards: the scheme is derived from the inbound
+	// host rather than from whether this hop happens to be TLS.
+	r.SetXForwarded()
+
+	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+	scheme := "https"
+	if strings.HasPrefix(r.In.Host, "localhost") || strings.HasPrefix(r.In.Host, "127.0.0.1") || strings.HasPrefix(r.In.Host, "[::1]") {
+		scheme = "http"
+	}
+	r.Out.Header.Set("X-Forwarded-Proto", scheme)
+
+	r.Out.Host = upstreamURL.Host
+	r.Out.URL.Scheme = upstreamURL.Scheme
+	r.Out.URL.Host = upstreamURL.Host
+	r.Out.URL.Path = upstreamURL.Path
+	if rest := r.In.PathValue("rest"); rest != "" {
+		if strings.HasPrefix(rest, "/") {
+			r.Out.URL.Path = rest
+		} else {
+			r.Out.URL.Path = "/" + rest
+		}
+	}
+
+	// Merge query parameters from the incoming request and the upstream URL.
+	// Preserve all values; if a key exists in both, both values will be present.
+	upstreamQuery := upstreamURL.Query()
+	origQuery := r.In.URL.Query()
+	for k, vs := range origQuery {
+		for _, v := range vs {
+			upstreamQuery.Add(k, v)
+		}
+	}
+	r.Out.URL.RawQuery = upstreamQuery.Encode()
 }
 
 func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, error) {

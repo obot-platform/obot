@@ -1,6 +1,97 @@
 package mcpgateway
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"net/http/httputil"
+	"net/url"
+	"testing"
+
+	"github.com/obot-platform/obot/pkg/safehttp"
+	"golang.org/x/oauth2"
+)
+
+func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
+	tests := []struct {
+		name                      string
+		configuredUpstreamHeaders http.Header
+		tokenSource               oauth2.TokenSource
+		wantAuthorization         string
+	}{
+		{
+			name: "non-authorization upstream credential",
+			configuredUpstreamHeaders: http.Header{
+				"X-Filesapi-Key": {"files-api-key"},
+			},
+		},
+		{
+			name: "configured upstream authorization",
+			configuredUpstreamHeaders: http.Header{
+				"Authorization":  {"Bearer configured-upstream-token"},
+				"X-Filesapi-Key": {"files-api-key"},
+			},
+			wantAuthorization: "Bearer configured-upstream-token",
+		},
+		{
+			name: "upstream OAuth authorization",
+			configuredUpstreamHeaders: http.Header{
+				"X-Filesapi-Key": {"files-api-key"},
+			},
+			tokenSource:       oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "oauth-upstream-token"}),
+			wantAuthorization: "Bearer oauth-upstream-token",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			receivedHeaders := make(chan http.Header, 1)
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				receivedHeaders <- req.Header.Clone()
+				w.WriteHeader(http.StatusNoContent)
+			}))
+			defer upstream.Close()
+
+			upstreamURL, err := url.Parse(upstream.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			proxy := httptest.NewServer(&httputil.ReverseProxy{
+				Transport: safehttp.NewSafeTransport(safehttp.Options{
+					Headers:     tt.configuredUpstreamHeaders,
+					TokenSource: tt.tokenSource,
+				}),
+				Rewrite: func(req *httputil.ProxyRequest) {
+					rewriteProxyRequest(req, upstreamURL)
+				},
+			})
+			defer proxy.Close()
+
+			request, err := http.NewRequestWithContext(t.Context(), http.MethodPost, proxy.URL, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request.Header.Set("Authorization", "Bearer obot-gateway-jwt")
+
+			response, err := http.DefaultClient.Do(request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response.Body.Close()
+			if response.StatusCode != http.StatusNoContent {
+				t.Fatalf("response status = %d, want %d", response.StatusCode, http.StatusNoContent)
+			}
+
+			got := <-receivedHeaders
+			if got.Get("X-FilesAPI-Key") != "files-api-key" {
+				t.Fatalf("X-FilesAPI-Key = %q, want files-api-key", got.Get("X-FilesAPI-Key"))
+			}
+			if got.Get("Authorization") != tt.wantAuthorization {
+				t.Fatalf("Authorization = %q, want %q", got.Get("Authorization"), tt.wantAuthorization)
+			}
+		})
+	}
+}
 
 func TestCompositeLoopbackURLsUsesBackendTargetAndPublicAudience(t *testing.T) {
 	const (
