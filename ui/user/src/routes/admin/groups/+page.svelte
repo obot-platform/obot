@@ -114,7 +114,12 @@
 
 			// Refresh data, resolving names for any newly assigned group.
 			groupRoleAssignments = await AdminService.listGroupRoleAssignments();
-			groups = await UserService.resolveGroups(groupRoleAssignments.map((a) => a.groupName));
+
+			try {
+				groups = await UserService.resolveGroups(groupRoleAssignments.map((a) => a.groupName));
+			} catch (error) {
+				console.error('Failed to resolve group names:', error);
+			}
 
 			// Refresh user's profile if they're in the affected group
 			if (profile.current.groups.includes(groupName)) {

@@ -47,14 +47,19 @@
 		users = await UserService.listUsers();
 		// Resolve only the groups these rules actually reference; the directory may hold tens of
 		// thousands and this dialog just needs their display names.
-		groups = await UserService.resolveGroups([
-			...new Set(
-				accessControlRules
-					.flatMap((rule) => rule.subjects ?? [])
-					.filter((subject) => subject.type === 'group' && subject.id !== '*')
-					.map((subject) => subject.id)
-			)
-		]);
+		try {
+			groups = await UserService.resolveGroups([
+				...new Set(
+					accessControlRules
+						.flatMap((rule) => rule.subjects ?? [])
+						.filter((subject) => subject.type === 'group' && subject.id !== '*')
+						.map((subject) => subject.id)
+				)
+			]);
+		} catch (error) {
+			console.error('Failed to resolve group names:', error);
+		}
+
 		dialog?.open();
 	}
 
