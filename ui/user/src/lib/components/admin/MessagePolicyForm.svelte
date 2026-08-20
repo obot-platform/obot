@@ -78,6 +78,7 @@
 
 	$effect(() => {
 		if (!messagePolicy.subjects || messagePolicy.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 

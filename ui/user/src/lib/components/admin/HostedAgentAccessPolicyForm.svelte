@@ -93,6 +93,7 @@
 	$effect(() => {
 		// Prevent loading users and groups if the policy has no subjects
 		if (!policy.subjects || policy.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 

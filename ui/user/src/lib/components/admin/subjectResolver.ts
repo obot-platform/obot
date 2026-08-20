@@ -49,7 +49,7 @@ export async function resolveSubjects(
 	];
 
 	const [users, groups] = await Promise.all([
-		existing?.users?.length ? Promise.resolve(undefined) : UserService.listUsers(opts),
+		existing?.users ? Promise.resolve(undefined) : UserService.listUsers(opts),
 		missingGroupIds.length > 0
 			? UserService.resolveGroups(missingGroupIds, opts)
 			: Promise.resolve([])

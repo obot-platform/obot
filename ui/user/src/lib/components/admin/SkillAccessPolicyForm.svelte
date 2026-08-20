@@ -97,6 +97,7 @@
 	$effect(() => {
 		// Prevent loading users and groups if rule has no subjects
 		if (!skillAccessPolicy.subjects || skillAccessPolicy.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 

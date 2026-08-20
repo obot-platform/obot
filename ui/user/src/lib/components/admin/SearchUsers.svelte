@@ -35,6 +35,8 @@
 	// after a fast one for a later query. Only the newest request is allowed to write state.
 	let inFlight: AbortController | undefined;
 
+	let dialogOpen = false;
+
 	$effect(() => {
 		if (initialUsers.length > 0) {
 			users = initialUsers;
@@ -58,6 +60,10 @@
 	});
 
 	async function search() {
+		if (!dialogOpen) {
+			return;
+		}
+
 		inFlight?.abort();
 		const controller = new AbortController();
 		inFlight = controller;
@@ -82,7 +88,7 @@
 				limit: GROUP_PAGE_SIZE,
 				signal: controller.signal
 			});
-			if (controller.signal.aborted) return;
+			if (controller.signal.aborted || !dialogOpen) return;
 
 			filteredGroups = [...page.items].sort((a, b) => a.name.localeCompare(b.name));
 			groupsHasMore = Boolean(page.nextCursor);
@@ -108,11 +114,13 @@
 	}
 
 	async function onOpen() {
+		dialogOpen = true;
 		loading = true;
 
+		let loaded: OrgUser[] | undefined;
 		try {
 			if (users.length === 0) {
-				users = await UserService.listUsers();
+				loaded = await UserService.listUsers();
 			}
 		} catch (error) {
 			console.error('Error loading initial users:', error);
@@ -120,12 +128,21 @@
 			loading = false;
 		}
 
+		// The dialog can be closed while the user list is still loading.
+		if (!dialogOpen) {
+			return;
+		}
+		if (loaded) {
+			users = loaded;
+		}
+
 		// Now search to populate filtered data
 		await search();
 	}
 
 	function onClose() {
-		// A response landing after the dialog closed would repopulate the list behind it.
+		dialogOpen = false;
+		handleSearch.cancel();
 		inFlight?.abort();
 		inFlight = undefined;
 

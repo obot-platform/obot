@@ -663,6 +663,7 @@ export async function listGroups(opts?: {
 }
 
 const RESOLVE_GROUPS_CHUNK_SIZE = 100;
+const RESOLVE_GROUPS_MAX_CONCURRENCY = 4;
 
 /**
  * Resolves specific group IDs to their display names.
@@ -681,10 +682,23 @@ export async function resolveGroups(
 		batches.push(ids.slice(i, i + RESOLVE_GROUPS_CHUNK_SIZE));
 	}
 
-	const pages = await Promise.all(
-		batches.map(
-			(batch) => doGet(`/groups?${buildQueryString({ ids: batch })}`, opts) as Promise<OrgGroupPage>
-		)
+	// Indexed rather than appended, so the result stays in the order the IDs were asked for however
+	// the requests interleave.
+	const pages: OrgGroupPage[] = new Array(batches.length);
+	let next = 0;
+
+	async function worker() {
+		while (next < batches.length) {
+			const index = next++;
+			pages[index] = (await doGet(
+				`/groups?${buildQueryString({ ids: batches[index] })}`,
+				opts
+			)) as OrgGroupPage;
+		}
+	}
+
+	await Promise.all(
+		Array.from({ length: Math.min(RESOLVE_GROUPS_MAX_CONCURRENCY, batches.length) }, () => worker())
 	);
 
 	return pages.flatMap((page) => page?.items ?? []);

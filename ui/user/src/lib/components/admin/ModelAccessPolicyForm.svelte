@@ -186,6 +186,7 @@
 	$effect(() => {
 		// Prevent loading users and groups if rule has no subjects
 		if (!modelAccessPolicy.subjects || modelAccessPolicy.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 
