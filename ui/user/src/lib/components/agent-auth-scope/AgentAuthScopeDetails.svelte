@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
 	import { API_KEY_CREATABLE_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
@@ -13,15 +14,17 @@
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { KeyRound, Server, Trash2 } from '@lucide/svelte';
+	import { Eye } from '@lucide/svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		agentAuthScope?: APIKey & { prefix: string };
+		isAdmin?: boolean;
 		onDelete: () => void;
 	}
 
-	let { agentAuthScope, onDelete }: Props = $props();
+	let { agentAuthScope, isAdmin = false, onDelete }: Props = $props();
 	let deletingAgentAuthScope = $state(false);
 	let saving = $state(false);
 
@@ -107,7 +110,7 @@
 						</p>
 					</div>
 				</div>
-				{#if agentAuthScope.userId.toString() === profile.current.id}
+				{#if agentAuthScope.userId.toString() === profile.current.id || profile.current.isAdmin?.()}
 					<div class="flex w-full @md:w-auto justify-end">
 						<IconButton
 							class=""
@@ -194,9 +197,15 @@
 			<section class="paper gap-2 p-4">
 				<p class="text-lg font-semibold" id="agent-auth-scope-keys">API Keys</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
-					<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3 text-sm">
+					<a
+						href={resolve(
+							`${isAdmin ? '/admin' : ''}/agent-auth-scopes/${agentAuthScope.id}/${encodeURIComponent(agentAuthScope.prefix)}` as `/${string}`
+						)}
+						class="bg-base-200 hover:bg-base-300 flex justify-between items-center gap-3 rounded-lg p-3 text-sm transition-colors"
+					>
 						{agentAuthScope.prefix}
-					</div>
+						<Eye class="size-4" />
+					</a>
 				</div>
 			</section>
 		</div>
