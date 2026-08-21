@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import { ApiKeysService, Group } from '$lib/services';
 import type { APIKey } from '$lib/services/api-keys/types';
 import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
@@ -114,6 +115,8 @@ async function renderApiKeyPage({
 }
 
 afterEach(() => {
+	appPage.url.searchParams.delete('start');
+	appPage.url.searchParams.delete('end');
 	vi.restoreAllMocks();
 });
 
@@ -172,5 +175,29 @@ describe('Agent Auth Scope API key usage page', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'LLM Gateway Logs' }))
 			.not.toBeInTheDocument();
+	});
+
+	it('falls back to the default range when start/end URL params are invalid', async () => {
+		appPage.url.searchParams.set('start', 'not-a-date');
+		appPage.url.searchParams.set('end', 'also-invalid');
+
+		const { requests } = await renderApiKeyPage();
+
+		await expect.element(page.getByText('$1.50', { exact: true }).first()).toBeVisible();
+		await expect.element(page.getByText('No MCP server logs', { exact: true })).toBeVisible();
+
+		await vi.waitFor(() => {
+			expect(requests.tokenUsage).toBeTruthy();
+			expect(requests.mcpAuditLogs).toBeTruthy();
+		});
+
+		const tokenUsageParams = new URL(requests.tokenUsage!).searchParams;
+		const mcpLogParams = new URL(requests.mcpAuditLogs!).searchParams;
+		expect(() => new Date(tokenUsageParams.get('start')!).toISOString()).not.toThrow();
+		expect(() => new Date(tokenUsageParams.get('end')!).toISOString()).not.toThrow();
+		expect(Number.isNaN(new Date(tokenUsageParams.get('start')!).getTime())).toBe(false);
+		expect(Number.isNaN(new Date(tokenUsageParams.get('end')!).getTime())).toBe(false);
+		expect(mcpLogParams.get('start_time')).toBe(tokenUsageParams.get('start'));
+		expect(mcpLogParams.get('end_time')).toBe(tokenUsageParams.get('end'));
 	});
 });

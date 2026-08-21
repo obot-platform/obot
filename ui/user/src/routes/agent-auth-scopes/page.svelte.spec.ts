@@ -36,13 +36,15 @@ function loadAgentAuthScopes(pathname: string) {
 async function renderAgentAuthScopesPage({
 	isAdmin,
 	readonly = false,
-	profileId
+	profileId,
+	groups
 }: {
 	isAdmin: boolean;
 	readonly?: boolean;
 	profileId?: string;
+	groups?: string[];
 }) {
-	const profile = createMockProfile(readonly ? [Group.AUDITOR] : [Group.ADMIN]);
+	const profile = createMockProfile(groups ?? (readonly ? [Group.AUDITOR] : [Group.ADMIN]));
 	if (profileId) profile.id = profileId;
 	const data = await preparePageData<PageData>({
 		apiKeys: [apiKey],
@@ -110,7 +112,7 @@ describe('Agent Auth Scopes page variants', () => {
 		await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Created By', { exact: true })).not.toBeInTheDocument();
 		await expect
-			.element(page.getByRole('button', { name: 'Create Auth Scope', exact: true }))
+			.element(page.getByRole('button', { name: 'Create Agent Auth Scope', exact: true }))
 			.toBeVisible();
 	});
 
@@ -151,14 +153,16 @@ describe('Agent Auth Scopes page variants', () => {
 		await expect.element(page.getByRole('button', { name: 'Delete', exact: true })).toBeVisible();
 	});
 
-	it('shows related log link and delete in the row menu for owners', async () => {
-		await renderAgentAuthScopesPage({ isAdmin: false });
+	it('shows delete but not related logs in the row menu for non-admin owners', async () => {
+		await renderAgentAuthScopesPage({ isAdmin: false, groups: [Group.USER] });
 
 		await openRowActions();
-		await expect.element(page.getByText('View Related Logs', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText('View Related Logs', { exact: true }))
+			.not.toBeInTheDocument();
 		await expect
 			.element(page.getByRole('link', { name: apiKeyPrefix, exact: true }))
-			.toHaveAttribute('href', `/agent-auth-scopes/${apiKey.id}/${apiKeyPrefix}`);
+			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Delete', exact: true })).toBeVisible();
 	});
 });

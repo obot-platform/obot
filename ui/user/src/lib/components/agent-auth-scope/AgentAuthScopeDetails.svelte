@@ -110,7 +110,7 @@
 						</p>
 					</div>
 				</div>
-				{#if agentAuthScope.userId.toString() === profile.current.id}
+				{#if agentAuthScope.userId.toString() === profile.current.id || profile.current.isAdmin?.()}
 					<div class="flex w-full @md:w-auto justify-end">
 						<IconButton
 							class=""

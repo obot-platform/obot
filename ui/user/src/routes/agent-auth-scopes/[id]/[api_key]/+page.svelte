@@ -23,7 +23,7 @@
 	import { errors, profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Captions } from '@lucide/svelte';
-	import { subDays } from 'date-fns';
+	import { isValid, subDays } from 'date-fns';
 	import { onMount, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -51,8 +51,14 @@
 	let lastStart = $state<string | null>(null);
 	let lastEnd = $state<string | null>(null);
 
-	let endDate = $derived(end ? new Date(end) : new Date());
-	let startDate = $derived(start ? new Date(start) : subDays(endDate, 7));
+	function parseDateParam(value: string | null): Date | undefined {
+		if (!value) return undefined;
+		const parsed = new Date(value);
+		return isValid(parsed) ? parsed : undefined;
+	}
+
+	let endDate = $derived(parseDateParam(end) ?? new Date());
+	let startDate = $derived(parseDateParam(start) ?? subDays(endDate, 7));
 
 	const filteredData = $derived(
 		scopeApiKeyId
@@ -119,7 +125,7 @@
 		const userId = apiKey?.userId;
 
 		loadingTableData = true;
-		const timeRange = { start: rangeStart, end: rangeEnd };
+		const timeRange = { start: rangeStart.toISOString(), end: rangeEnd.toISOString() };
 
 		const tokenUsagePromise =
 			isAdmin && userId == null

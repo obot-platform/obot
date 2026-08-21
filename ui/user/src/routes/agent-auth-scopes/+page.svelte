@@ -22,17 +22,17 @@
 	let { data } = $props();
 	let apiKeys = $state<APIKey[]>(untrack(() => data.apiKeys));
 	let users = $state<OrgUser[]>(untrack(() => data.users));
-	let isAdmin = $derived(data.isAdmin);
+	let isAdminPage = $derived(data.isAdmin);
 
 	let deletingKey = $state<APIKey>();
 	let loading = $state(false);
 	let showCreateNew = $derived(page.url.searchParams.has('new'));
 	let createdKeyValue = $state<string>();
 	let initSort = $derived(
-		getTableUrlParamsSort({ property: isAdmin ? 'userDisplay' : 'name', order: 'asc' })
+		getTableUrlParamsSort({ property: isAdminPage ? 'userDisplay' : 'name', order: 'asc' })
 	);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
-	let isAdminReadonly = $derived(isAdmin && profile.current.isAdminReadonly?.());
+	let isAdminReadonly = $derived(isAdminPage && profile.current.isAdminReadonly?.());
 
 	const tableData = $derived(
 		apiKeys
@@ -46,7 +46,9 @@
 				expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
 				mcpServerIds: key.mcpServerIds ?? []
 			}))
-			.filter((key) => (isAdmin ? true : key.userId.toString() === profile.current.id.toString()))
+			.filter((key) =>
+				isAdminPage ? true : key.userId.toString() === profile.current.id.toString()
+			)
 	);
 
 	async function handleDelete() {
@@ -54,7 +56,7 @@
 		if (!keyToDelete) return;
 		loading = true;
 		try {
-			await (isAdmin ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
+			await (isAdminPage ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
 				keyToDelete.id.toString()
 			);
 			apiKeys = apiKeys.filter((k) => k.id !== keyToDelete.id);
@@ -99,7 +101,7 @@
 		</div>
 	{:else}
 		<div class="flex flex-col gap-4">
-			{#if isAdmin || apiKeys.length > 0}
+			{#if isAdminPage || apiKeys.length > 0}
 				<p class="text-muted-content mb-1 whitespace-pre-line text-sm">
 					{AUTH_SCOPE_DESCRIPTION}
 				</p>
@@ -107,18 +109,16 @@
 			{#if apiKeys.length === 0}
 				<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
 					<KeyRound class="text-base-content/80 size-24 opacity-50" />
-					<h4 class="text-muted-content text-lg font-semibold">
-						{isAdmin ? 'No agent auth scopes' : 'No Agent Auth Scopes'}
-					</h4>
+					<h4 class="text-muted-content text-lg font-semibold">No agent auth scopes</h4>
 					<p class="text-muted-content text-sm font-light">
-						{isAdmin
+						{isAdminPage
 							? "Looks like there aren't any agent auth scopes in the system yet."
 							: "Looks like you don't have any agent auth scopes yet!"}
 						<br />
 						Click the "Create Agent Auth Scope" button above to get started.
 					</p>
 
-					{#if !isAdmin}
+					{#if !isAdminPage}
 						<div class="notification-info mt-8">
 							<div class="flex flex-col gap-2">
 								<div class="flex items-center gap-2">
@@ -138,26 +138,26 @@
 			{:else}
 				<Table
 					data={tableData}
-					fields={isAdmin
+					fields={isAdminPage
 						? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
 						: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
 					headers={[
-						...(isAdmin ? [{ title: 'Created By', property: 'userDisplay' }] : []),
+						...(isAdminPage ? [{ title: 'Created By', property: 'userDisplay' }] : []),
 						{ title: 'Capabilities', property: 'capabilitiesDisplay' },
 						{ title: 'Last Used', property: 'lastUsedAt' },
 						{ title: 'Expires', property: 'expiresAt' }
 					]}
-					filterable={isAdmin ? ['userDisplay', 'name'] : undefined}
-					sortable={isAdmin
+					filterable={isAdminPage ? ['userDisplay', 'name'] : undefined}
+					sortable={isAdminPage
 						? ['userDisplay', 'name', 'lastUsedAt', 'expiresAt']
 						: ['lastUsedAt', 'expiresAt']}
 					{initSort}
 					onSort={setSortUrlParams}
 					onClickRow={(d, isCtrlClick) => {
-						const url = `${isAdmin ? '/admin' : ''}/agent-auth-scopes/${d.id}`;
+						const url = `${isAdminPage ? '/admin' : ''}/agent-auth-scopes/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
-					columnMaxWidths={isAdmin
+					columnMaxWidths={isAdminPage
 						? { userDisplay: 200, capabilitiesDisplay: 200, description: 200 }
 						: undefined}
 				>
@@ -199,7 +199,7 @@
 		{#if !showCreateNew && !isAdminReadonly}
 			<button class="btn btn-primary flex items-center gap-2 text-sm" onclick={showCreateForm}>
 				<Plus class="size-4" />
-				{isAdmin ? 'Create Agent Auth Scope' : 'Create Auth Scope'}
+				Create Agent Auth Scope
 			</button>
 		{/if}
 	{/snippet}
@@ -207,24 +207,24 @@
 
 {#snippet authScopeActions(d: APIKey)}
 	{@const isOwner = d.userId.toString() === profile.current.id.toString()}
+	{@const prefix = `ok1-${d.userId}-${d.id}-*****`}
+	{@const url: `/${string}` = isAdminPage
+		? `/admin/agent-auth-scopes/${d.id}/${encodeURIComponent(prefix)}`
+		: `/agent-auth-scopes/${d.id}/${encodeURIComponent(prefix)}`}
 	<DotDotDot classes={{ menu: 'min-w-48 p-0' }}>
-		<div
-			class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
-		>
-			View Related Logs
-		</div>
-		<div class="flex flex-col gap-1 p-2 bg-base-200">
-			{#each [d] as id (id)}
-				{@const prefix = `ok1-${d.userId}-${d.id}-*****`}
-				{@const url: `/${string}` = isAdmin
-						? `/admin/agent-auth-scopes/${d.id}/${prefix}`
-						: `/agent-auth-scopes/${d.id}/${prefix}`}
+		{#if profile.current.hasAdminAccess?.()}
+			<div
+				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
+			>
+				View Related Logs
+			</div>
+			<div class="flex flex-col gap-1 p-2 bg-base-200">
 				<a class="menu-button" href={resolve(url)}>
 					{prefix}
 				</a>
-			{/each}
-		</div>
-		{#if (isAdmin && !isAdminReadonly) || isOwner}
+			</div>
+		{/if}
+		{#if profile.current.isAdmin?.() || isOwner}
 			<div class="flex flex-col gap-1 p-2 pt-1">
 				<button class="menu-button text-error" onclick={() => (deletingKey = d)}>
 					<Trash2 class="size-4" />
@@ -246,5 +246,5 @@
 <ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
 
 <svelte:head>
-	<title>Obot | {isAdmin ? 'Agent Auth Scopes' : 'Agent Auth Keys'}</title>
+	<title>Obot | {isAdminPage ? 'Agent Auth Scopes' : 'Agent Auth Keys'}</title>
 </svelte:head>
