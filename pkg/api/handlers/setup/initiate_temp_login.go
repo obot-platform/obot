@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gwtypes "github.com/obot-platform/obot/pkg/gateway/types"

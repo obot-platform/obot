@@ -4,14 +4,13 @@ package context
 import (
 	"context"
 	"log/slog"
-
-	"github.com/google/uuid"
+	"uuid"
 )
 
 type reqIDKey struct{}
 
 func WithNewRequestID(ctx context.Context) context.Context {
-	return context.WithValue(ctx, reqIDKey{}, uuid.NewString())
+	return context.WithValue(ctx, reqIDKey{}, uuid.New().String())
 }
 
 func GetRequestID(ctx context.Context) string {

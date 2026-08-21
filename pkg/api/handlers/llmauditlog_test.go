@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -123,7 +123,7 @@ func TestListLLMAuditLogAPIKeyFilterOptionsReturnsStructuredOptions(t *testing.T
 		t.Fatalf("create API key: %v", err)
 	}
 	entry := gatewaytypes.LLMAuditLog{
-		ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "7",
+		ID: uuid.New().String(), CreatedAt: time.Now().UTC(), UserID: "7",
 		APIKeyID: &created.ID, APIKeyName: "CLI token",
 	}
 	if err := gatewayClient.InsertLLMAuditLog(t.Context(), &entry); err != nil {

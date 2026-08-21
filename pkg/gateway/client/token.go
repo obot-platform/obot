@@ -10,8 +10,8 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -42,7 +42,7 @@ func (c *Client) CreateDeviceTokenRequest(ctx context.Context, tr *types.TokenRe
 		}
 
 		digest := digestNormalizedDeviceCode(normalizeDeviceCode(deviceCode))
-		tr.ID = uuid.NewString()
+		tr.ID = uuid.New().String()
 		tr.Purpose = types.TokenRequestPurposeDeviceLogin
 		tr.DeviceCodeDigest = &digest
 		tr.RequestExpiresAt = time.Now().Add(deviceCodeLifetime)
@@ -153,7 +153,7 @@ func (c *Client) PollTokenRequest(ctx context.Context, id string) (*types.TokenR
 
 // CreateTokenRequestState creates and stores a fresh OAuth state for a setup token request.
 func (c *Client) CreateTokenRequestState(ctx context.Context, id string) (string, error) {
-	state := strings.ReplaceAll(uuid.NewString(), "-", "")
+	state := strings.ReplaceAll(uuid.New().String(), "-", "")
 
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		tr := new(types.TokenRequest)

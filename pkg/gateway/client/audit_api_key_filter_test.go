@@ -5,8 +5,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -61,7 +61,7 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 			t.Fatalf("insert MCP audit log: %v", err)
 		}
 		llmLog := types.LLMAuditLog{
-			ID: uuid.NewString(), CreatedAt: now.Add(time.Duration(i) * time.Minute), UserID: fmt.Sprint(user.ID),
+			ID: uuid.New().String(), CreatedAt: now.Add(time.Duration(i) * time.Minute), UserID: fmt.Sprint(user.ID),
 			APIKeyID: &key.ID, APIKeyName: name, ModelProvider: modelProvider,
 		}
 		if err := c.InsertLLMAuditLog(ctx, &llmLog); err != nil {
@@ -78,7 +78,7 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		t.Fatalf("insert missing-key MCP audit log: %v", err)
 	}
 	missingKeyLLMLog := types.LLMAuditLog{
-		ID: uuid.NewString(), CreatedAt: now.Add(3 * time.Minute), UserID: fmt.Sprint(user.ID),
+		ID: uuid.New().String(), CreatedAt: now.Add(3 * time.Minute), UserID: fmt.Sprint(user.ID),
 		APIKeyID: &missingKeyID, APIKeyName: "Deleted key snapshot", ModelProvider: "missing",
 	}
 	if err := c.InsertLLMAuditLog(ctx, &missingKeyLLMLog); err != nil {

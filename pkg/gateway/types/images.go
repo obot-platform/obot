@@ -3,8 +3,8 @@ package types
 
 import (
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -17,6 +17,6 @@ type Image struct {
 
 // BeforeCreate will set the ID to a UUID v4.
 func (i *Image) BeforeCreate(_ *gorm.DB) error {
-	i.ID = uuid.NewString()
+	i.ID = uuid.New().String()
 	return nil
 }

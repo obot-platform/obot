@@ -5,8 +5,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -61,7 +61,7 @@ func countAuditLogs(t *testing.T, c *Client) int64 {
 
 func insertLLMAuditLog(t *testing.T, c *Client, createdAt time.Time) {
 	t.Helper()
-	entry := types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: createdAt}
+	entry := types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: createdAt}
 	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
 		t.Fatalf("failed to insert LLM audit log: %v", err)
 	}

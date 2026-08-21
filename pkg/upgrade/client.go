@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"uuid"
 
-	"github.com/google/uuid"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
@@ -35,7 +35,7 @@ func GetInstallationID(ctx context.Context, gatewayClient propertyClient) (strin
 		return "", fmt.Errorf("gateway client is required")
 	}
 
-	property, err := gatewayClient.GetOrCreateProperty(ctx, InstallationIDPropertyKey, uuid.NewString())
+	property, err := gatewayClient.GetOrCreateProperty(ctx, InstallationIDPropertyKey, uuid.New().String())
 	if err != nil {
 		return "", fmt.Errorf("failed to ensure installation ID: %w", err)
 	}

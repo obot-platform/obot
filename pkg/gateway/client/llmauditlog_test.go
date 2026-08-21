@@ -9,8 +9,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,7 +27,7 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 	}
 
 	entry := types.LLMAuditLog{
-		ID:                        uuid.NewString(),
+		ID:                        uuid.New().String(),
 		CreatedAt:                 time.Now().UTC(),
 		UserID:                    "user-1",
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
@@ -94,7 +94,7 @@ func TestInsertLLMAuditLogEncryptsSensitiveFields(t *testing.T) {
 func TestInsertLLMAuditLogWithoutEncryptionStoresPlaintext(t *testing.T) {
 	c := newTestClient(t)
 	entry := types.LLMAuditLog{
-		ID:             uuid.NewString(),
+		ID:             uuid.New().String(),
 		CreatedAt:      time.Now().UTC(),
 		RequestHeaders: json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
 		RequestBody:    json.RawMessage(`{"prompt":"secret"}`),
@@ -130,7 +130,7 @@ func TestGetLLMAuditLogStripsSensitiveFields(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:                        uuid.NewString(),
+		ID:                        uuid.New().String(),
 		CreatedAt:                 time.Now().UTC(),
 		UserID:                    "user-1",
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
@@ -168,7 +168,7 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:                        uuid.NewString(),
+		ID:                        uuid.New().String(),
 		CreatedAt:                 time.Now().UTC(),
 		RequestHeaders:            json.RawMessage(`{"Authorization":["[REDACTED]"]}`),
 		RequestBody:               json.RawMessage(`{"prompt":"secret"}`),
@@ -196,8 +196,8 @@ func TestGetLLMAuditLogDecryptsSensitiveFields(t *testing.T) {
 func TestGetLLMAuditLogsFiltersAndStripsSensitiveFields(t *testing.T) {
 	c := newTestClient(t)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`), PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
-		{ID: uuid.NewString(), CreatedAt: time.Now().UTC(), UserID: "user-2", ModelProvider: system.AnthropicModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`)},
+		{ID: uuid.New().String(), CreatedAt: time.Now().UTC(), UserID: "user-1", ModelProvider: system.OpenAIModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`), PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
+		{ID: uuid.New().String(), CreatedAt: time.Now().UTC(), UserID: "user-2", ModelProvider: system.AnthropicModelProvider, RequestBody: json.RawMessage(`{"prompt":"secret"}`)},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 			t.Fatalf("failed to insert LLM audit log: %v", err)
@@ -224,9 +224,9 @@ func TestGetLLMAuditLogsFiltersByAPIKeyID(t *testing.T) {
 	now := time.Now().UTC()
 	keyOne, keyTwo := uint(42), uint(77)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: now, APIKeyID: &keyOne, APIKeyName: "CLI token"},
-		{ID: uuid.NewString(), CreatedAt: now, APIKeyID: &keyTwo, APIKeyName: "Automation"},
-		{ID: uuid.NewString(), CreatedAt: now},
+		{ID: uuid.New().String(), CreatedAt: now, APIKeyID: &keyOne, APIKeyName: "CLI token"},
+		{ID: uuid.New().String(), CreatedAt: now, APIKeyID: &keyTwo, APIKeyName: "Automation"},
+		{ID: uuid.New().String(), CreatedAt: now},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 			t.Fatalf("insert LLM audit log: %v", err)
@@ -257,7 +257,7 @@ func TestGetLLMAuditLogsCanHideModelsRequests(t *testing.T) {
 		"/api/llm-proxy/anthropic/models/",
 		"/api/llm-proxy/openai/models/model-1",
 	} {
-		entry := types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: now, RequestPath: path}
+		entry := types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: now, RequestPath: path}
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 			t.Fatalf("failed to insert LLM audit log for %q: %v", path, err)
 		}
@@ -304,10 +304,10 @@ func TestGetLLMAuditLogFilterOptions(t *testing.T) {
 	}
 	now := time.Date(2026, 7, 7, 12, 0, 0, 0, time.UTC)
 	for _, entry := range []types.LLMAuditLog{
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, UserAgent: "open-webui/1.0", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
-		{ID: uuid.NewString(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, UserAgent: "obot/1.0"},
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, UserAgent: ""},
-		{ID: uuid.NewString(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, UserAgent: "claude/1.0"},
+		{ID: uuid.New().String(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "model-a", ResponseStatus: 200, UserAgent: "open-webui/1.0", PolicyModifiedRequestBody: json.RawMessage(`{"prompt":"blocked"}`), MessagePolicyTriggered: true},
+		{ID: uuid.New().String(), CreatedAt: now.Add(time.Minute), ModelProvider: system.OpenAIModelProvider, TargetModel: "model-c", ResponseStatus: 500, UserAgent: "obot/1.0"},
+		{ID: uuid.New().String(), CreatedAt: now, ModelProvider: system.OpenAIModelProvider, TargetModel: "", ResponseStatus: 0, UserAgent: ""},
+		{ID: uuid.New().String(), CreatedAt: now, ModelProvider: system.AnthropicModelProvider, TargetModel: "model-b", ResponseStatus: 200, UserAgent: "claude/1.0"},
 	} {
 		if err := c.InsertLLMAuditLog(t.Context(), &entry); err != nil {
 			t.Fatalf("failed to insert LLM audit log: %v", err)
@@ -389,7 +389,7 @@ func TestLogLLMAuditEntryQueuesPlaintextWithoutBlocking(t *testing.T) {
 		},
 	}
 	entry := types.LLMAuditLog{
-		ID:            uuid.NewString(),
+		ID:            uuid.New().String(),
 		CreatedAt:     time.Now().UTC(),
 		ModelProvider: system.OpenAIModelProvider,
 		RequestBody:   json.RawMessage(`{"prompt":"secret"}`),
@@ -413,8 +413,8 @@ func TestLogLLMAuditEntryDropsWhenBufferFull(t *testing.T) {
 	c := newTestClient(t)
 	c.llmAuditEntries = make(chan llmAuditEntry, 1)
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
 
 	if got := len(c.llmAuditEntries); got != 1 {
 		t.Fatalf("expected one queued entry, got %d", got)
@@ -425,7 +425,7 @@ func TestLogLLMAuditEntryNoopsWhenDisabled(t *testing.T) {
 	c := newTestClient(t)
 	c.llmAuditEnabled = false
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
 
 	if got := len(c.llmAuditEntries); got != 0 {
 		t.Fatalf("expected no queued entries, got %d", got)
@@ -449,7 +449,7 @@ func TestRunLLMAuditPersistenceLoopFlushesQueuedEntries(t *testing.T) {
 
 	for i := range 3 {
 		c.LogLLMAuditEntry(types.LLMAuditLog{
-			ID:            uuid.NewString(),
+			ID:            uuid.New().String(),
 			CreatedAt:     time.Now().UTC(),
 			ModelProvider: system.OpenAIModelProvider,
 			RequestBody:   json.RawMessage(fmt.Sprintf(`{"prompt":"secret-%d"}`, i)),
@@ -485,7 +485,7 @@ func TestRunLLMAuditPersistenceLoopFlushesOnInterval(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, 20*time.Millisecond)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
 	waitForLLMAuditLogCount(t, c, 1)
 	cancel()
 	<-done
@@ -500,8 +500,8 @@ func TestRunLLMAuditPersistenceLoopDrainsOnShutdown(t *testing.T) {
 		c.runLLMAuditPersistenceLoop(ctx, 3, time.Hour)
 	}()
 
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
-	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.NewString(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
+	c.LogLLMAuditEntry(types.LLMAuditLog{ID: uuid.New().String(), CreatedAt: time.Now().UTC()}, nil)
 	cancel()
 	<-done
 

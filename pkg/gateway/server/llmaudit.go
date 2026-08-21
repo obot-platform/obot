@@ -11,8 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
@@ -43,7 +43,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	now := time.Now()
 	requestID := gatewaycontext.GetRequestID(req.Context())
 	if requestID == "" {
-		requestID = uuid.NewString()
+		requestID = uuid.New().String()
 	}
 
 	userID := ""
@@ -59,7 +59,7 @@ func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit
 	return &llmAuditRecorder{
 		responseCaptureLimit: responseCaptureLimit,
 		log: types.LLMAuditLog{
-			ID:             uuid.NewString(),
+			ID:             uuid.New().String(),
 			CreatedAt:      now,
 			UserID:         userID,
 			APIKeyID:       apiKeyID,

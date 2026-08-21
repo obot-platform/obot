@@ -12,8 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"uuid"
 
-	"github.com/google/uuid"
 	keygen "github.com/keygen-sh/keygen-go/v3"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"gorm.io/gorm"
@@ -122,10 +122,10 @@ func newProvider(ctx context.Context, gatewayClient *client.Client, config Confi
 
 func ensureMachineFingerprint(ctx context.Context, gatewayClient *client.Client) (string, error) {
 	if gatewayClient == nil {
-		return uuid.NewString(), nil
+		return uuid.New().String(), nil
 	}
 
-	property, err := gatewayClient.GetOrCreateProperty(ctx, LicenseMachineIDPropertyKey, uuid.NewString())
+	property, err := gatewayClient.GetOrCreateProperty(ctx, LicenseMachineIDPropertyKey, uuid.New().String())
 	if err != nil {
 		return "", fmt.Errorf("failed to ensure license machine ID: %w", err)
 	}
