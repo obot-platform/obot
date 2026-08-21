@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -429,7 +431,6 @@ func splitGroupIDs(raw string) ([]string, error) {
 		return nil, fmt.Errorf("too many group ids: %d, limit is %d", len(parts), maxGroupIDsPerRequest)
 	}
 
-	ids := make([]string, 0, len(parts))
 	seen := make(map[string]struct{}, len(parts))
 
 	for _, part := range parts {
@@ -442,10 +443,9 @@ func splitGroupIDs(raw string) ([]string, error) {
 		}
 
 		seen[id] = struct{}{}
-		ids = append(ids, id)
 	}
 
-	return ids, nil
+	return slices.Collect(maps.Keys(seen)), nil
 }
 
 // trimGroupsForUser strips everything but the ID and name for users who should not see which auth
