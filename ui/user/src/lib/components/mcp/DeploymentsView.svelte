@@ -448,9 +448,9 @@
 		return servers.flatMap((server) => {
 			if (!server.catalogEntryID || seen.has(server.catalogEntryID)) return [];
 			const entry = entriesMap[server.catalogEntryID];
-			if (!entry?.upgradeNote?.trim()) return [];
+			if (!entry?.manifest.upgradeNote?.trim()) return [];
 			seen.add(server.catalogEntryID);
-			return [{ id: entry.id, name: getMCPDisplayName(entry), note: entry.upgradeNote }];
+			return [{ id: entry.id, name: getMCPDisplayName(entry), note: entry.manifest.upgradeNote }];
 		});
 	}
 	async function updateK8sSettings(server?: MCPCatalogServer) {

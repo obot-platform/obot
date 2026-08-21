@@ -1451,7 +1451,7 @@ func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
 			Path:  "/mcp",
 		},
 	})
-	entry.Spec.UpgradeNote = "Review the optional settings after upgrading."
+	entry.Spec.Manifest.UpgradeNote = "Review the optional settings after upgrading."
 	server := newMCPServer("shared-server")
 	server.Spec.MCPCatalogID = "default"
 	server.Spec.MCPServerCatalogEntryName = entry.Name

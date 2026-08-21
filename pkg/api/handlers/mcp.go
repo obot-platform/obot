@@ -236,7 +236,6 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 	return types.MCPServerCatalogEntry{
 		Metadata:                  MetadataFrom(&entry),
 		Manifest:                  entry.Spec.Manifest,
-		UpgradeNote:               entry.Spec.UpgradeNote,
 		Editable:                  entry.Spec.Editable,
 		Detached:                  entry.Spec.Detached,
 		CatalogName:               entry.Spec.MCPCatalogName,

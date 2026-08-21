@@ -722,6 +722,7 @@ export interface CatalogComponentServer {
 	toolPrefix?: string;
 }
 export interface MCPCatalogEntryServerManifest {
+	upgradeNote?: string;
 	icon?: string;
 	env?: MCPCatalogEntryFieldManifest[];
 	repoURL?: string;
@@ -750,7 +751,6 @@ export interface MCPCatalogEntry {
 	created: string;
 	deleted?: string;
 	manifest: MCPCatalogEntryServerManifest;
-	upgradeNote?: string;
 	editable?: boolean;
 	detached?: boolean;
 	sourceURL?: string;

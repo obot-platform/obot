@@ -10419,12 +10419,6 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref common.
 							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
 						},
 					},
-					"upgradeNote": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
-						},
-					},
 					"editable": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"boolean"},
@@ -10602,6 +10596,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 									},
 								},
 							},
+						},
+					},
+					"upgradeNote": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradeNote is source-provided Markdown shown before applying catalog updates.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"runtime": {
@@ -22049,13 +22050,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntrySpec(ref common.Refe
 									},
 								},
 							},
-						},
-					},
-					"upgradeNote": {
-						SchemaProps: spec.SchemaProps{
-							Description: "UpgradeNote is source-provided Markdown shown before applying catalog updates.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 					"mcpCatalogName": {

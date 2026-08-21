@@ -156,7 +156,6 @@ func (c ComponentServer) ComponentID() string {
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
-	UpgradeNote               string                        `json:"upgradeNote,omitempty"`
 	Editable                  bool                          `json:"editable,omitempty"`
 	Detached                  bool                          `json:"detached,omitempty"`
 	CatalogName               string                        `json:"catalogName,omitempty"`
@@ -187,6 +186,8 @@ type MCPServerCatalogEntryManifest struct {
 	Icon             string            `json:"icon"`
 	RepoURL          string            `json:"repoURL,omitempty"`
 	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
+	// UpgradeNote is source-provided Markdown shown before applying catalog updates.
+	UpgradeNote string `json:"upgradeNote,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`

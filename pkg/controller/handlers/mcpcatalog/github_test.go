@@ -35,7 +35,7 @@ npxConfig:
 	assert.True(t, ok)
 	assert.Equal(t, dir, entry.Spec.SourceURL)
 	assert.Equal(t, "test-entry", entry.Spec.Manifest.EntryKey)
-	assert.Equal(t, "## Important\n\nSet the optional MODE value after updating.\n", entry.Spec.UpgradeNote)
+	assert.Equal(t, "## Important\n\nSet the optional MODE value after updating.\n", entry.Spec.Manifest.UpgradeNote)
 }
 
 func TestReadGitCatalog(t *testing.T) {
