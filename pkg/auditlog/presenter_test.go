@@ -52,7 +52,7 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	if summary.Details != nil || summary.EventType != api.AuditLogEventTypeMCPCall {
 		t.Fatalf("unexpected summary: %#v", summary)
 	}
-	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "CLI token (ok1-user-1-17-*****)" {
+	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "CLI token (ok1-user-1-17-*****)" || summary.Actor.APIKeyID != apiKeyID {
 		t.Fatalf("unexpected actor: %#v", summary.Actor)
 	}
 	if summary.Target.TargetType != api.AuditLogTargetTypeMCPTool || summary.Target.Parent == nil {
@@ -112,7 +112,7 @@ func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
 			}
 
 			actor := Present(log, PresentOptions{}).Actor
-			if actor.CredentialID != test.apiKeyName {
+			if actor.CredentialID != test.apiKeyName || actor.APIKeyID != apiKeyID {
 				t.Fatalf("credential display = %q, want %q", actor.CredentialID, test.apiKeyName)
 			}
 		})
@@ -162,7 +162,7 @@ func TestPresentLocalAgentIncludesAPIKeyCredential(t *testing.T) {
 	}
 
 	actor := Present(log, PresentOptions{}).Actor
-	if actor.CredentialID != "Local CLI (ok1-42-17-*****)" {
+	if actor.CredentialID != "Local CLI (ok1-42-17-*****)" || actor.APIKeyID != apiKeyID {
 		t.Fatalf("unexpected API-key credential: %#v", actor)
 	}
 }

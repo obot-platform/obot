@@ -191,13 +191,13 @@ export async function getAuditLog(id: string | number, opts?: { fetch?: Fetcher 
 
 export async function listAuditLogFilterOptions(
 	filterId: string,
-	opts?: { fetch?: Fetcher } & Partial<AuditLogURLFilters>
+	opts?: { fetch?: Fetcher; signal?: AbortSignal } & Partial<AuditLogURLFilters>
 ) {
-	const { fetch: fetchFn, ...filters } = opts ?? {};
+	const { fetch: fetchFn, signal, ...filters } = opts ?? {};
 	const queryString = buildQueryString({ ...filters, limit: AUDIT_LOG_FILTER_OPTIONS_LIMIT });
 	const response = (await doGet(
 		`/mcp-audit-logs/filter-options/${filterId}${queryString ? `?${queryString}` : ''}`,
-		{ fetch: fetchFn }
+		{ fetch: fetchFn, signal }
 	)) as {
 		options: AuditLogFilterOption[];
 	};

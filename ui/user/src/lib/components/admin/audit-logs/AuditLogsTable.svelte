@@ -14,7 +14,7 @@
 		onSelectRow?: (auditLog: AuditLogEvent) => void;
 		emptyContent?: Snippet;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
-		isCredentialRevoked: (credential: string) => boolean;
+		isCredentialRevoked: (apiKeyID: number | undefined) => boolean;
 	}
 
 	let {
@@ -268,7 +268,7 @@
 					{@const actor = actorLabel(d.actor)}
 					{@const credential = d.actor.credentialID}
 					{@const credentialLabel = credential
-						? formatAuditLogCredentialLabel(credential, isCredentialRevoked(credential))
+						? formatAuditLogCredentialLabel(credential, isCredentialRevoked(d.actor.apiKeyID))
 						: undefined}
 
 					<tr
