@@ -1355,6 +1355,13 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"apiKeyID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIKeyID identifies the API key represented by CredentialID without relying on its display value.",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"actorType"},
 			},
