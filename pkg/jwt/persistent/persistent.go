@@ -53,7 +53,8 @@ type TokenContext struct {
 	AuthProviderNamespace string
 	AuthProviderUserID    string
 
-	MCPID string
+	MCPID            string
+	AuthorizedMCPIDs StringSlice
 
 	// This is used for requesting community license
 	InstallationID string `json:"installation_id,omitempty"`
@@ -209,21 +210,10 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		"mcp_id":                  {tokenContext.MCPID},
 		"resource":                {tokenContext.Audience},
 		"oauthScope":              {tokenContext.OAuthScope},
+		"authorized_mcp_ids":      tokenContext.AuthorizedMCPIDs,
 	}
 	if tokenContext.MCPID != "" {
-		extra["authorized_mcp_ids"] = []string{tokenContext.MCPID}
-	}
-	if mcpID, ok := strings.CutPrefix(tokenContext.Audience, t.serverURL+"/mcp-connect/"); ok {
-		// Ensure we only get the MCP ID
-		mcpID, _, _ := strings.Cut(mcpID, "/")
-		if mcpID != tokenContext.MCPID {
-			extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], mcpID)
-		}
-	} else if mcpID, ok := strings.CutPrefix(tokenContext.Audience, t.serverURL+"/mcp-connect-composite/"); ok {
-		mcpID, _, _ := strings.Cut(mcpID, "/")
-		if mcpID != tokenContext.MCPID {
-			extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], mcpID)
-		}
+		extra["authorized_mcp_ids"] = append(extra["authorized_mcp_ids"], tokenContext.MCPID)
 	}
 
 	groups := tokenContext.UserGroups
@@ -298,9 +288,13 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 	}
 
 	var groups []string
-	if userGroups, ok := claims["UserGroups"].(string); ok {
+	if userGroups, ok := claims["UserGroups"].(string); ok && userGroups != "" {
 		groups = strings.Split(userGroups, ",")
 		groups = slices.DeleteFunc(groups, func(s string) bool { return s == "" })
+	}
+	var authorizedMCPIDs StringSlice
+	if mcpIDs, ok := claims["AuthorizedMCPIDs"].(string); ok && mcpIDs != "" {
+		authorizedMCPIDs = StringSlice(strings.Split(mcpIDs, ","))
 	}
 
 	var issuedAt, expiresAt time.Time
@@ -332,6 +326,7 @@ func (t *TokenService) DecodeToken(ctx context.Context, token string) (*TokenCon
 		AuthProviderNamespace: getStringClaim("AuthProviderNamespace"),
 		AuthProviderUserID:    getStringClaim("AuthProviderUserID"),
 		MCPID:                 getStringClaim("MCPID"),
+		AuthorizedMCPIDs:      authorizedMCPIDs,
 		Namespace:             getStringClaim("Namespace"),
 		ModelProvider:         getStringClaim("ModelProvider"),
 		Model:                 getStringClaim("Model"),

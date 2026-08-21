@@ -1,9 +1,46 @@
 package mcp
 
 import (
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/obot-platform/mmmcp"
 )
+
+func TestAuthorizationErrorSurvivesSDKWrapping(t *testing.T) {
+	const challenge = `Bearer resource_metadata="https://example.com/.well-known/oauth-protected-resource"`
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("WWW-Authenticate", challenge)
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	client := gomcp.NewClient(&gomcp.Implementation{Name: "test", Version: "test"}, nil)
+	_, err := client.Connect(t.Context(), &gomcp.StreamableClientTransport{
+		Endpoint:             server.URL,
+		HTTPClient:           server.Client(),
+		DisableStandaloneSSE: true,
+		OAuthHandler:         authorizationErrorOAuthHandler{},
+	}, nil)
+	if err == nil {
+		t.Fatal("Connect() error = nil, want authentication-required error")
+	}
+
+	authErr, ok := errors.AsType[*mmmcp.AuthorizationError](err)
+	if !ok {
+		t.Fatalf("Connect() error = %v, want *mmmcp.AuthorizationError", err)
+	}
+	if authErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("StatusCode = %d, want %d", authErr.StatusCode, http.StatusUnauthorized)
+	}
+	if authErr.ResourceMetadata != "https://example.com/.well-known/oauth-protected-resource" {
+		t.Fatalf("ResourceMetadata = %q, want challenge resource metadata", authErr.ResourceMetadata)
+	}
+}
 
 func TestServerIDIgnoresDynamicFileData(t *testing.T) {
 	serverA := ServerConfig{

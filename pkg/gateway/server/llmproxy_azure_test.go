@@ -7,9 +7,9 @@ import (
 	"net/http/httputil"
 	"testing"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -19,7 +19,7 @@ func TestAzureProviderBackend(t *testing.T) {
 		method   string
 		path     string
 		provider string
-		dialect  nanobottypes.Dialect
+		dialect  llmtypes.Dialect
 		creds    map[string]string
 		wantURL  string
 	}{
@@ -28,7 +28,7 @@ func TestAzureProviderBackend(t *testing.T) {
 			method:   http.MethodPost,
 			path:     "v1/responses",
 			provider: system.AzureModelProvider,
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			creds:    map[string]string{azure.EndpointEnv: "https://resource.openai.azure.com", azure.APIKeyEnv: "key"},
 			wantURL:  "https://resource.openai.azure.com/openai/v1/responses",
 		},
@@ -37,7 +37,7 @@ func TestAzureProviderBackend(t *testing.T) {
 			method:   http.MethodPost,
 			path:     "v1/messages",
 			provider: system.AzureEntraModelProvider,
-			dialect:  nanobottypes.DialectAnthropicMessages,
+			dialect:  llmtypes.DialectAnthropicMessages,
 			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
 			wantURL:  "https://resource.services.ai.azure.com/anthropic/v1/messages",
 		},
@@ -46,7 +46,7 @@ func TestAzureProviderBackend(t *testing.T) {
 			method:   http.MethodGet,
 			path:     "v1/models",
 			provider: system.AzureEntraModelProvider,
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
 			wantURL:  "https://resource.services.ai.azure.com/openai/v1/models",
 		},
@@ -55,7 +55,7 @@ func TestAzureProviderBackend(t *testing.T) {
 			method:   http.MethodGet,
 			path:     "openai/v1/models",
 			provider: system.AzureEntraModelProvider,
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			creds:    map[string]string{azure.EntraEndpointEnv: "https://resource.services.ai.azure.com"},
 			wantURL:  "https://resource.services.ai.azure.com/openai/v1/models",
 		},
@@ -111,15 +111,15 @@ func TestNewAzureLLMProviderProxy(t *testing.T) {
 func TestResolveAzureRouteDialect(t *testing.T) {
 	tests := []struct {
 		path    string
-		want    nanobottypes.Dialect
+		want    llmtypes.Dialect
 		wantErr bool
 	}{
-		{path: "messages", want: nanobottypes.DialectAnthropicMessages},
-		{path: "v1/messages", want: nanobottypes.DialectAnthropicMessages},
-		{path: "responses", want: nanobottypes.DialectOpenAIResponses},
-		{path: "v1/responses/response-id", want: nanobottypes.DialectOpenAIResponses},
-		{path: "v1/models", want: nanobottypes.DialectOpenAIResponses},
-		{path: "openai/v1/models", want: nanobottypes.DialectOpenAIResponses},
+		{path: "messages", want: llmtypes.DialectAnthropicMessages},
+		{path: "v1/messages", want: llmtypes.DialectAnthropicMessages},
+		{path: "responses", want: llmtypes.DialectOpenAIResponses},
+		{path: "v1/responses/response-id", want: llmtypes.DialectOpenAIResponses},
+		{path: "v1/models", want: llmtypes.DialectOpenAIResponses},
+		{path: "openai/v1/models", want: llmtypes.DialectOpenAIResponses},
 		{path: "openai/v1/responses", wantErr: true},
 	}
 	for _, tt := range tests {

@@ -22546,13 +22546,6 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
-					"auditLogTokenHash": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuditLogTokenHash is the hash of the token used to submit audit logs.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
 					"observedCompositeManifestHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server. This field is only populated for composite MCP servers.",
@@ -24697,13 +24690,6 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
-					"mcp_server_name": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"ephemeral": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time. This is used for generating tool previews for example.",
@@ -24721,7 +24707,7 @@ func schema_storage_apis_obotobotai_v1_OAuthClientSpec(ref common.ReferenceCallb
 						},
 					},
 				},
-				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "mcp_server_name", "ephemeral", "static"},
+				Required: []string{"manifest", "clientSecretHash", "client_secret_issued_at", "client_secret_expires_at", "registrationTokenHash", "registration_token_issued_at", "registration_token_expires_at", "ephemeral", "static"},
 			},
 		},
 		Dependencies: []string{
@@ -27047,13 +27033,6 @@ func schema_storage_apis_obotobotai_v1_SystemMCPServerStatus(ref common.Referenc
 					"k8sSettingsHash": {
 						SchemaProps: spec.SchemaProps{
 							Description: "K8sSettingsHash contains the hash of K8s settings this was deployed with",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"auditLogTokenHash": {
-						SchemaProps: spec.SchemaProps{
-							Description: "AuditLogTokenHash contains the hash of the audit log token",
 							Type:        []string{"string"},
 							Format:      "",
 						},

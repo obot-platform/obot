@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -43,9 +44,9 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 			corev1.ResourceMemory: resource.MustParse("128Mi"),
 		},
 	}
-	nanobotSettings := *resourceSettings.DeepCopy()
-	nanobotSettings.NanobotWorkspaceSize = "10Gi"
-	nanobotSettings.NanobotAgentResources = &corev1.ResourceRequirements{
+	agentSettings := *resourceSettings.DeepCopy()
+	agentSettings.NanobotWorkspaceSize = "10Gi"
+	agentSettings.NanobotAgentResources = &corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("512Mi"),
 		},
@@ -105,7 +106,7 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		t.Fatalf("composite base hash = %s, want remote base hash %s", compositeBaseHash, remoteBaseHash)
 	}
 
-	nanobotBaseHash := ComputeK8sSettingsHash(
+	agentBaseHash := ComputeK8sSettingsHash(
 		baseSettings,
 		nil,
 		types.RuntimeNPX,
@@ -118,8 +119,8 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		types.RuntimeNPX,
 		true,
 		nil,
-	); got != nanobotBaseHash {
-		t.Fatalf("nanobot agent server hash = %s, want %s before nanobot-only settings are set", got, nanobotBaseHash)
+	); got != agentBaseHash {
+		t.Fatalf("agent server hash = %s, want %s before agent-only settings are set", got, agentBaseHash)
 	}
 	regularHash := ComputeK8sSettingsHash(
 		resourceSettings,
@@ -129,22 +130,22 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		nil,
 	)
 	if got := ComputeK8sSettingsHash(
-		nanobotSettings,
+		agentSettings,
 		nil,
 		types.RuntimeNPX,
 		false,
 		nil,
 	); got != regularHash {
-		t.Fatalf("non-nanobot hash = %s, want nanobot-only settings ignored", got)
+		t.Fatalf("non-agent hash = %s, want agent-only settings ignored", got)
 	}
 	if got := ComputeK8sSettingsHash(
-		nanobotSettings,
+		agentSettings,
 		nil,
 		types.RuntimeNPX,
 		true,
 		nil,
-	); got == nanobotBaseHash {
-		t.Fatalf("nanobot hash = %s, want it to differ when nanobot-only settings are set", got)
+	); got == agentBaseHash {
+		t.Fatalf("agent hash = %s, want it to differ when agent-only settings are set", got)
 	}
 
 	serverResources := &corev1.ResourceRequirements{
@@ -413,7 +414,7 @@ func TestNewKubernetesBackend_ServiceFQDN(t *testing.T) {
 	}
 }
 
-func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
+func TestK8sObjects_AgentExcludesAuditLogConfig(t *testing.T) {
 	k := newTestKubernetesBackend(t)
 
 	objs, err := k.k8sObjects(t.Context(), ServerConfig{
@@ -427,7 +428,7 @@ func TestK8sObjects_NanobotAgentExcludesAuditLogConfig(t *testing.T) {
 		ContainerPath:        "/mcp",
 		Command:              "nanobot",
 		Args:                 []string{"run"},
-		NanobotAgentName:     "agent-1",
+		AgentName:            "agent-1",
 		AuditLogMetadata:     map[string]string{"mcpID": "server-1"},
 	})
 	if err != nil {
@@ -504,7 +505,7 @@ func TestK8sObjects_RemoteAndCompositeCreateNoObjects(t *testing.T) {
 	}
 }
 
-func TestK8sObjects_UVXAndNPXPassNanobotHealthEnv(t *testing.T) {
+func TestK8sObjects_UVXAndNPXUseMMMCP(t *testing.T) {
 	for _, runtime := range []types.Runtime{types.RuntimeUVX, types.RuntimeNPX} {
 		t.Run(string(runtime), func(t *testing.T) {
 			k := newTestKubernetesBackend(t)
@@ -517,17 +518,39 @@ func TestK8sObjects_UVXAndNPXPassNanobotHealthEnv(t *testing.T) {
 				OwnerUserID:          "user-2",
 				Command:              strings.ToLower(string(runtime)),
 				Args:                 []string{"example"},
+				Env:                  []string{"TOKEN=secret"},
 			})
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
 			}
 
 			configSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "config"))
-			if got := string(configSecret.Data["NANOBOT_RUN_HEALTHZ_PATH"]); got != "/healthz" {
-				t.Fatalf("NANOBOT_RUN_HEALTHZ_PATH = %q, want /healthz", got)
+			if got := string(configSecret.Data["MMMCP_META_ENV"]); got != "TOKEN" {
+				t.Fatalf("MMMCP_META_ENV = %q, want TOKEN", got)
 			}
-			if got := string(configSecret.Data["NANOBOT_RUN_FORCE_FETCH_TOOL_LIST"]); got != "true" {
-				t.Fatalf("NANOBOT_RUN_FORCE_FETCH_TOOL_LIST = %q, want true", got)
+
+			container := findContainer(t, findDeployment(t, objs, "test-server"), "mcp")
+			if container.Image != "ghcr.io/obot-platform/mmmcp:main" {
+				t.Fatalf("container image = %q, want mmmcp base image", container.Image)
+			}
+			if got, want := strings.Join(container.Args, " "), "--listen :8099 --config /config/mmmcp.yaml"; got != want {
+				t.Fatalf("container args = %q, want %q", got, want)
+			}
+			if container.ReadinessProbe == nil || container.ReadinessProbe.TCPSocket == nil {
+				t.Fatal("mmmcp container does not have a TCP readiness probe")
+			}
+
+			runSecret := findSecret(t, objs, name.SafeConcatName("test-server", "mcp", "run"))
+			data, ok := runSecret.Data["mmmcp.yaml"]
+			if !ok {
+				t.Fatalf("mmmcp.yaml missing from run secret: %#v", runSecret.Data)
+			}
+			cfg, err := mmmcpconfig.Load(data, mmmcpconfig.LoadOptions{LookupEnv: func(string) (string, bool) { return "", false }})
+			if err != nil {
+				t.Fatalf("generated mmmcp config is invalid: %v\n%s", err, data)
+			}
+			if len(cfg.Servers) != 1 || cfg.Servers[0].Command != strings.ToLower(string(runtime)) || strings.Join(cfg.Servers[0].Args, " ") != "example" || cfg.Servers[0].Env["TOKEN"] != "secret" {
+				t.Fatalf("unexpected mmmcp config: %#v", cfg)
 			}
 		})
 	}
@@ -536,7 +559,7 @@ func TestK8sObjects_UVXAndNPXPassNanobotHealthEnv(t *testing.T) {
 func TestK8sObjects_ServicePorts(t *testing.T) {
 	tests := []struct {
 		name                   string
-		nanobotAgentName       string
+		agentName              string
 		expectedHTTPPortTarget intstr.IntOrString
 		expectedStrategy       appsv1.DeploymentStrategyType
 	}{
@@ -546,7 +569,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 		},
 		{
 			name:                   "nanobot agent routes http service port to mcp container",
-			nanobotAgentName:       "agent-1",
+			agentName:              "agent-1",
 			expectedHTTPPortTarget: intstr.FromString("mcp"),
 			expectedStrategy:       appsv1.RecreateDeploymentStrategyType,
 		},
@@ -566,7 +589,7 @@ func TestK8sObjects_ServicePorts(t *testing.T) {
 				ContainerPath:        "/mcp",
 				Command:              "server",
 				Args:                 []string{"run"},
-				NanobotAgentName:     tt.nanobotAgentName,
+				AgentName:            tt.agentName,
 			})
 			if err != nil {
 				t.Fatalf("k8sObjects() error = %v", err)
@@ -618,16 +641,16 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 		{
 			name: "nanobot agent default requests 400Mi memory",
 			server: ServerConfig{
-				Runtime:          types.RuntimeContainerized,
-				NanobotAgentName: "agent-1",
+				Runtime:   types.RuntimeContainerized,
+				AgentName: "agent-1",
 			},
 			wantMemoryRequest: "400Mi",
 		},
 		{
 			name: "nanobot agent implicit defaults are capped by maximums",
 			server: ServerConfig{
-				Runtime:          types.RuntimeContainerized,
-				NanobotAgentName: "agent-1",
+				Runtime:   types.RuntimeContainerized,
+				AgentName: "agent-1",
 			},
 			settings: &v1.K8sSettings{
 				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
@@ -642,8 +665,8 @@ func TestK8sObjects_MCPContainerResources(t *testing.T) {
 		{
 			name: "nanobot agent uses dedicated resources",
 			server: ServerConfig{
-				Runtime:          types.RuntimeContainerized,
-				NanobotAgentName: "agent-1",
+				Runtime:   types.RuntimeContainerized,
+				AgentName: "agent-1",
 			},
 			settings: &v1.K8sSettings{
 				Name: system.K8sSettingsName, Namespace: system.DefaultNamespace,
@@ -745,7 +768,7 @@ func TestK8sObjectsUsesStoredMaximums(t *testing.T) {
 		settings.Spec,
 		server.Resources,
 		server.Runtime,
-		server.NanobotAgentName != "",
+		server.IsAgentServer(),
 		nil,
 	)
 	if got := deployment.Annotations["obot.ai/k8s-settings-hash"]; got != wantHash {
@@ -850,7 +873,7 @@ func TestAnalyzePodStatus(t *testing.T) {
 					Phase: corev1.PodSucceeded,
 				},
 			},
-			server:          ServerConfig{NanobotAgentName: "agent-1"},
+			server:          ServerConfig{AgentName: "agent-1"},
 			wantRetryable:   true,
 			wantErr:         ErrHealthCheckTimeout,
 			wantErrContains: "pod succeeded and exited",
@@ -1012,7 +1035,7 @@ func (f *fakeWithWatch) Watch(_ context.Context, _ kclient.ObjectList, _ ...kcli
 func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 	tests := []struct {
 		name            string
-		nanobotAgent    string
+		agentName       string
 		wantErrContains string
 	}{
 		{
@@ -1021,7 +1044,7 @@ func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 		},
 		{
 			name:            "agent succeeded pod remains retryable",
-			nanobotAgent:    "agent-1",
+			agentName:       "agent-1",
 			wantErrContains: "watch retries",
 		},
 	}
@@ -1074,9 +1097,9 @@ func TestUpdatedMCPPodName_SucceededPodAgentRetryBehavior(t *testing.T) {
 			}
 
 			_, err := k.updatedMCPPodName(t.Context(), "http://mcp.example.com", "test-server", ServerConfig{
-				Runtime:          types.RuntimeRemote,
-				NanobotAgentName: tt.nanobotAgent,
-				StartupTimeout:   time.Second,
+				Runtime:        types.RuntimeRemote,
+				AgentName:      tt.agentName,
+				StartupTimeout: time.Second,
 			}, "")
 			if !errors.Is(err, ErrHealthCheckTimeout) {
 				t.Fatalf("updatedMCPPodName() error = %v, want %v", err, ErrHealthCheckTimeout)
@@ -1415,7 +1438,7 @@ func newTestKubernetesBackend(t *testing.T, objs ...kclient.Object) *kubernetesB
 	}
 
 	return &kubernetesBackend{
-		baseImage:    "ghcr.io/obot-platform/mcp-images/stdio-wrapper:main",
+		baseImage:    "ghcr.io/obot-platform/mmmcp:main",
 		mcpNamespace: "obot-mcp",
 		obotClient:   clientBuilder.Build(),
 	}

@@ -164,7 +164,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
 
-	var oauthHandler auth.OAuthHandler
+	var oauthHandler auth.OAuthHandler = authorizationErrorOAuthHandler{}
 	if clientOpts.TokenStorage != nil {
 		oauthHandler = newOAuth(httpClient, clientOpts.CallbackHandler, clientOpts.ClientLookup, clientOpts.TokenStorage, server.MCPServerName, clientOpts.ClientName, sm.baseURL+"/oauth/mcp/callback", system.OAuthClientIDMetadataURL(sm.baseURL))
 	}

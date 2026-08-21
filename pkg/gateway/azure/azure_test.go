@@ -11,7 +11,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/system"
 )
 
@@ -56,7 +56,7 @@ func TestBaseURL(t *testing.T) {
 		name     string
 		provider string
 		creds    map[string]string
-		dialect  nanobottypes.Dialect
+		dialect  llmtypes.Dialect
 		want     string
 		wantErr  string
 	}{
@@ -64,55 +64,55 @@ func TestBaseURL(t *testing.T) {
 			name:     "API key OpenAI",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "https://resource.services.ai.azure.com/"},
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			want:     "https://resource.services.ai.azure.com/openai/v1",
 		},
 		{
 			name:     "Entra Anthropic preserves endpoint path",
 			provider: system.AzureEntraModelProvider,
 			creds:    map[string]string{EntraEndpointEnv: "https://resource.services.ai.azure.com/base/"},
-			dialect:  nanobottypes.DialectAnthropicMessages,
+			dialect:  llmtypes.DialectAnthropicMessages,
 			want:     "https://resource.services.ai.azure.com/base/anthropic/v1",
 		},
 		{
 			name:     "recognized API suffix is replaced",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "https://resource.openai.azure.com/openai/v1"},
-			dialect:  nanobottypes.DialectAnthropicMessages,
+			dialect:  llmtypes.DialectAnthropicMessages,
 			want:     "https://resource.openai.azure.com/anthropic/v1",
 		},
 		{
 			name:     "missing endpoint",
 			provider: system.AzureModelProvider,
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			wantErr:  EndpointEnv,
 		},
 		{
 			name:     "invalid endpoint",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "not-a-url"},
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			wantErr:  "invalid Azure endpoint",
 		},
 		{
 			name:     "insecure endpoint",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "http://resource.openai.azure.com"},
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			wantErr:  "HTTPS",
 		},
 		{
 			name:     "non-Azure endpoint",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "https://example.com"},
-			dialect:  nanobottypes.DialectOpenAIResponses,
+			dialect:  llmtypes.DialectOpenAIResponses,
 			wantErr:  "not a recognized Azure endpoint",
 		},
 		{
 			name:     "unsupported dialect",
 			provider: system.AzureModelProvider,
 			creds:    map[string]string{EndpointEnv: "https://resource.openai.azure.com"},
-			dialect:  nanobottypes.DialectOpenAIChatCompletions,
+			dialect:  llmtypes.DialectOpenAIChatCompletions,
 			wantErr:  "unsupported Azure model dialect",
 		},
 	}

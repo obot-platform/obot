@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayllmaudit "github.com/obot-platform/obot/pkg/gateway/llmaudit"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -228,38 +228,38 @@ func TestLLMAuditRecorderSetOutcome(t *testing.T) {
 func TestExtractLLMClientSessionID(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
-		dialect nanobottypes.Dialect
+		dialect llmtypes.Dialect
 		headers http.Header
 		body    string
 		want    string
 	}{
 		{
 			name:    "Claude Code session header preferred over body",
-			dialect: nanobottypes.DialectAnthropicMessages,
+			dialect: llmtypes.DialectAnthropicMessages,
 			headers: http.Header{claudeCodeSessionIDHeader: []string{"header-session"}},
 			body:    `{"metadata":{"user_id":"{\"session_id\":\"body-session\"}"}}`,
 			want:    "header-session",
 		},
 		{
 			name:    "OpenAI dialect client metadata session id",
-			dialect: nanobottypes.DialectOpenAIResponses,
+			dialect: llmtypes.DialectOpenAIResponses,
 			body:    `{"client_metadata":{"session_id":"openai-session"}}`,
 			want:    "openai-session",
 		},
 		{
 			name:    "OpenAI dialect ignores Codex metadata fallback",
-			dialect: nanobottypes.DialectOpenAIResponses,
+			dialect: llmtypes.DialectOpenAIResponses,
 			body:    `{"client_metadata":{"x-codex-turn-metadata":"{\"session_id\":\"ignored\"}"}}`,
 		},
 		{
 			name:    "Anthropic dialect metadata user id session id",
-			dialect: nanobottypes.DialectAnthropicMessages,
+			dialect: llmtypes.DialectAnthropicMessages,
 			body:    `{"metadata":{"user_id":"{\"session_id\":\"claude-session\"}"}}`,
 			want:    "claude-session",
 		},
 		{
 			name:    "Anthropic dialect malformed metadata user id",
-			dialect: nanobottypes.DialectAnthropicMessages,
+			dialect: llmtypes.DialectAnthropicMessages,
 			body:    `{"metadata":{"user_id":"not-json"}}`,
 		},
 		{

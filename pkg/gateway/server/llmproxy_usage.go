@@ -3,9 +3,9 @@ package server
 import (
 	"sync"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/tidwall/gjson"
 )
@@ -44,10 +44,10 @@ func newTokenUsageTracker(model v1.Model) *threadSafeTokenUsageTracker {
 		inner tokenUsageTracker
 	)
 
-	switch nanobottypes.Dialect(model.Spec.Manifest.Dialect) {
-	case nanobottypes.DialectAnthropicMessages:
+	switch llmtypes.Dialect(model.Spec.Manifest.Dialect) {
+	case llmtypes.DialectAnthropicMessages:
 		inner = &messageTokenUsageTracker{cost: cost}
-	case nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses:
+	case llmtypes.DialectOpenAIResponses, llmtypes.DialectOpenResponses:
 		inner = &responseTokenUsageTracker{cost: cost}
 	default:
 		return nil

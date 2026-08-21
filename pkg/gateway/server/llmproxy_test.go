@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -210,7 +210,7 @@ func TestResponseModifier_OpenAIResponsesAPI(t *testing.T) {
 func TestResponseModifier_NonStreamingPrettyPrintedResponseTracksUsage(t *testing.T) {
 	tracker := newTokenUsageTracker(v1.Model{
 		Spec: v1.ModelSpec{Manifest: types2.ModelManifest{
-			Dialect: string(nanobottypes.DialectOpenAIResponses),
+			Dialect: string(llmtypes.DialectOpenAIResponses),
 		}},
 	})
 	recorder := newLLMAuditRecorder(
@@ -622,10 +622,10 @@ func TestAPIKeyBackendTransportRequiresCredentialValue(t *testing.T) {
 func TestAPIKeyBackendUpstreamURLDialect(t *testing.T) {
 	for _, tt := range []struct {
 		provider string
-		want     nanobottypes.Dialect
+		want     llmtypes.Dialect
 	}{
-		{provider: system.AnthropicModelProvider, want: nanobottypes.DialectAnthropicMessages},
-		{provider: system.OpenAIModelProvider, want: nanobottypes.DialectOpenAIResponses},
+		{provider: system.AnthropicModelProvider, want: llmtypes.DialectAnthropicMessages},
+		{provider: system.OpenAIModelProvider, want: llmtypes.DialectOpenAIResponses},
 		{provider: "other"},
 	} {
 		t.Run(tt.provider, func(t *testing.T) {
@@ -666,8 +666,8 @@ func TestGenericResponsesBackendUpstreamURL(t *testing.T) {
 			if got := u.String(); got != tt.wantURL {
 				t.Fatalf("upstreamURL() = %q, want %q", got, tt.wantURL)
 			}
-			if dialect != nanobottypes.DialectOpenResponses {
-				t.Fatalf("dialect = %q, want %q", dialect, nanobottypes.DialectOpenResponses)
+			if dialect != llmtypes.DialectOpenResponses {
+				t.Fatalf("dialect = %q, want %q", dialect, llmtypes.DialectOpenResponses)
 			}
 		})
 	}
@@ -834,13 +834,13 @@ func TestLLMRewriteRequest_UpstreamPath(t *testing.T) {
 
 func TestBedrockRouteDialect(t *testing.T) {
 	tests := []struct {
-		dialect     nanobottypes.Dialect
+		dialect     llmtypes.Dialect
 		wantDialect string
 		wantErr     bool
 	}{
-		{dialect: nanobottypes.DialectAnthropicMessages, wantDialect: "anthropic"},
-		{dialect: nanobottypes.DialectOpenAIResponses, wantDialect: "openai"},
-		{dialect: nanobottypes.DialectOpenAIChatCompletions, wantErr: true},
+		{dialect: llmtypes.DialectAnthropicMessages, wantDialect: "anthropic"},
+		{dialect: llmtypes.DialectOpenAIResponses, wantDialect: "openai"},
+		{dialect: llmtypes.DialectOpenAIChatCompletions, wantErr: true},
 		{dialect: "", wantErr: true},
 	}
 
@@ -862,19 +862,19 @@ func TestResolveBedrockRouteDialect(t *testing.T) {
 		name        string
 		path        string
 		wantPath    string
-		wantDialect nanobottypes.Dialect
+		wantDialect llmtypes.Dialect
 		wantErr     bool
 	}{
-		{name: "messages without version", path: "messages", wantPath: "messages", wantDialect: nanobottypes.DialectAnthropicMessages},
-		{name: "unprefixed messages", path: "v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
-		{name: "prefixed messages", path: "anthropic/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectAnthropicMessages},
-		{name: "responses without version", path: "responses", wantPath: "responses", wantDialect: nanobottypes.DialectOpenAIResponses},
-		{name: "unprefixed responses", path: "v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
-		{name: "prefixed responses", path: "openai/v1/responses", wantPath: "v1/responses", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "messages without version", path: "messages", wantPath: "messages", wantDialect: llmtypes.DialectAnthropicMessages},
+		{name: "unprefixed messages", path: "v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectAnthropicMessages},
+		{name: "prefixed messages", path: "anthropic/v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectAnthropicMessages},
+		{name: "responses without version", path: "responses", wantPath: "responses", wantDialect: llmtypes.DialectOpenAIResponses},
+		{name: "unprefixed responses", path: "v1/responses", wantPath: "v1/responses", wantDialect: llmtypes.DialectOpenAIResponses},
+		{name: "prefixed responses", path: "openai/v1/responses", wantPath: "v1/responses", wantDialect: llmtypes.DialectOpenAIResponses},
 		{name: "unprefixed models", path: "v1/models", wantPath: "v1/models"},
-		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectAnthropicMessages},
-		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: nanobottypes.DialectOpenAIResponses},
-		{name: "prefix determines dialect", path: "openai/v1/messages", wantPath: "v1/messages", wantDialect: nanobottypes.DialectOpenAIResponses},
+		{name: "anthropic models", path: "anthropic/v1/models", wantPath: "v1/models", wantDialect: llmtypes.DialectAnthropicMessages},
+		{name: "openai models", path: "openai/v1/models", wantPath: "v1/models", wantDialect: llmtypes.DialectOpenAIResponses},
+		{name: "prefix determines dialect", path: "openai/v1/messages", wantPath: "v1/messages", wantDialect: llmtypes.DialectOpenAIResponses},
 		{name: "unsupported path", path: "v1/chat/completions", wantPath: "v1/chat/completions", wantErr: true},
 	}
 
@@ -902,19 +902,19 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 		name        string
 		path        string
 		wantURL     string
-		wantDialect nanobottypes.Dialect
+		wantDialect llmtypes.Dialect
 	}{
 		{
 			name:        "OpenAI route",
 			path:        "v1/responses",
 			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/openai/v1",
-			wantDialect: nanobottypes.DialectOpenAIResponses,
+			wantDialect: llmtypes.DialectOpenAIResponses,
 		},
 		{
 			name:        "Anthropic route",
 			path:        "v1/messages",
 			wantURL:     "https://bedrock-mantle.us-east-1.api.aws/anthropic/v1",
-			wantDialect: nanobottypes.DialectAnthropicMessages,
+			wantDialect: llmtypes.DialectAnthropicMessages,
 		},
 	}
 
@@ -940,10 +940,10 @@ func TestBedrockUpstreamURLUsesRouteDialect(t *testing.T) {
 func TestBedrockModelsListUsesRootUpstreamPath(t *testing.T) {
 	for _, tt := range []struct {
 		path    string
-		dialect nanobottypes.Dialect
+		dialect llmtypes.Dialect
 	}{
-		{path: "anthropic/v1/models", dialect: nanobottypes.DialectAnthropicMessages},
-		{path: "openai/v1/models", dialect: nanobottypes.DialectOpenAIResponses},
+		{path: "anthropic/v1/models", dialect: llmtypes.DialectAnthropicMessages},
+		{path: "openai/v1/models", dialect: llmtypes.DialectOpenAIResponses},
 	} {
 		t.Run(string(tt.dialect), func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "http://gateway.local/", nil)
@@ -1121,7 +1121,7 @@ func TestBedrockSignGetRequest(t *testing.T) {
 func TestBedrockMantleTransformAndSign(t *testing.T) {
 	base, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
 		bedrock.APIKeyRegionEnv: "us-east-1",
-	}, nanobottypes.DialectAnthropicMessages)
+	}, llmtypes.DialectAnthropicMessages)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1138,7 +1138,7 @@ func TestBedrockMantleTransformAndSign(t *testing.T) {
 	}
 	openAIBase, err := bedrock.BaseURL(system.AmazonBedrockAPIKeyModelProvider, map[string]string{
 		bedrock.APIKeyRegionEnv: "us-east-1",
-	}, nanobottypes.DialectOpenAIResponses)
+	}, llmtypes.DialectOpenAIResponses)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,26 +3,21 @@ package mcpserver
 import (
 	"cmp"
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
 	"reflect"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
-	"github.com/obot-platform/nah/pkg/untriggered"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -707,92 +702,6 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	return nil
 }
 
-func (h *Handler) EnsureMCPServerSecretInfo(req router.Request, _ router.Response) error {
-	server := req.Object.(*v1.MCPServer)
-
-	fieldSelector := fields.SelectorFromSet(map[string]string{
-		"spec.mcpServerName": server.Name,
-	})
-	var oauthClients v1.OAuthClientList
-	if err := req.List(&oauthClients, &kclient.ListOptions{
-		Namespace:     req.Namespace,
-		FieldSelector: fieldSelector,
-	}); err != nil {
-		return err
-	}
-
-	if len(oauthClients.Items) == 0 {
-		// If listing with the cache doesn't return anything, double-check with the uncached listing
-		if err := req.List(untriggered.UncachedList(&oauthClients), &kclient.ListOptions{
-			Namespace:     req.Namespace,
-			FieldSelector: fieldSelector,
-		}); err != nil {
-			return err
-		}
-	}
-
-	if server.Status.AuditLogTokenHash != "" {
-		cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{server.Name}, server.Name)
-		if err != nil {
-			return fmt.Errorf("failed to get credential: %w", err)
-		}
-
-		if server.Status.AuditLogTokenHash != utils.Digest(cred.Secrets["AUDIT_LOG_TOKEN"]) {
-			slog.Info("Audit log token drift detected for MCP server, rotating credential", "server", server.Name)
-			// Reset the audit log token hash to reset the credential.
-			server.Status.AuditLogTokenHash = ""
-		}
-	}
-
-	if len(oauthClients.Items) > 0 && (server.Status.AuditLogTokenHash != "" || server.Spec.CompositeName != "") {
-		// Nothing else to do here.
-		return nil
-	}
-
-	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
-	clientSecret := strings.ToLower(rand.Text() + rand.Text())
-	hashedClientSecretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("failed to hash client secret: %w", err)
-	}
-
-	auditLogToken := strings.ToLower(rand.Text() + rand.Text())
-
-	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
-		Context: server.Name,
-		Name:    server.Name,
-		Secrets: map[string]string{
-			"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", req.Namespace, clientID),
-			"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
-			"AUDIT_LOG_TOKEN":              auditLogToken,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	oauthClient := v1.OAuthClient{
-		Name:       clientID,
-		Namespace:  req.Namespace,
-		Finalizers: []string{v1.OAuthClientFinalizer},
-		Spec: v1.OAuthClientSpec{
-			Manifest: types.OAuthClientManifest{
-				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
-			},
-			ClientSecretHash: hashedClientSecretHash,
-			MCPServerName:    server.Name,
-		},
-	}
-
-	if err := req.Client.Create(req.Ctx, &oauthClient); err != nil {
-		return fmt.Errorf("failed to create OAuth client: %w", err)
-	}
-
-	server.Status.AuditLogTokenHash = utils.Digest(auditLogToken)
-	slog.Info("Provisioned OAuth exchange credentials for MCP server", "server", server.Name, "oauthClient", oauthClient.Name)
-
-	return nil
-}
-
 // CleanupNestedCompositeServers removes component servers with composite runtimes from composite MCP servers.
 // This handler cleans up servers that were created before API validation to prevent nested composite servers.
 func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Response) error {
@@ -1088,15 +997,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}
 
-	var staticOAuthCred gatewaytypes.Credential
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOAuthCred, err = h.gatewayClient.RevealCredential(req.Ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return fmt.Errorf("failed to reveal credential: %w", err)
-		}
-	}
-
-	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets, nil, staticOAuthCred.Secrets)
+	serverConfig, missingConfig, err := mcp.ServerToServerConfig(*server, server.ValidConnectURLs(h.baseURL), server.Spec.UserID, server.Name, server.Status.MCPCatalogID, cred.Secrets)
 	if err != nil {
 		return fmt.Errorf("failed to convert MCP server to server config: %w", err)
 	} else if len(missingConfig) > 0 {

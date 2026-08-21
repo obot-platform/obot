@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
-	"net/http"
 	"net/url"
 	"slices"
 	"sort"
@@ -15,14 +14,13 @@ import (
 	"strings"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
-	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/auditlog"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -303,90 +301,6 @@ func defaultAuditLogSources(req api.Context) []types.AuditLogSourceType {
 		}
 	}
 	return []types.AuditLogSourceType{types.AuditLogSourceTypeMCP}
-}
-
-// SubmitAuditLogs handles POST /api/mcp-audit-logs
-// This endpoint is not protected by authentication nor authorization. We have to do it in the handler.
-func (h *AuditLogHandler) SubmitAuditLogs(req api.Context) error {
-	token := strings.TrimPrefix(req.Request.Header.Get("Authorization"), "Bearer ")
-	if token == "" {
-		return types.NewErrHTTP(http.StatusUnauthorized, "no token provided")
-	}
-
-	// Get the MCP server ID from the token
-	tokenHash := utils.Digest(token)
-	var mcpServers v1.MCPServerList
-	if err := req.List(&mcpServers, &kclient.ListOptions{
-		FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", tokenHash),
-	}); err != nil {
-		return err
-	}
-
-	var (
-		mcpServerName  string
-		nanobotAgentID string
-		userID         string
-	)
-	if len(mcpServers.Items) == 1 {
-		mcpServerName = mcpServers.Items[0].Name
-		nanobotAgentID = mcpServers.Items[0].Spec.NanobotAgentID
-		userID = mcpServers.Items[0].Spec.UserID
-	} else {
-		// Also check SystemMCPServer resources (e.g. obot-mcp-server)
-		var systemServers v1.SystemMCPServerList
-		if err := req.List(&systemServers, &kclient.ListOptions{
-			FieldSelector: fields.OneTermEqualSelector("auditLogTokenHash", tokenHash),
-		}); err != nil {
-			return err
-		}
-		if len(systemServers.Items) != 1 {
-			return types.NewErrHTTP(http.StatusUnauthorized, "invalid token")
-		}
-		mcpServerName = systemServers.Items[0].Name
-	}
-
-	var auditLogs []auditLogInput
-	if err := req.Read(&auditLogs); err != nil {
-		return types.NewErrBadRequest("failed to read input: %v", err)
-	}
-
-	for _, auditLog := range auditLogs {
-		if auditLog.Metadata[mcp.AuditLogIgnore] == "true" {
-			continue
-		}
-
-		if auditLog.SourceType != "" && auditLog.SourceType != types.AuditLogSourceTypeMCP {
-			return types.NewErrBadRequest("MCP audit log endpoint only accepts sourceType %q", types.AuditLogSourceTypeMCP)
-		}
-
-		auditLog.NormalizeMCPFields()
-		convertMCPAuditLog(&auditLog)
-		if err := h.attributeMCPAuditLogAPIKey(req.Context(), &auditLog); err != nil {
-			return fmt.Errorf("failed to attribute MCP audit log API key: %w", err)
-		}
-
-		// NanobotAgent containers are single-user; attribute audit logs to the owner
-		// when the container doesn't report a user (no auth middleware configured).
-		if auditLog.UserID == "" && nanobotAgentID != "" {
-			auditLog.UserID = userID
-		}
-
-		if auditLog.MCPFields == nil {
-			return types.NewErrBadRequest("MCP audit log must have MCPFields")
-		}
-
-		if auditLog.MCPFields.MCPID != mcpServerName {
-			return types.NewErrForbidden("audit log does not belong to MCP server %q", mcpServerName)
-		}
-
-		if err := auditLog.ValidateSourceFields(); err != nil {
-			return types.NewErrBadRequest("invalid audit log source fields: %v", err)
-		}
-
-		req.GatewayClient.LogMCPAuditEntry(auditLog.MCPAuditLog)
-	}
-
-	return nil
 }
 
 func authorizeAuditLogSources(req api.Context, sources []types.AuditLogSourceType) error {
@@ -783,7 +697,7 @@ func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry a
 	}
 
 	var auditLog auditLogInput
-	if err := nmcp.JSONCoerce(entry, &auditLog); err != nil {
+	if err := utils.JSONCoerce(entry, &auditLog); err != nil {
 		slog.Warn("failed to convert audit log entry", "error", err)
 		return
 	}

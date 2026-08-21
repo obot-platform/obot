@@ -6,9 +6,9 @@ import (
 	"net/url"
 	"strings"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/bedrock"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -42,7 +42,7 @@ func (b bedrockMantleProviderBackend) modelProviderName() string {
 	return b.providerName
 }
 
-func (b bedrockMantleProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error) {
+func (b bedrockMantleProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error) {
 	dialect, err := resolveBedrockRouteDialect(req)
 	if err != nil {
 		return url.URL{}, "", types2.NewErrBadRequest("failed to determine Bedrock dialect: %v", err)
@@ -71,16 +71,16 @@ func (b bedrockMantleProviderBackend) resolvedProviderName() string {
 
 // resolveBedrockRouteDialect normalizes optional Mantle dialect prefixes and
 // determines the dialect from the protocol endpoint when no prefix is present.
-func resolveBedrockRouteDialect(req *http.Request) (nanobottypes.Dialect, error) {
+func resolveBedrockRouteDialect(req *http.Request) (llmtypes.Dialect, error) {
 	reqPath := strings.Trim(req.PathValue("path"), "/")
-	var explicit nanobottypes.Dialect
+	var explicit llmtypes.Dialect
 	switch {
 	case strings.HasPrefix(reqPath, "anthropic/"):
-		explicit = nanobottypes.DialectAnthropicMessages
+		explicit = llmtypes.DialectAnthropicMessages
 		reqPath = strings.TrimPrefix(reqPath, "anthropic/")
 		req.SetPathValue("path", reqPath)
 	case strings.HasPrefix(reqPath, "openai/"):
-		explicit = nanobottypes.DialectOpenAIResponses
+		explicit = llmtypes.DialectOpenAIResponses
 		reqPath = strings.TrimPrefix(reqPath, "openai/")
 		req.SetPathValue("path", reqPath)
 	}
@@ -89,14 +89,14 @@ func resolveBedrockRouteDialect(req *http.Request) (nanobottypes.Dialect, error)
 		return explicit, nil
 	}
 	endpoint := strings.TrimPrefix(reqPath, "v1/")
-	var inferred nanobottypes.Dialect
+	var inferred llmtypes.Dialect
 	switch {
 	case endpoint == "models":
 		return "", nil
 	case endpoint == "messages" || strings.HasPrefix(endpoint, "messages/"):
-		inferred = nanobottypes.DialectAnthropicMessages
+		inferred = llmtypes.DialectAnthropicMessages
 	case endpoint == "responses" || strings.HasPrefix(endpoint, "responses/"):
-		inferred = nanobottypes.DialectOpenAIResponses
+		inferred = llmtypes.DialectOpenAIResponses
 	default:
 		return "", fmt.Errorf("unsupported Bedrock Mantle path %q", reqPath)
 	}

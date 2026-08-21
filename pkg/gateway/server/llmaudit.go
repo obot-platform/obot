@@ -13,12 +13,12 @@ import (
 	"time"
 	"uuid"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaycontext "github.com/obot-platform/obot/pkg/gateway/context"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/principal"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
@@ -104,7 +104,7 @@ func (r *llmAuditRecorder) setPolicyModifiedRequestBody(body []byte) {
 	r.log.MessagePolicyTriggered = len(body) > 0
 }
 
-func (r *llmAuditRecorder) setClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) {
+func (r *llmAuditRecorder) setClientSessionID(dialect llmtypes.Dialect, headers http.Header, body []byte) {
 	if r == nil {
 		return
 	}
@@ -259,15 +259,15 @@ func shouldRedactHeader(key string) bool {
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")
 }
 
-func extractLLMClientSessionID(dialect nanobottypes.Dialect, headers http.Header, body []byte) string {
+func extractLLMClientSessionID(dialect llmtypes.Dialect, headers http.Header, body []byte) string {
 	if sessionID := headers.Get(claudeCodeSessionIDHeader); sessionID != "" {
 		return sessionID
 	}
 
 	switch dialect {
-	case nanobottypes.DialectOpenAIResponses:
+	case llmtypes.DialectOpenAIResponses:
 		return gjson.GetBytes(body, "client_metadata.session_id").String()
-	case nanobottypes.DialectAnthropicMessages:
+	case llmtypes.DialectAnthropicMessages:
 		userID := gjson.GetBytes(body, "metadata.user_id").String()
 		if !gjson.Valid(userID) {
 			return ""

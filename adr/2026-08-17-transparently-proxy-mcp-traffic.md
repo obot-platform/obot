@@ -21,7 +21,7 @@ Obot must still enforce authentication and network policy, supply upstream OAuth
 
 ## Decision
 
-The gateway will relay public MCP HTTP traffic with a reverse proxy instead of terminating non-composite MCP connections. The client and upstream server therefore negotiate and exchange MCP directly. Obot will use the official Go MCP SDK for MCP calls that Obot originates, including calls to hook servers, but not as an intermediary for forwarded protocol messages.
+The gateway will relay public MCP HTTP traffic with a reverse proxy instead of terminating MCP connections. The client and upstream server therefore negotiate and exchange MCP directly. Obot will use the official Go MCP SDK for MCP calls that Obot originates, including calls to hook servers, but not as an intermediary for forwarded protocol messages.
 
 The reverse proxy will use an Obot-owned transport that applies configured upstream headers, refreshable OAuth tokens, tunnels, and the configured blocking of loopback, private, and link-local addresses. Authorization credentials are retained only for redirects to the same upstream origin, including when that origin is represented by an Obot tunnel bridge.
 
@@ -32,7 +32,7 @@ The gateway will persist two internal resources for legacy cross-request behavio
 - `MCPClientSession` associates a legacy MCP session with its client name and version for audit attribution and expires after seven days without use.
 - `MCPHookCorrelation` stores the method, name, and request-hook mutation needed to process a later response. Its key is derived from the server, user, session, request identifier, and request origin; it is consumed when the response arrives and expires after 24 hours.
 
-Composite MCP protocol handling remains on the existing Nanobot path until the composite migration is complete. A public composite request is reverse-proxied to that internal endpoint with a short-lived, user-scoped token, and the internal hop is excluded from duplicate audit logging.
+A public composite request is reverse-proxied to that internal endpoint with a short-lived, user-scoped token, and the internal hop is excluded from duplicate audit logging.
 
 ## Rationale
 
@@ -40,7 +40,7 @@ Transparent forwarding removes the gateway's protocol-version boundary: support 
 
 Using the Go SDK remains appropriate where Obot is the MCP client, because those calls need a protocol implementation. Keeping governance at the proxy boundary preserves Obot-specific behavior without retaining Nanobot as the implementation for ordinary forwarded traffic. Persisting only the legacy correlation data preserves stateful compatibility without imposing session affinity or in-memory coordination on stateless traffic.
 
-This narrows the ODP's proposed gateway boundary: rather than terminating non-composite traffic with the Go SDK, the implementation confines the SDK to MCP calls originated by Obot and transparently relays forwarded traffic. This achieves the proposal's compatibility and protocol-maintenance goals without redundant client-to-gateway and gateway-to-server negotiation.
+This narrows the ODP's proposed gateway boundary: rather than terminating traffic with the Go SDK, the implementation confines the SDK to MCP calls originated by Obot and transparently relays forwarded traffic. This achieves the proposal's compatibility and protocol-maintenance goals without redundant client-to-gateway and gateway-to-server negotiation.
 
 Updating Nanobot or replacing it with another terminating proxy was rejected because either approach would keep protocol compatibility coupled to an intermediary. A completely opaque HTTP proxy was also rejected because it would remove hooks and protocol-level audit records.
 
@@ -51,7 +51,6 @@ Updating Nanobot or replacing it with another terminating proxy was rejected bec
 - Gateway replicas can process legacy responses without session affinity, at the cost of two internal persisted resource types and their cleanup controllers.
 - Hook and audit processing still depends on recognizing JSON-RPC and SSE envelopes. Hook-inspected messages are buffered with a 10 MiB limit, and modified encoded responses must have stale encoding, integrity, and length headers removed.
 - The gateway must prevent upstream credentials from following cross-origin redirects and must continue treating the tunnel's encoded target as the credential origin.
-- Composite traffic continues to depend on Nanobot until the separate composite-server migration is completed.
 
 ## References
 

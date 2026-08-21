@@ -1,17 +1,13 @@
 package v1
 
 import (
-	"slices"
-
-	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	_ fields.Fields = (*SystemMCPServer)(nil)
-	_ DeleteRefs    = (*SystemMCPServer)(nil)
+	_ DeleteRefs = (*SystemMCPServer)(nil)
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -44,8 +40,6 @@ type SystemMCPServerStatus struct {
 	DeploymentConditions []DeploymentCondition `json:"deploymentConditions,omitempty"`
 	// K8sSettingsHash contains the hash of K8s settings this was deployed with
 	K8sSettingsHash string `json:"k8sSettingsHash,omitempty"`
-	// AuditLogTokenHash contains the hash of the audit log token
-	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -55,24 +49,6 @@ type SystemMCPServerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []SystemMCPServer `json:"items"`
-}
-
-func (in *SystemMCPServer) Has(field string) (exists bool) {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *SystemMCPServer) Get(field string) (value string) {
-	switch field {
-	case "auditLogTokenHash":
-		return in.Status.AuditLogTokenHash
-	}
-	return ""
-}
-
-func (in *SystemMCPServer) FieldNames() []string {
-	return []string{
-		"auditLogTokenHash",
-	}
 }
 
 func (in *SystemMCPServer) ValidConnectURLs(base string) []string {

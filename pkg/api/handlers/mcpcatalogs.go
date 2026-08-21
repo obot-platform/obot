@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,7 +22,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
-	"golang.org/x/crypto/bcrypt"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -624,8 +622,8 @@ func (h *MCPCatalogHandler) GetEntryCapacity(req api.Context) error {
 
 	info, err := h.capacityInfoProvider.GetCapacityInfoForServers(req.Context(), serverNames)
 	if err != nil {
-		if notSupported, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
-			return types.NewErrBadRequest("%s", notSupported.Error())
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
+			return types.NewErrBadRequest("%s", nse.Error())
 		}
 		return err
 	}
@@ -925,12 +923,10 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 	}
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
-		req.GatewayClient,
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
-		entry.Namespace,
 		entry.Name,
 		catalogName,
 		entry.Spec.Manifest,
@@ -1051,12 +1047,10 @@ func (h *MCPCatalogHandler) generateCompositeToolPreviews(req api.Context, entry
 
 		server, serverConfig, err := tempServerAndConfig(
 			req.Context(),
-			req.GatewayClient,
 			req.Storage,
 			req.LocalK8sClient,
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
-			entry.Namespace,
 			componentEntry.CatalogEntryID,
 			catalogName,
 			componentEntry.Manifest,
@@ -1187,7 +1181,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	if err != nil {
 		return err
 	}
-	server, serverConfig, err := tempServerAndConfig(req.Context(), req.GatewayClient, req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Namespace, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
+	server, serverConfig, err := tempServerAndConfig(req.Context(), req.Storage, req.LocalK8sClient, req.ObotNamespace, h.secretBindingAllowedLabel, entry.Name, catalogName, entry.Spec.Manifest, configRequest.Config, configRequest.URL, h.serverURL, validationOptions)
 	if err != nil {
 		return types.NewErrBadRequest("failed to create temporary server and config: %v", err)
 	}
@@ -1278,12 +1272,10 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviews(req api.Context) error
 	// Use the manifest snapshot embedded in the composite entry for this component.
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
-		req.GatewayClient,
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
-		composite.Namespace,
 		component.CatalogEntryID,
 		catalogName,
 		component.Manifest,
@@ -1407,12 +1399,10 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 
 	server, serverConfig, err := tempServerAndConfig(
 		req.Context(),
-		req.GatewayClient,
 		req.Storage,
 		req.LocalK8sClient,
 		req.ObotNamespace,
 		h.secretBindingAllowedLabel,
-		composite.Namespace,
 		component.CatalogEntryID,
 		catalogName,
 		component.Manifest,
@@ -1497,12 +1487,10 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 
 		server, serverConfig, err := tempServerAndConfig(
 			req.Context(),
-			req.GatewayClient,
 			req.Storage,
 			req.LocalK8sClient,
 			req.ObotNamespace,
 			h.secretBindingAllowedLabel,
-			entry.Namespace,
 			componentEntry.CatalogEntryID,
 			catalogName,
 			componentEntry.Manifest,
@@ -1532,7 +1520,7 @@ func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1
 	return req.Write(oauthURLs)
 }
 
-func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, client kclient.Client, localK8sClient kclient.Client, obotNamespace, secretBindingAllowedLabel, namespace, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
+func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sClient kclient.Client, obotNamespace, secretBindingAllowedLabel, entryName, catalogName string, entryManifest types.MCPServerCatalogEntryManifest, config map[string]string, url, baseURL string, validationOptions mcp.ValidationOptions) (v1.MCPServer, mcp.ServerConfig, error) {
 	// Convert catalog entry to server manifest
 	serverManifest, err := types.MapCatalogEntryToServer(entryManifest, url, false)
 	if err != nil {
@@ -1557,49 +1545,7 @@ func tempServerAndConfig(ctx context.Context, gatewayClient *gclient.Client, cli
 		},
 	}
 
-	// Generate a temporary OAuth Client
-	clientID := system.OAuthClientPrefix + strings.ToLower(rand.Text())
-	clientSecret := strings.ToLower(rand.Text() + rand.Text())
-	hashedClientSecretHash, err := bcrypt.GenerateFromPassword([]byte(clientSecret), bcrypt.DefaultCost)
-	if err != nil {
-		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to hash client secret: %w", err)
-	}
-
-	tokenExchangeEnv := map[string]string{
-		"TOKEN_EXCHANGE_CLIENT_ID":     fmt.Sprintf("%s:%s", namespace, clientID),
-		"TOKEN_EXCHANGE_CLIENT_SECRET": clientSecret,
-	}
-	if err := gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
-		Context: tempMCPServer.Name,
-		Name:    tempMCPServer.Name,
-		Secrets: tokenExchangeEnv,
-	}); err != nil {
-		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	oauthClient := v1.OAuthClient{
-		Name:       clientID,
-		Namespace:  namespace,
-		Finalizers: []string{v1.OAuthClientFinalizer},
-		Spec: v1.OAuthClientSpec{
-			Manifest: types.OAuthClientManifest{
-				GrantTypes: []string{"urn:ietf:params:oauth:grant-type:token-exchange"},
-			},
-			ClientSecretHash: hashedClientSecretHash,
-			Ephemeral:        true,
-		},
-	}
-
-	if err := client.Create(ctx, &oauthClient); err != nil {
-		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create OAuth client: %w", err)
-	}
-
-	staticOAuthCred, err := gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(entryName)}, system.StaticOAuthCredentialName)
-	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
-		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to reveal credential: %w", err)
-	}
-
-	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), "temp", "temp", catalogName, config, tokenExchangeEnv, staticOAuthCred.Secrets)
+	serverConfig, missingFields, err := mcp.ServerToServerConfig(tempMCPServer, tempMCPServer.ValidConnectURLs(baseURL), "temp", "temp", catalogName, config)
 	if err != nil {
 		return v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to create server config: %w", err)
 	}

@@ -114,9 +114,8 @@ func (h *handler) deleteClient(req api.Context) error {
 
 	slog.Info("Deleting dynamic OAuth client registration", "clientNamespace", namespace, "clientName", name)
 	return req.Delete(&v1.OAuthClient{
-		Name:       name,
-		Namespace:  namespace,
-		Finalizers: []string{v1.OAuthClientFinalizer},
+		Name:      name,
+		Namespace: namespace,
 	})
 }
 

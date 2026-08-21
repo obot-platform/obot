@@ -66,16 +66,11 @@ type ServerConfig struct {
 	MCPCatalogName       string `json:"mcpCatalogName"`
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
-	NanobotAgentName     string `json:"nanobotAgentName"`
+	AgentName            string `json:"agentName"`
 	ComponentMCPServer   bool   `json:"componentMCPServer"`
 	SystemMCPServer      bool   `json:"systemMCPServer"`
 
 	Audiences []string `json:"audiences"`
-
-	TokenExchangeClientID     string `json:"tokenExchangeClientID"`
-	TokenExchangeClientSecret string `json:"tokenExchangeClientSecret"`
-	StaticOAuthClientID       string `json:"staticOAuthClientID"`
-	StaticOAuthClientSecret   string `json:"staticOAuthClientSecret"`
 
 	AuditLogMetadata map[string]string `json:"auditLogMetadata"`
 
@@ -91,15 +86,15 @@ type File struct {
 }
 
 type ComponentServer struct {
-	Name       string               `json:"name"`
-	URL        string               `json:"url"`
-	Tools      []types.ToolOverride `json:"tools"`
-	noTools    bool
-	ToolPrefix string `json:"toolPrefix"`
+	Name        string               `json:"name"`
+	DisplayName string               `json:"displayName"`
+	URL         string               `json:"url"`
+	Tools       []types.ToolOverride `json:"tools"`
+	ToolPrefix  string               `json:"toolPrefix"`
 }
 
-func (s ServerConfig) IsNanobotAgentServer() bool {
-	return s.NanobotAgentName != ""
+func (s ServerConfig) IsAgentServer() bool {
+	return s.AgentName != ""
 }
 
 func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1.ResourceRequirements, error) {
@@ -178,7 +173,7 @@ func configureUVXRuntime(serverConfig *ServerConfig, uvxConfig *types.UVXRuntime
 		return fmt.Errorf("uvx runtime requires uvx config")
 	}
 
-	serverConfig.HealthzPath = "/healthz"
+	serverConfig.HealthzPath = "/readyz"
 	serverConfig.Command = "uvx"
 	if uvxConfig.Command != "" {
 		serverConfig.Args = []string{"--from", uvxConfig.Package, expandEnvVars(uvxConfig.Command, credEnv, fileEnvVars)}
@@ -198,7 +193,7 @@ func configureNPXRuntime(serverConfig *ServerConfig, npxConfig *types.NPXRuntime
 		return fmt.Errorf("npx runtime requires npx config")
 	}
 
-	serverConfig.HealthzPath = "/healthz"
+	serverConfig.HealthzPath = "/readyz"
 	serverConfig.Command = "npx"
 	serverConfig.Args = []string{npxConfig.Package}
 	for _, arg := range npxConfig.Args {
@@ -262,8 +257,8 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	return missingRequiredNames, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv, tokenExchangeCredEnv map[string]string) (ServerConfig, []string, error) {
-	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv, tokenExchangeCredEnv, nil)
+func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
+	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv)
 	if err != nil {
 		return config, missing, err
 	}
@@ -293,22 +288,21 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
 		for _, tool := range override.ToolOverrides {
-			if tool.Enabled {
-				tools = append(tools, types.ToolOverride{
-					Name:                tool.Name,
-					OverrideName:        tool.OverrideName,
-					OverrideDescription: tool.OverrideDescription,
-					Enabled:             tool.Enabled,
-				})
-			}
+			tools = append(tools, types.ToolOverride{
+				Name:                tool.Name,
+				OverrideName:        tool.OverrideName,
+				Description:         tool.Description,
+				OverrideDescription: tool.OverrideDescription,
+				Enabled:             tool.Enabled,
+			})
 		}
 
 		config.Components = append(config.Components, ComponentServer{
-			Name:       name,
-			URL:        system.LocalMCPConnectURL(component.Name, httpListenPort),
-			Tools:      tools,
-			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
-			ToolPrefix: override.ToolPrefix,
+			Name:        component.Name,
+			DisplayName: name,
+			URL:         system.LocalMCPConnectURL(component.Name, httpListenPort),
+			Tools:       tools,
+			ToolPrefix:  override.ToolPrefix,
 		})
 	}
 
@@ -320,30 +314,29 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 
 		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
 		for _, tool := range override.ToolOverrides {
-			if tool.Enabled {
-				tools = append(tools, types.ToolOverride{
-					Name:                tool.Name,
-					OverrideName:        tool.OverrideName,
-					OverrideDescription: tool.OverrideDescription,
-					Enabled:             tool.Enabled,
-				})
-			}
+			tools = append(tools, types.ToolOverride{
+				Name:                tool.Name,
+				OverrideName:        tool.OverrideName,
+				Description:         tool.Description,
+				OverrideDescription: tool.OverrideDescription,
+				Enabled:             tool.Enabled,
+			})
 		}
 
 		config.Components = append(config.Components, ComponentServer{
-			Name:       instance.Name,
-			URL:        system.LocalMCPConnectURL(instance.Name, httpListenPort),
-			Tools:      tools,
-			noTools:    len(override.ToolOverrides) > 0 && len(tools) == 0,
-			ToolPrefix: override.ToolPrefix,
+			Name:        instance.Name,
+			DisplayName: instance.Name,
+			URL:         system.LocalMCPConnectURL(instance.Name, httpListenPort),
+			Tools:       tools,
+			ToolPrefix:  override.ToolPrefix,
 		})
 	}
 
 	slices.SortFunc(config.Components, func(a, b ComponentServer) int {
-		if a.Name < b.Name {
+		if a.DisplayName < b.DisplayName {
 			return -1
 		}
-		if a.Name > b.Name {
+		if a.DisplayName > b.DisplayName {
 			return 1
 		}
 		return 0
@@ -352,10 +345,11 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 	return config, missing, err
 }
 
-func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv, secretsCred, staticOAuthCred map[string]string) (ServerConfig, []string, error) {
+func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
 	if _, err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}
+
 	// Catalog-managed literal values are static configuration, not user credentials.
 	// Make them available while expanding runtime arguments, but keep them separate
 	// from credEnv so they are never persisted or exposed as user-supplied secrets.
@@ -404,26 +398,22 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 	}
 
 	serverConfig := ServerConfig{
-		Env:                       make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
-		UserID:                    userID,
-		OwnerUserID:               mcpServer.Spec.UserID,
-		Scope:                     fmt.Sprintf("%s-%s", mcpServer.Name, scope),
-		MCPServerNamespace:        mcpServer.Namespace,
-		MCPServerName:             mcpServer.Name,
-		MCPCatalogName:            mcpCatalogName,
-		MCPCatalogEntryName:       mcpServer.Spec.MCPServerCatalogEntryName,
-		MCPServerDisplayName:      displayName,
-		Runtime:                   mcpServer.Spec.Manifest.Runtime,
-		Audiences:                 audiences,
-		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
-		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
-		StaticOAuthClientID:       staticOAuthCred["CLIENT_ID"],
-		StaticOAuthClientSecret:   staticOAuthCred["CLIENT_SECRET"],
-		PassthroughHeaderNames:    passthroughHeaderNames,
-		ComponentMCPServer:        mcpServer.Spec.CompositeName != "",
-		NanobotAgentName:          mcpServer.Spec.NanobotAgentID,
-		StartupTimeout:            startupTimeout,
-		Resources:                 resources,
+		Env:                    make([]string, 0, len(mcpServer.Spec.Manifest.Env)),
+		UserID:                 userID,
+		OwnerUserID:            mcpServer.Spec.UserID,
+		Scope:                  fmt.Sprintf("%s-%s", mcpServer.Name, scope),
+		MCPServerNamespace:     mcpServer.Namespace,
+		MCPServerName:          mcpServer.Name,
+		MCPCatalogName:         mcpCatalogName,
+		MCPCatalogEntryName:    mcpServer.Spec.MCPServerCatalogEntryName,
+		MCPServerDisplayName:   displayName,
+		Runtime:                mcpServer.Spec.Manifest.Runtime,
+		Audiences:              audiences,
+		PassthroughHeaderNames: passthroughHeaderNames,
+		ComponentMCPServer:     mcpServer.Spec.CompositeName != "",
+		AgentName:              mcpServer.Spec.NanobotAgentID,
+		StartupTimeout:         startupTimeout,
+		Resources:              resources,
 	}
 
 	if mcpServer.Spec.CompositeName == "" {
@@ -506,10 +496,11 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
-func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv, secretsCred map[string]string) (ServerConfig, []string, error) {
+func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv map[string]string) (ServerConfig, []string, error) {
 	if _, err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}
+
 	fileEnvVars := make(map[string]struct{})
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.File {
@@ -534,16 +525,14 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 	}
 
 	serverConfig := ServerConfig{
-		Env:                       make([]string, 0, len(systemServer.Spec.Manifest.Env)),
-		MCPServerNamespace:        systemServer.Namespace,
-		MCPServerName:             systemServer.Name,
-		MCPServerDisplayName:      displayName,
-		Runtime:                   systemServer.Spec.Manifest.Runtime,
-		Scope:                     fmt.Sprintf("%s-system", systemServer.Name),
-		Audiences:                 audiences,
-		TokenExchangeClientID:     secretsCred["TOKEN_EXCHANGE_CLIENT_ID"],
-		TokenExchangeClientSecret: secretsCred["TOKEN_EXCHANGE_CLIENT_SECRET"],
-		UserID:                    userID,
+		Env:                  make([]string, 0, len(systemServer.Spec.Manifest.Env)),
+		MCPServerNamespace:   systemServer.Namespace,
+		MCPServerName:        systemServer.Name,
+		MCPServerDisplayName: displayName,
+		Runtime:              systemServer.Spec.Manifest.Runtime,
+		Scope:                fmt.Sprintf("%s-system", systemServer.Name),
+		Audiences:            audiences,
+		UserID:               userID,
 		AuditLogMetadata: map[string]string{
 			"mcpID":                systemServer.Name,
 			"mcpServerDisplayName": displayName,

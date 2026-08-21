@@ -12,15 +12,12 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kwait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -263,22 +260,9 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	var staticOauthCred gatewaytypes.Credential
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return server, ServerConfig{}, nil, fmt.Errorf("failed to find static oauth credential: %w", err)
-		}
-	}
-
 	catalogName, err := sm.catalogNameForServer(ctx, server, true)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
-	}
-
-	tokenExchangeCred, err := sm.gatewayClient.RevealCredential(ctx, []string{server.Name}, server.Name)
-	if err != nil {
-		return server, ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", err)
 	}
 
 	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, sm.secretBindingAllowedLabel)
@@ -286,7 +270,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
 
-	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets, staticOauthCred.Secrets)
+	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
 	}
@@ -356,31 +340,6 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 	}
 
 	var (
-		tokenExchangeCred, staticOauthCred gatewaytypes.Credential
-		tokenCredErr                       error
-	)
-	if err = retry.OnError(kwait.Backoff{
-		Steps:    10,
-		Duration: 100 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-	}, func(err error) bool {
-		return errors.As(err, &gateway.CredentialNotFoundError{})
-	}, func() error {
-		tokenExchangeCred, tokenCredErr = sm.gatewayClient.RevealCredential(ctx, []string{server.Name}, server.Name)
-		return tokenCredErr
-	}); err != nil {
-		return ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
-	}
-
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		staticOauthCred, err = sm.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)}, system.StaticOAuthCredentialName)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return ServerConfig{}, nil, fmt.Errorf("failed to find static oauth credential: %w", err)
-		}
-	}
-
-	var (
 		serverConfig  ServerConfig
 		missingConfig []string
 	)
@@ -401,14 +360,14 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 			return ServerConfig{}, nil, fmt.Errorf("failed to list component servers instances: %w", err)
 		}
 
-		serverConfig, missingConfig, err = CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(sm.baseURL), sm.httpListenPort, userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets)
+		serverConfig, missingConfig, err = CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(sm.baseURL), sm.httpListenPort, userID, scope, catalogName, mergedEnv)
 		componentMissingConfig, componentErr := sm.compositeComponentsMissingConfig(ctx, userID, componentServers.Items, componentInstances.Items)
 		if componentErr != nil {
 			return ServerConfig{}, nil, componentErr
 		}
 		missingConfig = append(missingConfig, componentMissingConfig...)
 	} else {
-		serverConfig, missingConfig, err = ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv, tokenExchangeCred.Secrets, staticOauthCred.Secrets)
+		serverConfig, missingConfig, err = ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	}
 	if err != nil {
 		return ServerConfig{}, nil, err
@@ -511,7 +470,8 @@ func (sm *SessionManager) updateLastRequestTime(ctx context.Context, server *v1.
 	}
 
 	server.Status.LastRequestTime = metav1.Now()
-	if err := sm.storageClient.Status().Update(ctx, server); err != nil {
+	if err := sm.storageClient.Status().Update(ctx, server); err != nil && !apierrors.IsConflict(err) {
+		// Ignore conflict errors because that just means another request likely beat us to updating here.
 		slog.Warn("failed to update mcp server status", "error", err)
 	}
 }

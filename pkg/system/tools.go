@@ -1,7 +1,7 @@
 package system
 
 import (
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 )
 
 const (
@@ -46,5 +46,5 @@ const (
 
 // IsResponsesDialect reports whether dialect uses the Responses API format.
 func IsResponsesDialect(dialect string) bool {
-	return dialect == string(nanobottypes.DialectOpenAIResponses) || dialect == string(nanobottypes.DialectOpenResponses)
+	return dialect == string(llmtypes.DialectOpenAIResponses) || dialect == string(llmtypes.DialectOpenResponses)
 }

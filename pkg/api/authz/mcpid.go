@@ -124,7 +124,9 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 			return false, err
 		}
 
-		return slices.Contains(authorizedMCPServers, mcpServer.Name) || mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName), nil
+		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
+			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) ||
+			mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
 	default:
 		// Check for MCP servers associated with a catalog entry with this ID.
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: mcpID}, &v1.MCPServerCatalogEntry{}); apierrors.IsNotFound(err) {

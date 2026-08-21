@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -37,7 +37,7 @@ func (genericResponsesProviderBackend) modelProviderName() string {
 	return system.GenericResponsesModelProvider
 }
 
-func (genericResponsesProviderBackend) upstreamURL(_ *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error) {
+func (genericResponsesProviderBackend) upstreamURL(_ *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error) {
 	rawURL := strings.TrimSpace(credEnv[genericResponsesBaseURLEnv])
 	u, err := url.Parse(rawURL)
 	if err != nil {
@@ -47,7 +47,7 @@ func (genericResponsesProviderBackend) upstreamURL(_ *http.Request, credEnv map[
 		return url.URL{}, "", fmt.Errorf("generic Responses base URL must be an absolute HTTP or HTTPS URL")
 	}
 	u.Path = strings.TrimRight(u.Path, "/")
-	return *u, nanobottypes.DialectOpenResponses, nil
+	return *u, llmtypes.DialectOpenResponses, nil
 }
 
 func (genericResponsesProviderBackend) transport(_ v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error) {

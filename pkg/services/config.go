@@ -108,7 +108,6 @@ type Config struct {
 	UserUIPort           int    `usage:"The port on localhost running the user production instance of the UI" env:"OBOT_SERVER_USER_UI_PORT"`
 	ElectionFile         string `usage:"Use this file for leader election instead of database leases"`
 	ForceEnableBootstrap bool   `usage:"Enables the bootstrap user even if other admin users have been created" default:"false"`
-	StaticDir            string `usage:"The directory to serve static files from"`
 	MetricsBearerToken   string `usage:"Bearer token for metrics endpoint authentication" name:"metrics-bearer-token"`
 
 	DefaultMCPCatalogPath                string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
@@ -1163,7 +1162,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		JWKSURI:                           config.Hostname + "/oauth/jwks.json",
 		ScopesSupported:                   []string{"profile"},
 		ResponseTypesSupported:            []string{"code"},
-		GrantTypesSupported:               []string{"authorization_code", "refresh_token", "urn:ietf:params:oauth:grant-type:token-exchange"},
+		GrantTypesSupported:               []string{"authorization_code", "refresh_token"},
 		CodeChallengeMethodsSupported:     []string{"S256", "plain"},
 		TokenEndpointAuthMethodsSupported: []string{"client_secret_basic", "client_secret_post", "private_key_jwt", "none"},
 		TokenEndpointAuthSigningAlgValuesSupported: []string{"RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"},

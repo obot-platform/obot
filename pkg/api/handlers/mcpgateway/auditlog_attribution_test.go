@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 )
 
 func TestCollectMCPAuditEntryPersistsWhenAPIKeyAttributionFails(t *testing.T) {

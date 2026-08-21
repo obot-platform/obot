@@ -31,7 +31,7 @@ The MCP Gateway is a single governed entry point to every MCP server a user is a
 - Proxy MCP servers, whether hosted by Obot or running outside it.
 - Create composite MCP servers that expose selected tools from multiple servers.
 - Control server and tool access by user or identity-provider group.
-- Manage MCP OAuth, user and shared credentials, Kubernetes secret bindings, and token exchange.
+- Manage MCP OAuth, user and shared credentials, and Kubernetes secret bindings.
 - Inspect, reject, or modify MCP requests and responses with MCP or webhook filters.
 
 ### LLM Gateway

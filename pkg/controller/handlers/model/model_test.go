@@ -20,7 +20,8 @@ func TestRemoveApplyUpdateAnnotation(t *testing.T) {
 		Annotations: map[string]string{
 			apply.AnnotationUpdate: "false",
 			"keep":                 "value",
-		}}
+		},
+	}
 	client := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(model).Build()
 
 	if err := new(Handler).RemoveApplyUpdateAnnotation(router.Request{
@@ -45,7 +46,8 @@ func TestRemoveApplyUpdateAnnotation(t *testing.T) {
 
 func TestEnsureModelInfoUsesExactProviderAndTargetModel(t *testing.T) {
 	model := &v1.Model{
-		Name: "gpt-4o", Namespace: system.DefaultNamespace,
+		Name:      "gpt-4o",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.ModelSpec{Manifest: types.ModelManifest{
 			ModelProvider: system.AzureEntraModelProvider,
 			TargetModel:   "gpt-4o",

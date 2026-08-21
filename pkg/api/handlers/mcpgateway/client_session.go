@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/nah/pkg/name"
-	"github.com/obot-platform/nanobot/pkg/mcp/auditlogs"
 	"github.com/obot-platform/obot/pkg/hash"
+	"github.com/obot-platform/obot/pkg/mcp/auditlogs"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

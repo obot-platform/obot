@@ -19,8 +19,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	kwait "k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -258,7 +256,7 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 
 	// Restart the deployment via the session manager
 	if err := h.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return fmt.Errorf("failed to restart system MCP server: %w", err)
@@ -312,7 +310,7 @@ func (h *SystemMCPServerHandler) RestartNanobotAgentDeployments(req api.Context)
 		}
 
 		if err := h.mcpSessionManager.RestartServerDeployment(req.Context(), serverConfig); err != nil {
-			if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+			if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 				failed = append(failed, map[string]string{
 					"serverID": server.Name,
 					"error":    nse.Error(),
@@ -370,7 +368,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 
 	logs, err := h.mcpSessionManager.StreamServerLogs(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return err
@@ -405,7 +403,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	// Get server capabilities
 	caps, err := h.mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return err
@@ -418,7 +416,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	// List tools from the server
 	tools, err := h.mcpSessionManager.ListTools(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrHTTP(http.StatusBadRequest, nse.Error())
 		}
 		return err
@@ -458,7 +456,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	// Get server details from the session manager
 	details, err := h.mcpSessionManager.GetServerDetails(req.Context(), serverConfig)
 	if err != nil {
-		if nse := (*mcp.ErrNotSupportedByBackend)(nil); errors.As(err, &nse) {
+		if nse, ok := errors.AsType[*mcp.ErrNotSupportedByBackend](err); ok {
 			return types.NewErrNotFound(nse.Error())
 		}
 		return fmt.Errorf("failed to get server details: %w", err)
@@ -551,28 +549,8 @@ func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp
 		return mcp.ServerConfig{}, nil, err
 	}
 
-	var (
-		tokenExchangeCred gatewaytypes.Credential
-		tokenCredErr      error
-	)
-	if err = retry.OnError(kwait.Backoff{
-		Steps:    10,
-		Duration: 100 * time.Millisecond,
-		Factor:   2.0,
-		Jitter:   0.1,
-	}, func(err error) bool {
-		return errors.As(err, &gateway.CredentialNotFoundError{})
-	}, func() error {
-		tokenExchangeCred, tokenCredErr = req.GatewayClient.RevealCredential(req.Context(), []string{server.Name}, systemmcpserver.SecretInfoToolName(server.Name))
-		return tokenCredErr
-	}); err != nil {
-		return mcp.ServerConfig{}, nil, fmt.Errorf("failed to find token exchange credential: %w", tokenCredErr)
-	}
-
-	secretsCred := tokenExchangeCred.Secrets
-
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)
 
-	return mcp.SystemServerToServerConfig(server, audiences, req.User.GetUID(), credEnv, secretsCred)
+	return mcp.SystemServerToServerConfig(server, audiences, req.User.GetUID(), credEnv)
 }

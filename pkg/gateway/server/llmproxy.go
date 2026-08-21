@@ -21,12 +21,12 @@ import (
 	"sync"
 	"time"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -52,7 +52,7 @@ type responseModifier struct {
 	user                kuser.Info
 	model               string
 	modelProvider       string
-	routeDialect        nanobottypes.Dialect
+	routeDialect        llmtypes.Dialect
 	projectID, threadID string
 	client              *client.Client
 	b                   *bufio.Reader
@@ -86,7 +86,7 @@ type preparedLLMProxyRequest struct {
 
 type llmProviderProxyBackend interface {
 	modelProviderName() string
-	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
+	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error)
 	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
 }
 

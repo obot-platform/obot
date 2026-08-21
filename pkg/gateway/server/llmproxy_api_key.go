@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"net/url"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -25,12 +25,12 @@ func (a apiKeyLLMProviderBackend) modelProviderName() string {
 	return a.providerName
 }
 
-func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) (url.URL, nanobottypes.Dialect, error) {
+func (a apiKeyLLMProviderBackend) upstreamURL(*http.Request, map[string]string) (url.URL, llmtypes.Dialect, error) {
 	switch a.providerName {
 	case system.AnthropicModelProvider:
-		return a.u, nanobottypes.DialectAnthropicMessages, nil
+		return a.u, llmtypes.DialectAnthropicMessages, nil
 	case system.OpenAIModelProvider:
-		return a.u, nanobottypes.DialectOpenAIResponses, nil
+		return a.u, llmtypes.DialectOpenAIResponses, nil
 	default:
 		return a.u, "", nil
 	}

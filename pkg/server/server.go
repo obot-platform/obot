@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/obot-platform/obot/pkg/api/router"
-	"github.com/obot-platform/obot/pkg/api/static"
 	"github.com/obot-platform/obot/pkg/controller"
 	"github.com/obot-platform/obot/pkg/services"
 	"github.com/rs/cors"
@@ -25,17 +24,13 @@ func Run(ctx context.Context, c services.Config) error {
 
 	// Router construction migrates the Nanobot session schema. Finish it before
 	// controller initialization writes to the same SQLite database to avoid schema locks.
-	handler, err := router.Router(ctx, svcs)
+	router, err := router.NewRouter(ctx, svcs)
 	if err != nil {
 		return err
 	}
-
-	if c.StaticDir != "" {
-		handler, err = static.Wrap(handler, c.StaticDir)
-		if err != nil {
-			return err
-		}
-	}
+	// The router is also closed during server shutdown,
+	// but we should make sure it's closed on any errors.
+	defer router.Close()
 
 	ctrl, err := controller.New(svcs)
 	if err != nil {
@@ -70,7 +65,7 @@ func Run(ctx context.Context, c services.Config) error {
 
 	s := &http.Server{
 		Addr:    address,
-		Handler: allowEverything.Handler(handler),
+		Handler: allowEverything.Handler(router),
 	}
 
 	shutdown := make(chan struct{})
@@ -93,6 +88,11 @@ func Run(ctx context.Context, c services.Config) error {
 		slog.Info("Shutting down server")
 		if err := s.Shutdown(ctx); err != nil {
 			slog.Error("Failed to gracefully shutdown server", "error", err)
+		}
+
+		slog.Info("Shutting down HTTP router")
+		if err := router.Close(); err != nil {
+			slog.Error("Failed to gracefully shutdown HTTP router", "error", err)
 		}
 
 		// Ensure that the audit logs are persisted.

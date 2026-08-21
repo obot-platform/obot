@@ -7,8 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
 	"github.com/obot-platform/obot/pkg/gateway/azure"
+	llmtypes "github.com/obot-platform/obot/pkg/llm"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 )
@@ -32,7 +32,7 @@ func TestCallLLMBedrockAnthropicMessages(t *testing.T) {
 		targetModel:  "anthropic.claude-haiku-4-5",
 		providerName: system.AmazonBedrockModelProvider,
 		providerURL:  server.URL + "/anthropic/v1",
-		dialect:      string(nanobottypes.DialectAnthropicMessages),
+		dialect:      string(llmtypes.DialectAnthropicMessages),
 	}, []chatMessage{{Role: "system", Content: "Check policy"}, {Role: "user", Content: "Hello"}})
 	if err != nil {
 		t.Fatal(err)
@@ -61,7 +61,7 @@ func TestCallLLMBedrockOpenAIResponses(t *testing.T) {
 	}))
 	defer server.Close()
 
-	for _, dialect := range []nanobottypes.Dialect{nanobottypes.DialectOpenAIResponses, nanobottypes.DialectOpenResponses} {
+	for _, dialect := range []llmtypes.Dialect{llmtypes.DialectOpenAIResponses, llmtypes.DialectOpenResponses} {
 		result, err := (&Helper{}).callLLM(t.Context(), &resolvedModel{
 			targetModel:  "openai.gpt-oss-120b-1:0",
 			providerName: system.AmazonBedrockAPIKeyModelProvider,
@@ -98,7 +98,7 @@ func TestCallLLMGenericResponses(t *testing.T) {
 		targetModel:  "open-model",
 		providerName: system.GenericResponsesModelProvider,
 		providerURL:  server.URL + "/v1",
-		dialect:      string(nanobottypes.DialectOpenResponses),
+		dialect:      string(llmtypes.DialectOpenResponses),
 	}, []chatMessage{{Role: "system", Content: "Review policy"}, {Role: "user", Content: "Hello"}})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +137,7 @@ func TestCallLLMAzureAnthropicMessages(t *testing.T) {
 		targetModel:  "claude-sonnet",
 		providerName: system.AzureModelProvider,
 		providerURL:  server.URL + "/anthropic/v1",
-		dialect:      string(nanobottypes.DialectAnthropicMessages),
+		dialect:      string(llmtypes.DialectAnthropicMessages),
 		httpClient:   &http.Client{Transport: transport},
 	}, []chatMessage{{Role: "system", Content: "Check policy"}, {Role: "user", Content: "Hello"}})
 	if err != nil {
@@ -165,7 +165,7 @@ func TestCallLLMAzureOpenAIResponses(t *testing.T) {
 		targetModel:  "gpt-5",
 		providerName: system.AzureEntraModelProvider,
 		providerURL:  server.URL + "/openai/v1",
-		dialect:      string(nanobottypes.DialectOpenAIResponses),
+		dialect:      string(llmtypes.DialectOpenAIResponses),
 	}, []chatMessage{{Role: "user", Content: "Hello"}})
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestCallLLMNonBedrockAnthropicUsesChatCompletions(t *testing.T) {
 		targetModel:  "claude-haiku-4-5",
 		providerName: system.AnthropicModelProvider,
 		providerURL:  server.URL + "/v1",
-		dialect:      string(nanobottypes.DialectAnthropicMessages),
+		dialect:      string(llmtypes.DialectAnthropicMessages),
 	}, []chatMessage{{Role: "user", Content: "Hello"}})
 	if err != nil {
 		t.Fatal(err)

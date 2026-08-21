@@ -6,12 +6,10 @@ import (
 
 	"github.com/obot-platform/nah/pkg/fields"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/system"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	_ DeleteRefs    = (*OAuthClient)(nil)
 	_ fields.Fields = (*OAuthClient)(nil)
 )
 
@@ -32,7 +30,6 @@ type OAuthClientSpec struct {
 	RegistrationTokenHash      []byte                    `json:"registrationTokenHash"`
 	RegistrationTokenIssuedAt  metav1.Time               `json:"registration_token_issued_at"`
 	RegistrationTokenExpiresAt metav1.Time               `json:"registration_token_expires_at"`
-	MCPServerName              string                    `json:"mcp_server_name"`
 	// Ephemeral indicates that the OAuth client is temporary and will be deleted after a certain period of time.
 	// This is used for generating tool previews for example.
 	Ephemeral bool `json:"ephemeral"`
@@ -51,31 +48,12 @@ type OAuthClientList struct {
 	Items           []OAuthClient `json:"items"`
 }
 
-func (o *OAuthClient) DeleteRefs() []Ref {
-	if system.IsSystemMCPServerID(o.Spec.MCPServerName) {
-		return []Ref{
-			{
-				ObjType: &SystemMCPServer{},
-				Name:    o.Spec.MCPServerName,
-			},
-		}
-	}
-	return []Ref{
-		{
-			ObjType: &MCPServer{},
-			Name:    o.Spec.MCPServerName,
-		},
-	}
-}
-
 func (o *OAuthClient) Has(field string) bool {
 	return slices.Contains(o.FieldNames(), field)
 }
 
 func (o *OAuthClient) Get(field string) (value string) {
 	switch field {
-	case "spec.mcpServerName":
-		return o.Spec.MCPServerName
 	case "spec.static":
 		return fmt.Sprintf("%v", o.Spec.Static)
 	}
@@ -83,5 +61,5 @@ func (o *OAuthClient) Get(field string) (value string) {
 }
 
 func (*OAuthClient) FieldNames() []string {
-	return []string{"spec.mcpServerName", "spec.static"}
+	return []string{"spec.static"}
 }
