@@ -1,71 +1,220 @@
 /**
- * Techy theme for Obot docs
+ * Obot docs theme
+ *
+ * Brand palette: purple #380067, blue #4f7ef3, teal #2ddcec, red #ff4044,
+ * yellow #fdcc11, green #06eaa7, orange #ff7240.
+ *
+ * Blue carries the theme. The blue ramp is the same one the product UI uses
+ * (ui/user/src/app.css), and the dark neutrals and accent blue are sampled from
+ * the marketing site at https://obot.ai, so all three surfaces agree.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  /* Electric blue/cyan primary */
-  --ifm-color-primary: #3b82f6;
-  --ifm-color-primary-dark: #2563eb;
-  --ifm-color-primary-darker: #1d4ed8;
-  --ifm-color-primary-darkest: #1e40af;
-  --ifm-color-primary-light: #60a5fa;
-  --ifm-color-primary-lighter: #93c5fd;
-  --ifm-color-primary-lightest: #bfdbfe;
+  /* ---- Brand palette ---- */
+  --obot-purple: #380067;
+  --obot-blue: #4f7ef3;
+  --obot-teal: #2ddcec;
+  --obot-red: #ff4044;
+  --obot-yellow: #fdcc11;
+  --obot-green: #06eaa7;
+  --obot-orange: #ff7240;
 
-  /* Typography */
+  /* Blue ramp, shared with the product UI */
+  --obot-blue-50: #eff5ff;
+  --obot-blue-100: #dce7fd;
+  --obot-blue-200: #c0d5fd;
+  --obot-blue-300: #95bcfb;
+  --obot-blue-400: #6397f7;
+  --obot-blue-500: #4f7ef3;
+  --obot-blue-600: #2953e7;
+  --obot-blue-700: #213fd4;
+  --obot-blue-800: #2135ac;
+  --obot-blue-900: #203188;
+  --obot-blue-950: #182153;
+
+  /* Accent blue and dark grounds sampled from https://obot.ai */
+  --obot-accent-blue: #5a99fd;
+  --obot-ink-950: #03060d;
+  --obot-ink-900: #070b16;
+  --obot-ink-800: #101729;
+  --obot-ink-700: #1c2740;
+  --obot-ink-600: #2a3a5c;
+
+  /* Cool neutrals for text and quiet surfaces */
+  --obot-slate-300: #94a3c2;
+  --obot-slate-500: #64748b;
+  --obot-slate-900: #1b2334;
+
+  /* Tints derived from the palette, reused across components */
+  --obot-tint-primary: rgba(79, 126, 243, 0.1);
+  --obot-tint-primary-strong: rgba(79, 126, 243, 0.18);
+  --obot-tint-surface: rgba(27, 35, 52, 0.04);
+  --obot-border: rgba(27, 35, 52, 0.12);
+  --obot-border-strong: rgba(27, 35, 52, 0.2);
+
+  /* Accent for eyebrow labels and quote rules */
+  --obot-accent: var(--obot-blue-600);
+
+  /* ---- Primary ---- */
+  --ifm-color-primary: var(--obot-blue-500);
+  --ifm-color-primary-dark: var(--obot-blue-600);
+  --ifm-color-primary-darker: var(--obot-blue-700);
+  --ifm-color-primary-darkest: var(--obot-blue-800);
+  --ifm-color-primary-light: var(--obot-blue-400);
+  --ifm-color-primary-lighter: var(--obot-blue-300);
+  --ifm-color-primary-lightest: var(--obot-blue-200);
+  --ifm-color-primary-contrast-background: var(--obot-blue-50);
+  --ifm-color-primary-contrast-foreground: var(--obot-blue-950);
+
+  /* Links get the darker blue so body text clears WCAG AA on white */
+  --ifm-link-color: var(--obot-blue-600);
+  --ifm-link-hover-color: var(--obot-blue-700);
+  --ifm-menu-color-active: var(--obot-blue-600);
+  --ifm-breadcrumb-color-active: var(--obot-blue-600);
+  --ifm-tabs-color-active: var(--obot-blue-600);
+
+  /* ---- Semantic colors (admonitions, banners) ---- */
+  /* note -> cool neutral; secondary also colors the version badge */
+  --ifm-color-secondary: var(--obot-blue-100);
+  --ifm-color-secondary-dark: var(--obot-slate-300);
+  --ifm-color-secondary-contrast-background: #f2f6fc;
+  --ifm-color-secondary-contrast-foreground: var(--obot-slate-900);
+  /* info / important -> brand blue */
+  --ifm-color-info: var(--obot-blue-500);
+  --ifm-color-info-dark: var(--obot-blue-600);
+  --ifm-color-info-contrast-background: var(--obot-blue-50);
+  --ifm-color-info-contrast-foreground: var(--obot-blue-950);
+  /* tip -> brand green */
+  --ifm-color-success: var(--obot-green);
+  --ifm-color-success-dark: #04a878;
+  --ifm-color-success-contrast-background: #e6fdf5;
+  --ifm-color-success-contrast-foreground: #033f2e;
+  /* warning -> brand yellow */
+  --ifm-color-warning: var(--obot-yellow);
+  --ifm-color-warning-dark: #d9ab00;
+  --ifm-color-warning-contrast-background: #fff9e0;
+  --ifm-color-warning-contrast-foreground: #4d3a00;
+  /* caution / danger -> brand red */
+  --ifm-color-danger: var(--obot-red);
+  --ifm-color-danger-dark: #e01b20;
+  --ifm-color-danger-contrast-background: #ffecec;
+  --ifm-color-danger-contrast-foreground: #5c0f11;
+
+  /* ---- Typography ---- */
   --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --ifm-font-family-monospace: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --ifm-heading-font-weight: 600;
   --ifm-font-weight-semibold: 500;
+  --ifm-font-color-base: var(--obot-slate-900);
+  --ifm-heading-color: #0e1524;
 
-  /* Spacing */
+  /* ---- Spacing ---- */
   --ifm-spacing-horizontal: 1.5rem;
   --doc-sidebar-width: 280px;
 
-  /* Code */
+  /* ---- Code ---- */
   --ifm-code-font-size: 90%;
   --ifm-code-border-radius: 6px;
   --ifm-code-padding-vertical: 0.15rem;
   --ifm-code-padding-horizontal: 0.35rem;
 
-  /* Borders */
+  /* ---- Borders ---- */
   --ifm-global-radius: 8px;
+  --ifm-toc-border-color: var(--obot-border);
+  --ifm-hr-background-color: var(--obot-border);
+  --ifm-table-border-color: var(--obot-border);
+  --ifm-blockquote-color: var(--ifm-font-color-base);
+  --ifm-blockquote-border-color: var(--obot-blue-300);
 
-  /* Background */
-  --ifm-background-color: #fafbfc;
-  --docusaurus-highlighted-code-line-bg: rgba(59, 130, 246, 0.1);
+  /* ---- Background ---- */
+  --ifm-background-color: #f8fafd;
+  --ifm-background-surface-color: #ffffff;
+  --docusaurus-highlighted-code-line-bg: var(--obot-tint-primary);
+
+  /* ---- Search ---- */
+  --docsearch-primary-color: var(--obot-blue-500);
 }
 
-[data-theme='dark'] {
-  /* Cyan/electric blue for dark mode */
-  --ifm-color-primary: #38bdf8;
-  --ifm-color-primary-dark: #0ea5e9;
-  --ifm-color-primary-darker: #0284c7;
-  --ifm-color-primary-darkest: #0369a1;
-  --ifm-color-primary-light: #7dd3fc;
-  --ifm-color-primary-lighter: #bae6fd;
-  --ifm-color-primary-lightest: #e0f2fe;
+/* Selector is html-qualified so it beats Infima's own html[data-theme='dark'] block */
+html[data-theme='dark'] {
+  /* Primary lifts to blue-400/300 so it reads on the dark ground */
+  --ifm-color-primary: var(--obot-blue-400);
+  --ifm-color-primary-dark: var(--obot-blue-500);
+  --ifm-color-primary-darker: var(--obot-blue-600);
+  --ifm-color-primary-darkest: var(--obot-blue-700);
+  --ifm-color-primary-light: var(--obot-blue-300);
+  --ifm-color-primary-lighter: var(--obot-blue-200);
+  --ifm-color-primary-lightest: var(--obot-blue-100);
+  --ifm-color-primary-contrast-background: rgba(79, 126, 243, 0.12);
+  --ifm-color-primary-contrast-foreground: var(--obot-blue-100);
 
-  /* Dark backgrounds */
-  --ifm-background-color: #0f172a;
-  --ifm-background-surface-color: #1e293b;
-  --ifm-navbar-background-color: #0f172a;
-  --ifm-footer-background-color: #020617;
+  --ifm-link-color: var(--obot-blue-300);
+  --ifm-link-hover-color: var(--obot-blue-200);
+  --ifm-menu-color-active: var(--obot-blue-300);
+  --ifm-breadcrumb-color-active: var(--obot-blue-300);
+  --ifm-tabs-color-active: var(--obot-blue-300);
 
-  /* Text colors */
-  --ifm-font-color-base: #e2e8f0;
-  --ifm-heading-color: #f8fafc;
+  --obot-tint-primary: rgba(90, 153, 253, 0.12);
+  --obot-tint-primary-strong: rgba(90, 153, 253, 0.22);
+  --obot-tint-surface: rgba(148, 182, 255, 0.06);
+  --obot-border: rgba(148, 182, 255, 0.14);
+  --obot-border-strong: rgba(148, 182, 255, 0.26);
+  --obot-accent: var(--obot-accent-blue);
 
-  /* Code highlighting */
-  --docusaurus-highlighted-code-line-bg: rgba(56, 189, 248, 0.15);
+  /* Semantic colors re-tuned for dark backgrounds */
+  --ifm-color-secondary-dark: var(--obot-slate-500);
+  --ifm-color-secondary-contrast-background: rgba(148, 163, 194, 0.12);
+  --ifm-color-secondary-contrast-foreground: #cfd4db;
+  --ifm-color-info-dark: var(--obot-blue-500);
+  --ifm-color-info-contrast-background: rgba(79, 126, 243, 0.12);
+  --ifm-color-info-contrast-foreground: var(--obot-blue-200);
+  --ifm-color-success-dark: var(--obot-green);
+  --ifm-color-success-contrast-background: rgba(6, 234, 167, 0.1);
+  --ifm-color-success-contrast-foreground: #9df3d8;
+  --ifm-color-warning-dark: var(--obot-yellow);
+  --ifm-color-warning-contrast-background: rgba(253, 204, 17, 0.1);
+  --ifm-color-warning-contrast-foreground: #ffe89a;
+  --ifm-color-danger-dark: var(--obot-red);
+  --ifm-color-danger-contrast-background: rgba(255, 64, 68, 0.1);
+  --ifm-color-danger-contrast-foreground: #ffb8ba;
+
+  /* Cool blue-black grounds, matching the marketing site */
+  --ifm-background-color: var(--obot-ink-900);
+  --ifm-background-surface-color: var(--obot-ink-800);
+  --ifm-navbar-background-color: var(--obot-ink-900);
+  --ifm-dropdown-background-color: var(--obot-ink-800);
+  --ifm-color-emphasis-200: var(--obot-ink-700);
+  --ifm-color-emphasis-300: var(--obot-ink-600);
+
+  --ifm-font-color-base: #cfd4db;
+  --ifm-heading-color: #ffffff;
+  --ifm-toc-border-color: var(--obot-border);
+  --ifm-hr-background-color: var(--obot-border);
+  --ifm-table-border-color: var(--obot-border);
+  --ifm-blockquote-border-color: var(--obot-blue-500);
+
+  --docusaurus-highlighted-code-line-bg: var(--obot-tint-primary);
+  --docsearch-primary-color: var(--obot-blue-400);
+}
+
+/* Text selection picks up brand blue */
+::selection {
+  background: rgba(79, 126, 243, 0.25);
+}
+
+/* Visible, on-brand focus ring */
+:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 /* Navbar styling */
 .navbar {
   backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--obot-border);
 }
 
 .navbar.navbar-sidebar--show {
@@ -74,7 +223,7 @@
 }
 
 [data-theme='dark'] .navbar {
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(7, 11, 22, 0.85);
 }
 
 .navbar__title {
@@ -85,23 +234,29 @@
   font-weight: 500;
 }
 
+.navbar__link:hover,
+.navbar__link--active {
+  color: var(--ifm-color-primary);
+}
+
 /* Sidebar styling */
 .menu__link {
   border-radius: 6px;
   font-size: 0.9rem;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .menu__link:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--obot-tint-primary);
 }
 
 .menu__link--active {
   font-weight: 600;
 }
 
-[data-theme='dark'] .menu__link:hover {
-  background: rgba(56, 189, 248, 0.1);
+.menu__link--active:not(.menu__link--sublist) {
+  background: var(--obot-tint-primary);
+  box-shadow: inset 2px 0 0 var(--ifm-color-primary);
 }
 
 /* Category labels */
@@ -110,7 +265,7 @@
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
-  color: var(--ifm-color-primary);
+  color: var(--obot-accent);
 }
 
 /* Code blocks */
@@ -120,26 +275,46 @@
 }
 
 pre {
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--obot-border);
 }
 
 [data-theme='dark'] pre {
-  background: #1e293b !important;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--obot-ink-800) !important;
+}
+
+div[class^='codeBlockTitle'] {
+  border-bottom: 1px solid var(--obot-border);
 }
 
 code {
   border-radius: 4px;
   padding: 0.15rem 0.4rem;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--ifm-color-primary-dark);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: var(--obot-tint-primary);
+  color: var(--obot-blue-700);
+  border: 1px solid var(--obot-tint-primary-strong);
 }
 
 [data-theme='dark'] code {
-  background: rgba(56, 189, 248, 0.1);
-  color: var(--ifm-color-primary-light);
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  color: var(--obot-blue-200);
+}
+
+/* Inline code inside links and headings should follow the surrounding text */
+a code,
+h1 code,
+h2 code,
+h3 code,
+h4 code {
+  color: inherit;
+}
+
+kbd {
+  background: var(--ifm-background-surface-color);
+  border: 1px solid var(--obot-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.8rem;
+  padding: 0.1rem 0.35rem;
 }
 
 /* Tables */
@@ -152,21 +327,17 @@ table {
 }
 
 th {
-  background: rgba(59, 130, 246, 0.1);
+  background: var(--obot-tint-primary);
   font-weight: 600;
   text-align: left;
 }
 
-[data-theme='dark'] th {
-  background: rgba(56, 189, 248, 0.1);
-}
-
 tr:nth-child(even) {
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--obot-tint-surface);
 }
 
-[data-theme='dark'] tr:nth-child(even) {
-  background: rgba(255, 255, 255, 0.02);
+tbody tr:hover {
+  background: var(--obot-tint-primary);
 }
 
 /* Headings */
@@ -180,16 +351,16 @@ h2 {
   letter-spacing: -0.01em;
   margin-top: 2.5rem;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-[data-theme='dark'] h2 {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--obot-border);
 }
 
 h3 {
   font-size: 1.25rem;
   margin-top: 2rem;
+}
+
+.hash-link {
+  color: var(--ifm-color-primary);
 }
 
 /* Links */
@@ -200,7 +371,7 @@ a {
 
 .markdown a:not(.hash-link) {
   text-decoration: underline;
-  text-decoration-color: rgba(59, 130, 246, 0.4);
+  text-decoration-color: rgba(79, 126, 243, 0.45);
   text-underline-offset: 2px;
 }
 
@@ -208,10 +379,35 @@ a {
   text-decoration-color: var(--ifm-color-primary);
 }
 
+/* Blockquotes */
+blockquote {
+  background: var(--obot-tint-surface);
+  border-left: 4px solid var(--ifm-blockquote-border-color);
+  border-radius: 0 8px 8px 0;
+  padding: 0.75rem 1rem;
+}
+
 /* Admonitions */
+.alert code {
+  background: var(--ifm-alert-background-color-highlight);
+  border-color: transparent;
+  color: inherit;
+}
+
 .alert {
   border-radius: 8px;
   border-left-width: 4px;
+}
+
+.theme-admonition a {
+  color: inherit;
+  text-decoration-color: currentcolor;
+}
+
+/* Details / collapsible blocks */
+details {
+  border-color: var(--obot-border-strong) !important;
+  background: var(--obot-tint-surface) !important;
 }
 
 /* TOC */
@@ -219,18 +415,67 @@ a {
   font-size: 0.85rem;
 }
 
+.table-of-contents__link:hover {
+  color: var(--ifm-color-primary);
+}
+
 .table-of-contents__link--active {
   font-weight: 600;
   color: var(--ifm-color-primary);
 }
 
-/* Footer */
+/* Pagination cards */
+.pagination-nav__link {
+  border-color: var(--obot-border);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pagination-nav__link:hover {
+  border-color: var(--ifm-color-primary);
+  background: var(--obot-tint-primary);
+}
+
+.pagination-nav__sublabel {
+  color: var(--obot-accent);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+}
+
+/* Cards (doc category index pages) */
+article .card {
+  border: 1px solid var(--obot-border);
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+article .card:hover {
+  border-color: var(--ifm-color-primary);
+  background: var(--obot-tint-primary);
+}
+
+/* Footer. docusaurus.config.ts uses footer.style "light" so the color follows
+   the color mode instead of Infima's fixed slate: a quiet tinted band on light,
+   one step deeper than the page ground on dark. */
 .footer {
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  --ifm-footer-background-color: #f2f6fc;
+  --ifm-footer-color: var(--obot-slate-900);
+  --ifm-footer-link-color: var(--obot-slate-900);
+  --ifm-footer-title-color: var(--ifm-heading-color);
+  border-top: 1px solid var(--obot-border);
+}
+
+html[data-theme='dark'] .footer {
+  --ifm-footer-background-color: var(--obot-ink-950);
+  --ifm-footer-color: #cfd4db;
+  --ifm-footer-link-color: #cfd4db;
 }
 
 .footer__title {
   font-weight: 600;
+}
+
+.footer__link-item:hover {
+  color: var(--ifm-link-color);
 }
 
 /* Breadcrumbs */
@@ -243,37 +488,27 @@ a {
   border-radius: 8px !important;
 }
 
-/* Scrollbar styling for dark mode */
-[data-theme='dark'] {
-  scrollbar-color: #475569 #1e293b;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-track {
-  background: #1e293b;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-thumb {
-  background: #475569;
-  border-radius: 4px;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
-  background: #64748b;
-}
-
-/* Smooth transitions */
-* {
+/* Smooth transitions, scoped to the elements that actually change color */
+a,
+button,
+.menu__link,
+.navbar__link,
+.card,
+.pagination-nav__link,
+.table-of-contents__link,
+th,
+td,
+tr,
+.alert,
+details {
   transition-property: background-color, border-color, color;
   transition-duration: 0.15s;
   transition-timing-function: ease;
 }
 
-/* Disable transitions for code to prevent flashing */
-pre, code, .prism-code {
+/* Never transition code surfaces, it flashes on theme switch */
+pre,
+code,
+.prism-code {
   transition: none;
 }

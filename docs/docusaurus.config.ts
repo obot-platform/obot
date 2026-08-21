@@ -166,7 +166,9 @@ const config: Config = {
       ],
     },
     footer: {
-      style: "dark",
+      // "light" lets the theme decide the footer color per color mode; "dark"
+      // forces Infima's slate background in both modes. See src/css/custom.css.
+      style: "light",
       links: [
         {
           label: "GitHub",
