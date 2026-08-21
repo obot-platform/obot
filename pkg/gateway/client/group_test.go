@@ -18,6 +18,23 @@ const (
 	testAuthProviderNamespace = "default"
 )
 
+// providerStub serves the cursor-based /obot-list-auth-groups contract over `total` groups, using
+// an offset as its cursor. It records the cursor of every request so tests can assert what the
+// client actually sent.
+type providerStub struct {
+	total    int
+	cursors  []string
+	requests int
+}
+
+// resolverStub serves the /obot-get-auth-groups contract, naming every ID it is asked about except
+// those in unknown. It records each batch so tests can assert what the client actually sent.
+type resolverStub struct {
+	unknown  map[string]bool
+	requests [][]string
+	status   int
+}
+
 // seedGroups inserts n groups into the cache table, named so that name ordering matches ID
 // ordering.
 func seedGroups(t *testing.T, c *Client, n int) {
@@ -36,15 +53,6 @@ func seedGroups(t *testing.T, c *Client, n int) {
 	if err := c.db.WithContext(t.Context()).Create(&groups).Error; err != nil {
 		t.Fatalf("failed to seed groups: %v", err)
 	}
-}
-
-// providerStub serves the cursor-based /obot-list-auth-groups contract over `total` groups, using
-// an offset as its cursor. It records the cursor of every request so tests can assert what the
-// client actually sent.
-type providerStub struct {
-	total    int
-	cursors  []string
-	requests int
 }
 
 func (p *providerStub) server(t *testing.T) *httptest.Server {
@@ -473,14 +481,6 @@ func TestResolveAuthGroups(t *testing.T) {
 	if resolved[1].Name != "entra/9999" {
 		t.Errorf("unknown group name = %q, want the ID itself", resolved[1].Name)
 	}
-}
-
-// resolverStub serves the /obot-get-auth-groups contract, naming every ID it is asked about except
-// those in unknown. It records each batch so tests can assert what the client actually sent.
-type resolverStub struct {
-	unknown  map[string]bool
-	requests [][]string
-	status   int
 }
 
 func (s *resolverStub) server(t *testing.T) *httptest.Server {

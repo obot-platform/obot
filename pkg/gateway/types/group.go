@@ -5,6 +5,16 @@ import (
 	"time"
 )
 
+const (
+	// GroupSourceProvider means the listing came from the auth provider and is complete.
+	GroupSourceProvider GroupSource = "provider"
+
+	// GroupSourceCache means the listing came from the groups table, which holds the groups
+	// observed during a user sign-in plus any resolved by ID for a policy, and is therefore
+	// partial.
+	GroupSourceCache GroupSource = "cache"
+)
+
 // Group represents a group that users can belong to in an auth provider.
 type Group struct {
 	// ID is the globally unique identifier for the group.
@@ -29,16 +39,6 @@ type Group struct {
 
 // GroupSource names where a group listing came from.
 type GroupSource string
-
-const (
-	// GroupSourceProvider means the listing came from the auth provider and is complete.
-	GroupSourceProvider GroupSource = "provider"
-
-	// GroupSourceCache means the listing came from the groups table, which holds the groups
-	// observed during a user sign-in plus any resolved by ID for a policy, and is therefore
-	// partial.
-	GroupSourceCache GroupSource = "cache"
-)
 
 // GroupListResponse is the paginated response for a group listing.
 type GroupListResponse struct {

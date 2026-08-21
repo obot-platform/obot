@@ -38,19 +38,19 @@ const (
 	// request deadline, so without this an unresponsive provider holds the handler until the
 	// client gives up.
 	groupProviderTimeout = 30 * time.Second
+
+	groupCursorVersion = 1
 )
 
-var groupProviderClient = &http.Client{Timeout: groupProviderTimeout}
+var (
+	groupProviderClient = &http.Client{Timeout: groupProviderTimeout}
+)
 
 // FetchUserGroupsError represents an error that occurs when fetching user groups from the auth provider.
 // This error indicates a configuration issue with the auth provider that requires administrator intervention.
 type FetchUserGroupsError struct {
 	ProviderUserID string
 	Message        string
-}
-
-func (e *FetchUserGroupsError) Error() string {
-	return fmt.Sprintf("auth provider failed to check groups for user with ID %s: %s", e.ProviderUserID, e.Message)
 }
 
 type ListAuthGroupsOptions struct {
@@ -101,7 +101,9 @@ type groupCursor struct {
 	LastID   string `json:"i,omitempty"`
 }
 
-const groupCursorVersion = 1
+func (e *FetchUserGroupsError) Error() string {
+	return fmt.Sprintf("auth provider failed to check groups for user with ID %s: %s", e.ProviderUserID, e.Message)
+}
 
 // encodeGroupCursor renders a position as an opaque token. An empty position stays empty, which is
 // what tells a caller it has reached the end.

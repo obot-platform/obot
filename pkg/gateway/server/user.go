@@ -23,6 +23,10 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const (
+	maxGroupIDsPerRequest = 100
+)
+
 func (s *Server) getCurrentUser(apiContext api.Context) error {
 	user, err := apiContext.GatewayClient.User(apiContext.Context(), apiContext.User.GetName())
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -403,8 +407,6 @@ func (s *Server) listAuthGroups(apiContext api.Context) error {
 		Reset:      result.Reset,
 	})
 }
-
-const maxGroupIDsPerRequest = 100
 
 func parseGroupListParams(query url.Values) (limit int, cursor string) {
 	limit, err := strconv.Atoi(query.Get("limit"))
