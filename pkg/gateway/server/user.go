@@ -416,7 +416,7 @@ func parseGroupListParams(query url.Values) (limit int, cursor string) {
 }
 
 // splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
-// Ids are returned in the order they first appear in raw.
+// IDs are returned in the order they first appear in raw.
 func splitGroupIDs(raw string) ([]string, error) {
 	parts := strings.Split(raw, ",")
 	if len(parts) > maxGroupIDsPerRequest {
