@@ -412,6 +412,8 @@
 			rightSidebar?.showPopover();
 		}}
 		getUserDisplayName={(id: string) => getUserDisplayName(usersMap, id)}
+		isAPIKeyRevoked={(apiKeyID: number | undefined) =>
+			apiKeyID !== undefined && apiKeyFilterOptions[apiKeyID]?.revoked === true}
 	/>
 {:else}
 	<div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center w-full">

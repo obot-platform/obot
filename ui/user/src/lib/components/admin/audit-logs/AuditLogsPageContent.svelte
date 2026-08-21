@@ -5,6 +5,7 @@
 	import {
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
+		formatAuditLogAPIKeyName,
 		getAuditLogAPIKeyFilterOptionLabel,
 		isAuditLogAPIKeyFilterOption
 	} from '$lib/auditlogs';
@@ -118,6 +119,13 @@
 
 	const users = new SvelteMap<string, OrgUser>();
 	const apiKeyFilterOptions = new SvelteMap<string, AuditLogAPIKeyFilterOption>();
+	const revokedAPIKeyCredentials = $derived(
+		new Set(
+			[...apiKeyFilterOptions.values()]
+				.filter((option) => option.revoked)
+				.map((option) => formatAuditLogAPIKeyName(option.name, option.maskedKey))
+		)
+	);
 
 	let showLoadingSpinner = $state(true);
 	let showFilters = $state(false);
@@ -733,6 +741,7 @@
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
+			isCredentialRevoked={(credential: string) => revokedAPIKeyCredentials.has(credential)}
 			{emptyContent}
 		/>
 	{:else if remoteAuditLogs.length > 0}
