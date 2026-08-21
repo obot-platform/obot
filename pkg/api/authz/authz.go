@@ -79,6 +79,7 @@ var (
 		"/api/message-policy-violations",
 		"/api/message-policy-violations/",
 		"GET /api/message-policy-violation-stats",
+		"DELETE /api/devices/scans/{scan_id}",
 		"/api/devices/scan-stats",
 		"/api/devices/mcp-servers/",
 		"/api/devices/skills",
