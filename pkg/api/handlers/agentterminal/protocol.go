@@ -2,7 +2,9 @@
 // websocket.
 package agentterminal
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Frames are binary websocket messages whose first byte selects a channel and
 // whose remainder is the payload. This is the shape Docker and Kubernetes both

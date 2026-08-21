@@ -15,7 +15,9 @@ import (
 
 // maxOccurredAtFutureSkew is the largest amount a local-agent audit log's client-reported
 // occurredAt may exceed the server's current time before the submission is rejected.
-const maxOccurredAtFutureSkew = time.Hour
+const (
+	maxOccurredAtFutureSkew = time.Hour
+)
 
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {

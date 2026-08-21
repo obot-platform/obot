@@ -27,7 +27,9 @@ import (
 // Separator divides the source from the key within it. It matches what the MCP
 // catalog already reserves and validates entry keys against, so a reference
 // written here is the same string that catalog builds internally.
-const Separator = "::"
+const (
+	Separator = "::"
+)
 
 // Resolver resolves many references, remembering what failed.
 //

@@ -14,7 +14,9 @@ import (
 	"k8s.io/streaming/pkg/httpstream"
 )
 
-var _ agentbackend.TerminalBackend = (*Backend)(nil)
+var (
+	_ agentbackend.TerminalBackend = (*Backend)(nil)
+)
 
 // terminalSession adapts the streaming executor, which wants readers and
 // writers it can block on, to the ReadWriteCloser the caller wants.

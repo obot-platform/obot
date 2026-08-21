@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type ServiceAccountAPIKey struct {
 	ID                 uint       `gorm:"primaryKey;autoIncrement"`

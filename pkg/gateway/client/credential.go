@@ -14,12 +14,16 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-const credentialEncryptedSecretsKey = "_obot_encrypted_env"
+const (
+	credentialEncryptedSecretsKey = "_obot_encrypted_env"
+)
 
-var credentialGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "credentials",
-}
+var (
+	credentialGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "credentials",
+	}
+)
 
 type ListCredentialsOptions struct {
 	CredentialContexts []string

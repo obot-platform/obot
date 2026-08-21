@@ -33,7 +33,9 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-var containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+var (
+	containerFileNameSanitizer = regexp.MustCompile(`[^a-zA-Z0-9._-]+`)
+)
 
 type dockerBackend struct {
 	client                      *client.Client

@@ -34,7 +34,9 @@ const (
 )
 
 // AllAPIs is every protocol a harness may declare.
-var AllAPIs = []string{APIAnthropic, APIOpenAIResponses, APIOpenAIChatCompletions}
+var (
+	AllAPIs = []string{APIAnthropic, APIOpenAIResponses, APIOpenAIChatCompletions}
+)
 
 // Model is one usable model: resolved to a concrete target, a provider, and the
 // protocols it can be reached over.

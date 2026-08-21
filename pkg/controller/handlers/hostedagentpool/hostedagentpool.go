@@ -14,7 +14,9 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-const pollInterval = 10 * time.Second
+const (
+	pollInterval = 10 * time.Second
+)
 
 type Handler struct {
 	backend agentbackend.PoolBackend

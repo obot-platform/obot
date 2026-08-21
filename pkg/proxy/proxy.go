@@ -29,7 +29,9 @@ const (
 	ObotAuthProviderQueryParam = "obot-auth-provider"
 )
 
-var ErrInvalidSession = errors.New("invalid session")
+var (
+	ErrInvalidSession = errors.New("invalid session")
+)
 
 type Manager struct {
 	dispatcher *dispatcher.Dispatcher

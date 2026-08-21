@@ -1,6 +1,8 @@
 package v1
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMCPServerSpec_IsCatalogServer(t *testing.T) {
 	if (MCPServerSpec{MCPCatalogID: "default"}).IsCatalogServer() != true {

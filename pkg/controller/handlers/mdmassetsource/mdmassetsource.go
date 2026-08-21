@@ -24,7 +24,9 @@ import (
 // Failed imports retry hourly, matching the SkillRepository controller. A
 // successful source is only reconciled again when an admin requests a refresh
 // or the startup source changes.
-const retryInterval = time.Hour
+const (
+	retryInterval = time.Hour
+)
 
 type Handler struct {
 	defaultSource string

@@ -14,11 +14,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var setupCapabilities = []string{
-	"setup.nonInteractive",
-	"setup.detectClients",
-	"setup.progressJSON",
-}
+var (
+	setupCapabilities = []string{
+		"setup.nonInteractive",
+		"setup.detectClients",
+		"setup.progressJSON",
+	}
+)
 
 type setupTokenValidator func(context.Context, string) (bool, error)
 

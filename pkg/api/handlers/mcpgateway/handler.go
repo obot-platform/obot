@@ -35,7 +35,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
+var (
+	errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
+)
 
 type Handler struct {
 	mcpSessionManager         *mcp.SessionManager

@@ -1,6 +1,8 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	SubjectTypeGroup    SubjectType = "group"

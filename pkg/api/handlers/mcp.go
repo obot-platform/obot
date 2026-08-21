@@ -42,7 +42,9 @@ const (
 	configURLKey              = "__url"
 )
 
-var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+var (
+	envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+)
 
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {

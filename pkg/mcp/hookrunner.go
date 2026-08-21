@@ -10,7 +10,9 @@ import (
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const hookClientScope = "Obot MCP Hook"
+const (
+	hookClientScope = "Obot MCP Hook"
+)
 
 // HookServerConfigs maps the server portion of a hook target (server/tool) to
 // the MCP server configuration used to call that hook.

@@ -24,7 +24,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const anthropicVersion = "2023-06-01"
+const (
+	anthropicVersion = "2023-06-01"
+)
 
 // ConversationMessage represents a message in conversation history for policy evaluation.
 type ConversationMessage struct {

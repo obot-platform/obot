@@ -1,6 +1,8 @@
 package v1
 
-import kclient "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
 
 // +k8s:deepcopy-gen=false
 

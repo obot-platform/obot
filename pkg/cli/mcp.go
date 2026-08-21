@@ -22,7 +22,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const mcpSearchPageLimit = 100
+const (
+	mcpSearchPageLimit = 100
+)
 
 type MCP struct {
 	root *Obot

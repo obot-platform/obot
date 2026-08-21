@@ -1,7 +1,9 @@
 //nolint:revive
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type Identity struct {
 	AuthProviderName      string    `json:"authProviderName" gorm:"primaryKey;index:idx_user_auth_id"`

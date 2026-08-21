@@ -20,7 +20,9 @@ import (
 	"github.com/rancher/remotedialer"
 )
 
-const websocketCloseTimeout = time.Second
+const (
+	websocketCloseTimeout = time.Second
+)
 
 type cancelOnCloseConn struct {
 	net.Conn

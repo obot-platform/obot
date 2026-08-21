@@ -7,7 +7,9 @@ import (
 
 // PeerConnectPath is the internal websocket endpoint used to connect Obot
 // tunnel servers to one another.
-const PeerConnectPath = "/tunnel/peer"
+const (
+	PeerConnectPath = "/tunnel/peer"
+)
 
 // PeerConfig configures authentication and discovery of the other Obot
 // replicas that participate in the tunnel remotedialer mesh. An entirely empty

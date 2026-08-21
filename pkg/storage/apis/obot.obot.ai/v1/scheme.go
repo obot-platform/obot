@@ -8,12 +8,16 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const Version = "v1"
+const (
+	Version = "v1"
+)
 
-var SchemeGroupVersion = schema.GroupVersion{
-	Group:   obot_platform_ai.Group,
-	Version: Version,
-}
+var (
+	SchemeGroupVersion = schema.GroupVersion{
+		Group:   obot_platform_ai.Group,
+		Version: Version,
+	}
+)
 
 func AddToScheme(scheme *runtime.Scheme) error {
 	return AddToSchemeWithGV(scheme, SchemeGroupVersion)

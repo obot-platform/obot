@@ -7,11 +7,15 @@ import (
 	"strconv"
 )
 
-// HookMutationsMetaKey is retained for compatibility with clients that already
-// consume hook mutation metadata from MCP results.
-const HookMutationsMetaKey = "ai.nanobot.hooks/mutations"
+const (
+	// HookMutationsMetaKey is retained for compatibility with clients that already
+	// consume hook mutation metadata from MCP results.
+	HookMutationsMetaKey = "ai.nanobot.hooks/mutations"
+)
 
-var ErrRPCUnknown = NewRPCError(-32001, "JSON RPC unknown error")
+var (
+	ErrRPCUnknown = NewRPCError(-32001, "JSON RPC unknown error")
+)
 
 // HookRunner executes one configured hook target.
 type HookRunner interface {

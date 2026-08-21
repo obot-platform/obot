@@ -14,7 +14,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, and [text](url))"
+const (
+	bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, and [text](url))"
+)
 
 var (
 	// Banner text only supports simple inline formatting (bold, italic, strikethrough)

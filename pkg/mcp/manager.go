@@ -25,7 +25,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const streamableHTTPHealthcheckBody string = `{
+const (
+	streamableHTTPHealthcheckBody string = `{
 	"jsonrpc": "2.0",
 	"id": "1",
     "method": "initialize",
@@ -38,6 +39,7 @@ const streamableHTTPHealthcheckBody string = `{
         "protocolVersion": "2025-06-18"
     }
 }`
+)
 
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.2"`

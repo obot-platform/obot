@@ -13,7 +13,9 @@ import (
 	"gorm.io/gorm"
 )
 
-const deviceCreationAdvisoryLockID int64 = 0x6f626f7444657669 // "obotDevi"
+const (
+	deviceCreationAdvisoryLockID int64 = 0x6f626f7444657669 // "obotDevi"
+)
 
 // DeviceLimit describes the maximum number of devices an installation may have.
 // Maximum is ignored when Unlimited is true.

@@ -8,7 +8,9 @@ import (
 	"gorm.io/gorm"
 )
 
-const eulaAcceptedKey = "eula_accepted"
+const (
+	eulaAcceptedKey = "eula_accepted"
+)
 
 type EulaHandler struct{}
 

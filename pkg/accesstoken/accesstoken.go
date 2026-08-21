@@ -1,6 +1,8 @@
 package accesstoken
 
-import "context"
+import (
+	"context"
+)
 
 type accessTokenKey struct{}
 

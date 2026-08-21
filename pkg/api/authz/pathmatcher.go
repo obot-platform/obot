@@ -1,6 +1,8 @@
 package authz
 
-import "net/http"
+import (
+	"net/http"
+)
 
 type pathMatcher struct {
 	m *http.ServeMux

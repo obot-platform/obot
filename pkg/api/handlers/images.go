@@ -9,14 +9,18 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-const maxUploadSize = 2 * 1024 * 1024 // 2MB
+const (
+	maxUploadSize = 2 * 1024 * 1024 // 2MB
+)
 
-var allowedUploadedImageMIMETypes = map[string]bool{
-	"image/svg+xml": true,
-	"image/png":     true,
-	"image/jpeg":    true,
-	"image/webp":    true,
-}
+var (
+	allowedUploadedImageMIMETypes = map[string]bool{
+		"image/svg+xml": true,
+		"image/png":     true,
+		"image/jpeg":    true,
+		"image/webp":    true,
+	}
+)
 
 type (
 	ImageHandler struct{}

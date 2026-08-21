@@ -1,7 +1,9 @@
 //nolint:revive
 package types
 
-import "time"
+import (
+	"time"
+)
 
 // Group represents a group that users can belong to in an auth provider.
 type Group struct {

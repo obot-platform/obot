@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 // Credential stores secret environment variables for an Obot resource.
 // List operations intentionally return Secrets keys with blank values; use RevealCredential to read values.

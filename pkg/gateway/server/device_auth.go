@@ -18,12 +18,16 @@ import (
 // deviceTokenAudience is the audience an enrolled device's self-signed access
 // JWT must target. A fixed value (not a URL) keeps devices robust to
 // TLS-terminating proxies and lets the authenticator claim only its own tokens.
-const deviceTokenAudience = "obot/device"
+const (
+	deviceTokenAudience = "obot/device"
+)
 
 // deviceAssertionAlgs are the asymmetric signing algorithms accepted for a
 // device access JWT. Symmetric / "none" are excluded so a registered public
 // key can never be abused as an HMAC secret (alg-confusion).
-var deviceAssertionAlgs = []string{"ES256", "ES384", "ES512", "EdDSA"}
+var (
+	deviceAssertionAlgs = []string{"ES256", "ES384", "ES512", "EdDSA"}
+)
 
 // DeviceAuthenticator authenticates an enrolled device by a short-lived JWT the
 // device signs itself with its identity key. There is no server-minted token:

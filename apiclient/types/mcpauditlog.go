@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 const (
 	AuditLogSourceTypeMCP                AuditLogSourceType = "mcp"

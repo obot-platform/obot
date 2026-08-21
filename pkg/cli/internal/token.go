@@ -24,7 +24,9 @@ import (
 	"github.com/pkg/browser"
 )
 
-const TokenEnvVar = "OBOT_TOKEN"
+const (
+	TokenEnvVar = "OBOT_TOKEN"
+)
 
 var (
 	credentialStore credentials.Store = credentials.NewKeyringStore()

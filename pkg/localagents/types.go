@@ -1,6 +1,8 @@
 package localagents
 
-import "context"
+import (
+	"context"
+)
 
 const (
 	DetectionMissing DetectionState = "missing"

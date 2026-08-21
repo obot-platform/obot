@@ -21,23 +21,25 @@ const (
 	deviceLimitEntitlementDevicesSuffix = "_DEVICES"
 )
 
-var entitlementPathsToGate = []string{
-	"/mcp-connect/{mcp_id}",
-	"/mcp-connect/{mcp_id}/",
-	"GET /oauth/authorize",
-	"GET /oauth/authorize/",
-	"GET /oauth/consent/",
-	"POST /oauth/consent/",
-	"GET /oauth/complete/",
-	"GET /oauth/mcp/callback/",
-	"POST /oauth/",
-	"PUT /oauth/",
-	"GET /api/oauth/composite/{mcp_id}",
-	"/api/llm-proxy/",
-	"/api/skills",
-	"/api/skills/",
-	"POST /api/devices/scans",
-}
+var (
+	entitlementPathsToGate = []string{
+		"/mcp-connect/{mcp_id}",
+		"/mcp-connect/{mcp_id}/",
+		"GET /oauth/authorize",
+		"GET /oauth/authorize/",
+		"GET /oauth/consent/",
+		"POST /oauth/consent/",
+		"GET /oauth/complete/",
+		"GET /oauth/mcp/callback/",
+		"POST /oauth/",
+		"PUT /oauth/",
+		"GET /api/oauth/composite/{mcp_id}",
+		"/api/llm-proxy/",
+		"/api/skills",
+		"/api/skills/",
+		"POST /api/devices/scans",
+	}
+)
 
 // Violation describes a configured provider that requires license entitlements
 // that are not currently available.

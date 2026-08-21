@@ -12,8 +12,10 @@ import (
 	"github.com/obot-platform/obot/pkg/oauth"
 )
 
-//go:embed all:user/*build
-var embedded embed.FS
+var (
+	//go:embed all:user/*build
+	embedded embed.FS
+)
 
 type uiServer struct {
 	rp       *httputil.ReverseProxy

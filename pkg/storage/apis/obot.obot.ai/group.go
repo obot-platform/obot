@@ -1,3 +1,5 @@
 package obotobotplatformai
 
-var Group = "obot.obot.ai"
+var (
+	Group = "obot.obot.ai"
+)

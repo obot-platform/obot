@@ -17,7 +17,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-const oktaGroupMigrationName = "okta_group_id_migration"
+const (
+	oktaGroupMigrationName = "okta_group_id_migration"
+)
 
 type oktaGroupMigrationMapping struct {
 	OldID string `json:"oldID"`

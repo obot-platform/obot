@@ -1,6 +1,8 @@
 package mcp
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestHookMappingMatches(t *testing.T) {
 	hook := HookMapping{Name: "tools/call", Params: map[string]string{"name": "echo", "direction": "request"}}

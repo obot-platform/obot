@@ -26,9 +26,11 @@ const (
 	clientMetadataCacheMaxEntries    = 1000
 )
 
-var clientIDNativeExceptions = map[string]struct{}{
-	"https://claude.ai/oauth/claude-code-client-metadata": {},
-}
+var (
+	clientIDNativeExceptions = map[string]struct{}{
+		"https://claude.ai/oauth/claude-code-client-metadata": {},
+	}
+)
 
 type clientMetadataCacheEntry struct {
 	client    v1.OAuthClient

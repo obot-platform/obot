@@ -21,12 +21,14 @@ const (
 	maxClientJWKSetBytes         = 100 * 1024
 )
 
-var privateKeyJWTSigningAlgorithms = []string{
-	"RS256", "RS384", "RS512",
-	"PS256", "PS384", "PS512",
-	"ES256", "ES384", "ES512",
-	"EdDSA",
-}
+var (
+	privateKeyJWTSigningAlgorithms = []string{
+		"RS256", "RS384", "RS512",
+		"PS256", "PS384", "PS512",
+		"ES256", "ES384", "ES512",
+		"EdDSA",
+	}
+)
 
 func clientIDFromClientAssertion(form url.Values) (string, error) {
 	if form.Get("client_assertion_type") != clientAssertionTypeJWTBearer {

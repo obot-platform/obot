@@ -19,7 +19,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const ObotBootstrapCookie = "obot-bootstrap"
+const (
+	ObotBootstrapCookie = "obot-bootstrap"
+)
 
 type Bootstrap struct {
 	token, serverURL                  string

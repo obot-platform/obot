@@ -1,6 +1,8 @@
 package llmaudit
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestResponseFormatForRequestPath(t *testing.T) {
 	for _, tc := range []struct {

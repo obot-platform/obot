@@ -8,8 +8,10 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// ErrServerNotRunning is returned when an MCP server is not running
-var ErrServerNotRunning = errors.New("mcp server is not running")
+var (
+	// ErrServerNotRunning is returned when an MCP server is not running
+	ErrServerNotRunning = errors.New("mcp server is not running")
+)
 
 // GetServerDetails will get the details of a specific MCP server based on its configuration, if the backend supports it.
 // If the backend does not support the operation, it will return an [ErrNotSupportedByBackend] error.

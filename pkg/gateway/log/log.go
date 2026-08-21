@@ -1,7 +1,9 @@
 //nolint:revive
 package log
 
-import "log/slog"
+import (
+	"log/slog"
+)
 
 func NewWithID(id string) *slog.Logger {
 	log := slog.Default().With("logger", "gateway")

@@ -16,7 +16,9 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 )
 
-const oauthCheckClientScope = "Obot OAuth Check"
+const (
+	oauthCheckClientScope = "Obot OAuth Check"
+)
 
 type Client struct {
 	*gomcp.ClientSession

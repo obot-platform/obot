@@ -43,7 +43,9 @@ const (
 
 // errConcurrentCreate is returned by createNewArtifact when another request
 // created the same artifact first, signaling the retry loop to re-GET and update.
-var errConcurrentCreate = fmt.Errorf("concurrent create detected")
+var (
+	errConcurrentCreate = fmt.Errorf("concurrent create detected")
+)
 
 type publishedArtifactUpdateRequest struct {
 	Description *string         `json:"description,omitempty"`

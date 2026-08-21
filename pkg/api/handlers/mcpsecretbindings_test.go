@@ -15,7 +15,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-const testSecretBindingAllowedLabel = "test-secret-binding-label"
+const (
+	testSecretBindingAllowedLabel = "test-secret-binding-label"
+)
 
 func TestListAllowedSecrets(t *testing.T) {
 	handler := NewMCPSecretBindingHandler(

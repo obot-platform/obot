@@ -1,6 +1,8 @@
 package mcp
 
-import "strings"
+import (
+	"strings"
+)
 
 func SourceIDForURL(sourceURL string) string {
 	sourceURL = strings.TrimPrefix(sourceURL, "https://")

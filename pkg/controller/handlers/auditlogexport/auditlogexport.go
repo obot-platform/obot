@@ -19,7 +19,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const batchSize = 10_000
+const (
+	batchSize = 10_000
+)
 
 // Handler reconciles AuditLogExport resources and streams normalized JSONL events to the
 // configured object-storage provider.

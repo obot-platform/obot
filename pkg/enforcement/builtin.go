@@ -1,6 +1,8 @@
 package enforcement
 
-import "strings"
+import (
+	"strings"
+)
 
 // builtinAgentMCPServers is the explicit, per-agent set of MCP server names that
 // ship inside the agent itself (as opposed to servers a user configures). A call

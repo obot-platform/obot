@@ -13,7 +13,9 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const defaultMaxCatalogFiles = 1000
+const (
+	defaultMaxCatalogFiles = 1000
+)
 
 // WalkCatalogFiles returns catalog manifest paths selected by .obotcatalogs and
 // .ignoreobotcatalogs. Traversal errors are yielded in the second value.

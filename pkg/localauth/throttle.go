@@ -15,7 +15,9 @@ const (
 // dummyHash is verified when a login is attempted for an email that has no local user, so that
 // the response time doesn't reveal whether the account exists. It is the hash of a password that
 // cannot be entered, since it is longer than any form field allows.
-var dummyHash = mustHash(strings.Repeat("x", 128))
+var (
+	dummyHash = mustHash(strings.Repeat("x", 128))
+)
 
 // throttle slows down password guessing by locking an email out after too many failures.
 // It is per-process and in-memory: it is a speed bump, not a distributed rate limiter.

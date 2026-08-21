@@ -1,6 +1,8 @@
 package imagepullsecrets
 
-import "strings"
+import (
+	"strings"
+)
 
 const (
 	CredentialContext = "image-pull-secrets"

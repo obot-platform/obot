@@ -26,7 +26,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const keyEnvVar = "JWK_KEY"
+const (
+	keyEnvVar = "JWK_KEY"
+)
 
 type TokenService struct {
 	lock          sync.RWMutex

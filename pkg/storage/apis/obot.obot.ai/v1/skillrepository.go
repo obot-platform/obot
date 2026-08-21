@@ -7,7 +7,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var _ fields.Fields = (*SkillRepository)(nil)
+var (
+	_ fields.Fields = (*SkillRepository)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

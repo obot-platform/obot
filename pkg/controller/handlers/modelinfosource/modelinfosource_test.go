@@ -21,7 +21,8 @@ import (
 )
 
 // sampleAPIJSON covers known providers, an unknown provider, and tiered cost.
-const sampleAPIJSON = `{
+const (
+	sampleAPIJSON = `{
   "anthropic": {
     "models": {
       "claude-opus-4-5": {"cost": {"input": 5, "output": 25, "cache_read": 0.5, "cache_write": 6.25}}
@@ -54,6 +55,7 @@ const sampleAPIJSON = `{
     }
   }
 }`
+)
 
 func mustDecodeDoc(t *testing.T, raw string) modelsDevDocument {
 	t.Helper()

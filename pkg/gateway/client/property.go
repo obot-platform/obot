@@ -13,10 +13,12 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var propertyGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "properties",
-}
+var (
+	propertyGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "properties",
+	}
+)
 
 func (c *Client) GetProperty(ctx context.Context, key string) (types.Property, error) {
 	var p types.Property

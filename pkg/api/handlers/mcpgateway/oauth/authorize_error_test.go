@@ -1,6 +1,8 @@
 package oauth
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestOAuthErrorDescriptionQueryIsRFC6749Safe(t *testing.T) {
 	t.Parallel()

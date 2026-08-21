@@ -24,9 +24,13 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const requestTimeUpdateInterval = 15 * time.Minute
+const (
+	requestTimeUpdateInterval = 15 * time.Minute
+)
 
-var actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+var (
+	actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+)
 
 type missingCatalogEntryAdminConfig struct {
 	SecretBoundFields []string

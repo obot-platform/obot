@@ -7,7 +7,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-var ErrMustAuth = &types.ErrHTTP{
-	Code:    http.StatusUnauthorized,
-	Message: "unauthorized request, must authenticate",
-}
+var (
+	ErrMustAuth = &types.ErrHTTP{
+		Code:    http.StatusUnauthorized,
+		Message: "unauthorized request, must authenticate",
+	}
+)

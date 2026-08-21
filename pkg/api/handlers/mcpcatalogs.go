@@ -29,7 +29,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
+var (
+	dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
+)
 
 type MCPCatalogHandler struct {
 	defaultCatalogPath        string

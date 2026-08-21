@@ -11,7 +11,9 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-const issuerDiscoveryTimeout = 5 * time.Second
+const (
+	issuerDiscoveryTimeout = 5 * time.Second
+)
 
 func DiscoverServiceAccountIssuer(ctx context.Context, restConfig *rest.Config) (string, error) {
 	if restConfig == nil || strings.TrimSpace(restConfig.Host) == "" {

@@ -26,7 +26,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const CookieSecretEnvVar = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
+const (
+	CookieSecretEnvVar = "OBOT_AUTH_PROVIDER_COOKIE_SECRET"
+)
 
 type AuthProviderHandler struct {
 	dispatcher  *dispatcher.Dispatcher

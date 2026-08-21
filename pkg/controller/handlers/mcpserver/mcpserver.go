@@ -32,7 +32,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const oauthMetadataSyncInterval = time.Hour
+const (
+	oauthMetadataSyncInterval = time.Hour
+)
 
 type Handler struct {
 	gatewayClient                *gateway.Client

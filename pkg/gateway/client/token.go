@@ -25,7 +25,9 @@ const (
 	tokenCleanupInterval    = 30 * time.Second
 )
 
-var ErrInvalidOrExpiredDeviceCode = errors.New("invalid or expired device code")
+var (
+	ErrInvalidOrExpiredDeviceCode = errors.New("invalid or expired device code")
+)
 
 // CreateTokenRequest creates a new token request in the database.
 func (c *Client) CreateTokenRequest(ctx context.Context, tr *types.TokenRequest) error {

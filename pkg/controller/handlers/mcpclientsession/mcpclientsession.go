@@ -7,7 +7,9 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
-const maxIdleTime = 7 * 24 * time.Hour
+const (
+	maxIdleTime = 7 * 24 * time.Hour
+)
 
 type Handler struct {
 	now func() time.Time

@@ -7,6 +7,7 @@ linters:
     - decorder
     - errcheck
     - govet
+    - grouper
     - importas
     - ineffassign
     - modernize
@@ -50,6 +51,19 @@ linters:
       disable-dec-num-check: false
       # If true, type declarations will be ignored for dec num check.
       disable-type-dec-num-check: true
+    grouper:
+      # Require the use of a single global 'const' declaration only.
+      const-require-single-const: true
+      # Require the use of grouped global 'const' declarations.
+      const-require-grouping: true
+      # Require the use of a single 'import' declaration only.
+      import-require-single-import: true
+      # Require the use of grouped 'import' declarations.
+      import-require-grouping: true
+      # Require the use of a single global 'var' declaration only.
+      var-require-single-var: true
+      # Require the use of grouped global 'var' declarations.
+      var-require-grouping: true
 
 
 formatters:

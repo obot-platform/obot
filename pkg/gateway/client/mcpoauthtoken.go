@@ -17,7 +17,9 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-const pendingStateTTL = 30 * time.Minute
+const (
+	pendingStateTTL = 30 * time.Minute
+)
 
 var (
 	mcpOAuthTokenGroupResource = schema.GroupResource{

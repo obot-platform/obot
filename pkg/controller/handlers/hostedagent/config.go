@@ -10,7 +10,9 @@ import (
 )
 
 // transportStreamableHTTP is what the MCP gateway speaks.
-const transportStreamableHTTP = "streamable-http"
+const (
+	transportStreamableHTTP = "streamable-http"
+)
 
 // agentConfig is the whole of what a sandbox is told, written to
 // /etc/obot/agent.json at start-up.

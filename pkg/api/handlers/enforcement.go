@@ -27,14 +27,16 @@ const (
 
 // enforcementDecisionFilters are the filter keys the decision-log UI may request
 // options for. "decision" is a fixed enum served independently of the data.
-var enforcementDecisionFilters = map[string]struct{}{
-	"agent":    {},
-	"tool":     {},
-	"kind":     {},
-	"server":   {},
-	"decision": {},
-	"actor":    {},
-}
+var (
+	enforcementDecisionFilters = map[string]struct{}{
+		"agent":    {},
+		"tool":     {},
+		"kind":     {},
+		"server":   {},
+		"decision": {},
+		"actor":    {},
+	}
+)
 
 type EnforcementHandler struct {
 	// serverURL is Obot's own base URL, parsed once so that classifying a

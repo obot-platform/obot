@@ -19,7 +19,9 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 )
 
-const maxMCPProxyHookBodySize = 10 << 20
+const (
+	maxMCPProxyHookBodySize = 10 << 20
+)
 
 // pendingRequest is the request context needed when its JSON-RPC response
 // arrives, potentially through another HTTP request or Obot replica.

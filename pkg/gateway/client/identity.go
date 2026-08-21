@@ -24,7 +24,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
+const (
+	userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
+)
 
 var (
 	verifiedAuthProviders = []string{

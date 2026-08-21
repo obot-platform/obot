@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // LLMAuditLog represents an audit log entry for LLM gateway calls.
 type LLMAuditLog struct {

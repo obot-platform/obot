@@ -23,7 +23,9 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-const enforcementTestServerURL = "https://obot.example.com"
+const (
+	enforcementTestServerURL = "https://obot.example.com"
+)
 
 func newEnforcementTestHandler(t *testing.T) *EnforcementHandler {
 	t.Helper()

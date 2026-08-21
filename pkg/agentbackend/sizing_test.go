@@ -1,6 +1,8 @@
 package agentbackend
 
-import "testing"
+import (
+	"testing"
+)
 
 // A pool is a shared bucket: every sandbox reserves an equal fraction and may
 // burst to the whole pool. Agents have no size of their own.

@@ -15,7 +15,8 @@ import (
 // annotation), scanIntervalMinutes bounded with a default. The
 // obotSentryVersion render field comes from the manifest top level, not
 // from fields.
-const fieldsSchema = `{
+const (
+	fieldsSchema = `{
   "type": "object",
   "additionalProperties": false,
   "required": ["serverURL"],
@@ -24,6 +25,7 @@ const fieldsSchema = `{
     "scanIntervalMinutes": {"type": "integer", "minimum": 15, "maximum": 1440, "default": 60}
   }
 }`
+)
 
 // writeAssets stages a minimal valid assets tree and returns it. The
 // "multi" platform targets two OSes to exercise OS disambiguation.

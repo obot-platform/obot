@@ -14,10 +14,12 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var messagePolicyViolationGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "policyviolations",
-}
+var (
+	messagePolicyViolationGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "policyviolations",
+	}
+)
 
 // MessagePolicyViolationOptions represents options for querying policy violations.
 type MessagePolicyViolationOptions struct {

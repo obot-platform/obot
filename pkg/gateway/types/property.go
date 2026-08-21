@@ -1,7 +1,9 @@
 //nolint:revive
 package types
 
-import "time"
+import (
+	"time"
+)
 
 type Property struct {
 	CreatedAt time.Time `json:"createdAt"`

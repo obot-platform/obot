@@ -1,6 +1,8 @@
 package system
 
-import nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+import (
+	nanobottypes "github.com/obot-platform/nanobot/pkg/types"
+)
 
 const (
 	OpenAIModelProvider              = "openai-model-provider"

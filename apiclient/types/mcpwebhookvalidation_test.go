@@ -1,6 +1,8 @@
 package types
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMCPFilters_Matches(t *testing.T) {
 	tests := []struct {

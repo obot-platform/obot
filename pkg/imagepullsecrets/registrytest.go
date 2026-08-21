@@ -15,7 +15,9 @@ import (
 	"time"
 )
 
-const registryTestTimeout = 20 * time.Second
+const (
+	registryTestTimeout = 20 * time.Second
+)
 
 var (
 	imageRepositoryPattern = regexp.MustCompile(`^[a-z0-9]+([._-][a-z0-9]+)*(\/[a-z0-9]+([._-][a-z0-9]+)*)*$`)

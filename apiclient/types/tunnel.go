@@ -5,9 +5,13 @@ import (
 	"regexp"
 )
 
-const maxTunnelNameLength = 63
+const (
+	maxTunnelNameLength = 63
+)
 
-var tunnelNameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+var (
+	tunnelNameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
+)
 
 // TunnelConnection describes a tunnel that is currently connected to this
 // Obot installation.

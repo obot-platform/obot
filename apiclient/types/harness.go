@@ -1,6 +1,8 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Harness is the runtime a hosted agent is built on (for example "Claude
 // Code", "Codex", or a custom Python/Node image). The harness supplies the

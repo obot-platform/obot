@@ -23,7 +23,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-const postgresUserLimitTestDSNEnv = "OBOT_TEST_POSTGRES_DSN"
+const (
+	postgresUserLimitTestDSNEnv = "OBOT_TEST_POSTGRES_DSN"
+)
 
 func TestEnsureIdentityWithRoleEnforcesUserLimitAcrossPostgresClients(t *testing.T) {
 	postgresDSN := os.Getenv(postgresUserLimitTestDSNEnv)

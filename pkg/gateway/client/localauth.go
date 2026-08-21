@@ -15,7 +15,9 @@ import (
 )
 
 // ErrLocalAuthUserExists is returned when creating a local auth user whose email is already taken.
-var ErrLocalAuthUserExists = errors.New("local auth user already exists")
+var (
+	ErrLocalAuthUserExists = errors.New("local auth user already exists")
+)
 
 // NormalizeEmail lowercases and trims an email address so that logins are case-insensitive.
 func NormalizeEmail(email string) string {

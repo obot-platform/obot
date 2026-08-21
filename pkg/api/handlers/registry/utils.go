@@ -9,7 +9,9 @@ import (
 	"strings"
 )
 
-var dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
+var (
+	dnsLabelRegex = regexp.MustCompile("[^a-z0-9-]+")
+)
 
 // ReverseDNSFromURL converts a URL like "https://obot.example.com" to "com.example.obot"
 // Handles localhost and IP addresses specially by returning "local.<hostname>"

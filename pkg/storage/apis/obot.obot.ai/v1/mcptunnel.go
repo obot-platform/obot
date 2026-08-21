@@ -8,9 +8,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const MCPTunnelCredentialIDField = "spec.credentialID"
+const (
+	MCPTunnelCredentialIDField = "spec.credentialID"
+)
 
-var _ fields.Fields = (*MCPTunnel)(nil)
+var (
+	_ fields.Fields = (*MCPTunnel)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

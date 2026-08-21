@@ -14,14 +14,16 @@ import (
 
 // obotProviderToProviderID maps Obot provider names to their models.dev source
 // provider IDs. Both Bedrock authentication methods share Bedrock pricing.
-var obotProviderToProviderID = map[string]string{
-	system.AnthropicModelProvider:           "anthropic",
-	system.OpenAIModelProvider:              "openai",
-	system.AmazonBedrockModelProvider:       "amazon-bedrock",
-	system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
-	system.AzureModelProvider:               "azure",
-	system.AzureEntraModelProvider:          "azure",
-}
+var (
+	obotProviderToProviderID = map[string]string{
+		system.AnthropicModelProvider:           "anthropic",
+		system.OpenAIModelProvider:              "openai",
+		system.AmazonBedrockModelProvider:       "amazon-bedrock",
+		system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
+		system.AzureModelProvider:               "azure",
+		system.AzureEntraModelProvider:          "azure",
+	}
+)
 
 // modelsDevDocument is the source response shape consumed by the sync.
 type modelsDevDocument map[string]struct {

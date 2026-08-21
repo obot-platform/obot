@@ -8,7 +8,9 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-const defaultUnresolvedReason = "the device could not determine what this tool call targets"
+const (
+	defaultUnresolvedReason = "the device could not determine what this tool call targets"
+)
 
 // Evaluate decides whether call is permitted by allowlist. It is fail-closed:
 // anything that does not positively match an allow rule is denied.

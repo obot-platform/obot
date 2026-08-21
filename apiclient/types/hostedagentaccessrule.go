@@ -1,6 +1,8 @@
 package types
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const (
 	HostedAgentResourceTypeHostedAgent HostedAgentResourceType = "hostedAgent"

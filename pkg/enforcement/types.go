@@ -6,7 +6,9 @@
 // device-side hook both build a NormalizedCall and feed it here.
 package enforcement
 
-import "github.com/obot-platform/obot/apiclient/types"
+import (
+	"github.com/obot-platform/obot/apiclient/types"
+)
 
 // Tool-call kinds produced by the device-side tool classifier. These mirror the
 // classifications obot-sentry derives from a runtime tool name.

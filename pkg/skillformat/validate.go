@@ -12,9 +12,13 @@ import (
 )
 
 // SkillMainFile is the filename for the main skill definition file in a skill directory.
-const SkillMainFile = "SKILL.md"
+const (
+	SkillMainFile = "SKILL.md"
+)
 
-var nameRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
+var (
+	nameRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
+)
 
 // Frontmatter represents the YAML frontmatter of a SKILL.md file,
 // following the Agent Skills specification.

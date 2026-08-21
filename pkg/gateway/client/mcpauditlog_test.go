@@ -18,7 +18,9 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var selectedColumnRE = regexp.MustCompile("`mcp_audit_logs`\\.`([a-z_0-9]+)`")
+var (
+	selectedColumnRE = regexp.MustCompile("`mcp_audit_logs`\\.`([a-z_0-9]+)`")
+)
 
 type testTransformer struct{}
 

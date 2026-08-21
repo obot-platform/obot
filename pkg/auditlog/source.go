@@ -1,6 +1,8 @@
 package auditlog
 
-import api "github.com/obot-platform/obot/apiclient/types"
+import (
+	api "github.com/obot-platform/obot/apiclient/types"
+)
 
 // NormalizeSourceTypes applies the MCP-only default and removes duplicate source types while
 // preserving their original order. It intentionally preserves unknown values so callers can

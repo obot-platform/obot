@@ -25,12 +25,14 @@ const (
 	EntraScope = "https://ai.azure.com/.default"
 )
 
-var endpointHostSuffixes = []string{
-	".openai.azure.com",
-	".cognitiveservices.azure.com",
-	".services.ai.azure.com",
-	".models.ai.azure.com",
-}
+var (
+	endpointHostSuffixes = []string{
+		".openai.azure.com",
+		".cognitiveservices.azure.com",
+		".services.ai.azure.com",
+		".models.ai.azure.com",
+	}
+)
 
 // EntraCredentialCache preserves the Azure SDK credential between requests so
 // its internal access-token cache can be reused instead of fetching a new token

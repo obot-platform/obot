@@ -12,7 +12,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const hostedAgentPoolDefaultsName = "default"
+const (
+	hostedAgentPoolDefaultsName = "default"
+)
 
 type HostedAgentPoolHandler struct {
 	utilization agentbackend.UtilizationReader

@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // MDMAssetSource is the read-only singleton source reconciled by the server.
 type MDMAssetSource struct {

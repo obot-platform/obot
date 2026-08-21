@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testServerURL = "https://obot.example.com"
+const (
+	testServerURL = "https://obot.example.com"
+)
 
 func newTestTokenService(t *testing.T) *TokenService {
 	t.Helper()

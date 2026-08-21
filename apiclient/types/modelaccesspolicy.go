@@ -5,7 +5,9 @@ import (
 	"strings"
 )
 
-const DefaultModelAliasRefPrefix = "obot://"
+const (
+	DefaultModelAliasRefPrefix = "obot://"
+)
 
 type ModelAccessPolicy struct {
 	Metadata                  `json:",inline"`

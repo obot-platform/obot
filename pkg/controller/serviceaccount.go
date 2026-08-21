@@ -23,7 +23,9 @@ const (
 	serviceAccountKeyIDAnnotation  = "obot.obot.ai/key-id"
 )
 
-var errRuntimeK8sConfigUnavailable = errors.New("runtime Kubernetes config is not configured")
+var (
+	errRuntimeK8sConfigUnavailable = errors.New("runtime Kubernetes config is not configured")
+)
 
 func (c *Controller) runServiceAccountKeyRotation(ctx context.Context) {
 	if err := c.reconcileServiceAccountKeys(ctx); err != nil {

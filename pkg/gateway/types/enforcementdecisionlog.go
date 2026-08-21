@@ -1,7 +1,9 @@
 //nolint:revive
 package types
 
-import "time"
+import (
+	"time"
+)
 
 // EnforcementDecisionLog is one recorded allow/deny decision made by the
 // enforcement decision endpoint for a device's tool call.

@@ -1,8 +1,12 @@
 package v1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
-var _ DeleteRefs = (*OAuthToken)(nil)
+var (
+	_ DeleteRefs = (*OAuthToken)(nil)
+)
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

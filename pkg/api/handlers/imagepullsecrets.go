@@ -22,7 +22,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var defaultECRPolicyJSON = buildECRPolicyJSON()
+var (
+	defaultECRPolicyJSON = buildECRPolicyJSON()
+)
 
 type ImagePullSecretHandler struct {
 	mcpRuntimeBackend  string

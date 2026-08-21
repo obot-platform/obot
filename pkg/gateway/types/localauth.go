@@ -1,7 +1,9 @@
 //nolint:revive
 package types
 
-import "time"
+import (
+	"time"
+)
 
 // LocalAuthUser is a username/password user managed by the local auth provider.
 // The email address is the login name and is also what identifies the user to the rest of Obot,

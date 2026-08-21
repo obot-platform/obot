@@ -11,7 +11,9 @@ import (
 // MDMConfigurationPrincipalPrefix namespaces the principal identity (Name/UID)
 // of a MDM configuration so it never collides with user UIDs or device
 // principals. An enrollment credential authenticates as its configuration.
-const MDMConfigurationPrincipalPrefix = "mdm-configuration"
+const (
+	MDMConfigurationPrincipalPrefix = "mdm-configuration"
+)
 
 // MDMConfiguration is a fleet grouping that devices enroll into. Enrollment is
 // authorized by one or more DeviceEnrollmentKeys attached to it; a device

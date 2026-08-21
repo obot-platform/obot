@@ -1,6 +1,8 @@
 package system
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestMCPConnectURL(t *testing.T) {
 	tests := []struct {

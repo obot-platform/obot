@@ -36,9 +36,13 @@ import (
 // SchemaVersion is the manifest format this loader understands. An
 // assets tree declaring anything else is rejected so a newer format
 // can't be misread by an older server.
-const SchemaVersion = "v1"
+const (
+	SchemaVersion = "v1"
+)
 
-var artifactSlugNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
+var (
+	artifactSlugNonAlnum = regexp.MustCompile(`[^a-z0-9]+`)
+)
 
 // Loader validates and renders files from one immutable MDM asset bundle.
 type Loader struct {

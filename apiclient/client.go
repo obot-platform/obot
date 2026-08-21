@@ -24,7 +24,9 @@ import (
 // put these messages in front of people and models: obot-sentry's enforcement
 // hook renders one into the text it hands the agent, where an unbounded body
 // buried the instructions after it. 4 KiB holds every error this API produces.
-const maxErrorBodyBytes = 4 << 10
+const (
+	maxErrorBodyBytes = 4 << 10
+)
 
 type tokenFetcher func(context.Context, string, TokenFetchOptions) (string, error)
 

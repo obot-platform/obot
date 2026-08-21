@@ -29,7 +29,9 @@ const (
 	headerRetryAfter = "Retry-After"
 )
 
-var ErrRateLimitExceeded = errors.New("rate limit exceeded, please try again later")
+var (
+	ErrRateLimitExceeded = errors.New("rate limit exceeded, please try again later")
+)
 
 type Options struct {
 	UnauthenticatedRateLimit int `usage:"Rate limit for unauthenticated requests (req/sec)" default:"100"`

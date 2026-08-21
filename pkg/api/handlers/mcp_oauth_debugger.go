@@ -22,7 +22,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const OAuthDebuggerPendingStateMarker = "oauth-debugger"
+const (
+	OAuthDebuggerPendingStateMarker = "oauth-debugger"
+)
 
 // RegisterOAuthDebuggerClient registers an OAuth client for an MCP server and saves it for later debugger steps.
 func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {

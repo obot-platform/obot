@@ -10,7 +10,9 @@ import (
 
 // DevicePrincipalPrefix namespaces the principal identity (Name/UID) of an
 // enrolled device so it never collides with user UIDs or configuration principals.
-const DevicePrincipalPrefix = "device"
+const (
+	DevicePrincipalPrefix = "device"
+)
 
 // Device is one machine that belongs to a MDMConfiguration, identified by a
 // stable, client-computed DeviceID.

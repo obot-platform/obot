@@ -28,7 +28,8 @@ import (
 // validated it. The command is an rm -rf against a volume shared by every
 // sandbox in the pool, so it is worth the cost of refusing to run rather than
 // trusting that no future caller reaches this with an empty or traversing name.
-const cleanupScript = `set -eu
+const (
+	cleanupScript = `set -eu
 dir="$1"
 case "$dir" in
   ''|.|..|*/*|*..*)
@@ -38,6 +39,7 @@ case "$dir" in
 esac
 rm -rf "/pool/$dir"
 `
+)
 
 func (b *Backend) ReconcileInstance(ctx context.Context, desired agentbackend.DesiredInstance) (agentbackend.InstanceObservation, error) {
 	if desired.Ref.ID == "" {

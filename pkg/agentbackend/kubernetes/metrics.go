@@ -15,7 +15,9 @@ import (
 // metricsAPIPath is the standard metrics.k8s.io endpoint, served by
 // metrics-server. It is queried through a raw REST call rather than the typed
 // k8s.io/metrics client so that live usage costs no extra module dependency.
-const metricsAPIPath = "/apis/metrics.k8s.io/v1beta1/namespaces/%s/pods"
+const (
+	metricsAPIPath = "/apis/metrics.k8s.io/v1beta1/namespaces/%s/pods"
+)
 
 // podMetrics is the subset of PodMetrics this package reads.
 type podMetricsList struct {

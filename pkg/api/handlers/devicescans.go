@@ -16,7 +16,9 @@ import (
 )
 
 // dashboardWindowDefault is the default rolling window applied to GetScanStats.
-const dashboardWindowDefault = 60 * 24 * time.Hour
+const (
+	dashboardWindowDefault = 60 * 24 * time.Hour
+)
 
 // DeviceScansHandler serves the `obot scan` ingest + read API
 type DeviceScansHandler struct{}

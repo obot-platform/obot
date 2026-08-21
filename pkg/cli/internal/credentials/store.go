@@ -1,6 +1,8 @@
 package credentials
 
-import "errors"
+import (
+	"errors"
+)
 
 const (
 	// DefaultService is the OS keyring service name used for Obot CLI
@@ -10,7 +12,9 @@ const (
 
 // ErrNotFound is returned when no credential exists for the requested
 // app URL.
-var ErrNotFound = errors.New("credential not found")
+var (
+	ErrNotFound = errors.New("credential not found")
+)
 
 // Store is the credential storage boundary for Obot app URL scoped
 // bearer tokens.

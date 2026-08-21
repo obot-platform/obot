@@ -77,7 +77,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const leaderElectionRequestTimeout = 15 * time.Second
+const (
+	leaderElectionRequestTimeout = 15 * time.Second
+)
 
 type (
 	GatewayConfig     gserver.Options

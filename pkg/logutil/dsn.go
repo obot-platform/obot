@@ -1,6 +1,8 @@
 package logutil
 
-import "strings"
+import (
+	"strings"
+)
 
 // SanitizeDSN removes credentials from a database DSN for safe logging
 func SanitizeDSN(dsn string) string {

@@ -25,7 +25,9 @@ const (
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
 )
 
-var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+var (
+	envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+)
 
 type Config struct {
 	MCPServers map[string]ServerConfig `json:"mcpServers"`

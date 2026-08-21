@@ -22,7 +22,9 @@ const (
 	tokenKey          = "token"
 )
 
-var ErrLegacyCredential = errors.New("failed to reveal legacy Git credential")
+var (
+	ErrLegacyCredential = errors.New("failed to reveal legacy Git credential")
+)
 
 // NormalizeHost validates and canonicalizes a Git credential host.
 func NormalizeHost(value string) (string, error) {

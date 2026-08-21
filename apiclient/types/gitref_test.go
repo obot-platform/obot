@@ -1,6 +1,8 @@
 package types
 
-import "testing"
+import (
+	"testing"
+)
 
 // The ref reaches git as an argument, so the validator is what stands between a
 // user-supplied string and git's option parser.

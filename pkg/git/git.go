@@ -22,9 +22,13 @@ import (
 	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
 )
 
-const maxRepoSizeMB = 100
+const (
+	maxRepoSizeMB = 100
+)
 
-var errRepoTooLarge = errors.New("repository too large")
+var (
+	errRepoTooLarge = errors.New("repository too large")
+)
 
 type cloneAuthAttempt struct {
 	name  string

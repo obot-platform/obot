@@ -1,6 +1,8 @@
 package types
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 const (
 	// AuditLogEventTypeMCPCall identifies a call received by an Obot-managed MCP server.

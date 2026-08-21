@@ -21,10 +21,12 @@ const (
 	defaultLLMAuditLogBufferSize = 3 * defaultLLMAuditLogBatchSize
 )
 
-var llmAuditLogGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "llmauditlogs",
-}
+var (
+	llmAuditLogGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "llmauditlogs",
+	}
+)
 
 type llmAuditEntry struct {
 	log            types.LLMAuditLog

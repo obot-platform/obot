@@ -19,7 +19,9 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const appContainerName = "obot"
+const (
+	appContainerName = "obot"
+)
 
 type K8sSettingsHandler struct {
 	mcpSessionManager *mcp.SessionManager
