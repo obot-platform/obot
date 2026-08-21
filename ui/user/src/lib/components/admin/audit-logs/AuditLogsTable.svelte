@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatAuditLogCredentialLabel } from '$lib/auditlogs';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import type { AuditLogEvent } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
@@ -13,9 +14,16 @@
 		onSelectRow?: (auditLog: AuditLogEvent) => void;
 		emptyContent?: Snippet;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
+		isCredentialRevoked: (credential: string) => boolean;
 	}
 
-	let { data = [], onSelectRow, emptyContent, getUserDisplayName }: Props = $props();
+	let {
+		data = [],
+		onSelectRow,
+		emptyContent,
+		getUserDisplayName,
+		isCredentialRevoked
+	}: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -259,6 +267,9 @@
 					{@const identifier = identifierParts(d)}
 					{@const actor = actorLabel(d.actor)}
 					{@const credential = d.actor.credentialID}
+					{@const credentialLabel = credential
+						? formatAuditLogCredentialLabel(credential, isCredentialRevoked(credential))
+						: undefined}
 
 					<tr
 						id={`mcp-audit-log-${item.index}`}
@@ -270,7 +281,7 @@
 					>
 						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
 						{@render td(eventTypeLabel(d.eventType))}
-						{@render twoLine(credential || actor, credential ? actor : d.actor.actorType)}
+						{@render twoLine(credentialLabel || actor, credential ? actor : d.actor.actorType)}
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}
