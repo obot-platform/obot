@@ -38,15 +38,15 @@ type SkillHandler struct {
 	materializeSkillSource func(ctx context.Context, skill *v1.Skill, token string) (func(), string, error)
 }
 
+type skillRepositoryCredentialRevealer interface {
+	RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error)
+}
+
 func NewSkillHandler(skillAccessRuleHelper *skillaccessrule.Helper) *SkillHandler {
 	return &SkillHandler{
 		skillAccessRuleHelper:  skillAccessRuleHelper,
 		materializeSkillSource: skillrepository.MaterializeSkillSource,
 	}
-}
-
-type skillRepositoryCredentialRevealer interface {
-	RevealCredential(context.Context, []string, string) (gatewaytypes.Credential, error)
 }
 
 func revealSkillRepositoryToken(ctx context.Context, client skillRepositoryCredentialRevealer, skill *v1.Skill) (string, error) {

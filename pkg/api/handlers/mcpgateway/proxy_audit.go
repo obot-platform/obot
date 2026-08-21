@@ -26,6 +26,10 @@ import (
 const (
 	mcpSessionHeader        = "Mcp-Session-Id"
 	mcpSessionDeleteRequest = `{"jsonrpc":"2.0","method":"session/delete"}`
+
+	proxyMessageUnknown      proxyMessageKind = 0
+	proxyMessageRequest      proxyMessageKind = 1
+	proxyMessageNotification proxyMessageKind = 2
 )
 
 type proxyAuditCollector interface {
@@ -36,12 +40,6 @@ type proxyAuditCollector interface {
 // proxyMessageKind controls whether an HTTP exchange is logged immediately or
 // awaits a correlated JSON-RPC response.
 type proxyMessageKind int
-
-const (
-	proxyMessageUnknown proxyMessageKind = iota
-	proxyMessageRequest
-	proxyMessageNotification
-)
 
 // proxyAudit only retains state for one proxied HTTP exchange. Protocol
 // requests and responses are emitted as separate audit entries; the database
@@ -60,6 +58,29 @@ type proxyAudit struct {
 	responseHooksByID       map[string]hookResult
 	streamRequestHooksByID  map[string]hookResult
 	streamNotificationHooks []hookResult
+}
+
+type clientInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+}
+
+type auditResponseBody struct {
+	io.ReadCloser
+	audit      *proxyAudit
+	statusCode int
+	body       bytes.Buffer
+	once       sync.Once
+}
+
+type auditSSEBody struct {
+	io.ReadCloser
+	audit      *proxyAudit
+	statusCode int
+	buffer     []byte
+	event      string
+	data       []string
+	once       sync.Once
 }
 
 func newProxyAudit(req *http.Request, metadata map[string]string, collector proxyAuditCollector, storageClient kclient.Client) (*proxyAudit, error) {
@@ -270,11 +291,6 @@ func populateMCPClientInfo(entry *auditlogs.MCPAuditLog, msg obotmcp.Message) {
 		entry.ClientName = params.ClientInfo.Name
 		entry.ClientVersion = params.ClientInfo.Version
 	}
-}
-
-type clientInfo struct {
-	Name    string `json:"name"`
-	Version string `json:"version"`
 }
 
 func mcpCallIdentifier(msg obotmcp.Message) string {
@@ -527,14 +543,6 @@ func (a *proxyAudit) submit(entry auditlogs.MCPAuditLog, responseReceived bool) 
 	a.collector.CollectMCPProxyAuditEntry(entry, responseReceived, a.proxyExchangeID)
 }
 
-type auditResponseBody struct {
-	io.ReadCloser
-	audit      *proxyAudit
-	statusCode int
-	body       bytes.Buffer
-	once       sync.Once
-}
-
 func (b *auditResponseBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if n > 0 {
@@ -555,16 +563,6 @@ func (b *auditResponseBody) finish(err error) {
 	b.once.Do(func() {
 		b.audit.recordHTTPResponse(b.body.Bytes(), b.statusCode, err)
 	})
-}
-
-type auditSSEBody struct {
-	io.ReadCloser
-	audit      *proxyAudit
-	statusCode int
-	buffer     []byte
-	event      string
-	data       []string
-	once       sync.Once
 }
 
 func newAuditSSEBody(body io.ReadCloser, auditor *proxyAudit, statusCode int) *auditSSEBody {

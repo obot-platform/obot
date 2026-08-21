@@ -24,9 +24,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const requestTimeUpdateInterval = 15 * time.Minute
+
 var actionEnvVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
-const requestTimeUpdateInterval = 15 * time.Minute
+type missingCatalogEntryAdminConfig struct {
+	SecretBoundFields []string
+	StaticOAuth       bool
+}
 
 // IDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
@@ -547,11 +552,6 @@ func applyMCPServerInstanceHeaderPrefix(value, prefix string) string {
 		return value
 	}
 	return prefix + value
-}
-
-type missingCatalogEntryAdminConfig struct {
-	SecretBoundFields []string
-	StaticOAuth       bool
 }
 
 func (m missingCatalogEntryAdminConfig) err(entryID string) error {

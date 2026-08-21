@@ -23,6 +23,31 @@ type NanobotAgent struct {
 	Status NanobotAgentStatus `json:"status"`
 }
 
+type NanobotAgentSpec struct {
+	types.NanobotAgentManifest `json:",inline"`
+
+	// UserID is the user that created this nanobot workflow
+	UserID string `json:"userID,omitempty"`
+
+	// ProjectID is the project this workflow belongs to
+	ProjectID string `json:"projectID,omitempty"`
+
+	// ProjectV2ID is the project this workflow belongs to
+	// Deprecated: use ProjectID instead.
+	ProjectV2ID string `json:"projectV2ID,omitempty"`
+}
+
+type NanobotAgentStatus struct{}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type NanobotAgentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []NanobotAgent `json:"items"`
+}
+
 func (in *NanobotAgent) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -50,29 +75,4 @@ func (in *NanobotAgent) DeleteRefs() []Ref {
 			Name:    in.Spec.ProjectID,
 		},
 	}
-}
-
-type NanobotAgentSpec struct {
-	types.NanobotAgentManifest `json:",inline"`
-
-	// UserID is the user that created this nanobot workflow
-	UserID string `json:"userID,omitempty"`
-
-	// ProjectID is the project this workflow belongs to
-	ProjectID string `json:"projectID,omitempty"`
-
-	// ProjectV2ID is the project this workflow belongs to
-	// Deprecated: use ProjectID instead.
-	ProjectV2ID string `json:"projectV2ID,omitempty"`
-}
-
-type NanobotAgentStatus struct{}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type NanobotAgentList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []NanobotAgent `json:"items"`
 }

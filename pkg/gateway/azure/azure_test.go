@@ -15,6 +15,16 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+type tokenCredential struct {
+	token  azcore.AccessToken
+	err    error
+	scopes []string
+}
+
+type captureTransport struct {
+	req *http.Request
+}
+
 func TestIsProvider(t *testing.T) {
 	for _, tt := range []struct {
 		name string
@@ -261,19 +271,9 @@ func TestEntraTransportTokenError(t *testing.T) {
 	}
 }
 
-type tokenCredential struct {
-	token  azcore.AccessToken
-	err    error
-	scopes []string
-}
-
 func (c *tokenCredential) GetToken(_ context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	c.scopes = options.Scopes
 	return c.token, c.err
-}
-
-type captureTransport struct {
-	req *http.Request
 }
 
 func (c *captureTransport) RoundTrip(req *http.Request) (*http.Response, error) {

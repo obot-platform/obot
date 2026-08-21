@@ -22,6 +22,17 @@ import (
 
 const websocketCloseTimeout = time.Second
 
+type cancelOnCloseConn struct {
+	net.Conn
+	cancel context.CancelFunc
+}
+
+type clientForwarder struct {
+	client        *http.Client
+	name          string
+	nextRequestID atomic.Uint64
+}
+
 // ConnectURL returns the tunnel websocket endpoint on an Obot instance.
 func ConnectURL(serverURL string) (string, error) {
 	serverURL = strings.TrimSpace(serverURL)
@@ -226,11 +237,6 @@ func disconnectOnClose(connection net.Conn, cancelSession context.CancelFunc) {
 	cancelSession()
 }
 
-type cancelOnCloseConn struct {
-	net.Conn
-	cancel context.CancelFunc
-}
-
 func (c *cancelOnCloseConn) Close() error {
 	c.cancel()
 	return c.Conn.Close()
@@ -245,12 +251,6 @@ func newForwardHTTPClient() *http.Client {
 			return http.ErrUseLastResponse
 		},
 	}
-}
-
-type clientForwarder struct {
-	client        *http.Client
-	name          string
-	nextRequestID atomic.Uint64
 }
 
 func (c *clientForwarder) serve(ctx context.Context, connection net.Conn) error {

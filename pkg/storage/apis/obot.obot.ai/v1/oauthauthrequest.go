@@ -19,31 +19,6 @@ type OAuthAuthRequest struct {
 	Status            OAuthAuthRequestStatus `json:"status"`
 }
 
-func (in *OAuthAuthRequest) Has(field string) bool {
-	return in.Get(field) != ""
-}
-
-func (in *OAuthAuthRequest) Get(field string) string {
-	if in != nil {
-		switch field {
-		case "spec.hashedAuthCode":
-			return in.Spec.HashedAuthCode
-		}
-	}
-
-	return ""
-}
-
-func (in *OAuthAuthRequest) FieldNames() []string {
-	return []string{"spec.hashedAuthCode"}
-}
-
-func (in *OAuthAuthRequest) DeleteRefs() []Ref {
-	return []Ref{
-		{ObjType: new(OAuthClient), Name: in.Spec.ClientID},
-	}
-}
-
 type OAuthAuthRequestSpec struct {
 	RedirectURI               string `json:"redirectURI"`
 	State                     string `json:"state"`
@@ -81,4 +56,29 @@ type OAuthAuthRequestList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []OAuthAuthRequest `json:"items"`
+}
+
+func (in *OAuthAuthRequest) Has(field string) bool {
+	return in.Get(field) != ""
+}
+
+func (in *OAuthAuthRequest) Get(field string) string {
+	if in != nil {
+		switch field {
+		case "spec.hashedAuthCode":
+			return in.Spec.HashedAuthCode
+		}
+	}
+
+	return ""
+}
+
+func (in *OAuthAuthRequest) FieldNames() []string {
+	return []string{"spec.hashedAuthCode"}
+}
+
+func (in *OAuthAuthRequest) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: new(OAuthClient), Name: in.Spec.ClientID},
+	}
 }

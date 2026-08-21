@@ -2,6 +2,11 @@ package types
 
 import "encoding/json"
 
+const (
+	AllowlistServerPackageSourceNPM  AllowlistServerPackageSource = "npm"
+	AllowlistServerPackageSourcePyPI AllowlistServerPackageSource = "pypi"
+)
+
 type MDMConfigurationManifest struct {
 	AssetDigest string          `json:"assetDigest,omitempty"`
 	Values      json.RawMessage `json:"values,omitempty"`
@@ -60,11 +65,6 @@ type AllowlistServer struct {
 }
 
 type AllowlistServerPackageSource string
-
-const (
-	AllowlistServerPackageSourceNPM  AllowlistServerPackageSource = "npm"
-	AllowlistServerPackageSourcePyPI AllowlistServerPackageSource = "pypi"
-)
 
 type AllowlistServerPackage struct {
 	// Source is the registry the package is published to: npm | pypi.

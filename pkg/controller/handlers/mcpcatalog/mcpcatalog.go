@@ -35,12 +35,12 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// CatalogCredentialToolName is the fixed tool name used for the single
-// credential that stores all source-URL tokens for a catalog. Each URL's
-// token is stored as a key in the credential's Env map.
-const CatalogCredentialToolName = "catalog-source-tokens"
-
 const (
+	// CatalogCredentialToolName is the fixed tool name used for the single
+	// credential that stores all source-URL tokens for a catalog. Each URL's
+	// token is stored as a key in the credential's Env map.
+	CatalogCredentialToolName = "catalog-source-tokens"
+
 	catalogReferenceSeparator = "::"
 
 	// These are used to force catalog sync on startup, used for times when changes are made to
@@ -59,6 +59,12 @@ type Handler struct {
 	remoteURLValidationConfig mcp.ValidationOptions
 	mcpBackend                string
 	mcpSessionManager         *mcp.SessionManager
+}
+
+// userInfo is a wrapper around kuser.Info that includes the user's role.
+type userInfo struct {
+	kuser.Info
+	role types.Role
 }
 
 func New(defaultCatalogPath, defaultSystemCatalogPath string, gatewayClient *gclient.Client, accessControlRuleHelper *accesscontrolrule.Helper, mcpSessionManager *mcp.SessionManager) *Handler {
@@ -1115,12 +1121,6 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 	}
 
 	return nil
-}
-
-// userInfo is a wrapper around kuser.Info that includes the user's role.
-type userInfo struct {
-	kuser.Info
-	role types.Role
 }
 
 // getUserInfoForAccessControl gets user info needed for access control checks

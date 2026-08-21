@@ -16,19 +16,41 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var llmAuditLogGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "llmauditlogs",
-}
-
 const (
 	defaultLLMAuditLogBatchSize  = 100
 	defaultLLMAuditLogBufferSize = 3 * defaultLLMAuditLogBatchSize
 )
 
+var llmAuditLogGroupResource = schema.GroupResource{
+	Group:    "obot.obot.ai",
+	Resource: "llmauditlogs",
+}
+
 type llmAuditEntry struct {
 	log            types.LLMAuditLog
 	responseStream []byte
+}
+
+type LLMAuditLogOptions struct {
+	WithSensitiveFields    bool
+	HideModelsRequests     bool
+	APIKeyID               []uint
+	UserID                 []string
+	ModelProvider          []string
+	TargetModel            []string
+	RequestPath            []string
+	ResponseStatus         []int
+	Outcome                []string
+	UserAgent              []string
+	ClientSessionID        []string
+	MessagePolicyTriggered []bool
+	Query                  string
+	StartTime              time.Time
+	EndTime                time.Time
+	Limit                  int
+	Offset                 int
+	SortBy                 string
+	SortOrder              string
 }
 
 func (c *Client) LLMAuditLogEnabled() bool {
@@ -435,26 +457,4 @@ func (c *Client) decryptLLMAuditLog(ctx context.Context, log *types.LLMAuditLog)
 
 func llmAuditLogDataCtx(log *types.LLMAuditLog) value.Context {
 	return value.DefaultContext(fmt.Sprintf("%s/%s/%s", llmAuditLogGroupResource.String(), log.ID, log.UserID))
-}
-
-type LLMAuditLogOptions struct {
-	WithSensitiveFields    bool
-	HideModelsRequests     bool
-	APIKeyID               []uint
-	UserID                 []string
-	ModelProvider          []string
-	TargetModel            []string
-	RequestPath            []string
-	ResponseStatus         []int
-	Outcome                []string
-	UserAgent              []string
-	ClientSessionID        []string
-	MessagePolicyTriggered []bool
-	Query                  string
-	StartTime              time.Time
-	EndTime                time.Time
-	Limit                  int
-	Offset                 int
-	SortBy                 string
-	SortOrder              string
 }

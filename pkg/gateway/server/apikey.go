@@ -28,6 +28,24 @@ type createAPIKeyRequest struct {
 	types.APIKeyScopes `json:",inline"`
 }
 
+// Authentication webhook endpoint
+
+type apiKeyAuthRequest struct {
+	MCPID        string `json:"mcpId,omitempty"`
+	ValidateOnly bool   `json:"validateOnly,omitempty"`
+}
+
+type apiKeyAuthResponse struct {
+	Allowed bool               `json:"allowed"`
+	Reason  string             `json:"reason,omitempty"`
+	Scopes  types.APIKeyScopes `json:"scopes"`
+
+	Subject           string `json:"sub,omitempty"`
+	Name              string `json:"name,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
+	Email             string `json:"email,omitempty"`
+}
+
 // createAPIKey creates an API key for the authenticated user.
 func (s *Server) createAPIKey(apiContext api.Context) error {
 	var req createAPIKeyRequest
@@ -218,24 +236,6 @@ func (s *Server) deleteAnyAPIKey(apiContext api.Context) error {
 	}
 
 	return apiContext.Write(map[string]any{"deleted": true})
-}
-
-// Authentication webhook endpoint
-
-type apiKeyAuthRequest struct {
-	MCPID        string `json:"mcpId,omitempty"`
-	ValidateOnly bool   `json:"validateOnly,omitempty"`
-}
-
-type apiKeyAuthResponse struct {
-	Allowed bool               `json:"allowed"`
-	Reason  string             `json:"reason,omitempty"`
-	Scopes  types.APIKeyScopes `json:"scopes"`
-
-	Subject           string `json:"sub,omitempty"`
-	Name              string `json:"name,omitempty"`
-	PreferredUsername string `json:"preferred_username,omitempty"`
-	Email             string `json:"email,omitempty"`
 }
 
 func (s *Server) authenticateAPIKey(apiContext api.Context) error {

@@ -20,36 +20,6 @@ type PublishedArtifact struct {
 	Status PublishedArtifactStatus `json:"status"`
 }
 
-func (in *PublishedArtifact) Has(field string) (exists bool) {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *PublishedArtifact) Get(field string) (value string) {
-	switch field {
-	case "spec.authorID":
-		return in.Spec.AuthorID
-	case "spec.artifactType":
-		return string(in.Spec.ArtifactType)
-	}
-	return ""
-}
-
-func (in *PublishedArtifact) FieldNames() []string {
-	return []string{"spec.authorID", "spec.artifactType"}
-}
-
-func (*PublishedArtifact) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Skill Name", "Spec.Name"},
-		{"Type", "Spec.ArtifactType"},
-		{"Author", "Spec.AuthorID"},
-		{"Version", "Spec.LatestVersion"},
-		{"Versions", "{{len .Status.Versions}}"},
-		{"Created", "{{ago .CreationTimestamp}}"},
-	}
-}
-
 type PublishedArtifactSpec struct {
 	types.PublishedArtifactManifest `json:",inline"`
 
@@ -79,4 +49,34 @@ type PublishedArtifactList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []PublishedArtifact `json:"items"`
+}
+
+func (in *PublishedArtifact) Has(field string) (exists bool) {
+	return slices.Contains(in.FieldNames(), field)
+}
+
+func (in *PublishedArtifact) Get(field string) (value string) {
+	switch field {
+	case "spec.authorID":
+		return in.Spec.AuthorID
+	case "spec.artifactType":
+		return string(in.Spec.ArtifactType)
+	}
+	return ""
+}
+
+func (in *PublishedArtifact) FieldNames() []string {
+	return []string{"spec.authorID", "spec.artifactType"}
+}
+
+func (*PublishedArtifact) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Skill Name", "Spec.Name"},
+		{"Type", "Spec.ArtifactType"},
+		{"Author", "Spec.AuthorID"},
+		{"Version", "Spec.LatestVersion"},
+		{"Versions", "{{len .Status.Versions}}"},
+		{"Created", "{{ago .CreationTimestamp}}"},
+	}
 }

@@ -26,6 +26,15 @@ type ModelInfoSourceStatus struct {
 	ModelCount   int         `json:"modelCount,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ModelInfoSourceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ModelInfoSource `json:"items"`
+}
+
 func (in *ModelInfoSource) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -34,13 +43,4 @@ func (in *ModelInfoSource) GetColumns() [][]string {
 		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ModelInfoSourceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []ModelInfoSource `json:"items"`
 }

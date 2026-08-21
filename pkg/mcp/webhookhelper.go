@@ -15,19 +15,19 @@ type WebhookHelper struct {
 	baseURL string
 }
 
-func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
-	return &WebhookHelper{
-		indexer: indexer,
-		baseURL: baseURL,
-	}
-}
-
 type Webhook struct {
 	Name, DisplayName string
 	URL               string
 	ToolName          string
 	Definitions       types.MCPSelectors
 	MutateAllowed     bool
+}
+
+func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
+	return &WebhookHelper{
+		indexer: indexer,
+		baseURL: baseURL,
+	}
 }
 
 func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig) ([]Webhook, error) {

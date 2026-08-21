@@ -21,21 +21,6 @@ type MCPTunnel struct {
 	Spec MCPTunnelSpec `json:"spec"`
 }
 
-func (in *MCPTunnel) Has(field string) bool {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *MCPTunnel) Get(field string) string {
-	if field == MCPTunnelCredentialIDField {
-		return in.Spec.CredentialID
-	}
-	return ""
-}
-
-func (*MCPTunnel) FieldNames() []string {
-	return []string{MCPTunnelCredentialIDField}
-}
-
 type MCPTunnelSpec struct {
 	Manifest     types.MCPTunnelManifest `json:"manifest"`
 	Credential   string                  `json:"credential"`
@@ -49,4 +34,19 @@ type MCPTunnelList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPTunnel `json:"items"`
+}
+
+func (in *MCPTunnel) Has(field string) bool {
+	return slices.Contains(in.FieldNames(), field)
+}
+
+func (in *MCPTunnel) Get(field string) string {
+	if field == MCPTunnelCredentialIDField {
+		return in.Spec.CredentialID
+	}
+	return ""
+}
+
+func (*MCPTunnel) FieldNames() []string {
+	return []string{MCPTunnelCredentialIDField}
 }

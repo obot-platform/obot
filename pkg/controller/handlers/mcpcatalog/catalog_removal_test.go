@@ -20,6 +20,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type serverListCountingClient struct {
+	kclient.Client
+	serverListCalls int
+}
+
+type staleCatalogEntryListClient struct {
+	kclient.Client
+}
+
 func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	catalog := testCatalog()
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
@@ -332,15 +341,6 @@ func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
 		}).
 		WithObjects(objects...).
 		Build()
-}
-
-type serverListCountingClient struct {
-	kclient.Client
-	serverListCalls int
-}
-
-type staleCatalogEntryListClient struct {
-	kclient.Client
 }
 
 func (c *staleCatalogEntryListClient) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {

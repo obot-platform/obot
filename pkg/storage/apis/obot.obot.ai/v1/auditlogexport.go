@@ -22,6 +22,37 @@ type AuditLogExport struct {
 	Status AuditLogExportStatus `json:"status"`
 }
 
+type AuditLogExportSpec struct {
+	Name       string                          `json:"name"`
+	Type       types.AuditLogType              `json:"type,omitempty"`
+	Bucket     string                          `json:"bucket"`
+	KeyPrefix  string                          `json:"keyPrefix,omitempty"`
+	StartTime  metav1.Time                     `json:"startTime"`
+	EndTime    metav1.Time                     `json:"endTime"`
+	Filters    *types.AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	// WithRequestAndResponse includes source-specific sensitive request and response fields.
+	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
+}
+
+type AuditLogExportStatus struct {
+	State           types.AuditLogExportState `json:"state"`
+	Error           string                    `json:"error,omitempty"`
+	ExportSize      int64                     `json:"exportSize,omitempty"`
+	ExportPath      string                    `json:"exportPath,omitempty"`
+	StartedAt       *metav1.Time              `json:"startedAt,omitempty"`
+	CompletedAt     *metav1.Time              `json:"completedAt,omitempty"`
+	StorageProvider types.StorageProviderType `json:"storageProvider,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type AuditLogExportList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []AuditLogExport `json:"items"`
+}
+
 func (a *AuditLogExport) Has(field string) (exists bool) {
 	return slices.Contains(a.FieldNames(), field)
 }
@@ -48,41 +79,10 @@ func (*AuditLogExport) GetColumns() [][]string {
 	}
 }
 
-type AuditLogExportSpec struct {
-	Name       string                          `json:"name"`
-	Type       types.AuditLogType              `json:"type,omitempty"`
-	Bucket     string                          `json:"bucket"`
-	KeyPrefix  string                          `json:"keyPrefix,omitempty"`
-	StartTime  metav1.Time                     `json:"startTime"`
-	EndTime    metav1.Time                     `json:"endTime"`
-	Filters    *types.AuditLogExportFilters    `json:"filters,omitempty"`
-	LLMFilters *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
-	// WithRequestAndResponse includes source-specific sensitive request and response fields.
-	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
-}
-
 // EffectiveType treats resources created before the type discriminator as MCP exports.
 func (a AuditLogExportSpec) EffectiveType() types.AuditLogType {
 	if a.Type == "" {
 		return types.AuditLogTypeMCP
 	}
 	return a.Type
-}
-
-type AuditLogExportStatus struct {
-	State           types.AuditLogExportState `json:"state"`
-	Error           string                    `json:"error,omitempty"`
-	ExportSize      int64                     `json:"exportSize,omitempty"`
-	ExportPath      string                    `json:"exportPath,omitempty"`
-	StartedAt       *metav1.Time              `json:"startedAt,omitempty"`
-	CompletedAt     *metav1.Time              `json:"completedAt,omitempty"`
-	StorageProvider types.StorageProviderType `json:"storageProvider,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type AuditLogExportList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []AuditLogExport `json:"items"`
 }

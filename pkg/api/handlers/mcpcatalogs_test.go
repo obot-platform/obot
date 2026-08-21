@@ -22,6 +22,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type fakeCapacityInfoProvider struct {
+	serverNames []string
+	info        types.MCPCapacityInfo
+	err         error
+}
+
 func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
 		Annotations: map[string]string{
@@ -44,12 +50,6 @@ func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	assert.Empty(t, entry.Spec.Manifest.EntryKey)
 	assert.False(t, entry.Spec.Detached)
 	assert.Equal(t, "true", entry.Annotations["example.com/keep"])
-}
-
-type fakeCapacityInfoProvider struct {
-	serverNames []string
-	info        types.MCPCapacityInfo
-	err         error
 }
 
 func (f *fakeCapacityInfoProvider) GetCapacityInfoForServers(_ context.Context, serverNames []string) (types.MCPCapacityInfo, error) {

@@ -21,6 +21,22 @@ type countingResponseWriter struct {
 	body bytes.Buffer
 }
 
+type fullDuplexResponseWriter struct {
+	*countingResponseWriter
+	enabled bool
+}
+
+type noReaderFromResponseWriter struct {
+	hdr http.Header
+
+	code                 int
+	writeHeaderCalls     int
+	writeCalls           int
+	headersAtWriteHeader http.Header
+
+	body bytes.Buffer
+}
+
 func newCountingResponseWriter() *countingResponseWriter {
 	return &countingResponseWriter{hdr: make(http.Header)}
 }
@@ -61,11 +77,6 @@ func cloneHeader(h http.Header) http.Header {
 		out[k] = cp
 	}
 	return out
-}
-
-type fullDuplexResponseWriter struct {
-	*countingResponseWriter
-	enabled bool
 }
 
 func (w *fullDuplexResponseWriter) EnableFullDuplex() error {
@@ -205,17 +216,6 @@ func TestHeadersResponseWriter_ReadFromUsesUnderlyingReaderFrom(t *testing.T) {
 	if got := crw.body.String(); got != "abc" {
 		t.Fatalf("body = %q, want %q", got, "abc")
 	}
-}
-
-type noReaderFromResponseWriter struct {
-	hdr http.Header
-
-	code                 int
-	writeHeaderCalls     int
-	writeCalls           int
-	headersAtWriteHeader http.Header
-
-	body bytes.Buffer
 }
 
 func newNoReaderFromResponseWriter() *noReaderFromResponseWriter {

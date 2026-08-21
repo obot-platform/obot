@@ -1,12 +1,12 @@
 package types
 
-// PublishedArtifactType represents the type of a published artifact.
-type PublishedArtifactType string
-
 const (
 	PublishedArtifactTypeWorkflow PublishedArtifactType = "workflow"
 	PublishedArtifactTypeSkill    PublishedArtifactType = "skill"
 )
+
+// PublishedArtifactType represents the type of a published artifact.
+type PublishedArtifactType string
 
 // PublishedArtifactManifest contains the user/client-editable fields for a published artifact.
 type PublishedArtifactManifest struct {

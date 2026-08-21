@@ -16,6 +16,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type (
+	GVKLookup interface {
+		GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error)
+	}
+
+	FromGVK schema.GroupVersionKind
+)
+
 func Get(ctx context.Context, c kclient.Client, obj v1.Aliasable, namespace, name string) error {
 	var errLookup error
 	if namespace == "" {
@@ -102,12 +110,6 @@ func GetScope(gvk schema.GroupVersionKind, obj v1.Aliasable) string {
 
 	return gvk.Kind
 }
-
-type GVKLookup interface {
-	GroupVersionKindFor(obj runtime.Object) (schema.GroupVersionKind, error)
-}
-
-type FromGVK schema.GroupVersionKind
 
 func (f FromGVK) GroupVersionKindFor(_ runtime.Object) (schema.GroupVersionKind, error) {
 	return schema.GroupVersionKind(f), nil

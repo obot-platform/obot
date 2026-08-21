@@ -14,6 +14,26 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, and [text](url))"
+
+var (
+	// Banner text only supports simple inline formatting (bold, italic, strikethrough)
+	// and HTTP(S) markdown text links; everything else is rejected.
+	disallowedBannerPatterns = []*regexp.Regexp{
+		regexp.MustCompile("```"),                           // fenced code blocks
+		regexp.MustCompile(`!\[[^\]]*]\([^)]*\)`),           // images
+		regexp.MustCompile(`(?i)</?[a-z][^>]*>`),            // raw HTML tags
+		regexp.MustCompile(`(?m)^\s{0,3}#{1,6}\s`),          // headings
+		regexp.MustCompile(`(?m)^\s{0,3}>\s`),               // blockquotes
+		regexp.MustCompile(`(?m)^\s{0,3}(?:[-*+]|\d+\.)\s`), // lists
+		regexp.MustCompile(`(?m)^\s{0,3}(?:[-*_]\s*){3,}$`), // horizontal rules
+		regexp.MustCompile(`\[[^\]]+]\[[^\]]*]`),            // reference-style links
+		regexp.MustCompile(`(?m)^\s*\|.+\|\s*$`),            // tables
+	}
+
+	bannerLinkPattern = regexp.MustCompile(`\[([^\]]+)]\(([^)]+)\)`)
+)
+
 type AppNotificationHandler struct{}
 
 func NewAppNotificationHandler() *AppNotificationHandler {
@@ -79,24 +99,6 @@ func (*AppNotificationHandler) Update(req api.Context) error {
 	converted := convertAppNotification(notification)
 	return req.Write(converted)
 }
-
-// Banner text only supports simple inline formatting (bold, italic, strikethrough)
-// and HTTP(S) markdown text links; everything else is rejected.
-var disallowedBannerPatterns = []*regexp.Regexp{
-	regexp.MustCompile("```"),                           // fenced code blocks
-	regexp.MustCompile(`!\[[^\]]*]\([^)]*\)`),           // images
-	regexp.MustCompile(`(?i)</?[a-z][^>]*>`),            // raw HTML tags
-	regexp.MustCompile(`(?m)^\s{0,3}#{1,6}\s`),          // headings
-	regexp.MustCompile(`(?m)^\s{0,3}>\s`),               // blockquotes
-	regexp.MustCompile(`(?m)^\s{0,3}(?:[-*+]|\d+\.)\s`), // lists
-	regexp.MustCompile(`(?m)^\s{0,3}(?:[-*_]\s*){3,}$`), // horizontal rules
-	regexp.MustCompile(`\[[^\]]+]\[[^\]]*]`),            // reference-style links
-	regexp.MustCompile(`(?m)^\s*\|.+\|\s*$`),            // tables
-}
-
-var bannerLinkPattern = regexp.MustCompile(`\[([^\]]+)]\(([^)]+)\)`)
-
-const bannerTextValidationError = "banner text only supports simple formatting and HTTP(S) text links (bold, italic, strikethrough, and [text](url))"
 
 func validateBanner(banner types.BannerNotification) error {
 	text := strings.TrimSpace(banner.Text)

@@ -8,6 +8,18 @@ import (
 	"strings"
 )
 
+const (
+	HostedAgentQuestionTypeString   HostedAgentQuestionType = "string"
+	HostedAgentQuestionTypeNumber   HostedAgentQuestionType = "number"
+	HostedAgentQuestionTypeBoolean  HostedAgentQuestionType = "boolean"
+	HostedAgentQuestionTypeSelect   HostedAgentQuestionType = "select"
+	HostedAgentQuestionTypeSchedule HostedAgentQuestionType = "schedule"
+
+	HostedAgentStatePending HostedAgentState = "pending"
+	HostedAgentStateReady   HostedAgentState = "ready"
+	HostedAgentStateError   HostedAgentState = "error"
+)
+
 type HostedAgent struct {
 	Metadata            `json:",inline"`
 	HostedAgentManifest `json:",inline"`
@@ -109,14 +121,6 @@ type HostedAgentQuestion struct {
 
 type HostedAgentQuestionType string
 
-const (
-	HostedAgentQuestionTypeString   HostedAgentQuestionType = "string"
-	HostedAgentQuestionTypeNumber   HostedAgentQuestionType = "number"
-	HostedAgentQuestionTypeBoolean  HostedAgentQuestionType = "boolean"
-	HostedAgentQuestionTypeSelect   HostedAgentQuestionType = "select"
-	HostedAgentQuestionTypeSchedule HostedAgentQuestionType = "schedule"
-)
-
 // HostedAgentEnv describes an environment variable. Values for entries marked
 // Sensitive are never stored on the resource; they live in the credential store
 // and Value is blank both in the spec and on the wire.
@@ -133,11 +137,7 @@ type HostedAgentEnv struct {
 // themselves are templates and carry no state; only instances run.
 type HostedAgentState string
 
-const (
-	HostedAgentStatePending HostedAgentState = "pending"
-	HostedAgentStateReady   HostedAgentState = "ready"
-	HostedAgentStateError   HostedAgentState = "error"
-)
+type HostedAgentList List[HostedAgent]
 
 func (m HostedAgentManifest) Validate() error {
 	if strings.TrimSpace(m.Name) == "" {
@@ -327,5 +327,3 @@ func (m HostedAgentManifest) ApplyAnswerDefaults(answers map[string]string) map[
 
 	return result
 }
-
-type HostedAgentList List[HostedAgent]

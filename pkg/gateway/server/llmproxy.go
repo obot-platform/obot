@@ -36,17 +36,69 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
-const tokenUsageTimePeriod = 24 * time.Hour
+const (
+	tokenUsageTimePeriod = 24 * time.Hour
+
+	internalRequestTypeHeader = "X-Nanobot-Internal-Request-Type"
+	threadTitleRequestType    = "nanobot.summary.thread_title"
+)
 
 var (
 	openAIBaseURL    = "https://api.openai.com/v1"
 	anthropicBaseURL = "https://api.anthropic.com/v1"
 )
 
-const (
-	internalRequestTypeHeader = "X-Nanobot-Internal-Request-Type"
-	threadTitleRequestType    = "nanobot.summary.thread_title"
-)
+type responseModifier struct {
+	user                kuser.Info
+	model               string
+	modelProvider       string
+	routeDialect        nanobottypes.Dialect
+	projectID, threadID string
+	client              *client.Client
+	b                   *bufio.Reader
+	c                   io.Closer
+	stream              bool
+	leftover            []byte
+	// Non-streaming JSON is accumulated while forwarded, then parsed once at EOF or Close.
+	nonStreamResponse bytes.Buffer
+	nonStreamParsed   bool
+
+	// Token usage and model access gating
+	tokenUsageTracker *threadSafeTokenUsageTracker
+	mapHelper         *modelaccesspolicy.Helper
+
+	// Input policy violation: replacement text to send back via response header.
+	inputPolicyReplacement string
+
+	// Output (tool-call) policy evaluation fields.
+	messagePolicyHelper *messagepolicy.Helper
+	outputPolicies      []messagepolicy.ApplicablePolicy
+	conversationHistory []messagepolicy.ConversationMessage
+	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
+	audit               *llmAuditRecorder
+}
+
+type preparedLLMProxyRequest struct {
+	body              []byte
+	model             string
+	tokenUsageTracker *threadSafeTokenUsageTracker
+}
+
+type llmProviderProxyBackend interface {
+	modelProviderName() string
+	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
+	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
+}
+
+type llmProviderProxy struct {
+	dailyUserInputTokenLimit  int
+	dailyUserOutputTokenLimit int
+	backend                   llmProviderProxyBackend
+	modelProvider             *v1.ModelProvider
+	mapHelper                 *modelaccesspolicy.Helper
+	messagePolicyHelper       *messagepolicy.Helper
+	lock                      sync.RWMutex
+}
 
 func init() {
 	if base := os.Getenv("OPENAI_BASE_URL"); base != "" {
@@ -107,36 +159,6 @@ func copyBody(body *io.ReadCloser) ([]byte, error) {
 	// Read was successful, restore the body with a copy.
 	*body = io.NopCloser(bytes.NewReader(slices.Clone(b)))
 	return b, nil
-}
-
-type responseModifier struct {
-	user                kuser.Info
-	model               string
-	modelProvider       string
-	routeDialect        nanobottypes.Dialect
-	projectID, threadID string
-	client              *client.Client
-	b                   *bufio.Reader
-	c                   io.Closer
-	stream              bool
-	leftover            []byte
-	// Non-streaming JSON is accumulated while forwarded, then parsed once at EOF or Close.
-	nonStreamResponse bytes.Buffer
-	nonStreamParsed   bool
-
-	// Token usage and model access gating
-	tokenUsageTracker *threadSafeTokenUsageTracker
-	mapHelper         *modelaccesspolicy.Helper
-
-	// Input policy violation: replacement text to send back via response header.
-	inputPolicyReplacement string
-
-	// Output (tool-call) policy evaluation fields.
-	messagePolicyHelper *messagepolicy.Helper
-	outputPolicies      []messagepolicy.ApplicablePolicy
-	conversationHistory []messagepolicy.ConversationMessage
-	pipeReader          *io.PipeReader // set when output policies are active; Read() reads from this
-	audit               *llmAuditRecorder
 }
 
 func (r *responseModifier) modifyResponse(resp *http.Response) error {
@@ -908,28 +930,6 @@ func extractContentString(content any) string {
 	default:
 		return ""
 	}
-}
-
-type preparedLLMProxyRequest struct {
-	body              []byte
-	model             string
-	tokenUsageTracker *threadSafeTokenUsageTracker
-}
-
-type llmProviderProxyBackend interface {
-	modelProviderName() string
-	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, nanobottypes.Dialect, error)
-	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
-}
-
-type llmProviderProxy struct {
-	dailyUserInputTokenLimit  int
-	dailyUserOutputTokenLimit int
-	backend                   llmProviderProxyBackend
-	modelProvider             *v1.ModelProvider
-	mapHelper                 *modelaccesspolicy.Helper
-	messagePolicyHelper       *messagepolicy.Helper
-	lock                      sync.RWMutex
 }
 
 func (s *Server) newLLMProviderProxy(u *url.URL, modelProviderName string) *llmProviderProxy {

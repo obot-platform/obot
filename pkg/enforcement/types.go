@@ -17,10 +17,8 @@ const (
 	KindWrite   = "write"
 	KindTask    = "task"
 	KindGeneric = "generic"
-)
 
-// Supported local agents.
-const (
+	// Supported local agents.
 	AgentClaudeCode = "claude_code"
 	AgentCodex      = "codex"
 	AgentVSCode     = "vscode"

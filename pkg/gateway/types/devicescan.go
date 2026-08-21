@@ -126,6 +126,86 @@ type DeviceScanFile struct {
 	Content      string    `json:"content" gorm:"type:text"`
 }
 
+// MCPServerStat is one row of the device-fleet MCP aggregation: every
+// DeviceScanMCPServer with the same ConfigHash, observed in any
+// device's latest scan within the requested time window, collapses
+// into a single entity. Identity fields (Name, Transport, Command,
+// URL, Args) are constant within a ConfigHash group by construction.
+// Args is loaded post-hoc because JSONB has no MAX() in Postgres.
+type MCPServerStat struct {
+	ConfigHash       string                      `gorm:"column:config_hash"`
+	Name             string                      `gorm:"column:name"`
+	Transport        string                      `gorm:"column:transport"`
+	Command          string                      `gorm:"column:command"`
+	Args             datatypes.JSONSlice[string] `gorm:"-"`
+	URL              string                      `gorm:"column:url"`
+	DeviceCount      int64                       `gorm:"column:device_count"`
+	UserCount        int64                       `gorm:"column:user_count"`
+	ClientCount      int64                       `gorm:"column:client_count"`
+	ObservationCount int64                       `gorm:"column:observation_count"`
+}
+
+// MCPServerDetail is the per-hash detail payload: an aggregated row
+// plus the union of EnvKeys / HeaderKeys observed across every
+// occurrence (those are deliberately excluded from the hash).
+type MCPServerDetail struct {
+	MCPServerStat
+	EnvKeys    []string
+	HeaderKeys []string
+}
+
+// ClientStat is one row of the per-client rollup.
+type ClientStat struct {
+	Name             string `gorm:"column:name"`
+	DeviceCount      int64  `gorm:"column:device_count"`
+	UserCount        int64  `gorm:"column:user_count"`
+	ObservationCount int64  `gorm:"column:observation_count"`
+}
+
+// SkillStat is one row of the per-skill rollup.
+type SkillStat struct {
+	Name             string `gorm:"column:name"`
+	DeviceCount      int64  `gorm:"column:device_count"`
+	UserCount        int64  `gorm:"column:user_count"`
+	ObservationCount int64  `gorm:"column:observation_count"`
+}
+
+// SkillDetail is the per-skill detail payload: an aggregated row plus
+// representative metadata pulled from a single canonical row in the
+// latest-scan-per-device subset. Description / HasScripts /
+// GitRemoteURL / Files come from one observation and are not
+// guaranteed to be stable across observations sharing the same name.
+type SkillDetail struct {
+	SkillStat
+	Description  string
+	HasScripts   bool
+	GitRemoteURL string
+	Files        []string
+}
+
+// MCPServerOccurrence is one device's latest-scan instance of a given
+// ConfigHash.
+type MCPServerOccurrence struct {
+	DeviceScanID uint      `gorm:"column:device_scan_id"`
+	DeviceID     string    `gorm:"column:device_id"`
+	Client       string    `gorm:"column:client"`
+	Scope        string    `gorm:"column:scope"`
+	ScannedAt    time.Time `gorm:"column:scanned_at"`
+	ID           uint      `gorm:"column:id"`
+}
+
+// SkillOccurrence is one device's latest-scan instance of a given
+// skill name.
+type SkillOccurrence struct {
+	DeviceScanID uint      `gorm:"column:device_scan_id"`
+	DeviceID     string    `gorm:"column:device_id"`
+	Client       string    `gorm:"column:client"`
+	Scope        string    `gorm:"column:scope"`
+	ProjectPath  string    `gorm:"column:project_path"`
+	ScannedAt    time.Time `gorm:"column:scanned_at"`
+	ID           uint      `gorm:"column:id"`
+}
+
 // ConvertDeviceScan converts internal DeviceScan to API type. Children
 // must already be loaded (via Preload) for them to appear in the result.
 func ConvertDeviceScan(s DeviceScan) types2.DeviceScan {
@@ -252,86 +332,6 @@ func ConvertDeviceScanPlugin(p DeviceScanPlugin) types2.DeviceScanPlugin {
 		HasCommands:   p.HasCommands,
 		HasHooks:      p.HasHooks,
 	}
-}
-
-// MCPServerStat is one row of the device-fleet MCP aggregation: every
-// DeviceScanMCPServer with the same ConfigHash, observed in any
-// device's latest scan within the requested time window, collapses
-// into a single entity. Identity fields (Name, Transport, Command,
-// URL, Args) are constant within a ConfigHash group by construction.
-// Args is loaded post-hoc because JSONB has no MAX() in Postgres.
-type MCPServerStat struct {
-	ConfigHash       string                      `gorm:"column:config_hash"`
-	Name             string                      `gorm:"column:name"`
-	Transport        string                      `gorm:"column:transport"`
-	Command          string                      `gorm:"column:command"`
-	Args             datatypes.JSONSlice[string] `gorm:"-"`
-	URL              string                      `gorm:"column:url"`
-	DeviceCount      int64                       `gorm:"column:device_count"`
-	UserCount        int64                       `gorm:"column:user_count"`
-	ClientCount      int64                       `gorm:"column:client_count"`
-	ObservationCount int64                       `gorm:"column:observation_count"`
-}
-
-// MCPServerDetail is the per-hash detail payload: an aggregated row
-// plus the union of EnvKeys / HeaderKeys observed across every
-// occurrence (those are deliberately excluded from the hash).
-type MCPServerDetail struct {
-	MCPServerStat
-	EnvKeys    []string
-	HeaderKeys []string
-}
-
-// ClientStat is one row of the per-client rollup.
-type ClientStat struct {
-	Name             string `gorm:"column:name"`
-	DeviceCount      int64  `gorm:"column:device_count"`
-	UserCount        int64  `gorm:"column:user_count"`
-	ObservationCount int64  `gorm:"column:observation_count"`
-}
-
-// SkillStat is one row of the per-skill rollup.
-type SkillStat struct {
-	Name             string `gorm:"column:name"`
-	DeviceCount      int64  `gorm:"column:device_count"`
-	UserCount        int64  `gorm:"column:user_count"`
-	ObservationCount int64  `gorm:"column:observation_count"`
-}
-
-// SkillDetail is the per-skill detail payload: an aggregated row plus
-// representative metadata pulled from a single canonical row in the
-// latest-scan-per-device subset. Description / HasScripts /
-// GitRemoteURL / Files come from one observation and are not
-// guaranteed to be stable across observations sharing the same name.
-type SkillDetail struct {
-	SkillStat
-	Description  string
-	HasScripts   bool
-	GitRemoteURL string
-	Files        []string
-}
-
-// MCPServerOccurrence is one device's latest-scan instance of a given
-// ConfigHash.
-type MCPServerOccurrence struct {
-	DeviceScanID uint      `gorm:"column:device_scan_id"`
-	DeviceID     string    `gorm:"column:device_id"`
-	Client       string    `gorm:"column:client"`
-	Scope        string    `gorm:"column:scope"`
-	ScannedAt    time.Time `gorm:"column:scanned_at"`
-	ID           uint      `gorm:"column:id"`
-}
-
-// SkillOccurrence is one device's latest-scan instance of a given
-// skill name.
-type SkillOccurrence struct {
-	DeviceScanID uint      `gorm:"column:device_scan_id"`
-	DeviceID     string    `gorm:"column:device_id"`
-	Client       string    `gorm:"column:client"`
-	Scope        string    `gorm:"column:scope"`
-	ProjectPath  string    `gorm:"column:project_path"`
-	ScannedAt    time.Time `gorm:"column:scanned_at"`
-	ID           uint      `gorm:"column:id"`
 }
 
 // DeviceScanFromManifest builds a gateway DeviceScan + its children

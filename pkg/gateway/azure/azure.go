@@ -32,6 +32,32 @@ var endpointHostSuffixes = []string{
 	".models.ai.azure.com",
 }
 
+// EntraCredentialCache preserves the Azure SDK credential between requests so
+// its internal access-token cache can be reused instead of fetching a new token
+// for every transport created by the gateway.
+//
+// The cache holds the most recently used Entra configuration. If any value
+// changes (for example, when a client secret is rotated), get replaces the SDK
+// credential. The mutex makes that comparison and replacement atomic when
+// transports are created concurrently.
+type EntraCredentialCache struct {
+	mu           sync.Mutex
+	tenantID     string
+	clientID     string
+	clientSecret string
+	credential   azcore.TokenCredential
+}
+
+type apiKeyTransport struct {
+	key  string
+	next http.RoundTripper
+}
+
+type entraTransport struct {
+	credential azcore.TokenCredential
+	next       http.RoundTripper
+}
+
 func IsProvider(providerName string) bool {
 	return providerName == system.AzureModelProvider || providerName == system.AzureEntraModelProvider
 }
@@ -69,22 +95,6 @@ func BaseURL(providerName string, credentials map[string]string, dialect nanobot
 		return url.URL{}, fmt.Errorf("unsupported Azure model dialect %q", dialect)
 	}
 	return *u, nil
-}
-
-// EntraCredentialCache preserves the Azure SDK credential between requests so
-// its internal access-token cache can be reused instead of fetching a new token
-// for every transport created by the gateway.
-//
-// The cache holds the most recently used Entra configuration. If any value
-// changes (for example, when a client secret is rotated), get replaces the SDK
-// credential. The mutex makes that comparison and replacement atomic when
-// transports are created concurrently.
-type EntraCredentialCache struct {
-	mu           sync.Mutex
-	tenantID     string
-	clientID     string
-	clientSecret string
-	credential   azcore.TokenCredential
 }
 
 func Transport(providerName string, credentials map[string]string, entraCredentials *EntraCredentialCache) (http.RoundTripper, error) {
@@ -135,18 +145,8 @@ func (c *EntraCredentialCache) get(credentials map[string]string) (azcore.TokenC
 	return credential, nil
 }
 
-type apiKeyTransport struct {
-	key  string
-	next http.RoundTripper
-}
-
 func (t apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return roundTripWithBearerToken(req, t.key, t.next)
-}
-
-type entraTransport struct {
-	credential azcore.TokenCredential
-	next       http.RoundTripper
 }
 
 func (t entraTransport) RoundTrip(req *http.Request) (*http.Response, error) {

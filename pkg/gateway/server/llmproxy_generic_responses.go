@@ -16,6 +16,13 @@ const (
 	genericResponsesAPIKeyEnv  = "OBOT_GENERIC_RESPONSES_MODEL_PROVIDER_API_KEY"
 )
 
+type genericResponsesProviderBackend struct{}
+
+type genericResponsesTransport struct {
+	key  string
+	next http.RoundTripper
+}
+
 func (s *Server) newGenericResponsesLLMProviderProxy() *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
@@ -25,8 +32,6 @@ func (s *Server) newGenericResponsesLLMProviderProxy() *llmProviderProxy {
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
 }
-
-type genericResponsesProviderBackend struct{}
 
 func (genericResponsesProviderBackend) modelProviderName() string {
 	return system.GenericResponsesModelProvider
@@ -50,11 +55,6 @@ func (genericResponsesProviderBackend) transport(_ v1.ModelProvider, credEnv map
 		key:  credEnv[genericResponsesAPIKeyEnv],
 		next: http.DefaultTransport,
 	}, nil
-}
-
-type genericResponsesTransport struct {
-	key  string
-	next http.RoundTripper
 }
 
 func (g genericResponsesTransport) RoundTrip(req *http.Request) (*http.Response, error) {

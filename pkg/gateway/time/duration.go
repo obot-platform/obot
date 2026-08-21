@@ -7,18 +7,21 @@ import (
 	"time"
 )
 
-var unitMap = map[string]uint64{
-	"ns": uint64(time.Nanosecond),
-	"us": uint64(time.Microsecond),
-	"µs": uint64(time.Microsecond), // U+00B5 = micro symbol
-	"μs": uint64(time.Microsecond), // U+03BC = Greek letter mu
-	"ms": uint64(time.Millisecond),
-	"s":  uint64(time.Second),
-	"m":  uint64(time.Minute),
-	"h":  uint64(time.Hour),
-	"d":  uint64(24 * time.Hour),
-	"w":  uint64(7 * 24 * time.Hour),
-}
+var (
+	unitMap = map[string]uint64{
+		"ns": uint64(time.Nanosecond),
+		"us": uint64(time.Microsecond),
+		"µs": uint64(time.Microsecond), // U+00B5 = micro symbol
+		"μs": uint64(time.Microsecond), // U+03BC = Greek letter mu
+		"ms": uint64(time.Millisecond),
+		"s":  uint64(time.Second),
+		"m":  uint64(time.Minute),
+		"h":  uint64(time.Hour),
+		"d":  uint64(24 * time.Hour),
+		"w":  uint64(7 * 24 * time.Hour),
+	}
+	errLeadingInt = errors.New("time: bad [0-9]*") // never printed
+)
 
 func ParseDuration(s string) (time.Duration, error) {
 	// [-+]?([0-9]*(\.[0-9]*)?[a-z]+)+
@@ -120,8 +123,6 @@ func ParseDuration(s string) (time.Duration, error) {
 
 	return time.Duration(d), nil
 }
-
-var errLeadingInt = errors.New("time: bad [0-9]*") // never printed
 
 // leadingInt consumes the leading [0-9]* from s.
 func leadingInt[bytes []byte | string](s bytes) (x uint64, rem bytes, err error) {

@@ -13,15 +13,40 @@ import (
 	"golang.org/x/oauth2"
 )
 
-type Options struct {
-	BlockLoopback  bool
-	BlockPrivateIP bool
-	BlockLinkLocal bool
-	AllowList      []string
-	Timeout        time.Duration
-	Headers        http.Header
-	TokenSource    oauth2.TokenSource
-}
+type (
+	Options struct {
+		BlockLoopback  bool
+		BlockPrivateIP bool
+		BlockLinkLocal bool
+		AllowList      []string
+		Timeout        time.Duration
+		Headers        http.Header
+		TokenSource    oauth2.TokenSource
+	}
+
+	checkingTransport struct {
+		base        http.RoundTripper
+		dialer      *safeDialer
+		headers     http.Header
+		tokenSource oauth2.TokenSource
+	}
+
+	safeDialer struct {
+		dialer   *net.Dialer
+		resolver *net.Resolver
+
+		blockLoopback  bool
+		blockPrivateIP bool
+		blockLinkLocal bool
+		allowList      []allowListEntry
+	}
+
+	allowListEntry struct {
+		host   string
+		port   string
+		suffix bool
+	}
+)
 
 // NewClient returns an HTTP client that can block selected local address ranges.
 func NewClient(options Options) *http.Client {
@@ -29,13 +54,6 @@ func NewClient(options Options) *http.Client {
 		Timeout:   options.Timeout,
 		Transport: NewSafeTransport(options),
 	}
-}
-
-type checkingTransport struct {
-	base        http.RoundTripper
-	dialer      *safeDialer
-	headers     http.Header
-	tokenSource oauth2.TokenSource
 }
 
 func NewSafeTransport(options Options) http.RoundTripper {
@@ -100,16 +118,6 @@ func sameOriginAsInitialRequest(req *http.Request, target *url.URL) bool {
 		strings.EqualFold(initial.URL.Scheme, target.Scheme) &&
 		strings.EqualFold(initial.URL.Hostname(), target.Hostname()) &&
 		portForURL(initial.URL) == portForURL(target)
-}
-
-type safeDialer struct {
-	dialer   *net.Dialer
-	resolver *net.Resolver
-
-	blockLoopback  bool
-	blockPrivateIP bool
-	blockLinkLocal bool
-	allowList      []allowListEntry
 }
 
 func (d *safeDialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
@@ -204,12 +212,6 @@ func (d *safeDialer) blockedReason(ip net.IP) string {
 		return "link-local"
 	}
 	return ""
-}
-
-type allowListEntry struct {
-	host   string
-	port   string
-	suffix bool
 }
 
 func parseAllowList(entries []string) []allowListEntry {

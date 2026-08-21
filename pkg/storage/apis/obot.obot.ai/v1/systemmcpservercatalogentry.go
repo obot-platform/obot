@@ -23,6 +23,30 @@ type SystemMCPServerCatalogEntry struct {
 	Status SystemMCPServerCatalogEntryStatus `json:"status"`
 }
 
+type SystemMCPServerCatalogEntrySpec struct {
+	Manifest             types.SystemMCPServerCatalogEntryManifest `json:"manifest"`
+	SourceURL            string                                    `json:"sourceURL,omitempty"`
+	Editable             bool                                      `json:"editable,omitempty"`
+	SystemMCPCatalogName string                                    `json:"systemMCPCatalogName,omitempty"`
+}
+
+type SystemMCPServerCatalogEntryStatus struct {
+	LastUpdated               *metav1.Time `json:"lastUpdated,omitempty"`
+	ToolPreviewsLastGenerated *metav1.Time `json:"toolPreviewsLastGenerated,omitempty"`
+	ManifestHash              string       `json:"manifestHash,omitempty"`
+	NeedsUpdate               bool         `json:"needsUpdate,omitempty"`
+	OAuthCredentialConfigured bool         `json:"oauthCredentialConfigured,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SystemMCPServerCatalogEntryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []SystemMCPServerCatalogEntry `json:"items"`
+}
+
 func (in *SystemMCPServerCatalogEntry) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -55,28 +79,4 @@ func (in *SystemMCPServerCatalogEntry) FieldNames() []string {
 
 func (in *SystemMCPServerCatalogEntry) DeleteRefs() []Ref {
 	return []Ref{{ObjType: &SystemMCPCatalog{}, Name: in.Spec.SystemMCPCatalogName}}
-}
-
-type SystemMCPServerCatalogEntrySpec struct {
-	Manifest             types.SystemMCPServerCatalogEntryManifest `json:"manifest"`
-	SourceURL            string                                    `json:"sourceURL,omitempty"`
-	Editable             bool                                      `json:"editable,omitempty"`
-	SystemMCPCatalogName string                                    `json:"systemMCPCatalogName,omitempty"`
-}
-
-type SystemMCPServerCatalogEntryStatus struct {
-	LastUpdated               *metav1.Time `json:"lastUpdated,omitempty"`
-	ToolPreviewsLastGenerated *metav1.Time `json:"toolPreviewsLastGenerated,omitempty"`
-	ManifestHash              string       `json:"manifestHash,omitempty"`
-	NeedsUpdate               bool         `json:"needsUpdate,omitempty"`
-	OAuthCredentialConfigured bool         `json:"oauthCredentialConfigured,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type SystemMCPServerCatalogEntryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []SystemMCPServerCatalogEntry `json:"items"`
 }

@@ -15,15 +15,6 @@ type HostedAgentAccessRule struct {
 	Status EmptyStatus               `json:"status"`
 }
 
-func (in *HostedAgentAccessRule) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
-		{"Resources", "{{len .Spec.Manifest.Resources}}"},
-	}
-}
-
 type HostedAgentAccessRuleSpec struct {
 	Manifest types.HostedAgentAccessRuleManifest `json:"manifest"`
 }
@@ -35,4 +26,13 @@ type HostedAgentAccessRuleList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []HostedAgentAccessRule `json:"items"`
+}
+
+func (in *HostedAgentAccessRule) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Display Name", "Spec.Manifest.DisplayName"},
+		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
+		{"Resources", "{{len .Spec.Manifest.Resources}}"},
+	}
 }

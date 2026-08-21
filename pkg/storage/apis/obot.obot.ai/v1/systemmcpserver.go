@@ -48,6 +48,15 @@ type SystemMCPServerStatus struct {
 	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SystemMCPServerList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []SystemMCPServer `json:"items"`
+}
+
 func (in *SystemMCPServer) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -78,13 +87,4 @@ func (in *SystemMCPServer) DeleteRefs() []Ref {
 		}}
 	}
 	return nil
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type SystemMCPServerList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []SystemMCPServer `json:"items"`
 }

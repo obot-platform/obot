@@ -9,6 +9,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// transportStreamableHTTP is what the MCP gateway speaks.
+const transportStreamableHTTP = "streamable-http"
+
 // agentConfig is the whole of what a sandbox is told, written to
 // /etc/obot/agent.json at start-up.
 //
@@ -152,9 +155,6 @@ type agentSecretMCP struct {
 type agentSecretModelProvider struct {
 	APIKey string `json:"apiKey,omitempty"`
 }
-
-// transportStreamableHTTP is what the MCP gateway speaks.
-const transportStreamableHTTP = "streamable-http"
 
 // mcpServerConfig builds a ready-to-use connection for each MCP server the
 // agent was granted.

@@ -15,6 +15,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type recordingReconciler struct {
+	snapshots []map[string]string
+}
+
 func TestReconcileAggregatesEndpointSlices(t *testing.T) {
 	peerA := endpointSlice("slice-a", discoveryv1.AddressTypeIPv4, 8080,
 		endpoint("peer-a", "10.0.0.1"))
@@ -174,10 +178,6 @@ func TestSelectPeersIPv6AndDeterministicDuplicates(t *testing.T) {
 			t.Fatalf("peers = %#v, want %#v", got, want)
 		}
 	}
-}
-
-type recordingReconciler struct {
-	snapshots []map[string]string
 }
 
 func newRecordingReconciler() *recordingReconciler {

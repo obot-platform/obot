@@ -24,6 +24,8 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
+
 var (
 	verifiedAuthProviders = []string{
 		"default/google-auth-provider",
@@ -35,8 +37,6 @@ var (
 		Resource: "identities",
 	}
 )
-
-const userCreationAdvisoryLockID int64 = 0x6f626f7455736572 // "obotUser"
 
 // FindIdentitiesForUser finds all identities for the given user.
 func (c *Client) FindIdentitiesForUser(ctx context.Context, userID uint) ([]types.Identity, error) {

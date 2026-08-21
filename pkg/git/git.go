@@ -38,6 +38,11 @@ type cloneRefAttempt struct {
 	depth         int
 }
 
+// githubRepoInfo represents repository information from the GitHub API.
+type githubRepoInfo struct {
+	Size int `json:"size"` // Size in KB
+}
+
 func cloneAuthAttempts(token, fallbackToken string) []cloneAuthAttempt {
 	if token != "" {
 		return []cloneAuthAttempt{{name: "token", token: token}}
@@ -325,11 +330,6 @@ func isFullCommitSHA(ref string) bool {
 
 func isContextError(err error) bool {
 	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-}
-
-// githubRepoInfo represents repository information from the GitHub API.
-type githubRepoInfo struct {
-	Size int `json:"size"` // Size in KB
 }
 
 // checkGitHubRepoSize checks repo size via the GitHub API before cloning.

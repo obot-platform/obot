@@ -17,9 +17,10 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const syncInterval = time.Hour
-
-const SkillRepositoryCredentialToolName = "skill-repository-source-token"
+const (
+	syncInterval                      = time.Hour
+	SkillRepositoryCredentialToolName = "skill-repository-source-token"
+)
 
 type repositoryFetcher interface {
 	Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)

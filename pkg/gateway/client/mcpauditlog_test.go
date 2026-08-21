@@ -18,6 +18,10 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
+var selectedColumnRE = regexp.MustCompile("`mcp_audit_logs`\\.`([a-z_0-9]+)`")
+
+type testTransformer struct{}
+
 func TestInsertMCPAuditLogsAllowsMultipleMCPRowsWithLocalAgentIndexes(t *testing.T) {
 	c := newTestClient(t)
 	ctx := t.Context()
@@ -1161,8 +1165,6 @@ func testEncryptionConfig() *encryptionconfig.EncryptionConfiguration {
 	}
 }
 
-type testTransformer struct{}
-
 func (testTransformer) TransformToStorage(_ context.Context, data []byte, _ value.Context) ([]byte, error) {
 	return append([]byte("encrypted:"), data...), nil
 }
@@ -1170,8 +1172,6 @@ func (testTransformer) TransformToStorage(_ context.Context, data []byte, _ valu
 func (testTransformer) TransformFromStorage(_ context.Context, data []byte, _ value.Context) ([]byte, bool, error) {
 	return bytes.TrimPrefix(data, []byte("encrypted:")), false, nil
 }
-
-var selectedColumnRE = regexp.MustCompile("`mcp_audit_logs`\\.`([a-z_0-9]+)`")
 
 // TestOmitMCPAuditLogSensitiveFieldsExcludesExactlyThePayloadColumns proves that the query used
 // when payloads aren't requested actually stops reading the large/sensitive columns (rather than

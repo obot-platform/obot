@@ -1,5 +1,9 @@
 package types
 
+const (
+	SystemMCPServerTypeFilter SystemMCPServerType = "filter"
+)
+
 type SystemMCPCatalogManifest struct {
 	DisplayName               string            `json:"displayName"`
 	SourceURLs                []string          `json:"sourceURLs"`
@@ -8,10 +12,6 @@ type SystemMCPCatalogManifest struct {
 }
 
 type SystemMCPServerType string
-
-const (
-	SystemMCPServerTypeFilter SystemMCPServerType = "filter"
-)
 
 type SystemMCPCatalog struct {
 	Metadata

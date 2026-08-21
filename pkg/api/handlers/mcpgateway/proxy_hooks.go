@@ -46,6 +46,55 @@ type hookProcessor struct {
 	requestResponse []byte
 }
 
+type gzipHookBody struct {
+	*gzip.Reader
+	source io.Closer
+}
+
+// filteredRequest contains the wire request plus the context needed to filter
+// its eventual response.
+type filteredRequest struct {
+	body      []byte
+	request   pendingRequest
+	requestID string
+	hooks     hookResult
+}
+
+// hookResult is the complete outcome of running the matching hook chain. The
+// audit recorder consumes the same result, so hook execution has one result
+// type instead of a second, nearly identical audit type.
+type hookResult struct {
+	message         mcp.Message
+	mutations       map[string]mcp.HookMutation
+	statuses        []hookStatus
+	mutated         bool
+	err             error
+	originalBody    json.RawMessage
+	mutatedBody     json.RawMessage
+	responseChanged bool
+}
+
+type hookStatus struct {
+	typeName, method, name, tool, status, message string
+}
+
+type hookBlockedError struct {
+	direction string
+	reasons   []string
+}
+
+type hookSSEBody struct {
+	source      io.ReadCloser
+	reader      *bufio.Reader
+	hooks       *hookProcessor
+	output      []byte
+	terminalErr error
+}
+
+type hookSSELine struct {
+	value, ending string
+}
+
 func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore) (*hookProcessor, error) {
 	processor := &hookProcessor{
 		ctx:       req.Context(),
@@ -142,11 +191,6 @@ func decodeMCPHookMessage(body []byte, message *mcp.Message) error {
 		return err
 	}
 	return nil
-}
-
-type gzipHookBody struct {
-	*gzip.Reader
-	source io.Closer
 }
 
 func (b *gzipHookBody) Close() error {
@@ -344,15 +388,6 @@ func (h *hookProcessor) filterRequestMessage(body []byte, wireMessage mcp.Messag
 	return filtered.body
 }
 
-// filteredRequest contains the wire request plus the context needed to filter
-// its eventual response.
-type filteredRequest struct {
-	body      []byte
-	request   pendingRequest
-	requestID string
-	hooks     hookResult
-}
-
 func (h *hookProcessor) filterRequest(body []byte, wireMessage mcp.Message, origin hookOrigin) (filteredRequest, error) {
 	result := h.run(wireMessage, wireMessage.Method, mcpHookMessageName(wireMessage), "request", nil)
 	if result.err != nil {
@@ -400,29 +435,6 @@ func (h *hookProcessor) takePendingRequest(wireID any, origin hookOrigin) (pendi
 		return pendingRequest{}, found, err
 	}
 	return request, true, nil
-}
-
-// hookResult is the complete outcome of running the matching hook chain. The
-// audit recorder consumes the same result, so hook execution has one result
-// type instead of a second, nearly identical audit type.
-type hookResult struct {
-	message         mcp.Message
-	mutations       map[string]mcp.HookMutation
-	statuses        []hookStatus
-	mutated         bool
-	err             error
-	originalBody    json.RawMessage
-	mutatedBody     json.RawMessage
-	responseChanged bool
-}
-
-type hookStatus struct {
-	typeName, method, name, tool, status, message string
-}
-
-type hookBlockedError struct {
-	direction string
-	reasons   []string
 }
 
 func (e *hookBlockedError) Error() string {
@@ -619,14 +631,6 @@ func mcpHookErrorResponse(request mcp.Message, direction string, hookErr error) 
 	return data
 }
 
-type hookSSEBody struct {
-	source      io.ReadCloser
-	reader      *bufio.Reader
-	hooks       *hookProcessor
-	output      []byte
-	terminalErr error
-}
-
 func newHookSSEBody(source io.ReadCloser, hooks *hookProcessor) *hookSSEBody {
 	return &hookSSEBody{source: source, reader: bufio.NewReader(source), hooks: hooks}
 }
@@ -708,10 +712,6 @@ func (b *hookSSEBody) transformEvent(rawEvent []byte, lines []hookSSELine) []byt
 		output.WriteString(line.ending)
 	}
 	return output.Bytes()
-}
-
-type hookSSELine struct {
-	value, ending string
 }
 
 func readMCPHookSSEEvent(reader *bufio.Reader) ([]byte, []hookSSELine, error) {

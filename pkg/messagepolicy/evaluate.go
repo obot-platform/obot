@@ -59,6 +59,41 @@ type resolvedModel struct {
 	httpClient   *http.Client
 }
 
+// chatMessage is a minimal OpenAI-format chat message for policy evaluation requests.
+type chatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+// chatCompletionRequest is the request body for OpenAI-format chat completions.
+// Stream is always set to true to match normal Obot proxy usage patterns.
+type chatCompletionRequest struct {
+	Model    string        `json:"model"`
+	Messages []chatMessage `json:"messages"`
+	Stream   bool          `json:"stream"`
+}
+
+type anthropicMessagesRequest struct {
+	Model     string        `json:"model"`
+	System    string        `json:"system,omitempty"`
+	Messages  []chatMessage `json:"messages"`
+	MaxTokens int           `json:"max_tokens"`
+	Stream    bool          `json:"stream"`
+}
+
+type openAIResponsesRequest struct {
+	Model        string        `json:"model"`
+	Instructions string        `json:"instructions,omitempty"`
+	Input        []chatMessage `json:"input"`
+	Stream       bool          `json:"stream"`
+}
+
+// reviewResult holds the outcome of a Stage 2 review.
+type reviewResult struct {
+	Compliant   bool
+	Explanation string
+}
+
 // EvaluateMessage runs all applicable policies against a message in parallel.
 // Returns a slice of violations (empty if all policies pass). Never returns an error;
 // LLM failures are treated as violations (fail closed).
@@ -237,35 +272,6 @@ func (h *Helper) resolveModelByAlias(ctx context.Context, aliasType types.Defaul
 		dialect:      model.Spec.Manifest.Dialect,
 		httpClient:   httpClient,
 	}, nil
-}
-
-// chatMessage is a minimal OpenAI-format chat message for policy evaluation requests.
-type chatMessage struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// chatCompletionRequest is the request body for OpenAI-format chat completions.
-// Stream is always set to true to match normal Obot proxy usage patterns.
-type chatCompletionRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
-	Stream   bool          `json:"stream"`
-}
-
-type anthropicMessagesRequest struct {
-	Model     string        `json:"model"`
-	System    string        `json:"system,omitempty"`
-	Messages  []chatMessage `json:"messages"`
-	MaxTokens int           `json:"max_tokens"`
-	Stream    bool          `json:"stream"`
-}
-
-type openAIResponsesRequest struct {
-	Model        string        `json:"model"`
-	Instructions string        `json:"instructions,omitempty"`
-	Input        []chatMessage `json:"input"`
-	Stream       bool          `json:"stream"`
 }
 
 // callLLM makes a streaming LLM call to the resolved model provider, using the
@@ -483,12 +489,6 @@ func (h *Helper) checkCompliance(ctx context.Context, resolved *resolvedModel, p
 	}
 
 	return answer == "yes"
-}
-
-// reviewResult holds the outcome of a Stage 2 review.
-type reviewResult struct {
-	Compliant   bool
-	Explanation string
 }
 
 // reviewCompliance performs Stage 2: uses the full Chat model (llm alias) to review a stage 1 denial.

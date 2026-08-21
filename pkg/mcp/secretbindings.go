@@ -15,6 +15,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+type MissingSecretBinding struct {
+	Kind    string
+	Header  types.MCPHeader
+	Binding *types.MCPSecretBinding
+}
+
 // MergeBoundCreds resolves every secretBinding referenced by envs and (for
 // remote runtime) remoteConfig.Headers from the obot namespace and returns a
 // NEW map containing credEnv merged with the resolved values:
@@ -162,12 +168,6 @@ func MergeBoundCreds(
 	}
 
 	return merged, nil
-}
-
-type MissingSecretBinding struct {
-	Kind    string
-	Header  types.MCPHeader
-	Binding *types.MCPSecretBinding
 }
 
 func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) ([]MissingSecretBinding, error) {

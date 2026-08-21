@@ -23,6 +23,33 @@ type HostedAgent struct {
 	Status HostedAgentStatus `json:"status"`
 }
 
+type HostedAgentSpec struct {
+	// Manifest holds the agent definition. Values for env entries marked
+	// sensitive are blanked here and kept in the credential store instead.
+	Manifest types.HostedAgentManifest `json:"manifest"`
+
+	// SourceID names the AgentCatalog this agent was discovered from. Empty for
+	// agents an admin registered by hand, which the sync never touches.
+	SourceID string `json:"sourceID,omitempty"`
+	// RelativePath is where the agent was found within the source repository.
+	RelativePath string `json:"relativePath,omitempty"`
+	// CommitSHA is the source commit this agent was built from.
+	CommitSHA string `json:"commitSHA,omitempty"`
+}
+
+// HostedAgentStatus is empty: an agent is a template, and orchestration state
+// lives on its instances.
+type HostedAgentStatus struct{}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type HostedAgentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []HostedAgent `json:"items"`
+}
+
 func (in *HostedAgent) Has(field string) bool {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -57,31 +84,4 @@ func (in *HostedAgent) GetColumns() [][]string {
 		{"Harness", "Spec.Manifest.HarnessID"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-type HostedAgentSpec struct {
-	// Manifest holds the agent definition. Values for env entries marked
-	// sensitive are blanked here and kept in the credential store instead.
-	Manifest types.HostedAgentManifest `json:"manifest"`
-
-	// SourceID names the AgentCatalog this agent was discovered from. Empty for
-	// agents an admin registered by hand, which the sync never touches.
-	SourceID string `json:"sourceID,omitempty"`
-	// RelativePath is where the agent was found within the source repository.
-	RelativePath string `json:"relativePath,omitempty"`
-	// CommitSHA is the source commit this agent was built from.
-	CommitSHA string `json:"commitSHA,omitempty"`
-}
-
-// HostedAgentStatus is empty: an agent is a template, and orchestration state
-// lives on its instances.
-type HostedAgentStatus struct{}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type HostedAgentList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []HostedAgent `json:"items"`
 }

@@ -20,6 +20,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type testStorageProvider struct {
+	bucket string
+	key    string
+	data   string
+	err    error
+}
+
+type failingStorageProvider struct {
+	err error
+}
+
+type failingAfterReadStorageProvider struct {
+	data string
+	err  error
+}
+
+type successWithoutReadStorageProvider struct{}
+
 func TestLLMAuditLogOptionsFromExport(t *testing.T) {
 	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
@@ -90,13 +108,6 @@ func TestAuditLogOptionsFromExportWithoutFilters(t *testing.T) {
 	}
 }
 
-type testStorageProvider struct {
-	bucket string
-	key    string
-	data   string
-	err    error
-}
-
 func (t *testStorageProvider) Test(context.Context, types.StorageConfig) error {
 	return nil
 }
@@ -113,21 +124,12 @@ func (t *testStorageProvider) Upload(_ context.Context, _ types.StorageConfig, b
 	return nil
 }
 
-type failingStorageProvider struct {
-	err error
-}
-
 func (f failingStorageProvider) Test(context.Context, types.StorageConfig) error {
 	return nil
 }
 
 func (f failingStorageProvider) Upload(context.Context, types.StorageConfig, string, string, io.Reader) error {
 	return f.err
-}
-
-type failingAfterReadStorageProvider struct {
-	data string
-	err  error
 }
 
 func (f *failingAfterReadStorageProvider) Test(context.Context, types.StorageConfig) error {
@@ -142,8 +144,6 @@ func (f *failingAfterReadStorageProvider) Upload(_ context.Context, _ types.Stor
 	f.data = string(b)
 	return f.err
 }
-
-type successWithoutReadStorageProvider struct{}
 
 func (s successWithoutReadStorageProvider) Test(context.Context, types.StorageConfig) error {
 	return nil

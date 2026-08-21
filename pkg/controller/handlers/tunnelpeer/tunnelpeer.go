@@ -25,6 +25,11 @@ type Handler struct {
 	reconciler PeerReconciler
 }
 
+type peerCandidate struct {
+	address string
+	port    int32
+}
+
 // New creates an EndpointSlice handler for tunnel peer discovery.
 func New(id string, reconciler PeerReconciler) *Handler {
 	return &Handler{
@@ -95,11 +100,6 @@ func selectPeers(endpointSlices []discoveryv1.EndpointSlice, namespace, selfID s
 		peers[peerID] = "ws://" + net.JoinHostPort(candidate.address, strconv.Itoa(int(candidate.port))) + tunnel.PeerConnectPath
 	}
 	return peers
-}
-
-type peerCandidate struct {
-	address string
-	port    int32
 }
 
 func (c peerCandidate) less(other peerCandidate) bool {

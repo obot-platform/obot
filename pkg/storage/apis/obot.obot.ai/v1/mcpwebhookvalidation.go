@@ -23,6 +23,15 @@ type MCPWebhookValidationStatus struct {
 	Configured bool `json:"configured"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MCPWebhookValidationList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []MCPWebhookValidation `json:"items"`
+}
+
 func (in *MCPWebhookValidation) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -31,13 +40,4 @@ func (in *MCPWebhookValidation) GetColumns() [][]string {
 		{"URL", "{{.Spec.Manifest.URL}}"},
 		{"Disabled", "{{.Spec.Manifest.Disabled}}"},
 	}
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type MCPWebhookValidationList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []MCPWebhookValidation `json:"items"`
 }

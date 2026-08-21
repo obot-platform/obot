@@ -6,6 +6,8 @@ type pathMatcher struct {
 	m *http.ServeMux
 }
 
+type GetVar func(string) string
+
 func newPathMatcher(paths ...string) *pathMatcher {
 	m := http.NewServeMux()
 	for _, path := range paths {
@@ -13,8 +15,6 @@ func newPathMatcher(paths ...string) *pathMatcher {
 	}
 	return &pathMatcher{m: m}
 }
-
-type GetVar func(string) string
 
 func (p *pathMatcher) Match(req *http.Request) (GetVar, bool) {
 	if p == nil {

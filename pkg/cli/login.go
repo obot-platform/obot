@@ -22,6 +22,12 @@ type Login struct {
 	root             *Obot
 }
 
+// PromptConfig contains shared local options for commands that may require interactive input from users.
+// e.g. Any command that performs just-in-time authentication for unauthenticated users.
+type PromptConfig struct {
+	NonInteractive bool `usage:"Never read from stdin; fail if required input is missing" env:"OBOT_NON_INTERACTIVE" local:"true"`
+}
+
 func (l *Login) Customize(cmd *cobra.Command) {
 	cmd.Use = "login"
 	cmd.Short = "Authenticate with an Obot server and store credentials locally"
@@ -55,12 +61,6 @@ func (l *Login) Run(cmd *cobra.Command, _ []string) error {
 		fmt.Println(token)
 	}
 	return nil
-}
-
-// PromptConfig contains shared local options for commands that may require interactive input from users.
-// e.g. Any command that performs just-in-time authentication for unauthenticated users.
-type PromptConfig struct {
-	NonInteractive bool `usage:"Never read from stdin; fail if required input is missing" env:"OBOT_NON_INTERACTIVE" local:"true"`
 }
 
 func (p PromptConfig) Pre(cmd *cobra.Command, _ []string) error {

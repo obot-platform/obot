@@ -37,6 +37,8 @@ type fakeSkillRepositoryCredentialClient struct {
 	credential gatewaytypes.Credential
 }
 
+type credentialNotFoundClient struct{}
+
 func newHandlerTestGateway(t *testing.T) *gclient.Client {
 	t.Helper()
 	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
@@ -69,8 +71,6 @@ func TestRevealSkillRepositoryToken(t *testing.T) {
 	_, err = revealSkillRepositoryToken(t.Context(), credentialNotFoundClient{}, skill)
 	require.NoError(t, err)
 }
-
-type credentialNotFoundClient struct{}
 
 func (credentialNotFoundClient) RevealCredential(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
 	return gatewaytypes.Credential{}, gclient.CredentialNotFoundError{Contexts: contexts, Name: name}

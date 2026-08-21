@@ -61,6 +61,23 @@ type sourceFetcher interface {
 
 type gitSourceFetcher struct{}
 
+type Handler struct {
+	fetcher sourceFetcher
+	now     func() time.Time
+}
+
+// discovered is everything one sync of a source yields: harnesses and the
+// agents built on them.
+type discovered struct {
+	Harnesses []*v1.Harness
+	Agents    []*v1.HostedAgent
+}
+
+type sourceDefinition struct {
+	path string
+	kind string
+}
+
 func (gitSourceFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetchedSource, error) {
 	if localPath, ok, err := localRepositoryPath(repoURL); err != nil {
 		return nil, err
@@ -77,11 +94,6 @@ func (gitSourceFetcher) Fetch(ctx context.Context, repoURL, ref string) (*fetche
 		CommitSHA: commitSHA,
 		Cleanup:   cleanup,
 	}, nil
-}
-
-type Handler struct {
-	fetcher sourceFetcher
-	now     func() time.Time
 }
 
 func New() *Handler {
@@ -153,13 +165,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return nil
 }
 
-// discovered is everything one sync of a source yields: harnesses and the
-// agents built on them.
-type discovered struct {
-	Harnesses []*v1.Harness
-	Agents    []*v1.HostedAgent
-}
-
 // buildFromSource recursively discovers strict YAML manifests. Symlinks and
 // .git metadata are ignored so definitions cannot escape the checked-out
 // repository or accidentally ingest Git internals.
@@ -227,11 +232,6 @@ func buildFromSource(repoRoot string, source *v1.AgentCatalog, commitSHA string)
 	}
 
 	return result, nil
-}
-
-type sourceDefinition struct {
-	path string
-	kind string
 }
 
 func discoverDefinitions(repoRoot string) ([]sourceDefinition, error) {

@@ -30,10 +30,6 @@ type LogEntry struct {
 	Host         string    `json:"host"`
 }
 
-func (e LogEntry) bytes() ([]byte, error) {
-	return json.Marshal(e)
-}
-
 type Options struct {
 	AuditLogsMode             string `usage:"Enable audit logging" default:"off"`
 	AuditLogsMaxFileSize      int    `usage:"Audit log max file size in bytes, logs will be flushed when this size is exceeded" default:"1073741824"`
@@ -56,6 +52,12 @@ type persistentLogger struct {
 	buffer      []byte
 	spare       []byte // reusable buffer from previous successful persist
 	maxSize     int    // flush trigger threshold (= AuditLogsMaxFileSize)
+}
+
+type noOpLogger struct{}
+
+func (e LogEntry) bytes() ([]byte, error) {
+	return json.Marshal(e)
 }
 
 func New(ctx context.Context, options Options) (Logger, error) {
@@ -174,8 +176,6 @@ func (l *persistentLogger) persist() error {
 
 	return nil
 }
-
-type noOpLogger struct{}
 
 func (*noOpLogger) LogEntry(LogEntry) error {
 	return nil

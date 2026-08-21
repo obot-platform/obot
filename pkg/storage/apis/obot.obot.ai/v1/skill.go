@@ -23,6 +23,32 @@ type Skill struct {
 	Status SkillStatus `json:"status"`
 }
 
+type SkillSpec struct {
+	types.SkillManifest `json:",inline"`
+
+	RepoID       string `json:"repoID,omitempty"`
+	RepoURL      string `json:"repoURL,omitempty"`
+	RepoRef      string `json:"repoRef,omitempty"`
+	CommitSHA    string `json:"commitSHA,omitempty"`
+	RelativePath string `json:"relativePath,omitempty"`
+	InstallHash  string `json:"installHash,omitempty"`
+}
+
+type SkillStatus struct {
+	Valid           bool        `json:"valid,omitempty"`
+	ValidationError string      `json:"validationError,omitempty"`
+	LastIndexedAt   metav1.Time `json:"lastIndexedAt,omitzero"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SkillList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []Skill `json:"items"`
+}
+
 func (in *Skill) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -58,30 +84,4 @@ func (in *Skill) GetColumns() [][]string {
 		{"Valid", "Status.Valid"},
 		{"Last Indexed", "{{ago .Status.LastIndexedAt}}"},
 	}
-}
-
-type SkillSpec struct {
-	types.SkillManifest `json:",inline"`
-
-	RepoID       string `json:"repoID,omitempty"`
-	RepoURL      string `json:"repoURL,omitempty"`
-	RepoRef      string `json:"repoRef,omitempty"`
-	CommitSHA    string `json:"commitSHA,omitempty"`
-	RelativePath string `json:"relativePath,omitempty"`
-	InstallHash  string `json:"installHash,omitempty"`
-}
-
-type SkillStatus struct {
-	Valid           bool        `json:"valid,omitempty"`
-	ValidationError string      `json:"validationError,omitempty"`
-	LastIndexedAt   metav1.Time `json:"lastIndexedAt,omitzero"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type SkillList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []Skill `json:"items"`
 }

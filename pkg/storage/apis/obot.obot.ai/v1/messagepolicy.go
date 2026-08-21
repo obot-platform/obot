@@ -19,15 +19,6 @@ type MessagePolicySpec struct {
 	Manifest types.MessagePolicyManifest `json:"manifest"`
 }
 
-func (in *MessagePolicy) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"Direction", "Spec.Manifest.Direction"},
-		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
-	}
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MessagePolicyList struct {
@@ -35,4 +26,13 @@ type MessagePolicyList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []MessagePolicy `json:"items"`
+}
+
+func (in *MessagePolicy) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Display Name", "Spec.Manifest.DisplayName"},
+		{"Direction", "Spec.Manifest.Direction"},
+		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
+	}
 }

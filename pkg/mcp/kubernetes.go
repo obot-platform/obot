@@ -39,12 +39,27 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// PSAPrivileged allows all pod configurations (no restrictions)
+	PSAPrivileged PSAEnforceLevel = "privileged"
+	// PSABaseline provides minimal restrictions that prevent known privilege escalations
+	PSABaseline PSAEnforceLevel = "baseline"
+	// PSARestricted heavily restricts pod configurations following security best practices
+	PSARestricted PSAEnforceLevel = "restricted"
+)
+
 var (
 	remoteMemoryRequest       = resource.MustParse("100Mi")
 	defaultMCPMemoryRequest   = resource.MustParse("200Mi")
 	defaultAgentMemoryRequest = resource.MustParse("400Mi")
 	defaultCPURequest         = resource.MustParse("10m")
+
+	// ValidPSALevels contains all valid Pod Security Admission levels
+	ValidPSALevels = []string{"privileged", "baseline", "restricted"}
 )
+
+// PSAEnforceLevel represents the Pod Security Admission enforce level
+type PSAEnforceLevel string
 
 type kubernetesBackend struct {
 	clientset         *kubernetes.Clientset
@@ -1536,18 +1551,6 @@ func imagePullSecretsMatch(actual []corev1.LocalObjectReference, desired []strin
 	return slices.Equal(imagepullsecrets.CleanSecretNames(actualNames), imagepullsecrets.CleanSecretNames(desired))
 }
 
-// PSAEnforceLevel represents the Pod Security Admission enforce level
-type PSAEnforceLevel string
-
-const (
-	// PSAPrivileged allows all pod configurations (no restrictions)
-	PSAPrivileged PSAEnforceLevel = "privileged"
-	// PSABaseline provides minimal restrictions that prevent known privilege escalations
-	PSABaseline PSAEnforceLevel = "baseline"
-	// PSARestricted heavily restricts pod configurations following security best practices
-	PSARestricted PSAEnforceLevel = "restricted"
-)
-
 // GetPSAEnforceLevelFromSpec extracts the PSA enforce level from K8sSettingsSpec
 func GetPSAEnforceLevelFromSpec(settings v1.K8sSettingsSpec) PSAEnforceLevel {
 	if settings.PodSecurityAdmission == nil || !settings.PodSecurityAdmission.Enabled {
@@ -1563,9 +1566,6 @@ func GetPSAEnforceLevelFromSpec(settings v1.K8sSettingsSpec) PSAEnforceLevel {
 		return PSARestricted
 	}
 }
-
-// ValidPSALevels contains all valid Pod Security Admission levels
-var ValidPSALevels = []string{"privileged", "baseline", "restricted"}
 
 // ValidatePSALevel checks if a PSA level value is valid
 func ValidatePSALevel(level string) bool {

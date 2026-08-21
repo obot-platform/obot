@@ -13,19 +13,6 @@ type HostedAgentResourceQuantity struct {
 	StorageBytes int64   `json:"storageBytes,omitempty"`
 }
 
-func (q HostedAgentResourceQuantity) Validate() error {
-	if q.CPUVCPUs <= 0 || math.IsNaN(q.CPUVCPUs) || math.IsInf(q.CPUVCPUs, 0) {
-		return fmt.Errorf("cpuVcpus must be a finite value greater than zero")
-	}
-	if q.MemoryBytes <= 0 {
-		return fmt.Errorf("memoryBytes must be greater than zero")
-	}
-	if q.StorageBytes <= 0 {
-		return fmt.Errorf("storageBytes must be greater than zero")
-	}
-	return nil
-}
-
 type HostedAgentPool struct {
 	Metadata                `json:",inline"`
 	HostedAgentPoolManifest `json:",inline"`
@@ -39,16 +26,6 @@ type HostedAgentPoolManifest struct {
 	// whole pool, so raising it makes every sandbox's guaranteed share smaller.
 	MaxSandboxes int  `json:"maxSandboxes,omitempty"`
 	Suspended    bool `json:"suspended,omitempty"`
-}
-
-func (m HostedAgentPoolManifest) Validate() error {
-	if err := m.Capacity.Validate(); err != nil {
-		return err
-	}
-	if m.MaxSandboxes < 0 {
-		return fmt.Errorf("maxSandboxes must be greater than or equal to zero")
-	}
-	return nil
 }
 
 type HostedAgentPoolStatus struct {
@@ -81,16 +58,6 @@ type HostedAgentPoolDefaultsManifest struct {
 	Suspended    bool                        `json:"suspended,omitempty"`
 }
 
-func (m HostedAgentPoolDefaultsManifest) Validate() error {
-	if err := m.Capacity.Validate(); err != nil {
-		return err
-	}
-	if m.MaxSandboxes < 0 {
-		return fmt.Errorf("maxSandboxes must be greater than or equal to zero")
-	}
-	return nil
-}
-
 type HostedAgentPoolDefaultsList List[HostedAgentPoolDefaults]
 
 // HostedAgentPoolAssignment grants a user access to a pool.
@@ -107,6 +74,41 @@ type HostedAgentPoolAssignmentManifest struct {
 	Default bool   `json:"default,omitempty"`
 }
 
+type HostedAgentPoolAssignmentList List[HostedAgentPoolAssignment]
+
+func (q HostedAgentResourceQuantity) Validate() error {
+	if q.CPUVCPUs <= 0 || math.IsNaN(q.CPUVCPUs) || math.IsInf(q.CPUVCPUs, 0) {
+		return fmt.Errorf("cpuVcpus must be a finite value greater than zero")
+	}
+	if q.MemoryBytes <= 0 {
+		return fmt.Errorf("memoryBytes must be greater than zero")
+	}
+	if q.StorageBytes <= 0 {
+		return fmt.Errorf("storageBytes must be greater than zero")
+	}
+	return nil
+}
+
+func (m HostedAgentPoolManifest) Validate() error {
+	if err := m.Capacity.Validate(); err != nil {
+		return err
+	}
+	if m.MaxSandboxes < 0 {
+		return fmt.Errorf("maxSandboxes must be greater than or equal to zero")
+	}
+	return nil
+}
+
+func (m HostedAgentPoolDefaultsManifest) Validate() error {
+	if err := m.Capacity.Validate(); err != nil {
+		return err
+	}
+	if m.MaxSandboxes < 0 {
+		return fmt.Errorf("maxSandboxes must be greater than or equal to zero")
+	}
+	return nil
+}
+
 func (m HostedAgentPoolAssignmentManifest) Validate() error {
 	if m.UserID == "" {
 		return fmt.Errorf("userID is required")
@@ -116,5 +118,3 @@ func (m HostedAgentPoolAssignmentManifest) Validate() error {
 	}
 	return nil
 }
-
-type HostedAgentPoolAssignmentList List[HostedAgentPoolAssignment]

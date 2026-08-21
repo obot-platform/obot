@@ -21,6 +21,25 @@ type Model struct {
 	Status            ModelStatus `json:"status"`
 }
 
+type ModelSpec struct {
+	Manifest types.ModelManifest `json:"manifest"`
+}
+
+type ModelStatus struct {
+	AliasAssigned      bool  `json:"aliasAssigned,omitempty"`
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Cost is the synced model cost.
+	Cost types.ModelCost `json:"cost,omitzero"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ModelList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []Model `json:"items"`
+}
+
 func (m *Model) Has(field string) (exists bool) {
 	return m.Get(field) != ""
 }
@@ -72,23 +91,4 @@ func (m *Model) GetCost() types.ModelCost {
 		return *m.Spec.Manifest.OverrideCost
 	}
 	return m.Status.Cost
-}
-
-type ModelSpec struct {
-	Manifest types.ModelManifest `json:"manifest"`
-}
-
-type ModelStatus struct {
-	AliasAssigned      bool  `json:"aliasAssigned,omitempty"`
-	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-	// Cost is the synced model cost.
-	Cost types.ModelCost `json:"cost,omitzero"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ModelList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []Model `json:"items"`
 }

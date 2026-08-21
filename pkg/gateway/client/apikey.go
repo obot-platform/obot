@@ -30,6 +30,11 @@ type apiKeyValidationCacheEntry struct {
 	keyID     uint
 }
 
+// APIKeyListOptions controls whether retained revoked keys are included.
+type APIKeyListOptions struct {
+	ShowRevoked bool
+}
+
 // cloneAPIKey creates a deep copy of the provided APIKey, so that it's safe to return without corrupting the cache
 func cloneAPIKey(apiKey types.APIKey) types.APIKey {
 	cloned := apiKey
@@ -274,11 +279,6 @@ func (c *Client) createAPIKeyFromTokenRequest(tx *gorm.DB, userID uint, tr *type
 	}
 
 	return resp, nil
-}
-
-// APIKeyListOptions controls whether retained revoked keys are included.
-type APIKeyListOptions struct {
-	ShowRevoked bool
 }
 
 // ListAPIKeys returns active API keys for a user (without the secrets).

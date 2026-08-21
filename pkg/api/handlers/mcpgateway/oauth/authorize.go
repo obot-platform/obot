@@ -21,9 +21,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// ErrorCode defines the set of OAuth 2.0 error codes as per RFC 6749.
-type ErrorCode string
-
 const (
 	ErrInvalidClient           ErrorCode = "invalid_client"
 	ErrInvalidGrant            ErrorCode = "invalid_grant"
@@ -37,11 +34,35 @@ const (
 	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
 )
 
+// ErrorCode defines the set of OAuth 2.0 error codes as per RFC 6749.
+type ErrorCode string
+
 // oauthError represents an OAuth 2.0 error response.
 type oauthError struct {
 	Code        ErrorCode `json:"error"`
 	Description string    `json:"error_description,omitempty"`
 	State       string    `json:"state,omitempty"`
+}
+
+type oauthConsentData struct {
+	AuthRequestID             string                   `json:"authRequestID"`
+	ContinueURL               string                   `json:"continueURL"`
+	CancelURL                 string                   `json:"cancelURL"`
+	ClientName                string                   `json:"clientName"`
+	ClientCredentialSource    string                   `json:"clientCredentialSource"`
+	ClientURI                 string                   `json:"clientURI,omitempty"`
+	RedirectURI               string                   `json:"redirectURI"`
+	Scope                     string                   `json:"scope,omitempty"`
+	PolicyURI                 string                   `json:"policyURI,omitempty"`
+	TOSURI                    string                   `json:"tosURI,omitempty"`
+	MCPConfigRequired         bool                     `json:"mcpConfigRequired"`
+	MCPServer                 *types.MCPServer         `json:"mcpServer,omitempty"`
+	MCPServerInstance         *types.MCPServerInstance `json:"mcpServerInstance,omitempty"`
+	MCPAuthRequired           bool                     `json:"mcpAuthRequired"`
+	UserHasSecondLevelOAuthed bool                     `json:"userHasSecondLevelOAuthed"`
+	MCPServerName             string                   `json:"mcpServerName,omitempty"`
+	MCPServerURL              string                   `json:"mcpServerURL,omitempty"`
+	ThirdPartyAuthURL         string                   `json:"thirdPartyAuthURL,omitempty"`
 }
 
 func newOAuthError(code ErrorCode, description, state string) oauthError {
@@ -574,27 +595,6 @@ func authenticatedOAuthConsentUser(req api.Context, oauthAppAuthRequest v1.OAuth
 	slog.Info("Denied OAuth consent because authenticated user does not match auth request user", "authRequest", oauthAppAuthRequest.Name)
 	redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrAccessDenied, "user is not authorized for this OAuth request", oauthAppAuthRequest.Spec.State))
 	return false
-}
-
-type oauthConsentData struct {
-	AuthRequestID             string                   `json:"authRequestID"`
-	ContinueURL               string                   `json:"continueURL"`
-	CancelURL                 string                   `json:"cancelURL"`
-	ClientName                string                   `json:"clientName"`
-	ClientCredentialSource    string                   `json:"clientCredentialSource"`
-	ClientURI                 string                   `json:"clientURI,omitempty"`
-	RedirectURI               string                   `json:"redirectURI"`
-	Scope                     string                   `json:"scope,omitempty"`
-	PolicyURI                 string                   `json:"policyURI,omitempty"`
-	TOSURI                    string                   `json:"tosURI,omitempty"`
-	MCPConfigRequired         bool                     `json:"mcpConfigRequired"`
-	MCPServer                 *types.MCPServer         `json:"mcpServer,omitempty"`
-	MCPServerInstance         *types.MCPServerInstance `json:"mcpServerInstance,omitempty"`
-	MCPAuthRequired           bool                     `json:"mcpAuthRequired"`
-	UserHasSecondLevelOAuthed bool                     `json:"userHasSecondLevelOAuthed"`
-	MCPServerName             string                   `json:"mcpServerName,omitempty"`
-	MCPServerURL              string                   `json:"mcpServerURL,omitempty"`
-	ThirdPartyAuthURL         string                   `json:"thirdPartyAuthURL,omitempty"`
 }
 
 func oauthConsentPageData(oauthAppAuthRequest v1.OAuthAuthRequest, oauthClient v1.OAuthClient, continueURL, cancelURL string, mcpServer *types.MCPServer, mcpServerInstance *types.MCPServerInstance) oauthConsentData {

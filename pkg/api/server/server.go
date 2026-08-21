@@ -49,6 +49,17 @@ type Server struct {
 	otelHandler http.Handler
 }
 
+type headersResponseWriter struct {
+	http.ResponseWriter
+	wroteHeader bool
+}
+
+type responseWriter struct {
+	http.ResponseWriter
+	auditEntry  audit.LogEntry
+	auditLogger audit.Logger
+}
+
 func NewServer(storageClient storage.Client, gatewayClient *gclient.Client, localK8sClient kclient.Client, obotNamespace string, authn *authn.Authenticator, authz *authz.Authorizer, proxyManager *proxy.Manager, auditLogger audit.Logger, rateLimiter *ratelimiter.RateLimiter, baseURL string, oauthScopesSupported []string, registryNoAuth bool, licenseProvider *license.Provider) *Server {
 	var scope string
 	if len(oauthScopesSupported) > 0 {
@@ -243,11 +254,6 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-type headersResponseWriter struct {
-	http.ResponseWriter
-	wroteHeader bool
-}
-
 func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
@@ -318,12 +324,6 @@ func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) erro
 // exempt from rate limiting. This includes SvelteKit chunks, CSS, and UI images.
 func isStaticAssetPath(path string) bool {
 	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/")
-}
-
-type responseWriter struct {
-	http.ResponseWriter
-	auditEntry  audit.LogEntry
-	auditLogger audit.Logger
 }
 
 func (rw *responseWriter) WriteHeader(code int) {

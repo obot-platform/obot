@@ -22,6 +22,45 @@ type ScheduledAuditLogExport struct {
 	Status ScheduledAuditLogExportStatus `json:"status"`
 }
 
+type ScheduledAuditLogExportSpec struct {
+	Name                  string                          `json:"name"`
+	Type                  types.AuditLogType              `json:"type,omitempty"`
+	Bucket                string                          `json:"bucket"`
+	KeyPrefix             string                          `json:"keyPrefix,omitempty"`
+	Enabled               bool                            `json:"enabled"`
+	Schedule              Schedule                        `json:"schedule"`
+	RetentionPeriodInDays int                             `json:"retentionPeriodInDays,omitempty"`
+	Filters               *types.AuditLogExportFilters    `json:"filters,omitempty"`
+	LLMFilters            *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
+	// WithRequestAndResponse includes source-specific sensitive request and response fields.
+	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
+}
+
+type Schedule struct {
+	// Valid values are: "hourly", "daily", "weekly", "monthly"
+	Interval string `json:"interval"`
+	Hour     int    `json:"hour"`
+	Minute   int    `json:"minute"`
+	Day      int    `json:"day"`
+	Weekday  int    `json:"weekday"`
+	TimeZone string `json:"timezone"`
+}
+
+type ScheduledAuditLogExportStatus struct {
+	TotalExportsCreated int64        `json:"totalExportsCreated,omitempty"`
+	Error               string       `json:"error,omitempty"`
+	LastRunAt           *metav1.Time `json:"lastRunAt,omitempty"`
+	NextRunAt           *metav1.Time `json:"nextRunAt,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ScheduledAuditLogExportList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []ScheduledAuditLogExport `json:"items"`
+}
+
 func (s *ScheduledAuditLogExport) Has(field string) (exists bool) {
 	return slices.Contains(s.FieldNames(), field)
 }
@@ -50,49 +89,10 @@ func (*ScheduledAuditLogExport) GetColumns() [][]string {
 	}
 }
 
-type ScheduledAuditLogExportSpec struct {
-	Name                  string                          `json:"name"`
-	Type                  types.AuditLogType              `json:"type,omitempty"`
-	Bucket                string                          `json:"bucket"`
-	KeyPrefix             string                          `json:"keyPrefix,omitempty"`
-	Enabled               bool                            `json:"enabled"`
-	Schedule              Schedule                        `json:"schedule"`
-	RetentionPeriodInDays int                             `json:"retentionPeriodInDays,omitempty"`
-	Filters               *types.AuditLogExportFilters    `json:"filters,omitempty"`
-	LLMFilters            *types.LLMAuditLogExportFilters `json:"llmFilters,omitempty"`
-	// WithRequestAndResponse includes source-specific sensitive request and response fields.
-	WithRequestAndResponse bool `json:"withRequestAndResponse,omitempty"`
-}
-
 // EffectiveType treats resources created before the type discriminator as MCP exports.
 func (s ScheduledAuditLogExportSpec) EffectiveType() types.AuditLogType {
 	if s.Type == "" {
 		return types.AuditLogTypeMCP
 	}
 	return s.Type
-}
-
-type Schedule struct {
-	// Valid values are: "hourly", "daily", "weekly", "monthly"
-	Interval string `json:"interval"`
-	Hour     int    `json:"hour"`
-	Minute   int    `json:"minute"`
-	Day      int    `json:"day"`
-	Weekday  int    `json:"weekday"`
-	TimeZone string `json:"timezone"`
-}
-
-type ScheduledAuditLogExportStatus struct {
-	TotalExportsCreated int64        `json:"totalExportsCreated,omitempty"`
-	Error               string       `json:"error,omitempty"`
-	LastRunAt           *metav1.Time `json:"lastRunAt,omitempty"`
-	NextRunAt           *metav1.Time `json:"nextRunAt,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ScheduledAuditLogExportList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-	Items           []ScheduledAuditLogExport `json:"items"`
 }

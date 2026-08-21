@@ -18,6 +18,12 @@ import (
 	crlog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+// slogAdapter satisfies nah's printf-style log.Logger interface.
+type slogAdapter struct{}
+
+// slogHook re-emits every logrus entry through slog.
+type slogHook struct{}
+
 // SetupLogBridges routes the loggers dependencies use into the current slog
 // default. It must run after the slog handler is installed - logr captures the
 // handler here, so an earlier call pins the wrong one.
@@ -44,9 +50,6 @@ func SetupLogBridges() {
 	logrus.AddHook(slogHook{})
 }
 
-// slogAdapter satisfies nah's printf-style log.Logger interface.
-type slogAdapter struct{}
-
 func (slogAdapter) Infof(msg string, args ...any)  { logf(slog.LevelInfo, msg, args...) }
 func (slogAdapter) Warnf(msg string, args ...any)  { logf(slog.LevelWarn, msg, args...) }
 func (slogAdapter) Errorf(msg string, args ...any) { logf(slog.LevelError, msg, args...) }
@@ -70,9 +73,6 @@ func logf(level slog.Level, msg string, args ...any) {
 	record := slog.NewRecord(time.Now(), level, fmt.Sprintf(msg, args...), pcs[0])
 	_ = logger.Handler().Handle(ctx, record)
 }
-
-// slogHook re-emits every logrus entry through slog.
-type slogHook struct{}
 
 func (slogHook) Levels() []logrus.Level { return logrus.AllLevels }
 

@@ -1,12 +1,12 @@
 package types
 
-// BannerType represents the visual style of a notification banner
-type BannerType string
-
 const (
 	BannerTypeInfo    BannerType = "info"
 	BannerTypeWarning BannerType = "warning"
 )
+
+// BannerType represents the visual style of a notification banner
+type BannerType string
 
 // AppNotification represents a global notification
 type AppNotification struct {

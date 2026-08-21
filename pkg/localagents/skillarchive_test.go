@@ -12,6 +12,13 @@ import (
 	"github.com/obot-platform/obot/pkg/skillformat"
 )
 
+type zipTestEntry struct {
+	Name    string
+	Content string
+	Mode    os.FileMode
+	Dir     bool
+}
+
 func TestParseSkillArchiveValidRootZip(t *testing.T) {
 	archive, err := ParseSkillArchive(buildSkillZip(t, []zipTestEntry{
 		{
@@ -235,13 +242,6 @@ func TestSkillArchiveExtractToWritesConservativeModes(t *testing.T) {
 	if scriptInfo.Mode().Perm() != 0755 {
 		t.Fatalf("script mode = %v, want 0755", scriptInfo.Mode().Perm())
 	}
-}
-
-type zipTestEntry struct {
-	Name    string
-	Content string
-	Mode    os.FileMode
-	Dir     bool
 }
 
 func buildSkillZip(t *testing.T, entries []zipTestEntry) []byte {

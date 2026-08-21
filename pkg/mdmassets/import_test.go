@@ -17,6 +17,8 @@ import (
 	"testing"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
 func TestImportDirectoryProducesImmutableDatabaseBundle(t *testing.T) {
 	dir := writeAssets(t, SchemaVersion)
 	first, err := Import(t.Context(), dir)
@@ -97,8 +99,6 @@ func TestImportRemoteTarStripsCommonRoot(t *testing.T) {
 		t.Fatal("directory and equivalent remote tar did not normalize identically")
 	}
 }
-
-type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)

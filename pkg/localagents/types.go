@@ -2,12 +2,12 @@ package localagents
 
 import "context"
 
-type DetectionState string
-
 const (
 	DetectionMissing DetectionState = "missing"
 	DetectionPresent DetectionState = "present"
 )
+
+type DetectionState string
 
 type DetectionResult struct {
 	AgentID     string

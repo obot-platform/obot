@@ -22,6 +22,276 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var (
+	resourceMetadataRegex = regexp.MustCompile(`resource_metadata="([^"]*)"`)
+	scopeRegex            = regexp.MustCompile(`scope="([^"]*)"`)
+)
+
+// assumeOAuthRequiredTransport synthesizes the initialize challenge used to
+// begin standard OAuth metadata discovery. All subsequent metadata requests use
+// the original, policy-enforcing transport.
+type assumeOAuthRequiredTransport struct {
+	base http.RoundTripper
+	mu   sync.Mutex
+	done bool
+}
+
+type CallbackPayload struct {
+	Code             string `json:"code"`
+	Error            string `json:"error"`
+	ErrorDescription string `json:"error_description"`
+}
+
+type AuthURLHandler interface {
+	HandleAuthURL(context.Context, string, string) (bool, error)
+}
+
+type CallbackHandler interface {
+	AuthURLHandler
+	NewState(context.Context, *oauth2.Config, string, string) (string, <-chan CallbackPayload, error)
+}
+
+type ClientCredLookup interface {
+	Lookup(context.Context) (string, string, error)
+}
+
+type oauth struct {
+	redirectURL              string
+	clientName               string
+	serverName               string
+	clientIDMetadataDocument string
+	currentToken             oauth2.Token
+	metadataClient           *http.Client
+	callbackHandler          CallbackHandler
+	clientLookup             ClientCredLookup
+	tokenStorage             TokenStorage
+}
+
+type oauthMetadataDiscovery struct {
+	ProtectedResourceURL              string
+	ResourceURL                       string
+	ProtectedResourceMetadata         protectedResourceMetadata
+	ProtectedResourceMetadataJSON     json.RawMessage
+	AuthorizationServerURL            string
+	AuthorizationServerMetadataURL    string
+	AuthorizationServerMetadata       AuthorizationServerMetadata
+	AuthorizationServerMetadataJSON   json.RawMessage
+	DynamicClientRegistration         bool
+	ClientRegistration                ClientRegistrationMetadata
+	ClientIDMetadataDocumentSupported bool
+}
+
+// OAuthMetadata contains discovered OAuth metadata for an MCP server.
+type OAuthMetadata struct {
+	ProtectedResourceMetadataURL      string          `json:"protectedResourceMetadataUrl,omitempty"`
+	ResourceURL                       string          `json:"resourceUrl,omitempty"`
+	AuthorizationServerMetadataURL    string          `json:"authorizationServerMetadataUrl,omitempty"`
+	ProtectedResourceMetadata         json.RawMessage `json:"protectedResourceMetadata,omitempty"`
+	AuthorizationServerMetadata       json.RawMessage `json:"authorizationServerMetadata,omitempty"`
+	ClientRegistration                json.RawMessage `json:"clientRegistration,omitempty"`
+	DynamicClientRegistration         bool            `json:"dynamicClientRegistration,omitempty"`
+	ClientIDMetadataDocumentSupported bool            `json:"clientIdMetadataDocumentSupported,omitempty"`
+}
+
+type resourceIdentifier string
+
+// protectedResourceMetadata represents OAuth 2.0 Protected Resource Metadata
+// as defined in RFC 8707
+type protectedResourceMetadata struct {
+	// REQUIRED. The protected resource's resource identifier
+	Resource resourceIdentifier `json:"resource"`
+
+	// OPTIONAL. JSON array containing a list of OAuth authorization server issuer identifiers
+	AuthorizationServers []string `json:"authorization_servers,omitempty"`
+
+	// OPTIONAL. URL of the protected resource's JSON Web Key (JWK) Set document
+	JwksURI string `json:"jwks_uri,omitempty"`
+
+	// RECOMMENDED. JSON array containing a list of scope values
+	ScopesSupported []string `json:"scopes_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the supported methods of sending an OAuth 2.0 bearer token
+	BearerMethodsSupported []string `json:"bearer_methods_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the JWS signing algorithms supported by the protected resource
+	ResourceSigningAlgValuesSupported []string `json:"resource_signing_alg_values_supported,omitempty"`
+
+	// OPTIONAL. Human-readable name of the protected resource intended for display to the end user
+	ResourceName string `json:"resource_name,omitempty"`
+
+	// OPTIONAL. URL of a page containing human-readable information that developers might want or need to know
+	ResourceDocumentation string `json:"resource_documentation,omitempty"`
+
+	// OPTIONAL. URL of a page containing human-readable information about the protected resource's requirements
+	ResourcePolicyURI string `json:"resource_policy_uri,omitempty"`
+
+	// OPTIONAL. URL of a page containing human-readable information about the protected resource's terms of service
+	ResourceTosURI string `json:"resource_tos_uri,omitempty"`
+
+	// OPTIONAL. Boolean value indicating protected resource support for mutual-TLS client certificate-bound access tokens
+	TLSClientCertificateBoundAccessTokens bool `json:"tls_client_certificate_bound_access_tokens,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the authorization details type values supported by the resource server
+	AuthorizationDetailsTypesSupported []string `json:"authorization_details_types_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the JWS alg values supported by the resource server for validating DPoP proof JWTs
+	DPoPSigningAlgValuesSupported []string `json:"dpop_signing_alg_values_supported,omitempty"`
+
+	// OPTIONAL. Boolean value specifying whether the protected resource always requires the use of DPoP-bound access tokens
+	DPoPBoundAccessTokensRequired bool `json:"dpop_bound_access_tokens_required,omitempty"`
+}
+
+// AuthorizationServerMetadata represents OAuth 2.0 Authorization Server Metadata
+// as defined in RFC 8414
+type AuthorizationServerMetadata struct {
+	// REQUIRED. The authorization server's issuer identifier
+	Issuer string `json:"issuer"`
+
+	// URL of the authorization server's authorization endpoint
+	AuthorizationEndpoint string `json:"authorization_endpoint,omitempty"`
+
+	// URL of the authorization server's token endpoint
+	TokenEndpoint string `json:"token_endpoint,omitempty"`
+
+	// OPTIONAL. URL of the authorization server's JWK Set document
+	JwksURI string `json:"jwks_uri,omitempty"`
+
+	// OPTIONAL. URL of the authorization server's OAuth 2.0 Dynamic Client Registration endpoint
+	RegistrationEndpoint string `json:"registration_endpoint,omitempty"`
+
+	// RECOMMENDED. JSON array containing a list of the OAuth 2.0 scope values
+	ScopesSupported []string `json:"scopes_supported,omitempty"`
+
+	// REQUIRED. JSON array containing a list of the OAuth 2.0 response_type values
+	ResponseTypesSupported []string `json:"response_types_supported"`
+
+	// OPTIONAL. JSON array containing a list of the OAuth 2.0 response_mode values
+	ResponseModesSupported []string `json:"response_modes_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the OAuth 2.0 grant type values
+	GrantTypesSupported []string `json:"grant_types_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of client authentication methods
+	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing a list of the JWS signing algorithms
+	TokenEndpointAuthSigningAlgValuesSupported []string `json:"token_endpoint_auth_signing_alg_values_supported,omitempty"`
+
+	// OPTIONAL. URL of a page containing human-readable information
+	ServiceDocumentation string `json:"service_documentation,omitempty"`
+
+	// OPTIONAL. Languages and scripts supported for the user interface
+	UILocalesSupported []string `json:"ui_locales_supported,omitempty"`
+
+	// OPTIONAL. URL for authorization server's requirements on client data usage
+	OpPolicyURI string `json:"op_policy_uri,omitempty"`
+
+	// OPTIONAL. URL for authorization server's terms of service
+	OpTosURI string `json:"op_tos_uri,omitempty"`
+
+	// OPTIONAL. URL of the authorization server's OAuth 2.0 revocation endpoint
+	RevocationEndpoint string `json:"revocation_endpoint,omitempty"`
+
+	// OPTIONAL. JSON array containing client authentication methods for revocation endpoint
+	RevocationEndpointAuthMethodsSupported []string `json:"revocation_endpoint_auth_methods_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing JWS signing algorithms for revocation endpoint
+	RevocationEndpointAuthSigningAlgValuesSupported []string `json:"revocation_endpoint_auth_signing_alg_values_supported,omitempty"`
+
+	// OPTIONAL. URL of the authorization server's OAuth 2.0 introspection endpoint
+	IntrospectionEndpoint string `json:"introspection_endpoint,omitempty"`
+
+	// OPTIONAL. JSON array containing client authentication methods for introspection endpoint
+	IntrospectionEndpointAuthMethodsSupported []string `json:"introspection_endpoint_auth_methods_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing JWS signing algorithms for introspection endpoint
+	IntrospectionEndpointAuthSigningAlgValuesSupported []string `json:"introspection_endpoint_auth_signing_alg_values_supported,omitempty"`
+
+	// OPTIONAL. JSON array containing PKCE code challenge methods
+	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported,omitempty"`
+
+	// OPTIONAL. Boolean indicating whether the client ID metadata document is supported
+	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported,omitempty"`
+}
+
+// ClientRegistrationMetadata represents OAuth 2.0 Dynamic Client Registration metadata
+// as defined in RFC 7591, merged from protected resource and authorization server metadata
+type ClientRegistrationMetadata struct {
+	// Array of redirection URI strings for use in redirect-based flows
+	RedirectURIs []string `json:"redirect_uris,omitempty"`
+
+	// String indicator of the requested authentication method for the token endpoint
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method,omitempty"`
+
+	// Array of OAuth 2.0 grant type strings that the client can use at the token endpoint
+	GrantTypes []string `json:"grant_types,omitempty"`
+
+	// Array of the OAuth 2.0 response type strings that the client can use at the authorization endpoint
+	ResponseTypes []string `json:"response_types,omitempty"`
+
+	// Human-readable string name of the client to be presented to the end-user during authorization
+	ClientName string `json:"client_name,omitempty"`
+
+	// URL string of a web page providing information about the client
+	ClientURI string `json:"client_uri,omitempty"`
+
+	// URL string that references a logo for the client
+	LogoURI string `json:"logo_uri,omitempty"`
+
+	// String containing a space-separated list of scope values
+	Scope string `json:"scope,omitempty"`
+
+	// Array of strings representing ways to contact people responsible for this client
+	Contacts []string `json:"contacts,omitempty"`
+
+	// URL string that points to a human-readable terms of service document for the client
+	TosURI string `json:"tos_uri,omitempty"`
+
+	// URL string that points to a human-readable privacy policy document
+	PolicyURI string `json:"policy_uri,omitempty"`
+
+	// URL string referencing the client's JSON Web Key (JWK) Set document
+	JwksURI string `json:"jwks_uri,omitempty"`
+
+	// Client's JSON Web Key Set document value
+	Jwks any `json:"jwks,omitempty"`
+
+	// A unique identifier string assigned by the client developer or software publisher
+	SoftwareID string `json:"software_id,omitempty"`
+
+	// A version identifier string for the client software identified by "software_id"
+	SoftwareVersion string `json:"software_version,omitempty"`
+}
+
+// clientRegistrationResponse represents OAuth 2.0 Dynamic Client Registration Response
+// as defined in RFC 7591
+type clientRegistrationResponse struct {
+	// REQUIRED. OAuth 2.0 client identifier string. It SHOULD NOT be
+	// currently valid for any other registered client, though an
+	// authorization server MAY issue the same client identifier to
+	// multiple instances of a registered client at its discretion.
+	ClientID string `json:"client_id"`
+
+	// OPTIONAL. OAuth 2.0 client secret string. If issued, this MUST
+	// be unique for each "client_id" and SHOULD be unique for multiple
+	// instances of a client using the same "client_id". This value is
+	// used by confidential clients to authenticate to the token
+	// endpoint, as described in OAuth 2.0 [RFC6749], Section 2.3.1.
+	ClientSecret string `json:"client_secret,omitempty"`
+
+	// OPTIONAL. Time at which the client identifier was issued. The
+	// time is represented as the number of seconds from
+	// 1970-01-01T00:00:00Z as measured in UTC until the date/time of
+	// issuance.
+	ClientIDIssuedAt *int64 `json:"client_id_issued_at,omitempty"`
+
+	// REQUIRED if "client_secret" is issued. Time at which the client
+	// secret will expire or 0 if it will not expire. The time is
+	// represented as the number of seconds from 1970-01-01T00:00:00Z as
+	// measured in UTC until the date/time of expiration.
+	ClientSecretExpiresAt *int64 `json:"client_secret_expires_at,omitempty"`
+}
+
 // RequiresStaticOAuth reports whether a remote MCP server is configured to
 // require static OAuth and has not yet been authenticated by the user.
 func RequiresStaticOAuth(server v1.MCPServer) bool {
@@ -85,15 +355,6 @@ func serverConfigHeaders(serverConfig ServerConfig) map[string][]string {
 	return result
 }
 
-// assumeOAuthRequiredTransport synthesizes the initialize challenge used to
-// begin standard OAuth metadata discovery. All subsequent metadata requests use
-// the original, policy-enforcing transport.
-type assumeOAuthRequiredTransport struct {
-	base http.RoundTripper
-	mu   sync.Mutex
-	done bool
-}
-
 func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	t.mu.Lock()
 	if !t.done && req.Method == http.MethodPost {
@@ -109,68 +370,6 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	}
 	t.mu.Unlock()
 	return t.base.RoundTrip(req)
-}
-
-var (
-	resourceMetadataRegex = regexp.MustCompile(`resource_metadata="([^"]*)"`)
-	scopeRegex            = regexp.MustCompile(`scope="([^"]*)"`)
-)
-
-type CallbackPayload struct {
-	Code             string `json:"code"`
-	Error            string `json:"error"`
-	ErrorDescription string `json:"error_description"`
-}
-
-type AuthURLHandler interface {
-	HandleAuthURL(context.Context, string, string) (bool, error)
-}
-
-type CallbackHandler interface {
-	AuthURLHandler
-	NewState(context.Context, *oauth2.Config, string, string) (string, <-chan CallbackPayload, error)
-}
-
-type ClientCredLookup interface {
-	Lookup(context.Context) (string, string, error)
-}
-
-type oauth struct {
-	redirectURL              string
-	clientName               string
-	serverName               string
-	clientIDMetadataDocument string
-	currentToken             oauth2.Token
-	metadataClient           *http.Client
-	callbackHandler          CallbackHandler
-	clientLookup             ClientCredLookup
-	tokenStorage             TokenStorage
-}
-
-type oauthMetadataDiscovery struct {
-	ProtectedResourceURL              string
-	ResourceURL                       string
-	ProtectedResourceMetadata         protectedResourceMetadata
-	ProtectedResourceMetadataJSON     json.RawMessage
-	AuthorizationServerURL            string
-	AuthorizationServerMetadataURL    string
-	AuthorizationServerMetadata       AuthorizationServerMetadata
-	AuthorizationServerMetadataJSON   json.RawMessage
-	DynamicClientRegistration         bool
-	ClientRegistration                ClientRegistrationMetadata
-	ClientIDMetadataDocumentSupported bool
-}
-
-// OAuthMetadata contains discovered OAuth metadata for an MCP server.
-type OAuthMetadata struct {
-	ProtectedResourceMetadataURL      string          `json:"protectedResourceMetadataUrl,omitempty"`
-	ResourceURL                       string          `json:"resourceUrl,omitempty"`
-	AuthorizationServerMetadataURL    string          `json:"authorizationServerMetadataUrl,omitempty"`
-	ProtectedResourceMetadata         json.RawMessage `json:"protectedResourceMetadata,omitempty"`
-	AuthorizationServerMetadata       json.RawMessage `json:"authorizationServerMetadata,omitempty"`
-	ClientRegistration                json.RawMessage `json:"clientRegistration,omitempty"`
-	DynamicClientRegistration         bool            `json:"dynamicClientRegistration,omitempty"`
-	ClientIDMetadataDocumentSupported bool            `json:"clientIdMetadataDocumentSupported,omitempty"`
 }
 
 func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
@@ -875,8 +1074,6 @@ func ResolveOAuthResourceURL(authorizationEndpoint, discoveredResourceURL, conne
 	return OAuthResourceURL(authorizationEndpoint, discoveredResourceURL)
 }
 
-type resourceIdentifier string
-
 func (r *resourceIdentifier) UnmarshalJSON(data []byte) error {
 	data = bytes.TrimSpace(data)
 	if len(data) > 0 && data[0] == '[' {
@@ -900,174 +1097,6 @@ func (r *resourceIdentifier) UnmarshalJSON(data []byte) error {
 
 	*r = resourceIdentifier(resource)
 	return nil
-}
-
-// protectedResourceMetadata represents OAuth 2.0 Protected Resource Metadata
-// as defined in RFC 8707
-type protectedResourceMetadata struct {
-	// REQUIRED. The protected resource's resource identifier
-	Resource resourceIdentifier `json:"resource"`
-
-	// OPTIONAL. JSON array containing a list of OAuth authorization server issuer identifiers
-	AuthorizationServers []string `json:"authorization_servers,omitempty"`
-
-	// OPTIONAL. URL of the protected resource's JSON Web Key (JWK) Set document
-	JwksURI string `json:"jwks_uri,omitempty"`
-
-	// RECOMMENDED. JSON array containing a list of scope values
-	ScopesSupported []string `json:"scopes_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the supported methods of sending an OAuth 2.0 bearer token
-	BearerMethodsSupported []string `json:"bearer_methods_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the JWS signing algorithms supported by the protected resource
-	ResourceSigningAlgValuesSupported []string `json:"resource_signing_alg_values_supported,omitempty"`
-
-	// OPTIONAL. Human-readable name of the protected resource intended for display to the end user
-	ResourceName string `json:"resource_name,omitempty"`
-
-	// OPTIONAL. URL of a page containing human-readable information that developers might want or need to know
-	ResourceDocumentation string `json:"resource_documentation,omitempty"`
-
-	// OPTIONAL. URL of a page containing human-readable information about the protected resource's requirements
-	ResourcePolicyURI string `json:"resource_policy_uri,omitempty"`
-
-	// OPTIONAL. URL of a page containing human-readable information about the protected resource's terms of service
-	ResourceTosURI string `json:"resource_tos_uri,omitempty"`
-
-	// OPTIONAL. Boolean value indicating protected resource support for mutual-TLS client certificate-bound access tokens
-	TLSClientCertificateBoundAccessTokens bool `json:"tls_client_certificate_bound_access_tokens,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the authorization details type values supported by the resource server
-	AuthorizationDetailsTypesSupported []string `json:"authorization_details_types_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the JWS alg values supported by the resource server for validating DPoP proof JWTs
-	DPoPSigningAlgValuesSupported []string `json:"dpop_signing_alg_values_supported,omitempty"`
-
-	// OPTIONAL. Boolean value specifying whether the protected resource always requires the use of DPoP-bound access tokens
-	DPoPBoundAccessTokensRequired bool `json:"dpop_bound_access_tokens_required,omitempty"`
-}
-
-// AuthorizationServerMetadata represents OAuth 2.0 Authorization Server Metadata
-// as defined in RFC 8414
-type AuthorizationServerMetadata struct {
-	// REQUIRED. The authorization server's issuer identifier
-	Issuer string `json:"issuer"`
-
-	// URL of the authorization server's authorization endpoint
-	AuthorizationEndpoint string `json:"authorization_endpoint,omitempty"`
-
-	// URL of the authorization server's token endpoint
-	TokenEndpoint string `json:"token_endpoint,omitempty"`
-
-	// OPTIONAL. URL of the authorization server's JWK Set document
-	JwksURI string `json:"jwks_uri,omitempty"`
-
-	// OPTIONAL. URL of the authorization server's OAuth 2.0 Dynamic Client Registration endpoint
-	RegistrationEndpoint string `json:"registration_endpoint,omitempty"`
-
-	// RECOMMENDED. JSON array containing a list of the OAuth 2.0 scope values
-	ScopesSupported []string `json:"scopes_supported,omitempty"`
-
-	// REQUIRED. JSON array containing a list of the OAuth 2.0 response_type values
-	ResponseTypesSupported []string `json:"response_types_supported"`
-
-	// OPTIONAL. JSON array containing a list of the OAuth 2.0 response_mode values
-	ResponseModesSupported []string `json:"response_modes_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the OAuth 2.0 grant type values
-	GrantTypesSupported []string `json:"grant_types_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of client authentication methods
-	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing a list of the JWS signing algorithms
-	TokenEndpointAuthSigningAlgValuesSupported []string `json:"token_endpoint_auth_signing_alg_values_supported,omitempty"`
-
-	// OPTIONAL. URL of a page containing human-readable information
-	ServiceDocumentation string `json:"service_documentation,omitempty"`
-
-	// OPTIONAL. Languages and scripts supported for the user interface
-	UILocalesSupported []string `json:"ui_locales_supported,omitempty"`
-
-	// OPTIONAL. URL for authorization server's requirements on client data usage
-	OpPolicyURI string `json:"op_policy_uri,omitempty"`
-
-	// OPTIONAL. URL for authorization server's terms of service
-	OpTosURI string `json:"op_tos_uri,omitempty"`
-
-	// OPTIONAL. URL of the authorization server's OAuth 2.0 revocation endpoint
-	RevocationEndpoint string `json:"revocation_endpoint,omitempty"`
-
-	// OPTIONAL. JSON array containing client authentication methods for revocation endpoint
-	RevocationEndpointAuthMethodsSupported []string `json:"revocation_endpoint_auth_methods_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing JWS signing algorithms for revocation endpoint
-	RevocationEndpointAuthSigningAlgValuesSupported []string `json:"revocation_endpoint_auth_signing_alg_values_supported,omitempty"`
-
-	// OPTIONAL. URL of the authorization server's OAuth 2.0 introspection endpoint
-	IntrospectionEndpoint string `json:"introspection_endpoint,omitempty"`
-
-	// OPTIONAL. JSON array containing client authentication methods for introspection endpoint
-	IntrospectionEndpointAuthMethodsSupported []string `json:"introspection_endpoint_auth_methods_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing JWS signing algorithms for introspection endpoint
-	IntrospectionEndpointAuthSigningAlgValuesSupported []string `json:"introspection_endpoint_auth_signing_alg_values_supported,omitempty"`
-
-	// OPTIONAL. JSON array containing PKCE code challenge methods
-	CodeChallengeMethodsSupported []string `json:"code_challenge_methods_supported,omitempty"`
-
-	// OPTIONAL. Boolean indicating whether the client ID metadata document is supported
-	ClientIDMetadataDocumentSupported bool `json:"client_id_metadata_document_supported,omitempty"`
-}
-
-// ClientRegistrationMetadata represents OAuth 2.0 Dynamic Client Registration metadata
-// as defined in RFC 7591, merged from protected resource and authorization server metadata
-type ClientRegistrationMetadata struct {
-	// Array of redirection URI strings for use in redirect-based flows
-	RedirectURIs []string `json:"redirect_uris,omitempty"`
-
-	// String indicator of the requested authentication method for the token endpoint
-	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method,omitempty"`
-
-	// Array of OAuth 2.0 grant type strings that the client can use at the token endpoint
-	GrantTypes []string `json:"grant_types,omitempty"`
-
-	// Array of the OAuth 2.0 response type strings that the client can use at the authorization endpoint
-	ResponseTypes []string `json:"response_types,omitempty"`
-
-	// Human-readable string name of the client to be presented to the end-user during authorization
-	ClientName string `json:"client_name,omitempty"`
-
-	// URL string of a web page providing information about the client
-	ClientURI string `json:"client_uri,omitempty"`
-
-	// URL string that references a logo for the client
-	LogoURI string `json:"logo_uri,omitempty"`
-
-	// String containing a space-separated list of scope values
-	Scope string `json:"scope,omitempty"`
-
-	// Array of strings representing ways to contact people responsible for this client
-	Contacts []string `json:"contacts,omitempty"`
-
-	// URL string that points to a human-readable terms of service document for the client
-	TosURI string `json:"tos_uri,omitempty"`
-
-	// URL string that points to a human-readable privacy policy document
-	PolicyURI string `json:"policy_uri,omitempty"`
-
-	// URL string referencing the client's JSON Web Key (JWK) Set document
-	JwksURI string `json:"jwks_uri,omitempty"`
-
-	// Client's JSON Web Key Set document value
-	Jwks any `json:"jwks,omitempty"`
-
-	// A unique identifier string assigned by the client developer or software publisher
-	SoftwareID string `json:"software_id,omitempty"`
-
-	// A version identifier string for the client software identified by "software_id"
-	SoftwareVersion string `json:"software_version,omitempty"`
 }
 
 // AuthServerMetadataToClientRegistration converts an AuthorizationServerMetadata to a ClientRegistrationMetadata for dynamic registration.
@@ -1119,35 +1148,6 @@ func supportedClientGrantTypes(grantTypesSupported []string) []string {
 	}
 
 	return grantTypes
-}
-
-// clientRegistrationResponse represents OAuth 2.0 Dynamic Client Registration Response
-// as defined in RFC 7591
-type clientRegistrationResponse struct {
-	// REQUIRED. OAuth 2.0 client identifier string. It SHOULD NOT be
-	// currently valid for any other registered client, though an
-	// authorization server MAY issue the same client identifier to
-	// multiple instances of a registered client at its discretion.
-	ClientID string `json:"client_id"`
-
-	// OPTIONAL. OAuth 2.0 client secret string. If issued, this MUST
-	// be unique for each "client_id" and SHOULD be unique for multiple
-	// instances of a client using the same "client_id". This value is
-	// used by confidential clients to authenticate to the token
-	// endpoint, as described in OAuth 2.0 [RFC6749], Section 2.3.1.
-	ClientSecret string `json:"client_secret,omitempty"`
-
-	// OPTIONAL. Time at which the client identifier was issued. The
-	// time is represented as the number of seconds from
-	// 1970-01-01T00:00:00Z as measured in UTC until the date/time of
-	// issuance.
-	ClientIDIssuedAt *int64 `json:"client_id_issued_at,omitempty"`
-
-	// REQUIRED if "client_secret" is issued. Time at which the client
-	// secret will expire or 0 if it will not expire. The time is
-	// represented as the number of seconds from 1970-01-01T00:00:00Z as
-	// measured in UTC until the date/time of expiration.
-	ClientSecretExpiresAt *int64 `json:"client_secret_expires_at,omitempty"`
 }
 
 // parseClientRegistrationResponse parses OAuth 2.0 Dynamic Client Registration Response

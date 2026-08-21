@@ -35,6 +35,8 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
+
 type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
 	globalTokenStore          mcp.GlobalTokenStore
@@ -60,8 +62,6 @@ func auditLogMetadataForPrincipal(metadata map[string]string, user user.Info) ma
 	result[principal.APIKeyNameExtra] = attribution.Name
 	return result
 }
-
-var errMCPServerRequiresConfiguration = errors.New("mcp server requires configuration")
 
 func compositeLoopbackURLs(serverURL, mcpServerName string, transform func(string) string) (audienceURL, targetURL string) {
 	audienceURL = fmt.Sprintf("%s/mcp-connect-composite/%s", strings.TrimSuffix(serverURL, "/"), mcpServerName)

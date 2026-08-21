@@ -2,6 +2,12 @@ package types
 
 import "fmt"
 
+const (
+	SkillResourceTypeSkill           SkillResourceType = "skill"
+	SkillResourceTypeSkillRepository SkillResourceType = "skillRepository"
+	SkillResourceTypeSelector        SkillResourceType = "selector"
+)
+
 type SkillAccessRule struct {
 	Metadata
 	SkillAccessRuleManifest `json:",inline"`
@@ -12,6 +18,15 @@ type SkillAccessRuleManifest struct {
 	Subjects    []Subject       `json:"subjects,omitempty"`
 	Resources   []SkillResource `json:"resources,omitempty"`
 }
+
+type SkillResource struct {
+	Type SkillResourceType `json:"type"`
+	ID   string            `json:"id"`
+}
+
+type SkillResourceType string
+
+type SkillAccessRuleList List[SkillAccessRule]
 
 func (s SkillAccessRuleManifest) Validate() error {
 	if len(s.Subjects) == 0 {
@@ -57,11 +72,6 @@ func (s SkillAccessRuleManifest) Validate() error {
 	return nil
 }
 
-type SkillResource struct {
-	Type SkillResourceType `json:"type"`
-	ID   string            `json:"id"`
-}
-
 func (s SkillResource) Validate() error {
 	switch s.Type {
 	case SkillResourceTypeSkill, SkillResourceTypeSkillRepository:
@@ -82,13 +92,3 @@ func (s SkillResource) Validate() error {
 func (s SkillResource) IsWildcard() bool {
 	return s.Type == SkillResourceTypeSelector && s.ID == "*"
 }
-
-type SkillResourceType string
-
-const (
-	SkillResourceTypeSkill           SkillResourceType = "skill"
-	SkillResourceTypeSkillRepository SkillResourceType = "skillRepository"
-	SkillResourceTypeSelector        SkillResourceType = "selector"
-)
-
-type SkillAccessRuleList List[SkillAccessRule]

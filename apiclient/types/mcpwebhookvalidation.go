@@ -29,6 +29,11 @@ type MCPWebhookValidationList List[MCPWebhookValidation]
 
 type MCPSelectors []MCPSelector
 
+type MCPSelector struct {
+	Method      string   `json:"method,omitempty"`
+	Identifiers []string `json:"identifiers,omitempty"`
+}
+
 func (f MCPSelectors) Matches(method, identifier string) bool {
 	for _, filter := range f {
 		if filter.Matches(method, identifier) {
@@ -50,11 +55,6 @@ func (f MCPSelectors) Strings() []string {
 		result = append(result, filter.Strings()...)
 	}
 	return result
-}
-
-type MCPSelector struct {
-	Method      string   `json:"method,omitempty"`
-	Identifiers []string `json:"identifiers,omitempty"`
 }
 
 func (f *MCPSelector) Matches(method, identifier string) bool {

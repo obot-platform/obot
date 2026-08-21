@@ -14,16 +14,21 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
+const credentialEncryptedSecretsKey = "_obot_encrypted_env"
+
 var credentialGroupResource = schema.GroupResource{
 	Group:    "obot.obot.ai",
 	Resource: "credentials",
 }
 
-const credentialEncryptedSecretsKey = "_obot_encrypted_env"
-
 type ListCredentialsOptions struct {
 	CredentialContexts []string
 	AllContexts        bool
+}
+
+type CredentialNotFoundError struct {
+	Contexts []string
+	Name     string
 }
 
 // ListCredentials returns the credentials in the given context.
@@ -52,11 +57,6 @@ func (c *Client) ListCredentials(ctx context.Context, opts ListCredentialsOption
 	}
 
 	return credentials, nil
-}
-
-type CredentialNotFoundError struct {
-	Contexts []string
-	Name     string
 }
 
 func (e CredentialNotFoundError) Unwrap() error {

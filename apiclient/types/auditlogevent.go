@@ -2,35 +2,18 @@ package types
 
 import "encoding/json"
 
-// AuditLogEventType identifies the normalized kind of activity represented by an audit event.
-// It is intentionally distinct from AuditLogSourceType, whose values describe the internal
-// ingestion and storage format.
-type AuditLogEventType string
-
 const (
 	// AuditLogEventTypeMCPCall identifies a call received by an Obot-managed MCP server.
 	AuditLogEventTypeMCPCall AuditLogEventType = "mcp_call"
 	// AuditLogEventTypeLocalAgentToolCall identifies a tool call reported by a local agent runtime.
 	AuditLogEventTypeLocalAgentToolCall AuditLogEventType = "local_agent_tool_call"
-)
 
-// AuditLogTimestampSource describes who supplied an event's occurred-at timestamp. Consumers can
-// use it to distinguish server-controlled timestamps from client-reported timestamps.
-type AuditLogTimestampSource string
-
-const (
 	// AuditLogTimestampSourceServer means OccurredAt was assigned by the Obot server.
 	AuditLogTimestampSourceServer AuditLogTimestampSource = "server"
 	// AuditLogTimestampSourceClientReported means OccurredAt came from the submitting client and
 	// should not be treated as an independently verified server timestamp.
 	AuditLogTimestampSourceClientReported AuditLogTimestampSource = "client_reported"
-)
 
-// AuditLogActorType identifies the server-established principal responsible for an event. Reported
-// context such as hostname, local username, agent provider, or email never determines this value.
-type AuditLogActorType string
-
-const (
 	// AuditLogActorTypeUser identifies an authenticated Obot user.
 	AuditLogActorTypeUser AuditLogActorType = "user"
 	// AuditLogActorTypeDevice identifies an enrolled device.
@@ -41,12 +24,7 @@ const (
 	// AuditLogActorTypeUnknown means the stored identity evidence was missing, unresolved, or
 	// internally inconsistent, so no principal could be safely attributed.
 	AuditLogActorTypeUnknown AuditLogActorType = "unknown"
-)
 
-// AuditLogTargetType identifies the kind of object on which an action operated.
-type AuditLogTargetType string
-
-const (
 	// AuditLogTargetTypeMCPServer identifies an MCP server as the direct target.
 	AuditLogTargetTypeMCPServer AuditLogTargetType = "mcp_server"
 	// AuditLogTargetTypeMCPTool identifies a tool exposed by an MCP server.
@@ -57,12 +35,7 @@ const (
 	AuditLogTargetTypeMCPPrompt AuditLogTargetType = "mcp_prompt"
 	// AuditLogTargetTypeLocalTool identifies a non-MCP tool reported by a local agent runtime.
 	AuditLogTargetTypeLocalTool AuditLogTargetType = "local_tool"
-)
 
-// AuditLogOutcomeStatus is the source-independent classification of an event's result.
-type AuditLogOutcomeStatus string
-
-const (
 	// AuditLogOutcomeStatusSuccess means the operation completed successfully.
 	AuditLogOutcomeStatusSuccess AuditLogOutcomeStatus = "success"
 	// AuditLogOutcomeStatusFailure means the operation completed with an error or failing status.
@@ -75,6 +48,25 @@ const (
 	// unmatched MCP request is unknown rather than being assumed to have timed out.
 	AuditLogOutcomeStatusUnknown AuditLogOutcomeStatus = "unknown"
 )
+
+// AuditLogEventType identifies the normalized kind of activity represented by an audit event.
+// It is intentionally distinct from AuditLogSourceType, whose values describe the internal
+// ingestion and storage format.
+type AuditLogEventType string
+
+// AuditLogTimestampSource describes who supplied an event's occurred-at timestamp. Consumers can
+// use it to distinguish server-controlled timestamps from client-reported timestamps.
+type AuditLogTimestampSource string
+
+// AuditLogActorType identifies the server-established principal responsible for an event. Reported
+// context such as hostname, local username, agent provider, or email never determines this value.
+type AuditLogActorType string
+
+// AuditLogTargetType identifies the kind of object on which an action operated.
+type AuditLogTargetType string
+
+// AuditLogOutcomeStatus is the source-independent classification of an event's result.
+type AuditLogOutcomeStatus string
 
 // AuditLogEvent is the normalized public read model shared by MCP and local-agent audit logs.
 // List responses normally omit Details; detail responses and JSONL exports may include them

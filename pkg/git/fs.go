@@ -16,6 +16,13 @@ type sizeLimitedFS struct {
 	maxBytes int64
 }
 
+// sizeLimitedFile wraps billy.File and intercepts Write calls to track cumulative
+// bytes written. Returns errRepoTooLarge once the parent fs's limit is exceeded.
+type sizeLimitedFile struct {
+	billy.File
+	fs *sizeLimitedFS
+}
+
 func (fs *sizeLimitedFS) Create(filename string) (billy.File, error) {
 	f, err := fs.Filesystem.Create(filename)
 	if err != nil {
@@ -38,13 +45,6 @@ func (fs *sizeLimitedFS) TempFile(dir, prefix string) (billy.File, error) {
 		return nil, err
 	}
 	return &sizeLimitedFile{File: f, fs: fs}, nil
-}
-
-// sizeLimitedFile wraps billy.File and intercepts Write calls to track cumulative
-// bytes written. Returns errRepoTooLarge once the parent fs's limit is exceeded.
-type sizeLimitedFile struct {
-	billy.File
-	fs *sizeLimitedFS
 }
 
 func (f *sizeLimitedFile) Write(p []byte) (int, error) {

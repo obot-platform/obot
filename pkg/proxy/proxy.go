@@ -35,6 +35,28 @@ type Manager struct {
 	dispatcher *dispatcher.Dispatcher
 }
 
+type Proxy struct {
+	proxy                *httputil.ReverseProxy
+	url, name, namespace string
+}
+
+// serializableRequest represents an HTTP request that can be serialized for authentication flows
+type serializableRequest struct {
+	Method string              `json:"method"`
+	URL    string              `json:"url"`
+	Header map[string][]string `json:"header"`
+}
+
+// serializableState represents the authentication state returned from auth providers
+type serializableState struct {
+	ExpiresOn         *time.Time `json:"expiresOn"`
+	AccessToken       string     `json:"accessToken"`
+	PreferredUsername string     `json:"preferredUsername"`
+	User              string     `json:"user"`
+	Email             string     `json:"email"`
+	SetCookies        []string   `json:"setCookies"`
+}
+
 func NewProxyManager(dispatcher *dispatcher.Dispatcher) *Manager {
 	m := &Manager{
 		dispatcher: dispatcher,
@@ -198,11 +220,6 @@ func (pm *Manager) createProxy(ctx context.Context, provider string) (*Proxy, er
 	return newProxy(parts[0], parts[1], providerURL.String())
 }
 
-type Proxy struct {
-	proxy                *httputil.ReverseProxy
-	url, name, namespace string
-}
-
 func newProxy(providerNamespace, providerName, providerURL string) (*Proxy, error) {
 	u, err := url.Parse(providerURL)
 	if err != nil {
@@ -230,23 +247,6 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	p.proxy.ServeHTTP(w, r)
-}
-
-// serializableRequest represents an HTTP request that can be serialized for authentication flows
-type serializableRequest struct {
-	Method string              `json:"method"`
-	URL    string              `json:"url"`
-	Header map[string][]string `json:"header"`
-}
-
-// serializableState represents the authentication state returned from auth providers
-type serializableState struct {
-	ExpiresOn         *time.Time `json:"expiresOn"`
-	AccessToken       string     `json:"accessToken"`
-	PreferredUsername string     `json:"preferredUsername"`
-	User              string     `json:"user"`
-	Email             string     `json:"email"`
-	SetCookies        []string   `json:"setCookies"`
 }
 
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {

@@ -23,14 +23,27 @@ type TokenStorage interface {
 	TokenSource(context.Context) (oauth2.TokenSource, error)
 }
 
+type globalTokenStore struct {
+	gatewayClient *gateway.Client
+}
+
+type tokenStore struct {
+	gatewayClient         *gateway.Client
+	userID, mcpID, mcpURL string
+}
+
+// storageBackedTokenSource implements the oauth2.TokenSource interface to store new tokens in the TokenStorage.
+type storageBackedTokenSource struct {
+	lock         sync.Mutex
+	tokenStorage TokenStorage
+	conf         *oauth2.Config
+	tok          *oauth2.Token
+}
+
 func NewGlobalTokenStore(gatewayClient *gateway.Client) GlobalTokenStore {
 	return &globalTokenStore{
 		gatewayClient: gatewayClient,
 	}
-}
-
-type globalTokenStore struct {
-	gatewayClient *gateway.Client
 }
 
 func (g *globalTokenStore) ForUserAndMCP(userID, mcpID, mcpURL string) TokenStorage {
@@ -40,11 +53,6 @@ func (g *globalTokenStore) ForUserAndMCP(userID, mcpID, mcpURL string) TokenStor
 		userID:        userID,
 		mcpURL:        mcpURL,
 	}
-}
-
-type tokenStore struct {
-	gatewayClient         *gateway.Client
-	userID, mcpID, mcpURL string
 }
 
 func (t *tokenStore) GetTokenConfig(ctx context.Context) (*oauth2.Config, *oauth2.Token, error) {
@@ -97,14 +105,6 @@ func (t *tokenStore) TokenSource(ctx context.Context) (oauth2.TokenSource, error
 		return nil, nil
 	}
 	return newStorageBackedTokenSource(t, config, token), nil
-}
-
-// storageBackedTokenSource implements the oauth2.TokenSource interface to store new tokens in the TokenStorage.
-type storageBackedTokenSource struct {
-	lock         sync.Mutex
-	tokenStorage TokenStorage
-	conf         *oauth2.Config
-	tok          *oauth2.Token
 }
 
 func newStorageBackedTokenSource(tokenStorage TokenStorage, conf *oauth2.Config, tok *oauth2.Token) oauth2.TokenSource {

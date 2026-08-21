@@ -16,6 +16,12 @@ type GCSStore struct {
 	config types.GCSConfig
 }
 
+// gcsReadCloser wraps a GCS reader and client so both are closed together.
+type gcsReadCloser struct {
+	reader *gcsstorage.Reader
+	client *gcsstorage.Client
+}
+
 // NewGCSStore creates a new GCS blob store.
 func NewGCSStore(config types.GCSConfig) (*GCSStore, error) {
 	return &GCSStore{config: config}, nil
@@ -81,12 +87,6 @@ func (g *GCSStore) createClient(ctx context.Context) (*gcsstorage.Client, error)
 		return gcsstorage.NewClient(ctx, option.WithCredentialsJSON([]byte(g.config.ServiceAccountJSON)))
 	}
 	return gcsstorage.NewClient(ctx)
-}
-
-// gcsReadCloser wraps a GCS reader and client so both are closed together.
-type gcsReadCloser struct {
-	reader *gcsstorage.Reader
-	client *gcsstorage.Client
 }
 
 func (r *gcsReadCloser) Read(p []byte) (int, error) {

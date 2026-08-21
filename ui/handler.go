@@ -15,6 +15,11 @@ import (
 //go:embed all:user/*build
 var embedded embed.FS
 
+type uiServer struct {
+	rp       *httputil.ReverseProxy
+	userOnly bool
+}
+
 func Handler(devPort, userOnlyPort int) http.Handler {
 	server := &uiServer{}
 
@@ -39,11 +44,6 @@ func newUIProxy(port int) *httputil.ReverseProxy {
 			r.Out.URL.Host = fmt.Sprintf("localhost:%d", port)
 		},
 	}
-}
-
-type uiServer struct {
-	rp       *httputil.ReverseProxy
-	userOnly bool
 }
 
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {

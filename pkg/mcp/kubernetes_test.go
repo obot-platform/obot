@@ -26,6 +26,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+type fakeWithWatch struct {
+	kclient.Client // controller-runtime fake for Get/List/Create etc.
+	watcher        *watch.FakeWatcher
+}
+
 func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 	baseSettings := v1.K8sSettingsSpec{
 		RuntimeClassName: new("runtime-class"),
@@ -994,15 +1001,8 @@ func TestAnalyzePodStatusCommandRuntimeHealthCheck(t *testing.T) {
 	}
 }
 
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
 func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 	return f(req)
-}
-
-type fakeWithWatch struct {
-	kclient.Client // controller-runtime fake for Get/List/Create etc.
-	watcher        *watch.FakeWatcher
 }
 
 func (f *fakeWithWatch) Watch(_ context.Context, _ kclient.ObjectList, _ ...kclient.ListOption) (watch.Interface, error) {

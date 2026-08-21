@@ -5,14 +5,15 @@ import (
 	"errors"
 )
 
-var ErrDisabled = errors.New("agent runtime backend is disabled")
+var (
+	ErrDisabled         = errors.New("agent runtime backend is disabled")
+	_           Backend = Disabled{}
+)
 
 // Disabled is a Backend that consistently reports that hosted-agent runtime
 // management is unavailable. It lets service wiring inject a non-nil backend
 // without giving disabled mode any synthetic behavior.
 type Disabled struct{}
-
-var _ Backend = Disabled{}
 
 func (Disabled) ReconcileInstance(context.Context, DesiredInstance) (InstanceObservation, error) {
 	return InstanceObservation{}, ErrDisabled

@@ -21,6 +21,26 @@ import (
 	"golang.org/x/term"
 )
 
+const (
+	setupProgressAuthStarted     = "auth_started"
+	setupProgressAuthCompleted   = "auth_completed"
+	setupProgressConfigSaved     = "config_saved"
+	setupProgressClientInstalled = "client_installed"
+	setupProgressComplete        = "complete"
+	setupProgressError           = "error"
+
+	setupErrorInvalidURL            setupErrorCode = "invalid_url"
+	setupErrorServerUnreachable     setupErrorCode = "server_unreachable"
+	setupErrorAuthUnavailable       setupErrorCode = "auth_unavailable"
+	setupErrorAuthTimeout           setupErrorCode = "auth_timeout"
+	setupErrorAuthCanceled          setupErrorCode = "auth_canceled"
+	setupErrorConfigSaveFailed      setupErrorCode = "config_save_failed"
+	setupErrorClientDetectionFailed setupErrorCode = "client_detection_failed"
+	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
+	setupErrorAuthInvalid           setupErrorCode = "auth_invalid"
+	setupErrorUnknown               setupErrorCode = "unknown"
+)
+
 type Setup struct {
 	PromptConfig
 	URL     string `usage:"Obot app URL to configure" local:"true"`
@@ -29,6 +49,37 @@ type Setup struct {
 	Output  string `usage:"Output format: text or json" default:"text" local:"true"`
 
 	root *Obot
+}
+
+type setupProgressEvent struct {
+	Type        string   `json:"type"`
+	Code        string   `json:"code,omitempty"`
+	Message     string   `json:"message,omitempty"`
+	URL         string   `json:"url,omitempty"`
+	ClientID    string   `json:"clientID,omitempty"`
+	DisplayName string   `json:"displayName,omitempty"`
+	Installed   []string `json:"installed,omitempty"`
+}
+
+type setupProgressWriter struct {
+	json bool
+	enc  *json.Encoder
+}
+
+type setupErrorCode string
+
+type setupCodedError struct {
+	code setupErrorCode
+	err  error
+}
+
+type errorAlreadyReported struct {
+	err error
+}
+
+type setupClientSelection struct {
+	none      bool
+	clientIDs map[string]bool
 }
 
 func (s *Setup) Customize(c *cobra.Command) {
@@ -322,30 +373,6 @@ func (s *Setup) resolveAppURL(cmd *cobra.Command) (string, error) {
 	return appURL, nil
 }
 
-const (
-	setupProgressAuthStarted     = "auth_started"
-	setupProgressAuthCompleted   = "auth_completed"
-	setupProgressConfigSaved     = "config_saved"
-	setupProgressClientInstalled = "client_installed"
-	setupProgressComplete        = "complete"
-	setupProgressError           = "error"
-)
-
-type setupProgressEvent struct {
-	Type        string   `json:"type"`
-	Code        string   `json:"code,omitempty"`
-	Message     string   `json:"message,omitempty"`
-	URL         string   `json:"url,omitempty"`
-	ClientID    string   `json:"clientID,omitempty"`
-	DisplayName string   `json:"displayName,omitempty"`
-	Installed   []string `json:"installed,omitempty"`
-}
-
-type setupProgressWriter struct {
-	json bool
-	enc  *json.Encoder
-}
-
 func newSetupProgressWriter(cmd *cobra.Command, jsonOutput bool) setupProgressWriter {
 	if !jsonOutput {
 		return setupProgressWriter{}
@@ -361,30 +388,6 @@ func (w setupProgressWriter) emit(event setupProgressEvent) error {
 		return nil
 	}
 	return w.enc.Encode(event)
-}
-
-type setupErrorCode string
-
-const (
-	setupErrorInvalidURL            setupErrorCode = "invalid_url"
-	setupErrorServerUnreachable     setupErrorCode = "server_unreachable"
-	setupErrorAuthUnavailable       setupErrorCode = "auth_unavailable"
-	setupErrorAuthTimeout           setupErrorCode = "auth_timeout"
-	setupErrorAuthCanceled          setupErrorCode = "auth_canceled"
-	setupErrorConfigSaveFailed      setupErrorCode = "config_save_failed"
-	setupErrorClientDetectionFailed setupErrorCode = "client_detection_failed"
-	setupErrorClientInstallFailed   setupErrorCode = "client_install_failed"
-	setupErrorAuthInvalid           setupErrorCode = "auth_invalid"
-	setupErrorUnknown               setupErrorCode = "unknown"
-)
-
-type setupCodedError struct {
-	code setupErrorCode
-	err  error
-}
-
-type errorAlreadyReported struct {
-	err error
 }
 
 func ErrorAlreadyReported(err error) bool {
@@ -458,11 +461,6 @@ func setupAuthErrorCode(err error) setupErrorCode {
 	}
 
 	return setupErrorUnknown
-}
-
-type setupClientSelection struct {
-	none      bool
-	clientIDs map[string]bool
 }
 
 func parseSetupClients(raw string) (setupClientSelection, error) {

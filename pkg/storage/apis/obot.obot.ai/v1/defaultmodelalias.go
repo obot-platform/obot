@@ -19,6 +19,22 @@ type DefaultModelAlias struct {
 	Status DefaultModelAliasStatus `json:"status"`
 }
 
+type DefaultModelAliasSpec struct {
+	Manifest types.DefaultModelAliasManifest `json:"manifest"`
+}
+
+type DefaultModelAliasStatus struct {
+	SetAliasName string `json:"setAliasName"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type DefaultModelAliasList struct {
+	v1.TypeMeta `json:",inline"`
+	v1.ListMeta `json:"metadata"`
+	Items       []DefaultModelAlias `json:"items"`
+}
+
 func (a *DefaultModelAlias) IsAssigned() bool {
 	return true
 }
@@ -38,19 +54,3 @@ func (a *DefaultModelAlias) GetObservedGeneration() int64 {
 }
 
 func (a *DefaultModelAlias) SetObservedGeneration(int64) {}
-
-type DefaultModelAliasSpec struct {
-	Manifest types.DefaultModelAliasManifest `json:"manifest"`
-}
-
-type DefaultModelAliasStatus struct {
-	SetAliasName string `json:"setAliasName"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type DefaultModelAliasList struct {
-	v1.TypeMeta `json:",inline"`
-	v1.ListMeta `json:"metadata"`
-	Items       []DefaultModelAlias `json:"items"`
-}

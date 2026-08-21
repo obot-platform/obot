@@ -9,6 +9,14 @@ const maxTunnelNameLength = 63
 
 var tunnelNameRegex = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$`)
 
+// TunnelConnection describes a tunnel that is currently connected to this
+// Obot installation.
+type TunnelConnection struct {
+	Name string `json:"name"`
+}
+
+type TunnelConnectionList List[TunnelConnection]
+
 // ValidateTunnelName validates the MCPTunnel ID used to select a connection.
 func ValidateTunnelName(name string) error {
 	if name == "" {
@@ -22,11 +30,3 @@ func ValidateTunnelName(name string) error {
 	}
 	return nil
 }
-
-// TunnelConnection describes a tunnel that is currently connected to this
-// Obot installation.
-type TunnelConnection struct {
-	Name string `json:"name"`
-}
-
-type TunnelConnectionList List[TunnelConnection]

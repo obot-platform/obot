@@ -13,13 +13,6 @@ type APIActivity struct {
 	Date   time.Time
 }
 
-func ConvertAPIActivity(a APIActivity) types2.APIActivity {
-	return types2.APIActivity{
-		UserID: a.UserID,
-		Date:   *types2.NewTime(a.Date),
-	}
-}
-
 type RunTokenActivity struct {
 	ID         uint
 	CreatedAt  time.Time `gorm:"index:idx_run_token_activity_api_key_created,priority:2"`
@@ -61,6 +54,20 @@ type TokenUsage struct {
 	TotalSpend float64
 }
 
+type RemainingTokenUsage struct {
+	InputTokens           int
+	OutputTokens          int
+	UnlimitedInputTokens  bool
+	UnlimitedOutputTokens bool
+}
+
+func ConvertAPIActivity(a APIActivity) types2.APIActivity {
+	return types2.APIActivity{
+		UserID: a.UserID,
+		Date:   *types2.NewTime(a.Date),
+	}
+}
+
 func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 	return types2.TokenUsage{
 		UserID:           a.UserID,
@@ -80,13 +87,6 @@ func ConvertTokenActivity(a RunTokenActivity) types2.TokenUsage {
 		OutputSpend:      a.Usage.OutputSpend,
 		TotalSpend:       a.Usage.TotalSpend,
 	}
-}
-
-type RemainingTokenUsage struct {
-	InputTokens           int
-	OutputTokens          int
-	UnlimitedInputTokens  bool
-	UnlimitedOutputTokens bool
 }
 
 func (r RemainingTokenUsage) IsDepleted() bool {

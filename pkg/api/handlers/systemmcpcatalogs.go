@@ -19,6 +19,11 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	catalogCredentialMask          = "****"
+	catalogCredentialVisibleSuffix = 4
+)
+
 type SystemMCPCatalogHandler struct {
 	defaultCatalogPath string
 	sessionManager     *mcp.SessionManager
@@ -307,11 +312,6 @@ func normalizeAndValidateCatalogSourceURLs(sourceURLs []string, localPath string
 	}
 	return nil
 }
-
-const (
-	catalogCredentialMask          = "****"
-	catalogCredentialVisibleSuffix = 4
-)
 
 func maskCatalogCredential(token string) string {
 	if len(token) <= catalogCredentialVisibleSuffix {

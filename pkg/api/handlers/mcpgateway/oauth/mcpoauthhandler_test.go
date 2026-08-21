@@ -17,6 +17,10 @@ type staticOAuthTokenStorage struct {
 	token  *oauth2.Token
 }
 
+type staticOAuthGlobalTokenStore struct {
+	storage mcp.TokenStorage
+}
+
 func (s *staticOAuthTokenStorage) TokenSource(context.Context) (oauth2.TokenSource, error) {
 	if s.config == nil || s.token == nil {
 		return nil, nil
@@ -34,10 +38,6 @@ func (*staticOAuthTokenStorage) SetTokenConfig(context.Context, *oauth2.Config, 
 
 func (*staticOAuthTokenStorage) DeleteTokenConfig(context.Context) error {
 	return nil
-}
-
-type staticOAuthGlobalTokenStore struct {
-	storage mcp.TokenStorage
 }
 
 func (s staticOAuthGlobalTokenStore) ForUserAndMCP(string, string, string) mcp.TokenStorage {

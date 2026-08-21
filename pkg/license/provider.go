@@ -79,6 +79,15 @@ type licenseKeySnapshot struct {
 	viaConfiguration bool
 }
 
+type validationRequest struct {
+	fingerprint string
+}
+
+type keygenValidationResponse struct {
+	License keygen.License
+	Result  keygen.ValidationResult
+}
+
 func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
 	return s.key == other.key &&
 		s.viaConfiguration == other.viaConfiguration &&
@@ -242,10 +251,6 @@ func (p *Provider) keygenClient(licenseKey string) *keygen.Client {
 	return keygenClient
 }
 
-type validationRequest struct {
-	fingerprint string
-}
-
 func (v validationRequest) GetMeta() any {
 	return struct {
 		Scope struct {
@@ -261,11 +266,6 @@ func (v validationRequest) GetMeta() any {
 			Product:     keygenProduct,
 		},
 	}
-}
-
-type keygenValidationResponse struct {
-	License keygen.License
-	Result  keygen.ValidationResult
 }
 
 func (v *keygenValidationResponse) SetData(to func(target any) error) error {

@@ -28,6 +28,19 @@ type MCPOAuthHandlerFactory struct {
 	cimdDocumentURL           string
 }
 
+type mcpOAuthHandler struct {
+	gatewayClient      *client.Client
+	stateMgr           *stateManager
+	mcpID              string
+	mcpURL             string
+	userID             string
+	oauthAuthRequestID string
+	urlChan            chan string
+
+	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
+	catalogEntryName string
+}
+
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
 	f := &MCPOAuthHandlerFactory{
 		baseURL:                   baseURL,
@@ -233,19 +246,6 @@ func staticOAuthAuthStyle(method string) oauth2.AuthStyle {
 	default:
 		return oauth2.AuthStyleAutoDetect
 	}
-}
-
-type mcpOAuthHandler struct {
-	gatewayClient      *client.Client
-	stateMgr           *stateManager
-	mcpID              string
-	mcpURL             string
-	userID             string
-	oauthAuthRequestID string
-	urlChan            chan string
-
-	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
-	catalogEntryName string
 }
 
 func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {

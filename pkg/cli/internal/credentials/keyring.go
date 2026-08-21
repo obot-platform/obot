@@ -16,6 +16,12 @@ type keyring interface {
 
 type keyringFuncs struct{}
 
+// KeyringStore stores one bearer token per normalized Obot app URL.
+type KeyringStore struct {
+	service string
+	keyring keyring
+}
+
 func (keyringFuncs) Get(service, user string) (string, error) {
 	return keyringlib.Get(service, user)
 }
@@ -26,12 +32,6 @@ func (keyringFuncs) Set(service, user, secret string) error {
 
 func (keyringFuncs) Delete(service, user string) error {
 	return keyringlib.Delete(service, user)
-}
-
-// KeyringStore stores one bearer token per normalized Obot app URL.
-type KeyringStore struct {
-	service string
-	keyring keyring
 }
 
 // NewKeyringStore returns a Store backed by the host OS keyring.

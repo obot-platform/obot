@@ -29,6 +29,14 @@ type K8sSettingsHandler struct {
 	localK8sClient    kclient.Client
 }
 
+// PodSchedulingYAML contains the shared pod scheduling fields returned by the API.
+type PodSchedulingYAML struct {
+	Affinity         string
+	Tolerations      string
+	Resources        string
+	RuntimeClassName string
+}
+
 func NewK8sSettingsHandler(
 	mcpSessionManager *mcp.SessionManager,
 	mcpRuntimeBackend string,
@@ -373,14 +381,6 @@ func convertK8sSettings(settings v1.K8sSettings) (types.K8sSettings, error) {
 	}
 
 	return result, nil
-}
-
-// PodSchedulingYAML contains the shared pod scheduling fields returned by the API.
-type PodSchedulingYAML struct {
-	Affinity         string
-	Tolerations      string
-	Resources        string
-	RuntimeClassName string
 }
 
 // FormatPodSchedulingYAML converts parsed pod scheduling fields into API YAML strings.

@@ -23,6 +23,33 @@ var obotProviderToProviderID = map[string]string{
 	system.AzureEntraModelProvider:          "azure",
 }
 
+// modelsDevDocument is the source response shape consumed by the sync.
+type modelsDevDocument map[string]struct {
+	Models map[string]struct {
+		Cost modelsDevCost `json:"cost"`
+	} `json:"models"`
+}
+
+// modelsDevCost is one source model cost entry.
+type modelsDevCost struct {
+	Input      float64         `json:"input"`
+	Output     float64         `json:"output"`
+	CacheRead  float64         `json:"cache_read"`
+	CacheWrite float64         `json:"cache_write"`
+	Tiers      []modelsDevTier `json:"tiers"`
+}
+
+type modelsDevTier struct {
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheRead  float64 `json:"cache_read"`
+	CacheWrite float64 `json:"cache_write"`
+	Tier       struct {
+		Type string `json:"type"`
+		Size int    `json:"size"`
+	} `json:"tier"`
+}
+
 // fetchModelInfos GETs the models.dev document at the source URL and parses it
 // into ModelInfo objects.
 func (h *Handler) fetchModelInfos(ctx context.Context, source *v1.ModelInfoSource) ([]kclient.Object, error) {
@@ -49,33 +76,6 @@ func (h *Handler) fetchModelInfos(ctx context.Context, source *v1.ModelInfoSourc
 		return nil, fmt.Errorf("failed to decode model info source: %w", err)
 	}
 	return parseModelInfos(source.Namespace, source.Name, doc)
-}
-
-// modelsDevDocument is the source response shape consumed by the sync.
-type modelsDevDocument map[string]struct {
-	Models map[string]struct {
-		Cost modelsDevCost `json:"cost"`
-	} `json:"models"`
-}
-
-// modelsDevCost is one source model cost entry.
-type modelsDevCost struct {
-	Input      float64         `json:"input"`
-	Output     float64         `json:"output"`
-	CacheRead  float64         `json:"cache_read"`
-	CacheWrite float64         `json:"cache_write"`
-	Tiers      []modelsDevTier `json:"tiers"`
-}
-
-type modelsDevTier struct {
-	Input      float64 `json:"input"`
-	Output     float64 `json:"output"`
-	CacheRead  float64 `json:"cache_read"`
-	CacheWrite float64 `json:"cache_write"`
-	Tier       struct {
-		Type string `json:"type"`
-		Size int    `json:"size"`
-	} `json:"tier"`
 }
 
 // parseModelInfos converts a models.dev document into ModelInfo objects in the

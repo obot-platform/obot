@@ -30,6 +30,28 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// capturedEntry is a single log record recorded by captureHandler.
+type capturedEntry struct {
+	message string
+	attrs   map[string]any
+}
+
+// captureHandler records the slog output of the code under test. Handlers
+// returned by WithAttrs share the recorded entries with their parent.
+type captureHandler struct {
+	lock    *sync.Mutex
+	entries *[]capturedEntry
+	attrs   []slog.Attr
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+type allowAllTunnelReader struct{}
+
+type staticTunnelTestReader struct {
+	tunnels map[string]v1.MCPTunnel
+}
+
 func TestConnectURL(t *testing.T) {
 	tests := []struct {
 		base string
@@ -310,20 +332,6 @@ func TestTunnelMultiplexesConcurrentRequests(t *testing.T) {
 	for err := range errs {
 		t.Error(err)
 	}
-}
-
-// capturedEntry is a single log record recorded by captureHandler.
-type capturedEntry struct {
-	message string
-	attrs   map[string]any
-}
-
-// captureHandler records the slog output of the code under test. Handlers
-// returned by WithAttrs share the recorded entries with their parent.
-type captureHandler struct {
-	lock    *sync.Mutex
-	entries *[]capturedEntry
-	attrs   []slog.Attr
 }
 
 func newCaptureHandler() *captureHandler {
@@ -1437,13 +1445,9 @@ func newIPv4TestServer(t *testing.T, handler http.Handler) *httptest.Server {
 	return server
 }
 
-type roundTripFunc func(*http.Request) (*http.Response, error)
-
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
 	return f(request)
 }
-
-type allowAllTunnelReader struct{}
 
 func (allowAllTunnelReader) Get(_ context.Context, key kclient.ObjectKey, obj kclient.Object, _ ...kclient.GetOption) error {
 	tunnel := obj.(*v1.MCPTunnel)
@@ -1456,10 +1460,6 @@ func (allowAllTunnelReader) Get(_ context.Context, key kclient.ObjectKey, obj kc
 
 func (allowAllTunnelReader) List(context.Context, kclient.ObjectList, ...kclient.ListOption) error {
 	return nil
-}
-
-type staticTunnelTestReader struct {
-	tunnels map[string]v1.MCPTunnel
 }
 
 func (s *staticTunnelTestReader) Get(_ context.Context, key kclient.ObjectKey, obj kclient.Object, _ ...kclient.GetOption) error {

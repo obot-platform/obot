@@ -19,20 +19,6 @@ type Alias struct {
 	Status EmptyStatus `json:"status"`
 }
 
-func (in *Alias) DeleteRefs() []Ref {
-	return []Ref{
-		{
-			Kind:      in.Spec.TargetKind,
-			Name:      in.Spec.TargetName,
-			Namespace: in.Spec.TargetNamespace,
-		},
-	}
-}
-
-func (in *Alias) NamespaceScoped() bool {
-	return false
-}
-
 type AliasSpec struct {
 	Name            string `json:"name,omitempty"`
 	TargetName      string `json:"targetName,omitempty"`
@@ -65,4 +51,18 @@ type AliasList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []Alias `json:"items"`
+}
+
+func (in *Alias) DeleteRefs() []Ref {
+	return []Ref{
+		{
+			Kind:      in.Spec.TargetKind,
+			Name:      in.Spec.TargetName,
+			Namespace: in.Spec.TargetNamespace,
+		},
+	}
+}
+
+func (in *Alias) NamespaceScoped() bool {
+	return false
 }

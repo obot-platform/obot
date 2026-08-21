@@ -9,6 +9,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
+const maxUploadSize = 2 * 1024 * 1024 // 2MB
+
 var allowedUploadedImageMIMETypes = map[string]bool{
 	"image/svg+xml": true,
 	"image/png":     true,
@@ -16,16 +18,16 @@ var allowedUploadedImageMIMETypes = map[string]bool{
 	"image/webp":    true,
 }
 
-const maxUploadSize = 2 * 1024 * 1024 // 2MB
+type (
+	ImageHandler struct{}
 
-type ImageHandler struct{}
+	imageResponse struct {
+		ImageURL string `json:"imageUrl"`
+	}
+)
 
 func NewImageHandler() *ImageHandler {
 	return nil
-}
-
-type imageResponse struct {
-	ImageURL string `json:"imageUrl"`
 }
 
 func (*ImageHandler) UploadImage(req api.Context) error {

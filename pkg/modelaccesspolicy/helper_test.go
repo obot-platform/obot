@@ -14,6 +14,8 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 )
 
+type modelOpt func(*v1.Model)
+
 func TestResolveTargetModel(t *testing.T) {
 	const provider = "openai-model-provider"
 
@@ -324,8 +326,6 @@ func newModelHelper(t *testing.T, models []*v1.Model, policies ...*v1.ModelAcces
 		modelIndexer: modelIndexer,
 	}
 }
-
-type modelOpt func(*v1.Model)
 
 func withCreated(ts time.Time) modelOpt {
 	return func(m *v1.Model) {

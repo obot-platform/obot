@@ -23,22 +23,6 @@ type Project struct {
 	Status ProjectStatus `json:"status"`
 }
 
-func (in *Project) Has(field string) (exists bool) {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *Project) Get(field string) (value string) {
-	switch field {
-	case "spec.userID":
-		return in.Spec.UserID
-	}
-	return ""
-}
-
-func (in *Project) FieldNames() []string {
-	return []string{"spec.userID"}
-}
-
 type ProjectSpec struct {
 	types.ProjectManifest `json:",inline"`
 
@@ -69,6 +53,31 @@ type ProjectV2 struct {
 	Status ProjectStatus `json:"status"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ProjectV2List struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ProjectV2 `json:"items"`
+}
+
+func (in *Project) Has(field string) (exists bool) {
+	return slices.Contains(in.FieldNames(), field)
+}
+
+func (in *Project) Get(field string) (value string) {
+	switch field {
+	case "spec.userID":
+		return in.Spec.UserID
+	}
+	return ""
+}
+
+func (in *Project) FieldNames() []string {
+	return []string{"spec.userID"}
+}
+
 func (in *ProjectV2) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -83,13 +92,4 @@ func (in *ProjectV2) Get(field string) (value string) {
 
 func (in *ProjectV2) FieldNames() []string {
 	return []string{"spec.userID"}
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ProjectV2List struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []ProjectV2 `json:"items"`
 }

@@ -4,16 +4,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-// PodSecurityLevel is the Pod Security Admission level the sandbox namespace
-// enforces. Sandboxes share that namespace with MCP servers, so a sandbox that
-// does not satisfy the namespace's level is rejected at admission rather than
-// failing later -- the Deployment is created and no pod ever appears.
-//
-// This mirrors the levels the MCP Kubernetes backend applies, and defaults to
-// restricted for the same reason: it is what the Helm chart labels the
-// namespace with unless an operator lowers it.
-type PodSecurityLevel string
-
 const (
 	PodSecurityPrivileged PodSecurityLevel = "privileged"
 	PodSecurityBaseline   PodSecurityLevel = "baseline"
@@ -24,6 +14,16 @@ const (
 	// subPath its pod security context makes it the group owner of.
 	sandboxRunAsUser = 1000
 )
+
+// PodSecurityLevel is the Pod Security Admission level the sandbox namespace
+// enforces. Sandboxes share that namespace with MCP servers, so a sandbox that
+// does not satisfy the namespace's level is rejected at admission rather than
+// failing later -- the Deployment is created and no pod ever appears.
+//
+// This mirrors the levels the MCP Kubernetes backend applies, and defaults to
+// restricted for the same reason: it is what the Helm chart labels the
+// namespace with unless an operator lowers it.
+type PodSecurityLevel string
 
 // ParsePodSecurityLevel maps configuration to a level, defaulting to
 // restricted. An unrecognized value is treated as restricted rather than

@@ -61,6 +61,9 @@ type ProviderEntitlementGate struct {
 	mux             *http.ServeMux
 }
 
+// fake is a fake handler that does fake things
+type fake struct{}
+
 func NewProviderEntitlementGate(licenseProvider *Provider, client kclient.Client) *ProviderEntitlementGate {
 	mux := http.NewServeMux()
 	for _, path := range entitlementPathsToGate {
@@ -324,8 +327,5 @@ func (p *Provider) configuredAuthProviderViolations(ctx context.Context, c kclie
 
 	return violations, nil
 }
-
-// fake is a fake handler that does fake things
-type fake struct{}
 
 func (f *fake) ServeHTTP(http.ResponseWriter, *http.Request) {}

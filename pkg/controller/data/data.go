@@ -17,17 +17,19 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-//go:embed default-model-aliases.yaml
-var defaultModelAliasesData []byte
+var (
+	//go:embed default-model-aliases.yaml
+	defaultModelAliasesData []byte
 
-//go:embed everything-access-control-rule.yaml
-var everythingAccessControlRuleData []byte
+	//go:embed everything-access-control-rule.yaml
+	everythingAccessControlRuleData []byte
 
-//go:embed everything-skill-access-rule.yaml
-var everythingSkillAccessRuleData []byte
+	//go:embed everything-skill-access-rule.yaml
+	everythingSkillAccessRuleData []byte
 
-//go:embed everything-hosted-agent-access-rule.yaml
-var everythingHostedAgentAccessRuleData []byte
+	//go:embed everything-hosted-agent-access-rule.yaml
+	everythingHostedAgentAccessRuleData []byte
+)
 
 // Defaults are the seed values for the resources that point at Obot's own
 // content repositories. They are grouped rather than passed positionally

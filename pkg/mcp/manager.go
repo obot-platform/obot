@@ -25,6 +25,20 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const streamableHTTPHealthcheckBody string = `{
+	"jsonrpc": "2.0",
+	"id": "1",
+    "method": "initialize",
+    "params": {
+        "capabilities": {},
+        "clientInfo": {
+            "name": "dummy",
+            "version": "dummy"
+        },
+        "protocolVersion": "2025-06-18"
+    }
+}`
+
 type Options struct {
 	MCPBaseImage                      string   `usage:"The base image to use for MCP containers" default:"ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.24.2"`
 	MCPHTTPWebhookBaseImage           string   `usage:"The base image to use for HTTP-based MCP webhook containers" default:"ghcr.io/obot-platform/mcp-images/http-webhook-mcp-converter:v0.24.2"`
@@ -103,20 +117,6 @@ type RemoteMCPURLValidationConfig struct {
 	AllowPrivateIPMCP bool
 	AllowLinkLocalMCP bool
 }
-
-const streamableHTTPHealthcheckBody string = `{
-	"jsonrpc": "2.0",
-	"id": "1",
-    "method": "initialize",
-    "params": {
-        "capabilities": {},
-        "clientInfo": {
-            "name": "dummy",
-            "version": "dummy"
-        },
-        "protocolVersion": "2025-06-18"
-    }
-}`
 
 func NewSessionManager(ctx context.Context, authEnabled bool, globalTokenStore GlobalTokenStore, tokenService *persistent.TokenService, baseURL string, httpListenPort int, opts Options, webhookHelper *WebhookHelper, localK8sConfig *rest.Config, client, cachedClient, obotStorageClient kclient.WithWatch, gatewayClient *gateway.Client, obotNamespace string, tunnelManager *tunnel.Manager) (*SessionManager, error) {
 	var backend backend

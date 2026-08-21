@@ -1,11 +1,11 @@
 package types
 
-type ImagePullSecretType string
-
 const (
 	ImagePullSecretTypeBasic ImagePullSecretType = "basic"
 	ImagePullSecretTypeECR   ImagePullSecretType = "ecr"
 )
+
+type ImagePullSecretType string
 
 // ImagePullSecret represents an admin-managed Kubernetes image pull secret.
 type ImagePullSecret struct {

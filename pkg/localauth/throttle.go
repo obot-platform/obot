@@ -17,14 +17,6 @@ const (
 // cannot be entered, since it is longer than any form field allows.
 var dummyHash = mustHash(strings.Repeat("x", 128))
 
-func mustHash(password string) string {
-	h, err := HashPassword(password)
-	if err != nil {
-		panic(err)
-	}
-	return h
-}
-
 // throttle slows down password guessing by locking an email out after too many failures.
 // It is per-process and in-memory: it is a speed bump, not a distributed rate limiter.
 type throttle struct {
@@ -35,6 +27,14 @@ type throttle struct {
 type failureCount struct {
 	count int
 	first time.Time
+}
+
+func mustHash(password string) string {
+	h, err := HashPassword(password)
+	if err != nil {
+		panic(err)
+	}
+	return h
 }
 
 func newThrottle() *throttle {

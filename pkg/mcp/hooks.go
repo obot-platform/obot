@@ -11,6 +11,8 @@ import (
 // consume hook mutation metadata from MCP results.
 const HookMutationsMetaKey = "ai.nanobot.hooks/mutations"
 
+var ErrRPCUnknown = NewRPCError(-32001, "JSON RPC unknown error")
+
 // HookRunner executes one configured hook target.
 type HookRunner interface {
 	RunHook(ctx context.Context, servers HookServerConfigs, input SessionMessageHook, target string) (*SessionMessageHook, error)
@@ -27,18 +29,6 @@ type HookMapping struct {
 type HookTarget struct {
 	Target           string
 	MutateDisallowed bool
-}
-
-func (h HookMapping) Matches(name string, params map[string]string) bool {
-	if h.Name != name && h.Name != "*" {
-		return false
-	}
-	for key, value := range h.Params {
-		if params[key] != value {
-			return false
-		}
-	}
-	return true
 }
 
 // Message is the JSON-RPC envelope sent to and returned by MCP hooks.
@@ -71,7 +61,17 @@ type RPCError struct {
 	Data    json.RawMessage `json:"data,omitempty"`
 }
 
-var ErrRPCUnknown = NewRPCError(-32001, "JSON RPC unknown error")
+func (h HookMapping) Matches(name string, params map[string]string) bool {
+	if h.Name != name && h.Name != "*" {
+		return false
+	}
+	for key, value := range h.Params {
+		if params[key] != value {
+			return false
+		}
+	}
+	return true
+}
 
 func NewRPCError(code int, message string) *RPCError {
 	return &RPCError{Code: code, Message: message}

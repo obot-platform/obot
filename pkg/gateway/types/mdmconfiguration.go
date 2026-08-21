@@ -13,12 +13,6 @@ import (
 // principals. An enrollment credential authenticates as its configuration.
 const MDMConfigurationPrincipalPrefix = "mdm-configuration"
 
-// MDMConfigurationPrincipalName returns the stable principal identity for a
-// configuration, e.g. "mdm-configuration:12".
-func MDMConfigurationPrincipalName(id uint) string {
-	return fmt.Sprintf("%s:%d", MDMConfigurationPrincipalPrefix, id)
-}
-
 // MDMConfiguration is a fleet grouping that devices enroll into. Enrollment is
 // authorized by one or more DeviceEnrollmentKeys attached to it; a device
 // belongs to the configuration itself, not to any particular key.
@@ -105,4 +99,10 @@ type DeviceEnrollmentKey struct {
 type DeviceEnrollmentKeyCreateResponse struct {
 	DeviceEnrollmentKey
 	EnrollmentCredential string `json:"enrollmentCredential"` // ode1-..., shown once
+}
+
+// MDMConfigurationPrincipalName returns the stable principal identity for a
+// configuration, e.g. "mdm-configuration:12".
+func MDMConfigurationPrincipalName(id uint) string {
+	return fmt.Sprintf("%s:%d", MDMConfigurationPrincipalPrefix, id)
 }

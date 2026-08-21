@@ -21,6 +21,26 @@ import (
 	"golang.org/x/oauth2"
 )
 
+type oauthTestClientCredLookup struct {
+	clientID     string
+	clientSecret string
+	calls        int
+}
+
+type recordingTokenStorage struct {
+	setCalls  int
+	setErr    error
+	lastConf  *oauth2.Config
+	lastToken *oauth2.Token
+}
+
+type oauthAuthorizeCallbackHandler struct {
+	authURL     string
+	verifier    string
+	resourceURL string
+	callback    chan CallbackPayload
+}
+
 func TestRequiresStaticOAuth(t *testing.T) {
 	server := v1.MCPServer{}
 	server.Spec.Manifest.Runtime = types.RuntimeRemote
@@ -196,12 +216,6 @@ func TestGetOAuthMetadataAuthorizationServerOIDCFallbackWithoutDynamicRegistrati
 	require.NoError(t, err)
 	require.Equal(t, server.URL+"/.well-known/openid-configuration", metadata.AuthorizationServerMetadataURL)
 	require.False(t, metadata.DynamicClientRegistration)
-}
-
-type oauthTestClientCredLookup struct {
-	clientID     string
-	clientSecret string
-	calls        int
 }
 
 func (l *oauthTestClientCredLookup) Lookup(context.Context) (string, string, error) {
@@ -489,13 +503,6 @@ func TestAuthServerMetadataToClientRegistrationFiltersGrantTypes(t *testing.T) {
 	}
 }
 
-type recordingTokenStorage struct {
-	setCalls  int
-	setErr    error
-	lastConf  *oauth2.Config
-	lastToken *oauth2.Token
-}
-
 func (*recordingTokenStorage) TokenSource(context.Context) (oauth2.TokenSource, error) {
 	return nil, nil
 }
@@ -655,13 +662,6 @@ func TestStorageBackedTokenSourcePropagatesPersistenceError(t *testing.T) {
 	require.ErrorIs(t, err, persistenceErr)
 	require.Nil(t, got)
 	require.Equal(t, 1, storage.setCalls)
-}
-
-type oauthAuthorizeCallbackHandler struct {
-	authURL     string
-	verifier    string
-	resourceURL string
-	callback    chan CallbackPayload
 }
 
 func (h *oauthAuthorizeCallbackHandler) HandleAuthURL(_ context.Context, _ string, authURL string) (bool, error) {

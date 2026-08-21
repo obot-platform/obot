@@ -23,6 +23,31 @@ type Harness struct {
 	Status HarnessStatus `json:"status"`
 }
 
+type HarnessSpec struct {
+	Manifest types.HarnessManifest `json:"manifest"`
+
+	// SourceID names the AgentCatalog this harness was discovered from. Empty
+	// for harnesses an admin registered by hand, which the sync never touches.
+	SourceID string `json:"sourceID,omitempty"`
+	// RelativePath is where the harness was found within the source repository.
+	// Agents from the same source reference the harness by this path.
+	RelativePath string `json:"relativePath,omitempty"`
+	// CommitSHA is the source commit this harness was built from.
+	CommitSHA string `json:"commitSHA,omitempty"`
+}
+
+// HarnessStatus is empty: a harness is configuration only.
+type HarnessStatus struct{}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type HarnessList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []Harness `json:"items"`
+}
+
 func (in *Harness) Has(field string) bool {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -56,29 +81,4 @@ func (in *Harness) GetColumns() [][]string {
 		{"Image", "Spec.Manifest.Image"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-type HarnessSpec struct {
-	Manifest types.HarnessManifest `json:"manifest"`
-
-	// SourceID names the AgentCatalog this harness was discovered from. Empty
-	// for harnesses an admin registered by hand, which the sync never touches.
-	SourceID string `json:"sourceID,omitempty"`
-	// RelativePath is where the harness was found within the source repository.
-	// Agents from the same source reference the harness by this path.
-	RelativePath string `json:"relativePath,omitempty"`
-	// CommitSHA is the source commit this harness was built from.
-	CommitSHA string `json:"commitSHA,omitempty"`
-}
-
-// HarnessStatus is empty: a harness is configuration only.
-type HarnessStatus struct{}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type HarnessList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []Harness `json:"items"`
 }

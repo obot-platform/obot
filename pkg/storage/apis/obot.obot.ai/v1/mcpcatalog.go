@@ -27,14 +27,6 @@ type MCPCatalogStatus struct {
 	IsSyncing  bool              `json:"isSyncing,omitempty"`
 }
 
-func (in *MCPCatalog) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Source URLs", "Spec.SourceURLs"},
-		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
-	}
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MCPCatalogList struct {
@@ -42,4 +34,12 @@ type MCPCatalogList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPCatalog `json:"items"`
+}
+
+func (in *MCPCatalog) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Source URLs", "Spec.SourceURLs"},
+		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
+	}
 }

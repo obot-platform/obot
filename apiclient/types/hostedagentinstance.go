@@ -68,6 +68,8 @@ type HostedAgentInstanceStatus struct {
 	BackendGeneration int64  `json:"backendGeneration,omitempty"`
 }
 
+type HostedAgentInstanceList List[HostedAgentInstance]
+
 func (m HostedAgentInstanceManifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
@@ -112,5 +114,3 @@ func (m HostedAgentInstanceManifest) ValidateAgainstAgent(agent HostedAgentManif
 
 	return nil
 }
-
-type HostedAgentInstanceList List[HostedAgentInstance]

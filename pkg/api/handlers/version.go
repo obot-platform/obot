@@ -22,8 +22,6 @@ import (
 	"github.com/obot-platform/obot/pkg/version"
 )
 
-type SessionStore string
-
 const (
 	SessionStoreDB     SessionStore = "db"
 	SessionStoreCookie SessionStore = "cookie"
@@ -31,12 +29,7 @@ const (
 	updateCheckInterval = 24 * time.Hour
 )
 
-func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
-	if postgresDSN != "" {
-		return SessionStoreDB
-	}
-	return SessionStoreCookie
-}
+type SessionStore string
 
 type VersionHandlerOptions struct {
 	GatewayClient           *client.Client
@@ -63,6 +56,19 @@ type VersionHandler struct {
 	latestVersion    string
 
 	upgradeLock sync.RWMutex
+}
+
+type upgradeCheckResponse struct {
+	UpgradeAvailable bool   `json:"upgradeAvailable"`
+	LatestVersion    string `json:"latestVersion"`
+	CurrentVersion   string `json:"currentVersion"`
+}
+
+func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
+	if postgresDSN != "" {
+		return SessionStoreDB
+	}
+	return SessionStoreCookie
 }
 
 func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*VersionHandler, error) {
@@ -264,10 +270,4 @@ func (v *VersionHandler) checkForUpgrade(ctx context.Context, installationID, cu
 	}
 
 	return nil
-}
-
-type upgradeCheckResponse struct {
-	UpgradeAvailable bool   `json:"upgradeAvailable"`
-	LatestVersion    string `json:"latestVersion"`
-	CurrentVersion   string `json:"currentVersion"`
 }

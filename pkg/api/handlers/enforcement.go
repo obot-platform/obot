@@ -19,6 +19,23 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	maxUnresolvedReasonRunes = 512
+	maxIdentifierRunes       = 256
+	maxServerURLRunes        = 2048
+)
+
+// enforcementDecisionFilters are the filter keys the decision-log UI may request
+// options for. "decision" is a fixed enum served independently of the data.
+var enforcementDecisionFilters = map[string]struct{}{
+	"agent":    {},
+	"tool":     {},
+	"kind":     {},
+	"server":   {},
+	"decision": {},
+	"actor":    {},
+}
+
 type EnforcementHandler struct {
 	// serverURL is Obot's own base URL, parsed once so that classifying a
 	// device-reported call as Obot-hosted never has to handle a parse error.
@@ -232,17 +249,6 @@ func (h *EnforcementHandler) CheckDecisionAllowlist(req api.Context) error {
 		AllowlistReason:    decision.Reason,
 		EnforcementEnabled: policy.Enabled,
 	})
-}
-
-// enforcementDecisionFilters are the filter keys the decision-log UI may request
-// options for. "decision" is a fixed enum served independently of the data.
-var enforcementDecisionFilters = map[string]struct{}{
-	"agent":    {},
-	"tool":     {},
-	"kind":     {},
-	"server":   {},
-	"decision": {},
-	"actor":    {},
 }
 
 // ListFilterOptions handles GET /api/enforcement-decisions/filter-options/{filter} (admin-only).
@@ -467,12 +473,6 @@ func sanitizeServerCommand(raw string) string {
 	}
 	return fields[0]
 }
-
-const (
-	maxUnresolvedReasonRunes = 512
-	maxIdentifierRunes       = 256
-	maxServerURLRunes        = 2048
-)
 
 func sanitizeUnresolvedReason(raw string) string {
 	return truncateRunes(strings.TrimSpace(raw), maxUnresolvedReasonRunes)

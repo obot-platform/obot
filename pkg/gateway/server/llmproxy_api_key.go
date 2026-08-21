@@ -15,6 +15,12 @@ type apiKeyLLMProviderBackend struct {
 	providerName string
 }
 
+type apiKeyTransport struct {
+	providerName string
+	key          string
+	next         http.RoundTripper
+}
+
 func (a apiKeyLLMProviderBackend) modelProviderName() string {
 	return a.providerName
 }
@@ -40,12 +46,6 @@ func (a apiKeyLLMProviderBackend) transport(modelProvider v1.ModelProvider, cred
 		return nil, fmt.Errorf("credential %q for model provider %q is missing or empty", credEnvKey, modelProvider.Name)
 	}
 	return apiKeyTransport{providerName: modelProvider.Name, key: key, next: http.DefaultTransport}, nil
-}
-
-type apiKeyTransport struct {
-	providerName string
-	key          string
-	next         http.RoundTripper
 }
 
 func (a apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {

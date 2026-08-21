@@ -22,23 +22,25 @@ import "strings"
 // which calls are reported as built-in servers at all. Membership is intentionally
 // kept out of any user-facing copy, and the evaluator's behavior does not depend
 // on the exact contents of this map.
-var builtinAgentMCPServers = map[string]map[string]struct{}{
-	AgentClaudeCode: {
-		"workspace":        {},
-		"claude-in-chrome": {},
-		"computer-use":     {},
-		"Claude Preview":   {},
-		"Claude Browser":   {},
-	},
-}
+var (
+	builtinAgentMCPServers = map[string]map[string]struct{}{
+		AgentClaudeCode: {
+			"workspace":        {},
+			"claude-in-chrome": {},
+			"computer-use":     {},
+			"Claude Preview":   {},
+			"Claude Browser":   {},
+		},
+	}
 
-var builtinAgentToolKinds = map[string]struct{}{
-	KindShell:   {},
-	KindRead:    {},
-	KindWrite:   {},
-	KindTask:    {},
-	KindGeneric: {},
-}
+	builtinAgentToolKinds = map[string]struct{}{
+		KindShell:   {},
+		KindRead:    {},
+		KindWrite:   {},
+		KindTask:    {},
+		KindGeneric: {},
+	}
+)
 
 func isBuiltinAgentToolKind(kind string) bool {
 	_, ok := builtinAgentToolKinds[kind]

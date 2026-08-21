@@ -8,6 +8,17 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+type optionConstraint struct {
+	key         string
+	value       string
+	prefix      string
+	required    bool
+	sensitive   bool
+	file        bool
+	dynamicFile bool
+	options     []types.MCPConfigurationOption
+}
+
 func remoteHeaders(config *types.RemoteRuntimeConfig) []types.MCPHeader {
 	if config == nil {
 		return nil
@@ -194,17 +205,6 @@ func fieldsHaveConfigurationOptions(envs []types.MCPEnv, headerGroups ...[]types
 		}
 	}
 	return false
-}
-
-type optionConstraint struct {
-	key         string
-	value       string
-	prefix      string
-	required    bool
-	sensitive   bool
-	file        bool
-	dynamicFile bool
-	options     []types.MCPConfigurationOption
 }
 
 // ValidateCatalogConfigurationConstraints ensures catalog-owned option fields cannot be changed on a deployed server.

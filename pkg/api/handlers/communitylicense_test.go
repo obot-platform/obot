@@ -34,6 +34,15 @@ type fakeCommunityLicenseProvider struct {
 	lastInstalledKey  string
 }
 
+type fakeCommunityIssuer struct {
+	lock     sync.Mutex
+	key      string
+	errors   []error
+	requests []upgrade.CommunityLicenseRequest
+	started  chan struct{}
+	release  chan struct{}
+}
+
 func (p *fakeCommunityLicenseProvider) LicenseKey(context.Context) (string, error) {
 	p.lock.Lock()
 	defer p.lock.Unlock()
@@ -83,15 +92,6 @@ func (p *fakeCommunityLicenseProvider) Entitlements(context.Context) ([]string, 
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	return slices.Clone(p.entitlements), p.entitlementsError
-}
-
-type fakeCommunityIssuer struct {
-	lock     sync.Mutex
-	key      string
-	errors   []error
-	requests []upgrade.CommunityLicenseRequest
-	started  chan struct{}
-	release  chan struct{}
 }
 
 func (i *fakeCommunityIssuer) Issue(ctx context.Context, request upgrade.CommunityLicenseRequest) (string, error) {

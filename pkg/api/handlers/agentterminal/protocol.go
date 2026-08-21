@@ -33,6 +33,14 @@ const (
 	// ChannelControl carries JSON messages that are about the session rather
 	// than its content.
 	ChannelControl byte = 3
+
+	// ControlResize is sent by the browser when the terminal changes shape.
+	ControlResize = "resize"
+	// ControlError reports a failure of the session rather than of the program
+	// running in it: an attach that did not succeed, a sandbox that stopped.
+	// It is distinct from the output channels so a client can tell Obot's
+	// errors from anything the sandbox itself printed.
+	ControlError = "error"
 )
 
 // ControlMessage is the payload of a control frame.
@@ -43,16 +51,6 @@ type ControlMessage struct {
 	// Message describes a session-level failure. It accompanies ControlError.
 	Message string `json:"message,omitempty"`
 }
-
-const (
-	// ControlResize is sent by the browser when the terminal changes shape.
-	ControlResize = "resize"
-	// ControlError reports a failure of the session rather than of the program
-	// running in it: an attach that did not succeed, a sandbox that stopped.
-	// It is distinct from the output channels so a client can tell Obot's
-	// errors from anything the sandbox itself printed.
-	ControlError = "error"
-)
 
 // Frame builds a message for a channel.
 func Frame(channel byte, payload []byte) []byte {

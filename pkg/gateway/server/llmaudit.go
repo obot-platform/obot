@@ -39,6 +39,12 @@ type llmAuditRecorder struct {
 	responseCaptureFilled bool
 }
 
+type llmAuditResponseBody struct {
+	body   io.ReadCloser
+	audit  *llmAuditRecorder
+	client *client.Client
+}
+
 func newLLMAuditRecorder(req *http.Request, user user.Info, responseCaptureLimit int) *llmAuditRecorder {
 	now := time.Now()
 	requestID := gatewaycontext.GetRequestID(req.Context())
@@ -198,12 +204,6 @@ func (r *llmAuditRecorder) setOutcomeAndResponseStatus(err error) {
 			r.log.Outcome = types.LLMAuditOutcomeError
 		}
 	}
-}
-
-type llmAuditResponseBody struct {
-	body   io.ReadCloser
-	audit  *llmAuditRecorder
-	client *client.Client
 }
 
 func (r *llmAuditResponseBody) Read(p []byte) (int, error) {

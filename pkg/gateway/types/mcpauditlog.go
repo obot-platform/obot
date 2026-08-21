@@ -13,6 +13,10 @@ import (
 	"gorm.io/datatypes"
 )
 
+// maxOccurredAtFutureSkew is the largest amount a local-agent audit log's client-reported
+// occurredAt may exceed the server's current time before the submission is rejected.
+const maxOccurredAtFutureSkew = time.Hour
+
 // MCPAuditLog represents an audit log entry for MCP API calls
 type MCPAuditLog struct {
 	ID         uint                      `json:"id" gorm:"primaryKey"`
@@ -124,6 +128,62 @@ type LocalAgentToolCallAuditLogFields struct {
 	RawEvent json.RawMessage `json:"rawEvent,omitempty" gorm:"column:local_agent_raw_event"`
 }
 
+type MCPWebhookStatus struct {
+	Type    string `json:"type,omitempty"`
+	URL     string `json:"url,omitempty"`
+	Method  string `json:"method,omitempty"`
+	Name    string `json:"name,omitempty"`
+	Tool    string `json:"tool,omitempty"`
+	Status  string `json:"status,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// MCPUsageStatItem represents usage statistics for MCP servers
+type MCPUsageStatItem struct {
+	MCPID                     string                 `json:"mcpID"`
+	MCPServerDisplayName      string                 `json:"mcpServerDisplayName"`
+	MCPServerCatalogEntryName string                 `json:"mcpServerCatalogEntryName"`
+	ToolCalls                 []MCPToolCallStats     `json:"toolCalls,omitempty"`
+	ResourceReads             []MCPResourceReadStats `json:"resourceReads,omitempty"`
+	PromptReads               []MCPPromptReadStats   `json:"promptReads,omitempty"`
+}
+
+type MCPUsageStatsList struct {
+	TotalCalls  int64              `json:"totalCalls"`
+	UniqueUsers int64              `json:"uniqueUsers"`
+	TimeStart   time.Time          `json:"timeStart"`
+	TimeEnd     time.Time          `json:"timeEnd"`
+	Items       []MCPUsageStatItem `json:"items"`
+}
+
+type MCPToolCallStatsItem struct {
+	ToolName         string    `json:"toolName"`
+	CreatedAt        time.Time `json:"createdAt"`
+	UserID           string    `json:"userID"`
+	ProcessingTimeMs int64     `json:"processingTimeMs"`
+	ResponseStatus   int       `json:"responseStatus"`
+	Error            string    `json:"error"`
+}
+
+// MCPToolCallStats represents statistics for individual tool calls
+type MCPToolCallStats struct {
+	ToolName  string                 `json:"-"`
+	CallCount int64                  `json:"callCount"`
+	Items     []MCPToolCallStatsItem `json:"items"`
+}
+
+// MCPResourceReadStats represents statistics for individual resource reads
+type MCPResourceReadStats struct {
+	ResourceURI string `json:"resourceUri"`
+	ReadCount   int64  `json:"readCount"`
+}
+
+// MCPPromptReadStats represents statistics for individual prompt reads
+type MCPPromptReadStats struct {
+	PromptName string `json:"promptName"`
+	ReadCount  int64  `json:"readCount"`
+}
+
 func (a *MCPAuditLog) NormalizeMCPFields() {
 	if a == nil {
 		return
@@ -179,10 +239,6 @@ func (a *MCPAuditLog) ValidateSourceFields() error {
 	}
 	return nil
 }
-
-// maxOccurredAtFutureSkew is the largest amount a local-agent audit log's client-reported
-// occurredAt may exceed the server's current time before the submission is rejected.
-const maxOccurredAtFutureSkew = time.Hour
 
 func (a *MCPAuditLog) validateLocalAgentToolCallFields() error {
 	local := a.LocalAgentToolCallFields
@@ -295,62 +351,6 @@ func isZeroLocalAgentToolCallAuditLogFields(local *LocalAgentToolCallAuditLogFie
 // empty or null value rather than omitting the field, so null must be accepted.
 func isMissingRequiredJSONPayload(payload json.RawMessage) bool {
 	return len(bytes.TrimSpace(payload)) == 0
-}
-
-type MCPWebhookStatus struct {
-	Type    string `json:"type,omitempty"`
-	URL     string `json:"url,omitempty"`
-	Method  string `json:"method,omitempty"`
-	Name    string `json:"name,omitempty"`
-	Tool    string `json:"tool,omitempty"`
-	Status  string `json:"status,omitempty"`
-	Message string `json:"message,omitempty"`
-}
-
-// MCPUsageStatItem represents usage statistics for MCP servers
-type MCPUsageStatItem struct {
-	MCPID                     string                 `json:"mcpID"`
-	MCPServerDisplayName      string                 `json:"mcpServerDisplayName"`
-	MCPServerCatalogEntryName string                 `json:"mcpServerCatalogEntryName"`
-	ToolCalls                 []MCPToolCallStats     `json:"toolCalls,omitempty"`
-	ResourceReads             []MCPResourceReadStats `json:"resourceReads,omitempty"`
-	PromptReads               []MCPPromptReadStats   `json:"promptReads,omitempty"`
-}
-
-type MCPUsageStatsList struct {
-	TotalCalls  int64              `json:"totalCalls"`
-	UniqueUsers int64              `json:"uniqueUsers"`
-	TimeStart   time.Time          `json:"timeStart"`
-	TimeEnd     time.Time          `json:"timeEnd"`
-	Items       []MCPUsageStatItem `json:"items"`
-}
-
-type MCPToolCallStatsItem struct {
-	ToolName         string    `json:"toolName"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UserID           string    `json:"userID"`
-	ProcessingTimeMs int64     `json:"processingTimeMs"`
-	ResponseStatus   int       `json:"responseStatus"`
-	Error            string    `json:"error"`
-}
-
-// MCPToolCallStats represents statistics for individual tool calls
-type MCPToolCallStats struct {
-	ToolName  string                 `json:"-"`
-	CallCount int64                  `json:"callCount"`
-	Items     []MCPToolCallStatsItem `json:"items"`
-}
-
-// MCPResourceReadStats represents statistics for individual resource reads
-type MCPResourceReadStats struct {
-	ResourceURI string `json:"resourceUri"`
-	ReadCount   int64  `json:"readCount"`
-}
-
-// MCPPromptReadStats represents statistics for individual prompt reads
-type MCPPromptReadStats struct {
-	PromptName string `json:"promptName"`
-	ReadCount  int64  `json:"readCount"`
 }
 
 func NewLocalAgentToolCallAuditLogFromInput(input types2.LocalAgentToolCallAuditLogInput, actorType types2.AuditLogActorType, actorID, clientIP string, deviceDeploymentID uint, createdAt time.Time) MCPAuditLog {

@@ -30,6 +30,15 @@ type ModelInfoSpec struct {
 	Cost                types.ModelCost `json:"cost,omitzero"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type ModelInfoList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []ModelInfo `json:"items"`
+}
+
 func (in *ModelInfo) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &ModelInfoSource{}, Name: in.Spec.ModelInfoSourceName},
@@ -49,13 +58,4 @@ func (in *ModelInfo) GetColumns() [][]string {
 // ModelInfoName returns the deterministic name for a provider/model pair.
 func ModelInfoName(provider, model string) string {
 	return name.SafeConcatName(provider, fmt.Sprintf("%x", sha256.Sum256([]byte(model))))
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type ModelInfoList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []ModelInfo `json:"items"`
 }

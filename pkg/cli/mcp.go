@@ -28,6 +28,34 @@ type MCP struct {
 	root *Obot
 }
 
+type MCPValidateCatalogYAML struct {
+	RequireEntryKey bool `usage:"Require every catalog entry to set entryKey"`
+}
+
+type MCPValidateSystemCatalogYAML struct{}
+
+type MCPSearch struct {
+	PromptConfig
+
+	Limit int  `usage:"Maximum number of MCP servers to return; 0 means no limit" default:"50"`
+	JSON  bool `usage:"Print results as JSON"`
+
+	root *Obot
+}
+
+type mcpSearchOutput struct {
+	Servers []mcpSearchServer `json:"servers"`
+}
+
+type mcpSearchServer struct {
+	Name                  string `json:"name"`
+	Title                 string `json:"title"`
+	Description           string `json:"description"`
+	Status                string `json:"status"`
+	ConfigurationRequired bool   `json:"configurationRequired"`
+	URL                   string `json:"url"`
+}
+
 func (m *MCP) Customize(c *cobra.Command) {
 	c.Use = "mcp"
 	c.Short = "Manage MCP servers"
@@ -39,10 +67,6 @@ func (m *MCP) Customize(c *cobra.Command) {
 
 func (m *MCP) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
-}
-
-type MCPValidateCatalogYAML struct {
-	RequireEntryKey bool `usage:"Require every catalog entry to set entryKey"`
 }
 
 func (m *MCPValidateCatalogYAML) Customize(cmd *cobra.Command) {
@@ -66,8 +90,6 @@ func validateMCPCatalogPaths(ctx context.Context, paths []string, requireEntryKe
 		return validateMCPCatalogFile(ctx, path, requireEntryKey, seenEntryKeys)
 	})
 }
-
-type MCPValidateSystemCatalogYAML struct{}
 
 func (m *MCPValidateSystemCatalogYAML) Customize(cmd *cobra.Command) {
 	cmd.Use = "validate-system-catalog-yaml <path>..."
@@ -222,15 +244,6 @@ func validateSystemMCPCatalogFile(ctx context.Context, path string, seenSanitize
 	return errors.Join(errs...)
 }
 
-type MCPSearch struct {
-	PromptConfig
-
-	Limit int  `usage:"Maximum number of MCP servers to return; 0 means no limit" default:"50"`
-	JSON  bool `usage:"Print results as JSON"`
-
-	root *Obot
-}
-
 func (m *MCPSearch) Customize(cmd *cobra.Command) {
 	cmd.Use = "search [query...]"
 	cmd.Short = "Search Obot for MCP servers"
@@ -309,19 +322,6 @@ func (m *MCPSearch) listServers(cmd *cobra.Command, client *apiclient.Client, qu
 		cursor = page.Metadata.NextCursor
 	}
 	return results, nil
-}
-
-type mcpSearchOutput struct {
-	Servers []mcpSearchServer `json:"servers"`
-}
-
-type mcpSearchServer struct {
-	Name                  string `json:"name"`
-	Title                 string `json:"title"`
-	Description           string `json:"description"`
-	Status                string `json:"status"`
-	ConfigurationRequired bool   `json:"configurationRequired"`
-	URL                   string `json:"url"`
 }
 
 func normalizeRegistryServers(servers []types.RegistryServerResponse, appURL string) []mcpSearchServer {

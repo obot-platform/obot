@@ -14,6 +14,8 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 )
 
+type ruleOpt func(*v1.SkillAccessRule)
+
 func TestGetSkillAccessRulesForSkillFiltersDeletedAndNamespace(t *testing.T) {
 	helper := newTestHelper(t,
 		newRule("match", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
@@ -260,8 +262,6 @@ func newRule(name string, subjects []types.Subject, resources []types.SkillResou
 
 	return rule
 }
-
-type ruleOpt func(*v1.SkillAccessRule)
 
 func withNamespace(namespace string) ruleOpt {
 	return func(rule *v1.SkillAccessRule) {

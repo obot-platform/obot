@@ -10,30 +10,39 @@ import (
 	"gorm.io/gorm"
 )
 
-// enforcementDecisionSortColumns is the allowlist of columns the decision-log
-// list view may sort by. Anything else is rejected so sort keys can never be
-// used to inject SQL.
-var enforcementDecisionSortColumns = map[string]string{
-	"created_at": "created_at",
-	"agent":      "agent",
-	"tool":       "tool",
-	"kind":       "kind",
-	"server":     "server_name",
-	"decision":   "decision",
-	"device_id":  "device_id",
-	"client_ip":  "client_ip",
-}
+var (
+	// enforcementDecisionSortColumns is the allowlist of columns the decision-log
+	// list view may sort by. Anything else is rejected so sort keys can never be
+	// used to inject SQL.
+	enforcementDecisionSortColumns = map[string]string{
+		"created_at": "created_at",
+		"agent":      "agent",
+		"tool":       "tool",
+		"kind":       "kind",
+		"server":     "server_name",
+		"decision":   "decision",
+		"device_id":  "device_id",
+		"client_ip":  "client_ip",
+	}
 
-// enforcementDecisionFilterColumns maps a UI filter key to its
-// storage column for both list filtering and filter-option lookups.
-var enforcementDecisionFilterColumns = map[string]string{
-	"agent":    "agent",
-	"tool":     "tool",
-	"kind":     "kind",
-	"server":   "server_name",
-	"decision": "decision",
-	"actor":    "device_id",
-}
+	// enforcementDecisionFilterColumns maps a UI filter key to its
+	// storage column for both list filtering and filter-option lookups.
+	enforcementDecisionFilterColumns = map[string]string{
+		"agent":    "agent",
+		"tool":     "tool",
+		"kind":     "kind",
+		"server":   "server_name",
+		"decision": "decision",
+		"actor":    "device_id",
+	}
+
+	enforcementDecisionQueryColumns = []string{
+		"agent", "tool", "kind", "server_name", "decision", "reason", "device_id", "client_ip",
+		"server_url", "server_hostname", "server_command", "server_package_source",
+		"server_package_name", "server_package_version", "server_connector",
+		"unresolved_reason",
+	}
+)
 
 type EnforcementDecisionOptions struct {
 	MDMConfigurationID []uint
@@ -51,13 +60,6 @@ type EnforcementDecisionOptions struct {
 	Offset    int
 	SortBy    string
 	SortOrder string
-}
-
-var enforcementDecisionQueryColumns = []string{
-	"agent", "tool", "kind", "server_name", "decision", "reason", "device_id", "client_ip",
-	"server_url", "server_hostname", "server_command", "server_package_source",
-	"server_package_name", "server_package_version", "server_connector",
-	"unresolved_reason",
 }
 
 func (o EnforcementDecisionOptions) sortExpression() (string, error) {

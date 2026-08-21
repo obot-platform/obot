@@ -26,12 +26,40 @@ import (
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
+const keyEnvVar = "JWK_KEY"
+
 type TokenService struct {
 	lock          sync.RWMutex
 	privateKey    ed25519.PrivateKey
 	jwks          json.RawMessage
 	gatewayClient *client.Client
 	serverURL     string
+}
+
+type TokenContext struct {
+	Issuer                string `json:"iss"`
+	Audience              string `json:"aud"`
+	IssuedAt              Time   `json:"iat"`
+	ExpiresAt             Time   `json:"exp"`
+	UserID                string `json:"sub"`
+	UserName              string `json:"name"`
+	UserEmail             string `json:"email"`
+	OAuthScope            string `json:"scope"`
+	Picture               string `json:"picture"`
+	UserGroups            StringSlice
+	AuthProviderName      string
+	AuthProviderNamespace string
+	AuthProviderUserID    string
+
+	MCPID string
+
+	// This is used for requesting community license
+	InstallationID string `json:"installation_id,omitempty"`
+
+	// The following fields are for runs
+	Namespace     string
+	ModelProvider string
+	Model         string
 }
 
 func NewTokenService(serverURL string, gatewayClient *client.Client) (*TokenService, error) {
@@ -124,32 +152,6 @@ func (t *TokenService) ReplaceJWK(req api.Context) error {
 	}
 
 	return nil
-}
-
-type TokenContext struct {
-	Issuer                string `json:"iss"`
-	Audience              string `json:"aud"`
-	IssuedAt              Time   `json:"iat"`
-	ExpiresAt             Time   `json:"exp"`
-	UserID                string `json:"sub"`
-	UserName              string `json:"name"`
-	UserEmail             string `json:"email"`
-	OAuthScope            string `json:"scope"`
-	Picture               string `json:"picture"`
-	UserGroups            StringSlice
-	AuthProviderName      string
-	AuthProviderNamespace string
-	AuthProviderUserID    string
-
-	MCPID string
-
-	// This is used for requesting community license
-	InstallationID string `json:"installation_id,omitempty"`
-
-	// The following fields are for runs
-	Namespace     string
-	ModelProvider string
-	Model         string
 }
 
 func (t TokenContext) GetAudience() (jwt.ClaimStrings, error) {
@@ -388,8 +390,6 @@ func (t *TokenService) ServeJWKS(api api.Context) error {
 
 	return api.Write(jwks)
 }
-
-const keyEnvVar = "JWK_KEY"
 
 func (t *TokenService) replaceKey(ctx context.Context, key ed25519.PrivateKey) error {
 	jwk, err := jwkset.NewJWKFromKey(key, jwkset.JWKOptions{

@@ -27,21 +27,9 @@ type GitCredentialReferences struct {
 	SystemMCPCatalogs []GitCredentialReference `json:"systemMcpCatalogs,omitempty"`
 }
 
-func (r GitCredentialReferences) Len() int {
-	return len(r.SkillRepositories) + len(r.MCPCatalogs) + len(r.SystemMCPCatalogs)
-}
-
 type GitCredentialReference struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName,omitempty"`
-}
-
-func (in *GitCredential) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Display Name", "Spec.DisplayName"},
-		{"Host", "Spec.Host"},
-	}
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -51,4 +39,16 @@ type GitCredentialList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []GitCredential `json:"items"`
+}
+
+func (r GitCredentialReferences) Len() int {
+	return len(r.SkillRepositories) + len(r.MCPCatalogs) + len(r.SystemMCPCatalogs)
+}
+
+func (in *GitCredential) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Display Name", "Spec.DisplayName"},
+		{"Host", "Spec.Host"},
+	}
 }

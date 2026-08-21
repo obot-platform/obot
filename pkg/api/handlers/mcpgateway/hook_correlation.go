@@ -15,14 +15,14 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// hookOrigin distinguishes client-initiated calls from server-initiated calls
-// that may reuse the same JSON-RPC request ID.
-type hookOrigin string
-
 const (
 	hookOriginClient hookOrigin = "client"
 	hookOriginServer hookOrigin = "server"
 )
+
+// hookOrigin distinguishes client-initiated calls from server-initiated calls
+// that may reuse the same JSON-RPC request ID.
+type hookOrigin string
 
 // hookCorrelationStore persists pending requests for responses that may reach
 // another HTTP request or Obot replica.

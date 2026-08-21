@@ -21,6 +21,24 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// cleanupScript erases one sandbox's directory from the shared pool volume.
+//
+// The directory name arrives as an argument rather than interpolated into the
+// script, and is re-checked here even though sandboxSubdir has already
+// validated it. The command is an rm -rf against a volume shared by every
+// sandbox in the pool, so it is worth the cost of refusing to run rather than
+// trusting that no future caller reaches this with an empty or traversing name.
+const cleanupScript = `set -eu
+dir="$1"
+case "$dir" in
+  ''|.|..|*/*|*..*)
+    echo "refusing to remove pool directory: $dir" >&2
+    exit 1
+    ;;
+esac
+rm -rf "/pool/$dir"
+`
+
 func (b *Backend) ReconcileInstance(ctx context.Context, desired agentbackend.DesiredInstance) (agentbackend.InstanceObservation, error) {
 	if desired.Ref.ID == "" {
 		return agentbackend.InstanceObservation{}, fmt.Errorf("instance ID is required")
@@ -495,24 +513,6 @@ func secretRefEnv(refs []agentbackend.SecretRef) ([]corev1.EnvVar, error) {
 	}
 	return env, nil
 }
-
-// cleanupScript erases one sandbox's directory from the shared pool volume.
-//
-// The directory name arrives as an argument rather than interpolated into the
-// script, and is re-checked here even though sandboxSubdir has already
-// validated it. The command is an rm -rf against a volume shared by every
-// sandbox in the pool, so it is worth the cost of refusing to run rather than
-// trusting that no future caller reaches this with an empty or traversing name.
-const cleanupScript = `set -eu
-dir="$1"
-case "$dir" in
-  ''|.|..|*/*|*..*)
-    echo "refusing to remove pool directory: $dir" >&2
-    exit 1
-    ;;
-esac
-rm -rf "/pool/$dir"
-`
 
 func (b *Backend) cleanupJob(instanceID, poolID string) (*batchv1.Job, error) {
 	subdir, err := sandboxSubdir(instanceID)

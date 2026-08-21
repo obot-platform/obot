@@ -29,15 +29,6 @@ type MDMAssetSourceStatus struct {
 	LatestDigest string      `json:"latestDigest,omitempty"`
 }
 
-func (in *MDMAssetSource) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Source", "Spec.Source"},
-		{"Latest Digest", "Status.LatestDigest"},
-		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
-	}
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MDMAssetSourceList struct {
@@ -74,6 +65,24 @@ type MDMAssetSpec struct {
 	Digest string `json:"digest"`
 }
 
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type MDMAssetList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []MDMAsset `json:"items"`
+}
+
+func (in *MDMAssetSource) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Source", "Spec.Source"},
+		{"Latest Digest", "Status.LatestDigest"},
+		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
+	}
+}
+
 func (in *MDMAsset) GetColumns() [][]string {
 	return [][]string{
 		{"Name", "Name"},
@@ -86,13 +95,4 @@ func (in *MDMAsset) GetColumns() [][]string {
 // MDMAssetName returns the deterministic storage name for a bundle digest.
 func MDMAssetName(digest string) string {
 	return name.SafeConcatName("mdm-asset", digest)
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type MDMAssetList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []MDMAsset `json:"items"`
 }

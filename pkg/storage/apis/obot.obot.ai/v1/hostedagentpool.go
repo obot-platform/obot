@@ -72,6 +72,19 @@ type HostedAgentPoolAssignment struct {
 	Spec HostedAgentPoolAssignmentSpec `json:"spec"`
 }
 
+type HostedAgentPoolAssignmentSpec struct {
+	Manifest types.HostedAgentPoolAssignmentManifest `json:"manifest"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type HostedAgentPoolAssignmentList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []HostedAgentPoolAssignment `json:"items"`
+}
+
 func (in *HostedAgentPoolAssignment) Has(field string) bool {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -96,17 +109,4 @@ func (in *HostedAgentPoolAssignment) DeleteRefs() []Ref {
 	return []Ref{
 		{ObjType: &HostedAgentPool{}, Name: in.Spec.Manifest.PoolID},
 	}
-}
-
-type HostedAgentPoolAssignmentSpec struct {
-	Manifest types.HostedAgentPoolAssignmentManifest `json:"manifest"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type HostedAgentPoolAssignmentList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []HostedAgentPoolAssignment `json:"items"`
 }

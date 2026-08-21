@@ -19,15 +19,6 @@ type ModelAccessPolicySpec struct {
 	Manifest types.ModelAccessPolicyManifest `json:"manifest"`
 }
 
-func (in *ModelAccessPolicy) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Display Name", "Spec.Manifest.DisplayName"},
-		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
-		{"Models", "{{len .Spec.Manifest.Models}}"},
-	}
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type ModelAccessPolicyList struct {
@@ -35,4 +26,13 @@ type ModelAccessPolicyList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelAccessPolicy `json:"items"`
+}
+
+func (in *ModelAccessPolicy) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Display Name", "Spec.Manifest.DisplayName"},
+		{"Subjects", "{{len .Spec.Manifest.Subjects}}"},
+		{"Models", "{{len .Spec.Manifest.Models}}"},
+	}
 }

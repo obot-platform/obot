@@ -20,12 +20,6 @@ type LocalAuthHandler struct {
 	provider *localauth.Provider
 }
 
-func NewLocalAuthHandler(provider *localauth.Provider) *LocalAuthHandler {
-	return &LocalAuthHandler{
-		provider: provider,
-	}
-}
-
 // LocalAuthUser is a user of the local auth provider, as returned by the API.
 // Passwords are never returned, in any form.
 type LocalAuthUser struct {
@@ -36,6 +30,12 @@ type LocalAuthUser struct {
 type localAuthUserRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+func NewLocalAuthHandler(provider *localauth.Provider) *LocalAuthHandler {
+	return &LocalAuthHandler{
+		provider: provider,
+	}
 }
 
 func (h *LocalAuthHandler) List(req api.Context) error {

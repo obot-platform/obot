@@ -37,12 +37,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
-
 const (
 	requestTimeUpdateInterval = 15 * time.Minute
 	configURLKey              = "__url"
 )
+
+var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 // MCPOAuthChecker will check the OAuth status for an MCP server. This interface breaks an import cycle.
 type MCPOAuthChecker interface {
@@ -62,6 +62,28 @@ type MCPHandler struct {
 
 	// shutdownMCPServer is only injected for testing
 	shutdownMCPServer func(string) error
+}
+
+// compositeDeletionDependency represents a composite MCP server or catalog entry that depends
+// on a given multi-user server and must be deleted before the multi-user server can be deleted.
+type compositeDeletionDependency struct {
+	// Name is the display name of the dependent composite MCP server.
+	Name string `json:"name"`
+	// Icon is the icon of the dependent composite MCP server.
+	Icon string `json:"icon"`
+	// MCPServerID is the ID of a running instance of a dependent composite MCP server.
+	MCPServerID string `json:"mcpServerID,omitempty"`
+	// CatalogEntryID is the catalog entry ID of the dependent composite MCP server.
+	CatalogEntryID string `json:"catalogEntryID"`
+}
+
+type missingCatalogEntryAdminConfig struct {
+	SecretBoundFields []string
+	StaticOAuth       bool
+}
+
+type urlTemplateConfigurationError struct {
+	key string
 }
 
 func NewMCPHandler(mcpLoader *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, mcpOAuthChecker MCPOAuthChecker, controllerBackend nahbackend.Trigger, mcpImagePullSecrets []string, serverURL, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPHandler {
@@ -494,19 +516,6 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	}
 
 	return req.Write(ConvertMCPServer(server, nil, m.serverURL, slug))
-}
-
-// compositeDeletionDependency represents a composite MCP server or catalog entry that depends
-// on a given multi-user server and must be deleted before the multi-user server can be deleted.
-type compositeDeletionDependency struct {
-	// Name is the display name of the dependent composite MCP server.
-	Name string `json:"name"`
-	// Icon is the icon of the dependent composite MCP server.
-	Icon string `json:"icon"`
-	// MCPServerID is the ID of a running instance of a dependent composite MCP server.
-	MCPServerID string `json:"mcpServerID,omitempty"`
-	// CatalogEntryID is the catalog entry ID of the dependent composite MCP server.
-	CatalogEntryID string `json:"catalogEntryID"`
 }
 
 // listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
@@ -1140,11 +1149,6 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 
 		return server, v1.MCPServerInstance{}, nil
 	}
-}
-
-type missingCatalogEntryAdminConfig struct {
-	SecretBoundFields []string
-	StaticOAuth       bool
 }
 
 func (m missingCatalogEntryAdminConfig) err(entryID string) error {
@@ -2318,10 +2322,6 @@ func sanitizedConfigCopy(config map[string]string, manifest types.MCPServerManif
 	maps.Copy(result, config)
 	sanitizeConfig(result, manifest)
 	return result
-}
-
-type urlTemplateConfigurationError struct {
-	key string
 }
 
 func (e *urlTemplateConfigurationError) Error() string {

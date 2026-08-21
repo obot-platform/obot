@@ -25,6 +25,8 @@ const (
 	AuditLogIgnore = "obot.mcp.ignoreAuditLog"
 )
 
+var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
+
 type Config struct {
 	MCPServers map[string]ServerConfig `json:"mcpServers"`
 }
@@ -80,6 +82,20 @@ type ServerConfig struct {
 	Webhooks       []Webhook                    `json:"webhooks,omitempty"`
 }
 
+type File struct {
+	Data    string `json:"data"`
+	EnvKey  string `json:"envKey"`
+	Dynamic bool   `json:"dynamic"`
+}
+
+type ComponentServer struct {
+	Name       string               `json:"name"`
+	URL        string               `json:"url"`
+	Tools      []types.ToolOverride `json:"tools"`
+	noTools    bool
+	ToolPrefix string `json:"toolPrefix"`
+}
+
 func (s ServerConfig) IsNanobotAgentServer() bool {
 	return s.NanobotAgentName != ""
 }
@@ -127,22 +143,6 @@ func CoreResourceRequirements(resources *types.MCPResourceRequirements) (*corev1
 
 	return result, nil
 }
-
-type File struct {
-	Data    string `json:"data"`
-	EnvKey  string `json:"envKey"`
-	Dynamic bool   `json:"dynamic"`
-}
-
-type ComponentServer struct {
-	Name       string               `json:"name"`
-	URL        string               `json:"url"`
-	Tools      []types.ToolOverride `json:"tools"`
-	noTools    bool
-	ToolPrefix string `json:"toolPrefix"`
-}
-
-var envVarRegex = regexp.MustCompile(`\${([^}]+)}`)
 
 // expandEnvVars replaces ${VAR} patterns with values from credEnv
 func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[string]struct{}) string {

@@ -16,7 +16,11 @@ import (
 	"github.com/obot-platform/obot/pkg/agentbackend"
 )
 
-var ErrInvalidDesiredState = errors.New("invalid desired state")
+var (
+	ErrInvalidDesiredState                         = errors.New("invalid desired state")
+	_                      agentbackend.Backend    = (*Backend)(nil)
+	_                      agentbackend.Subscriber = (*Backend)(nil)
+)
 
 type Config struct {
 	TransitionDelay time.Duration
@@ -49,9 +53,6 @@ type instance struct {
 	url        string
 	urlReady   bool
 }
-
-var _ agentbackend.Backend = (*Backend)(nil)
-var _ agentbackend.Subscriber = (*Backend)(nil)
 
 func New(config Config) *Backend {
 	now := config.Now

@@ -29,6 +29,12 @@ type Helper struct {
 	entraCredential azure.EntraCredentialCache
 }
 
+// ApplicablePolicy pairs a policy's Kubernetes resource name with its manifest.
+type ApplicablePolicy struct {
+	ID       string // Kubernetes resource name (e.g., "mp1-abc123")
+	Manifest types.MessagePolicyManifest
+}
+
 func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Client, dispatcher *dispatcher.Dispatcher, gatewayClient *gateway.Client) (*Helper, error) {
 	gvk, err := backend.GroupVersionKindFor(&v1.MessagePolicy{})
 	if err != nil {
@@ -54,12 +60,6 @@ func NewHelper(ctx context.Context, backend backend.Backend, client kclient.Clie
 		dispatcher:    dispatcher,
 		gatewayClient: gatewayClient,
 	}, nil
-}
-
-// ApplicablePolicy pairs a policy's Kubernetes resource name with its manifest.
-type ApplicablePolicy struct {
-	ID       string // Kubernetes resource name (e.g., "mp1-abc123")
-	Manifest types.MessagePolicyManifest
 }
 
 // GetApplicablePolicies returns all policies that apply to the given user and direction.

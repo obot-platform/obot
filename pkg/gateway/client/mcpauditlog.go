@@ -20,12 +20,161 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
+const (
+	// effectiveAuditLogTimeSQL selects the timestamp used to order and time-filter a row. For MCP
+	// rows this is the server-assigned created_at, but for local-agent rows it is occurred_at, which
+	// is client-reported. This is intentional so an event sorts by when it actually happened on the
+	// client, but it means a skewed or hostile client can position its local-agent events anywhere in
+	// the merged timeline relative to server-timestamped MCP rows. The server-controlled created_at is
+	// preserved separately (and surfaced as RecordedAt) so this ordering is never mistaken for a
+	// tamper-resistant record of when Obot received the event.
+	effectiveAuditLogTimeSQL = "CASE WHEN source_type = 'local_agent_tool_call' THEN occurred_at ELSE created_at END"
+)
+
 var (
 	mcpAuditLogGroupResource = schema.GroupResource{
 		Group:    "obot.obot.ai",
 		Resource: "mcpauditlogs",
 	}
+
+	mcpAuditLogSortColumns = map[string]string{
+		"created_at":                    "created_at",
+		"mcp_id":                        "mcp_id",
+		"mcp_server_display_name":       "mcp_server_display_name",
+		"mcp_server_catalog_entry_name": "mcp_server_catalog_entry_name",
+		"call_type":                     "call_type",
+		"call_identifier":               "call_identifier",
+		"processing_time_ms":            "processing_time_ms",
+		"client_name":                   "client_name",
+		"client_version":                "client_version",
+		"response_status":               "response_status",
+		"client_ip":                     "client_ip",
+	}
+	localAgentAuditLogSortColumns = map[string]string{
+		"created_at":     "created_at",
+		"occurred_at":    "occurred_at",
+		"agent_provider": "agent_provider",
+		"status":         "outcome_status",
+		"tool_name":      "action_name",
+		"tool_kind":      "action_kind",
+		"duration_ms":    "duration_ms",
+		"client_ip":      "client_ip",
+	}
+
+	// mcpAuditLogSensitiveColumns are the large/sensitive columns dropped when payloads are not
+	// requested: request/response bodies, the raw local-agent event, and the encrypted local-agent
+	// metadata that blankLocalAgentSensitiveFields clears. Columns for both source types are listed
+	// because a single query can span both.
+	mcpAuditLogSensitiveColumns = []string{
+		// MCP fields
+		"request_body", "mutated_request_body", "response_body", "original_response_body",
+		// Local-agent fields
+		"local_agent_error", "hostname", "local_username", "reported_user_email", "cwd",
+		"git_root", "git_remotes", "git_branch", "transcript_path",
+		"local_agent_request_body", "local_agent_response_body", "local_agent_raw_event",
+	}
+
+	// mcpAuditLogHeaderColumns hold MCP request/response headers. The list view drops them, but the
+	// single-log detail view keeps them (their sensitive values are redacted at write time).
+	mcpAuditLogHeaderColumns = []string{"request_headers", "response_headers"}
+
+	// auditLogUnifiedFilterOptionExpr maps a source-agnostic UI filter key to the SQL expression that
+	// yields its per-row value, so distinct options can be gathered across both sources in one query.
+	auditLogUnifiedFilterOptionExpr = map[string]string{
+		"actor":      "CASE WHEN COALESCE(device_id, '') <> '' THEN device_id ELSE user_id END",
+		"operation":  "CASE WHEN source_type = 'local_agent_tool_call' THEN 'tools/call' ELSE call_type END",
+		"mcp_server": "CASE WHEN source_type = 'local_agent_tool_call' THEN target_parent_name ELSE mcp_server_display_name END",
+		"tool":       "CASE WHEN source_type = 'local_agent_tool_call' THEN action_name ELSE call_identifier END",
+		"client":     "CASE WHEN source_type = 'local_agent_tool_call' THEN agent_provider ELSE client_name END",
+	}
+
+	localAgentFilterOptionColumns = map[string]string{
+		"agent_provider": "agent_provider", "status": "outcome_status", "tool_name": "action_name",
+		"tool_kind": "action_kind", "device_id": "device_id",
+	}
 )
+
+// MCPAuditLogOptions configures audit-row queries across MCP and local-agent catalogs. Common
+// filters apply to every selected source. MCP-only and local-agent-only filters are mutually
+// exclusive; ValidateAuditLogOptions enforces those rules before a query runs.
+type MCPAuditLogOptions struct {
+	// WithRequestAndResponse requests decrypted payload and sensitive environment fields. It must
+	// only be set after the caller has passed the corresponding authorization check.
+	WithRequestAndResponse bool
+	// SourceTypes selects the persisted source kinds. Empty preserves the MCP-only default.
+	SourceTypes []types2.AuditLogSourceType
+	// PowerUserWorkspaceID and OwnServerMCPIDs define the authorized MCP-server scope. When both
+	// are present, a row may match either scope.
+	PowerUserWorkspaceID []string
+	OwnServerMCPIDs      []string
+	// APIKeyID, UserID, SessionID, and ClientIP are common filters shared by both sources.
+	APIKeyID  []uint
+	UserID    []string
+	SessionID []string
+	ClientIP  []string
+	// ProcessingTimeMin and ProcessingTimeMax filter the normalized duration field, using MCP
+	// processing time or local-agent duration as appropriate.
+	ProcessingTimeMin int64
+	ProcessingTimeMax int64
+
+	// MCP-only filters.
+	MCPID                     []string
+	MCPServerDisplayName      []string
+	MCPServerCatalogEntryName []string
+	CallType                  []string
+	CallIdentifier            []string
+	ClientName                []string
+	ClientVersion             []string
+	ResponseStatus            []string
+
+	// Local-agent tool-call filters.
+	AgentProvider []string
+	Status        []string
+	ToolName      []string
+	ToolKind      []string
+	DeviceID      []string
+
+	// Unified, source-agnostic filters used by the audit log UI.
+	//
+	//   Actor     matches user_id OR device_id (users and enrolled devices).
+	//   Operation matches MCP call_type; local-agent rows have the implicit operation tools/call.
+	//   MCPServer matches MCP mcp_id/mcp_server_display_name, or a local-agent row's MCP parent.
+	//   Tool      matches MCP call_identifier or a local-agent action_name.
+	//   Outcome   matches the normalized outcome (success/failure/denied/timeout/unknown); MCP rows
+	//             are classified from response_status/error the same way ClassifyMCPOutcome does.
+	//   Client    matches MCP client_name or local-agent agent_provider.
+	Actor     []string
+	Operation []string
+	MCPServer []string
+	Tool      []string
+	Outcome   []string
+	Client    []string
+
+	// Query searches the non-sensitive text columns of every selected source and matching user
+	// display names.
+	Query     string
+	StartTime time.Time
+	EndTime   time.Time
+	Limit     int
+	Offset    int
+	// SortBy accepts timestamp, event_type, outcome, and duration for mixed queries. A single-source
+	// query may additionally use that source's allowlisted storage columns.
+	SortBy string
+	// SortOrder accepts asc or desc. Empty defaults to descending.
+	SortOrder string
+}
+
+// MCPUsageStatsOptions represents options for querying MCP usage statistics
+type MCPUsageStatsOptions struct {
+	MCPID                      string
+	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
+	OwnServerMCPIDs            []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
+	UserIDs                    []string
+	MCPServerDisplayNames      []string
+	MCPServerCatalogEntryNames []string
+	StartTime                  time.Time
+	EndTime                    time.Time
+}
 
 func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLog) error {
 	if len(logs) == 0 {
@@ -188,43 +337,6 @@ func (c *Client) InsertLocalAgentAuditLogs(ctx context.Context, logs []types.MCP
 		}).
 		CreateInBatches(toInsert, 100).Error
 }
-
-const (
-	// effectiveAuditLogTimeSQL selects the timestamp used to order and time-filter a row. For MCP
-	// rows this is the server-assigned created_at, but for local-agent rows it is occurred_at, which
-	// is client-reported. This is intentional so an event sorts by when it actually happened on the
-	// client, but it means a skewed or hostile client can position its local-agent events anywhere in
-	// the merged timeline relative to server-timestamped MCP rows. The server-controlled created_at is
-	// preserved separately (and surfaced as RecordedAt) so this ordering is never mistaken for a
-	// tamper-resistant record of when Obot received the event.
-	effectiveAuditLogTimeSQL = "CASE WHEN source_type = 'local_agent_tool_call' THEN occurred_at ELSE created_at END"
-)
-
-var (
-	mcpAuditLogSortColumns = map[string]string{
-		"created_at":                    "created_at",
-		"mcp_id":                        "mcp_id",
-		"mcp_server_display_name":       "mcp_server_display_name",
-		"mcp_server_catalog_entry_name": "mcp_server_catalog_entry_name",
-		"call_type":                     "call_type",
-		"call_identifier":               "call_identifier",
-		"processing_time_ms":            "processing_time_ms",
-		"client_name":                   "client_name",
-		"client_version":                "client_version",
-		"response_status":               "response_status",
-		"client_ip":                     "client_ip",
-	}
-	localAgentAuditLogSortColumns = map[string]string{
-		"created_at":     "created_at",
-		"occurred_at":    "occurred_at",
-		"agent_provider": "agent_provider",
-		"status":         "outcome_status",
-		"tool_name":      "action_name",
-		"tool_kind":      "action_kind",
-		"duration_ms":    "duration_ms",
-		"client_ip":      "client_ip",
-	}
-)
 
 // GetMCPAuditLogs retrieves a single, globally ordered page of audit rows from the selected
 // sources. An empty SourceTypes selection preserves the MCP-only default. Mixed-source queries use
@@ -631,23 +743,6 @@ func blankLocalAgentSensitiveFields(local *types.LocalAgentToolCallAuditLogField
 	local.RawEvent = nil
 }
 
-// mcpAuditLogSensitiveColumns are the large/sensitive columns dropped when payloads are not
-// requested: request/response bodies, the raw local-agent event, and the encrypted local-agent
-// metadata that blankLocalAgentSensitiveFields clears. Columns for both source types are listed
-// because a single query can span both.
-var mcpAuditLogSensitiveColumns = []string{
-	// MCP fields
-	"request_body", "mutated_request_body", "response_body", "original_response_body",
-	// Local-agent fields
-	"local_agent_error", "hostname", "local_username", "reported_user_email", "cwd",
-	"git_root", "git_remotes", "git_branch", "transcript_path",
-	"local_agent_request_body", "local_agent_response_body", "local_agent_raw_event",
-}
-
-// mcpAuditLogHeaderColumns hold MCP request/response headers. The list view drops them, but the
-// single-log detail view keeps them (their sensitive values are redacted at write time).
-var mcpAuditLogHeaderColumns = []string{"request_headers", "response_headers"}
-
 // omitMCPAuditLogSensitiveFields excludes the large/sensitive payload columns from the SELECT so
 // they are never read from or transferred by the DB when payloads are not requested. It mirrors the
 // fields that prepareAuditLogPayload and blankLocalAgentSensitiveFields blank; that blanking is
@@ -701,16 +796,6 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	}
 
 	return &log, nil
-}
-
-// auditLogUnifiedFilterOptionExpr maps a source-agnostic UI filter key to the SQL expression that
-// yields its per-row value, so distinct options can be gathered across both sources in one query.
-var auditLogUnifiedFilterOptionExpr = map[string]string{
-	"actor":      "CASE WHEN COALESCE(device_id, '') <> '' THEN device_id ELSE user_id END",
-	"operation":  "CASE WHEN source_type = 'local_agent_tool_call' THEN 'tools/call' ELSE call_type END",
-	"mcp_server": "CASE WHEN source_type = 'local_agent_tool_call' THEN target_parent_name ELSE mcp_server_display_name END",
-	"tool":       "CASE WHEN source_type = 'local_agent_tool_call' THEN action_name ELSE call_identifier END",
-	"client":     "CASE WHEN source_type = 'local_agent_tool_call' THEN agent_provider ELSE client_name END",
 }
 
 // isUnifiedFilterOption reports whether option is one of the reworked UI's source-agnostic filters.
@@ -838,11 +923,6 @@ func (c *Client) GetAuditLogFilterOptions(ctx context.Context, option string, op
 		db = db.Order(option).Limit(opts.Limit)
 	}
 	return result, db.Select(option).Scan(&result).Error
-}
-
-var localAgentFilterOptionColumns = map[string]string{
-	"agent_provider": "agent_provider", "status": "outcome_status", "tool_name": "action_name",
-	"tool_kind": "action_kind", "device_id": "device_id",
 }
 
 func isLocalAgentFilterOption(option string) bool {
@@ -1055,88 +1135,6 @@ func (c *Client) GetMCPUsageStats(ctx context.Context, opts MCPUsageStatsOptions
 		UniqueUsers: callsAndUsers.UniqueUsers,
 		Items:       stats,
 	}, nil
-}
-
-// MCPAuditLogOptions configures audit-row queries across MCP and local-agent catalogs. Common
-// filters apply to every selected source. MCP-only and local-agent-only filters are mutually
-// exclusive; ValidateAuditLogOptions enforces those rules before a query runs.
-type MCPAuditLogOptions struct {
-	// WithRequestAndResponse requests decrypted payload and sensitive environment fields. It must
-	// only be set after the caller has passed the corresponding authorization check.
-	WithRequestAndResponse bool
-	// SourceTypes selects the persisted source kinds. Empty preserves the MCP-only default.
-	SourceTypes []types2.AuditLogSourceType
-	// PowerUserWorkspaceID and OwnServerMCPIDs define the authorized MCP-server scope. When both
-	// are present, a row may match either scope.
-	PowerUserWorkspaceID []string
-	OwnServerMCPIDs      []string
-	// APIKeyID, UserID, SessionID, and ClientIP are common filters shared by both sources.
-	APIKeyID  []uint
-	UserID    []string
-	SessionID []string
-	ClientIP  []string
-	// ProcessingTimeMin and ProcessingTimeMax filter the normalized duration field, using MCP
-	// processing time or local-agent duration as appropriate.
-	ProcessingTimeMin int64
-	ProcessingTimeMax int64
-
-	// MCP-only filters.
-	MCPID                     []string
-	MCPServerDisplayName      []string
-	MCPServerCatalogEntryName []string
-	CallType                  []string
-	CallIdentifier            []string
-	ClientName                []string
-	ClientVersion             []string
-	ResponseStatus            []string
-
-	// Local-agent tool-call filters.
-	AgentProvider []string
-	Status        []string
-	ToolName      []string
-	ToolKind      []string
-	DeviceID      []string
-
-	// Unified, source-agnostic filters used by the audit log UI.
-	//
-	//   Actor     matches user_id OR device_id (users and enrolled devices).
-	//   Operation matches MCP call_type; local-agent rows have the implicit operation tools/call.
-	//   MCPServer matches MCP mcp_id/mcp_server_display_name, or a local-agent row's MCP parent.
-	//   Tool      matches MCP call_identifier or a local-agent action_name.
-	//   Outcome   matches the normalized outcome (success/failure/denied/timeout/unknown); MCP rows
-	//             are classified from response_status/error the same way ClassifyMCPOutcome does.
-	//   Client    matches MCP client_name or local-agent agent_provider.
-	Actor     []string
-	Operation []string
-	MCPServer []string
-	Tool      []string
-	Outcome   []string
-	Client    []string
-
-	// Query searches the non-sensitive text columns of every selected source and matching user
-	// display names.
-	Query     string
-	StartTime time.Time
-	EndTime   time.Time
-	Limit     int
-	Offset    int
-	// SortBy accepts timestamp, event_type, outcome, and duration for mixed queries. A single-source
-	// query may additionally use that source's allowlisted storage columns.
-	SortBy string
-	// SortOrder accepts asc or desc. Empty defaults to descending.
-	SortOrder string
-}
-
-// MCPUsageStatsOptions represents options for querying MCP usage statistics
-type MCPUsageStatsOptions struct {
-	MCPID                      string
-	PowerUserWorkspaceID       []string // Workspace filtering support (same as audit logs)
-	OwnServerMCPIDs            []string // MCPIDs for user's own servers (union with PowerUserWorkspaceID)
-	UserIDs                    []string
-	MCPServerDisplayNames      []string
-	MCPServerCatalogEntryNames []string
-	StartTime                  time.Time
-	EndTime                    time.Time
 }
 
 func (c *Client) encryptMCPAuditLog(ctx context.Context, log *types.MCPAuditLog) error {

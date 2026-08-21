@@ -10,6 +10,12 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+const (
+	responseFormatUnknown responseFormat = iota
+	responseFormatOpenAIResponses
+	responseFormatAnthropicMessages
+)
+
 type ResponseAccumulator struct {
 	modelProvider string
 	pending       []byte
@@ -24,11 +30,15 @@ type ResponseAccumulator struct {
 
 type responseFormat int
 
-const (
-	responseFormatUnknown responseFormat = iota
-	responseFormatOpenAIResponses
-	responseFormatAnthropicMessages
-)
+type openAIResponseAccumulator struct {
+	response map[string]any
+	finalRaw json.RawMessage
+}
+
+type anthropicResponseAccumulator struct {
+	message       map[string]any
+	partialInputs map[int]*bytes.Buffer
+}
 
 func NewResponseAccumulator(modelProvider string, requestPath ...string) *ResponseAccumulator {
 	format := responseFormatUnknown
@@ -163,11 +173,6 @@ func (a *ResponseAccumulator) processJSON(body []byte) {
 	}
 }
 
-type openAIResponseAccumulator struct {
-	response map[string]any
-	finalRaw json.RawMessage
-}
-
 func (a *openAIResponseAccumulator) Process(body []byte) {
 	var event map[string]any
 	if err := json.Unmarshal(body, &event); err != nil {
@@ -273,11 +278,6 @@ func (a *openAIResponseAccumulator) ensureOutputItem(index int) map[string]any {
 	output[index] = item
 	response["output"] = output
 	return item
-}
-
-type anthropicResponseAccumulator struct {
-	message       map[string]any
-	partialInputs map[int]*bytes.Buffer
 }
 
 func (a *anthropicResponseAccumulator) Process(body []byte) {

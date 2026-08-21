@@ -19,21 +19,6 @@ var messagePolicyViolationGroupResource = schema.GroupResource{
 	Resource: "policyviolations",
 }
 
-// LogMessagePolicyViolation encrypts sensitive fields and inserts a violation record.
-func (c *Client) LogMessagePolicyViolation(ctx context.Context, v *types.MessagePolicyViolation) error {
-	v.CreatedAt = v.CreatedAt.UTC()
-
-	if err := c.encryptMessagePolicyViolation(ctx, v); err != nil {
-		return fmt.Errorf("failed to encrypt policy violation: %w", err)
-	}
-
-	if err := c.db.WithContext(ctx).Create(v).Error; err != nil {
-		return fmt.Errorf("failed to insert policy violation: %w", err)
-	}
-
-	return nil
-}
-
 // MessagePolicyViolationOptions represents options for querying policy violations.
 type MessagePolicyViolationOptions struct {
 	UserID      []string
@@ -49,6 +34,51 @@ type MessagePolicyViolationOptions struct {
 	SortBy      string
 	SortOrder   string
 	TimeGroupBy string // "user" or "policy" (default)
+}
+
+// MessagePolicyViolationStats holds the aggregated stats returned by GetMessagePolicyViolationStats.
+type MessagePolicyViolationStats struct {
+	ByTime      []MessagePolicyViolationTimeBucket    `json:"byTime"`
+	ByPolicy    []MessagePolicyViolationPolicyCount   `json:"byPolicy"`
+	ByUser      []MessagePolicyViolationUserCount     `json:"byUser"`
+	ByDirection MessagePolicyViolationDirectionCounts `json:"byDirection"`
+}
+
+type MessagePolicyViolationTimeBucket struct {
+	Time     time.Time `json:"time"`
+	Category string    `json:"category"`
+	Count    int64     `json:"count"`
+}
+
+type MessagePolicyViolationPolicyCount struct {
+	PolicyID   string `json:"policyID"`
+	PolicyName string `json:"policyName"`
+	Count      int64  `json:"count"`
+}
+
+type MessagePolicyViolationUserCount struct {
+	UserID string `json:"userID"`
+	Count  int64  `json:"count"`
+}
+
+type MessagePolicyViolationDirectionCounts struct {
+	UserMessage int64 `json:"userMessage"`
+	ToolCalls   int64 `json:"toolCalls"`
+}
+
+// LogMessagePolicyViolation encrypts sensitive fields and inserts a violation record.
+func (c *Client) LogMessagePolicyViolation(ctx context.Context, v *types.MessagePolicyViolation) error {
+	v.CreatedAt = v.CreatedAt.UTC()
+
+	if err := c.encryptMessagePolicyViolation(ctx, v); err != nil {
+		return fmt.Errorf("failed to encrypt policy violation: %w", err)
+	}
+
+	if err := c.db.WithContext(ctx).Create(v).Error; err != nil {
+		return fmt.Errorf("failed to insert policy violation: %w", err)
+	}
+
+	return nil
 }
 
 // GetMessagePolicyViolations retrieves policy violations with optional filters.
@@ -125,36 +155,6 @@ func (c *Client) GetMessagePolicyViolationFilterOptions(ctx context.Context, opt
 
 	var result []string
 	return result, db.Select(option).Scan(&result).Error
-}
-
-// MessagePolicyViolationStats holds the aggregated stats returned by GetMessagePolicyViolationStats.
-type MessagePolicyViolationStats struct {
-	ByTime      []MessagePolicyViolationTimeBucket    `json:"byTime"`
-	ByPolicy    []MessagePolicyViolationPolicyCount   `json:"byPolicy"`
-	ByUser      []MessagePolicyViolationUserCount     `json:"byUser"`
-	ByDirection MessagePolicyViolationDirectionCounts `json:"byDirection"`
-}
-
-type MessagePolicyViolationTimeBucket struct {
-	Time     time.Time `json:"time"`
-	Category string    `json:"category"`
-	Count    int64     `json:"count"`
-}
-
-type MessagePolicyViolationPolicyCount struct {
-	PolicyID   string `json:"policyID"`
-	PolicyName string `json:"policyName"`
-	Count      int64  `json:"count"`
-}
-
-type MessagePolicyViolationUserCount struct {
-	UserID string `json:"userID"`
-	Count  int64  `json:"count"`
-}
-
-type MessagePolicyViolationDirectionCounts struct {
-	UserMessage int64 `json:"userMessage"`
-	ToolCalls   int64 `json:"toolCalls"`
 }
 
 // GetMessagePolicyViolationStats returns aggregated statistics for policy violations.

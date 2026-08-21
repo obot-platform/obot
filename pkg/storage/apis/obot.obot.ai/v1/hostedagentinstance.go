@@ -23,6 +23,37 @@ type HostedAgentInstance struct {
 	Status HostedAgentInstanceStatus `json:"status"`
 }
 
+type HostedAgentInstanceSpec struct {
+	UserID          string                            `json:"userID,omitempty"`
+	HostedAgentName string                            `json:"hostedAgentName,omitempty"`
+	PoolID          string                            `json:"poolID,omitempty"`
+	Manifest        types.HostedAgentInstanceManifest `json:"manifest"`
+}
+
+type HostedAgentInstanceStatus struct {
+	State types.HostedAgentState `json:"state,omitempty"`
+	URL   string                 `json:"url,omitempty"`
+
+	Error   string `json:"error,omitempty"`
+	Reason  string `json:"reason,omitempty"`
+	Message string `json:"message,omitempty"`
+
+	ObservedRevision string       `json:"observedRevision,omitempty"`
+	LastObservedTime *metav1.Time `json:"lastObservedTime,omitempty"`
+
+	BackendID         string `json:"backendID,omitempty"`
+	BackendGeneration int64  `json:"backendGeneration,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type HostedAgentInstanceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []HostedAgentInstance `json:"items"`
+}
+
 func (in *HostedAgentInstance) Has(field string) bool {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -60,35 +91,4 @@ func (in *HostedAgentInstance) GetColumns() [][]string {
 		{"State", "Status.State"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-type HostedAgentInstanceSpec struct {
-	UserID          string                            `json:"userID,omitempty"`
-	HostedAgentName string                            `json:"hostedAgentName,omitempty"`
-	PoolID          string                            `json:"poolID,omitempty"`
-	Manifest        types.HostedAgentInstanceManifest `json:"manifest"`
-}
-
-type HostedAgentInstanceStatus struct {
-	State types.HostedAgentState `json:"state,omitempty"`
-	URL   string                 `json:"url,omitempty"`
-
-	Error   string `json:"error,omitempty"`
-	Reason  string `json:"reason,omitempty"`
-	Message string `json:"message,omitempty"`
-
-	ObservedRevision string       `json:"observedRevision,omitempty"`
-	LastObservedTime *metav1.Time `json:"lastObservedTime,omitempty"`
-
-	BackendID         string `json:"backendID,omitempty"`
-	BackendGeneration int64  `json:"backendGeneration,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type HostedAgentInstanceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []HostedAgentInstance `json:"items"`
 }

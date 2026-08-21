@@ -15,17 +15,17 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
-// HostedAgentOwnerExtra carries the user a hosted agent was created by. It is
-// set on the principal at authentication time.
-const HostedAgentOwnerExtra = "hosted_agent_owner_id"
-
-// AuthorizedModelIDsExtra carries the Model resource names a hosted agent was
-// configured with, or "*" for every model. It is the agent's whole authority
-// over models: an agent is not re-evaluated against access policies, which
-// describe people.
-const AuthorizedModelIDsExtra = "authorized_model_ids"
-
 const (
+	// HostedAgentOwnerExtra carries the user a hosted agent was created by. It is
+	// set on the principal at authentication time.
+	HostedAgentOwnerExtra = "hosted_agent_owner_id"
+
+	// AuthorizedModelIDsExtra carries the Model resource names a hosted agent was
+	// configured with, or "*" for every model. It is the agent's whole authority
+	// over models: an agent is not re-evaluated against access policies, which
+	// describe people.
+	AuthorizedModelIDsExtra = "authorized_model_ids"
+
 	// APIKeyIDExtra and APIKeyNameExtra carry the non-secret credential
 	// attribution established by the API-key authenticator. Downstream code
 	// must use APIKeyAttributionFromUser instead of interpreting these values.

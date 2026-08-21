@@ -29,6 +29,23 @@ type HostedAgentInstanceHandler struct {
 	mapHelper   *modelaccesspolicy.Helper
 }
 
+type hostedAgentInstanceRequest struct {
+	types.HostedAgentInstanceManifest `json:",inline"`
+	HostedAgentID                     string `json:"hostedAgentID,omitempty"`
+	PoolID                            string `json:"poolID,omitempty"`
+}
+
+// iconResolver resolves an instance's icon through the chain a client would
+// otherwise have to walk itself: the instance, then its agent, then the
+// harness the agent runs on.
+//
+// Agents and harnesses are listed once rather than fetched per instance, so
+// rendering a page of instances costs two reads instead of two per row.
+type iconResolver struct {
+	agents    map[string]types.HostedAgentManifest
+	harnesses map[string]types.HarnessManifest
+}
+
 func NewHostedAgentInstanceHandler(
 	accessRuleHelper *hostedagentaccessrule.Helper,
 	acrHelper *accesscontrolrule.Helper,
@@ -41,12 +58,6 @@ func NewHostedAgentInstanceHandler(
 		skillHelper:      skillHelper,
 		mapHelper:        mapHelper,
 	}
-}
-
-type hostedAgentInstanceRequest struct {
-	types.HostedAgentInstanceManifest `json:",inline"`
-	HostedAgentID                     string `json:"hostedAgentID,omitempty"`
-	PoolID                            string `json:"poolID,omitempty"`
 }
 
 // Validate checks the request as a whole, so a caller gets one answer about
@@ -390,17 +401,6 @@ func convertHostedAgentInstance(instance v1.HostedAgentInstance) types.HostedAge
 			BackendGeneration: instance.Status.BackendGeneration,
 		},
 	}
-}
-
-// iconResolver resolves an instance's icon through the chain a client would
-// otherwise have to walk itself: the instance, then its agent, then the
-// harness the agent runs on.
-//
-// Agents and harnesses are listed once rather than fetched per instance, so
-// rendering a page of instances costs two reads instead of two per row.
-type iconResolver struct {
-	agents    map[string]types.HostedAgentManifest
-	harnesses map[string]types.HarnessManifest
 }
 
 func newIconResolver(req api.Context) (*iconResolver, error) {

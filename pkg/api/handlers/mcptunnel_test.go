@@ -32,6 +32,11 @@ type failingMCPTunnelDeleteStorage struct {
 	kclient.WithWatch
 }
 
+type mcpTunnelTestCloser struct {
+	names         []string
+	credentialIDs []string
+}
+
 func (*failingMCPTunnelDeleteStorage) Delete(context.Context, kclient.Object, ...kclient.DeleteOption) error {
 	return fmt.Errorf("delete failed")
 }
@@ -42,11 +47,6 @@ func (s *mcpTunnelTestStorage) Create(ctx context.Context, obj kclient.Object, o
 		obj.SetName(fmt.Sprintf("%stest-%d", obj.GetGenerateName(), s.next))
 	}
 	return s.WithWatch.Create(ctx, obj, opts...)
-}
-
-type mcpTunnelTestCloser struct {
-	names         []string
-	credentialIDs []string
 }
 
 func (c *mcpTunnelTestCloser) DisconnectCredential(name, credentialID string) {

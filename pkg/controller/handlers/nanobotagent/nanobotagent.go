@@ -43,6 +43,22 @@ type Handler struct {
 	mcpServerNamespace string
 }
 
+// resolvedLLMModel pairs the resolved model resource name with its configured provider reference
+// and the dialect declared by that provider (if any).
+type resolvedLLMModel struct {
+	Name            string               // Kubernetes Model resource name
+	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
+	ProviderDialect nanobottypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
+}
+
+// nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
+type nanobotLLMProvider struct {
+	Name    string // key in llmProviders map (e.g. "openai", "anthropic")
+	Dialect nanobottypes.Dialect
+	APIKey  string // env var reference derived from Name, e.g. "${OPENAI_MODEL_PROVIDER_API_KEY}"
+	BaseURL string // actual Obot proxy URL
+}
+
 func New(gatewayClient *client.Client, localK8sRouter *router.Router, nanobotImage, serverURL, mcpServerNamespace string, mcpSessionManager *mcp.SessionManager) *Handler {
 	var localK8SBackend backend.Backend
 	if localK8sRouter != nil {
@@ -379,22 +395,6 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 	}
 	slog.Info("Nanobot credentials refreshed", "agent", agent.Name, "mcpServer", mcpServerName, "apiKeyID", apiKeyResp.ID)
 	return nil
-}
-
-// resolvedLLMModel pairs the resolved model resource name with its configured provider reference
-// and the dialect declared by that provider (if any).
-type resolvedLLMModel struct {
-	Name            string               // Kubernetes Model resource name
-	ModelProvider   string               // e.g. "openai-model-provider", "anthropic-model-provider"
-	ProviderDialect nanobottypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
-}
-
-// nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
-type nanobotLLMProvider struct {
-	Name    string // key in llmProviders map (e.g. "openai", "anthropic")
-	Dialect nanobottypes.Dialect
-	APIKey  string // env var reference derived from Name, e.g. "${OPENAI_MODEL_PROVIDER_API_KEY}"
-	BaseURL string // actual Obot proxy URL
 }
 
 // parseModelProvider returns the nanobot provider config and the fully-qualified

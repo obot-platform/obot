@@ -17,15 +17,19 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-var mcpOAuthTokenGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "mcpoauthtokens",
-}
+const pendingStateTTL = 30 * time.Minute
 
-var mcpOAuthPendingStateGroupResource = schema.GroupResource{
-	Group:    "obot.obot.ai",
-	Resource: "mcpoauthpendingstates",
-}
+var (
+	mcpOAuthTokenGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "mcpoauthtokens",
+	}
+
+	mcpOAuthPendingStateGroupResource = schema.GroupResource{
+		Group:    "obot.obot.ai",
+		Resource: "mcpoauthpendingstates",
+	}
+)
 
 func (c *Client) GetMCPOAuthToken(ctx context.Context, userID, mcpID, url string) (*types.MCPOAuthToken, error) {
 	var tokens []types.MCPOAuthToken
@@ -160,8 +164,6 @@ func (c *Client) GetMCPOAuthPendingState(ctx context.Context, state string) (*ty
 func (c *Client) DeleteMCPOAuthPendingState(ctx context.Context, hashedState string) error {
 	return c.db.WithContext(ctx).Delete(&types.MCPOAuthPendingState{}, "hashed_state = ?", hashedState).Error
 }
-
-const pendingStateTTL = 30 * time.Minute
 
 func (c *Client) CleanupExpiredMCPOAuthPendingStates(ctx context.Context, olderThan time.Duration) error {
 	cutoff := time.Now().Add(-olderThan)

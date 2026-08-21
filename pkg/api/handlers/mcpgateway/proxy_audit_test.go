@@ -25,6 +25,10 @@ type recordingProxyAuditCollector struct {
 	proxyExchangeIDs []string
 }
 
+type chunkReadCloser struct {
+	chunks []string
+}
+
 func (c *recordingProxyAuditCollector) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	c.CollectMCPProxyAuditEntry(entry, false, "")
 }
@@ -453,10 +457,6 @@ func consumeAuditResponse(t *testing.T, auditor *proxyAudit, resp *http.Response
 	if err := resp.Body.Close(); err != nil {
 		t.Fatal(err)
 	}
-}
-
-type chunkReadCloser struct {
-	chunks []string
 }
 
 func (r *chunkReadCloser) Read(p []byte) (int, error) {

@@ -36,6 +36,16 @@ type StaticAuth struct {
 	SessionToken    string
 }
 
+type apiKeyTransport struct {
+	key  string
+	next http.RoundTripper
+}
+
+type sigV4Transport struct {
+	auth StaticAuth
+	next http.RoundTripper
+}
+
 func IsProvider(providerName string) bool {
 	return providerName == system.AmazonBedrockModelProvider || providerName == system.AmazonBedrockAPIKeyModelProvider
 }
@@ -138,20 +148,10 @@ func RouteDialect(dialect nanobottypes.Dialect) (string, error) {
 	}
 }
 
-type apiKeyTransport struct {
-	key  string
-	next http.RoundTripper
-}
-
 func (b apiKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.Header.Del("X-Api-Key")
 	req.Header.Set("Authorization", "Bearer "+b.key)
 	return b.next.RoundTrip(req)
-}
-
-type sigV4Transport struct {
-	auth StaticAuth
-	next http.RoundTripper
 }
 
 func (b sigV4Transport) RoundTrip(req *http.Request) (*http.Response, error) {

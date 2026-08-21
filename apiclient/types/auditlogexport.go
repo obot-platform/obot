@@ -1,5 +1,19 @@
 package types
 
+const (
+	AuditLogTypeMCP AuditLogType = "mcp"
+	AuditLogTypeLLM AuditLogType = "llm"
+
+	AuditLogExportStateRunning   AuditLogExportState = "running"
+	AuditLogExportStateCompleted AuditLogExportState = "completed"
+	AuditLogExportStateFailed    AuditLogExportState = "failed"
+
+	StorageProviderS3        StorageProviderType = "s3"
+	StorageProviderGCS       StorageProviderType = "gcs"
+	StorageProviderAzureBlob StorageProviderType = "azure"
+	StorageProviderCustomS3  StorageProviderType = "custom"
+)
+
 // AuditLogExportCreateRequest represents a request to create an audit log export
 type AuditLogExportCreateRequest struct {
 	Name       string                    `json:"name"`
@@ -162,11 +176,6 @@ type LLMAuditLogExportFilters struct {
 // AuditLogType identifies the source of logs exported by a unified audit log export resource.
 type AuditLogType string
 
-const (
-	AuditLogTypeMCP AuditLogType = "mcp"
-	AuditLogTypeLLM AuditLogType = "llm"
-)
-
 // StorageCredentialsTestRequest represents a request to test storage credentials
 type StorageCredentialsTestRequest struct {
 	Provider StorageProviderType `json:"provider"`
@@ -187,20 +196,7 @@ type StorageCredentialsResponse struct {
 
 type AuditLogExportState string
 
-const (
-	AuditLogExportStateRunning   AuditLogExportState = "running"
-	AuditLogExportStateCompleted AuditLogExportState = "completed"
-	AuditLogExportStateFailed    AuditLogExportState = "failed"
-)
-
 type StorageProviderType string
-
-const (
-	StorageProviderS3        StorageProviderType = "s3"
-	StorageProviderGCS       StorageProviderType = "gcs"
-	StorageProviderAzureBlob StorageProviderType = "azure"
-	StorageProviderCustomS3  StorageProviderType = "custom"
-)
 
 type StorageProviderConfigInput struct {
 	Provider            StorageProviderType `json:"provider"`

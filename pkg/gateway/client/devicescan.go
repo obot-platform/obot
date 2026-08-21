@@ -12,6 +12,82 @@ import (
 	"gorm.io/gorm"
 )
 
+// DeviceScanListOptions filters the scan-envelope list endpoint.
+// SubmittedBy and DeviceID are multi-value; either narrows the result.
+type DeviceScanListOptions struct {
+	SubmittedBy   []string
+	DeviceID      []string
+	Limit         int
+	Offset        int
+	GroupByDevice bool
+}
+
+// DeviceScanStatsOptions bounds the dashboard rollup. Zero-valued
+// times are treated as unbounded; callers normally pass a recent
+// window (e.g. last 60 days).
+type DeviceScanStatsOptions struct {
+	StartTime time.Time
+	EndTime   time.Time
+}
+
+// DeviceScanStatsResult is the dashboard rollup payload.
+type DeviceScanStatsResult struct {
+	StartTime      time.Time
+	EndTime        time.Time
+	DeviceCount    int64
+	UserCount      int64
+	Clients        []types.ClientStat
+	MCPServers     []types.MCPServerStat
+	Skills         []types.SkillStat
+	ScanTimestamps []time.Time
+}
+
+// SkillStatListOptions filters and orders the paginated skill stats
+// list. The time window applies to the parent device_scans (only
+// scans inside the window are candidates for "latest per device"
+// selection). Zero-valued bounds are treated as unbounded.
+type SkillStatListOptions struct {
+	StartTime time.Time
+	EndTime   time.Time
+	Name      string // case-insensitive LIKE match against skill name
+	SortBy    string // name | device_count | user_count | observation_count
+	SortOrder string // asc | desc
+	Limit     int
+	Offset    int
+}
+
+// DeviceClientFleetSkill is gateway-layer skill metadata for client summaries.
+type DeviceClientFleetSkill struct {
+	Name        string
+	Description string
+	HasScripts  bool
+	Files       int
+}
+
+// DeviceClientFleetSummary is the gateway-layer aggregate for one client
+// name; callers map it to apiclient types.
+type DeviceClientFleetSummary struct {
+	Name       string
+	Users      []string
+	Skills     []DeviceClientFleetSkill
+	MCPServers []types.MCPServerStat
+}
+
+// DeviceClientFleetListOptions configures ListDeviceClientFleetSummaries.
+type DeviceClientFleetListOptions struct {
+	// Name, when non-empty after trimming, restricts distinct client names to
+	// those matching as a case-insensitive substring (LIKE/ILIKE %Name%).
+	Name string
+	// SortBy is name | mcp_server_count | skill_count | user_count.
+	SortBy string
+	// SortOrder is asc | desc.
+	SortOrder string
+	// Limit is the max number of client rows to return; 0 means no limit.
+	Limit int
+	// Offset skips that many client names in the selected sort order.
+	Offset int
+}
+
 // InsertDeviceScan persists a device scan envelope and all its children
 // in a single GORM cascading insert. Each call creates a fresh row —
 // duplicate submissions are not deduped at this layer.
@@ -44,16 +120,6 @@ func (c *Client) GetDeviceScan(ctx context.Context, id uint) (*types.DeviceScan,
 // returns nil when no scan with that id exists.
 func (c *Client) DeleteDeviceScan(ctx context.Context, id uint) error {
 	return c.db.WithContext(ctx).Delete(&types.DeviceScan{}, id).Error
-}
-
-// DeviceScanListOptions filters the scan-envelope list endpoint.
-// SubmittedBy and DeviceID are multi-value; either narrows the result.
-type DeviceScanListOptions struct {
-	SubmittedBy   []string
-	DeviceID      []string
-	Limit         int
-	Offset        int
-	GroupByDevice bool
 }
 
 // ListDeviceScans returns scan envelopes ordered newest first.
@@ -102,14 +168,6 @@ func applyDeviceScanListFilters(db *gorm.DB, opts DeviceScanListOptions) *gorm.D
 		db = db.Where("device_id IN (?)", opts.DeviceID)
 	}
 	return db
-}
-
-// DeviceScanStatsOptions bounds the dashboard rollup. Zero-valued
-// times are treated as unbounded; callers normally pass a recent
-// window (e.g. last 60 days).
-type DeviceScanStatsOptions struct {
-	StartTime time.Time
-	EndTime   time.Time
 }
 
 // GetDeviceScanStats returns the dashboard rollup for a window: the
@@ -225,18 +283,6 @@ func (c *Client) GetDeviceScanStats(ctx context.Context, opts DeviceScanStatsOpt
 	}
 
 	return out, nil
-}
-
-// DeviceScanStatsResult is the dashboard rollup payload.
-type DeviceScanStatsResult struct {
-	StartTime      time.Time
-	EndTime        time.Time
-	DeviceCount    int64
-	UserCount      int64
-	Clients        []types.ClientStat
-	MCPServers     []types.MCPServerStat
-	Skills         []types.SkillStat
-	ScanTimestamps []time.Time
 }
 
 // GetMCPServerDetail returns the aggregated row keyed by config_hash
@@ -407,20 +453,6 @@ func (c *Client) ListSkillOccurrences(ctx context.Context, name string, limit, o
 	return rows, total, nil
 }
 
-// SkillStatListOptions filters and orders the paginated skill stats
-// list. The time window applies to the parent device_scans (only
-// scans inside the window are candidates for "latest per device"
-// selection). Zero-valued bounds are treated as unbounded.
-type SkillStatListOptions struct {
-	StartTime time.Time
-	EndTime   time.Time
-	Name      string // case-insensitive LIKE match against skill name
-	SortBy    string // name | device_count | user_count | observation_count
-	SortOrder string // asc | desc
-	Limit     int
-	Offset    int
-}
-
 // ListSkillStats returns one row per distinct skill name observed in
 // the latest scan of any device within the requested window.
 // Paginated, sortable, optional name LIKE filter.
@@ -534,38 +566,6 @@ func (c *Client) ListMCPServerOccurrences(ctx context.Context, configHash string
 		return nil, 0, fmt.Errorf("failed to list occurrences: %w", err)
 	}
 	return rows, total, nil
-}
-
-// DeviceClientFleetSkill is gateway-layer skill metadata for client summaries.
-type DeviceClientFleetSkill struct {
-	Name        string
-	Description string
-	HasScripts  bool
-	Files       int
-}
-
-// DeviceClientFleetSummary is the gateway-layer aggregate for one client
-// name; callers map it to apiclient types.
-type DeviceClientFleetSummary struct {
-	Name       string
-	Users      []string
-	Skills     []DeviceClientFleetSkill
-	MCPServers []types.MCPServerStat
-}
-
-// DeviceClientFleetListOptions configures ListDeviceClientFleetSummaries.
-type DeviceClientFleetListOptions struct {
-	// Name, when non-empty after trimming, restricts distinct client names to
-	// those matching as a case-insensitive substring (LIKE/ILIKE %Name%).
-	Name string
-	// SortBy is name | mcp_server_count | skill_count | user_count.
-	SortBy string
-	// SortOrder is asc | desc.
-	SortOrder string
-	// Limit is the max number of client rows to return; 0 means no limit.
-	Limit int
-	// Offset skips that many client names in the selected sort order.
-	Offset int
 }
 
 // ListDeviceClientFleetSummaries returns one row per distinct client name

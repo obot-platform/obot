@@ -12,6 +12,11 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
 
+type azureProviderBackend struct {
+	providerName    string
+	entraCredential azure.EntraCredentialCache
+}
+
 func (s *Server) newAzureLLMProviderProxy(providerName string) *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
@@ -20,11 +25,6 @@ func (s *Server) newAzureLLMProviderProxy(providerName string) *llmProviderProxy
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
-}
-
-type azureProviderBackend struct {
-	providerName    string
-	entraCredential azure.EntraCredentialCache
 }
 
 func (b *azureProviderBackend) modelProviderName() string {

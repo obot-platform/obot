@@ -73,6 +73,34 @@ type localTunnelConnection struct {
 	conn net.Conn
 }
 
+type bridgeTarget struct {
+	TunnelName string `json:"tunnelName"`
+	URL        string `json:"url"`
+}
+
+type bridgeRoundTripper struct {
+	manager     *Manager
+	tunnelName  string
+	transport   http.RoundTripper
+	headers     http.Header
+	tokenSource oauth2.TokenSource
+}
+
+type HTTPClientOptions struct {
+	Headers     http.Header
+	TokenSource oauth2.TokenSource
+	Timeout     time.Duration
+}
+
+type hijackTrackingResponseWriter struct {
+	http.ResponseWriter
+	onHijack func(net.Conn) bool
+}
+
+type noCloseReadCloser struct {
+	io.Reader
+}
+
 // NewManager creates a tunnel manager whose bridge is served from
 // bridgeBaseURL. The caller must register ServeBridge on the HTTP server mux.
 // Supplying a peer config enables remotedialer peering; the controller layer
@@ -200,19 +228,6 @@ func (m *Manager) peerRequestAuthorized(req *http.Request) bool {
 	) == 1
 }
 
-type bridgeTarget struct {
-	TunnelName string `json:"tunnelName"`
-	URL        string `json:"url"`
-}
-
-type bridgeRoundTripper struct {
-	manager     *Manager
-	tunnelName  string
-	transport   http.RoundTripper
-	headers     http.Header
-	tokenSource oauth2.TokenSource
-}
-
 func (b *bridgeRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
 	targetURL := request.URL
 	if bridgedTarget, ok := b.manager.bridgeTargetURLForTunnel(request.URL, b.tunnelName); ok {
@@ -269,12 +284,6 @@ func (b *bridgeRoundTripper) sameOriginAsInitialRequest(request *http.Request, t
 		initialTarget = bridgedTarget
 	}
 	return initialTarget != nil && sameOrigin(initialTarget, target)
-}
-
-type HTTPClientOptions struct {
-	Headers     http.Header
-	TokenSource oauth2.TokenSource
-	Timeout     time.Duration
 }
 
 // HTTPClient returns an HTTP client that routes every request through the
@@ -691,11 +700,6 @@ func isTunnelPeerRequest(req *http.Request) bool {
 	return req.Method == http.MethodGet && req.URL.Path == PeerConnectPath
 }
 
-type hijackTrackingResponseWriter struct {
-	http.ResponseWriter
-	onHijack func(net.Conn) bool
-}
-
 func (w *hijackTrackingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	hijacker, ok := w.ResponseWriter.(http.Hijacker)
 	if !ok {
@@ -875,10 +879,6 @@ func (m *Manager) roundTrip(ctx context.Context, key, tunnelName, method, target
 		return nil, errors.New(string(message))
 	}
 	return response, nil
-}
-
-type noCloseReadCloser struct {
-	io.Reader
 }
 
 func (noCloseReadCloser) Close() error {

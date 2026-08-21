@@ -71,6 +71,15 @@ const (
 	defaultFSGroup       = 1000
 )
 
+var (
+	_ agentbackend.Backend = (*Backend)(nil)
+
+	// sandboxSubdirPattern is the only shape a sandbox's directory on the pool
+	// volume may take: a single lowercase DNS label. It admits no dot, no slash and
+	// no empty string.
+	sandboxSubdirPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
+)
+
 // Options configures the backend. Everything here is deployment-wide; nothing
 // is per-agent or per-user.
 type Options struct {
@@ -136,10 +145,6 @@ type Backend struct {
 	namespaceRef  *metav1.OwnerReference
 	namespaceErr  error
 }
-
-var (
-	_ agentbackend.Backend = (*Backend)(nil)
-)
 
 func New(client, cachedClient kclient.Client, opts Options) (*Backend, error) {
 	if opts.Namespace == "" {
@@ -221,11 +226,6 @@ func instanceName(instanceID string) string {
 func cleanupJobName(instanceID string) string {
 	return name.SafeConcatName("obot-agent-cleanup", sanitize(instanceID))
 }
-
-// sandboxSubdirPattern is the only shape a sandbox's directory on the pool
-// volume may take: a single lowercase DNS label. It admits no dot, no slash and
-// no empty string.
-var sandboxSubdirPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // sandboxSubdir is the per-instance directory within the shared pool volume.
 // It is the only supported way to derive that name, and every path built from

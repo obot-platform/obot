@@ -82,6 +82,25 @@ type Handler struct {
 	now         func() time.Time
 }
 
+// defaultDesiredBuilder renders the sandbox's runtime contract.
+//
+// It holds the server URL because every endpoint it writes into the config is
+// absolute: the sandbox is told where to connect, never how to work it out.
+//
+// Two addresses, because the sandbox and the browser do not reach Obot the same
+// way. Writing one into both roles breaks whichever it is not: the public
+// address is commonly unroutable from inside the cluster, and the internal one
+// is meaningless to a browser.
+type defaultDesiredBuilder struct {
+	// ServerURL is Obot's public address, and so the only one a published
+	// agent can build links from.
+	ServerURL string
+	// InternalURL is Obot's address as a sandbox reaches it -- its models, its
+	// MCP servers, its own API. Empty means the two are the same.
+	InternalURL string
+	Skills      *skillFetcher
+}
+
 func New(backend agentbackend.InstanceBackend, credentials CredentialIssuer, serverURL, internalURL string) *Handler {
 	return NewWithBuilder(backend, credentials, defaultDesiredBuilder{
 		ServerURL:   serverURL,
@@ -452,25 +471,6 @@ func pollInterval(state types.HostedAgentState) time.Duration {
 		return readyPollInterval
 	}
 	return transitionalPollInterval
-}
-
-// defaultDesiredBuilder renders the sandbox's runtime contract.
-//
-// It holds the server URL because every endpoint it writes into the config is
-// absolute: the sandbox is told where to connect, never how to work it out.
-//
-// Two addresses, because the sandbox and the browser do not reach Obot the same
-// way. Writing one into both roles breaks whichever it is not: the public
-// address is commonly unroutable from inside the cluster, and the internal one
-// is meaningless to a browser.
-type defaultDesiredBuilder struct {
-	// ServerURL is Obot's public address, and so the only one a published
-	// agent can build links from.
-	ServerURL string
-	// InternalURL is Obot's address as a sandbox reaches it -- its models, its
-	// MCP servers, its own API. Empty means the two are the same.
-	InternalURL string
-	Skills      *skillFetcher
 }
 
 // internal is the address the sandbox calls back on, falling back to the public

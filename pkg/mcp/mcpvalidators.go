@@ -15,6 +15,18 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+const (
+	// maxToolNameLength is the max length of an MCP server tool.
+	// It's used to validate effective tool names after tool overrides and prefixes are applied.
+	maxToolNameLength = 128
+
+	// maxToolPrefixLength is the max length of a composite component tool prefix.
+	maxToolPrefixLength = 64
+
+	// maxShortDescriptionLength is the max length of a catalog entry shortDescription.
+	maxShortDescriptionLength = 160
+)
+
 var (
 	// toolNameRegex matches the character set allowed for composite
 	// component tools: ASCII letters, digits, underscore, hyphen, dot,
@@ -27,17 +39,40 @@ var (
 	envVarRefRegex = regexp.MustCompile(`\${([^}]+)}`)
 )
 
-const (
-	// maxToolNameLength is the max length of an MCP server tool.
-	// It's used to validate effective tool names after tool overrides and prefixes are applied.
-	maxToolNameLength = 128
+// RuntimeValidator defines the interface for validating runtime-specific configurations
+type RuntimeValidator interface {
+	ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error
+	ValidateCatalogConfig(ctx context.Context, manifest types.MCPServerCatalogEntryManifest) error
+	ValidateSystemConfig(ctx context.Context, manifest types.SystemMCPServerManifest) error
+}
 
-	// maxToolPrefixLength is the max length of a composite component tool prefix.
-	maxToolPrefixLength = 64
+// RuntimeValidators is a map type for storing validators by runtime type
+type RuntimeValidators map[types.Runtime]RuntimeValidator
 
-	// maxShortDescriptionLength is the max length of a catalog entry shortDescription.
-	maxShortDescriptionLength = 160
-)
+// Options configures runtime validation behavior.
+type ValidationOptions struct {
+	AllowMissingURL              bool
+	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
+	ResourceMaximums             ResourceMaximums
+}
+
+// UVXValidator implements RuntimeValidator for UVX runtime
+type UVXValidator struct{}
+
+// NPXValidator implements RuntimeValidator for NPX runtime
+type NPXValidator struct{}
+
+// ContainerizedValidator implements RuntimeValidator for containerized runtime
+type ContainerizedValidator struct{}
+
+// RemoteValidator implements RuntimeValidator for remote runtime
+type RemoteValidator struct {
+	AllowMissingURL              bool
+	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
+}
+
+// CompositeValidator implements RuntimeValidator for composite runtime
+type CompositeValidator struct{}
 
 func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
 	if denyAllEgress != nil && *denyAllEgress && len(domains) > 0 {
@@ -133,26 +168,6 @@ func isDeniedEgressDomain(hostname string) bool {
 	return false
 }
 
-// RuntimeValidator defines the interface for validating runtime-specific configurations
-type RuntimeValidator interface {
-	ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error
-	ValidateCatalogConfig(ctx context.Context, manifest types.MCPServerCatalogEntryManifest) error
-	ValidateSystemConfig(ctx context.Context, manifest types.SystemMCPServerManifest) error
-}
-
-// RuntimeValidators is a map type for storing validators by runtime type
-type RuntimeValidators map[types.Runtime]RuntimeValidator
-
-// Options configures runtime validation behavior.
-type ValidationOptions struct {
-	AllowMissingURL              bool
-	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
-	ResourceMaximums             ResourceMaximums
-}
-
-// UVXValidator implements RuntimeValidator for UVX runtime
-type UVXValidator struct{}
-
 func (v UVXValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeUVX {
 		return types.RuntimeValidationError{
@@ -243,9 +258,6 @@ func (v UVXValidator) validateUVXConfig(config types.UVXRuntimeConfig) error {
 	return nil
 }
 
-// NPXValidator implements RuntimeValidator for NPX runtime
-type NPXValidator struct{}
-
 func (v NPXValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeNPX {
 		return types.RuntimeValidationError{
@@ -335,9 +347,6 @@ func (v NPXValidator) validateNPXConfig(config types.NPXRuntimeConfig) error {
 
 	return nil
 }
-
-// ContainerizedValidator implements RuntimeValidator for containerized runtime
-type ContainerizedValidator struct{}
 
 func (v ContainerizedValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeContainerized {
@@ -443,12 +452,6 @@ func (v ContainerizedValidator) validateContainerizedConfig(config types.Contain
 	}
 
 	return nil
-}
-
-// RemoteValidator implements RuntimeValidator for remote runtime
-type RemoteValidator struct {
-	AllowMissingURL              bool
-	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 }
 
 func (v RemoteValidator) ValidateConfig(ctx context.Context, manifest types.MCPServerManifest) error {
@@ -727,9 +730,6 @@ func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL
 	}
 	return nil
 }
-
-// CompositeValidator implements RuntimeValidator for composite runtime
-type CompositeValidator struct{}
 
 func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
 	if manifest.Runtime != types.RuntimeComposite {

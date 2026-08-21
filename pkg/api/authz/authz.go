@@ -415,6 +415,14 @@ type Authorizer struct {
 	registryNoAuth    bool
 }
 
+type rule struct {
+	group string
+	mux   *http.ServeMux
+}
+
+// fake is a fake handler that does fake things
+type fake struct{}
+
 func NewAuthorizer(gatewayClient *client.Client, cache, uncached kclient.Client, devMode bool, acrHelper *accesscontrolrule.Helper, skillHelper *skillaccessrule.Helper, hostedAgentHelper *hostedagentaccessrule.Helper, registryNoAuth bool) *Authorizer {
 	apiBasedResources := make(map[string]*pathMatcher, len(apiResources))
 	for group, resources := range apiResources {
@@ -498,11 +506,6 @@ func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient
 	return err
 }
 
-type rule struct {
-	group string
-	mux   *http.ServeMux
-}
-
 func defaultRules(devMode bool, registryNoAuth bool) []rule {
 	var (
 		f     = (*fake)(nil)
@@ -573,8 +576,5 @@ func rulesFromStatic(static map[string][]string) []rule {
 	}
 	return rules
 }
-
-// fake is a fake handler that does fake things
-type fake struct{}
 
 func (f *fake) ServeHTTP(http.ResponseWriter, *http.Request) {}

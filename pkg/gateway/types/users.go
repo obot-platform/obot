@@ -38,6 +38,13 @@ type User struct {
 	OriginalUsername string     `json:"-"`
 }
 
+type UserQuery struct {
+	Username       string
+	Email          string
+	Role           types2.Role
+	IncludeDeleted bool
+}
+
 func ConvertUser(u *User, roleFixed bool, authProviderName string) *types2.User {
 	return ConvertUserWithEffectiveRole(u, roleFixed, authProviderName, u.Role)
 }
@@ -78,13 +85,6 @@ func ConvertUserWithEffectiveRole(u *User, roleFixed bool, authProviderName stri
 	}
 
 	return user
-}
-
-type UserQuery struct {
-	Username       string
-	Email          string
-	Role           types2.Role
-	IncludeDeleted bool
 }
 
 func NewUserQuery(u url.Values) UserQuery {

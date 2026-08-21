@@ -51,6 +51,13 @@ type APIKeyScopes struct {
 	MCPServerIDs []string `json:"mcpServerIds,omitempty" gorm:"serializer:json"`
 }
 
+// APIKeyCreateResponse is returned when creating an API key.
+// This is the only time the full key is visible.
+type APIKeyCreateResponse struct {
+	APIKey
+	Key string `json:"key"` // The full key, only shown once
+}
+
 func (as APIKeyScopes) Groups(u *User) []string {
 	groups := make([]string, 0, 7)
 	if as.CanAccessAPI {
@@ -80,11 +87,4 @@ func (as APIKeyScopes) Groups(u *User) []string {
 
 func (as APIKeyScopes) HasSomeScope() bool {
 	return as.CanAccessAPI || as.CanAccessSkills || as.CanAccessLLMProxy || as.CanAccessPublishedArtifacts || as.CanAccessDeviceScans || len(as.MCPServerIDs) != 0
-}
-
-// APIKeyCreateResponse is returned when creating an API key.
-// This is the only time the full key is visible.
-type APIKeyCreateResponse struct {
-	APIKey
-	Key string `json:"key"` // The full key, only shown once
 }

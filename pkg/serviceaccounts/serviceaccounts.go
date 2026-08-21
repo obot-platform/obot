@@ -17,18 +17,6 @@ const (
 	ExpiresAtKey            = "expiresAt"
 )
 
-type Account struct {
-	Name                         string
-	Username                     string
-	UID                          string
-	Group                        string
-	SecretName                   string
-	SecretKey                    string
-	SecretManaged                bool
-	RequiredMCPBackend           string
-	RequiredNetworkPolicyEnabled bool
-}
-
 var accounts = map[string]Account{
 	NetworkPolicyProvider: {
 		Name:                         NetworkPolicyProvider,
@@ -41,6 +29,18 @@ var accounts = map[string]Account{
 		RequiredMCPBackend:           "kubernetes",
 		RequiredNetworkPolicyEnabled: true,
 	},
+}
+
+type Account struct {
+	Name                         string
+	Username                     string
+	UID                          string
+	Group                        string
+	SecretName                   string
+	SecretKey                    string
+	SecretManaged                bool
+	RequiredMCPBackend           string
+	RequiredNetworkPolicyEnabled bool
 }
 
 func All() []Account {

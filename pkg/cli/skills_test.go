@@ -18,6 +18,14 @@ import (
 	"github.com/obot-platform/obot/pkg/skillformat"
 )
 
+type skillInstallTestResponse struct {
+	ID          string
+	Name        string
+	DisplayName string
+	Description string
+	Download    []byte
+}
+
 func TestSkillsSearchCallsAPIWithQueryAndLimit(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -229,14 +237,6 @@ func executeSkillsTestCommand(t *testing.T, root *Obot, args ...string) (string,
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	return stdout.String(), err
-}
-
-type skillInstallTestResponse struct {
-	ID          string
-	Name        string
-	DisplayName string
-	Description string
-	Download    []byte
 }
 
 func skillInstallTestServer(t *testing.T, skills []skillInstallTestResponse) *httptest.Server {

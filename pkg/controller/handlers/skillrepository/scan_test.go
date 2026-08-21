@@ -14,6 +14,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var (
+	// rfc1123Regexp matches valid RFC 1123 subdomain names.
+	rfc1123Regexp = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?$`)
+)
+
 // createSkillDir creates a directory with a SKILL.md file containing valid frontmatter.
 func createSkillDir(t *testing.T, parent, dirName, name, description string) string {
 	t.Helper()
@@ -423,9 +428,6 @@ func TestComputeInstallHash(t *testing.T) {
 		assert.NotEmpty(t, hash)
 	})
 }
-
-// rfc1123Regexp matches valid RFC 1123 subdomain names.
-var rfc1123Regexp = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-.]*[a-z0-9])?$`)
 
 func TestSkillObjectName(t *testing.T) {
 	t.Run("simple path", func(t *testing.T) {

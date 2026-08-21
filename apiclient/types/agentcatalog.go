@@ -25,6 +25,8 @@ type AgentCatalogManifest struct {
 	Ref         string `json:"ref,omitempty"`
 }
 
+type AgentCatalogList List[AgentCatalog]
+
 func (m AgentCatalogManifest) Validate() error {
 	if strings.TrimSpace(m.DisplayName) == "" {
 		return fmt.Errorf("displayName is required")
@@ -134,5 +136,3 @@ func validateRepoBoundary(field string, u *url.URL) error {
 	}
 	return nil
 }
-
-type AgentCatalogList List[AgentCatalog]

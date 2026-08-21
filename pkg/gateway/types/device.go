@@ -12,14 +12,6 @@ import (
 // enrolled device so it never collides with user UIDs or configuration principals.
 const DevicePrincipalPrefix = "device"
 
-// DevicePrincipalName returns the stable principal identity for an enrolled
-// device, e.g. "device:abc-123". This is what a device authenticates as when
-// submitting a scan; the scan itself is identified by DeviceScan.DeviceID
-// (device submissions leave SubmittedBy empty).
-func DevicePrincipalName(deviceID string) string {
-	return fmt.Sprintf("%s:%s", DevicePrincipalPrefix, deviceID)
-}
-
 // Device is one machine that belongs to a MDMConfiguration, identified by a
 // stable, client-computed DeviceID.
 //
@@ -37,6 +29,14 @@ type Device struct {
 	OSVersion          string     `json:"osVersion,omitempty"`
 	EnrolledAt         time.Time  `json:"enrolledAt" gorm:"index:idx_devices_configuration_enrolled,priority:2"`
 	LastSeenAt         *time.Time `json:"lastSeenAt,omitempty"`
+}
+
+// DevicePrincipalName returns the stable principal identity for an enrolled
+// device, e.g. "device:abc-123". This is what a device authenticates as when
+// submitting a scan; the scan itself is identified by DeviceScan.DeviceID
+// (device submissions leave SubmittedBy empty).
+func DevicePrincipalName(deviceID string) string {
+	return fmt.Sprintf("%s:%s", DevicePrincipalPrefix, deviceID)
 }
 
 // ConvertDevice maps a gateway device record to its API representation,

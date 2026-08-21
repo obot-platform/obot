@@ -20,6 +20,35 @@ type Skills struct {
 	root *Obot
 }
 
+type SkillsSearch struct {
+	PromptConfig
+
+	Limit int  `usage:"Maximum number of skills to return" default:"50"`
+	JSON  bool `usage:"Print results as JSON"`
+
+	root *Obot
+}
+
+type SkillsInstall struct {
+	PromptConfig
+
+	Destination string `usage:"Target skills directory, such as ~/.claude/skills or ~/.agents/skills"`
+	JSON        bool   `usage:"Print results as JSON"`
+
+	root *Obot
+}
+
+type skillsInstallOutput struct {
+	Results []skillsInstallResult `json:"results"`
+}
+
+type skillsInstallResult struct {
+	Destination string   `json:"destination"`
+	Mode        string   `json:"mode"`
+	Installed   []string `json:"installed,omitempty"`
+	Message     string   `json:"message,omitempty"`
+}
+
 func (s *Skills) Customize(c *cobra.Command) {
 	c.Use = "skills"
 	c.Short = "Manage Obot skills"
@@ -30,15 +59,6 @@ func (s *Skills) Customize(c *cobra.Command) {
 
 func (s *Skills) Run(cmd *cobra.Command, _ []string) error {
 	return cmd.Help()
-}
-
-type SkillsSearch struct {
-	PromptConfig
-
-	Limit int  `usage:"Maximum number of skills to return" default:"50"`
-	JSON  bool `usage:"Print results as JSON"`
-
-	root *Obot
 }
 
 func (s *SkillsSearch) Customize(cmd *cobra.Command) {
@@ -109,15 +129,6 @@ func tableCell(value string) string {
 	return strings.NewReplacer("\t", " ", "\r", " ", "\n", " ").Replace(value)
 }
 
-type SkillsInstall struct {
-	PromptConfig
-
-	Destination string `usage:"Target skills directory, such as ~/.claude/skills or ~/.agents/skills"`
-	JSON        bool   `usage:"Print results as JSON"`
-
-	root *Obot
-}
-
 func (s *SkillsInstall) Customize(cmd *cobra.Command) {
 	cmd.Use = "install <skill-id>"
 	cmd.Short = "Install an Obot skill into a local skills directory"
@@ -183,17 +194,6 @@ func (s *SkillsInstall) Run(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(cmd.OutOrStdout(), result.Message)
 	}
 	return nil
-}
-
-type skillsInstallOutput struct {
-	Results []skillsInstallResult `json:"results"`
-}
-
-type skillsInstallResult struct {
-	Destination string   `json:"destination"`
-	Mode        string   `json:"mode"`
-	Installed   []string `json:"installed,omitempty"`
-	Message     string   `json:"message,omitempty"`
 }
 
 func resolveSkillsDestination(destination string) (string, error) {

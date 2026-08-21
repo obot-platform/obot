@@ -10,15 +10,16 @@ import (
 	"text/template"
 )
 
-//go:embed files/skills/*/SKILL.md.tmpl
-var templateFS embed.FS
-
-var fileSkillTemplates = []string{
-	"files/skills/obot/SKILL.md.tmpl",
-	"files/skills/obot-search-skills/SKILL.md.tmpl",
-	"files/skills/obot-search-mcp-servers/SKILL.md.tmpl",
-	"files/skills/obot-install-skill/SKILL.md.tmpl",
-}
+var (
+	//go:embed files/skills/*/SKILL.md.tmpl
+	templateFS         embed.FS
+	fileSkillTemplates = []string{
+		"files/skills/obot/SKILL.md.tmpl",
+		"files/skills/obot-search-skills/SKILL.md.tmpl",
+		"files/skills/obot-search-mcp-servers/SKILL.md.tmpl",
+		"files/skills/obot-install-skill/SKILL.md.tmpl",
+	}
+)
 
 // TemplateData is the client-specific data used to render bootstrap
 // assets.

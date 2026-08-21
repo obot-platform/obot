@@ -4,6 +4,7 @@ run:
 linters:
   default: none
   enable:
+    - decorder
     - errcheck
     - govet
     - importas
@@ -35,6 +36,22 @@ linters:
           alias: kclient
         - pkg: k8s.io/apimachinery/pkg/api/errors
           alias: apierrors
+    decorder:
+      dec-order:
+        - const
+        - var
+        - type
+        - func
+      # If true, order of declarations is not checked at all.
+      disable-dec-order-check: false
+      # If true, `init` func can be anywhere in file (does not have to be declared before all other functions).
+      disable-init-func-first-check: false
+      # If true, multiple global `type`, `const` and `var` declarations are allowed.
+      disable-dec-num-check: false
+      # If true, type declarations will be ignored for dec num check.
+      disable-type-dec-num-check: true
+
+
 formatters:
   enable:
     - gofmt

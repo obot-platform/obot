@@ -12,6 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type repeatingReader byte
+
 func TestListSkillsEncodesQueryParameters(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodGet, r.Method)
@@ -124,8 +126,6 @@ func TestDownloadSkillRejectsOversizedBody(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "skill download exceeds maximum size")
 }
-
-type repeatingReader byte
 
 func (r repeatingReader) Read(p []byte) (int, error) {
 	for i := range p {

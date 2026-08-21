@@ -2,6 +2,17 @@ package types
 
 import "fmt"
 
+const (
+	SubjectTypeGroup    SubjectType = "group"
+	SubjectTypeUser     SubjectType = "user"
+	SubjectTypeSelector SubjectType = "selector"
+
+	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
+	ResourceTypeMCPServer             ResourceType = "mcpServer"
+	ResourceTypeMcpCatalog            ResourceType = "mcpCatalog"
+	ResourceTypeSelector              ResourceType = "selector"
+)
+
 type AccessControlRule struct {
 	Metadata                  `json:",inline"`
 	MCPCatalogID              string `json:"mcpCatalogID"`
@@ -17,6 +28,22 @@ type AccessControlRuleManifest struct {
 	Resources   []Resource `json:"resources,omitempty"`
 }
 
+type Subject struct {
+	Type SubjectType `json:"type"`
+	ID   string      `json:"id"`
+}
+
+type SubjectType string
+
+type Resource struct {
+	Type ResourceType `json:"type"`
+	ID   string       `json:"id"`
+}
+
+type ResourceType string
+
+type AccessControlRuleList List[AccessControlRule]
+
 func (a AccessControlRuleManifest) Validate() error {
 	for _, resource := range a.Resources {
 		if err := resource.Validate(); err != nil {
@@ -30,19 +57,6 @@ func (a AccessControlRuleManifest) Validate() error {
 	}
 	return nil
 }
-
-type Subject struct {
-	Type SubjectType `json:"type"`
-	ID   string      `json:"id"`
-}
-
-type SubjectType string
-
-const (
-	SubjectTypeGroup    SubjectType = "group"
-	SubjectTypeUser     SubjectType = "user"
-	SubjectTypeSelector SubjectType = "selector"
-)
 
 func (s Subject) Validate() error {
 	switch s.Type {
@@ -58,11 +72,6 @@ func (s Subject) Validate() error {
 		return nil
 	}
 	return fmt.Errorf("invalid subject type: %s", s.Type)
-}
-
-type Resource struct {
-	Type ResourceType `json:"type"`
-	ID   string       `json:"id"`
 }
 
 func (r Resource) Validate() error {
@@ -81,14 +90,3 @@ func (r Resource) Validate() error {
 	}
 	return fmt.Errorf("invalid resource type: %s", r.Type)
 }
-
-type ResourceType string
-
-const (
-	ResourceTypeMCPServerCatalogEntry ResourceType = "mcpServerCatalogEntry"
-	ResourceTypeMCPServer             ResourceType = "mcpServer"
-	ResourceTypeMcpCatalog            ResourceType = "mcpCatalog"
-	ResourceTypeSelector              ResourceType = "selector"
-)
-
-type AccessControlRuleList List[AccessControlRule]

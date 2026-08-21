@@ -13,12 +13,6 @@ type OAuthToken struct {
 	Status            OAuthTokenStatus `json:"status"`
 }
 
-func (in *OAuthToken) DeleteRefs() []Ref {
-	return []Ref{
-		{ObjType: new(OAuthClient), Name: in.Spec.ClientID},
-	}
-}
-
 type OAuthTokenSpec struct {
 	Scope                 string `json:"scope"`
 	Resource              string `json:"resource"`
@@ -38,4 +32,10 @@ type OAuthTokenList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 	Items           []OAuthToken `json:"items"`
+}
+
+func (in *OAuthToken) DeleteRefs() []Ref {
+	return []Ref{
+		{ObjType: new(OAuthClient), Name: in.Spec.ClientID},
+	}
 }

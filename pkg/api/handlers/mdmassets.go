@@ -14,6 +14,8 @@ import (
 
 type MDMAssetSourceHandler struct{}
 
+type MDMAssetHandler struct{}
+
 func NewMDMAssetSourceHandler() *MDMAssetSourceHandler { return nil }
 
 func (*MDMAssetSourceHandler) Get(req api.Context) error {
@@ -39,8 +41,6 @@ func (*MDMAssetSourceHandler) Refresh(req api.Context) error {
 	req.WriteHeader(http.StatusNoContent)
 	return nil
 }
-
-type MDMAssetHandler struct{}
 
 func NewMDMAssetHandler() *MDMAssetHandler { return nil }
 

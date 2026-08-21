@@ -47,6 +47,15 @@ type Loader struct {
 	fields   *jsonschema.Resolved
 }
 
+// RenderedArtifact contains one fully rendered platform/OS download. Callers
+// persist Content privately and expose only the platform, OS, and instructions.
+type RenderedArtifact struct {
+	Platform     string
+	OS           string
+	Instructions string
+	Content      []byte
+}
+
 // NewFS loads and validates an assets snapshot rooted at files. Callers must
 // not mutate files after this function returns.
 func NewFS(files fs.FS) (*Loader, error) {
@@ -261,15 +270,6 @@ func (l *Loader) ValidateTemplates(c types.MDMAssetConfiguration, values map[str
 		}
 	}
 	return nil
-}
-
-// RenderedArtifact contains one fully rendered platform/OS download. Callers
-// persist Content privately and expose only the platform, OS, and instructions.
-type RenderedArtifact struct {
-	Platform     string
-	OS           string
-	Instructions string
-	Content      []byte
 }
 
 // RenderAll completes and validates values once, then renders every target in

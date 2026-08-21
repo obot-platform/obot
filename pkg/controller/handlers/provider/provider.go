@@ -32,11 +32,15 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	jsonErrRegexp = regexp.MustCompile(`(?s)\{.*"error":.*}`)
+const (
+	providerRegistryOwnerSubContext = "providers"
+	modelProvidersRegistryDir       = "model-providers"
+	authProvidersRegistryDir        = "auth-providers"
+	providerRegistryMaxFiles        = 1000
 )
 
 var (
+	jsonErrRegexp             = regexp.MustCompile(`(?s)\{.*"error":.*}`)
 	openAIDefaultModelAliases = map[types.DefaultModelAliasType]string{
 		types.DefaultModelAliasTypeLLM:             "gpt-5.4",
 		types.DefaultModelAliasTypeLLMMini:         "gpt-5-mini",
@@ -49,24 +53,6 @@ var (
 		types.DefaultModelAliasTypeLLMMini: "claude-haiku-4-5",
 		types.DefaultModelAliasTypeVision:  "claude-sonnet-4-6",
 	}
-)
-
-func OpenAIDefaultModelAliases() map[types.DefaultModelAliasType]string {
-	return maps.Clone(openAIDefaultModelAliases)
-}
-
-func AnthropicDefaultModelAliases() map[types.DefaultModelAliasType]string {
-	return maps.Clone(anthropicDefaultModelAliases)
-}
-
-const (
-	providerRegistryOwnerSubContext = "providers"
-	modelProvidersRegistryDir       = "model-providers"
-	authProvidersRegistryDir        = "auth-providers"
-	providerRegistryMaxFiles        = 1000
-)
-
-var (
 	providerNameInvalidChars = regexp.MustCompile(`[^a-z0-9-]+`)
 	providerNameDashes       = regexp.MustCompile(`-{2,}`)
 )
@@ -76,6 +62,19 @@ type Handler struct {
 	dispatcher      *dispatcher.Dispatcher
 	licenseProvider *license.Provider
 	registryPaths   []string
+}
+
+type providerFromFile[T types.ModelProviderManifest | types.AuthProviderManifest] struct {
+	Name     string `yaml:"-"`
+	Manifest T      `yaml:",inline"`
+}
+
+func OpenAIDefaultModelAliases() map[types.DefaultModelAliasType]string {
+	return maps.Clone(openAIDefaultModelAliases)
+}
+
+func AnthropicDefaultModelAliases() map[types.DefaultModelAliasType]string {
+	return maps.Clone(anthropicDefaultModelAliases)
 }
 
 func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, registryPaths []string) *Handler {
@@ -113,11 +112,6 @@ func isYAMLFile(path string) bool {
 	default:
 		return false
 	}
-}
-
-type providerFromFile[T types.ModelProviderManifest | types.AuthProviderManifest] struct {
-	Name     string `yaml:"-"`
-	Manifest T      `yaml:",inline"`
 }
 
 func readProviderDirectory[T types.ModelProviderManifest | types.AuthProviderManifest](dir string) ([]providerFromFile[T], error) {

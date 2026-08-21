@@ -8,6 +8,16 @@ import (
 	"time"
 )
 
+const (
+	ResourceKindInstance ResourceKind = "instance"
+	ResourceKindPool     ResourceKind = "pool"
+
+	StatePending  State = "pending"
+	StateReady    State = "ready"
+	StateError    State = "error"
+	StateDeleting State = "deleting"
+)
+
 // Backend is the complete desired-state and observation contract required by
 // hosted agents. Implementations must make every operation idempotent.
 type Backend interface {
@@ -45,11 +55,6 @@ type Event struct {
 }
 
 type ResourceKind string
-
-const (
-	ResourceKindInstance ResourceKind = "instance"
-	ResourceKindPool     ResourceKind = "pool"
-)
 
 type InstanceRef struct {
 	ID        string
@@ -108,10 +113,6 @@ type InstanceResources struct {
 	MemoryBytes int64
 }
 
-func (r InstanceResources) IsZero() bool {
-	return r.CPUVCPUs == 0 && r.MemoryBytes == 0
-}
-
 type Harness struct {
 	ID string
 	// Interactive asks the backend to allocate a TTY and keep stdin open, the
@@ -160,17 +161,6 @@ type SecretRef struct {
 	Value string
 }
 
-// Redacted returns a copy with every secret value cleared, for hashing into the
-// desired revision or for logging. Version still varies with the value, so a
-// rotation changes the revision without the revision ever containing a secret.
-func (d DesiredInstance) Redacted() DesiredInstance {
-	d.Secrets = slices.Clone(d.Secrets)
-	for i := range d.Secrets {
-		d.Secrets[i].Value = ""
-	}
-	return d
-}
-
 type DesiredPool struct {
 	Ref      PoolRef
 	Revision string
@@ -188,13 +178,6 @@ type ResourceQuantity struct {
 }
 
 type State string
-
-const (
-	StatePending  State = "pending"
-	StateReady    State = "ready"
-	StateError    State = "error"
-	StateDeleting State = "deleting"
-)
 
 type InstanceObservation struct {
 	Ref               InstanceRef
@@ -257,4 +240,19 @@ type Pressure struct {
 	CPU     bool
 	Memory  bool
 	Storage bool
+}
+
+func (r InstanceResources) IsZero() bool {
+	return r.CPUVCPUs == 0 && r.MemoryBytes == 0
+}
+
+// Redacted returns a copy with every secret value cleared, for hashing into the
+// desired revision or for logging. Version still varies with the value, so a
+// rotation changes the revision without the revision ever containing a secret.
+func (d DesiredInstance) Redacted() DesiredInstance {
+	d.Secrets = slices.Clone(d.Secrets)
+	for i := range d.Secrets {
+		d.Secrets[i].Value = ""
+	}
+	return d
 }

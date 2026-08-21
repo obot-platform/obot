@@ -21,6 +21,25 @@ type AuthProvider struct {
 	Status AuthProviderStatus `json:"status"`
 }
 
+type AuthProviderSpec struct {
+	types.AuthProviderManifest `json:",inline"`
+}
+
+type AuthProviderStatus struct {
+	Configured                     bool     `json:"configured"`
+	MissingConfigurationParameters []string `json:"missingConfigurationParameters,omitempty"`
+	ObservedGeneration             int64    `json:"observedGeneration,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type AuthProviderList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []AuthProvider `json:"items"`
+}
+
 func (in *AuthProvider) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -43,23 +62,4 @@ func (in *AuthProvider) GetColumns() [][]string {
 		{"Command", "Spec.Command"},
 		{"Created", "{{ago .CreationTimestamp}}"},
 	}
-}
-
-type AuthProviderSpec struct {
-	types.AuthProviderManifest `json:",inline"`
-}
-
-type AuthProviderStatus struct {
-	Configured                     bool     `json:"configured"`
-	MissingConfigurationParameters []string `json:"missingConfigurationParameters,omitempty"`
-	ObservedGeneration             int64    `json:"observedGeneration,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type AuthProviderList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []AuthProvider `json:"items"`
 }

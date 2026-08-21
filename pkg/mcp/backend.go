@@ -30,14 +30,15 @@ const (
 	runtimeBackendKubernetesShort = "k8s"
 )
 
-func IsKubernetesBackend(backend string) bool {
-	switch strings.ToLower(strings.TrimSpace(backend)) {
-	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
-		return true
-	default:
-		return false
-	}
-}
+var (
+	ErrHealthCheckTimeout     = errors.New("timed out waiting for MCP server to be ready")
+	ErrHealthCheckFailed      = errors.New("MCP server is not healthy")
+	ErrPodCrashLoopBackOff    = errors.New("pod is in CrashLoopBackOff state")
+	ErrImagePullFailed        = errors.New("failed to pull container image")
+	ErrPodSchedulingFailed    = errors.New("pod could not be scheduled")
+	ErrPodConfigurationFailed = errors.New("pod configuration is invalid")
+	ErrInsufficientCapacity   = errors.New("insufficient cluster capacity to deploy MCP server")
+)
 
 type backend interface {
 	// ensureServerDeployment will deploy a server if it is not already deployed, and return the updated ServerConfig
@@ -56,19 +57,18 @@ type ErrNotSupportedByBackend struct {
 	Feature, Backend string
 }
 
+func IsKubernetesBackend(backend string) bool {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
+	case RuntimeBackendKubernetes, runtimeBackendKubernetesShort:
+		return true
+	default:
+		return false
+	}
+}
+
 func (e *ErrNotSupportedByBackend) Error() string {
 	return fmt.Sprintf("feature %s is not supported by %s backend", e.Feature, e.Backend)
 }
-
-var (
-	ErrHealthCheckTimeout     = errors.New("timed out waiting for MCP server to be ready")
-	ErrHealthCheckFailed      = errors.New("MCP server is not healthy")
-	ErrPodCrashLoopBackOff    = errors.New("pod is in CrashLoopBackOff state")
-	ErrImagePullFailed        = errors.New("failed to pull container image")
-	ErrPodSchedulingFailed    = errors.New("pod could not be scheduled")
-	ErrPodConfigurationFailed = errors.New("pod configuration is invalid")
-	ErrInsufficientCapacity   = errors.New("insufficient cluster capacity to deploy MCP server")
-)
 
 func ensureServerReady(ctx context.Context, url string, server ServerConfig) error {
 	// Ensure we can actually hit the service URL.

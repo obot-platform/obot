@@ -14,6 +14,8 @@ import (
 // SkillMainFile is the filename for the main skill definition file in a skill directory.
 const SkillMainFile = "SKILL.md"
 
+var nameRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
+
 // Frontmatter represents the YAML frontmatter of a SKILL.md file,
 // following the Agent Skills specification.
 type Frontmatter struct {
@@ -24,8 +26,6 @@ type Frontmatter struct {
 	Metadata      map[string]string `yaml:"metadata,omitempty"`
 	AllowedTools  string            `yaml:"allowed-tools,omitempty"`
 }
-
-var nameRegexp = regexp.MustCompile(`^[a-z0-9-]+$`)
 
 // ValidateName checks that a skill name conforms to the Agent Skills spec:
 // 1-64 characters, lowercase letters/numbers/hyphens only, no leading/trailing

@@ -49,6 +49,20 @@ type metricsServerReader struct {
 	client rest.Interface
 }
 
+// statsSummary is the subset of kubelet's /stats/summary this package reads.
+type statsSummary struct {
+	Pods []struct {
+		Volume []struct {
+			UsedBytes     int64 `json:"usedBytes"`
+			CapacityBytes int64 `json:"capacityBytes"`
+			PVCRef        struct {
+				Name      string `json:"name"`
+				Namespace string `json:"namespace"`
+			} `json:"pvcRef"`
+		} `json:"volume"`
+	} `json:"pods"`
+}
+
 func newMetricsReader(config *rest.Config) (usageReader, error) {
 	if config == nil {
 		return nil, nil
@@ -101,20 +115,6 @@ func (m *metricsServerReader) PodUsage(ctx context.Context, namespace, labelSele
 		usage[item.Metadata.Name] = total
 	}
 	return usage, nil
-}
-
-// statsSummary is the subset of kubelet's /stats/summary this package reads.
-type statsSummary struct {
-	Pods []struct {
-		Volume []struct {
-			UsedBytes     int64 `json:"usedBytes"`
-			CapacityBytes int64 `json:"capacityBytes"`
-			PVCRef        struct {
-				Name      string `json:"name"`
-				Namespace string `json:"namespace"`
-			} `json:"pvcRef"`
-		} `json:"volume"`
-	} `json:"pods"`
 }
 
 // PoolVolumeUsage reports bytes used on a pool's shared volume.

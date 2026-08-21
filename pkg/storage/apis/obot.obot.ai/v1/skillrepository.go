@@ -19,6 +19,30 @@ type SkillRepository struct {
 	Status SkillRepositoryStatus `json:"status"`
 }
 
+type SkillRepositorySpec struct {
+	DisplayName     string `json:"displayName,omitempty"`
+	RepoURL         string `json:"repoURL,omitempty"`
+	Ref             string `json:"ref,omitempty"`
+	GitCredentialID string `json:"gitCredentialID,omitempty"`
+}
+
+type SkillRepositoryStatus struct {
+	LastSyncTime         metav1.Time `json:"lastSyncTime,omitzero"`
+	IsSyncing            bool        `json:"isSyncing,omitempty"`
+	SyncError            string      `json:"syncError,omitempty"`
+	ResolvedCommitSHA    string      `json:"resolvedCommitSHA,omitempty"`
+	DiscoveredSkillCount int         `json:"discoveredSkillCount"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type SkillRepositoryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []SkillRepository `json:"items"`
+}
+
 func (in *SkillRepository) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -51,28 +75,4 @@ func (in *SkillRepository) GetColumns() [][]string {
 		{"Discovered Skills", "Status.DiscoveredSkillCount"},
 		{"Last Synced", "{{ago .Status.LastSyncTime}}"},
 	}
-}
-
-type SkillRepositorySpec struct {
-	DisplayName     string `json:"displayName,omitempty"`
-	RepoURL         string `json:"repoURL,omitempty"`
-	Ref             string `json:"ref,omitempty"`
-	GitCredentialID string `json:"gitCredentialID,omitempty"`
-}
-
-type SkillRepositoryStatus struct {
-	LastSyncTime         metav1.Time `json:"lastSyncTime,omitzero"`
-	IsSyncing            bool        `json:"isSyncing,omitempty"`
-	SyncError            string      `json:"syncError,omitempty"`
-	ResolvedCommitSHA    string      `json:"resolvedCommitSHA,omitempty"`
-	DiscoveredSkillCount int         `json:"discoveredSkillCount"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type SkillRepositoryList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []SkillRepository `json:"items"`
 }

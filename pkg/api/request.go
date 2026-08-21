@@ -22,28 +22,42 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Context struct {
-	http.ResponseWriter
-	*http.Request
-	Storage       storage.Client
-	GatewayClient *gclient.Client
-	User          user.Info
-	APIBaseURL    string
+const (
+	defaultMaxBodyBytes int64 = 8 * 1024 * 1024
 
-	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
-	// cluster the obot pod runs in, where source Secrets for
-	// secretBindings live. Nil on the docker backend
-	LocalK8sClient kclient.Client
-
-	// ObotNamespace is the Kubernetes namespace in which the obot server
-	// runs; mcp.MergeBoundCreds reads source Secrets from here. Empty
-	// when LocalK8sClient is nil.
-	ObotNamespace string
-}
+	// maxDecoderWindowBytes caps the window a zstd frame may declare. The decoder
+	// allocates it from the frame header, before any output the decoded cap could
+	// bound.
+	maxDecoderWindowBytes = 64 * 1024 * 1024
+)
 
 type (
+	Context struct {
+		http.ResponseWriter
+		*http.Request
+		Storage       storage.Client
+		GatewayClient *gclient.Client
+		User          user.Info
+		APIBaseURL    string
+
+		// LocalK8sClient is a kclient for the local Kubernetes cluster — the
+		// cluster the obot pod runs in, where source Secrets for
+		// secretBindings live. Nil on the docker backend
+		LocalK8sClient kclient.Client
+
+		// ObotNamespace is the Kubernetes namespace in which the obot server
+		// runs; mcp.MergeBoundCreds reads source Secrets from here. Empty
+		// when LocalK8sClient is nil.
+		ObotNamespace string
+	}
+
 	HandlerFunc func(Context) error
 	Middleware  func(HandlerFunc) HandlerFunc
+
+	BodyOptions struct {
+		// MaxBytes caps the body, applied to the compressed and decoded streams alike.
+		MaxBytes int64
+	}
 )
 
 func (r *Context) IsStreamRequested() bool {
@@ -64,18 +78,6 @@ func (r *Context) Read(obj any) error {
 	}
 	return json.Unmarshal(data, obj)
 }
-
-type BodyOptions struct {
-	// MaxBytes caps the body, applied to the compressed and decoded streams alike.
-	MaxBytes int64
-}
-
-const defaultMaxBodyBytes int64 = 8 * 1024 * 1024
-
-// maxDecoderWindowBytes caps the window a zstd frame may declare. The decoder
-// allocates it from the frame header, before any output the decoded cap could
-// bound.
-const maxDecoderWindowBytes = 64 * 1024 * 1024
 
 func (r *Context) Body(opts ...BodyOptions) (_ []byte, err error) {
 	defer func() {

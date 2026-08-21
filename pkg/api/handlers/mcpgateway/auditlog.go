@@ -32,10 +32,68 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var (
+	// filterOptions represent the values that a user can use to filter MCP audit logs.
+	// The values of this map represent the "zero" values that are excluded when looking for options in the database.
+	// For example, "" for strings and 0 for numbers.
+	filterOptions = map[string]any{
+		"user_id":                       "",
+		"mcp_id":                        "",
+		"mcp_server_display_name":       "",
+		"mcp_server_catalog_entry_name": "",
+		"call_type":                     "",
+		"call_identifier":               "",
+		"session_id":                    "",
+		"client_name":                   "",
+		"client_version":                "",
+		"response_status":               0,
+		"client_ip":                     "",
+	}
+
+	// localAgentFilterOptions are the filter columns available for local-agent tool-call audit logs.
+	// As with filterOptions, values are the "zero" values excluded when scanning for options.
+	localAgentFilterOptions = map[string]any{
+		"user_id":        "",
+		"client_ip":      "",
+		"session_id":     "",
+		"agent_provider": "",
+		"status":         "",
+		"tool_name":      "",
+		"tool_kind":      "",
+		"device_id":      "",
+	}
+
+	// defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
+	defaultFilterOptions = map[string][]string{
+		"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+		// Unified UI filters.
+		"operation": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
+		"outcome":   {"success", "failure", "denied", "timeout", "unknown"},
+	}
+
+	// unifiedFilterOptions are the source-agnostic filter keys used by the reworked audit-log UI. They
+	// are available regardless of the selected source(s). "outcome" is served entirely from
+	// defaultFilterOptions (a fixed enum); the rest resolve to distinct values across both sources.
+	unifiedFilterOptions = map[string]struct{}{
+		"actor":      {},
+		"operation":  {},
+		"mcp_server": {},
+		"tool":       {},
+		"outcome":    {},
+		"client":     {},
+	}
+)
+
 // AuditLogHandler serves audit-log ingestion, normalized reads, filter options, and MCP usage
 // statistics. Read authorization is applied before rows are presented through pkg/auditlog.
 type AuditLogHandler struct {
 	gatewayClient *gateway.Client
+}
+
+type auditLogInput struct {
+	gatewaytypes.MCPAuditLog `json:",inline"`
+	Metadata                 map[string]string `json:"metadata"`
+	Subject                  string            `json:"subject"`
 }
 
 // NewAuditLogHandler constructs an AuditLogHandler backed by gatewayClient.
@@ -92,12 +150,6 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 		return nil
 	}
 	return result
-}
-
-type auditLogInput struct {
-	gatewaytypes.MCPAuditLog `json:",inline"`
-	Metadata                 map[string]string `json:"metadata"`
-	Subject                  string            `json:"subject"`
 }
 
 func (a *auditLogInput) UnmarshalJSON(data []byte) error {
@@ -502,56 +554,6 @@ func (h *AuditLogHandler) GetAuditLog(req api.Context) error {
 	})
 
 	return req.Write(result)
-}
-
-// filterOptions represent the values that a user can use to filter MCP audit logs.
-// The values of this map represent the "zero" values that are excluded when looking for options in the database.
-// For example, "" for strings and 0 for numbers.
-var filterOptions = map[string]any{
-	"user_id":                       "",
-	"mcp_id":                        "",
-	"mcp_server_display_name":       "",
-	"mcp_server_catalog_entry_name": "",
-	"call_type":                     "",
-	"call_identifier":               "",
-	"session_id":                    "",
-	"client_name":                   "",
-	"client_version":                "",
-	"response_status":               0,
-	"client_ip":                     "",
-}
-
-// localAgentFilterOptions are the filter columns available for local-agent tool-call audit logs.
-// As with filterOptions, values are the "zero" values excluded when scanning for options.
-var localAgentFilterOptions = map[string]any{
-	"user_id":        "",
-	"client_ip":      "",
-	"session_id":     "",
-	"agent_provider": "",
-	"status":         "",
-	"tool_name":      "",
-	"tool_kind":      "",
-	"device_id":      "",
-}
-
-// defaultFilterOptions will always be present of the given filter, regardless of what is in the database.
-var defaultFilterOptions = map[string][]string{
-	"call_type": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
-	// Unified UI filters.
-	"operation": {"prompts/list", "resources/read", "tools/list", "tools/call", "prompts/get", "resources/list"},
-	"outcome":   {"success", "failure", "denied", "timeout", "unknown"},
-}
-
-// unifiedFilterOptions are the source-agnostic filter keys used by the reworked audit-log UI. They
-// are available regardless of the selected source(s). "outcome" is served entirely from
-// defaultFilterOptions (a fixed enum); the rest resolve to distinct values across both sources.
-var unifiedFilterOptions = map[string]struct{}{
-	"actor":      {},
-	"operation":  {},
-	"mcp_server": {},
-	"tool":       {},
-	"outcome":    {},
-	"client":     {},
 }
 
 func (h *AuditLogHandler) ListAuditLogFilterOptions(req api.Context) error {

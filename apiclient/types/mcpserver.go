@@ -7,9 +7,6 @@ import (
 	"strings"
 )
 
-// Runtime represents the execution runtime type for MCP servers
-type Runtime string
-
 // Runtime constants for different MCP server execution environments
 const (
 	RuntimeUVX           Runtime = "uvx"
@@ -20,22 +17,18 @@ const (
 
 	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
 	defaultStartupTimeoutSeconds = 60
-)
 
-// ServerUserType specifies whether a catalog entry is single-user or multi-user.
-type ServerUserType string
-
-const (
 	// ServerUserTypeSingleUser indicates each user gets their own MCP server instance.
 	ServerUserTypeSingleUser ServerUserType = "singleUser"
 	// ServerUserTypeMultiUser indicates all users share a single MCP server.
 	ServerUserTypeMultiUser ServerUserType = "multiUser"
 )
 
-// IsSingleUser returns true if the type represents a single-user server.
-func (t ServerUserType) IsSingleUser() bool {
-	return t == ServerUserTypeSingleUser
-}
+// Runtime represents the execution runtime type for MCP servers
+type Runtime string
+
+// ServerUserType specifies whether a catalog entry is single-user or multi-user.
+type ServerUserType string
 
 // UVXRuntimeConfig represents configuration for UVX runtime (Python packages via uvx)
 type UVXRuntimeConfig struct {
@@ -114,16 +107,6 @@ type CatalogComponentServer struct {
 	ToolPrefix string `json:"toolPrefix,omitempty"`
 }
 
-// ComponentID returns the ID of the component server.
-// It's used to uniquely identify a component server in a composite server.
-func (c CatalogComponentServer) ComponentID() string {
-	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID
-	}
-
-	return c.MCPServerID
-}
-
 type CompositeRuntimeConfig struct {
 	ComponentServers []ComponentServer `json:"componentServers"`
 }
@@ -141,16 +124,6 @@ type ComponentServer struct {
 	ToolPrefix string `json:"toolPrefix,omitempty"`
 	// Disabled indicates whether the component server should be included in the composite server at runtime
 	Disabled bool `json:"disabled,omitempty"`
-}
-
-// ComponentID returns the ID of the component server.
-// It's used to uniquely identify a component server in a composite server.
-func (c ComponentServer) ComponentID() string {
-	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID
-	}
-
-	return c.MCPServerID
 }
 
 type MCPServerCatalogEntry struct {
@@ -385,11 +358,6 @@ type MCPServer struct {
 	CompositeName string `json:"compositeName,omitempty"`
 }
 
-// IsSingleUser returns true if this is a single-user MCP server.
-func (s MCPServer) IsSingleUser() bool {
-	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
-}
-
 type OAuthMetadata struct {
 	ProtectedResourceURL              string          `json:"protectedResourceUrl,omitempty"`
 	AuthorizationServerURL            string          `json:"authorizationServerUrl,omitempty"`
@@ -463,6 +431,50 @@ type RuntimeValidationError struct {
 	Runtime Runtime
 	Field   string
 	Message string
+}
+
+// MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
+type MCPServerOAuthCredentialRequest struct {
+	ClientID     string `json:"clientID"`
+	ClientSecret string `json:"clientSecret"`
+}
+
+// MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
+type MCPServerOAuthCredentialStatus struct {
+	// Configured is true if OAuth credentials have been set
+	Configured bool `json:"configured"`
+	// ClientID is the configured client ID (never includes secret)
+	ClientID string `json:"clientID,omitempty"`
+}
+
+// IsSingleUser returns true if the type represents a single-user server.
+func (t ServerUserType) IsSingleUser() bool {
+	return t == ServerUserTypeSingleUser
+}
+
+// ComponentID returns the ID of the component server.
+// It's used to uniquely identify a component server in a composite server.
+func (c CatalogComponentServer) ComponentID() string {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID
+	}
+
+	return c.MCPServerID
+}
+
+// ComponentID returns the ID of the component server.
+// It's used to uniquely identify a component server in a composite server.
+func (c ComponentServer) ComponentID() string {
+	if c.CatalogEntryID != "" {
+		return c.CatalogEntryID
+	}
+
+	return c.MCPServerID
+}
+
+// IsSingleUser returns true if this is a single-user MCP server.
+func (s MCPServer) IsSingleUser() bool {
+	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
 }
 
 func (e RuntimeValidationError) Error() string {
@@ -747,18 +759,4 @@ func ValidateURLHostname(u string, hostname string) error {
 		}
 	}
 	return nil
-}
-
-// MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
-type MCPServerOAuthCredentialRequest struct {
-	ClientID     string `json:"clientID"`
-	ClientSecret string `json:"clientSecret"`
-}
-
-// MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
-type MCPServerOAuthCredentialStatus struct {
-	// Configured is true if OAuth credentials have been set
-	Configured bool `json:"configured"`
-	// ClientID is the configured client ID (never includes secret)
-	ClientID string `json:"clientID,omitempty"`
 }

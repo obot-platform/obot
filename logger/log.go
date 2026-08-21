@@ -12,28 +12,30 @@ import (
 	"strings"
 )
 
-var level = new(slog.LevelVar)
-
-// root is trimmed off source paths so entries carry a repo-relative location
-// rather than whatever absolute path the build happened to use. This file is
-// <root>/logger/log.go, so its own compiled-in path locates the repo.
-var root = func() string {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return ""
-	}
-	return filepath.Dir(filepath.Dir(file)) + string(filepath.Separator)
-}()
-
-// Format selects the output encoding. The zero value is Text.
-type Format string
-
 const (
 	// Text is human-readable output, for interactive use.
 	Text Format = "text"
 	// JSON is the encoding log collectors parse. Long-running services use it.
 	JSON Format = "json"
 )
+
+var (
+	level = new(slog.LevelVar)
+
+	// root is trimmed off source paths so entries carry a repo-relative location
+	// rather than whatever absolute path the build happened to use. This file is
+	// <root>/logger/log.go, so its own compiled-in path locates the repo.
+	root = func() string {
+		_, file, _, ok := runtime.Caller(0)
+		if !ok {
+			return ""
+		}
+		return filepath.Dir(filepath.Dir(file)) + string(filepath.Separator)
+	}()
+)
+
+// Format selects the output encoding. The zero value is Text.
+type Format string
 
 // Setup installs the process-wide slog default in the given format.
 //

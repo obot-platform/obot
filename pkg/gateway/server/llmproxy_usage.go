@@ -22,6 +22,21 @@ type threadSafeTokenUsageTracker struct {
 	inner tokenUsageTracker
 }
 
+// messageTokenUsageTracker tracks Anthropic Messages usage.
+type messageTokenUsageTracker struct {
+	cost                                                                 types2.ModelCost
+	inputTokens, cacheRead, cacheWrite5m, cacheWrite1h, output, thinking int
+}
+
+// responseTokenUsageTracker tracks OpenAI Responses usage.
+//
+// Streaming responses emit usage under response.usage on terminal events;
+// non-streaming responses put the same shape at the top-level usage field.
+type responseTokenUsageTracker struct {
+	cost                                         types2.ModelCost
+	inputTokens, cachedTokens, output, reasoning int
+}
+
 // newTokenUsageTracker chooses a parser that matches the upstream usage shape.
 func newTokenUsageTracker(model v1.Model) *threadSafeTokenUsageTracker {
 	var (
@@ -61,12 +76,6 @@ func (c *threadSafeTokenUsageTracker) getTokenUsage() types.TokenUsage {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	return c.inner.getTokenUsage()
-}
-
-// messageTokenUsageTracker tracks Anthropic Messages usage.
-type messageTokenUsageTracker struct {
-	cost                                                                 types2.ModelCost
-	inputTokens, cacheRead, cacheWrite5m, cacheWrite1h, output, thinking int
 }
 
 func (t *messageTokenUsageTracker) addTokenUsage(line []byte) {
@@ -122,15 +131,6 @@ func (t *messageTokenUsageTracker) getTokenUsage() types.TokenUsage {
 	u.OutputSpend = spendUSD(t.output, cost.Output)
 	u.TotalSpend = u.InputSpend + u.OutputSpend
 	return u
-}
-
-// responseTokenUsageTracker tracks OpenAI Responses usage.
-//
-// Streaming responses emit usage under response.usage on terminal events;
-// non-streaming responses put the same shape at the top-level usage field.
-type responseTokenUsageTracker struct {
-	cost                                         types2.ModelCost
-	inputTokens, cachedTokens, output, reasoning int
 }
 
 func (t *responseTokenUsageTracker) addTokenUsage(line []byte) {

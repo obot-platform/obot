@@ -23,6 +23,26 @@ type PowerUserWorkspace struct {
 	Status PowerUserWorkspaceStatus `json:"status"`
 }
 
+type PowerUserWorkspaceSpec struct {
+	// UserID is the ID of the user who owns this workspace
+	UserID string `json:"userID,omitempty"`
+	// Role is the role of the user (Admin, PowerUser, or PowerUserPlus)
+	Role types.Role `json:"role,omitempty"`
+}
+
+type PowerUserWorkspaceStatus struct {
+	DefaultAccessControlRuleGenerated bool `json:"defaultAccessControlRuleGenerated,omitempty"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type PowerUserWorkspaceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+
+	Items []PowerUserWorkspace `json:"items"`
+}
+
 func (in *PowerUserWorkspace) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -42,24 +62,4 @@ func (in *PowerUserWorkspace) FieldNames() []string {
 		"spec.userID",
 		"spec.role",
 	}
-}
-
-type PowerUserWorkspaceSpec struct {
-	// UserID is the ID of the user who owns this workspace
-	UserID string `json:"userID,omitempty"`
-	// Role is the role of the user (Admin, PowerUser, or PowerUserPlus)
-	Role types.Role `json:"role,omitempty"`
-}
-
-type PowerUserWorkspaceStatus struct {
-	DefaultAccessControlRuleGenerated bool `json:"defaultAccessControlRuleGenerated,omitempty"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-type PowerUserWorkspaceList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata"`
-
-	Items []PowerUserWorkspace `json:"items"`
 }

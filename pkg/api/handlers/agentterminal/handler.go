@@ -41,6 +41,16 @@ type Handler struct {
 	devOrigins []string
 }
 
+// pump moves bytes in both directions.
+//
+// All writes happen on the single goroutine running writeToBrowser, which is
+// why no lock is needed: a websocket permits one writer at a time, and
+// concentrating writes in one place is simpler than serialising them.
+type pump struct {
+	conn    *websocket.Conn
+	session agentbackend.TerminalSession
+}
+
 // New builds the terminal handler. devUIPort is the port a separate dev UI
 // server runs on, or 0 in production. The dev server proxies /api with
 // changeOrigin, which rewrites Host but leaves Origin pointing at the dev
@@ -115,16 +125,6 @@ func (h *Handler) Attach(req api.Context) error {
 
 	(&pump{conn: conn, session: session}).run(req.Context())
 	return nil
-}
-
-// pump moves bytes in both directions.
-//
-// All writes happen on the single goroutine running writeToBrowser, which is
-// why no lock is needed: a websocket permits one writer at a time, and
-// concentrating writes in one place is simpler than serialising them.
-type pump struct {
-	conn    *websocket.Conn
-	session agentbackend.TerminalSession
 }
 
 func (p *pump) run(ctx context.Context) {

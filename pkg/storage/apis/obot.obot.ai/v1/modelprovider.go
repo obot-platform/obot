@@ -15,14 +15,6 @@ type ModelProvider struct {
 	Status ModelProviderStatus `json:"status"`
 }
 
-func (in *ModelProvider) GetColumns() [][]string {
-	return [][]string{
-		{"Name", "Name"},
-		{"Command", "Spec.Command"},
-		{"Created", "{{ago .CreationTimestamp}}"},
-	}
-}
-
 type ModelProviderSpec struct {
 	types.ModelProviderManifest `json:",inline"`
 }
@@ -42,4 +34,12 @@ type ModelProviderList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []ModelProvider `json:"items"`
+}
+
+func (in *ModelProvider) GetColumns() [][]string {
+	return [][]string{
+		{"Name", "Name"},
+		{"Command", "Spec.Command"},
+		{"Created", "{{ago .CreationTimestamp}}"},
+	}
 }

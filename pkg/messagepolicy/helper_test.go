@@ -13,6 +13,8 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 )
 
+type policyOpt func(*v1.MessagePolicy)
+
 func TestGetApplicablePoliciesDirectUserMatch(t *testing.T) {
 	helper := newTestHelper(t,
 		newPolicy("p1", "No PII", types.PolicyDirectionUserMessage,
@@ -160,8 +162,6 @@ func newTestHelper(t *testing.T, policies ...*v1.MessagePolicy) *Helper {
 
 	return &Helper{indexer: indexer}
 }
-
-type policyOpt func(*v1.MessagePolicy)
 
 func withDeleted() policyOpt {
 	return func(p *v1.MessagePolicy) {

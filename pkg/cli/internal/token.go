@@ -24,21 +24,36 @@ import (
 	"github.com/pkg/browser"
 )
 
+const TokenEnvVar = "OBOT_TOKEN"
+
 var (
 	credentialStore credentials.Store = credentials.NewKeyringStore()
 	openBrowser                       = browser.OpenURL
 )
 
-const TokenEnvVar = "OBOT_TOKEN"
+type nonInteractiveContextKey struct{}
+type outputWriterContextKey struct{}
+
+type createRequest struct {
+	Name              string             `json:"name,omitempty"`
+	Description       string             `json:"description,omitempty"`
+	ProviderName      string             `json:"providerName,omitempty"`
+	ProviderNamespace string             `json:"providerNamespace,omitempty"`
+	NoExpiration      bool               `json:"noExpiration,omitempty"`
+	Scopes            types.APIKeyScopes `json:"scopes"`
+}
+
+type createResponse struct {
+	ID         string `json:"id"`
+	TokenPath  string `json:"token-path"`
+	DeviceCode string `json:"device-code"`
+}
 
 func init() {
 	// Browser launchers (e.g. xdg-open) may write to stdout; keep stdout
 	// reserved for machine-readable output like `login --print-token`.
 	browser.Stdout = os.Stderr
 }
-
-type nonInteractiveContextKey struct{}
-type outputWriterContextKey struct{}
 
 // WithNonInteractive marks ctx as safe for GUI orchestration: token acquisition
 // must not prompt or read from stdin.
@@ -246,21 +261,6 @@ func Token(ctx context.Context, baseURL string, opts apiclient.TokenFetchOptions
 	}
 
 	return token, credentialStore.Set(appURL, token)
-}
-
-type createRequest struct {
-	Name              string             `json:"name,omitempty"`
-	Description       string             `json:"description,omitempty"`
-	ProviderName      string             `json:"providerName,omitempty"`
-	ProviderNamespace string             `json:"providerNamespace,omitempty"`
-	NoExpiration      bool               `json:"noExpiration,omitempty"`
-	Scopes            types.APIKeyScopes `json:"scopes"`
-}
-
-type createResponse struct {
-	ID         string `json:"id"`
-	TokenPath  string `json:"token-path"`
-	DeviceCode string `json:"device-code"`
 }
 
 func create(ctx context.Context, baseURL, providerName, providerNamespace, tokenName, tokenDescription string, noExpiration bool, scopes []string) (createResponse, error) {

@@ -28,68 +28,6 @@ type MCPServer struct {
 	Status MCPServerStatus `json:"status"`
 }
 
-func (in *MCPServer) Has(field string) (exists bool) {
-	return slices.Contains(in.FieldNames(), field)
-}
-
-func (in *MCPServer) Get(field string) (value string) {
-	switch field {
-	case "spec.userID":
-		return in.Spec.UserID
-	case "spec.mcpServerCatalogEntryName":
-		return in.Spec.MCPServerCatalogEntryName
-	case "spec.mcpCatalogID":
-		return in.Spec.MCPCatalogID
-	case "spec.powerUserWorkspaceID":
-		return in.Spec.PowerUserWorkspaceID
-	case "spec.template":
-		return strconv.FormatBool(in.Spec.Template)
-	case "spec.compositeName":
-		return in.Spec.CompositeName
-	case "spec.manifest.runtime":
-		return string(in.Spec.Manifest.Runtime)
-	case "auditLogTokenHash":
-		return in.Status.AuditLogTokenHash
-	}
-	return ""
-}
-
-func (in *MCPServer) FieldNames() []string {
-	return []string{
-		"spec.userID",
-		"spec.mcpServerCatalogEntryName",
-		"spec.mcpCatalogID",
-		"spec.powerUserWorkspaceID",
-		"spec.template",
-		"spec.compositeName",
-		"spec.manifest.runtime",
-		"auditLogTokenHash",
-	}
-}
-
-func (in *MCPServer) DeleteRefs() []Ref {
-	refs := []Ref{
-		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
-		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
-		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
-		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
-	}
-	if in.Spec.CompositeName == "" {
-		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
-		// Component MCP servers get their manifest from the composite catalog entry instead.
-		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
-	}
-	return refs
-}
-
-func (in *MCPServer) ValidConnectURLs(base string) []string {
-	var urls []string
-	if in.Spec.IsSingleUser() {
-		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
-	}
-	return append(urls, system.MCPConnectURL(base, in.Name))
-}
-
 type MCPServerSpec struct {
 	Manifest types.MCPServerManifest `json:"manifest"`
 	// List of tool names that are known to not work well in Obot.
@@ -119,27 +57,6 @@ type MCPServerSpec struct {
 	CompositeName string `json:"compositeName,omitempty"`
 	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
-}
-
-// IsSingleUser returns true if this is a single-user MCP server.
-func (s MCPServerSpec) IsSingleUser() bool {
-	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
-}
-
-// IsOwnedBy returns true if the given user created this server and it is not
-// an admin-deployed catalog server. Covers personal and workspace servers.
-func (s MCPServerSpec) IsOwnedBy(userID string) bool {
-	return s.UserID == userID && !s.IsCatalogServer()
-}
-
-// IsCatalogServer returns true if this server is owned by a catalog (admin-deployed multi-user server).
-func (s MCPServerSpec) IsCatalogServer() bool {
-	return s.MCPCatalogID != ""
-}
-
-// IsPowerUserWorkspaceServer returns true if this server is owned by a PowerUserWorkspace.
-func (s MCPServerSpec) IsPowerUserWorkspaceServer() bool {
-	return s.PowerUserWorkspaceID != ""
 }
 
 type MCPServerStatus struct {
@@ -217,4 +134,87 @@ type MCPServerList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPServer `json:"items"`
+}
+
+func (in *MCPServer) Has(field string) (exists bool) {
+	return slices.Contains(in.FieldNames(), field)
+}
+
+func (in *MCPServer) Get(field string) (value string) {
+	switch field {
+	case "spec.userID":
+		return in.Spec.UserID
+	case "spec.mcpServerCatalogEntryName":
+		return in.Spec.MCPServerCatalogEntryName
+	case "spec.mcpCatalogID":
+		return in.Spec.MCPCatalogID
+	case "spec.powerUserWorkspaceID":
+		return in.Spec.PowerUserWorkspaceID
+	case "spec.template":
+		return strconv.FormatBool(in.Spec.Template)
+	case "spec.compositeName":
+		return in.Spec.CompositeName
+	case "spec.manifest.runtime":
+		return string(in.Spec.Manifest.Runtime)
+	case "auditLogTokenHash":
+		return in.Status.AuditLogTokenHash
+	}
+	return ""
+}
+
+func (in *MCPServer) FieldNames() []string {
+	return []string{
+		"spec.userID",
+		"spec.mcpServerCatalogEntryName",
+		"spec.mcpCatalogID",
+		"spec.powerUserWorkspaceID",
+		"spec.template",
+		"spec.compositeName",
+		"spec.manifest.runtime",
+		"auditLogTokenHash",
+	}
+}
+
+func (in *MCPServer) DeleteRefs() []Ref {
+	refs := []Ref{
+		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
+		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
+		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
+		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
+	}
+	if in.Spec.CompositeName == "" {
+		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
+		// Component MCP servers get their manifest from the composite catalog entry instead.
+		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
+	}
+	return refs
+}
+
+func (in *MCPServer) ValidConnectURLs(base string) []string {
+	var urls []string
+	if in.Spec.IsSingleUser() {
+		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
+	}
+	return append(urls, system.MCPConnectURL(base, in.Name))
+}
+
+// IsSingleUser returns true if this is a single-user MCP server.
+func (s MCPServerSpec) IsSingleUser() bool {
+	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
+}
+
+// IsOwnedBy returns true if the given user created this server and it is not
+// an admin-deployed catalog server. Covers personal and workspace servers.
+func (s MCPServerSpec) IsOwnedBy(userID string) bool {
+	return s.UserID == userID && !s.IsCatalogServer()
+}
+
+// IsCatalogServer returns true if this server is owned by a catalog (admin-deployed multi-user server).
+func (s MCPServerSpec) IsCatalogServer() bool {
+	return s.MCPCatalogID != ""
+}
+
+// IsPowerUserWorkspaceServer returns true if this server is owned by a PowerUserWorkspace.
+func (s MCPServerSpec) IsPowerUserWorkspaceServer() bool {
+	return s.PowerUserWorkspaceID != ""
 }

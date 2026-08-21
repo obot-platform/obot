@@ -24,6 +24,8 @@ type HarnessManifest struct {
 	Interactive bool `json:"interactive,omitempty"`
 }
 
+type HarnessList List[Harness]
+
 func (m HarnessManifest) Validate() error {
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
@@ -33,5 +35,3 @@ func (m HarnessManifest) Validate() error {
 	}
 	return nil
 }
-
-type HarnessList List[Harness]

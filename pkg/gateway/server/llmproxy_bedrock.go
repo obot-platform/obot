@@ -13,6 +13,11 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+type bedrockMantleProviderBackend struct {
+	providerName string
+	apiKey       bool
+}
+
 func (s *Server) newAWSBedrockLLMProviderProxy() *llmProviderProxy {
 	return &llmProviderProxy{
 		dailyUserInputTokenLimit:  s.dailyUserInputTokenLimit,
@@ -31,11 +36,6 @@ func (s *Server) newAWSBedrockAPIKeyLLMProviderProxy() *llmProviderProxy {
 		mapHelper:                 s.mapHelper,
 		messagePolicyHelper:       s.messagePolicyHelper,
 	}
-}
-
-type bedrockMantleProviderBackend struct {
-	providerName string
-	apiKey       bool
 }
 
 func (b bedrockMantleProviderBackend) modelProviderName() string {

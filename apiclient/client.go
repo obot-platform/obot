@@ -16,6 +16,16 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
+// maxErrorBodyBytes bounds how much of a non-2xx response body reaches an
+// ErrHTTP message.
+//
+// The body is not necessarily an API error document. A wrong base path, a
+// reverse proxy, or a load balancer answers with a whole HTML page, and callers
+// put these messages in front of people and models: obot-sentry's enforcement
+// hook renders one into the text it hands the agent, where an unbounded body
+// buried the instructions after it. 4 KiB holds every error this API produces.
+const maxErrorBodyBytes = 4 << 10
+
 type tokenFetcher func(context.Context, string, TokenFetchOptions) (string, error)
 
 type TokenFetchOptions struct {
@@ -31,6 +41,18 @@ type Client struct {
 	Token        string
 	Cookie       *http.Cookie
 	tokenFetcher tokenFetcher
+}
+
+type tokenScopeValidationResponse struct {
+	Allowed bool `json:"allowed"`
+	Scopes  struct {
+		CanAccessAPI                bool     `json:"canAccessAPI"`
+		CanAccessSkills             bool     `json:"canAccessSkills"`
+		CanAccessLLMProxy           bool     `json:"canAccessLLMProxy"`
+		CanAccessPublishedArtifacts bool     `json:"canAccessPublishedArtifacts"`
+		CanAccessDeviceScans        bool     `json:"canAccessDeviceScans"`
+		MCPServerIDs                []string `json:"mcpServerIds,omitempty"`
+	} `json:"scopes"`
 }
 
 func (c *Client) WithTokenFetcher(f tokenFetcher) *Client {
@@ -53,18 +75,6 @@ func (c *Client) GetToken(ctx context.Context, opts TokenFetchOptions) (string, 
 		return c.tokenFetcher(ctx, c.BaseURL, opts)
 	}
 	return "", fmt.Errorf("no token or token fetcher")
-}
-
-type tokenScopeValidationResponse struct {
-	Allowed bool `json:"allowed"`
-	Scopes  struct {
-		CanAccessAPI                bool     `json:"canAccessAPI"`
-		CanAccessSkills             bool     `json:"canAccessSkills"`
-		CanAccessLLMProxy           bool     `json:"canAccessLLMProxy"`
-		CanAccessPublishedArtifacts bool     `json:"canAccessPublishedArtifacts"`
-		CanAccessDeviceScans        bool     `json:"canAccessDeviceScans"`
-		MCPServerIDs                []string `json:"mcpServerIds,omitempty"`
-	} `json:"scopes"`
 }
 
 // TokenHasScopes reports whether token is valid for baseURL and includes all requested scopes.
@@ -248,16 +258,6 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 	}
 	return req, resp, err
 }
-
-// maxErrorBodyBytes bounds how much of a non-2xx response body reaches an
-// ErrHTTP message.
-//
-// The body is not necessarily an API error document. A wrong base path, a
-// reverse proxy, or a load balancer answers with a whole HTML page, and callers
-// put these messages in front of people and models: obot-sentry's enforcement
-// hook renders one into the text it hands the agent, where an unbounded body
-// buried the instructions after it. 4 KiB holds every error this API produces.
-const maxErrorBodyBytes = 4 << 10
 
 // errFromResponse builds the error for a non-2xx response and closes its body.
 // Callers get no response on this path, so nothing else can close it.

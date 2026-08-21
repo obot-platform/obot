@@ -34,6 +34,20 @@ const (
 	maxRedirects       = 5
 )
 
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+// decodedLimitReader allows exactly limit bytes. If a caller asks for more,
+// it probes one byte so an archive whose decoded size exactly equals the limit
+// can still end normally while an expanding stream gets a deterministic error.
+type decodedLimitReader struct {
+	reader    io.Reader
+	remaining int64
+	limit     int64
+}
+
 // Import reads source, validates the complete assets snapshot, and normalizes
 // it into deterministic archive bytes. HTTP(S) sources are tar archives. Local
 // sources may be either the existing assets directory or a tar archive.
@@ -458,25 +472,11 @@ func OpenArchive(content []byte) (*Loader, error) {
 	return NewFS(zr)
 }
 
-type contextReader struct {
-	ctx    context.Context
-	reader io.Reader
-}
-
 func (r contextReader) Read(buffer []byte) (int, error) {
 	if err := r.ctx.Err(); err != nil {
 		return 0, err
 	}
 	return r.reader.Read(buffer)
-}
-
-// decodedLimitReader allows exactly limit bytes. If a caller asks for more,
-// it probes one byte so an archive whose decoded size exactly equals the limit
-// can still end normally while an expanding stream gets a deterministic error.
-type decodedLimitReader struct {
-	reader    io.Reader
-	remaining int64
-	limit     int64
 }
 
 func (r *decodedLimitReader) Read(buffer []byte) (int, error) {

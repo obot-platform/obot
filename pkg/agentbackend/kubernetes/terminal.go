@@ -16,6 +16,21 @@ import (
 
 var _ agentbackend.TerminalBackend = (*Backend)(nil)
 
+// terminalSession adapts the streaming executor, which wants readers and
+// writers it can block on, to the ReadWriteCloser the caller wants.
+type terminalSession struct {
+	inputReader  *io.PipeReader
+	inputWriter  *io.PipeWriter
+	outputReader *io.PipeReader
+	outputWriter *io.PipeWriter
+
+	// resizes is consumed by the executor. It is buffered and lossy: only the
+	// most recent size matters, and a resize must never block the session.
+	resizes chan remotecommand.TerminalSize
+
+	closeOnce sync.Once
+}
+
 // AttachTerminal connects to the console of a sandbox's running process.
 //
 // This attaches rather than execs. Exec would start a second process with its
@@ -94,21 +109,6 @@ func (b *Backend) AttachTerminal(ctx context.Context, ref agentbackend.InstanceR
 	}()
 
 	return session, nil
-}
-
-// terminalSession adapts the streaming executor, which wants readers and
-// writers it can block on, to the ReadWriteCloser the caller wants.
-type terminalSession struct {
-	inputReader  *io.PipeReader
-	inputWriter  *io.PipeWriter
-	outputReader *io.PipeReader
-	outputWriter *io.PipeWriter
-
-	// resizes is consumed by the executor. It is buffered and lossy: only the
-	// most recent size matters, and a resize must never block the session.
-	resizes chan remotecommand.TerminalSize
-
-	closeOnce sync.Once
 }
 
 func newTerminalSession(size agentbackend.TerminalSize) *terminalSession {

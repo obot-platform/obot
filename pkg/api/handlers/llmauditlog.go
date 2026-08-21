@@ -15,6 +15,19 @@ import (
 	"gorm.io/gorm"
 )
 
+var llmAuditLogFilterOptions = map[string][]any{
+	"api_key_id":               nil,
+	"user_id":                  {""},
+	"model_provider":           {""},
+	"target_model":             {""},
+	"request_path":             {""},
+	"response_status":          {0},
+	"outcome":                  {""},
+	"user_agent":               {""},
+	"client_session_id":        {""},
+	"message_policy_triggered": nil,
+}
+
 type LLMAuditLogHandler struct{}
 
 func NewLLMAuditLogHandler() *LLMAuditLogHandler {
@@ -57,19 +70,6 @@ func (h *LLMAuditLogHandler) Get(req api.Context) error {
 	}
 
 	return req.Write(gatewaytypes.ConvertLLMAuditLog(*log))
-}
-
-var llmAuditLogFilterOptions = map[string][]any{
-	"api_key_id":               nil,
-	"user_id":                  {""},
-	"model_provider":           {""},
-	"target_model":             {""},
-	"request_path":             {""},
-	"response_status":          {0},
-	"outcome":                  {""},
-	"user_agent":               {""},
-	"client_session_id":        {""},
-	"message_policy_triggered": nil,
 }
 
 func (h *LLMAuditLogHandler) ListFilterOptions(req api.Context) error {

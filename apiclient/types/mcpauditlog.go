@@ -2,21 +2,19 @@ package types
 
 import "encoding/json"
 
-type AuditLogSourceType string
-
 const (
 	AuditLogSourceTypeMCP                AuditLogSourceType = "mcp"
 	AuditLogSourceTypeLocalAgentToolCall AuditLogSourceType = "local_agent_tool_call"
-)
 
-type LocalAgentProvider string
-
-const (
 	LocalAgentProviderClaudeCode LocalAgentProvider = "claude_code"
 	LocalAgentProviderCodex      LocalAgentProvider = "codex"
 	LocalAgentProviderVSCode     LocalAgentProvider = "vscode"
 	LocalAgentProviderCursor     LocalAgentProvider = "cursor"
 )
+
+type AuditLogSourceType string
+
+type LocalAgentProvider string
 
 // LocalAgentToolCallAuditLogInput is the client-reported portion of a completed local-agent tool
 // call. Server-owned values such as the actor, recording time, source IP, target resolution, and

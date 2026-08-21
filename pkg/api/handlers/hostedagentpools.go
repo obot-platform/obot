@@ -18,6 +18,42 @@ type HostedAgentPoolHandler struct {
 	utilization agentbackend.UtilizationReader
 }
 
+type HostedAgentPoolDefaultsHandler struct{}
+
+type HostedAgentPoolAssignmentHandler struct{}
+
+type hostedAgentPoolUtilization struct {
+	Timestamp time.Time                        `json:"timestamp"`
+	Pool      hostedAgentResourceUtilization   `json:"pool"`
+	Instances []hostedAgentInstanceUtilization `json:"instances"`
+	Pressure  hostedAgentPoolResourcePressure  `json:"pressure"`
+	// StorageMeasured distinguishes a pool using no disk from one whose disk
+	// cannot be measured. Without it a client cannot tell the two apart, and
+	// showing an empty disk bar for an unknown figure is worse than saying so.
+	StorageMeasured bool `json:"storageMeasured"`
+}
+
+type hostedAgentInstanceUtilization struct {
+	InstanceID string                         `json:"instanceID"`
+	State      agentbackend.State             `json:"state"`
+	Usage      hostedAgentResourceUtilization `json:"usage"`
+}
+
+// hostedAgentResourceUtilization is live usage. storageBytes is meaningful only
+// on the pool: sandboxes share one volume, so a sandbox's own disk usage is not
+// observable and is always reported as zero.
+type hostedAgentResourceUtilization struct {
+	CPUVCPUs     float64 `json:"cpuVcpus"`
+	MemoryBytes  int64   `json:"memoryBytes"`
+	StorageBytes int64   `json:"storageBytes"`
+}
+
+type hostedAgentPoolResourcePressure struct {
+	CPU     bool `json:"cpu"`
+	Memory  bool `json:"memory"`
+	Storage bool `json:"storage"`
+}
+
 func NewHostedAgentPoolHandler(utilization agentbackend.UtilizationReader) *HostedAgentPoolHandler {
 	return &HostedAgentPoolHandler{utilization: utilization}
 }
@@ -191,8 +227,6 @@ func convertHostedAgentPool(pool v1.HostedAgentPool) types.HostedAgentPool {
 	}
 }
 
-type HostedAgentPoolDefaultsHandler struct{}
-
 func NewHostedAgentPoolDefaultsHandler() *HostedAgentPoolDefaultsHandler {
 	return &HostedAgentPoolDefaultsHandler{}
 }
@@ -258,8 +292,6 @@ func convertHostedAgentPoolDefaults(defaults v1.HostedAgentPoolDefaults) types.H
 		HostedAgentPoolDefaultsManifest: defaults.Spec.Manifest,
 	}
 }
-
-type HostedAgentPoolAssignmentHandler struct{}
 
 func NewHostedAgentPoolAssignmentHandler() *HostedAgentPoolAssignmentHandler {
 	return &HostedAgentPoolAssignmentHandler{}
@@ -408,38 +440,6 @@ func requirePoolAccess(req api.Context, poolID string) error {
 		return types.NewErrNotFound("hosted agent pool %s not found", poolID)
 	}
 	return nil
-}
-
-type hostedAgentPoolUtilization struct {
-	Timestamp time.Time                        `json:"timestamp"`
-	Pool      hostedAgentResourceUtilization   `json:"pool"`
-	Instances []hostedAgentInstanceUtilization `json:"instances"`
-	Pressure  hostedAgentPoolResourcePressure  `json:"pressure"`
-	// StorageMeasured distinguishes a pool using no disk from one whose disk
-	// cannot be measured. Without it a client cannot tell the two apart, and
-	// showing an empty disk bar for an unknown figure is worse than saying so.
-	StorageMeasured bool `json:"storageMeasured"`
-}
-
-type hostedAgentInstanceUtilization struct {
-	InstanceID string                         `json:"instanceID"`
-	State      agentbackend.State             `json:"state"`
-	Usage      hostedAgentResourceUtilization `json:"usage"`
-}
-
-// hostedAgentResourceUtilization is live usage. storageBytes is meaningful only
-// on the pool: sandboxes share one volume, so a sandbox's own disk usage is not
-// observable and is always reported as zero.
-type hostedAgentResourceUtilization struct {
-	CPUVCPUs     float64 `json:"cpuVcpus"`
-	MemoryBytes  int64   `json:"memoryBytes"`
-	StorageBytes int64   `json:"storageBytes"`
-}
-
-type hostedAgentPoolResourcePressure struct {
-	CPU     bool `json:"cpu"`
-	Memory  bool `json:"memory"`
-	Storage bool `json:"storage"`
 }
 
 func convertPoolUtilization(snapshot agentbackend.UtilizationSnapshot) hostedAgentPoolUtilization {

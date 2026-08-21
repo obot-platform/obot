@@ -1,12 +1,12 @@
 package types
 
-// CapacitySource indicates where the capacity data comes from
-type CapacitySource string
-
 const (
 	CapacitySourceResourceQuota CapacitySource = "resourceQuota"
 	CapacitySourceDeployments   CapacitySource = "deployments"
 )
+
+// CapacitySource indicates where the capacity data comes from
+type CapacitySource string
 
 // MCPCapacityInfo represents MCP namespace capacity information
 type MCPCapacityInfo struct {

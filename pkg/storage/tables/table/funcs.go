@@ -32,6 +32,10 @@ var (
 	}
 )
 
+type objectList struct {
+	Items []any `json:"items"`
+}
+
 func Noop(any) string {
 	return ""
 }
@@ -101,10 +105,6 @@ func FormatJSON(data any) (string, error) {
 func FormatJSONCompact(data any) (string, error) {
 	bytes, err := json.Marshal(cleanFields(data))
 	return string(bytes) + "\n", err
-}
-
-type objectList struct {
-	Items []any `json:"items"`
 }
 
 func toKObject(obj any) (kclient.Object, bool) {

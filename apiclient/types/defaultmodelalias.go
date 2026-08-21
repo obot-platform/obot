@@ -1,7 +1,5 @@
 package types
 
-type DefaultModelAliasType string
-
 const (
 	DefaultModelAliasTypeTextEmbedding   DefaultModelAliasType = "text-embedding"
 	DefaultModelAliasTypeLLM             DefaultModelAliasType = "llm"
@@ -10,6 +8,8 @@ const (
 	DefaultModelAliasTypeVision          DefaultModelAliasType = "vision"
 	DefaultModelAliasTypeUnknown         DefaultModelAliasType = "unknown"
 )
+
+type DefaultModelAliasType string
 
 type DefaultModelAlias struct {
 	DefaultModelAliasManifest
