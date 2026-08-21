@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import { formatAuditLogAPIKeyName, getAuditLogAPIKeyMaskedKey } from '$lib/auditlogs';
+	import {
+		formatAuditLogAPIKeyName,
+		formatAuditLogCredentialLabel,
+		getAuditLogAPIKeyMaskedKey
+	} from '$lib/auditlogs';
 	import { VirtualPageTable } from '$lib/components/ui';
 	import { type LLMAuditLog } from '$lib/services';
 	import { formatAuditLogTableTimestamp } from '$lib/time';
@@ -9,7 +13,13 @@
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	let { onSelectRow, getUserDisplayName } = $props();
+	interface Props {
+		onSelectRow?: (auditLog: LLMAuditLog) => void;
+		getUserDisplayName: (userID: string) => string;
+		isAPIKeyRevoked: (apiKeyID: number | undefined) => boolean;
+	}
+
+	let { onSelectRow, getUserDisplayName, isAPIKeyRevoked }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -202,6 +212,10 @@
 						d.apiKeyName ?? '',
 						getAuditLogAPIKeyMaskedKey(d.userID, d.apiKeyID)
 					)}
+					{@const apiKeyLabel = formatAuditLogCredentialLabel(
+						apiKey,
+						apiKey ? isAPIKeyRevoked(d.apiKeyID) : false
+					)}
 					<tr
 						class={twMerge(
 							'group m-0 h-14 text-sm leading-0 text-[0] transition-colors duration-300',
@@ -213,7 +227,7 @@
 							formatAuditLogTableTimestamp(d.createdAt),
 							d.messagePolicyTriggered
 						)}
-						{@render twoLine(apiKey || actor, apiKey ? actor : undefined)}
+						{@render twoLine(apiKeyLabel || actor, apiKey ? actor : undefined)}
 						{@render td(d.modelProvider)}
 						{@render td(d.targetModel)}
 						{@render td(d.responseStatus || '')}

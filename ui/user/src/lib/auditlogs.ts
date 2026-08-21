@@ -29,6 +29,25 @@ export function formatAuditLogAPIKeyName(name: string, maskedKey: string): strin
 	return name && maskedKey && name !== maskedKey ? `${name} (${maskedKey})` : maskedKey || name;
 }
 
+export function formatAuditLogCredentialLabel(credential: string, revoked: boolean): string {
+	return [credential, revoked ? 'Revoked' : ''].filter(Boolean).join(' · ');
+}
+
+export function batchAuditLogAPIKeyIDs(
+	apiKeyIDs: readonly (number | undefined)[],
+	limit = 1000
+): string[] {
+	if (!Number.isInteger(limit) || limit <= 0) {
+		throw new RangeError('limit must be a positive integer');
+	}
+	const uniqueIDs = [...new Set(apiKeyIDs.filter((id): id is number => id !== undefined))];
+	const batches: string[] = [];
+	for (let offset = 0; offset < uniqueIDs.length; offset += limit) {
+		batches.push(uniqueIDs.slice(offset, offset + limit).join(','));
+	}
+	return batches;
+}
+
 export function getAuditLogAPIKeyMaskedKey(userID: string, apiKeyID: number | undefined): string {
 	return userID && !userID.startsWith('hosted-agent:') && apiKeyID !== undefined
 		? `ok1-${userID}-${apiKeyID}-*****`

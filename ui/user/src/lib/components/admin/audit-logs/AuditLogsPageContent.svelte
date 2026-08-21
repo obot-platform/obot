@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import {
+		batchAuditLogAPIKeyIDs,
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		getAuditLogAPIKeyFilterOptionLabel,
@@ -331,22 +332,6 @@
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 
-	$effect(() => {
-		const otherFilters = { ...auditLogsSlideoverFilters };
-		const duration = otherFilters.duration;
-		delete otherFilters.duration;
-		UserService.listAuditLogFilterOptions('api_key_id', {
-			...otherFilters,
-			...(forcedEventType ? { event_type: forcedEventType } : {}),
-			...(duration ? durationToProcessingParams(String(duration)) : {}),
-			start_time: timeRangeFilters.startTime.toISOString(),
-			end_time: timeRangeFilters.endTime?.toISOString(),
-			query
-		})
-			.then((response) => rememberAPIKeyFilterOptions(response.options ?? []))
-			.catch((error) => console.error('Failed to fetch API key filter options:', error));
-	});
-
 	// Base filters with time filters and query and pagination
 	const allFilters = $derived.by(() => {
 		// `duration` is a UI-only preset; translate it to the processing_time_min/max params the
@@ -363,6 +348,36 @@
 			offset: pageOffset,
 			query: query
 		};
+	});
+
+	$effect(() => {
+		const controller = new AbortController();
+		const apiKeyIDBatches = batchAuditLogAPIKeyIDs(
+			remoteAuditLogs.map((auditLog) => auditLog.actor.apiKeyID)
+		);
+		if (apiKeyIDBatches.length === 0) {
+			apiKeyFilterOptions.clear();
+			return;
+		}
+		Promise.all(
+			apiKeyIDBatches.map((apiKeyID) =>
+				UserService.listAuditLogFilterOptions('api_key_id', {
+					...allFilters,
+					api_key_id: apiKeyID,
+					offset: null,
+					signal: controller.signal
+				})
+			)
+		)
+			.then((responses) => {
+				apiKeyFilterOptions.clear();
+				for (const response of responses) rememberAPIKeyFilterOptions(response.options ?? []);
+			})
+			.catch((error) => {
+				if (!controller.signal.aborted)
+					console.error('Failed to fetch API key filter options:', error);
+			});
+		return () => controller.abort();
 	});
 
 	afterNavigate(() => {
@@ -735,6 +750,8 @@
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
+			isCredentialRevoked={(apiKeyID: number | undefined) =>
+				apiKeyID !== undefined && apiKeyFilterOptions.get(apiKeyID.toString())?.revoked === true}
 			{emptyContent}
 		/>
 	{:else if remoteAuditLogs.length > 0}
