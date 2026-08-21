@@ -477,6 +477,7 @@ func acceptCatalogEntryOwnership(entry *v1.MCPServerCatalogEntry) {
 	entry.Spec.Detached = false
 	entry.Spec.SourceURL = ""
 	entry.Spec.Manifest.EntryKey = ""
+	entry.Spec.Manifest.UpgradeNote = ""
 }
 
 func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {

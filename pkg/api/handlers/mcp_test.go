@@ -125,12 +125,16 @@ func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {
 			Editable:  true,
 			Detached:  true,
 			SourceURL: "https://github.com/obot-platform/mcp-catalog",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				UpgradeNote: "Review the new settings.",
+			},
 		},
 	}, "https://example.com")
 
 	assert.True(t, entry.Detached)
 	assert.True(t, entry.Editable)
 	assert.Equal(t, "https://github.com/obot-platform/mcp-catalog", entry.SourceURL)
+	assert.Equal(t, "Review the new settings.", entry.Manifest.UpgradeNote)
 }
 
 func TestValidationOptionsWithResourceMaximumsIgnoresPersistedMaximumForNonKubernetesBackend(t *testing.T) {

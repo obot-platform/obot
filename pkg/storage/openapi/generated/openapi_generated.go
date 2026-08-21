@@ -10598,6 +10598,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							},
 						},
 					},
+					"upgradeNote": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UpgradeNote is source-provided Markdown shown before applying catalog updates.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"runtime": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Runtime configuration",

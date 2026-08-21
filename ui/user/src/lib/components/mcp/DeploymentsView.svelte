@@ -10,6 +10,7 @@
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import {
 		AdminService,
 		UserService,
@@ -55,6 +56,7 @@
 	} from '@lucide/svelte';
 	import { delay } from 'es-toolkit';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -433,6 +435,23 @@
 
 		delete updating[server.id];
 		return prompted;
+	}
+
+	function upgradeNotesForConfirmation() {
+		const servers =
+			showUpgradeConfirm?.type === 'single'
+				? [showUpgradeConfirm.server]
+				: Object.values(selected).filter(
+						(server) => server.needsUpdate && canTriggerUpdate(server)
+					);
+		const seen = new SvelteSet<string>();
+		return servers.flatMap((server) => {
+			if (!server.catalogEntryID || seen.has(server.catalogEntryID)) return [];
+			const entry = entriesMap[server.catalogEntryID];
+			if (!entry?.manifest.upgradeNote?.trim()) return [];
+			seen.add(server.catalogEntryID);
+			return [{ id: entry.id, name: getMCPDisplayName(entry), note: entry.manifest.upgradeNote }];
+		});
 	}
 	async function updateK8sSettings(server?: MCPCatalogServer) {
 		if (!server) return;
@@ -1070,9 +1089,23 @@
 	{/snippet}
 	{#snippet note()}
 		<p class="text-sm font-light">
-			If this update introduces new required shared configuration parameters, you will be prompted
-			to supply them after the update is applied.
+			The selected servers will be updated to their latest catalog configuration.
 		</p>
+		{#each upgradeNotesForConfirmation() as upgradeNote (upgradeNote.id)}
+			<div
+				class="border-warning bg-warning/10 mt-2 flex w-full items-start gap-2 rounded-md border p-3 text-left"
+			>
+				<TriangleAlert class="text-warning mt-0.5 size-4 shrink-0" />
+				<div class="min-w-0 text-sm">
+					<p class="font-medium">
+						{showUpgradeConfirm?.type === 'multi' ? upgradeNote.name : 'Upgrade notes'}
+					</p>
+					<div class="prose prose-sm text-muted-content mt-1 max-w-none">
+						{@html toHTMLFromMarkdownWithNewTabLinks(upgradeNote.note)}
+					</div>
+				</div>
+			</div>
+		{/each}
 	{/snippet}
 </Confirm>
 

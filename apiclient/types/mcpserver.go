@@ -159,6 +159,8 @@ type MCPServerCatalogEntryManifest struct {
 	Icon             string            `json:"icon"`
 	RepoURL          string            `json:"repoURL,omitempty"`
 	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
+	// UpgradeNote is source-provided Markdown shown before applying catalog updates.
+	UpgradeNote string `json:"upgradeNote,omitempty"`
 
 	// Runtime configuration
 	Runtime Runtime `json:"runtime"`

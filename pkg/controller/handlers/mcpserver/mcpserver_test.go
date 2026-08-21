@@ -1419,6 +1419,46 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 	assert.False(t, updated.Status.NeedsUpdate)
 }
 
+func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
+	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Shared Template",
+		Runtime:        types.RuntimeContainerized,
+		ServerUserType: types.ServerUserTypeMultiUser,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	})
+	entry.Spec.Manifest.UpgradeNote = "Review the optional settings after upgrading."
+	server := newMCPServer("shared-server")
+	server.Spec.MCPCatalogID = "default"
+	server.Spec.MCPServerCatalogEntryName = entry.Name
+	server.Spec.Manifest = types.MCPServerManifest{
+		Name:    "Shared Template",
+		Runtime: types.RuntimeContainerized,
+		ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+			Image: "example/mcp:1.0.0",
+			Port:  8080,
+			Path:  "/mcp",
+		},
+	}
+
+	client := newFakeClient(t, entry, server)
+	err := (&Handler{}).DetectDrift(router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
+	assert.False(t, updated.Status.NeedsUpdate)
+}
+
 func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBinding(t *testing.T) {
 	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
