@@ -13,7 +13,13 @@
 	import { tick } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
-	let { onSelectRow, getUserDisplayName, isAPIKeyRevoked } = $props();
+	interface Props {
+		onSelectRow?: (auditLog: LLMAuditLog) => void;
+		getUserDisplayName: (userID: string) => string;
+		isAPIKeyRevoked: (apiKeyID: number | undefined) => boolean;
+	}
+
+	let { onSelectRow, getUserDisplayName, isAPIKeyRevoked }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
