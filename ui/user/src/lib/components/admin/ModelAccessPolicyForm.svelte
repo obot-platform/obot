@@ -13,8 +13,7 @@
 		ModelUsageLabels,
 		ModelAlias,
 		ModelAliasLabels,
-		type Model,
-		UserService
+		type Model
 	} from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { goto } from '$lib/url';
@@ -24,6 +23,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchModels from './SearchModels.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import { resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -186,45 +186,33 @@
 	$effect(() => {
 		// Prevent loading users and groups if rule has no subjects
 		if (!modelAccessPolicy.subjects || modelAccessPolicy.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 
 		loadingUsersAndGroups = true;
 
-		// Prevent refetching when adding new users or groups
-		const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
-			Promise.resolve(undefined),
-			Promise.resolve(undefined)
-		];
+		// Groups are resolved by ID, not listed: the directory can hold tens of thousands of them and
+		// only the ones attached here are needed.
+		const controller = new AbortController();
 
-		if (!usersAndGroups?.users) {
-			promises[0] = UserService.listUsers();
-		}
-		if (!usersAndGroups?.groups) {
-			// Load groups when they have not already been fetched.
-			promises[1] = UserService.listGroups();
-		}
-
-		Promise.all(promises)
-			.then(([users, groups]) => {
-				if (!usersAndGroups) {
-					usersAndGroups = { users: [], groups: [] };
-				}
-
-				if (users) {
-					usersAndGroups!.users = users;
-				}
-
-				if (groups) {
-					usersAndGroups!.groups = groups;
-				}
-
+		resolveSubjects(
+			modelAccessPolicy.subjects,
+			untrack(() => usersAndGroups),
+			{ signal: controller.signal }
+		)
+			.then((resolved) => {
+				if (controller.signal.aborted) return;
+				usersAndGroups = resolved;
 				loadingUsersAndGroups = false;
 			})
 			.catch((error) => {
+				if (controller.signal.aborted) return;
 				console.error('Failed to load users and groups:', error);
 				loadingUsersAndGroups = false;
 			});
+
+		return () => controller.abort();
 	});
 
 	function convertSubjectsToTableData(

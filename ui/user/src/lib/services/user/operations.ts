@@ -48,6 +48,7 @@ import {
 	type Model,
 	type ModelProviderList,
 	type OrgGroup,
+	type OrgGroupPage,
 	type OrgUser,
 	type Profile,
 	type McpServerOrInstanceAuditLogStatsFilters,
@@ -616,17 +617,86 @@ export async function listGlobalModelProviders(opts?: {
 
 // Organization
 
-export async function listGroups(opts?: { fetch?: Fetcher; query?: string }): Promise<OrgGroup[]> {
-	const params: string[] = [];
-	if (opts?.query !== undefined) {
-		params.push(`name=${encodeURIComponent(opts.query)}`);
-	}
-	const queryString = params.length ? `?${params.join('&')}` : '';
-	const response = (await doGet(`/groups${queryString}`, opts)) as OrgGroup[];
-	return response ?? [];
+/**
+ * Fetches one page of the auth provider's groups.
+ *
+ * A directory can hold tens of thousands of groups, so callers must page rather than expect the
+ * whole collection. Paging is by opaque cursor, forwarded to the identity provider, so there is no
+ * total and no way to jump to an arbitrary page. Use `resolveGroups` instead when you already know
+ * which group IDs you need.
+ */
+export async function listGroups(opts?: {
+	fetch?: Fetcher;
+	query?: string;
+	limit?: number;
+	cursor?: string;
+	signal?: AbortSignal;
+}): Promise<OrgGroupPage> {
+	const queryString = buildQueryString({
+		name: opts?.query,
+		limit: opts?.limit,
+		cursor: opts?.cursor
+	});
+	const response = (await doGet(
+		`/groups${queryString ? `?${queryString}` : ''}`,
+		opts
+	)) as OrgGroupPage;
+
+	return {
+		items: response?.items ?? [],
+		nextCursor: response?.nextCursor || undefined,
+		source: response?.source ?? 'provider',
+		degraded: response?.degraded ?? false,
+		reset: response?.reset ?? false
+	};
 }
 
-export async function listUsers(opts?: { fetch?: Fetcher }): Promise<OrgUser[]> {
+const RESOLVE_GROUPS_CHUNK_SIZE = 100;
+const RESOLVE_GROUPS_MAX_CONCURRENCY = 4;
+
+/**
+ * Resolves specific group IDs to their display names.
+ *
+ * Larger inputs are split across several requests and recombined, so a caller never has to think
+ * about the batch limit. IDs that cannot be resolved come back named after themselves.
+ */
+export async function resolveGroups(
+	ids: string[],
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<OrgGroup[]> {
+	if (ids.length === 0) return [];
+
+	const batches: string[][] = [];
+	for (let i = 0; i < ids.length; i += RESOLVE_GROUPS_CHUNK_SIZE) {
+		batches.push(ids.slice(i, i + RESOLVE_GROUPS_CHUNK_SIZE));
+	}
+
+	// Indexed rather than appended, so the result stays in the order the IDs were asked for however
+	// the requests interleave.
+	const pages: OrgGroupPage[] = new Array(batches.length);
+	let next = 0;
+
+	async function worker() {
+		while (next < batches.length) {
+			const index = next++;
+			pages[index] = (await doGet(
+				`/groups?${buildQueryString({ ids: batches[index] })}`,
+				opts
+			)) as OrgGroupPage;
+		}
+	}
+
+	await Promise.all(
+		Array.from({ length: Math.min(RESOLVE_GROUPS_MAX_CONCURRENCY, batches.length) }, () => worker())
+	);
+
+	return pages.flatMap((page) => page?.items ?? []);
+}
+
+export async function listUsers(opts?: {
+	fetch?: Fetcher;
+	signal?: AbortSignal;
+}): Promise<OrgUser[]> {
 	const response = (await doGet('/users', opts)) as ItemsResponse<OrgUser>;
 	return response.items ?? [];
 }

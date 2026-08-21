@@ -58,13 +58,29 @@
 	let activeSubjects = $derived(activeVersion?.subjects ?? []);
 
 	$effect(() => {
+		// Groups are resolved by ID rather than listed: only the ones attached to this version are
+		// needed, and the directory can be far too large to fetch whole.
+		const groupIds = [
+			...new Set(
+				activeSubjects
+					.filter((subject) => subject.type === 'group' && subject.id !== '*')
+					.map((subject) => subject.id)
+			)
+		];
+
+		const controller = new AbortController();
+		const opts = { signal: controller.signal };
+
 		Promise.all([
-			UserService.listUsers().catch(() => []),
-			UserService.listGroups().catch(() => [])
+			UserService.listUsers(opts).catch(() => []),
+			UserService.resolveGroups(groupIds, opts).catch(() => [])
 		]).then(([loadedUsers, loadedGroups]) => {
+			if (controller.signal.aborted) return;
 			users = loadedUsers;
 			groups = loadedGroups;
 		});
+
+		return () => controller.abort();
 	});
 
 	async function fetchVersionContents(selectedVersion: PublishedArtifactVersion) {
@@ -316,7 +332,6 @@
 	bind:this={addUserGroupDialog}
 	filterIds={activeSubjects.map((subject) => subject.id)}
 	initialUsers={users}
-	initialGroups={groups}
 	onAdd={(addedUsers: OrgUser[], addedGroups: OrgGroup[]) => {
 		const existingSubjectIds = new Set(activeSubjects.map((subject) => subject.id));
 		const nextSubjects = addedGroups.some((entry) => entry.id === '*')

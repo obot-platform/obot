@@ -45,7 +45,21 @@
 				? await UserService.listWorkspaceAccessControlRules(id)
 				: await AdminService.listAccessControlRules();
 		users = await UserService.listUsers();
-		groups = await UserService.listGroups();
+		// Resolve only the groups these rules actually reference; the directory may hold tens of
+		// thousands and this dialog just needs their display names.
+		try {
+			groups = await UserService.resolveGroups([
+				...new Set(
+					accessControlRules
+						.flatMap((rule) => rule.subjects ?? [])
+						.filter((subject) => subject.type === 'group' && subject.id !== '*')
+						.map((subject) => subject.id)
+				)
+			]);
+		} catch (error) {
+			console.error('Failed to resolve group names:', error);
+		}
+
 		dialog?.open();
 	}
 
@@ -98,7 +112,7 @@
 			return user.displayName ?? user.email ?? user.username ?? id;
 		} else if (subject.type === 'group') {
 			const group = groupMap.get(subject.id);
-			if (!group) return '';
+			if (!group) return subject.id;
 			return group.name ?? group.id ?? subject.id;
 		}
 

@@ -28,6 +28,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import SearchUsers from './SearchUsers.svelte';
+	import { resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -105,44 +106,33 @@
 	$effect(() => {
 		// Prevent loading users and groups if acr has no subjects
 		if (!accessControlRule.subjects || accessControlRule.subjects?.length === 0) {
+			loadingUsersAndGroups = false;
 			return;
 		}
 
 		loadingUsersAndGroups = true;
 
-		// Prevent refetching when adding new users or groups
-		const promises: [Promise<OrgUser[] | undefined>, Promise<OrgGroup[] | undefined>] = [
-			Promise.resolve(undefined),
-			Promise.resolve(undefined)
-		];
+		// Groups are resolved by ID, not listed: the directory can hold tens of thousands of them and
+		// only the ones attached here are needed.
+		const controller = new AbortController();
 
-		if (!usersAndGroups?.users) {
-			promises[0] = UserService.listUsers();
-		}
-		if (!usersAndGroups?.groups) {
-			promises[1] = UserService.listGroups();
-		}
-
-		Promise.all(promises)
-			.then(([users, groups]) => {
-				if (!usersAndGroups) {
-					usersAndGroups = { users: [], groups: [] };
-				}
-
-				if (users) {
-					usersAndGroups!.users = users;
-				}
-
-				if (groups) {
-					usersAndGroups!.groups = groups;
-				}
-
+		resolveSubjects(
+			accessControlRule.subjects,
+			untrack(() => usersAndGroups),
+			{ signal: controller.signal }
+		)
+			.then((resolved) => {
+				if (controller.signal.aborted) return;
+				usersAndGroups = resolved;
 				loadingUsersAndGroups = false;
 			})
 			.catch((error) => {
+				if (controller.signal.aborted) return;
 				console.error('Failed to load users and groups:', error);
 				loadingUsersAndGroups = false;
 			});
+
+		return () => controller.abort();
 	});
 
 	$effect(() => {

@@ -49,24 +49,32 @@
 	let urlFilters = $derived(getTableUrlParamsFilters());
 	let initSort = $derived(getTableUrlParamsSort());
 
+	const groupNameMap = $derived(
+		groups.reduce(
+			(acc, group) => {
+				acc[group.id] = group.name;
+				return acc;
+			},
+			{} as Record<string, string>
+		)
+	);
+
 	const preparedGroups = $derived(
-		groups.map((group) => {
-			const assignment = groupRoleMap[group.id];
-			const role = assignment?.role ?? 0;
+		groupRoleAssignments.map((assignment) => {
+			const role = assignment.role ?? 0;
 			return {
-				...group,
+				id: assignment.groupName,
+				name: groupNameMap[assignment.groupName] ?? assignment.groupName,
 				assignment,
 				role: role ? getUserRoleLabel(role).split(',') : [],
 				roleId: getRoleId(role),
-				description: assignment?.description || ''
+				description: assignment.description || ''
 			};
 		})
 	);
 
 	const filteredGroups = $derived(
-		preparedGroups.filter(
-			(group) => group.name.toLowerCase().includes(query.toLowerCase()) && group.assignment
-		)
+		preparedGroups.filter((group) => group.name.toLowerCase().includes(query.toLowerCase()))
 	);
 
 	type TableItem = (typeof filteredGroups)[0];
@@ -104,8 +112,14 @@
 			confirmUserImpersonationAdditionToGroup = undefined;
 			confirmOwnerGroupAssignment = undefined;
 
-			// Refresh data
+			// Refresh data, resolving names for any newly assigned group.
 			groupRoleAssignments = await AdminService.listGroupRoleAssignments();
+
+			try {
+				groups = await UserService.resolveGroups(groupRoleAssignments.map((a) => a.groupName));
+			} catch (error) {
+				console.error('Failed to resolve group names:', error);
+			}
 
 			// Refresh user's profile if they're in the affected group
 			if (profile.current.groups.includes(groupName)) {
@@ -241,7 +255,6 @@
 <AddGroupAssignmentDialog
 	bind:this={addGroupAssignmentDialog}
 	open={showAddAssignment}
-	{groups}
 	{groupRoleMap}
 	{loading}
 	onClose={() => (showAddAssignment = false)}
@@ -261,7 +274,7 @@
 	open={showAssignGroupRoleDialog}
 	groupAssignment={updatingRole
 		? {
-				group: { id: updatingRole.id, name: updatingRole.name, iconURL: updatingRole.iconURL },
+				group: { id: updatingRole.id, name: updatingRole.name },
 				assignment: updatingRole.assignment || { groupName: updatingRole.id, role: 0 }
 			}
 		: undefined}

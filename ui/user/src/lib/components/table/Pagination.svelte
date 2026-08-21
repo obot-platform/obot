@@ -22,7 +22,7 @@
 
 <div class="flex items-center justify-center gap-4 pt-2">
 	<button
-		class="button-text flex items-center gap-1 text-xs"
+		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
 		disabled={pageIndex === 0 || loading}
 		onclick={() => onPageChange(pageIndex - 1)}
 	>
@@ -34,7 +34,7 @@
 			{itemLabelSingular}{total === 1 ? '' : 's'}{/if}
 	</p>
 	<button
-		class="button-text flex items-center gap-1 text-xs"
+		class="button-text flex items-center gap-1 text-xs disabled:cursor-default disabled:opacity-50"
 		disabled={pageIndex >= lastPageIndex || loading}
 		onclick={() => onPageChange(pageIndex + 1)}
 	>
