@@ -57,24 +57,21 @@
 		return [];
 	});
 
-	function convertMcpServersToTableData(resources: { id: string; type: string }[]) {
+	function convertMcpServersToTableData(resources: MCPFilterResource[]) {
 		return resources.map((resource) => {
-			const entryMatch = mcpEntriesMap.get(resource.id);
-			const serverMatch = mcpServersMap.get(resource.id);
-
-			if (entryMatch) {
+			if (resource.type === 'mcpServerCatalogEntry') {
 				return {
 					id: resource.id,
-					name: entryMatch.manifest.name || '-',
-					type: 'mcpentry'
+					name: mcpEntriesMap.get(resource.id)?.manifest.name || '-',
+					type: resource.type
 				};
 			}
 
-			if (serverMatch) {
+			if (resource.type === 'mcpServer') {
 				return {
 					id: resource.id,
-					name: serverMatch.manifest.name || '-',
-					type: 'mcpserver'
+					name: mcpServersMap.get(resource.id)?.manifest.name || '-',
+					type: resource.type
 				};
 			}
 

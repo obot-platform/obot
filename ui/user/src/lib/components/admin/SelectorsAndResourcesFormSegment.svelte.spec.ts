@@ -3,6 +3,8 @@ import type {
 	MCPFilterResource,
 	MCPFilterWebhookSelector
 } from '$lib/services';
+import { mcpServersAndEntries } from '$lib/stores';
+import { createMCPCatalogEntry, createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import SelectorsAndResourcesFormSegment from './SelectorsAndResourcesFormSegment.svelte';
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -58,6 +60,46 @@ describe('SelectorsAndResourcesFormSegment.svelte', () => {
 			.element(page.getByRole('button', { name: 'Remove MCP Target', exact: true }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByLabelText('All Devices', { exact: true })).toBeChecked();
+	});
+
+	it('removes resolved MCP servers and catalog entries', async () => {
+		const previousStore = mcpServersAndEntries.current;
+		const catalogEntry = createMCPCatalogEntry({
+			id: 'mcpcatentry-test',
+			name: 'Catalog Entry'
+		});
+		const server = createMCPCatalogServer({
+			id: 'mcpserver-test',
+			name: 'MCP Server',
+			userID: 'user-test'
+		});
+		mcpServersAndEntries.current = {
+			...previousStore,
+			entries: [catalogEntry],
+			servers: [server]
+		};
+
+		try {
+			const form: Form = {
+				localAgentEvents: [],
+				resources: [
+					{ type: 'mcpServer', id: server.id },
+					{ type: 'mcpServerCatalogEntry', id: catalogEntry.id }
+				],
+				selectors: []
+			};
+			await renderForm(form);
+
+			const serverRow = page.getByRole('row').filter({ hasText: 'MCP Server' });
+			await serverRow.getByRole('button', { name: 'Remove MCP Target', exact: true }).click();
+			expect(form.resources).toEqual([{ type: 'mcpServerCatalogEntry', id: catalogEntry.id }]);
+
+			const catalogEntryRow = page.getByRole('row').filter({ hasText: 'Catalog Entry' });
+			await catalogEntryRow.getByRole('button', { name: 'Remove MCP Target', exact: true }).click();
+			expect(form.resources).toEqual([]);
+		} finally {
+			mcpServersAndEntries.current = previousStore;
+		}
 	});
 
 	it('shows device targeting read-only without edit controls', async () => {
