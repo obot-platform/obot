@@ -750,6 +750,7 @@ export interface MCPCatalogEntry {
 	created: string;
 	deleted?: string;
 	manifest: MCPCatalogEntryServerManifest;
+	upgradeNote?: string;
 	editable?: boolean;
 	detached?: boolean;
 	sourceURL?: string;

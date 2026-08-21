@@ -156,6 +156,7 @@ func (c ComponentServer) ComponentID() string {
 type MCPServerCatalogEntry struct {
 	Metadata
 	Manifest                  MCPServerCatalogEntryManifest `json:"manifest"`
+	UpgradeNote               string                        `json:"upgradeNote,omitempty"`
 	Editable                  bool                          `json:"editable,omitempty"`
 	Detached                  bool                          `json:"detached,omitempty"`
 	CatalogName               string                        `json:"catalogName,omitempty"`

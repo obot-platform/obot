@@ -77,10 +77,12 @@ func (in *MCPServerCatalogEntry) IsGitManaged() bool {
 type MCPServerCatalogEntrySpec struct {
 	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest"`
 	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
-	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
-	Editable         bool                                `json:"editable,omitempty"`
-	Detached         bool                                `json:"detached"`
-	SourceURL        string                              `json:"sourceURL,omitempty"`
+	// UpgradeNote is source-provided Markdown shown before applying catalog updates.
+	UpgradeNote    string `json:"upgradeNote,omitempty"`
+	MCPCatalogName string `json:"mcpCatalogName,omitempty"`
+	Editable       bool   `json:"editable,omitempty"`
+	Detached       bool   `json:"detached"`
+	SourceURL      string `json:"sourceURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }

@@ -630,12 +630,17 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	return systemObjs, errors.Join(errs...)
 }
 
+type sourcedMCPCatalogEntry struct {
+	types.MCPServerCatalogEntryManifest `json:",inline"`
+	UpgradeNote                         string `json:"upgradeNote,omitempty"`
+}
+
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
-	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+	entries, err := readCatalogManifests[sourcedMCPCatalogEntry](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
 		return nil, err
 	}
@@ -643,7 +648,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	objs := make([]kclient.Object, 0, len(entries))
 	var errs []error
 	uniqueEntryKeys := make(map[string]struct{})
-	for _, entry := range entries {
+	for _, sourcedEntry := range entries {
+		entry := sourcedEntry.MCPServerCatalogEntryManifest
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories") // This shouldn't happen, but do this just in case.
 			// We don't want to mark random MCP servers from the catalog as official.
@@ -672,6 +678,7 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 			Spec: v1.MCPServerCatalogEntrySpec{
 				MCPCatalogName: catalogName,
 				SourceURL:      sourceURL,
+				UpgradeNote:    sourcedEntry.UpgradeNote,
 				Editable:       false, // entries from source URLs are not editable
 			},
 		}
