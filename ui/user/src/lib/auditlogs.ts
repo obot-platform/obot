@@ -37,6 +37,9 @@ export function batchAuditLogAPIKeyIDs(
 	apiKeyIDs: readonly (number | undefined)[],
 	limit = 1000
 ): string[] {
+	if (!Number.isInteger(limit) || limit <= 0) {
+		throw new RangeError('limit must be a positive integer');
+	}
 	const uniqueIDs = [...new Set(apiKeyIDs.filter((id): id is number => id !== undefined))];
 	const batches: string[] = [];
 	for (let offset = 0; offset < uniqueIDs.length; offset += limit) {
