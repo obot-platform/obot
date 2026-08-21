@@ -22,9 +22,9 @@ func mcpClientSessionName(metadata map[string]string, sessionID string) string {
 	}))
 }
 
-func saveMCPClientSession(ctx context.Context, client kclient.Client, entry *auditlogs.MCPAuditLog) error {
+func saveMCPClientSession(ctx context.Context, client kclient.Client, entry *auditlogs.MCPAuditLog, virtual bool) (bool, error) {
 	if entry.SessionID == "" {
-		return nil
+		return false, nil
 	}
 
 	key := kclient.ObjectKey{
@@ -35,7 +35,7 @@ func saveMCPClientSession(ctx context.Context, client kclient.Client, entry *aud
 	var session v1.MCPClientSession
 	if err := client.Get(ctx, key, &session); apierrors.IsNotFound(err) {
 		if entry.ClientName == "" && entry.ClientVersion == "" {
-			return nil
+			return false, nil
 		}
 		session = v1.MCPClientSession{
 			Namespace: key.Namespace,
@@ -45,37 +45,38 @@ func saveMCPClientSession(ctx context.Context, client kclient.Client, entry *aud
 				UserID:        entry.Metadata["userID"],
 				ClientName:    entry.ClientName,
 				ClientVersion: entry.ClientVersion,
+				Virtual:       virtual,
 			},
 		}
 		if err := client.Create(ctx, &session); err != nil && !apierrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create client session: %w", err)
+			return false, fmt.Errorf("failed to create client session: %w", err)
 		} else if apierrors.IsAlreadyExists(err) {
 			if err := client.Get(ctx, key, &session); err != nil {
-				return fmt.Errorf("get concurrently created MCP client session: %w", err)
+				return false, fmt.Errorf("get concurrently created MCP client session: %w", err)
 			}
 		}
 	} else if err != nil {
-		return fmt.Errorf("get MCP client session: %w", err)
+		return false, fmt.Errorf("get MCP client session: %w", err)
 	}
 
 	if session.Spec.MCPServerID != entry.Metadata["mcpID"] || session.Spec.UserID != entry.Metadata["userID"] {
-		return fmt.Errorf("inconsistent MCP client session data")
+		return false, fmt.Errorf("inconsistent MCP client session data")
 	}
 	if entry.ClientName == "" {
 		entry.ClientName = session.Spec.ClientName
 	} else if session.Spec.ClientName != entry.ClientName {
-		return fmt.Errorf("inconsistent MCP client session data")
+		return false, fmt.Errorf("inconsistent MCP client session data")
 	}
 	if entry.ClientVersion == "" {
 		entry.ClientVersion = session.Spec.ClientVersion
 	} else if session.Spec.ClientVersion != entry.ClientVersion {
-		return fmt.Errorf("inconsistent MCP client session data")
+		return false, fmt.Errorf("inconsistent MCP client session data")
 	}
 	session.Status.LastUsed = metav1.Now()
 
 	// Ignore conflict errors. That just means the time was updated between get and update, and that's fine.
 	if err := client.Status().Update(ctx, &session); err != nil && !apierrors.IsConflict(err) {
-		return fmt.Errorf("update MCP client session: %w", err)
+		return false, fmt.Errorf("update MCP client session: %w", err)
 	}
-	return nil
+	return session.Spec.Virtual, nil
 }

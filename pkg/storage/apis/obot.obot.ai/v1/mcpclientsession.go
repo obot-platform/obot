@@ -17,6 +17,9 @@ type MCPClientSessionSpec struct {
 	UserID        string `json:"userID"`
 	ClientName    string `json:"clientName"`
 	ClientVersion string `json:"clientVersion"`
+	// A Virtual session is one that doesn't come back from an MCP server,
+	// but is used by Obot to track clients.
+	Virtual bool `json:"virtual"`
 }
 
 type MCPClientSessionStatus struct {

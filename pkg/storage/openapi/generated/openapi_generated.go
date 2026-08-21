@@ -21537,8 +21537,16 @@ func schema_storage_apis_obotobotai_v1_MCPClientSessionSpec(ref common.Reference
 							Format:  "",
 						},
 					},
+					"virtual": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A Virtual session is one that doesn't come back from an MCP server, but is used by Obot to track clients.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"mcpServerID", "userID", "clientName", "clientVersion"},
+				Required: []string{"mcpServerID", "userID", "clientName", "clientVersion", "virtual"},
 			},
 		},
 	}

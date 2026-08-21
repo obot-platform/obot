@@ -209,6 +209,9 @@ func TestMCPProxyAuditPersistsAndLoadsClientInfoBySession(t *testing.T) {
 	if session.Spec.MCPServerID != "mcp-1" || session.Spec.UserID != "user-1" || session.Spec.ClientName != "Claude Desktop" || session.Spec.ClientVersion != "1.2.3" {
 		t.Fatalf("unexpected persisted client session: %#v", session.Spec)
 	}
+	if session.Spec.Virtual {
+		t.Fatal("upstream-provided session was marked virtual")
+	}
 	if session.Status.LastUsed.IsZero() {
 		t.Fatal("new client session did not record its initial last-used time")
 	}
@@ -230,11 +233,77 @@ func TestMCPProxyAuditPersistsAndLoadsClientInfoBySession(t *testing.T) {
 	if followupAuditor.entry.ClientName != "Claude Desktop" || followupAuditor.entry.ClientVersion != "1.2.3" {
 		t.Fatalf("client identity was not loaded from storage: name=%q version=%q", followupAuditor.entry.ClientName, followupAuditor.entry.ClientVersion)
 	}
+	if got := followup.Header.Get(mcpSessionHeader); got != "session-1" {
+		t.Fatalf("upstream-provided session header was changed: got %q", got)
+	}
 	if err := storageClient.Get(t.Context(), key, &session); err != nil {
 		t.Fatal(err)
 	}
 	if !session.Status.LastUsed.After(oldLastUsed.Time) {
 		t.Fatalf("last-used time was not updated: %v", session.Status.LastUsed)
+	}
+}
+
+func TestMCPProxyAuditCreatesAndReusesVirtualSession(t *testing.T) {
+	collector := new(recordingProxyAuditCollector)
+	storageClient := newMCPProxyTestStorage()
+	metadata := map[string]string{"mcpID": "mcp-1", "userID": "user-1"}
+	initialize, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"Stateless Client","version":"1.0.0"}}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor, err := newProxyAudit(initialize, metadata, collector, storageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor.recordRequest()
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-03-26"}}`)),
+	}
+	consumeAuditResponse(t, auditor, resp)
+
+	virtualSessionID := resp.Header.Get(mcpSessionHeader)
+	if virtualSessionID == "" {
+		t.Fatal("initialize response without an upstream session did not receive a virtual session ID")
+	}
+	if len(collector.entries) != 2 || collector.entries[1].SessionID != virtualSessionID {
+		t.Fatalf("virtual session was not recorded on the initialize response: %#v", collector.entries)
+	}
+
+	key := kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      mcpClientSessionName(metadata, virtualSessionID),
+	}
+	var session v1.MCPClientSession
+	if err := storageClient.Get(t.Context(), key, &session); err != nil {
+		t.Fatalf("virtual client session was not persisted: %v", err)
+	}
+	if !session.Spec.Virtual {
+		t.Fatalf("generated session was not marked virtual: %#v", session.Spec)
+	}
+	if session.Spec.ClientName != "Stateless Client" || session.Spec.ClientVersion != "1.0.0" {
+		t.Fatalf("virtual session lost client identity: %#v", session.Spec)
+	}
+
+	followup, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	followup.Header.Set(mcpSessionHeader, virtualSessionID)
+	followupAuditor, err := newProxyAudit(followup, metadata, collector, storageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := followup.Header.Get(mcpSessionHeader); got != "" {
+		t.Fatalf("virtual session header was forwarded upstream: %q", got)
+	}
+	if followupAuditor.entry.SessionID != virtualSessionID {
+		t.Fatalf("removing the upstream header also removed audit correlation: got %q, want %q", followupAuditor.entry.SessionID, virtualSessionID)
+	}
+	if followupAuditor.entry.ClientName != "Stateless Client" || followupAuditor.entry.ClientVersion != "1.0.0" {
+		t.Fatalf("virtual session did not restore client identity: name=%q version=%q", followupAuditor.entry.ClientName, followupAuditor.entry.ClientVersion)
 	}
 }
 
