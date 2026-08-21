@@ -139,11 +139,13 @@ describe('Auth Providers Page', () => {
 	});
 
 	describe('license required auth provider', () => {
-		it('shows license required and opens license dialog on Configure', async () => {
+		it('offers Obot Community signup in the license dialog on Configure', async () => {
 			await renderAuthProvidersPage({ authProviders: [entraProvider] });
 
 			await expect
-				.element(providerCard('Microsoft Entra').getByText('License Required', { exact: true }))
+				.element(
+					providerCard('Microsoft Entra').getByText('Registration Required', { exact: true })
+				)
 				.toBeVisible();
 
 			await providerCard('Microsoft Entra')
@@ -154,14 +156,21 @@ describe('Auth Providers Page', () => {
 				.element(page.getByRole('heading', { name: 'Microsoft Entra', exact: true }).first())
 				.toBeVisible();
 			await expect
-				.element(page.getByRole('heading', { name: 'License Required', exact: true }))
+				.element(page.getByRole('heading', { name: 'Get Access Now!', exact: true }))
 				.toBeVisible();
 			await expect
 				.element(
-					page.getByText(/A valid license is required to use Microsoft Entra/, { exact: false })
+					page.getByText(/Get permanent, free access to additional authentication providers/, {
+						exact: false
+					})
 				)
 				.toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Close', exact: true })).toBeVisible();
+			await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
+			await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
+			await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Register', exact: true }))
+				.toBeVisible();
 			await expect
 				.element(page.getByText('Set Up Microsoft Entra', { exact: true }))
 				.not.toBeInTheDocument();

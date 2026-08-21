@@ -13,10 +13,12 @@ type LogoPreferences struct {
 	LogoIconWarning    string `json:"logoIconWarning,omitempty"`
 	LogoDefault        string `json:"logoDefault,omitempty"`
 	LogoEnterprise     string `json:"logoEnterprise,omitempty"`
+	LogoCommunity      string `json:"logoCommunity,omitempty"`
 	LogoChat           string `json:"logoChat,omitempty"`
 	DarkLogoDefault    string `json:"darkLogoDefault,omitempty"`
 	DarkLogoChat       string `json:"darkLogoChat,omitempty"`
 	DarkLogoEnterprise string `json:"darkLogoEnterprise,omitempty"`
+	DarkLogoCommunity  string `json:"darkLogoCommunity,omitempty"`
 }
 
 type ThemePreferences struct {
