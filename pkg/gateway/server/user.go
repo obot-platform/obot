@@ -4,10 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -418,6 +416,7 @@ func parseGroupListParams(query url.Values) (limit int, cursor string) {
 }
 
 // splitGroupIDs parses the comma-separated ids parameter, dropping blanks and duplicates.
+// Ids are returned in the order they first appear in raw.
 func splitGroupIDs(raw string) ([]string, error) {
 	parts := strings.Split(raw, ",")
 	if len(parts) > maxGroupIDsPerRequest {
@@ -425,6 +424,7 @@ func splitGroupIDs(raw string) ([]string, error) {
 	}
 
 	seen := make(map[string]struct{}, len(parts))
+	ids := make([]string, 0, len(parts))
 
 	for _, part := range parts {
 		id := strings.TrimSpace(part)
@@ -436,9 +436,10 @@ func splitGroupIDs(raw string) ([]string, error) {
 		}
 
 		seen[id] = struct{}{}
+		ids = append(ids, id)
 	}
 
-	return slices.Collect(maps.Keys(seen)), nil
+	return ids, nil
 }
 
 // trimGroupsForUser strips everything but the ID and name for users who should not see which auth

@@ -107,6 +107,13 @@ func TestSplitGroupIDs(t *testing.T) {
 			want: []string{"entra/a", "entra/b"},
 		},
 		{
+			// Deduplication keeps the first occurrence, so the result follows input
+			// order rather than sorted order.
+			name: "keeps input order when deduplicating",
+			raw:  "entra/b,entra/a,entra/b",
+			want: []string{"entra/b", "entra/a"},
+		},
+		{
 			name: "all blank",
 			raw:  ",,,",
 			want: []string{},
