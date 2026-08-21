@@ -102,6 +102,20 @@ describe('MCP Deployments Page', () => {
 	});
 
 	describe('ellipsis menu actions', () => {
+		it('renders and sanitizes a catalog upgrade note in single confirmation', async () => {
+			await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
+			await page.getByRole('button', { name: 'Update Server', exact: true }).click();
+
+			await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toBeVisible();
+			const emphasizedText = await page.getByText('safe mode', { exact: true }).elements();
+			expect(emphasizedText).toHaveLength(1);
+			expect(emphasizedText[0].tagName).toBe('STRONG');
+			await expect
+				.element(page.getByRole('link', { name: 'Unsafe link' }))
+				.toHaveAttribute('href', '');
+			expect(await page.getByRole('dialog').locator('script').elements()).toHaveLength(0);
+		});
+
 		it('single-user npx with needsUpdate shows update, diff, edit, restart, audit, delete', async () => {
 			await expectMenuActions(fixtures.serverSingleNeedsUpdate.manifest.name!, {
 				links: ['View Catalog Entry'],
@@ -210,22 +224,37 @@ describe('MCP Deployments Page', () => {
 	});
 
 	describe('multi-select action pills', () => {
+		it('deduplicates catalog upgrade notes and omits empty notes in bulk confirmation', async () => {
+			await page.getByRole('columnheader').first().getByRole('button').click();
+			const actionsBar = page.getByText(/of 9 selected/).locator('..');
+
+			await actionsBar.getByRole('button', { name: /^Upgrade/ }).click();
+
+			expect(await page.getByRole('heading', { name: 'Before upgrading' }).elements()).toHaveLength(
+				1
+			);
+			await expect.element(page.getByText('Entry Single Update', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByText('Entry Empty Upgrade Note', { exact: true }))
+				.not.toBeInTheDocument();
+		});
+
 		it('shows restart, upgrade, k8s upgrade, and delete counts for selected rows', async () => {
 			await page.getByRole('columnheader').first().getByRole('button').click();
 
-			await expect.element(page.getByText(/of 7 selected/)).toBeVisible();
+			await expect.element(page.getByText(/of 9 selected/)).toBeVisible();
 
-			const actionsBar = page.getByText(/of 7 selected/).locator('..');
+			const actionsBar = page.getByText(/of 9 selected/).locator('..');
 
 			await expect
 				.element(
-					actionsBar.getByRole('button', { name: /^Restart/ }).getByText('5', { exact: true })
+					actionsBar.getByRole('button', { name: /^Restart/ }).getByText('7', { exact: true })
 				)
 				.toBeVisible();
 
 			await expect
 				.element(
-					actionsBar.getByRole('button', { name: /^Upgrade/ }).getByText('1', { exact: true })
+					actionsBar.getByRole('button', { name: /^Upgrade/ }).getByText('3', { exact: true })
 				)
 				.toBeVisible();
 
@@ -239,7 +268,7 @@ describe('MCP Deployments Page', () => {
 
 			await expect
 				.element(
-					actionsBar.getByRole('button', { name: /^Delete/ }).getByText('6', { exact: true })
+					actionsBar.getByRole('button', { name: /^Delete/ }).getByText('8', { exact: true })
 				)
 				.toBeVisible();
 		});

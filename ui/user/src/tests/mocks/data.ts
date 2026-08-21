@@ -598,7 +598,18 @@ export function createDeploymentsPageFixtures() {
 		name: 'Entry Single Update',
 		runtime: 'npx',
 		serverUserType: 'singleUser',
-		env: [editableEnvField]
+		env: [editableEnvField],
+		manifest: {
+			upgradeNote:
+				'## Before upgrading\n\nUse **safe mode**.\n\n[Unsafe link](javascript:alert(1))\n\n<script>alert("unsafe")</script>'
+		}
+	});
+	const entryEmptyUpgradeNote = createMCPCatalogEntry({
+		id: 'entry-empty-upgrade-note',
+		name: 'Entry Empty Upgrade Note',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		manifest: { upgradeNote: '   ' }
 	});
 	const entrySingleK8s = createMCPCatalogEntry({
 		id: 'entry-single-k8s',
@@ -646,6 +657,26 @@ export function createDeploymentsPageFixtures() {
 		env: [editableEnvField],
 		needsUpdate: true,
 		created: '2026-01-07T00:00:00.000Z',
+		userID
+	});
+	const serverSingleNeedsUpdateDuplicate = createMCPCatalogServer({
+		id: 'server-single-needs-update-duplicate',
+		name: 'Second Upgrade Deployment',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entrySingleUpdate.id,
+		needsUpdate: true,
+		created: '2026-01-08T00:00:00.000Z',
+		userID
+	});
+	const serverEmptyUpgradeNote = createMCPCatalogServer({
+		id: 'server-empty-upgrade-note',
+		name: 'Npx Empty Upgrade Note',
+		runtime: 'npx',
+		serverUserType: 'singleUser',
+		catalogEntryID: entryEmptyUpgradeNote.id,
+		needsUpdate: true,
+		created: '2026-01-09T00:00:00.000Z',
 		userID
 	});
 	const serverSingleNeedsK8s = createMCPCatalogServer({
@@ -721,6 +752,7 @@ export function createDeploymentsPageFixtures() {
 
 	const entries = [
 		entrySingleUpdate,
+		entryEmptyUpgradeNote,
 		entrySingleK8s,
 		entryMulti,
 		entryRemote,
@@ -729,6 +761,8 @@ export function createDeploymentsPageFixtures() {
 	];
 	const servers = [
 		serverSingleNeedsUpdate,
+		serverSingleNeedsUpdateDuplicate,
+		serverEmptyUpgradeNote,
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,
@@ -741,6 +775,8 @@ export function createDeploymentsPageFixtures() {
 		entries,
 		servers,
 		serverSingleNeedsUpdate,
+		serverSingleNeedsUpdateDuplicate,
+		serverEmptyUpgradeNote,
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,
