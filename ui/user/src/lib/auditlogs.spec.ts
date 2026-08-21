@@ -23,4 +23,10 @@ describe('batchAuditLogAPIKeyIDs', () => {
 	it('batches IDs at the filter-options endpoint limit', () => {
 		expect(batchAuditLogAPIKeyIDs([1, 2, 3, 4, 5], 2)).toEqual(['1,2', '3,4', '5']);
 	});
+
+	it.each([0, -1, 1.5, Number.POSITIVE_INFINITY])('rejects invalid limit %s', (limit) => {
+		expect(() => batchAuditLogAPIKeyIDs([1], limit)).toThrow(
+			new RangeError('limit must be a positive integer')
+		);
+	});
 });
