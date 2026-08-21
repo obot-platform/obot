@@ -107,13 +107,11 @@ describe('MCP Deployments Page', () => {
 			await page.getByRole('button', { name: 'Update Server', exact: true }).click();
 
 			await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toBeVisible();
-			const emphasizedText = await page.getByText('safe mode', { exact: true }).elements();
-			expect(emphasizedText).toHaveLength(1);
-			expect(emphasizedText[0].tagName).toBe('STRONG');
+			await expect.element(page.getByCSS('strong').filter({ hasText: 'safe mode' })).toBeVisible();
 			await expect
 				.element(page.getByRole('link', { name: 'Unsafe link' }))
 				.toHaveAttribute('href', '');
-			expect(await page.getByRole('dialog').locator('script').elements()).toHaveLength(0);
+			await expect.element(page.getByRole('dialog').locator('script')).not.toBeInTheDocument();
 		});
 
 		it('single-user npx with needsUpdate shows update, diff, edit, restart, audit, delete', async () => {
@@ -230,9 +228,7 @@ describe('MCP Deployments Page', () => {
 
 			await actionsBar.getByRole('button', { name: /^Upgrade/ }).click();
 
-			expect(await page.getByRole('heading', { name: 'Before upgrading' }).elements()).toHaveLength(
-				1
-			);
+			await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toHaveLength(1);
 			await expect.element(page.getByText('Entry Single Update', { exact: true })).toBeVisible();
 			await expect
 				.element(page.getByText('Entry Empty Upgrade Note', { exact: true }))
