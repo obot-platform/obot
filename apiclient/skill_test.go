@@ -22,8 +22,8 @@ func TestListSkillsEncodesQueryParameters(t *testing.T) {
 		require.Equal(t, "25", r.URL.Query().Get("limit"))
 		require.NoError(t, json.NewEncoder(w).Encode(types.SkillList{
 			Items: []types.Skill{{
-				Metadata:      types.Metadata{ID: "sk1"},
-				SkillManifest: types.SkillManifest{Name: "github-review"},
+				ID:   "sk1",
+				Name: "github-review",
 			}},
 		}))
 	}))
@@ -51,8 +51,8 @@ func TestGetSkillEscapesIDAndDecodesResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/skills/skill%2Fwith%20space", r.URL.EscapedPath())
 		require.NoError(t, json.NewEncoder(w).Encode(types.Skill{
-			Metadata:      types.Metadata{ID: "skill/with space"},
-			SkillManifest: types.SkillManifest{Name: "reviewer"},
+			ID:   "skill/with space",
+			Name: "reviewer",
 		}))
 	}))
 	defer server.Close()

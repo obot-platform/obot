@@ -29,7 +29,7 @@ func TestMapCatalogEntryToServerPreservesConfigurationOptions(t *testing.T) {
 	options := []MCPConfigurationOption{{Name: "US", Value: "us", Description: "US endpoint"}}
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Runtime: RuntimeRemote,
-		Env:     []MCPEnv{{MCPHeader: MCPHeader{Key: "REGION", Options: options}}},
+		Env:     []MCPEnv{{Key: "REGION", Options: options}},
 		RemoteConfig: &RemoteCatalogConfig{
 			FixedURL: "https://example.com/mcp",
 			Headers:  []MCPHeader{{Key: "TIER", Options: options}},
