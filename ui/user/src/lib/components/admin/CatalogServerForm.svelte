@@ -1045,6 +1045,7 @@
 				{readonly}
 				catalogId={id}
 				id={entry?.id}
+				components={entry?.components}
 			/>
 		{/if}
 	</div>

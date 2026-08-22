@@ -399,11 +399,6 @@ export async function createCompositeMcpServer(server: {
 			componentServers: Array<{
 				catalogEntryID?: string;
 				mcpServerID?: string;
-				manifest?: {
-					remoteConfig?: {
-						url?: string;
-					};
-				};
 				disabled?: boolean;
 			}>;
 		};

@@ -237,16 +237,9 @@ func catalogEntryManifestTunnelTargets(manifest types.MCPServerCatalogEntryManif
 		if manifest.RemoteConfig.Hostname != "" {
 			return []string{manifest.RemoteConfig.Hostname}
 		}
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return nil
-		}
-		var targets []string
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			targets = append(targets, catalogEntryManifestTunnelTargets(component.Manifest, tunnelName)...)
-		}
-		return targets
 	}
+	// A composite carries no runtime config of its own: its components are separate
+	// catalog entries that this scan already covers on their own.
 	return nil
 }
 
@@ -254,16 +247,9 @@ func catalogEntryManifestUsesTunnel(manifest types.MCPServerCatalogEntryManifest
 	switch manifest.Runtime {
 	case types.RuntimeRemote:
 		return manifest.RemoteConfig != nil && manifest.RemoteConfig.TunnelName == tunnelName
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return false
-		}
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			if catalogEntryManifestUsesTunnel(component.Manifest, tunnelName) {
-				return true
-			}
-		}
 	}
+	// A composite carries no runtime config of its own: its components are separate
+	// catalog entries that this scan already covers on their own.
 	return false
 }
 

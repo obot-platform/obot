@@ -440,15 +440,17 @@ func TestTriggerUpdateScope(t *testing.T) {
 				wantErrContains: "MCP server server not found",
 			},
 			{
-				name: "component server is rejected",
+				// A component server updates itself through this same path, touching neither its
+				// siblings nor the composite's tool overrides.
+				name: "component server updates through the standard path",
 				user: testUserWithRole("admin", types.GroupAdmin),
 				server: func() v1.MCPServer {
 					server := baseServer("owner")
 					server.Spec.CompositeName = "composite"
 					return server
 				}(),
-				entry:           baseEntry(""),
-				wantErrContains: "cannot trigger update on a component server",
+				entry:        baseEntry(""),
+				wantShutdown: true,
 			},
 			{
 				name: "server without catalog entry is a no-op",
@@ -1050,7 +1052,7 @@ func TestServerFromMultiUserTemplateMarksAdminAddedSecretBinding(t *testing.T) {
 			SecretBinding: &types.MCPSecretBinding{Name: "test-secret-11", Key: "key1"}}},
 	}
 
-	manifest, err := serverManifestFromCatalogEntryManifest(false, false, entry, input)
+	manifest, err := mcp.ServerManifestFromCatalogEntryManifest(false, false, entry, input)
 	require.NoError(t, err)
 	manifest = applySecretBindingOverlay(manifest, input)
 	markAdminAddedSecretBindings(&manifest, &entry)
@@ -1411,32 +1413,21 @@ func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *test
 		},
 	}
 
-	converted := ConvertMCPServer(server, map[string]string{}, "", "", types.MCPServer{
-		CatalogEntryID:         "entry-bound",
-		Configured:             false,
-		MissingRequiredEnvVars: []string{"BOUND_ENV", "USER_ENV"},
-		MissingRequiredHeaders: []string{"BOUND_HEADER", "USER_HEADER"},
-		MCPServerManifest: types.MCPServerManifest{
-			Runtime: types.RuntimeRemote,
-			Env: []types.MCPEnv{
-				{Key: "BOUND_ENV", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}},
-				{Key: "USER_ENV"},
-			},
-			RemoteConfig: &types.RemoteRuntimeConfig{
-				Headers: []types.MCPHeader{
-					{Key: "BOUND_HEADER", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}},
-					{Key: "USER_HEADER"},
-				},
+	converted := ConvertMCPServer(server, map[string]string{}, "", "", types.ComponentServerDetail{CatalogEntryID: "entry-bound", Configured: false, MissingRequiredEnvVars: []string{"BOUND_ENV", "USER_ENV"}, MissingRequiredHeaders: []string{"BOUND_HEADER", "USER_HEADER"}, Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Env: []types.MCPEnv{
+			{Key: "BOUND_ENV", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}},
+			{Key: "USER_ENV"},
+		},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{
+				{Key: "BOUND_HEADER", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}},
+				{Key: "USER_HEADER"},
 			},
 		},
-	}, types.MCPServer{
-		CatalogEntryID:         "entry-user",
-		Configured:             false,
-		MissingRequiredEnvVars: []string{"SHARED_KEY"},
-		MCPServerManifest: types.MCPServerManifest{
-			Env: []types.MCPEnv{{Key: "SHARED_KEY"}},
-		},
-	})
+	}}, types.ComponentServerDetail{CatalogEntryID: "entry-user", Configured: false, MissingRequiredEnvVars: []string{"SHARED_KEY"}, Manifest: types.MCPServerManifest{
+		Env: []types.MCPEnv{{Key: "SHARED_KEY"}},
+	}})
 
 	assert.False(t, converted.Configured)
 	assert.Equal(t, []string{"PARENT_BOUND", "BOUND_ENV"}, converted.MissingRequiredEnvVars)
@@ -1458,21 +1449,189 @@ func TestConvertMCPServerCompositeSkipsDisabledAndConfiguredComponents(t *testin
 		},
 	}
 
-	converted := ConvertMCPServer(server, nil, "", "", types.MCPServer{
-		CatalogEntryID:         "entry-disabled",
-		Configured:             false,
-		MissingRequiredEnvVars: []string{"BOUND_DISABLED"},
-		MCPServerManifest: types.MCPServerManifest{
-			Env: []types.MCPEnv{{Key: "BOUND_DISABLED", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}}},
-		},
-	}, types.MCPServer{
-		CatalogEntryID: "entry-configured",
-		Configured:     true,
-	})
+	converted := ConvertMCPServer(server, nil, "", "", types.ComponentServerDetail{CatalogEntryID: "entry-disabled", Configured: false, MissingRequiredEnvVars: []string{"BOUND_DISABLED"}, Manifest: types.MCPServerManifest{
+		Env: []types.MCPEnv{{Key: "BOUND_DISABLED", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "env"}}},
+	}}, types.ComponentServerDetail{CatalogEntryID: "entry-configured", Configured: true})
 
 	assert.True(t, converted.Configured)
 	assert.Empty(t, converted.MissingRequiredEnvVars)
 	assert.Empty(t, converted.MissingRequiredHeaders)
+}
+
+func TestConvertMCPServerCompositeCountsUnconfiguredMultiUserComponent(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{
+						{CatalogEntryID: "entry-configured"},
+						{MCPServerID: "shared-server"},
+					},
+				},
+			},
+		},
+	}
+
+	// A multi-user component is keyed by MCPServerID, so the rollup has to match on ComponentID.
+	converted := ConvertMCPServer(server, nil, "", "", types.ComponentServerDetail{CatalogEntryID: "entry-configured", Configured: true}, types.ComponentServerDetail{MCPServerID: "shared-server", Configured: false, MissingRequiredHeaders: []string{"BOUND_HEADER"}, Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{{Key: "BOUND_HEADER", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}}},
+		},
+	}})
+
+	assert.False(t, converted.Configured)
+	assert.Equal(t, []string{"BOUND_HEADER"}, converted.MissingRequiredHeaders)
+}
+
+func TestConvertMCPServerCompositeSkipsDisabledMultiUserComponent(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{
+					ComponentServers: []types.ComponentServer{{MCPServerID: "shared-server", Disabled: true}},
+				},
+			},
+		},
+	}
+
+	converted := ConvertMCPServer(server, nil, "", "", types.ComponentServerDetail{MCPServerID: "shared-server", Configured: false, MissingRequiredHeaders: []string{"BOUND_HEADER"}, Manifest: types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			Headers: []types.MCPHeader{{Key: "BOUND_HEADER", SecretBinding: &types.MCPSecretBinding{Name: "secret", Key: "header"}}},
+		},
+	}})
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredHeaders)
+}
+
+func TestConvertMCPServerCatalogEntryWithComponentsHydratesComponentManifests(t *testing.T) {
+	componentEntry := &v1.MCPServerCatalogEntry{
+		Name:      "gh-entry",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "GitHub",
+				Icon:           "https://example.com/gh.svg",
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/github@1.0.0"},
+				Env:            []types.MCPEnv{{Key: "GITHUB_TOKEN", Required: true}},
+			},
+		},
+	}
+	sharedServer := &v1.MCPServer{
+		Name:      "shared-server",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "default",
+			Manifest: types.MCPServerManifest{
+				Name:            "Slack",
+				Icon:            "https://example.com/slack.svg",
+				Runtime:         types.RuntimeRemote,
+				MultiUserConfig: &types.MultiUserConfig{},
+				RemoteConfig:    &types.RemoteRuntimeConfig{URL: "https://slack.example/mcp"},
+			},
+		},
+	}
+	compositeEntry := v1.MCPServerCatalogEntry{
+		Name:      "composite-entry",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "Engineering",
+				Runtime:        types.RuntimeComposite,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+					{CatalogEntryID: "gh-entry", ToolPrefix: "gh", SourceDigest: "captured-digest"},
+					{MCPServerID: "shared-server", ToolPrefix: "slack"},
+				}},
+			},
+		},
+		Status: v1.MCPServerCatalogEntryStatus{
+			Components: []v1.CatalogComponentServerStatus{
+				{CatalogEntryID: "gh-entry", Name: "GitHub", Icon: "https://example.com/gh.svg", ToolOverridesStale: true},
+			},
+		},
+	}
+
+	converted, err := ConvertMCPServerCatalogEntryWithComponents(t.Context(), newFakeStorage(t, componentEntry, sharedServer), compositeEntry, "", "", "")
+	require.NoError(t, err)
+
+	require.Len(t, converted.Components, 2)
+	assert.Equal(t, "GitHub", converted.Components[0].Name)
+	assert.Equal(t, "https://example.com/gh.svg", converted.Components[0].Icon)
+	assert.False(t, converted.Components[0].Missing)
+	assert.True(t, converted.Components[0].ToolOverridesStale)
+	require.NotNil(t, converted.Components[0].Manifest.NPXConfig)
+	assert.Equal(t, "@example/github@1.0.0", converted.Components[0].Manifest.NPXConfig.Package)
+
+	assert.Equal(t, "shared-server", converted.Components[1].MCPServerID)
+	assert.Equal(t, "Slack", converted.Components[1].Name)
+	// A multi-user server's manifest is reported in catalog-entry form.
+	assert.Equal(t, sharedServer.Spec.Manifest.ConvertToCatalogEntry(), converted.Components[1].Manifest)
+
+	// The stored manifest still carries references only.
+	require.NotNil(t, converted.Manifest.CompositeConfig)
+	assert.Equal(t, []types.CatalogComponentServer{
+		{CatalogEntryID: "gh-entry", ToolPrefix: "gh", SourceDigest: "captured-digest"},
+		{MCPServerID: "shared-server", ToolPrefix: "slack"},
+	}, converted.Manifest.CompositeConfig.ComponentServers)
+}
+
+func TestConvertMCPServerCatalogEntryWithComponentsFallsBackToStampedNameAndIcon(t *testing.T) {
+	compositeEntry := v1.MCPServerCatalogEntry{
+		Name:      "composite-entry",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "Engineering",
+				Runtime:        types.RuntimeComposite,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+					{CatalogEntryID: "deleted-entry", ToolPrefix: "gh"},
+				}},
+			},
+		},
+		Status: v1.MCPServerCatalogEntryStatus{
+			Components: []v1.CatalogComponentServerStatus{
+				{CatalogEntryID: "deleted-entry", Name: "GitHub", Icon: "https://example.com/gh.svg", Missing: true},
+			},
+		},
+	}
+
+	converted, err := ConvertMCPServerCatalogEntryWithComponents(t.Context(), newFakeStorage(t), compositeEntry, "", "", "")
+	require.NoError(t, err)
+
+	require.Len(t, converted.Components, 1)
+	component := converted.Components[0]
+	assert.True(t, component.Missing)
+	// The stamped values keep a deleted component from rendering as a bare ID.
+	assert.Equal(t, "GitHub", component.Name)
+	assert.Equal(t, "https://example.com/gh.svg", component.Icon)
+	assert.Zero(t, component.Manifest)
+}
+
+func TestConvertMCPServerCatalogEntryWithComponentsSkipsNonComposite(t *testing.T) {
+	entry := v1.MCPServerCatalogEntry{
+		Name:      "npx-entry",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "NPX",
+				Runtime:        types.RuntimeNPX,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/npx@1.0.0"},
+			},
+		},
+	}
+
+	converted, err := ConvertMCPServerCatalogEntryWithComponents(t.Context(), newFakeStorage(t), entry, "", "", "")
+	require.NoError(t, err)
+	assert.Nil(t, converted.Components)
 }
 
 func TestServerManifestFromCatalogEntryManifestAllowsMissingRemoteHostname(t *testing.T) {
@@ -1483,7 +1642,7 @@ func TestServerManifestFromCatalogEntryManifestAllowsMissingRemoteHostname(t *te
 		},
 	}
 
-	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{})
+	manifest, err := mcp.ServerManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{})
 	require.NoError(t, err)
 	require.NotNil(t, manifest.RemoteConfig)
 	assert.Equal(t, "api.example.com", manifest.RemoteConfig.Hostname)
@@ -1502,9 +1661,9 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 			},
 		},
 	}
-	addExtractedEnvVarsToCatalogEntry(&entry)
+	mcp.AddExtractedEnvVarsToCatalogEntry(&entry)
 
-	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry.Spec.Manifest, types.MCPServerManifest{})
+	manifest, err := mcp.ServerManifestFromCatalogEntryManifest(false, true, entry.Spec.Manifest, types.MCPServerManifest{})
 	require.NoError(t, err)
 	require.NotNil(t, manifest.RemoteConfig)
 	assert.True(t, manifest.RemoteConfig.IsTemplate)
@@ -1516,64 +1675,31 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 	}, manifest.RemoteConfig.Headers)
 }
 
-func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostname(t *testing.T) {
+func TestServerManifestFromCatalogEntryManifestCarriesCompositeReferencesOnly(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeComposite,
 		CompositeConfig: &types.CompositeCatalogConfig{
 			ComponentServers: []types.CatalogComponentServer{
-				{
-					CatalogEntryID: "remote",
-					Manifest: types.MCPServerCatalogEntryManifest{
-						Runtime: types.RuntimeRemote,
-						RemoteConfig: &types.RemoteCatalogConfig{
-							Hostname: "api.example.com",
-						},
-					},
-				},
+				{CatalogEntryID: "remote", ToolPrefix: "jira", ToolOverrides: []types.ToolOverride{{Name: "create_issue", Enabled: true}}, SourceDigest: "digest-of-the-upstream"},
+				{MCPServerID: "shared-server", ToolPrefix: "slack"},
 			},
 		},
 	}
 
-	require.True(t, catalogEntryRequiresUserURL(entry))
-	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{})
+	// NeedsURL is per component, so the composite itself never requires one.
+	require.False(t, mcp.CatalogEntryRequiresUserURL(entry))
+
+	manifest, err := mcp.ServerManifestFromCatalogEntryManifest(false, true, entry, types.MCPServerManifest{
+		CompositeConfig: &types.CompositeRuntimeConfig{
+			ComponentServers: []types.ComponentServer{{MCPServerID: "shared-server", Disabled: true}},
+		},
+	})
 	require.NoError(t, err)
 	require.NotNil(t, manifest.CompositeConfig)
-	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
-	component := manifest.CompositeConfig.ComponentServers[0]
-	require.NotNil(t, component.Manifest.RemoteConfig)
-	assert.Equal(t, "api.example.com", component.Manifest.RemoteConfig.Hostname)
-	assert.Empty(t, component.Manifest.RemoteConfig.URL)
-}
+	require.Len(t, manifest.CompositeConfig.ComponentServers, 2)
 
-func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *testing.T) {
-	const template = "https://${WORKSPACE}.example.com/mcp/${SPACE_ID}"
-	entry := v1.MCPServerCatalogEntry{
-		Spec: v1.MCPServerCatalogEntrySpec{
-			Manifest: types.MCPServerCatalogEntryManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeCatalogConfig{
-					ComponentServers: []types.CatalogComponentServer{
-						{
-							CatalogEntryID: "remote",
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									URLTemplate: template,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	addExtractedEnvVarsToCatalogEntry(&entry)
-	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
-	assert.ElementsMatch(t, []types.MCPHeader{
-		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},
-		{Name: "SPACE_ID", Key: "SPACE_ID", Description: "Automatically detected variable", Required: true},
-	}, headers)
+	assert.Equal(t, types.ComponentServer{CatalogEntryID: "remote", ToolPrefix: "jira", ToolOverrides: []types.ToolOverride{{Name: "create_issue", Enabled: true}}}, manifest.CompositeConfig.ComponentServers[0], "the reference, prefix, and overrides carry over and the digest does not")
+	assert.Equal(t, types.ComponentServer{MCPServerID: "shared-server", ToolPrefix: "slack", Disabled: true}, manifest.CompositeConfig.ComponentServers[1], "disabled is the one component field taken from the request input")
 }
 
 func TestSyncConnectServerRemoteConfigFromCatalogEntryURLTemplate(t *testing.T) {
@@ -1649,10 +1775,18 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 		t.Helper()
 		scheme := runtime.NewScheme()
 		require.NoError(t, corev1.AddToScheme(scheme))
+		require.NoError(t, v1.AddToScheme(scheme))
 		return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 	}
 	secret := func(name string, data map[string][]byte) *corev1.Secret {
 		return &corev1.Secret{Data: data, Name: name, Namespace: ns, Labels: map[string]string{"label": ""}}
+	}
+	componentEntry := func(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+		return &v1.MCPServerCatalogEntry{
+			Name:      name,
+			Namespace: system.DefaultNamespace,
+			Spec:      v1.MCPServerCatalogEntrySpec{Manifest: manifest},
+		}
 	}
 
 	tests := []struct {
@@ -1752,20 +1886,22 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			oauthConfigured: true,
 		},
 		{
-			name: "composite component missing binding",
-			manifest: composite(types.CatalogComponentServer{
-				CatalogEntryID: "c1",
-				Manifest: types.MCPServerCatalogEntryManifest{
-					Runtime: types.RuntimeNPX,
-					Env: []types.MCPEnv{{
-						Key:           "TOKEN",
-						Required:      true,
-						SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
-					}},
-				},
-			}),
-			client:     newClient(t),
+			name:     "composite component missing binding",
+			manifest: compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "c1"}),
+			client: newClient(t, componentEntry("c1", types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					Key:           "TOKEN",
+					Required:      true,
+					SecretBinding: &types.MCPSecretBinding{Name: "s", Key: "k"},
+				}},
+			})),
 			wantFields: []string{"component c1 env TOKEN"},
+		},
+		{
+			name:     "composite component with a deleted upstream reports nothing",
+			manifest: compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "gone"}),
+			client:   newClient(t),
 		},
 	}
 
@@ -1775,12 +1911,12 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 				Spec:   v1.MCPServerCatalogEntrySpec{Manifest: tt.manifest},
 				Status: v1.MCPServerCatalogEntryStatus{OAuthCredentialConfigured: tt.oauthConfigured},
 			}
-			got, err := entryMissingAdminConfig(t.Context(), tt.client, ns, entry, "label")
+			got, err := mcp.EntryMissingAdminConfig(t.Context(), tt.client, tt.client, ns, entry, "label")
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantFields, got.SecretBoundFields)
 			assert.Equal(t, tt.wantOAuth, got.StaticOAuth)
 
-			err = got.err("entry")
+			err = got.Err("entry")
 			if len(tt.wantFields) == 0 && !tt.wantOAuth {
 				require.NoError(t, err)
 				return
@@ -1791,14 +1927,6 @@ func TestEntryMissingAdminConfig(t *testing.T) {
 			assert.Equal(t, http.StatusBadRequest, errHTTP.Code)
 			assert.Contains(t, errHTTP.Message, "catalog entry entry cannot be connected")
 		})
-	}
-}
-
-// composite builds a composite catalog entry manifest from the given components.
-func composite(components ...types.CatalogComponentServer) types.MCPServerCatalogEntryManifest {
-	return types.MCPServerCatalogEntryManifest{
-		Runtime:         types.RuntimeComposite,
-		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: components},
 	}
 }
 

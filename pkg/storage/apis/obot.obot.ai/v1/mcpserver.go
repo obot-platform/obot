@@ -57,6 +57,9 @@ type MCPServerSpec struct {
 	CompositeName string `json:"compositeName,omitempty"`
 	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
+	// Update requests that this composite server's component servers be rebuilt from their own
+	// catalog entries. The composite controller clears it when its pass is done.
+	Update bool `json:"update,omitempty"`
 }
 
 type MCPServerStatus struct {
@@ -64,6 +67,12 @@ type MCPServerStatus struct {
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
 	NeedsUpdate bool `json:"needsUpdate,omitempty"`
+	// ObservedCompositeGeneration is the last spec generation the composite controller reconciled.
+	ObservedCompositeGeneration int64 `json:"observedCompositeGeneration,omitempty"`
+	// ComponentErrors maps a component reference to the reason it could not be reconciled. An
+	// absent key means the component is healthy.
+	// This field is only populated for composite MCP servers.
+	ComponentErrors map[string]string `json:"componentErrors,omitempty"`
 	// MCPServerInstanceUserCount contains the number of unique users with server instances pointing to this MCP server.
 	MCPServerInstanceUserCount *int `json:"mcpInstanceUserCount,omitempty"`
 	// DeploymentStatus indicates the overall status of the MCP server deployment (Available, Progressing, Unavailable, Needs Attention, Shutdown, Unknown).
@@ -84,9 +93,6 @@ type MCPServerStatus struct {
 	NeedsK8sUpdate bool `json:"needsK8sUpdate,omitempty"`
 	// AuditLogTokenHash is the hash of the token used to submit audit logs.
 	AuditLogTokenHash string `json:"auditLogTokenHash,omitempty"`
-	// ObservedCompositeManifestHash is the hash of the server's manifest the last time all component servers were updated to match the composite server.
-	// This field is only populated for composite MCP servers.
-	ObservedCompositeManifestHash string `json:"observedCompositeManifestHash,omitempty"`
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
 	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`

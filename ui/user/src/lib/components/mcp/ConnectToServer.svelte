@@ -323,7 +323,7 @@
 		configureFormTitle = undefined;
 		// For composite: open form first to collect per-component URLs before creating
 		if (item.manifest.runtime === 'composite') {
-			const components = item.manifest?.compositeConfig?.componentServers || [];
+			const components = item.components ?? [];
 			const componentConfigs: Record<
 				string,
 				{
@@ -334,18 +334,32 @@
 					url?: string;
 					disabled?: boolean;
 					isMultiUser?: boolean;
+					missing?: boolean;
+					error?: string;
 					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
 					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
 				}
 			> = {};
 			for (const c of components) {
 				const id = c.catalogEntryID || c.mcpServerID;
-				if (!id || !c.manifest) continue;
+				if (!id) continue;
 				const m = c.manifest;
 				const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
+				// No manifest means the reference did not resolve. Render it as missing, not as a blank form.
+				if (!m) {
+					componentConfigs[id] = {
+						name: c.name || id,
+						icon: c.icon,
+						disabled: false,
+						isMultiUser,
+						missing: true,
+						error: 'This component is no longer available.'
+					};
+					continue;
+				}
 				componentConfigs[id] = {
-					name: m.name,
-					icon: m.icon,
+					name: m.name || c.name || id,
+					icon: m.icon || c.icon,
 					deprecated: isDeprecatedMCPServer({ manifest: m }),
 					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
 					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
@@ -628,9 +642,10 @@
 			const aliasToUse =
 				(configureForm as { name?: string } | undefined)?.name ||
 				getUniqueAlias(entry.manifest.name || '');
+			// Create writes references and disabled only; each component's URL goes on the configure
+			// call in `payload` below.
 			const componentServersForCreate: Array<{
 				catalogEntryID: string;
-				manifest: Record<string, unknown>;
 				disabled?: boolean;
 			}> = [];
 			const payload: Record<
@@ -638,12 +653,14 @@
 				{ config: Record<string, string>; url?: string; disabled?: boolean }
 			> = {};
 			for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
-				const url = comp.url?.trim();
+				const trimmedURL = comp.url?.trim();
+				const url = trimmedURL
+					? trimmedURL.startsWith('http')
+						? trimmedURL
+						: `https://${trimmedURL}`
+					: trimmedURL;
 				componentServersForCreate.push({
 					catalogEntryID: id,
-					manifest: url
-						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
-						: {},
 					disabled: comp.disabled ?? false
 				});
 				const config: Record<string, string> = {};

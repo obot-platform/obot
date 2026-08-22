@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -494,7 +495,7 @@ func TestPrepareTempServerConfigRejectsUnknownOption(t *testing.T) {
 	require.Contains(t, httpErr.Message, "not one of the configured options")
 }
 
-func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
+func TestValidateComponentReferencesAcceptsMultiUserServerID(t *testing.T) {
 	server := &v1.MCPServer{
 		Name: "shared-server", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
@@ -511,28 +512,13 @@ func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 			},
 		},
 	}
-	manifest := types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeComposite,
-		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{MCPServerID: "shared-server"},
-		}},
-	}
 
-	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(server), &manifest, "default", "")
+	err := validateComponentReferences(newComponentReferenceRequest(server), compositeEntryManifest(types.CatalogComponentServer{MCPServerID: "shared-server"}), "default", "")
 
 	require.NoError(t, err)
-	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
-	component := manifest.CompositeConfig.ComponentServers[0]
-	assert.Equal(t, "shared-server", component.MCPServerID)
-	assert.Empty(t, component.CatalogEntryID)
-	assert.Equal(t, "Shared Server", component.Manifest.Name)
-	assert.Equal(t, types.RuntimeContainerized, component.Manifest.Runtime)
-	require.NotNil(t, component.Manifest.ContainerizedConfig)
-	assert.Equal(t, "example/shared:1.0.0", component.Manifest.ContainerizedConfig.Image)
-	require.NotNil(t, component.Manifest.MultiUserConfig)
 }
 
-func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
+func TestValidateComponentReferencesAcceptsSameCatalogEntryID(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
 		Name: "component-entry", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
@@ -545,27 +531,224 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 			},
 		},
 	}
-	manifest := types.MCPServerCatalogEntryManifest{
-		Runtime: types.RuntimeComposite,
-		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "component-entry"},
-		}},
-	}
 
-	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(entry), &manifest, "custom", "")
+	err := validateComponentReferences(newComponentReferenceRequest(entry), compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "component-entry"}), "custom", "")
 
 	require.NoError(t, err)
-	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
-	component := manifest.CompositeConfig.ComponentServers[0]
-	assert.Equal(t, "component-entry", component.CatalogEntryID)
-	assert.Empty(t, component.MCPServerID)
-	assert.Equal(t, "Component Server", component.Manifest.Name)
-	assert.Equal(t, types.RuntimeNPX, component.Manifest.Runtime)
-	require.NotNil(t, component.Manifest.NPXConfig)
-	assert.Equal(t, "@example/component", component.Manifest.NPXConfig.Package)
 }
 
-func newPopulateComponentManifestsRequest(objects ...kclient.Object) api.Context {
+func TestValidateComponentReferencesRejectsUnresolvableReferences(t *testing.T) {
+	tests := []struct {
+		name      string
+		component types.CatalogComponentServer
+		wantErr   string
+	}{
+		{
+			name:      "missing catalog entry",
+			component: types.CatalogComponentServer{CatalogEntryID: "does-not-exist"},
+			wantErr:   "component catalog entry does-not-exist not found",
+		},
+		{
+			name:      "missing multi-user server",
+			component: types.CatalogComponentServer{MCPServerID: "does-not-exist"},
+			wantErr:   "multi-user server does-not-exist not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateComponentReferences(newComponentReferenceRequest(), compositeEntryManifest(tt.component), "default", "")
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+func TestValidateComponentReferencesRejectsSingleUserServer(t *testing.T) {
+	compositeComponent := &v1.MCPServerCatalogEntry{
+		Name: "nested-composite", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: "default",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "Nested Composite",
+				Runtime:        types.RuntimeComposite,
+				ServerUserType: types.ServerUserTypeSingleUser,
+				CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+					{CatalogEntryID: "something-else"},
+				}},
+			},
+		},
+	}
+	multiUserComponent := &v1.MCPServerCatalogEntry{
+		Name: "multi-user-entry", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: "default",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Name:           "Multi User Template",
+				Runtime:        types.RuntimeContainerized,
+				ServerUserType: types.ServerUserTypeMultiUser,
+				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+					Image: "example/multi:1.0.0",
+					Port:  8080,
+					Path:  "/mcp",
+				},
+			},
+		},
+	}
+	singleUserServer := &v1.MCPServer{
+		Name: "single-user-server", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{
+			UserID: "user-1",
+			Manifest: types.MCPServerManifest{
+				Name:      "Single User Server",
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "@example/single"},
+			},
+		},
+	}
+	req := newComponentReferenceRequest(compositeComponent, multiUserComponent, singleUserServer)
+
+	// The composite and multi-user-entry cases live with the composite manifest validator, which
+	// runs them on every write path rather than only on create.
+	err := validateComponentReferences(req, compositeEntryManifest(
+		types.CatalogComponentServer{MCPServerID: "single-user-server"}), "default", "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "server single-user-server is not a multi-user server")
+}
+
+func TestCreateEntryRejectsUnresolvableComponentReference(t *testing.T) {
+	storageClient := newFakeStorage(t, &v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace})
+	manifest := compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "deleted-entry", ToolPrefix: "gh"})
+	manifest.Name = "composite-entry"
+
+	err := (&MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}).
+		CreateEntry(newCatalogEntryWriteRequest(t, storageClient, http.MethodPost, "catalog-1", "", manifest))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "component catalog entry deleted-entry not found")
+
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, storageClient.List(t.Context(), &entries))
+	assert.Empty(t, entries.Items)
+}
+
+func TestCreateEntryStoresComponentReferencesOnly(t *testing.T) {
+	storageClient := newFakeStorage(t,
+		&v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace},
+		&v1.MCPServerCatalogEntry{
+			Name: "component-entry", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "catalog-1",
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:           "Component Server",
+					Runtime:        types.RuntimeNPX,
+					ServerUserType: types.ServerUserTypeSingleUser,
+					NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/component"},
+				},
+			},
+		},
+		&v1.MCPServer{
+			Name: "shared-server", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{
+				MCPCatalogID: "catalog-1",
+				Manifest: types.MCPServerManifest{
+					Name:            "Shared Server",
+					Runtime:         types.RuntimeContainerized,
+					MultiUserConfig: &types.MultiUserConfig{},
+					ContainerizedConfig: &types.ContainerizedRuntimeConfig{
+						Image: "example/shared:1.0.0",
+						Port:  8080,
+						Path:  "/mcp",
+					},
+				},
+			},
+		},
+	)
+	manifest := compositeEntryManifest(
+		types.CatalogComponentServer{CatalogEntryID: "component-entry", ToolPrefix: "gh", ToolOverrides: []types.ToolOverride{{Name: "create_issue", Enabled: true}}, SourceDigest: "digest-from-the-preview"},
+		types.CatalogComponentServer{MCPServerID: "shared-server", ToolPrefix: "slack"},
+	)
+	manifest.Name = "composite-entry"
+
+	err := (&MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}).
+		CreateEntry(newCatalogEntryWriteRequest(t, storageClient, http.MethodPost, "catalog-1", "", manifest))
+	require.NoError(t, err)
+
+	var entries v1.MCPServerCatalogEntryList
+	require.NoError(t, storageClient.List(t.Context(), &entries))
+	var stored *v1.MCPServerCatalogEntry
+	for i := range entries.Items {
+		if entries.Items[i].Spec.Manifest.Runtime == types.RuntimeComposite {
+			stored = &entries.Items[i]
+		}
+	}
+	require.NotNil(t, stored)
+	require.NotNil(t, stored.Spec.Manifest.CompositeConfig)
+	assert.Equal(t, []types.CatalogComponentServer{
+		{CatalogEntryID: "component-entry", ToolPrefix: "gh", ToolOverrides: []types.ToolOverride{{Name: "create_issue", Enabled: true}}, SourceDigest: "digest-from-the-preview"},
+		{MCPServerID: "shared-server", ToolPrefix: "slack"},
+	}, stored.Spec.Manifest.CompositeConfig.ComponentServers)
+}
+
+func TestCreateEntryRejectsCompositeInPowerUserWorkspace(t *testing.T) {
+	storageClient := newFakeStorage(t, &v1.PowerUserWorkspace{Name: "workspace-1", Namespace: system.DefaultNamespace})
+	manifest := compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "component-entry"})
+	manifest.Name = "composite-entry"
+
+	err := (&MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}).
+		CreateEntry(newCatalogEntryWriteRequest(t, storageClient, http.MethodPost, "", "workspace-1", manifest))
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "composite entries in power user workspaces are not supported")
+}
+
+func TestUpdateEntrySucceedsWhenComponentWasDeleted(t *testing.T) {
+	// Update runs no reference check, so an entry whose component was deleted stays editable.
+	stored := compositeEntryManifest(
+		types.CatalogComponentServer{CatalogEntryID: "deleted-entry", ToolPrefix: "gh"},
+		types.CatalogComponentServer{CatalogEntryID: "component-entry", ToolPrefix: "jira"},
+	)
+	stored.Name = "composite-entry"
+	storageClient := newFakeStorage(t,
+		&v1.MCPCatalog{Name: "catalog-1", Namespace: system.DefaultNamespace},
+		&v1.MCPServerCatalogEntry{
+			Name: "composite-entry", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "catalog-1",
+				Editable:       true,
+				Manifest:       stored,
+			},
+		},
+	)
+
+	updated := compositeEntryManifest(types.CatalogComponentServer{CatalogEntryID: "deleted-entry", ToolPrefix: "github"})
+	updated.Name = "composite-entry"
+	req := newCatalogEntryWriteRequest(t, storageClient, http.MethodPut, "catalog-1", "", updated)
+	req.SetPathValue("entry_id", "composite-entry")
+
+	err := (&MCPCatalogHandler{mcpBackend: "docker", sessionManager: &mcp.SessionManager{}}).UpdateEntry(req)
+	require.NoError(t, err)
+
+	var entry v1.MCPServerCatalogEntry
+	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: "composite-entry"}, &entry))
+	require.NotNil(t, entry.Spec.Manifest.CompositeConfig)
+	require.Len(t, entry.Spec.Manifest.CompositeConfig.ComponentServers, 1)
+	assert.Equal(t, "github", entry.Spec.Manifest.CompositeConfig.ComponentServers[0].ToolPrefix)
+}
+
+// compositeEntryManifest builds a composite catalog entry manifest around the given components.
+func compositeEntryManifest(components ...types.CatalogComponentServer) types.MCPServerCatalogEntryManifest {
+	return types.MCPServerCatalogEntryManifest{
+		Name:            "Composite Entry",
+		Runtime:         types.RuntimeComposite,
+		ServerUserType:  types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: components},
+	}
+}
+
+func newComponentReferenceRequest(objects ...kclient.Object) api.Context {
 	return api.Context{
 		Request:        httptest.NewRequest(http.MethodGet, "/", nil),
 		ResponseWriter: httptest.NewRecorder(),
@@ -573,5 +756,27 @@ func newPopulateComponentManifestsRequest(objects ...kclient.Object) api.Context
 			WithScheme(storagescheme.Scheme).
 			WithObjects(objects...).
 			Build()),
+	}
+}
+
+func newCatalogEntryWriteRequest(t *testing.T, storageClient storage.Client, method, catalogID, workspaceID string, manifest types.MCPServerCatalogEntryManifest) api.Context {
+	t.Helper()
+
+	body, err := json.Marshal(manifest)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(method, "/api/mcp-catalogs/entries", bytes.NewReader(body))
+	if catalogID != "" {
+		req.SetPathValue("catalog_id", catalogID)
+	}
+	if workspaceID != "" {
+		req.SetPathValue("workspace_id", workspaceID)
+	}
+
+	return api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        storageClient,
+		User:           testUserWithRole("admin", types.GroupAdmin),
 	}
 }

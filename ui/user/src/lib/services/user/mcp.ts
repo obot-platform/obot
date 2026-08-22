@@ -119,16 +119,17 @@ export function hasEditableConfiguration(
 	item: MCPCatalogEntry | MCPCatalogServer | SystemMCPServerCatalogEntry
 ) {
 	if (!item.manifest) return false;
-	// For composite servers, check if any component has editable configuration
+	// A composite's own manifest carries no configuration; each component's does.
 	if ('compositeConfig' in item.manifest && item.manifest.runtime === 'composite') {
-		const componentServers = item.manifest.compositeConfig?.componentServers || [];
-		return componentServers.some((component) => {
-			const hasEnvs = hasEditableFields(component.manifest?.env);
+		const components: ComponentServerSource[] = 'components' in item ? (item.components ?? []) : [];
+		return components.some((component) => {
+			const manifest = component.manifest;
+			const hasEnvs = hasEditableFields(manifest?.env);
 			const hasHeaders =
-				(component?.manifest?.remoteConfig?.headers?.filter?.(
+				(manifest?.remoteConfig?.headers?.filter?.(
 					(header) => !header.value && !hasSecretBinding(header)
 				)?.length ?? 0) > 0;
-			const hasUrlToFill = hasEditableURL(component.manifest?.remoteConfig);
+			const hasUrlToFill = hasEditableURL(manifest?.remoteConfig);
 			return hasEnvs || hasHeaders || hasUrlToFill;
 		});
 	}
@@ -149,23 +150,21 @@ type SecretBindingManifest = {
 		headers?: MCPSubField[];
 	};
 	runtime?: string;
-	compositeConfig?: {
-		componentServers?: {
-			manifest?: SecretBindingManifest;
-		}[];
-	};
 };
 
+// A composite's own manifest never binds; its components carry their own bindings and are checked
+// through componentsHaveSecretBindings.
 export function manifestHasSecretBindings(manifest?: SecretBindingManifest | null): boolean {
 	if (!manifest) return false;
 	if ((manifest.env ?? []).some(hasSecretBinding)) return true;
 	if ((manifest.remoteConfig?.headers ?? []).some(hasSecretBinding)) return true;
-	if (manifest.runtime === 'composite') {
-		return (manifest.compositeConfig?.componentServers ?? []).some((component) =>
-			manifestHasSecretBindings(component.manifest)
-		);
-	}
 	return false;
+}
+
+export function componentsHaveSecretBindings(
+	components?: { manifest?: SecretBindingManifest }[] | null
+): boolean {
+	return (components ?? []).some((component) => manifestHasSecretBindings(component.manifest));
 }
 
 export function hasMissingSecretBindingConfig(
@@ -532,12 +531,15 @@ export async function convertCompositeInfoToLaunchFormData(
 			{ config: Record<string, string>; url?: string; disabled?: boolean }
 		>;
 	}
-	// Prefer existing server's runtime composite manifest for edit flows;
-	// fall back to parent catalog entry only if server lacks composite config
-	const components =
-		server?.manifest?.compositeConfig?.componentServers ||
-		(parent && 'manifest' in parent ? parent?.manifest?.compositeConfig?.componentServers : []) ||
-		[];
+	// Prefer the deployed composite's components, which report what each component server is
+	// actually running; fall back to the parent catalog entry's for the pre-deploy case.
+	const components: ComponentServerSource[] =
+		server?.components ?? (parent?.components as ComponentServerSource[] | undefined) ?? [];
+	// `disabled` lives on the composite's own reference, not on the resolved component detail.
+	const referenced = server?.manifest?.compositeConfig?.componentServers ?? [];
+	const disabledByID = new Map(
+		referenced.map((c) => [c.catalogEntryID || c.mcpServerID, c.disabled ?? false])
+	);
 	const componentConfigs: Record<
 		string,
 		{
@@ -548,30 +550,45 @@ export async function convertCompositeInfoToLaunchFormData(
 			url?: string;
 			disabled?: boolean;
 			isMultiUser?: boolean;
+			missing?: boolean;
+			error?: string;
 			envs?: Array<Record<string, unknown> & { key: string; value: string }>;
 			headers?: Array<Record<string, unknown> & { key: string; value: string }>;
 		}
 	> = {};
 	for (const c of components) {
 		const id = c.catalogEntryID || c.mcpServerID;
-		if (!c.manifest || !id) continue;
+		if (!id) continue;
 		const m = c.manifest;
 		const init = initial?.[id];
 		// Treat components that reference an MCP server ID (and not a catalog
 		// entry) as multi-user. Their composite component instance can collect
 		// per-user headers from the server's multi-user configuration.
 		const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
+		// No manifest means the reference did not resolve. Render it as missing, not as a blank form.
+		if (!m) {
+			componentConfigs[id] = {
+				name: c.name || id,
+				icon: c.icon,
+				disabled: init?.disabled ?? disabledByID.get(id) ?? false,
+				isMultiUser,
+				missing: true,
+				error: c.error
+			};
+			continue;
+		}
 		componentConfigs[id] = {
-			name: m.name,
-			icon: m.icon,
+			name: m.name || c.name || id,
+			icon: m.icon || c.icon,
 			deprecated: isDeprecatedMCPServer({ manifest: m }),
 			hostname:
 				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
 					? ''
 					: m.remoteConfig.hostname,
-			url: isMultiUser ? undefined : (init?.url ?? m.remoteConfig?.fixedURL ?? ''),
-			disabled: init?.disabled ?? false,
+			url: isMultiUser ? undefined : (init?.url ?? componentDefaultURL(m) ?? ''),
+			disabled: init?.disabled ?? disabledByID.get(id) ?? false,
 			isMultiUser,
+			error: c.error,
 			envs: isMultiUser
 				? []
 				: (m.env ?? []).map((e) => ({
@@ -596,6 +613,23 @@ export async function convertCompositeInfoToLaunchFormData(
 		};
 	}
 	return { componentConfigs } as CompositeLaunchFormData;
+}
+
+// One resolved component from either side: a deployed composite's manifest carries `url`, a catalog
+// entry's carries `fixedURL`.
+type ComponentServerSource = {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	name?: string;
+	icon?: string;
+	error?: string;
+	manifest?: (MCPServer | MCPCatalogEntryServerManifest) & {
+		remoteConfig?: { url?: string; fixedURL?: string; hostname?: string };
+	};
+};
+
+function componentDefaultURL(manifest: ComponentServerSource['manifest']) {
+	return manifest?.remoteConfig?.url ?? manifest?.remoteConfig?.fixedURL;
 }
 
 export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
@@ -669,7 +703,9 @@ export const getMcpServerDeploymentStatus = (
 	deployment: { needsUpdate?: boolean; needsK8sUpdate?: boolean; compositeName?: string },
 	doesSupportK8sUpdates: boolean
 ) => {
-	const needsUpdate = deployment.needsUpdate && !deployment.compositeName;
+	const needsUpdate = deployment.needsUpdate;
+	// A component server reports its own server update, but K8s settings updates are still driven
+	// through the parent composite's scheduling configuration.
 	const needsK8sUpdate =
 		doesSupportK8sUpdates && deployment.needsK8sUpdate && !deployment.compositeName;
 

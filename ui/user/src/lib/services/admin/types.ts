@@ -717,9 +717,24 @@ export interface CompositeCatalogConfig {
 export interface CatalogComponentServer {
 	catalogEntryID?: string;
 	mcpServerID?: string;
-	manifest?: MCPCatalogEntryServerManifest;
 	toolOverrides?: ToolOverride[];
 	toolPrefix?: string;
+	// The upstream's runtime identity when toolOverrides were generated. Returned by the tool-preview
+	// endpoints and submitted back on save; empty is never reported stale.
+	sourceDigest?: string;
+}
+// One component of a composite catalog entry, resolved from the entry it references.
+export interface CatalogComponentServerDetail {
+	catalogEntryID?: string;
+	mcpServerID?: string;
+	name?: string;
+	icon?: string;
+	// Absent when the component is missing.
+	manifest?: MCPCatalogEntryServerManifest;
+	// The reference no longer resolves.
+	missing?: boolean;
+	// The upstream's runtime identity moved since these tool overrides were generated.
+	toolOverridesStale?: boolean;
 }
 export interface MCPCatalogEntryServerManifest {
 	icon?: string;
@@ -763,6 +778,14 @@ export interface MCPCatalogEntry {
 	needsK8sUpdate?: boolean;
 	oauthCredentialConfigured?: boolean;
 	connectURL?: string;
+	components?: CatalogComponentServerDetail[];
+}
+
+// What the tool-preview endpoints return: the previewed entry, plus the runtime-identity digest of
+// the upstream the previews came from for the client to submit back as a composite component's
+// sourceDigest. Absent for a composite entry.
+export interface MCPServerToolPreview extends MCPCatalogEntry {
+	sourceDigest?: string;
 }
 
 // Matches the backend compositeDeletionDependency struct used when preventing

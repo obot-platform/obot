@@ -39,6 +39,9 @@
 	let loadingServers = $state(true);
 	let failedToLoadServers = $state(false);
 	let serversMap = $derived(new Map(servers.map((s) => [s.catalogEntryID || s.id, s])));
+	// Name and icon fall back to the values stamped on the composite, so a component whose upstream
+	// is gone still renders by name.
+	let components = $derived(catalogEntry?.components ?? []);
 
 	onMount(async () => {
 		if (!mcpServerId || !catalogEntry?.id || !entityId) {
@@ -78,13 +81,14 @@
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">MCP Servers</h2>
 		<div class="flex flex-col gap-2">
-			{#each catalogEntry.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID || componentServer.mcpServerID)}
+			{#each components as component (component.catalogEntryID || component.mcpServerID)}
 				{@const catalogEntryServerId =
-					componentServer.catalogEntryID && serversMap.get(componentServer.catalogEntryID)?.id}
-				{@const multiUserServerId = componentServer.mcpServerID}
+					component.catalogEntryID && serversMap.get(component.catalogEntryID)?.id}
+				{@const multiUserServerId = component.mcpServerID}
 				{@const componentServerId = catalogEntryServerId || multiUserServerId}
-				{@const componentExists = !!componentServerId}
-				{@const deprecated = isDeprecatedMCPServer(componentServer)}
+				{@const componentExists = !component.missing && !!componentServerId}
+				{@const deprecated = isDeprecatedMCPServer({ manifest: component.manifest })}
+				{@const componentName = component.name || component.catalogEntryID || component.mcpServerID}
 
 				{#if componentExists}
 					<button
@@ -93,9 +97,9 @@
 								? 'mcp-deployments'
 								: 'mcp-catalog';
 							const isCtrlClick = e.metaKey || e.ctrlKey;
-							const url = componentServer.catalogEntryID
-								? `/admin/${prefix}/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
-								: `/admin/${prefix}/s/${componentServer.mcpServerID}/details`;
+							const url = component.catalogEntryID
+								? `/admin/${prefix}/c/${component.catalogEntryID}/instance/${catalogEntryServerId}/details`
+								: `/admin/${prefix}/s/${component.mcpServerID}/details`;
 
 							sessionStorage.setItem(
 								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,
@@ -115,17 +119,13 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
-								{#if componentServer.manifest?.icon}
-									<img
-										src={componentServer.manifest?.icon}
-										alt={componentServer.manifest?.name}
-										class="size-6"
-									/>
+								{#if component.icon}
+									<img src={component.icon} alt={componentName} class="size-6" />
 								{:else}
 									<Server class="size-6" />
 								{/if}
 							</div>
-							<p class="text-sm">{componentServer.manifest?.name}</p>
+							<p class="text-sm">{componentName}</p>
 							<McpDeprecatedNotice {deprecated} child />
 							{#if componentServerId}
 								<span class="text-muted-content text-sm">({componentServerId})</span>
@@ -141,19 +141,23 @@
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
-								{#if componentServer.manifest?.icon}
-									<img
-										src={componentServer.manifest?.icon}
-										alt={componentServer.manifest?.name}
-										class="size-6"
-									/>
+								{#if component.icon}
+									<img src={component.icon} alt={componentName} class="size-6" />
 								{:else}
 									<Server class="size-6" />
 								{/if}
 							</div>
-							<p class="text-sm">{componentServer.manifest?.name}</p>
+							<p class="text-sm">{componentName}</p>
 							<McpDeprecatedNotice {deprecated} child />
-							{#if loadingServers}
+							{#if component.missing}
+								<span
+									class="text-muted-content flex items-center gap-1 text-xs"
+									title="This component's catalog entry or multi-user server no longer exists; remove it from the composite"
+								>
+									<CircleAlert class="size-4" />
+									<span>Missing</span>
+								</span>
+							{:else if loadingServers}
 								<span class="text-muted-content text-xs">Loading...</span>
 							{:else if failedToLoadServers}
 								<span
