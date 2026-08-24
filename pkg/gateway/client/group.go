@@ -529,6 +529,7 @@ func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authPro
 		Model(&types.Identity{}).
 		Distinct().
 		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Where("user_id > 0").
 		Order("user_id").
 		Pluck("user_id", &userIDs).Error; err != nil {
 		return nil, fmt.Errorf("failed to list users for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
