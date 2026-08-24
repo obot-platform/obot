@@ -11,14 +11,16 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	auditLogAPIKeyLookupBatchSize = 1000
+)
+
 type auditLogAPIKeyOptionRow struct {
 	APIKeyID   uint
 	APIKeyName string
 	UserID     uint
 	Revoked    bool
 }
-
-const auditLogAPIKeyLookupBatchSize = 1000
 
 func (c *Client) enrichLLMAuditLogAPIKeyRevocation(ctx context.Context, logs []types.LLMAuditLog) error {
 	ids := make([]uint, 0, len(logs))
