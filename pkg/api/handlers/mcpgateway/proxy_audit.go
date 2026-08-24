@@ -314,6 +314,15 @@ func (a *proxyAudit) wrapResponse(resp *http.Response) error {
 	if a == nil {
 		return nil
 	}
+	if resp.Body != nil && strings.EqualFold(strings.TrimSpace(resp.Header.Get("Content-Encoding")), "gzip") {
+		body, _, err := decodeMCPHookBody(resp.Body, resp.Header.Get("Content-Encoding"))
+		if err != nil {
+			return fmt.Errorf("failed to decode MCP response for audit logging: %w", err)
+		}
+		resp.Body = body
+		resp.ContentLength = -1
+		clearMCPHookResponseHeaders(resp.Header)
+	}
 
 	var virtual bool
 	if sessionID := resp.Header.Get(mcpSessionHeader); sessionID != "" {

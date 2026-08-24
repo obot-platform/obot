@@ -1,6 +1,8 @@
 package mcpgateway
 
 import (
+	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
 	"strings"
@@ -114,6 +116,64 @@ func TestMCPProxyAuditCollectsRequestAndResponseSeparately(t *testing.T) {
 	}
 	if string(responseEntry.ResponseBody) != `{"jsonrpc":"2.0","id":7,"result":{"content":[]}}` {
 		t.Fatalf("unexpected response body: %s", responseEntry.ResponseBody)
+	}
+}
+
+func TestMCPProxyAuditDecodesGzipResponse(t *testing.T) {
+	const responseBody = `{"jsonrpc":"2.0","id":7,"result":{"content":[]}}`
+
+	collector := new(recordingProxyAuditCollector)
+	req, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(
+		`{"jsonrpc":"2.0","id":7,"method":"tools/list"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor, err := newProxyAudit(req, map[string]string{"mcpID": "mcp-1", "userID": "user-1"}, collector, newMCPProxyTestStorage())
+	if err != nil {
+		t.Fatal(err)
+	}
+	auditor.recordRequest()
+
+	var compressed bytes.Buffer
+	writer := gzip.NewWriter(&compressed)
+	if _, err := writer.Write([]byte(responseBody)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type":     []string{"application/json"},
+			"Content-Encoding": []string{"gzip"},
+			"ETag":             []string{`"compressed"`},
+		},
+		Body:          io.NopCloser(bytes.NewReader(compressed.Bytes())),
+		ContentLength: int64(compressed.Len()),
+	}
+	if err := auditor.wrapResponse(resp); err != nil {
+		t.Fatal(err)
+	}
+	got, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := resp.Body.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if string(got) != responseBody {
+		t.Fatalf("proxied response body = %q, want %q", got, responseBody)
+	}
+	if resp.Header.Get("Content-Encoding") != "" || resp.Header.Get("ETag") != "" || resp.ContentLength != -1 {
+		t.Fatalf("decoded response retained compressed representation metadata: headers=%v length=%d", resp.Header, resp.ContentLength)
+	}
+	if len(collector.entries) != 2 || string(collector.entries[1].ResponseBody) != responseBody {
+		t.Fatalf("audit response was not decoded: %#v", collector.entries)
+	}
+	if strings.Contains(string(collector.entries[1].ResponseHeaders), "Content-Encoding") {
+		t.Fatalf("audit response headers retained content encoding: %s", collector.entries[1].ResponseHeaders)
 	}
 }
 
