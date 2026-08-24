@@ -1099,7 +1099,9 @@
 					<p class="font-medium">
 						{showUpgradeConfirm?.type === 'multi' ? upgradeNote.name : 'Upgrade notes'}
 					</p>
-					<div class="prose prose-sm text-muted-content mt-1 max-w-none">
+					<div
+						class="prose prose-sm text-muted-content mt-1 max-w-none space-y-3 [&_ol]:list-decimal [&_ol]:pl-5 [&_ul]:list-disc [&_ul]:pl-5"
+					>
 						{@html toHTMLFromMarkdownWithNewTabLinks(upgradeNote.note)}
 					</div>
 				</div>
