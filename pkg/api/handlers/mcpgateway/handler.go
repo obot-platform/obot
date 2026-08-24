@@ -112,7 +112,7 @@ func compositeLoopbackURLs(serverURL, mcpServerName string, transform func(strin
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
-	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{DSN: dsn})
+	composite, err := mmmcp.New(ctx, &mmmcpconfig.Config{}, mmmcp.Options{DSN: strings.TrimPrefix(dsn, "sqlite://")})
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create composite MCP server: %w", err)
