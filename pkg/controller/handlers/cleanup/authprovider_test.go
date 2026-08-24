@@ -123,9 +123,15 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 			authProviderCleanupCheckpointAnnotation: checkpoint,
 		},
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName: "entra-auth-provider",
+			AuthProviderName:          "entra-auth-provider",
+			DeconfigurationGeneration: 2,
 		},
 	}
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: namespace,
+	}
+	authProvider.Generation = 2
 
 	mixedSubjects := []clienttypes.Subject{
 		{
@@ -222,7 +228,7 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 	baseClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.PublishedArtifact{}).
-		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
+		WithObjects(cleanupTask, authProvider, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
 		Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
 	gatewayClient := newAuthProviderCleanupGatewayClient(t)
@@ -296,10 +302,16 @@ func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
 		Name:      "cleanup",
 		Namespace: "default",
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName: "entra-auth-provider",
+			AuthProviderName:          "entra-auth-provider",
+			DeconfigurationGeneration: 2,
 		},
 	}
-	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(task).Build()
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: "default",
+	}
+	authProvider.Generation = 2
+	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(task, authProvider).Build()
 	handler := NewAuthProviderCleanup(newAuthProviderCleanupGatewayClient(t))
 	req := router.Request{
 		Client:    storageClient,
@@ -324,6 +336,71 @@ func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
 	if len(checkpoint.UserIDs) != 0 {
 		t.Fatalf("checkpoint = %#v, want empty user IDs", checkpoint)
 	}
+}
+
+func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
+	const (
+		namespace   = "default"
+		targetGroup = "entra/engineering"
+	)
+
+	task := &v1.AuthProviderCleanup{
+		Name:      "cleanup",
+		Namespace: namespace,
+		Spec: v1.AuthProviderCleanupSpec{
+			AuthProviderName:          "entra-auth-provider",
+			DeconfigurationGeneration: 2,
+		},
+	}
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: namespace,
+	}
+	authProvider.Generation = 3
+	accessRule := &v1.AccessControlRule{
+		Name:      "access-rule",
+		Namespace: namespace,
+		Spec: v1.AccessControlRuleSpec{
+			Manifest: clienttypes.AccessControlRuleManifest{
+				Subjects: []clienttypes.Subject{
+					{
+						Type: clienttypes.SubjectTypeGroup,
+						ID:   targetGroup,
+					},
+				},
+			},
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(task, authProvider, accessRule).
+		Build()
+	gatewayClient := newAuthProviderCleanupGatewayClient(t)
+	if _, err := gatewayClient.CreateGroupRoleAssignment(t.Context(), targetGroup, clienttypes.RoleAdmin, "target"); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := NewAuthProviderCleanup(gatewayClient)
+	req := router.Request{
+		Client:    storageClient,
+		Object:    task,
+		Ctx:       t.Context(),
+		Namespace: namespace,
+		Name:      task.Name,
+	}
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(task), &v1.AuthProviderCleanup{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("stale cleanup task still exists: %v", err)
+	}
+	if _, err := gatewayClient.GetGroupRoleAssignment(t.Context(), targetGroup); err != nil {
+		t.Fatalf("group role assignment was removed by stale cleanup: %v", err)
+	}
+	gotAccessRule := &v1.AccessControlRule{}
+	mustGet(t, storageClient, accessRule, gotAccessRule)
+	assertSubjects(t, gotAccessRule.Spec.Manifest.Subjects, accessRule.Spec.Manifest.Subjects)
 }
 
 func (c *generatedNameClient) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {

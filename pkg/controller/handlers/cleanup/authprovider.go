@@ -12,6 +12,7 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,6 +38,18 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, _ router.Response) err
 	providerNamespace := cleanup.Namespace
 	if providerName == "" {
 		return fmt.Errorf("auth provider cleanup %s has no auth provider name", cleanup.Name)
+	}
+	var provider v1.AuthProvider
+	if err := req.Client.Get(req.Ctx, kclient.ObjectKey{Namespace: providerNamespace, Name: providerName}, &provider); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return fmt.Errorf("get auth provider for cleanup generation check: %w", err)
+		}
+		slog.Info("Discarding auth provider cleanup because the provider no longer exists", "authProvider", providerName, "namespace", providerNamespace, "deconfigurationGeneration", cleanup.Spec.DeconfigurationGeneration)
+		return req.Delete(cleanup)
+	}
+	if provider.Generation != cleanup.Spec.DeconfigurationGeneration {
+		slog.Info("Discarding stale auth provider cleanup", "authProvider", providerName, "namespace", providerNamespace, "deconfigurationGeneration", cleanup.Spec.DeconfigurationGeneration, "currentGeneration", provider.Generation)
+		return req.Delete(cleanup)
 	}
 	groupIDPrefix, err := auth.GroupIDPrefixForAuthProvider(providerName)
 	if err != nil {

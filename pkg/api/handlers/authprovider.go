@@ -262,7 +262,8 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		GenerateName: system.AuthProviderCleanupPrefix,
 		Namespace:    authProvider.Namespace,
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName: authProvider.Name,
+			AuthProviderName:          authProvider.Name,
+			DeconfigurationGeneration: authProvider.Generation,
 		},
 	}); err != nil {
 		return fmt.Errorf("failed to schedule auth provider cleanup: %w", err)

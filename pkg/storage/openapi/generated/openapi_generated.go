@@ -19229,6 +19229,12 @@ func schema_storage_apis_obotobotai_v1_AuthProviderCleanupSpec(ref common.Refere
 							Format: "",
 						},
 					},
+					"deconfigurationGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
 				},
 			},
 		},
