@@ -14,4 +14,17 @@ describe('Search', () => {
 
 		await expect.element(input).toHaveValue('server');
 	});
+
+	it('ignores a stale echo after the user continues typing', async () => {
+		const onChange = vi.fn();
+		render(SearchRerenderHarness, { onChange });
+		const input = page.getByRole('textbox');
+
+		await input.fill('server');
+		await vi.waitFor(() => expect(onChange).toHaveBeenCalledWith('server'));
+		await input.fill('servers');
+		await page.getByRole('button', { name: 'Echo change' }).click();
+
+		await expect.element(input).toHaveValue('servers');
+	});
 });
