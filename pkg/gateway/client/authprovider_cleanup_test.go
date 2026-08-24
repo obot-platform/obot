@@ -11,64 +11,52 @@ import (
 
 func TestGetAuthProviderGroupCleanupUserIDs(t *testing.T) {
 	c := newTestClient(t)
-	groups := []types.Group{
+	identities := []types.Identity{
 		{
-			ID:                    "entra/engineering",
 			AuthProviderName:      "entra-auth-provider",
 			AuthProviderNamespace: "default",
-			Name:                  "Engineering",
+			HashedProviderUserID:  "entra-user-1",
+			UserID:                1,
 		},
 		{
-			ID:                    "entra/security",
 			AuthProviderName:      "entra-auth-provider",
 			AuthProviderNamespace: "default",
-			Name:                  "Security",
+			HashedProviderUserID:  "entra-user-1-secondary",
+			UserID:                1,
 		},
 		{
-			ID:                    "okta/engineering",
+			AuthProviderName:      "entra-auth-provider",
+			AuthProviderNamespace: "default",
+			HashedProviderUserID:  "entra-user-2",
+			UserID:                2,
+		},
+		{
 			AuthProviderName:      "okta-auth-provider",
 			AuthProviderNamespace: "default",
-			Name:                  "Engineering",
+			HashedProviderUserID:  "okta-user-3",
+			UserID:                3,
+		},
+		{
+			AuthProviderName:      "entra-auth-provider",
+			AuthProviderNamespace: "other",
+			HashedProviderUserID:  "entra-user-4",
+			UserID:                4,
+		},
+		{
+			AuthProviderName:      "entra-auth-provider",
+			AuthProviderNamespace: "default",
+			HashedProviderUserID:  "entra-pending-user",
 		},
 	}
-	memberships := []types.GroupMemberships{
-		{
-			UserID:  1,
-			GroupID: "entra/engineering",
-		},
-		{
-			UserID:  1,
-			GroupID: "entra/security",
-		},
-		{
-			UserID:  2,
-			GroupID: "entra/security",
-		},
-		{
-			UserID:  3,
-			GroupID: "okta/engineering",
-		},
-		{
-			UserID:  4,
-			GroupID: "entra/uncached",
-		},
-		{
-			UserID:  5,
-			GroupID: "entra-other/engineering",
-		},
-	}
-	if err := c.db.WithContext(t.Context()).Create(&groups).Error; err != nil {
-		t.Fatal(err)
-	}
-	if err := c.db.WithContext(t.Context()).Create(&memberships).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Create(&identities).Error; err != nil {
 		t.Fatal(err)
 	}
 
-	userIDs, err := c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "entra/")
+	userIDs, err := c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "default", "entra-auth-provider")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []uint{1, 2, 4}; !reflect.DeepEqual(userIDs, want) {
+	if want := []uint{1, 2}; !reflect.DeepEqual(userIDs, want) {
 		t.Fatalf("user IDs = %#v, want %#v", userIDs, want)
 	}
 }

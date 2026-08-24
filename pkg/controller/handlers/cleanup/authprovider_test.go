@@ -13,9 +13,11 @@ import (
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -107,7 +109,7 @@ func TestRemoveGroupSubjects(t *testing.T) {
 	}
 }
 
-func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
+func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testing.T) {
 	const (
 		targetGroup    = "entra/engineering"
 		otherGroup     = "okta/engineering"
@@ -127,12 +129,6 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 			DeconfigurationGeneration: 2,
 		},
 	}
-	authProvider := &v1.AuthProvider{
-		Name:      "entra-auth-provider",
-		Namespace: namespace,
-	}
-	authProvider.Generation = 2
-
 	mixedSubjects := []clienttypes.Subject{
 		{
 			Type: clienttypes.SubjectTypeGroup,
@@ -228,10 +224,10 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 	baseClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.PublishedArtifact{}).
-		WithObjects(cleanupTask, authProvider, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
+		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
 		Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
-	gatewayClient := newAuthProviderCleanupGatewayClient(t)
+	gatewayClient, _ := newAuthProviderCleanupGatewayClient(t)
 	if _, err := gatewayClient.CreateGroupRoleAssignment(t.Context(), targetGroup, clienttypes.RoleAdmin, "target"); err != nil {
 		t.Fatal(err)
 	}
@@ -297,7 +293,7 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 	}
 }
 
-func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
+func TestAuthProviderCleanupCheckpointsIdentityUsersBeforeDeletingLateMembership(t *testing.T) {
 	task := &v1.AuthProviderCleanup{
 		Name:      "cleanup",
 		Namespace: "default",
@@ -311,8 +307,18 @@ func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
 		Namespace: "default",
 	}
 	authProvider.Generation = 2
-	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(task, authProvider).Build()
-	handler := NewAuthProviderCleanup(newAuthProviderCleanupGatewayClient(t))
+	baseClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(task, authProvider).Build()
+	storageClient := &generatedNameClient{WithWatch: baseClient}
+	gatewayClient, gatewayDB := newAuthProviderCleanupGatewayClient(t)
+	if err := gatewayDB.Create(&gatewaytypes.Identity{
+		AuthProviderName:      "entra-auth-provider",
+		AuthProviderNamespace: "default",
+		HashedProviderUserID:  "user-42",
+		UserID:                42,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	handler := NewAuthProviderCleanup(gatewayClient)
 	req := router.Request{
 		Client:    storageClient,
 		Object:    task,
@@ -333,8 +339,43 @@ func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
 	if !found {
 		t.Fatal("cleanup checkpoint was not saved")
 	}
-	if len(checkpoint.UserIDs) != 0 {
-		t.Fatalf("checkpoint = %#v, want empty user IDs", checkpoint)
+	if want := []uint{42}; !slices.Equal(checkpoint.UserIDs, want) {
+		t.Fatalf("checkpoint user IDs = %#v, want %#v", checkpoint.UserIDs, want)
+	}
+
+	if err := gatewayDB.Create(&gatewaytypes.GroupMemberships{
+		UserID:  42,
+		GroupID: "entra/late-membership",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	req.Object = got
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(task), &v1.AuthProviderCleanup{}); !apierrors.IsNotFound(err) {
+		t.Fatalf("cleanup task still exists: %v", err)
+	}
+	var membershipCount int64
+	if err := gatewayDB.Model(&gatewaytypes.GroupMemberships{}).Where("group_id = ?", "entra/late-membership").Count(&membershipCount).Error; err != nil {
+		t.Fatal(err)
+	}
+	if membershipCount != 0 {
+		t.Fatalf("late membership count = %d, want 0", membershipCount)
+	}
+	var roleChanges v1.UserRoleChangeList
+	if err := storageClient.List(t.Context(), &roleChanges); err != nil {
+		t.Fatal(err)
+	}
+	if len(roleChanges.Items) != 1 || roleChanges.Items[0].Spec.UserID != 42 {
+		t.Fatalf("user role changes = %#v, want one for user 42", roleChanges.Items)
+	}
+	var groupChanges v1.UserGroupChangeList
+	if err := storageClient.List(t.Context(), &groupChanges); err != nil {
+		t.Fatal(err)
+	}
+	if len(groupChanges.Items) != 1 || groupChanges.Items[0].Spec.UserID != 42 {
+		t.Fatalf("user group changes = %#v, want one for user 42", groupChanges.Items)
 	}
 }
 
@@ -375,7 +416,7 @@ func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
 		WithScheme(storagescheme.Scheme).
 		WithObjects(task, authProvider, accessRule).
 		Build()
-	gatewayClient := newAuthProviderCleanupGatewayClient(t)
+	gatewayClient, _ := newAuthProviderCleanupGatewayClient(t)
 	if _, err := gatewayClient.CreateGroupRoleAssignment(t.Context(), targetGroup, clienttypes.RoleAdmin, "target"); err != nil {
 		t.Fatal(err)
 	}
@@ -411,7 +452,7 @@ func (c *generatedNameClient) Create(ctx context.Context, obj kclient.Object, op
 	return c.WithWatch.Create(ctx, obj, opts...)
 }
 
-func newAuthProviderCleanupGatewayClient(t *testing.T) *gatewayclient.Client {
+func newAuthProviderCleanupGatewayClient(t *testing.T) (*gatewayclient.Client, *gorm.DB) {
 	t.Helper()
 	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
 	if err != nil {
@@ -430,7 +471,7 @@ func newAuthProviderCleanupGatewayClient(t *testing.T) *gatewayclient.Client {
 			t.Errorf("close gateway client: %v", err)
 		}
 	})
-	return client
+	return client, storageServices.DB.DB
 }
 
 func mustGet(t *testing.T, client kclient.Client, keyObject kclient.Object, result kclient.Object) {

@@ -520,18 +520,18 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 	return groupIDs, nil
 }
 
-// GetAuthProviderGroupCleanupUserIDs returns the users who belong to groups with the auth
-// provider's globally unique group ID prefix. The result is intended to be checkpointed by the
-// auth-provider cleanup controller before it starts deleting data.
-func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, groupIDPrefix string) ([]uint, error) {
+// GetAuthProviderGroupCleanupUserIDs returns all users with an identity from the auth provider.
+// This is a stable superset of the users with provider group memberships and is intended to be
+// checkpointed by the auth-provider cleanup controller before it starts deleting data.
+func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authProviderNamespace, authProviderName string) ([]uint, error) {
 	var userIDs []uint
 	if err := c.db.WithContext(ctx).
-		Model(&types.GroupMemberships{}).
+		Model(&types.Identity{}).
 		Distinct().
-		Where("group_id LIKE ?", groupIDPrefix+"%").
+		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
 		Order("user_id").
 		Pluck("user_id", &userIDs).Error; err != nil {
-		return nil, fmt.Errorf("failed to list users in groups with prefix %q: %w", groupIDPrefix, err)
+		return nil, fmt.Errorf("failed to list users for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
 	}
 
 	return userIDs, nil
