@@ -380,24 +380,20 @@
 			apiKeyFilterOptions.clear();
 			return;
 		}
-		Promise.all(
-			apiKeyIDBatches.map((apiKeyID) =>
-				UserService.listAuditLogFilterOptions('api_key_id', {
-					...allFilters,
-					api_key_id: apiKeyID,
-					offset: null,
-					signal: controller.signal
-				})
-			)
-		)
-			.then((responses) => {
-				apiKeyFilterOptions.clear();
-				for (const response of responses) rememberAPIKeyFilterOptions(response.options ?? []);
+		apiKeyFilterOptions.clear();
+		for (const apiKeyID of apiKeyIDBatches) {
+			UserService.listAuditLogFilterOptions('api_key_id', {
+				...allFilters,
+				api_key_id: apiKeyID,
+				offset: null,
+				signal: controller.signal
 			})
-			.catch((error) => {
-				if (!controller.signal.aborted)
-					console.error('Failed to fetch API key filter options:', error);
-			});
+				.then((response) => rememberAPIKeyFilterOptions(response.options ?? []))
+				.catch((error) => {
+					if (!controller.signal.aborted)
+						console.error('Failed to fetch API key filter options:', error);
+				});
+		}
 		return () => controller.abort();
 	});
 
