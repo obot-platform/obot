@@ -36,7 +36,7 @@ FROM ${ENTERPRISE_PROVIDERS_IMAGE} AS enterprise-providers
 FROM ${ENCRYPTION_BINS_IMAGE} AS encryption-bins
 
 FROM final-base AS final
-RUN apk add --no-cache bash tini procps curl kubectl jq
+RUN apk add --no-cache bash tini
 
 COPY aws-encryption.yaml /
 COPY azure-encryption.yaml /
