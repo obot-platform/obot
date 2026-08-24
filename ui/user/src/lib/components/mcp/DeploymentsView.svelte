@@ -56,7 +56,6 @@
 	} from '@lucide/svelte';
 	import { delay } from 'es-toolkit';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
-	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		usersMap?: Map<string, OrgUser>;
@@ -444,7 +443,7 @@
 				: Object.values(selected).filter(
 						(server) => server.needsUpdate && canTriggerUpdate(server)
 					);
-		const seen = new SvelteSet<string>();
+		const seen = new Set<string>();
 		return servers.flatMap((server) => {
 			if (!server.catalogEntryID || seen.has(server.catalogEntryID)) return [];
 			const entry = entriesMap[server.catalogEntryID];
