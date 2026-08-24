@@ -109,6 +109,7 @@ describe('MCP Deployments Page', () => {
 			await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toBeVisible();
 			await expect.element(page.getByCSS('strong').filter({ hasText: 'safe mode' })).toBeVisible();
 			await expect.element(page.getByCSS('dialog ul')).toHaveStyle('list-style-type: disc');
+			await expect.element(page.getByCSS('dialog ol')).toHaveStyle('list-style-type: decimal');
 			await expect
 				.element(page.getByRole('link', { name: 'Unsafe link' }))
 				.toHaveAttribute('href', '');

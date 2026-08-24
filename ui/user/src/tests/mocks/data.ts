@@ -601,7 +601,7 @@ export function createDeploymentsPageFixtures() {
 		env: [editableEnvField],
 		manifest: {
 			upgradeNote:
-				'## Before upgrading\n\nUse **safe mode**.\n\n- Review settings\n- Restart clients\n\n[Unsafe link](javascript:alert(1))\n\n<script>alert("unsafe")</script>'
+				'## Before upgrading\n\nUse **safe mode**.\n\n- Review settings\n- Restart clients\n\n1. Back up configuration\n2. Verify the upgrade\n\n[Unsafe link](javascript:alert(1))\n\n<script>alert("unsafe")</script>'
 		}
 	});
 	const entryEmptyUpgradeNote = createMCPCatalogEntry({
