@@ -258,15 +258,18 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update auth provider: %w", err)
 	}
 
-	if err := req.Create(&v1.AuthProviderCleanup{
-		GenerateName: system.AuthProviderCleanupPrefix,
-		Namespace:    authProvider.Namespace,
-		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName:          authProvider.Name,
-			DeconfigurationGeneration: authProvider.Generation,
-		},
-	}); err != nil {
-		return fmt.Errorf("failed to schedule auth provider cleanup: %w", err)
+	if authProvider.Spec.GroupIDPrefix != "" {
+		if err := req.Create(&v1.AuthProviderCleanup{
+			GenerateName: system.AuthProviderCleanupPrefix,
+			Namespace:    authProvider.Namespace,
+			Spec: v1.AuthProviderCleanupSpec{
+				AuthProviderName:          authProvider.Name,
+				DeconfigurationGeneration: authProvider.Generation,
+				GroupIDPrefix:             authProvider.Spec.GroupIDPrefix,
+			},
+		}); err != nil {
+			return fmt.Errorf("failed to schedule auth provider cleanup: %w", err)
+		}
 	}
 
 	// Wait for the controllers to process to ensure the API will return correct configuration status.

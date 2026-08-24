@@ -117,16 +117,13 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 		namespace      = "default"
 	)
 
-	checkpoint := `{"userIDs":[42]}`
 	cleanupTask := &v1.AuthProviderCleanup{
 		Name:      "cleanup",
 		Namespace: namespace,
-		Annotations: map[string]string{
-			authProviderCleanupCheckpointAnnotation: checkpoint,
-		},
 		Spec: v1.AuthProviderCleanupSpec{
 			AuthProviderName:          "entra-auth-provider",
 			DeconfigurationGeneration: 2,
+			GroupIDPrefix:             "entra/",
 		},
 	}
 	mixedSubjects := []clienttypes.Subject{
@@ -227,7 +224,15 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 		WithObjects(cleanupTask, accessRule, modelPolicy, skillRule, messagePolicy, hostedAgentRule, publishedArtifact).
 		Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
-	gatewayClient, _ := newAuthProviderCleanupGatewayClient(t)
+	gatewayClient, gatewayDB := newAuthProviderCleanupGatewayClient(t)
+	if err := gatewayDB.Create(&gatewaytypes.Identity{
+		AuthProviderName:      "entra-auth-provider",
+		AuthProviderNamespace: namespace,
+		HashedProviderUserID:  "user-42",
+		UserID:                42,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
 	if _, err := gatewayClient.CreateGroupRoleAssignment(t.Context(), targetGroup, clienttypes.RoleAdmin, "target"); err != nil {
 		t.Fatal(err)
 	}
@@ -243,6 +248,34 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 		Namespace: namespace,
 		Name:      cleanupTask.Name,
 	}
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	checkpointed := &v1.AuthProviderCleanup{}
+	mustGet(t, storageClient, cleanupTask, checkpointed)
+	checkpoint, err := authProviderCheckpoint(checkpointed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !checkpoint.DataDeleted || checkpoint.LastUserID != 0 {
+		t.Fatalf("checkpoint = %#v, want data deleted with no user cursor", checkpoint)
+	}
+
+	req.Object = checkpointed
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	checkpointed = &v1.AuthProviderCleanup{}
+	mustGet(t, storageClient, cleanupTask, checkpointed)
+	checkpoint, err = authProviderCheckpoint(checkpointed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.LastUserID != 42 {
+		t.Fatalf("last user ID = %d, want 42", checkpoint.LastUserID)
+	}
+
+	req.Object = checkpointed
 	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
 		t.Fatal(err)
 	}
@@ -293,13 +326,14 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 	}
 }
 
-func TestAuthProviderCleanupCheckpointsIdentityUsersBeforeDeletingLateMembership(t *testing.T) {
+func TestAuthProviderCleanupProcessesIdentityUsersInBoundedBatches(t *testing.T) {
 	task := &v1.AuthProviderCleanup{
 		Name:      "cleanup",
 		Namespace: "default",
 		Spec: v1.AuthProviderCleanupSpec{
 			AuthProviderName:          "entra-auth-provider",
 			DeconfigurationGeneration: 2,
+			GroupIDPrefix:             "entra/",
 		},
 	}
 	authProvider := &v1.AuthProvider{
@@ -310,12 +344,16 @@ func TestAuthProviderCleanupCheckpointsIdentityUsersBeforeDeletingLateMembership
 	baseClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(task, authProvider).Build()
 	storageClient := &generatedNameClient{WithWatch: baseClient}
 	gatewayClient, gatewayDB := newAuthProviderCleanupGatewayClient(t)
-	if err := gatewayDB.Create(&gatewaytypes.Identity{
-		AuthProviderName:      "entra-auth-provider",
-		AuthProviderNamespace: "default",
-		HashedProviderUserID:  "user-42",
-		UserID:                42,
-	}).Error; err != nil {
+	identities := make([]gatewaytypes.Identity, 0, authProviderCleanupBatchSize+1)
+	for userID := uint(1); userID <= authProviderCleanupBatchSize+1; userID++ {
+		identities = append(identities, gatewaytypes.Identity{
+			AuthProviderName:      "entra-auth-provider",
+			AuthProviderNamespace: "default",
+			HashedProviderUserID:  fmt.Sprintf("user-%d", userID),
+			UserID:                userID,
+		})
+	}
+	if err := gatewayDB.Create(&identities).Error; err != nil {
 		t.Fatal(err)
 	}
 	handler := NewAuthProviderCleanup(gatewayClient)
@@ -332,23 +370,59 @@ func TestAuthProviderCleanupCheckpointsIdentityUsersBeforeDeletingLateMembership
 	}
 	got := &v1.AuthProviderCleanup{}
 	mustGet(t, storageClient, task, got)
-	checkpoint, found, err := authProviderCheckpoint(got)
+	checkpoint, err := authProviderCheckpoint(got)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !found {
-		t.Fatal("cleanup checkpoint was not saved")
-	}
-	if want := []uint{42}; !slices.Equal(checkpoint.UserIDs, want) {
-		t.Fatalf("checkpoint user IDs = %#v, want %#v", checkpoint.UserIDs, want)
+	if !checkpoint.DataDeleted || checkpoint.LastUserID != 0 {
+		t.Fatalf("checkpoint = %#v, want data deleted with no user cursor", checkpoint)
 	}
 
-	if err := gatewayDB.Create(&gatewaytypes.GroupMemberships{
-		UserID:  42,
-		GroupID: "entra/late-membership",
-	}).Error; err != nil {
+	req.Object = got
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
 		t.Fatal(err)
 	}
+	got = &v1.AuthProviderCleanup{}
+	mustGet(t, storageClient, task, got)
+	checkpoint, err = authProviderCheckpoint(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.LastUserID != authProviderCleanupBatchSize {
+		t.Fatalf("last user ID = %d, want %d", checkpoint.LastUserID, authProviderCleanupBatchSize)
+	}
+	if len(got.Annotations[authProviderCleanupCheckpointAnnotation]) > 100 {
+		t.Fatalf("checkpoint annotation unexpectedly large: %d bytes", len(got.Annotations[authProviderCleanupCheckpointAnnotation]))
+	}
+	var roleChanges v1.UserRoleChangeList
+	if err := storageClient.List(t.Context(), &roleChanges); err != nil {
+		t.Fatal(err)
+	}
+	if len(roleChanges.Items) != authProviderCleanupBatchSize {
+		t.Fatalf("user role changes = %d, want %d", len(roleChanges.Items), authProviderCleanupBatchSize)
+	}
+	var groupChanges v1.UserGroupChangeList
+	if err := storageClient.List(t.Context(), &groupChanges); err != nil {
+		t.Fatal(err)
+	}
+	if len(groupChanges.Items) != authProviderCleanupBatchSize {
+		t.Fatalf("user group changes = %d, want %d", len(groupChanges.Items), authProviderCleanupBatchSize)
+	}
+
+	req.Object = got
+	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+		t.Fatal(err)
+	}
+	got = &v1.AuthProviderCleanup{}
+	mustGet(t, storageClient, task, got)
+	checkpoint, err = authProviderCheckpoint(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.LastUserID != authProviderCleanupBatchSize+1 {
+		t.Fatalf("last user ID = %d, want %d", checkpoint.LastUserID, authProviderCleanupBatchSize+1)
+	}
+
 	req.Object = got
 	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
 		t.Fatal(err)
@@ -356,26 +430,17 @@ func TestAuthProviderCleanupCheckpointsIdentityUsersBeforeDeletingLateMembership
 	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(task), &v1.AuthProviderCleanup{}); !apierrors.IsNotFound(err) {
 		t.Fatalf("cleanup task still exists: %v", err)
 	}
-	var membershipCount int64
-	if err := gatewayDB.Model(&gatewaytypes.GroupMemberships{}).Where("group_id = ?", "entra/late-membership").Count(&membershipCount).Error; err != nil {
-		t.Fatal(err)
-	}
-	if membershipCount != 0 {
-		t.Fatalf("late membership count = %d, want 0", membershipCount)
-	}
-	var roleChanges v1.UserRoleChangeList
 	if err := storageClient.List(t.Context(), &roleChanges); err != nil {
 		t.Fatal(err)
 	}
-	if len(roleChanges.Items) != 1 || roleChanges.Items[0].Spec.UserID != 42 {
-		t.Fatalf("user role changes = %#v, want one for user 42", roleChanges.Items)
+	if len(roleChanges.Items) != authProviderCleanupBatchSize+1 {
+		t.Fatalf("user role changes = %d, want %d", len(roleChanges.Items), authProviderCleanupBatchSize+1)
 	}
-	var groupChanges v1.UserGroupChangeList
 	if err := storageClient.List(t.Context(), &groupChanges); err != nil {
 		t.Fatal(err)
 	}
-	if len(groupChanges.Items) != 1 || groupChanges.Items[0].Spec.UserID != 42 {
-		t.Fatalf("user group changes = %#v, want one for user 42", groupChanges.Items)
+	if len(groupChanges.Items) != authProviderCleanupBatchSize+1 {
+		t.Fatalf("user group changes = %d, want %d", len(groupChanges.Items), authProviderCleanupBatchSize+1)
 	}
 }
 
@@ -391,6 +456,7 @@ func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
 		Spec: v1.AuthProviderCleanupSpec{
 			AuthProviderName:          "entra-auth-provider",
 			DeconfigurationGeneration: 2,
+			GroupIDPrefix:             "entra/",
 		},
 	}
 	authProvider := &v1.AuthProvider{

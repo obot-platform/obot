@@ -19,6 +19,7 @@ type AuthProviderCleanup struct {
 type AuthProviderCleanupSpec struct {
 	AuthProviderName          string `json:"authProviderName,omitempty"`
 	DeconfigurationGeneration int64  `json:"deconfigurationGeneration,omitempty"`
+	GroupIDPrefix             string `json:"groupIDPrefix,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

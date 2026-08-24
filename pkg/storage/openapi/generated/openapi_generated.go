@@ -2797,6 +2797,12 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderManifest(ref common.R
 							Format: "",
 						},
 					},
+					"groupIDPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"name"},
 			},
@@ -19235,6 +19241,12 @@ func schema_storage_apis_obotobotai_v1_AuthProviderCleanupSpec(ref common.Refere
 							Format: "int64",
 						},
 					},
+					"groupIDPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
@@ -19382,6 +19394,12 @@ func schema_storage_apis_obotobotai_v1_AuthProviderSpec(ref common.ReferenceCall
 						},
 					},
 					"postgresTablePrefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"groupIDPrefix": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",

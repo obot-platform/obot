@@ -52,12 +52,28 @@ func TestGetAuthProviderGroupCleanupUserIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	userIDs, err := c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "default", "entra-auth-provider")
+	userIDs, err := c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "default", "entra-auth-provider", 0, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []uint{1, 2}; !reflect.DeepEqual(userIDs, want) {
+	if want := []uint{1}; !reflect.DeepEqual(userIDs, want) {
 		t.Fatalf("user IDs = %#v, want %#v", userIDs, want)
+	}
+
+	userIDs, err = c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "default", "entra-auth-provider", userIDs[len(userIDs)-1], 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []uint{2}; !reflect.DeepEqual(userIDs, want) {
+		t.Fatalf("user IDs = %#v, want %#v", userIDs, want)
+	}
+
+	userIDs, err = c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "default", "entra-auth-provider", userIDs[len(userIDs)-1], 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(userIDs) != 0 {
+		t.Fatalf("user IDs = %#v, want no more results", userIDs)
 	}
 }
 

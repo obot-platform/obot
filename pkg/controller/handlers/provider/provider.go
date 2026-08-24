@@ -21,6 +21,7 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
+	"github.com/obot-platform/obot/pkg/auth"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -207,6 +208,10 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 	for _, a := range authProviderManifests {
 		if a.Manifest.Command == "" {
 			slog.Warn("Skipping auth provider with missing required fields", "name", a.Name, "command", a.Manifest.Command)
+			continue
+		}
+		if err := auth.ValidateGroupIDPrefix(a.Manifest.GroupIDPrefix); err != nil {
+			slog.Warn("Skipping auth provider with invalid group ID prefix", "name", a.Name, "groupIDPrefix", a.Manifest.GroupIDPrefix, "error", err)
 			continue
 		}
 

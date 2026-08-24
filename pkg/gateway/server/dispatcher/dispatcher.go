@@ -126,6 +126,15 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
 }
 
+// GroupIDPrefixForAuthProvider returns the group ID namespace declared by an auth provider.
+func (d *Dispatcher) GroupIDPrefixForAuthProvider(ctx context.Context, namespace, authProviderName string) (string, error) {
+	var authProvider v1.AuthProvider
+	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
+		return "", fmt.Errorf("failed to get provider: %w", err)
+	}
+	return authProvider.Spec.GroupIDPrefix, nil
+}
+
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
 	key := providerKeyForModelProvider(namespace, modelProviderName)
 
