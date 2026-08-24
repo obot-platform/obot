@@ -396,7 +396,7 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if err := db.Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.MCPAuditLog) auditLogWithAPIKey { return log }); err != nil {
+	if err := c.enrichMCPAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, 0, err
 	}
 	for i := range logs {
@@ -774,7 +774,7 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 		return nil, err
 	}
 	logs := []types.MCPAuditLog{log}
-	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.MCPAuditLog) auditLogWithAPIKey { return log }); err != nil {
+	if err := c.enrichMCPAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, err
 	}
 	log = logs[0]

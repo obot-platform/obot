@@ -20,16 +20,11 @@ type auditLogAPIKeyOptionRow struct {
 
 const auditLogAPIKeyLookupBatchSize = 1000
 
-type auditLogWithAPIKey interface {
-	AuditLogAPIKeyID() *uint
-	SetAuditLogAPIKeyRevoked(bool)
-}
-
-func enrichAuditLogAPIKeyRevocation[T any](ctx context.Context, c *Client, logs []T, asAuditLog func(*T) auditLogWithAPIKey) error {
+func (c *Client) enrichLLMAuditLogAPIKeyRevocation(ctx context.Context, logs []types.LLMAuditLog) error {
 	ids := make([]uint, 0, len(logs))
-	for i := range logs {
-		if id := asAuditLog(&logs[i]).AuditLogAPIKeyID(); id != nil {
-			ids = append(ids, *id)
+	for _, log := range logs {
+		if log.APIKeyID != nil {
+			ids = append(ids, *log.APIKeyID)
 		}
 	}
 	revoked, err := c.revokedAPIKeyIDs(ctx, ids)
@@ -37,10 +32,27 @@ func enrichAuditLogAPIKeyRevocation[T any](ctx context.Context, c *Client, logs 
 		return err
 	}
 	for i := range logs {
-		log := asAuditLog(&logs[i])
-		if id := log.AuditLogAPIKeyID(); id != nil {
-			_, isRevoked := revoked[*id]
-			log.SetAuditLogAPIKeyRevoked(isRevoked)
+		if logs[i].APIKeyID != nil {
+			_, logs[i].APIKeyRevoked = revoked[*logs[i].APIKeyID]
+		}
+	}
+	return nil
+}
+
+func (c *Client) enrichMCPAuditLogAPIKeyRevocation(ctx context.Context, logs []types.MCPAuditLog) error {
+	ids := make([]uint, 0, len(logs))
+	for _, log := range logs {
+		if log.APIKeyID != nil {
+			ids = append(ids, *log.APIKeyID)
+		}
+	}
+	revoked, err := c.revokedAPIKeyIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range logs {
+		if logs[i].APIKeyID != nil {
+			_, logs[i].APIKeyRevoked = revoked[*logs[i].APIKeyID]
 		}
 	}
 	return nil

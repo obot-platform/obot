@@ -39,16 +39,6 @@ type MCPAuditLog struct {
 	Encrypted                bool                              `json:"encrypted"`
 }
 
-// AuditLogAPIKeyID returns the API key associated with this audit event.
-func (a *MCPAuditLog) AuditLogAPIKeyID() *uint {
-	return a.APIKeyID
-}
-
-// SetAuditLogAPIKeyRevoked sets the API key's current revocation state.
-func (a *MCPAuditLog) SetAuditLogAPIKeyRevoked(revoked bool) {
-	a.APIKeyRevoked = revoked
-}
-
 type MCPAuditLogFields struct {
 	APIKey                    string                                `json:"apiKey,omitempty"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`

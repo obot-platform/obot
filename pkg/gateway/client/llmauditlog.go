@@ -128,7 +128,7 @@ func (c *Client) GetLLMAuditLogs(ctx context.Context, opts LLMAuditLogOptions) (
 	if err := db.Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.LLMAuditLog) auditLogWithAPIKey { return log }); err != nil {
+	if err := c.enrichLLMAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, 0, err
 	}
 	for i := range logs {
@@ -150,7 +150,7 @@ func (c *Client) GetLLMAuditLog(ctx context.Context, id string, withSensitiveFie
 		return nil, err
 	}
 	logs := []types.LLMAuditLog{log}
-	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.LLMAuditLog) auditLogWithAPIKey { return log }); err != nil {
+	if err := c.enrichLLMAuditLogAPIKeyRevocation(ctx, logs); err != nil {
 		return nil, err
 	}
 	log = logs[0]

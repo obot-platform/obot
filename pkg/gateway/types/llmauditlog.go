@@ -54,16 +54,6 @@ func (LLMAuditLog) TableName() string {
 	return "llm_audit_logs"
 }
 
-// AuditLogAPIKeyID returns the API key associated with this audit event.
-func (a *LLMAuditLog) AuditLogAPIKeyID() *uint {
-	return a.APIKeyID
-}
-
-// SetAuditLogAPIKeyRevoked sets the API key's current revocation state.
-func (a *LLMAuditLog) SetAuditLogAPIKeyRevoked(revoked bool) {
-	a.APIKeyRevoked = revoked
-}
-
 func ConvertLLMAuditLog(a LLMAuditLog) types2.LLMAuditLog {
 	return types2.LLMAuditLog{
 		ID:                        a.ID,
