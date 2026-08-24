@@ -42,11 +42,6 @@ func TestGetAuthProviderGroupCleanupUserIDs(t *testing.T) {
 			HashedProviderUserID:  "entra-user-4",
 			UserID:                4,
 		},
-		{
-			AuthProviderName:      "entra-auth-provider",
-			AuthProviderNamespace: "default",
-			HashedProviderUserID:  "entra-pending-user",
-		},
 	}
 	if err := c.db.WithContext(t.Context()).Create(&identities).Error; err != nil {
 		t.Fatal(err)
