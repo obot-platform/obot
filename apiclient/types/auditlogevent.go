@@ -102,8 +102,8 @@ type AuditLogActor struct {
 	ID        string            `json:"id,omitempty"`
 	// CredentialID records authentication context when the actor itself is a known user.
 	CredentialID string `json:"credentialID,omitempty"`
-	// APIKeyID identifies the API key represented by CredentialID without relying on its display value.
-	APIKeyID uint `json:"apiKeyID,omitempty"`
+	// APIKeyRevoked reports the current lifecycle state of the API key represented by CredentialID.
+	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty"`
 }
 
 // AuditLogAction describes what the actor attempted. Operation contains the protocol operation,

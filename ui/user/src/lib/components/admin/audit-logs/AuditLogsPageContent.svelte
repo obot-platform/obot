@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import {
-		batchAuditLogAPIKeyIDs,
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		getAuditLogAPIKeyFilterOptionLabel,
@@ -373,27 +372,21 @@
 
 	$effect(() => {
 		const controller = new AbortController();
-		const apiKeyIDBatches = batchAuditLogAPIKeyIDs(
-			remoteAuditLogs.map((auditLog) => auditLog.actor.apiKeyID)
-		);
-		if (apiKeyIDBatches.length === 0) {
+		if (!allFilters.api_key_id) {
 			apiKeyFilterOptions.clear();
 			return;
 		}
 		apiKeyFilterOptions.clear();
-		for (const apiKeyID of apiKeyIDBatches) {
-			UserService.listAuditLogFilterOptions('api_key_id', {
-				...allFilters,
-				api_key_id: apiKeyID,
-				offset: null,
-				signal: controller.signal
-			})
-				.then((response) => rememberAPIKeyFilterOptions(response.options ?? []))
-				.catch((error) => {
-					if (!controller.signal.aborted)
-						console.error('Failed to fetch API key filter options:', error);
-				});
-		}
+		UserService.listAuditLogFilterOptions('api_key_id', {
+			...allFilters,
+			offset: null,
+			signal: controller.signal
+		})
+			.then((response) => rememberAPIKeyFilterOptions(response.options ?? []))
+			.catch((error) => {
+				if (!controller.signal.aborted)
+					console.error('Failed to fetch API key filter options:', error);
+			});
 		return () => controller.abort();
 	});
 
@@ -775,8 +768,6 @@
 			}}
 			getUserDisplayName={(userId: string, hasConflict?: () => boolean) =>
 				getUserDisplayName(users, userId, hasConflict)}
-			isCredentialRevoked={(apiKeyID: number | undefined) =>
-				apiKeyID !== undefined && apiKeyFilterOptions.get(apiKeyID.toString())?.revoked === true}
 			{emptyContent}
 		/>
 	{:else if remoteAuditLogs.length > 0}

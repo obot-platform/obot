@@ -103,6 +103,64 @@ func TestAuditLogAPIKeyFilterOptions(t *testing.T) {
 		t.Fatalf("save encrypted user: %v", err)
 	}
 
+	mcpLogs, _, err := c.GetMCPAuditLogs(ctx, MCPAuditLogOptions{
+		SourceTypes: []apitypes.AuditLogSourceType{apitypes.AuditLogSourceTypeMCP},
+	})
+	if err != nil {
+		t.Fatalf("get enriched MCP audit logs: %v", err)
+	}
+	var revokedMCPLogID uint
+	for _, log := range mcpLogs {
+		if log.APIKeyID == nil {
+			continue
+		}
+		wantRevoked := *log.APIKeyID == duplicateName.ID
+		if log.APIKeyRevoked != wantRevoked {
+			t.Fatalf("MCP key %d revoked = %v, want %v", *log.APIKeyID, log.APIKeyRevoked, wantRevoked)
+		}
+		if wantRevoked {
+			revokedMCPLogID = log.ID
+		}
+	}
+	if revokedMCPLogID == 0 {
+		t.Fatal("revoked MCP audit log not found")
+	}
+	mcpDetail, err := c.GetMCPAuditLog(ctx, revokedMCPLogID, false)
+	if err != nil {
+		t.Fatalf("get enriched MCP audit log detail: %v", err)
+	}
+	if !mcpDetail.APIKeyRevoked {
+		t.Fatal("revoked MCP audit log detail was not enriched")
+	}
+
+	llmLogs, _, err := c.GetLLMAuditLogs(ctx, LLMAuditLogOptions{})
+	if err != nil {
+		t.Fatalf("get enriched LLM audit logs: %v", err)
+	}
+	var revokedLLMLogID string
+	for _, log := range llmLogs {
+		if log.APIKeyID == nil {
+			continue
+		}
+		wantRevoked := *log.APIKeyID == duplicateName.ID
+		if log.APIKeyRevoked != wantRevoked {
+			t.Fatalf("LLM key %d revoked = %v, want %v", *log.APIKeyID, log.APIKeyRevoked, wantRevoked)
+		}
+		if wantRevoked {
+			revokedLLMLogID = log.ID
+		}
+	}
+	if revokedLLMLogID == "" {
+		t.Fatal("revoked LLM audit log not found")
+	}
+	llmDetail, err := c.GetLLMAuditLog(ctx, revokedLLMLogID, false)
+	if err != nil {
+		t.Fatalf("get enriched LLM audit log detail: %v", err)
+	}
+	if !llmDetail.APIKeyRevoked {
+		t.Fatal("revoked LLM audit log detail was not enriched")
+	}
+
 	assertOptions := func(t *testing.T, options []apitypes.AuditLogAPIKeyFilterOption) {
 		t.Helper()
 		if len(options) != 4 {

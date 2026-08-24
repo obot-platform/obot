@@ -606,6 +606,7 @@ export interface CommunityLicenseEnrollment {
 export interface LLMAuditLog {
 	apiKeyID?: number;
 	apiKeyName?: string;
+	apiKeyRevoked?: boolean;
 	clientIP: string;
 	clientSessionID: string;
 	userAgent: string;

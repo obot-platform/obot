@@ -18,6 +18,63 @@ type auditLogAPIKeyOptionRow struct {
 	Revoked    bool
 }
 
+const auditLogAPIKeyLookupBatchSize = 1000
+
+type auditLogWithAPIKey interface {
+	AuditLogAPIKeyID() *uint
+	SetAuditLogAPIKeyRevoked(bool)
+}
+
+func enrichAuditLogAPIKeyRevocation[T any](ctx context.Context, c *Client, logs []T, asAuditLog func(*T) auditLogWithAPIKey) error {
+	ids := make([]uint, 0, len(logs))
+	for i := range logs {
+		if id := asAuditLog(&logs[i]).AuditLogAPIKeyID(); id != nil {
+			ids = append(ids, *id)
+		}
+	}
+	revoked, err := c.revokedAPIKeyIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for i := range logs {
+		log := asAuditLog(&logs[i])
+		if id := log.AuditLogAPIKeyID(); id != nil {
+			_, isRevoked := revoked[*id]
+			log.SetAuditLogAPIKeyRevoked(isRevoked)
+		}
+	}
+	return nil
+}
+
+func (c *Client) revokedAPIKeyIDs(ctx context.Context, ids []uint) (map[uint]struct{}, error) {
+	unique := make(map[uint]struct{}, len(ids))
+	for _, id := range ids {
+		if id != 0 {
+			unique[id] = struct{}{}
+		}
+	}
+	uniqueIDs := make([]uint, 0, len(unique))
+	for id := range unique {
+		uniqueIDs = append(uniqueIDs, id)
+	}
+
+	revoked := make(map[uint]struct{})
+	for offset := 0; offset < len(uniqueIDs); offset += auditLogAPIKeyLookupBatchSize {
+		end := min(offset+auditLogAPIKeyLookupBatchSize, len(uniqueIDs))
+		var batch []uint
+		if err := c.db.WithContext(ctx).
+			Model(&types.APIKey{}).
+			Where("id IN ? AND revoked_at IS NOT NULL", uniqueIDs[offset:end]).
+			Pluck("id", &batch).Error; err != nil {
+			return nil, err
+		}
+		for _, id := range batch {
+			revoked[id] = struct{}{}
+		}
+	}
+	return revoked, nil
+}
+
 // GetMCPAuditLogAPIKeyFilterOptions returns the API keys present in the
 // currently filtered and authorized MCP and local-agent audit-log result set.
 func (c *Client) GetMCPAuditLogAPIKeyFilterOptions(ctx context.Context, opts MCPAuditLogOptions) ([]apitypes.AuditLogAPIKeyFilterOption, error) {

@@ -3,7 +3,6 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import {
-		batchAuditLogAPIKeyIDs,
 		buildPillSearchParamFilters,
 		buildSearchParamFiltersArray,
 		getAuditLogAPIKeyFilterOptionLabel,
@@ -196,26 +195,18 @@
 
 	$effect(() => {
 		const controller = new AbortController();
-		const apiKeyIDBatches = batchAuditLogAPIKeyIDs(
-			(response?.items ?? []).map((auditLog) => auditLog.apiKeyID)
-		);
-		if (apiKeyIDBatches.length === 0) {
+		if (!filters.api_key_id) {
 			apiKeyFilterOptions = {};
 			return;
 		}
-		Promise.all(
-			apiKeyIDBatches.map((apiKeyID) =>
-				AdminService.listLLMAuditLogFilterOptions('api_key_id', {
-					...filters,
-					api_key_id: apiKeyID,
-					offset: null,
-					signal: controller.signal
-				})
-			)
-		)
-			.then((results) => {
+		AdminService.listLLMAuditLogFilterOptions('api_key_id', {
+			...filters,
+			offset: null,
+			signal: controller.signal
+		})
+			.then((result) => {
 				apiKeyFilterOptions = {};
-				for (const result of results) rememberAPIKeyFilterOptions(result.options ?? []);
+				rememberAPIKeyFilterOptions(result.options ?? []);
 			})
 			.catch((error) => {
 				if (!isAbortError(error) && !controller.signal.aborted) {
@@ -466,8 +457,6 @@
 			rightSidebar?.showPopover();
 		}}
 		getUserDisplayName={(id: string) => getUserDisplayName(usersMap, id)}
-		isAPIKeyRevoked={(apiKeyID: number | undefined) =>
-			apiKeyID !== undefined && apiKeyFilterOptions[apiKeyID]?.revoked === true}
 	/>
 {:else}
 	<div class="flex flex-col items-center justify-center gap-4 px-6 py-16 text-center w-full">

@@ -39,7 +39,7 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	log := gatewaytypes.MCPAuditLog{
 		ID: 7, CreatedAt: created, SourceType: api.AuditLogSourceTypeMCP,
 		UserID: "user-1", APIKeyID: &apiKeyID, ClientIP: "127.0.0.1",
-		APIKeyName: "CLI token",
+		APIKeyName: "CLI token", APIKeyRevoked: true,
 		MCPFields: &gatewaytypes.MCPAuditLogFields{
 			APIKey: "ok1-user-1-17-super-secret", MCPID: "mcp-1", MCPServerDisplayName: "GitHub",
 			CallType: "tools/call", CallIdentifier: "search", ResponseStatus: 200,
@@ -52,7 +52,7 @@ func TestPresentMCPNormalizesSummaryAndDetails(t *testing.T) {
 	if summary.Details != nil || summary.EventType != api.AuditLogEventTypeMCPCall {
 		t.Fatalf("unexpected summary: %#v", summary)
 	}
-	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "CLI token (ok1-user-1-17-*****)" || summary.Actor.APIKeyID != apiKeyID {
+	if summary.Actor.ActorType != api.AuditLogActorTypeUser || summary.Actor.ID != "user-1" || summary.Actor.CredentialID != "CLI token (ok1-user-1-17-*****)" || !summary.Actor.APIKeyRevoked {
 		t.Fatalf("unexpected actor: %#v", summary.Actor)
 	}
 	if summary.Target.TargetType != api.AuditLogTargetTypeMCPTool || summary.Target.Parent == nil {
@@ -104,15 +104,16 @@ func TestPresentMCPDoesNotDeriveAPIKeyMaskFromHostedAgentActor(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			log := gatewaytypes.MCPAuditLog{
-				SourceType: api.AuditLogSourceTypeMCP,
-				UserID:     "hosted-agent:hai1abc",
-				APIKeyID:   &apiKeyID,
-				APIKeyName: test.apiKeyName,
-				MCPFields:  &gatewaytypes.MCPAuditLogFields{},
+				SourceType:    api.AuditLogSourceTypeMCP,
+				UserID:        "hosted-agent:hai1abc",
+				APIKeyID:      &apiKeyID,
+				APIKeyName:    test.apiKeyName,
+				APIKeyRevoked: true,
+				MCPFields:     &gatewaytypes.MCPAuditLogFields{},
 			}
 
 			actor := Present(log, PresentOptions{}).Actor
-			if actor.CredentialID != test.apiKeyName || actor.APIKeyID != apiKeyID {
+			if actor.CredentialID != test.apiKeyName || !actor.APIKeyRevoked {
 				t.Fatalf("credential display = %q, want %q", actor.CredentialID, test.apiKeyName)
 			}
 		})
@@ -151,10 +152,11 @@ func TestPresentLocalAgentIdentityTargetAndTimestamp(t *testing.T) {
 func TestPresentLocalAgentIncludesAPIKeyCredential(t *testing.T) {
 	apiKeyID := uint(17)
 	log := gatewaytypes.MCPAuditLog{
-		SourceType: api.AuditLogSourceTypeLocalAgentToolCall,
-		UserID:     "42",
-		APIKeyID:   &apiKeyID,
-		APIKeyName: "Local CLI",
+		SourceType:    api.AuditLogSourceTypeLocalAgentToolCall,
+		UserID:        "42",
+		APIKeyID:      &apiKeyID,
+		APIKeyName:    "Local CLI",
+		APIKeyRevoked: true,
 		LocalAgentToolCallFields: &gatewaytypes.LocalAgentToolCallAuditLogFields{
 			ActorType: api.AuditLogActorTypeUser,
 			ActorID:   "42",
@@ -162,7 +164,7 @@ func TestPresentLocalAgentIncludesAPIKeyCredential(t *testing.T) {
 	}
 
 	actor := Present(log, PresentOptions{}).Actor
-	if actor.CredentialID != "Local CLI (ok1-42-17-*****)" || actor.APIKeyID != apiKeyID {
+	if actor.CredentialID != "Local CLI (ok1-42-17-*****)" || !actor.APIKeyRevoked {
 		t.Fatalf("unexpected API-key credential: %#v", actor)
 	}
 }

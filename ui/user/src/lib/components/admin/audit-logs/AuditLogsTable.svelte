@@ -14,16 +14,9 @@
 		onSelectRow?: (auditLog: AuditLogEvent) => void;
 		emptyContent?: Snippet;
 		getUserDisplayName: (userId: string, hasConflict?: () => boolean) => string;
-		isCredentialRevoked: (apiKeyID: number | undefined) => boolean;
 	}
 
-	let {
-		data = [],
-		onSelectRow,
-		emptyContent,
-		getUserDisplayName,
-		isCredentialRevoked
-	}: Props = $props();
+	let { data = [], onSelectRow, emptyContent, getUserDisplayName }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -268,7 +261,7 @@
 					{@const actor = actorLabel(d.actor)}
 					{@const credential = d.actor.credentialID}
 					{@const credentialLabel = credential
-						? formatAuditLogCredentialLabel(credential, isCredentialRevoked(d.actor.apiKeyID))
+						? formatAuditLogCredentialLabel(credential, d.actor.apiKeyRevoked === true)
 						: undefined}
 
 					<tr

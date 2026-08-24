@@ -26,6 +26,9 @@ type MCPAuditLog struct {
 	SourceType types2.AuditLogSourceType `json:"sourceType" gorm:"index;default:mcp"`
 	UserID     string                    `json:"userID" gorm:"index"`
 	APIKeyID   *uint                     `json:"apiKeyID,omitempty" gorm:"index:idx_mcp_audit_api_key_created,priority:1"`
+	// APIKeyRevoked is current lifecycle metadata populated when audit logs are read.
+	// It is not persisted as part of the historical event snapshot.
+	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty" gorm:"-"`
 	// APIKeyName is the event-time display value. Unnamed keys snapshot their
 	// non-secret masked identifier instead of requiring an API-key table join.
 	APIKeyName string `json:"apiKeyName,omitempty"`
@@ -34,6 +37,16 @@ type MCPAuditLog struct {
 	MCPFields                *MCPAuditLogFields                `json:"mcpFields,omitempty" gorm:"embedded"`
 	LocalAgentToolCallFields *LocalAgentToolCallAuditLogFields `json:"localAgentToolCallFields,omitempty" gorm:"embedded"`
 	Encrypted                bool                              `json:"encrypted"`
+}
+
+// AuditLogAPIKeyID returns the API key associated with this audit event.
+func (a *MCPAuditLog) AuditLogAPIKeyID() *uint {
+	return a.APIKeyID
+}
+
+// SetAuditLogAPIKeyRevoked sets the API key's current revocation state.
+func (a *MCPAuditLog) SetAuditLogAPIKeyRevoked(revoked bool) {
+	a.APIKeyRevoked = revoked
 }
 
 type MCPAuditLogFields struct {

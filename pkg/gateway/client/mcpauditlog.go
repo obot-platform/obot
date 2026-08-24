@@ -396,6 +396,9 @@ func (c *Client) GetMCPAuditLogs(ctx context.Context, opts MCPAuditLogOptions) (
 	if err := db.Find(&logs).Error; err != nil {
 		return nil, 0, err
 	}
+	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.MCPAuditLog) auditLogWithAPIKey { return log }); err != nil {
+		return nil, 0, err
+	}
 	for i := range logs {
 		if err := c.prepareAuditLogPayload(ctx, &logs[i], opts.WithRequestAndResponse); err != nil {
 			return nil, 0, err
@@ -770,6 +773,11 @@ func (c *Client) GetMCPAuditLog(ctx context.Context, id uint, withRequestAndResp
 	if err := db.Where("id = ?", id).First(&log).Error; err != nil {
 		return nil, err
 	}
+	logs := []types.MCPAuditLog{log}
+	if err := enrichAuditLogAPIKeyRevocation(ctx, c, logs, func(log *types.MCPAuditLog) auditLogWithAPIKey { return log }); err != nil {
+		return nil, err
+	}
+	log = logs[0]
 	if log.SourceType == types2.AuditLogSourceTypeLocalAgentToolCall {
 		log.MCPFields = nil
 	} else {

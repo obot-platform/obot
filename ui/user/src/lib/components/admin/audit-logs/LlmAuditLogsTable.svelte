@@ -16,10 +16,9 @@
 	interface Props {
 		onSelectRow?: (auditLog: LLMAuditLog) => void;
 		getUserDisplayName: (userID: string) => string;
-		isAPIKeyRevoked: (apiKeyID: number | undefined) => boolean;
 	}
 
-	let { onSelectRow, getUserDisplayName, isAPIKeyRevoked }: Props = $props();
+	let { onSelectRow, getUserDisplayName }: Props = $props();
 
 	let startX = 0;
 	let startWidth = 0;
@@ -214,7 +213,7 @@
 					)}
 					{@const apiKeyLabel = formatAuditLogCredentialLabel(
 						apiKey,
-						apiKey ? isAPIKeyRevoked(d.apiKeyID) : false
+						apiKey ? d.apiKeyRevoked === true : false
 					)}
 					<tr
 						class={twMerge(

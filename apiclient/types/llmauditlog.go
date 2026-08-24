@@ -11,6 +11,8 @@ type LLMAuditLog struct {
 	Duration  int64  `json:"duration"`
 	UserID    string `json:"userID"`
 	APIKeyID  *uint  `json:"apiKeyID,omitempty"`
+	// APIKeyRevoked reports the API key's current lifecycle state.
+	APIKeyRevoked bool `json:"apiKeyRevoked,omitempty"`
 	// APIKeyName is the event-time display value and is a masked identifier for unnamed keys.
 	APIKeyName                string          `json:"apiKeyName,omitempty"`
 	ModelProvider             string          `json:"modelProvider"`

@@ -209,10 +209,10 @@ export interface AuditLogEvent {
 	actor: {
 		actorType: AuditLogActorType;
 		id?: string;
-		/** Stable identifier for the API key represented by credentialID. */
-		apiKeyID?: number;
 		/** Redacted authentication credential identifier when the actor is a known user. */
 		credentialID?: string;
+		/** Current lifecycle state of the API key represented by credentialID. */
+		apiKeyRevoked?: boolean;
 	};
 	action: { operation: string; name?: string; kind?: string };
 	target: AuditLogTargetRef & { parent?: AuditLogTargetRef };

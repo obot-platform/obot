@@ -70,7 +70,7 @@ func presentMCP(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, opts Pre
 	event.EventType = api.AuditLogEventTypeMCPCall
 	// MCPFields.APIKey is a legacy field that may contain the bearer token. Only expose the
 	// event-time, non-secret display snapshot through the normalized audit-log API.
-	event.Actor = mcpActor(log.UserID, apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName), apiKeyID(log.APIKeyID))
+	event.Actor = mcpActor(log.UserID, apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName), log.APIKeyRevoked)
 	event.Action = api.AuditLogAction{
 		Operation: mcp.CallType,
 		Name:      mcp.CallIdentifier,
@@ -145,27 +145,20 @@ func apiKeyDisplayName(userID string, apiKeyID *uint, name string) string {
 	return fmt.Sprintf("%s (%s)", name, maskedKey)
 }
 
-func apiKeyID(id *uint) uint {
-	if id == nil {
-		return 0
-	}
-	return *id
-}
-
-func mcpActor(userID, credentialID string, credentialAPIKeyID uint) api.AuditLogActor {
+func mcpActor(userID, credentialID string, apiKeyRevoked bool) api.AuditLogActor {
 	if userID != "" {
 		return api.AuditLogActor{
-			ActorType:    api.AuditLogActorTypeUser,
-			ID:           userID,
-			CredentialID: credentialID,
-			APIKeyID:     credentialAPIKeyID,
+			ActorType:     api.AuditLogActorTypeUser,
+			ID:            userID,
+			CredentialID:  credentialID,
+			APIKeyRevoked: apiKeyRevoked,
 		}
 	}
 	if credentialID != "" {
 		return api.AuditLogActor{
-			ActorType: api.AuditLogActorTypeCredential,
-			ID:        credentialID,
-			APIKeyID:  credentialAPIKeyID,
+			ActorType:     api.AuditLogActorTypeCredential,
+			ID:            credentialID,
+			APIKeyRevoked: apiKeyRevoked,
 		}
 	}
 	return api.AuditLogActor{ActorType: api.AuditLogActorTypeUnknown}
@@ -214,10 +207,10 @@ func presentLocalAgent(event *api.AuditLogEvent, log gatewaytypes.MCPAuditLog, o
 	event.Timestamp.Source = api.AuditLogTimestampSourceClientReported
 	event.Timestamp.OccurredAt = *api.NewTime(local.OccurredAt)
 	event.Actor = api.AuditLogActor{
-		ActorType:    local.ActorType,
-		ID:           local.ActorID,
-		CredentialID: apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName),
-		APIKeyID:     apiKeyID(log.APIKeyID),
+		ActorType:     local.ActorType,
+		ID:            local.ActorID,
+		CredentialID:  apiKeyDisplayName(log.UserID, log.APIKeyID, log.APIKeyName),
+		APIKeyRevoked: log.APIKeyRevoked,
 	}
 	event.Action = api.AuditLogAction{
 		Operation: "tools/call",
