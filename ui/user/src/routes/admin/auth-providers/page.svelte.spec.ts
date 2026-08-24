@@ -160,9 +160,12 @@ describe('Auth Providers Page', () => {
 				.toBeVisible();
 			await expect
 				.element(
-					page.getByText(/Get permanent, free access to additional authentication providers/, {
-						exact: false
-					})
+					page.getByText(
+						/Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter/,
+						{
+							exact: false
+						}
+					)
 				)
 				.toBeVisible();
 			await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
