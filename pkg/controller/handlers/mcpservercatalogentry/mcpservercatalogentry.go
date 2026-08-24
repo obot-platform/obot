@@ -191,6 +191,10 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 				component.Manifest.ServerUserType = componentEntry.Spec.Manifest.ServerUserType
 			}
 
+			// UpgradeNote is informational metadata and should not affect configuration drift.
+			component.Manifest.UpgradeNote = ""
+			componentEntry.Spec.Manifest.UpgradeNote = ""
+
 			var (
 				snapshotHash = utils.Digest(component.Manifest)
 				currentHash  = utils.Digest(componentEntry.Spec.Manifest)
