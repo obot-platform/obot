@@ -12,6 +12,7 @@ type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
  * - `entryKey`: identifies an entry within its catalog source, not server configuration
  * - `repoURL`: tracks the source repository, not server configuration
  * - `serverUserType`: exists only on catalog entry manifests
+ * - `upgradeNote`: informational catalog metadata shown before an upgrade
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
@@ -37,6 +38,7 @@ export function stripManifestMetadata<T>(
 		delete m.entryKey;
 		delete m.repoURL;
 		delete m.serverUserType;
+		delete m.upgradeNote;
 		if (m.remoteConfig) {
 			delete m.remoteConfig.fixedURL;
 			delete m.remoteConfig.url;
