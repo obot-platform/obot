@@ -287,7 +287,7 @@
 				}}
 				onclick={(e) => handleSelect(d.data, e)}
 			>
-				<div class="text-sm font-light line-clamp-2">
+				<div class="text-sm font-light">
 					<div class="flex items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
@@ -318,7 +318,7 @@
 							{/if}
 						</div>
 					</div>
-					<p class="text-xs text-muted-content min-h-8 mt-2">
+					<p class="text-xs text-muted-content min-h-8 mt-2 line-clamp-2">
 						{stripMarkdownToText(d.data.manifest.description ?? '')}
 					</p>
 				</div>
