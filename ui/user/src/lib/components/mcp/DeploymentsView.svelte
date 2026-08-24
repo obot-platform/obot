@@ -443,6 +443,7 @@
 				: Object.values(selected).filter(
 						(server) => server.needsUpdate && canTriggerUpdate(server)
 					);
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local synchronous deduplication does not need reactive state
 		const seen = new Set<string>();
 		return servers.flatMap((server) => {
 			if (!server.catalogEntryID || seen.has(server.catalogEntryID)) return [];
