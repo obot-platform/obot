@@ -31,12 +31,6 @@ type Agent interface {
 	Detect(ctx context.Context) DetectionResult
 }
 
-type DirectInstaller interface {
-	Agent
-	InstallBootstrap(ctx context.Context, home string) (InstallResult, error)
-	InstallSkill(ctx context.Context, home string, skill SkillArchive) (InstallResult, error)
-}
-
 type SetupTarget interface {
 	ID() string
 	DisplayName() string

@@ -52,11 +52,6 @@ type Violation struct {
 	Message              string   `json:"message"`
 }
 
-type ProviderMeta struct {
-	RequiredEntitlements []string                               `json:"requiredEntitlements"`
-	EnvVars              []types.ProviderConfigurationParameter `json:"envVars"`
-}
-
 type ProviderEntitlementGate struct {
 	licenseProvider *Provider
 	client          kclient.Client

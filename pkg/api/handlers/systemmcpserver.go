@@ -249,7 +249,7 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 	}
 
 	// Transform to ServerConfig
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -361,7 +361,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 	}
 
 	// Transform to ServerConfig
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -395,7 +395,7 @@ func (h *SystemMCPServerHandler) GetTools(req api.Context) error {
 	}
 
 	// Transform to ServerConfig
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -448,7 +448,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 	}
 
 	// Transform to ServerConfig
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -543,14 +543,15 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 	return result
 }
 
-func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, []string, error) {
+func systemServerToServerConfig(req api.Context, server v1.SystemMCPServer) (mcp.ServerConfig, error) {
 	credEnv, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, server)
 	if err != nil {
-		return mcp.ServerConfig{}, nil, err
+		return mcp.ServerConfig{}, err
 	}
 
 	baseURL := strings.TrimSuffix(req.APIBaseURL, "/api")
 	audiences := server.ValidConnectURLs(baseURL)
 
-	return mcp.SystemServerToServerConfig(server, audiences, req.User.GetUID(), credEnv)
+	config, _, err := mcp.SystemServerToServerConfig(server, audiences, req.User.GetUID(), credEnv)
+	return config, err
 }

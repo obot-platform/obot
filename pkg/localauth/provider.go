@@ -306,12 +306,6 @@ func (p *Provider) getUserInfo(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// EmailDomainAllowed reports whether the given email is allowed by the provider's configured
-// email domain restriction. An unconfigured provider allows nothing.
-func (p *Provider) EmailDomainAllowed(ctx context.Context, email string) (bool, error) {
-	return p.emailDomainAllowed(ctx, client.NormalizeEmail(email))
-}
-
 func (p *Provider) emailDomainAllowed(ctx context.Context, email string) (bool, error) {
 	cred, err := p.gatewayClient.RevealCredential(ctx, []string{ProviderName, system.GenericAuthProviderCredentialContext}, ProviderName)
 	if err != nil {

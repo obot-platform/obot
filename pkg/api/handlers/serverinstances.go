@@ -267,7 +267,7 @@ func (h *ServerInstancesHandler) RevealConfig(req api.Context) error {
 }
 
 func ConvertMCPServerInstance(instance v1.MCPServerInstance, credEnv map[string]string, serverURL, slug string) types.MCPServerInstance {
-	_, _, missingHeaders := mcpServerInstanceHeaders(instance, credEnv)
+	missingHeaders := mcpServerInstanceMissingHeaders(instance, credEnv)
 
 	return types.MCPServerInstance{
 		Metadata:                MetadataFrom(&instance),
@@ -299,31 +299,21 @@ func MCPServerInstanceCredentialContext(instance v1.MCPServerInstance) string {
 	return fmt.Sprintf("%s-%s", instance.Spec.UserID, instance.Name)
 }
 
-func mcpServerInstanceHeaders(instance v1.MCPServerInstance, credEnv map[string]string) ([]string, []string, []string) {
+func mcpServerInstanceMissingHeaders(instance v1.MCPServerInstance, credEnv map[string]string) []string {
 	if instance.Spec.MultiUserConfig == nil {
-		return nil, nil, nil
+		return nil
 	}
 
-	var headerNames, headerValues, missingHeaders []string
+	var missingHeaders []string
 
 	for _, header := range instance.Spec.MultiUserConfig.UserDefinedHeaders {
 		val := credEnv[header.Key]
-		if val != "" && mcp.ConfigurationOptionValueValid(header, credEnv) {
-			headerNames = append(headerNames, header.Key)
-			headerValues = append(headerValues, applyMCPServerInstanceHeaderPrefix(val, header.Prefix))
-		} else if header.Required || val != "" {
+		if (val == "" || !mcp.ConfigurationOptionValueValid(header, credEnv)) && (header.Required || val != "") {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
 
-	return headerNames, headerValues, missingHeaders
-}
-
-func applyMCPServerInstanceHeaderPrefix(value, prefix string) string {
-	if value == "" || strings.HasPrefix(value, prefix) {
-		return value
-	}
-	return prefix + value
+	return missingHeaders
 }
 
 func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) error {

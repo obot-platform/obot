@@ -32,8 +32,6 @@ const (
 	tokenExpiration = 10 * time.Minute
 	obotErrorSource = "Obot"
 	obotErrorPrefix = obotErrorSource + ": "
-
-	ErrUnsupportedGrantType = ErrorCode("unsupported_grant_type")
 )
 
 func (h *handler) token(req api.Context) (err error) {
@@ -49,18 +47,18 @@ func (h *handler) token(req api.Context) (err error) {
 			c, err := base64.StdEncoding.DecodeString(creds)
 			if err != nil {
 				slog.Info("Denied OAuth token request due to invalid basic auth encoding")
-				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
+				return newInvalidClientErr("invalid client credentials")
 			}
 
 			idx := bytes.LastIndex(c, []byte{':'})
 			if idx == -1 {
 				slog.Info("Denied OAuth token request due to malformed basic auth credentials")
-				return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
+				return newInvalidClientErr("invalid client credentials")
 			}
 
 			clientID, clientSecret = string(c[:idx]), string(c[idx+1:])
 			if clientID == "" {
-				return newInvalidClientErr(http.StatusUnauthorized, "client_id is required")
+				return newInvalidClientErr("client_id is required")
 			}
 
 			clientID, err = url.QueryUnescape(clientID)
@@ -76,13 +74,13 @@ func (h *handler) token(req api.Context) (err error) {
 		var err error
 		clientID, err = clientIDFromClientAssertion(req.Form)
 		if err != nil {
-			return newInvalidClientErr(http.StatusUnauthorized, err.Error())
+			return newInvalidClientErr(err.Error())
 		}
 	}
 
 	if clientID == "" {
 		slog.Info("Denied OAuth token request due to missing client credentials")
-		return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
+		return newInvalidClientErr("invalid client credentials")
 	}
 
 	client, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
@@ -100,12 +98,12 @@ func (h *handler) token(req api.Context) (err error) {
 	case "client_secret_basic", "client_secret_post":
 		if bcrypt.CompareHashAndPassword(client.Spec.ClientSecretHash, []byte(clientSecret)) != nil {
 			slog.Info("Denied OAuth token request due to invalid client secret", "clientNamespace", client.Namespace, "clientName", client.Name)
-			return newInvalidClientErr(http.StatusUnauthorized, "invalid client credentials")
+			return newInvalidClientErr("invalid client credentials")
 		}
 	case "private_key_jwt":
 		if err := h.validatePrivateKeyJWT(req.Context(), req.Form, client, clientID); err != nil {
 			slog.Info("Denied OAuth token request due to invalid private_key_jwt client assertion", "clientNamespace", client.Namespace, "clientName", client.Name, "error", err)
-			return newInvalidClientErr(http.StatusUnauthorized, err.Error())
+			return newInvalidClientErr(err.Error())
 		}
 	}
 

@@ -3121,7 +3121,7 @@ func resolveCompositeComponents(req api.Context, composite v1.MCPServer, secretB
 			return nil, fmt.Errorf("failed to reveal credential for component instance %s: %w", instance.Name, err)
 		}
 
-		_, _, missingHeaders := mcpServerInstanceHeaders(instance, credEnv)
+		missingHeaders := mcpServerInstanceMissingHeaders(instance, credEnv)
 		// No slug/URL needed; only CatalogEntryID and Configured are used from the component.
 		convertedComponents = append(convertedComponents, types.MCPServer{
 			CatalogEntryID:         instance.Spec.MCPServerName,

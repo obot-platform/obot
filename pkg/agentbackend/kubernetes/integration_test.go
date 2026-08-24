@@ -66,7 +66,7 @@ func testClient(t *testing.T) kclient.Client {
 	return client
 }
 
-func setup(t *testing.T, opts Options) (*Backend, kclient.Client, context.Context) {
+func setup(t *testing.T) (*Backend, kclient.Client, context.Context) {
 	t.Helper()
 
 	client := testClient(t)
@@ -77,10 +77,9 @@ func setup(t *testing.T, opts Options) (*Backend, kclient.Client, context.Contex
 		t.Fatalf("create namespace: %v", err)
 	}
 
-	opts.Namespace = testNamespace
 	// The live client doubles as the cache here; informer behaviour is a
 	// separate concern from the object semantics these tests cover.
-	backend, err := New(client, client, opts)
+	backend, err := New(client, client, Options{Namespace: testNamespace})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -116,7 +115,7 @@ func smallPool(id string) agentbackend.DesiredPool {
 }
 
 func TestIntegrationPoolLifecycle(t *testing.T) {
-	backend, client, ctx := setup(t, Options{})
+	backend, client, ctx := setup(t)
 	desired := smallPool("alloc-lifecycle")
 	t.Cleanup(func() {
 		_, _ = backend.DeletePool(context.Background(), desired.Ref)
@@ -183,7 +182,7 @@ func TestIntegrationPoolLifecycle(t *testing.T) {
 }
 
 func TestIntegrationInstanceReachesReady(t *testing.T) {
-	backend, client, ctx := setup(t, Options{})
+	backend, client, ctx := setup(t)
 	pool := smallPool("alloc-ready")
 	instance := agentbackend.DesiredInstance{
 		Ref:      agentbackend.InstanceRef{ID: "inst-ready", UserID: "user-1"},
@@ -267,7 +266,7 @@ func TestIntegrationInstanceReachesReady(t *testing.T) {
 // pool being filled past its sandbox count. The rejection surfaces through
 // observation rather than the write, because it lands on the ReplicaSet.
 func TestIntegrationQuotaRejectsSandboxBeyondPoolCount(t *testing.T) {
-	backend, _, ctx := setup(t, Options{})
+	backend, _, ctx := setup(t)
 	pool := agentbackend.DesiredPool{
 		Ref:      agentbackend.PoolRef{ID: "pool-full"},
 		Revision: "rev-1",
@@ -339,7 +338,7 @@ func TestIntegrationQuotaRejectsSandboxBeyondPoolCount(t *testing.T) {
 
 // Suspending must stop new sandboxes without disturbing the pool's objects.
 func TestIntegrationSuspendedPoolRefusesSandboxes(t *testing.T) {
-	backend, _, ctx := setup(t, Options{})
+	backend, _, ctx := setup(t)
 	pool := smallPool("alloc-suspended")
 	pool.Suspended = true
 	t.Cleanup(func() {

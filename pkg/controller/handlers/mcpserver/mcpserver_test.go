@@ -1298,7 +1298,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "500m", Memory: "512Mi"},
 	}
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1341,7 +1341,7 @@ func TestDetectDriftMarksCatalogEntryDeploymentNeedingUpdateForResources(t *test
 }
 
 func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing.T) {
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1380,7 +1380,7 @@ func TestDetectDriftMarksMultiUserCatalogEntryDeploymentNeedingUpdate(t *testing
 }
 
 func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatches(t *testing.T) {
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1420,7 +1420,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWhenConfigurationMatche
 }
 
 func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1460,7 +1460,7 @@ func TestDetectDriftIgnoresCatalogEntryUpgradeNote(t *testing.T) {
 }
 
 func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBinding(t *testing.T) {
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{
 		Name:           "Shared Template",
 		Runtime:        types.RuntimeContainerized,
 		ServerUserType: types.ServerUserTypeMultiUser,
@@ -1511,7 +1511,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 }
 
 func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
-	entry := newMCPServerCatalogEntry("template-entry", types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
+	entry := newMCPServerCatalogEntry(types.MCPServerCatalogEntryManifest{Runtime: types.Runtime("invalid")})
 	server := newMCPServer("shared-server")
 	server.Spec.MCPServerCatalogEntryName = entry.Name
 	server.Spec.Manifest.Runtime = types.Runtime("invalid")
@@ -1527,11 +1527,11 @@ func TestDetectDriftReturnsConfigurationComparisonError(t *testing.T) {
 	require.EqualError(t, err, "unknown runtime type: invalid")
 }
 
-func newMCPServerCatalogEntry(name string, manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
+func newMCPServerCatalogEntry(manifest types.MCPServerCatalogEntryManifest) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
 		APIVersion: v1.SchemeGroupVersion.String(),
 		Kind:       "MCPServerCatalogEntry",
-		Name:       name,
+		Name:       "template-entry",
 		Namespace:  "default",
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: manifest,

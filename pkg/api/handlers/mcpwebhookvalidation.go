@@ -325,7 +325,7 @@ func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -351,7 +351,7 @@ func (m *MCPWebhookValidationHandler) Launch(req api.Context) error {
 		return err
 	}
 
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -391,7 +391,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return err
 	}
 
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}
@@ -425,7 +425,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
-	serverConfig, _, err := systemServerToServerConfig(req, systemServer)
+	serverConfig, err := systemServerToServerConfig(req, systemServer)
 	if err != nil {
 		return types.NewErrBadRequest("failed to transform system server to config: %v", err)
 	}

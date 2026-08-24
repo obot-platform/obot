@@ -48,9 +48,7 @@ func (i *Issuer) EnsureInstanceCredential(ctx context.Context, instanceID, owner
 
 	stored, err := i.gatewayClient.RevealCredential(ctx, []string{credentialContext}, instanceID)
 	if err == nil && stored.Secrets[keyValue] != "" {
-		if valid, err := i.stillValid(ctx, stored.Secrets[keyValue]); err != nil {
-			return "", "", err
-		} else if valid {
+		if i.stillValid(ctx, stored.Secrets[keyValue]) {
 			return stored.Secrets[keyValue], stored.Secrets[keyID], nil
 		}
 		// The key was revoked out of band. Fall through and mint a new one; the
@@ -109,9 +107,9 @@ func (i *Issuer) RevokeInstanceCredential(ctx context.Context, instanceID string
 	return errors.Join(errs...)
 }
 
-func (i *Issuer) stillValid(ctx context.Context, value string) (bool, error) {
-	if _, err := i.gatewayClient.ValidateAPIKey(ctx, value); err != nil {
-		return false, nil
+func (i *Issuer) stillValid(ctx context.Context, value string) bool {
+	if key, err := i.gatewayClient.ValidateAPIKey(ctx, value); err != nil || key.RevokedAt != nil {
+		return false
 	}
-	return true, nil
+	return true
 }

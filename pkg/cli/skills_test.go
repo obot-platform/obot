@@ -4,7 +4,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -112,7 +111,7 @@ func TestSkillsInstallExactIDInstallsClaudeCode(t *testing.T) {
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
 		Name:     "github-review",
-		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+		Download: skillTestZip(t),
 	}})
 	defer server.Close()
 
@@ -132,7 +131,7 @@ func TestSkillsInstallExactIDInstallsSharedAgents(t *testing.T) {
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
 		Name:     "github-review",
-		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+		Download: skillTestZip(t),
 	}})
 	defer server.Close()
 
@@ -165,7 +164,7 @@ func TestSkillsInstallRequiresDestination(t *testing.T) {
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
 		Name:     "github-review",
-		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+		Download: skillTestZip(t),
 	}})
 	defer server.Close()
 
@@ -183,7 +182,7 @@ func TestSkillsInstallJSONMode(t *testing.T) {
 	server := skillInstallTestServer(t, []skillInstallTestResponse{{
 		ID:       "sk1",
 		Name:     "github-review",
-		Download: skillTestZip(t, "github-review", "Review GitHub pull requests."),
+		Download: skillTestZip(t),
 	}})
 	defer server.Close()
 
@@ -295,7 +294,7 @@ func skillTestType(skill skillInstallTestResponse) types.Skill {
 	}
 }
 
-func skillTestZip(t *testing.T, name, description string) []byte {
+func skillTestZip(t *testing.T) []byte {
 	t.Helper()
 
 	var buf bytes.Buffer
@@ -306,7 +305,7 @@ func skillTestZip(t *testing.T, name, description string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	content := fmt.Sprintf("---\nname: %s\ndescription: %s\n---\nBody\n", name, description)
+	content := "---\nname: github-review\ndescription: Review GitHub pull requests.\n---\nBody\n"
 	if _, err := fileWriter.Write([]byte(content)); err != nil {
 		t.Fatal(err)
 	}

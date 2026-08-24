@@ -33,7 +33,6 @@ type TokenRequest struct {
 	RequestExpiresAt      time.Time `gorm:"index"`
 	DeviceCodeVerifiedAt  *time.Time
 	State                 string `gorm:"index"`
-	Nonce                 string
 	Name                  string
 	Description           string
 	Scopes                APIKeyScopes `gorm:"embedded"`

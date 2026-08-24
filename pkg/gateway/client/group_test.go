@@ -98,13 +98,10 @@ func (p *providerStub) server(t *testing.T) *httptest.Server {
 }
 
 // walkAll pages the whole listing and returns the IDs it saw, failing on a repeat or a runaway.
-func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOptions) ([]string, ListAuthGroupsResult) {
+func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOptions) []string {
 	t.Helper()
 
-	var (
-		seen []string
-		last ListAuthGroupsResult
-	)
+	var seen []string
 	unique := map[string]struct{}{}
 
 	for pages := 0; ; pages++ {
@@ -116,8 +113,6 @@ func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOpt
 		if err != nil {
 			t.Fatalf("ListAuthGroups() error = %v", err)
 		}
-		last = result
-
 		for _, group := range result.Groups {
 			if _, ok := unique[group.ID]; ok {
 				t.Fatalf("group %s was returned more than once", group.ID)
@@ -132,7 +127,7 @@ func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOpt
 		opts.Cursor = result.NextCursor
 	}
 
-	return seen, last
+	return seen
 }
 
 // TestListAuthGroupsPagesEntireDirectory is the regression guard for the reported bug: every group
@@ -142,7 +137,7 @@ func TestListAuthGroupsPagesEntireDirectory(t *testing.T) {
 	stub := &providerStub{total: 10000}
 	srv := stub.server(t)
 
-	seen, _ := walkAll(t, c, srv.URL, ListAuthGroupsOptions{Limit: 100})
+	seen := walkAll(t, c, srv.URL, ListAuthGroupsOptions{Limit: 100})
 
 	if len(seen) != 10000 {
 		t.Errorf("collected %d groups, want 10000", len(seen))
@@ -330,7 +325,7 @@ func TestListAuthGroupsCachePagesEveryGroupExactlyOnce(t *testing.T) {
 	c := newTestClient(t)
 	seedGroups(t, c, 250)
 
-	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50})
+	seen := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50})
 
 	if len(seen) != 250 {
 		t.Errorf("collected %d groups, want 250", len(seen))
@@ -356,7 +351,7 @@ func TestListAuthGroupsCachePagesDuplicateNames(t *testing.T) {
 	}
 
 	// A page size of one forces the tiebreak to do the work.
-	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 1})
+	seen := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 1})
 
 	if len(seen) != 3 {
 		t.Errorf("collected %d groups, want 3; the id tiebreak should separate identical names", len(seen))
@@ -385,7 +380,7 @@ func TestListAuthGroupsCacheNameFilter(t *testing.T) {
 	c := newTestClient(t)
 	seedGroups(t, c, 120)
 
-	seen, _ := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50, NameFilter: "group-001"})
+	seen := walkAll(t, c, "", ListAuthGroupsOptions{Limit: 50, NameFilter: "group-001"})
 
 	// group-0010 through group-0019: ten matches.
 	if len(seen) != 10 {

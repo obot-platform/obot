@@ -52,12 +52,12 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 }
 
 // newSkillRepository creates a test SkillRepository resource.
-func newSkillRepository(name, namespace string) *v1.SkillRepository {
+func newSkillRepository() *v1.SkillRepository {
 	return &v1.SkillRepository{
 		APIVersion: v1.SchemeGroupVersion.String(),
 		Kind:       "SkillRepository",
-		Name:       name,
-		Namespace:  namespace,
+		Name:       "repo1",
+		Namespace:  "default",
 		Spec: v1.SkillRepositorySpec{
 			RepoURL:     "https://github.com/owner/repo",
 			Ref:         "main",
@@ -253,7 +253,7 @@ func TestSync(t *testing.T) {
 	gatewayClient := newTestGatewayClient(t)
 
 	t.Run("happy path", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		c := newFakeClient(t, repo)
 
 		fetched := createFetchedRepo(t, map[string]string{
@@ -302,7 +302,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("skip when recently synced", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-30 * time.Minute))
 		c := newFakeClient(t, repo)
 
@@ -337,7 +337,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("force sync bypasses interval", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-30 * time.Minute))
 		repo.Annotations = map[string]string{
 			v1.SkillRepositorySyncAnnotation: "true",
@@ -381,7 +381,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("fetch failure records error", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		c := newFakeClient(t, repo)
 
 		h := &Handler{
@@ -415,7 +415,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("failed force sync resumes hourly schedule", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Annotations = map[string]string{
 			v1.SkillRepositorySyncAnnotation: "true",
 		}
@@ -467,7 +467,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("legacy credential failure falls back to unauthenticated fetch", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		c := newFakeClient(t, repo)
 		failedGatewayClient := newTestGatewayClient(t)
 		require.NoError(t, failedGatewayClient.Close())
@@ -501,7 +501,7 @@ func TestSync(t *testing.T) {
 	})
 
 	t.Run("build failure records error", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		c := newFakeClient(t, repo)
 
 		// Create a fetched repo with an unreadable SKILL.md that will cause buildSkillsFromRepository to error
@@ -564,7 +564,7 @@ func TestClearIsSyncing(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("clears when true", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Status.IsSyncing = true
 		c := newFakeClient(t, repo)
 
@@ -579,7 +579,7 @@ func TestClearIsSyncing(t *testing.T) {
 	})
 
 	t.Run("no-op when already false", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Status.IsSyncing = false
 		c := newFakeClient(t, repo)
 
@@ -602,7 +602,7 @@ func TestClearSyncAnnotation(t *testing.T) {
 	ctx := t.Context()
 
 	t.Run("removes annotation", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Annotations = map[string]string{
 			v1.SkillRepositorySyncAnnotation: "true",
 			"other-annotation":               "keep",
@@ -620,7 +620,7 @@ func TestClearSyncAnnotation(t *testing.T) {
 	})
 
 	t.Run("nil annotations map", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Annotations = nil
 		c := newFakeClient(t, repo)
 
@@ -629,7 +629,7 @@ func TestClearSyncAnnotation(t *testing.T) {
 	})
 
 	t.Run("annotation not present", func(t *testing.T) {
-		repo := newSkillRepository("repo1", "default")
+		repo := newSkillRepository()
 		repo.Annotations = map[string]string{"other": "value"}
 		c := newFakeClient(t, repo)
 
@@ -643,7 +643,7 @@ func TestRecordFailure(t *testing.T) {
 	h := &Handler{now: func() time.Time { return fixedTime }}
 	ctx := t.Context()
 
-	repo := newSkillRepository("repo1", "default")
+	repo := newSkillRepository()
 	c := newFakeClient(t, repo)
 
 	err := h.recordFailure(ctx, c, "default", "repo1", fmt.Errorf("sync failed: timeout"))
@@ -661,7 +661,7 @@ func TestRecordSuccess(t *testing.T) {
 	h := &Handler{now: func() time.Time { return fixedTime }}
 	ctx := t.Context()
 
-	repo := newSkillRepository("repo1", "default")
+	repo := newSkillRepository()
 	repo.Status.SyncError = "previous error"
 	c := newFakeClient(t, repo)
 	// Persist the initial status

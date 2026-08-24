@@ -27,7 +27,7 @@ var (
 
 // SkillArchive is a validated skill payload ready for agent-specific
 // installation. ZIP parsing and download-specific checks live outside
-// DirectInstaller implementations.
+// local agent installers.
 type SkillArchive struct {
 	Name  string
 	Files []SkillArchiveFile

@@ -82,10 +82,7 @@ func (c *Controller) reconcileNetworkPolicyProvider(ctx context.Context) error {
 		return nil
 	}
 
-	installer, err := c.networkPolicyProviderInstaller()
-	if err != nil {
-		return err
-	}
+	installer := c.networkPolicyProviderInstaller()
 
 	ns, err := c.runtimeNamespace()
 	if err != nil {
@@ -104,15 +101,15 @@ func (c *Controller) reconcileNetworkPolicyProvider(ctx context.Context) error {
 	return installer.InstallOrUpgrade(ctx, spec)
 }
 
-func (c *Controller) networkPolicyProviderInstaller() (networkPolicyProviderInstaller, error) {
+func (c *Controller) networkPolicyProviderInstaller() networkPolicyProviderInstaller {
 	if c.providerInstaller != nil {
-		return c.providerInstaller, nil
+		return c.providerInstaller
 	}
 
 	c.providerInstaller = &helmNetworkPolicyProviderInstaller{
 		restConfigFn: services.BuildLocalK8sConfig,
 	}
-	return c.providerInstaller, nil
+	return c.providerInstaller
 }
 
 func (c *Controller) desiredNetworkPolicyProviderInstallSpec() (networkPolicyProviderInstallSpec, error) {

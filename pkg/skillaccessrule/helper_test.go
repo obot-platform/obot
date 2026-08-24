@@ -31,7 +31,7 @@ func TestGetSkillAccessRulesForSkillFiltersDeletedAndNamespace(t *testing.T) {
 }
 
 func TestUserHasAccessToSkillID(t *testing.T) {
-	user := testUser("user1", "eng")
+	user := testUser("eng")
 
 	for _, tt := range []struct {
 		name    string
@@ -127,7 +127,7 @@ func TestUserHasAccessToSkillUsesSkillObject(t *testing.T) {
 		newRule("rule1", []types.Subject{{Type: types.SubjectTypeUser, ID: "user1"}}, []types.SkillResource{{Type: types.SkillResourceTypeSkill, ID: "sk1"}}),
 	)
 
-	hasAccess, err := helper.UserHasAccessToSkill(testUser("user1"), &v1.Skill{
+	hasAccess, err := helper.UserHasAccessToSkill(testUser(), &v1.Skill{
 		Name: "sk1",
 		Spec: v1.SkillSpec{RepoID: "skr1"},
 	})
@@ -146,7 +146,7 @@ func TestGetUserSkillAccessScopeAggregatesAndDeduplicates(t *testing.T) {
 		}),
 	)
 
-	allowAll, repoIDs, skillIDs, err := helper.GetUserSkillAccessScope(testUser("user1", "eng"))
+	allowAll, repoIDs, skillIDs, err := helper.GetUserSkillAccessScope(testUser("eng"))
 	require.NoError(t, err)
 	assert.False(t, allowAll)
 	assert.Equal(t, map[string]struct{}{
@@ -164,7 +164,7 @@ func TestGetUserSkillAccessScopeAllowAll(t *testing.T) {
 		newRule("rule1", []types.Subject{{Type: types.SubjectTypeGroup, ID: "eng"}}, []types.SkillResource{{Type: types.SkillResourceTypeSelector, ID: "*"}}),
 	)
 
-	allowAll, repoIDs, skillIDs, err := helper.GetUserSkillAccessScope(testUser("user1", "eng"))
+	allowAll, repoIDs, skillIDs, err := helper.GetUserSkillAccessScope(testUser("eng"))
 	require.NoError(t, err)
 	assert.True(t, allowAll)
 	assert.Empty(t, repoIDs)
@@ -275,9 +275,9 @@ func withDeletedTimestamp() ruleOpt {
 	}
 }
 
-func testUser(userID string, groups ...string) kuser.Info {
+func testUser(groups ...string) kuser.Info {
 	return &kuser.DefaultInfo{
-		UID: userID,
+		UID: "user1",
 		Extra: map[string][]string{
 			"auth_provider_groups": groups,
 		},

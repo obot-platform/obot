@@ -48,7 +48,7 @@ type Handler struct {
 type resolvedLLMModel struct {
 	Name            string           // Kubernetes Model resource name
 	ModelProvider   string           // e.g. "openai-model-provider", "anthropic-model-provider"
-	ProviderDialect llmtypes.Dialect // from resolved model manifest dialect or ProviderMeta.Dialect; empty if not declared
+	ProviderDialect llmtypes.Dialect // from the resolved model manifest; empty if not declared
 }
 
 // nanobotLLMProvider describes how a single LLM provider should be configured in nanobot's YAML.
@@ -410,8 +410,8 @@ func (h *Handler) ensureCredentials(ctx context.Context, req router.Request, res
 // parseModelProvider returns the nanobot provider config and the fully-qualified
 // model name (provider/model) for a resolved model.
 //
-// If the provider has declared a dialect via ProviderMeta.Dialect, that dialect
-// is used. Otherwise the known built-in providers supply a default dialect.
+// If the provider has declared a dialect in its manifest, that dialect is used.
+// Otherwise the known built-in providers supply a default dialect.
 func (h *Handler) parseModelProvider(model resolvedLLMModel) (nanobotLLMProvider, string, error) {
 	name := model.ModelProvider
 	envVarName := strings.ToUpper(strings.ReplaceAll(name, "-", "_")) + "_API_KEY"

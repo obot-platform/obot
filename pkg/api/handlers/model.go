@@ -66,12 +66,7 @@ func (a *ModelHandler) List(req api.Context) error {
 			return types.NewErrNotFound("model provider %s not found", model.Spec.Manifest.ModelProvider)
 		}
 
-		resp, err := convertModel(model, modelProvider)
-		if err != nil {
-			return err
-		}
-
-		respList = append(respList, resp)
+		respList = append(respList, convertModel(model, modelProvider))
 	}
 
 	return req.Write(types.ModelList{Items: respList})
@@ -88,12 +83,7 @@ func (a *ModelHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(model, modelProvider)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(resp)
+	return req.Write(convertModel(model, modelProvider))
 }
 
 func (a *ModelHandler) Update(req api.Context) error {
@@ -122,12 +112,7 @@ func (a *ModelHandler) Update(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(existing, modelProvider)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(resp)
+	return req.Write(convertModel(existing, modelProvider))
 }
 
 func (a *ModelHandler) Create(req api.Context) error {
@@ -161,12 +146,7 @@ func (a *ModelHandler) Create(req api.Context) error {
 		return err
 	}
 
-	resp, err := convertModel(*model, modelProvider)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(resp)
+	return req.Write(convertModel(*model, modelProvider))
 }
 
 func (a *ModelHandler) Delete(req api.Context) error {
@@ -176,7 +156,7 @@ func (a *ModelHandler) Delete(req api.Context) error {
 	})
 }
 
-func convertModel(model v1.Model, modelProvider v1.ModelProvider) (types.Model, error) {
+func convertModel(model v1.Model, modelProvider v1.ModelProvider) types.Model {
 	var aliasAssigned *bool
 	if model.Generation == model.Status.ObservedGeneration {
 		aliasAssigned = &model.Status.AliasAssigned
@@ -190,7 +170,7 @@ func convertModel(model v1.Model, modelProvider v1.ModelProvider) (types.Model, 
 		Icon:              modelProvider.Spec.Icon,
 		IconDark:          modelProvider.Spec.IconDark,
 		Cost:              model.Status.Cost,
-	}, nil
+	}
 }
 
 func validateModelManifestAndSetDefaults(newModel *v1.Model) error {

@@ -76,7 +76,7 @@ func countLLMAuditLogs(t *testing.T, c *Client) int64 {
 	return count
 }
 
-func insertAPIKey(t *testing.T, c *Client, revokedAt *time.Time) uint {
+func insertAPIKey(t *testing.T, c *Client, revokedAt *time.Time) {
 	t.Helper()
 	entry := types.APIKey{
 		UserID:    1,
@@ -87,7 +87,6 @@ func insertAPIKey(t *testing.T, c *Client, revokedAt *time.Time) uint {
 	if err := c.db.WithContext(t.Context()).Create(&entry).Error; err != nil {
 		t.Fatalf("failed to insert API key: %v", err)
 	}
-	return entry.ID
 }
 
 func countAPIKeys(t *testing.T, c *Client) int64 {

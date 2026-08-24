@@ -25,7 +25,6 @@ import (
 const (
 	CurrentAuthProviderCookie  = "current_auth_provider"
 	ObotAccessTokenCookie      = "obot_access_token"
-	ObotAccessTokenCookieZero  = "obot_access_token_0"
 	ObotAuthProviderQueryParam = "obot-auth-provider"
 )
 

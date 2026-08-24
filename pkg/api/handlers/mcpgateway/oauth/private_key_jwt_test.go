@@ -66,7 +66,7 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		},
 	}
 
-	assertion := signClientAssertion(t, key, "test-key", clientID, tokenEndpoint)
+	assertion := signClientAssertion(t, key, clientID, tokenEndpoint)
 	form := url.Values{
 		"client_assertion_type": {clientAssertionTypeJWTBearer},
 		"client_assertion":      {assertion},
@@ -76,7 +76,7 @@ func TestValidatePrivateKeyJWT(t *testing.T) {
 		t.Fatalf("validate private_key_jwt: %v", err)
 	}
 
-	form.Set("client_assertion", signClientAssertion(t, key, "test-key", clientID, "https://other.example/oauth/token"))
+	form.Set("client_assertion", signClientAssertion(t, key, clientID, "https://other.example/oauth/token"))
 	if err := h.validatePrivateKeyJWT(t.Context(), form, client, clientID); err == nil {
 		t.Fatal("expected invalid audience to fail")
 	}
@@ -91,7 +91,7 @@ func TestClientIDFromClientAssertion(t *testing.T) {
 	}
 
 	const clientID = "https://client.example/oauth/client.json"
-	assertion := signClientAssertion(t, key, "test-key", clientID, "https://obot.example/oauth/token")
+	assertion := signClientAssertion(t, key, clientID, "https://obot.example/oauth/token")
 	got, err := clientIDFromClientAssertion(url.Values{
 		"client_assertion_type": {clientAssertionTypeJWTBearer},
 		"client_assertion":      {assertion},
@@ -140,7 +140,7 @@ func TestTokenExtractsClientIDFromClientAssertion(t *testing.T) {
 	form := url.Values{
 		"grant_type":            {"unsupported"},
 		"client_assertion_type": {clientAssertionTypeJWTBearer},
-		"client_assertion":      {signClientAssertion(t, key, "test-key", clientID, "https://obot.example/oauth/token")},
+		"client_assertion":      {signClientAssertion(t, key, clientID, "https://obot.example/oauth/token")},
 	}
 	req := httptest.NewRequest(http.MethodPost, "/oauth/token", strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -276,7 +276,7 @@ func assertInvalidClientErr(t *testing.T, err error) {
 	}
 }
 
-func signClientAssertion(t *testing.T, key *rsa.PrivateKey, kid, clientID, audience string) string {
+func signClientAssertion(t *testing.T, key *rsa.PrivateKey, clientID, audience string) string {
 	t.Helper()
 
 	claims := jwt.RegisteredClaims{
@@ -288,7 +288,7 @@ func signClientAssertion(t *testing.T, key *rsa.PrivateKey, kid, clientID, audie
 		ID:        "assertion-id",
 	}
 	tkn := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-	tkn.Header["kid"] = kid
+	tkn.Header["kid"] = "test-key"
 
 	assertion, err := tkn.SignedString(key)
 	if err != nil {

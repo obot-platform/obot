@@ -977,13 +977,13 @@ func recordEnforcementDenyRow(t *testing.T, c *gatewayclient.Client, configID ui
 	return waitForEnforcementDecision(t, c)
 }
 
-func enforcementTestMCPCall(url string) types.EnforcementDecisionRequest {
+func enforcementTestMCPCall() types.EnforcementDecisionRequest {
 	return types.EnforcementDecisionRequest{
 		Agent:      "claude_code",
 		Tool:       "search",
 		Kind:       "mcp",
 		ServerName: "docs",
-		Server:     types.EnforcementDecisionServer{URL: url},
+		Server:     types.EnforcementDecisionServer{URL: "https://gitmcp.io/docs"},
 	}
 }
 
@@ -999,7 +999,7 @@ func mustMarshal(t *testing.T, v any) []byte {
 func TestEnforcementCheckAllowlistFlipsToAllowAfterWidening(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
-	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall())
 
 	if got := checkEnforcementAllowlist(t, gatewayClient, row.ID); got.AllowlistDecision != types.EnforcementDecisionDeny {
 		t.Fatalf("decision before widening = %q, want deny", got.AllowlistDecision)
@@ -1027,7 +1027,7 @@ func TestEnforcementCheckAllowlistFlipsToAllowAfterWidening(t *testing.T) {
 func TestEnforcementCheckAllowlistWritesNoDecisionRow(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
-	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall())
 	assertEnforcementDecisionCount(t, gatewayClient, 1)
 
 	// Replay it both ways: still denied, and then allowed. Neither is a device
@@ -1042,7 +1042,7 @@ func TestEnforcementCheckAllowlistWritesNoDecisionRow(t *testing.T) {
 func TestEnforcementCheckAllowlistStaysDenyWhenThePolicyIsUnchanged(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
-	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall())
 
 	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)
 	if got.AllowlistDecision != types.EnforcementDecisionDeny {
@@ -1059,7 +1059,7 @@ func TestEnforcementCheckAllowlistStaysDenyWhenThePolicyIsUnchanged(t *testing.T
 func TestEnforcementCheckAllowlistDisabledEnforcementStillReportsTheAllowlistVerdict(t *testing.T) {
 	gatewayClient := newEnforcementTestGatewayClient(t)
 	configID := createEnforcementTestConfig(t, gatewayClient, types.EnforcementAllowlist{})
-	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall("https://gitmcp.io/docs"))
+	row := recordEnforcementDenyRow(t, gatewayClient, configID, enforcementTestMCPCall())
 
 	setEnforcementTestPolicy(t, gatewayClient, configID, false, types.EnforcementAllowlist{})
 	got := checkEnforcementAllowlist(t, gatewayClient, row.ID)

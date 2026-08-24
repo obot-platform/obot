@@ -25,12 +25,9 @@ const (
 	ErrInvalidClient           ErrorCode = "invalid_client"
 	ErrInvalidGrant            ErrorCode = "invalid_grant"
 	ErrInvalidRequest          ErrorCode = "invalid_request"
-	ErrUnauthorizedClient      ErrorCode = "unauthorized_client"
 	ErrAccessDenied            ErrorCode = "access_denied"
 	ErrUnsupportedResponseType ErrorCode = "unsupported_response_type"
-	ErrInvalidScope            ErrorCode = "invalid_scope"
 	ErrServerError             ErrorCode = "server_error"
-	ErrTemporarilyUnavailable  ErrorCode = "temporarily_unavailable"
 	ErrInvalidClientMetadata   ErrorCode = "invalid_client_metadata"
 )
 
@@ -86,8 +83,8 @@ func newOAuthErrHTTP(statusCode int, oauthErr oauthError) *types.ErrHTTP {
 	return types.NewErrHTTP(statusCode, oauthErr.Error())
 }
 
-func newInvalidClientErr(statusCode int, description string) *types.ErrHTTP {
-	return newOAuthErrHTTP(statusCode, newOAuthError(ErrInvalidClient, description, ""))
+func newInvalidClientErr(description string) *types.ErrHTTP {
+	return newOAuthErrHTTP(http.StatusUnauthorized, newOAuthError(ErrInvalidClient, description, ""))
 }
 
 func (e oauthError) toQuery() url.Values {

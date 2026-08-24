@@ -47,7 +47,7 @@ func TestTunnelStreamsResponseWhileChunkedRequestRemainsOpen(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/duplex")
@@ -162,7 +162,7 @@ func TestEarlyTunnelResponseStopsOpenUploadAndKeepsSession(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/early")
@@ -290,7 +290,7 @@ func TestTunnelChunkedRequestEOFAllowsStreamingResponse(t *testing.T) {
 		}
 	}()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/stream")
@@ -437,7 +437,7 @@ func TestClosingTunnelResponseCancelsTargetAndKeepsSession(t *testing.T) {
 		target.Close()
 	}()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	streamURL, err := manager.BridgeURL("office", target.URL+"/stream")
@@ -495,7 +495,7 @@ func TestTruncatedTunnelResponseDoesNotHangOrDropSession(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	truncatedURL, err := manager.BridgeURL("office", target.URL+"/truncated")

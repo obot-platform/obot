@@ -614,13 +614,13 @@ func newFakeStorage(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	return builder.Build()
 }
 
-func testUser(userID string, groups ...string) kuser.Info {
+func testUser(userID string) kuser.Info {
 	return &kuser.DefaultInfo{
 		Name:   userID,
 		UID:    userID,
 		Groups: []string{types.GroupBasic, types.GroupAuthenticated},
 		Extra: map[string][]string{
-			"auth_provider_groups": groups,
+			"auth_provider_groups": nil,
 		},
 	}
 }

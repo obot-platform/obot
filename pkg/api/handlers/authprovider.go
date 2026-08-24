@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -55,12 +54,7 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := ap.convertAuthProvider(authProvider, *authProviderStatus)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(resp)
+	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus))
 }
 
 func (ap *AuthProviderHandler) List(req api.Context) error {
@@ -78,12 +72,7 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		authProvider, err := ap.convertAuthProvider(a, *authProviderStatus)
-		if err != nil {
-			slog.Warn("failed to convert auth provider", "authProviderName", a.Name, "error", err)
-			continue
-		}
-		resp = append(resp, authProvider)
+		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus))
 	}
 
 	return req.Write(types.AuthProviderList{Items: resp})
@@ -269,12 +258,12 @@ func (ap *AuthProviderHandler) Reveal(req api.Context) error {
 	return types.NewErrNotFound("no credential found for %q", authProvider.Name)
 }
 
-func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus) (types.AuthProvider, error) {
+func (ap *AuthProviderHandler) convertAuthProvider(authProvider v1.AuthProvider, authProviderStatus types.AuthProviderStatus) types.AuthProvider {
 	return types.AuthProvider{
 		Metadata:             MetadataFrom(&authProvider),
 		AuthProviderManifest: authProvider.Spec.AuthProviderManifest,
 		AuthProviderStatus:   authProviderStatus,
-	}, nil
+	}
 }
 
 func generateCookieSecret() (string, error) {

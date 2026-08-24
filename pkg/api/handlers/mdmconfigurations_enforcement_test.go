@@ -77,11 +77,11 @@ func decodeMDMConfiguration(t *testing.T, rec *httptest.ResponseRecorder) types.
 	return configuration
 }
 
-func requireMDMHTTPError(t *testing.T, err error, code int) {
+func requireMDMHTTPError(t *testing.T, err error) {
 	t.Helper()
 	var httpErr *types.ErrHTTP
-	require.True(t, errors.As(err, &httpErr), "error = %v, want HTTP %d", err, code)
-	assert.Equal(t, code, httpErr.Code)
+	require.True(t, errors.As(err, &httpErr), "error = %v, want HTTP %d", err, http.StatusBadRequest)
+	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 }
 
 // createConfigWithAsset stores a minimal asset bundle whose instructions
@@ -212,7 +212,7 @@ func TestMDMConfigurationCreateRejectsMalformedAllowlist(t *testing.T) {
 				EnforcementEnabled:   true,
 				EnforcementAllowlist: allowlist,
 			})
-			requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+			requireMDMHTTPError(t, env.handler.Create(ctx))
 		})
 	}
 }
@@ -346,7 +346,7 @@ func TestMDMConfigurationEnforcementCanonicalizationDoesNotHideABadSource(t *tes
 			Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: "cargo", Name: "Some_Crate"}}},
 		},
 	})
-	requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+	requireMDMHTTPError(t, env.handler.Create(ctx))
 }
 
 func TestMDMConfigurationEnforcementLowercasesHostname(t *testing.T) {
@@ -421,7 +421,7 @@ func TestMDMConfigurationEnforcementRejectsAllBlankToolsList(t *testing.T) {
 					EnforcementEnabled:   true,
 					EnforcementAllowlist: allowlist,
 				})
-				requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+				requireMDMHTTPError(t, env.handler.Create(ctx))
 			})
 
 			t.Run("on enforcement update", func(t *testing.T) {
@@ -434,7 +434,7 @@ func TestMDMConfigurationEnforcementRejectsAllBlankToolsList(t *testing.T) {
 					EnforcementEnabled:   true,
 					EnforcementAllowlist: allowlist,
 				})
-				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx), http.StatusBadRequest)
+				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx))
 
 				// The rejected write must not have changed anything.
 				stored := env.stored(t, base.ID)
@@ -456,7 +456,7 @@ func TestMDMConfigurationEnforcementWhitespaceOnlyDimensionRejected(t *testing.T
 				EnforcementEnabled:   true,
 				EnforcementAllowlist: types.EnforcementAllowlist{Servers: []types.AllowlistServer{server}},
 			})
-			requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+			requireMDMHTTPError(t, env.handler.Create(ctx))
 		})
 	}
 }
@@ -485,7 +485,7 @@ func TestMDMConfigurationEnforcementRejectsUnmatchableDimensions(t *testing.T) {
 					EnforcementEnabled:   true,
 					EnforcementAllowlist: allowlist,
 				})
-				requireMDMHTTPError(t, env.handler.Create(ctx), http.StatusBadRequest)
+				requireMDMHTTPError(t, env.handler.Create(ctx))
 			})
 
 			t.Run("on enforcement update", func(t *testing.T) {
@@ -498,7 +498,7 @@ func TestMDMConfigurationEnforcementRejectsUnmatchableDimensions(t *testing.T) {
 					EnforcementEnabled:   true,
 					EnforcementAllowlist: allowlist,
 				})
-				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx), http.StatusBadRequest)
+				requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx))
 
 				// The rejected write must not have changed anything.
 				stored := env.stored(t, base.ID)
@@ -543,7 +543,7 @@ func TestMDMConfigurationUpdateEnforcementRejectsMalformedAllowlist(t *testing.T
 		EnforcementEnabled:   true,
 		EnforcementAllowlist: types.EnforcementAllowlist{Servers: []types.AllowlistServer{{Package: &types.AllowlistServerPackage{Source: types.AllowlistServerPackageSourceNPM}}}},
 	})
-	requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx), http.StatusBadRequest)
+	requireMDMHTTPError(t, env.handler.UpdateEnforcement(ctx))
 
 	// The rejected update leaves the stored policy untouched.
 	stored := env.stored(t, base.ID)

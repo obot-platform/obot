@@ -1,9 +1,5 @@
 package system
 
-import (
-	llmtypes "github.com/obot-platform/obot/pkg/llm"
-)
-
 const (
 	OpenAIModelProvider              = "openai-model-provider"
 	AnthropicModelProvider           = "anthropic-model-provider"
@@ -34,8 +30,6 @@ const (
 	AppPreferencesName     = "app-preferences"
 	AppNotificationName    = "app-notification"
 
-	ModelProviderCredential = "sys.model.provider.credential"
-
 	GenericModelProviderCredentialContext = "model-provider"
 	GenericAuthProviderCredentialContext  = "auth-provider"
 
@@ -43,8 +37,3 @@ const (
 
 	JWKCredentialContext = "jwk"
 )
-
-// IsResponsesDialect reports whether dialect uses the Responses API format.
-func IsResponsesDialect(dialect string) bool {
-	return dialect == string(llmtypes.DialectOpenAIResponses) || dialect == string(llmtypes.DialectOpenResponses)
-}

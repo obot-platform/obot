@@ -31,9 +31,9 @@ func TestRequireEntitlement(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
 		default:
@@ -72,9 +72,9 @@ func TestRequireEntitlementMissing(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse("OTHER_ENTITLEMENT"))
 		default:
@@ -120,13 +120,13 @@ func TestNewProviderContinuesWhenInitialRefreshFails(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
 			if refreshFails {
 				http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 				return
 			}
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
 		default:
@@ -171,7 +171,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
 			validationCount++
 			machineFingerprint = assertValidateFingerprint(t, r, machineFingerprint)
@@ -179,7 +179,7 @@ func TestNewProviderActivatesLicenseOnNoMachine(t *testing.T) {
 				_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "NO_MACHINE", false))
 				return
 			}
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/machines":
 			activated = true
 			assertActivationFingerprint(t, r, machineFingerprint)
@@ -222,9 +222,9 @@ func TestUpdateRefreshesEntitlements(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse(entitlement))
 		default:
@@ -267,9 +267,9 @@ func TestUpdateClearsEntitlementsWhenLicenseInvalid(t *testing.T) {
 				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Forbidden","detail":"license is invalid","code":"LICENSE_INVALID"}]}`)
 				return
 			}
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseAuthProvidersEntitlement))
 		default:
@@ -313,9 +313,9 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			switch r.Header.Get("Authorization") {
 			case "License license-one":
@@ -406,9 +406,9 @@ func TestSetLicenseKeyWaitsForRefreshBeforeCommitting(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse("NEW_ENTITLEMENT"))
 			close(validationCompleted)
@@ -471,9 +471,9 @@ func TestRemoveLicenseKeyWaitsForRefreshBeforeClearingState(t *testing.T) {
 
 		switch r.URL.Path {
 		case "/v1/me":
-			_, _ = fmt.Fprint(w, licenseResponse("license-1"))
+			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
-			_, _ = fmt.Fprint(w, validationResponse("license-1"))
+			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
 			_, _ = fmt.Fprint(w, entitlementsResponse("OLD_ENTITLEMENT"))
 		default:
@@ -549,7 +549,7 @@ func newTestLicenseGatewayClient(t *testing.T) *gatewayclient.Client {
 	return gatewayClient
 }
 
-func licenseResponse(id string) string {
+func licenseResponse() string {
 	return fmt.Sprintf(`{
   "data": {
     "id": %q,
@@ -569,11 +569,11 @@ func licenseResponse(id string) string {
       "policy": {"data": {"type": "policies", "id": "policy-1"}}
     }
   }
-}`, id)
+}`, "license-1")
 }
 
-func validationResponse(id string) string {
-	return validationResponseWithCode(id, "VALID", true)
+func validationResponse() string {
+	return validationResponseWithCode("license-1", "VALID", true)
 }
 
 func validationResponseWithCode(id, code string, valid bool) string {

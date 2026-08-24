@@ -43,12 +43,7 @@ func (mp *ModelProviderHandler) ByID(req api.Context) error {
 		return err
 	}
 
-	resp, err := mp.convertModelProvider(modelProvider, *mps)
-	if err != nil {
-		return err
-	}
-
-	return req.Write(resp)
+	return req.Write(mp.convertModelProvider(modelProvider, *mps))
 }
 
 func (mp *ModelProviderHandler) List(req api.Context) error {
@@ -66,12 +61,7 @@ func (mp *ModelProviderHandler) List(req api.Context) error {
 			return err
 		}
 
-		modelProviderResp, err := mp.convertModelProvider(modelProvider, *mps)
-		if err != nil {
-			slog.Error("failed to convert model provider", "modelProviderName", modelProvider.Name, "error", err)
-			continue
-		}
-		resp = append(resp, modelProviderResp)
+		resp = append(resp, mp.convertModelProvider(modelProvider, *mps))
 	}
 
 	return req.Write(types.ModelProviderList{Items: resp})
@@ -225,10 +215,7 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 		return err
 	}
 
-	resp, err := mp.convertModelProvider(modelProvider, *mps)
-	if err != nil {
-		return err
-	}
+	resp := mp.convertModelProvider(modelProvider, *mps)
 	if !resp.Configured {
 		return types.NewErrBadRequest("model provider %s is not configured, missing configuration parameters: %s", resp.Name, strings.Join(resp.MissingConfigurationParameters, ", "))
 	}
@@ -249,10 +236,10 @@ func (mp *ModelProviderHandler) RefreshModels(req api.Context) error {
 	return req.Write(resp)
 }
 
-func (mp *ModelProviderHandler) convertModelProvider(modelProvider v1.ModelProvider, modelProviderStatus types.ModelProviderStatus) (types.ModelProvider, error) {
+func (mp *ModelProviderHandler) convertModelProvider(modelProvider v1.ModelProvider, modelProviderStatus types.ModelProviderStatus) types.ModelProvider {
 	return types.ModelProvider{
 		Metadata:              MetadataFrom(&modelProvider),
 		ModelProviderManifest: modelProvider.Spec.ModelProviderManifest,
 		ModelProviderStatus:   modelProviderStatus,
-	}, nil
+	}
 }

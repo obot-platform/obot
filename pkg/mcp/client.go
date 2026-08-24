@@ -27,14 +27,11 @@ type Client struct {
 }
 
 type ClientOption struct {
-	OAuthClientName               string
-	OAuthRedirectURL              string
-	OAuthClientIDMetadataDocument string
-	ClientName                    string
-	ClientVersion                 string
-	TokenStorage                  TokenStorage
-	CallbackHandler               CallbackHandler
-	ClientLookup                  ClientCredLookup
+	ClientName      string
+	ClientVersion   string
+	TokenStorage    TokenStorage
+	CallbackHandler CallbackHandler
+	ClientLookup    ClientCredLookup
 }
 
 func (c *Client) hasValidToken() bool {

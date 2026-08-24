@@ -43,11 +43,10 @@ func (c *recordingProxyAuditCollector) CollectMCPProxyAuditEntry(entry auditlogs
 
 func (*recordingProxyAuditCollector) Close() {}
 
-func newMCPProxyTestStorage(objects ...kclient.Object) storage.Client {
+func newMCPProxyTestStorage() storage.Client {
 	return storage.Client(fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.MCPClientSession{}).
-		WithObjects(objects...).
 		Build())
 }
 

@@ -496,10 +496,10 @@ func (a *Authorizer) allowAgentConnectSignIn(req *http.Request, user User) bool 
 		strings.HasPrefix(req.URL.Path, "/agent-connect/")
 }
 
-func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object, opts ...kclient.GetOption) error {
-	err := a.cache.Get(ctx, key, obj, opts...)
+func (a *Authorizer) get(ctx context.Context, key kclient.ObjectKey, obj kclient.Object) error {
+	err := a.cache.Get(ctx, key, obj)
 	if apierrors.IsNotFound(err) {
-		err = a.uncached.Get(ctx, key, obj, opts...)
+		err = a.uncached.Get(ctx, key, obj)
 	}
 	return err
 }

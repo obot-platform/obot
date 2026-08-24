@@ -140,7 +140,11 @@ func discoveredHarness(sourceID, relPath string) *v1.Harness {
 	}
 }
 
-func discoveredAgent(sourceID, relPath, harnessRef string) *v1.HostedAgent {
+func discoveredAgent(harnessRef string) *v1.HostedAgent {
+	const (
+		sourceID = "as1src"
+		relPath  = "agents/reviewer"
+	)
 	agent := &v1.HostedAgent{
 		Name: agentObjectName(sourceID, relPath),
 		Spec: v1.HostedAgentSpec{
@@ -155,7 +159,7 @@ func discoveredAgent(sourceID, relPath, harnessRef string) *v1.HostedAgent {
 func TestResolveHarnessReferences(t *testing.T) {
 	t.Run("path reference resolves to the harness object name", func(t *testing.T) {
 		harness := discoveredHarness("as1src", "harnesses/claude-code")
-		agent := discoveredAgent("as1src", "agents/reviewer", "harnesses/claude-code")
+		agent := discoveredAgent("harnesses/claude-code")
 
 		require.NoError(t, resolveHarnessReferences([]*v1.HostedAgent{agent}, []*v1.Harness{harness}))
 		assert.Equal(t, harness.Name, agent.Spec.Manifest.HarnessID)
@@ -163,7 +167,7 @@ func TestResolveHarnessReferences(t *testing.T) {
 
 	t.Run("full harness ID passes through untouched", func(t *testing.T) {
 		ref := system.HarnessPrefix + "abcdef"
-		agent := discoveredAgent("as1src", "agents/reviewer", ref)
+		agent := discoveredAgent(ref)
 
 		require.NoError(t, resolveHarnessReferences([]*v1.HostedAgent{agent}, nil))
 		assert.Equal(t, ref, agent.Spec.Manifest.HarnessID)
@@ -171,7 +175,7 @@ func TestResolveHarnessReferences(t *testing.T) {
 
 	t.Run("unknown path reference fails the sync", func(t *testing.T) {
 		harness := discoveredHarness("as1src", "harnesses/claude-code")
-		agent := discoveredAgent("as1src", "agents/reviewer", "harnesses/missing")
+		agent := discoveredAgent("harnesses/missing")
 
 		err := resolveHarnessReferences([]*v1.HostedAgent{agent}, []*v1.Harness{harness})
 		require.Error(t, err)
@@ -180,7 +184,7 @@ func TestResolveHarnessReferences(t *testing.T) {
 	})
 
 	t.Run("missing reference fails the sync", func(t *testing.T) {
-		agent := discoveredAgent("as1src", "agents/reviewer", "")
+		agent := discoveredAgent("")
 
 		err := resolveHarnessReferences([]*v1.HostedAgent{agent}, nil)
 		require.Error(t, err)

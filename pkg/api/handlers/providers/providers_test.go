@@ -109,7 +109,6 @@ func TestModelProviderStatus(t *testing.T) {
 				nil,
 				nil,
 				2,
-				2,
 			),
 			cred: map[string]string{"API_KEY": "secret"},
 			want: types.ModelProviderStatus{
@@ -123,7 +122,6 @@ func TestModelProviderStatus(t *testing.T) {
 				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
 				nil,
 				nil,
-				2,
 				1,
 			),
 			cred: map[string]string{"API_KEY": "secret"},
@@ -138,7 +136,6 @@ func TestModelProviderStatus(t *testing.T) {
 				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
 				nil,
 				[]string{"ENTITLEMENT"},
-				2,
 				2,
 			),
 			cred: map[string]string{"API_KEY": "secret"},
@@ -157,7 +154,6 @@ func TestModelProviderStatus(t *testing.T) {
 				nil,
 				nil,
 				2,
-				2,
 			),
 			cred: map[string]string{},
 			want: types.ModelProviderStatus{
@@ -174,7 +170,6 @@ func TestModelProviderStatus(t *testing.T) {
 				[]string{"API_KEY"},
 				nil,
 				2,
-				2,
 			),
 			cred: nil,
 			want: types.ModelProviderStatus{
@@ -190,7 +185,6 @@ func TestModelProviderStatus(t *testing.T) {
 				[]types.ProviderConfigurationParameter{{Name: "API_KEY"}},
 				nil,
 				nil,
-				2,
 				2,
 			),
 			cred: nil,
@@ -261,11 +255,11 @@ func authProvider(requiredConfig []types.ProviderConfigurationParameter, missing
 	}
 }
 
-func modelProvider(requiredConfig []types.ProviderConfigurationParameter, missingConfig []string, requiredEntitlements []string, generation int64, observedGeneration int64) v1.ModelProvider {
+func modelProvider(requiredConfig []types.ProviderConfigurationParameter, missingConfig []string, requiredEntitlements []string, observedGeneration int64) v1.ModelProvider {
 	statusPopulated := missingConfig != nil
 
 	return v1.ModelProvider{
-		Generation: generation,
+		Generation: 2,
 		Spec: v1.ModelProviderSpec{
 			ModelProviderManifest: types.ModelProviderManifest{
 				CommonProviderMetadata: types.CommonProviderMetadata{

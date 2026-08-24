@@ -10,7 +10,7 @@ import (
 
 // insertScanAt creates a scan with children, overriding the GORM-managed
 // CreatedAt so it lands on the requested side of the retention cutoff.
-func insertScanAt(t *testing.T, c *Client, createdAt time.Time) types.DeviceScan {
+func insertScanAt(t *testing.T, c *Client, createdAt time.Time) {
 	t.Helper()
 	scan := insertScan(t, c, types.DeviceScan{
 		SubmittedBy: "user-a",
@@ -28,8 +28,6 @@ func insertScanAt(t *testing.T, c *Client, createdAt time.Time) types.DeviceScan
 		Update("created_at", createdAt).Error; err != nil {
 		t.Fatalf("failed to backdate scan: %v", err)
 	}
-	scan.CreatedAt = createdAt
-	return scan
 }
 
 func countScans(t *testing.T, c *Client) int64 {

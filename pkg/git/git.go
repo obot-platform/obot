@@ -77,14 +77,6 @@ func IsGitRepoURL(repoURL string) bool {
 	return strings.HasSuffix(p, ".git") || strings.Contains(p, ".git/")
 }
 
-// ResolveToken returns token if non-empty, otherwise falls back to GITHUB_AUTH_TOKEN env var.
-func ResolveToken(token string) string {
-	if token != "" {
-		return token
-	}
-	return os.Getenv("GITHUB_AUTH_TOKEN")
-}
-
 // Clone clones a git repository over HTTPS into a temporary directory.
 // Returns the directory path, resolved HEAD commit SHA, a cleanup function, and any error.
 //

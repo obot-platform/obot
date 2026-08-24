@@ -259,7 +259,7 @@ func TestTunnelForwardsStreamingHTTP(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/mcp?base=one")
@@ -299,7 +299,7 @@ func TestTunnelMultiplexesConcurrentRequests(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	const count = 20
@@ -389,7 +389,7 @@ func TestTunnelLogsCorrelatedRequestAndResponse(t *testing.T) {
 	slog.SetDefault(slog.New(handler))
 	defer slog.SetDefault(previousLogger)
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	bridgeURL, err := manager.BridgeURL("office", target.URL+"/mcp?token=secret")
@@ -456,7 +456,7 @@ func TestTunnelRewritesRedirectAndLegacySSEEndpoint(t *testing.T) {
 	}))
 	defer target.Close()
 
-	manager, bridgeClient, cleanup := newConnectedTestTunnel(t, "office")
+	manager, bridgeClient, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 
 	redirectBridge, _ := manager.BridgeURL("office", target.URL+"/redirect")
@@ -511,7 +511,7 @@ func TestTunnelRewritesRedirectAndLegacySSEEndpoint(t *testing.T) {
 }
 
 func TestTunnelAcceptsMultipleConnections(t *testing.T) {
-	manager, _, cleanup := newConnectedTestTunnel(t, "office")
+	manager, _, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 	serverURL := manager.bridgeBaseURL
 	connection, err := Dial(t.Context(), serverURL, testTunnelToken("office"))
@@ -533,7 +533,7 @@ func TestTunnelAcceptsMultipleConnections(t *testing.T) {
 }
 
 func TestManagerDisconnectsAllTunnelConnections(t *testing.T) {
-	manager, _, cleanup := newConnectedTestTunnel(t, "office")
+	manager, _, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 	connection, err := Dial(t.Context(), manager.bridgeBaseURL, testTunnelToken("office"))
 	if err != nil {
@@ -1234,7 +1234,7 @@ func TestBridgeURLIsStableAcrossManagerRestarts(t *testing.T) {
 }
 
 func TestManagerConnectionsSnapshot(t *testing.T) {
-	manager, _, cleanup := newConnectedTestTunnel(t, "office")
+	manager, _, cleanup := newConnectedTestTunnel(t)
 	defer cleanup()
 	manager.tunnels = &staticTunnelTestReader{tunnels: map[string]v1.MCPTunnel{
 		"disconnected": testConfiguredTunnel("disconnected"),
@@ -1315,8 +1315,9 @@ func TestClientForwarderRejectsMissingTarget(t *testing.T) {
 	}
 }
 
-func newConnectedTestTunnel(t *testing.T, name string) (*Manager, *http.Client, func()) {
+func newConnectedTestTunnel(t *testing.T) (*Manager, *http.Client, func()) {
 	t.Helper()
+	const name = "office"
 	ctx, cancel := context.WithCancel(context.Background())
 	manager, server := newManagerTestServer(ctx, t)
 	token := testTunnelToken(name)

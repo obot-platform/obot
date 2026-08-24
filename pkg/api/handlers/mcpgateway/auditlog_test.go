@@ -480,7 +480,7 @@ func TestLocalAgentAuditLogSubmitDuplicateIdempotencyKeyIsSuccessNoop(t *testing
 
 func TestListAuditLogsLocalAgentRequiresPrivilege(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	seedLocalAgentAuditLog(t, gatewayClient)
 
 	handler := NewAuditLogHandler(gatewayClient)
 
@@ -512,7 +512,7 @@ func TestListAuditLogsRejectsSourceTypeQuery(t *testing.T) {
 
 func TestListAuditLogsLocalAgentAdminSeesMetadataNoPayload(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	seedLocalAgentAuditLog(t, gatewayClient)
 
 	handler := NewAuditLogHandler(gatewayClient)
 	rec := httptest.NewRecorder()
@@ -540,7 +540,7 @@ func TestListAuditLogsLocalAgentAdminSeesMetadataNoPayload(t *testing.T) {
 
 func TestListAuditLogsAdminGetsOneMixedPage(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	seedLocalAgentAuditLog(t, gatewayClient)
 	gatewayClient.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
 		CreatedAt:  time.Now().UTC().Add(time.Second),
 		SourceType: types.AuditLogSourceTypeMCP,
@@ -585,7 +585,7 @@ func TestListAuditLogsAdminGetsOneMixedPage(t *testing.T) {
 // admin sees every source they are authorized for (both MCP and local-agent).
 func TestListAuditLogsDefaultsToAllAuthorizedSources(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	seedLocalAgentAuditLog(t, gatewayClient)
 	gatewayClient.LogMCPAuditEntry(gatewaytypes.MCPAuditLog{
 		CreatedAt:  time.Now().UTC().Add(time.Second),
 		SourceType: types.AuditLogSourceTypeMCP,
@@ -724,7 +724,7 @@ func TestAuditLogFilterOptionsScopeBasicAndPowerUserPlus(t *testing.T) {
 
 func TestGetAuditLogLocalAgentAccessByRole(t *testing.T) {
 	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
-	seedLocalAgentAuditLog(t, gatewayClient, "entry-1")
+	seedLocalAgentAuditLog(t, gatewayClient)
 
 	handler := NewAuditLogHandler(gatewayClient)
 
@@ -783,9 +783,9 @@ func isBlankJSON(m json.RawMessage) bool {
 	return s == "" || s == "null"
 }
 
-func seedLocalAgentAuditLog(t *testing.T, gatewayClient *gatewayclient.Client, idempotencyKey string) {
+func seedLocalAgentAuditLog(t *testing.T, gatewayClient *gatewayclient.Client) {
 	t.Helper()
-	event := validLocalAgentAuditLogInput(time.Now().UTC(), idempotencyKey, types.AuditLogOutcomeStatusSuccess)
+	event := validLocalAgentAuditLogInput(time.Now().UTC(), "entry-1", types.AuditLogOutcomeStatusSuccess)
 	event.Details.Environment.CWD = "/Users/alice/project"
 	handler := NewLocalAgentAuditLogHandler()
 	if err := handler.Submit(newLocalAgentAuditLogTestContext(t, gatewayClient, []types.LocalAgentToolCallAuditLogInput{event}, &user.DefaultInfo{

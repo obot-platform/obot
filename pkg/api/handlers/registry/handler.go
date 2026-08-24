@@ -273,7 +273,7 @@ func (h *Handler) collectAccessibleServersNoAuth(req api.Context, reverseDNS str
 		}
 
 		// Get credentials
-		credEnv, _ := h.getCredentialsForServer(req, server, "", system.DefaultCatalog, "")
+		credEnv := h.getCredentialsForServer(req, server, "", system.DefaultCatalog, "")
 
 		mergedCredEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)
 		if err != nil {
@@ -514,13 +514,7 @@ func (h *Handler) listServersInWorkspaces(
 	// Get credentials - for workspace servers, we need to pass workspace context
 	credMap := make(map[string]map[string]string)
 	for _, server := range result {
-		credEnv, err := h.getCredentialsForServer(req, server, "", "", server.Spec.PowerUserWorkspaceID)
-		if err != nil {
-			// Skip if credentials not found
-			credMap[server.Name] = make(map[string]string)
-			continue
-		}
-		credMap[server.Name] = credEnv
+		credMap[server.Name] = h.getCredentialsForServer(req, server, "", "", server.Spec.PowerUserWorkspaceID)
 	}
 
 	return result, credMap, nil
@@ -572,16 +566,16 @@ func (h *Handler) getCredentialsForServer(
 	req api.Context,
 	server v1.MCPServer,
 	userID, catalogID, workspaceID string,
-) (map[string]string, error) {
+) map[string]string {
 	ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
 
 	revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
 	if err != nil {
 		// Return empty map if not found
-		return make(map[string]string), nil
+		return make(map[string]string)
 	}
 
-	return revealed.Secrets, nil
+	return revealed.Secrets
 }
 
 func (h *Handler) buildCredentialContext(
@@ -787,7 +781,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		if err != nil {
 			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
 		}
-		credEnv, _ = h.getCredentialsForServer(req, server, req.User.GetUID(), "", "")
+		credEnv = h.getCredentialsForServer(req, server, req.User.GetUID(), "", "")
 	} else if server.Spec.MCPCatalogID != "" {
 		// Catalog server - check ACR
 		hasAccess, err := h.acrHelper.UserHasAccessToMCPServerInCatalog(
@@ -802,7 +796,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		if err != nil {
 			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
 		}
-		credEnv, _ = h.getCredentialsForServer(req, server, "", server.Spec.MCPCatalogID, "")
+		credEnv = h.getCredentialsForServer(req, server, "", server.Spec.MCPCatalogID, "")
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		// Workspace server - check ACR
 		hasAccess, err := h.acrHelper.UserHasAccessToMCPServerInWorkspace(
@@ -818,7 +812,7 @@ func (h *Handler) findMCPServer(req api.Context, serverName, reverseDNS string) 
 		if err != nil {
 			return types.RegistryServerResponse{}, fmt.Errorf("failed to generate slug")
 		}
-		credEnv, _ = h.getCredentialsForServer(req, server, "", "", server.Spec.PowerUserWorkspaceID)
+		credEnv = h.getCredentialsForServer(req, server, "", "", server.Spec.PowerUserWorkspaceID)
 	} else {
 		return types.RegistryServerResponse{}, fmt.Errorf("server not found")
 	}
