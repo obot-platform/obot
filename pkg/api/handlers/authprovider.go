@@ -99,6 +99,10 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
+	if err := ensureNoPendingAuthProviderCleanup(req, authProvider.Name); err != nil {
+		return err
+	}
+
 	configuredProvider, err := ap.dispatcher.GetConfiguredAuthProvider(req.Context())
 	if err != nil {
 		return fmt.Errorf("failed to get configured auth provider: %w", err)
@@ -175,6 +179,19 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to wait for auth provider: %w", err)
 	}
 
+	return nil
+}
+
+func ensureNoPendingAuthProviderCleanup(req api.Context, authProviderName string) error {
+	var cleanups v1.AuthProviderCleanupList
+	if err := req.List(&cleanups); err != nil {
+		return fmt.Errorf("failed to list pending auth provider cleanups: %w", err)
+	}
+	for _, cleanup := range cleanups.Items {
+		if cleanup.Spec.AuthProviderName == authProviderName {
+			return types.NewErrBadRequest("authentication provider %q is still being deconfigured; wait for cleanup to finish before configuring it again", authProviderName)
+		}
+	}
 	return nil
 }
 

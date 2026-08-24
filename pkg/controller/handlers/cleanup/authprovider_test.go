@@ -28,11 +28,11 @@ type generatedNameClient struct {
 
 func TestRemoveGroupSubjects(t *testing.T) {
 	tests := []struct {
-		name       string
-		subjects   []clienttypes.Subject
-		groupIDs   map[string]struct{}
-		want       []clienttypes.Subject
-		wantChange bool
+		name          string
+		subjects      []clienttypes.Subject
+		groupIDPrefix string
+		want          []clienttypes.Subject
+		wantChange    bool
 	}{
 		{
 			name: "removes matching groups and preserves order",
@@ -50,9 +50,7 @@ func TestRemoveGroupSubjects(t *testing.T) {
 					ID:   "okta/engineering",
 				},
 			},
-			groupIDs: map[string]struct{}{
-				"entra/engineering": {},
-			},
+			groupIDPrefix: "entra/",
 			want: []clienttypes.Subject{
 				{
 					Type: clienttypes.SubjectTypeUser,
@@ -73,11 +71,9 @@ func TestRemoveGroupSubjects(t *testing.T) {
 					ID:   "entra/engineering",
 				},
 			},
-			groupIDs: map[string]struct{}{
-				"entra/engineering": {},
-			},
-			want:       []clienttypes.Subject{},
-			wantChange: true,
+			groupIDPrefix: "entra/",
+			want:          []clienttypes.Subject{},
+			wantChange:    true,
 		},
 		{
 			name: "does not change unrelated subjects",
@@ -87,9 +83,7 @@ func TestRemoveGroupSubjects(t *testing.T) {
 					ID:   "okta/engineering",
 				},
 			},
-			groupIDs: map[string]struct{}{
-				"entra/engineering": {},
-			},
+			groupIDPrefix: "entra/",
 			want: []clienttypes.Subject{
 				{
 					Type: clienttypes.SubjectTypeGroup,
@@ -102,7 +96,7 @@ func TestRemoveGroupSubjects(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, changed := removeGroupSubjects(tt.subjects, tt.groupIDs)
+			got, changed := removeGroupSubjects(tt.subjects, tt.groupIDPrefix)
 			if changed != tt.wantChange {
 				t.Fatalf("changed = %v, want %v", changed, tt.wantChange)
 			}
@@ -115,12 +109,13 @@ func TestRemoveGroupSubjects(t *testing.T) {
 
 func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 	const (
-		targetGroup = "entra/engineering"
-		otherGroup  = "okta/engineering"
-		namespace   = "default"
+		targetGroup    = "entra/engineering"
+		otherGroup     = "okta/engineering"
+		lookalikeGroup = "entra-other/engineering"
+		namespace      = "default"
 	)
 
-	checkpoint := fmt.Sprintf(`{"groupIDs":[%q],"userIDs":[42]}`, targetGroup)
+	checkpoint := `{"userIDs":[42]}`
 	cleanupTask := &v1.AuthProviderCleanup{
 		Name:      "cleanup",
 		Namespace: namespace,
@@ -144,6 +139,10 @@ func TestAuthProviderCleanupCleansAllGroupReferences(t *testing.T) {
 		{
 			Type: clienttypes.SubjectTypeGroup,
 			ID:   otherGroup,
+		},
+		{
+			Type: clienttypes.SubjectTypeGroup,
+			ID:   lookalikeGroup,
 		},
 	}
 	wantSubjects := mixedSubjects[1:]
@@ -322,8 +321,8 @@ func TestAuthProviderCleanupCheckpointsBeforeDeleting(t *testing.T) {
 	if !found {
 		t.Fatal("cleanup checkpoint was not saved")
 	}
-	if len(checkpoint.GroupIDs) != 0 || len(checkpoint.UserIDs) != 0 {
-		t.Fatalf("checkpoint = %#v, want empty group and user IDs", checkpoint)
+	if len(checkpoint.UserIDs) != 0 {
+		t.Fatalf("checkpoint = %#v, want empty user IDs", checkpoint)
 	}
 }
 

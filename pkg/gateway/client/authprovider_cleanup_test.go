@@ -9,7 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-func TestAuthProviderGroupCleanupData(t *testing.T) {
+func TestGetAuthProviderGroupCleanupUserIDs(t *testing.T) {
 	c := newTestClient(t)
 	groups := []types.Group{
 		{
@@ -48,6 +48,14 @@ func TestAuthProviderGroupCleanupData(t *testing.T) {
 			UserID:  3,
 			GroupID: "okta/engineering",
 		},
+		{
+			UserID:  4,
+			GroupID: "entra/uncached",
+		},
+		{
+			UserID:  5,
+			GroupID: "entra-other/engineering",
+		},
 	}
 	if err := c.db.WithContext(t.Context()).Create(&groups).Error; err != nil {
 		t.Fatal(err)
@@ -56,14 +64,11 @@ func TestAuthProviderGroupCleanupData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	groupIDs, userIDs, err := c.GetAuthProviderGroupCleanupData(t.Context(), "default", "entra-auth-provider")
+	userIDs, err := c.GetAuthProviderGroupCleanupUserIDs(t.Context(), "entra/")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if want := []string{"entra/engineering", "entra/security"}; !reflect.DeepEqual(groupIDs, want) {
-		t.Fatalf("group IDs = %#v, want %#v", groupIDs, want)
-	}
-	if want := []uint{1, 2}; !reflect.DeepEqual(userIDs, want) {
+	if want := []uint{1, 2, 4}; !reflect.DeepEqual(userIDs, want) {
 		t.Fatalf("user IDs = %#v, want %#v", userIDs, want)
 	}
 }
@@ -83,6 +88,12 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 			AuthProviderNamespace: "default",
 			Name:                  "Engineering",
 		},
+		{
+			ID:                    "entra-other/engineering",
+			AuthProviderName:      "entra-other-auth-provider",
+			AuthProviderNamespace: "default",
+			Name:                  "Engineering",
+		},
 	}
 	memberships := []types.GroupMemberships{
 		{
@@ -93,6 +104,14 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 			UserID:  2,
 			GroupID: "okta/engineering",
 		},
+		{
+			UserID:  3,
+			GroupID: "entra/uncached",
+		},
+		{
+			UserID:  4,
+			GroupID: "entra-other/engineering",
+		},
 	}
 	assignments := []types.GroupRoleAssignment{
 		{
@@ -101,6 +120,14 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 		},
 		{
 			GroupName: "okta/engineering",
+			Role:      clienttypes.RolePowerUser,
+		},
+		{
+			GroupName: "entra/uncached",
+			Role:      clienttypes.RolePowerUser,
+		},
+		{
+			GroupName: "entra-other/engineering",
 			Role:      clienttypes.RolePowerUser,
 		},
 	}
@@ -124,7 +151,7 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	}
 
 	for range 2 {
-		if err := c.DeleteAuthProviderGroupData(t.Context(), "default", "entra-auth-provider", []string{"entra/engineering"}); err != nil {
+		if err := c.DeleteAuthProviderGroupData(t.Context(), "default", "entra-auth-provider", "entra/"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -133,24 +160,24 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Order("id").Find(&remainingGroups).Error; err != nil {
 		t.Fatal(err)
 	}
-	if len(remainingGroups) != 1 || remainingGroups[0].ID != "okta/engineering" {
-		t.Fatalf("remaining groups = %#v, want only okta/engineering", remainingGroups)
+	if got, want := groupIDs(remainingGroups), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("remaining group IDs = %#v, want %#v", got, want)
 	}
 
 	var remainingMemberships []types.GroupMemberships
-	if err := c.db.WithContext(t.Context()).Find(&remainingMemberships).Error; err != nil {
+	if err := c.db.WithContext(t.Context()).Order("group_id").Find(&remainingMemberships).Error; err != nil {
 		t.Fatal(err)
 	}
-	if len(remainingMemberships) != 1 || remainingMemberships[0].GroupID != "okta/engineering" {
-		t.Fatalf("remaining memberships = %#v, want only okta/engineering", remainingMemberships)
+	if got, want := membershipGroupIDs(remainingMemberships), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("remaining membership group IDs = %#v, want %#v", got, want)
 	}
 
 	remainingAssignments, err := c.ListGroupRoleAssignments(t.Context())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(remainingAssignments) != 1 || remainingAssignments[0].GroupName != "okta/engineering" {
-		t.Fatalf("remaining assignments = %#v, want only okta/engineering", remainingAssignments)
+	if got, want := assignmentGroupIDs(remainingAssignments), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("remaining assignment group IDs = %#v, want %#v", got, want)
 	}
 
 	var gotIdentity types.Identity
@@ -160,4 +187,28 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	if !gotIdentity.AuthProviderGroupsLastChecked.IsZero() {
 		t.Fatalf("identity group check timestamp = %v, want zero", gotIdentity.AuthProviderGroupsLastChecked)
 	}
+}
+
+func groupIDs(groups []types.Group) []string {
+	result := make([]string, len(groups))
+	for i := range groups {
+		result[i] = groups[i].ID
+	}
+	return result
+}
+
+func membershipGroupIDs(memberships []types.GroupMemberships) []string {
+	result := make([]string, len(memberships))
+	for i := range memberships {
+		result[i] = memberships[i].GroupID
+	}
+	return result
+}
+
+func assignmentGroupIDs(assignments []types.GroupRoleAssignment) []string {
+	result := make([]string, len(assignments))
+	for i := range assignments {
+		result[i] = assignments[i].GroupName
+	}
+	return result
 }

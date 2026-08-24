@@ -520,52 +520,38 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 	return groupIDs, nil
 }
 
-// GetAuthProviderGroupCleanupData returns the cached group IDs owned by an auth provider and the
-// users who currently belong to any of those groups. The result is intended to be checkpointed by
-// the auth-provider cleanup controller before it starts deleting data.
-func (c *Client) GetAuthProviderGroupCleanupData(ctx context.Context, authProviderNamespace, authProviderName string) ([]string, []uint, error) {
-	var groupIDs []string
-	if err := c.db.WithContext(ctx).
-		Model(&types.Group{}).
-		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
-		Order("id").
-		Pluck("id", &groupIDs).Error; err != nil {
-		return nil, nil, fmt.Errorf("failed to list groups for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
-	}
-
-	if len(groupIDs) == 0 {
-		return []string{}, []uint{}, nil
-	}
-
+// GetAuthProviderGroupCleanupUserIDs returns the users who belong to groups with the auth
+// provider's globally unique group ID prefix. The result is intended to be checkpointed by the
+// auth-provider cleanup controller before it starts deleting data.
+func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, groupIDPrefix string) ([]uint, error) {
 	var userIDs []uint
 	if err := c.db.WithContext(ctx).
 		Model(&types.GroupMemberships{}).
 		Distinct().
-		Where("group_id IN ?", groupIDs).
+		Where("group_id LIKE ?", groupIDPrefix+"%").
 		Order("user_id").
 		Pluck("user_id", &userIDs).Error; err != nil {
-		return nil, nil, fmt.Errorf("failed to list users in groups for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
+		return nil, fmt.Errorf("failed to list users in groups with prefix %q: %w", groupIDPrefix, err)
 	}
 
-	return groupIDs, userIDs, nil
+	return userIDs, nil
 }
 
-// DeleteAuthProviderGroupData removes all gateway-database state for the checkpointed groups of a
+// DeleteAuthProviderGroupData removes all gateway-database state for groups belonging to a
 // deconfigured auth provider. It is transactional and idempotent so controller retries are safe.
-func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName string, groupIDs []string) error {
+func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName, groupIDPrefix string) error {
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if len(groupIDs) > 0 {
-			if err := tx.Where("group_name IN ?", groupIDs).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
-				return fmt.Errorf("delete group role assignments: %w", err)
-			}
-			if err := tx.Where("group_id IN ?", groupIDs).Delete(&types.GroupMemberships{}).Error; err != nil {
-				return fmt.Errorf("delete group memberships: %w", err)
-			}
-			if err := tx.
-				Where("auth_provider_namespace = ? AND auth_provider_name = ? AND id IN ?", authProviderNamespace, authProviderName, groupIDs).
-				Delete(&types.Group{}).Error; err != nil {
-				return fmt.Errorf("delete cached groups: %w", err)
-			}
+		groupIDPattern := groupIDPrefix + "%"
+		if err := tx.Where("group_name LIKE ?", groupIDPattern).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
+			return fmt.Errorf("delete group role assignments: %w", err)
+		}
+		if err := tx.Where("group_id LIKE ?", groupIDPattern).Delete(&types.GroupMemberships{}).Error; err != nil {
+			return fmt.Errorf("delete group memberships: %w", err)
+		}
+		if err := tx.
+			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+			Delete(&types.Group{}).Error; err != nil {
+			return fmt.Errorf("delete cached groups: %w", err)
 		}
 		if err := tx.Model(&types.Identity{}).
 			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
@@ -574,7 +560,7 @@ func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNa
 		}
 		return nil
 	}); err != nil {
-		return fmt.Errorf("failed to delete group data for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
+		return fmt.Errorf("failed to delete group data for auth provider %s/%s with prefix %q: %w", authProviderNamespace, authProviderName, groupIDPrefix, err)
 	}
 
 	return nil

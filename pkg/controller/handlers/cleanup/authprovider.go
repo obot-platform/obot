@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/auth"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -18,8 +20,7 @@ const (
 )
 
 type authProviderCleanupCheckpoint struct {
-	GroupIDs []string `json:"groupIDs"`
-	UserIDs  []uint   `json:"userIDs"`
+	UserIDs []uint `json:"userIDs"`
 }
 
 type AuthProviderCleanup struct {
@@ -37,19 +38,22 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, _ router.Response) err
 	if providerName == "" {
 		return fmt.Errorf("auth provider cleanup %s has no auth provider name", cleanup.Name)
 	}
+	groupIDPrefix, err := auth.GroupIDPrefixForAuthProvider(providerName)
+	if err != nil {
+		return err
+	}
 
 	checkpoint, found, err := authProviderCheckpoint(cleanup)
 	if err != nil {
 		return err
 	}
 	if !found {
-		groupIDs, userIDs, err := a.gatewayClient.GetAuthProviderGroupCleanupData(req.Ctx, providerNamespace, providerName)
+		userIDs, err := a.gatewayClient.GetAuthProviderGroupCleanupUserIDs(req.Ctx, groupIDPrefix)
 		if err != nil {
 			return err
 		}
 		checkpoint = authProviderCleanupCheckpoint{
-			GroupIDs: groupIDs,
-			UserIDs:  userIDs,
+			UserIDs: userIDs,
 		}
 		data, err := json.Marshal(checkpoint)
 		if err != nil {
@@ -62,36 +66,31 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, _ router.Response) err
 		if err := req.Client.Update(req.Ctx, cleanup); err != nil {
 			return fmt.Errorf("save auth provider cleanup checkpoint: %w", err)
 		}
-		slog.Info("Checkpointed auth provider group cleanup", "authProvider", providerName, "namespace", providerNamespace, "groups", len(groupIDs), "users", len(userIDs))
+		slog.Info("Checkpointed auth provider group cleanup", "authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix, "users", len(userIDs))
 		return nil
 	}
 
-	groupIDs := make(map[string]struct{}, len(checkpoint.GroupIDs))
-	for _, groupID := range checkpoint.GroupIDs {
-		groupIDs[groupID] = struct{}{}
-	}
-
 	counts := make(map[string]int, 6)
-	if counts["accessControlRules"], err = cleanupAccessControlRuleGroups(req, groupIDs); err != nil {
+	if counts["accessControlRules"], err = cleanupAccessControlRuleGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
-	if counts["modelAccessPolicies"], err = cleanupModelAccessPolicyGroups(req, groupIDs); err != nil {
+	if counts["modelAccessPolicies"], err = cleanupModelAccessPolicyGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
-	if counts["skillAccessRules"], err = cleanupSkillAccessRuleGroups(req, groupIDs); err != nil {
+	if counts["skillAccessRules"], err = cleanupSkillAccessRuleGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
-	if counts["messagePolicies"], err = cleanupMessagePolicyGroups(req, groupIDs); err != nil {
+	if counts["messagePolicies"], err = cleanupMessagePolicyGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
-	if counts["hostedAgentAccessRules"], err = cleanupHostedAgentAccessRuleGroups(req, groupIDs); err != nil {
+	if counts["hostedAgentAccessRules"], err = cleanupHostedAgentAccessRuleGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
-	if counts["publishedArtifacts"], err = cleanupPublishedArtifactGroups(req, groupIDs); err != nil {
+	if counts["publishedArtifacts"], err = cleanupPublishedArtifactGroups(req, groupIDPrefix); err != nil {
 		return err
 	}
 
-	if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, checkpoint.GroupIDs); err != nil {
+	if err := a.gatewayClient.DeleteAuthProviderGroupData(req.Ctx, providerNamespace, providerName, groupIDPrefix); err != nil {
 		return err
 	}
 
@@ -116,7 +115,7 @@ func (a *AuthProviderCleanup) Cleanup(req router.Request, _ router.Response) err
 		}
 	}
 
-	slog.Info("Completed auth provider group cleanup", "authProvider", providerName, "namespace", providerNamespace, "groups", len(checkpoint.GroupIDs), "users", len(checkpoint.UserIDs), "updatedResources", counts)
+	slog.Info("Completed auth provider group cleanup", "authProvider", providerName, "namespace", providerNamespace, "groupIDPrefix", groupIDPrefix, "users", len(checkpoint.UserIDs), "updatedResources", counts)
 	return req.Delete(cleanup)
 }
 
@@ -133,15 +132,13 @@ func authProviderCheckpoint(cleanup *v1.AuthProviderCleanup) (authProviderCleanu
 	return checkpoint, true, nil
 }
 
-func removeGroupSubjects(subjects []types.Subject, groupIDs map[string]struct{}) ([]types.Subject, bool) {
+func removeGroupSubjects(subjects []types.Subject, groupIDPrefix string) ([]types.Subject, bool) {
 	result := make([]types.Subject, 0, len(subjects))
 	changed := false
 	for _, subject := range subjects {
-		if subject.Type == types.SubjectTypeGroup {
-			if _, ok := groupIDs[subject.ID]; ok {
-				changed = true
-				continue
-			}
+		if subject.Type == types.SubjectTypeGroup && strings.HasPrefix(subject.ID, groupIDPrefix) {
+			changed = true
+			continue
 		}
 		result = append(result, subject)
 	}
@@ -151,14 +148,14 @@ func removeGroupSubjects(subjects []types.Subject, groupIDs map[string]struct{})
 	return result, true
 }
 
-func cleanupAccessControlRuleGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupAccessControlRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.AccessControlRuleList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list access control rules for auth provider cleanup: %w", err)
 	}
 	updated := 0
 	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDs)
+		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
 		if !changed {
 			continue
 		}
@@ -171,14 +168,14 @@ func cleanupAccessControlRuleGroups(req router.Request, groupIDs map[string]stru
 	return updated, nil
 }
 
-func cleanupModelAccessPolicyGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupModelAccessPolicyGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.ModelAccessPolicyList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list model access policies for auth provider cleanup: %w", err)
 	}
 	updated := 0
 	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDs)
+		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
 		if !changed {
 			continue
 		}
@@ -191,14 +188,14 @@ func cleanupModelAccessPolicyGroups(req router.Request, groupIDs map[string]stru
 	return updated, nil
 }
 
-func cleanupSkillAccessRuleGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupSkillAccessRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.SkillAccessRuleList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list skill access rules for auth provider cleanup: %w", err)
 	}
 	updated := 0
 	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDs)
+		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
 		if !changed {
 			continue
 		}
@@ -211,14 +208,14 @@ func cleanupSkillAccessRuleGroups(req router.Request, groupIDs map[string]struct
 	return updated, nil
 }
 
-func cleanupMessagePolicyGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupMessagePolicyGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.MessagePolicyList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list message policies for auth provider cleanup: %w", err)
 	}
 	updated := 0
 	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDs)
+		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
 		if !changed {
 			continue
 		}
@@ -231,14 +228,14 @@ func cleanupMessagePolicyGroups(req router.Request, groupIDs map[string]struct{}
 	return updated, nil
 }
 
-func cleanupHostedAgentAccessRuleGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupHostedAgentAccessRuleGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.HostedAgentAccessRuleList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list hosted agent access rules for auth provider cleanup: %w", err)
 	}
 	updated := 0
 	for i := range list.Items {
-		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDs)
+		subjects, changed := removeGroupSubjects(list.Items[i].Spec.Manifest.Subjects, groupIDPrefix)
 		if !changed {
 			continue
 		}
@@ -251,7 +248,7 @@ func cleanupHostedAgentAccessRuleGroups(req router.Request, groupIDs map[string]
 	return updated, nil
 }
 
-func cleanupPublishedArtifactGroups(req router.Request, groupIDs map[string]struct{}) (int, error) {
+func cleanupPublishedArtifactGroups(req router.Request, groupIDPrefix string) (int, error) {
 	var list v1.PublishedArtifactList
 	if err := req.Client.List(req.Ctx, &list, &kclient.ListOptions{Namespace: req.Namespace}); err != nil {
 		return 0, fmt.Errorf("list published artifacts for auth provider cleanup: %w", err)
@@ -260,7 +257,7 @@ func cleanupPublishedArtifactGroups(req router.Request, groupIDs map[string]stru
 	for i := range list.Items {
 		changed := false
 		for j := range list.Items[i].Status.Versions {
-			subjects, versionChanged := removeGroupSubjects(list.Items[i].Status.Versions[j].Subjects, groupIDs)
+			subjects, versionChanged := removeGroupSubjects(list.Items[i].Status.Versions[j].Subjects, groupIDPrefix)
 			if versionChanged {
 				list.Items[i].Status.Versions[j].Subjects = subjects
 				changed = true
