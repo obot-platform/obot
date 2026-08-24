@@ -9,7 +9,6 @@
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import ConnectorsView from './ConnectorsView.svelte';
 	import { Server } from '@lucide/svelte';
-	import { debounce } from 'es-toolkit';
 	import { fade, fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -19,9 +18,9 @@
 
 	let query = $derived(page.url.searchParams.get('query') || '');
 
-	const updateSearchQuery = debounce((value: string) => {
+	const updateSearchQuery = (value: string) => {
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
-	}, 100);
+	};
 
 	const duration = PAGE_TRANSITION_DURATION;
 	let title = 'MCP Servers';

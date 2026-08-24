@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { SearchIcon } from '@lucide/svelte';
+	import { onDestroy } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -24,6 +25,12 @@
 	}: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	let input = $state<HTMLInputElement | null>(null);
+	let displayValue = $state('');
+
+	$effect(() => {
+		displayValue = value;
+		if (searchTimeout) clearTimeout(searchTimeout);
+	});
 
 	function search(e: Event) {
 		const value = (e.target as HTMLInputElement).value;
@@ -38,17 +45,18 @@
 	}
 
 	export function clear() {
-		if (input) {
-			input.value = '';
-		}
+		if (searchTimeout) clearTimeout(searchTimeout);
+		displayValue = '';
 		onChange('');
 	}
+
+	onDestroy(() => clearTimeout(searchTimeout));
 </script>
 
 <div class="relative w-full" {...restProps}>
 	<input
 		bind:this={input}
-		{value}
+		bind:value={displayValue}
 		type="text"
 		{placeholder}
 		class={twMerge(
