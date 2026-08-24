@@ -211,7 +211,7 @@ export interface AuditLogEvent {
 		id?: string;
 		/** Redacted authentication credential identifier when the actor is a known user. */
 		credentialID?: string;
-		/** Current lifecycle state of the API key represented by credentialID. */
+		/** Current lifecycle state of the API key represented by credentialID, or by id for credential actors. */
 		apiKeyRevoked?: boolean;
 	};
 	action: { operation: string; name?: string; kind?: string };

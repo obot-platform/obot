@@ -1357,7 +1357,7 @@ func schema_obot_platform_obot_apiclient_types_AuditLogActor(ref common.Referenc
 					},
 					"apiKeyRevoked": {
 						SchemaProps: spec.SchemaProps{
-							Description: "APIKeyRevoked reports the current lifecycle state of the API key represented by CredentialID.",
+							Description: "APIKeyRevoked reports the current lifecycle state of the API key represented by CredentialID, or by ID when ActorType is AuditLogActorTypeCredential.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},

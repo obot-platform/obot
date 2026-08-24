@@ -170,8 +170,8 @@ func TestPresentLocalAgentIncludesAPIKeyCredential(t *testing.T) {
 }
 
 func TestPresentUnknownActors(t *testing.T) {
-	mcp := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, APIKeyName: "credential", MCPFields: &gatewaytypes.MCPAuditLogFields{}}
-	if actor := Present(mcp, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeCredential || actor.ID != "credential" {
+	mcp := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, APIKeyName: "credential", APIKeyRevoked: true, MCPFields: &gatewaytypes.MCPAuditLogFields{}}
+	if actor := Present(mcp, PresentOptions{}).Actor; actor.ActorType != api.AuditLogActorTypeCredential || actor.ID != "credential" || !actor.APIKeyRevoked {
 		t.Fatalf("unexpected credential actor: %#v", actor)
 	}
 	legacyMCP := gatewaytypes.MCPAuditLog{SourceType: api.AuditLogSourceTypeMCP, MCPFields: &gatewaytypes.MCPAuditLogFields{APIKey: "ok1-user-1-17-super-secret"}}

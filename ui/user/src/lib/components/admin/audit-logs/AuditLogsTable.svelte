@@ -259,7 +259,8 @@
 					{@const d = item.data}
 					{@const identifier = identifierParts(d)}
 					{@const actor = actorLabel(d.actor)}
-					{@const credential = d.actor.credentialID}
+					{@const credential =
+						d.actor.credentialID ?? (d.actor.actorType === 'credential' ? d.actor.id : undefined)}
 					{@const credentialLabel = credential
 						? formatAuditLogCredentialLabel(credential, d.actor.apiKeyRevoked === true)
 						: undefined}
@@ -274,7 +275,10 @@
 					>
 						{@render td(formatAuditLogTableTimestamp(d.timestamp.occurredAt))}
 						{@render td(eventTypeLabel(d.eventType))}
-						{@render twoLine(credentialLabel || actor, credential ? actor : d.actor.actorType)}
+						{@render twoLine(
+							credentialLabel || actor,
+							d.actor.credentialID ? actor : d.actor.actorType
+						)}
 						{@render td(d.action.operation)}
 						{@render twoLine(identifier.primary, identifier.secondary)}
 						{@render outcomeCell(d.outcome)}
