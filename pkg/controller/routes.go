@@ -43,6 +43,7 @@ func (c *Controller) setupRoutes() {
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
+	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
 	mcpCatalog := mcpcatalog.New(c.services.DefaultMCPCatalogPath, c.services.DefaultSystemMCPCatalogPath, c.services.GatewayClient, c.services.AccessControlRuleHelper, c.services.MCPSessionManager)
 	modelInfoSource := modelinfosource.New(c.services.ModelInfoSourceURL, c.services.MCPSessionManager.RemoteMCPURLValidationConfig())
 	mdmAssetSource := mdmassetsource.New(c.services.MDMAssetSource, c.services.ServerURL, c.services.GatewayClient)
@@ -93,6 +94,9 @@ func (c *Controller) setupRoutes() {
 
 	// User Cleanup
 	root.Type(&v1.UserDelete{}).HandlerFunc(userCleanup.Cleanup)
+
+	// Auth Provider Cleanup
+	root.Type(&v1.AuthProviderCleanup{}).HandlerFunc(authProviderCleanup.Cleanup)
 
 	// ModelInfoSource
 	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)

@@ -13,6 +13,7 @@ const (
 	DeviceEnrollmentPrefix        = "ode1"
 	ProjectPrefix                 = "p1"
 	UserDeletePrefix              = "ud1"
+	AuthProviderCleanupPrefix     = "apc1"
 	UserRoleChangePrefix          = "urc1"
 	UserGroupChangePrefix         = "ugc1"
 	GroupRoleChangePrefix         = "grc1"

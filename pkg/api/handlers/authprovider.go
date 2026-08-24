@@ -241,6 +241,16 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to update auth provider: %w", err)
 	}
 
+	if err := req.Create(&v1.AuthProviderCleanup{
+		GenerateName: system.AuthProviderCleanupPrefix,
+		Namespace:    authProvider.Namespace,
+		Spec: v1.AuthProviderCleanupSpec{
+			AuthProviderName: authProvider.Name,
+		},
+	}); err != nil {
+		return fmt.Errorf("failed to schedule auth provider cleanup: %w", err)
+	}
+
 	// Wait for the controllers to process to ensure the API will return correct configuration status.
 	if _, err := wait.For(req.Context(), req.Storage, &authProvider, func(a *v1.AuthProvider) (bool, error) {
 		return a.Status.ObservedGeneration == a.Generation, nil

@@ -121,6 +121,21 @@ func (in AuthProvider) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuthProviderCleanup) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AuthProviderCleanup"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuthProviderCleanupList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AuthProviderCleanupList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in AuthProviderCleanupSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AuthProviderCleanupSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in AuthProviderList) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.AuthProviderList"
 }

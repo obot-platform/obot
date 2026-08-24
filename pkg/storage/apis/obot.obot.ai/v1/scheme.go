@@ -47,6 +47,8 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&DefaultModelAliasList{},
 		&UserDelete{},
 		&UserDeleteList{},
+		&AuthProviderCleanup{},
+		&AuthProviderCleanupList{},
 		&UserRoleChange{},
 		&UserRoleChangeList{},
 		&UserGroupChange{},
