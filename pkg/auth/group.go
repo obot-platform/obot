@@ -2,8 +2,11 @@ package auth
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+var groupIDPrefixPattern = regexp.MustCompile(`^[[:alnum:]]+/$`)
 
 // ValidateGroupIDPrefix validates a provider-declared group ID namespace. An empty prefix means
 // that the provider does not support groups.
@@ -11,11 +14,8 @@ func ValidateGroupIDPrefix(prefix string) error {
 	if prefix == "" {
 		return nil
 	}
-	if !strings.HasSuffix(prefix, "/") || prefix == "/" {
-		return fmt.Errorf("group ID prefix %q must have a non-empty namespace and end with a slash", prefix)
-	}
-	if strings.ContainsAny(prefix, "%_\\") {
-		return fmt.Errorf("group ID prefix %q must not contain SQL wildcard or escape characters", prefix)
+	if !groupIDPrefixPattern.MatchString(prefix) {
+		return fmt.Errorf("group ID prefix %q must contain only an alphanumeric namespace followed by a slash", prefix)
 	}
 	return nil
 }

@@ -19,6 +19,10 @@ func TestValidateGroupIDPrefix(t *testing.T) {
 			prefix: "entra/",
 		},
 		{
+			name:   "valid mixed case and numeric prefix",
+			prefix: "Entra2/",
+		},
+		{
 			name:      "missing slash",
 			prefix:    "entra",
 			wantError: true,
@@ -29,18 +33,33 @@ func TestValidateGroupIDPrefix(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name:      "SQL percent wildcard",
-			prefix:    "ent%ra/",
+			name:      "nested namespace",
+			prefix:    "entra/custom/",
 			wantError: true,
 		},
 		{
-			name:      "SQL underscore wildcard",
-			prefix:    "ent_ra/",
+			name:      "hyphen",
+			prefix:    "azure-ad/",
 			wantError: true,
 		},
 		{
-			name:      "SQL escape character",
-			prefix:    `ent\ra/`,
+			name:      "underscore",
+			prefix:    "azure_ad/",
+			wantError: true,
+		},
+		{
+			name:      "punctuation",
+			prefix:    "entra%/",
+			wantError: true,
+		},
+		{
+			name:      "whitespace",
+			prefix:    "entra id/",
+			wantError: true,
+		},
+		{
+			name:      "extra trailing slash",
+			prefix:    "entra//",
 			wantError: true,
 		},
 	}

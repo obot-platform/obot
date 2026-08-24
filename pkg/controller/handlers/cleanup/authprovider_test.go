@@ -121,9 +121,9 @@ func TestAuthProviderCleanupCleansAllGroupReferencesAfterProviderPruned(t *testi
 		Name:      "cleanup",
 		Namespace: namespace,
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName:          "entra-auth-provider",
-			DeconfigurationGeneration: 2,
-			GroupIDPrefix:             "entra/",
+			AuthProviderName: "entra-auth-provider",
+			GroupIDPrefix:    "entra/",
+			Ready:            true,
 		},
 	}
 	mixedSubjects := []clienttypes.Subject{
@@ -331,9 +331,9 @@ func TestAuthProviderCleanupProcessesIdentityUsersInBoundedBatches(t *testing.T)
 		Name:      "cleanup",
 		Namespace: "default",
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName:          "entra-auth-provider",
-			DeconfigurationGeneration: 2,
-			GroupIDPrefix:             "entra/",
+			AuthProviderName: "entra-auth-provider",
+			GroupIDPrefix:    "entra/",
+			Ready:            true,
 		},
 	}
 	authProvider := &v1.AuthProvider{
@@ -444,7 +444,7 @@ func TestAuthProviderCleanupProcessesIdentityUsersInBoundedBatches(t *testing.T)
 	}
 }
 
-func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
+func TestAuthProviderCleanupWaitsUntilReady(t *testing.T) {
 	const (
 		namespace   = "default"
 		targetGroup = "entra/engineering"
@@ -454,16 +454,10 @@ func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
 		Name:      "cleanup",
 		Namespace: namespace,
 		Spec: v1.AuthProviderCleanupSpec{
-			AuthProviderName:          "entra-auth-provider",
-			DeconfigurationGeneration: 2,
-			GroupIDPrefix:             "entra/",
+			AuthProviderName: "entra-auth-provider",
+			GroupIDPrefix:    "entra/",
 		},
 	}
-	authProvider := &v1.AuthProvider{
-		Name:      "entra-auth-provider",
-		Namespace: namespace,
-	}
-	authProvider.Generation = 3
 	accessRule := &v1.AccessControlRule{
 		Name:      "access-rule",
 		Namespace: namespace,
@@ -480,7 +474,7 @@ func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
 	}
 	storageClient := fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithObjects(task, authProvider, accessRule).
+		WithObjects(task, accessRule).
 		Build()
 	gatewayClient, _ := newAuthProviderCleanupGatewayClient(t)
 	if _, err := gatewayClient.CreateGroupRoleAssignment(t.Context(), targetGroup, clienttypes.RoleAdmin, "target"); err != nil {
@@ -495,12 +489,16 @@ func TestAuthProviderCleanupDiscardsStaleTask(t *testing.T) {
 		Namespace: namespace,
 		Name:      task.Name,
 	}
-	if err := handler.Cleanup(req, &router.ResponseWrapper{}); err != nil {
+	resp := &router.ResponseWrapper{}
+	if err := handler.Cleanup(req, resp); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(task), &v1.AuthProviderCleanup{}); !apierrors.IsNotFound(err) {
-		t.Fatalf("stale cleanup task still exists: %v", err)
+	if resp.Delay != time.Second {
+		t.Fatalf("retry delay = %v, want %v", resp.Delay, time.Second)
+	}
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(task), &v1.AuthProviderCleanup{}); err != nil {
+		t.Fatalf("pending cleanup task was removed: %v", err)
 	}
 	if _, err := gatewayClient.GetGroupRoleAssignment(t.Context(), targetGroup); err != nil {
 		t.Fatalf("group role assignment was removed by stale cleanup: %v", err)

@@ -228,6 +228,23 @@ func appendProviders(registryPath string, authProviderManifests []providerFromFi
 	return objs
 }
 
+func validateUniqueAuthProviderGroupIDPrefixes(objs []kclient.Object) error {
+	providersByPrefix := make(map[string]string)
+	for _, obj := range objs {
+		provider, ok := obj.(*v1.AuthProvider)
+		if !ok || provider.Spec.GroupIDPrefix == "" {
+			continue
+		}
+
+		prefix := provider.Spec.GroupIDPrefix
+		if existingProvider, ok := providersByPrefix[prefix]; ok {
+			return fmt.Errorf("auth providers %q and %q declare the same group ID prefix %q", existingProvider, provider.Name, provider.Spec.GroupIDPrefix)
+		}
+		providersByPrefix[prefix] = provider.Name
+	}
+	return nil
+}
+
 func (h *Handler) ReadFromRegistry(ctx context.Context, c kclient.Client) error {
 	var (
 		toAdd []kclient.Object
@@ -253,6 +270,9 @@ func (h *Handler) ReadFromRegistry(ctx context.Context, c kclient.Client) error 
 		// Do not accidentally delete all the providers.
 		slog.Info("Skipping provider registry apply because no providers were resolved")
 		return nil
+	}
+	if err := validateUniqueAuthProviderGroupIDPrefixes(toAdd); err != nil {
+		return fmt.Errorf("validate provider registries: %w", err)
 	}
 
 	slog.Info("Applying resolved providers from registries", "providers", len(toAdd))

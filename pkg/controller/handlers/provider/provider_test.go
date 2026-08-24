@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestReadLocalProviderRegistryFromSubdirectories(t *testing.T) {
@@ -116,6 +117,97 @@ func TestAppendProvidersSkipsInvalidGroupIDPrefix(t *testing.T) {
 	}
 	if provider.Name != "valid" || provider.Spec.GroupIDPrefix != "valid/" {
 		t.Fatalf("provider = %#v, want valid provider", provider)
+	}
+}
+
+func TestValidateUniqueAuthProviderGroupIDPrefixes(t *testing.T) {
+	tests := []struct {
+		name      string
+		objects   []kclient.Object
+		wantError bool
+	}{
+		{
+			name: "unique prefixes",
+			objects: []kclient.Object{
+				&v1.AuthProvider{
+					Name: "entra",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "entra/",
+						},
+					},
+				},
+				&v1.AuthProvider{
+					Name: "okta",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "okta/",
+						},
+					},
+				},
+				&v1.AuthProvider{
+					Name: "local",
+				},
+				&v1.ModelProvider{
+					Name: "model",
+				},
+			},
+		},
+		{
+			name: "duplicate prefixes",
+			objects: []kclient.Object{
+				&v1.AuthProvider{
+					Name: "first",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "entra/",
+						},
+					},
+				},
+				&v1.AuthProvider{
+					Name: "second",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "entra/",
+						},
+					},
+				},
+			},
+			wantError: true,
+		},
+		{
+			name: "case variants are distinct prefixes",
+			objects: []kclient.Object{
+				&v1.AuthProvider{
+					Name: "first",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "Entra/",
+						},
+					},
+				},
+				&v1.AuthProvider{
+					Name: "second",
+					Spec: v1.AuthProviderSpec{
+						AuthProviderManifest: types.AuthProviderManifest{
+							GroupIDPrefix: "entra/",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateUniqueAuthProviderGroupIDPrefixes(tt.objects)
+			if tt.wantError && err == nil {
+				t.Fatal("expected an error")
+			}
+			if !tt.wantError && err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

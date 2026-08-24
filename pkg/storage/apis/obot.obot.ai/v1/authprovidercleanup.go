@@ -17,9 +17,10 @@ type AuthProviderCleanup struct {
 }
 
 type AuthProviderCleanupSpec struct {
-	AuthProviderName          string `json:"authProviderName,omitempty"`
-	DeconfigurationGeneration int64  `json:"deconfigurationGeneration,omitempty"`
-	GroupIDPrefix             string `json:"groupIDPrefix,omitempty"`
+	AuthProviderName string `json:"authProviderName,omitempty"`
+	GroupIDPrefix    string `json:"groupIDPrefix,omitempty"`
+	// Ready indicates that deconfiguration side effects have completed and cleanup may begin.
+	Ready bool `json:"ready,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

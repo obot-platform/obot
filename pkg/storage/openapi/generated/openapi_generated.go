@@ -19235,16 +19235,17 @@ func schema_storage_apis_obotobotai_v1_AuthProviderCleanupSpec(ref common.Refere
 							Format: "",
 						},
 					},
-					"deconfigurationGeneration": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"integer"},
-							Format: "int64",
-						},
-					},
 					"groupIDPrefix": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Ready indicates that deconfiguration side effects have completed and cleanup may begin.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},

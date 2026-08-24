@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
@@ -23,6 +24,8 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -99,7 +102,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		return err
 	}
 
-	if err := ensureNoPendingAuthProviderCleanup(req, authProvider.Name); err != nil {
+	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
 		return err
 	}
 
@@ -137,6 +140,9 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		Secrets: envVars,
 	}); err != nil {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", authProvider.Name, err)
+	}
+	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, err)
 	}
 
 	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
@@ -178,18 +184,31 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to wait for auth provider: %w", err)
 	}
+	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, err)
+	}
 
 	return nil
 }
 
-func ensureNoPendingAuthProviderCleanup(req api.Context, authProviderName string) error {
+func (ap *AuthProviderHandler) rollbackAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, cause error) error {
+	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name); err != nil {
+		return errors.Join(cause, fmt.Errorf("roll back credential for auth provider %q: %w", authProvider.Name, err))
+	}
+	return cause
+}
+
+func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) error {
 	var cleanups v1.AuthProviderCleanupList
 	if err := req.List(&cleanups); err != nil {
-		return fmt.Errorf("failed to list pending auth provider cleanups: %w", err)
+		return fmt.Errorf("list pending auth provider cleanups: %w", err)
 	}
 	for _, cleanup := range cleanups.Items {
-		if cleanup.Spec.AuthProviderName == authProviderName {
-			return types.NewErrBadRequest("authentication provider %q is still being deconfigured; wait for cleanup to finish before configuring it again", authProviderName)
+		sameProvider := cleanup.Spec.AuthProviderName == authProvider.Name
+		samePrefix := authProvider.Spec.GroupIDPrefix != "" && cleanup.Spec.GroupIDPrefix == authProvider.Spec.GroupIDPrefix
+		if sameProvider || samePrefix {
+			return types.NewErrBadRequest("authentication provider %q is still being deconfigured; wait for cleanup to finish before configuring it again", authProvider.Name)
 		}
 	}
 	return nil
@@ -199,6 +218,18 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 	var authProvider v1.AuthProvider
 	if err := req.Get(&authProvider, req.PathValue("id")); err != nil {
 		return err
+	}
+
+	var cleanup *v1.AuthProviderCleanup
+	if authProvider.Spec.GroupIDPrefix != "" {
+		var err error
+		cleanup, err = ensureAuthProviderCleanup(req, authProvider)
+		if err != nil {
+			return err
+		}
+		if cleanup.Spec.Ready {
+			return nil
+		}
 	}
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
@@ -219,15 +250,6 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		if err := req.GatewayClient.DeleteAllLocalAuthSessions(req.Context()); err != nil {
 			return fmt.Errorf("failed to delete local auth sessions: %w", err)
 		}
-	}
-
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		if authProvider.Annotations == nil {
-			authProvider.Annotations = make(map[string]string, 1)
-		}
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
 	}
 
 	// Drop the sessions table and session_locks table from the database, if it exists.
@@ -254,34 +276,114 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		}
 	}
 
-	if err := req.Update(&authProvider); err != nil {
-		return fmt.Errorf("failed to update auth provider: %w", err)
-	}
-
-	if authProvider.Spec.GroupIDPrefix != "" {
-		if err := req.Create(&v1.AuthProviderCleanup{
-			GenerateName: system.AuthProviderCleanupPrefix,
-			Namespace:    authProvider.Namespace,
-			Spec: v1.AuthProviderCleanupSpec{
-				AuthProviderName:          authProvider.Name,
-				DeconfigurationGeneration: authProvider.Generation,
-				GroupIDPrefix:             authProvider.Spec.GroupIDPrefix,
-			},
-		}); err != nil {
-			return fmt.Errorf("failed to schedule auth provider cleanup: %w", err)
-		}
+	updatedAuthProvider, err := updateAuthProviderForDeconfiguration(req, authProvider.Name)
+	if err != nil {
+		return err
 	}
 
 	// Wait for the controllers to process to ensure the API will return correct configuration status.
-	if _, err := wait.For(req.Context(), req.Storage, &authProvider, func(a *v1.AuthProvider) (bool, error) {
-		return a.Status.ObservedGeneration == a.Generation, nil
-	}, wait.Option{
-		Timeout: 10 * time.Second,
-	}); err != nil {
-		return fmt.Errorf("failed to wait for auth provider: %w", err)
+	if updatedAuthProvider != nil {
+		if _, err := wait.For(req.Context(), req.Storage, updatedAuthProvider, func(a *v1.AuthProvider) (bool, error) {
+			return a.Status.ObservedGeneration == a.Generation, nil
+		}, wait.Option{
+			Timeout: 10 * time.Second,
+		}); err != nil {
+			return fmt.Errorf("failed to wait for auth provider: %w", err)
+		}
+	}
+
+	if cleanup != nil {
+		if err := markAuthProviderCleanupReady(req, cleanup); err != nil {
+			return err
+		}
 	}
 
 	return nil
+}
+
+func authProviderCleanupName(authProviderName string) string {
+	return name.SafeConcatName(system.AuthProviderCleanupPrefix, authProviderName)
+}
+
+func ensureAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) (*v1.AuthProviderCleanup, error) {
+	cleanup := &v1.AuthProviderCleanup{}
+	cleanupName := authProviderCleanupName(authProvider.Name)
+	if err := req.Get(cleanup, cleanupName); err == nil {
+		if cleanup.Spec.AuthProviderName != authProvider.Name || cleanup.Spec.GroupIDPrefix != authProvider.Spec.GroupIDPrefix {
+			return nil, fmt.Errorf("auth provider cleanup %q does not match auth provider %q", cleanupName, authProvider.Name)
+		}
+		return cleanup, nil
+	} else if !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("get auth provider cleanup %q: %w", cleanupName, err)
+	}
+
+	cleanup = &v1.AuthProviderCleanup{
+		Name:      cleanupName,
+		Namespace: authProvider.Namespace,
+		Spec: v1.AuthProviderCleanupSpec{
+			AuthProviderName: authProvider.Name,
+			GroupIDPrefix:    authProvider.Spec.GroupIDPrefix,
+		},
+	}
+	if err := req.Create(cleanup); err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return ensureAuthProviderCleanup(req, authProvider)
+		}
+		return nil, fmt.Errorf("persist cleanup intent for auth provider %q: %w", authProvider.Name, err)
+	}
+	return cleanup, nil
+}
+
+func updateAuthProviderForDeconfiguration(req api.Context, authProviderName string) (*v1.AuthProvider, error) {
+	var authProvider v1.AuthProvider
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := req.Get(&authProvider, authProviderName); err != nil {
+			return err
+		}
+		toggleAuthProviderSyncAnnotation(&authProvider)
+		return req.Update(&authProvider)
+	})
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("update auth provider for deconfiguration: %w", err)
+	}
+	return &authProvider, nil
+}
+
+func markAuthProviderCleanupReady(req api.Context, cleanup *v1.AuthProviderCleanup) error {
+	var current v1.AuthProviderCleanup
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := req.Get(&current, cleanup.Name); err != nil {
+			return err
+		}
+		if current.Spec.Ready {
+			return nil
+		}
+		current.Spec.Ready = true
+		return req.Update(&current)
+	})
+	if apierrors.IsNotFound(err) {
+		// Another deconfigure request may have marked the task ready and the controller may
+		// have completed it before this request observed the update.
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("mark auth provider cleanup %q ready: %w", cleanup.Name, err)
+	}
+	return nil
+}
+
+func toggleAuthProviderSyncAnnotation(authProvider *v1.AuthProvider) {
+	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
+		if authProvider.Annotations == nil {
+			authProvider.Annotations = make(map[string]string, 1)
+		}
+		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
+	} else {
+		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
+	}
 }
 
 func (ap *AuthProviderHandler) Reveal(req api.Context) error {
