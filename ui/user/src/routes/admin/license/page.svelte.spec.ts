@@ -48,11 +48,55 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
+	});
+
+	it('renders community signup when no license key is present', async () => {
+		await renderLicensePage({ license: getLicenseResponse });
+
 		await expect
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByLabelText('Name', { exact: true })).not.toBeInTheDocument();
-		await expect.element(page.getByLabelText('Email', { exact: true })).not.toBeInTheDocument();
+		await expect
+			.element(
+				page
+					.getByRole('complementary')
+					.getByText(
+						'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter.',
+						{ exact: true }
+					)
+			)
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Register', exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Delete License', exact: true }))
+			.not.toBeInTheDocument();
+	});
+
+	it('submits community signup and reloads the page', async () => {
+		const createCommunityLicense = vi.fn(() =>
+			HttpResponse.json({
+				...getLicenseResponse,
+				licenseKey: 'community-license-key',
+				enterprise: true,
+				entitlements: [COMMUNITY_ENTITLEMENT]
+			})
+		);
+		worker.use(http.post('/api/license/community', createCommunityLicense));
+
+		await renderLicensePage({ license: getLicenseResponse });
+
+		await page.getByLabelText('Name', { exact: true }).fill('Ada Lovelace');
+		await page.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+		await page.getByLabelText('Company', { exact: false }).fill('Analytical Engine');
+		await page.getByRole('button', { name: 'Register', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createCommunityLicense).toHaveBeenCalledOnce();
+			expect(navigation.reloadPage).toHaveBeenCalledOnce();
+		});
 	});
 
 	it('renders enterprise CTA when community license is present', async () => {
@@ -69,6 +113,10 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
 			.toBeVisible();
 		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Name', { exact: true })).not.toBeInTheDocument();
 	});
 
 	it('validating deleting an existing license', async () => {

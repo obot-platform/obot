@@ -20,6 +20,7 @@
 		Check,
 		X
 	} from '@lucide/svelte';
+	import type { Snippet } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { twMerge } from 'tailwind-merge';
 
@@ -33,9 +34,19 @@
 		onClose?: (userCount: number) => void;
 		animate?: ResponsiveDialogAnimate;
 		required?: boolean;
+		additionalActions?: Snippet;
 	}
 
-	const { provider, values, readonly, onConfigure, onClose, animate, required }: Props = $props();
+	const {
+		provider,
+		values,
+		readonly,
+		onConfigure,
+		onClose,
+		animate,
+		required,
+		additionalActions
+	}: Props = $props();
 
 	const DOMAINS_KEY = 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS';
 
@@ -508,7 +519,12 @@
 				/>
 			</div>
 
-			<div class="flex justify-end">
+			<div class="flex justify-between">
+				<div>
+					{#if additionalActions}
+						{@render additionalActions?.()}
+					{/if}
+				</div>
 				<button class="btn btn-primary" type="submit" disabled={configuring}>
 					{#if configuring}
 						<Loading class="size-4" />

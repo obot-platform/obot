@@ -53,7 +53,12 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import { ADMIN_AGENT_DISABLED_MESSAGE, USER_AGENT_DISABLED_MESSAGE } from '$lib/constants';
+	import {
+		ADMIN_AGENT_DISABLED_MESSAGE,
+		COMMUNITY_ENTITLEMENT,
+		ENTERPRISE_ENTITLEMENT,
+		USER_AGENT_DISABLED_MESSAGE
+	} from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -65,6 +70,7 @@
 	import {
 		accessibleModels,
 		defaultModelAliases,
+		license as licenseStore,
 		profile,
 		responsive,
 		version,
@@ -75,6 +81,7 @@
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
 	import SetupSplashDialog from './admin/SetupSplashDialog.svelte';
+	import CommunitySignupBanner from './admin/license/CommunitySignupBanner.svelte';
 	import LicenseViolationBanner from './admin/license/LicenseViolationBanner.svelte';
 	import GuidePanel from './guides/GuidePanel.svelte';
 	import Guide from './guides/Guides.svelte';
@@ -757,6 +764,41 @@
 		} satisfies BannerDismissState;
 	}
 
+	const COMMUNITY_SIGNUP_BANNER_KEY = '@obot/dismiss-community-signup-banner';
+	let communitySignupBannerDismissed = localState<boolean>(COMMUNITY_SIGNUP_BANNER_KEY, false, {
+		parse: (value) => {
+			if (!value) return false;
+			try {
+				const parsed = JSON.parse(value) as unknown;
+				return parsed === true;
+			} catch {
+				return false;
+			}
+		}
+	});
+
+	function handleDismissCommunitySignupBanner() {
+		communitySignupBannerDismissed.current = true;
+	}
+
+	const hasCommunityOrEnterpriseLicense = $derived.by(() => {
+		if (version.current.enterprise || licenseStore.current.enterprise) return true;
+		const entitlements = [
+			...(licenseStore.current.entitlements ?? []),
+			...(version.current.licenseEntitlements ?? [])
+		];
+		return (
+			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+		);
+	});
+
+	const canShowCommunitySignup = $derived.by(() => {
+		if (!(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.())) return false;
+		if (hasCommunityOrEnterpriseLicense) return false;
+		if (!communitySignupBannerDismissed.isReady) return false;
+		return !communitySignupBannerDismissed.current;
+	});
+
 	let showAppNotificationBanner = $derived.by(() => {
 		if (isAgentRoute) return false;
 
@@ -900,6 +942,8 @@
 						data={appNotificationStore.current?.banner}
 						onDismiss={handleDismissBanner}
 					/>
+				{:else if canShowCommunitySignup}
+					<CommunitySignupBanner onDismiss={handleDismissCommunitySignupBanner} />
 				{/if}
 				<Navbar class={twMerge('dark:bg-base-100', classes?.navbar)} {hideProfileButton}>
 					{#snippet leftContent()}

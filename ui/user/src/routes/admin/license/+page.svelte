@@ -4,7 +4,9 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
+	import CommunitySignUpForm from '$lib/components/admin/license/CommunitySignUpForm.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
+	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import {
 		COMMUNITY_ENTITLEMENT,
 		ENTERPRISE_ENTITLEMENT,
@@ -35,12 +37,14 @@
 	let updateLicenseKey = $state('');
 	let updating = $state(false);
 	let updateError = $state('');
-	let updateLicenseTitle = $derived(license?.licenseKey ? 'Update License Key' : 'Add License Key');
-	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let hasValidLicense = $derived(Boolean(license?.enterprise));
 	let isCommunityEdition = $derived(
 		license?.entitlements?.includes(COMMUNITY_ENTITLEMENT) ?? false
 	);
+	let updateLicenseTitle = $derived(
+		license?.licenseKey && !isCommunityEdition ? 'Update License Key' : 'Add License Key'
+	);
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let hasValidLicense = $derived(Boolean(license?.enterprise));
 	let visibleEntitlements = $derived(
 		[...(license?.entitlements ?? [])]
 			.filter((entitlement) => entitlement !== MODEL_PROVIDERS_ENTITLEMENT)
@@ -232,7 +236,7 @@
 			<section class="paper flex flex-col @2xl:flex-row gap-6 items-start justify-between">
 				<div class="flex flex-col gap-6">
 					{#if license}
-						{#if license.licenseKey}
+						{#if license.licenseKey && !isCommunityEdition}
 							<div class="flex flex-col gap-1">
 								<div class="text-sm font-light">License Key</div>
 								<div class="font-mono text-sm text-muted-content">
@@ -246,15 +250,15 @@
 								<p
 									class={twMerge(
 										'text-sm',
-										license.licenseKey && 'uppercase font-medium',
-										license.licenseKey
+										license.licenseKey && !isCommunityEdition && 'uppercase font-medium',
+										license.licenseKey && !isCommunityEdition
 											? license.enterprise
 												? 'text-success'
 												: 'text-error'
 											: 'text-muted-content'
 									)}
 								>
-									{#if license.licenseKey}
+									{#if license.licenseKey && !isCommunityEdition}
 										{license.enterprise ? 'Active' : 'Invalid'}
 									{:else}
 										N/A <span class="text-xs font-light">(Open-Source)</span>
@@ -263,7 +267,7 @@
 							</div>
 						</div>
 						<div class="flex flex-col gap-1">
-							<p class="text-sm font-light">License Entitlements</p>
+							<p class="text-sm font-light">Entitlements</p>
 							{#if license.entitlements}
 								<ul class="flex flex-wrap gap-2">
 									{#each visibleEntitlements as entitlement (entitlement)}
@@ -284,7 +288,7 @@
 					{/if}
 				</div>
 				<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
-					{#if license.licenseKey}
+					{#if license.licenseKey && !isCommunityEdition}
 						<button
 							class="btn btn-secondary w-full sm:w-fit"
 							onclick={handleRecheckLicense}
@@ -340,7 +344,7 @@
 				</section>
 			{/if}
 
-			{#if license && license.licenseKey}
+			{#if license && license.licenseKey && !isCommunityEdition}
 				<section class="paper gap-0">
 					<h4 class="font-semibold text-xl">Danger Zone</h4>
 					<p class="text-sm font-light">
@@ -371,6 +375,46 @@
 						</div>
 					</div>
 				</section>
+			{:else if !isCommunityEdition}
+				<aside
+					class="relative overflow-hidden rounded-box border border-primary/20 bg-base-100 dark:bg-base-200 shadow-sm md:max-w-md mx-auto"
+					aria-labelledby="community-cta-heading"
+				>
+					<div class="pointer-events-none absolute inset-0" aria-hidden="true">
+						<div
+							class="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-primary/5"
+						></div>
+						<div
+							class="absolute -top-12 -left-8 size-40 rounded-full border border-primary/15"
+						></div>
+						<div
+							class="absolute -top-6 -left-2 size-24 rounded-full border border-primary/10"
+						></div>
+						<div class="absolute -right-16 -bottom-20 size-52 rounded-full bg-primary/5"></div>
+						<div
+							class="absolute inset-y-0 left-0 w-1/4 bg-linear-to-r from-primary/10 to-transparent"
+						></div>
+					</div>
+
+					<div class="relative flex flex-col gap-4 p-4 sm:p-6">
+						<BetaLogo class="mx-auto" />
+						<p class="max-w-md text-sm font-light">
+							Register your email to unlock all remaining IDP and to receive the Obot Community
+							Newsletter.
+						</p>
+						<div
+							class="rounded-xl border border-base-300/80 bg-base-100/80 p-4 shadow-sm backdrop-blur-sm"
+						>
+							<CommunitySignUpForm
+								endpoint={AdminService.createCommunityLicense}
+								onSubmit={reloadPage}
+								showHeader={false}
+								idPrefix="license-community"
+								disabled={isAdminReadonly}
+							/>
+						</div>
+					</div>
+				</aside>
 			{/if}
 		</div>
 	</div>

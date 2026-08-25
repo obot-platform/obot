@@ -75,8 +75,6 @@
 	let confirmDeconfigureAuthProvider = $state<AuthProvider>();
 
 	let localAuthConfigure = $state<ReturnType<typeof LocalAuthConfigure>>();
-	// True while the local auth configure/users modal is open, so the bootstrap owner-setup prompt
-	// doesn't fire on top of it (it fires once the modal closes with at least one user).
 	let localAuthConfigureOpen = $state(false);
 
 	let isBootstrapUser = $derived(profile.current.isBootstrapUser?.());
@@ -292,12 +290,20 @@
 			}
 		}
 
-		// Local auth has its own configure/manage-users modal.
 		if (authProvider.id === CommonAuthProviderIds.LOCAL) {
 			localAuthConfigureOpen = true;
 			localAuthConfigure?.open();
 		} else {
 			providerConfigure?.open();
+		}
+	}
+
+	async function handleLocalAuthClose(userCount: number) {
+		localAuthConfigureOpen = false;
+		clearUrlParams(['provider']);
+		showInitialAuthProvider = null;
+		if (isBootstrapUser && userCount > 0) {
+			await prepareOwnerSetup();
 		}
 	}
 </script>
@@ -387,15 +393,23 @@
 	values={configuringAuthProviderValues}
 	readonly={profile.current.isAdminReadonly?.()}
 	onConfigure={handleLocalAuthConfigure}
-	onClose={async (userCount) => {
-		localAuthConfigureOpen = false;
-		clearUrlParams(['provider']);
-		showInitialAuthProvider = null;
-		if (isBootstrapUser && userCount > 0) {
-			await prepareOwnerSetup();
-		}
-	}}
-/>
+	onClose={handleLocalAuthClose}
+>
+	{#snippet additionalActions()}
+		{#if showInitialAuthProvider}
+			<button
+				type="button"
+				class="btn btn-secondary text-xs"
+				onclick={async () => {
+					localAuthConfigure?.close();
+					await handleLocalAuthClose(0);
+				}}
+			>
+				Choose different provider
+			</button>
+		{/if}
+	{/snippet}
+</LocalAuthConfigure>
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
