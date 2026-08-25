@@ -21453,6 +21453,21 @@ func schema_storage_apis_obotobotai_v1_MCPCatalogStatus(ref common.ReferenceCall
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
 						},
 					},
+					"resolvedCommitSHAs": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ResolvedCommitSHAs maps Git source URLs to the commit applied by their last successful sync.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"syncErrors": {
 						SchemaProps: spec.SchemaProps{
 							Description: "SyncErrors is a map of source URLs to the error encountered while syncing it, if any.",
@@ -26729,6 +26744,20 @@ func schema_storage_apis_obotobotai_v1_SystemMCPCatalogStatus(ref common.Referen
 					"lastSyncTime": {
 						SchemaProps: spec.SchemaProps{
 							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"resolvedCommitSHAs": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 					"syncErrors": {

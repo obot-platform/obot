@@ -1906,6 +1906,13 @@ func (in *MCPCatalogSpec) DeepCopy() *MCPCatalogSpec {
 func (in *MCPCatalogStatus) DeepCopyInto(out *MCPCatalogStatus) {
 	*out = *in
 	in.LastSyncTime.DeepCopyInto(&out.LastSyncTime)
+	if in.ResolvedCommitSHAs != nil {
+		in, out := &in.ResolvedCommitSHAs, &out.ResolvedCommitSHAs
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SyncErrors != nil {
 		in, out := &in.SyncErrors, &out.SyncErrors
 		*out = make(map[string]string, len(*in))
@@ -4671,6 +4678,13 @@ func (in *SystemMCPCatalogSpec) DeepCopy() *SystemMCPCatalogSpec {
 func (in *SystemMCPCatalogStatus) DeepCopyInto(out *SystemMCPCatalogStatus) {
 	*out = *in
 	in.LastSyncTime.DeepCopyInto(&out.LastSyncTime)
+	if in.ResolvedCommitSHAs != nil {
+		in, out := &in.ResolvedCommitSHAs, &out.ResolvedCommitSHAs
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.SyncErrors != nil {
 		in, out := &in.SyncErrors, &out.SyncErrors
 		*out = make(map[string]string, len(*in))

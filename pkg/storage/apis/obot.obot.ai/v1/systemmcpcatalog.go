@@ -21,9 +21,10 @@ type SystemMCPCatalogSpec struct {
 }
 
 type SystemMCPCatalogStatus struct {
-	LastSyncTime metav1.Time       `json:"lastSyncTime,omitzero"`
-	SyncErrors   map[string]string `json:"syncErrors,omitempty"`
-	IsSyncing    bool              `json:"isSyncing,omitempty"`
+	LastSyncTime       metav1.Time       `json:"lastSyncTime,omitzero"`
+	ResolvedCommitSHAs map[string]string `json:"resolvedCommitSHAs,omitempty"`
+	SyncErrors         map[string]string `json:"syncErrors,omitempty"`
+	IsSyncing          bool              `json:"isSyncing,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

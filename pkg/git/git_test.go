@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -40,6 +41,7 @@ func TestParseGitURL(t *testing.T) {
 		name       string
 		url        string
 		wantClone  string
+		wantHost   string
 		wantBranch string
 		wantErr    bool
 	}{
@@ -47,49 +49,69 @@ func TestParseGitURL(t *testing.T) {
 			name:       "github without .git",
 			url:        "https://github.com/org/repo",
 			wantClone:  "https://github.com/org/repo.git",
+			wantHost:   "github.com",
+			wantBranch: "main",
+		},
+		{
+			name:       "schemeless github URL",
+			url:        "github.com/org/repo",
+			wantClone:  "https://github.com/org/repo.git",
+			wantHost:   "github.com",
 			wantBranch: "main",
 		},
 		{
 			name:       "github with .git",
 			url:        "https://github.com/org/repo.git",
 			wantClone:  "https://github.com/org/repo.git",
+			wantHost:   "github.com",
 			wantBranch: "main",
 		},
 		{
 			name:       "github with branch",
 			url:        "https://github.com/org/repo/my-branch",
 			wantClone:  "https://github.com/org/repo.git",
+			wantHost:   "github.com",
 			wantBranch: "my-branch",
 		},
 		{
 			name:       "gitlab with .git",
 			url:        "https://gitlab.com/org/repo.git",
 			wantClone:  "https://gitlab.com/org/repo.git",
+			wantHost:   "gitlab.com",
 			wantBranch: "main",
 		},
 		{
 			name:       "gitlab subgroup",
 			url:        "https://gitlab.com/group/subgroup/repo.git",
 			wantClone:  "https://gitlab.com/group/subgroup/repo.git",
+			wantHost:   "gitlab.com",
 			wantBranch: "main",
 		},
 		{
 			name:       "gitlab subgroup with branch",
 			url:        "https://gitlab.com/group/subgroup/repo.git/my-branch",
 			wantClone:  "https://gitlab.com/group/subgroup/repo.git",
+			wantHost:   "gitlab.com",
 			wantBranch: "my-branch",
 		},
 		{
 			name:       "gitlab without .git",
 			url:        "https://gitlab.com/org/repo",
 			wantClone:  "https://gitlab.com/org/repo.git",
+			wantHost:   "gitlab.com",
 			wantBranch: "main",
 		},
 		{
 			name:       "gitlab with branch",
 			url:        "https://gitlab.com/org/repo/my-branch",
 			wantClone:  "https://gitlab.com/org/repo.git",
+			wantHost:   "gitlab.com",
 			wantBranch: "my-branch",
+		},
+		{
+			name:    "HTTP is rejected",
+			url:     "http://github.com/org/repo",
+			wantErr: true,
 		},
 		{
 			name:    "bitbucket without .git",
@@ -105,13 +127,14 @@ func TestParseGitURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cloneURL, branch, err := parseGitURL(tt.url)
+			cloneURL, host, branch, err := parseGitURL(tt.url)
 			if tt.wantErr {
 				assert.Error(t, err)
 				return
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantClone, cloneURL)
+			assert.Equal(t, tt.wantHost, host)
 			assert.Equal(t, tt.wantBranch, branch)
 		})
 	}
@@ -212,6 +235,39 @@ func TestCloneRefAttempts(t *testing.T) {
 			{name: "commit", checkoutHash: sha},
 		}, cloneRefAttempts(sha, true))
 	})
+}
+
+func TestResolveListedCommit(t *testing.T) {
+	branchHash := plumbing.NewHash("0123456789abcdef0123456789abcdef01234567")
+	tagHash := plumbing.NewHash("89abcdef0123456789abcdef0123456789abcdef")
+	refs := []*plumbing.Reference{
+		plumbing.NewHashReference(plumbing.NewBranchReferenceName("main"), branchHash),
+		plumbing.NewHashReference(plumbing.NewTagReferenceName("v1.0.0"), tagHash),
+	}
+
+	commit, err := resolveListedCommit(refs, "main", false)
+	assert.NoError(t, err)
+	assert.Equal(t, branchHash.String(), commit)
+
+	commit, err = resolveListedCommit(refs, "v1.0.0", true)
+	assert.NoError(t, err)
+	assert.Equal(t, tagHash.String(), commit)
+
+	_, err = resolveListedCommit(refs, "v1.0.0", false)
+	assert.EqualError(t, err, `ref "v1.0.0" not found`)
+}
+
+func TestResolveListedCommitPrefersPeeledAnnotatedTag(t *testing.T) {
+	tagObject := plumbing.NewHash("1111111111111111111111111111111111111111")
+	commit := plumbing.NewHash("2222222222222222222222222222222222222222")
+	refs := []*plumbing.Reference{
+		plumbing.NewHashReference(plumbing.NewTagReferenceName("v1.0.0"), tagObject),
+		plumbing.NewHashReference(plumbing.ReferenceName("refs/tags/v1.0.0^{}"), commit),
+	}
+
+	resolved, err := resolveListedCommit(refs, "v1.0.0", true)
+	assert.NoError(t, err)
+	assert.Equal(t, commit.String(), resolved)
 }
 
 func TestRepositorySizeChecksReturnSentinel(t *testing.T) {

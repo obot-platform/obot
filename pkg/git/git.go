@@ -16,10 +16,13 @@ import (
 	"github.com/go-git/go-billy/v5/helper/chroot"
 	"github.com/go-git/go-billy/v5/osfs"
 	gogit "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/cache"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitfs "github.com/go-git/go-git/v5/storage/filesystem"
+	"github.com/go-git/go-git/v5/storage/memory"
 )
 
 const (
@@ -77,6 +80,76 @@ func IsGitRepoURL(repoURL string) bool {
 	return strings.HasSuffix(p, ".git") || strings.Contains(p, ".git/")
 }
 
+// ResolveCommit resolves a Git repository ref without cloning the repository.
+// An explicit ref is resolved as a branch first and then as a tag, matching
+// Clone. When ref is empty, the branch embedded in the URL (or main) is used.
+func ResolveCommit(ctx context.Context, repoURL, token, ref string) (string, error) {
+	cloneURL, _, urlBranch, err := parseGitURL(repoURL)
+	if err != nil {
+		return "", err
+	}
+
+	resolvedRef := ref
+	if resolvedRef == "" {
+		resolvedRef = urlBranch
+	} else if err := validateRef(resolvedRef); err != nil {
+		return "", err
+	}
+	if isFullCommitSHA(resolvedRef) {
+		return strings.ToLower(resolvedRef), nil
+	}
+
+	attempts := cloneAuthAttempts(token, os.Getenv("GITHUB_AUTH_TOKEN"))
+	attemptErrs := make([]error, 0, len(attempts))
+	for _, attempt := range attempts {
+		var auth transport.AuthMethod
+		if attempt.token != "" {
+			auth = &githttp.BasicAuth{Username: "x-access-token", Password: attempt.token}
+		}
+		remote := gogit.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+			Name: "origin",
+			URLs: []string{cloneURL},
+		})
+		refs, err := remote.ListContext(ctx, &gogit.ListOptions{Auth: auth})
+		if err != nil {
+			attemptErrs = append(attemptErrs, fmt.Errorf("%s: %w", attempt.name, err))
+			if isContextError(err) {
+				break
+			}
+			continue
+		}
+
+		commit, err := resolveListedCommit(refs, resolvedRef, ref != "")
+		if err == nil {
+			return commit, nil
+		}
+		attemptErrs = append(attemptErrs, fmt.Errorf("%s: %w", attempt.name, err))
+	}
+
+	return "", fmt.Errorf("failed to resolve repository ref after %d attempt(s): %w", len(attemptErrs), errors.Join(attemptErrs...))
+}
+
+func resolveListedCommit(refs []*plumbing.Reference, ref string, explicit bool) (string, error) {
+	names := []plumbing.ReferenceName{plumbing.NewBranchReferenceName(ref)}
+	if explicit {
+		names = append(names, plumbing.NewTagReferenceName(ref))
+	}
+	for _, name := range names {
+		peeledName := plumbing.ReferenceName(name.String() + "^{}")
+		for _, candidate := range refs {
+			if candidate.Name() == peeledName {
+				return candidate.Hash().String(), nil
+			}
+		}
+		for _, candidate := range refs {
+			if candidate.Name() == name {
+				return candidate.Hash().String(), nil
+			}
+		}
+	}
+	return "", fmt.Errorf("ref %q not found", ref)
+}
+
 // Clone clones a git repository over HTTPS into a temporary directory.
 // Returns the directory path, resolved HEAD commit SHA, a cleanup function, and any error.
 //
@@ -84,19 +157,7 @@ func IsGitRepoURL(repoURL string) bool {
 // If ref is non-empty it overrides any branch embedded in the URL.
 // If token is empty, Clone tries anonymous clone before retrying with GITHUB_AUTH_TOKEN.
 func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitSHA string, cleanup func(), err error) {
-	if strings.HasPrefix(repoURL, "http://") {
-		return "", "", nil, fmt.Errorf("only HTTPS is supported for git repositories")
-	}
-	if !strings.HasPrefix(repoURL, "https://") {
-		repoURL = "https://" + repoURL
-	}
-
-	u, err := url.Parse(repoURL)
-	if err != nil {
-		return "", "", nil, fmt.Errorf("invalid git URL: %w", err)
-	}
-
-	cloneURL, urlBranch, err := parseGitURL(repoURL)
+	cloneURL, host, urlBranch, err := parseGitURL(repoURL)
 	if err != nil {
 		return "", "", nil, err
 	}
@@ -116,9 +177,9 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 
 	// Platform API pre-clone size checks: faster and more accurate than waiting
 	// for the clone to start. The sizeLimitedFS below acts as a hard fallback.
-	repoPath := strings.TrimPrefix(cloneURL, "https://"+u.Host+"/")
+	repoPath := strings.TrimPrefix(cloneURL, "https://"+host+"/")
 	repoPath = strings.TrimSuffix(repoPath, ".git")
-	switch u.Host {
+	switch host {
 	case "github.com":
 		parts := strings.SplitN(repoPath, "/", 2)
 		if len(parts) == 2 {
@@ -130,7 +191,7 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 			}
 		}
 	case "gitlab.com":
-		if err := checkGitLabRepoSize(ctx, u.Host, repoPath, maxRepoSizeMB, token); err != nil {
+		if err := checkGitLabRepoSize(ctx, host, repoPath, maxRepoSizeMB, token); err != nil {
 			if errors.Is(err, errRepoTooLarge) || isContextError(err) {
 				return "", "", nil, fmt.Errorf("repository size check failed: %w", err)
 			}
@@ -220,16 +281,23 @@ func Clone(ctx context.Context, repoURL, token, ref string) (dir string, commitS
 // It supports subgroups (e.g. gitlab.com/group/subgroup/repo.git) by using the
 // .git suffix as the repo boundary. For GitHub and GitLab, URLs without a .git
 // suffix are also accepted for backward compatibility.
-// Returns (cloneURL, branch, error).
-func parseGitURL(repoURL string) (string, string, error) {
+// Returns (cloneURL, host, branch, error).
+func parseGitURL(repoURL string) (string, string, string, error) {
+	if strings.HasPrefix(repoURL, "http://") {
+		return "", "", "", fmt.Errorf("only HTTPS is supported for git repositories")
+	}
+	if !strings.HasPrefix(repoURL, "https://") {
+		repoURL = "https://" + repoURL
+	}
+
 	u, err := url.Parse(repoURL)
 	if err != nil {
-		return "", "", fmt.Errorf("invalid git URL: %w", err)
+		return "", "", "", fmt.Errorf("invalid git URL: %w", err)
 	}
 
 	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
 	if len(parts) < 2 {
-		return "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
+		return "", "", "", fmt.Errorf("invalid git URL format, expected <host>/org/repo")
 	}
 
 	var (
@@ -247,7 +315,7 @@ func parseGitURL(repoURL string) (string, string, error) {
 		if i+1 < len(parts) {
 			branch = strings.Join(parts[i+1:], "/")
 			if err := validateBranchName(branch); err != nil {
-				return "", "", fmt.Errorf("invalid branch name: %w", err)
+				return "", "", "", fmt.Errorf("invalid branch name: %w", err)
 			}
 		}
 		break
@@ -262,11 +330,11 @@ func parseGitURL(repoURL string) (string, string, error) {
 			if len(parts) > 2 {
 				branch = strings.Join(parts[2:], "/")
 				if err := validateBranchName(branch); err != nil {
-					return "", "", fmt.Errorf("invalid branch name: %w", err)
+					return "", "", "", fmt.Errorf("invalid branch name: %w", err)
 				}
 			}
 		default:
-			return "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
+			return "", "", "", fmt.Errorf("invalid git URL format, URL path must end in .git (e.g. https://%s/org/repo.git)", u.Host)
 		}
 	}
 
@@ -274,7 +342,7 @@ func parseGitURL(repoURL string) (string, string, error) {
 		branch = "main"
 	}
 
-	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), branch, nil
+	return fmt.Sprintf("https://%s/%s", u.Host, repoPath), u.Host, branch, nil
 }
 
 func validateBranchName(branch string) error {

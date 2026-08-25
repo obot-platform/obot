@@ -22,6 +22,8 @@ type MCPCatalogSpec struct {
 
 type MCPCatalogStatus struct {
 	LastSyncTime metav1.Time `json:"lastSyncTime,omitzero"`
+	// ResolvedCommitSHAs maps Git source URLs to the commit applied by their last successful sync.
+	ResolvedCommitSHAs map[string]string `json:"resolvedCommitSHAs,omitempty"`
 	// SyncErrors is a map of source URLs to the error encountered while syncing it, if any.
 	SyncErrors map[string]string `json:"syncErrors,omitempty"`
 	IsSyncing  bool              `json:"isSyncing,omitempty"`

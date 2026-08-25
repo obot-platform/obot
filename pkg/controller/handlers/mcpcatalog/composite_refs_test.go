@@ -69,7 +69,7 @@ compositeConfig:
 `, sourceRef(dir, "tool")), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
@@ -115,7 +115,7 @@ compositeConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
@@ -312,9 +312,9 @@ compositeConfig:
 `, sourceRef(first, "tool")), 0o600))
 
 	h := &Handler{}
-	firstObjs, err := h.readMCPCatalog(t.Context(), "default", first, "")
+	firstObjs, _, err := h.readMCPCatalog(t.Context(), "default", first, "")
 	assert.NoError(t, err)
-	secondObjs, err := h.readMCPCatalog(t.Context(), "default", second, "")
+	secondObjs, _, err := h.readMCPCatalog(t.Context(), "default", second, "")
 	assert.NoError(t, err)
 
 	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", append(firstObjs, secondObjs...))

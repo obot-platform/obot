@@ -27,7 +27,7 @@ npxConfig:
 `), 0o600))
 
 	h := &Handler{}
-	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 	assert.Len(t, objs, 1)
 
@@ -38,7 +38,7 @@ npxConfig:
 	assert.Equal(t, "## Important\n\nSet the optional MODE value after updating.\n", entry.Spec.Manifest.UpgradeNote)
 }
 
-func TestReadGitCatalog(t *testing.T) {
+func TestReadGitCatalogEntries(t *testing.T) {
 	tests := []struct {
 		name       string
 		catalog    string
@@ -85,7 +85,7 @@ func TestReadGitCatalog(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			entries, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](t.Context(), tt.catalog, "")
+			entries, _, err := readGitCatalogEntries[types.MCPServerCatalogEntryManifest](t.Context(), tt.catalog, "")
 			if tt.wantErr {
 				assert.Error(t, err)
 				return

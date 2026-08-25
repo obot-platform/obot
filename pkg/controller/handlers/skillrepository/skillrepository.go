@@ -23,6 +23,7 @@ const (
 )
 
 type repositoryFetcher interface {
+	Resolve(ctx context.Context, repoURL, token, ref string) (string, error)
 	Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
 }
 
@@ -75,6 +76,21 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		resp.RetryAfter(syncInterval)
 		return nil
 	}
+
+	if !forceSync && repo.Status.SyncError == "" && repo.Status.ResolvedCommitSHA != "" {
+		commitSHA, resolveErr := h.fetcher.Resolve(req.Ctx, repo.Spec.RepoURL, token, repo.Spec.Ref)
+		if resolveErr != nil {
+			slog.Warn("Failed to resolve skill repository commit; falling back to full sync", "repository", repo.Name, "source", repo.Spec.RepoURL, "error", resolveErr)
+		} else if commitSHA == repo.Status.ResolvedCommitSHA {
+			slog.Info("Skipping unchanged skill repository", "repository", repo.Name, "source", repo.Spec.RepoURL, "commit", commitSHA)
+			if err := h.recordSuccess(req.Ctx, req.Client, namespace, repo.Name, commitSHA, repo.Status.DiscoveredSkillCount); err != nil {
+				return err
+			}
+			resp.RetryAfter(syncInterval)
+			return nil
+		}
+	}
+
 	fetched, err := h.fetcher.Fetch(req.Ctx, repo.Spec.RepoURL, token, repo.Spec.Ref)
 	if err != nil {
 		if statusErr := h.recordFailure(req.Ctx, req.Client, namespace, repo.Name, err); statusErr != nil {

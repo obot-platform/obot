@@ -12,6 +12,10 @@ func newGitRepositoryFetcher() *gitRepositoryFetcher {
 	return &gitRepositoryFetcher{}
 }
 
+func (f *gitRepositoryFetcher) Resolve(ctx context.Context, repoURL, token, ref string) (string, error) {
+	return gitpkg.ResolveCommit(ctx, repoURL, token, ref)
+}
+
 func (f *gitRepositoryFetcher) Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error) {
 	dir, commitSHA, cleanup, err := gitpkg.Clone(ctx, repoURL, token, ref)
 	if err != nil {

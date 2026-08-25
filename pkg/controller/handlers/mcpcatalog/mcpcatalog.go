@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"regexp"
@@ -127,9 +128,14 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}()
 
 	toAdd := make([]kclient.Object, 0)
+	previousSyncErrors := cloneStringMap(mcpCatalog.Status.SyncErrors)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
+	loadedSources := make(map[string]struct{})
+	successfulSources := make(map[string]string)
+	configuredSources := make(map[string]struct{}, len(mcpCatalog.Spec.SourceURLs))
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
+		configuredSources[sourceURL] = struct{}{}
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, mcpCatalog.Namespace, credentialID, sourceURL, mcpCatalog.Name, CatalogCredentialToolName)
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
@@ -140,29 +146,47 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
-		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
+		if !forceSync && previousSyncErrors[sourceURL] == "" && git.IsGitRepoURL(sourceURL) && mcpCatalog.Status.ResolvedCommitSHAs[sourceURL] != "" {
+			commitSHA, resolveErr := git.ResolveCommit(req.Ctx, sourceURL, token, "")
+			if resolveErr != nil {
+				slog.Warn("Failed to resolve MCP catalog source commit; falling back to full source sync", "catalog", mcpCatalog.Name, "source", sourceURL, "error", resolveErr)
+			} else if commitSHA == mcpCatalog.Status.ResolvedCommitSHAs[sourceURL] {
+				slog.Info("Skipping unchanged MCP catalog source", "catalog", mcpCatalog.Name, "source", sourceURL, "commit", commitSHA)
+				continue
+			}
+		}
+
+		loadedSources[sourceURL] = struct{}{}
+		objs, commitSHA, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
 		if err != nil {
 			slog.Error("failed to read catalog source", "source", sourceURL, "error", err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
 			slog.Info("Read MCP catalog source successfully", "catalog", mcpCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(mcpCatalog.Status.SyncErrors, sourceURL)
+			successfulSources[sourceURL] = commitSHA
 		}
 
 		toAdd = append(toAdd, objs...)
 	}
 
-	toAdd, conflictErrors, err := filterConflictingCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
-	if err != nil {
-		return fmt.Errorf("failed to check catalog entry conflicts: %w", err)
-	}
-	for sourceURL, errMsg := range conflictErrors {
-		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
-	}
+	if len(toAdd) > 0 {
+		var conflictErrors map[string]string
+		toAdd, conflictErrors, err = filterConflictingCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
+		if err != nil {
+			return fmt.Errorf("failed to check catalog entry conflicts: %w", err)
+		}
+		for sourceURL, errMsg := range conflictErrors {
+			addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+			delete(successfulSources, sourceURL)
+		}
 
-	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, validationOptions)
-	for sourceURL, errMsg := range compositeRefErrors {
-		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+		var compositeRefErrors map[string]string
+		toAdd, compositeRefErrors = h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, validationOptions)
+		for sourceURL, errMsg := range compositeRefErrors {
+			addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
+			delete(successfulSources, sourceURL)
+		}
 	}
 
 	mcpCatalog.Status.LastSyncTime = metav1.Now()
@@ -190,18 +214,65 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
 
-	// Missing entries cannot be reconciled safely from a partial desired set.
-	if len(mcpCatalog.Status.SyncErrors) > 0 {
-		slog.Info("Applying MCP catalog entries without reconciling missing entries due to source errors", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sourceErrors", len(mcpCatalog.Status.SyncErrors))
-		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	if len(loadedSources) > 0 || hasRemovedSources(mcpCatalog.Status.ResolvedCommitSHAs, configuredSources) {
+		if err := reconcileRemovedEntriesForSources(req.Ctx, req.Client, mcpCatalog, toAdd, loadedSources); err != nil {
+			return err
+		}
 	}
 
-	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
-		return err
+	if len(toAdd) > 0 {
+		slog.Info("Applying changed MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sources", len(loadedSources))
+		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
+			return err
+		}
 	}
 
-	slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
-	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	nextCommits := cloneStringMap(mcpCatalog.Status.ResolvedCommitSHAs)
+	for sourceURL := range nextCommits {
+		if _, ok := configuredSources[sourceURL]; !ok {
+			delete(nextCommits, sourceURL)
+		}
+	}
+	maps.Copy(nextCommits, successfulSources)
+	if !mapsEqual(nextCommits, mcpCatalog.Status.ResolvedCommitSHAs) {
+		var catalog v1.MCPCatalog
+		if err := req.Client.Get(req.Ctx, router.Key(mcpCatalog.Namespace, mcpCatalog.Name), &catalog); err != nil {
+			return fmt.Errorf("failed to reload catalog to record source commits: %w", err)
+		}
+		catalog.Status.ResolvedCommitSHAs = nextCommits
+		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
+			return fmt.Errorf("failed to record catalog source commits: %w", err)
+		}
+	}
+	return nil
+}
+
+func cloneStringMap(in map[string]string) map[string]string {
+	out := make(map[string]string, len(in))
+	maps.Copy(out, in)
+	return out
+}
+
+func mapsEqual(left, right map[string]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, value := range left {
+		other, ok := right[key]
+		if !ok || other != value {
+			return false
+		}
+	}
+	return true
+}
+
+func hasRemovedSources(previous map[string]string, configured map[string]struct{}) bool {
+	for sourceURL := range previous {
+		if _, ok := configured[sourceURL]; !ok {
+			return true
+		}
+	}
+	return false
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -260,6 +331,14 @@ func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, name
 }
 
 func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object) error {
+	loadedSources := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
+	for _, sourceURL := range catalog.Spec.SourceURLs {
+		loadedSources[sourceURL] = struct{}{}
+	}
+	return reconcileRemovedEntriesForSources(ctx, c, catalog, desired, loadedSources)
+}
+
+func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, loadedSources map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
 		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
@@ -291,6 +370,9 @@ func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.
 				return fmt.Errorf("failed to delete catalog entry %q from removed source: %w", entry.Name, err)
 			}
 			slog.Info("Deleted MCP catalog entry from removed source", "catalog", catalog.Name, "entry", entry.Name, "source", entry.Spec.SourceURL)
+			continue
+		}
+		if _, loaded := loadedSources[entry.Spec.SourceURL]; !loaded {
 			continue
 		}
 
@@ -329,6 +411,40 @@ func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.
 		slog.Info("Detached removed MCP catalog entry with active servers", "catalog", catalog.Name, "entry", entryName)
 	}
 
+	return nil
+}
+
+func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog, desired []kclient.Object, loadedSources map[string]struct{}) error {
+	desiredNames := make(map[string]struct{}, len(desired))
+	for _, obj := range desired {
+		if entry, ok := obj.(*v1.SystemMCPServerCatalogEntry); ok {
+			desiredNames[entry.Name] = struct{}{}
+		}
+	}
+	configuredSources := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
+	for _, sourceURL := range catalog.Spec.SourceURLs {
+		configuredSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
+	}
+
+	var entries v1.SystemMCPServerCatalogEntryList
+	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
+		return fmt.Errorf("failed to list system catalog entries: %w", err)
+	}
+	for i := range entries.Items {
+		entry := &entries.Items[i]
+		if _, desired := desiredNames[entry.Name]; desired {
+			continue
+		}
+		_, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]
+		_, loaded := loadedSources[entry.Spec.SourceURL]
+		if configured && !loaded {
+			continue
+		}
+		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete system catalog entry %q: %w", entry.Name, err)
+		}
+		slog.Info("Deleted removed system MCP catalog entry", "catalog", catalog.Name, "entry", entry.Name, "source", entry.Spec.SourceURL)
+	}
 	return nil
 }
 
@@ -539,9 +655,14 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	}()
 
 	toAdd := make([]kclient.Object, 0)
+	previousSyncErrors := cloneStringMap(systemCatalog.Status.SyncErrors)
 	systemCatalog.Status.SyncErrors = make(map[string]string)
+	loadedSources := make(map[string]struct{})
+	successfulSources := make(map[string]string)
+	configuredSources := make(map[string]struct{}, len(systemCatalog.Spec.SourceURLs))
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
+		configuredSources[sourceURL] = struct{}{}
 		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
 		token, err := gitcredential.ResolveOrReveal(req.Ctx, req.Client, h.gatewayClient, systemCatalog.Namespace, credentialID, sourceURL, systemCatalog.Name, CatalogCredentialToolName)
 		if errors.Is(err, gitcredential.ErrLegacyCredential) {
@@ -552,13 +673,25 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 			continue
 		}
-		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
+		if !forceSync && previousSyncErrors[sourceURL] == "" && git.IsGitRepoURL(sourceURL) && systemCatalog.Status.ResolvedCommitSHAs[sourceURL] != "" {
+			commitSHA, resolveErr := git.ResolveCommit(req.Ctx, sourceURL, token, "")
+			if resolveErr != nil {
+				slog.Warn("Failed to resolve system MCP catalog source commit; falling back to full source sync", "catalog", systemCatalog.Name, "source", sourceURL, "error", resolveErr)
+			} else if commitSHA == systemCatalog.Status.ResolvedCommitSHAs[sourceURL] {
+				slog.Info("Skipping unchanged system MCP catalog source", "catalog", systemCatalog.Name, "source", sourceURL, "commit", commitSHA)
+				continue
+			}
+		}
+
+		loadedSources[sourceURL] = struct{}{}
+		objs, commitSHA, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
 			slog.Error("failed to read system catalog source", "source", sourceURL, "error", err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
 			slog.Info("Read system MCP catalog source successfully", "catalog", systemCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(systemCatalog.Status.SyncErrors, sourceURL)
+			successfulSources[sourceURL] = commitSHA
 		}
 
 		toAdd = append(toAdd, objs...)
@@ -581,22 +714,43 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 
 	resp.RetryAfter(time.Hour)
 
-	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("system-catalog-%s", systemCatalog.Name))
-	if len(systemCatalog.Status.SyncErrors) > 0 {
-		slog.Info("Applying system MCP catalog entries without prune due to source errors", "catalog", systemCatalog.Name, "entries", len(toAdd), "sourceErrors", len(systemCatalog.Status.SyncErrors))
-		app = app.WithNoPrune()
-	} else {
-		slog.Info("Applying system MCP catalog entries with prune enabled", "catalog", systemCatalog.Name, "entries", len(toAdd))
-		app = app.WithPruneTypes(&v1.SystemMCPServerCatalogEntry{})
+	if len(loadedSources) > 0 || hasRemovedSources(systemCatalog.Status.ResolvedCommitSHAs, configuredSources) {
+		if err := reconcileRemovedSystemEntriesForSources(req.Ctx, req.Client, systemCatalog, toAdd, loadedSources); err != nil {
+			return err
+		}
+	}
+	if len(toAdd) > 0 {
+		slog.Info("Applying changed system MCP catalog entries without prune", "catalog", systemCatalog.Name, "entries", len(toAdd), "sources", len(loadedSources))
+		if err := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("system-catalog-%s", systemCatalog.Name)).WithNoPrune().Apply(req.Ctx, systemCatalog, toAdd...); err != nil {
+			return err
+		}
 	}
 
-	return app.Apply(req.Ctx, systemCatalog, toAdd...)
+	nextCommits := cloneStringMap(systemCatalog.Status.ResolvedCommitSHAs)
+	for sourceURL := range nextCommits {
+		if _, ok := configuredSources[sourceURL]; !ok {
+			delete(nextCommits, sourceURL)
+		}
+	}
+	maps.Copy(nextCommits, successfulSources)
+	if !mapsEqual(nextCommits, systemCatalog.Status.ResolvedCommitSHAs) {
+		var catalog v1.SystemMCPCatalog
+		if err := req.Client.Get(req.Ctx, router.Key(systemCatalog.Namespace, systemCatalog.Name), &catalog); err != nil {
+			return fmt.Errorf("failed to reload system catalog to record source commits: %w", err)
+		}
+		catalog.Status.ResolvedCommitSHAs = nextCommits
+		if err := req.Client.Status().Update(req.Ctx, &catalog); err != nil {
+			return fmt.Errorf("failed to record system catalog source commits: %w", err)
+		}
+	}
+
+	return nil
 }
 
-func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
-	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, string, error) {
+	entries, commitSHA, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
-		return nil, err
+		return nil, commitSHA, err
 	}
 
 	systemObjs := make([]kclient.Object, 0, len(entries))
@@ -631,17 +785,17 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 		})
 	}
 
-	return systemObjs, errors.Join(errs...)
+	return systemObjs, commitSHA, errors.Join(errs...)
 }
 
-func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, error) {
+func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, string, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
-	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
+	entries, commitSHA, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
-		return nil, err
+		return nil, commitSHA, err
 	}
 
 	objs := make([]kclient.Object, 0, len(entries))
@@ -697,69 +851,80 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		objs = append(objs, &catalogEntry)
 	}
 
-	return objs, errors.Join(errs...)
+	return objs, commitSHA, errors.Join(errs...)
 }
 
-func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, error) {
+func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, string, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if git.IsGitRepoURL(sourceURL) {
-			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
+			entries, commitSHA, err := readGitCatalogEntries[T](ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
+				return nil, commitSHA, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
-			return entries, nil
+			return entries, commitSHA, nil
 		}
 
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, sourceURL, http.NoBody)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to create request for catalog %s: %w", sourceURL, err)
 		}
 		if token != "" {
 			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		resp, err := httpClient.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 		}
 		defer resp.Body.Close()
 
 		contents, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
+			return nil, "", fmt.Errorf("unexpected status when reading catalog %s: %s", sourceURL, string(contents))
 		}
 
 		var entries []T
 		if err = yaml.Unmarshal(contents, &entries); err != nil {
-			return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 		}
-		return entries, nil
+		return entries, "", nil
 	}
 
 	fileInfo, err := os.Stat(sourceURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
+		return nil, "", fmt.Errorf("failed to stat catalog %s: %w", sourceURL, err)
 	}
 	if fileInfo.IsDir() {
 		entries, err := readCatalogDirectory[T](sourceURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+			return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 		}
-		return entries, nil
+		return entries, "", nil
 	}
 
 	contents, err := os.ReadFile(sourceURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+		return nil, "", fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 	}
 
 	var entries []T
 	if err = yaml.Unmarshal(contents, &entries); err != nil {
-		return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
+		return nil, "", fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 	}
-	return entries, nil
+	return entries, "", nil
+}
+
+func readGitCatalogEntries[T any](ctx context.Context, catalogURL, token string) ([]T, string, error) {
+	dir, commitSHA, cleanup, err := git.Clone(ctx, catalogURL, token, "")
+	if err != nil {
+		return nil, "", err
+	}
+	defer cleanup()
+
+	entries, err := readCatalogDirectory[T](dir)
+	return entries, commitSHA, err
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {

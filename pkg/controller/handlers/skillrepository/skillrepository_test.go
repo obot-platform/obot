@@ -24,7 +24,15 @@ import (
 
 // mockFetcher implements the repositoryFetcher interface for testing.
 type mockFetcher struct {
-	fetchFn func(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
+	resolveFn func(ctx context.Context, repoURL, token, ref string) (string, error)
+	fetchFn   func(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error)
+}
+
+func (m *mockFetcher) Resolve(ctx context.Context, repoURL, token, ref string) (string, error) {
+	if m.resolveFn != nil {
+		return m.resolveFn(ctx, repoURL, token, ref)
+	}
+	return "", fmt.Errorf("resolveFn not set")
 }
 
 func (m *mockFetcher) Fetch(ctx context.Context, repoURL, token, ref string) (*fetchedRepository, error) {
@@ -334,6 +342,44 @@ func TestSync(t *testing.T) {
 		// Should retry after remaining interval (~30min)
 		assert.True(t, resp.Delay > 0 && resp.Delay <= 30*time.Minute+time.Second,
 			"expected retry delay ~30min, got %v", resp.Delay)
+	})
+
+	t.Run("unchanged commit skips fetch after interval", func(t *testing.T) {
+		repo := newSkillRepository()
+		repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-2 * time.Hour))
+		repo.Status.ResolvedCommitSHA = "abc123"
+		repo.Status.DiscoveredSkillCount = 500
+		c := newFakeClient(t, repo)
+
+		resolveCalled := false
+		fetchCalled := false
+		h := &Handler{
+			gatewayClient: gatewayClient,
+			fetcher: &mockFetcher{
+				resolveFn: func(_ context.Context, _, _, _ string) (string, error) {
+					resolveCalled = true
+					return "abc123", nil
+				},
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+					fetchCalled = true
+					return nil, fmt.Errorf("should not be called")
+				},
+			},
+			now: func() time.Time { return fixedTime },
+		}
+
+		resp := &router.ResponseWrapper{}
+		require.NoError(t, h.Sync(router.Request{
+			Client: c, Object: repo, Ctx: t.Context(), Namespace: repo.Namespace, Name: repo.Name, Key: repo.Namespace + "/" + repo.Name,
+		}, resp))
+		assert.True(t, resolveCalled)
+		assert.False(t, fetchCalled)
+
+		var updated v1.SkillRepository
+		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(repo), &updated))
+		assert.True(t, fixedTime.Equal(updated.Status.LastSyncTime.Time))
+		assert.Equal(t, 500, updated.Status.DiscoveredSkillCount)
+		assert.Equal(t, syncInterval, resp.Delay)
 	})
 
 	t.Run("force sync bypasses interval", func(t *testing.T) {
