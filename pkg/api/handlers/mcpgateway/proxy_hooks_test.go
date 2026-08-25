@@ -29,7 +29,7 @@ type scriptedMCPHookRunner struct {
 
 func (r *scriptedMCPHookRunner) ExecuteFilter(_ context.Context, candidate mcp.FilterCandidate, payload json.RawMessage) (mcp.FilterExecutionResult, error) {
 	var message mcp.Message
-	if err := json.Unmarshal(payload, &message); err != nil {
+	if err := decodeMCPHookMessage(payload, &message); err != nil {
 		return mcp.FilterExecutionResult{}, err
 	}
 	input := mcp.SessionMessageHook{Accept: true, Message: &message}
@@ -247,6 +247,93 @@ func TestMCPProxyHooksMutateRequestAndResponseWithAudit(t *testing.T) {
 	}
 	if len(responseEntry.WebhookStatuses) != 1 || responseEntry.WebhookStatuses[0].Type != "response" {
 		t.Fatalf("unexpected response hook statuses: %#v", responseEntry.WebhookStatuses)
+	}
+}
+
+func TestMCPProxyHooksPreserveLargeNumericIDAfterMutation(t *testing.T) {
+	const requestID = "9007199254740993"
+	runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, _ string) (mcp.SessionMessageHook, bool, error) {
+		message := *input.Message
+		message.Params = json.RawMessage(`{"name":"echo","arguments":{"value":"redacted"}}`)
+		return mcp.SessionMessageHook{
+			Accept:  true,
+			Mutated: true,
+			Message: &message,
+		}, true, nil
+	}}
+	request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":9007199254740993,"method":"tools/call","params":{"name":"echo","arguments":{"value":"secret"}}}`)
+	if _, err := newHookProcessor(request, runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/redact"}}}}, nil, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := io.ReadAll(request.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var upstreamMessage mcp.Message
+	if err := decodeMCPHookMessage(body, &upstreamMessage); err != nil {
+		t.Fatal(err)
+	}
+	if id, ok := upstreamMessage.ID.(json.Number); !ok || id.String() != requestID {
+		t.Fatalf("upstream request ID = %#v, want %s", upstreamMessage.ID, requestID)
+	}
+}
+
+func TestMCPProxyHooksResponseMutationClearsOriginalResult(t *testing.T) {
+	tests := []struct {
+		name              string
+		replacementResult json.RawMessage
+	}{
+		{
+			name: "omitted result",
+		},
+		{
+			name:              "null result",
+			replacementResult: json.RawMessage(`null`),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, _ string) (mcp.SessionMessageHook, bool, error) {
+				if len(input.Message.Result) == 0 {
+					return mcp.SessionMessageHook{
+						Accept:  true,
+						Message: input.Message,
+					}, true, nil
+				}
+				message := *input.Message
+				message.Result = tt.replacementResult
+				message.Error = mcp.NewRPCError(-32010, "redacted by policy")
+				return mcp.SessionMessageHook{
+					Accept:  true,
+					Mutated: true,
+					Message: &message,
+				}, true, nil
+			}}
+			request := mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`)
+			processor, err := newHookProcessor(request, runner, mcp.Hooks{{Name: "tools/call", Targets: []mcp.HookTarget{{Target: "policy/redact"}}}}, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			response := mcpHookResponse(`{"jsonrpc":"2.0","id":1,"result":{"content":[{"type":"text","text":"secret"}]}}`)
+			if err := processor.filterResponse(response); err != nil {
+				t.Fatal(err)
+			}
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(body), "secret") {
+				t.Fatalf("response retained original result: %s", body)
+			}
+			var message mcp.Message
+			if err := decodeMCPHookMessage(body, &message); err != nil {
+				t.Fatal(err)
+			}
+			if message.Result != nil || message.Error == nil || message.Error.Code != -32010 {
+				t.Fatalf("response did not contain only the replacement error: %s", body)
+			}
+		})
 	}
 }
 
@@ -530,6 +617,69 @@ func TestMCPProxyHooksRejectIdentityMutations(t *testing.T) {
 				t.Fatalf("identity mutation was not rejected: blocked=%v err=%v", blocked, hookErr)
 			}
 		})
+	}
+}
+
+func TestValidateMCPFilterMutationRequiresExactlyOneResponseValue(t *testing.T) {
+	original := json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","result":{"content":[]}}`)
+	tests := []struct {
+		name        string
+		replacement json.RawMessage
+		wantErr     bool
+	}{
+		{
+			name:        "result only",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","result":{"content":[]}}`),
+			wantErr:     false,
+		},
+		{
+			name:        "error only",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","error":{"code":-32010,"message":"blocked"}}`),
+			wantErr:     false,
+		},
+		{
+			name:        "neither",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call"}`),
+			wantErr:     true,
+		},
+		{
+			name:        "both",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","result":{},"error":{"code":-32010,"message":"blocked"}}`),
+			wantErr:     true,
+		},
+		{
+			name:        "null result",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","result":null}`),
+			wantErr:     true,
+		},
+		{
+			name:        "null result and error",
+			replacement: json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"tools/call","result":null,"error":{"code":-32010,"message":"blocked"}}`),
+			wantErr:     false,
+		},
+	}
+	validator := validateMCPFilterMutation("tools/call", "echo", "response")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator(original, original, tt.replacement)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("validation error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAddMCPHookMutationsMetaRejectsNullResult(t *testing.T) {
+	message := mcp.Message{
+		Result: json.RawMessage(`null`),
+		HookMutations: map[string]mcp.HookMutation{
+			"response": {
+				Mutated: true,
+			},
+		},
+	}
+	if err := addMCPHookMutationsMeta(&message); err == nil {
+		t.Fatal("expected null result to be rejected")
 	}
 }
 

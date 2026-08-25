@@ -511,9 +511,11 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 
 	current := message
 	if pipelineResult.Mutated {
-		if err := json.Unmarshal(pipelineResult.Payload, &current); err != nil {
+		current = mcp.Message{}
+		if err := decodeMCPHookMessage(pipelineResult.Payload, &current); err != nil {
 			return hookResult{message: message, mutations: mutations, statuses: statuses, err: errors.New("failed to decode Filter mutation")}
 		}
+		normalizeMCPHookMessages(&current)
 		current.HookMutations = cloneMCPHookMutations(mutations)
 	}
 
@@ -551,6 +553,7 @@ func validateMCPFilterMutation(method, name, direction string) mcp.FilterMutatio
 			decodeMCPHookMessage(replacement, &replacementMessage) != nil {
 			return errors.New("invalid MCP message")
 		}
+		normalizeMCPHookMessages(&originalMessage, &currentMessage, &replacementMessage)
 		if replacementMessage.JSONRPC != originalMessage.JSONRPC ||
 			!reflect.DeepEqual(replacementMessage.ID, originalMessage.ID) ||
 			replacementMessage.Method != method || currentMessage.Method != method {
@@ -562,7 +565,7 @@ func validateMCPFilterMutation(method, name, direction string) mcp.FilterMutatio
 				return errors.New("MCP request identity changed")
 			}
 		case "response":
-			if replacementMessage.Result == nil && replacementMessage.Error == nil {
+			if (replacementMessage.Result == nil) == (replacementMessage.Error == nil) {
 				return errors.New("MCP response identity changed")
 			}
 			if !rawJSONEqual(replacementMessage.Params, originalMessage.Params) {
@@ -572,6 +575,17 @@ func validateMCPFilterMutation(method, name, direction string) mcp.FilterMutatio
 			return errors.New("unknown MCP direction")
 		}
 		return nil
+	}
+}
+
+func normalizeMCPHookMessages(messages ...*mcp.Message) {
+	for _, message := range messages {
+		if bytes.Equal(bytes.TrimSpace(message.Params), []byte("null")) {
+			message.Params = nil
+		}
+		if bytes.Equal(bytes.TrimSpace(message.Result), []byte("null")) {
+			message.Result = nil
+		}
 	}
 }
 
@@ -648,6 +662,9 @@ func addMCPHookMutationsMeta(message *mcp.Message) error {
 	var result map[string]any
 	if err := json.Unmarshal(message.Result, &result); err != nil {
 		return fmt.Errorf("failed to unmarshal response result to add hook mutation metadata: %w", err)
+	}
+	if result == nil {
+		return errors.New("failed to add hook mutation metadata to a null response result")
 	}
 	meta, ok := result["_meta"].(map[string]any)
 	if !ok {

@@ -109,6 +109,36 @@ func TestMCPHookRunnerValidatesTargetAndServer(t *testing.T) {
 	}
 }
 
+func TestMCPHookRunnerClassifiesClientAcquisitionContextErrors(t *testing.T) {
+	assertErrorClass := func(t *testing.T, ctx context.Context, wantClass string) {
+		t.Helper()
+		runner := &SessionManagerHookRunner{clientForServer: func(context.Context, ServerConfig) (hookMCPClient, error) {
+			return nil, errors.New("connection failed")
+		}}
+		_, err := runner.ExecuteFilter(ctx, FilterCandidate{
+			Target: "policy/check",
+			Server: ServerConfig{
+				MCPServerName: "sms1policy",
+			},
+		}, json.RawMessage(`{}`))
+		var executionErr *FilterExecutionError
+		if !errors.As(err, &executionErr) || executionErr.Class != wantClass {
+			t.Fatalf("execution error = %#v, want class %q", err, wantClass)
+		}
+	}
+
+	t.Run("deadline", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(t.Context(), 0)
+		defer cancel()
+		assertErrorClass(t, ctx, FilterErrorTimeout)
+	})
+	t.Run("canceled", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		assertErrorClass(t, ctx, FilterErrorCanceled)
+	})
+}
+
 func TestMCPHookRunnerRejectsContradictoryResponse(t *testing.T) {
 	client := &fakeHookMCPClient{result: &gomcp.CallToolResult{
 		StructuredContent: map[string]any{

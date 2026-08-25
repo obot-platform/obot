@@ -59,7 +59,7 @@ func (r *SessionManagerHookRunner) ExecuteFilter(ctx context.Context, candidate 
 
 	client, err := r.clientForServer(ctx, server)
 	if err != nil {
-		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "failed to connect to Filter")
+		return FilterExecutionResult{}, classifyFilterCallError(ctx, err, "failed to connect to Filter")
 	}
 	input := struct {
 		Accept  bool            `json:"accept"`
@@ -72,13 +72,7 @@ func (r *SessionManagerHookRunner) ExecuteFilter(ctx context.Context, candidate 
 	}
 	result, err := client.CallTool(ctx, &gomcp.CallToolParams{Name: toolName, Arguments: input})
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			return FilterExecutionResult{}, newFilterExecutionError(FilterErrorTimeout, "Filter timed out")
-		}
-		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
-			return FilterExecutionResult{}, newFilterExecutionError(FilterErrorCanceled, "Filter call was canceled")
-		}
-		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "Filter tool call failed")
+		return FilterExecutionResult{}, classifyFilterCallError(ctx, err, "Filter tool call failed")
 	}
 	if result == nil {
 		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter returned no result")
@@ -140,6 +134,16 @@ func (r *SessionManagerHookRunner) ExecuteFilter(ctx context.Context, candidate 
 		Reason:      output.Reason,
 		RawResponse: data,
 	}, nil
+}
+
+func classifyFilterCallError(ctx context.Context, err error, executionMessage string) *FilterExecutionError {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return newFilterExecutionError(FilterErrorTimeout, "Filter timed out")
+	}
+	if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+		return newFilterExecutionError(FilterErrorCanceled, "Filter call was canceled")
+	}
+	return newFilterExecutionError(FilterErrorExecution, executionMessage)
 }
 
 func newFilterExecutionError(class, message string) *FilterExecutionError {
