@@ -101,7 +101,9 @@ describe('LocalAuthConfigure.svelte', () => {
 		await expect.element(dialog.getByLabelText('Email', { exact: true })).not.toBeInTheDocument();
 		expect(createUser).not.toHaveBeenCalled();
 		await expect
-			.element(dialog.getByText('Confirm changes of the new user before saving.', { exact: true }))
+			.element(
+				dialog.getByText('Fill out the required email and password fields.', { exact: true })
+			)
 			.not.toBeInTheDocument();
 	});
 

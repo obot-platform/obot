@@ -426,22 +426,21 @@
 		saving = true;
 		userError = undefined;
 		try {
-			for (const id of deleteUsers) {
+			for (const id of [...deleteUsers]) {
 				await AdminService.deleteLocalAuthUser(id);
+				deleteUsers.delete(id);
 			}
 
-			for (const [id, password] of resetPassword) {
-				if (deleteUsers.has(id)) continue;
+			for (const [id, password] of [...resetPassword]) {
 				await AdminService.setLocalAuthUserPassword(id, password);
+				resetPassword.delete(id);
 			}
 
-			for (const user of newUsers) {
+			while (newUsers.length > 0) {
+				const user = newUsers[0];
 				await AdminService.createLocalAuthUser(user.email.trim(), user.password);
+				newUsers.shift();
 			}
-
-			newUsers = [];
-			resetPassword.clear();
-			deleteUsers.clear();
 			await refreshUsers();
 			close();
 		} catch (err) {

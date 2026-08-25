@@ -45,13 +45,11 @@
 			const response = await endpoint({
 				name: formData.name.trim(),
 				email: formData.email.trim(),
-				company: formData.company.trim()
+				company: formData.company.length > 0 ? formData.company.trim() : undefined
 			});
-			console.log('response', response);
 			await onSubmit?.(response);
-			console.log('onSubmit', onSubmit);
 		} catch (err) {
-			error = parseErrorContent(err).message || 'Failed to obtain an Obot Community license.';
+			error = parseErrorContent(err).message || 'Error occurred during registration.';
 		} finally {
 			saving = false;
 			clearUrlParams(['provider']);

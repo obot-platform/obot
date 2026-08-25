@@ -265,7 +265,7 @@
 		if (updatedMatch) {
 			handleClickConfigure(updatedMatch);
 		} else {
-			errors.append('There was an issue fetch the auth provider configuration.');
+			errors.append('There was an issue fetching the auth provider configuration.');
 		}
 
 		licenseRequiredProvider = undefined;
