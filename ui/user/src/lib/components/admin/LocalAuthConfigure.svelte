@@ -63,7 +63,7 @@
 	let loadingUsers = $state(false);
 	let saving = $state(false);
 
-	let userError = $state<string>();
+	let userError = $state<string[]>();
 	let newUserError = $state<string>();
 	let draftError = $state<string>();
 
@@ -153,13 +153,14 @@
 		addNewUser();
 	}
 
-	async function refreshUsers() {
+	async function refreshUsers(forwardError?: string) {
 		loadingUsers = true;
-		userError = undefined;
+		userError = forwardError ? [forwardError] : undefined;
 		try {
 			users = await AdminService.listLocalAuthUsers();
 		} catch (err) {
-			userError = errorMessage(err, 'Failed to load local users.');
+			const loadError = errorMessage(err, 'Failed to load local users.');
+			userError = [...(forwardError ? [forwardError] : []), loadError];
 		} finally {
 			loadingUsers = false;
 		}
@@ -430,7 +431,7 @@
 
 		const validationError = validatePending();
 		if (validationError) {
-			userError = validationError;
+			userError = [validationError];
 			return;
 		}
 
@@ -455,8 +456,7 @@
 			await refreshUsers();
 			close();
 		} catch (err) {
-			userError = errorMessage(err, 'Failed to save local users.');
-			await refreshUsers();
+			await refreshUsers(errorMessage(err, 'Failed to save all changes.'));
 		} finally {
 			saving = false;
 		}
@@ -554,7 +554,7 @@
 				after their first sign-in.
 			</p>
 
-			<form class="flex flex-col gap-4 grow" onsubmit={handleSave}>
+			<form class="flex flex-col gap-4 grow max-w-full overflow-hidden" onsubmit={handleSave}>
 				<div class="flex items-center justify-between gap-2">
 					<h4 class="text-sm font-semibold">Users</h4>
 					{#if !readonly}
@@ -565,7 +565,7 @@
 				{#if userError}
 					<div class="notification-error flex items-center gap-2" role="alert">
 						<CircleAlert class="text-error size-5 shrink-0" />
-						<p class="text-sm font-light">{userError}</p>
+						<p class="text-sm font-light">{userError.join('\n')}</p>
 					</div>
 				{/if}
 

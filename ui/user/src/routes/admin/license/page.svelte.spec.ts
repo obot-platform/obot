@@ -50,55 +50,6 @@ describe('Licensing Page', () => {
 		await expect.element(page.getByRole('link', { name: /Contact Us/i })).toBeVisible();
 	});
 
-	it('renders community signup when no license key is present', async () => {
-		await renderLicensePage({ license: getLicenseResponse });
-
-		await expect
-			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
-			.not.toBeInTheDocument();
-		await expect
-			.element(
-				page
-					.getByRole('complementary')
-					.getByText(
-						'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter.',
-						{ exact: true }
-					)
-			)
-			.toBeVisible();
-		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
-		await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
-		await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Register', exact: true })).toBeVisible();
-		await expect
-			.element(page.getByRole('button', { name: 'Delete License', exact: true }))
-			.not.toBeInTheDocument();
-	});
-
-	it('submits community signup and reloads the page', async () => {
-		const createCommunityLicense = vi.fn(() =>
-			HttpResponse.json({
-				...getLicenseResponse,
-				licenseKey: 'community-license-key',
-				enterprise: true,
-				entitlements: [COMMUNITY_ENTITLEMENT]
-			})
-		);
-		worker.use(http.post('/api/license/community', createCommunityLicense));
-
-		await renderLicensePage({ license: getLicenseResponse });
-
-		await page.getByLabelText('Name', { exact: true }).fill('Ada Lovelace');
-		await page.getByLabelText('Email', { exact: true }).fill('ada@example.com');
-		await page.getByLabelText('Company', { exact: false }).fill('Analytical Engine');
-		await page.getByRole('button', { name: 'Register', exact: true }).click();
-
-		await vi.waitFor(() => {
-			expect(createCommunityLicense).toHaveBeenCalledOnce();
-			expect(navigation.reloadPage).toHaveBeenCalledOnce();
-		});
-	});
-
 	it('renders enterprise CTA when community license is present', async () => {
 		await renderLicensePage({
 			license: {
@@ -117,6 +68,72 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('heading', { name: 'Upgrade to Obot Community', exact: true }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByLabelText('Name', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('shows open-source status and entitlements without delete for community license', async () => {
+		await renderLicensePage({
+			license: {
+				...getLicenseResponse,
+				licenseKey: 'community-license-key',
+				enterprise: true,
+				entitlements: [COMMUNITY_ENTITLEMENT]
+			}
+		});
+
+		await expect.element(page.getByText('License Status', { exact: true })).toBeVisible();
+		await expect.element(page.getByText(/N\/A\s*\(Open-Source\)/)).toBeVisible();
+		await expect.element(page.getByText('Entitlements', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Obot Community', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Delete License', exact: true }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByText('Danger Zone', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('lets the user register for a community license when none is present', async () => {
+		const createCommunityLicense = vi.fn();
+		worker.use(
+			http.post('/api/license/community', async ({ request }) => {
+				createCommunityLicense(await request.json());
+				return HttpResponse.json({
+					...getLicenseResponse,
+					licenseKey: 'community-license-key',
+					enterprise: true,
+					entitlements: [COMMUNITY_ENTITLEMENT]
+				});
+			})
+		);
+
+		await renderLicensePage({ license: getLicenseResponse });
+
+		await expect
+			.element(
+				page.getByText(
+					'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter.',
+					{ exact: true }
+				)
+			)
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
+		await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Delete License', exact: true }))
+			.not.toBeInTheDocument();
+
+		await page.getByLabelText('Name', { exact: true }).fill('Ada Lovelace');
+		await page.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+		await page.getByLabelText('Company', { exact: false }).fill('Analytical Engine');
+		await page.getByRole('button', { name: 'Register', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createCommunityLicense).toHaveBeenCalledWith({
+				name: 'Ada Lovelace',
+				email: 'ada@example.com',
+				company: 'Analytical Engine'
+			});
+			expect(navigation.reloadPage).toHaveBeenCalledOnce();
+		});
 	});
 
 	it('validating deleting an existing license', async () => {

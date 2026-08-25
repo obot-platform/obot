@@ -765,20 +765,53 @@
 	}
 
 	const COMMUNITY_SIGNUP_BANNER_KEY = '@obot/dismiss-community-signup-banner';
-	let communitySignupBannerDismissed = localState<boolean>(COMMUNITY_SIGNUP_BANNER_KEY, false, {
-		parse: (value) => {
-			if (!value) return false;
-			try {
-				const parsed = JSON.parse(value) as unknown;
-				return parsed === true;
-			} catch {
-				return false;
+	let communitySignupBannerDismissed = localState<BannerDismissState | undefined>(
+		COMMUNITY_SIGNUP_BANNER_KEY,
+		undefined,
+		{
+			parse: (value) => {
+				if (!value) return undefined;
+				try {
+					const parsed = JSON.parse(value) as unknown;
+					if (parsed && typeof parsed === 'object') {
+						const dismissedAt = (parsed as BannerDismissState).dismissedAt;
+						return {
+							dismissedAt: typeof dismissedAt === 'string' ? dismissedAt : undefined
+						} satisfies BannerDismissState;
+					}
+					return undefined;
+				} catch {
+					return undefined;
+				}
 			}
 		}
-	});
+	);
 
 	function handleDismissCommunitySignupBanner() {
-		communitySignupBannerDismissed.current = true;
+		communitySignupBannerDismissed.current = {
+			dismissedAt: new Date().toISOString()
+		} satisfies BannerDismissState;
+	}
+
+	function isCommunitySignupDismissedForCurrentProfile() {
+		const dismissedAt = communitySignupBannerDismissed.current?.dismissedAt;
+		const dismissedDate = dismissedAt ? new Date(dismissedAt) : undefined;
+		const hasValidDismissedAt =
+			dismissedDate !== undefined && !Number.isNaN(dismissedDate.getTime());
+		if (!hasValidDismissedAt) return false;
+
+		const profileCreatedMs = profile.current.created
+			? new Date(profile.current.created).getTime()
+			: undefined;
+		if (
+			profileCreatedMs === undefined ||
+			Number.isNaN(profileCreatedMs) ||
+			profileCreatedMs < dismissedDate.getTime()
+		) {
+			return true;
+		}
+
+		return false;
 	}
 
 	const hasCommunityOrEnterpriseLicense = $derived.by(() => {
@@ -796,7 +829,7 @@
 		if (!(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.())) return false;
 		if (hasCommunityOrEnterpriseLicense) return false;
 		if (!communitySignupBannerDismissed.isReady) return false;
-		return !communitySignupBannerDismissed.current;
+		return !isCommunitySignupDismissedForCurrentProfile();
 	});
 
 	let showAppNotificationBanner = $derived.by(() => {

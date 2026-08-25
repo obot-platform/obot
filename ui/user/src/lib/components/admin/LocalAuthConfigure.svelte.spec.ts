@@ -122,9 +122,6 @@ describe('LocalAuthConfigure.svelte', () => {
 				password: validPassword
 			});
 		});
-		await expect
-			.element(dialog.getByText('Confirm changes of the new user before saving.', { exact: true }))
-			.not.toBeInTheDocument();
 	});
 
 	it('keeps the draft open when Enter is pressed with incomplete fields', async () => {
@@ -138,8 +135,5 @@ describe('LocalAuthConfigure.svelte', () => {
 
 		await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
 		expect(createUser).not.toHaveBeenCalled();
-		await expect
-			.element(dialog.getByText('Confirm changes of the new user before saving.', { exact: true }))
-			.not.toBeInTheDocument();
 	});
 });

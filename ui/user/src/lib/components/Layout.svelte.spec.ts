@@ -72,9 +72,13 @@ function createProfile(groups: string[]): Profile {
 async function renderLayout(
 	groups: string[] = [],
 	versionOverrides: Partial<Version> = {},
-	licenseOverrides: Partial<License> = {}
+	licenseOverrides: Partial<License> = {},
+	profileOverrides: Partial<Profile> = {}
 ) {
-	profile.initialize(createProfile(groups));
+	profile.initialize({
+		...createProfile(groups),
+		...profileOverrides
+	});
 	version.initialize({
 		...getVersionResponse,
 		agentsEnabled: false,
@@ -253,7 +257,7 @@ describe('Layout.svelte', () => {
 
 	describe('community signup banner', () => {
 		const copy =
-			'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter.';
+			'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter!';
 
 		it('shows for administrators without a community or enterprise license', async () => {
 			await renderLayout([Group.ADMIN]);
@@ -316,6 +320,28 @@ describe('Layout.svelte', () => {
 
 			await renderLayout([Group.ADMIN]);
 			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
+		});
+
+		it('stays dismissed when dismissed after the profile was created', async () => {
+			localStorage.setItem(
+				'@obot/dismiss-community-signup-banner',
+				JSON.stringify({ dismissedAt: '2026-08-10T00:00:00.000Z' })
+			);
+
+			await renderLayout([Group.ADMIN], {}, {}, { created: '2026-08-04T16:58:40.000Z' });
+
+			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
+		});
+
+		it('shows again when the profile was created after the banner was dismissed', async () => {
+			localStorage.setItem(
+				'@obot/dismiss-community-signup-banner',
+				JSON.stringify({ dismissedAt: '2020-01-01T00:00:00.000Z' })
+			);
+
+			await renderLayout([Group.ADMIN], {}, {}, { created: '2026-08-04T16:58:40.000Z' });
+
+			await expect.element(page.getByText(copy, { exact: true })).toBeVisible();
 		});
 	});
 });
