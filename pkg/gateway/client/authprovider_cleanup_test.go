@@ -98,6 +98,12 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 			AuthProviderNamespace: "default",
 			Name:                  "Engineering",
 		},
+		{
+			ID:                    "Entra/engineering",
+			AuthProviderName:      "case-variant-auth-provider",
+			AuthProviderNamespace: "default",
+			Name:                  "Engineering",
+		},
 	}
 	memberships := []types.GroupMemberships{
 		{
@@ -116,6 +122,10 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 			UserID:  4,
 			GroupID: "entra-other/engineering",
 		},
+		{
+			UserID:  5,
+			GroupID: "Entra/engineering",
+		},
 	}
 	assignments := []types.GroupRoleAssignment{
 		{
@@ -132,6 +142,10 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 		},
 		{
 			GroupName: "entra-other/engineering",
+			Role:      clienttypes.RolePowerUser,
+		},
+		{
+			GroupName: "Entra/engineering",
 			Role:      clienttypes.RolePowerUser,
 		},
 	}
@@ -164,7 +178,7 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Order("id").Find(&remainingGroups).Error; err != nil {
 		t.Fatal(err)
 	}
-	if got, want := groupIDs(remainingGroups), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+	if got, want := groupIDs(remainingGroups), []string{"Entra/engineering", "entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("remaining group IDs = %#v, want %#v", got, want)
 	}
 
@@ -172,7 +186,7 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	if err := c.db.WithContext(t.Context()).Order("group_id").Find(&remainingMemberships).Error; err != nil {
 		t.Fatal(err)
 	}
-	if got, want := membershipGroupIDs(remainingMemberships), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+	if got, want := membershipGroupIDs(remainingMemberships), []string{"Entra/engineering", "entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("remaining membership group IDs = %#v, want %#v", got, want)
 	}
 
@@ -180,7 +194,7 @@ func TestDeleteAuthProviderGroupData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := assignmentGroupIDs(remainingAssignments), []string{"entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
+	if got, want := assignmentGroupIDs(remainingAssignments), []string{"Entra/engineering", "entra-other/engineering", "okta/engineering"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("remaining assignment group IDs = %#v, want %#v", got, want)
 	}
 

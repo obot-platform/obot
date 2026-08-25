@@ -236,7 +236,7 @@ func validateUniqueAuthProviderGroupIDPrefixes(objs []kclient.Object) error {
 			continue
 		}
 
-		prefix := provider.Spec.GroupIDPrefix
+		prefix := strings.ToLower(provider.Spec.GroupIDPrefix)
 		if existingProvider, ok := providersByPrefix[prefix]; ok {
 			return fmt.Errorf("auth providers %q and %q declare the same group ID prefix %q", existingProvider, provider.Name, provider.Spec.GroupIDPrefix)
 		}

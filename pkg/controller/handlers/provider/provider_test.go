@@ -176,7 +176,7 @@ func TestValidateUniqueAuthProviderGroupIDPrefixes(t *testing.T) {
 			wantError: true,
 		},
 		{
-			name: "case variants are distinct prefixes",
+			name: "case variants are duplicate prefixes",
 			objects: []kclient.Object{
 				&v1.AuthProvider{
 					Name: "first",
@@ -195,6 +195,7 @@ func TestValidateUniqueAuthProviderGroupIDPrefixes(t *testing.T) {
 					},
 				},
 			},
+			wantError: true,
 		},
 	}
 

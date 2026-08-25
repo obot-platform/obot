@@ -546,11 +546,10 @@ func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authPro
 // deconfigured auth provider. It is transactional and idempotent so controller retries are safe.
 func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName, groupIDPrefix string) error {
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		groupIDPattern := groupIDPrefix + "%"
-		if err := tx.Where("group_name LIKE ?", groupIDPattern).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
+		if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
 			return fmt.Errorf("delete group role assignments: %w", err)
 		}
-		if err := tx.Where("group_id LIKE ?", groupIDPattern).Delete(&types.GroupMemberships{}).Error; err != nil {
+		if err := tx.Where("substr(group_id, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupMemberships{}).Error; err != nil {
 			return fmt.Errorf("delete group memberships: %w", err)
 		}
 		if err := tx.
