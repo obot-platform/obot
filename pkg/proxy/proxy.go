@@ -196,26 +196,31 @@ func (pm *Manager) createProxy(ctx context.Context, provider string) (*Proxy, er
 	if err != nil {
 		return nil, err
 	}
+	groupIDPrefix, err := pm.dispatcher.GroupIDPrefixForAuthProvider(ctx, parts[0], parts[1])
+	if err != nil {
+		return nil, err
+	}
 
-	return newProxy(parts[0], parts[1], providerURL.String())
+	return newProxy(parts[0], parts[1], providerURL.String(), groupIDPrefix)
 }
 
 type Proxy struct {
-	proxy                *httputil.ReverseProxy
-	url, name, namespace string
+	proxy                               *httputil.ReverseProxy
+	url, name, namespace, groupIDPrefix string
 }
 
-func newProxy(providerNamespace, providerName, providerURL string) (*Proxy, error) {
+func newProxy(providerNamespace, providerName, providerURL, groupIDPrefix string) (*Proxy, error) {
 	u, err := url.Parse(providerURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse provider URL: %w", err)
 	}
 
 	return &Proxy{
-		proxy:     httputil.NewSingleHostReverseProxy(u),
-		url:       providerURL,
-		name:      providerName,
-		namespace: providerNamespace,
+		proxy:         httputil.NewSingleHostReverseProxy(u),
+		url:           providerURL,
+		name:          providerName,
+		namespace:     providerNamespace,
+		groupIDPrefix: groupIDPrefix,
 	}, nil
 }
 
@@ -307,9 +312,12 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 		u.Extra["set-cookies"] = ss.SetCookies
 	}
 
-	// Put the access token and provider URL on the context so that the profile icon and group info can be fetched.
-	*req = *req.WithContext(accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken))
-	*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), p.url))
+	// Put the access token and provider metadata on the context so that the profile icon and group
+	// info can be fetched and validated.
+	providerContext := accesstoken.ContextWithAccessToken(req.Context(), ss.AccessToken)
+	providerContext = auth.ContextWithProviderURL(providerContext, p.url)
+	providerContext = auth.ContextWithProviderGroupIDPrefix(providerContext, p.groupIDPrefix)
+	*req = *req.WithContext(providerContext)
 
 	return &authenticator.Response{
 		User: u,

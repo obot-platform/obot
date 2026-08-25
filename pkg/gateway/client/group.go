@@ -254,8 +254,8 @@ func (c *Client) listAuthGroupsFromProvider(ctx context.Context, authProviderURL
 
 	groups := make([]types.Group, 0, len(page.Items))
 	for _, info := range page.Items {
-		if info.ID == "" {
-			continue
+		if err := auth.ValidateGroupID(info.ID, auth.ProviderGroupIDPrefixFromContext(ctx)); err != nil {
+			return ListAuthGroupsResult{}, resp.StatusCode, fmt.Errorf("validate group returned by auth provider: %w", err)
 		}
 		groups = append(groups, types.Group{
 			ID:                    info.ID,
@@ -470,8 +470,8 @@ func (c *Client) resolveAuthGroupsFromProvider(ctx context.Context, authProvider
 
 	groups := make([]types.Group, 0, len(page.Items))
 	for _, info := range page.Items {
-		if info.ID == "" {
-			continue
+		if err := auth.ValidateGroupID(info.ID, auth.ProviderGroupIDPrefixFromContext(ctx)); err != nil {
+			return nil, fmt.Errorf("validate group returned by auth provider: %w", err)
 		}
 		groups = append(groups, types.Group{
 			ID:                    info.ID,
@@ -509,6 +509,56 @@ func (c *Client) ListGroupIDsForUser(ctx context.Context, userID uint) ([]string
 	}
 
 	return groupIDs, nil
+}
+
+// GetAuthProviderGroupCleanupUserIDs returns one ordered page of users with an identity from the
+// auth provider. The cursor is exclusive so cleanup progress remains bounded and durable.
+func (c *Client) GetAuthProviderGroupCleanupUserIDs(ctx context.Context, authProviderNamespace, authProviderName string, afterUserID uint, limit int) ([]uint, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("auth provider cleanup user ID limit must be positive")
+	}
+
+	var userIDs []uint
+	if err := c.db.WithContext(ctx).
+		Model(&types.Identity{}).
+		Distinct().
+		Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+		Where("user_id > ?", afterUserID).
+		Order("user_id").
+		Limit(limit).
+		Pluck("user_id", &userIDs).Error; err != nil {
+		return nil, fmt.Errorf("failed to list users for auth provider %s/%s: %w", authProviderNamespace, authProviderName, err)
+	}
+
+	return userIDs, nil
+}
+
+// DeleteAuthProviderGroupData removes all gateway-database state for groups belonging to a
+// deconfigured auth provider. It is transactional and idempotent so controller retries are safe.
+func (c *Client) DeleteAuthProviderGroupData(ctx context.Context, authProviderNamespace, authProviderName, groupIDPrefix string) error {
+	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("substr(group_name, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupRoleAssignment{}).Error; err != nil {
+			return fmt.Errorf("delete group role assignments: %w", err)
+		}
+		if err := tx.Where("substr(group_id, 1, ?) = ?", len(groupIDPrefix), groupIDPrefix).Delete(&types.GroupMemberships{}).Error; err != nil {
+			return fmt.Errorf("delete group memberships: %w", err)
+		}
+		if err := tx.
+			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+			Delete(&types.Group{}).Error; err != nil {
+			return fmt.Errorf("delete cached groups: %w", err)
+		}
+		if err := tx.Model(&types.Identity{}).
+			Where("auth_provider_namespace = ? AND auth_provider_name = ?", authProviderNamespace, authProviderName).
+			Update("auth_provider_groups_last_checked", time.Time{}).Error; err != nil {
+			return fmt.Errorf("reset identity group check timestamps: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return fmt.Errorf("failed to delete group data for auth provider %s/%s with prefix %q: %w", authProviderNamespace, authProviderName, groupIDPrefix, err)
+	}
+
+	return nil
 }
 
 // GetUserGroupMemberships fetches group memberships for multiple users in a single query.
@@ -824,6 +874,12 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 
 	var userGroups []types.Group
 	for _, group := range providerGroups {
+		if err := auth.ValidateGroupID(group.ID, auth.ProviderGroupIDPrefixFromContext(ctx)); err != nil {
+			return nil, &FetchUserGroupsError{
+				ProviderUserID: providerUserID,
+				Message:        fmt.Sprintf("auth provider returned an invalid group for user with ID %s: %v", providerUserID, err),
+			}
+		}
 		userGroups = append(userGroups, types.Group{
 			ID:                    group.ID,
 			AuthProviderName:      authProviderName,

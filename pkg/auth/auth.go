@@ -34,6 +34,7 @@ type GroupInfo struct {
 }
 
 type authProviderURLKey struct{}
+type authProviderGroupIDPrefixKey struct{}
 
 // ContextWithProviderURL adds the auth provider URL to the context
 func ContextWithProviderURL(ctx context.Context, url string) context.Context {
@@ -53,4 +54,15 @@ func FirstExtraValue(extra map[string][]string, key string) string {
 		return ""
 	}
 	return values[0]
+}
+
+// ContextWithProviderGroupIDPrefix adds the auth provider's declared group ID prefix to the context.
+func ContextWithProviderGroupIDPrefix(ctx context.Context, prefix string) context.Context {
+	return context.WithValue(ctx, authProviderGroupIDPrefixKey{}, prefix)
+}
+
+// ProviderGroupIDPrefixFromContext retrieves the auth provider's declared group ID prefix.
+func ProviderGroupIDPrefixFromContext(ctx context.Context) string {
+	prefix, _ := ctx.Value(authProviderGroupIDPrefixKey{}).(string)
+	return prefix
 }

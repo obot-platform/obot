@@ -64,9 +64,15 @@ func populateContext(req *http.Request, dispatcher *dispatcher.Dispatcher, names
 	if err != nil {
 		return err
 	}
+	groupIDPrefix, err := dispatcher.GroupIDPrefixForAuthProvider(req.Context(), namespace, name)
+	if err != nil {
+		return err
+	}
 
-	// Store the provider URL in context for later group fetching
-	*req = *req.WithContext(auth.ContextWithProviderURL(req.Context(), providerURL.String()))
+	// Store provider metadata in context for later group fetching and validation.
+	ctx := auth.ContextWithProviderURL(req.Context(), providerURL.String())
+	ctx = auth.ContextWithProviderGroupIDPrefix(ctx, groupIDPrefix)
+	*req = *req.WithContext(ctx)
 
 	return nil
 }

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,7 +17,13 @@ import (
 const (
 	testAuthProviderName      = "entra-auth-provider"
 	testAuthProviderNamespace = "default"
+	testGroupIDPrefix         = "entra/"
 )
+
+func testGroupContext(t *testing.T) context.Context {
+	t.Helper()
+	return auth.ContextWithProviderGroupIDPrefix(t.Context(), testGroupIDPrefix)
+}
 
 // seedGroups inserts n groups into the cache table, named so that name ordering matches ID
 // ordering.
@@ -104,7 +111,7 @@ func walkAll(t *testing.T, c *Client, providerURL string, opts ListAuthGroupsOpt
 			t.Fatal("pagination did not terminate")
 		}
 
-		result, err := c.ListAuthGroups(t.Context(), providerURL, testAuthProviderNamespace, testAuthProviderName, opts)
+		result, err := c.ListAuthGroups(testGroupContext(t), providerURL, testAuthProviderNamespace, testAuthProviderName, opts)
 		if err != nil {
 			t.Fatalf("ListAuthGroups() error = %v", err)
 		}
@@ -148,12 +155,32 @@ func TestListAuthGroupsPagesEntireDirectory(t *testing.T) {
 	}
 }
 
+func TestListAuthGroupsRejectsIDOutsideDeclaredPrefix(t *testing.T) {
+	c := newTestClient(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []auth.GroupInfo{
+				{
+					ID:   "okta/engineering",
+					Name: "Engineering",
+				},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	_, _, err := c.listAuthGroupsFromProvider(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50}, "")
+	if err == nil {
+		t.Fatal("expected an invalid group ID error")
+	}
+}
+
 func TestListAuthGroupsForwardsProviderCursor(t *testing.T) {
 	c := newTestClient(t)
 	stub := &providerStub{total: 500}
 	srv := stub.server(t)
 
-	first, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	first, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
@@ -165,7 +192,7 @@ func TestListAuthGroupsForwardsProviderCursor(t *testing.T) {
 		t.Error("the provider cursor should be wrapped, not passed through verbatim")
 	}
 
-	if _, err = c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: first.NextCursor}); err != nil {
+	if _, err = c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: first.NextCursor}); err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
 	if got := stub.cursors[1]; got != "50" {
@@ -180,12 +207,12 @@ func TestListAuthGroupsResetsWhenNameFilterChanges(t *testing.T) {
 	stub := &providerStub{total: 500}
 	srv := stub.server(t)
 
-	first, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, NameFilter: "eng"})
+	first, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, NameFilter: "eng"})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
 
-	if _, err = c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{
+	if _, err = c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{
 		Limit:      50,
 		NameFilter: "sales",
 		Cursor:     first.NextCursor,
@@ -206,7 +233,7 @@ func TestListAuthGroupsIgnoresCursorFromTheOtherSource(t *testing.T) {
 	stub := &providerStub{total: 500}
 	srv := stub.server(t)
 
-	fromProvider, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	fromProvider, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
@@ -237,7 +264,7 @@ func TestListAuthGroupsFallsBackToCacheOnProviderError(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	result, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
@@ -279,7 +306,7 @@ func TestListAuthGroupsRetriesFromFirstPageOnRejectedCursor(t *testing.T) {
 		t.Fatalf("encodeGroupCursor() error = %v", err)
 	}
 
-	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: stale})
+	result, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50, Cursor: stale})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
@@ -304,7 +331,7 @@ func TestListAuthGroupsNotFoundIsNotDegraded(t *testing.T) {
 	}))
 	t.Cleanup(srv.Close)
 
-	result, err := c.ListAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
+	result, err := c.ListAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, ListAuthGroupsOptions{Limit: 50})
 	if err != nil {
 		t.Fatalf("ListAuthGroups() error = %v", err)
 	}
@@ -522,7 +549,7 @@ func TestResolveAuthGroupsFallsBackToTheProvider(t *testing.T) {
 	srv := stub.server(t)
 
 	// entra/0001 is cached; entra/9999 has never been seen at sign-in and only the provider knows it.
-	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
+	resolved, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/0001", "entra/9999"})
 	if err != nil {
 		t.Fatalf("ResolveAuthGroups() error = %v", err)
 	}
@@ -546,18 +573,56 @@ func TestResolveAuthGroupsFallsBackToTheProvider(t *testing.T) {
 	}
 }
 
+func TestResolveAuthGroupsRejectsIDOutsideDeclaredPrefix(t *testing.T) {
+	c := newTestClient(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"items": []auth.GroupInfo{
+				{
+					ID:   "okta/engineering",
+					Name: "Engineering",
+				},
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := c.resolveAuthGroupsFromProvider(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/engineering"})
+	if err == nil {
+		t.Fatal("expected an invalid group ID error")
+	}
+}
+
+func TestFetchGroupsRejectsIDOutsideDeclaredPrefix(t *testing.T) {
+	c := newTestClient(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]auth.GroupInfo{
+			{
+				ID:   "okta/engineering",
+				Name: "Engineering",
+			},
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	_, err := c.fetchGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, "user")
+	if err == nil {
+		t.Fatal("expected an invalid group ID error")
+	}
+}
+
 func TestResolveAuthGroupsCachesWhatTheProviderResolved(t *testing.T) {
 	c := newTestClient(t)
 
 	stub := &resolverStub{}
 	srv := stub.server(t)
 
-	if _, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"}); err != nil {
+	if _, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"}); err != nil {
 		t.Fatalf("ResolveAuthGroups() error = %v", err)
 	}
 
 	// The second call is served from the table, so the provider is not asked again.
-	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
+	resolved, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
 	if err != nil {
 		t.Fatalf("ResolveAuthGroups() error = %v", err)
 	}
@@ -592,7 +657,7 @@ func TestResolveAuthGroupsDegradesToIDs(t *testing.T) {
 			stub := &resolverStub{status: tt.status}
 			srv := stub.server(t)
 
-			resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
+			resolved, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/9999"})
 			if err != nil {
 				t.Fatalf("resolution is best effort and should not fail the caller: %v", err)
 			}
@@ -613,7 +678,7 @@ func TestResolveAuthGroupsKeepsUnknownIDsWhenTheProviderHasNoAnswer(t *testing.T
 	stub := &resolverStub{unknown: map[string]bool{"entra/deleted": true}}
 	srv := stub.server(t)
 
-	resolved, err := c.ResolveAuthGroups(t.Context(), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/deleted"})
+	resolved, err := c.ResolveAuthGroups(testGroupContext(t), srv.URL, testAuthProviderNamespace, testAuthProviderName, []string{"entra/deleted"})
 	if err != nil {
 		t.Fatalf("ResolveAuthGroups() error = %v", err)
 	}
