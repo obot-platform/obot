@@ -15,14 +15,14 @@ type scriptedFilterExecutor struct {
 	run   func(context.Context, FilterCandidate, json.RawMessage) (FilterExecutionResult, error)
 }
 
-func (e *scriptedFilterExecutor) ExecuteFilter(ctx context.Context, candidate FilterCandidate, payload json.RawMessage) (FilterExecutionResult, error) {
-	e.calls = append(e.calls, candidate.ResourceName)
-	return e.run(ctx, candidate, payload)
-}
-
 type memoryFilterDecisionRecorder struct {
 	records []FilterDecisionRecord
 	err     error
+}
+
+func (e *scriptedFilterExecutor) ExecuteFilter(ctx context.Context, candidate FilterCandidate, payload json.RawMessage) (FilterExecutionResult, error) {
+	e.calls = append(e.calls, candidate.ResourceName)
+	return e.run(ctx, candidate, payload)
 }
 
 func (r *memoryFilterDecisionRecorder) RecordFilterDecision(_ context.Context, record FilterDecisionRecord) error {

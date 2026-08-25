@@ -12,6 +12,13 @@ import (
 const (
 	// HookMutationsMetaKey identifies hook mutation metadata in MCP results.
 	HookMutationsMetaKey = "ai.obot.hooks/mutations"
+
+	FilterDecisionAccept FilterDecision = "accept"
+	FilterDecisionReject FilterDecision = "reject"
+	FilterDecisionMutate FilterDecision = "mutate"
+
+	FilterDecisionKindPolicy         FilterDecisionKind = "policy"
+	FilterDecisionKindInfrastructure FilterDecisionKind = "infrastructure"
 )
 
 var (
@@ -55,18 +62,7 @@ type FilterCandidate struct {
 
 type FilterDecision string
 
-const (
-	FilterDecisionAccept FilterDecision = "accept"
-	FilterDecisionReject FilterDecision = "reject"
-	FilterDecisionMutate FilterDecision = "mutate"
-)
-
 type FilterDecisionKind string
-
-const (
-	FilterDecisionKindPolicy         FilterDecisionKind = "policy"
-	FilterDecisionKindInfrastructure FilterDecisionKind = "infrastructure"
-)
 
 // FilterExecutionResult is the normalized output of one Filter MCP tool call.
 // RawResponse is retained only for the protected decision recorder introduced

@@ -530,7 +530,7 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 			}
 			pipelineErr = &hookBlockedError{direction: direction, reasons: []string{reason}}
 		} else {
-			pipelineErr = fmt.Errorf("Filter evaluation failed (%s)", pipelineResult.ErrorClass)
+			pipelineErr = fmt.Errorf("filter evaluation failed (%s)", pipelineResult.ErrorClass)
 		}
 	}
 

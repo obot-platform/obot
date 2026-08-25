@@ -5,7 +5,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -29,10 +28,8 @@ func TestWebhookHelperDeduplicatesAndExcludesUnavailableFilters(t *testing.T) {
 		"catalog-names":       indexForResourceType(types.MCPWebhookValidationResourceTypeMCPCatalog),
 	})
 	active := &v1.MCPWebhookValidation{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "filter-active",
-			Namespace: "default",
-		},
+		Name:      "filter-active",
+		Namespace: "default",
 		Spec: v1.MCPWebhookValidationSpec{Manifest: types.MCPWebhookValidationManifest{
 			Name: "Active Filter",
 			Resources: []types.MCPWebhookValidationResource{

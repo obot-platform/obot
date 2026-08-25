@@ -26,6 +26,11 @@ type SessionManagerHookRunner struct {
 	clientForServer func(context.Context, ServerConfig) (hookMCPClient, error)
 }
 
+type FilterExecutionError struct {
+	Class   string
+	message string
+}
+
 func NewHookRunner(sessionManager *SessionManager) *SessionManagerHookRunner {
 	return &SessionManagerHookRunner{
 		clientForServer: func(ctx context.Context, server ServerConfig) (hookMCPClient, error) {
@@ -135,11 +140,6 @@ func (r *SessionManagerHookRunner) ExecuteFilter(ctx context.Context, candidate 
 		Reason:      output.Reason,
 		RawResponse: data,
 	}, nil
-}
-
-type FilterExecutionError struct {
-	Class   string
-	message string
 }
 
 func newFilterExecutionError(class, message string) *FilterExecutionError {
