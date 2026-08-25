@@ -48,7 +48,7 @@ type Handler struct {
 	tokenService              *persistent.TokenService
 	auditLogCollector         proxyAuditCollector
 	composite                 *mmmcp.Composite
-	hookRunner                mcp.HookRunner
+	hookRunner                mcp.FilterExecutor
 	tunnelManager             *tunnel.Manager
 	secretBindingAllowedLabel string
 	serverURL                 string

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -26,21 +27,56 @@ type scriptedMCPHookRunner struct {
 	run   func(mcp.SessionMessageHook, string) (mcp.SessionMessageHook, bool, error)
 }
 
-func (r *scriptedMCPHookRunner) RunHook(_ context.Context, _ mcp.HookServerConfigs, input mcp.SessionMessageHook, target string) (*mcp.SessionMessageHook, error) {
+func (r *scriptedMCPHookRunner) ExecuteFilter(_ context.Context, candidate mcp.FilterCandidate, payload json.RawMessage) (mcp.FilterExecutionResult, error) {
+	var message mcp.Message
+	if err := json.Unmarshal(payload, &message); err != nil {
+		return mcp.FilterExecutionResult{}, err
+	}
+	input := mcp.SessionMessageHook{Accept: true, Message: &message}
 	r.mu.Lock()
-	r.calls = append(r.calls, mcpHookCall{target: target, message: *input.Message})
+	r.calls = append(r.calls, mcpHookCall{target: candidate.Target, message: message})
 	r.mu.Unlock()
 
-	result := mcp.SessionMessageHook{Accept: true, Message: input.Message}
+	result := mcp.SessionMessageHook{Accept: true, Message: &message}
 	hasOutput := true
 	var err error
 	if r.run != nil {
-		result, hasOutput, err = r.run(input, target)
+		result, hasOutput, err = r.run(input, candidate.Target)
 	}
 	if !hasOutput {
-		return nil, err
+		if err == nil {
+			err = errors.New("Filter returned no result")
+		}
+		return mcp.FilterExecutionResult{}, err
 	}
-	return &result, err
+	if err != nil {
+		return mcp.FilterExecutionResult{}, err
+	}
+	rawResponse, _ := json.Marshal(result)
+	if !result.Accept {
+		return mcp.FilterExecutionResult{
+			Decision:    mcp.FilterDecisionReject,
+			Reason:      result.Reason,
+			RawResponse: rawResponse,
+		}, nil
+	}
+	if !result.Mutated {
+		return mcp.FilterExecutionResult{
+			Decision:    mcp.FilterDecisionAccept,
+			Reason:      result.Reason,
+			RawResponse: rawResponse,
+		}, nil
+	}
+	mutated, err := json.Marshal(result.Message)
+	if err != nil {
+		return mcp.FilterExecutionResult{}, err
+	}
+	return mcp.FilterExecutionResult{
+		Decision:    mcp.FilterDecisionMutate,
+		Message:     mutated,
+		Reason:      result.Reason,
+		RawResponse: rawResponse,
+	}, nil
 }
 
 func (r *scriptedMCPHookRunner) callCount() int {
@@ -94,7 +130,7 @@ func TestMCPProxyHooksScopeByMethodNameAndDirection(t *testing.T) {
 	}
 }
 
-func TestMCPProxyHooksChainAndContinueAfterErrors(t *testing.T) {
+func TestMCPProxyHooksChainAndStopAfterErrors(t *testing.T) {
 	t.Run("chains mutations", func(t *testing.T) {
 		runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, target string) (mcp.SessionMessageHook, bool, error) {
 			message := *input.Message
@@ -124,7 +160,7 @@ func TestMCPProxyHooksChainAndContinueAfterErrors(t *testing.T) {
 		}
 	})
 
-	t.Run("continues after runner error", func(t *testing.T) {
+	t.Run("stops after runner error", func(t *testing.T) {
 		runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, target string) (mcp.SessionMessageHook, bool, error) {
 			if target == "policy/fail" {
 				return mcp.SessionMessageHook{}, false, errors.New("policy unavailable")
@@ -137,8 +173,8 @@ func TestMCPProxyHooksChainAndContinueAfterErrors(t *testing.T) {
 			t.Fatal(err)
 		}
 		_, blocked, hookErr := hookProcessor.blockedRequest()
-		if runner.callCount() != 2 || !blocked || hookErr == nil || !strings.Contains(hookErr.Error(), "policy unavailable") {
-			t.Fatalf("hook chain did not continue after error: calls=%d blocked=%v err=%v", runner.callCount(), blocked, hookErr)
+		if runner.callCount() != 1 || !blocked || hookErr == nil || !strings.Contains(hookErr.Error(), "execution") {
+			t.Fatalf("hook chain did not stop after error: calls=%d blocked=%v err=%v", runner.callCount(), blocked, hookErr)
 		}
 	})
 }
@@ -330,9 +366,27 @@ func TestMCPProxyHooksRejectRequestAndDisallowedMutation(t *testing.T) {
 		mutateDisallowed   bool
 		response           mcp.SessionMessageHook
 		wantErrorSubstring string
+		wantPolicyBlock    bool
 	}{
-		{name: "explicit rejection", response: mcp.SessionMessageHook{Accept: false, Reason: "blocked by policy"}, wantErrorSubstring: "blocked by policy"},
-		{name: "disallowed mutation", mutateDisallowed: true, response: mcp.SessionMessageHook{Accept: true, Mutated: true, Reason: "redaction"}, wantErrorSubstring: "mutation not allowed"},
+		{
+			name: "explicit rejection",
+			response: mcp.SessionMessageHook{
+				Accept: false,
+				Reason: "blocked by policy",
+			},
+			wantErrorSubstring: "blocked by policy",
+			wantPolicyBlock:    true,
+		},
+		{
+			name:             "disallowed mutation",
+			mutateDisallowed: true,
+			response: mcp.SessionMessageHook{
+				Accept:  true,
+				Mutated: true,
+				Reason:  "redaction",
+			},
+			wantErrorSubstring: "mutationDisallowed",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -357,8 +411,11 @@ func TestMCPProxyHooksRejectRequestAndDisallowedMutation(t *testing.T) {
 			if message.Error == nil || mcp.MessageIDString(message.ID) != "1" {
 				t.Fatalf("expected correlated JSON-RPC error, got %s", body)
 			}
-			if message.Error.Code != mcp.ErrRPCUnknown.Code || !strings.Contains(message.Error.Message, tt.wantErrorSubstring) || !strings.Contains(message.Error.Message, "MCP request blocked by hook") {
+			if message.Error.Code != mcp.ErrRPCUnknown.Code || !strings.Contains(message.Error.Message, tt.wantErrorSubstring) {
 				t.Fatalf("JSON-RPC error did not explain the request block: %#v", message.Error)
+			}
+			if got := strings.Contains(message.Error.Message, "MCP request blocked by hook"); got != tt.wantPolicyBlock {
+				t.Fatalf("JSON-RPC policy block=%v, want %v: %#v", got, tt.wantPolicyBlock, message.Error)
 			}
 		})
 	}
@@ -414,6 +471,136 @@ func TestMCPProxyHookBlockWithoutReasonStillExplainsFailure(t *testing.T) {
 	}
 	if message.Error == nil || message.Error.Message != `MCP request blocked by hook: hook "policy/check" did not provide a reason` {
 		t.Fatalf("expected missing hook reason to be explained, got %s", body)
+	}
+}
+
+func TestMCPProxyHooksRejectIdentityMutations(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*mcp.Message)
+	}{
+		{
+			name: "JSON-RPC version",
+			mutate: func(message *mcp.Message) {
+				message.JSONRPC = "1.0"
+			},
+		},
+		{
+			name: "request ID type",
+			mutate: func(message *mcp.Message) {
+				message.ID = "1"
+			},
+		},
+		{
+			name: "method",
+			mutate: func(message *mcp.Message) {
+				message.Method = "resources/read"
+			},
+		},
+		{
+			name: "selected tool",
+			mutate: func(message *mcp.Message) {
+				message.Params = json.RawMessage(`{"name":"different"}`)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, _ string) (mcp.SessionMessageHook, bool, error) {
+				message := *input.Message
+				tt.mutate(&message)
+				return mcp.SessionMessageHook{
+					Accept:  true,
+					Mutated: true,
+					Message: &message,
+				}, true, nil
+			}}
+			hooks := mcp.Hooks{{
+				Name: "tools/call",
+				Targets: []mcp.HookTarget{{
+					Target: "policy/check",
+				}},
+			}}
+			processor, err := newHookProcessor(mustMCPHookRequest(t, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"echo"}}`), runner, hooks, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, blocked, hookErr := processor.blockedRequest()
+			if !blocked || hookErr == nil || !strings.Contains(hookErr.Error(), mcp.FilterErrorInvalidMutation) {
+				t.Fatalf("identity mutation was not rejected: blocked=%v err=%v", blocked, hookErr)
+			}
+		})
+	}
+}
+
+func TestMCPProxyHookStatusProjectionPreservesFields(t *testing.T) {
+	runner := &scriptedMCPHookRunner{run: func(input mcp.SessionMessageHook, target string) (mcp.SessionMessageHook, bool, error) {
+		message := *input.Message
+		switch target {
+		case "filter-a/check":
+			message.Params = json.RawMessage(`{"name":"echo","arguments":{"value":"redacted"}}`)
+			return mcp.SessionMessageHook{
+				Accept:  true,
+				Mutated: true,
+				Message: &message,
+				Reason:  "redacted by A",
+			}, true, nil
+		case "filter-b/check":
+			return mcp.SessionMessageHook{
+				Accept:  false,
+				Message: &message,
+				Reason:  "blocked by B",
+			}, true, nil
+		default:
+			t.Fatalf("unexpected Filter target %q", target)
+			return mcp.SessionMessageHook{}, false, nil
+		}
+	}}
+	processor := &hookProcessor{
+		ctx:    t.Context(),
+		runner: runner,
+		hooks: mcp.Hooks{{
+			Name: "tools/call",
+			Targets: []mcp.HookTarget{
+				{
+					Target: "filter-b/check",
+				},
+				{
+					Target: "filter-a/check",
+				},
+			},
+		}},
+	}
+	result := processor.run(mcp.Message{
+		JSONRPC: "2.0",
+		ID:      json.Number("1"),
+		Method:  "tools/call",
+		Params:  json.RawMessage(`{"name":"echo","arguments":{"value":"original"}}`),
+	}, "tools/call", "echo", "request", nil)
+
+	if result.err == nil || !result.mutated || len(result.statuses) != 2 {
+		t.Fatalf("unexpected hook result: %#v", result)
+	}
+	want := []hookStatus{
+		{
+			typeName: "request",
+			method:   "tools/call",
+			name:     "tools/call",
+			tool:     "filter-a/check",
+			status:   "mutated",
+			message:  "redacted by A",
+		},
+		{
+			typeName: "request",
+			method:   "tools/call",
+			name:     "tools/call",
+			tool:     "filter-b/check",
+			status:   "rejected",
+			message:  "blocked by B",
+		},
+	}
+	if !reflect.DeepEqual(result.statuses, want) {
+		t.Fatalf("unexpected status projection: got %#v, want %#v", result.statuses, want)
 	}
 }
 

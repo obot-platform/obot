@@ -247,20 +247,24 @@ func urlWithPath(urlStr, path string) string {
 // absent: its traffic continues through the reverse proxy.
 func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
-	hooks := hookDefinitions(server.Webhooks, replacer)
 	servers := make(HookServerConfigs, len(server.Webhooks))
 	for _, webhook := range server.Webhooks {
-		servers[webhookServerName(webhook, replacer)] = ServerConfig{
-			Runtime:              types.RuntimeRemote,
-			URL:                  webhook.URL,
-			UserID:               server.UserID,
-			MCPServerName:        system.SystemMCPServerPrefix + webhook.Name,
-			MCPServerDisplayName: webhook.DisplayName,
-			SystemMCPServer:      true,
-			Audiences:            slices.Clone(server.Audiences),
-		}
+		servers[webhookServerName(webhook, replacer)] = filterServerConfig(server, webhook)
 	}
+	hooks := hookDefinitions(server, replacer)
 	return hooks, servers
+}
+
+func filterServerConfig(server ServerConfig, webhook Webhook) ServerConfig {
+	return ServerConfig{
+		Runtime:              types.RuntimeRemote,
+		URL:                  webhook.URL,
+		UserID:               server.UserID,
+		MCPServerName:        system.SystemMCPServerPrefix + webhook.Name,
+		MCPServerDisplayName: webhook.DisplayName,
+		SystemMCPServer:      true,
+		Audiences:            slices.Clone(server.Audiences),
+	}
 }
 
 // MMMCPConfig converts a server configuration into mmmcp's runtime configuration.
@@ -362,16 +366,25 @@ func escapeMMMCPInterpolation(value string) string {
 	return strings.ReplaceAll(value, "$", "$$")
 }
 
-func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
-	definitions := make(Hooks, 0, len(webhooks))
-	for _, webhook := range webhooks {
+func hookDefinitions(server ServerConfig, replacer *strings.Replacer) Hooks {
+	definitions := make(Hooks, 0, len(server.Webhooks))
+	for _, webhook := range server.Webhooks {
 		webhookName := webhookServerName(webhook, replacer)
 		targetName := webhookName + "/" + webhook.ToolName
+		candidate := FilterCandidate{
+			ResourceID:      webhook.Name,
+			ResourceName:    webhook.Name,
+			DisplayName:     webhook.DisplayName,
+			Target:          targetName,
+			ToolName:        webhook.ToolName,
+			Server:          filterServerConfig(server, webhook),
+			AllowedToMutate: webhook.MutateAllowed,
+		}
 
 		if len(webhook.Definitions) == 0 {
 			definitions = append(definitions, HookMapping{
 				Name:    "*",
-				Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+				Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed, Candidate: candidate}},
 			})
 			continue
 		}
@@ -384,7 +397,7 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 			if len(def.Identifiers) == 0 {
 				definitions = append(definitions, HookMapping{
 					Name:    method,
-					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed, Candidate: candidate}},
 				})
 			}
 			for _, id := range def.Identifiers {
@@ -395,7 +408,7 @@ func hookDefinitions(webhooks []Webhook, replacer *strings.Replacer) Hooks {
 				definitions = append(definitions, HookMapping{
 					Name:    method,
 					Params:  params,
-					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed}},
+					Targets: []HookTarget{{Target: targetName, MutateDisallowed: !webhook.MutateAllowed, Candidate: candidate}},
 				})
 			}
 		}

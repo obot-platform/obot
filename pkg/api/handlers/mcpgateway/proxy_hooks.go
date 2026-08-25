@@ -12,6 +12,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -34,7 +35,7 @@ type pendingRequest struct {
 // hookProcessor filters MCP messages for one proxied HTTP exchange.
 type hookProcessor struct {
 	ctx       context.Context
-	runner    mcp.HookRunner
+	runner    mcp.FilterExecutor
 	hooks     mcp.Hooks
 	servers   mcp.HookServerConfigs
 	audit     *proxyAudit
@@ -97,7 +98,7 @@ type hookSSELine struct {
 	value, ending string
 }
 
-func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore) (*hookProcessor, error) {
+func newHookProcessor(req *http.Request, runner mcp.FilterExecutor, hooks mcp.Hooks, servers mcp.HookServerConfigs, audit *proxyAudit, store *hookCorrelationStore) (*hookProcessor, error) {
 	processor := &hookProcessor{
 		ctx:       req.Context(),
 		runner:    runner,
@@ -448,95 +449,145 @@ func (h *hookProcessor) run(message mcp.Message, method, name, direction string,
 		return hookResult{message: message, mutations: cloneMCPHookMutations(priorMutations)}
 	}
 
-	var (
-		errs       []error
-		statuses   []hookStatus
-		mutations  = cloneMCPHookMutations(priorMutations)
-		mutated    bool
-		current    = message
-		rejections []string
-	)
-	message.HookMutations = cloneMCPHookMutations(mutations)
-	hookResponse := mcp.SessionMessageHook{Accept: true, Message: &message}
 	params := map[string]string{
 		"name": name, "direction": direction, "callOnError": strconv.FormatBool(message.Error != nil), "method": method,
 	}
-	for _, hook := range h.hooks {
-		if !hook.Matches(method, params) {
-			continue
+	candidates := mcp.FilterCandidatesForMCP(h.hooks, h.servers, method, params)
+	if len(candidates) == 0 {
+		return hookResult{message: message, mutations: cloneMCPHookMutations(priorMutations)}
+	}
+
+	payload, err := json.Marshal(message)
+	if err != nil {
+		return hookResult{message: message, mutations: cloneMCPHookMutations(priorMutations), err: errors.New("failed to encode MCP message for Filters")}
+	}
+	sourceContext, _ := json.Marshal(struct {
+		Name      string `json:"name,omitempty"`
+		SessionID string `json:"sessionID,omitempty"`
+	}{
+		Name:      name,
+		SessionID: h.sessionID,
+	})
+	pipeline := mcp.NewFilterPipeline(h.runner, nil) // decision recorder will be provided in a later change; nil is a placeholder
+	pipelineResult := pipeline.Run(h.ctx, mcp.FilterPipelineRequest{
+		Candidates:       candidates,
+		Payload:          payload,
+		Source:           "mcp",
+		Event:            method,
+		Phase:            direction,
+		SourceContext:    sourceContext,
+		MutationAllowed:  true,
+		ValidateMutation: validateMCPFilterMutation(method, name, direction),
+	})
+
+	statuses := make([]hookStatus, 0, len(pipelineResult.Outcomes))
+	mutations := cloneMCPHookMutations(priorMutations)
+	for _, outcome := range pipelineResult.Outcomes {
+		status := "ok"
+		switch outcome.Decision {
+		case mcp.FilterDecisionMutate:
+			status = "mutated"
+			if mutations == nil {
+				mutations = make(map[string]mcp.HookMutation)
+			}
+			mutation := mutations[direction]
+			mutation.Mutated = true
+			if outcome.Reason != "" {
+				mutation.Reasons = append(mutation.Reasons, outcome.Reason)
+			}
+			mutations[direction] = mutation
+		case mcp.FilterDecisionReject:
+			status = "rejected"
 		}
-		for _, target := range hook.Targets {
-			output, hookErr := h.runner.RunHook(h.ctx, h.servers, hookResponse, target.Target)
-			if hookErr != nil {
-				errs = append(errs, fmt.Errorf("failed to run hook %s: %w", hook.Name, hookErr))
-				continue
-			}
-			if output == nil {
-				continue
-			}
-			response := *output
+		statuses = append(statuses, hookStatus{
+			typeName: direction,
+			method:   method,
+			name:     outcome.Candidate.AuditName,
+			tool:     outcome.Candidate.Target,
+			status:   status,
+			message:  outcome.Reason,
+		})
+	}
 
-			if response.Mutated && target.MutateDisallowed {
-				if response.Reason != "" {
-					response.Reason += "; "
-				}
-				response.Reason += "mutation not allowed by hook configuration, implicit rejection"
-				response.Accept = false
-				response.Mutated = false
-			}
+	current := message
+	if pipelineResult.Mutated {
+		if err := json.Unmarshal(pipelineResult.Payload, &current); err != nil {
+			return hookResult{message: message, mutations: mutations, statuses: statuses, err: errors.New("failed to decode Filter mutation")}
+		}
+		current.HookMutations = cloneMCPHookMutations(mutations)
+	}
 
-			status := "ok"
-			if !response.Accept {
-				status = "rejected"
-			} else if response.Mutated {
-				status = "mutated"
+	var pipelineErr error
+	if pipelineResult.Decision == mcp.FilterDecisionReject {
+		if pipelineResult.ErrorClass == "" {
+			reason := strings.TrimSpace(pipelineResult.Reason)
+			if reason == "" {
+				target := candidates[0].Target
+				if len(pipelineResult.Outcomes) > 0 {
+					target = pipelineResult.Outcomes[len(pipelineResult.Outcomes)-1].Candidate.Target
+				}
+				reason = fmt.Sprintf("hook %q did not provide a reason", target)
 			}
-			statuses = append(statuses, hookStatus{
-				typeName: direction, method: method, name: hook.Name, tool: target.Target, status: status, message: response.Reason,
-			})
-
-			if !response.Accept {
-				reason := strings.TrimSpace(response.Reason)
-				if reason == "" {
-					reason = fmt.Sprintf("hook %q did not provide a reason", target.Target)
-				}
-				rejections = append(rejections, reason)
-			}
-			if response.Mutated && response.Message != nil {
-				if string(response.Message.Result) == "null" {
-					response.Message.Result = nil
-				}
-				if string(response.Message.Params) == "null" {
-					response.Message.Params = nil
-				}
-				if mutations == nil {
-					mutations = make(map[string]mcp.HookMutation)
-				}
-				mutation := mutations[direction]
-				mutation.Mutated = true
-				if response.Reason != "" {
-					mutation.Reasons = append(mutation.Reasons, response.Reason)
-				}
-				mutations[direction] = mutation
-				response.Message.HookMutations = cloneMCPHookMutations(mutations)
-				current = *response.Message
-				mutated = true
-			} else {
-				response.Message = &current
-			}
-			hookResponse = response
+			pipelineErr = &hookBlockedError{direction: direction, reasons: []string{reason}}
+		} else {
+			pipelineErr = fmt.Errorf("Filter evaluation failed (%s)", pipelineResult.ErrorClass)
 		}
 	}
 
-	if hookResponse.Message == nil {
-		hookResponse.Message = &message
-	}
-	if len(rejections) > 0 {
-		errs = append(errs, &hookBlockedError{direction: direction, reasons: rejections})
-	}
 	return hookResult{
-		message: *hookResponse.Message, mutations: mutations, statuses: statuses, mutated: mutated, err: errors.Join(errs...),
+		message:   current,
+		mutations: mutations,
+		statuses:  statuses,
+		mutated:   pipelineResult.Mutated,
+		err:       pipelineErr,
 	}
+}
+
+func validateMCPFilterMutation(method, name, direction string) mcp.FilterMutationValidator {
+	return func(original, current, replacement json.RawMessage) error {
+		var originalMessage, currentMessage, replacementMessage mcp.Message
+		if decodeMCPHookMessage(original, &originalMessage) != nil ||
+			decodeMCPHookMessage(current, &currentMessage) != nil ||
+			decodeMCPHookMessage(replacement, &replacementMessage) != nil {
+			return errors.New("invalid MCP message")
+		}
+		if replacementMessage.JSONRPC != originalMessage.JSONRPC ||
+			!reflect.DeepEqual(replacementMessage.ID, originalMessage.ID) ||
+			replacementMessage.Method != method || currentMessage.Method != method {
+			return errors.New("MCP identity changed")
+		}
+		switch direction {
+		case "request":
+			if replacementMessage.Result != nil || replacementMessage.Error != nil || mcpHookMessageName(replacementMessage) != name {
+				return errors.New("MCP request identity changed")
+			}
+		case "response":
+			if replacementMessage.Result == nil && replacementMessage.Error == nil {
+				return errors.New("MCP response identity changed")
+			}
+			if !rawJSONEqual(replacementMessage.Params, originalMessage.Params) {
+				return errors.New("MCP response request identity changed")
+			}
+		default:
+			return errors.New("unknown MCP direction")
+		}
+		return nil
+	}
+}
+
+func rawJSONEqual(left, right json.RawMessage) bool {
+	if len(left) == 0 || len(right) == 0 {
+		return len(left) == len(right)
+	}
+	var leftValue, rightValue any
+	leftDecoder := json.NewDecoder(bytes.NewReader(left))
+	leftDecoder.UseNumber()
+	rightDecoder := json.NewDecoder(bytes.NewReader(right))
+	rightDecoder.UseNumber()
+	if leftDecoder.Decode(&leftValue) != nil || rightDecoder.Decode(&rightValue) != nil {
+		return bytes.Equal(left, right)
+	}
+	return reflect.DeepEqual(leftValue, rightValue)
 }
 
 func (r *hookResult) captureBody(originalBody []byte) {

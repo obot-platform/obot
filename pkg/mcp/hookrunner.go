@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -35,33 +34,53 @@ func NewHookRunner(sessionManager *SessionManager) *SessionManagerHookRunner {
 	}
 }
 
-func (r *SessionManagerHookRunner) RunHook(ctx context.Context, servers HookServerConfigs, input SessionMessageHook, target string) (*SessionMessageHook, error) {
-	serverName, toolName, ok := strings.Cut(target, "/")
-	if !ok || serverName == "" || toolName == "" {
-		return nil, fmt.Errorf("invalid MCP hook target %q: expected server/tool", target)
+func (r *SessionManagerHookRunner) ExecuteFilter(ctx context.Context, candidate FilterCandidate, payload json.RawMessage) (FilterExecutionResult, error) {
+	toolName := candidate.ToolName
+	if toolName == "" {
+		serverName, parsedToolName, ok := strings.Cut(candidate.Target, "/")
+		if !ok || serverName == "" || parsedToolName == "" {
+			return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "invalid Filter target")
+		}
+		toolName = parsedToolName
 	}
 
-	server, ok := servers[serverName]
-	if !ok {
-		return nil, fmt.Errorf("MCP hook server %q is not configured", serverName)
+	server := candidate.Server
+	if server.URL == "" && server.MCPServerName == "" {
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "Filter server is not configured")
 	}
 	if r == nil || r.clientForServer == nil {
-		return nil, errors.New("MCP hook runner is not configured")
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "Filter runner is not configured")
 	}
 
 	client, err := r.clientForServer(ctx, server)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client for MCP hook server %q: %w", serverName, err)
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "failed to connect to Filter")
+	}
+	input := struct {
+		Accept  bool            `json:"accept"`
+		Mutated bool            `json:"mutated"`
+		Message json.RawMessage `json:"message"`
+		Reason  string          `json:"reason"`
+	}{
+		Accept:  true,
+		Message: payload,
 	}
 	result, err := client.CallTool(ctx, &gomcp.CallToolParams{Name: toolName, Arguments: input})
 	if err != nil {
-		return nil, fmt.Errorf("failed to call MCP hook %q: %w", target, err)
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return FilterExecutionResult{}, newFilterExecutionError(FilterErrorTimeout, "Filter timed out")
+		}
+		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+			return FilterExecutionResult{}, newFilterExecutionError(FilterErrorCanceled, "Filter call was canceled")
+		}
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorExecution, "Filter tool call failed")
 	}
 	if result == nil {
-		return nil, fmt.Errorf("MCP hook %q returned no result", target)
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter returned no result")
 	}
+	rawResult, _ := json.Marshal(result)
 	if result.IsError {
-		return nil, mcpHookToolError(target, result)
+		return FilterExecutionResult{RawResponse: rawResult}, newFilterExecutionError(FilterErrorExecution, "Filter tool returned an error")
 	}
 
 	structuredContent := result.StructuredContent
@@ -74,30 +93,62 @@ func (r *SessionManagerHookRunner) RunHook(ctx context.Context, servers HookServ
 		}
 	}
 	if structuredContent == nil {
-		return nil, nil
+		return FilterExecutionResult{RawResponse: rawResult}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter returned no structured decision")
 	}
 
 	data, err := json.Marshal(structuredContent)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal MCP hook %q response: %w", target, err)
+		return FilterExecutionResult{}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter response could not be encoded")
 	}
-	var output SessionMessageHook
+	var output struct {
+		Accept  *bool           `json:"accept"`
+		Mutated bool            `json:"mutated"`
+		Message json.RawMessage `json:"message"`
+		Reason  string          `json:"reason"`
+	}
 	if err := json.Unmarshal(data, &output); err != nil {
-		return nil, fmt.Errorf("failed to decode MCP hook %q response: %w", target, err)
+		return FilterExecutionResult{RawResponse: data}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter response was malformed")
 	}
-	return &output, nil
+	if output.Accept == nil || (!*output.Accept && output.Mutated) {
+		return FilterExecutionResult{RawResponse: data}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter response was contradictory or incomplete")
+	}
+	if !*output.Accept {
+		return FilterExecutionResult{
+			Decision:    FilterDecisionReject,
+			Reason:      output.Reason,
+			RawResponse: data,
+		}, nil
+	}
+	if !output.Mutated {
+		return FilterExecutionResult{
+			Decision:    FilterDecisionAccept,
+			Reason:      output.Reason,
+			RawResponse: data,
+		}, nil
+	}
+	if len(output.Message) == 0 || string(output.Message) == "null" || !json.Valid(output.Message) {
+		return FilterExecutionResult{RawResponse: data}, newFilterExecutionError(FilterErrorMalformedResponse, "Filter mutation did not contain a complete JSON message")
+	}
+	return FilterExecutionResult{
+		Decision:    FilterDecisionMutate,
+		Message:     output.Message,
+		Reason:      output.Reason,
+		RawResponse: data,
+	}, nil
 }
 
-func mcpHookToolError(target string, result *gomcp.CallToolResult) error {
-	for _, content := range result.Content {
-		if text, ok := content.(*gomcp.TextContent); ok && strings.TrimSpace(text.Text) != "" {
-			return fmt.Errorf("MCP hook %q returned an error: %s", target, text.Text)
-		}
+type FilterExecutionError struct {
+	Class   string
+	message string
+}
+
+func newFilterExecutionError(class, message string) *FilterExecutionError {
+	return &FilterExecutionError{Class: class, message: message}
+}
+
+func (e *FilterExecutionError) Error() string {
+	if e == nil {
+		return "Filter evaluation failed"
 	}
-	if result.StructuredContent != nil {
-		if data, err := json.Marshal(result.StructuredContent); err == nil {
-			return fmt.Errorf("MCP hook %q returned an error: %s", target, data)
-		}
-	}
-	return fmt.Errorf("MCP hook %q returned an error", target)
+	return e.message
 }

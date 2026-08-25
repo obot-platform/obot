@@ -131,6 +131,37 @@ func TestServerHookConfigBuildsScopedHooks(t *testing.T) {
 	}
 }
 
+func TestServerHookConfigKeepsResolvedServerForCollidingTargetNames(t *testing.T) {
+	hooks, _ := ServerHookConfig(ServerConfig{
+		UserID: "user-1",
+		Webhooks: []Webhook{
+			{
+				Name:        "filter/name",
+				DisplayName: "Slash Filter",
+				URL:         "https://slash.example/mcp",
+				ToolName:    "check",
+			},
+			{
+				Name:        "filter-name",
+				DisplayName: "Dash Filter",
+				URL:         "https://dash.example/mcp",
+				ToolName:    "check",
+			},
+		},
+	})
+	candidates := FilterCandidatesForMCP(hooks, nil, "tools/call", nil)
+	ordered := orderedFilterCandidates(candidates)
+	if len(ordered) != 2 {
+		t.Fatalf("got %d candidates, want 2: %#v", len(ordered), ordered)
+	}
+	if ordered[0].ResourceName != "filter-name" || ordered[0].Server.URL != "https://dash.example/mcp" {
+		t.Fatalf("dash Filter lost its resolved server: %#v", ordered[0])
+	}
+	if ordered[1].ResourceName != "filter/name" || ordered[1].Server.URL != "https://slash.example/mcp" {
+		t.Fatalf("slash Filter lost its resolved server: %#v", ordered[1])
+	}
+}
+
 func TestEnsureServerReadyUsesHealthzPath(t *testing.T) {
 	var healthzCalls, mcpCalls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

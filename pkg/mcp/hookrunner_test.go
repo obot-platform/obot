@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
 	"strings"
@@ -32,16 +33,28 @@ func TestMCPHookRunnerCallsConfiguredServerTool(t *testing.T) {
 		}
 		return client, nil
 	}}
-	input := SessionMessageHook{Accept: true, Message: &Message{Method: "tools/call"}}
+	payload := json.RawMessage(`{"jsonrpc":"2.0","method":"tools/call"}`)
+	candidate := FilterCandidate{
+		Target: "policy/validate",
+		Server: wantServer,
+	}
 
-	output, err := runner.RunHook(t.Context(), HookServerConfigs{"policy": wantServer}, input, "policy/validate")
+	output, err := runner.ExecuteFilter(t.Context(), candidate, payload)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if output == nil || !output.Accept || output.Reason != "allowed" {
+	if output.Decision != FilterDecisionAccept || output.Reason != "allowed" {
 		t.Fatalf("unexpected hook output: %#v", output)
 	}
-	if client.params == nil || client.params.Name != "validate" || !reflect.DeepEqual(client.params.Arguments, input) {
+	data, err := json.Marshal(client.params.Arguments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var input map[string]any
+	if err := json.Unmarshal(data, &input); err != nil {
+		t.Fatal(err)
+	}
+	if client.params == nil || client.params.Name != "validate" || input["accept"] != true || input["mutated"] != false || input["reason"] != "" || !reflect.DeepEqual(input["message"], map[string]any{"jsonrpc": "2.0", "method": "tools/call"}) {
 		t.Fatalf("unexpected tool call params: %#v", client.params)
 	}
 }
@@ -53,14 +66,14 @@ func TestMCPHookRunnerDecodesJSONTextContent(t *testing.T) {
 	runner := &SessionManagerHookRunner{clientForServer: func(context.Context, ServerConfig) (hookMCPClient, error) {
 		return client, nil
 	}}
-	output, err := runner.RunHook(
-		t.Context(), HookServerConfigs{"policy": {MCPServerName: "sms1policy"}},
-		SessionMessageHook{Message: &Message{Method: "tools/call"}}, "policy/check",
-	)
+	output, err := runner.ExecuteFilter(t.Context(), FilterCandidate{
+		Target: "policy/check",
+		Server: ServerConfig{MCPServerName: "sms1policy"},
+	}, json.RawMessage(`{"method":"tools/call"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if output == nil || output.Accept || output.Reason != "blocked" {
+	if output.Decision != FilterDecisionReject || output.Reason != "blocked" {
 		t.Fatalf("unexpected JSON text hook output: %#v", output)
 	}
 }
@@ -74,12 +87,12 @@ func TestMCPHookRunnerReturnsToolErrorMessage(t *testing.T) {
 		return client, nil
 	}}
 
-	_, err := runner.RunHook(
-		t.Context(), HookServerConfigs{"policy": {MCPServerName: "sms1policy"}},
-		SessionMessageHook{}, "policy/check",
-	)
-	if err == nil || !strings.Contains(err.Error(), "policy service denied the request") {
-		t.Fatalf("expected hook tool error message, got %v", err)
+	_, err := runner.ExecuteFilter(t.Context(), FilterCandidate{
+		Target: "policy/check",
+		Server: ServerConfig{MCPServerName: "sms1policy"},
+	}, json.RawMessage(`{}`))
+	if err == nil || strings.Contains(err.Error(), "policy service denied the request") || !strings.Contains(err.Error(), "returned an error") {
+		t.Fatalf("expected bounded hook tool error, got %v", err)
 	}
 }
 
@@ -88,10 +101,52 @@ func TestMCPHookRunnerValidatesTargetAndServer(t *testing.T) {
 		return nil, errors.New("should not be called")
 	}}
 
-	if _, err := runner.RunHook(t.Context(), nil, SessionMessageHook{}, "invalid"); err == nil || !strings.Contains(err.Error(), "expected server/tool") {
+	if _, err := runner.ExecuteFilter(t.Context(), FilterCandidate{Target: "invalid"}, json.RawMessage(`{}`)); err == nil || !strings.Contains(err.Error(), "invalid Filter target") {
 		t.Fatalf("expected invalid target error, got %v", err)
 	}
-	if _, err := runner.RunHook(t.Context(), nil, SessionMessageHook{}, "policy/check"); err == nil || !strings.Contains(err.Error(), "is not configured") {
+	if _, err := runner.ExecuteFilter(t.Context(), FilterCandidate{Target: "policy/check"}, json.RawMessage(`{}`)); err == nil || !strings.Contains(err.Error(), "not configured") {
 		t.Fatalf("expected missing server error, got %v", err)
+	}
+}
+
+func TestMCPHookRunnerRejectsContradictoryResponse(t *testing.T) {
+	client := &fakeHookMCPClient{result: &gomcp.CallToolResult{
+		StructuredContent: map[string]any{
+			"accept":  false,
+			"mutated": true,
+			"message": map[string]any{"secret": "must not appear in error"},
+		},
+	}}
+	runner := &SessionManagerHookRunner{clientForServer: func(context.Context, ServerConfig) (hookMCPClient, error) {
+		return client, nil
+	}}
+	output, err := runner.ExecuteFilter(t.Context(), FilterCandidate{
+		Target: "policy/check",
+		Server: ServerConfig{MCPServerName: "sms1policy"},
+	}, json.RawMessage(`{}`))
+	if err == nil || !strings.Contains(err.Error(), "contradictory") || strings.Contains(err.Error(), "must not appear") {
+		t.Fatalf("expected bounded contradictory-response error, got output=%#v err=%v", output, err)
+	}
+	if len(output.RawResponse) == 0 || !strings.Contains(string(output.RawResponse), "must not appear") {
+		t.Fatalf("raw response was not retained for protected recording: %#v", output)
+	}
+}
+
+func TestMCPHookRunnerRejectsMutationWithoutMessage(t *testing.T) {
+	client := &fakeHookMCPClient{result: &gomcp.CallToolResult{
+		StructuredContent: map[string]any{
+			"accept":  true,
+			"mutated": true,
+		},
+	}}
+	runner := &SessionManagerHookRunner{clientForServer: func(context.Context, ServerConfig) (hookMCPClient, error) {
+		return client, nil
+	}}
+	_, err := runner.ExecuteFilter(t.Context(), FilterCandidate{
+		Target: "policy/check",
+		Server: ServerConfig{MCPServerName: "sms1policy"},
+	}, json.RawMessage(`{}`))
+	if err == nil || !strings.Contains(err.Error(), "complete JSON message") {
+		t.Fatalf("expected incomplete-mutation error, got %v", err)
 	}
 }
