@@ -274,6 +274,35 @@ func TestEnsureCompositeComponentsRecordsValidationFailureAgainstOneComponent(t 
 	assert.Equal(t, updated.Generation, updated.Status.ObservedCompositeGeneration)
 }
 
+func TestEnsureCompositeComponentsRefusesComponentThatChangedKind(t *testing.T) {
+	healthy := newMCPServerCatalogEntry("gh-entry", npxCatalogManifest("GitHub", "@example/github@1.0.0"))
+	// The write paths reject both of these, so only drift after authoring reaches the controller.
+	nested := newMCPServerCatalogEntry("nested-entry", types.MCPServerCatalogEntryManifest{
+		Name:           "Nested",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+	})
+	multiUser := newMCPServerCatalogEntry("shared-entry", npxCatalogManifest("Shared", "@example/shared@1.0.0"))
+	multiUser.Spec.Manifest.ServerUserType = types.ServerUserTypeMultiUser
+	composite := newCompositeServer("composite",
+		types.ComponentServer{CatalogEntryID: "gh-entry"},
+		types.ComponentServer{CatalogEntryID: "nested-entry"},
+		types.ComponentServer{CatalogEntryID: "shared-entry"},
+	)
+
+	client := newFakeClient(t, healthy, nested, multiUser, composite)
+	require.NoError(t, ensureCompositeComponents(t, client, composite))
+
+	componentServers := listComponentServers(t, client, "composite")
+	require.Len(t, componentServers, 1)
+	assert.Equal(t, "gh-entry", componentServers[0].Spec.MCPServerCatalogEntryName, "the sibling is unaffected")
+
+	updated := getServer(t, client, "composite")
+	require.Len(t, updated.Status.ComponentErrors, 2)
+	assert.Contains(t, updated.Status.ComponentErrors["nested-entry"], "composite servers cannot be nested")
+	assert.Contains(t, updated.Status.ComponentErrors["shared-entry"], "reference the multi-user server instead")
+}
+
 func TestEnsureCompositeComponentsDeduplicatesComponentServersSharingAReference(t *testing.T) {
 	entry := newMCPServerCatalogEntry("gh-entry", npxCatalogManifest("GitHub", "@example/github@1.0.0"))
 	manifest := types.MCPServerManifest{

@@ -988,6 +988,16 @@ func (h *Handler) updateCompositeChildServer(req router.Request, compositeServer
 
 // buildComponentServerManifest builds and validates a child manifest from its current catalog entry.
 func (h *Handler) buildComponentServerManifest(req router.Request, entry v1.MCPServerCatalogEntry, userURL string, disabled bool) (types.MCPServerManifest, bool, error) {
+	// The write paths reject both of these, but the entry may have changed kind since the composite
+	// was authored. This is where live upstream state is resolved, so recheck it here. Nesting also
+	// fails in MapCatalogEntryToServer below; checking it here keeps the reason legible in status.
+	if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+		return types.MCPServerManifest{}, false, fmt.Errorf("component entry %s is a composite server; composite servers cannot be nested", entry.Name)
+	}
+	if entry.Spec.Manifest.ServerUserType == types.ServerUserTypeMultiUser {
+		return types.MCPServerManifest{}, false, fmt.Errorf("component entry %s is a multi-user catalog entry; reference the multi-user server instead", entry.Name)
+	}
+
 	allowMissingURL := mcp.CatalogEntryRequiresUserURL(entry.Spec.Manifest)
 
 	manifest, err := types.MapCatalogEntryToServer(entry.Spec.Manifest, userURL, disabled || allowMissingURL)

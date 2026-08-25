@@ -615,10 +615,17 @@
 			return;
 		}
 
-		// No components means the references did not resolve; configure would fail.
-		if (Object.keys(configureForm.componentConfigs).length === 0) {
+		// No components at all means the entry was never hydrated; configure would fail.
+		const componentStates = Object.values(configureForm.componentConfigs);
+		if (componentStates.length === 0) {
 			launchError =
 				'This composite server has no available components. Reload the catalog entry and try again.';
+			return;
+		}
+		// Every reference dangling would deploy a composite with nothing behind it.
+		if (componentStates.every((c) => c.missing)) {
+			launchError =
+				"None of this composite server's components are available anymore. Contact your administrator.";
 			return;
 		}
 

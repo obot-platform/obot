@@ -41,6 +41,9 @@
 		// configuration can still collect the component instance's user-specific
 		// headers, but does not expose catalog-entry env/URL settings.
 		isMultiUser?: boolean;
+		// When true, the component's reference no longer resolves, so it has no
+		// manifest to configure.
+		missing?: boolean;
 	};
 
 	export type CompositeLaunchFormData = {
