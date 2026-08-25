@@ -132,6 +132,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
 	reconcilableSources := make(map[string]struct{})
 	successfulSources := make(map[string]string)
+	skippedSourceIDs := make(map[string]struct{})
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
@@ -150,6 +151,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 				slog.Warn("Failed to resolve MCP catalog source commit; falling back to full source sync", "catalog", mcpCatalog.Name, "source", sourceURL, "error", resolveErr)
 			} else if commitSHA == mcpCatalog.Status.ResolvedCommitSHAs[sourceURL] {
 				slog.Info("Skipping unchanged MCP catalog source", "catalog", mcpCatalog.Name, "source", sourceURL, "commit", commitSHA)
+				skippedSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 				continue
 			}
 		}
@@ -183,7 +185,10 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 
 		var compositeRefErrors map[string]string
-		toAdd, compositeRefErrors = h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, validationOptions)
+		toAdd, compositeRefErrors, err = h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, skippedSourceIDs, validationOptions)
+		if err != nil {
+			return fmt.Errorf("failed to load persisted catalog entries for composite reference resolution: %w", err)
+		}
 		for sourceURL, errMsg := range compositeRefErrors {
 			addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 			delete(successfulSources, sourceURL)
@@ -466,13 +471,29 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
 // catalog entry names and snapshots the target manifests. Entries with invalid
 // portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string) {
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, persistedSourceIDs map[string]struct{}, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
 	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
+	if len(persistedSourceIDs) > 0 {
+		var storedEntries v1.MCPServerCatalogEntryList
+		if err := c.List(ctx, &storedEntries, kclient.InNamespace(namespace)); err != nil {
+			return nil, nil, err
+		}
+		for i := range storedEntries.Items {
+			entry := &storedEntries.Items[i]
+			if entry.Spec.MCPCatalogName != catalogName || entry.Spec.Manifest.EntryKey == "" {
+				continue
+			}
+			sourceID := mcp.SourceIDForURL(entry.Spec.SourceURL)
+			if _, skipped := persistedSourceIDs[sourceID]; skipped {
+				refs[sourceRef(sourceID, entry.Spec.Manifest.EntryKey)] = entry
+			}
+		}
+	}
 	for _, obj := range objs {
 		entry, ok := obj.(*v1.MCPServerCatalogEntry)
 		if !ok {
@@ -569,7 +590,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 		result = append(result, obj)
 	}
 
-	return result, errsBySourceURL
+	return result, errsBySourceURL, nil
 }
 
 // resolveComponentSourceRef resolves GitOps portable refs. A bare entry key is

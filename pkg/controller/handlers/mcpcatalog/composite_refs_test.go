@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
@@ -37,8 +38,9 @@ func TestResolveCompositeSourceRefs(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
@@ -72,7 +74,8 @@ compositeConfig:
 	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
+	objs, errsBySourceURL, err := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs, nil)
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -118,7 +121,8 @@ compositeConfig:
 	objs, _, err := h.readMCPCatalog(t.Context(), "default", dir, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs)
+	objs, errsBySourceURL, err := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", objs, nil)
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -151,8 +155,9 @@ func TestResolveCompositeSourceRefsLeavesUnknownShorthandAsInternalID(t *testing
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
 	assert.Equal(t, "internal-id", composite.Spec.Manifest.CompositeConfig.ComponentServers[0].CatalogEntryID)
@@ -180,8 +185,9 @@ func TestResolveCompositeSourceRefsHydratesInternalIDComponents(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
@@ -212,8 +218,9 @@ func TestResolveCompositeSourceRefsHydratesUICreatedSameCatalogEntry(t *testing.
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(target).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
@@ -221,6 +228,41 @@ func TestResolveCompositeSourceRefsHydratesUICreatedSameCatalogEntry(t *testing.
 	assert.Equal(t, "UI Created Component", component.Manifest.Name)
 	require.NotNil(t, component.Manifest.NPXConfig)
 	assert.Equal(t, "ui-created-component", component.Manifest.NPXConfig.Package)
+}
+
+func TestResolveCompositeSourceRefsUsesPersistedEntriesFromSkippedSources(t *testing.T) {
+	const skippedSource = "https://github.com/example/unchanged"
+	target := testCatalogEntry("target", skippedSource, "tool", types.MCPServerCatalogEntryManifest{
+		Name:             "Tool",
+		ShortDescription: "Tool",
+		Description:      "Tool",
+		Icon:             "icon",
+		Runtime:          types.RuntimeNPX,
+		NPXConfig:        &types.NPXRuntimeConfig{Package: "tool"},
+		ServerUserType:   types.ServerUserTypeSingleUser,
+	})
+	target.Namespace = "default"
+	target.Spec.MCPCatalogName = "default"
+	composite := testCatalogEntry("composite", "https://github.com/example/changed", "composite", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: sourceRef(mcp.SourceIDForURL(skippedSource), "tool")},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(target).Build()
+
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite}, map[string]struct{}{
+		mcp.SourceIDForURL(skippedSource): {},
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, errsBySourceURL)
+	require.Len(t, result, 1)
+	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.Equal(t, target.Name, component.CatalogEntryID)
+	assert.Equal(t, target.Spec.Manifest, component.Manifest)
 }
 
 func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testing.T) {
@@ -245,8 +287,9 @@ func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testin
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 1)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
@@ -281,8 +324,9 @@ func TestResolveCompositeSourceRefsRejectsMultiUserServerOutsideCatalog(t *testi
 	})
 	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, result)
 	assert.Contains(t, errsBySourceURL["source"], `multi-user server "shared-server" not found in catalog "default"`)
 }
@@ -317,7 +361,8 @@ compositeConfig:
 	secondObjs, _, err := h.readMCPCatalog(t.Context(), "default", second, "")
 	assert.NoError(t, err)
 
-	objs, errsBySourceURL := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", append(firstObjs, secondObjs...))
+	objs, errsBySourceURL, err := h.resolveCompositeSourceRefs(t.Context(), nil, "", "", append(firstObjs, secondObjs...), nil)
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, objs, 2)
 
@@ -359,8 +404,9 @@ func TestResolveCompositeSourceRefsResolvesExplicitSourceRefWithoutCurrentSource
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, errsBySourceURL)
 	assert.Len(t, result, 2)
 	component := composite.Spec.Manifest.CompositeConfig.ComponentServers[0]
@@ -390,8 +436,9 @@ func TestResolveCompositeSourceRefsSkipsUnresolvedComposite(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{target, composite}, nil)
 
+	require.NoError(t, err)
 	assert.Len(t, result, 1)
 	assert.Equal(t, "target", result[0].GetName())
 	assert.Contains(t, errsBySourceURL["source"], `unresolved catalogEntryID source ref "source::missing"`)
@@ -410,8 +457,9 @@ func TestResolveCompositeSourceRefsSkipsMalformedRef(t *testing.T) {
 		}},
 	})
 
-	result, errsBySourceURL := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite})
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), nil, "", "", []kclient.Object{composite}, nil)
 
+	require.NoError(t, err)
 	assert.Empty(t, result)
 	assert.Contains(t, errsBySourceURL["source"], `invalid catalogEntryID source ref "source::"`)
 }
