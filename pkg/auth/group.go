@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-var groupIDPrefixPattern = regexp.MustCompile(`^[[:alnum:]]+/$`)
+var (
+	groupIDPrefixPattern = regexp.MustCompile(`^[[:alnum:]]+/$`)
+)
 
 // ValidateGroupIDPrefix validates a provider-declared group ID namespace. An empty prefix means
 // that the provider does not support groups.
