@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { SearchIcon } from '@lucide/svelte';
-	import { onDestroy } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -25,53 +24,31 @@
 	}: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	let input = $state<HTMLInputElement | null>(null);
-	// svelte-ignore state_referenced_locally
-	let displayValue = $state(value);
-	let editRevision = 0;
-	let lastEmission: { value: string; revision: number } | undefined;
-
-	$effect(() => {
-		const nextValue = value;
-		if (lastEmission?.value === nextValue) {
-			const emission = lastEmission;
-			lastEmission = undefined;
-			if (editRevision > emission.revision) return;
-		} else {
-			lastEmission = undefined;
-		}
-
-		displayValue = nextValue;
-		if (searchTimeout) clearTimeout(searchTimeout);
-	});
 
 	function search(e: Event) {
 		const value = (e.target as HTMLInputElement).value;
-		const revision = ++editRevision;
 
 		// Clear previous timeout
 		if (searchTimeout) clearTimeout(searchTimeout);
 
 		// Set new timeout for debounced search
 		searchTimeout = setTimeout(() => {
-			lastEmission = { value, revision };
 			onChange(value);
 		}, 300);
 	}
 
 	export function clear() {
-		if (searchTimeout) clearTimeout(searchTimeout);
-		lastEmission = { value: '', revision: ++editRevision };
-		displayValue = '';
+		if (input) {
+			input.value = '';
+		}
 		onChange('');
 	}
-
-	onDestroy(() => clearTimeout(searchTimeout));
 </script>
 
 <div class="relative w-full" {...restProps}>
 	<input
 		bind:this={input}
-		bind:value={displayValue}
+		{value}
 		type="text"
 		{placeholder}
 		class={twMerge(
