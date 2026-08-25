@@ -348,8 +348,11 @@ func TestSync(t *testing.T) {
 		repo := newSkillRepository()
 		repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-2 * time.Hour))
 		repo.Status.ResolvedCommitSHA = "abc123"
-		repo.Status.DiscoveredSkillCount = 500
-		c := newFakeClient(t, repo)
+		repo.Status.DiscoveredSkillCount = 1
+		skill := newSkill("skill-a", repo.Namespace, repo.Name, "Skill A")
+		skill.Spec.RepoURL = repo.Spec.RepoURL
+		skill.Spec.RepoRef = repo.Spec.Ref
+		c := newFakeClient(t, repo, skill)
 
 		resolveCalled := false
 		fetchCalled := false
@@ -378,9 +381,60 @@ func TestSync(t *testing.T) {
 		var updated v1.SkillRepository
 		require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(repo), &updated))
 		assert.True(t, fixedTime.Equal(updated.Status.LastSyncTime.Time))
-		assert.Equal(t, 500, updated.Status.DiscoveredSkillCount)
+		assert.Equal(t, 1, updated.Status.DiscoveredSkillCount)
 		assert.Equal(t, syncInterval, resp.Delay)
 	})
+
+	for _, test := range []struct {
+		name       string
+		updateRepo func(*v1.SkillRepository)
+	}{
+		{
+			name: "repository URL change fetches when commit is unchanged",
+			updateRepo: func(repo *v1.SkillRepository) {
+				repo.Spec.RepoURL = "https://github.com/owner/fork"
+			},
+		},
+		{
+			name: "repository ref change fetches when commit is unchanged",
+			updateRepo: func(repo *v1.SkillRepository) {
+				repo.Spec.Ref = "release"
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repo := newSkillRepository()
+			repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-2 * time.Hour))
+			repo.Status.ResolvedCommitSHA = "abc123"
+			repo.Status.DiscoveredSkillCount = 1
+			skill := newSkill("skill-a", repo.Namespace, repo.Name, "Skill A")
+			skill.Spec.RepoURL = repo.Spec.RepoURL
+			skill.Spec.RepoRef = repo.Spec.Ref
+			test.updateRepo(repo)
+			c := newFakeClient(t, repo, skill)
+
+			fetched := createFetchedRepo(t, map[string]string{"skill-a": "Skill A"})
+			fetchCalled := false
+			h := &Handler{
+				gatewayClient: gatewayClient,
+				fetcher: &mockFetcher{
+					resolveFn: func(_ context.Context, _, _, _ string) (string, error) {
+						return "abc123", nil
+					},
+					fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+						fetchCalled = true
+						return fetched, nil
+					},
+				},
+				now: func() time.Time { return fixedTime },
+			}
+
+			require.NoError(t, h.Sync(router.Request{
+				Client: c, Object: repo, Ctx: t.Context(), Namespace: repo.Namespace, Name: repo.Name, Key: repo.Namespace + "/" + repo.Name,
+			}, &router.ResponseWrapper{}))
+			assert.True(t, fetchCalled)
+		})
+	}
 
 	t.Run("force sync bypasses interval", func(t *testing.T) {
 		repo := newSkillRepository()

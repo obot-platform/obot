@@ -82,12 +82,18 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		if resolveErr != nil {
 			slog.Warn("Failed to resolve skill repository commit; falling back to full sync", "repository", repo.Name, "source", repo.Spec.RepoURL, "error", resolveErr)
 		} else if commitSHA == repo.Status.ResolvedCommitSHA {
-			slog.Info("Skipping unchanged skill repository", "repository", repo.Name, "source", repo.Spec.RepoURL, "commit", commitSHA)
-			if err := h.recordSuccess(req.Ctx, req.Client, namespace, repo.Name, commitSHA, repo.Status.DiscoveredSkillCount); err != nil {
+			sourceMatches, err := skillSourcesMatchRepository(req.Ctx, req.Client, repo)
+			if err != nil {
 				return err
 			}
-			resp.RetryAfter(syncInterval)
-			return nil
+			if sourceMatches {
+				slog.Info("Skipping unchanged skill repository", "repository", repo.Name, "source", repo.Spec.RepoURL, "commit", commitSHA)
+				if err := h.recordSuccess(req.Ctx, req.Client, namespace, repo.Name, commitSHA, repo.Status.DiscoveredSkillCount); err != nil {
+					return err
+				}
+				resp.RetryAfter(syncInterval)
+				return nil
+			}
 		}
 	}
 
@@ -181,6 +187,22 @@ func listSkillsForRepo(ctx context.Context, c kclient.Client, namespace, repoID 
 		result[list.Items[i].Name] = &list.Items[i]
 	}
 	return result, nil
+}
+
+func skillSourcesMatchRepository(ctx context.Context, c kclient.Client, repo *v1.SkillRepository) (bool, error) {
+	skills, err := listSkillsForRepo(ctx, c, repo.Namespace, repo.Name)
+	if err != nil {
+		return false, err
+	}
+	if len(skills) != repo.Status.DiscoveredSkillCount {
+		return false, nil
+	}
+	for _, skill := range skills {
+		if skill.Spec.RepoURL != repo.Spec.RepoURL || skill.Spec.RepoRef != repo.Spec.Ref {
+			return false, nil
+		}
+	}
+	return true, nil
 }
 
 func (h *Handler) recordFailure(ctx context.Context, c kclient.Client, namespace, name string, syncErr error) error {
