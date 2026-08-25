@@ -721,12 +721,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	}
 
 	if err = mcpWebhookValidationInformer.AddIndexers(map[string]gocache.IndexFunc{
-		mcp.DeviceSelectorIndex: mcp.IndexDeviceSelectors,
 		"server-names": func(obj any) ([]string, error) {
 			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
 			var results []string
 			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.MCPWebhookValidationResourceTypeMCPServer {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServer {
 					results = append(results, resource.ID)
 				}
 			}
@@ -736,7 +735,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
 			var results []string
 			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.MCPWebhookValidationResourceTypeSelector {
+				if resource.Type == apiclienttypes.ResourceTypeSelector {
 					results = append(results, resource.ID)
 				}
 			}
@@ -746,7 +745,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
 			var results []string
 			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.MCPWebhookValidationResourceTypeMCPServerCatalogEntry {
+				if resource.Type == apiclienttypes.ResourceTypeMCPServerCatalogEntry {
 					results = append(results, resource.ID)
 				}
 			}
@@ -756,7 +755,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			mcpWebhookValidation := obj.(*v1.MCPWebhookValidation)
 			var results []string
 			for _, resource := range mcpWebhookValidation.Spec.Manifest.Resources {
-				if resource.Type == apiclienttypes.MCPWebhookValidationResourceTypeMCPCatalog {
+				if resource.Type == apiclienttypes.ResourceTypeMcpCatalog {
 					results = append(results, resource.ID)
 				}
 			}

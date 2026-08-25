@@ -8,7 +8,6 @@
 	import {
 		AdminService,
 		type MCPFilter,
-		type MCPFilterLocalAgentEvent,
 		type MCPFilterResource,
 		type MCPFilterWebhookSelector,
 		type SystemMCPServer,
@@ -39,15 +38,7 @@
 	let selectorsAndMcpServersForm = $state<{
 		selectors: MCPFilterWebhookSelector[];
 		resources: MCPFilterResource[];
-		localAgentEvents: MCPFilterLocalAgentEvent[];
 	}>();
-	let localAgentTargetingInvalid = $derived(
-		Boolean(
-			selectorsAndMcpServersForm?.resources.some(
-				(resource) => resource.type === 'deviceSelector'
-			) && selectorsAndMcpServersForm.localAgentEvents.length === 0
-		)
-	);
 
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -78,8 +69,7 @@
 	function initSelectorsAndMcpServersForm() {
 		selectorsAndMcpServersForm = {
 			selectors: [],
-			resources: [{ id: 'default', type: 'mcpCatalog' }],
-			localAgentEvents: []
+			resources: [{ id: 'default', type: 'mcpCatalog' }]
 		};
 	}
 
@@ -136,8 +126,7 @@
 				systemMCPServerCatalogEntryID: entry.id,
 				allowedToMutate: true,
 				selectors: selectorsAndMcpServersForm?.selectors,
-				resources: selectorsAndMcpServersForm?.resources,
-				localAgentEvents: selectorsAndMcpServersForm?.localAgentEvents
+				resources: selectorsAndMcpServersForm?.resources
 			});
 			filterId = response.id;
 		} catch (err) {
@@ -314,7 +303,7 @@
 
 <ResponsiveDialog
 	bind:this={selectorsAndMcpServersDialog}
-	title="Modify Filter Targets"
+	title="Modify Selectors & MCP Servers"
 	class="max-w-3xl"
 	animate="slide"
 >
@@ -332,11 +321,7 @@
 					}}>Go Back</button
 				>
 			{/if}
-			<button
-				class="btn btn-primary text-sm"
-				disabled={localAgentTargetingInvalid}
-				onclick={handleFinish}>Save</button
-			>
+			<button class="btn btn-primary text-sm" onclick={handleFinish}>Save</button>
 		</div>
 	</div>
 </ResponsiveDialog>

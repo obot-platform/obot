@@ -15,7 +15,6 @@ func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 		name     string
 		manifest types.MCPWebhookValidationManifest
 		wantErr  bool
-		errText  string
 	}{
 		{
 			name: "url only",
@@ -75,118 +74,6 @@ func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 			},
 			wantErr: true,
 		},
-		{
-			name: "device target with wildcard events",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "*",
-					},
-				},
-				LocalAgentEvents: types.LocalAgentEvents{
-					types.LocalAgentEventAll,
-				},
-			},
-		},
-		{
-			name: "device and MCP targets together",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "*",
-					},
-					{
-						Type: types.MCPWebhookValidationResourceTypeSelector,
-						ID:   "*",
-					},
-				},
-				LocalAgentEvents: types.LocalAgentEvents{
-					types.LocalAgentEventUserPrompt,
-					types.LocalAgentEventToolResponse,
-				},
-			},
-		},
-		{
-			name: "device target requires events",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "*",
-					},
-				},
-			},
-			wantErr: true,
-			errText: "local agent events are required",
-		},
-		{
-			name: "events require device target",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				LocalAgentEvents: types.LocalAgentEvents{
-					types.LocalAgentEventUserPrompt,
-				},
-			},
-			wantErr: true,
-			errText: "device selector resource is required",
-		},
-		{
-			name: "device target ID must be wildcard",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "device-1",
-					},
-				},
-				LocalAgentEvents: types.LocalAgentEvents{
-					types.LocalAgentEventAll,
-				},
-			},
-			wantErr: true,
-			errText: "deviceSelector resource ID must be '*'",
-		},
-		{
-			name: "wildcard event cannot be combined with explicit event",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "*",
-					},
-				},
-				LocalAgentEvents: types.LocalAgentEvents{
-					types.LocalAgentEventAll,
-					types.LocalAgentEventUserPrompt,
-				},
-			},
-			wantErr: true,
-			errText: "cannot be combined",
-		},
-		{
-			name: "invalid local agent event",
-			manifest: types.MCPWebhookValidationManifest{
-				URL: "https://example.com/webhook",
-				Resources: []types.MCPWebhookValidationResource{
-					{
-						Type: types.MCPWebhookValidationResourceTypeDeviceSelector,
-						ID:   "*",
-					},
-				},
-				LocalAgentEvents: types.LocalAgentEvents{
-					"invalid",
-				},
-			},
-			wantErr: true,
-			errText: "invalid local agent event",
-		},
 	}
 
 	for _, tt := range tests {
@@ -194,9 +81,6 @@ func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 			err := validateManifest(t.Context(), &tt.manifest, mcp.ValidationOptions{})
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if tt.errText != "" && !strings.Contains(err.Error(), tt.errText) {
-				t.Fatalf("Validate() error = %v, want error containing %q", err, tt.errText)
 			}
 		})
 	}

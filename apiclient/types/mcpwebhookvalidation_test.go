@@ -4,48 +4,6 @@ import (
 	"testing"
 )
 
-func TestLocalAgentEventsMatches(t *testing.T) {
-	tests := []struct {
-		name   string
-		events LocalAgentEvents
-		event  LocalAgentEvent
-		want   bool
-	}{
-		{
-			name: "wildcard matches",
-			events: LocalAgentEvents{
-				LocalAgentEventAll,
-			},
-			event: LocalAgentEventToolCallArguments,
-			want:  true,
-		},
-		{
-			name: "explicit event matches",
-			events: LocalAgentEvents{
-				LocalAgentEventUserPrompt,
-			},
-			event: LocalAgentEventUserPrompt,
-			want:  true,
-		},
-		{
-			name: "different explicit event does not match",
-			events: LocalAgentEvents{
-				LocalAgentEventUserPrompt,
-			},
-			event: LocalAgentEventToolResponse,
-			want:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.events.Matches(tt.event); got != tt.want {
-				t.Fatalf("Matches(%q) = %v, want %v", tt.event, got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMCPFilters_Matches(t *testing.T) {
 	tests := []struct {
 		name          string

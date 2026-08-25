@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
-	import type {
-		MCPFilterLocalAgentEvent,
-		MCPFilterResource,
-		MCPFilterWebhookSelector
-	} from '$lib/services';
+	import type { MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
 	import { mcpServersAndEntries } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
@@ -15,63 +11,44 @@
 
 	interface Props {
 		form: {
-			localAgentEvents: MCPFilterLocalAgentEvent[];
 			selectors: MCPFilterWebhookSelector[];
 			resources: MCPFilterResource[];
 		};
 		readonly?: boolean;
 		inDialog?: boolean;
-		showLocalAgentEventsError?: boolean;
 	}
 
-	let {
-		form = $bindable(),
-		readonly,
-		inDialog,
-		showLocalAgentEventsError = false
-	}: Props = $props();
-
-	const localAgentEventOptions: {
-		id: Exclude<MCPFilterLocalAgentEvent, '*'>;
-		label: string;
-	}[] = [
-		{ id: 'userPrompt', label: 'User prompts' },
-		{ id: 'toolCallArguments', label: 'Tool call arguments' },
-		{ id: 'toolResponse', label: 'Tool responses' }
-	];
+	let { form = $bindable(), readonly, inDialog }: Props = $props();
 
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
-	let mcpResources = $derived(
-		form.resources.filter((resource) => resource.type !== 'deviceSelector')
-	);
-	let allDevicesSelected = $derived(
-		form.resources.some((resource) => resource.type === 'deviceSelector' && resource.id === '*')
-	);
 
 	let mcpServersTableData = $derived.by(() => {
 		if (mcpServersMap && mcpEntriesMap) {
-			return convertMcpServersToTableData(mcpResources);
+			return convertMcpServersToTableData(form.resources ?? []);
 		}
 		return [];
 	});
 
-	function convertMcpServersToTableData(resources: MCPFilterResource[]) {
+	function convertMcpServersToTableData(resources: { id: string; type: string }[]) {
 		return resources.map((resource) => {
-			if (resource.type === 'mcpServerCatalogEntry') {
+			const entryMatch = mcpEntriesMap.get(resource.id);
+			const serverMatch = mcpServersMap.get(resource.id);
+
+			if (entryMatch) {
 				return {
 					id: resource.id,
-					name: mcpEntriesMap.get(resource.id)?.manifest.name || '-',
-					type: resource.type
+					name: entryMatch.manifest.name || '-',
+					type: 'mcpentry'
 				};
 			}
 
-			if (resource.type === 'mcpServer') {
+			if (serverMatch) {
 				return {
 					id: resource.id,
-					name: mcpServersMap.get(resource.id)?.manifest.name || '-',
-					type: resource.type
+					name: serverMatch.manifest.name || '-',
+					type: 'mcpserver'
 				};
 			}
 
@@ -110,46 +87,12 @@
 			);
 		}
 	}
-
-	function setAllDevices(selected: boolean) {
-		if (selected) {
-			if (!allDevicesSelected) {
-				form.resources = [...form.resources, { type: 'deviceSelector', id: '*' }];
-			}
-			if (form.localAgentEvents.length === 0) {
-				form.localAgentEvents = ['*'];
-			}
-			form = { ...form };
-			return;
-		}
-
-		form.resources = form.resources.filter((resource) => resource.type !== 'deviceSelector');
-		form.localAgentEvents = [];
-		form = { ...form };
-	}
-
-	function eventSelected(event: Exclude<MCPFilterLocalAgentEvent, '*'>) {
-		return form.localAgentEvents.includes('*') || form.localAgentEvents.includes(event);
-	}
-
-	function setLocalAgentEvent(event: Exclude<MCPFilterLocalAgentEvent, '*'>, selected: boolean) {
-		const selectedEvents = localAgentEventOptions
-			.map((option) => option.id)
-			.filter((candidate) => eventSelected(candidate) && candidate !== event);
-		if (selected) {
-			selectedEvents.push(event);
-		}
-
-		form.localAgentEvents =
-			selectedEvents.length === localAgentEventOptions.length ? ['*'] : selectedEvents;
-		form = { ...form };
-	}
 </script>
 
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterSelectors}>
 	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
-			<h2 class="text-lg font-semibold">MCP Request Selectors</h2>
+			<h2 class="text-lg font-semibold">Selectors</h2>
 			<p class="text-muted-content text-sm">
 				Specify which requests should be matched by this filter.
 			</p>
@@ -184,9 +127,9 @@
 <div class="flex flex-col gap-2" id={MCP_FILTERS_FIELD_IDS.filterMcpServers}>
 	<div class="mb-2 flex md:flex-row flex-col md:items-center items-start gap-4 justify-between">
 		<div class="flex flex-col gap-1">
-			<h2 class="text-lg font-semibold">MCP Targets</h2>
+			<h2 class="text-lg font-semibold">MCP Servers</h2>
 			<p class="text-muted-content text-sm">
-				Specify which MCP servers, registry entries, or catalogs this filter should apply to.
+				Specify which MCP servers this filter should be applied to.
 			</p>
 		</div>
 		{#if !readonly}
@@ -197,7 +140,7 @@
 						addMcpServerDialog?.open();
 					}}
 				>
-					<Plus class="size-4" /> Add MCP Target
+					<Plus class="size-4" /> Add MCP Server
 				</button>
 			</div>
 		{/if}
@@ -213,7 +156,7 @@
 
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
-	exclude={mcpResources.map((resource) => resource.id)}
+	exclude={form.resources.map((r) => r.id)}
 	type="filter"
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {
 		const catalogEntryResources = mcpCatalogEntryIds.map((id) => ({
@@ -240,54 +183,6 @@
 	}}
 	mcpEntriesContextFn={() => mcpServersAndEntries.current}
 />
-
-<div class="flex flex-col gap-4">
-	<div class="flex flex-col gap-1">
-		<h2 class="text-lg font-semibold">Devices</h2>
-		<p class="text-muted-content text-sm">
-			Apply this filter to supported local-agent events on all enrolled devices.
-		</p>
-	</div>
-
-	<div
-		class={twMerge(
-			'dark:border-base-400 bg-base-100 rounded-lg border border-transparent p-4',
-			inDialog ? 'dark:bg-base-400 bg-base-200 shadow-inner' : 'dark:bg-base-100'
-		)}
-	>
-		<label class="flex items-center gap-3 font-medium">
-			<input
-				type="checkbox"
-				class="checkbox checkbox-sm"
-				checked={allDevicesSelected}
-				disabled={readonly}
-				onchange={(event) => setAllDevices(event.currentTarget.checked)}
-			/>
-			All Devices
-		</label>
-
-		{#if allDevicesSelected}
-			<fieldset class="mt-4 flex flex-col gap-3 border-t border-base-300 pt-4">
-				<legend class="mb-2 text-sm font-medium">Local agent events</legend>
-				{#each localAgentEventOptions as option (option.id)}
-					<label class="flex items-center gap-3 text-sm">
-						<input
-							type="checkbox"
-							class="checkbox checkbox-sm"
-							checked={eventSelected(option.id)}
-							disabled={readonly}
-							onchange={(event) => setLocalAgentEvent(option.id, event.currentTarget.checked)}
-						/>
-						{option.label}
-					</label>
-				{/each}
-				{#if showLocalAgentEventsError || form.localAgentEvents.length === 0}
-					<p class="text-xs text-error">Select at least one local agent event.</p>
-				{/if}
-			</fieldset>
-		{/if}
-	</div>
-</div>
 
 {#snippet selectorView(selector: MCPFilterWebhookSelector, selectorIndex: number)}
 	<div
@@ -375,17 +270,15 @@
 {/snippet}
 
 {#snippet mcpServersTable()}
-	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP targets added.">
+	<Table data={mcpServersTableData} fields={['name']} noDataMessage="No MCP servers added.">
 		{#snippet actions(d)}
 			{#if !readonly}
 				<IconButton
 					variant="danger"
 					onclick={() => {
-						form.resources = form.resources.filter(
-							(resource) => resource.id !== d.id || resource.type !== d.type
-						);
+						form.resources = form.resources.filter((resource) => resource.id !== d.id);
 					}}
-					tooltip={{ text: 'Remove MCP Target' }}
+					tooltip={{ text: 'Remove MCP Server' }}
 				>
 					<Trash2 class="size-4" />
 				</IconButton>

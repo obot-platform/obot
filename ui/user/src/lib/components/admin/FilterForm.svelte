@@ -9,7 +9,6 @@
 		AdminService,
 		type MCPFilter,
 		type MCPFilterInput,
-		type MCPFilterLocalAgentEvent,
 		type MCPFilterManifest,
 		type MCPFilterResource,
 		type MCPFilterWebhookSelector,
@@ -60,7 +59,6 @@
 	let filter = $state<{
 		name: string;
 		resources: MCPFilterResource[];
-		localAgentEvents: MCPFilterLocalAgentEvent[];
 		url: string;
 		secret: string;
 		selectors: MCPFilterWebhookSelector[];
@@ -73,7 +71,6 @@
 				? {
 						name: initialFilter.name || '',
 						resources: initialFilter.resources || [],
-						localAgentEvents: initialFilter.localAgentEvents || [],
 						url: initialFilter.url || '',
 						secret: initialFilter.secret || '',
 						selectors: initialFilter.selectors || [],
@@ -84,7 +81,6 @@
 				: {
 						name: '',
 						resources: [{ id: 'default', type: 'mcpCatalog' }],
-						localAgentEvents: [],
 						url: '',
 						secret: '',
 						selectors: [],
@@ -138,11 +134,6 @@
 	let nameError = $derived(showValidation && !filter.name.trim());
 	let urlError = $derived(showValidation && !filter.url.trim());
 	let toolNameError = $derived(showValidation && !filter.toolName?.trim());
-	let localAgentEventsError = $derived(
-		showValidation &&
-			filter.resources.some((resource) => resource.type === 'deviceSelector') &&
-			filter.localAgentEvents.length === 0
-	);
 
 	onMount(() => {
 		if (initialFilterId) {
@@ -433,9 +424,7 @@
 		if (
 			!filter.name.trim() ||
 			(!runtimeFormData && !filter.url.trim()) ||
-			(runtimeFormData && !filter.toolName?.trim()) ||
-			(filter.resources.some((resource) => resource.type === 'deviceSelector') &&
-				filter.localAgentEvents.length === 0)
+			(runtimeFormData && !filter.toolName?.trim())
 		) {
 			showValidation = true;
 			return;
@@ -492,7 +481,6 @@
 			const manifest: MCPFilterManifest = {
 				name: filter.name,
 				resources: filter.resources,
-				localAgentEvents: filter.localAgentEvents.length > 0 ? filter.localAgentEvents : undefined,
 				url: filter.url,
 				secret: filter.secret || undefined,
 				selectors,
@@ -746,11 +734,7 @@
 
 		<div class="h-px bg-base-400 w-full my-4"></div>
 
-		<SelectorsAndResourcesFormSegment
-			bind:form={filter}
-			{readonly}
-			showLocalAgentEventsError={localAgentEventsError}
-		/>
+		<SelectorsAndResourcesFormSegment bind:form={filter} {readonly} />
 	</div>
 	{#if !readonly}
 		<div

@@ -30,7 +30,7 @@ func New(gatewayClient *gateway.Client, webhookBaseImage string) *Handler {
 
 func (h *Handler) CleanupResources(req router.Request, _ router.Response) error {
 	webhookValidation := req.Object.(*v1.MCPWebhookValidation)
-	newResources := make([]types.MCPWebhookValidationResource, 0, len(webhookValidation.Spec.Manifest.Resources))
+	newResources := make([]types.Resource, 0, len(webhookValidation.Spec.Manifest.Resources))
 
 	var (
 		mcpServer    v1.MCPServer
@@ -40,21 +40,21 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 	)
 	for _, resource := range webhookValidation.Spec.Manifest.Resources {
 		switch resource.Type {
-		case types.MCPWebhookValidationResourceTypeSelector, types.MCPWebhookValidationResourceTypeDeviceSelector:
+		case types.ResourceTypeSelector:
 			newResources = append(newResources, resource)
-		case types.MCPWebhookValidationResourceTypeMCPServer:
+		case types.ResourceTypeMCPServer:
 			if err = req.Get(&mcpServer, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get mcp server %s: %w", resource.ID, err)
 			}
-		case types.MCPWebhookValidationResourceTypeMCPServerCatalogEntry:
+		case types.ResourceTypeMCPServerCatalogEntry:
 			if err = req.Get(&catalogEntry, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get mcp server catalog entry %s: %w", resource.ID, err)
 			}
-		case types.MCPWebhookValidationResourceTypeMCPCatalog:
+		case types.ResourceTypeMcpCatalog:
 			if err = req.Get(&mcpCatalog, req.Namespace, resource.ID); err == nil {
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
