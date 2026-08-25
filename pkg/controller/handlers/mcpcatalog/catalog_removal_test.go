@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/apply"
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
@@ -148,7 +149,7 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &existing))
 }
 
-func TestReconcileRemovedEntriesOnlyPrunesSuccessfulSources(t *testing.T) {
+func TestReconcileRemovedEntriesDoesNotPruneWithIncompleteDesiredSet(t *testing.T) {
 	catalog := testCatalog()
 	unchangedSource := catalog.Spec.SourceURLs[0]
 	changedSource := "github.com/example/changed"
@@ -158,15 +159,74 @@ func TestReconcileRemovedEntriesOnlyPrunesSuccessfulSources(t *testing.T) {
 	failed.Spec.SourceURL = unchangedSource
 	removedFromChanged := managedCatalogEntry(t, catalog, "default-removed-12345678")
 	removedFromChanged.Spec.SourceURL = changedSource
-	c := newCatalogFakeClient(failed, removedFromChanged)
+	removedSource := managedCatalogEntry(t, catalog, "default-removed-source-12345678")
+	removedSource.Spec.SourceURL = "github.com/example/removed"
+	c := newCatalogFakeClient(failed, removedFromChanged, removedSource)
 
-	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{changedSource: {}}))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{mcp.SourceIDForURL(changedSource): {}}))
 
 	var preserved v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(failed), &preserved))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(removedFromChanged), &preserved))
 	var removed v1.MCPServerCatalogEntry
-	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(removedFromChanged), &removed)
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(removedSource), &removed)
 	require.True(t, apierrors.IsNotFound(err))
+}
+
+func TestReconcileRemovedEntriesUsesNormalizedSourceIDs(t *testing.T) {
+	catalog := testCatalog()
+	catalog.Spec.SourceURLs[0] += "/"
+	entry := managedCatalogEntry(t, catalog, "default-removed-12345678")
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{
+		mcp.SourceIDForURL(catalog.Spec.SourceURLs[0]): {},
+	}))
+
+	var removed v1.MCPServerCatalogEntry
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &removed)
+	require.True(t, apierrors.IsNotFound(err))
+}
+
+func TestReconcileRemovedSystemEntriesPreservesEntryWithoutSource(t *testing.T) {
+	catalog := testSystemCatalog()
+	entry := &v1.SystemMCPServerCatalogEntry{
+		Name:      "editable",
+		Namespace: catalog.Namespace,
+		Spec: v1.SystemMCPServerCatalogEntrySpec{
+			SystemMCPCatalogName: catalog.Name,
+			Editable:             true,
+		},
+	}
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedSystemEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{
+		mcp.SourceIDForURL(catalog.Spec.SourceURLs[0]): {},
+	}))
+
+	var preserved v1.SystemMCPServerCatalogEntry
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
+}
+
+func TestReconcileRemovedSystemEntriesDoesNotPruneWithIncompleteDesiredSet(t *testing.T) {
+	catalog := testSystemCatalog()
+	catalog.Spec.SourceURLs = append(catalog.Spec.SourceURLs, "github.com/example/changed")
+	entry := &v1.SystemMCPServerCatalogEntry{
+		Name:      "shared",
+		Namespace: catalog.Namespace,
+		Spec: v1.SystemMCPServerCatalogEntrySpec{
+			SystemMCPCatalogName: catalog.Name,
+			SourceURL:            catalog.Spec.SourceURLs[1],
+		},
+	}
+	c := newCatalogFakeClient(entry)
+
+	require.NoError(t, reconcileRemovedSystemEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{
+		mcp.SourceIDForURL(catalog.Spec.SourceURLs[1]): {},
+	}))
+
+	var preserved v1.SystemMCPServerCatalogEntry
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
 }
 
 func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T) {
@@ -313,6 +373,15 @@ func testCatalog() *v1.MCPCatalog {
 	}
 }
 
+func testSystemCatalog() *v1.SystemMCPCatalog {
+	return &v1.SystemMCPCatalog{
+		APIVersion: v1.SchemeGroupVersion.String(), Kind: "SystemMCPCatalog",
+		Name:      "default",
+		Namespace: "default",
+		Spec:      v1.SystemMCPCatalogSpec{SourceURLs: []string{"github.com/obot-platform/catalog"}},
+	}
+}
+
 func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.MCPServerCatalogEntry {
 	t.Helper()
 	labels, annotations, err := apply.GetLabelsAndAnnotations(scheme.Scheme, "catalog-"+catalog.Name, catalog)
@@ -343,6 +412,7 @@ func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
 	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPCatalog"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServerCatalogEntry"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPServerCatalogEntry"), meta.RESTScopeNamespace)
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
 		WithRESTMapper(restMapper).
@@ -352,6 +422,13 @@ func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
 				return nil
 			}
 			return []string{entry.Spec.MCPCatalogName}
+		}).
+		WithIndex(&v1.SystemMCPServerCatalogEntry{}, "spec.systemMCPCatalogName", func(obj kclient.Object) []string {
+			entry := obj.(*v1.SystemMCPServerCatalogEntry)
+			if entry.Spec.SystemMCPCatalogName == "" {
+				return nil
+			}
+			return []string{entry.Spec.SystemMCPCatalogName}
 		}).
 		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
 			server := obj.(*v1.MCPServer)

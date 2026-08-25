@@ -130,7 +130,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	toAdd := make([]kclient.Object, 0)
 	previousSyncErrors := maps.Clone(mcpCatalog.Status.SyncErrors)
 	mcpCatalog.Status.SyncErrors = make(map[string]string)
-	reconcilableSources := make(map[string]struct{})
+	reconcilableSourceIDs := make(map[string]struct{})
 	successfulSources := make(map[string]string)
 	skippedSourceIDs := make(map[string]struct{})
 
@@ -163,7 +163,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		} else {
 			slog.Info("Read MCP catalog source successfully", "catalog", mcpCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(mcpCatalog.Status.SyncErrors, sourceURL)
-			reconcilableSources[sourceURL] = struct{}{}
+			reconcilableSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 			if commitSHA != "" {
 				successfulSources[sourceURL] = commitSHA
 			}
@@ -181,7 +181,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		for sourceURL, errMsg := range conflictErrors {
 			addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 			delete(successfulSources, sourceURL)
-			delete(reconcilableSources, sourceURL)
+			delete(reconcilableSourceIDs, mcp.SourceIDForURL(sourceURL))
 		}
 
 		var compositeRefErrors map[string]string
@@ -192,7 +192,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		for sourceURL, errMsg := range compositeRefErrors {
 			addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 			delete(successfulSources, sourceURL)
-			delete(reconcilableSources, sourceURL)
+			delete(reconcilableSourceIDs, mcp.SourceIDForURL(sourceURL))
 		}
 	}
 
@@ -221,12 +221,12 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// delete a freshly detached entry
 	app := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("catalog-%s", mcpCatalog.Name)).WithNoPrune()
 
-	if err := reconcileRemovedEntriesForSources(req.Ctx, req.Client, mcpCatalog, toAdd, reconcilableSources); err != nil {
+	if err := reconcileRemovedEntriesForSources(req.Ctx, req.Client, mcpCatalog, toAdd, reconcilableSourceIDs); err != nil {
 		return err
 	}
 
 	if len(toAdd) > 0 {
-		slog.Info("Applying changed MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sources", len(reconcilableSources))
+		slog.Info("Applying changed MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sources", len(reconcilableSourceIDs))
 		if err := app.Apply(req.Ctx, mcpCatalog, toAdd...); err != nil {
 			return err
 		}
@@ -323,12 +323,12 @@ func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, name
 func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object) error {
 	loadedSources := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
 	for _, sourceURL := range catalog.Spec.SourceURLs {
-		loadedSources[sourceURL] = struct{}{}
+		loadedSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
 	return reconcileRemovedEntriesForSources(ctx, c, catalog, desired, loadedSources)
 }
 
-func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, reconcilableSources map[string]struct{}) error {
+func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, reconcilableSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
 		if entry, ok := obj.(*v1.MCPServerCatalogEntry); ok {
@@ -339,6 +339,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 	for _, sourceURL := range catalog.Spec.SourceURLs {
 		configuredSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
+	allConfiguredSourcesReconciled := maps.Equal(configuredSources, reconcilableSourceIDs)
 
 	var entries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
@@ -362,7 +363,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 			slog.Info("Deleted MCP catalog entry from removed source", "catalog", catalog.Name, "entry", entry.Name, "source", entry.Spec.SourceURL)
 			continue
 		}
-		if _, reconcilable := reconcilableSources[entry.Spec.SourceURL]; !reconcilable {
+		if !allConfiguredSourcesReconciled {
 			continue
 		}
 
@@ -404,7 +405,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 	return nil
 }
 
-func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog, desired []kclient.Object, reconcilableSources map[string]struct{}) error {
+func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog, desired []kclient.Object, reconcilableSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
 		if entry, ok := obj.(*v1.SystemMCPServerCatalogEntry); ok {
@@ -415,6 +416,7 @@ func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Clie
 	for _, sourceURL := range catalog.Spec.SourceURLs {
 		configuredSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
+	allConfiguredSourcesReconciled := maps.Equal(configuredSources, reconcilableSourceIDs)
 
 	var entries v1.SystemMCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
@@ -425,9 +427,11 @@ func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Clie
 		if _, desired := desiredNames[entry.Name]; desired {
 			continue
 		}
+		if entry.Spec.SourceURL == "" {
+			continue
+		}
 		_, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]
-		_, reconcilable := reconcilableSources[entry.Spec.SourceURL]
-		if configured && !reconcilable {
+		if configured && !allConfiguredSourcesReconciled {
 			continue
 		}
 		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
@@ -663,7 +667,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	toAdd := make([]kclient.Object, 0)
 	previousSyncErrors := maps.Clone(systemCatalog.Status.SyncErrors)
 	systemCatalog.Status.SyncErrors = make(map[string]string)
-	reconcilableSources := make(map[string]struct{})
+	reconcilableSourceIDs := make(map[string]struct{})
 	successfulSources := make(map[string]string)
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
@@ -694,7 +698,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		} else {
 			slog.Info("Read system MCP catalog source successfully", "catalog", systemCatalog.Name, "source", sourceURL, "entries", len(objs))
 			delete(systemCatalog.Status.SyncErrors, sourceURL)
-			reconcilableSources[sourceURL] = struct{}{}
+			reconcilableSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 			if commitSHA != "" {
 				successfulSources[sourceURL] = commitSHA
 			}
@@ -720,11 +724,11 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 
 	resp.RetryAfter(time.Hour)
 
-	if err := reconcileRemovedSystemEntriesForSources(req.Ctx, req.Client, systemCatalog, toAdd, reconcilableSources); err != nil {
+	if err := reconcileRemovedSystemEntriesForSources(req.Ctx, req.Client, systemCatalog, toAdd, reconcilableSourceIDs); err != nil {
 		return err
 	}
 	if len(toAdd) > 0 {
-		slog.Info("Applying changed system MCP catalog entries without prune", "catalog", systemCatalog.Name, "entries", len(toAdd), "sources", len(reconcilableSources))
+		slog.Info("Applying changed system MCP catalog entries without prune", "catalog", systemCatalog.Name, "entries", len(toAdd), "sources", len(reconcilableSourceIDs))
 		if err := apply.New(req.Client).WithOwnerSubContext(fmt.Sprintf("system-catalog-%s", systemCatalog.Name)).WithNoPrune().Apply(req.Ctx, systemCatalog, toAdd...); err != nil {
 			return err
 		}
