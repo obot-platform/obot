@@ -1,6 +1,8 @@
 package handlers
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestVersionFeatureValuesIncludesHostedAgentsState(t *testing.T) {
 	disabled := (&VersionHandler{}).featureValues()
@@ -8,11 +10,9 @@ func TestVersionFeatureValuesIncludesHostedAgentsState(t *testing.T) {
 		t.Fatal("expected Hosted Agents to be disabled")
 	}
 
-	enabled := (&VersionHandler{
-		VersionHandlerOptions: VersionHandlerOptions{
-			HostedAgentsEnabled: true,
-		},
-	}).featureValues()
+	handler := &VersionHandler{}
+	handler.HostedAgentsEnabled = true
+	enabled := handler.featureValues()
 	if hostedAgentsEnabled := enabled["hostedAgentsEnabled"]; !hostedAgentsEnabled {
 		t.Fatal("expected Hosted Agents to be enabled")
 	}
