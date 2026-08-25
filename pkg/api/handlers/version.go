@@ -43,6 +43,7 @@ type VersionHandlerOptions struct {
 	DisableUpdateCheck      bool
 	MessagePoliciesEnabled  bool
 	AgentsEnabled           bool
+	HostedAgentsEnabled     bool
 	HideK8sDetails          bool
 }
 
@@ -147,11 +148,11 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		"engine":                       engine,
 		"mcpNetworkPolicyEnabled":      v.MCPNetworkPolicyEnabled,
 		"mcpDefaultDenyAllEgress":      v.MCPDefaultDenyAllEgress,
-		"messagePoliciesEnabled":       v.MessagePoliciesEnabled,
-		"agentsEnabled":                v.AgentsEnabled,
-		"hideK8sDetails":               v.HideK8sDetails,
 		"licenseEntitlementViolations": violations,
 		"missingLicenseEntitlements":   missingEntitlements(violations),
+	}
+	for key, value := range v.featureValues() {
+		values[key] = value
 	}
 
 	userLimit, err := v.LicenseProvider.UserLimit(ctx)
@@ -181,6 +182,15 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	}
 
 	return values, nil
+}
+
+func (v *VersionHandler) featureValues() map[string]bool {
+	return map[string]bool{
+		"messagePoliciesEnabled": v.MessagePoliciesEnabled,
+		"agentsEnabled":          v.AgentsEnabled,
+		"hostedAgentsEnabled":    v.HostedAgentsEnabled,
+		"hideK8sDetails":         v.HideK8sDetails,
+	}
 }
 
 func missingEntitlements(violations []license.Violation) []string {

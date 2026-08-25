@@ -126,6 +126,7 @@ type Config struct {
 	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays              int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
+	EnableHostedAgents                   bool   `usage:"Enable Hosted Agents features" default:"false"`
 	HostedAgentsBackend                  string `usage:"Hosted agent runtime backend (disabled, fake, or kubernetes). Defaults to the MCP runtime backend: kubernetes when MCP servers run on Kubernetes, and otherwise fake, since there is no docker agent backend." name:"hosted-agents-backend" env:"OBOT_HOSTED_AGENTS_BACKEND"`
 	HostedAgentsStorageClassName         string `usage:"StorageClass for hosted agent pool volumes. It should use volumeBindingMode WaitForFirstConsumer, which is what keeps a pool on one node." name:"hosted-agents-storage-class-name"`
 	HostedAgentsPodSecurityLevel         string `usage:"Pod Security Admission level enforced on the namespace hosted agent sandboxes run in (privileged, baseline, or restricted). Must match the namespace's own label or sandboxes are refused at admission. Empty means restricted." name:"hosted-agents-pod-security-level" env:"OBOT_HOSTED_AGENTS_POD_SECURITY_LEVEL"`
@@ -258,6 +259,7 @@ type Services struct {
 	MCPHTTPWebhookBaseImage string
 	MessagePoliciesEnabled  bool
 	EnableAgents            *bool
+	HostedAgentsEnabled     bool
 	AgentBackend            agentbackend.Backend
 	AgentBackendKind        string
 	// AgentDevRouter reaches sandboxes from outside the cluster. It is set only
@@ -1330,6 +1332,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		AgentIdleServerShutdownInterval:      time.Duration(config.IdleAgentShutdownHours) * time.Hour,
 		MessagePoliciesEnabled:               config.EnableMessagePolicies,
 		EnableAgents:                         config.EnableAgents,
+		HostedAgentsEnabled:                  config.EnableHostedAgents,
 		AgentBackend:                         agentBackend,
 		AgentServerURL:                       agentServerURL,
 		AgentBackendKind:                     agentBackendKind,

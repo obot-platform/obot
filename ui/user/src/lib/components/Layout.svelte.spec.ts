@@ -132,6 +132,32 @@ describe('Layout.svelte', () => {
 		}
 	});
 
+	describe('when Hosted Agents are disabled', () => {
+		it('hides user and administrator Hosted Agents navigation', async () => {
+			await renderLayout([Group.ADMIN], { hostedAgentsEnabled: false });
+
+			await expect.element(page.getByCSS('a[href="/hosted-agents"]')).not.toBeInTheDocument();
+
+			await openAdvancedPane('Administration');
+			await expect.element(page.getByCSS('a[href="/admin/hosted-agents"]')).not.toBeInTheDocument();
+			await expect
+				.element(page.getByCSS('a[href="/admin/hosted-agent-access-policies"]'))
+				.not.toBeInTheDocument();
+		});
+	});
+
+	describe('when Hosted Agents are enabled', () => {
+		it('shows user and administrator Hosted Agents navigation', async () => {
+			await renderLayout([Group.ADMIN], { hostedAgentsEnabled: true });
+			await expectLink('/hosted-agents');
+
+			await openAdvancedPane('Administration');
+			await expandSection('hosted-agent-management', '/admin/hosted-agents');
+			await expectLink('/admin/hosted-agents');
+			await expectLink('/admin/hosted-agent-access-policies');
+		});
+	});
+
 	describe('based on user role', () => {
 		describe('when the user is an administrator', () => {
 			it('shows administration sections and their navigation items', async () => {

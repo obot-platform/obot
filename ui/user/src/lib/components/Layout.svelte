@@ -238,6 +238,7 @@
 	// points are removed entirely (not just disabled). When the feature is enabled but
 	// models aren't configured, agentLinkEnabled is false so links show as disabled.
 	let agentsFeatureEnabled = $derived(version.current.agentsEnabled !== false);
+	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
 	let agentLinkEnabled = $derived(
 		isAgentEnabled(defaultModelAliases.current) && agentsFeatureEnabled
 	);
@@ -265,12 +266,16 @@
 			label: 'Skills',
 			href: '/skills'
 		},
-		{
-			id: 'hosted-agents',
-			icon: Container,
-			label: 'Hosted Agents',
-			href: '/hosted-agents'
-		},
+		...(hostedAgentsFeatureEnabled
+			? [
+					{
+						id: 'hosted-agents',
+						icon: Container,
+						label: 'Hosted Agents',
+						href: '/hosted-agents'
+					}
+				]
+			: []),
 		...(hasAccessibleModels
 			? [
 					{
@@ -434,29 +439,33 @@
 							}
 						]
 					},
-					{
-						id: 'hosted-agent-management',
-						icon: Container,
-						// "Management" is dropped deliberately: the section's items already
-						// say what they are, and the longer label wrapped to two lines in a
-						// narrow sidebar.
-						label: 'Hosted Agents',
-						collapsible: true,
-						items: [
-							{
-								id: 'hosted-agents',
-								href: '/admin/hosted-agents',
-								label: 'Templates',
-								collapsible: false
-							},
-							{
-								id: 'hosted-agent-access-policies',
-								href: '/admin/hosted-agent-access-policies',
-								label: 'Access Policies',
-								collapsible: false
-							}
-						]
-					},
+					...(hostedAgentsFeatureEnabled
+						? [
+								{
+									id: 'hosted-agent-management',
+									icon: Container,
+									// "Management" is dropped deliberately: the section's items already
+									// say what they are, and the longer label wrapped to two lines in a
+									// narrow sidebar.
+									label: 'Hosted Agents',
+									collapsible: true,
+									items: [
+										{
+											id: 'hosted-agents',
+											href: '/admin/hosted-agents',
+											label: 'Templates',
+											collapsible: false
+										},
+										{
+											id: 'hosted-agent-access-policies',
+											href: '/admin/hosted-agent-access-policies',
+											label: 'Access Policies',
+											collapsible: false
+										}
+									]
+								}
+							]
+						: []),
 					{
 						id: 'device-management',
 						icon: Laptop,

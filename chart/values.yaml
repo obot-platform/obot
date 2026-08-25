@@ -144,6 +144,8 @@ config:
   OBOT_SERVER_ENABLE_REGISTRY_AUTH: false
   # config.OBOT_ENABLE_AGENTS -- Controls Obot Agent features. Leave empty (default) to disable agents for new deployments while grandfathering in (keeping enabled) existing deployments that already have agents. Set to "true" to force-enable, or "false" to force-disable, regardless of grandfathering.
   OBOT_ENABLE_AGENTS: ""
+  # config.OBOT_SERVER_ENABLE_HOSTED_AGENTS -- Enables Hosted Agents. Must be set to true to expose Hosted Agents APIs and UI. Defaults to false.
+  OBOT_SERVER_ENABLE_HOSTED_AGENTS: false
   # Hosted agent sandboxes follow OBOT_SERVER_MCPRUNTIME_BACKEND: they run on Kubernetes when MCP servers do, in the namespace configured under mcpNamespace. There is deliberately no separate backend setting, because a deployment always wants the two to match.
   # config.OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME -- StorageClass for hosted agent pool volumes. Each pool gets one ReadWriteOnce volume that every sandbox in the pool mounts, so the StorageClass must use volumeBindingMode: WaitForFirstConsumer -- that is what confines a pool to a single node. Leaving this empty uses the cluster default StorageClass, which commonly binds immediately and can leave a pool's sandboxes unschedulable.
   OBOT_SERVER_HOSTED_AGENTS_STORAGE_CLASS_NAME: ""
