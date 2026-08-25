@@ -105,3 +105,25 @@ func TestReadGitCatalogEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestNextResolvedCommitSHAsOnlyKeepsConfiguredGitSources(t *testing.T) {
+	current := map[string]string{
+		"https://github.com/example/unchanged": "old-sha",
+		"https://example.com/catalog.yaml":     "",
+		"https://github.com/example/removed":   "removed-sha",
+	}
+	successful := map[string]string{
+		"https://github.com/example/changed": "new-sha",
+	}
+
+	next := nextResolvedCommitSHAs(current, successful, []string{
+		"https://github.com/example/unchanged",
+		"https://github.com/example/changed",
+		"https://example.com/catalog.yaml",
+	})
+
+	assert.Equal(t, map[string]string{
+		"https://github.com/example/unchanged": "old-sha",
+		"https://github.com/example/changed":   "new-sha",
+	}, next)
+}

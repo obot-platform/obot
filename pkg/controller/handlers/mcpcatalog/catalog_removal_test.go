@@ -148,22 +148,22 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &existing))
 }
 
-func TestReconcileRemovedEntriesOnlyPrunesLoadedSources(t *testing.T) {
+func TestReconcileRemovedEntriesOnlyPrunesSuccessfulSources(t *testing.T) {
 	catalog := testCatalog()
 	unchangedSource := catalog.Spec.SourceURLs[0]
 	changedSource := "github.com/example/changed"
 	catalog.Spec.SourceURLs = append(catalog.Spec.SourceURLs, changedSource)
 
-	unchanged := managedCatalogEntry(t, catalog, "default-unchanged-12345678")
-	unchanged.Spec.SourceURL = unchangedSource
+	failed := managedCatalogEntry(t, catalog, "default-failed-12345678")
+	failed.Spec.SourceURL = unchangedSource
 	removedFromChanged := managedCatalogEntry(t, catalog, "default-removed-12345678")
 	removedFromChanged.Spec.SourceURL = changedSource
-	c := newCatalogFakeClient(unchanged, removedFromChanged)
+	c := newCatalogFakeClient(failed, removedFromChanged)
 
 	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{changedSource: {}}))
 
 	var preserved v1.MCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(unchanged), &preserved))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(failed), &preserved))
 	var removed v1.MCPServerCatalogEntry
 	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(removedFromChanged), &removed)
 	require.True(t, apierrors.IsNotFound(err))
