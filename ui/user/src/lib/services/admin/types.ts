@@ -767,8 +767,8 @@ export interface MCPCatalogEntry {
 	connectURL?: string;
 }
 
-// Matches the backend compositeDeletionDependency struct used when preventing
-// deletion of multi-user MCP servers that are still referenced by composites.
+// Matches the backend compositeDeletionDependency struct: a composite that still references the
+// object being deleted as a component.
 export interface MCPCompositeDeletionDependency {
 	name: string;
 	icon: string;

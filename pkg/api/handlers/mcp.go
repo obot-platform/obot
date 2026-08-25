@@ -66,16 +66,18 @@ type MCPHandler struct {
 	shutdownMCPServer func(string) error
 }
 
-// compositeDeletionDependency represents a composite MCP server or catalog entry that depends
-// on a given multi-user server and must be deleted before the multi-user server can be deleted.
+// componentRef is the composite component reference to search for. Exactly one field is set.
+type componentRef struct {
+	catalogEntryID string
+	mcpServerID    string
+}
+
+// compositeDeletionDependency is a composite that references the object being deleted as a component,
+// and must drop that reference first.
 type compositeDeletionDependency struct {
-	// Name is the display name of the dependent composite MCP server.
-	Name string `json:"name"`
-	// Icon is the icon of the dependent composite MCP server.
-	Icon string `json:"icon"`
-	// MCPServerID is the ID of a running instance of a dependent composite MCP server.
-	MCPServerID string `json:"mcpServerID,omitempty"`
-	// CatalogEntryID is the catalog entry ID of the dependent composite MCP server.
+	Name           string `json:"name"`
+	Icon           string `json:"icon"`
+	MCPServerID    string `json:"mcpServerID,omitempty"`
 	CatalogEntryID string `json:"catalogEntryID"`
 }
 
@@ -474,6 +476,11 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		workspaceID = req.PathValue("workspace_id")
 	)
 
+	force, err := api.ParseBoolQuery(req.URL.Query().Get("force"))
+	if err != nil {
+		return types.NewErrBadRequest("invalid force query parameter: %v", err)
+	}
+
 	if err := req.Get(&server, id); err != nil {
 		return err
 	}
@@ -501,16 +508,18 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		)
 	}
 
-	// Prevent deletion of multi-user servers that are referenced by running composite MCP servers or catalog entries.
-	dependencies, err := listCompositeDeletionDependencies(req, server)
-	if err != nil {
-		return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
-	}
-	if len(dependencies) > 0 {
-		return req.WriteCode(map[string]any{
-			"message":      "MCP server must be removed from all composite MCP servers before it can be deleted",
-			"dependencies": dependencies,
-		}, http.StatusConflict)
+	// Single-user servers cannot be composite components, so they are never gated.
+	if !force && !server.Spec.IsSingleUser() {
+		dependencies, err := listCompositeDeletionDependencies(req, server.Namespace, componentRef{mcpServerID: server.Name})
+		if err != nil {
+			return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
+		}
+		if len(dependencies) > 0 {
+			return req.WriteCode(map[string]any{
+				"message":      "MCP server must be removed from all composite MCP servers and catalog entries before it can be deleted",
+				"dependencies": dependencies,
+			}, http.StatusConflict)
+		}
 	}
 
 	if err := req.Delete(&server); err != nil {
@@ -520,74 +529,65 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 	return req.Write(ConvertMCPServer(server, nil, m.serverURL, slug))
 }
 
-// listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that depend on the given multi-user server.
-func listCompositeDeletionDependencies(req api.Context, server v1.MCPServer) ([]compositeDeletionDependency, error) {
-	if server.Spec.IsSingleUser() {
-		// Single-user servers cannot be composite components; skip dependency check.
+func (r componentRef) matches(catalogEntryID, mcpServerID string) bool {
+	return r.catalogEntryID != "" && r.catalogEntryID == catalogEntryID ||
+		r.mcpServerID != "" && r.mcpServerID == mcpServerID
+}
+
+func (r componentRef) inCatalogConfig(cfg *types.CompositeCatalogConfig) bool {
+	return cfg != nil && slices.ContainsFunc(cfg.ComponentServers, func(c types.CatalogComponentServer) bool {
+		return r.matches(c.CatalogEntryID, c.MCPServerID)
+	})
+}
+
+func (r componentRef) inRuntimeConfig(cfg *types.CompositeRuntimeConfig) bool {
+	return cfg != nil && slices.ContainsFunc(cfg.ComponentServers, func(c types.ComponentServer) bool {
+		return r.matches(c.CatalogEntryID, c.MCPServerID)
+	})
+}
+
+// listCompositeDeletionDependencies lists the composite MCP servers and catalog entries that reference
+// ref as a component.
+func listCompositeDeletionDependencies(req api.Context, namespace string, ref componentRef) ([]compositeDeletionDependency, error) {
+	if ref == (componentRef{}) {
 		return nil, nil
 	}
 
+	composite := kclient.MatchingFields{"spec.manifest.runtime": string(types.RuntimeComposite)}
+
 	var compositeServers v1.MCPServerList
-	if err := req.List(&compositeServers,
-		kclient.InNamespace(server.Namespace),
-		kclient.MatchingFields{
-			"spec.manifest.runtime": string(types.RuntimeComposite),
-		},
-	); err != nil {
+	if err := req.List(&compositeServers, kclient.InNamespace(namespace), composite); err != nil {
 		return nil, fmt.Errorf("failed to list composite servers: %w", err)
 	}
 
 	var compositeEntries v1.MCPServerCatalogEntryList
-	if err := req.List(&compositeEntries,
-		kclient.InNamespace(server.Namespace),
-		kclient.MatchingFields{
-			"spec.manifest.runtime": string(types.RuntimeComposite),
-		},
-	); err != nil {
+	if err := req.List(&compositeEntries, kclient.InNamespace(namespace), composite); err != nil {
 		return nil, fmt.Errorf("failed to list composite catalog entries: %w", err)
 	}
 
 	var dependencies []compositeDeletionDependency
-	for _, compositeServer := range compositeServers.Items {
-		var compositeConfig types.CompositeRuntimeConfig
-		if cfg := compositeServer.Spec.Manifest.CompositeConfig; cfg != nil {
-			compositeConfig = *cfg
-		}
-
-		components := compositeConfig.ComponentServers
-		for _, component := range components {
-			if component.MCPServerID == server.Name {
-				dependencies = append(dependencies, compositeDeletionDependency{
-					Name:           compositeServer.Spec.Manifest.Name,
-					Icon:           compositeServer.Spec.Manifest.Icon,
-					MCPServerID:    compositeServer.Name,
-					CatalogEntryID: compositeServer.Spec.MCPServerCatalogEntryName,
-				})
-				break
-			}
+	for _, s := range compositeServers.Items {
+		// A composite already being deleted drops its reference on its own.
+		if s.DeletionTimestamp.IsZero() && ref.inRuntimeConfig(s.Spec.Manifest.CompositeConfig) {
+			dependencies = append(dependencies, compositeDeletionDependency{
+				Name:           s.Spec.Manifest.Name,
+				Icon:           s.Spec.Manifest.Icon,
+				MCPServerID:    s.Name,
+				CatalogEntryID: s.Spec.MCPServerCatalogEntryName,
+			})
 		}
 	}
 
-	for _, compositeEntry := range compositeEntries.Items {
-		var compositeConfig types.CompositeCatalogConfig
-		if cfg := compositeEntry.Spec.Manifest.CompositeConfig; cfg != nil {
-			compositeConfig = *cfg
-		}
-
-		components := compositeConfig.ComponentServers
-		for _, component := range components {
-			if component.MCPServerID == server.Name {
-				dependencies = append(dependencies, compositeDeletionDependency{
-					Name:           compositeEntry.Spec.Manifest.Name,
-					Icon:           compositeEntry.Spec.Manifest.Icon,
-					CatalogEntryID: compositeEntry.Name,
-				})
-				break
-			}
+	for _, e := range compositeEntries.Items {
+		if e.DeletionTimestamp.IsZero() && ref.inCatalogConfig(e.Spec.Manifest.CompositeConfig) {
+			dependencies = append(dependencies, compositeDeletionDependency{
+				Name:           e.Spec.Manifest.Name,
+				Icon:           e.Spec.Manifest.Icon,
+				CatalogEntryID: e.Name,
+			})
 		}
 	}
 
-	// Sort by catalog entry ID to ensure consistent ordering
 	slices.SortFunc(dependencies, func(a, b compositeDeletionDependency) int {
 		return strings.Compare(a.CatalogEntryID, b.CatalogEntryID)
 	})

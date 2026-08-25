@@ -39,6 +39,7 @@
 		isMcpTunnelDisconnected
 	} from '$lib/services/user/mcpTunnel';
 	import { mcpServersAndEntries, mcpTunnelConnections, profile } from '$lib/stores';
+	import errors from '$lib/stores/errors.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { openUrl } from '$lib/utils';
 	import McpConnectUrlDialog from './McpConnectUrlDialog.svelte';
@@ -98,7 +99,12 @@
 	let selected = $state<Record<string, Item>>({});
 	let confirmBulkDelete = $state(false);
 	let loadingBulkDelete = $state(false);
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
+	let deleteConflict = $state<{
+		error: MCPCompositeDeletionDependencyError;
+		entity: 'server' | 'entry';
+		retry: () => Promise<void>;
+	}>();
+	let forcingDelete = $state(false);
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
@@ -164,8 +170,36 @@
 		await mcpServersAndEntries.refreshAll();
 	}
 
-	async function deleteServerDeployment(server: MCPCatalogServer) {
-		await deleteMcpServerDeployment(server, catalog?.id);
+	async function deleteServerDeployment(server: MCPCatalogServer, force = false) {
+		await deleteMcpServerDeployment(server, catalog?.id, { force });
+	}
+
+	async function deleteCatalogEntry(entry: MCPCatalogEntry, force = false) {
+		if (entry.powerUserWorkspaceID) {
+			await UserService.deleteWorkspaceMCPCatalogEntry(entry.powerUserWorkspaceID, entry.id);
+		} else if (catalog) {
+			await AdminService.deleteMCPCatalogEntry(catalog.id, entry.id, { force });
+		}
+	}
+
+	async function handleForceDelete() {
+		if (!deleteConflict) {
+			return;
+		}
+
+		forcingDelete = true;
+		try {
+			await deleteConflict.retry();
+			await fetch();
+			deleteConflict = undefined;
+		} catch (error) {
+			// Non-conflict failures already surface through the global error handler.
+			if (error instanceof MCPCompositeDeletionDependencyError) {
+				errors.append(error);
+			}
+		} finally {
+			forcingDelete = false;
+		}
 	}
 
 	function handleConnectToServer({
@@ -505,13 +539,21 @@
 			return;
 		}
 
-		if (deletingEntry.powerUserWorkspaceID) {
-			await UserService.deleteWorkspaceMCPCatalogEntry(
-				deletingEntry.powerUserWorkspaceID,
-				deletingEntry.id
-			);
-		} else if (catalog) {
-			await AdminService.deleteMCPCatalogEntry(catalog.id, deletingEntry.id);
+		const entry = deletingEntry;
+		try {
+			await deleteCatalogEntry(entry);
+		} catch (error) {
+			if (error instanceof MCPCompositeDeletionDependencyError) {
+				deleteConflict = {
+					error,
+					entity: 'entry',
+					retry: () => deleteCatalogEntry(entry, true)
+				};
+				deletingEntry = undefined;
+				return;
+			}
+
+			throw error;
 		}
 
 		await fetch();
@@ -537,14 +579,20 @@
 			return;
 		}
 
+		const server = deletingServer;
 		try {
-			await deleteServerDeployment(deletingServer);
+			await deleteServerDeployment(server);
 
 			await fetch();
 			deletingServer = undefined;
 		} catch (error) {
 			if (error instanceof MCPCompositeDeletionDependencyError) {
-				deleteConflictError = error;
+				deleteConflict = {
+					error,
+					entity: 'server',
+					retry: () => deleteServerDeployment(server, true)
+				};
+				deletingServer = undefined;
 				return;
 			}
 
@@ -563,14 +611,7 @@
 		loadingBulkDelete = true;
 		try {
 			for (const item of Object.values(selected)) {
-				if (item.data.powerUserWorkspaceID) {
-					await UserService.deleteWorkspaceMCPCatalogEntry(
-						item.data.powerUserWorkspaceID,
-						item.data.id
-					);
-				} else if (catalog) {
-					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
-				}
+				await deleteCatalogEntry(item.data);
 			}
 
 			await fetch();
@@ -586,10 +627,13 @@
 />
 
 <McpMultiDeleteBlockedDialog
-	show={!!deleteConflictError}
-	error={deleteConflictError}
+	show={!!deleteConflict}
+	dependencies={deleteConflict?.error.dependencies}
+	entity={deleteConflict?.entity}
+	forcing={forcingDelete}
+	onForceDelete={handleForceDelete}
 	onClose={() => {
-		deleteConflictError = undefined;
+		deleteConflict = undefined;
 	}}
 />
 

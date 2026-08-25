@@ -35,6 +35,7 @@
 		shouldShowMcpTunnelDisconnectedBadge
 	} from '$lib/services/user/mcpTunnel';
 	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
+	import errors from '$lib/stores/errors.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
@@ -138,7 +139,47 @@
 	let deleting = $state(false);
 	let restarting = $state(false);
 
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
+	// Servers whose delete was blocked by composites. A bulk delete can collect more than one.
+	let deleteConflicts = $state<
+		{ server: MCPCatalogServer; error: MCPCompositeDeletionDependencyError }[]
+	>([]);
+	let forcingDelete = $state(false);
+
+	// The union of every blocked server's dependencies, so one dialog shows them all.
+	let blockedDependencies = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const seen = new Set<string>();
+		return deleteConflicts.flatMap(({ error }) =>
+			error.dependencies.filter((dep) => {
+				const key = `${dep.catalogEntryID}:${dep.mcpServerID ?? ''}`;
+				if (seen.has(key)) return false;
+				seen.add(key);
+				return true;
+			})
+		);
+	});
+
+	async function handleForceDelete() {
+		// Snapshot, since handleSingleDelete writes to deleteConflicts.
+		const blocked = [...deleteConflicts];
+
+		forcingDelete = true;
+		try {
+			for (const { server } of blocked) {
+				await handleSingleDelete(server, true);
+				// Drop each as it succeeds, so a later failure leaves only what is outstanding.
+				deleteConflicts = deleteConflicts.filter((c) => c.server.id !== server.id);
+			}
+			await reload();
+		} catch (error) {
+			// Non-conflict failures already surface through the global error handler.
+			if (error instanceof MCPCompositeDeletionDependencyError) {
+				errors.append(error);
+			}
+		} finally {
+			forcingDelete = false;
+		}
+	}
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
@@ -489,7 +530,7 @@
 		return result;
 	}
 
-	async function handleSingleDelete(server: MCPCatalogServer) {
+	async function handleSingleDelete(server: MCPCatalogServer, force = false) {
 		if (server.compositeName) {
 			return;
 		}
@@ -504,9 +545,13 @@
 			// multi-user
 			try {
 				if (server.powerUserWorkspaceID) {
-					await UserService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+					await UserService.deleteWorkspaceMCPCatalogServer(
+						server.powerUserWorkspaceID,
+						server.id,
+						{ force }
+					);
 				} else if (profile.current.hasAdminAccess?.() && id) {
-					await AdminService.deleteMCPCatalogServer(id, server.id);
+					await AdminService.deleteMCPCatalogServer(id, server.id, { force });
 				}
 				// Remove server from list
 				mcpServersAndEntries.current.servers = mcpServersAndEntries.current.servers.filter(
@@ -516,7 +561,9 @@
 					mcpServersAndEntries.current.userConfiguredServers.filter((s) => s.id !== server.id);
 			} catch (error) {
 				if (error instanceof MCPCompositeDeletionDependencyError) {
-					deleteConflictError = error;
+					if (!deleteConflicts.some((c) => c.server.id === server.id)) {
+						deleteConflicts = [...deleteConflicts, { server, error }];
+					}
 					return;
 				}
 
@@ -1186,10 +1233,13 @@
 />
 
 <McpMultiDeleteBlockedDialog
-	show={!!deleteConflictError}
-	error={deleteConflictError}
+	show={deleteConflicts.length > 0}
+	dependencies={blockedDependencies}
+	blockedCount={deleteConflicts.length}
+	forcing={forcingDelete}
+	onForceDelete={handleForceDelete}
 	onClose={() => {
-		deleteConflictError = undefined;
+		deleteConflicts = [];
 	}}
 />
 

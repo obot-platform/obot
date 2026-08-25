@@ -1143,17 +1143,22 @@ export async function restartMcpServer(
 
 export async function deleteMcpServerDeployment(
 	server: MCPCatalogServer,
-	catalogID?: string
+	catalogID?: string,
+	opts?: { force?: boolean }
 ): Promise<boolean> {
 	if (isMultiUserServer(server)) {
 		if (server.powerUserWorkspaceID) {
-			await UserService.deleteWorkspaceMCPCatalogServer(server.powerUserWorkspaceID, server.id);
+			await UserService.deleteWorkspaceMCPCatalogServer(
+				server.powerUserWorkspaceID,
+				server.id,
+				opts
+			);
 		} else {
 			const serverCatalogID = catalogID || server.mcpCatalogID;
 			if (!serverCatalogID) {
 				throw new Error('Catalog ID is required to delete this MCP server.');
 			}
-			await AdminService.deleteMCPCatalogServer(serverCatalogID, server.id);
+			await AdminService.deleteMCPCatalogServer(serverCatalogID, server.id, opts);
 		}
 		mcpServersAndEntries.removeServer(server.id);
 		return true;

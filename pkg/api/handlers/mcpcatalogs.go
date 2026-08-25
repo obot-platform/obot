@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"regexp"
 	"slices"
 	"sort"
@@ -483,6 +484,11 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 	workspaceID := req.PathValue("workspace_id")
 	entryName := req.PathValue("entry_id")
 
+	force, err := api.ParseBoolQuery(req.URL.Query().Get("force"))
+	if err != nil {
+		return types.NewErrBadRequest("invalid force query parameter: %v", err)
+	}
+
 	// Verify the scope exists
 	if catalogName != "" {
 		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
@@ -507,6 +513,20 @@ func (h *MCPCatalogHandler) DeleteEntry(req api.Context) error {
 
 	if !entry.Spec.Editable {
 		return types.NewErrBadRequest("entry is not editable and cannot be manually deleted")
+	}
+
+	// Workspaces do not support composites.
+	if !force && workspaceID == "" {
+		dependencies, err := listCompositeDeletionDependencies(req, entry.Namespace, componentRef{catalogEntryID: entry.Name})
+		if err != nil {
+			return fmt.Errorf("failed to list composite deletion dependencies: %w", err)
+		}
+		if len(dependencies) > 0 {
+			return req.WriteCode(map[string]any{
+				"message":      "catalog entry must be removed from all composite MCP servers and catalog entries before it can be deleted",
+				"dependencies": dependencies,
+			}, http.StatusConflict)
+		}
 	}
 
 	if err := req.Delete(&entry); err != nil {

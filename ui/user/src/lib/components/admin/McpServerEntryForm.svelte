@@ -142,7 +142,48 @@
 	let source = $derived(entry ? getSource(entry, usersMap) : undefined);
 
 	let deleteServer = $state(false);
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
+	let deleteConflict = $state<{
+		error: MCPCompositeDeletionDependencyError;
+		entity: 'server' | 'entry';
+	}>();
+	let forcingDelete = $state(false);
+
+	async function deleteEntryOrServer(force: boolean) {
+		if (!id || !entry) {
+			return;
+		}
+
+		if (!('isCatalogEntry' in entry)) {
+			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
+			const deleteServerFn = workspaceID
+				? UserService.deleteWorkspaceMCPCatalogServer
+				: AdminService.deleteMCPCatalogServer;
+			await deleteServerFn(workspaceID || id, entry.id, { force });
+			return;
+		}
+
+		if (entity === 'workspace') {
+			await UserService.deleteWorkspaceMCPCatalogEntry(id, entry.id);
+			return;
+		}
+
+		await AdminService.deleteMCPCatalogEntry(id, entry.id, { force });
+	}
+
+	async function handleForceDelete() {
+		if (!deleteConflict) {
+			return;
+		}
+
+		forcingDelete = true;
+		try {
+			await deleteEntryOrServer(true);
+			deleteConflict = undefined;
+			goto(`${prefix}/mcp-catalog` as `/${string}`);
+		} finally {
+			forcingDelete = false;
+		}
+	}
 	let deleteResourceFromRule = $state<{
 		rule: AccessControlRule;
 		resourceId: string;
@@ -1358,39 +1399,32 @@
 	onsuccess={async () => {
 		if (!id || !entry) return;
 		const url = `${prefix}/mcp-catalog` as `/${string}`;
+		const conflictEntity = 'isCatalogEntry' in entry ? 'entry' : 'server';
 
-		if (!('isCatalogEntry' in entry)) {
-			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);
-			const deleteServerFn = workspaceID
-				? UserService.deleteWorkspaceMCPCatalogServer
-				: AdminService.deleteMCPCatalogServer;
-			try {
-				await deleteServerFn(workspaceID || id, entry.id);
-			} catch (error) {
-				if (error instanceof MCPCompositeDeletionDependencyError) {
-					deleteConflictError = error;
-					return;
-				}
-				throw error;
+		try {
+			await deleteEntryOrServer(false);
+		} catch (error) {
+			if (error instanceof MCPCompositeDeletionDependencyError) {
+				deleteConflict = { error, entity: conflictEntity };
+				deleteServer = false;
+				return;
 			}
-			goto(url);
-		} else {
-			const deleteCatalogEntryFn =
-				entity === 'workspace'
-					? UserService.deleteWorkspaceMCPCatalogEntry
-					: AdminService.deleteMCPCatalogEntry;
-			await deleteCatalogEntryFn(id, entry.id);
-			goto(url);
+			throw error;
 		}
+
+		goto(url);
 	}}
 	oncancel={() => (deleteServer = false)}
 />
 
 <McpMultiDeleteBlockedDialog
-	show={!!deleteConflictError}
-	error={deleteConflictError}
+	show={!!deleteConflict}
+	dependencies={deleteConflict?.error.dependencies}
+	entity={deleteConflict?.entity}
+	forcing={forcingDelete}
+	onForceDelete={handleForceDelete}
 	onClose={() => {
-		deleteConflictError = undefined;
+		deleteConflict = undefined;
 	}}
 />
 

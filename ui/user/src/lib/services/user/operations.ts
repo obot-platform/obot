@@ -1,6 +1,6 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
-import { mcpServerDeleteResponseHandler } from '$lib/services/admin/operations';
+import { forceQuery, mcpDeletionConflictResponseHandler } from '$lib/services/admin/operations';
 import { Group } from '$lib/services/admin/types';
 import { buildQueryString } from '$lib/url';
 import type {
@@ -1222,10 +1222,11 @@ export async function updateWorkspaceMCPCatalogServer(
 
 export async function deleteWorkspaceMCPCatalogServer(
 	workspaceID: string,
-	serverID: string
+	serverID: string,
+	opts?: { force?: boolean }
 ): Promise<void> {
-	await doDelete(`/workspaces/${workspaceID}/servers/${serverID}`, {
-		responseHandler: mcpServerDeleteResponseHandler
+	await doDelete(`/workspaces/${workspaceID}/servers/${serverID}${forceQuery(opts)}`, {
+		responseHandler: mcpDeletionConflictResponseHandler
 	});
 }
 

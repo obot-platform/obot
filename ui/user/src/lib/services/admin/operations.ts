@@ -906,8 +906,14 @@ export async function acceptMCPCatalogEntryOwnership(
 	};
 }
 
-export async function deleteMCPCatalogEntry(catalogID: string, entryID: string): Promise<void> {
-	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}`);
+export async function deleteMCPCatalogEntry(
+	catalogID: string,
+	entryID: string,
+	opts?: { force?: boolean }
+): Promise<void> {
+	await doDelete(`/mcp-catalogs/${catalogID}/entries/${entryID}${forceQuery(opts)}`, {
+		responseHandler: mcpDeletionConflictResponseHandler
+	});
 }
 
 export async function getMCPCatalogEntryOAuthCredentials(
@@ -1144,7 +1150,7 @@ export async function updateMCPCatalogServer(
 	return response;
 }
 
-export async function mcpServerDeleteResponseHandler(
+export async function mcpDeletionConflictResponseHandler(
 	resp: Response,
 	path: string,
 	opts?: { dontLogErrors?: boolean }
@@ -1158,7 +1164,7 @@ export async function mcpServerDeleteResponseHandler(
 		if (body.dependencies && body.dependencies.length > 0) {
 			throw new MCPCompositeDeletionDependencyError(
 				body.message ??
-					'All dependencies on this MCP server must be removed before it can be deleted',
+					'This must be removed from all composite MCP servers and catalog entries before it can be deleted',
 				body.dependencies
 			);
 		}
@@ -1167,9 +1173,17 @@ export async function mcpServerDeleteResponseHandler(
 	return handleResponse(resp, path, opts);
 }
 
-export async function deleteMCPCatalogServer(catalogID: string, serverID: string): Promise<void> {
-	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}`, {
-		responseHandler: mcpServerDeleteResponseHandler
+export function forceQuery(opts?: { force?: boolean }): string {
+	return opts?.force ? '?force=true' : '';
+}
+
+export async function deleteMCPCatalogServer(
+	catalogID: string,
+	serverID: string,
+	opts?: { force?: boolean }
+): Promise<void> {
+	await doDelete(`/mcp-catalogs/${catalogID}/servers/${serverID}${forceQuery(opts)}`, {
+		responseHandler: mcpDeletionConflictResponseHandler
 	});
 }
 

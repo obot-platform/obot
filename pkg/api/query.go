@@ -19,3 +19,11 @@ func ParseUintList(values []string) []uint {
 	}
 	return result
 }
+
+// ParseBoolQuery parses a boolean query parameter, treating an empty value as false.
+func ParseBoolQuery(value string) (bool, error) {
+	if value == "" {
+		return false, nil
+	}
+	return strconv.ParseBool(value)
+}
