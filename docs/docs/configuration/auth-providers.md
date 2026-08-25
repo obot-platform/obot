@@ -74,12 +74,12 @@ Passwords are hashed with [argon2id](https://en.wikipedia.org/wiki/Argon2) and a
 To set it up:
 
 1. Go to Admin -> Auth Providers and configure the **Local** provider, setting the email domains that local users are allowed to have (`*` allows any domain).
-2. Click the **Manage Users** button on the Local provider card, and create a user. Share the password with them over a secure channel.
+2. Click the **Manage Users** button on the Local provider card, and create a user. Share the initial password with them over a secure channel.
 3. Local users sign in from the Obot login page by choosing **Local**, then entering their email and password.
 
-:::note
-Local users cannot change their own password. An administrator resets a password from the same Manage Users dialog, which also signs the user out of all of their existing sessions.
-:::
+New and administrator-reset local passwords require a password change at next sign-in by default. The administrator can turn this off in the Manage Users dialog. Until the change is complete, the backend restricts that session to the password-change flow. A successful change signs out the user's other sessions while preserving the current one.
+
+Local users cannot currently rotate their password voluntarily after completing a required change. An administrator must reset it from **Manage Users**; the user will then be prompted to choose a new password at their next sign-in.
 
 Deleting a local user prevents them from signing in again, but it does not delete the Obot user account they created by signing in. Delete that from the Users page, as you would for any other user.
 

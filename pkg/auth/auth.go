@@ -18,12 +18,13 @@ type SerializableRequest struct {
 
 // SerializableState represents the authentication state returned from auth providers
 type SerializableState struct {
-	ExpiresOn         *time.Time `json:"expiresOn"`
-	AccessToken       string     `json:"accessToken"`
-	PreferredUsername string     `json:"preferredUsername"`
-	User              string     `json:"user"`
-	Email             string     `json:"email"`
-	SetCookies        []string   `json:"setCookies"`
+	ExpiresOn             *time.Time `json:"expiresOn"`
+	AccessToken           string     `json:"accessToken"`
+	PreferredUsername     string     `json:"preferredUsername"`
+	User                  string     `json:"user"`
+	Email                 string     `json:"email"`
+	SetCookies            []string   `json:"setCookies"`
+	RequirePasswordChange bool       `json:"requirePasswordChange,omitempty"`
 }
 
 // GroupInfo represents information about a user group from an authentication provider

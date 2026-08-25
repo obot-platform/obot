@@ -76,11 +76,13 @@ docker run -d \
   ghcr.io/obot-platform/obot:latest
 ```
 
+For provisioned trial environments, you can replace the bootstrap token with a secure initial-owner setup link. See [Provision an initial local owner with a secure setup link](./enabling-authentication.md#provision-an-initial-local-owner-with-a-secure-setup-link).
+
 ## Accessing Obot
 
 Once started, access Obot at http://localhost:8080.
 
-If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you didn't supply a bootstrap token, a random one will be generated and can be found in the container's logs by searching for "Bootstrap token".
+If you enabled authentication, use your bootstrap token to log in as the owner and set up an authentication provider. If you configured an initial local owner instead, open the secure activation link and choose a password. If neither a setup link nor a bootstrap token was supplied, a random bootstrap token is generated and printed in the container logs.
 
 ## Workflow Sharing Storage
 

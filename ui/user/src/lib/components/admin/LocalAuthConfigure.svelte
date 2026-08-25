@@ -47,6 +47,7 @@
 	let userError = $state<string>();
 	let email = $state('');
 	let password = $state('');
+	let requirePasswordChange = $state(true);
 	let resettingUser = $state<LocalAuthUser>();
 
 	export function open() {
@@ -55,6 +56,7 @@
 		userError = undefined;
 		email = '';
 		password = '';
+		requirePasswordChange = true;
 		resettingUser = undefined;
 		users = [];
 		step = provider?.configured ? 'users' : 'config';
@@ -114,13 +116,18 @@
 		userError = undefined;
 		try {
 			if (resettingUser) {
-				await AdminService.setLocalAuthUserPassword(resettingUser.id, password);
+				await AdminService.setLocalAuthUserPassword(
+					resettingUser.id,
+					password,
+					requirePasswordChange
+				);
 				resettingUser = undefined;
 			} else {
-				await AdminService.createLocalAuthUser(email, password);
+				await AdminService.createLocalAuthUser(email, password, requirePasswordChange);
 			}
 			email = '';
 			password = '';
+			requirePasswordChange = true;
 			await refreshUsers();
 		} catch (err) {
 			userError = errorMessage(err, 'Failed to save the user.');
@@ -250,7 +257,14 @@
 					<ul class="divide-base-300 dark:divide-base-400 divide-y">
 						{#each users as user (user.id)}
 							<li class="flex items-center justify-between gap-2 py-2">
-								<span class="truncate text-sm">{user.email}</span>
+								<div class="flex min-w-0 items-center gap-2">
+									<span class="truncate text-sm">{user.email}</span>
+									{#if user.requirePasswordChange}
+										<span class="badge badge-warning shrink-0 text-xs"
+											>Password change required</span
+										>
+									{/if}
+								</div>
 								{#if !readonly}
 									<div class="flex shrink-0 items-center gap-1">
 										<IconButton
@@ -259,6 +273,7 @@
 											onclick={() => {
 												resettingUser = user;
 												password = '';
+												requirePasswordChange = true;
 												userError = undefined;
 											}}
 										>
@@ -314,8 +329,17 @@
 							/>
 							<span class="text-muted-content text-xs pt-0.5">
 								At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters. Share it with the user over a secure
-								channel; they can't change it themselves yet.
+								channel.
 							</span>
+						</label>
+
+						<label class="flex items-center gap-2 text-sm font-light">
+							<input
+								class="checkbox checkbox-sm"
+								type="checkbox"
+								bind:checked={requirePasswordChange}
+							/>
+							Require the user to change this password at next sign-in
 						</label>
 
 						<div class="flex justify-end gap-2">
@@ -326,6 +350,7 @@
 									onclick={() => {
 										resettingUser = undefined;
 										password = '';
+										requirePasswordChange = true;
 									}}
 								>
 									Cancel

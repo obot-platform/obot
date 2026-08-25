@@ -243,12 +243,13 @@ type serializableRequest struct {
 
 // serializableState represents the authentication state returned from auth providers
 type serializableState struct {
-	ExpiresOn         *time.Time `json:"expiresOn"`
-	AccessToken       string     `json:"accessToken"`
-	PreferredUsername string     `json:"preferredUsername"`
-	User              string     `json:"user"`
-	Email             string     `json:"email"`
-	SetCookies        []string   `json:"setCookies"`
+	ExpiresOn             *time.Time `json:"expiresOn"`
+	AccessToken           string     `json:"accessToken"`
+	PreferredUsername     string     `json:"preferredUsername"`
+	User                  string     `json:"user"`
+	Email                 string     `json:"email"`
+	SetCookies            []string   `json:"setCookies"`
+	RequirePasswordChange bool       `json:"requirePasswordChange"`
 }
 
 func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
@@ -300,6 +301,9 @@ func (p *Proxy) authenticateRequest(req *http.Request) (*authenticator.Response,
 			"auth_provider_namespace": {p.namespace},
 			"auth_provider_user_id":   {ss.User},
 		},
+	}
+	if ss.RequirePasswordChange {
+		u.Extra["password_change_required"] = []string{"true"}
 	}
 
 	if len(ss.SetCookies) != 0 {

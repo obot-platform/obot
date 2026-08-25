@@ -10,6 +10,7 @@ import (
 	types2 "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/proxy"
@@ -51,7 +52,9 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 		effectiveRole = user.Role
 	}
 
-	return apiContext.Write(types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole))
+	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole)
+	result.RequirePasswordChange = auth.FirstExtraValue(apiContext.User.GetExtra(), "password_change_required") == "true"
+	return apiContext.Write(result)
 }
 
 func (s *Server) getUsers(apiContext api.Context) error {

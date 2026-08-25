@@ -241,7 +241,7 @@ func TestCreateLocalAuthUserDoesNotConsumeUserLimit(t *testing.T) {
 	const localAuthUsers = 3
 	for i := 1; i <= localAuthUsers; i++ {
 		email := fmt.Sprintf("local-user-%d@example.com", i)
-		if _, err := c.CreateLocalAuthUser(t.Context(), email, "password-hash"); err != nil {
+		if _, err := c.CreateLocalAuthUser(t.Context(), email, "password-hash", false); err != nil {
 			t.Fatalf("creating local auth user %d: %v", i, err)
 		}
 	}

@@ -632,6 +632,8 @@ func Router(ctx context.Context, services *services.Services) (http.Handler, err
 	mux.HandleFunc("POST /api/local-auth/users", localAuth.Create)
 	mux.HandleFunc("POST /api/local-auth/users/{id}/password", localAuth.SetPassword)
 	mux.HandleFunc("DELETE /api/local-auth/users/{id}", localAuth.Delete)
+	mux.HandleFunc("POST /api/local-auth/activate", localAuth.Activate)
+	mux.HandleFunc("POST /api/local-auth/change-password", localAuth.ChangePassword)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

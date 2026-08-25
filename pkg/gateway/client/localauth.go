@@ -64,12 +64,25 @@ func (c *Client) LocalAuthUserByID(ctx context.Context, id uint) (*types.LocalAu
 }
 
 // CreateLocalAuthUser creates a new local auth user. The password must already be hashed.
-func (c *Client) CreateLocalAuthUser(ctx context.Context, email, passwordHash string) (*types.LocalAuthUser, error) {
+func (c *Client) CreateLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool) (*types.LocalAuthUser, error) {
+	return c.createLocalAuthUser(ctx, email, passwordHash, requirePasswordChange, "", nil)
+}
+
+// CreateInitialLocalAuthUser creates a user that can only be claimed with the setup capability.
+// Only the token's hash is persisted, and password completion revokes it.
+func (c *Client) CreateInitialLocalAuthUser(ctx context.Context, email, passwordHash, setupTokenHash string, setupTokenExpiresAt time.Time) (*types.LocalAuthUser, error) {
+	return c.createLocalAuthUser(ctx, email, passwordHash, true, setupTokenHash, &setupTokenExpiresAt)
+}
+
+func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool, setupTokenHash string, setupTokenExpiresAt *time.Time) (*types.LocalAuthUser, error) {
 	email = NormalizeEmail(email)
 	user := types.LocalAuthUser{
-		Email:        email,
-		HashedEmail:  hash.String(email),
-		PasswordHash: passwordHash,
+		Email:                 email,
+		HashedEmail:           hash.String(email),
+		PasswordHash:          passwordHash,
+		RequirePasswordChange: requirePasswordChange,
+		SetupTokenHash:        setupTokenHash,
+		SetupTokenExpiresAt:   setupTokenExpiresAt,
 	}
 
 	if err := c.encryptLocalAuthUser(ctx, &user); err != nil {
@@ -88,11 +101,63 @@ func (c *Client) CreateLocalAuthUser(ctx context.Context, email, passwordHash st
 	return &user, nil
 }
 
+// ActivateLocalAuthUser validates a setup token and creates a restricted session. The setup token
+// remains usable until the user successfully sets their password, so an interrupted setup can be
+// resumed from the original link.
+func (c *Client) ActivateLocalAuthUser(ctx context.Context, setupTokenHash, sessionID string, expiresAt time.Time) (*types.LocalAuthUser, error) {
+	var user types.LocalAuthUser
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("setup_token_hash = ? AND setup_token_expires_at > ? AND require_password_change = ?", setupTokenHash, time.Now(), true).First(&user).Error; err != nil {
+			return err
+		}
+		return tx.Create(&types.LocalAuthSession{
+			ID:        sessionID,
+			UserID:    user.ID,
+			ExpiresAt: expiresAt,
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.decryptLocalAuthUser(ctx, &user); err != nil {
+		return nil, fmt.Errorf("failed to decrypt local auth user: %w", err)
+	}
+	return &user, nil
+}
+
+// RefreshLocalAuthUserSetupToken rotates an initial account's still-pending setup capability and
+// invalidates any sessions created with the old capability. Completed accounts cannot be rearmed.
+func (c *Client) RefreshLocalAuthUserSetupToken(ctx context.Context, id uint, setupTokenHash string, setupTokenExpiresAt time.Time) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		result := tx.Model(new(types.LocalAuthUser)).Where("id = ? AND setup_token_hash != '' AND require_password_change = ?", id, true).Updates(map[string]any{
+			"setup_token_hash":       setupTokenHash,
+			"setup_token_expires_at": setupTokenExpiresAt,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Where("user_id = ?", id).Delete(new(types.LocalAuthSession)).Error
+	})
+}
+
 // SetLocalAuthUserPassword updates a user's password hash and invalidates all of their sessions,
 // so that a password reset actually kicks the old sessions out.
-func (c *Client) SetLocalAuthUserPassword(ctx context.Context, id uint, passwordHash string) error {
+func (c *Client) SetLocalAuthUserPassword(ctx context.Context, id uint, passwordHash string, requirePasswordChange bool) error {
 	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(new(types.LocalAuthUser)).Where("id = ?", id).Update("password_hash", passwordHash)
+		updates := map[string]any{
+			"password_hash":           passwordHash,
+			"require_password_change": requirePasswordChange,
+			// Any password write supersedes an outstanding setup capability. In particular, an
+			// administrator reset must disarm an emailed activation link even when the new password
+			// itself is marked for change at next login.
+			"setup_token_hash":       "",
+			"setup_token_expires_at": nil,
+		}
+		result := tx.Model(new(types.LocalAuthUser)).Where("id = ?", id).Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
@@ -101,6 +166,36 @@ func (c *Client) SetLocalAuthUserPassword(ctx context.Context, id uint, password
 		}
 
 		return tx.Where("user_id = ?", id).Delete(new(types.LocalAuthSession)).Error
+	})
+}
+
+// CompleteLocalAuthUserPasswordChange atomically completes a required password change. The
+// current session must still exist and the user must still be pending, so only the first of
+// multiple activated sessions can choose the authoritative password.
+func (c *Client) CompleteLocalAuthUserPasswordChange(ctx context.Context, id uint, passwordHash, currentSessionID string) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var sessionCount int64
+		if err := tx.Model(new(types.LocalAuthSession)).Where("id = ? AND user_id = ? AND expires_at > ?", currentSessionID, id, time.Now()).Count(&sessionCount).Error; err != nil {
+			return err
+		}
+		if sessionCount != 1 {
+			return gorm.ErrRecordNotFound
+		}
+
+		result := tx.Model(new(types.LocalAuthUser)).Where("id = ? AND require_password_change = ?", id, true).Updates(map[string]any{
+			"password_hash":           passwordHash,
+			"require_password_change": false,
+			"setup_token_hash":        "",
+			"setup_token_expires_at":  nil,
+		})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+
+		return tx.Where("user_id = ? AND id != ?", id, currentSessionID).Delete(new(types.LocalAuthSession)).Error
 	})
 }
 

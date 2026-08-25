@@ -247,6 +247,7 @@ var (
 			"GET /api/bootstrap",
 			"POST /api/bootstrap/login",
 			"POST /api/bootstrap/logout",
+			"POST /api/local-auth/activate",
 
 			"GET /api/app-oauth/authorize/{id}",
 			"GET /api/app-oauth/refresh/{id}",
@@ -348,6 +349,7 @@ var (
 		types.GroupAuthenticated: {
 			"GET /oauth/userinfo",
 			"GET /api/me",
+			"POST /api/local-auth/change-password",
 		},
 
 		types.GroupSkills: {

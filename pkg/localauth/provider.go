@@ -37,6 +37,8 @@ const (
 
 	// LoginPath is the UI route that renders the login form.
 	LoginPath = "/login/local"
+	// ChangePasswordPath is the only application page a restricted local-auth session may use.
+	ChangePasswordPath = "/change-password"
 
 	sessionDuration = 7 * 24 * time.Hour
 
@@ -217,6 +219,38 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p.setSessionCookie(w, token, expiresAt)
+
+	if user.RequirePasswordChange {
+		rd = ChangePasswordPath + "?rd=" + url.QueryEscape(rd)
+	}
+	http.Redirect(w, r, rd, http.StatusFound)
+}
+
+// ActivateInitialOwner validates a setup token and starts a restricted session for the account it
+// was bound to. The token remains reusable until password completion or expiry. The caller learns
+// nothing about the account when the token is invalid.
+func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) (string, time.Time, error) {
+	if len(setupToken) < 32 {
+		return "", time.Time{}, gorm.ErrRecordNotFound
+	}
+
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresAt := time.Now().Add(sessionDuration)
+	if _, err := p.gatewayClient.ActivateLocalAuthUser(ctx, hash.String(setupToken), hash.String(token), expiresAt); err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expiresAt, nil
+}
+
+func (p *Provider) SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	p.setSessionCookie(w, token, expiresAt)
+}
+
+func (p *Provider) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.ObotAccessTokenCookie,
 		Value:    token,
@@ -226,8 +260,6 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 		Secure:   p.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 	})
-
-	http.Redirect(w, r, rd, http.StatusFound)
 }
 
 func (p *Provider) loginFailed(w http.ResponseWriter, r *http.Request, rd, message string) {
@@ -285,10 +317,11 @@ func (p *Provider) getState(w http.ResponseWriter, r *http.Request) {
 		// email rather than the session token so that user info needs no database lookup: the
 		// gateway asks for it from inside an open transaction, and on SQLite — which allows a
 		// single connection — a query here would deadlock against that transaction.
-		AccessToken:       p.tokens.sign(user.Email),
-		User:              user.Email,
-		PreferredUsername: user.Email,
-		Email:             user.Email,
+		AccessToken:           p.tokens.sign(user.Email),
+		User:                  user.Email,
+		PreferredUsername:     user.Email,
+		Email:                 user.Email,
+		RequirePasswordChange: user.RequirePasswordChange,
 	})
 }
 

@@ -375,17 +375,23 @@ export async function listLocalAuthUsers(opts?: { fetch?: Fetcher }): Promise<Lo
 export async function createLocalAuthUser(
 	email: string,
 	password: string,
+	requirePasswordChange = true,
 	opts?: { fetch?: Fetcher }
 ): Promise<LocalAuthUser> {
-	return (await doPost('/local-auth/users', { email, password }, opts)) as LocalAuthUser;
+	return (await doPost(
+		'/local-auth/users',
+		{ email, password, requirePasswordChange },
+		opts
+	)) as LocalAuthUser;
 }
 
 export async function setLocalAuthUserPassword(
 	id: string,
 	password: string,
+	requirePasswordChange = true,
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
-	await doPost(`/local-auth/users/${id}/password`, { password }, opts);
+	await doPost(`/local-auth/users/${id}/password`, { password, requirePasswordChange }, opts);
 }
 
 export async function deleteLocalAuthUser(id: string, opts?: { fetch?: Fetcher }): Promise<void> {

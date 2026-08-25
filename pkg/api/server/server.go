@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -182,6 +183,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
+		// Install audit logging and replay any refreshed provider cookies before enforcing this
+		// restricted-session gate. Rejected API probes are therefore still auditable, and a cookie
+		// refresh is not lost just because the requested operation is blocked.
+		if auth.FirstExtraValue(user.GetExtra(), "password_change_required") == "true" && !passwordChangeRequestAllowed(req) {
+			if strings.HasPrefix(req.URL.Path, "/api/") {
+				http.Error(rw, "password change required", http.StatusForbidden)
+			} else {
+				rd := req.URL.RequestURI()
+				http.Redirect(rw, req, "/change-password?rd="+url.QueryEscape(rd), http.StatusSeeOther)
+			}
+			return
+		}
+
 		var shouldLogError bool
 		err = s.providerEntitlementGate.Check(req)
 		if err == nil {
@@ -243,6 +257,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			log.Errorf("Error handling request for %s: %v", req.URL.Path, err)
 		}
 	}
+}
+
+func passwordChangeRequestAllowed(req *http.Request) bool {
+	if isStaticAssetPath(req.URL.Path) || req.URL.Path == "/change-password" || strings.HasPrefix(req.URL.Path, "/change-password/") || req.URL.Path == "/oauth2/sign_out" {
+		return true
+	}
+	return (req.Method == http.MethodGet && slices.Contains([]string{
+		"/api/me",
+		"/api/version",
+		"/api/license",
+		"/api/app-preferences",
+	}, req.URL.Path)) ||
+		(req.Method == http.MethodPost && req.URL.Path == "/api/local-auth/change-password")
 }
 
 type headersResponseWriter struct {
@@ -319,7 +346,14 @@ func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) erro
 // isStaticAssetPath returns true if the path is a static asset that should be
 // exempt from rate limiting. This includes SvelteKit chunks, CSS, and UI images.
 func isStaticAssetPath(path string) bool {
-	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/")
+	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/") || slices.Contains([]string{
+		"/favicon.ico",
+		"/favicon-16x16.png",
+		"/favicon-32x32.png",
+		"/apple-touch-icon.png",
+		"/android-chrome-192x192.png",
+		"/android-chrome-512x512.png",
+	}, path)
 }
 
 type responseWriter struct {

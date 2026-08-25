@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,14 +96,17 @@ type (
 )
 
 type Config struct {
-	HTTPListenPort       int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
-	AllowedOrigin        string   `usage:"Allowed origin for CORS"`
-	ProviderRegistries   []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
-	EnableAuthentication bool     `usage:"Enable authentication" default:"false"`
-	AuthAdminEmails      []string `usage:"Emails of admin users"`
-	AuthOwnerEmails      []string `usage:"Emails of owner users"`
-	TunnelPeerID         string   `usage:"Unique Pod UID of this Obot replica for tunnel peering"`
-	TunnelPeerToken      string   `usage:"Shared internal credential for tunnel peering"`
+	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
+	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
+	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
+	EnableAuthentication                           bool     `usage:"Enable authentication" default:"false"`
+	AuthAdminEmails                                []string `usage:"Emails of admin users"`
+	AuthOwnerEmails                                []string `usage:"Emails of owner users"`
+	LocalAuthInitialOwnerEmail                     string   `usage:"Email address for the initial local-auth owner" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL"`
+	LocalAuthInitialOwnerSetupToken                string   `usage:"High-entropy setup token for the initial local-auth owner" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN"`
+	LocalAuthInitialOwnerSetupTokenExpirationHours int      `usage:"Hours the initial local-auth owner setup link remains valid" default:"168" env:"OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS"`
+	TunnelPeerID                                   string   `usage:"Unique Pod UID of this Obot replica for tunnel peering"`
+	TunnelPeerToken                                string   `usage:"Shared internal credential for tunnel peering"`
 
 	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
 	ForceDynamicClient       bool   `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
@@ -489,6 +493,25 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
+	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
+	if initialOwnerConfigured {
+		if !config.EnableAuthentication {
+			return nil, errors.New("initial local auth owner requires authentication to be enabled")
+		}
+		if config.LocalAuthInitialOwnerEmail == "" || config.LocalAuthInitialOwnerSetupToken == "" {
+			return nil, errors.New("initial local auth owner email and setup token must be set together")
+		}
+		parsedEmail, err := mail.ParseAddress(client.NormalizeEmail(config.LocalAuthInitialOwnerEmail))
+		if err != nil {
+			return nil, fmt.Errorf("invalid initial local auth owner email: %w", err)
+		}
+		config.LocalAuthInitialOwnerEmail = client.NormalizeEmail(parsedEmail.Address)
+		if config.LocalAuthInitialOwnerSetupTokenExpirationHours <= 0 {
+			return nil, errors.New("initial local auth owner setup token expiration must be greater than zero")
+		}
+		config.AuthOwnerEmails = append(config.AuthOwnerEmails, config.LocalAuthInitialOwnerEmail)
+	}
+
 	// Setup Otel first so other services can use it.
 	otel, err := otel.New(ctx)
 	if err != nil {
@@ -1045,7 +1068,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	apply.AddValidOwnerChange("mcpcatalogentries", "catalog-default")
 
 	var proxyManager *proxy.Manager
-	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, providerDispatcher, config.EnableAuthentication, config.ForceEnableBootstrap)
+	bootstrapOptions := []bootstrap.Option(nil)
+	if initialOwnerConfigured {
+		if os.Getenv("OBOT_BOOTSTRAP_TOKEN") != "" {
+			pkgLog.Warnf("OBOT_BOOTSTRAP_TOKEN is ignored because initial local auth owner provisioning disables bootstrap authentication")
+		}
+		bootstrapOptions = append(bootstrapOptions, bootstrap.Disabled())
+	}
+	bootstrapper, err := bootstrap.New(ctx, config.Hostname, gatewayClient, providerDispatcher, config.EnableAuthentication, config.ForceEnableBootstrap, bootstrapOptions...)
 	if err != nil {
 		return nil, err
 	}
@@ -1073,6 +1103,21 @@ func New(ctx context.Context, config Config) (*Services, error) {
 			return nil, err
 		}
 		providerDispatcher.RegisterBuiltinAuthProvider(system.DefaultNamespace, localauth.ProviderName, localAuthProviderURL)
+
+		if initialOwnerConfigured {
+			configuredProvider, err := providerDispatcher.GetConfiguredAuthProvider(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to check configured auth provider before provisioning initial owner: %w", err)
+			}
+			if configuredProvider != "" && configuredProvider != localauth.ProviderName {
+				pkgLog.Infof("Skipping initial local auth owner provisioning because auth provider %q is configured", configuredProvider)
+			} else {
+				expiresAt := time.Now().Add(time.Duration(config.LocalAuthInitialOwnerSetupTokenExpirationHours) * time.Hour)
+				if err := localAuthProvider.EnsureInitialOwner(ctx, config.LocalAuthInitialOwnerEmail, config.LocalAuthInitialOwnerSetupToken, expiresAt); err != nil {
+					return nil, fmt.Errorf("failed to provision initial local auth owner: %w", err)
+				}
+			}
+		}
 
 		// Token Auth + OAuth auth
 		authenticators = union.NewFailOnError(authenticators, proxyManager)

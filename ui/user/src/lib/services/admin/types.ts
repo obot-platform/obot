@@ -262,6 +262,7 @@ export interface LocalAuthUser {
 	id: string;
 	email: string;
 	created: string;
+	requirePasswordChange: boolean;
 }
 
 // Devices

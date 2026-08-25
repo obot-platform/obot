@@ -11,11 +11,12 @@ import {
 } from '$lib/services';
 import { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
 import type { LayoutLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 export const prerender = 'auto';
 export const ssr = dev;
 
-export const load: LayoutLoad = async ({ fetch }) => {
+export const load: LayoutLoad = async ({ fetch, url }) => {
 	let appPreferences: AppPreferences | undefined;
 	let profile: Profile | undefined;
 	let version: Version | undefined;
@@ -59,6 +60,10 @@ export const load: LayoutLoad = async ({ fetch }) => {
 			unauthorized: true,
 			username: ''
 		};
+	}
+
+	if (profile.requirePasswordChange && url.pathname !== '/change-password') {
+		throw redirect(303, `/change-password?rd=${encodeURIComponent(url.pathname + url.search)}`);
 	}
 
 	if (!profile.unauthorized) {
