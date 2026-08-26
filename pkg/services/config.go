@@ -1129,6 +1129,11 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// Persistent Token Auth
 		authenticators = union.New(authenticators, persistentTokenServer)
 
+		// Device enrollment tokens (ode1-) and device access JWTs. Both yield
+		// non-user principals, so they must come after the UserDecorator.
+		authenticators = union.New(authenticators, gserver.NewDeviceEnrollmentAuthenticator(gatewayClient))
+		authenticators = union.New(authenticators, gserver.NewDeviceAuthenticator(gatewayClient))
+
 		// Add no auth authenticator
 		authenticators = union.New(authenticators, authn.NewNoAuth(gatewayClient))
 	}
