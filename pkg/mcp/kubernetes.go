@@ -216,6 +216,7 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 			ContainerPort:        server.ContainerPort,
 			ContainerPath:        server.ContainerPath,
 			AgentName:            server.AgentName,
+			AuditLogMetadata:     server.AuditLogMetadata,
 			StartupTimeout:       server.StartupTimeout,
 		}, nil
 	}

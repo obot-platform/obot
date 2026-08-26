@@ -389,7 +389,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 }
 
 func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]Webhook, error) {
-	if serverConfig.ComponentMCPServer || serverConfig.SystemMCPServer || sm.webhookHelper == nil {
+	if serverConfig.ComponentMCPServer || serverConfig.SystemMCPServer || serverConfig.IsAgentServer() || sm.webhookHelper == nil {
 		return nil, nil
 	}
 

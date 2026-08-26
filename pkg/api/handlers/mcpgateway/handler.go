@@ -271,7 +271,7 @@ func (h *Handler) Proxy(req api.Context) error {
 			},
 			ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 				audit.recordTransportError(err, http.StatusBadGateway)
-				if serverConfig.AgentName != "" {
+				if serverConfig.IsAgentServer() {
 					http.Error(w, fmt.Sprintf("failed to proxy request to Nanobot agent %s: %v", serverConfig.AgentName, err), http.StatusBadGateway)
 				} else {
 					mcpServerName := serverConfig.MCPServerDisplayName
@@ -361,7 +361,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 	}
 
 	// Add-hoc authorization for nanobot agents
-	if mcpServerConfig.AgentName != "" {
+	if mcpServerConfig.IsAgentServer() {
 		var agent v1.NanobotAgent
 		if err = req.Get(&agent, mcpServerConfig.AgentName); err != nil {
 			return mcp.ServerConfig{}, fmt.Errorf("failed to get nanobot agent %q: %w", mcpServerConfig.AgentName, err)
