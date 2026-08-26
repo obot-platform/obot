@@ -280,6 +280,8 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return nil
 }
 
+// nextResolvedCommitSHAs returns non-empty commit state for configured sources,
+// updating values for sources that completed this sync successfully.
 func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []string) map[string]string {
 	configured := make(map[string]struct{}, len(sourceURLs))
 	for _, sourceURL := range sourceURLs {
@@ -299,6 +301,8 @@ func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []
 	return next
 }
 
+// hasChangedPreviouslySyncedSource reports whether this sync successfully read
+// a source at a different commit than its last successful sync.
 func hasChangedPreviouslySyncedSource(previousCommits, successfulCommits map[string]string) bool {
 	for sourceURL, commitSHA := range successfulCommits {
 		previousCommitSHA := previousCommits[sourceURL]
@@ -309,6 +313,8 @@ func hasChangedPreviouslySyncedSource(previousCommits, successfulCommits map[str
 	return false
 }
 
+// validUnversionedSourceIDs returns successfully processed sources that have no
+// previous Git commit and therefore cannot be proven unchanged by SHA.
 func validUnversionedSourceIDs(sourceURLs []string, previousCommits map[string]string, validSourceIDs map[string]struct{}) map[string]struct{} {
 	result := make(map[string]struct{})
 	for _, sourceURL := range sourceURLs {
@@ -322,6 +328,7 @@ func validUnversionedSourceIDs(sourceURLs []string, previousCommits map[string]s
 	return result
 }
 
+// containsAnySourceID reports whether sourceIDs and candidates intersect.
 func containsAnySourceID(sourceIDs, candidates map[string]struct{}) bool {
 	for sourceID := range candidates {
 		if _, ok := sourceIDs[sourceID]; ok {
@@ -331,6 +338,8 @@ func containsAnySourceID(sourceIDs, candidates map[string]struct{}) bool {
 	return false
 }
 
+// persistedCatalogSourceIDs returns normalized source IDs represented by the
+// catalog's currently stored source-managed entries.
 func persistedCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog) (map[string]struct{}, error) {
 	var entries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
@@ -345,6 +354,8 @@ func persistedCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v
 	return sourceIDs, nil
 }
 
+// persistedSystemCatalogSourceIDs returns normalized source IDs represented by
+// the system catalog's currently stored source-managed entries.
 func persistedSystemCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog) (map[string]struct{}, error) {
 	var entries v1.SystemMCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
@@ -422,6 +433,8 @@ func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.
 	return reconcileRemovedEntriesForSources(ctx, c, catalog, desired, loadedSources)
 }
 
+// reconcileRemovedEntriesForSources removes entries from deleted sources and,
+// when desired covers every configured source, prunes or detaches missing entries.
 func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, validSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
@@ -499,6 +512,8 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 	return nil
 }
 
+// reconcileRemovedSystemEntriesForSources removes entries from deleted sources
+// and prunes missing entries only when desired covers every configured source.
 func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog, desired []kclient.Object, validSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
@@ -871,6 +886,8 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	return nil
 }
 
+// readSystemMCPCatalog reads and validates a source, converting valid manifests
+// into system catalog entries and returning the Git commit when available.
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, string, error) {
 	entries, commitSHA, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
@@ -912,6 +929,8 @@ func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceU
 	return systemObjs, commitSHA, errors.Join(errs...)
 }
 
+// readMCPCatalog reads and validates a source, converting valid manifests into
+// catalog entries and returning the Git commit when available.
 func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, token string, options ...mcp.ValidationOptions) ([]kclient.Object, string, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
@@ -978,6 +997,8 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 	return objs, commitSHA, errors.Join(errs...)
 }
 
+// readCatalogManifests loads manifests from an HTTP URL, Git repository, local
+// file, or local directory and returns a commit SHA only for Git sources.
 func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, sourceURL, token string) ([]T, string, error) {
 	if strings.HasPrefix(sourceURL, "http://") || strings.HasPrefix(sourceURL, "https://") {
 		if git.IsGitRepoURL(sourceURL) {
@@ -1040,6 +1061,8 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 	return entries, "", nil
 }
 
+// readGitCatalogEntries clones a repository, decodes its catalog files, and
+// returns the exact cloned commit SHA.
 func readGitCatalogEntries[T any](ctx context.Context, catalogURL, token string) ([]T, string, error) {
 	dir, commitSHA, cleanup, err := git.Clone(ctx, catalogURL, token, "")
 	if err != nil {
