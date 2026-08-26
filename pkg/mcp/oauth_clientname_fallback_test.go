@@ -12,6 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	obotOAuthClientNameForTest = "Obot MCP OAuth"
+)
+
 func TestClientNameCandidates(t *testing.T) {
 	assert.Equal(t, []string{"Obot MCP OAuth"}, clientNameCandidates("Obot MCP OAuth", ""))
 	assert.Equal(t, []string{"Obot MCP OAuth", "Claude Code"}, clientNameCandidates("Obot MCP OAuth", "Claude Code"))
@@ -108,5 +112,3 @@ func TestResolveClientInfoClientNameFallback(t *testing.T) {
 		assert.Equal(t, []string{obotOAuthClientNameForTest}, attemptedNames)
 	})
 }
-
-const obotOAuthClientNameForTest = "Obot MCP OAuth"

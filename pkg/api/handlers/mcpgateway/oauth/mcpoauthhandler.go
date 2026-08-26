@@ -18,6 +18,11 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	obotOAuthClientName         = "Obot MCP OAuth"
+	obotOAuthClientNameFallback = "Claude Code"
+)
+
 type MCPOAuthHandlerFactory struct {
 	baseURL                   string
 	mcpSessionManager         *mcp.SessionManager
@@ -28,11 +33,6 @@ type MCPOAuthHandlerFactory struct {
 	cimdDocumentURL           string
 	resolveOAuthClient        func(context.Context, kclient.Client, string) (v1.OAuthClient, error)
 }
-
-const (
-	obotOAuthClientName         = "Obot MCP OAuth"
-	obotOAuthClientNameFallback = "Claude Code"
-)
 
 type mcpOAuthHandler struct {
 	gatewayClient      *client.Client

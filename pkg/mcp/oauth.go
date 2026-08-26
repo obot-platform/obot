@@ -58,6 +58,13 @@ type ClientCredLookup interface {
 	Lookup(context.Context) (string, string, error)
 }
 
+// clientNameRejectedError indicates that dynamic registration may succeed with
+// a different client name.
+type clientNameRejectedError struct {
+	status int
+	body   string
+}
+
 type oauth struct {
 	redirectURL              string
 	clientName               string
@@ -730,13 +737,6 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	}
 
 	return clientInfo, nil
-}
-
-// clientNameRejectedError indicates that dynamic registration may succeed with
-// a different client name.
-type clientNameRejectedError struct {
-	status int
-	body   string
 }
 
 func (e *clientNameRejectedError) Error() string {
