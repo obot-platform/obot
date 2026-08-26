@@ -179,7 +179,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
-	if hasChangedPreviouslySyncedSource(mcpCatalog.Status.ResolvedCommitSHAs, successfulSources) {
+	requiresCompleteReconciliation := hasChangedPreviouslySyncedSource(mcpCatalog.Status.ResolvedCommitSHAs, successfulSources)
+	unversionedSourceIDs := reconciledUnversionedSourceIDs(mcpCatalog.Spec.SourceURLs, mcpCatalog.Status.ResolvedCommitSHAs, reconcilableSourceIDs)
+	if !requiresCompleteReconciliation && len(skippedSources) > 0 && len(unversionedSourceIDs) > 0 {
+		persistedSourceIDs, err := persistedCatalogSourceIDs(req.Ctx, req.Client, mcpCatalog)
+		if err != nil {
+			return err
+		}
+		requiresCompleteReconciliation = containsAnySourceID(persistedSourceIDs, unversionedSourceIDs)
+	}
+	if requiresCompleteReconciliation {
 		for _, source := range skippedSources {
 			objs, commitSHA, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, source.url, source.token, validationOptions)
 			if err != nil {
@@ -298,6 +307,56 @@ func hasChangedPreviouslySyncedSource(previousCommits, successfulCommits map[str
 		}
 	}
 	return false
+}
+
+func reconciledUnversionedSourceIDs(sourceURLs []string, previousCommits map[string]string, reconciledSourceIDs map[string]struct{}) map[string]struct{} {
+	result := make(map[string]struct{})
+	for _, sourceURL := range sourceURLs {
+		if previousCommits[sourceURL] == "" {
+			sourceID := mcp.SourceIDForURL(sourceURL)
+			if _, reconciled := reconciledSourceIDs[sourceID]; reconciled {
+				result[sourceID] = struct{}{}
+			}
+		}
+	}
+	return result
+}
+
+func containsAnySourceID(sourceIDs, candidates map[string]struct{}) bool {
+	for sourceID := range candidates {
+		if _, ok := sourceIDs[sourceID]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func persistedCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog) (map[string]struct{}, error) {
+	var entries v1.MCPServerCatalogEntryList
+	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
+		return nil, fmt.Errorf("failed to list persisted catalog source IDs: %w", err)
+	}
+	sourceIDs := make(map[string]struct{})
+	for _, entry := range entries.Items {
+		if entry.Spec.SourceURL != "" {
+			sourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)] = struct{}{}
+		}
+	}
+	return sourceIDs, nil
+}
+
+func persistedSystemCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog) (map[string]struct{}, error) {
+	var entries v1.SystemMCPServerCatalogEntryList
+	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
+		return nil, fmt.Errorf("failed to list persisted system catalog source IDs: %w", err)
+	}
+	sourceIDs := make(map[string]struct{})
+	for _, entry := range entries.Items {
+		if entry.Spec.SourceURL != "" {
+			sourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)] = struct{}{}
+		}
+	}
+	return sourceIDs, nil
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -744,7 +803,16 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		toAdd = append(toAdd, objs...)
 	}
 
-	if hasChangedPreviouslySyncedSource(systemCatalog.Status.ResolvedCommitSHAs, successfulSources) {
+	requiresCompleteReconciliation := hasChangedPreviouslySyncedSource(systemCatalog.Status.ResolvedCommitSHAs, successfulSources)
+	unversionedSourceIDs := reconciledUnversionedSourceIDs(systemCatalog.Spec.SourceURLs, systemCatalog.Status.ResolvedCommitSHAs, reconcilableSourceIDs)
+	if !requiresCompleteReconciliation && len(skippedSources) > 0 && len(unversionedSourceIDs) > 0 {
+		persistedSourceIDs, err := persistedSystemCatalogSourceIDs(req.Ctx, req.Client, systemCatalog)
+		if err != nil {
+			return err
+		}
+		requiresCompleteReconciliation = containsAnySourceID(persistedSourceIDs, unversionedSourceIDs)
+	}
+	if requiresCompleteReconciliation {
 		for _, source := range skippedSources {
 			objs, commitSHA, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, source.url, source.token)
 			if err != nil {

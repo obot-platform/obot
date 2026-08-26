@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -158,4 +159,25 @@ func TestHasChangedPreviouslySyncedSource(t *testing.T) {
 			assert.Equal(t, test.want, hasChangedPreviouslySyncedSource(test.previous, test.successful))
 		})
 	}
+}
+
+func TestPreviouslyAppliedUnversionedSourceRequiresCompleteReconciliation(t *testing.T) {
+	sourceURLs := []string{"https://example.com/catalog.yaml", "https://github.com/example/catalog"}
+	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
+	reconciledSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
+	unversionedSourceIDs := reconciledUnversionedSourceIDs(sourceURLs, previousCommits, reconciledSourceIDs)
+
+	assert.True(t, containsAnySourceID(map[string]struct{}{
+		mcp.SourceIDForURL(sourceURLs[0]): {},
+	}, unversionedSourceIDs))
+}
+
+func TestNewUnversionedSourceDoesNotRequireCompleteReconciliation(t *testing.T) {
+	sourceURLs := []string{"https://example.com/new-catalog.yaml", "https://github.com/example/catalog"}
+	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
+	reconciledSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
+	unversionedSourceIDs := reconciledUnversionedSourceIDs(sourceURLs, previousCommits, reconciledSourceIDs)
+
+	assert.NotEmpty(t, unversionedSourceIDs)
+	assert.False(t, containsAnySourceID(nil, unversionedSourceIDs))
 }
