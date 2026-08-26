@@ -478,7 +478,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 		}
 		for i := range storedEntries.Items {
 			entry := &storedEntries.Items[i]
-			if entry.Spec.MCPCatalogName != catalogName || entry.Spec.Manifest.EntryKey == "" {
+			if entry.Spec.MCPCatalogName != catalogName || !entry.IsGitManaged() || entry.Spec.Manifest.EntryKey == "" {
 				continue
 			}
 			sourceID := mcp.SourceIDForURL(entry.Spec.SourceURL)

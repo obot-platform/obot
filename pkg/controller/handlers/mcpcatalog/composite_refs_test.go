@@ -265,6 +265,39 @@ func TestResolveCompositeSourceRefsUsesPersistedEntriesFromSkippedSources(t *tes
 	assert.Equal(t, target.Spec.Manifest, component.Manifest)
 }
 
+func TestResolveCompositeSourceRefsIgnoresDetachedEntriesFromSkippedSources(t *testing.T) {
+	const skippedSource = "https://github.com/example/unchanged"
+	target := testCatalogEntry("target", skippedSource, "tool", types.MCPServerCatalogEntryManifest{
+		Name:             "Tool",
+		ShortDescription: "Tool",
+		Description:      "Tool",
+		Icon:             "icon",
+		Runtime:          types.RuntimeNPX,
+		NPXConfig:        &types.NPXRuntimeConfig{Package: "tool"},
+		ServerUserType:   types.ServerUserTypeSingleUser,
+	})
+	target.Namespace = "default"
+	target.Spec.MCPCatalogName = "default"
+	target.Spec.Detached = true
+	composite := testCatalogEntry("composite", "https://github.com/example/changed", "composite", types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{CatalogEntryID: sourceRef(mcp.SourceIDForURL(skippedSource), "tool")},
+		}},
+	})
+	c := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(target).Build()
+
+	result, errsBySourceURL, err := (&Handler{}).resolveCompositeSourceRefs(t.Context(), c, "default", "default", []kclient.Object{composite}, map[string]struct{}{
+		mcp.SourceIDForURL(skippedSource): {},
+	})
+
+	require.NoError(t, err)
+	assert.Empty(t, result)
+	assert.Contains(t, errsBySourceURL[composite.Spec.SourceURL], "unresolved catalogEntryID source ref")
+}
+
 func TestResolveCompositeSourceRefsHydratesMultiUserServerIDComponents(t *testing.T) {
 	server := testMCPServer("shared-server", "default", types.MCPServerManifest{
 		Name:            "Shared Server",
