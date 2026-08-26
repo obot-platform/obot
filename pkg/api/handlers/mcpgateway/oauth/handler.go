@@ -26,9 +26,10 @@ type handler struct {
 	clientMetadataHTTPClient *http.Client
 	clientMetadataCache      map[string]clientMetadataCacheEntry
 	clientMetadataCacheLock  sync.Mutex
+	clientIDNativeExceptions map[string]struct{}
 }
 
-func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, mcpSessionManager *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, baseURL string, clientSecretExpiration time.Duration, mux *server.Server) {
+func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, oauthConfig handlers.OAuthAuthorizationServerConfig, mcpSessionManager *mcp.SessionManager, acrHelper *accesscontrolrule.Helper, baseURL string, clientSecretExpiration time.Duration, additionalClientIDNativeExceptions []string, mux *server.Server) {
 	remoteURLValidationConfig := mcpSessionManager.RemoteMCPURLValidationConfig()
 	h := &handler{
 		tokenStore:               tokenStore,
@@ -40,6 +41,7 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 		acrHelper:                acrHelper,
 		clientExpiration:         clientSecretExpiration,
 		clientMetadataCache:      map[string]clientMetadataCacheEntry{},
+		clientIDNativeExceptions: newClientIDNativeExceptions(additionalClientIDNativeExceptions),
 	}
 
 	// Expose two sets of endpoints: one for clients that look at the oauth-protected-resource metadata and one for clients that don't.

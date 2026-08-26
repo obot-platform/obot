@@ -95,7 +95,8 @@ type Config struct {
 	AuthAdminEmails      []string `usage:"Emails of admin users"`
 	AuthOwnerEmails      []string `usage:"Emails of owner users"`
 
-	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+	MCPOAuthClientExpiration       string   `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+	MCPOAuthClientNativeExceptions []string `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -195,6 +196,7 @@ type Services struct {
 	SkillAccessRuleHelper *skillaccessrule.Helper
 
 	MCPOAuthClientSecretExpiration time.Duration
+	MCPOAuthClientNativeExceptions []string
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
@@ -995,6 +997,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
+		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 
