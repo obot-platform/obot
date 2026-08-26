@@ -22,6 +22,10 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
+var (
+	errDaemonRevisionChanged = errors.New("daemon revision changed")
+)
+
 type ports struct {
 	daemonPorts            map[string]int64
 	daemonsRunning         map[string]func()
@@ -46,8 +50,6 @@ type daemonRevision struct {
 func (d daemonRevision) sameConfiguration(other daemonRevision) bool {
 	return d.instance == other.instance && d.value == other.value
 }
-
-var errDaemonRevisionChanged = errors.New("daemon revision changed")
 
 func newPorts() *ports {
 	daemonCtx, cancel := context.WithCancel(context.Background())

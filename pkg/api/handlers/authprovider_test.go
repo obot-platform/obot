@@ -151,3 +151,31 @@ func TestSetAuthProviderSyncRevisionAlwaysChanges(t *testing.T) {
 	require.NotEmpty(t, second)
 	require.NotEqual(t, first, second)
 }
+
+func TestPublishAuthProviderSyncRevisionPersistsNewRevision(t *testing.T) {
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "existing-revision",
+		},
+	}
+	req := api.Context{
+		Request: httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", nil),
+		Storage: newFakeStorage(t, authProvider),
+	}
+
+	updated, err := publishAuthProviderSyncRevision(req, authProvider.Name)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	require.NotEqual(t, "existing-revision", updated.Annotations[v1.AuthProviderSyncAnnotation])
+
+	var persisted v1.AuthProvider
+	require.NoError(t, req.Get(&persisted, authProvider.Name))
+	require.Equal(t, updated.Annotations[v1.AuthProviderSyncAnnotation], persisted.Annotations[v1.AuthProviderSyncAnnotation])
+
+	// A deleted provider has no daemon to invalidate, so this is not an error.
+	missing, err := publishAuthProviderSyncRevision(req, "does-not-exist")
+	require.NoError(t, err)
+	require.Nil(t, missing)
+}

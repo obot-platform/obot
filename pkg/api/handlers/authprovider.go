@@ -145,12 +145,19 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}
 
 	if configuredProvider != "" && configuredProvider != authProvider.Name {
-		// Delete the credential we just configured
-		_, _ = req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name)
-		return types.NewErrBadRequest(
+		badRequest := types.NewErrBadRequest(
 			"only one authentication provider can be configured at a time. Please deconfigure %q first",
 			configuredProvider,
 		)
+
+		// Delete the credential we just configured, and publish a new sync revision so that every
+		// replica invalidates the daemon it may have started with the credential being deleted.
+		_, _ = req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name)
+		if _, err := publishAuthProviderSyncRevision(req, authProvider.Name); err != nil {
+			return errors.Join(badRequest, err)
+		}
+
+		return badRequest
 	}
 
 	setAuthProviderSyncRevision(&authProvider)
@@ -179,6 +186,13 @@ func (ap *AuthProviderHandler) rollbackAuthProviderConfiguration(req api.Context
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name); err != nil {
 		return errors.Join(cause, fmt.Errorf("roll back credential for auth provider %q: %w", authProvider.Name, err))
 	}
+
+	// StopAuthProvider only stops the daemon in this process, so publish a new sync revision to
+	// invalidate the daemons that other replicas may have started with the rolled back credential.
+	if _, err := publishAuthProviderSyncRevision(req, authProvider.Name); err != nil {
+		return errors.Join(cause, err)
+	}
+
 	return cause
 }
 
@@ -259,7 +273,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		}
 	}
 
-	updatedAuthProvider, err := updateAuthProviderForDeconfiguration(req, authProvider.Name)
+	updatedAuthProvider, err := publishAuthProviderSyncRevision(req, authProvider.Name)
 	if err != nil {
 		return err
 	}
@@ -317,7 +331,7 @@ func ensureAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) (*
 	return cleanup, nil
 }
 
-func updateAuthProviderForDeconfiguration(req api.Context, authProviderName string) (*v1.AuthProvider, error) {
+func publishAuthProviderSyncRevision(req api.Context, authProviderName string) (*v1.AuthProvider, error) {
 	var authProvider v1.AuthProvider
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := req.Get(&authProvider, authProviderName); err != nil {
@@ -330,7 +344,7 @@ func updateAuthProviderForDeconfiguration(req api.Context, authProviderName stri
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("update auth provider for deconfiguration: %w", err)
+		return nil, fmt.Errorf("publish sync revision for auth provider %q: %w", authProviderName, err)
 	}
 	return &authProvider, nil
 }
