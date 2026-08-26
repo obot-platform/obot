@@ -34,7 +34,9 @@ import (
 
 const (
 	bridgePathPrefix          = "/tunnel/bridge/"
+	compositeRegisterPath     = "/tunnel/composite/register/"
 	bridgeAuthorizationHeader = "X-Obot-Tunnel-Bridge-Authorization"
+	compositeOwnerHeader      = "X-Obot-MCP-Composite-Owner"
 	bridgePrincipalName       = "obot-tunnel-bridge"
 	tunnelPeerPrincipalName   = "obot-tunnel-peer"
 	tunnelNameHeader          = "X-Obot-Tunnel-Name"
@@ -43,6 +45,8 @@ const (
 	forwardErrorHeader  = "X-Obot-Tunnel-Error"
 	forwardNetwork      = "obot-http"
 	forwardAddress      = "request"
+	compositeNetwork    = "obot-mcp-composite"
+	compositeAddress    = "request"
 	disconnectNetwork   = "obot-control"
 	disconnectAddress   = "disconnect"
 )
@@ -61,6 +65,9 @@ type Manager struct {
 
 	mu          sync.RWMutex
 	connections map[string]map[*localTunnelConnection]struct{}
+
+	compositeMu            sync.Mutex
+	compositeRegistrations map[string]*compositeRegistration
 
 	peerMu          sync.Mutex
 	peers           map[string]struct{}
@@ -135,21 +142,23 @@ func NewManager(ctx context.Context, bridgeBaseURL string, tunnels kclient.Reade
 		return nil, err
 	}
 	m := &Manager{
-		PeerConfig:          peerConfig,
-		bridgeBaseURL:       parsedBaseURL.Scheme + "://" + parsedBaseURL.Host,
-		bridgeHost:          parsedBaseURL.Host,
-		bridgeAuthorization: "Bearer " + base64.RawURLEncoding.EncodeToString(bridgeAuthorization),
-		tunnels:             tunnels,
-		connections:         make(map[string]map[*localTunnelConnection]struct{}),
-		peers:               make(map[string]struct{}),
-		peerConnections:     make(map[net.Conn]string),
+		PeerConfig:             peerConfig,
+		bridgeBaseURL:          parsedBaseURL.Scheme + "://" + parsedBaseURL.Host,
+		bridgeHost:             parsedBaseURL.Host,
+		bridgeAuthorization:    "Bearer " + base64.RawURLEncoding.EncodeToString(bridgeAuthorization),
+		tunnels:                tunnels,
+		connections:            make(map[string]map[*localTunnelConnection]struct{}),
+		compositeRegistrations: make(map[string]*compositeRegistration),
+		peers:                  make(map[string]struct{}),
+		peerConnections:        make(map[net.Conn]string),
 	}
 	m.remoteDialer = remotedialer.New(m.authorizeRemoteDialer, remoteDialerErrorWriter)
 	m.remoteDialer.PeerID = peerConfig.ID
 	m.remoteDialer.PeerToken = peerConfig.Token
 	m.remoteDialer.ClientConnectAuthorizer = func(network, address string) bool {
 		return network == forwardNetwork && address == forwardAddress ||
-			network == disconnectNetwork && address == disconnectAddress
+			network == disconnectNetwork && address == disconnectAddress ||
+			network == compositeNetwork && address == compositeAddress
 	}
 
 	go func() {
@@ -557,6 +566,7 @@ func (m *Manager) Close() {
 		return
 	}
 	m.CloseAll()
+	m.CloseCompositeSessions()
 
 	m.peerMu.Lock()
 	if m.closed {
@@ -841,6 +851,10 @@ func (m *Manager) ServeBridge(w http.ResponseWriter, r *http.Request) {
 // HTTP body framing keeps the request and response directions independent
 // without relying on TCP CloseWrite semantics.
 func (m *Manager) roundTrip(ctx context.Context, key, tunnelName, method, target string, header http.Header, contentLength int64, body io.ReadCloser) (*http.Response, error) {
+	return m.roundTripAddress(ctx, key, forwardNetwork, forwardAddress, tunnelName, method, target, header, contentLength, body)
+}
+
+func (m *Manager) roundTripAddress(ctx context.Context, key, network, address, tunnelName, method, target string, header http.Header, contentLength int64, body io.ReadCloser) (*http.Response, error) {
 	outboundBody := body
 	if body != nil && body != http.NoBody {
 		// The inbound HTTP server owns body. The outbound transport may close
@@ -855,7 +869,11 @@ func (m *Manager) roundTrip(ctx context.Context, key, tunnelName, method, target
 	}
 	request.Header = header.Clone()
 	request.Header.Set(forwardTargetHeader, base64.RawURLEncoding.EncodeToString([]byte(target)))
-	request.Header.Set(tunnelNameHeader, tunnelName)
+	if tunnelName != "" {
+		request.Header.Set(tunnelNameHeader, tunnelName)
+	} else {
+		request.Header.Del(tunnelNameHeader)
+	}
 	request.Header.Del(forwardErrorHeader)
 	request.ContentLength = contentLength
 
@@ -863,7 +881,7 @@ func (m *Manager) roundTrip(ctx context.Context, key, tunnelName, method, target
 		DisableCompression: true,
 		DisableKeepAlives:  true,
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return m.remoteDialer.Dialer(key)(ctx, forwardNetwork, forwardAddress)
+			return m.remoteDialer.Dialer(key)(ctx, network, address)
 		},
 	}
 	response, err := transport.RoundTrip(request)

@@ -754,6 +754,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Gateway APIs
 	services.GatewayServer.AddRoutes(services.APIServer, http.HandlerFunc(services.TunnelManager.ServeBridge))
+	services.APIServer.HTTPHandle("GET /tunnel/composite/register/{key}", http.HandlerFunc(services.TunnelManager.ServeCompositeRegistration))
 
 	// Well-known
 	wellknown.SetupHandlers(services.ServerURL, services.OAuthServerConfig, services.RegistryNoAuth, mux)

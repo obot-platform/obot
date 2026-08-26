@@ -109,6 +109,10 @@ func compositeLoopbackURLs(serverURL, mcpServerName string, transform func(strin
 	return audienceURL, transform(audienceURL)
 }
 
+func compositeSessionKey(serverConfig mcp.ServerConfig) string {
+	return tunnel.CompositeSessionKey(serverConfig.MCPServerName)
+}
+
 func NewHandler(ctx context.Context, mcpSessionManager *mcp.SessionManager, globalTokenStore mcp.GlobalTokenStore, tokenService *persistent.TokenService, auditLogCollector proxyAuditCollector, serverURL, dsn, secretBindingAllowedLabel string, tunnelManager *tunnel.Manager) (*Handler, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -142,6 +146,9 @@ func (h *Handler) Close() error {
 	if h.cancel != nil {
 		h.cancel()
 	}
+	if h.tunnelManager != nil {
+		h.tunnelManager.CloseCompositeSessions()
+	}
 
 	if h.composite != nil {
 		return h.composite.Close()
@@ -168,12 +175,34 @@ func (h *Handler) Proxy(req api.Context) error {
 		return err
 	}
 
+	isCompositeRequest := strings.HasSuffix(req.URL.Path, "/mcp-connect-composite/"+req.PathValue("mcp_id"))
+	if isCompositeRequest {
+		ownerMarkerPresent, ownerLocal := h.tunnelManager.ConsumeCompositeOwnerRequest(req.Request)
+		if ownerMarkerPresent && !ownerLocal {
+			http.Error(req.ResponseWriter, "invalid composite owner marker", http.StatusForbidden)
+			return nil
+		}
+		if !ownerLocal {
+			key := compositeSessionKey(serverConfig)
+			if !h.tunnelManager.HasCompositeSession(key) {
+				if err := h.tunnelManager.ClaimCompositeSession(req.Context(), h.ctx, key); err != nil {
+					http.Error(req.ResponseWriter, "composite owner is unavailable", http.StatusServiceUnavailable)
+					return nil
+				}
+			}
+			if err := h.tunnelManager.ForwardComposite(req.ResponseWriter, req.Request, key, serverConfig.MCPServerName); err != nil {
+				http.Error(req.ResponseWriter, "composite owner is unavailable", http.StatusServiceUnavailable)
+			}
+			return nil
+		}
+	}
+
 	var (
 		token       string
 		tokenSource oauth2.TokenSource
 		now         = time.Now()
 	)
-	if !strings.HasSuffix(req.URL.Path, "/mcp-connect-composite/"+req.PathValue("mcp_id")) {
+	if !isCompositeRequest {
 		// For composite runtimes, the /mcp-connect/{mcp_id} path only handles audit logs and hooks.
 		// The URL is changed to /mcp-connect-composite/{mcp_id} which comes back here and handles
 		// the multi-MCP server configuration (and calls no audit logs nor hooks).

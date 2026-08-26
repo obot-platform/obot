@@ -155,6 +155,25 @@ func TestTunnelAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
+			name:    "tunnel bridge principal can register composite",
+			method:  http.MethodGet,
+			path:    "/tunnel/composite/register/obot-mcp-composite-key",
+			groups:  []string{types.GroupTunnelBridge},
+			allowed: true,
+		},
+		{
+			name:   "tunnel bridge principal cannot post composite registration",
+			method: http.MethodPost,
+			path:   "/tunnel/composite/register/obot-mcp-composite-key",
+			groups: []string{types.GroupTunnelBridge},
+		},
+		{
+			name:   "tunnel bridge principal cannot use nested composite registration path",
+			method: http.MethodGet,
+			path:   "/tunnel/composite/register/obot-mcp-composite-key/extra",
+			groups: []string{types.GroupTunnelBridge},
+		},
+		{
 			name:   "tunnel bridge principal requires target",
 			method: http.MethodGet,
 			path:   "/tunnel/bridge/",
@@ -188,6 +207,12 @@ func TestTunnelAuthorization(t *testing.T) {
 			name:   "ordinary authenticated user cannot access tunnel bridge",
 			method: http.MethodPost,
 			path:   "/tunnel/bridge/target",
+			groups: []string{types.GroupAuthenticated},
+		},
+		{
+			name:   "ordinary authenticated user cannot register composite",
+			method: http.MethodGet,
+			path:   "/tunnel/composite/register/obot-mcp-composite-key",
 			groups: []string{types.GroupAuthenticated},
 		},
 		{

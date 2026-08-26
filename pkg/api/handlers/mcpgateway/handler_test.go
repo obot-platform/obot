@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	obotmcp "github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/safehttp"
 	"golang.org/x/oauth2"
 )
@@ -142,5 +143,16 @@ func TestCompositeLoopbackURLsUsesBackendTargetAndPublicAudience(t *testing.T) {
 	wantTargetURL := "http://obot.obot-system.svc.cluster.local/mcp-connect-composite/mcp-composite"
 	if targetURL != wantTargetURL {
 		t.Fatalf("target URL = %q, want %q", targetURL, wantTargetURL)
+	}
+}
+
+func TestCompositeSessionKeyUsesResolvedServerName(t *testing.T) {
+	firstAlias := obotmcp.ServerConfig{MCPServerName: "resolved-composite", UserID: "user1"}
+	secondAlias := obotmcp.ServerConfig{MCPServerName: "resolved-composite", UserID: "user2"}
+	if compositeSessionKey(firstAlias) != compositeSessionKey(secondAlias) {
+		t.Fatal("different URL IDs resolving to one MCP server name did not share an affinity key")
+	}
+	if compositeSessionKey(firstAlias) == compositeSessionKey(obotmcp.ServerConfig{MCPServerName: "other-composite"}) {
+		t.Fatal("different MCP server names shared an affinity key")
 	}
 }

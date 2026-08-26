@@ -1387,6 +1387,7 @@ func newManagerTestServer(ctx context.Context, t *testing.T, readers ...kclient.
 	})
 	mux.HandleFunc("GET "+PeerConnectPath, manager.ServePeer)
 	mux.HandleFunc("/tunnel/bridge/{target}", manager.ServeBridge)
+	mux.HandleFunc("GET /tunnel/composite/register/{key}", manager.ServeCompositeRegistration)
 	server := httptest.NewUnstartedServer(mux)
 	server.Listener = listener
 	server.Start()

@@ -26,8 +26,11 @@ const (
 
 var (
 	tunnelResources       = newPathMatcher("GET /tunnel/connect")
-	tunnelBridgeResources = newPathMatcher("/tunnel/bridge/{target}")
-	tunnelPeerResources   = newPathMatcher("GET /tunnel/peer")
+	tunnelBridgeResources = newPathMatcher(
+		"/tunnel/bridge/{target}",
+		"GET /tunnel/composite/register/{key}",
+	)
+	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
 		"/api/mcp-tunnels",
