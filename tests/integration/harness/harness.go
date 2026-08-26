@@ -5,12 +5,12 @@
 package harness
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"os"
 	"slices"
 	"testing"
+
+	"uuid"
 )
 
 // Harness is the entry point for an integration test. It holds the base URL of
@@ -35,7 +35,7 @@ func New(t *testing.T) *Harness {
 
 	h := &Harness{
 		BaseURL: url,
-		RunID:   newRunID(),
+		RunID:   uuid.New().String(),
 		// Stream requests set their own deadline; ordinary requests set one per call.
 		HTTP: &http.Client{},
 	}
@@ -54,10 +54,4 @@ func (h *Harness) runCleanups() {
 	for _, v := range slices.Backward(h.cleanups) {
 		v()
 	}
-}
-
-func newRunID() string {
-	var b [6]byte
-	_, _ = rand.Read(b[:])
-	return hex.EncodeToString(b[:])
 }

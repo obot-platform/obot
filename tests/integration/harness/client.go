@@ -69,12 +69,6 @@ func (h *Harness) Post(t *testing.T, path string, body, out any) {
 	h.do(t, http.MethodPost, path, body, out)
 }
 
-// Put issues PUT path with body, decoding into out.
-func (h *Harness) Put(t *testing.T, path string, body, out any) {
-	t.Helper()
-	h.do(t, http.MethodPut, path, body, out)
-}
-
 // Delete issues DELETE path.
 func (h *Harness) Delete(t *testing.T, path string) {
 	t.Helper()

@@ -18,7 +18,6 @@ import (
 
 	"github.com/obot-platform/obot/pkg/server"
 	"github.com/obot-platform/obot/pkg/services"
-	"github.com/sirupsen/logrus"
 )
 
 type obotApplication struct {
@@ -26,9 +25,6 @@ type obotApplication struct {
 	done            chan error
 	workDir         string
 	originalWorkDir string
-	dockerHostSet   bool
-	providerAPIKeys map[string]string
-	logLevel        logrus.Level
 	exited          bool
 }
 
@@ -80,26 +76,19 @@ func startObotApplication() (*obotApplication, error) {
 	app := &obotApplication{
 		workDir:         workDir,
 		originalWorkDir: originalWorkDir,
-		providerAPIKeys: make(map[string]string),
-		logLevel:        logrus.GetLevel(),
 		done:            make(chan error, 1),
 	}
-	logrus.SetLevel(logrus.WarnLevel)
 	if err := os.Setenv("OBOT_INTEGRATION_BASE_URL", baseURL); err != nil {
 		_ = app.cleanup()
 		return nil, err
 	}
 	for _, name := range providerAPIKeyEnvVars {
-		if value, ok := os.LookupEnv(name); ok {
-			app.providerAPIKeys[name] = value
-			if err := os.Unsetenv(name); err != nil {
-				_ = app.cleanup()
-				return nil, fmt.Errorf("unset %s for integration test: %w", name, err)
-			}
+		if err := os.Unsetenv(name); err != nil {
+			_ = app.cleanup()
+			return nil, fmt.Errorf("unset %s for integration test: %w", name, err)
 		}
 	}
-	app.dockerHostSet, err = configureDockerHost()
-	if err != nil {
+	if err := configureDockerHost(); err != nil {
 		_ = app.cleanup()
 		return nil, err
 	}
@@ -139,7 +128,8 @@ func integrationServerConfig(httpPort, storagePort int, workDir string) services
 		MultiUserIdleServerShutdownHours:  -1,
 		IdleAgentShutdownHours:            -1,
 		MCPAuditLogPersistIntervalSeconds: 5,
-		MCPAuditLogsPersistBatchSize:      1000}
+		MCPAuditLogsPersistBatchSize:      1000,
+	}
 	return config
 }
 
@@ -155,25 +145,25 @@ func availablePort() (int, error) {
 	return port, nil
 }
 
-func configureDockerHost() (bool, error) {
+func configureDockerHost() error {
 	if os.Getenv("DOCKER_HOST") != "" {
-		return false, nil
+		return nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}").Output()
 	if err != nil {
-		return false, fmt.Errorf("inspect active Docker context: %w", err)
+		return fmt.Errorf("inspect active Docker context: %w", err)
 	}
 	host := strings.TrimSpace(string(output))
 	if host == "" {
-		return false, errors.New("active Docker context has no endpoint")
+		return errors.New("active Docker context has no endpoint")
 	}
 	if err := os.Setenv("DOCKER_HOST", host); err != nil {
-		return false, err
+		return err
 	}
-	return true, nil
+	return nil
 }
 
 func (a *obotApplication) waitForHealth(baseURL string, timeout time.Duration) error {
@@ -223,14 +213,6 @@ func (a *obotApplication) stop() error {
 
 func (a *obotApplication) cleanup() error {
 	var result error
-	result = errors.Join(result, os.Unsetenv("OBOT_INTEGRATION_BASE_URL"))
-	for name, value := range a.providerAPIKeys {
-		result = errors.Join(result, os.Setenv(name, value))
-	}
-	if a.dockerHostSet {
-		result = errors.Join(result, os.Unsetenv("DOCKER_HOST"))
-	}
-	logrus.SetLevel(a.logLevel)
 	result = errors.Join(result, os.Chdir(a.originalWorkDir))
 	result = errors.Join(result, os.RemoveAll(a.workDir))
 	return result
