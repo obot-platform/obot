@@ -45,7 +45,7 @@ func TestRemovedEntryWithServerBecomesDetached(t *testing.T) {
 	secondServer.Name = "ms2context7"
 	c := newCatalogFakeClient(entry, server, secondServer)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &updated))
@@ -74,7 +74,7 @@ func TestUnreferencedRemovedEntryIsDeleted(t *testing.T) {
 	entry := managedCatalogEntry(t, catalog, "default-context7-12345678")
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 
 	var deleted v1.MCPServerCatalogEntry
 	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &deleted)
@@ -97,7 +97,7 @@ func TestEntriesFromRemovedSourceAreDeleted(t *testing.T) {
 	catalog.Spec.SourceURLs = nil
 	c := newCatalogFakeClient(managed, other, server)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 
 	for _, entry := range []*v1.MCPServerCatalogEntry{managed, other} {
 		var deleted v1.MCPServerCatalogEntry
@@ -114,7 +114,7 @@ func TestEditableEntryIsPreserved(t *testing.T) {
 	catalog.Spec.SourceURLs = nil
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 
 	var preserved v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
@@ -128,7 +128,7 @@ func TestEntryFromRemovedSourceWithoutApplyLabelsIsDeleted(t *testing.T) {
 	catalog.Spec.SourceURLs = nil
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 
 	var deleted v1.MCPServerCatalogEntry
 	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &deleted)
@@ -143,7 +143,7 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	desired.Spec.SourceURL = catalog.Spec.SourceURLs[0]
 	c := newCatalogFakeClient(entry)
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, []kclient.Object{desired}))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, []kclient.Object{desired}, allValidSourceIDs(catalog)))
 
 	var existing v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &existing))
@@ -356,7 +356,7 @@ func TestReconcileRemovedEntriesListsServersOnce(t *testing.T) {
 	}
 	c := &serverListCountingClient{Client: newCatalogFakeClient(referenced, unused, server)}
 
-	require.NoError(t, reconcileRemovedEntries(t.Context(), c, catalog, nil))
+	require.NoError(t, reconcileRemovedEntriesForSources(t.Context(), c, catalog, nil, allValidSourceIDs(catalog)))
 	assert.Equal(t, 1, c.serverListCalls)
 
 	var converted v1.MCPServerCatalogEntry
@@ -383,6 +383,14 @@ func testCatalog() *v1.MCPCatalog {
 		UID:       ktypes.UID("catalog-uid"),
 		Spec:      v1.MCPCatalogSpec{SourceURLs: []string{"github.com/obot-platform/catalog"}},
 	}
+}
+
+func allValidSourceIDs(catalog *v1.MCPCatalog) map[string]struct{} {
+	sourceIDs := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
+	for _, sourceURL := range catalog.Spec.SourceURLs {
+		sourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
+	}
+	return sourceIDs
 }
 
 func testSystemCatalog() *v1.SystemMCPCatalog {

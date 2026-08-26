@@ -249,21 +249,14 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 // nextResolvedCommitSHAs returns non-empty commit state for configured sources,
 // updating values for sources that completed this sync successfully.
 func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []string) map[string]string {
-	configured := make(map[string]struct{}, len(sourceURLs))
+	next := make(map[string]string, len(sourceURLs))
 	for _, sourceURL := range sourceURLs {
-		configured[sourceURL] = struct{}{}
-	}
-
-	next := maps.Clone(current)
-	if next == nil {
-		next = make(map[string]string)
-	}
-	for sourceURL, commitSHA := range next {
-		if _, ok := configured[sourceURL]; !ok || commitSHA == "" {
-			delete(next, sourceURL)
+		if commitSHA := successful[sourceURL]; commitSHA != "" {
+			next[sourceURL] = commitSHA
+		} else if commitSHA := current[sourceURL]; commitSHA != "" {
+			next[sourceURL] = commitSHA
 		}
 	}
-	maps.Copy(next, successful)
 	return next
 }
 
@@ -322,14 +315,6 @@ func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, name
 	return result, errsBySourceURL, nil
 }
 
-func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object) error {
-	loadedSources := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
-	for _, sourceURL := range catalog.Spec.SourceURLs {
-		loadedSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
-	}
-	return reconcileRemovedEntriesForSources(ctx, c, catalog, desired, loadedSources)
-}
-
 // reconcileRemovedEntriesForSources removes entries from deleted sources and
 // prunes or detaches missing entries belonging to successfully processed sources.
 func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, validSourceIDs map[string]struct{}) error {
@@ -339,10 +324,11 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 			desiredNames[entry.Name] = struct{}{}
 		}
 	}
-	configuredSourceIDs := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
+	configuredSources := make(map[string]struct{}, len(catalog.Spec.SourceURLs))
 	for _, sourceURL := range catalog.Spec.SourceURLs {
-		configuredSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
+		configuredSources[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
+
 	var entries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list catalog entries: %w", err)
@@ -358,7 +344,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 			continue
 		}
 
-		if _, configured := configuredSourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !configured {
+		if _, configured := configuredSources[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !configured {
 			if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to delete catalog entry %q from removed source: %w", entry.Name, err)
 			}
