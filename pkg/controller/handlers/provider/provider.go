@@ -408,6 +408,18 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 	return SetAuthProviderConfiguredStatus(req.Ctx, h.gatewayClient, h.licenseProvider, authProvider)
 }
 
+// ObserveAuthProviderDaemon runs on every Obot replica. It reconciles the
+// process-local daemon cache with the configuration revision stored in the
+// shared AuthProvider resource.
+func (h *Handler) ObserveAuthProviderDaemon(req router.Request, _ router.Response) error {
+	if req.Object == nil {
+		h.dispatcher.ForgetAuthProvider(req.Namespace, req.Name)
+		return nil
+	}
+
+	return h.dispatcher.ObserveAuthProvider(*req.Object.(*v1.AuthProvider))
+}
+
 func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, authProvider *v1.AuthProvider) error {
 	var (
 		configured          = true

@@ -2,6 +2,9 @@ package dispatcher
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -93,16 +96,34 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		return u, nil
 	}
 
-	d.ports.daemonLock.RLock()
-	if port := d.ports.daemonPorts[key]; port != 0 {
-		d.ports.daemonLock.RUnlock()
-		return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}, nil
-	}
-	d.ports.daemonLock.RUnlock()
+	for {
+		if err := ctx.Err(); err != nil {
+			return url.URL{}, err
+		}
 
+		u, err := d.urlForAuthProvider(ctx, key, namespace, authProviderName)
+		if errors.Is(err, errDaemonRevisionChanged) {
+			continue
+		}
+		return u, err
+	}
+}
+
+func (d *Dispatcher) urlForAuthProvider(ctx context.Context, key, namespace, authProviderName string) (url.URL, error) {
 	var authProvider v1.AuthProvider
 	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
+	}
+
+	revision, err := authProviderRevision(authProvider)
+	if err != nil {
+		return url.URL{}, err
+	}
+	if current := d.observeDaemonRevision(key, revision); !current {
+		return url.URL{}, errDaemonRevisionChanged
+	}
+	if u, ok := d.daemonURL(key, revision); ok {
+		return u, nil
 	}
 
 	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
@@ -123,7 +144,38 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
-	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
+	return d.startDaemon(credEnv, key, revision, authProvider.Spec.Command, authProvider.Spec.Args...)
+}
+
+// ObserveAuthProvider invalidates the process-local daemon when the shared AuthProvider
+// resource describes a newer configuration than the daemon was launched with.
+func (d *Dispatcher) ObserveAuthProvider(authProvider v1.AuthProvider) error {
+	revision, err := authProviderRevision(authProvider)
+	if err != nil {
+		return err
+	}
+	d.observeDaemonRevision(providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name), revision)
+	return nil
+}
+
+func authProviderRevision(authProvider v1.AuthProvider) (daemonRevision, error) {
+	payload := struct {
+		Spec         v1.AuthProviderSpec `json:"spec"`
+		SyncRevision string              `json:"syncRevision"`
+	}{
+		Spec:         authProvider.Spec,
+		SyncRevision: authProvider.Annotations[v1.AuthProviderSyncAnnotation],
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return daemonRevision{}, fmt.Errorf("failed to calculate auth provider revision: %w", err)
+	}
+	digest := sha256.Sum256(b)
+	return daemonRevision{
+		instance:   string(authProvider.UID),
+		generation: authProvider.Generation,
+		value:      hex.EncodeToString(digest[:]),
+	}, nil
 }
 
 // GroupIDPrefixForAuthProvider returns the group ID namespace declared by an auth provider.
@@ -179,7 +231,7 @@ func (d *Dispatcher) urlForModelProvider(ctx context.Context, key string, modelP
 
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
-	return d.startDaemon(credEnv, key, modelProvider.Spec.Command, modelProvider.Spec.Args...)
+	return d.startDaemon(credEnv, key, daemonRevision{}, modelProvider.Spec.Command, modelProvider.Spec.Args...)
 }
 
 func providerLogLevel() string {
@@ -195,6 +247,12 @@ func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
 
 func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
 	d.stopProvider("auth-provider", namespace, authProviderName)
+}
+
+// ForgetAuthProvider stops a local daemon and removes the desired revision for
+// a deleted AuthProvider so a newly created resource with the same name can start.
+func (d *Dispatcher) ForgetAuthProvider(namespace, authProviderName string) {
+	d.forgetDaemon(providerKeyForAuthProvider(namespace, authProviderName))
 }
 
 func (d *Dispatcher) stopProvider(providerType, namespace, providerName string) {

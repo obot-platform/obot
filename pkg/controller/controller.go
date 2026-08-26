@@ -48,6 +48,7 @@ func New(services *services.Services) (*Controller, error) {
 	}
 
 	c.setupRoutes()
+	c.setupStorageReplicaRoutes()
 	c.setupLocalK8sRoutes()
 
 	services.Router.PosStart(c.PostStart)
@@ -333,6 +334,13 @@ func (c *Controller) Start(ctx context.Context) error {
 	if err := c.services.Router.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start router: %w", err)
 	}
+	// Auth provider daemons are process-local, so this router intentionally has
+	// no leader election and observes shared storage changes on every replica.
+	if c.services.StorageReplicaRouter != nil {
+		if err := c.services.StorageReplicaRouter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start every-replica storage router: %w", err)
+		}
+	}
 
 	// Start the local Kubernetes router if it exists
 	if c.services.LocalRouter != nil {
@@ -349,6 +357,16 @@ func (c *Controller) Start(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (c *Controller) setupStorageReplicaRoutes() {
+	if c.services.StorageReplicaRouter == nil {
+		return
+	}
+
+	c.services.StorageReplicaRouter.Type(&v1.AuthProvider{}).
+		IncludeRemoved().
+		HandlerFunc(c.providerHandler.ObserveAuthProviderDaemon)
 }
 
 func ensureDefaultUserRoleSetting(ctx context.Context, client kclient.Client) error {

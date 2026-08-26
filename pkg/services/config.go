@@ -170,6 +170,7 @@ type Services struct {
 	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
 	StorageClient         storage.Client
 	Router                *router.Router
+	StorageReplicaRouter  *router.Router
 	PersistentTokenServer *persistent.TokenService
 	APIServer             *server.Server
 	GatewayClient         *client.Client
@@ -599,6 +600,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	// storageReplicaRouter is a controller that runs on all Obot replicas.
+	storageReplicaRouter, err := nah.NewRouter("obot-storage-replica", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		ElectionConfig: nil,
+		HealthzPort:    -1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create every-replica storage router: %w", err)
 	}
 
 	gatewayClient := client.New(
@@ -1252,6 +1264,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ServerURL:             config.Hostname,
 		StorageClient:         storageClient,
 		Router:                r,
+		StorageReplicaRouter:  storageReplicaRouter,
 		PersistentTokenServer: persistentTokenServer,
 		APIServer: server.NewServer(
 			storageClient,

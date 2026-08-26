@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"uuid"
 
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -152,14 +153,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		)
 	}
 
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		if authProvider.Annotations == nil {
-			authProvider.Annotations = make(map[string]string, 1)
-		}
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
-	}
+	setAuthProviderSyncRevision(&authProvider)
 
 	if err := req.Update(&authProvider); err != nil {
 		return fmt.Errorf("failed to update auth provider: %w", err)
@@ -329,7 +323,7 @@ func updateAuthProviderForDeconfiguration(req api.Context, authProviderName stri
 		if err := req.Get(&authProvider, authProviderName); err != nil {
 			return err
 		}
-		toggleAuthProviderSyncAnnotation(&authProvider)
+		setAuthProviderSyncRevision(&authProvider)
 		return req.Update(&authProvider)
 	})
 	if apierrors.IsNotFound(err) {
@@ -364,15 +358,11 @@ func markAuthProviderCleanupReady(req api.Context, cleanup *v1.AuthProviderClean
 	return nil
 }
 
-func toggleAuthProviderSyncAnnotation(authProvider *v1.AuthProvider) {
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		if authProvider.Annotations == nil {
-			authProvider.Annotations = make(map[string]string, 1)
-		}
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
+func setAuthProviderSyncRevision(authProvider *v1.AuthProvider) {
+	if authProvider.Annotations == nil {
+		authProvider.Annotations = make(map[string]string, 1)
 	}
+	authProvider.Annotations[v1.AuthProviderSyncAnnotation] = uuid.New().String()
 }
 
 func (ap *AuthProviderHandler) Reveal(req api.Context) error {

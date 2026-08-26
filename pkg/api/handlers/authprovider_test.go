@@ -138,3 +138,16 @@ func TestDeconfigurePersistsCleanupIntentBeforeSideEffects(t *testing.T) {
 	err := (&AuthProviderHandler{}).Deconfigure(req)
 	require.ErrorContains(t, err, "persist cleanup intent")
 }
+
+func TestSetAuthProviderSyncRevisionAlwaysChanges(t *testing.T) {
+	authProvider := &v1.AuthProvider{}
+
+	setAuthProviderSyncRevision(authProvider)
+	first := authProvider.Annotations[v1.AuthProviderSyncAnnotation]
+	setAuthProviderSyncRevision(authProvider)
+	second := authProvider.Annotations[v1.AuthProviderSyncAnnotation]
+
+	require.NotEmpty(t, first)
+	require.NotEmpty(t, second)
+	require.NotEqual(t, first, second)
+}
