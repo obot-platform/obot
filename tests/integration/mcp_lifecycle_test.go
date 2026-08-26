@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
-	nmcp "github.com/obot-platform/nanobot/pkg/mcp"
+	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	mmmcphttp "github.com/obot-platform/mmmcp/component/http"
+	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/tests/integration/harness"
 )
@@ -146,20 +148,23 @@ func TestMCPServerLifecycle_Containerized(t *testing.T) {
 
 func assertEchoToolCall(t *testing.T, baseURL, id, prefix, message string) {
 	t.Helper()
-	client, err := nmcp.NewClient(t.Context(), "integration-test", nmcp.Server{
-		BaseURL: baseURL + "/mcp-connect/" + id,
+	client := mmmcphttp.NewFactory(mmmcphttp.FactoryOptions{})
+	result, err := client.CallTool(t.Context(), mmmcpconfig.Server{
+		Name: "integration-test",
+		URL:  baseURL + "/mcp-connect/" + id,
+	}, &gomcp.CallToolParams{
+		Name:      "echo",
+		Arguments: map[string]any{"message": message},
 	})
-	if err != nil {
-		t.Fatalf("create MCP client: %v", err)
-	}
-	defer client.Close(false)
-
-	result, err := client.Call(t.Context(), "echo", map[string]any{"message": message})
 	if err != nil {
 		t.Fatalf("call echo tool: %v", err)
 	}
 	expected := prefix + message
-	if result.IsError || len(result.Content) != 1 || result.Content[0].Type != "text" || result.Content[0].Text != expected {
+	if result.IsError || len(result.Content) != 1 {
+		t.Fatalf("unexpected echo tool result: %+v", result)
+	}
+	text, ok := result.Content[0].(*gomcp.TextContent)
+	if !ok || text.Text != expected {
 		t.Fatalf("unexpected echo tool result: %+v", result)
 	}
 }
