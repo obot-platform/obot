@@ -9,6 +9,8 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
@@ -137,6 +139,76 @@ func TestDeconfigurePersistsCleanupIntentBeforeSideEffects(t *testing.T) {
 
 	err := (&AuthProviderHandler{}).Deconfigure(req)
 	require.ErrorContains(t, err, "persist cleanup intent")
+}
+
+func TestDeconfigurePublishesRevisionBeforeLaterCleanupFailure(t *testing.T) {
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "existing-revision",
+		},
+	}
+	storage := newFakeStorage(t, authProvider)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProvider.Name,
+		Name:    authProvider.Name,
+		Secrets: map[string]string{
+			"CLIENT_SECRET": "secret",
+		},
+	}))
+	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, nil, "", "", "")
+	t.Cleanup(providerDispatcher.Close)
+	handler := &AuthProviderHandler{
+		dispatcher:  providerDispatcher,
+		postgresDSN: "://invalid-postgres-dsn",
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/deconfigure", nil)
+	request.SetPathValue("id", authProvider.Name)
+	req := api.Context{
+		Request:       request,
+		Storage:       storage,
+		GatewayClient: gatewayClient,
+	}
+
+	err := handler.Deconfigure(req)
+	require.ErrorContains(t, err, "failed to connect to postgres")
+
+	var persisted v1.AuthProvider
+	require.NoError(t, req.Get(&persisted, authProvider.Name))
+	require.NotEqual(t, "existing-revision", persisted.Annotations[v1.AuthProviderSyncAnnotation])
+}
+
+func TestRollbackAuthProviderConfigurationDoesNotPublishWhenCredentialDeletionFails(t *testing.T) {
+	authProvider := v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "existing-revision",
+		},
+	}
+	storage := newFakeStorage(t, &authProvider)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.Close())
+	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, nil, "", "", "")
+	t.Cleanup(providerDispatcher.Close)
+	handler := &AuthProviderHandler{
+		dispatcher: providerDispatcher,
+	}
+	req := api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", nil),
+		Storage:       storage,
+		GatewayClient: gatewayClient,
+	}
+
+	err := handler.rollbackAuthProviderConfiguration(req, authProvider, errors.New("configuration rejected"))
+	require.ErrorContains(t, err, "configuration rejected")
+	require.ErrorContains(t, err, "roll back credential")
+
+	var persisted v1.AuthProvider
+	require.NoError(t, req.Get(&persisted, authProvider.Name))
+	require.Equal(t, "existing-revision", persisted.Annotations[v1.AuthProviderSyncAnnotation])
 }
 
 func TestSetAuthProviderSyncRevisionAlwaysChanges(t *testing.T) {

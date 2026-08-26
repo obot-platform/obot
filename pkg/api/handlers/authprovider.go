@@ -149,15 +149,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 			"only one authentication provider can be configured at a time. Please deconfigure %q first",
 			configuredProvider,
 		)
-
-		// Delete the credential we just configured, and publish a new sync revision so that every
-		// replica invalidates the daemon it may have started with the credential being deleted.
-		_, _ = req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name)
-		if _, err := publishAuthProviderSyncRevision(req, authProvider.Name); err != nil {
-			return errors.Join(badRequest, err)
-		}
-
-		return badRequest
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, badRequest)
 	}
 
 	setAuthProviderSyncRevision(&authProvider)
@@ -238,8 +230,16 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
+	// Publish the invalidation before any subsequent cleanup can fail so that every replica stops
+	// daemons that may still be running with the deleted credential. Do this even when the credential
+	// was already absent, since this request may be retrying an earlier partially completed deletion.
+	updatedAuthProvider, revisionErr := publishAuthProviderSyncRevision(req, authProvider.Name)
+
 	// Stop the auth provider so that the credential is completely removed from the system.
 	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
+	if revisionErr != nil {
+		return revisionErr
+	}
 
 	// The local auth provider keeps its sessions in Obot's database rather than in the sessions
 	// table the block below drops, so clear them out here.
@@ -271,11 +271,6 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 				return fmt.Errorf("failed to drop session_locks table: %w", err)
 			}
 		}
-	}
-
-	updatedAuthProvider, err := publishAuthProviderSyncRevision(req, authProvider.Name)
-	if err != nil {
-		return err
 	}
 
 	// Wait for the controllers to process to ensure the API will return correct configuration status.
