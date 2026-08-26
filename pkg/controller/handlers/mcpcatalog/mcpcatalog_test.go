@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -127,57 +126,4 @@ func TestNextResolvedCommitSHAsOnlyKeepsConfiguredGitSources(t *testing.T) {
 		"https://github.com/example/unchanged": "old-sha",
 		"https://github.com/example/changed":   "new-sha",
 	}, next)
-}
-
-func TestHasChangedPreviouslySyncedSource(t *testing.T) {
-	tests := []struct {
-		name       string
-		previous   map[string]string
-		successful map[string]string
-		want       bool
-	}{
-		{
-			name:       "existing source changed",
-			previous:   map[string]string{"source-a": "old"},
-			successful: map[string]string{"source-a": "new"},
-			want:       true,
-		},
-		{
-			name:       "new source does not force existing sources",
-			previous:   map[string]string{"source-a": "same"},
-			successful: map[string]string{"source-b": "new"},
-		},
-		{
-			name:       "unchanged source",
-			previous:   map[string]string{"source-a": "same"},
-			successful: map[string]string{"source-a": "same"},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, hasChangedPreviouslySyncedSource(test.previous, test.successful))
-		})
-	}
-}
-
-func TestPreviouslyAppliedUnversionedSourceRequiresCompleteReconciliation(t *testing.T) {
-	sourceURLs := []string{"https://example.com/catalog.yaml", "https://github.com/example/catalog"}
-	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
-	validSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
-	unversionedSourceIDs := validUnversionedSourceIDs(sourceURLs, previousCommits, validSourceIDs)
-
-	assert.True(t, containsAnySourceID(map[string]struct{}{
-		mcp.SourceIDForURL(sourceURLs[0]): {},
-	}, unversionedSourceIDs))
-}
-
-func TestNewUnversionedSourceDoesNotRequireCompleteReconciliation(t *testing.T) {
-	sourceURLs := []string{"https://example.com/new-catalog.yaml", "https://github.com/example/catalog"}
-	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
-	validSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
-	unversionedSourceIDs := validUnversionedSourceIDs(sourceURLs, previousCommits, validSourceIDs)
-
-	assert.NotEmpty(t, unversionedSourceIDs)
-	assert.False(t, containsAnySourceID(nil, unversionedSourceIDs))
 }

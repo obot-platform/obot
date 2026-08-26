@@ -149,7 +149,7 @@ func TestEntrySuppliedByRemainingSourceIsNotDeleted(t *testing.T) {
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &existing))
 }
 
-func TestReconcileRemovedEntriesDoesNotPruneWithIncompleteDesiredSet(t *testing.T) {
+func TestReconcileRemovedEntriesOnlyPrunesValidSources(t *testing.T) {
 	catalog := testCatalog()
 	unchangedSource := catalog.Spec.SourceURLs[0]
 	changedSource := "github.com/example/changed"
@@ -167,9 +167,10 @@ func TestReconcileRemovedEntriesDoesNotPruneWithIncompleteDesiredSet(t *testing.
 
 	var preserved v1.MCPServerCatalogEntry
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(failed), &preserved))
-	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(removedFromChanged), &preserved))
 	var removed v1.MCPServerCatalogEntry
-	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(removedSource), &removed)
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(removedFromChanged), &removed)
+	require.True(t, apierrors.IsNotFound(err))
+	err = c.Get(t.Context(), kclient.ObjectKeyFromObject(removedSource), &removed)
 	require.True(t, apierrors.IsNotFound(err))
 }
 
@@ -208,9 +209,17 @@ func TestReconcileRemovedSystemEntriesPreservesEntryWithoutSource(t *testing.T) 
 	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
 }
 
-func TestReconcileRemovedSystemEntriesDoesNotPruneWithIncompleteDesiredSet(t *testing.T) {
+func TestReconcileRemovedSystemEntriesPrunesValidSource(t *testing.T) {
 	catalog := testSystemCatalog()
 	catalog.Spec.SourceURLs = append(catalog.Spec.SourceURLs, "github.com/example/changed")
+	skipped := &v1.SystemMCPServerCatalogEntry{
+		Name:      "skipped",
+		Namespace: catalog.Namespace,
+		Spec: v1.SystemMCPServerCatalogEntrySpec{
+			SystemMCPCatalogName: catalog.Name,
+			SourceURL:            catalog.Spec.SourceURLs[0],
+		},
+	}
 	entry := &v1.SystemMCPServerCatalogEntry{
 		Name:      "shared",
 		Namespace: catalog.Namespace,
@@ -219,14 +228,17 @@ func TestReconcileRemovedSystemEntriesDoesNotPruneWithIncompleteDesiredSet(t *te
 			SourceURL:            catalog.Spec.SourceURLs[1],
 		},
 	}
-	c := newCatalogFakeClient(entry)
+	c := newCatalogFakeClient(skipped, entry)
 
 	require.NoError(t, reconcileRemovedSystemEntriesForSources(t.Context(), c, catalog, nil, map[string]struct{}{
 		mcp.SourceIDForURL(catalog.Spec.SourceURLs[1]): {},
 	}))
 
+	var removed v1.SystemMCPServerCatalogEntry
+	err := c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &removed)
+	require.True(t, apierrors.IsNotFound(err))
 	var preserved v1.SystemMCPServerCatalogEntry
-	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &preserved))
+	require.NoError(t, c.Get(t.Context(), kclient.ObjectKeyFromObject(skipped), &preserved))
 }
 
 func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T) {

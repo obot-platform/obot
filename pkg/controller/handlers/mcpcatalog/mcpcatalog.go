@@ -62,11 +62,6 @@ type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
 }
 
-type skippedCatalogSource struct {
-	url   string
-	token string
-}
-
 // userInfo is a wrapper around kuser.Info that includes the user's role.
 type userInfo struct {
 	kuser.Info
@@ -138,7 +133,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	validSourceIDs := make(map[string]struct{})
 	successfulCommitSHAs := make(map[string]string)
 	skippedSourceIDs := make(map[string]struct{})
-	var skippedSources []skippedCatalogSource
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
@@ -158,7 +152,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			} else if commitSHA == mcpCatalog.Status.ResolvedCommitSHAs[sourceURL] {
 				slog.Info("Skipping unchanged MCP catalog source", "catalog", mcpCatalog.Name, "source", sourceURL, "commit", commitSHA)
 				skippedSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
-				skippedSources = append(skippedSources, skippedCatalogSource{url: sourceURL, token: token})
 				continue
 			}
 		}
@@ -177,33 +170,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 
 		toAdd = append(toAdd, objs...)
-	}
-
-	mustReadSkippedSources := hasChangedPreviouslySyncedSource(mcpCatalog.Status.ResolvedCommitSHAs, successfulCommitSHAs)
-	unversionedSourceIDs := validUnversionedSourceIDs(mcpCatalog.Spec.SourceURLs, mcpCatalog.Status.ResolvedCommitSHAs, validSourceIDs)
-	if !mustReadSkippedSources && len(skippedSources) > 0 && len(unversionedSourceIDs) > 0 {
-		persistedSourceIDs, err := persistedCatalogSourceIDs(req.Ctx, req.Client, mcpCatalog)
-		if err != nil {
-			return err
-		}
-		mustReadSkippedSources = containsAnySourceID(persistedSourceIDs, unversionedSourceIDs)
-	}
-	if mustReadSkippedSources {
-		for _, source := range skippedSources {
-			objs, commitSHA, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, source.url, source.token, validationOptions)
-			if err != nil {
-				slog.Error("failed to read previously skipped catalog source", "source", source.url, "error", err)
-				mcpCatalog.Status.SyncErrors[source.url] = err.Error()
-			} else {
-				slog.Info("Read previously skipped MCP catalog source for complete reconciliation", "catalog", mcpCatalog.Name, "source", source.url, "entries", len(objs))
-				validSourceIDs[mcp.SourceIDForURL(source.url)] = struct{}{}
-				delete(skippedSourceIDs, mcp.SourceIDForURL(source.url))
-				if commitSHA != "" {
-					successfulCommitSHAs[source.url] = commitSHA
-				}
-			}
-			toAdd = append(toAdd, objs...)
-		}
 	}
 
 	if len(toAdd) > 0 {
@@ -301,75 +267,6 @@ func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []
 	return next
 }
 
-// hasChangedPreviouslySyncedSource reports whether this sync successfully read
-// a source at a different commit than its last successful sync.
-func hasChangedPreviouslySyncedSource(previousCommits, successfulCommits map[string]string) bool {
-	for sourceURL, commitSHA := range successfulCommits {
-		previousCommitSHA := previousCommits[sourceURL]
-		if previousCommitSHA != "" && commitSHA != previousCommitSHA {
-			return true
-		}
-	}
-	return false
-}
-
-// validUnversionedSourceIDs returns successfully processed sources that have no
-// previous Git commit and therefore cannot be proven unchanged by SHA.
-func validUnversionedSourceIDs(sourceURLs []string, previousCommits map[string]string, validSourceIDs map[string]struct{}) map[string]struct{} {
-	result := make(map[string]struct{})
-	for _, sourceURL := range sourceURLs {
-		if previousCommits[sourceURL] == "" {
-			sourceID := mcp.SourceIDForURL(sourceURL)
-			if _, valid := validSourceIDs[sourceID]; valid {
-				result[sourceID] = struct{}{}
-			}
-		}
-	}
-	return result
-}
-
-// containsAnySourceID reports whether sourceIDs and candidates intersect.
-func containsAnySourceID(sourceIDs, candidates map[string]struct{}) bool {
-	for sourceID := range candidates {
-		if _, ok := sourceIDs[sourceID]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-// persistedCatalogSourceIDs returns normalized source IDs represented by the
-// catalog's currently stored source-managed entries.
-func persistedCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog) (map[string]struct{}, error) {
-	var entries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
-		return nil, fmt.Errorf("failed to list persisted catalog source IDs: %w", err)
-	}
-	sourceIDs := make(map[string]struct{})
-	for _, entry := range entries.Items {
-		if entry.Spec.SourceURL != "" {
-			sourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)] = struct{}{}
-		}
-	}
-	return sourceIDs, nil
-}
-
-// persistedSystemCatalogSourceIDs returns normalized source IDs represented by
-// the system catalog's currently stored source-managed entries.
-func persistedSystemCatalogSourceIDs(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog) (map[string]struct{}, error) {
-	var entries v1.SystemMCPServerCatalogEntryList
-	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
-		return nil, fmt.Errorf("failed to list persisted system catalog source IDs: %w", err)
-	}
-	sourceIDs := make(map[string]struct{})
-	for _, entry := range entries.Items {
-		if entry.Spec.SourceURL != "" {
-			sourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)] = struct{}{}
-		}
-	}
-	return sourceIDs, nil
-}
-
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	if existing := syncErrors[sourceURL]; existing != "" {
 		syncErrors[sourceURL] = existing + "; " + errMsg
@@ -433,8 +330,8 @@ func reconcileRemovedEntries(ctx context.Context, c kclient.Client, catalog *v1.
 	return reconcileRemovedEntriesForSources(ctx, c, catalog, desired, loadedSources)
 }
 
-// reconcileRemovedEntriesForSources removes entries from deleted sources and,
-// when desired covers every configured source, prunes or detaches missing entries.
+// reconcileRemovedEntriesForSources removes entries from deleted sources and
+// prunes or detaches missing entries belonging to successfully processed sources.
 func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.MCPCatalog, desired []kclient.Object, validSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
@@ -446,8 +343,6 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 	for _, sourceURL := range catalog.Spec.SourceURLs {
 		configuredSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
-	hasCompleteDesiredSet := maps.Equal(configuredSourceIDs, validSourceIDs)
-
 	var entries v1.MCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list catalog entries: %w", err)
@@ -470,7 +365,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 			slog.Info("Deleted MCP catalog entry from removed source", "catalog", catalog.Name, "entry", entry.Name, "source", entry.Spec.SourceURL)
 			continue
 		}
-		if !hasCompleteDesiredSet {
+		if _, valid := validSourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)]; !valid {
 			continue
 		}
 
@@ -513,7 +408,7 @@ func reconcileRemovedEntriesForSources(ctx context.Context, c kclient.Client, ca
 }
 
 // reconcileRemovedSystemEntriesForSources removes entries from deleted sources
-// and prunes missing entries only when desired covers every configured source.
+// and prunes missing entries belonging to successfully processed sources.
 func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Client, catalog *v1.SystemMCPCatalog, desired []kclient.Object, validSourceIDs map[string]struct{}) error {
 	desiredNames := make(map[string]struct{}, len(desired))
 	for _, obj := range desired {
@@ -525,8 +420,6 @@ func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Clie
 	for _, sourceURL := range catalog.Spec.SourceURLs {
 		configuredSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
 	}
-	hasCompleteDesiredSet := maps.Equal(configuredSourceIDs, validSourceIDs)
-
 	var entries v1.SystemMCPServerCatalogEntryList
 	if err := c.List(ctx, &entries, kclient.InNamespace(catalog.Namespace), kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
 		return fmt.Errorf("failed to list system catalog entries: %w", err)
@@ -540,7 +433,8 @@ func reconcileRemovedSystemEntriesForSources(ctx context.Context, c kclient.Clie
 			continue
 		}
 		_, configured := configuredSourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)]
-		if configured && !hasCompleteDesiredSet {
+		_, valid := validSourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)]
+		if configured && !valid {
 			continue
 		}
 		if err := c.Delete(ctx, entry); err != nil && !apierrors.IsNotFound(err) {
@@ -778,7 +672,6 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 	validSourceIDs := make(map[string]struct{})
 	successfulCommitSHAs := make(map[string]string)
-	var skippedSources []skippedCatalogSource
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
 		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
@@ -797,7 +690,6 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 				slog.Warn("Failed to resolve system MCP catalog source commit; falling back to full source sync", "catalog", systemCatalog.Name, "source", sourceURL, "error", resolveErr)
 			} else if commitSHA == systemCatalog.Status.ResolvedCommitSHAs[sourceURL] {
 				slog.Info("Skipping unchanged system MCP catalog source", "catalog", systemCatalog.Name, "source", sourceURL, "commit", commitSHA)
-				skippedSources = append(skippedSources, skippedCatalogSource{url: sourceURL, token: token})
 				continue
 			}
 		}
@@ -816,32 +708,6 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		}
 
 		toAdd = append(toAdd, objs...)
-	}
-
-	mustReadSkippedSources := hasChangedPreviouslySyncedSource(systemCatalog.Status.ResolvedCommitSHAs, successfulCommitSHAs)
-	unversionedSourceIDs := validUnversionedSourceIDs(systemCatalog.Spec.SourceURLs, systemCatalog.Status.ResolvedCommitSHAs, validSourceIDs)
-	if !mustReadSkippedSources && len(skippedSources) > 0 && len(unversionedSourceIDs) > 0 {
-		persistedSourceIDs, err := persistedSystemCatalogSourceIDs(req.Ctx, req.Client, systemCatalog)
-		if err != nil {
-			return err
-		}
-		mustReadSkippedSources = containsAnySourceID(persistedSourceIDs, unversionedSourceIDs)
-	}
-	if mustReadSkippedSources {
-		for _, source := range skippedSources {
-			objs, commitSHA, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, source.url, source.token)
-			if err != nil {
-				slog.Error("failed to read previously skipped system catalog source", "source", source.url, "error", err)
-				systemCatalog.Status.SyncErrors[source.url] = err.Error()
-			} else {
-				slog.Info("Read previously skipped system MCP catalog source for complete reconciliation", "catalog", systemCatalog.Name, "source", source.url, "entries", len(objs))
-				validSourceIDs[mcp.SourceIDForURL(source.url)] = struct{}{}
-				if commitSHA != "" {
-					successfulCommitSHAs[source.url] = commitSHA
-				}
-			}
-			toAdd = append(toAdd, objs...)
-		}
 	}
 
 	systemCatalog.Status.LastSyncTime = metav1.Now()
