@@ -108,7 +108,7 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 		sessionID: mcpSessionID(req.Header, req.URL),
 		disabled:  runner == nil || len(hooks) == 0,
 	}
-	if processor.disabled || req.Method != http.MethodPost || req.Body == nil {
+	if req.Method != http.MethodPost || req.Body == nil || (processor.disabled && processor.audit == nil) {
 		return processor, nil
 	}
 
@@ -136,10 +136,15 @@ func newHookProcessor(req *http.Request, runner mcp.HookRunner, hooks mcp.Hooks,
 
 	if message.Method == "" {
 		// If there is no method on this message, it's a protocol response
-		body = processor.filterResponseMessage(body, hookOriginServer)
-		clearMCPHookRequestHeaders(req)
-		setMCPRequestBody(req, body)
-		processor.audit.recordResponse(body, http.StatusOK, nil, "")
+		if !processor.disabled {
+			body = processor.filterResponseMessage(body, hookOriginServer)
+			clearMCPHookRequestHeaders(req)
+			setMCPRequestBody(req, body)
+		}
+		processor.audit.recordClientResponse(body)
+		return processor, nil
+	}
+	if processor.disabled {
 		return processor, nil
 	}
 

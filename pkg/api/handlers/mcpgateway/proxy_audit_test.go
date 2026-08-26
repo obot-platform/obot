@@ -536,6 +536,56 @@ func TestMCPProxyAuditCorrelatesLegacySSEThroughPersistenceFields(t *testing.T) 
 	}
 }
 
+func TestMCPProxyAuditCorrelatesServerRequestResponseWithoutHooks(t *testing.T) {
+	collector := new(recordingProxyAuditCollector)
+	metadata := map[string]string{"mcpID": "mcp-1", "userID": "user-1"}
+	storageClient := newMCPProxyTestStorage()
+
+	get, err := http.NewRequest(http.MethodGet, "http://obot.example/mcp", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	get.Header.Set(mcpSessionHeader, "session-1")
+	getAuditor, err := newProxyAudit(get, metadata, collector, storageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stream := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       io.NopCloser(strings.NewReader("event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":9,\"method\":\"roots/list\"}\n\n")),
+	}
+	consumeAuditResponse(t, getAuditor, stream)
+
+	post, err := http.NewRequest(http.MethodPost, "http://obot.example/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":9,"result":{"roots":[]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	post.Header.Set(mcpSessionHeader, "session-1")
+	post.Header.Set("X-Client-Response", "roots-listed")
+	postAuditor, err := newProxyAudit(post, metadata, collector, storageClient)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := newHookProcessor(post, nil, nil, nil, postAuditor, newHookCorrelationStore(storageClient, metadata)); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(collector.entries) != 2 {
+		t.Fatalf("expected server request and client response audit entries, got %d", len(collector.entries))
+	}
+	requestEntry, responseEntry := collector.entries[0], collector.entries[1]
+	if collector.received[0] || requestEntry.CallType != "roots/list" || requestEntry.SessionID != "session-1" || requestEntry.RequestID != "9" {
+		t.Fatalf("unexpected server request entry: %#v received=%v", requestEntry, collector.received[0])
+	}
+	if !collector.received[1] || responseEntry.CallType != "response" || responseEntry.SessionID != "session-1" || responseEntry.RequestID != "9" {
+		t.Fatalf("unexpected client response entry: %#v received=%v", responseEntry, collector.received[1])
+	}
+	if !strings.Contains(string(responseEntry.ResponseHeaders), "X-Client-Response") || !strings.Contains(string(responseEntry.ResponseHeaders), "roots-listed") {
+		t.Fatalf("client response headers were not captured: %s", responseEntry.ResponseHeaders)
+	}
+}
+
 func consumeAuditResponse(t *testing.T, auditor *proxyAudit, resp *http.Response) {
 	t.Helper()
 	if err := auditor.wrapResponse(resp); err != nil {

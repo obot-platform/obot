@@ -462,6 +462,17 @@ func (a *proxyAudit) recordResponse(body []byte, statusCode int, readErr error, 
 	a.submit(entry, true)
 }
 
+func (a *proxyAudit) recordClientResponse(body []byte) {
+	if a == nil {
+		return
+	}
+
+	// This POST is the MCP client's response to a server-originated request, so
+	// its sanitized inbound HTTP headers belong to the protocol response entry.
+	a.entry.ResponseHeaders = bytes.Clone(a.entry.RequestHeaders)
+	a.recordResponse(body, http.StatusOK, nil, "")
+}
+
 func (a *proxyAudit) recordSSEEvent(event string, data []byte, statusCode int) {
 	if a == nil {
 		return
