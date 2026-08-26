@@ -83,8 +83,8 @@ test:
 	cd apiclient && go test -v -cover ./... && cd ..
 	cd logger && go test -v -cover ./... && cd ..
 
-# Integration tests start an isolated obot server automatically. See
-# tests/integration/README.md for prerequisites and supported overrides.
+# Integration tests start an isolated obot server and require Docker plus npm
+# and GHCR registry access.
 test-integration:
 	go test -count=1 -v -tags=integration -timeout=10m ./tests/integration/...
 
