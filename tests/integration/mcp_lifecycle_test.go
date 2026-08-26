@@ -62,7 +62,7 @@ func TestMCPServerLifecycle_NPXEverything(t *testing.T) {
 			t.Fatalf("catalog entry create returned empty ID: %+v", entry)
 		}
 
-		created = h.CreateMCPServerFromCatalogEntry(t, system.DefaultCatalog, entry.ID)
+		created = h.CreateMCPServerFromCatalogEntry(t, entry.ID)
 		if created.ID == "" {
 			t.Fatalf("server create returned empty ID: %+v", created)
 		}

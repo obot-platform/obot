@@ -27,9 +27,12 @@ type obotApplication struct {
 	workDir         string
 	originalWorkDir string
 	dockerHostSet   bool
+	providerAPIKeys map[string]string
 	logLevel        logrus.Level
 	exited          bool
 }
+
+var providerAPIKeyEnvVars = []string{"OPENAI_API_KEY", "ANTHROPIC_API_KEY"}
 
 func TestMain(m *testing.M) {
 	app, err := startObotApplication()
@@ -77,6 +80,7 @@ func startObotApplication() (*obotApplication, error) {
 	app := &obotApplication{
 		workDir:         workDir,
 		originalWorkDir: originalWorkDir,
+		providerAPIKeys: make(map[string]string),
 		logLevel:        logrus.GetLevel(),
 		done:            make(chan error, 1),
 	}
@@ -84,6 +88,15 @@ func startObotApplication() (*obotApplication, error) {
 	if err := os.Setenv("OBOT_INTEGRATION_BASE_URL", baseURL); err != nil {
 		_ = app.cleanup()
 		return nil, err
+	}
+	for _, name := range providerAPIKeyEnvVars {
+		if value, ok := os.LookupEnv(name); ok {
+			app.providerAPIKeys[name] = value
+			if err := os.Unsetenv(name); err != nil {
+				_ = app.cleanup()
+				return nil, fmt.Errorf("unset %s for integration test: %w", name, err)
+			}
+		}
 	}
 	app.dockerHostSet, err = configureDockerHost()
 	if err != nil {
@@ -93,6 +106,7 @@ func startObotApplication() (*obotApplication, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	app.cancel = cancel
 	config := integrationServerConfig(httpPort, storagePort, workDir)
+	services.SetupLogBridges()
 	go func() {
 		app.done <- server.Run(ctx, config)
 	}()
@@ -105,27 +119,27 @@ func startObotApplication() (*obotApplication, error) {
 
 func integrationServerConfig(httpPort, storagePort int, workDir string) services.Config {
 	config := services.Config{
-		HTTPListenPort:           httpPort,
-		DevMode:                  true,
-		ElectionFile:             filepath.Join(workDir, "election"),
-		MCPOAuthClientExpiration: "30d",
-		DisableUpdateCheck:       true,
-	}
-	config.StorageListenPort = storagePort
-	config.DSN = "sqlite://file:" + filepath.Join(workDir, "obot.db") + "?_journal=WAL&_busy_timeout=30000"
-	config.DailyUserInputTokenLimit = -1
-	config.DailyUserOutputTokenLimit = -1
-	config.UnauthenticatedRateLimit = 100
-	config.AuthenticatedRateLimit = 200
-	config.AuditLogsMode = "off"
-	config.MCPRuntimeBackend = "docker"
-	config.MCPBaseImage = "ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.25.0"
-	config.MCPSecretBindingAllowedLabel = "obot.obot.ai/allow-secret-binding"
-	config.SingleUserIdleServerShutdownHours = -1
-	config.MultiUserIdleServerShutdownHours = -1
-	config.IdleAgentShutdownHours = -1
-	config.MCPAuditLogPersistIntervalSeconds = 5
-	config.MCPAuditLogsPersistBatchSize = 1000
+		HTTPListenPort:                    httpPort,
+		DevMode:                           true,
+		ElectionFile:                      filepath.Join(workDir, "election"),
+		MCPOAuthClientExpiration:          "30d",
+		DisableUpdateCheck:                true,
+		MCPServerSearchImage:              "ghcr.io/obot-platform/obot-mcp-server:v0.2.0",
+		StorageListenPort:                 storagePort,
+		DSN:                               "sqlite://file:" + filepath.Join(workDir, "obot.db") + "?_journal=WAL&_busy_timeout=30000",
+		DailyUserInputTokenLimit:          -1,
+		DailyUserOutputTokenLimit:         -1,
+		UnauthenticatedRateLimit:          100,
+		AuthenticatedRateLimit:            200,
+		AuditLogsMode:                     "off",
+		MCPRuntimeBackend:                 "docker",
+		MCPBaseImage:                      "ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.25.0",
+		MCPSecretBindingAllowedLabel:      "obot.obot.ai/allow-secret-binding",
+		SingleUserIdleServerShutdownHours: -1,
+		MultiUserIdleServerShutdownHours:  -1,
+		IdleAgentShutdownHours:            -1,
+		MCPAuditLogPersistIntervalSeconds: 5,
+		MCPAuditLogsPersistBatchSize:      1000}
 	return config
 }
 
@@ -210,6 +224,9 @@ func (a *obotApplication) stop() error {
 func (a *obotApplication) cleanup() error {
 	var result error
 	result = errors.Join(result, os.Unsetenv("OBOT_INTEGRATION_BASE_URL"))
+	for name, value := range a.providerAPIKeys {
+		result = errors.Join(result, os.Setenv(name, value))
+	}
 	if a.dockerHostSet {
 		result = errors.Join(result, os.Unsetenv("DOCKER_HOST"))
 	}

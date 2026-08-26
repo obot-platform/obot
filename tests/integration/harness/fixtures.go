@@ -26,11 +26,11 @@ func (h *Harness) CreateMCPCatalogEntry(t *testing.T, catalogID string, manifest
 	return created
 }
 
-// CreateMCPServerFromCatalogEntry creates a server in catalogID from entryID.
-func (h *Harness) CreateMCPServerFromCatalogEntry(t *testing.T, catalogID, entryID string) types.MCPServer {
+// CreateMCPServerFromCatalogEntry creates a single-user server from entryID.
+func (h *Harness) CreateMCPServerFromCatalogEntry(t *testing.T, entryID string) types.MCPServer {
 	t.Helper()
 	var created types.MCPServer
-	h.Post(t, "/api/mcp-catalogs/"+catalogID+"/servers", types.MCPServer{CatalogEntryID: entryID}, &created)
+	h.Post(t, "/api/mcp-servers", types.MCPServer{CatalogEntryID: entryID}, &created)
 	h.AddCleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
