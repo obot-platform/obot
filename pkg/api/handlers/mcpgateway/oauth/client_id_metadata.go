@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"mime"
 	"net/http"
 	"net/url"
@@ -29,6 +30,7 @@ const (
 var (
 	clientIDNativeExceptions = map[string]struct{}{
 		"https://claude.ai/oauth/claude-code-client-metadata": {},
+		"https://goose-docs.ai/oauth/client-metadata.json":    {},
 	}
 )
 
@@ -42,6 +44,18 @@ type clientIDMetadataDocument struct {
 	types.OAuthClientManifest
 	ClientID string          `json:"client_id"`
 	JWKS     json.RawMessage `json:"jwks,omitempty"`
+}
+
+func newClientIDNativeExceptions(additional []string) map[string]struct{} {
+	exceptions := make(map[string]struct{}, len(clientIDNativeExceptions)+len(additional))
+	maps.Copy(exceptions, clientIDNativeExceptions)
+
+	for _, clientID := range additional {
+		if clientID = strings.TrimSpace(clientID); clientID != "" {
+			exceptions[clientID] = struct{}{}
+		}
+	}
+	return exceptions
 }
 
 func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clientID string) (v1.OAuthClient, error) {
@@ -189,7 +203,7 @@ func (h *handler) oauthClientFromMetadataDocument(clientID string, doc clientIDM
 		return v1.OAuthClient{}, fmt.Errorf("client metadata document must include redirect_uris")
 	}
 	if doc.ApplicationType == "" {
-		if _, ok := clientIDNativeExceptions[clientID]; ok {
+		if _, ok := h.clientIDNativeExceptions[clientID]; ok {
 			doc.ApplicationType = "native"
 		} else {
 			doc.ApplicationType = "web"

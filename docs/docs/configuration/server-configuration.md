@@ -83,6 +83,7 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_DISABLE_UPDATE_CHECK` | Disable the Obot server update check. | `false` |
 | `OBOT_SERVER_HIDE_K8S_DETAILS` | Hide Kubernetes configuration details such as the Server Scheduling page from the UI. | `false` |
 | `OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION` | The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. | `30d` |
+| `OBOT_SERVER_MCPOAUTH_CLIENT_NATIVE_EXCEPTIONS` | A comma-separated list of additional Client ID Metadata Document URLs that default to the native application type when `application_type` is omitted. | - |
 | `OBOT_SERVER_FORCE_DYNAMIC_CLIENT` | Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. | `false` |
 | `OBOT_SERVER_ENABLE_MESSAGE_POLICIES` | Enable Message Policies for LLM proxy content enforcement. When enabled, Obot exposes the Message Policies and Message Policy Violations admin views and evaluates configured policies on user messages and tool calls. | `false` |
 | `OBOT_SERVER_LICENSE_KEY` | A license key for Obot Enterprise. If set via configuration, the license key cannot be updated in the UI. | - |

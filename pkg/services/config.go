@@ -100,8 +100,9 @@ type Config struct {
 	TunnelPeerID         string   `usage:"Unique Pod UID of this Obot replica for tunnel peering"`
 	TunnelPeerToken      string   `usage:"Shared internal credential for tunnel peering"`
 
-	MCPOAuthClientExpiration string `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
-	ForceDynamicClient       bool   `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
+	MCPOAuthClientExpiration       string   `usage:"The expiration time in dynamically registered MCP OAuth clients, must be a valid duration string and may include days, hours, or minutes" default:"30d"`
+	MCPOAuthClientNativeExceptions []string `usage:"Additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted"`
+	ForceDynamicClient             bool     `usage:"Force Dynamic Client Registration for MCP OAuth instead of Client ID Metadata Documents"`
 
 	DevMode              bool   `usage:"Enable development mode" default:"false" name:"dev-mode" env:"OBOT_DEV_MODE"`
 	DevUIPort            int    `usage:"The port on localhost running the dev instance of the UI" default:"5174"`
@@ -222,6 +223,7 @@ type Services struct {
 	HostedAgentAccessRuleHelper *hostedagentaccessrule.Helper
 
 	MCPOAuthClientSecretExpiration time.Duration
+	MCPOAuthClientNativeExceptions []string
 	ForceDynamicClient             bool
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
@@ -1300,6 +1302,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultHostedAgentsCatalogRef:  config.DefaultHostedAgentsCatalogRef,
 		ModelInfoSourceURL:             config.ModelInfoSourceURL,
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
+		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,

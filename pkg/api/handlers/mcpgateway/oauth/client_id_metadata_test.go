@@ -30,6 +30,7 @@ func newTestCIMDHandler(rt roundTripFunc) *handler {
 		},
 		clientMetadataHTTPClient: &http.Client{Transport: rt},
 		clientMetadataCache:      map[string]clientMetadataCacheEntry{},
+		clientIDNativeExceptions: newClientIDNativeExceptions(nil),
 	}
 }
 
@@ -236,7 +237,10 @@ func TestClientIDNativeExceptionsDefaultToNative(t *testing.T) {
 	t.Parallel()
 
 	h := newTestCIMDHandler(nil)
-	for clientID := range clientIDNativeExceptions {
+	for _, clientID := range []string{
+		"https://claude.ai/oauth/claude-code-client-metadata",
+		"https://goose-docs.ai/oauth/client-metadata.json",
+	} {
 		t.Run(clientID, func(t *testing.T) {
 			t.Parallel()
 
@@ -252,6 +256,26 @@ func TestClientIDNativeExceptionsDefaultToNative(t *testing.T) {
 				t.Fatalf("expected native application type, got %q", client.Spec.Manifest.ApplicationType)
 			}
 		})
+	}
+}
+
+func TestAdditionalClientIDNativeExceptionsDefaultToNative(t *testing.T) {
+	t.Parallel()
+
+	const clientID = "https://client.example/oauth/client.json"
+	h := newTestCIMDHandler(nil)
+	h.clientIDNativeExceptions = newClientIDNativeExceptions([]string{clientID})
+
+	client, err := h.oauthClientFromMetadataDocument(clientID, clientIDMetadataDocument{
+		ClientName:   "Example Client",
+		RedirectURIs: []string{"http://127.0.0.1/callback"},
+		ClientID:     clientID,
+	})
+	if err != nil {
+		t.Fatalf("resolve metadata: %v", err)
+	}
+	if client.Spec.Manifest.ApplicationType != "native" {
+		t.Fatalf("expected native application type, got %q", client.Spec.Manifest.ApplicationType)
 	}
 }
 

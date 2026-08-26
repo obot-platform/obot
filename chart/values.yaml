@@ -238,6 +238,9 @@ config:
   # config.OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION -- The expiration time for dynamically registered MCP OAuth clients. Must be a valid duration string and may include days, hours, or minutes. Defaults to 30d.
   OBOT_SERVER_MCPOAUTH_CLIENT_EXPIRATION: ""
 
+  # config.OBOT_SERVER_MCPOAUTH_CLIENT_NATIVE_EXCEPTIONS -- A comma-separated list of additional Client ID Metadata Document URLs that default to the native application type when application_type is omitted.
+  OBOT_SERVER_MCPOAUTH_CLIENT_NATIVE_EXCEPTIONS: ""
+
   # config.OBOT_SERVER_FORCE_DYNAMIC_CLIENT -- Force Dynamic Client Registration when Obot authenticates to remote MCP servers, even when the authorization server supports Client ID Metadata Documents. Defaults to false.
   OBOT_SERVER_FORCE_DYNAMIC_CLIENT: false
 
