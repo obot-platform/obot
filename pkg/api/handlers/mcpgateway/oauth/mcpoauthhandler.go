@@ -26,7 +26,13 @@ type MCPOAuthHandlerFactory struct {
 	tokenStore                mcp.GlobalTokenStore
 	secretBindingAllowedLabel string
 	cimdDocumentURL           string
+	resolveOAuthClient        func(context.Context, kclient.Client, string) (v1.OAuthClient, error)
 }
+
+const (
+	obotOAuthClientName         = "Obot MCP OAuth"
+	obotOAuthClientNameFallback = "Claude Code"
+)
 
 type mcpOAuthHandler struct {
 	gatewayClient      *client.Client
@@ -130,16 +136,26 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	if err != nil {
 		return "", err
 	}
+	oauthClientName, err := f.downstreamOAuthClientName(req, oauthAppAuthRequestID)
+	if err != nil {
+		return "", err
+	}
+	oauthClientNameFallback := ""
+	if oauthClientName == "" {
+		oauthClientNameFallback = obotOAuthClientNameFallback
+	}
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
 
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
-			ClientName:      "Obot MCP OAuth",
-			TokenStorage:    f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
-			CallbackHandler: oauthHandler,
-			ClientLookup:    oauthHandler,
+			OAuthClientName:         oauthClientName,
+			OAuthClientNameFallback: oauthClientNameFallback,
+			ClientName:              obotOAuthClientName,
+			TokenStorage:            f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
+			CallbackHandler:         oauthHandler,
+			ClientLookup:            oauthHandler,
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
@@ -161,6 +177,33 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
 		return u, nil
 	}
+}
+
+func (f *MCPOAuthHandlerFactory) downstreamOAuthClientName(req api.Context, oauthAuthRequestID string) (string, error) {
+	if oauthAuthRequestID == "" {
+		return "", nil
+	}
+	if f.resolveOAuthClient == nil {
+		return "", fmt.Errorf("failed to resolve originating OAuth client: client resolver is not configured")
+	}
+
+	var authRequest v1.OAuthAuthRequest
+	if err := req.Get(&authRequest, oauthAuthRequestID); err != nil {
+		return "", fmt.Errorf("failed to get originating OAuth request %s: %w", oauthAuthRequestID, err)
+	}
+	if authRequest.Spec.ClientID == "" {
+		return "", fmt.Errorf("originating OAuth request %s has no client ID", oauthAuthRequestID)
+	}
+
+	oauthClient, err := f.resolveOAuthClient(req.Context(), req.Storage, authRequest.Spec.ClientID)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve originating OAuth client %s: %w", authRequest.Spec.ClientID, err)
+	}
+	if oauthClient.Spec.Manifest.ClientName == "" {
+		return "", fmt.Errorf("originating OAuth client %s has no client name", authRequest.Spec.ClientID)
+	}
+
+	return oauthClient.Spec.Manifest.ClientName, nil
 }
 
 func (f *MCPOAuthHandlerFactory) staticOAuthPending(ctx context.Context, mcpServer v1.MCPServer, oauthHandler *mcpOAuthHandler) (bool, error) {

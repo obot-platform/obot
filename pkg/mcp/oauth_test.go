@@ -735,7 +735,7 @@ func TestOAuthAuthorizeDiscoversRegistersExchangesAndPersists(t *testing.T) {
 		},
 		Body: io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, lookup, storage, "test-server", "test-client", "", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 	require.True(t, registrationCalled.Load())
 	require.True(t, tokenCalled.Load())
@@ -787,7 +787,7 @@ func TestOAuthAuthorizeFallsBackToConnectURLWithoutProtectedResourceMetadata(t *
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader("")),
 	}
-	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "test-client", redirectURL, "")
+	o := newOAuth(server.Client(), callback, &oauthTestClientCredLookup{clientID: "static-client", clientSecret: "static-secret"}, nil, "test-server", "test-client", "", redirectURL, "")
 	require.NoError(t, o.Authorize(t.Context(), request, response))
 
 	authorizationRequest, err := http.NewRequest(http.MethodGet, callback.authURL, nil)

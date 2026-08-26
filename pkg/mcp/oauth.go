@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -60,6 +61,7 @@ type ClientCredLookup interface {
 type oauth struct {
 	redirectURL              string
 	clientName               string
+	clientNameFallback       string
 	serverName               string
 	clientIDMetadataDocument string
 	currentToken             oauth2.Token
@@ -412,10 +414,11 @@ func (t *assumeOAuthRequiredTransport) RoundTrip(req *http.Request) (*http.Respo
 	return t.base.RoundTrip(req)
 }
 
-func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, clientName, redirectURL, clientIDMetadataDocument string) *oauth {
+func newOAuth(metadataClient *http.Client, callbackHandler CallbackHandler, clientLookup ClientCredLookup, tokenStorage TokenStorage, serverName, clientName, clientNameFallback, redirectURL, clientIDMetadataDocument string) *oauth {
 	return &oauth{
 		serverName:               serverName,
 		clientName:               clientName,
+		clientNameFallback:       clientNameFallback,
 		redirectURL:              redirectURL,
 		clientIDMetadataDocument: clientIDMetadataDocument,
 		callbackHandler:          callbackHandler,
@@ -691,7 +694,29 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	}
 
 	// If we didn't get a result from the lookup, register a client dynamically.
-	clientInfo, err := registerOAuthClient(ctx, o.metadataClient, serverName, authorizationServerMetadata, discovery.ClientRegistration)
+	var err error
+	for i, clientName := range clientNameCandidates(discovery.ClientRegistration.ClientName, o.clientNameFallback) {
+		registration := discovery.ClientRegistration
+		registration.ClientName = clientName
+
+		clientInfo, err = registerOAuthClient(ctx, o.metadataClient, serverName, authorizationServerMetadata, registration)
+		if err == nil {
+			if i > 0 {
+				slog.Info("oauth dynamic client registration succeeded with fallback client name",
+					"server", serverName, "client_name", clientName)
+			}
+			return clientInfo, nil
+		}
+
+		var rejected *clientNameRejectedError
+		if !errors.As(err, &rejected) {
+			break
+		}
+		if clientName != o.clientNameFallback && o.clientNameFallback != "" {
+			slog.Info("oauth client name rejected by authorization server, trying fallback",
+				"server", serverName, "client_name", clientName, "status", rejected.status)
+		}
+	}
 	if err != nil {
 		slog.Warn("oauth dynamic client registration failed",
 			"server", serverName,
@@ -705,6 +730,24 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	}
 
 	return clientInfo, nil
+}
+
+// clientNameRejectedError indicates that dynamic registration may succeed with
+// a different client name.
+type clientNameRejectedError struct {
+	status int
+	body   string
+}
+
+func (e *clientNameRejectedError) Error() string {
+	return fmt.Sprintf("unexpected status registering client (%d): %s", e.status, e.body)
+}
+
+func clientNameCandidates(primary, fallback string) []string {
+	if fallback == "" || fallback == primary {
+		return []string{primary}
+	}
+	return []string{primary, fallback}
 }
 
 // GetOAuthMetadataWithClient discovers OAuth protected resource and authorization server
@@ -776,6 +819,12 @@ func registerOAuthClient(ctx context.Context, client *http.Client, serverName st
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return clientRegistrationResponse{}, &clientNameRejectedError{
+				status: resp.StatusCode,
+				body:   string(body),
+			}
+		}
 		return clientRegistrationResponse{}, fmt.Errorf("unexpected status registering client (%d): %s", resp.StatusCode, string(body))
 	}
 
