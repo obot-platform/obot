@@ -164,8 +164,8 @@ func TestHasChangedPreviouslySyncedSource(t *testing.T) {
 func TestPreviouslyAppliedUnversionedSourceRequiresCompleteReconciliation(t *testing.T) {
 	sourceURLs := []string{"https://example.com/catalog.yaml", "https://github.com/example/catalog"}
 	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
-	reconciledSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
-	unversionedSourceIDs := reconciledUnversionedSourceIDs(sourceURLs, previousCommits, reconciledSourceIDs)
+	validSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
+	unversionedSourceIDs := validUnversionedSourceIDs(sourceURLs, previousCommits, validSourceIDs)
 
 	assert.True(t, containsAnySourceID(map[string]struct{}{
 		mcp.SourceIDForURL(sourceURLs[0]): {},
@@ -175,8 +175,8 @@ func TestPreviouslyAppliedUnversionedSourceRequiresCompleteReconciliation(t *tes
 func TestNewUnversionedSourceDoesNotRequireCompleteReconciliation(t *testing.T) {
 	sourceURLs := []string{"https://example.com/new-catalog.yaml", "https://github.com/example/catalog"}
 	previousCommits := map[string]string{"https://github.com/example/catalog": "sha"}
-	reconciledSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
-	unversionedSourceIDs := reconciledUnversionedSourceIDs(sourceURLs, previousCommits, reconciledSourceIDs)
+	validSourceIDs := map[string]struct{}{mcp.SourceIDForURL(sourceURLs[0]): {}}
+	unversionedSourceIDs := validUnversionedSourceIDs(sourceURLs, previousCommits, validSourceIDs)
 
 	assert.NotEmpty(t, unversionedSourceIDs)
 	assert.False(t, containsAnySourceID(nil, unversionedSourceIDs))
