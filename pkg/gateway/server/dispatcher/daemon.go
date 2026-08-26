@@ -103,6 +103,10 @@ func (d *Dispatcher) observeDaemonRevision(id string, revision daemonRevision) b
 	if runningRevision, ok := d.ports.daemonRevisions[id]; ok {
 		if !runningRevision.sameConfiguration(revision) {
 			d.stopDaemonLocked(id)
+			slog.Info("Stopped provider daemon because its configuration revision changed",
+				"provider", id,
+				"oldGeneration", runningRevision.generation,
+				"newGeneration", revision.generation)
 		} else {
 			d.ports.daemonRevisions[id] = revision
 		}
