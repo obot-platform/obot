@@ -31,6 +31,8 @@ type AuthProviderStatus struct {
 	Configured                     bool     `json:"configured"`
 	MissingConfigurationParameters []string `json:"missingConfigurationParameters,omitempty"`
 	ObservedGeneration             int64    `json:"observedGeneration,omitempty"`
+	DaemonConfigurationHash        string   `json:"daemonConfigurationHash,omitempty"`
+	ObservedSyncRevision           string   `json:"observedSyncRevision,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

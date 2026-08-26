@@ -19468,6 +19468,18 @@ func schema_storage_apis_obotobotai_v1_AuthProviderStatus(ref common.ReferenceCa
 							Format: "int64",
 						},
 					},
+					"daemonConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"observedSyncRevision": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"configured"},
 			},

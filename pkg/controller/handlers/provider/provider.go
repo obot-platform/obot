@@ -22,6 +22,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	"github.com/obot-platform/obot/pkg/auth"
+	authproviderconfig "github.com/obot-platform/obot/pkg/authprovider"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -409,33 +410,30 @@ func (h *Handler) SetAuthProviderConfiguredStatus(req router.Request, _ router.R
 }
 
 func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway.Client, licenseProvider *license.Provider, authProvider *v1.AuthProvider) error {
-	var (
-		configured          = true
-		missingConfigParams []string
-	)
-	if len(authProvider.Spec.RequiredConfigurationParameters) > 0 {
-		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericModelProviderCredentialContext}, authProvider.Name)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
-		}
-
-		if cred.Secrets == nil {
-			// Don't pass a nil map so that the provider status functions can distinguish between "no credential found" and "credential found but has no secrets"
-			cred.Secrets = make(map[string]string)
-		}
-
-		providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, licenseProvider)
-		if err != nil {
-			return err
-		}
-
-		configured = providerStatus.Configured
-		missingConfigParams = providerStatus.MissingConfigurationParameters
+	cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+		return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
+	}
+	if cred.Secrets == nil {
+		// Don't pass a nil map so that the provider status functions can distinguish between "no credential found" and "credential found but has no secrets".
+		cred.Secrets = make(map[string]string)
 	}
 
-	authProvider.Status.MissingConfigurationParameters = missingConfigParams
-	authProvider.Status.Configured = configured
+	providerStatus, err := providers.AuthProviderStatus(ctx, *authProvider, cred.Secrets, licenseProvider)
+	if err != nil {
+		return err
+	}
+
+	configurationHash, err := authproviderconfig.DaemonConfigurationHash(*authProvider, cred.Secrets)
+	if err != nil {
+		return err
+	}
+
+	authProvider.Status.MissingConfigurationParameters = providerStatus.MissingConfigurationParameters
+	authProvider.Status.Configured = providerStatus.Configured
 	authProvider.Status.ObservedGeneration = authProvider.Generation
+	authProvider.Status.DaemonConfigurationHash = configurationHash
+	authProvider.Status.ObservedSyncRevision = authProvider.Annotations[v1.AuthProviderSyncAnnotation]
 
 	return nil
 }

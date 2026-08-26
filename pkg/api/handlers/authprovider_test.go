@@ -7,8 +7,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
@@ -19,11 +21,30 @@ type failAuthProviderCleanupCreateStorage struct {
 	kclient.WithWatch
 }
 
+type acknowledgeAuthProviderRevisionStorage struct {
+	kclient.WithWatch
+}
+
+type failAuthProviderUpdateStorage struct {
+	kclient.WithWatch
+}
+
 func (f *failAuthProviderCleanupCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
 	if _, ok := obj.(*v1.AuthProviderCleanup); ok {
 		return errors.New("injected cleanup create failure")
 	}
 	return f.WithWatch.Create(ctx, obj, opts...)
+}
+
+func (a *acknowledgeAuthProviderRevisionStorage) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	if authProvider, ok := obj.(*v1.AuthProvider); ok {
+		authProvider.Status.ObservedSyncRevision = authProvider.Annotations[v1.AuthProviderSyncAnnotation]
+	}
+	return a.WithWatch.Update(ctx, obj, opts...)
+}
+
+func (f *failAuthProviderUpdateStorage) Update(context.Context, kclient.Object, ...kclient.UpdateOption) error {
+	return errors.New("injected auth provider update failure")
 }
 
 func TestEnsureNoPendingAuthProviderCleanup(t *testing.T) {
@@ -137,4 +158,153 @@ func TestDeconfigurePersistsCleanupIntentBeforeSideEffects(t *testing.T) {
 
 	err := (&AuthProviderHandler{}).Deconfigure(req)
 	require.ErrorContains(t, err, "persist cleanup intent")
+}
+
+func TestPreserveAuthProviderCookieSecret(t *testing.T) {
+	gatewayClient := newHandlerTestGateway(t)
+	const authProviderName = "entra-auth-provider"
+
+	firstEnvironment := map[string]string{
+		CookieSecretEnvVar: "user-supplied-value",
+	}
+	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, firstEnvironment))
+	firstSecret := firstEnvironment[CookieSecretEnvVar]
+	require.NotEmpty(t, firstSecret)
+	require.NotEqual(t, "user-supplied-value", firstSecret)
+
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProviderName,
+		Name:    authProviderName,
+		Secrets: map[string]string{
+			CookieSecretEnvVar: firstSecret,
+			"CLIENT_SECRET":    "client-secret",
+		},
+	}))
+
+	secondEnvironment := map[string]string{
+		CookieSecretEnvVar: "replacement-value",
+	}
+	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, secondEnvironment))
+	require.Equal(t, firstSecret, secondEnvironment[CookieSecretEnvVar])
+
+	_, err := gatewayClient.DeleteCredential(t.Context(), authProviderName, authProviderName)
+	require.NoError(t, err)
+	thirdEnvironment := map[string]string{}
+	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, thirdEnvironment))
+	require.NotEmpty(t, thirdEnvironment[CookieSecretEnvVar])
+	require.NotEqual(t, firstSecret, thirdEnvironment[CookieSecretEnvVar])
+}
+
+func TestUpdateAuthProviderSyncRevisionUsesUniqueUUIDs(t *testing.T) {
+	authProvider := &v1.AuthProvider{
+		Name:      "entra-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	req := api.Context{
+		Request: httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", nil),
+		Storage: newFakeStorage(t, authProvider),
+	}
+
+	first, err := updateAuthProviderSyncRevision(req, authProvider.Name)
+	require.NoError(t, err)
+	firstRevision := first.Annotations[v1.AuthProviderSyncAnnotation]
+	_, err = uuid.Parse(firstRevision)
+	require.NoError(t, err)
+
+	second, err := updateAuthProviderSyncRevision(req, authProvider.Name)
+	require.NoError(t, err)
+	secondRevision := second.Annotations[v1.AuthProviderSyncAnnotation]
+	_, err = uuid.Parse(secondRevision)
+	require.NoError(t, err)
+	require.NotEqual(t, firstRevision, secondRevision)
+}
+
+func TestRollbackAuthProviderConfigurationPublishesRevision(t *testing.T) {
+	const authProviderName = "entra-auth-provider"
+	authProvider := &v1.AuthProvider{
+		Name:      authProviderName,
+		Namespace: system.DefaultNamespace,
+	}
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProviderName,
+		Name:    authProviderName,
+		Secrets: map[string]string{"CLIENT_SECRET": "client-secret"},
+	}))
+	req := api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", nil),
+		Storage:       newFakeStorage(t, authProvider),
+		GatewayClient: gatewayClient,
+	}
+
+	cause := errors.New("validation failed")
+	err := (&AuthProviderHandler{}).rollbackAuthProviderConfiguration(req, *authProvider, cause)
+	require.ErrorIs(t, err, cause)
+	_, revealErr := gatewayClient.RevealCredential(t.Context(), []string{authProviderName}, authProviderName)
+	require.Error(t, revealErr)
+
+	var updated v1.AuthProvider
+	require.NoError(t, req.Get(&updated, authProviderName))
+	require.NotEmpty(t, updated.Annotations[v1.AuthProviderSyncAnnotation])
+}
+
+func TestDeconfigurePublishesRevisionWhenCredentialIsAlreadyAbsent(t *testing.T) {
+	const authProviderName = "entra-auth-provider"
+	authProvider := &v1.AuthProvider{
+		Name:      authProviderName,
+		Namespace: system.DefaultNamespace,
+	}
+	storage := &acknowledgeAuthProviderRevisionStorage{
+		WithWatch: newFakeStorage(t, authProvider),
+	}
+	gatewayClient := newHandlerTestGateway(t)
+	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/deconfigure", nil)
+	request.SetPathValue("id", authProviderName)
+	req := api.Context{
+		Request:       request,
+		Storage:       storage,
+		GatewayClient: gatewayClient,
+	}
+
+	require.NoError(t, (&AuthProviderHandler{}).Deconfigure(req))
+	var first v1.AuthProvider
+	require.NoError(t, req.Get(&first, authProviderName))
+	firstRevision := first.Annotations[v1.AuthProviderSyncAnnotation]
+	require.NotEmpty(t, firstRevision)
+
+	require.NoError(t, (&AuthProviderHandler{}).Deconfigure(req))
+	var second v1.AuthProvider
+	require.NoError(t, req.Get(&second, authProviderName))
+	secondRevision := second.Annotations[v1.AuthProviderSyncAnnotation]
+	require.NotEmpty(t, secondRevision)
+	require.NotEqual(t, firstRevision, secondRevision)
+}
+
+func TestDeconfigureReturnsRevisionPublicationFailureAfterCredentialDeletion(t *testing.T) {
+	const authProviderName = "entra-auth-provider"
+	authProvider := &v1.AuthProvider{
+		Name:      authProviderName,
+		Namespace: system.DefaultNamespace,
+	}
+	storage := &failAuthProviderUpdateStorage{
+		WithWatch: newFakeStorage(t, authProvider),
+	}
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProviderName,
+		Name:    authProviderName,
+		Secrets: map[string]string{"CLIENT_SECRET": "client-secret"},
+	}))
+	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/deconfigure", nil)
+	request.SetPathValue("id", authProviderName)
+	req := api.Context{
+		Request:       request,
+		Storage:       storage,
+		GatewayClient: gatewayClient,
+	}
+
+	err := (&AuthProviderHandler{}).Deconfigure(req)
+	require.ErrorContains(t, err, "update auth provider sync revision")
+	_, revealErr := gatewayClient.RevealCredential(t.Context(), []string{authProviderName}, authProviderName)
+	require.Error(t, revealErr)
 }

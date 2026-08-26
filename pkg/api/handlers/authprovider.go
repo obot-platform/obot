@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/obot-platform/nah/pkg/name"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -112,8 +114,7 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		envVars = make(map[string]string, 1)
 	}
 
-	envVars[CookieSecretEnvVar], err = generateCookieSecret()
-	if err != nil {
+	if err := preserveAuthProviderCookieSecret(req.Context(), req.GatewayClient, authProvider.Name, envVars); err != nil {
 		return err
 	}
 
@@ -130,44 +131,35 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to create credential for auth provider %q: %w", authProvider.Name, err)
 	}
+	updatedAuthProvider, err := updateAuthProviderSyncRevision(req, authProvider.Name)
+	if err != nil {
+		return fmt.Errorf("publish credential update for auth provider %q: %w", authProvider.Name, err)
+	}
+	if updatedAuthProvider == nil {
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, fmt.Errorf("auth provider %q was deleted while it was being configured", authProvider.Name))
+	}
+	authProvider = *updatedAuthProvider
 	if err := ensureNoPendingAuthProviderCleanup(req, authProvider); err != nil {
 		return ap.rollbackAuthProviderConfiguration(req, authProvider, err)
 	}
-
-	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
 
 	// Check to make sure that only this provider is configured.
 	// Deconfigure it if that is not the case, and return a 400.
 	configuredProvider, err = ap.dispatcher.GetConfiguredAuthProvider(req.Context())
 	if err != nil {
-		return fmt.Errorf("failed to get configured auth provider: %w", err)
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, fmt.Errorf("failed to get configured auth provider: %w", err))
 	}
 
 	if configuredProvider != "" && configuredProvider != authProvider.Name {
-		// Delete the credential we just configured
-		_, _ = req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name)
-		return types.NewErrBadRequest(
+		return ap.rollbackAuthProviderConfiguration(req, authProvider, types.NewErrBadRequest(
 			"only one authentication provider can be configured at a time. Please deconfigure %q first",
 			configuredProvider,
-		)
-	}
-
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		if authProvider.Annotations == nil {
-			authProvider.Annotations = make(map[string]string, 1)
-		}
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
-	}
-
-	if err := req.Update(&authProvider); err != nil {
-		return fmt.Errorf("failed to update auth provider: %w", err)
+		))
 	}
 
 	// Wait for the controllers to process to ensure the API will return correct configuration status.
 	if _, err := wait.For(req.Context(), req.Storage, &authProvider, func(a *v1.AuthProvider) (bool, error) {
-		return a.Status.ObservedGeneration == a.Generation, nil
+		return authProviderStatusAcknowledged(a), nil
 	}, wait.Option{
 		Timeout: 10 * time.Second,
 	}); err != nil {
@@ -181,11 +173,11 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 }
 
 func (ap *AuthProviderHandler) rollbackAuthProviderConfiguration(req api.Context, authProvider v1.AuthProvider, cause error) error {
-	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(), authProvider.Name, authProvider.Name); err != nil {
 		return errors.Join(cause, fmt.Errorf("roll back credential for auth provider %q: %w", authProvider.Name, err))
 	}
-	return cause
+	_, err := updateAuthProviderSyncRevision(req, authProvider.Name)
+	return errors.Join(cause, err)
 }
 
 func ensureNoPendingAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) error {
@@ -216,9 +208,6 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		if err != nil {
 			return err
 		}
-		if cleanup.Spec.Ready {
-			return nil
-		}
 	}
 
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
@@ -230,14 +219,17 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 
-	// Stop the auth provider so that the credential is completely removed from the system.
-	ap.dispatcher.StopAuthProvider(authProvider.Namespace, authProvider.Name)
+	updatedAuthProvider, syncErr := updateAuthProviderSyncRevision(req, authProvider.Name)
+	var deconfigureErrors []error
+	if syncErr != nil {
+		deconfigureErrors = append(deconfigureErrors, syncErr)
+	}
 
 	// The local auth provider keeps its sessions in Obot's database rather than in the sessions
 	// table the block below drops, so clear them out here.
 	if authProvider.Name == localauth.ProviderName {
 		if err := req.GatewayClient.DeleteAllLocalAuthSessions(req.Context()); err != nil {
-			return fmt.Errorf("failed to delete local auth sessions: %w", err)
+			deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to delete local auth sessions: %w", err))
 		}
 	}
 
@@ -247,47 +239,43 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		if err != nil {
-			return fmt.Errorf("failed to connect to postgres: %w", err)
-		}
-		sqlDB, err := db.DB()
-		if err != nil {
-			return fmt.Errorf("failed to get underlying sql.DB: %w", err)
-		}
-		defer sqlDB.Close()
-
-		if tablePrefix := authProvider.Spec.PostgresTablePrefix; tablePrefix != "" {
-			if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "sessions;").Error; err != nil {
-				return fmt.Errorf("failed to drop sessions table: %w", err)
+			deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to connect to postgres: %w", err))
+		} else {
+			sqlDB, dbErr := db.DB()
+			if dbErr != nil {
+				deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to get underlying sql.DB: %w", dbErr))
+			} else {
+				defer sqlDB.Close()
+				if tablePrefix := authProvider.Spec.PostgresTablePrefix; tablePrefix != "" {
+					if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "sessions;").Error; err != nil {
+						deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to drop sessions table: %w", err))
+					}
+					if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
+						deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to drop session_locks table: %w", err))
+					}
+				}
 			}
-			if err := db.Exec("DROP TABLE IF EXISTS " + tablePrefix + "session_locks;").Error; err != nil {
-				return fmt.Errorf("failed to drop session_locks table: %w", err)
-			}
 		}
-	}
-
-	updatedAuthProvider, err := updateAuthProviderForDeconfiguration(req, authProvider.Name)
-	if err != nil {
-		return err
 	}
 
 	// Wait for the controllers to process to ensure the API will return correct configuration status.
 	if updatedAuthProvider != nil {
 		if _, err := wait.For(req.Context(), req.Storage, updatedAuthProvider, func(a *v1.AuthProvider) (bool, error) {
-			return a.Status.ObservedGeneration == a.Generation, nil
+			return authProviderStatusAcknowledged(a), nil
 		}, wait.Option{
 			Timeout: 10 * time.Second,
 		}); err != nil {
-			return fmt.Errorf("failed to wait for auth provider: %w", err)
+			deconfigureErrors = append(deconfigureErrors, fmt.Errorf("failed to wait for auth provider: %w", err))
 		}
 	}
 
 	if cleanup != nil {
 		if err := markAuthProviderCleanupReady(req, cleanup); err != nil {
-			return err
+			deconfigureErrors = append(deconfigureErrors, err)
 		}
 	}
 
-	return nil
+	return errors.Join(deconfigureErrors...)
 }
 
 func authProviderCleanupName(authProviderName string) string {
@@ -323,20 +311,24 @@ func ensureAuthProviderCleanup(req api.Context, authProvider v1.AuthProvider) (*
 	return cleanup, nil
 }
 
-func updateAuthProviderForDeconfiguration(req api.Context, authProviderName string) (*v1.AuthProvider, error) {
+func updateAuthProviderSyncRevision(req api.Context, authProviderName string) (*v1.AuthProvider, error) {
 	var authProvider v1.AuthProvider
+	revision := uuid.New().String()
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := req.Get(&authProvider, authProviderName); err != nil {
 			return err
 		}
-		toggleAuthProviderSyncAnnotation(&authProvider)
+		if authProvider.Annotations == nil {
+			authProvider.Annotations = make(map[string]string, 1)
+		}
+		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = revision
 		return req.Update(&authProvider)
 	})
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("update auth provider for deconfiguration: %w", err)
+		return nil, fmt.Errorf("update auth provider sync revision: %w", err)
 	}
 	return &authProvider, nil
 }
@@ -362,17 +354,6 @@ func markAuthProviderCleanupReady(req api.Context, cleanup *v1.AuthProviderClean
 		return fmt.Errorf("mark auth provider cleanup %q ready: %w", cleanup.Name, err)
 	}
 	return nil
-}
-
-func toggleAuthProviderSyncAnnotation(authProvider *v1.AuthProvider) {
-	if authProvider.Annotations[v1.AuthProviderSyncAnnotation] == "" {
-		if authProvider.Annotations == nil {
-			authProvider.Annotations = make(map[string]string, 1)
-		}
-		authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "true"
-	} else {
-		delete(authProvider.Annotations, v1.AuthProviderSyncAnnotation)
-	}
 }
 
 func (ap *AuthProviderHandler) Reveal(req api.Context) error {
@@ -418,4 +399,25 @@ func generateCookieSecret() (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(b), nil
+}
+
+func preserveAuthProviderCookieSecret(ctx context.Context, gatewayClient *gateway.Client, authProviderName string, envVars map[string]string) error {
+	credential, err := gatewayClient.RevealCredential(ctx, []string{authProviderName, system.GenericAuthProviderCredentialContext}, authProviderName)
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+		return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProviderName, err)
+	}
+
+	cookieSecret := credential.Secrets[CookieSecretEnvVar]
+	if cookieSecret == "" {
+		cookieSecret, err = generateCookieSecret()
+		if err != nil {
+			return err
+		}
+	}
+	envVars[CookieSecretEnvVar] = cookieSecret
+	return nil
+}
+
+func authProviderStatusAcknowledged(authProvider *v1.AuthProvider) bool {
+	return authProvider.Status.ObservedSyncRevision == authProvider.Annotations[v1.AuthProviderSyncAnnotation]
 }

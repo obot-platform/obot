@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/obot-platform/obot/logger"
+	authproviderconfig "github.com/obot-platform/obot/pkg/authprovider"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -36,6 +37,7 @@ type Dispatcher struct {
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
+	providerLocks        *keyedMutex
 
 	builtinLock         sync.RWMutex
 	builtinAuthProvider map[string]url.URL
@@ -50,6 +52,7 @@ func New(sessionManager *mcp.SessionManager, c kclient.Client, gatewayClient *cl
 		serverURL:           serverURL,
 		internalServerURL:   internalServerURL,
 		ports:               newPorts(),
+		providerLocks:       newKeyedMutex(),
 		builtinAuthProvider: map[string]url.URL{},
 	}
 
@@ -93,37 +96,128 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		return u, nil
 	}
 
-	d.ports.daemonLock.RLock()
-	if port := d.ports.daemonPorts[key]; port != 0 {
-		d.ports.daemonLock.RUnlock()
-		return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}, nil
-	}
-	d.ports.daemonLock.RUnlock()
+	unlock := d.providerLocks.Lock(key)
+	defer unlock()
 
-	var authProvider v1.AuthProvider
-	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
-		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
-	}
-
-	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
-		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
-	}
-
-	credEnv := map[string]string{}
-	cred, err := d.gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
-	if err != nil {
-		if !errors.As(err, &client.CredentialNotFoundError{}) {
-			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
+	for {
+		if err := ctx.Err(); err != nil {
+			return url.URL{}, err
 		}
-	} else if cred.Secrets != nil {
-		credEnv = cred.Secrets
+
+		var authProvider v1.AuthProvider
+		if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &authProvider); err != nil {
+			return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
+		}
+
+		if !authProviderConfigurationAcknowledged(authProvider) {
+			// This happens when the auth provider's configuration has changed but the controller has not processed it yet.
+			d.stopDaemon(key)
+			return url.URL{}, authProviderConfigurationUpdatingError(authProviderName)
+		}
+		if !authProvider.Status.Configured || len(authProvider.Status.MissingConfigurationParameters) > 0 {
+			d.stopDaemon(key)
+			return url.URL{}, authProviderNotConfiguredError(authProvider)
+		}
+
+		if state, ok := d.daemonState(key); ok && state.configurationHash == authProvider.Status.DaemonConfigurationHash {
+			return daemonURL(state.port), nil
+		}
+
+		credentialEnvironment, err := credentialEnvironmentForAuthProvider(ctx, d.gatewayClient, authProvider)
+		if err != nil {
+			return url.URL{}, err
+		}
+		if missing := missingAuthProviderConfiguration(authProvider, credentialEnvironment); len(missing) > 0 {
+			d.stopDaemon(key)
+			return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missing, ", "))
+		}
+
+		configurationHash, err := authproviderconfig.DaemonConfigurationHash(authProvider, credentialEnvironment)
+		if err != nil {
+			return url.URL{}, err
+		}
+		if configurationHash != authProvider.Status.DaemonConfigurationHash {
+			d.stopDaemon(key)
+			return url.URL{}, authProviderConfigurationUpdatingError(authProviderName)
+		}
+
+		daemonEnvironment := maps.Clone(credentialEnvironment)
+		maps.Copy(daemonEnvironment, d.authProviderExtraEnv)
+		daemonEnvironment["LOG_LEVEL"] = providerLogLevel()
+
+		d.stopDaemon(key)
+		u, command, err := d.startDaemon(daemonEnvironment, key, configurationHash, authProvider.Spec.Command, authProvider.Spec.Args...)
+		if err != nil {
+			return url.URL{}, err
+		}
+
+		var current v1.AuthProvider
+		if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: authProviderName}, &current); err != nil {
+			d.stopDaemonCommand(key, command)
+			return url.URL{}, fmt.Errorf("failed to revalidate provider: %w", err)
+		}
+		if authProviderConfigurationMatches(authProvider, current) {
+			if state, ok := d.daemonState(key); ok && state.command == command {
+				return u, nil
+			}
+			return url.URL{}, fmt.Errorf("provider %q daemon exited during startup", authProviderName)
+		}
+
+		d.stopDaemonCommand(key, command)
 	}
+}
 
-	maps.Copy(credEnv, d.authProviderExtraEnv)
+func authProviderConfigurationAcknowledged(authProvider v1.AuthProvider) bool {
+	return authProvider.Status.ObservedGeneration == authProvider.Generation &&
+		authProvider.Status.ObservedSyncRevision == authProvider.Annotations[v1.AuthProviderSyncAnnotation]
+}
 
-	credEnv["LOG_LEVEL"] = providerLogLevel()
+func authProviderConfigurationMatches(started, current v1.AuthProvider) bool {
+	return authProviderConfigurationAcknowledged(current) &&
+		current.Status.Configured &&
+		len(current.Status.MissingConfigurationParameters) == 0 &&
+		started.Annotations[v1.AuthProviderSyncAnnotation] == current.Annotations[v1.AuthProviderSyncAnnotation] &&
+		started.Status.ObservedSyncRevision == current.Status.ObservedSyncRevision &&
+		started.Status.DaemonConfigurationHash == current.Status.DaemonConfigurationHash
+}
 
-	return d.startDaemon(credEnv, key, authProvider.Spec.Command, authProvider.Spec.Args...)
+func authProviderConfigurationUpdatingError(authProviderName string) error {
+	return fmt.Errorf("provider %q configuration is updating", authProviderName)
+}
+
+func authProviderNotConfiguredError(authProvider v1.AuthProvider) error {
+	if len(authProvider.Status.MissingConfigurationParameters) == 0 {
+		return fmt.Errorf("provider %q is not configured", authProvider.Name)
+	}
+	return fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProvider.Name, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
+}
+
+func credentialEnvironmentForAuthProvider(ctx context.Context, gatewayClient *client.Client, authProvider v1.AuthProvider) (map[string]string, error) {
+	credential, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	if err != nil {
+		if errors.As(err, &client.CredentialNotFoundError{}) {
+			return map[string]string{}, nil
+		}
+		return nil, fmt.Errorf("failed to reveal provider credential: %w", err)
+	}
+	if credential.Secrets == nil {
+		return map[string]string{}, nil
+	}
+	return credential.Secrets, nil
+}
+
+func missingAuthProviderConfiguration(authProvider v1.AuthProvider, credentialEnvironment map[string]string) []string {
+	var missing []string
+	for _, parameter := range authProvider.Spec.RequiredConfigurationParameters {
+		if _, ok := credentialEnvironment[parameter.Name]; !ok {
+			missing = append(missing, parameter.Name)
+		}
+	}
+	return missing
+}
+
+func daemonURL(port int64) url.URL {
+	return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}
 }
 
 // GroupIDPrefixForAuthProvider returns the group ID namespace declared by an auth provider.
@@ -137,13 +231,12 @@ func (d *Dispatcher) GroupIDPrefixForAuthProvider(ctx context.Context, namespace
 
 func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelProviderName string) (url.URL, error) {
 	key := providerKeyForModelProvider(namespace, modelProviderName)
+	unlock := d.providerLocks.Lock(key)
+	defer unlock()
 
-	d.ports.daemonLock.RLock()
-	if port := d.ports.daemonPorts[key]; port != 0 {
-		d.ports.daemonLock.RUnlock()
-		return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}, nil
+	if state, ok := d.daemonState(key); ok {
+		return daemonURL(state.port), nil
 	}
-	d.ports.daemonLock.RUnlock()
 
 	var modelProvider v1.ModelProvider
 	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil {
@@ -179,7 +272,8 @@ func (d *Dispatcher) urlForModelProvider(ctx context.Context, key string, modelP
 
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
-	return d.startDaemon(credEnv, key, modelProvider.Spec.Command, modelProvider.Spec.Args...)
+	u, _, err := d.startDaemon(credEnv, key, "", modelProvider.Spec.Command, modelProvider.Spec.Args...)
+	return u, err
 }
 
 func providerLogLevel() string {
@@ -190,15 +284,17 @@ func providerLogLevel() string {
 }
 
 func (d *Dispatcher) StopModelProvider(namespace, modelProviderName string) {
-	d.stopProvider("model-provider", namespace, modelProviderName)
+	d.stopProvider(providerKeyForModelProvider(namespace, modelProviderName))
 }
 
 func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
-	d.stopProvider("auth-provider", namespace, authProviderName)
+	d.stopProvider(providerKeyForAuthProvider(namespace, authProviderName))
 }
 
-func (d *Dispatcher) stopProvider(providerType, namespace, providerName string) {
-	d.stopDaemon(providerKey(providerType, namespace, providerName))
+func (d *Dispatcher) stopProvider(key string) {
+	unlock := d.providerLocks.Lock(key)
+	defer unlock()
+	d.stopDaemon(key)
 }
 
 func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, error) {

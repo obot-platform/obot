@@ -3,10 +3,20 @@ package provider
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	authproviderconfig "github.com/obot-platform/obot/pkg/authprovider"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/system"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -244,4 +254,120 @@ func TestModelDialectPrefersMetadataDialect(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetAuthProviderConfiguredStatusAcknowledgesConfiguration(t *testing.T) {
+	gatewayClient := newProviderTestGatewayClient(t)
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	authProvider := &v1.AuthProvider{
+		Name:       "entra-auth-provider",
+		Namespace:  system.DefaultNamespace,
+		UID:        k8stypes.UID("provider-uid"),
+		Generation: 3,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "revision-one",
+		},
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: types.AuthProviderManifest{
+				CommonProviderMetadata: types.CommonProviderMetadata{
+					Command: "provider-command",
+					RequiredConfigurationParameters: []types.ProviderConfigurationParameter{
+						{
+							Name: "CLIENT_SECRET",
+						},
+					},
+				},
+			},
+		},
+	}
+	credentialEnvironment := map[string]string{
+		"CLIENT_SECRET": "client-secret",
+	}
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProvider.Name,
+		Name:    authProvider.Name,
+		Secrets: credentialEnvironment,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := SetAuthProviderConfiguredStatus(t.Context(), gatewayClient, licenseProvider, authProvider); err != nil {
+		t.Fatal(err)
+	}
+	wantHash, err := authproviderconfig.DaemonConfigurationHash(*authProvider, credentialEnvironment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !authProvider.Status.Configured {
+		t.Fatal("auth provider was not configured")
+	}
+	if authProvider.Status.DaemonConfigurationHash != wantHash {
+		t.Fatalf("configuration hash = %q, want %q", authProvider.Status.DaemonConfigurationHash, wantHash)
+	}
+	if authProvider.Status.ObservedSyncRevision != "revision-one" {
+		t.Fatalf("observed sync revision = %q, want revision-one", authProvider.Status.ObservedSyncRevision)
+	}
+	if authProvider.Status.ObservedGeneration != authProvider.Generation {
+		t.Fatalf("observed generation = %d, want %d", authProvider.Status.ObservedGeneration, authProvider.Generation)
+	}
+
+	authProvider.Annotations[v1.AuthProviderSyncAnnotation] = "revision-two"
+	if err := SetAuthProviderConfiguredStatus(t.Context(), gatewayClient, licenseProvider, authProvider); err != nil {
+		t.Fatal(err)
+	}
+	if authProvider.Status.DaemonConfigurationHash != wantHash {
+		t.Fatalf("configuration hash changed to %q, want %q", authProvider.Status.DaemonConfigurationHash, wantHash)
+	}
+	if authProvider.Status.ObservedSyncRevision != "revision-two" {
+		t.Fatalf("observed sync revision = %q, want revision-two", authProvider.Status.ObservedSyncRevision)
+	}
+
+	unchangedStatus := *authProvider.Status.DeepCopy()
+	if err := SetAuthProviderConfiguredStatus(t.Context(), gatewayClient, licenseProvider, authProvider); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(authProvider.Status, unchangedStatus) {
+		t.Fatalf("unchanged reconciliation modified status: got %#v, want %#v", authProvider.Status, unchangedStatus)
+	}
+
+	if _, err := gatewayClient.DeleteCredential(t.Context(), authProvider.Name, authProvider.Name); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetAuthProviderConfiguredStatus(t.Context(), gatewayClient, licenseProvider, authProvider); err != nil {
+		t.Fatal(err)
+	}
+	if authProvider.Status.Configured {
+		t.Fatal("auth provider remained configured after credential deletion")
+	}
+	if len(authProvider.Status.MissingConfigurationParameters) != 1 || authProvider.Status.MissingConfigurationParameters[0] != "CLIENT_SECRET" {
+		t.Fatalf("missing configuration parameters = %#v, want CLIENT_SECRET", authProvider.Status.MissingConfigurationParameters)
+	}
+	if authProvider.Status.ObservedSyncRevision != "revision-two" {
+		t.Fatalf("observed sync revision = %q, want revision-two", authProvider.Status.ObservedSyncRevision)
+	}
+}
+
+func newProviderTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := database.AutoMigrate(); err != nil {
+		t.Fatal(err)
+	}
+	gatewayClient := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() {
+		if err := gatewayClient.Close(); err != nil {
+			t.Errorf("close gateway client: %v", err)
+		}
+	})
+	return gatewayClient
 }

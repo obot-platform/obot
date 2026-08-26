@@ -22,9 +22,8 @@ import (
 )
 
 type ports struct {
-	daemonPorts    map[string]int64
-	daemonsRunning map[string]func()
-	daemonLock     sync.RWMutex
+	daemons    map[string]daemonState
+	daemonLock sync.RWMutex
 
 	startPort, endPort int64
 	usedPorts          map[int64]struct{}
@@ -33,13 +32,19 @@ type ports struct {
 	daemonWG           sync.WaitGroup
 }
 
+type daemonState struct {
+	port              int64
+	stop              func()
+	command           *exec.Cmd
+	configurationHash string
+}
+
 func newPorts() *ports {
 	daemonCtx, cancel := context.WithCancel(context.Background())
 	p := &ports{
-		daemonCtx:      daemonCtx,
-		daemonPorts:    map[string]int64{},
-		daemonsRunning: map[string]func(){},
-		usedPorts:      map[int64]struct{}{},
+		daemonCtx: daemonCtx,
+		daemons:   map[string]daemonState{},
+		usedPorts: map[int64]struct{}{},
 	}
 	p.daemonClose = func() {
 		cancel()
@@ -56,15 +61,38 @@ func (d *Dispatcher) closeDaemons() {
 
 func (d *Dispatcher) stopDaemon(id string) {
 	d.ports.daemonLock.Lock()
-	defer d.ports.daemonLock.Unlock()
-
-	if stop := d.ports.daemonsRunning[id]; stop != nil {
-		stop()
+	state, ok := d.ports.daemons[id]
+	if ok {
+		delete(d.ports.daemons, id)
 	}
+	d.ports.daemonLock.Unlock()
 
-	delete(d.ports.daemonsRunning, id)
-	delete(d.ports.usedPorts, d.ports.daemonPorts[id])
-	delete(d.ports.daemonPorts, id)
+	if ok {
+		state.stop()
+	}
+}
+
+func (d *Dispatcher) stopDaemonCommand(id string, command *exec.Cmd) {
+	d.ports.daemonLock.Lock()
+	state, ok := d.ports.daemons[id]
+	if ok && state.command == command {
+		delete(d.ports.daemons, id)
+	} else {
+		ok = false
+	}
+	d.ports.daemonLock.Unlock()
+
+	if ok {
+		state.stop()
+	}
+}
+
+func (d *Dispatcher) daemonState(id string) (daemonState, bool) {
+	d.ports.daemonLock.RLock()
+	defer d.ports.daemonLock.RUnlock()
+
+	state, ok := d.ports.daemons[id]
+	return state, ok
 }
 
 func (d *Dispatcher) nextPort() int64 {
@@ -94,29 +122,12 @@ func (d *Dispatcher) nextPort() int64 {
 	panic("Ran out of usable ports")
 }
 
-func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args ...string) (url.URL, error) {
-	d.ports.daemonLock.RLock()
-	port, portExists := d.ports.daemonPorts[id]
-	_, isRunning := d.ports.daemonsRunning[id]
-	d.ports.daemonLock.RUnlock()
-
-	u := url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}
-	if portExists && isRunning {
-		return u, nil
-	}
-
+func (d *Dispatcher) startDaemon(env map[string]string, id, configurationHash, command string, args ...string) (url.URL, *exec.Cmd, error) {
 	d.ports.daemonLock.Lock()
-	defer d.ports.daemonLock.Unlock()
-
-	port, portExists = d.ports.daemonPorts[id]
-	_, isRunning = d.ports.daemonsRunning[id]
-	if portExists && isRunning {
-		return url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}, nil
-	}
-
 	ctx := d.ports.daemonCtx
-	port = d.nextPort()
-	u.Host = fmt.Sprintf("127.0.0.1:%d", port)
+	port := d.nextPort()
+	d.ports.daemonLock.Unlock()
+	u := url.URL{Scheme: "http", Host: fmt.Sprintf("127.0.0.1:%d", port)}
 
 	if env == nil {
 		env = make(map[string]string, 3)
@@ -124,18 +135,29 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 	env["PORT"] = fmt.Sprintf("%d", port)
 	cmd, stop, err := d.newCommand(ctx, env, command, args...)
 	if err != nil {
-		return u, err
+		d.ports.daemonLock.Lock()
+		delete(d.ports.usedPorts, port)
+		d.ports.daemonLock.Unlock()
+		return u, nil, err
 	}
 
 	slog.Info("Launched provider daemon", "command", command, "args", cmd.Args, "port", port)
 	if err := cmd.Start(); err != nil {
 		stop()
+		d.ports.daemonLock.Lock()
 		delete(d.ports.usedPorts, port)
-		return u, err
+		d.ports.daemonLock.Unlock()
+		return u, nil, err
 	}
 
-	d.ports.daemonPorts[id] = port
-	d.ports.daemonsRunning[id] = stop
+	d.ports.daemonLock.Lock()
+	d.ports.daemons[id] = daemonState{
+		port:              port,
+		stop:              stop,
+		command:           cmd,
+		configurationHash: configurationHash,
+	}
+	d.ports.daemonLock.Unlock()
 
 	killedCtx, killedCancel := context.WithCancelCause(ctx)
 	defer killedCancel(nil)
@@ -153,8 +175,9 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 		defer d.ports.daemonLock.Unlock()
 
 		delete(d.ports.usedPorts, port)
-		delete(d.ports.daemonPorts, id)
-		delete(d.ports.daemonsRunning, id)
+		if state, ok := d.ports.daemons[id]; ok && state.command == cmd {
+			delete(d.ports.daemons, id)
+		}
 	})
 
 	client := &http.Client{Timeout: 2 * time.Second}
@@ -168,17 +191,19 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 			}(resp.Body)
 
 			if resp.StatusCode == http.StatusOK {
-				return u, nil
+				return u, cmd, nil
 			}
 		}
 		select {
 		case <-killedCtx.Done():
-			return u, fmt.Errorf("daemon failed to start: %w", context.Cause(killedCtx))
+			d.stopDaemonCommand(id, cmd)
+			return u, nil, fmt.Errorf("daemon failed to start: %w", context.Cause(killedCtx))
 		case <-time.After(time.Second):
 		}
 	}
 
-	return u, fmt.Errorf("timeout waiting for 200 response from GET %s", u.String())
+	d.stopDaemonCommand(id, cmd)
+	return u, nil, fmt.Errorf("timeout waiting for 200 response from GET %s", u.String())
 }
 
 func (d *Dispatcher) runCommand(ctx context.Context, envMap map[string]string, command string, args ...string) error {
@@ -221,7 +246,11 @@ func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, c
 		envMap = make(map[string]string, 2)
 	}
 	envMap["OBOT_SERVER_PUBLIC_URL"] = d.serverURL
-	envMap["OBOT_SERVER_URL"] = d.sessionManager.TransformObotHostname(d.internalServerURL)
+	internalServerURL := d.internalServerURL
+	if d.sessionManager != nil {
+		internalServerURL = d.sessionManager.TransformObotHostname(internalServerURL)
+	}
+	envMap["OBOT_SERVER_URL"] = internalServerURL
 	cmd.Env = envAsSlice(envMap)
 
 	r, w, err := os.Pipe()
