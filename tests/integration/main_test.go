@@ -12,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -28,12 +27,9 @@ type obotApplication struct {
 	workDir         string
 	originalWorkDir string
 	dockerHostSet   bool
-	mcpImage        string
 	logLevel        logrus.Level
 	exited          bool
 }
-
-var integrationMCPImage string
 
 func TestMain(m *testing.M) {
 	app, err := startObotApplication()
@@ -94,21 +90,9 @@ func startObotApplication() (*obotApplication, error) {
 		_ = app.cleanup()
 		return nil, err
 	}
-	repositoryRoot, err := repositoryRoot()
-	if err != nil {
-		_ = app.cleanup()
-		return nil, err
-	}
-	app.mcpImage, err = buildTestMCPImage(repositoryRoot, workDir)
-	if err != nil {
-		_ = app.cleanup()
-		return nil, err
-	}
-	integrationMCPImage = app.mcpImage
-
 	ctx, cancel := context.WithCancel(context.Background())
 	app.cancel = cancel
-	config := integrationServerConfig(httpPort, storagePort, workDir, app.mcpImage)
+	config := integrationServerConfig(httpPort, storagePort, workDir)
 	go func() {
 		app.done <- server.Run(ctx, config)
 	}()
@@ -119,14 +103,13 @@ func startObotApplication() (*obotApplication, error) {
 	return app, nil
 }
 
-func integrationServerConfig(httpPort, storagePort int, workDir, mcpImage string) services.Config {
+func integrationServerConfig(httpPort, storagePort int, workDir string) services.Config {
 	config := services.Config{
 		HTTPListenPort:           httpPort,
 		DevMode:                  true,
 		ElectionFile:             filepath.Join(workDir, "election"),
 		MCPOAuthClientExpiration: "30d",
 		DisableUpdateCheck:       true,
-		MCPServerSearchImage:     mcpImage,
 	}
 	config.StorageListenPort = storagePort
 	config.DSN = "sqlite://file:" + filepath.Join(workDir, "obot.db") + "?_journal=WAL&_busy_timeout=30000"
@@ -136,6 +119,7 @@ func integrationServerConfig(httpPort, storagePort int, workDir, mcpImage string
 	config.AuthenticatedRateLimit = 200
 	config.AuditLogsMode = "off"
 	config.MCPRuntimeBackend = "docker"
+	config.MCPBaseImage = "ghcr.io/obot-platform/mcp-images/stdio-wrapper:v0.25.0"
 	config.MCPSecretBindingAllowedLabel = "obot.obot.ai/allow-secret-binding"
 	config.SingleUserIdleServerShutdownHours = -1
 	config.MultiUserIdleServerShutdownHours = -1
@@ -176,71 +160,6 @@ func configureDockerHost() (bool, error) {
 		return false, err
 	}
 	return true, nil
-}
-
-func repositoryRoot() (string, error) {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		return "", errors.New("determine integration test source path")
-	}
-	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
-	if _, err := os.Stat(filepath.Join(root, "go.mod")); err != nil {
-		return "", fmt.Errorf("find repository root: %w", err)
-	}
-	return root, nil
-}
-
-func buildTestMCPImage(repositoryRoot, workDir string) (string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	archOutput, err := exec.CommandContext(ctx, "docker", "version", "--format", "{{.Server.Arch}}").Output()
-	if err != nil {
-		return "", fmt.Errorf("determine Docker architecture: %w", err)
-	}
-	arch := strings.TrimSpace(string(archOutput))
-	switch arch {
-	case "amd64", "arm64":
-	default:
-		return "", fmt.Errorf("unsupported Docker architecture %q", arch)
-	}
-
-	binaryPath := filepath.Join(workDir, "mcp-test-server")
-	build := exec.CommandContext(ctx, "go", "build", "-o", binaryPath, "./tests/integration/testdata/mcpserver")
-	build.Dir = repositoryRoot
-	build.Env = append(os.Environ(), "CGO_ENABLED=0", "GOOS=linux", "GOARCH="+arch)
-	if output, err := build.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build integration MCP server: %w\n%s", err, output)
-	}
-
-	image := "obot-integration-mcp:" + filepath.Base(workDir)
-	dockerfile := filepath.Join(repositoryRoot, "tests/integration/testdata/mcpserver/Dockerfile")
-	buildImage := exec.CommandContext(ctx, "docker", "build", "--quiet", "--file", dockerfile, "--tag", image, workDir)
-	if output, err := buildImage.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("build integration MCP image: %w\n%s", err, output)
-	}
-	return image, nil
-}
-
-func removeTestMCPContainers(image string) error {
-	if image == "" {
-		return nil
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	list := exec.CommandContext(ctx, "docker", "ps", "--all", "--quiet", "--filter", "ancestor="+image)
-	output, err := list.Output()
-	if err != nil {
-		return fmt.Errorf("list integration MCP containers: %w", err)
-	}
-	if containers := strings.Fields(string(output)); len(containers) > 0 {
-		args := append([]string{"rm", "--force"}, containers...)
-		if output, err := exec.CommandContext(ctx, "docker", args...).CombinedOutput(); err != nil {
-			return fmt.Errorf("remove integration MCP containers: %w\n%s", err, output)
-		}
-	}
-	return nil
 }
 
 func (a *obotApplication) waitForHealth(baseURL string, timeout time.Duration) error {
@@ -289,7 +208,7 @@ func (a *obotApplication) stop() error {
 }
 
 func (a *obotApplication) cleanup() error {
-	result := removeTestMCPContainers(a.mcpImage)
+	var result error
 	result = errors.Join(result, os.Unsetenv("OBOT_INTEGRATION_BASE_URL"))
 	if a.dockerHostSet {
 		result = errors.Join(result, os.Unsetenv("DOCKER_HOST"))

@@ -12,19 +12,26 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 )
 
-// CreateMCPServer creates an MCP server at POST /api/mcp-servers and
-// registers a cleanup that deletes it when the test ends. The returned server
-// has its server-assigned fields populated (ID, etc.).
-//
-// Requires the caller to be admin or to supply a CatalogEntryID — see the
-// CreateServer handler in pkg/api/handlers/mcp.go for the rules. In dev mode
-// with EnableAuthentication=false, the no-auth user is admin.
-func (h *Harness) CreateMCPServer(t *testing.T, server types.MCPServer) types.MCPServer {
+// CreateMCPCatalogEntry creates a catalog entry and registers cleanup after
+// all subsequently registered resources have been removed.
+func (h *Harness) CreateMCPCatalogEntry(t *testing.T, catalogID string, manifest types.MCPServerCatalogEntryManifest) types.MCPServerCatalogEntry {
+	t.Helper()
+	var created types.MCPServerCatalogEntry
+	h.Post(t, "/api/mcp-catalogs/"+catalogID+"/entries", manifest, &created)
+	h.AddCleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, _ = h.status(ctx, http.MethodDelete, "/api/mcp-catalogs/"+catalogID+"/entries/"+created.ID)
+	})
+	return created
+}
+
+// CreateMCPServerFromCatalogEntry creates a server in catalogID from entryID.
+func (h *Harness) CreateMCPServerFromCatalogEntry(t *testing.T, catalogID, entryID string) types.MCPServer {
 	t.Helper()
 	var created types.MCPServer
-	h.Post(t, "/api/mcp-servers", server, &created)
+	h.Post(t, "/api/mcp-catalogs/"+catalogID+"/servers", types.MCPServer{CatalogEntryID: entryID}, &created)
 	h.AddCleanup(func() {
-		// Best-effort: ignore failures on shutdown, but never let cleanup hang.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		_, _ = h.status(ctx, http.MethodDelete, "/api/mcp-servers/"+created.ID)

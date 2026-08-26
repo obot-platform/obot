@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -80,52 +79,6 @@ func (h *Harness) Put(t *testing.T, path string, body, out any) {
 func (h *Harness) Delete(t *testing.T, path string) {
 	t.Helper()
 	h.do(t, http.MethodDelete, path, nil, nil)
-}
-
-// ReadStreamUntil issues GET path against a streaming endpoint (e.g. SSE logs)
-// and returns as soon as it reads expected, reaches maxBytes, or exhausts budget.
-func (h *Harness) ReadStreamUntil(t *testing.T, path string, expected []byte, budget time.Duration, maxBytes int) []byte {
-	t.Helper()
-	if maxBytes <= 0 {
-		t.Fatalf("read stream %s: maxBytes must be positive", path)
-	}
-
-	streamCtx, cancel := context.WithTimeout(t.Context(), budget)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(streamCtx, http.MethodGet, h.BaseURL+path, nil)
-	if err != nil {
-		t.Fatalf("build GET %s: %v", path, err)
-	}
-	resp, err := h.HTTP.Do(req)
-	if err != nil {
-		t.Fatalf("GET %s: %v", path, err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		t.Fatalf("GET %s: %d %s\nbody: %s", path, resp.StatusCode, resp.Status, string(body))
-	}
-
-	var result []byte
-	chunk := make([]byte, min(1024, maxBytes))
-	for {
-		n, err := resp.Body.Read(chunk)
-		if n > 0 {
-			result = append(result, chunk[:min(n, maxBytes-len(result))]...)
-			if bytes.Contains(result, expected) || len(result) == maxBytes {
-				return result
-			}
-		}
-		if err == nil {
-			continue
-		}
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) {
-			return result
-		}
-		t.Fatalf("read stream %s: %v", path, err)
-	}
 }
 
 // Status issues a request and returns the status code without failing the
