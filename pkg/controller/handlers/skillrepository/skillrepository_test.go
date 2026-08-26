@@ -352,6 +352,7 @@ func TestSync(t *testing.T) {
 		skill := newSkill("skill-a", repo.Namespace, repo.Name, "Skill A")
 		skill.Spec.RepoURL = repo.Spec.RepoURL
 		skill.Spec.RepoRef = repo.Spec.Ref
+		skill.Spec.CommitSHA = repo.Status.ResolvedCommitSHA
 		c := newFakeClient(t, repo, skill)
 
 		resolveCalled := false
@@ -410,6 +411,7 @@ func TestSync(t *testing.T) {
 			skill := newSkill("skill-a", repo.Namespace, repo.Name, "Skill A")
 			skill.Spec.RepoURL = repo.Spec.RepoURL
 			skill.Spec.RepoRef = repo.Spec.Ref
+			skill.Spec.CommitSHA = repo.Status.ResolvedCommitSHA
 			test.updateRepo(repo)
 			c := newFakeClient(t, repo, skill)
 
@@ -435,6 +437,39 @@ func TestSync(t *testing.T) {
 			assert.True(t, fetchCalled)
 		})
 	}
+
+	t.Run("stale skill commit fetches when repository commit is unchanged", func(t *testing.T) {
+		repo := newSkillRepository()
+		repo.Status.LastSyncTime = metav1.NewTime(fixedTime.Add(-2 * time.Hour))
+		repo.Status.ResolvedCommitSHA = "abc123"
+		repo.Status.DiscoveredSkillCount = 1
+		skill := newSkill("skill-a", repo.Namespace, repo.Name, "Skill A")
+		skill.Spec.RepoURL = repo.Spec.RepoURL
+		skill.Spec.RepoRef = repo.Spec.Ref
+		skill.Spec.CommitSHA = "stale"
+		c := newFakeClient(t, repo, skill)
+
+		fetched := createFetchedRepo(t, map[string]string{"skill-a": "Skill A"})
+		fetchCalled := false
+		h := &Handler{
+			gatewayClient: gatewayClient,
+			fetcher: &mockFetcher{
+				resolveFn: func(_ context.Context, _, _, _ string) (string, error) {
+					return repo.Status.ResolvedCommitSHA, nil
+				},
+				fetchFn: func(_ context.Context, _, _, _ string) (*fetchedRepository, error) {
+					fetchCalled = true
+					return fetched, nil
+				},
+			},
+			now: func() time.Time { return fixedTime },
+		}
+
+		require.NoError(t, h.Sync(router.Request{
+			Client: c, Object: repo, Ctx: t.Context(), Namespace: repo.Namespace, Name: repo.Name, Key: repo.Namespace + "/" + repo.Name,
+		}, &router.ResponseWrapper{}))
+		assert.True(t, fetchCalled)
+	})
 
 	t.Run("force sync bypasses interval", func(t *testing.T) {
 		repo := newSkillRepository()

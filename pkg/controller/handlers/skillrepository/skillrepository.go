@@ -198,7 +198,9 @@ func skillSourcesMatchRepository(ctx context.Context, c kclient.Client, repo *v1
 		return false, nil
 	}
 	for _, skill := range skills {
-		if skill.Spec.RepoURL != repo.Spec.RepoURL || skill.Spec.RepoRef != repo.Spec.Ref {
+		if skill.Spec.RepoURL != repo.Spec.RepoURL ||
+			skill.Spec.RepoRef != repo.Spec.Ref ||
+			skill.Spec.CommitSHA != repo.Status.ResolvedCommitSHA {
 			return false, nil
 		}
 	}
