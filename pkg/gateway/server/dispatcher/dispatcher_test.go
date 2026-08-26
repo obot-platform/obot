@@ -35,9 +35,10 @@ func TestProviderLogLevelEnv(t *testing.T) {
 
 func TestAuthProviderRevisionTracksOnlyDaemonConfiguration(t *testing.T) {
 	authProvider := v1.AuthProvider{
-		Name:       "entra",
-		Namespace:  "default",
-		Generation: 4,
+		Name:            "entra",
+		Namespace:       "default",
+		Generation:      4,
+		ResourceVersion: "10",
 		Annotations: map[string]string{
 			v1.AuthProviderSyncAnnotation: "revision-one",
 		},
@@ -53,6 +54,9 @@ func TestAuthProviderRevisionTracksOnlyDaemonConfiguration(t *testing.T) {
 	original, err := authProviderRevision(authProvider)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if original.resourceVersion != 10 {
+		t.Fatalf("resource version = %d, want 10", original.resourceVersion)
 	}
 
 	statusUpdate := authProvider.DeepCopy()
@@ -216,6 +220,39 @@ func TestObserveAuthProviderDoesNotStopNewerDaemonForStaleMissingStatus(t *testi
 	}
 }
 
+func TestStopDaemonIfRevisionDoesNotStopNewerDaemon(t *testing.T) {
+	d := &Dispatcher{ports: newPorts()}
+	t.Cleanup(d.ports.daemonClose)
+	key := providerKeyForAuthProvider("default", "entra")
+	oldRevision := daemonRevision{
+		instance:        "instance",
+		generation:      1,
+		resourceVersion: 10,
+		value:           "old",
+	}
+	newRevision := daemonRevision{
+		instance:        "instance",
+		generation:      2,
+		resourceVersion: 11,
+		value:           "new",
+	}
+	stopCalls := 0
+	d.ports.desiredDaemonRevisions[key] = newRevision
+	d.ports.daemonPorts[key] = 10443
+	d.ports.daemonsRunning[key] = func() {
+		stopCalls++
+	}
+	d.ports.daemonRevisions[key] = newRevision
+
+	d.stopDaemonIfRevision(key, oldRevision)
+	if stopCalls != 0 {
+		t.Fatalf("daemon stop calls = %d, want 0", stopCalls)
+	}
+	if _, running := d.ports.daemonsRunning[key]; !running {
+		t.Fatal("newer daemon was removed from registry")
+	}
+}
+
 func TestStartDaemonRejectsSupersededRevision(t *testing.T) {
 	d := &Dispatcher{ports: newPorts()}
 	t.Cleanup(d.ports.daemonClose)
@@ -238,22 +275,35 @@ func TestForgetAuthProviderAllowsLowerGenerationAfterRecreation(t *testing.T) {
 	d := &Dispatcher{ports: newPorts()}
 	t.Cleanup(d.ports.daemonClose)
 	key := providerKeyForAuthProvider("default", "entra")
-	d.ports.desiredDaemonRevisions[key] = daemonRevision{
-		instance:   "old-instance",
-		generation: 10,
-		value:      "old",
+	oldRevision := daemonRevision{
+		instance:        "old-instance",
+		generation:      10,
+		resourceVersion: 20,
+		value:           "old",
 	}
+	d.ports.desiredDaemonRevisions[key] = oldRevision
 
 	d.ForgetAuthProvider("default", "entra")
-	if _, ok := d.ports.desiredDaemonRevisions[key]; ok {
-		t.Fatal("deleted auth provider revision remains in registry")
+	if desired := d.ports.desiredDaemonRevisions[key]; !desired.forgotten {
+		t.Fatal("deleted auth provider revision was not marked forgotten")
+	}
+	if current := d.observeDaemonRevision(key, oldRevision); current {
+		t.Fatal("forgotten auth provider instance was accepted")
 	}
 
-	if current := d.observeDaemonRevision(key, daemonRevision{
-		instance:   "new-instance",
-		generation: 1,
-		value:      "new",
-	}); !current {
+	newRevision := daemonRevision{
+		instance:        "new-instance",
+		generation:      1,
+		resourceVersion: 21,
+		value:           "new",
+	}
+	if current := d.observeDaemonRevision(key, newRevision); !current {
 		t.Fatal("recreated auth provider revision was rejected")
+	}
+	if current := d.observeDaemonRevision(key, oldRevision); current {
+		t.Fatal("old instance superseded recreated auth provider")
+	}
+	if desired := d.ports.desiredDaemonRevisions[key]; desired != newRevision {
+		t.Fatalf("desired revision = %#v, want %#v", desired, newRevision)
 	}
 }

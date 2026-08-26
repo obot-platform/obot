@@ -42,13 +42,15 @@ type ports struct {
 }
 
 type daemonRevision struct {
-	instance   string
-	generation int64
-	value      string
+	instance        string
+	generation      int64
+	resourceVersion int64
+	value           string
+	forgotten       bool
 }
 
 func (d daemonRevision) sameConfiguration(other daemonRevision) bool {
-	return d.instance == other.instance && d.value == other.value
+	return !d.forgotten && !other.forgotten && d.instance == other.instance && d.value == other.value
 }
 
 func newPorts() *ports {
@@ -81,6 +83,18 @@ func (d *Dispatcher) stopDaemon(id string) {
 	d.stopDaemonLocked(id)
 }
 
+func (d *Dispatcher) stopDaemonIfRevision(id string, revision daemonRevision) {
+	d.ports.daemonLock.Lock()
+	defer d.ports.daemonLock.Unlock()
+
+	desired, desiredOK := d.ports.desiredDaemonRevisions[id]
+	running, runningOK := d.ports.daemonRevisions[id]
+	if !desiredOK || desired != revision || !runningOK || running != revision {
+		return
+	}
+	d.stopDaemonLocked(id)
+}
+
 func (d *Dispatcher) stopDaemonLocked(id string) {
 	if stop := d.ports.daemonsRunning[id]; stop != nil {
 		stop()
@@ -96,9 +110,19 @@ func (d *Dispatcher) observeDaemonRevision(id string, revision daemonRevision) b
 	d.ports.daemonLock.Lock()
 	defer d.ports.daemonLock.Unlock()
 
-	if desired, ok := d.ports.desiredDaemonRevisions[id]; ok &&
-		desired.instance == revision.instance && desired.generation > revision.generation {
-		return desired.sameConfiguration(revision)
+	if desired, ok := d.ports.desiredDaemonRevisions[id]; ok {
+		if desired.forgotten {
+			if desired.instance == revision.instance ||
+				desired.resourceVersion > 0 && revision.resourceVersion > 0 && desired.resourceVersion >= revision.resourceVersion {
+				return false
+			}
+		} else if desired.resourceVersion > 0 && revision.resourceVersion > 0 {
+			if desired.resourceVersion > revision.resourceVersion {
+				return desired.sameConfiguration(revision)
+			}
+		} else if desired.instance == revision.instance && desired.generation > revision.generation {
+			return desired.sameConfiguration(revision)
+		}
 	}
 	d.ports.desiredDaemonRevisions[id] = revision
 
@@ -121,7 +145,10 @@ func (d *Dispatcher) forgetDaemon(id string) {
 	defer d.ports.daemonLock.Unlock()
 
 	d.stopDaemonLocked(id)
-	delete(d.ports.desiredDaemonRevisions, id)
+	if desired, ok := d.ports.desiredDaemonRevisions[id]; ok {
+		desired.forgotten = true
+		d.ports.desiredDaemonRevisions[id] = desired
+	}
 }
 
 func (d *Dispatcher) daemonURL(id string, revision daemonRevision) (url.URL, bool) {

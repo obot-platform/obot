@@ -10,6 +10,7 @@ import (
 	"maps"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -124,7 +125,7 @@ func (d *Dispatcher) urlForAuthProvider(ctx context.Context, key, namespace, aut
 	}
 
 	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
-		d.stopDaemon(key)
+		d.stopDaemonIfRevision(key, revision)
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
 	}
 	if u, ok := d.daemonURL(key, revision); ok {
@@ -147,7 +148,7 @@ func (d *Dispatcher) urlForAuthProvider(ctx context.Context, key, namespace, aut
 		}
 	}
 	if len(missingConfigParams) > 0 {
-		d.stopDaemon(key)
+		d.stopDaemonIfRevision(key, revision)
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missingConfigParams, ", "))
 	}
 
@@ -167,12 +168,21 @@ func (d *Dispatcher) ObserveAuthProvider(authProvider v1.AuthProvider) error {
 	}
 	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
 	if current := d.observeDaemonRevision(key, revision); current && len(authProvider.Status.MissingConfigurationParameters) > 0 {
-		d.stopDaemon(key)
+		d.stopDaemonIfRevision(key, revision)
 	}
 	return nil
 }
 
 func authProviderRevision(authProvider v1.AuthProvider) (daemonRevision, error) {
+	var resourceVersion int64
+	if authProvider.ResourceVersion != "" {
+		var err error
+		resourceVersion, err = strconv.ParseInt(authProvider.ResourceVersion, 10, 64)
+		if err != nil {
+			return daemonRevision{}, fmt.Errorf("parse auth provider resource version %q: %w", authProvider.ResourceVersion, err)
+		}
+	}
+
 	payload := struct {
 		Spec         v1.AuthProviderSpec `json:"spec"`
 		SyncRevision string              `json:"syncRevision"`
@@ -186,9 +196,10 @@ func authProviderRevision(authProvider v1.AuthProvider) (daemonRevision, error) 
 	}
 	digest := sha256.Sum256(b)
 	return daemonRevision{
-		instance:   string(authProvider.UID),
-		generation: authProvider.Generation,
-		value:      hex.EncodeToString(digest[:]),
+		instance:        string(authProvider.UID),
+		generation:      authProvider.Generation,
+		resourceVersion: resourceVersion,
+		value:           hex.EncodeToString(digest[:]),
 	}, nil
 }
 
@@ -263,8 +274,8 @@ func (d *Dispatcher) StopAuthProvider(namespace, authProviderName string) {
 	d.stopProvider("auth-provider", namespace, authProviderName)
 }
 
-// ForgetAuthProvider stops a local daemon and removes the desired revision for
-// a deleted AuthProvider so a newly created resource with the same name can start.
+// ForgetAuthProvider stops a local daemon and remembers the deleted instance so
+// in-flight requests cannot restart it.
 func (d *Dispatcher) ForgetAuthProvider(namespace, authProviderName string) {
 	d.forgetDaemon(providerKeyForAuthProvider(namespace, authProviderName))
 }
