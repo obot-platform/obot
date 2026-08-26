@@ -62,6 +62,11 @@ type Handler struct {
 	mcpSessionManager         *mcp.SessionManager
 }
 
+type skippedCatalogSource struct {
+	url   string
+	token string
+}
+
 // userInfo is a wrapper around kuser.Info that includes the user's role.
 type userInfo struct {
 	kuser.Info
@@ -133,6 +138,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	reconcilableSourceIDs := make(map[string]struct{})
 	successfulSources := make(map[string]string)
 	skippedSourceIDs := make(map[string]struct{})
+	var skippedSources []skippedCatalogSource
 
 	for _, sourceURL := range mcpCatalog.Spec.SourceURLs {
 		credentialID := mcpCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
@@ -152,6 +158,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 			} else if commitSHA == mcpCatalog.Status.ResolvedCommitSHAs[sourceURL] {
 				slog.Info("Skipping unchanged MCP catalog source", "catalog", mcpCatalog.Name, "source", sourceURL, "commit", commitSHA)
 				skippedSourceIDs[mcp.SourceIDForURL(sourceURL)] = struct{}{}
+				skippedSources = append(skippedSources, skippedCatalogSource{url: sourceURL, token: token})
 				continue
 			}
 		}
@@ -170,6 +177,24 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 
 		toAdd = append(toAdd, objs...)
+	}
+
+	if hasChangedPreviouslySyncedSource(mcpCatalog.Status.ResolvedCommitSHAs, successfulSources) {
+		for _, source := range skippedSources {
+			objs, commitSHA, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, source.url, source.token, validationOptions)
+			if err != nil {
+				slog.Error("failed to read previously skipped catalog source", "source", source.url, "error", err)
+				mcpCatalog.Status.SyncErrors[source.url] = err.Error()
+			} else {
+				slog.Info("Read previously skipped MCP catalog source for complete reconciliation", "catalog", mcpCatalog.Name, "source", source.url, "entries", len(objs))
+				reconcilableSourceIDs[mcp.SourceIDForURL(source.url)] = struct{}{}
+				delete(skippedSourceIDs, mcp.SourceIDForURL(source.url))
+				if commitSHA != "" {
+					successfulSources[source.url] = commitSHA
+				}
+			}
+			toAdd = append(toAdd, objs...)
+		}
 	}
 
 	if len(toAdd) > 0 {
@@ -263,6 +288,16 @@ func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []
 	}
 	maps.Copy(next, successful)
 	return next
+}
+
+func hasChangedPreviouslySyncedSource(previousCommits, successfulCommits map[string]string) bool {
+	for sourceURL, commitSHA := range successfulCommits {
+		previousCommitSHA := previousCommits[sourceURL]
+		if previousCommitSHA != "" && commitSHA != previousCommitSHA {
+			return true
+		}
+	}
+	return false
 }
 
 func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
@@ -669,6 +704,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	systemCatalog.Status.SyncErrors = make(map[string]string)
 	reconcilableSourceIDs := make(map[string]struct{})
 	successfulSources := make(map[string]string)
+	var skippedSources []skippedCatalogSource
 
 	for _, sourceURL := range systemCatalog.Spec.SourceURLs {
 		credentialID := systemCatalog.Spec.SourceURLGitCredentialIDs[sourceURL]
@@ -687,6 +723,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 				slog.Warn("Failed to resolve system MCP catalog source commit; falling back to full source sync", "catalog", systemCatalog.Name, "source", sourceURL, "error", resolveErr)
 			} else if commitSHA == systemCatalog.Status.ResolvedCommitSHAs[sourceURL] {
 				slog.Info("Skipping unchanged system MCP catalog source", "catalog", systemCatalog.Name, "source", sourceURL, "commit", commitSHA)
+				skippedSources = append(skippedSources, skippedCatalogSource{url: sourceURL, token: token})
 				continue
 			}
 		}
@@ -705,6 +742,23 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		}
 
 		toAdd = append(toAdd, objs...)
+	}
+
+	if hasChangedPreviouslySyncedSource(systemCatalog.Status.ResolvedCommitSHAs, successfulSources) {
+		for _, source := range skippedSources {
+			objs, commitSHA, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, source.url, source.token)
+			if err != nil {
+				slog.Error("failed to read previously skipped system catalog source", "source", source.url, "error", err)
+				systemCatalog.Status.SyncErrors[source.url] = err.Error()
+			} else {
+				slog.Info("Read previously skipped system MCP catalog source for complete reconciliation", "catalog", systemCatalog.Name, "source", source.url, "entries", len(objs))
+				reconcilableSourceIDs[mcp.SourceIDForURL(source.url)] = struct{}{}
+				if commitSHA != "" {
+					successfulSources[source.url] = commitSHA
+				}
+			}
+			toAdd = append(toAdd, objs...)
+		}
 	}
 
 	systemCatalog.Status.LastSyncTime = metav1.Now()

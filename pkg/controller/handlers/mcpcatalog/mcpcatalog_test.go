@@ -127,3 +127,35 @@ func TestNextResolvedCommitSHAsOnlyKeepsConfiguredGitSources(t *testing.T) {
 		"https://github.com/example/changed":   "new-sha",
 	}, next)
 }
+
+func TestHasChangedPreviouslySyncedSource(t *testing.T) {
+	tests := []struct {
+		name       string
+		previous   map[string]string
+		successful map[string]string
+		want       bool
+	}{
+		{
+			name:       "existing source changed",
+			previous:   map[string]string{"source-a": "old"},
+			successful: map[string]string{"source-a": "new"},
+			want:       true,
+		},
+		{
+			name:       "new source does not force existing sources",
+			previous:   map[string]string{"source-a": "same"},
+			successful: map[string]string{"source-b": "new"},
+		},
+		{
+			name:       "unchanged source",
+			previous:   map[string]string{"source-a": "same"},
+			successful: map[string]string{"source-a": "same"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, test.want, hasChangedPreviouslySyncedSource(test.previous, test.successful))
+		})
+	}
+}
