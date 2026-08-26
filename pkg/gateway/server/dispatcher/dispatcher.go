@@ -122,12 +122,13 @@ func (d *Dispatcher) urlForAuthProvider(ctx context.Context, key, namespace, aut
 	if current := d.observeDaemonRevision(key, revision); !current {
 		return url.URL{}, errDaemonRevisionChanged
 	}
-	if u, ok := d.daemonURL(key, revision); ok {
-		return u, nil
-	}
 
 	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
+		d.stopDaemon(key)
 		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
+	}
+	if u, ok := d.daemonURL(key, revision); ok {
+		return u, nil
 	}
 
 	credEnv := map[string]string{}
@@ -138,6 +139,16 @@ func (d *Dispatcher) urlForAuthProvider(ctx context.Context, key, namespace, aut
 		}
 	} else if cred.Secrets != nil {
 		credEnv = cred.Secrets
+	}
+	var missingConfigParams []string
+	for _, required := range authProvider.Spec.RequiredConfigurationParameters {
+		if _, ok := credEnv[required.Name]; !ok {
+			missingConfigParams = append(missingConfigParams, required.Name)
+		}
+	}
+	if len(missingConfigParams) > 0 {
+		d.stopDaemon(key)
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missingConfigParams, ", "))
 	}
 
 	maps.Copy(credEnv, d.authProviderExtraEnv)
@@ -154,7 +165,10 @@ func (d *Dispatcher) ObserveAuthProvider(authProvider v1.AuthProvider) error {
 	if err != nil {
 		return err
 	}
-	d.observeDaemonRevision(providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name), revision)
+	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
+	if current := d.observeDaemonRevision(key, revision); current && len(authProvider.Status.MissingConfigurationParameters) > 0 {
+		d.stopDaemon(key)
+	}
 	return nil
 }
 

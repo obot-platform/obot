@@ -148,6 +148,74 @@ func TestObserveDaemonRevisionStopsOnlyStaleDaemon(t *testing.T) {
 	}
 }
 
+func TestObserveAuthProviderStopsDaemonWhenConfigurationIsMissing(t *testing.T) {
+	d := &Dispatcher{ports: newPorts()}
+	t.Cleanup(d.ports.daemonClose)
+	authProvider := v1.AuthProvider{
+		Name:       "entra",
+		Namespace:  "default",
+		Generation: 2,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "current",
+		},
+	}
+	authProvider.Status.MissingConfigurationParameters = []string{"CLIENT_SECRET"}
+	revision, err := authProviderRevision(authProvider)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
+	stopCalls := 0
+	d.ports.daemonPorts[key] = 10443
+	d.ports.daemonsRunning[key] = func() {
+		stopCalls++
+	}
+	d.ports.daemonRevisions[key] = revision
+
+	if err := d.ObserveAuthProvider(authProvider); err != nil {
+		t.Fatal(err)
+	}
+	if stopCalls != 1 {
+		t.Fatalf("daemon stop calls = %d, want 1", stopCalls)
+	}
+	if _, running := d.ports.daemonsRunning[key]; running {
+		t.Fatal("unconfigured daemon remains in registry")
+	}
+}
+
+func TestObserveAuthProviderDoesNotStopNewerDaemonForStaleMissingStatus(t *testing.T) {
+	d := &Dispatcher{ports: newPorts()}
+	t.Cleanup(d.ports.daemonClose)
+	key := providerKeyForAuthProvider("default", "entra")
+	newRevision := daemonRevision{
+		generation: 2,
+		value:      "new",
+	}
+	stopCalls := 0
+	d.ports.desiredDaemonRevisions[key] = newRevision
+	d.ports.daemonPorts[key] = 10443
+	d.ports.daemonsRunning[key] = func() {
+		stopCalls++
+	}
+	d.ports.daemonRevisions[key] = newRevision
+	staleAuthProvider := v1.AuthProvider{
+		Name:       "entra",
+		Namespace:  "default",
+		Generation: 1,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "old",
+		},
+	}
+	staleAuthProvider.Status.MissingConfigurationParameters = []string{"CLIENT_SECRET"}
+
+	if err := d.ObserveAuthProvider(staleAuthProvider); err != nil {
+		t.Fatal(err)
+	}
+	if stopCalls != 0 {
+		t.Fatalf("daemon stop calls = %d, want 0", stopCalls)
+	}
+}
+
 func TestStartDaemonRejectsSupersededRevision(t *testing.T) {
 	d := &Dispatcher{ports: newPorts()}
 	t.Cleanup(d.ports.daemonClose)
