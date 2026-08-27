@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -190,9 +191,10 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	if err := req.List(&list); err != nil {
 		return err
 	}
+	minimal, _ := strconv.ParseBool(req.URL.Query().Get("minimal"))
 
 	convertEntry := func(entry v1.MCPServerCatalogEntry) types.MCPServerCatalogEntry {
-		return ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL)
+		return convertMCPServerCatalogEntryForList(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL, minimal)
 	}
 
 	// Allow admins/auditors to bypass ACR filtering with ?all=true
@@ -272,6 +274,16 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 		OAuthCredentialConfigured: entry.Status.OAuthCredentialConfigured,
 		ConnectURL:                defaultCatalogEntryConnectURL(serverURL, entry),
 	}
+}
+
+func convertMCPServerCatalogEntryForList(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID, serverURL string, minimal bool) types.MCPServerCatalogEntry {
+	if minimal {
+		entry.Spec.Manifest.Description = ""
+		entry.Spec.Manifest.ToolPreview = nil
+		entry.Spec.Manifest.UpgradeNote = ""
+		entry.Spec.Manifest.RepoURL = ""
+	}
+	return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, powerUserID, serverURL)
 }
 
 func defaultCatalogEntryConnectURL(serverURL string, entry v1.MCPServerCatalogEntry) string {

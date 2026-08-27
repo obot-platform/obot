@@ -111,7 +111,7 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 				AdminService.listAllUserWorkspaceCatalogEntries(),
 				AdminService.listAllUserWorkspaceMCPServers(),
 				UserService.listSingleOrRemoteMcpServers(),
-				UserService.listMCPs(),
+				UserService.listMCPs({ minimal: true }),
 				UserService.listMCPCatalogServers()
 			]);
 
@@ -132,7 +132,7 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 			const [ownConfiguredServers, entriesResult, userScopedServers, serversResult] =
 				await Promise.all([
 					UserService.listSingleOrRemoteMcpServers(),
-					UserService.listMCPs(),
+					UserService.listMCPs({ minimal: true }),
 					UserService.listMCPCatalogServers(),
 					profile.current.hasAdminAccess?.()
 						? AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true })
@@ -180,7 +180,7 @@ async function refreshEntries() {
 			const [adminEntries, workspaceEntries, userScopedEntries] = await Promise.all([
 				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
 				AdminService.listAllUserWorkspaceCatalogEntries(),
-				UserService.listMCPs()
+				UserService.listMCPs({ minimal: true })
 			]);
 			store.current = {
 				...store.current,
@@ -190,7 +190,7 @@ async function refreshEntries() {
 				)
 			};
 		} else {
-			const entries = await UserService.listMCPs();
+			const entries = await UserService.listMCPs({ minimal: true });
 			store.current = {
 				...store.current,
 				entries: entries.filter((entry) => !entry.deleted)

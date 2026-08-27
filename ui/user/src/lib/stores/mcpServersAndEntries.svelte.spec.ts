@@ -60,6 +60,7 @@ describe('mcpServersAndEntries', () => {
 
 		expect(requests.configuredServers).toHaveBeenCalledOnce();
 		expect(requests.userEntries).toHaveBeenCalledOnce();
+		expect(requests.userEntries).toHaveBeenCalledWith({ minimal: true });
 		expect(requests.userServers).toHaveBeenCalledOnce();
 		expect(requests.instances).toHaveBeenCalledOnce();
 		expect(requests.adminEntries).not.toHaveBeenCalled();

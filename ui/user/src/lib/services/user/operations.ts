@@ -74,8 +74,14 @@ export async function listTunnelConnections(opts?: {
 
 // All MCP catalog entries
 
-export async function listMCPs(opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry[]> {
-	const response = (await doGet('/all-mcps/entries', opts)) as ItemsResponse<MCPCatalogEntry>;
+export async function listMCPs(opts?: {
+	fetch?: Fetcher;
+	minimal?: boolean;
+}): Promise<MCPCatalogEntry[]> {
+	const response = (await doGet(
+		`/all-mcps/entries${opts?.minimal ? '?minimal=true' : ''}`,
+		opts
+	)) as ItemsResponse<MCPCatalogEntry>;
 	return (
 		response.items?.map((item) => {
 			return {
