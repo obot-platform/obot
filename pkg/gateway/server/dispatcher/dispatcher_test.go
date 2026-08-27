@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os/exec"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -194,6 +195,30 @@ func TestModelsForProviderReusesDaemon(t *testing.T) {
 	state, ok := dispatcher.daemonState(key)
 	if !ok || state.command != command {
 		t.Fatal("cached model provider daemon was replaced")
+	}
+}
+
+func TestModelsForProviderUsesReconciledObject(t *testing.T) {
+	modelProvider := &v1.ModelProvider{
+		Name:      "model-provider",
+		Namespace: "default",
+		Status: v1.ModelProviderStatus{
+			MissingConfigurationParameters: []string{"RECONCILED_PARAMETER"},
+		},
+	}
+	persistedModelProvider := modelProvider.DeepCopy()
+	persistedModelProvider.Status = v1.ModelProviderStatus{
+		MissingConfigurationParameters: []string{"PERSISTED_PARAMETER"},
+	}
+	dispatcher := New(nil, fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(persistedModelProvider).Build(), nil, nil, "", "", "")
+	t.Cleanup(dispatcher.Close)
+
+	_, err := dispatcher.ModelsForProvider(t.Context(), *modelProvider)
+	if err == nil || !strings.Contains(err.Error(), "RECONCILED_PARAMETER") {
+		t.Fatalf("ModelsForProvider() error = %v, want reconciled object error", err)
+	}
+	if strings.Contains(err.Error(), "PERSISTED_PARAMETER") {
+		t.Fatalf("ModelsForProvider() used persisted object: %v", err)
 	}
 }
 

@@ -269,7 +269,7 @@ func (ap *AuthProviderHandler) Deconfigure(req api.Context) error {
 		}
 	}
 
-	if cleanup != nil {
+	if cleanup != nil && len(deconfigureErrors) == 0 {
 		if err := markAuthProviderCleanupReady(req, cleanup); err != nil {
 			deconfigureErrors = append(deconfigureErrors, err)
 		}
@@ -419,5 +419,6 @@ func preserveAuthProviderCookieSecret(ctx context.Context, gatewayClient *gatewa
 }
 
 func authProviderStatusAcknowledged(authProvider *v1.AuthProvider) bool {
-	return authProvider.Status.ObservedSyncRevision == authProvider.Annotations[v1.AuthProviderSyncAnnotation]
+	return authProvider.Status.ObservedGeneration == authProvider.Generation &&
+		authProvider.Status.ObservedSyncRevision == authProvider.Annotations[v1.AuthProviderSyncAnnotation]
 }

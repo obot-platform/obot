@@ -12,7 +12,9 @@ import (
 )
 
 func (d *Dispatcher) ModelsForProvider(ctx context.Context, modelProvider v1.ModelProvider) (*openai.ModelsList, error) {
-	u, err := d.URLForModelProvider(ctx, modelProvider.Namespace, modelProvider.Name)
+	// The object can contain status updates from earlier handlers in the same reconciliation
+	// that have not been persisted yet.
+	u, err := d.urlForModelProviderObject(ctx, modelProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProvider.Name, err)
 	}

@@ -25,17 +25,17 @@ The leader-elected auth provider controller will calculate a SHA-256 hash over t
 
 Credential mutations will assign an opaque UUID revision to the `AuthProvider`. The internal OAuth cookie secret will be generated only when missing and will be preserved across ordinary saves.
 
-Before forwarding an auth request, every replica will read the current `AuthProvider` and reconcile its process-local daemon under a provider-scoped lock. It will return a cached daemon only when its recorded hash matches acknowledged status. Unacknowledged revisions, generations, or credential hashes fail closed. Credential values are read and hashed only when a daemon must start or be replaced, and shared state is revalidated after daemon startup.
+Before forwarding an auth request, every replica will read the current `AuthProvider` and stored credential environment, then reconcile its process-local daemon under a provider-scoped lock. It will return a cached daemon only when its recorded hash matches both the hash computed from the current resource and credentials and the hash in acknowledged status. Unacknowledged revisions, generations, or configuration hashes fail closed, and shared state is revalidated after daemon startup.
 
 ## Rationale
 
-Acknowledged shared status gives all replicas one authoritative configuration without adding a distributed daemon registry or an every-replica watch controller. Per-request resource reads close the stale-serving window, while hash comparison keeps secrets off the normal cached-daemon path. Provider-scoped locking prevents duplicate local launches without allowing a slow provider to block unrelated providers.
+Acknowledged shared status gives all replicas one authoritative configuration without adding a distributed daemon registry or an every-replica watch controller. Per-request resource and credential reads close both the stale-serving window and the cross-store partial-write window, at the cost of an additional credential query, decryption, and hash calculation. Provider-scoped locking prevents duplicate local launches without allowing a slow provider to block unrelated providers.
 
 Preserving the cookie secret also prevents unrelated saves from invalidating OAuth flows already in progress and reduces risk during mixed-version rollouts.
 
 ## Consequences
 
-- Auth provider URL resolution performs one current shared-storage read before using a local daemon.
+- Auth provider URL resolution reads the current shared resource and stored credential environment before using a local daemon.
 - A replica can retain an idle stale daemon, but it cannot forward another request to it without reconciliation.
 - Authentication is temporarily unavailable while a credential revision or spec generation is not yet acknowledged by the controller.
 - Daemon configuration changes are applied lazily on each replica's next auth request.

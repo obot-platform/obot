@@ -285,6 +285,11 @@ func TestDeconfigureReturnsRevisionPublicationFailureAfterCredentialDeletion(t *
 	authProvider := &v1.AuthProvider{
 		Name:      authProviderName,
 		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				GroupIDPrefix: "entra/",
+			},
+		},
 	}
 	storage := &failAuthProviderUpdateStorage{
 		WithWatch: newFakeStorage(t, authProvider),
@@ -307,4 +312,25 @@ func TestDeconfigureReturnsRevisionPublicationFailureAfterCredentialDeletion(t *
 	require.ErrorContains(t, err, "update auth provider sync revision")
 	_, revealErr := gatewayClient.RevealCredential(t.Context(), []string{authProviderName}, authProviderName)
 	require.Error(t, revealErr)
+
+	var cleanup v1.AuthProviderCleanup
+	require.NoError(t, req.Get(&cleanup, authProviderCleanupName(authProviderName)))
+	require.False(t, cleanup.Spec.Ready)
+}
+
+func TestAuthProviderStatusAcknowledgedRequiresObservedGeneration(t *testing.T) {
+	authProvider := &v1.AuthProvider{
+		Generation: 2,
+		Annotations: map[string]string{
+			v1.AuthProviderSyncAnnotation: "revision-one",
+		},
+		Status: v1.AuthProviderStatus{
+			ObservedGeneration:   1,
+			ObservedSyncRevision: "revision-one",
+		},
+	}
+
+	require.False(t, authProviderStatusAcknowledged(authProvider))
+	authProvider.Status.ObservedGeneration = authProvider.Generation
+	require.True(t, authProviderStatusAcknowledged(authProvider))
 }

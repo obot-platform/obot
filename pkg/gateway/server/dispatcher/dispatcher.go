@@ -245,6 +245,18 @@ func (d *Dispatcher) URLForModelProvider(ctx context.Context, namespace, modelPr
 	return d.urlForModelProvider(ctx, key, modelProvider)
 }
 
+func (d *Dispatcher) urlForModelProviderObject(ctx context.Context, modelProvider v1.ModelProvider) (url.URL, error) {
+	key := providerKeyForModelProvider(modelProvider.Namespace, modelProvider.Name)
+	unlock := d.providerLocks.Lock(key)
+	defer unlock()
+
+	if state, ok := d.daemonState(key); ok {
+		return daemonURL(state.port), nil
+	}
+
+	return d.urlForModelProvider(ctx, key, modelProvider)
+}
+
 func (d *Dispatcher) ValidateModelProvider(ctx context.Context, namespace, modelProviderName string, env map[string]string) error {
 	var modelProvider v1.ModelProvider
 	if err := d.client.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: modelProviderName}, &modelProvider); err != nil {
