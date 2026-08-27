@@ -1,8 +1,13 @@
 package dispatcher
 
 import (
+	"fmt"
 	"log/slog"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os/exec"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,8 +48,17 @@ func TestProviderLogLevelEnv(t *testing.T) {
 }
 
 func TestURLForAuthProviderReturnsMatchingAcknowledgedDaemon(t *testing.T) {
-	authProvider := acknowledgedAuthProvider(t, map[string]string{"CLIENT_SECRET": "client-secret"})
-	dispatcher := New(nil, fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(authProvider).Build(), nil, nil, "", "", "")
+	credentialEnvironment := map[string]string{"CLIENT_SECRET": "client-secret"}
+	authProvider := acknowledgedAuthProvider(t, credentialEnvironment)
+	gatewayClient := newDispatcherTestGatewayClient(t)
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: authProvider.Name,
+		Name:    authProvider.Name,
+		Secrets: credentialEnvironment,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	dispatcher := New(nil, fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(authProvider).Build(), gatewayClient, nil, "", "", "")
 	t.Cleanup(dispatcher.Close)
 	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
 	dispatcher.ports.daemons[key] = daemonState{
@@ -99,13 +113,87 @@ func TestURLForAuthProviderRejectsUnacknowledgedCredentialChange(t *testing.T) {
 	}
 	dispatcher := New(nil, fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(authProvider).Build(), gatewayClient, nil, "", "", "")
 	t.Cleanup(dispatcher.Close)
+	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
+	stopped := false
+	dispatcher.ports.daemons[key] = daemonState{
+		port:              12345,
+		stop:              func() { stopped = true },
+		command:           &exec.Cmd{},
+		configurationHash: authProvider.Status.DaemonConfigurationHash,
+	}
 
 	_, err := dispatcher.URLForAuthProvider(t.Context(), authProvider.Namespace, authProvider.Name)
 	if err == nil {
 		t.Fatal("expected configuration updating error")
 	}
-	if _, ok := dispatcher.daemonState(providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)); ok {
+	if !stopped {
+		t.Fatal("stale daemon was not stopped")
+	}
+	if _, ok := dispatcher.daemonState(key); ok {
 		t.Fatal("daemon was launched from an unacknowledged credential")
+	}
+}
+
+func TestURLForAuthProviderRejectsDeletedCredentialWithCachedDaemon(t *testing.T) {
+	authProvider := acknowledgedAuthProvider(t, map[string]string{"CLIENT_SECRET": "old-secret"})
+	gatewayClient := newDispatcherTestGatewayClient(t)
+	dispatcher := New(nil, fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(authProvider).Build(), gatewayClient, nil, "", "", "")
+	t.Cleanup(dispatcher.Close)
+	key := providerKeyForAuthProvider(authProvider.Namespace, authProvider.Name)
+	stopped := false
+	dispatcher.ports.daemons[key] = daemonState{
+		port:              12345,
+		stop:              func() { stopped = true },
+		command:           &exec.Cmd{},
+		configurationHash: authProvider.Status.DaemonConfigurationHash,
+	}
+
+	_, err := dispatcher.URLForAuthProvider(t.Context(), authProvider.Namespace, authProvider.Name)
+	if err == nil {
+		t.Fatal("expected not configured error")
+	}
+	if !stopped {
+		t.Fatal("stale daemon was not stopped")
+	}
+	if _, ok := dispatcher.daemonState(key); ok {
+		t.Fatal("daemon using deleted credential was retained")
+	}
+}
+
+func TestModelsForProviderReusesDaemon(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"data":[]}`)
+	}))
+	t.Cleanup(server.Close)
+
+	modelProvider := v1.ModelProvider{
+		Name:      "model-provider",
+		Namespace: "default",
+	}
+	dispatcher := New(nil, nil, nil, nil, "", "", "")
+	t.Cleanup(dispatcher.Close)
+	key := providerKeyForModelProvider(modelProvider.Namespace, modelProvider.Name)
+	command := &exec.Cmd{}
+	dispatcher.ports.daemons[key] = daemonState{
+		port:    int64(server.Listener.Addr().(*net.TCPAddr).Port),
+		stop:    func() {},
+		command: command,
+	}
+
+	for range 2 {
+		if _, err := dispatcher.ModelsForProvider(t.Context(), modelProvider); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if requests.Load() != 2 {
+		t.Fatalf("model requests = %d, want 2", requests.Load())
+	}
+	state, ok := dispatcher.daemonState(key)
+	if !ok || state.command != command {
+		t.Fatal("cached model provider daemon was replaced")
 	}
 }
 

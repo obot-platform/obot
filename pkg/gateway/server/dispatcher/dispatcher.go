@@ -119,10 +119,6 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 			return url.URL{}, authProviderNotConfiguredError(authProvider)
 		}
 
-		if state, ok := d.daemonState(key); ok && state.configurationHash == authProvider.Status.DaemonConfigurationHash {
-			return daemonURL(state.port), nil
-		}
-
 		credentialEnvironment, err := credentialEnvironmentForAuthProvider(ctx, d.gatewayClient, authProvider)
 		if err != nil {
 			return url.URL{}, err
@@ -139,6 +135,9 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		if configurationHash != authProvider.Status.DaemonConfigurationHash {
 			d.stopDaemon(key)
 			return url.URL{}, authProviderConfigurationUpdatingError(authProviderName)
+		}
+		if state, ok := d.daemonState(key); ok && state.configurationHash == configurationHash {
+			return daemonURL(state.port), nil
 		}
 
 		daemonEnvironment := maps.Clone(credentialEnvironment)
