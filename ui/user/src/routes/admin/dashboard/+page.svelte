@@ -126,17 +126,21 @@
 				loadingToolUsage = false;
 			});
 
-		AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
-			.then((stats) => {
-				deviceScanStats = stats;
-			})
-			.catch((error) => {
-				if (error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				loadingDeviceScanStats = false;
-			});
+		if (hasDeviceScans) {
+			AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
+				.then((stats) => {
+					deviceScanStats = stats;
+				})
+				.catch((error) => {
+					if (error?.name === 'AbortError') return;
+					errors.append(error);
+				})
+				.finally(() => {
+					loadingDeviceScanStats = false;
+				});
+		} else {
+			loadingDeviceScanStats = false;
+		}
 
 		const [users, tokens] = await Promise.all([
 			UserService.listUsersIncludeDeleted(),

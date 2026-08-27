@@ -32,6 +32,7 @@
 		TIMELINE_AGGREGATE_THRESHOLD,
 		type TokenUsageTimelineItem
 	} from './tokenUsageTimeline';
+	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
@@ -74,6 +75,9 @@
 	const users = $derived(externalUsers ?? fetchedUsers);
 	const models = $derived(externalModels ?? fetchedModels);
 	const loading = $derived(selfFetch ? fetchLoading : externalLoading);
+	const fetchRangeKey = $derived(
+		selfFetch ? `${startDate.getTime()}:${endDate.getTime()}` : undefined
+	);
 
 	const selectedTokenType = $derived(externalTokenType ?? internalTokenType);
 	const groupBy = $derived(externalGroupBy ?? internalGroupBy);
@@ -121,8 +125,9 @@
 	}
 
 	$effect(() => {
-		if (!selfFetch) return;
-		fetchData(startDate, endDate);
+		if (fetchRangeKey === undefined) return;
+		const [start, end] = untrack(() => [startDate, endDate]);
+		untrack(() => fetchData(start, end));
 		return () => fetchAbortController?.abort();
 	});
 
