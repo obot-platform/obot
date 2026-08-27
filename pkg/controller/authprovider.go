@@ -26,7 +26,9 @@ import (
 // transaction. This is not trivial, since the credential is outside of kinm and the
 // AuthProvider is inside.
 
-const authProviderReconciliationInterval = 30 * time.Second
+const (
+	authProviderReconciliationInterval = 30 * time.Second
+)
 
 func (c *Controller) runAuthProviderReconciliation(ctx context.Context, client kclient.Client) {
 	ticker := time.NewTicker(authProviderReconciliationInterval)
