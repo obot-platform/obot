@@ -206,6 +206,17 @@
 		openUrl(url, isCtrlClick);
 	}
 
+	function isInteractiveChildEvent(e: MouseEvent | KeyboardEvent) {
+		if (!(e.target instanceof Element)) {
+			return false;
+		}
+
+		const interactiveElement = e.target.closest(
+			'a, button, input, select, textarea, [role="button"]'
+		);
+		return interactiveElement !== null && interactiveElement !== e.currentTarget;
+	}
+
 	function handleConnect(d: MCPCatalogEntry | MCPCatalogServer) {
 		let instance: MCPServerInstance | undefined;
 		let server: MCPCatalogServer | undefined;
@@ -288,13 +299,20 @@
 				role="button"
 				tabindex="0"
 				onkeydown={(e) => {
+					if (isInteractiveChildEvent(e)) {
+						return;
+					}
 					if (e.key === 'Enter' || e.key === ' ') {
 						e.preventDefault();
 						e.stopPropagation();
 						handleSelect(d.data, e);
 					}
 				}}
-				onclick={(e) => handleSelect(d.data, e)}
+				onclick={(e) => {
+					if (!isInteractiveChildEvent(e)) {
+						handleSelect(d.data, e);
+					}
+				}}
 			>
 				<div class="text-sm font-light">
 					<div class="flex items-center gap-2">

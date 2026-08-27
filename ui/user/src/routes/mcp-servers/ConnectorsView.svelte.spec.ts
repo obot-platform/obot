@@ -1,9 +1,12 @@
 import { mcpServersAndEntries } from '$lib/stores';
+import { openUrl } from '$lib/utils';
 import { createMCPCatalogEntry, createMCPCatalogServer } from '../../tests/helpers/mcp';
 import ConnectorsView from './ConnectorsView.svelte';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
+
+vi.mock(import('$lib/utils'), { spy: true });
 
 const shortDescription =
 	'A **formatted** description with [documentation](https://example.com/docs). ![Short demo](https://example.com/short-demo.gif)';
@@ -12,6 +15,7 @@ const fullDescription =
 
 describe('MCP Servers ConnectorsView', () => {
 	beforeEach(() => {
+		vi.mocked(openUrl).mockImplementation(() => undefined);
 		const entry = createMCPCatalogEntry({
 			id: 'deprecated-connected-entry',
 			name: 'Deprecated Connected Server',
@@ -65,5 +69,34 @@ describe('MCP Servers ConnectorsView', () => {
 		const icon = page.getByRole('img', { name: 'Deprecated Connected Server' });
 		await expect.element(icon).toHaveAttribute('loading', 'lazy');
 		await expect.element(icon).toHaveAttribute('decoding', 'async');
+	});
+
+	it('keeps mouse and keyboard link activation from selecting the connector row', async () => {
+		render(ConnectorsView, { query: 'Deprecated' });
+
+		const link = page.getByRole('link', { name: 'documentation' });
+		const anchor = link.element() as HTMLAnchorElement;
+		let linkActivations = 0;
+		anchor.addEventListener('click', (event) => {
+			event.preventDefault();
+			linkActivations++;
+		});
+
+		await userEvent.click(anchor);
+		expect(linkActivations).toBe(1);
+		expect(openUrl).not.toHaveBeenCalled();
+
+		anchor.focus();
+		await userEvent.keyboard('{Enter}');
+		expect(linkActivations).toBe(2);
+		expect(openUrl).not.toHaveBeenCalled();
+	});
+
+	it('selects the connector when non-interactive row content is clicked', async () => {
+		render(ConnectorsView, { query: 'Deprecated' });
+
+		await page.getByText('Deprecated Connected Server', { exact: true }).click();
+
+		expect(openUrl).toHaveBeenCalledOnce();
 	});
 });
