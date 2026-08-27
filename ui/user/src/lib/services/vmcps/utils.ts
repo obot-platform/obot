@@ -1,4 +1,5 @@
 import type { MCPCatalogEntry, MCPCatalogServer, OrgUser, RuntimeFormData } from '$lib/services';
+import { AiClient } from '../user/constants';
 import {
 	COMPONENT_LABEL_SEPARATOR,
 	MCP_SERVER_POPULARITY_ORDER,
@@ -341,4 +342,66 @@ export function resolveVMcpComponents(
 			toolPreview: manifest?.toolPreview
 		};
 	});
+}
+
+function mcpConfigKey(name: string, id: string, used: Set<string>) {
+	let key = name.trim() || id;
+	if (used.has(key)) {
+		key = `${key} (${id})`;
+	}
+	used.add(key);
+	return key;
+}
+
+function httpMcpServers(vmcps: MCPCatalogEntry[]) {
+	const used = new Set<string>();
+	const servers: Record<string, { type: 'http'; url: string }> = {};
+	for (const vmcp of vmcps) {
+		const url = vmcp.connectURL;
+		if (!url) continue;
+		servers[mcpConfigKey(vmcp.manifest.name ?? vmcp.id, vmcp.id, used)] = {
+			type: 'http',
+			url
+		};
+	}
+	return servers;
+}
+
+function toTomlQuotedKey(name: string) {
+	if (/^[A-Za-z0-9_-]+$/.test(name)) return name;
+	return JSON.stringify(name);
+}
+
+export function buildConnectAllSnippets(
+	clientId: AiClient,
+	vmcps: MCPCatalogEntry[],
+	admin: boolean
+): { id: string; label: string; value: string } {
+	const servers = httpMcpServers(vmcps);
+	if (clientId === AiClient.Codex) {
+		const value = Object.entries(servers)
+			.map(
+				([name, server]) =>
+					`[mcp_servers.${toTomlQuotedKey(name)}]\nurl = ${JSON.stringify(server.url)}`
+			)
+			.join('\n\n');
+		return { id: 'codex-config-toml', label: 'config.toml', value };
+	}
+
+	if (clientId === AiClient.VSCode) {
+		return {
+			id: 'vscode-mcp-json',
+			label: 'mcp.json',
+			value: JSON.stringify({ servers }, null, 2)
+		};
+	}
+
+	const json = JSON.stringify({ mcpServers: servers }, null, 2);
+	if (clientId === AiClient.Claude && admin) {
+		return admin
+			? { id: 'claude-managed-mcp-json', label: 'managed-mcp.json', value: json }
+			: { id: 'claude-mcp-json', label: 'mcp.json', value: json };
+	}
+
+	return { id: `${clientId}-mcp-json`, label: 'mcp.json', value: json };
 }

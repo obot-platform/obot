@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import CopyButton from '$lib/components/CopyButton.svelte';
+	import CopyField from '$lib/components/CopyField.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
@@ -26,7 +29,7 @@
 		type MCPServerInstance,
 		type OrgUser
 	} from '$lib/services';
-	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
+	import { AiClient, COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { isMultiUserCatalogEntry, isMultiUserServer } from '$lib/services/user/mcp';
 	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
@@ -37,7 +40,8 @@
 		filterVMcps,
 		isWorkspaceOwned,
 		sortVMcps,
-		resolveVMcpComponents
+		resolveVMcpComponents,
+		buildConnectAllSnippets
 	} from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
@@ -45,6 +49,10 @@
 	import { ChartBarStacked, Table } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
+
+	const INITIAL_EXPANDED_VMCPS = 5;
+	const EXPANDED_VMCPS_STORAGE_KEY = 'vmcps.expandedIds';
+	const options = COMMON_AI_CLIENTS.slice(0, 4);
 
 	let viewType = $state<'graph' | 'table'>('graph');
 	let showRightPanel = $state(true);
@@ -73,7 +81,28 @@
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
+
+	let connectAllVMcpsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let connectAllCopyField = $state<ReturnType<typeof CopyField>>();
+	let selectedClient = $state<(typeof COMMON_AI_CLIENTS)[number]>();
+	let isAdmin = $derived(!!profile.current.isAdmin?.());
+	let connectAllVmcps = $derived(allComposites.filter((vmcp) => Boolean(vmcp.connectURL)));
+	let connectAllSnippets = $derived(
+		selectedClient
+			? buildConnectAllSnippets(selectedClient.id, connectAllVmcps, isAdmin)
+			: undefined
+	);
+
 	let users = $state<OrgUser[]>([]);
+
+	let rightPanelEl = $state<HTMLElement>();
+	let rightPanelWidth = $state(0);
+	let pendingEntryDrop = $state<{ vmcp?: MCPCatalogEntry }>();
+	let expandedVMcpIds = $state<string[]>([]);
+	let expandedInitialized = $state(false);
+	const toolFlow = createVMcpToolFlow();
+
+	let query = $derived(page.url.searchParams.get('query') ?? '');
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 
 	let composites = $derived(
@@ -90,11 +119,6 @@
 			sortBy
 		)
 	);
-
-	let rightPanelEl = $state<HTMLElement>();
-	let rightPanelWidth = $state(0);
-	let pendingEntryDrop = $state<{ vmcp?: MCPCatalogEntry }>();
-	const toolFlow = createVMcpToolFlow();
 
 	onMount(() => {
 		UserService.listUsersIncludeDeleted().then((response) => {
@@ -133,13 +157,6 @@
 		return manifest?.[field];
 	}
 
-	const INITIAL_EXPANDED_VMCPS = 5;
-	const EXPANDED_VMCPS_STORAGE_KEY = 'vmcps.expandedIds';
-
-	let query = $derived(page.url.searchParams.get('query') ?? '');
-	let expandedVMcpIds = $state<string[]>([]);
-	let expandedInitialized = $state(false);
-
 	let canCreateCatalogEntry = $derived(
 		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
 	);
@@ -153,7 +170,6 @@
 		dropOnVMcp: (entry, vmcp) => void handleDropped(entry, vmcp)
 	});
 
-	// The panel is a flex child, so its rendered width does not match its width class.
 	$effect(() => {
 		const el = rightPanelEl;
 		if (!el) return;
@@ -187,7 +203,6 @@
 		handleDroppedOnCreate(created);
 	}
 
-	// Multi-user entries can only join a composite through their deployed server.
 	function toComponentServer(entry: MCPCatalogEntry): CatalogComponentServer | undefined {
 		if (!isMultiUserCatalogEntry(entry)) {
 			return { catalogEntryID: entry.id, manifest: entry.manifest };
@@ -275,6 +290,12 @@
 		connectToServerDialog?.open({ entry: vmcp });
 	}
 
+	function openConnectAllDialog(option: (typeof COMMON_AI_CLIENTS)[number]) {
+		selectedClient = option;
+		connectAllCopyField?.clear?.();
+		connectAllVMcpsDialog?.open();
+	}
+
 	function handleConnectToServer({ instance }: { instance?: MCPServerInstance }) {
 		if (instance) {
 			mcpServersAndEntries.refreshUserInstances();
@@ -329,8 +350,6 @@
 		persistExpandedVMcps(expandedVMcpIds);
 		expandedInitialized = true;
 	});
-
-	const options = COMMON_AI_CLIENTS.slice(0, 4);
 </script>
 
 <Layout
@@ -348,6 +367,7 @@
 				<IconButton
 					class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
 					tooltip={{ text: option.alt, placement: 'bottom' }}
+					onclick={() => openConnectAllDialog(option)}
 				>
 					<img src={option.icon} alt={option.alt} class="size-4 block dark:hidden" />
 					<img
@@ -486,6 +506,99 @@
 	onCreated={handleCatalogEntryCreated}
 />
 
+<ResponsiveDialog bind:this={connectAllVMcpsDialog} id="connect-all-vmcps-dialog">
+	{#snippet titleContent()}
+		{#if selectedClient}
+			<img src={selectedClient.icon} alt="" class="mt-0.5 size-4 block dark:hidden" />
+			<img
+				src={selectedClient.iconDark ?? selectedClient.icon}
+				alt=""
+				class="mt-0.5 size-4 hidden dark:block"
+			/>
+			Connect All vMCPs
+		{/if}
+	{/snippet}
+	<div class="flex flex-col gap-3 md:p-0 p-4">
+		{#if selectedClient}
+			<div class="flex items-start gap-2 text-sm">
+				<div class="flex flex-col gap-2 text-muted-content font-light">
+					{#if selectedClient.id === AiClient.Claude}
+						<p>
+							Copy the configuration below into your project's <code class="text-base-content"
+								>.mcp.json</code
+							>
+							or your user-level
+							<code class="text-base-content">~/.claude.json</code>.
+						</p>
+						{#if isAdmin}
+							<p>
+								As an admin, you can also deploy the same JSON as Claude Enterprise
+								<code class="text-base-content">managed-mcp.json</code> so these vMCPs are available organization-wide:
+							</p>
+							<ul class="list-disc pl-5">
+								<li>
+									macOS:
+									<code class="text-base-content"
+										>/Library/Application Support/ClaudeCode/managed-mcp.json</code
+									>
+								</li>
+								<li>
+									Linux:
+									<code class="text-base-content">/etc/claude-code/managed-mcp.json</code>
+								</li>
+								<li>
+									Windows:
+									<code class="text-base-content">C:\Program Files\ClaudeCode\managed-mcp.json</code
+									>
+								</li>
+							</ul>
+						{/if}
+					{:else if selectedClient.id === AiClient.Codex}
+						<p>
+							Copy these tables into
+							<code class="text-base-content">~/.codex/config.toml</code>
+							or a project-scoped
+							<code class="text-base-content">.codex/config.toml</code>.
+						</p>
+					{:else if selectedClient.id === AiClient.Cursor}
+						<p>
+							Copy the configuration below into
+							<code class="text-base-content">~/.cursor/mcp.json</code>
+							or your project's
+							<code class="text-base-content">.cursor/mcp.json</code>.
+						</p>
+					{:else if selectedClient.id === AiClient.VSCode}
+						<p>
+							Copy the configuration below into your workspace
+							<code class="text-base-content">.vscode/mcp.json</code>.
+						</p>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		{#if connectAllVmcps.length === 0}
+			<p class="text-sm text-muted-content font-light">
+				No vMCPs currently have a connection URL to copy.
+			</p>
+		{:else if connectAllSnippets}
+			<div class="relative">
+				<pre class="pl-4 pr-22 py-2 m-0 max-h-96 overflow-y-auto" id="connect-all-mcp-json"><code
+						class="font-mono text-xs">{connectAllSnippets.value}</code
+					></pre>
+				<div class="absolute top-4 right-4">
+					<CopyButton
+						text={connectAllSnippets.value}
+						id="connect-all-mcp-json-copy-button"
+						classes={{ button: 'flex shrink-0 gap-2 text-xs' }}
+						showTextLeft
+					/>
+				</div>
+			</div>
+		{/if}
+	</div>
+</ResponsiveDialog>
+
 <svelte:head>
-	<title>vMCPs</title>
+	<title>Obot | vMCPs</title>
 </svelte:head>
