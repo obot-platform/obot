@@ -27,6 +27,7 @@ interface MCPDataOptions {
 }
 
 let loadedScope: MCPDataScope | undefined;
+let fetchGeneration = 0;
 
 const store = $state<{
 	current: McpServerAndEntries;
@@ -76,13 +77,18 @@ function setCanConnectAndFilterDeleted(
 }
 
 async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptions = {}) {
-	if (store.current.loading) return;
-
+	const generation = ++fetchGeneration;
 	const now = Date.now();
 	const cacheAge = 5 * 60 * 1000; // 5 minutes cache
 
 	// Return cached data if it's fresh and not forcing refresh
-	if (!forceRefresh && loadedScope === scope && store.current.isInitialized && cacheAge > 0) {
+	if (
+		!store.current.loading &&
+		!forceRefresh &&
+		loadedScope === scope &&
+		store.current.isInitialized &&
+		cacheAge > 0
+	) {
 		if (store.current.lastFetched && now - store.current.lastFetched < cacheAge) {
 			return;
 		}
@@ -129,14 +135,15 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 			userInstances = await UserService.listMcpServerInstances();
 			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
 		} else {
+			const userScopedServersPromise = UserService.listMCPCatalogServers();
 			const [ownConfiguredServers, entriesResult, userScopedServers, serversResult] =
 				await Promise.all([
 					UserService.listSingleOrRemoteMcpServers(),
 					UserService.listMCPs({ minimal: true }),
-					UserService.listMCPCatalogServers(),
+					userScopedServersPromise,
 					profile.current.hasAdminAccess?.()
 						? AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true })
-						: UserService.listMCPCatalogServers()
+						: userScopedServersPromise
 				]);
 
 			entries = entriesResult
@@ -150,6 +157,9 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 			userInstances = await UserService.listMcpServerInstances();
 			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
 		}
+		if (generation !== fetchGeneration) {
+			return;
+		}
 		store.current = {
 			entries,
 			servers,
@@ -161,6 +171,9 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 		};
 		loadedScope = scope;
 	} catch (error) {
+		if (generation !== fetchGeneration) {
+			return;
+		}
 		errors.append(error);
 		store.current.loading = false;
 	}

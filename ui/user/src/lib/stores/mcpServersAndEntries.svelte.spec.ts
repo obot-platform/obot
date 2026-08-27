@@ -84,6 +84,46 @@ describe('mcpServersAndEntries', () => {
 		]);
 	});
 
+	it('fetches user-scoped catalog servers once for a non-admin', async () => {
+		const requests = mockMcpRequests();
+		profile.current = {
+			...profile.current,
+			hasAdminAccess: () => false
+		} as Profile;
+
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'user' });
+
+		expect(requests.userServers).toHaveBeenCalledOnce();
+		expect(requests.adminServers).not.toHaveBeenCalled();
+	});
+
+	it('does not let an older admin fetch overwrite a newer user fetch', async () => {
+		const requests = mockMcpRequests();
+		let resolveAdminEntries: (entries: MCPCatalogEntry[]) => void;
+		requests.adminEntries.mockReturnValue(
+			new Promise((resolve) => {
+				resolveAdminEntries = resolve;
+			})
+		);
+		requests.userEntries
+			.mockResolvedValueOnce([])
+			.mockResolvedValueOnce([{ id: 'user-entry' } as MCPCatalogEntry]);
+
+		const adminFetch = mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'admin' });
+		await vi.waitFor(() => expect(requests.adminEntries).toHaveBeenCalledOnce());
+
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'user' });
+		expect(mcpServersAndEntries.current.entries).toEqual([
+			expect.objectContaining({ id: 'user-entry' })
+		]);
+
+		resolveAdminEntries!([{ id: 'admin-entry' } as MCPCatalogEntry]);
+		await adminFetch;
+		expect(mcpServersAndEntries.current.entries).toEqual([
+			expect.objectContaining({ id: 'user-entry' })
+		]);
+	});
+
 	it('refreshes when switching from cached user scope to admin scope', async () => {
 		const requests = mockMcpRequests();
 		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'user' });
