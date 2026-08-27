@@ -79,7 +79,7 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 	entry.Spec.Manifest.ContainerizedConfig = &types.ContainerizedRuntimeConfig{Image: "example/image", Port: 8080, Path: "/mcp"}
 	entry.Spec.Manifest.CompositeConfig = &types.CompositeCatalogConfig{}
 	entry.Spec.Manifest.MultiUserConfig = &types.MultiUserConfig{}
-	entry.Spec.Manifest.Env = []types.MCPEnv{{MCPHeader: types.MCPHeader{Name: "Token", Key: "TOKEN"}}}
+	entry.Spec.Manifest.Env = []types.MCPEnv{{Name: "Token", Key: "TOKEN"}}
 	entry.Spec.Manifest.Resources = &types.MCPResourceRequirements{}
 
 	expected := entry.Spec.Manifest
