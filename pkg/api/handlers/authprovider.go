@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"errors"
@@ -114,7 +113,8 @@ func (ap *AuthProviderHandler) Configure(req api.Context) error {
 		envVars = make(map[string]string, 1)
 	}
 
-	if err := preserveAuthProviderCookieSecret(req.Context(), req.GatewayClient, authProvider.Name, envVars); err != nil {
+	envVars[CookieSecretEnvVar], err = generateCookieSecret()
+	if err != nil {
 		return err
 	}
 
@@ -399,23 +399,6 @@ func generateCookieSecret() (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(b), nil
-}
-
-func preserveAuthProviderCookieSecret(ctx context.Context, gatewayClient *gateway.Client, authProviderName string, envVars map[string]string) error {
-	credential, err := gatewayClient.RevealCredential(ctx, []string{authProviderName, system.GenericAuthProviderCredentialContext}, authProviderName)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProviderName, err)
-	}
-
-	cookieSecret := credential.Secrets[CookieSecretEnvVar]
-	if cookieSecret == "" {
-		cookieSecret, err = generateCookieSecret()
-		if err != nil {
-			return err
-		}
-	}
-	envVars[CookieSecretEnvVar] = cookieSecret
-	return nil
 }
 
 func authProviderStatusAcknowledged(authProvider *v1.AuthProvider) bool {

@@ -160,41 +160,6 @@ func TestDeconfigurePersistsCleanupIntentBeforeSideEffects(t *testing.T) {
 	require.ErrorContains(t, err, "persist cleanup intent")
 }
 
-func TestPreserveAuthProviderCookieSecret(t *testing.T) {
-	gatewayClient := newHandlerTestGateway(t)
-	const authProviderName = "entra-auth-provider"
-
-	firstEnvironment := map[string]string{
-		CookieSecretEnvVar: "user-supplied-value",
-	}
-	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, firstEnvironment))
-	firstSecret := firstEnvironment[CookieSecretEnvVar]
-	require.NotEmpty(t, firstSecret)
-	require.NotEqual(t, "user-supplied-value", firstSecret)
-
-	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: authProviderName,
-		Name:    authProviderName,
-		Secrets: map[string]string{
-			CookieSecretEnvVar: firstSecret,
-			"CLIENT_SECRET":    "client-secret",
-		},
-	}))
-
-	secondEnvironment := map[string]string{
-		CookieSecretEnvVar: "replacement-value",
-	}
-	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, secondEnvironment))
-	require.Equal(t, firstSecret, secondEnvironment[CookieSecretEnvVar])
-
-	_, err := gatewayClient.DeleteCredential(t.Context(), authProviderName, authProviderName)
-	require.NoError(t, err)
-	thirdEnvironment := map[string]string{}
-	require.NoError(t, preserveAuthProviderCookieSecret(t.Context(), gatewayClient, authProviderName, thirdEnvironment))
-	require.NotEmpty(t, thirdEnvironment[CookieSecretEnvVar])
-	require.NotEqual(t, firstSecret, thirdEnvironment[CookieSecretEnvVar])
-}
-
 func TestUpdateAuthProviderSyncRevisionUsesUniqueUUIDs(t *testing.T) {
 	authProvider := &v1.AuthProvider{
 		Name:      "entra-auth-provider",
