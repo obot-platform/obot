@@ -291,7 +291,7 @@
 					<div class="flex items-center gap-2">
 						<div class="icon">
 							{#if d.icon}
-								<img src={d.icon} alt={d.name} class="size-6" />
+								<img src={d.icon} alt={d.name} class="size-6" loading="lazy" decoding="async" />
 							{:else}
 								<Server class="size-6" />
 							{/if}

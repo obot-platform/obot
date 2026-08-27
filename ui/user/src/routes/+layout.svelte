@@ -92,12 +92,13 @@
 
 	$effect(() => {
 		const pathname = page.url.pathname;
+		const scope = pathname.startsWith('/mcp-servers') ? 'user' : 'admin';
 		const isMcpCatalogRoute =
 			pathname === '/mcp-catalog' ||
 			pathname === '/admin/mcp-catalog' ||
 			pathname === '/mcp-servers';
 		if (profile.current.loaded) {
-			untrack(() => mcpServersAndEntries.initialize(isMcpCatalogRoute));
+			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: isMcpCatalogRoute, scope }));
 		}
 	});
 

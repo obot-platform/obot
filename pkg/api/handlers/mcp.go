@@ -205,7 +205,7 @@ func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
 	}
 
 	// Apply ACR filtering for regular users and for admins without ?all=true
-	var entries []types.MCPServerCatalogEntry
+	entries := make([]types.MCPServerCatalogEntry, 0, len(list.Items))
 	for _, entry := range list.Items {
 		if HideMultiUserCatalogEntry(req, entry) {
 			continue

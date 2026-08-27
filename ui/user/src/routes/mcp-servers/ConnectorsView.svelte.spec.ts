@@ -14,6 +14,7 @@ describe('MCP Servers ConnectorsView', () => {
 			name: 'Deprecated Connected Server',
 			manifest: {
 				description,
+				icon: 'https://example.com/icon.png',
 				metadata: { deprecated: 'true' }
 			}
 		});
@@ -43,5 +44,13 @@ describe('MCP Servers ConnectorsView', () => {
 		await expect.element(page.getByText('Connected', { exact: true })).toBeVisible();
 		await expect.element(descriptionPreview).toHaveClass(/line-clamp-2/);
 		await expect.element(descriptionPreview.locator('..')).not.toHaveClass(/line-clamp-2/);
+	});
+
+	it('defers loading connector icons', async () => {
+		render(ConnectorsView, { query: 'Deprecated' });
+
+		const icon = page.getByRole('img', { name: 'Deprecated Connected Server' });
+		await expect.element(icon).toHaveAttribute('loading', 'lazy');
+		await expect.element(icon).toHaveAttribute('decoding', 'async');
 	});
 });

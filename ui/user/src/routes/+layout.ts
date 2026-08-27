@@ -16,69 +16,54 @@ export const prerender = 'auto';
 export const ssr = dev;
 
 export const load: LayoutLoad = async ({ fetch }) => {
-	let appPreferences: AppPreferences | undefined;
-	let profile: Profile | undefined;
-	let version: Version | undefined;
-	let license: License | undefined;
+	const [versionResult, licenseResult, appPreferencesResult, profileResult] =
+		await Promise.allSettled([
+			UserService.getVersion({ fetch }),
+			UserService.getLicense({ fetch }),
+			UserService.listAppPreferences({ fetch }),
+			UserService.getProfile({ fetch })
+		]);
+
+	const version: Version | undefined =
+		versionResult.status === 'fulfilled' ? versionResult.value : undefined;
+	const license: License | undefined =
+		licenseResult.status === 'fulfilled' ? licenseResult.value : undefined;
+	const appPreferences: AppPreferences =
+		appPreferencesResult.status === 'fulfilled'
+			? compileAppPreferences(appPreferencesResult.value)
+			: compileAppPreferences();
+	const profile: Profile =
+		profileResult.status === 'fulfilled'
+			? profileResult.value
+			: {
+					id: '',
+					email: '',
+					iconURL: '',
+					role: 0,
+					effectiveRole: 0,
+					groups: [],
+					unauthorized: true,
+					username: ''
+				};
+
 	let defaultModelAliases: DefaultModelAlias[] | undefined;
 	let models: Model[] | undefined;
 	let appNotification: AppNotification | undefined;
 
-	try {
-		version = await UserService.getVersion({ fetch });
-	} catch {
-		version = undefined;
-	}
-
-	try {
-		license = await UserService.getLicense({ fetch });
-	} catch {
-		license = undefined;
-	}
-
-	try {
-		const response = await UserService.listAppPreferences({ fetch });
-		const response2 = await UserService.getProfile({ fetch });
-		appPreferences = compileAppPreferences(response);
-		profile = response2;
-	} catch {
-		// If the request fails, use default preferences
-		appPreferences = compileAppPreferences();
-	}
-
-	try {
-		profile = await UserService.getProfile({ fetch });
-	} catch {
-		profile = {
-			id: '',
-			email: '',
-			iconURL: '',
-			role: 0,
-			effectiveRole: 0,
-			groups: [],
-			unauthorized: true,
-			username: ''
-		};
-	}
-
 	if (!profile.unauthorized) {
-		try {
-			defaultModelAliases = await UserService.listDefaultModelAliases({ fetch });
-		} catch {
-			defaultModelAliases = undefined;
-		}
-
-		try {
-			models = await UserService.listModels({ fetch });
-		} catch {
-			models = undefined;
-		}
-
-		try {
-			appNotification = await UserService.getAppNotification({ fetch });
-		} catch {
-			appNotification = undefined;
-		}
+		const [defaultModelAliasesResult, modelsResult, appNotificationResult] =
+			await Promise.allSettled([
+				UserService.listDefaultModelAliases({ fetch }),
+				UserService.listModels({ fetch }),
+				UserService.getAppNotification({ fetch })
+			]);
+		defaultModelAliases =
+			defaultModelAliasesResult.status === 'fulfilled'
+				? defaultModelAliasesResult.value
+				: undefined;
+		models = modelsResult.status === 'fulfilled' ? modelsResult.value : undefined;
+		appNotification =
+			appNotificationResult.status === 'fulfilled' ? appNotificationResult.value : undefined;
 	}
 
 	return {
