@@ -90,7 +90,7 @@ function toolRowsFromComponent(component: CatalogComponentServer): CompositeServ
 			overrideName: (override.overrideName || '').trim() || override.name,
 			description: baseDescription,
 			overrideDescription: (override.overrideDescription || '').trim() || baseDescription,
-			enabled: override.enabled === true
+			enabled: override.enabled !== false
 		};
 	});
 }
