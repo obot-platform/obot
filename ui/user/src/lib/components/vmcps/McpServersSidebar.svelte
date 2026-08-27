@@ -253,7 +253,7 @@
 		{#if draggableEntries.length > 0}
 			<div class="flex flex-col">
 				{#if canCreateEntry}
-					<div class="pb-1">
+					<div class="pb-1 w-full">
 						{@render createEntryButton()}
 					</div>
 				{/if}
@@ -264,7 +264,7 @@
 					{@attach trackList}
 				>
 					{#each visibleEntries as entry (entry.id)}
-						<div class="pb-1" {@attach measureRow(entry.id)}>
+						<div class="pb-1 w-full" {@attach measureRow(entry.id)}>
 							{@render serverCard(entry)}
 						</div>
 					{/each}
@@ -281,7 +281,7 @@
 		id="mcp-create-catalog-entry-button"
 		type="button"
 		class={twMerge(
-			'group bg-base-100 dark:bg-base-300 border-dashed flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
+			'group w-full bg-base-100 dark:bg-base-300 border-dashed flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
 			'hover:bg-base-300 dark:hover:bg-base-200 border-base-300 dark:border-base-400',
 			drag.isDraggingNewEntry && 'cursor-grabbing opacity-30'
 		)}
@@ -363,7 +363,7 @@
 		id={`mcp-server-card-${entry.id}`}
 		type="button"
 		class={twMerge(
-			'bg-base-100 dark:bg-base-300 flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
+			'w-full bg-base-100 dark:bg-base-300 flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
 			'hover:bg-base-300 dark:hover:bg-base-200 border-base-300 dark:border-base-400',
 			dragging && 'cursor-grabbing opacity-30'
 		)}

@@ -332,13 +332,11 @@
 {/snippet}
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
-	{@const linked = drag.isComponentLinked(vmcp.id, component.key)}
 	<div class="aura text-transparent hover:text-primary hover:-translate-y-0.5">
 		<button
 			use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
 			class={twMerge(
-				'text-base-content bg-base-100 dark:bg-base-300 dark:border-base-400 relative z-10 flex w-[min(20rem,calc(100vw-3rem))] flex-col rounded-lg border border-transparent p-2 shadow-md md:w-81 text-left items-start',
-				linked && 'vmcp-drop-target border-primary'
+				'text-base-content bg-base-100 dark:bg-base-300 dark:border-base-400 relative z-10 flex w-[min(20rem,calc(100vw-3rem))] flex-col rounded-lg border border-transparent p-2 shadow-md md:w-81 text-left items-start'
 			)}
 			aria-label={component.name}
 			in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
