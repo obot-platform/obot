@@ -10,7 +10,6 @@
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
-	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -87,25 +86,9 @@
 		).length
 	);
 
-	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let serversData = $derived.by(() => {
 		if (mcpServersAndEntries.current.loading || loading) return [];
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		const seen = new Set<string>();
-		const result: MCPCatalogServer[] = [];
-		for (const list of [
-			deployedCatalogEntryServers,
-			deployedWorkspaceCatalogEntryServers,
-			mcpServersAndEntries.current.servers
-		]) {
-			for (const server of list) {
-				if (server.deleted || seen.has(server.id)) continue;
-				seen.add(server.id);
-				result.push(server);
-			}
-		}
-		return result;
+		return mcpServersAndEntries.current.userConfiguredServers;
 	});
 
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
@@ -155,17 +138,13 @@
 				loadingDeviceScanStats = false;
 			});
 
-		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
+		const [users, tokens] = await Promise.all([
 			UserService.listUsersIncludeDeleted(),
-			AdminService.listTotalTokenUsage({ start, end }),
-			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
-			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
+			AdminService.listTotalTokenUsage({ start, end })
 		]);
 
 		usersData = users;
 		totalTokensData = tokens;
-		deployedCatalogEntryServers = catalogServers;
-		deployedWorkspaceCatalogEntryServers = workspaceServers;
 		loading = false;
 	});
 
@@ -406,7 +385,7 @@
 			</div>
 
 			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
+				<TokenUsageTimelineCard startDate={start} endDate={end} users={usersData} />
 			</div>
 
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
@@ -415,7 +394,7 @@
 			</div>
 		{:else}
 			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
+				<TokenUsageTimelineCard startDate={start} endDate={end} users={usersData} />
 			</div>
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
 				{@render toolUsageGraph()}

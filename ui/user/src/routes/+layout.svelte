@@ -92,7 +92,12 @@
 
 	$effect(() => {
 		const pathname = page.url.pathname;
-		const scope = pathname.startsWith('/mcp-servers') ? 'user' : 'admin';
+		const scope =
+			pathname === '/admin/dashboard'
+				? 'dashboard'
+				: pathname.startsWith('/mcp-servers')
+					? 'user'
+					: 'admin';
 		const isMcpCatalogRoute =
 			pathname === '/mcp-catalog' ||
 			pathname === '/admin/mcp-catalog' ||
