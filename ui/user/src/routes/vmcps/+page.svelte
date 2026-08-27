@@ -88,9 +88,12 @@
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
 	let connectAllVmcps = $derived(allComposites.filter((vmcp) => Boolean(vmcp.connectURL)));
 	let connectAllSnippets = $derived(
-		selectedClient
-			? buildConnectAllSnippets(selectedClient.id, connectAllVmcps, isAdmin)
-			: undefined
+		selectedClient ? buildConnectAllSnippets(selectedClient.id, connectAllVmcps, isAdmin) : []
+	);
+	let selectedConnectAllSnippetId = $state<string>();
+	let selectedConnectAllSnippet = $derived(
+		connectAllSnippets.find((snippet) => snippet.id === selectedConnectAllSnippetId) ??
+			connectAllSnippets[0]
 	);
 
 	let users = $state<OrgUser[]>([]);
@@ -292,6 +295,7 @@
 
 	function openConnectAllDialog(option: (typeof COMMON_AI_CLIENTS)[number]) {
 		selectedClient = option;
+		selectedConnectAllSnippetId = undefined;
 		connectAllCopyField?.clear?.();
 		connectAllVMcpsDialog?.open();
 	}
@@ -362,7 +366,7 @@
 >
 	{#snippet rightNavActions()}
 		<div class="flex items-center gap-2">
-			<p class="text-xs font-light">Want to setup all vMCPs to your client?</p>
+			<p class="text-xs font-light">Connect all vMCPs:</p>
 			{#each options as option (option.id)}
 				<IconButton
 					class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
@@ -519,77 +523,79 @@
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 md:p-0 p-4">
-		{#if selectedClient}
-			<div class="flex items-start gap-2 text-sm">
-				<div class="flex flex-col gap-2 text-muted-content font-light">
-					{#if selectedClient.id === AiClient.Claude}
-						<p>
-							Copy the configuration below into your project's <code class="text-base-content"
-								>.mcp.json</code
-							>
-							or your user-level
-							<code class="text-base-content">~/.claude.json</code>.
-						</p>
-						{#if isAdmin}
-							<p>
-								As an admin, you can also deploy the same JSON as Claude Enterprise
-								<code class="text-base-content">managed-mcp.json</code> so these vMCPs are available organization-wide:
-							</p>
-							<ul class="list-disc pl-5">
-								<li>
-									macOS:
-									<code class="text-base-content"
-										>/Library/Application Support/ClaudeCode/managed-mcp.json</code
-									>
-								</li>
-								<li>
-									Linux:
-									<code class="text-base-content">/etc/claude-code/managed-mcp.json</code>
-								</li>
-								<li>
-									Windows:
-									<code class="text-base-content">C:\Program Files\ClaudeCode\managed-mcp.json</code
-									>
-								</li>
-							</ul>
-						{/if}
-					{:else if selectedClient.id === AiClient.Codex}
-						<p>
-							Copy these tables into
-							<code class="text-base-content">~/.codex/config.toml</code>
-							or a project-scoped
-							<code class="text-base-content">.codex/config.toml</code>.
-						</p>
-					{:else if selectedClient.id === AiClient.Cursor}
-						<p>
-							Copy the configuration below into
-							<code class="text-base-content">~/.cursor/mcp.json</code>
-							or your project's
-							<code class="text-base-content">.cursor/mcp.json</code>.
-						</p>
-					{:else if selectedClient.id === AiClient.VSCode}
-						<p>
-							Copy the configuration below into your workspace
-							<code class="text-base-content">.vscode/mcp.json</code>.
-						</p>
-					{/if}
-				</div>
-			</div>
-		{/if}
-
 		{#if connectAllVmcps.length === 0}
 			<p class="text-sm text-muted-content font-light">
 				No vMCPs currently have a connection URL to copy.
 			</p>
-		{:else if connectAllSnippets}
-			<div class="relative">
-				<pre class="pl-4 pr-22 py-2 m-0 max-h-96 overflow-y-auto" id="connect-all-mcp-json"><code
-						class="font-mono text-xs">{connectAllSnippets.value}</code
+		{:else if selectedConnectAllSnippet}
+			{#if connectAllSnippets.length > 1}
+				<div role="tablist" class="tabs tabs-box" aria-label="Configuration files">
+					{#each connectAllSnippets as snippet (snippet.id)}
+						<button
+							type="button"
+							role="tab"
+							aria-selected={selectedConnectAllSnippet.id === snippet.id}
+							aria-controls="connect-all-snippet-panel"
+							class={twMerge('tab', selectedConnectAllSnippet.id === snippet.id && 'tab-active')}
+							onclick={() => (selectedConnectAllSnippetId = snippet.id)}
+						>
+							{snippet.label}
+						</button>
+					{/each}
+				</div>
+			{/if}
+			{#if selectedClient}
+				<div class="flex items-start gap-2 text-sm">
+					<div class="flex flex-col gap-2 text-muted-content font-light">
+						{#if selectedClient.id === AiClient.Claude}
+							{#if isAdmin && selectedConnectAllSnippet.id === 'claude-settings-json'}
+								<p>
+									Go to <code class="text-base-content"
+										>Admin Settings > Claude Code > Managed settings</code
+									> and add the following configuration JSON:
+								</p>
+							{:else}
+								<p>
+									Copy the configuration below into your project's <code class="text-base-content"
+										>.mcp.json</code
+									>
+									or your user-level
+									<code class="text-base-content">~/.claude.json</code>.
+								</p>
+							{/if}
+						{:else if selectedClient.id === AiClient.Codex}
+							<p>
+								Copy these tables into
+								<code class="text-base-content">~/.codex/config.toml</code>
+								or a project-scoped
+								<code class="text-base-content">.codex/config.toml</code>.
+							</p>
+						{:else if selectedClient.id === AiClient.Cursor}
+							<p>
+								Copy the configuration below into
+								<code class="text-base-content">~/.cursor/mcp.json</code>
+								or your project's
+								<code class="text-base-content">.cursor/mcp.json</code>.
+							</p>
+						{:else if selectedClient.id === AiClient.VSCode}
+							<p>
+								Copy this configuration into your workspace
+								<code class="text-base-content">.vscode/mcp.json</code>.
+							</p>
+						{/if}
+					</div>
+				</div>
+			{/if}
+			<div class="relative" id="connect-all-snippet-panel" role="tabpanel">
+				<pre
+					class="pl-4 pr-22 py-2 m-0 max-h-96 overflow-y-auto dark:bg-base-200"
+					id={`connect-all-mcp-json-${selectedConnectAllSnippet.id}`}><code
+						class="font-mono text-xs">{selectedConnectAllSnippet.value}</code
 					></pre>
 				<div class="absolute top-4 right-4">
 					<CopyButton
-						text={connectAllSnippets.value}
-						id="connect-all-mcp-json-copy-button"
+						text={selectedConnectAllSnippet.value}
+						id={`connect-all-mcp-json-copy-button-${selectedConnectAllSnippet.id}`}
 						classes={{ button: 'flex shrink-0 gap-2 text-xs' }}
 						showTextLeft
 					/>

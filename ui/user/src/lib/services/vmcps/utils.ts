@@ -376,7 +376,7 @@ export function buildConnectAllSnippets(
 	clientId: AiClient,
 	vmcps: MCPCatalogEntry[],
 	admin: boolean
-): { id: string; label: string; value: string } {
+): { id: string; label: string; value: string }[] {
 	const servers = httpMcpServers(vmcps);
 	if (clientId === AiClient.Codex) {
 		const value = Object.entries(servers)
@@ -385,23 +385,42 @@ export function buildConnectAllSnippets(
 					`[mcp_servers.${toTomlQuotedKey(name)}]\nurl = ${JSON.stringify(server.url)}`
 			)
 			.join('\n\n');
-		return { id: 'codex-config-toml', label: 'config.toml', value };
+		return [{ id: 'codex-config-toml', label: 'config.toml', value }];
 	}
 
 	if (clientId === AiClient.VSCode) {
-		return {
-			id: 'vscode-mcp-json',
-			label: 'mcp.json',
-			value: JSON.stringify({ servers }, null, 2)
-		};
+		return [
+			{
+				id: 'vscode-mcp-json',
+				label: 'mcp.json',
+				value: JSON.stringify({ servers }, null, 2)
+			}
+		];
 	}
 
-	const json = JSON.stringify({ mcpServers: servers }, null, 2);
 	if (clientId === AiClient.Claude && admin) {
-		return admin
-			? { id: 'claude-managed-mcp-json', label: 'managed-mcp.json', value: json }
-			: { id: 'claude-mcp-json', label: 'mcp.json', value: json };
+		const config = {
+			allowedMcpServers: Object.values(servers).map((server) => ({ serverUrl: server.url }))
+		};
+		return [
+			{
+				id: 'claude-settings-json',
+				label: 'Claude Enterprise',
+				value: JSON.stringify(config, null, 2)
+			},
+			{
+				id: `${clientId}-mcp-json`,
+				label: 'mcp.json',
+				value: JSON.stringify({ mcpServers: servers }, null, 2)
+			}
+		];
 	}
 
-	return { id: `${clientId}-mcp-json`, label: 'mcp.json', value: json };
+	return [
+		{
+			id: `${clientId}-mcp-json`,
+			label: 'mcp.json',
+			value: JSON.stringify({ mcpServers: servers }, null, 2)
+		}
+	];
 }
