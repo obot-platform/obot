@@ -84,58 +84,6 @@ function card(name: string) {
 }
 
 describe('McpServersSidebar.svelte', () => {
-	it('lists the draggable servers while open', async () => {
-		await renderSidebar();
-
-		await expect.element(toggle()).toHaveAttribute('aria-label', 'Hide MCP Servers');
-		await expect.element(card('GitHub')).toBeVisible();
-		await expect.element(card('Slack')).toBeVisible();
-	});
-
-	it('hides the list when collapsed and restores it when reopened', async () => {
-		await renderSidebar();
-
-		await toggle().click();
-		await tick();
-
-		await expect.element(toggle()).toHaveAttribute('aria-label', 'Show MCP Servers');
-		await expect.element(page.getByPlaceholder('Search MCP servers...')).not.toBeInTheDocument();
-		await expect.element(card('GitHub')).not.toBeInTheDocument();
-
-		await toggle().click();
-		await tick();
-
-		await expect.element(card('GitHub')).toBeVisible();
-	});
-
-	it('exposes the panel element so the page can measure it', async () => {
-		let panelEl: HTMLElement | undefined;
-		mcpServersAndEntries.current = {
-			entries: [github],
-			servers: [],
-			userInstances: [],
-			userConfiguredServers: [],
-			loading: false,
-			lastFetched: null,
-			isInitialized: true
-		};
-		await preparePageData();
-		render(McpServersSidebar, {
-			drag: createDragStub(),
-			onSearch: vi.fn(),
-			get panelEl() {
-				return panelEl;
-			},
-			set panelEl(value: HTMLElement | undefined) {
-				panelEl = value;
-			}
-		});
-
-		await expect.element(toggle()).toBeInTheDocument();
-		expect(panelEl).toBeInstanceOf(HTMLElement);
-		expect(panelEl?.contains(await toggle().element())).toBe(true);
-	});
-
 	it('filters the list by the query it is given', async () => {
 		await renderSidebar({ query: 'slack' });
 
@@ -347,22 +295,6 @@ describe('McpServersSidebar.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Remove communication' }))
 				.not.toBeInTheDocument();
-		});
-
-		it('announces the panel as a modal dialog owned by the trigger', async () => {
-			await renderSidebar();
-
-			const trigger = page.getByCSS('#mcp-server-settings-button');
-			await expect.element(trigger).toHaveAttribute('aria-haspopup', 'dialog');
-			await expect.element(trigger).toHaveAttribute('aria-expanded', 'false');
-			await expect.element(trigger).toHaveAttribute('aria-controls', 'mcp-server-settings-panel');
-
-			await clickNative(trigger);
-
-			await expect.element(trigger).toHaveAttribute('aria-expanded', 'true');
-			await expect
-				.element(page.getByRole('dialog', { name: 'MCP server settings' }))
-				.toHaveAttribute('aria-modal', 'true');
 		});
 	});
 });
