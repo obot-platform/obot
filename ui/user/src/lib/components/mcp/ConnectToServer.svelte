@@ -111,8 +111,14 @@
 			? undefined
 			: getSecretBindingEngineError(manifest)
 	);
-	let isLaunchableEntry = $derived(entry && !isMultiUserCatalogEntry(entry) && !server);
-	let isEditableEntry = $derived(entry && !isMultiUserCatalogEntry(entry) && server);
+	let isLaunchable = $derived(
+		(entry && !isMultiUserCatalogEntry(entry) && !server) ||
+			(!instance && server && hasMultiUserInstanceConfiguration(server))
+	);
+	let isEditable = $derived(
+		(entry && !isMultiUserCatalogEntry(entry) && server) ||
+			(server && instance && hasMultiUserInstanceConfiguration(server))
+	);
 
 	let showIntroDialog = $state(false);
 
@@ -1122,15 +1128,17 @@
 				{url}
 				id={generateIdFromName(displayName)}
 				{displayName}
-				onLaunch={isLaunchableEntry
+				onLaunch={isLaunchable
 					? () => {
-							if (entry) {
-								connectDialog?.close();
+							connectDialog?.close();
+							if (server && !instance && hasMultiUserInstanceConfiguration(server)) {
+								showIntroDialog = true;
+							} else if (entry) {
 								setupNewInstance(entry);
 							}
 						}
 					: undefined}
-				onEdit={onEdit && (isEditableEntry || (server && instance))
+				onEdit={onEdit && isEditable
 					? () => {
 							connectDialog?.close();
 							onEdit({ entry, server, instance });

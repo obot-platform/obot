@@ -180,6 +180,7 @@
 			<p class="text-xs text-center">
 				If you need to configure this server or perform authentication before connecting, <button
 					class="text-blue-500 underline hover:text-blue-400"
+					aria-label="Preconfigure server"
 					onclick={onLaunch}>click here</button
 				>.
 			</p>
@@ -189,10 +190,12 @@
 					Preconfigure <CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
 				</span>
 			</div>
-			<div role="alert" class="notification-info text-xs text-center">
+			<div role="status" class="notification-info text-xs text-center">
 				This server has already been configured. If you need to update the configuration,
-				<button class="text-blue-500 underline hover:text-blue-400" onclick={onEdit}
-					>click here</button
+				<button
+					class="text-blue-500 underline hover:text-blue-400"
+					aria-label="Edit configuration"
+					onclick={onEdit}>click here</button
 				>.
 			</div>
 		{/if}
