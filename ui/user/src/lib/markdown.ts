@@ -128,6 +128,34 @@ export function toHTMLFromMarkdownWithNewTabLinks(
 	return updateLinksWithTargetBlank(toHTMLFromMarkdown(markdown, enableVideoAndIframeProcessing));
 }
 
+const INLINE_MARKDOWN_TAGS = ['a', 'br', 'code', 'del', 'em', 'strong'];
+const INLINE_MARKDOWN_ATTRIBUTES = ['href', 'title'];
+
+/** Render short, inline-only Markdown without allowing media or block-level markup. */
+export function toInlineHTMLFromMarkdown(markdown: string): string {
+	const html = micromark(markdown, {
+		extensions: [gfm()],
+		htmlExtensions: [gfmHtml()]
+	});
+	// Remove generated image tags before any DOM parser sees their src attributes.
+	const htmlWithoutImages = html.replace(/<img\b[^>]*>/gi, '');
+
+	if (typeof window === 'undefined') {
+		// micromark escapes raw HTML by default. Remove the block and media tags it generates,
+		// leaving only the inline formatting allowed by this preview renderer.
+		return updateLinksWithTargetBlank(
+			htmlWithoutImages.replace(/<\/?(?!a\b|br\b|code\b|del\b|em\b|strong\b)[a-z][^>]*>/gi, '')
+		);
+	}
+
+	return updateLinksWithTargetBlank(
+		DOMPurify.sanitize(htmlWithoutImages, {
+			ALLOWED_TAGS: INLINE_MARKDOWN_TAGS,
+			ALLOWED_ATTR: INLINE_MARKDOWN_ATTRIBUTES
+		})
+	);
+}
+
 export function stripMarkdownToText(markdown: string): string {
 	// First convert markdown to HTML
 	const html = toHTMLFromMarkdown(markdown);

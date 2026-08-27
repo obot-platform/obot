@@ -7,7 +7,7 @@
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
-	import { stripMarkdownToText } from '$lib/markdown';
+	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import {
 		UserService,
 		type MCPCatalog,
@@ -114,6 +114,15 @@
 			? sorted.filter((d) => d.name.toLowerCase().includes(query.toLowerCase()))
 			: sorted;
 	});
+
+	let shortDescriptionHTML = $derived(
+		new Map(
+			tableData.map((item) => [
+				item.id,
+				toInlineHTMLFromMarkdown(item.data.manifest.shortDescription ?? '')
+			])
+		)
+	);
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -319,7 +328,8 @@
 						</div>
 					</div>
 					<p class="text-xs text-muted-content min-h-8 mt-2 line-clamp-2">
-						{stripMarkdownToText(d.data.manifest.description ?? '')}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toInlineHTMLFromMarkdown -->
+						{@html shortDescriptionHTML.get(d.id) ?? ''}
 					</p>
 				</div>
 				<div

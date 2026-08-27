@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-const description = 'A description that remains visible when the server has status badges.';
+const shortDescription =
+	'A **formatted** description with [documentation](https://example.com/docs). ![Short demo](https://example.com/short-demo.gif)';
+const fullDescription =
+	'Full description that should not render. ![Large demo](https://example.com/large-demo.gif)';
 
 describe('MCP Servers ConnectorsView', () => {
 	beforeEach(() => {
@@ -13,7 +16,8 @@ describe('MCP Servers ConnectorsView', () => {
 			id: 'deprecated-connected-entry',
 			name: 'Deprecated Connected Server',
 			manifest: {
-				description,
+				shortDescription,
+				description: fullDescription,
 				icon: 'https://example.com/icon.png',
 				metadata: { deprecated: 'true' }
 			}
@@ -39,11 +43,20 @@ describe('MCP Servers ConnectorsView', () => {
 	it('clamps the description independently from the title and status badges', async () => {
 		render(ConnectorsView, { query: 'Deprecated' });
 
-		const descriptionPreview = page.getByText(description, { exact: true });
+		const descriptionPreview = page.getByText(/A formatted description with documentation/);
 		await expect.element(page.getByText('Deprecated', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Connected', { exact: true })).toBeVisible();
 		await expect.element(descriptionPreview).toHaveClass(/line-clamp-2/);
 		await expect.element(descriptionPreview.locator('..')).not.toHaveClass(/line-clamp-2/);
+		await expect.element(descriptionPreview.locator('strong')).toHaveTextContent('formatted');
+		await expect
+			.element(descriptionPreview.getByRole('link', { name: 'documentation' }))
+			.toHaveAttribute('target', '_blank');
+		await expect
+			.element(page.getByText(/Full description that should not render/))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('img', { name: 'Short demo' })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('img', { name: 'Large demo' })).not.toBeInTheDocument();
 	});
 
 	it('defers loading connector icons', async () => {
