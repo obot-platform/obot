@@ -80,6 +80,10 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to drop session_cookies table: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "drop_sessions", dropSessionsTable); err != nil {
+		return fmt.Errorf("failed to drop sessions table: %w", err)
+	}
+
 	if err = migrateIfEntryNotFoundInMigrationsTable(tx, "remove_github_groups", removeGitHubGroups); err != nil {
 		return fmt.Errorf("failed to remove GitHub groups: %w", err)
 	}
