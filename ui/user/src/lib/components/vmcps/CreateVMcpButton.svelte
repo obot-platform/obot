@@ -30,7 +30,10 @@
 			embedded ? 'border-base-300 border-dashed' : 'border-transparent',
 			linked && 'border-primary'
 		)}
-		onclick={onCreate}
+		onclick={() => {
+			// onCreate();
+			// temporarily commented out, existing composite catalog entry cannot be created with empty componentServers
+		}}
 	>
 		<div class="p-4 size-full flex flex-col items-center justify-center">
 			<div class="size-6 mb-4">
@@ -42,7 +45,7 @@
 				<Plus class="size-3 shrink-0" /> Create New vMCP
 			</p>
 			<p class="text-xs text-muted-content font-extralight">
-				Click here or drag a MCP server here to get started.
+				Drag a MCP server here to get started.
 			</p>
 		</div>
 	</button>
