@@ -253,7 +253,7 @@ func TestFilterConflictingCatalogEntriesReportsObotManagedConflict(t *testing.T)
 	desired.Spec.Manifest.Name = "Context7"
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, []kclient.Object{desired}, []*v1.MCPServerCatalogEntry{existing})
 	require.NoError(t, err)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with an Obot-managed entry")
@@ -271,7 +271,7 @@ func TestFilterConflictingCatalogEntriesChecksExactEntryAfterStaleList(t *testin
 	desired.Spec.Manifest.Name = "Context7"
 	c := &staleCatalogEntryListClient{Client: newCatalogFakeClient(existing)}
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, []kclient.Object{desired}, nil)
 	require.NoError(t, err)
 	assert.Empty(t, filtered)
 	assert.Contains(t, errs[desired.Spec.SourceURL], "conflicts with an Obot-managed entry")
@@ -298,7 +298,7 @@ func TestFilterConflictingCatalogEntriesAllowsDetachedEntryReattachment(t *testi
 	existing.OwnerReferences = nil
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []kclient.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, []kclient.Object{desired}, []*v1.MCPServerCatalogEntry{existing})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
@@ -323,7 +323,7 @@ func TestFilterConflictingCatalogEntriesAllowsGitManagedEntry(t *testing.T) {
 	desired.OwnerReferences = nil
 	c := newCatalogFakeClient(existing)
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, catalog.Namespace, []kclient.Object{desired})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, []kclient.Object{desired}, []*v1.MCPServerCatalogEntry{existing})
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 1)
@@ -336,7 +336,7 @@ func TestFilterConflictingCatalogEntriesPreservesDuplicateOrder(t *testing.T) {
 	second.Spec.SourceURL = "second"
 	c := newCatalogFakeClient()
 
-	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, "default", []kclient.Object{first, second})
+	filtered, errs, err := filterConflictingCatalogEntries(t.Context(), c, []kclient.Object{first, second}, nil)
 	require.NoError(t, err)
 	assert.Empty(t, errs)
 	require.Len(t, filtered, 2)

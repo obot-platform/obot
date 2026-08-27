@@ -173,8 +173,19 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	}
 
 	if len(toAdd) > 0 {
+		existingEntries, err := listCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace)
+		if err != nil {
+			return fmt.Errorf("failed to list existing catalog entries: %w", err)
+		}
+		persistedEntries := persistedEntriesFromSources(existingEntries, mcpCatalog.Name, skippedSourceIDs)
+		for _, entry := range persistedEntries {
+			if entry.Spec.Manifest.Runtime == types.RuntimeComposite {
+				toAdd = append(toAdd, entry)
+			}
+		}
+
 		var conflictErrors map[string]string
-		toAdd, conflictErrors, err = filterConflictingCatalogEntries(req.Ctx, req.Client, mcpCatalog.Namespace, toAdd)
+		toAdd, conflictErrors, err = filterConflictingCatalogEntries(req.Ctx, req.Client, toAdd, existingEntries)
 		if err != nil {
 			return fmt.Errorf("failed to check catalog entry conflicts: %w", err)
 		}
@@ -185,7 +196,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 
 		var compositeRefErrors map[string]string
-		toAdd, compositeRefErrors, err = h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, skippedSourceIDs, validationOptions)
+		toAdd, compositeRefErrors, err = h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, persistedEntries, validSourceIDs, validationOptions)
 		if err != nil {
 			return fmt.Errorf("failed to load persisted catalog entries for composite reference resolution: %w", err)
 		}
@@ -246,6 +257,36 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	return nil
 }
 
+// listCatalogEntries returns the namespace's existing catalog entries so sync
+// can reuse one storage snapshot for conflict and composite processing.
+func listCatalogEntries(ctx context.Context, c kclient.Client, namespace string) ([]*v1.MCPServerCatalogEntry, error) {
+	var storedEntries v1.MCPServerCatalogEntryList
+	if err := c.List(ctx, &storedEntries, kclient.InNamespace(namespace)); err != nil {
+		return nil, err
+	}
+
+	result := make([]*v1.MCPServerCatalogEntry, 0, len(storedEntries.Items))
+	for i := range storedEntries.Items {
+		result = append(result, &storedEntries.Items[i])
+	}
+	return result, nil
+}
+
+// persistedEntriesFromSources returns Git-managed entries from unchanged
+// sources in the current catalog.
+func persistedEntriesFromSources(entries []*v1.MCPServerCatalogEntry, catalogName string, sourceIDs map[string]struct{}) []*v1.MCPServerCatalogEntry {
+	result := make([]*v1.MCPServerCatalogEntry, 0)
+	for _, entry := range entries {
+		if entry.Spec.MCPCatalogName != catalogName || !entry.IsGitManaged() {
+			continue
+		}
+		if _, skipped := sourceIDs[mcp.SourceIDForURL(entry.Spec.SourceURL)]; skipped {
+			result = append(result, entry)
+		}
+	}
+	return result
+}
+
 // nextResolvedCommitSHAs returns non-empty commit state for configured sources,
 // updating values for sources that completed this sync successfully.
 func nextResolvedCommitSHAs(current, successful map[string]string, sourceURLs []string) map[string]string {
@@ -268,16 +309,11 @@ func addSyncError(syncErrors map[string]string, sourceURL, errMsg string) {
 	}
 }
 
-func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, namespace string, objs []kclient.Object) ([]kclient.Object, map[string]string, error) {
+func filterConflictingCatalogEntries(ctx context.Context, c kclient.Client, objs []kclient.Object, existingEntries []*v1.MCPServerCatalogEntry) ([]kclient.Object, map[string]string, error) {
 	result := make([]kclient.Object, 0, len(objs))
 	errsBySourceURL := make(map[string]string)
-	var existingEntries v1.MCPServerCatalogEntryList
-	if err := c.List(ctx, &existingEntries, kclient.InNamespace(namespace)); err != nil {
-		return nil, nil, err
-	}
-	existingByName := make(map[kclient.ObjectKey]v1.MCPServerCatalogEntry, len(existingEntries.Items))
-	for i := range existingEntries.Items {
-		entry := &existingEntries.Items[i]
+	existingByName := make(map[kclient.ObjectKey]v1.MCPServerCatalogEntry, len(existingEntries))
+	for _, entry := range existingEntries {
 		existingByName[kclient.ObjectKeyFromObject(entry)] = *entry
 	}
 
@@ -464,28 +500,19 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 // resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
 // catalog entry names and snapshots the target manifests. Entries with invalid
 // portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, persistedSourceIDs map[string]struct{}, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string, error) {
+func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, persistedEntries []*v1.MCPServerCatalogEntry, authoritativeSourceIDs map[string]struct{}, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string, error) {
 	validationOptions := h.remoteURLValidationConfig
 	if len(options) > 0 {
 		validationOptions = options[0]
 	}
 	refs := make(map[string]*v1.MCPServerCatalogEntry)
 	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
-	if len(persistedSourceIDs) > 0 {
-		var storedEntries v1.MCPServerCatalogEntryList
-		if err := c.List(ctx, &storedEntries, kclient.InNamespace(namespace)); err != nil {
-			return nil, nil, err
+	for _, entry := range persistedEntries {
+		if !entry.IsGitManaged() || entry.Spec.Manifest.EntryKey == "" {
+			continue
 		}
-		for i := range storedEntries.Items {
-			entry := &storedEntries.Items[i]
-			if entry.Spec.MCPCatalogName != catalogName || !entry.IsGitManaged() || entry.Spec.Manifest.EntryKey == "" {
-				continue
-			}
-			sourceID := mcp.SourceIDForURL(entry.Spec.SourceURL)
-			if _, skipped := persistedSourceIDs[sourceID]; skipped {
-				refs[sourceRef(sourceID, entry.Spec.Manifest.EntryKey)] = entry
-			}
-		}
+		sourceID := mcp.SourceIDForURL(entry.Spec.SourceURL)
+		refs[sourceRef(sourceID, entry.Spec.Manifest.EntryKey)] = entry
 	}
 	for _, obj := range objs {
 		entry, ok := obj.(*v1.MCPServerCatalogEntry)
@@ -552,7 +579,16 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 						errs = append(errs, fmt.Errorf("component catalog entry %q not found in catalog %q", component.CatalogEntryID, catalogName))
 						continue
 					}
-					target = &storedEntry
+					storedSourceID := mcp.SourceIDForURL(storedEntry.Spec.SourceURL)
+					if _, authoritative := authoritativeSourceIDs[storedSourceID]; authoritative {
+						target = refs[sourceRef(storedSourceID, storedEntry.Spec.Manifest.EntryKey)]
+						if target == nil {
+							errs = append(errs, fmt.Errorf("component catalog entry %q was removed from refreshed source", component.CatalogEntryID))
+							continue
+						}
+					} else {
+						target = &storedEntry
+					}
 				}
 			}
 			if target == nil {
