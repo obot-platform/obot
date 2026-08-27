@@ -29,13 +29,11 @@ type Client struct {
 type ClientOption struct {
 	// OAuthClientName overrides ClientName only for dynamic client registration.
 	OAuthClientName string
-	// OAuthClientNameFallback is retried only when the primary registration is rejected.
-	OAuthClientNameFallback string
-	ClientName              string
-	ClientVersion           string
-	TokenStorage            TokenStorage
-	CallbackHandler         CallbackHandler
-	ClientLookup            ClientCredLookup
+	ClientName      string
+	ClientVersion   string
+	TokenStorage    TokenStorage
+	CallbackHandler CallbackHandler
+	ClientLookup    ClientCredLookup
 }
 
 func (c *Client) hasValidToken() bool {
@@ -171,7 +169,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		if oauthClientName == "" {
 			oauthClientName = clientOpts.ClientName
 		}
-		oauthHandler = newOAuth(httpClient, clientOpts.CallbackHandler, clientOpts.ClientLookup, clientOpts.TokenStorage, server.MCPServerName, oauthClientName, clientOpts.OAuthClientNameFallback, sm.baseURL+"/oauth/mcp/callback", system.OAuthClientIDMetadataURL(sm.baseURL))
+		oauthHandler = newOAuth(httpClient, clientOpts.CallbackHandler, clientOpts.ClientLookup, clientOpts.TokenStorage, server.MCPServerName, oauthClientName, sm.baseURL+"/oauth/mcp/callback", system.OAuthClientIDMetadataURL(sm.baseURL))
 	}
 
 	session, err := c.Connect(ctx, &gomcp.StreamableClientTransport{

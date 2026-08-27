@@ -19,8 +19,7 @@ import (
 )
 
 const (
-	obotOAuthClientName         = "Obot MCP OAuth"
-	obotOAuthClientNameFallback = "Claude Code"
+	obotOAuthClientName = "Obot MCP OAuth"
 )
 
 type MCPOAuthHandlerFactory struct {
@@ -140,22 +139,17 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 	if err != nil {
 		return "", err
 	}
-	oauthClientNameFallback := ""
-	if oauthClientName == "" {
-		oauthClientNameFallback = obotOAuthClientNameFallback
-	}
 	errChan := make(chan error, 1)
 
 	go func() {
 		defer close(errChan)
 
 		_, err := f.mcpSessionManager.ClientForMCPServerForOAuthCheck(req.Context(), mcpServerConfig, mcp.ClientOption{
-			OAuthClientName:         oauthClientName,
-			OAuthClientNameFallback: oauthClientNameFallback,
-			ClientName:              obotOAuthClientName,
-			TokenStorage:            f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
-			CallbackHandler:         oauthHandler,
-			ClientLookup:            oauthHandler,
+			OAuthClientName: oauthClientName,
+			ClientName:      obotOAuthClientName,
+			TokenStorage:    f.tokenStore.ForUserAndMCP(userID, mcpID, mcpServerConfig.URL),
+			CallbackHandler: oauthHandler,
+			ClientLookup:    oauthHandler,
 		})
 		if err != nil {
 			errChan <- fmt.Errorf("failed to get client for server %s: %v", mcpServer.Name, err)
