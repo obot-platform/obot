@@ -1,24 +1,20 @@
-import { createMCPCatalogEntry } from '../../tests/helpers/mcp';
+import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
+import { SHORT_DESCRIPTION_MAX_LENGTH } from './constants';
+import type { RectLike } from './types';
 import {
 	appendComponentLabel,
 	borderAnchor,
 	buildMcpServerFilterOptions,
 	buildVMcpComponentFilterOptions,
-	buildVMcpNameFilterOptions,
-	buildVMcpOwnerFilterOptions,
 	buildWirePath,
 	distanceToRect,
 	filterMcpServersByCategories,
-	filterVMcps,
 	isJoinedComponentLabel,
 	isWorkspaceOwned,
 	joinComponentLabels,
 	matchesQuery,
-	SHORT_DESCRIPTION_MAX_LENGTH,
 	sortMcpServers,
-	sortVMcps,
-	VMCP_FILTER_OWNER_NONE,
-	type RectLike
+	sortVMcps
 } from './utils';
 import { describe, expect, it } from 'vitest';
 
@@ -111,52 +107,6 @@ describe('sortVMcps', () => {
 	});
 });
 
-describe('filterVMcps', () => {
-	const named = createMCPCatalogEntry({
-		id: 'vmcp-named',
-		name: 'Issue Tracker',
-		runtime: 'composite',
-		manifest: { compositeConfig: { componentServers: [{ catalogEntryID: 'entry-github' }] } }
-	});
-	const owned = createMCPCatalogEntry({
-		id: 'vmcp-owned',
-		name: 'Owned Gateway',
-		runtime: 'composite',
-		powerUserID: 'user-1'
-	});
-	const empty = createMCPCatalogEntry({
-		id: 'vmcp-empty',
-		name: 'Empty Gateway',
-		runtime: 'composite'
-	});
-
-	it('returns every entry when no filters are selected', () => {
-		expect(filterVMcps([named, owned, empty], {}).map((entry) => entry.id)).toEqual([
-			'vmcp-named',
-			'vmcp-owned',
-			'vmcp-empty'
-		]);
-	});
-
-	it('keeps composites that match any selected filter', () => {
-		expect(
-			filterVMcps([named, owned, empty], {
-				names: named.id,
-				owners: 'user-1',
-				components: 'entry-github'
-			}).map((entry) => entry.id)
-		).toEqual(['vmcp-named', 'vmcp-owned']);
-	});
-
-	it('keeps unowned composites when the none-owner filter is selected', () => {
-		expect(
-			filterVMcps([named, owned, empty], { owners: VMCP_FILTER_OWNER_NONE }).map(
-				(entry) => entry.id
-			)
-		).toEqual(['vmcp-named', 'vmcp-empty']);
-	});
-});
-
 describe('vMCP filter options', () => {
 	const first = createMCPCatalogEntry({
 		id: 'vmcp-a',
@@ -170,20 +120,6 @@ describe('vMCP filter options', () => {
 		name: 'Bravo',
 		runtime: 'composite',
 		manifest: { compositeConfig: { componentServers: [{ catalogEntryID: 'entry-github' }] } }
-	});
-
-	it('lists names without duplicates', () => {
-		expect(buildVMcpNameFilterOptions([first, second])).toEqual([
-			{ id: 'vmcp-a', label: 'Alpha' },
-			{ id: 'vmcp-b', label: 'Bravo' }
-		]);
-	});
-
-	it('lists owners including none', () => {
-		expect(buildVMcpOwnerFilterOptions([first, second])).toEqual([
-			{ id: VMCP_FILTER_OWNER_NONE, label: 'None' },
-			{ id: 'user-1', label: 'user-1' }
-		]);
 	});
 
 	it('lists component servers without duplicates', () => {

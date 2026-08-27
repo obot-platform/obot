@@ -3,12 +3,15 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import { formatNumber } from '$lib/format';
+	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { MCPCatalogEntry } from '$lib/services';
+	import { windowRange } from '$lib/services/vmcps/camera';
+	import {
+		VMCP_COMPONENT_HEIGHT,
+		VMCP_COMPONENT_WINDOW_THRESHOLD
+	} from '$lib/services/vmcps/constants';
+	import type { RowContext, VMcpComponentView } from '$lib/services/vmcps/types';
 	import McpServerIcon from './McpServerIcon.svelte';
-	import type { RowContext } from './camera';
-	import { VMCP_COMPONENT_HEIGHT, VMCP_COMPONENT_WINDOW_THRESHOLD, windowRange } from './camera';
-	import type { EntryDrag } from './entryDrag.svelte';
-	import type { VMcpComponentView } from './vmcpComponents';
 	import './vmcpGraph.css';
 	import { ChevronsRight, ExternalLink, Layers, PencilRuler, Server } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';

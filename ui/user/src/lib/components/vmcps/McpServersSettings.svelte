@@ -2,7 +2,9 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import { parseSelectedFilterIds, type VMcpFilterOption } from './utils';
+	import { VMCP_IDS } from '$lib/services/vmcps/constants';
+	import type { VMcpFilterOption } from '$lib/services/vmcps/types';
+	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
 	import { Settings, X } from '@lucide/svelte';
 
 	interface Props {
@@ -18,9 +20,6 @@
 	let open = $state(false);
 	let categoryDraft = $state<string | number | undefined>('');
 
-	const SETTINGS_BUTTON_ID = 'mcp-server-settings-button';
-	const SETTINGS_PANEL_ID = 'mcp-server-settings-panel';
-	const FILTER_LABEL_ID = 'mcp-server-filter-by-label';
 	const selectClasses = 'min-h-8 py-1 text-sm bg-base-200 dark:bg-base-100 shadow-inner!';
 
 	function addFilter(selected: string, id: string) {
@@ -48,11 +47,11 @@
 </script>
 
 <IconButton
-	id={SETTINGS_BUTTON_ID}
+	id={VMCP_IDS.SETTINGS_BUTTON_ID}
 	tooltip={{ text: 'MCP Servers Settings', placement: 'left' }}
 	aria-haspopup="dialog"
 	aria-expanded={open}
-	aria-controls={SETTINGS_PANEL_ID}
+	aria-controls={VMCP_IDS.SETTINGS_PANEL_ID}
 	onclick={() => dialog?.open()}
 >
 	<Settings class="size-4" />
@@ -60,7 +59,7 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	id={SETTINGS_PANEL_ID}
+	id={VMCP_IDS.SETTINGS_PANEL_ID}
 	title="MCP Server Settings"
 	class="md:w-md"
 	onOpen={() => (open = true)}
@@ -76,7 +75,7 @@
 			Include deprecated MCP servers
 		</label>
 		<label
-			id={FILTER_LABEL_ID}
+			id={VMCP_IDS.FILTER_LABEL_ID}
 			for="mcp-server-filter-by"
 			class="divider mt-4 mb-2 text-xs uppercase"
 		>
@@ -92,7 +91,7 @@
 			searchInDropdown
 			placeholder="Filter by category"
 			searchPlaceholder="Search categories..."
-			ariaLabelledby={FILTER_LABEL_ID}
+			ariaLabelledby={VMCP_IDS.FILTER_LABEL_ID}
 			class={selectClasses}
 			classes={{ root: 'grow', option: 'text-sm' }}
 			onSelect={(option) => {

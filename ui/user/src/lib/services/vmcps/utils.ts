@@ -1,13 +1,18 @@
 import type { MCPCatalogEntry, MCPCatalogServer, OrgUser, RuntimeFormData } from '$lib/services';
-
-export type Point = { x: number; y: number };
-export type RectLike = Pick<DOMRect, 'left' | 'top' | 'right' | 'bottom' | 'width' | 'height'>;
-
-const WIRE_SEGMENTS = 26;
-const WIRE_MAX_ARCH_PX = 72;
-
-export const COMPONENT_LABEL_SEPARATOR = ', ';
-export const SHORT_DESCRIPTION_MAX_LENGTH = 160;
+import {
+	COMPONENT_LABEL_SEPARATOR,
+	MCP_SERVER_POPULARITY_ORDER,
+	WIRE_MAX_ARCH_PX,
+	WIRE_SEGMENTS
+} from './constants';
+import type {
+	Point,
+	RectLike,
+	VMcpComponentView,
+	VMcpFilterOption,
+	VMcpFilters,
+	VMcpSortBy
+} from './types';
 
 export function joinComponentLabels(parts: Array<string | undefined>) {
 	return parts
@@ -67,24 +72,6 @@ export const initVMcp = () => {
 export function isWorkspaceOwned(entry: MCPCatalogEntry) {
 	return Boolean(entry.powerUserWorkspaceID || entry.powerUserID);
 }
-
-export type VMcpSortBy = 'name' | 'created' | 'componentServers';
-
-export const VMCP_SORT_OPTIONS: Array<{ id: VMcpSortBy; label: string }> = [
-	{ id: 'name', label: 'Name' },
-	{ id: 'created', label: 'Created' },
-	{ id: 'componentServers', label: 'MCP Servers' }
-];
-
-export type VMcpFilterOption = { id: string; label: string; disabled?: boolean };
-
-export type VMcpFilters = {
-	names?: string;
-	owners?: string;
-	components?: string;
-};
-
-export const VMCP_FILTER_OWNER_NONE = '__none__';
 
 export function parseSelectedFilterIds(selected: string) {
 	return selected
@@ -201,77 +188,6 @@ export const MCP_SERVER_SORT_OPTIONS: Array<{ id: McpServerSortBy; label: string
 	{ id: 'popularity', label: 'Most Popular' }
 ];
 
-/**
- * Temporary popularity ranking derived from
- * https://github.com/obot-platform/mcp-catalog (obot-remotes, remotes, obot-images).
- * First-party Obot remotes first, then widely used third-party remotes, then Obot images.
- * Unlisted servers sort after these, alphabetically.
- */
-export const MCP_SERVER_POPULARITY_ORDER = [
-	'gmail',
-	'outlook',
-	'calendar',
-	'google calendar',
-	'google drive',
-	'onedrive',
-	'google docs',
-	'google sheets',
-	'excel',
-	'word',
-	'contact',
-	'google search console',
-	'slack',
-	'github',
-	'github enterprise cloud',
-	'atlassian',
-	'notion',
-	'linear',
-	'hubspot',
-	'salesforce',
-	'stripe',
-	'datadog',
-	'grafana cloud',
-	'elasticsearch',
-	'firecrawl',
-	'monday.com',
-	'asana',
-	'clickup',
-	'zapier',
-	'todoist',
-	'pagerduty',
-	'context7',
-	'exa search',
-	'tavily search',
-	'neon',
-	'supabase',
-	'snowflake',
-	'bigquery',
-	'cloudflare',
-	'sentry',
-	'intercom',
-	'paypal',
-	'dropbox',
-	'box',
-	'airtable',
-	'canva',
-	'zoom',
-	'playwright',
-	'gitlab',
-	'grafana',
-	'azure',
-	'aws',
-	'redis',
-	'postgresql',
-	'mongodb atlas management',
-	'mongodb database',
-	'brave search',
-	'duckduckgo search',
-	'browserbase',
-	'wordpress',
-	'terraform',
-	'github enterprise'
-] as const;
-
 function normalizeServerName(name: string) {
 	return name.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -356,14 +272,12 @@ export function matchesQuery(item: MCPCatalogEntry | MCPCatalogServer, query: st
 	);
 }
 
-/** Shortest distance from `point` to the rect's edge; `0` when the point is inside. */
 export function distanceToRect(rect: RectLike, point: Point) {
 	const dx = Math.max(rect.left - point.x, 0, point.x - rect.right);
 	const dy = Math.max(rect.top - point.y, 0, point.y - rect.bottom);
 	return Math.hypot(dx, dy);
 }
 
-/** Where a wire should attach on the rect's border when it is pulled toward `point`. */
 export function borderAnchor(rect: RectLike, point: Point): Point {
 	const centerX = rect.left + rect.width / 2;
 	const centerY = rect.top + rect.height / 2;
@@ -405,4 +319,26 @@ export function buildWirePath(from: Point, to: Point, phase = 0) {
 		points.push(`${step === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`);
 	}
 	return points.join(' ');
+}
+
+export function resolveVMcpComponents(
+	vmcp: MCPCatalogEntry,
+	entries: MCPCatalogEntry[],
+	servers: MCPCatalogServer[]
+): VMcpComponentView[] {
+	return (vmcp.manifest.compositeConfig?.componentServers ?? []).map((component, index) => {
+		const entry = entries.find((candidate) => candidate.id === component.catalogEntryID);
+		const server = servers.find((candidate) => candidate.id === component.mcpServerID);
+		const manifest = entry?.manifest ?? server?.manifest ?? component.manifest;
+		const reference = component.catalogEntryID ?? component.mcpServerID;
+		return {
+			key: reference ?? `component-${index}`,
+			name: manifest?.name || reference || 'Unknown server',
+			icon: manifest?.icon,
+			description: manifest?.shortDescription,
+			id: reference,
+			toolOverrides: component.toolOverrides,
+			toolPreview: manifest?.toolPreview
+		};
+	});
 }

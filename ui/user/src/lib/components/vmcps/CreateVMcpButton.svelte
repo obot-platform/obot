@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { EntryDrag } from './entryDrag.svelte';
-	import { CREATE_VMCP_DROP_ID } from './entryDrag.svelte';
+	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
+	import { CREATE_VMCP_DROP_ID } from '$lib/runes/vmcps/entryDrag.svelte';
 	import './vmcpGraph.css';
 	import { Layers, Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';

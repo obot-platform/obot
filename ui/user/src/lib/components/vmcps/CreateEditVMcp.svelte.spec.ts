@@ -1,7 +1,7 @@
 import type { MCPCatalogEntryServerManifest } from '$lib/services';
-import { createMCPCatalogEntry } from '../../tests/helpers/mcp';
-import { preparePageData } from '../../tests/helpers/pageData';
-import { worker } from '../../tests/mocks/worker';
+import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
+import { preparePageData } from '../../../tests/helpers/pageData';
+import { worker } from '../../../tests/mocks/worker';
 import CreateEditVMcp from './CreateEditVMcp.svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';

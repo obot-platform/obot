@@ -4,16 +4,17 @@
 		defaultCamera,
 		fitCamera,
 		panBy,
-		type Camera,
-		type RowContext,
+		viewBand,
+		wheelZoomFactor,
+		zoomAt
+	} from '$lib/services/vmcps/camera';
+	import {
 		VMCP_CREATE_HEIGHT,
 		VMCP_OVERSCAN_ROWS,
 		VMCP_ROW_GAP,
-		viewBand,
-		wheelZoomFactor,
-		ZOOM_STEP,
-		zoomAt
-	} from './camera';
+		ZOOM_STEP
+	} from '$lib/services/vmcps/constants';
+	import type { Camera, RowContext } from '$lib/services/vmcps/types';
 	import { Maximize2, Minus, Plus } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 

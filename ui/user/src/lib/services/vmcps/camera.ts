@@ -1,23 +1,12 @@
-export const MIN_ZOOM = 0.25;
-export const MAX_ZOOM = 1.5;
-export const ZOOM_STEP = 1.2;
-export const VMCP_ROW_GAP = 40;
-export const VMCP_COLLAPSED_ROW_HEIGHT = 236;
-export const VMCP_CARD_HEIGHT = 236;
-export const VMCP_COMPONENT_HEIGHT = 148;
-export const VMCP_CREATE_HEIGHT = 168;
-export const VMCP_COMPONENT_WINDOW_THRESHOLD = 15;
-export const VMCP_OVERSCAN_ROWS = 2;
-
-export type Camera = { x: number; y: number; zoom: number };
-
-export type WorldRect = { left: number; top: number; right: number; bottom: number };
-
-export type RowContext = {
-	rowY: number;
-	viewTop: number;
-	viewBottom: number;
-};
+import {
+	MAX_ZOOM,
+	MIN_ZOOM,
+	VMCP_CARD_HEIGHT,
+	VMCP_COLLAPSED_ROW_HEIGHT,
+	VMCP_COMPONENT_HEIGHT,
+	VMCP_OVERSCAN_ROWS
+} from './constants';
+import type { Camera, WorldRect } from './types';
 
 export function clampZoom(zoom: number) {
 	return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));

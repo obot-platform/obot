@@ -3,8 +3,20 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
+	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
+	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
+	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
+	import VMcpGraph from '$lib/components/vmcps/VMcpGraph.svelte';
+	import VMcpGraphRow from '$lib/components/vmcps/VMcpGraphRow.svelte';
+	import VMcpSettings from '$lib/components/vmcps/VMcpSettings.svelte';
+	import VMcpTable from '$lib/components/vmcps/VMcpTable.svelte';
+	import VMcpToolDialogs from '$lib/components/vmcps/VMcpToolDialogs.svelte';
+	import ViewModifyCatalogEntry from '$lib/components/vmcps/ViewModifyCatalogEntry.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
+	import { createVMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import {
 		AdminService,
 		Group,
@@ -16,32 +28,20 @@
 	} from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import { isMultiUserCatalogEntry, isMultiUserServer } from '$lib/services/user/mcp';
-	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
-	import { success } from '$lib/stores/success';
-	import { setUrlParamAndUpdateUrl } from '$lib/url';
-	import CreateEditVMcp from './CreateEditVMcp.svelte';
-	import CreateVMcpButton from './CreateVMcpButton.svelte';
-	import McpServersSidebar from './McpServersSidebar.svelte';
-	import VMcpDragOverlay from './VMcpDragOverlay.svelte';
-	import VMcpGraph from './VMcpGraph.svelte';
-	import VMcpGraphRow from './VMcpGraphRow.svelte';
-	import VMcpSettings from './VMcpSettings.svelte';
-	import VMcpTable from './VMcpTable.svelte';
-	import VMcpToolDialogs from './VMcpToolDialogs.svelte';
-	import ViewModifyCatalogEntry from './ViewModifyCatalogEntry.svelte';
-	import { vmcpRowHeight } from './camera';
-	import { createEntryDrag } from './entryDrag.svelte';
+	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
+	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
+	import type { VMcpSortBy } from '$lib/services/vmcps/types';
 	import {
 		appendComponentLabel,
 		buildVMcpComponentFilterOptions,
 		filterVMcps,
 		isWorkspaceOwned,
-		SHORT_DESCRIPTION_MAX_LENGTH,
 		sortVMcps,
-		type VMcpSortBy
-	} from './utils';
-	import { resolveVMcpComponents } from './vmcpComponents';
-	import { createVMcpToolFlow } from './vmcpToolFlow.svelte';
+		resolveVMcpComponents
+	} from '$lib/services/vmcps/utils';
+	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
+	import { success } from '$lib/stores/success';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { ChartBarStacked, Table } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -90,10 +90,6 @@
 			sortBy
 		)
 	);
-
-	$effect(() => {
-		console.log(composites);
-	});
 
 	let rightPanelEl = $state<HTMLElement>();
 	let rightPanelWidth = $state(0);

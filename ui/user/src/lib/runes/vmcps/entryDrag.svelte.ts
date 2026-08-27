@@ -1,9 +1,8 @@
 import type { MCPCatalogEntry } from '$lib/services';
-import { borderAnchor, buildWirePath, distanceToRect } from './utils';
+import { borderAnchor, buildWirePath, distanceToRect } from '../../services/vmcps/utils';
 import type { Action } from 'svelte/action';
 import type { Attachment } from 'svelte/attachments';
 
-/** Stands in for a vMCP id when a server is dropped on the "Create New vMCP" card. */
 export const CREATE_VMCP_DROP_ID = '__create__';
 
 /** Pointer travel that turns a press on a server card into a drag rather than a click. */
@@ -21,13 +20,9 @@ type DropTarget = {
 };
 
 export interface EntryDragOptions {
-	/** vMCPs on the canvas, in render order; also fixes the order drop targets are tested in. */
 	composites: () => MCPCatalogEntry[];
-	/** The servers panel. A drag that never leaves it must not link to anything. */
 	panelEl: () => HTMLElement | undefined;
-	/** A press that never became a drag, on an existing server. */
 	openEntry: (entry: MCPCatalogEntry) => void;
-	/** A press or drop on the "Create New Entry" card, which has no entry yet. */
 	createEntry: (target?: { vmcp?: MCPCatalogEntry }) => void;
 	dropOnCreate: (entry: MCPCatalogEntry) => void;
 	dropOnVMcp: (entry: MCPCatalogEntry, vmcp: MCPCatalogEntry) => void;
@@ -41,7 +36,6 @@ export interface EntryDragOptions {
  * layout. Must be created during component initialization.
  */
 export function createEntryDrag(options: EntryDragOptions) {
-	// A drag without an entry is the "create new entry" card, whose entry does not exist yet.
 	let drag = $state<{
 		entry?: MCPCatalogEntry;
 		pointerId: number;
@@ -140,7 +134,6 @@ export function createEntryDrag(options: EntryDragOptions) {
 		clearLinkTarget();
 	}
 
-	/** What a plain click on a drag source does, whether by pointer or keyboard. */
 	function activate(entry?: MCPCatalogEntry) {
 		if (entry) {
 			options.openEntry(entry);
@@ -181,13 +174,11 @@ export function createEntryDrag(options: EntryDragOptions) {
 		const dropOnCreate = linkedVMcpId === CREATE_VMCP_DROP_ID;
 		cancel();
 
-		// A press that never travelled far enough to become a drag counts as a plain click.
 		if (!dropped.active) {
 			activate(dropped.entry);
 			return;
 		}
 
-		// The entry has to be created before it can join a vMCP, so remember where it landed.
 		if (!dropped.entry) {
 			if (!dropOnCreate && !vmcp) return;
 			options.createEntry({ vmcp: dropOnCreate ? undefined : vmcp });
@@ -278,10 +269,6 @@ export function createEntryDrag(options: EntryDragOptions) {
 		get wire() {
 			return wire;
 		},
-		/**
-		 * True while a drag is linked to this vMCP, including when the link landed on one of its
-		 * component blocks, so the card highlights along with the block.
-		 */
 		isLinked(vmcpId: string) {
 			return linkedVMcpId === vmcpId;
 		},
@@ -293,7 +280,6 @@ export function createEntryDrag(options: EntryDragOptions) {
 		isDragging(entry: MCPCatalogEntry) {
 			return drag?.active === true && drag.entry?.id === entry.id;
 		},
-		/** The "Create New Entry" card is the only source that drags without an entry. */
 		get isDraggingNewEntry() {
 			return drag?.active === true && !drag.entry;
 		},

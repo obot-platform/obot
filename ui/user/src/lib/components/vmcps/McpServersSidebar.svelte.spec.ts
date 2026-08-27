@@ -1,8 +1,8 @@
+import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 import { mcpServersAndEntries } from '$lib/stores';
-import { createMCPCatalogEntry } from '../../tests/helpers/mcp';
-import { preparePageData } from '../../tests/helpers/pageData';
+import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
+import { preparePageData } from '../../../tests/helpers/pageData';
 import McpServersSidebar from './McpServersSidebar.svelte';
-import type { EntryDrag } from './entryDrag.svelte';
 import { tick } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -11,10 +11,6 @@ import { page } from 'vitest/browser';
 const github = createMCPCatalogEntry({ id: 'entry-github', name: 'GitHub' });
 const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 
-/**
- * The sidebar only consumes the drag interface, so a stub keeps these tests focused on the panel.
- * The real state machine is covered where it is wired up, in the page spec.
- */
 function createDragStub(overrides: Partial<EntryDrag> = {}) {
 	return {
 		active: false,
@@ -337,9 +333,7 @@ describe('McpServersSidebar.svelte', () => {
 			await expect.element(card('Slack')).toBeVisible();
 			await expect.element(card('Plain')).not.toBeInTheDocument();
 
-			await expect
-				.element(page.getByRole('button', { name: 'Remove devtools' }))
-				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Remove devtools' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Remove communication' }))
 				.toBeVisible();

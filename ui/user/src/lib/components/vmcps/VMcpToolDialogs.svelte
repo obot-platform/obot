@@ -5,7 +5,7 @@
 	import CompositeToolsSetup from '$lib/components/mcp/composite/CompositeSelectServerAndToolsSetup.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import type { VMcpToolDialog, VMcpToolFlow } from './vmcpToolFlow.svelte';
+	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { RefreshCcw, Server, Trash2 } from '@lucide/svelte';
 
 	interface Props {

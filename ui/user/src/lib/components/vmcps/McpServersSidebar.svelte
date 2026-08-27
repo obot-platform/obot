@@ -3,12 +3,14 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
+	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { MCPCatalogEntry } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, responsive } from '$lib/stores';
-	import McpServerIcon from './McpServerIcon.svelte';
-	import McpServersSettings from './McpServersSettings.svelte';
-	import type { EntryDrag } from './entryDrag.svelte';
+	import {
+		ESTIMATED_ROW_HEIGHT,
+		MIN_VIEWPORT_HEIGHT,
+		VIRTUAL_LIST_THRESHOLD
+	} from '$lib/services/vmcps/constants';
 	import {
 		buildMcpServerFilterOptions,
 		filterMcpServersByCategories,
@@ -17,13 +19,19 @@
 		MCP_SERVER_SORT_OPTIONS,
 		sortMcpServers,
 		type McpServerSortBy
-	} from './utils';
+	} from '$lib/services/vmcps/utils';
+	import { averageRowHeight, buildRowOffsets, visibleRange } from '$lib/services/vmcps/virtualList';
+	import { mcpServersAndEntries, responsive } from '$lib/stores';
+	import McpServerIcon from './McpServerIcon.svelte';
+	import McpServersSettings from './McpServersSettings.svelte';
 	import { ChevronsRight, GripVertical, Plus, TriangleAlert } from '@lucide/svelte';
+	import { untrack } from 'svelte';
+	import type { Attachment } from 'svelte/attachments';
+	import { SvelteMap } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		/** Exposed so the page can measure the panel and inset dialogs around it. */
 		panelEl?: HTMLElement;
 		open?: boolean;
 		drag: EntryDrag;
@@ -67,6 +75,104 @@
 			sortBy
 		)
 	);
+
+	const rowHeights = new SvelteMap<string, number>();
+	let listScrollTop = $state(0);
+	let windowHeight = $state(0);
+	let start = $state(0);
+	let end = $state(VIRTUAL_LIST_THRESHOLD);
+
+	let virtualized = $derived(draggableEntries.length > VIRTUAL_LIST_THRESHOLD);
+	let estimatedHeight = $derived(averageRowHeight(rowHeights, ESTIMATED_ROW_HEIGHT));
+	let rowOffsets = $derived(
+		virtualized
+			? buildRowOffsets(
+					draggableEntries.map((entry) => entry.id),
+					rowHeights,
+					estimatedHeight
+				)
+			: undefined
+	);
+
+	let range = $derived.by(() => {
+		if (!virtualized) return { start: 0, end: draggableEntries.length };
+		const from = Math.min(start, draggableEntries.length);
+		return { start: from, end: Math.min(Math.max(end, from), draggableEntries.length) };
+	});
+	let visibleEntries = $derived(draggableEntries.slice(range.start, range.end));
+	let spacerTop = $derived(rowOffsets ? rowOffsets[range.start] : 0);
+	let spacerBottom = $derived(
+		rowOffsets ? rowOffsets[draggableEntries.length] - rowOffsets[range.end] : 0
+	);
+
+	$effect(() => {
+		if (drag.started) return;
+		if (!rowOffsets) {
+			start = 0;
+			end = draggableEntries.length;
+			return;
+		}
+
+		const next = visibleRange({
+			offsets: rowOffsets,
+			scrollTop: listScrollTop,
+			viewportHeight: Math.max(windowHeight, MIN_VIEWPORT_HEIGHT)
+		});
+		const current = untrack(() => ({ start, end }));
+		if (next.start !== current.start) start = next.start;
+		if (next.end !== current.end) end = next.end;
+	});
+
+	function trackList(node: HTMLElement) {
+		if (!virtualized) return;
+
+		let frame = 0;
+		const measure = () => {
+			frame = 0;
+			listScrollTop = -node.getBoundingClientRect().top;
+			windowHeight = window.innerHeight;
+		};
+		const schedule = () => {
+			if (frame) return;
+			frame = requestAnimationFrame(measure);
+		};
+
+		measure();
+		window.addEventListener('scroll', schedule, { capture: true, passive: true });
+		window.addEventListener('resize', schedule, { passive: true });
+		const observer = new ResizeObserver(schedule);
+		observer.observe(node);
+
+		return () => {
+			if (frame) cancelAnimationFrame(frame);
+			window.removeEventListener('scroll', schedule, { capture: true });
+			window.removeEventListener('resize', schedule);
+			observer.disconnect();
+		};
+	}
+
+	let rowObserver: ResizeObserver | undefined;
+	const observedRows = new WeakMap<Element, string>();
+
+	function measureRow(id: string): Attachment<HTMLElement> {
+		return (node) => {
+			rowObserver ??= new ResizeObserver((entries) => {
+				for (const { target } of entries) {
+					const key = observedRows.get(target);
+					if (!key) continue;
+					const height = (target as HTMLElement).offsetHeight;
+					if (height > 0 && rowHeights.get(key) !== height) rowHeights.set(key, height);
+				}
+			});
+
+			observedRows.set(node, id);
+			rowObserver.observe(node);
+			return () => {
+				observedRows.delete(node);
+				rowObserver?.unobserve(node);
+			};
+		};
+	}
 </script>
 
 <div
@@ -145,13 +251,24 @@
 			</div>
 		</div>
 		{#if draggableEntries.length > 0}
-			<div class="flex flex-col gap-1">
+			<div class="flex flex-col">
 				{#if canCreateEntry}
-					{@render createEntryButton()}
+					<div class="pb-1">
+						{@render createEntryButton()}
+					</div>
 				{/if}
-				{#each draggableEntries as entry (entry.id)}
-					{@render serverCard(entry)}
-				{/each}
+				<div
+					class="flex flex-col"
+					style:padding-top="{spacerTop}px"
+					style:padding-bottom="{spacerBottom}px"
+					{@attach trackList}
+				>
+					{#each visibleEntries as entry (entry.id)}
+						<div class="pb-1" {@attach measureRow(entry.id)}>
+							{@render serverCard(entry)}
+						</div>
+					{/each}
+				</div>
 			</div>
 		{:else}
 			<p class="text-muted-content text-xs italic">No MCP servers available.</p>
@@ -202,7 +319,15 @@
 		<div class="flex flex-col gap-2 text-left p-1">
 			<div class="flex items-center gap-1">
 				{#if entry.manifest.icon}
-					<img src={entry.manifest.icon} alt="" class="size-5 icon shrink-0" />
+					<img
+						src={entry.manifest.icon}
+						alt=""
+						width="20"
+						height="20"
+						loading="lazy"
+						decoding="async"
+						class="size-5 icon shrink-0"
+					/>
 				{/if}
 				<p class="text-sm font-semibold">
 					{entry.manifest.name}
@@ -249,8 +374,6 @@
 				? {
 						snippet: previewPopover,
 						placement: 'left',
-						// The panel stays interactive while the details dialog is open, so its hover
-						// preview has to clear the dialog too.
 						classes: ['max-w-xs', 'z-above-dialog', 'text-left', 'tooltip-surface']
 					}
 				: undefined}

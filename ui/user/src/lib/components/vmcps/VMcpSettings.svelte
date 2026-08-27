@@ -3,12 +3,9 @@
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import {
-		parseSelectedFilterIds,
-		VMCP_SORT_OPTIONS,
-		type VMcpFilterOption,
-		type VMcpSortBy
-	} from './utils';
+	import { VMCP_SORT_OPTIONS } from '$lib/services/vmcps/constants';
+	import type { VMcpFilterOption, VMcpSortBy } from '$lib/services/vmcps/types';
+	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
 	import { Settings, X } from '@lucide/svelte';
 
 	const BUTTON_ID = 'vmcp-settings-button';

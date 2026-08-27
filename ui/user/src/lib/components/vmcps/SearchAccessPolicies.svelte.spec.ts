@@ -1,6 +1,6 @@
+import SearchAccessPolicies from '$lib/components/vmcps/SearchAccessPolicies.svelte';
 import type { AccessControlRule } from '$lib/services';
-import { worker } from '../../tests/mocks/worker';
-import SearchAccessPolicies from './SearchAccessPolicies.svelte';
+import { worker } from '../../../tests/mocks/worker';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';

@@ -73,10 +73,6 @@
 		if (count === 0) return 'No subjects';
 		return count === 1 ? '1 subject' : `${count} subjects`;
 	}
-
-	$effect(() => {
-		console.log(filteredData);
-	});
 </script>
 
 <ResponsiveDialog

@@ -12,10 +12,10 @@
 		type MCPCatalogEntry,
 		type RuntimeFormData
 	} from '$lib/services';
+	import { initVMcp } from '$lib/services/vmcps/utils';
 	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import SearchAccessPolicies from './SearchAccessPolicies.svelte';
-	import { initVMcp } from './utils';
 	import { BookOpenText, Plus, Trash2, X } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 

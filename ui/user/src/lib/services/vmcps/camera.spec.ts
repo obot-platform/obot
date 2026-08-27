@@ -2,8 +2,6 @@ import {
 	clampZoom,
 	defaultCamera,
 	fitCamera,
-	MAX_ZOOM,
-	MIN_ZOOM,
 	panBy,
 	VIEW_BAND_PX,
 	viewBand,
@@ -12,7 +10,8 @@ import {
 	vmcpRowHeight,
 	windowRange,
 	zoomAt
-} from './camera';
+} from '$lib/services/vmcps/camera';
+import { MAX_ZOOM, MIN_ZOOM } from './constants';
 import { describe, expect, it } from 'vitest';
 
 describe('clampZoom', () => {

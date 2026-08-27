@@ -1,6 +1,6 @@
 <script lang="ts">
+	import type { EntryDrag } from '../../runes/vmcps/entryDrag.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
-	import type { EntryDrag } from './entryDrag.svelte';
 	import './vmcpGraph.css';
 	import { twMerge } from 'tailwind-merge';
 
@@ -19,8 +19,6 @@
 
 {#if drag.active}
 	{@const wire = drag.wire}
-	<!-- Dialogs that leave the servers panel usable can be dragged into, so the ghost and its
-	wire have to clear the dialog and its dimming overlay. -->
 	<div class="pointer-events-none fixed inset-0 z-above-dialog" data-vmcp-drag-overlay>
 		{#if wire}
 			<svg class="text-primary absolute inset-0 size-full" aria-hidden="true">

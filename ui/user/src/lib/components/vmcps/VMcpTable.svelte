@@ -2,12 +2,12 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { MCPCatalogEntry } from '$lib/services';
+	import type { VMcpComponentView } from '$lib/services/vmcps/types';
 	import { responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import McpServerIcon from './McpServerIcon.svelte';
-	import type { EntryDrag } from './entryDrag.svelte';
-	import type { VMcpComponentView } from './vmcpComponents';
 	import './vmcpGraph.css';
 	import { PencilLine, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -41,7 +41,6 @@
 	let selectedId = $state<string>();
 	let dialogOpen = $state(false);
 
-	// Looked up rather than stored, so the dialog follows a vMCP that a drop just changed.
 	let selectedVMcp = $derived(items.find((item) => item.id === selectedId));
 	let selectedComponents = $derived(selectedVMcp ? components(selectedVMcp) : []);
 
