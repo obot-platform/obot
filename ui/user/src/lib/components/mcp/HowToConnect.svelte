@@ -8,6 +8,7 @@
 	import { getAiClientCommand, getAiClientMagicLink } from '$lib/services/user/mcp';
 	import { userDeviceSettings } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
+	import { CircleCheckBig } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -174,20 +175,27 @@
 	{/if}
 
 	{#if onLaunch || onEdit}
-		<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
-		<p class="text-xs text-center">
-			{#if onLaunch}
+		{#if onLaunch}
+			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
+			<p class="text-xs text-center">
 				If you need to configure this server or perform authentication before connecting, <button
 					class="text-blue-500 underline hover:text-blue-400"
 					onclick={onLaunch}>click here</button
 				>.
-			{:else if onEdit}
-				This server has already been configured. If you need to update the configuration, <button
-					class="text-blue-500 underline hover:text-blue-400"
-					onclick={onEdit}>click here</button
+			</p>
+		{:else if onEdit}
+			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
+				<span>
+					Preconfigure <CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
+				</span>
+			</div>
+			<div role="alert" class="notification-info text-xs text-center">
+				This server has already been configured. If you need to update the configuration,
+				<button class="text-blue-500 underline hover:text-blue-400" onclick={onEdit}
+					>click here</button
 				>.
-			{/if}
-		</p>
+			</div>
+		{/if}
 	{/if}
 </div>
 <div class="divider mb-2"></div>
