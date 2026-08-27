@@ -44,10 +44,11 @@
 		saving = true;
 		error = '';
 		try {
+			const company = formData.company ? formData.company.trim() : '';
 			const response = await endpoint({
 				name: formData.name.trim(),
 				email: formData.email.trim(),
-				company: formData.company.length > 0 ? formData.company.trim() : undefined
+				company: company.length > 0 ? company : undefined
 			});
 			await onSubmit?.(response);
 		} catch (err) {
