@@ -241,6 +241,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	go c.providerHandler.PollRegistries(ctx, client)
+	go c.runAuthProviderReconciliation(ctx, client)
 	var err error
 	for range 3 {
 		err = c.providerHandler.EnsureOpenAIEnvCredentialAndDefaults(ctx, client)
