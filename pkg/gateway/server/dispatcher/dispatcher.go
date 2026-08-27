@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/url"
 	"os"
@@ -111,7 +112,7 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 
 		if !authProviderConfigurationAcknowledged(authProvider) {
 			// This happens when the auth provider's configuration has changed but the controller has not processed it yet.
-			d.stopDaemon(key)
+			d.stopStaleAuthProviderDaemon(key, namespace, authProviderName)
 			return url.URL{}, authProviderConfigurationUpdatingError(authProviderName)
 		}
 		if !authProvider.Status.Configured || len(authProvider.Status.MissingConfigurationParameters) > 0 {
@@ -133,7 +134,7 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 			return url.URL{}, err
 		}
 		if configurationHash != authProvider.Status.DaemonConfigurationHash {
-			d.stopDaemon(key)
+			d.stopStaleAuthProviderDaemon(key, namespace, authProviderName)
 			return url.URL{}, authProviderConfigurationUpdatingError(authProviderName)
 		}
 		if state, ok := d.daemonState(key); ok && state.configurationHash == configurationHash {
@@ -144,7 +145,7 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		maps.Copy(daemonEnvironment, d.authProviderExtraEnv)
 		daemonEnvironment["LOG_LEVEL"] = providerLogLevel()
 
-		d.stopDaemon(key)
+		d.stopStaleAuthProviderDaemon(key, namespace, authProviderName)
 		u, command, err := d.startDaemon(daemonEnvironment, key, configurationHash, authProvider.Spec.Command, authProvider.Spec.Args...)
 		if err != nil {
 			return url.URL{}, err
@@ -162,8 +163,17 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 			return url.URL{}, fmt.Errorf("provider %q daemon exited during startup", authProviderName)
 		}
 
-		d.stopDaemonCommand(key, command)
+		d.stopStaleAuthProviderDaemon(key, namespace, authProviderName)
 	}
+}
+
+func (d *Dispatcher) stopStaleAuthProviderDaemon(key, namespace, authProviderName string) {
+	if _, ok := d.daemonState(key); !ok {
+		return
+	}
+
+	slog.Info("Restarting auth provider daemon due to configuration change", "namespace", namespace, "authProvider", authProviderName)
+	d.stopDaemon(key)
 }
 
 func authProviderConfigurationAcknowledged(authProvider v1.AuthProvider) bool {
