@@ -55,6 +55,15 @@
 			entry?: MCPCatalogEntry;
 			instance?: MCPServerInstance;
 		}) => void;
+		onEdit?: ({
+			server,
+			entry,
+			instance
+		}: {
+			server?: MCPCatalogServer;
+			entry?: MCPCatalogEntry;
+			instance?: MCPServerInstance;
+		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
 		renderIntroText?: ({
@@ -72,6 +81,7 @@
 		workspaceID,
 		onConnect,
 		onClose,
+		onEdit,
 		skipConnectDialog,
 		renderIntroText,
 		introTitle
@@ -101,6 +111,8 @@
 			? undefined
 			: getSecretBindingEngineError(manifest)
 	);
+	let isLaunchableEntry = $derived(entry && !isMultiUserCatalogEntry(entry) && !server);
+	let isEditableEntry = $derived(entry && !isMultiUserCatalogEntry(entry) && server);
 
 	let showIntroDialog = $state(false);
 
@@ -1110,6 +1122,20 @@
 				{url}
 				id={generateIdFromName(displayName)}
 				{displayName}
+				onLaunch={isLaunchableEntry
+					? () => {
+							if (entry) {
+								connectDialog?.close();
+								setupNewInstance(entry);
+							}
+						}
+					: undefined}
+				onEdit={onEdit && (isEditableEntry || (server && instance))
+					? () => {
+							connectDialog?.close();
+							onEdit({ entry, server, instance });
+						}
+					: undefined}
 			/>
 		{/if}
 	{/if}

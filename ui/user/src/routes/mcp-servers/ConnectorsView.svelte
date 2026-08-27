@@ -351,6 +351,14 @@
 	catalogID={catalog?.id}
 	workspaceID={entity === 'workspace' ? id : undefined}
 	onConnect={handleConnectToServer}
+	onEdit={({ entry, server }) => {
+		if (entry && server) {
+			editExistingDialog?.edit({
+				server,
+				entry
+			});
+		}
+	}}
 />
 
 <McpSelectServerDeployment

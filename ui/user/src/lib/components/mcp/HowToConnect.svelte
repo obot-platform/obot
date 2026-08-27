@@ -14,9 +14,11 @@
 		id: string;
 		displayName: string;
 		url: string;
+		onLaunch?: () => void;
+		onEdit?: () => void;
 	}
 
-	let { id, displayName, url }: Props = $props();
+	let { id, displayName, url, onLaunch, onEdit }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(displayName, url));
@@ -169,6 +171,23 @@
 				{/if}
 			{/each}
 		</div>
+	{/if}
+
+	{#if onLaunch || onEdit}
+		<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
+		<p class="text-xs text-center">
+			{#if onLaunch}
+				If you need to configure this server or perform authentication before connecting, <button
+					class="text-blue-500 underline hover:text-blue-400"
+					onclick={onLaunch}>click here</button
+				>.
+			{:else if onEdit}
+				This server has already been configured. If you need to update the configuration, <button
+					class="text-blue-500 underline hover:text-blue-400"
+					onclick={onEdit}>click here</button
+				>.
+			{/if}
+		</p>
 	{/if}
 </div>
 <div class="divider mb-2"></div>

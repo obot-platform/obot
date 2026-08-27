@@ -392,6 +392,14 @@
 		refresh();
 	}}
 	{skipConnectDialog}
+	onEdit={({ entry, server }) => {
+		if (entry && server) {
+			editExistingDialog?.edit({
+				server,
+				entry
+			});
+		}
+	}}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
