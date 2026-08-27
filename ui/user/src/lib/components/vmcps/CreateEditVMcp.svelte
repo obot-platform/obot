@@ -131,6 +131,10 @@
 		};
 	}
 
+	function isGlobalAccessPolicy(policy: AccessControlRule) {
+		return policy.resources?.some((resource) => resource.id === '*') ?? false;
+	}
+
 	function subjectCountLabel(policy: AccessControlRule) {
 		const count = policy.subjects?.length ?? 0;
 		const isEveryone = policy.subjects?.some((subject) => subject.id === '*');
@@ -241,7 +245,7 @@
 						)
 					),
 				...initialAccessPolicies
-					.filter((policy) => !currentIds.has(policy.id))
+					.filter((policy) => !currentIds.has(policy.id) && !isGlobalAccessPolicy(policy))
 					.map((policy) =>
 						AdminService.updateAccessControlRule(
 							policy.id,
@@ -311,7 +315,7 @@
 							{subjectCountLabel(policy)}
 						</div>
 					</div>
-					{#if canManageAccess()}
+					{#if canManageAccess() && !isGlobalAccessPolicy(policy)}
 						<IconButton
 							variant="danger"
 							class="btn-sm"

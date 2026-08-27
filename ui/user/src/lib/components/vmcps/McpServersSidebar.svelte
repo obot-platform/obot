@@ -124,8 +124,6 @@
 	});
 
 	function trackList(node: HTMLElement) {
-		if (!virtualized) return;
-
 		let frame = 0;
 		const measure = () => {
 			frame = 0;

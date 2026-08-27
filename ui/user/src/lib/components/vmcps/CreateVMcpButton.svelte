@@ -11,7 +11,7 @@
 		onCreate: () => void;
 	}
 
-	let { drag, embedded = false, onCreate }: Props = $props();
+	let { drag, embedded = false }: Props = $props();
 	let linked = $derived(drag.isLinked(CREATE_VMCP_DROP_ID));
 </script>
 

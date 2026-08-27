@@ -100,13 +100,15 @@ function matchesOwnerFilter(
 	ownerString: string,
 	owners: Map<string, OrgUser>
 ) {
-	const hasMatch = (query: string, user: OrgUser) =>
-		query.toLowerCase().includes(user.username.toLowerCase()) ||
-		query.toLowerCase().includes(user.email.toLowerCase()) ||
-		query.toLowerCase().includes(user.displayName?.toLowerCase() ?? '');
+	const query = ownerString.trim().toLowerCase();
+	if (!query) return false;
+	const hasMatch = (user: OrgUser) =>
+		user.username.toLowerCase().includes(query) ||
+		user.email.toLowerCase().includes(query) ||
+		Boolean(user.displayName?.toLowerCase().includes(query));
 	const poweruser = entry.powerUserID && owners.get(entry.powerUserID);
 	const owner = entry.userID && owners.get(entry.userID);
-	return (poweruser && hasMatch(ownerString, poweruser)) || (owner && hasMatch(ownerString, owner));
+	return Boolean((poweruser && hasMatch(poweruser)) || (owner && hasMatch(owner)));
 }
 
 function selectedVMcpFilterIds(filters: VMcpFilters) {

@@ -355,16 +355,22 @@ export function createVMcpToolFlow() {
 
 		removing = true;
 		try {
+			const latest = await AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, vmcp.id);
+			if (!latest.manifest.compositeConfig) {
+				close();
+				return;
+			}
 			await AdminService.updateMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, vmcp.id, {
-				...vmcp.manifest,
+				...latest.manifest,
 				compositeConfig: {
-					...vmcp.manifest.compositeConfig,
-					componentServers: vmcp.manifest.compositeConfig.componentServers?.filter(
+					...latest.manifest.compositeConfig,
+					componentServers: latest.manifest.compositeConfig.componentServers?.filter(
 						(candidate) =>
 							candidate.catalogEntryID !== component.id && candidate.mcpServerID !== component.id
 					)
 				}
 			});
+			success.add(`${component.name} removed from ${latest.manifest.name}.`);
 		} catch {
 			errors.append('Failed to remove MCP server from vMCP.');
 		} finally {
@@ -372,7 +378,6 @@ export function createVMcpToolFlow() {
 			pendingRemoval = undefined;
 			close();
 			mcpServersAndEntries.refreshEntries();
-			success.add(`${component.name} removed from ${vmcp.manifest.name}.`);
 		}
 	}
 
