@@ -75,10 +75,6 @@ async function clickNative(locator: ReturnType<typeof page.getByCSS>) {
 	await tick();
 }
 
-function toggle() {
-	return page.getByRole('button', { name: /MCP Servers/ });
-}
-
 function card(name: string) {
 	return page.getByRole('button', { name: new RegExp(`View ${name} details`) });
 }

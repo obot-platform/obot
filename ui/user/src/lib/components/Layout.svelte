@@ -106,8 +106,7 @@
 		LayoutGrid,
 		KeyRound,
 		Menu,
-		X,
-		Layers
+		X
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -255,12 +254,6 @@
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let defaultLinks = $derived<NavLink[]>([
-		{
-			id: 'vmcps',
-			icon: Layers,
-			label: 'vMCPs',
-			href: '/vmcps'
-		},
 		{
 			id: 'mcp-skills',
 			icon: PencilRuler,
