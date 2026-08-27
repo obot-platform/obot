@@ -1,6 +1,8 @@
 package dispatcher
 
-import "sync"
+import (
+	"sync"
+)
 
 type keyedMutex struct {
 	lock  sync.Mutex
