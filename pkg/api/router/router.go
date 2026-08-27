@@ -2,7 +2,6 @@ package router
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/api/handlers"
@@ -14,39 +13,15 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers/setup"
 	"github.com/obot-platform/obot/pkg/api/handlers/wellknown"
 	"github.com/obot-platform/obot/pkg/services"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/ui"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"k8s.io/component-base/metrics/legacyregistry"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Router struct {
 	http.Handler
 	mcpGateway *mcpgateway.Handler
-}
-
-// resolveAgentsEnabled determines whether Obot Agent features are enabled.
-//
-// An explicitly-set OBOT_ENABLE_AGENTS value (or --enable-agents flag) always
-// wins. Otherwise agents are enabled only if the deployment already has at least
-// one agent: new deployments start with no agents and are therefore disabled by
-// default, while existing deployments that already use agents stay enabled.
-//
-// This is evaluated once at startup, so the value is fixed for the lifetime of
-// the process.
-func resolveAgentsEnabled(ctx context.Context, services *services.Services) (bool, error) {
-	if services.EnableAgents != nil {
-		return *services.EnableAgents, nil
-	}
-
-	// Only need to know whether at least one agent exists.
-	var agents v1.NanobotAgentList
-	if err := services.StorageClient.List(ctx, &agents, kclient.Limit(1)); err != nil {
-		return false, fmt.Errorf("failed to list nanobot agents: %w", err)
-	}
-	return len(agents.Items) > 0, nil
 }
 
 func (r *Router) Close() error {
@@ -56,7 +31,7 @@ func (r *Router) Close() error {
 func NewRouter(ctx context.Context, services *services.Services) (*Router, error) {
 	mux := services.APIServer
 
-	agentsEnabled, err := resolveAgentsEnabled(ctx, services)
+	agentsEnabled, err := services.AgentsEnabled(ctx)
 	if err != nil {
 		return nil, err
 	}

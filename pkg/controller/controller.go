@@ -126,11 +126,18 @@ func (c *Controller) PreStart(ctx context.Context) error {
 }
 
 func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
-	internalURL := c.services.MCPSessionManager.TransformObotHostname(c.services.ServerURL)
-	image := c.services.MCPServerSearchImage
+	agentsEnabled, err := c.services.AgentsEnabled(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to resolve agents feature: %w", err)
+	}
 
+	internalURL := c.services.MCPSessionManager.TransformObotHostname(c.services.ServerURL)
+	return reconcileObotMCPServer(ctx, c.services.StorageClient, agentsEnabled, internalURL, c.services.MCPServerSearchImage)
+}
+
+func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, agentsEnabled bool, internalURL, image string) error {
 	var existing v1.SystemMCPServer
-	err := c.services.StorageClient.Get(ctx, kclient.ObjectKey{
+	err := storageClient.Get(ctx, kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
 		Name:      system.ObotMCPServerName,
 	}, &existing)
@@ -138,9 +145,11 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		// Reconcile all critical fields to ensure the server is correctly configured
 		var needsUpdate bool
 
-		if existing.Spec.Manifest.Enabled != nil && !*existing.Spec.Manifest.Enabled {
-			// Enabled by default
+		if agentsEnabled && existing.Spec.Manifest.Enabled != nil {
 			existing.Spec.Manifest.Enabled = nil
+			needsUpdate = true
+		} else if !agentsEnabled && (existing.Spec.Manifest.Enabled == nil || *existing.Spec.Manifest.Enabled) {
+			existing.Spec.Manifest.Enabled = new(false)
 			needsUpdate = true
 		}
 
@@ -200,7 +209,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 
 		if needsUpdate {
 			slog.Info("Updating obot MCP server", "image", image)
-			return c.services.StorageClient.Update(ctx, &existing)
+			return storageClient.Update(ctx, &existing)
 		}
 		return nil
 	}
@@ -210,6 +219,10 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 
 	// Create the SystemMCPServer
 	slog.Info("Creating obot MCP server", "image", image)
+	var enabled *bool
+	if !agentsEnabled {
+		enabled = new(false)
+	}
 	server := &v1.SystemMCPServer{
 		Name:       system.ObotMCPServerName,
 		Namespace:  system.DefaultNamespace,
@@ -218,6 +231,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 			Manifest: types.SystemMCPServerManifest{
 				Name:             "Obot MCP Server",
 				ShortDescription: "MCP server for discovering and searching available MCP servers",
+				Enabled:          enabled,
 				Runtime:          types.RuntimeContainerized,
 				ContainerizedConfig: &types.ContainerizedRuntimeConfig{
 					Image: image,
@@ -236,7 +250,7 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 		},
 	}
 
-	return c.services.StorageClient.Create(ctx, server)
+	return storageClient.Create(ctx, server)
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
