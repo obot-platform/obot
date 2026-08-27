@@ -233,7 +233,7 @@
 					class="flex grow items-center"
 				>
 					<span
-						class="text-sm font-light h-10 shrink-0 px-4 border border-base-300 borded-r-none rounded-l-sm flex items-center justify-center"
+						class="text-sm font-light h-10 shrink-0 px-4 border border-base-300 dark:border-base-200 borded-r-none rounded-l-sm flex items-center justify-center"
 					>
 						Sort by
 					</span>
@@ -243,7 +243,7 @@
 						bind:selected={sortBy}
 						placeholder="Sort by"
 						ariaLabelledby="mcp-server-sort-by-label"
-						class="text-sm bg-base-200 dark:bg-base-100 shadow-inner! rounded-l-none rounded-r-sm"
+						class="text-sm bg-base-200 dark:bg-base-200 shadow-inner! rounded-l-none rounded-r-sm"
 						classes={{ root: 'w-full', option: 'text-sm' }}
 					/>
 				</label>
