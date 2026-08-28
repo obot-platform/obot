@@ -91,11 +91,11 @@
 				'flex flex-col gap-1 text-sm font-light',
 				compact && '@xl:min-w-28 @xl:flex-1'
 			)}
-			for="{idPrefix}-name"
+			for={idPrefix + '-name'}
 		>
 			Name
 			<input
-				id="{idPrefix}-name"
+				id={idPrefix + '-name'}
 				class="text-input-filled"
 				name="name"
 				type="text"
@@ -111,7 +111,7 @@
 				'flex flex-col gap-1 text-sm font-light',
 				compact && '@xl:min-w-28 @xl:flex-1'
 			)}
-			for="{idPrefix}-email"
+			for={idPrefix + '-email'}
 		>
 			Email
 			<input
@@ -133,7 +133,7 @@
 				'flex flex-col gap-1 text-sm font-light',
 				compact && '@xl:min-w-28 @xl:flex-1'
 			)}
-			for="{idPrefix}-company"
+			for={idPrefix + '-company'}
 		>
 			Company <span class="text-xs text-muted-content">(optional)</span>
 			<input

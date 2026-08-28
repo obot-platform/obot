@@ -237,6 +237,10 @@
 			} else {
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
+				if (authProviders.every((provider) => !provider.configured)) {
+					// no auth provider set after deconfiguring, prompt relogin
+					profile.current.expired = true;
+				}
 			}
 		} catch (err) {
 			errors.append(err);

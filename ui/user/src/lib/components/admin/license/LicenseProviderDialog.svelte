@@ -12,7 +12,7 @@
 		provider?: BaseProvider;
 		licenseKey?: string;
 		allowSignup?: boolean;
-		onSubmit?: (response: unknown) => Promise<void>;
+		onSubmit?: (response: unknown) => Promise<void> | void;
 		endpoint?: (data: CommunityLicenseEnrollment) => Promise<unknown>;
 		signUpMessage?: string;
 	}

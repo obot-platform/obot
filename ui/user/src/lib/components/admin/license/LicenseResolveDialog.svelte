@@ -94,10 +94,6 @@
 			downgrading = false;
 		}
 	}
-
-	async function handleCreateLicense() {
-		window.location.reload();
-	}
 </script>
 
 <ResponsiveDialog
@@ -130,7 +126,12 @@
 				<button
 					class="btn btn-primary"
 					onclick={() => {
-						licenseRequiredProvider = $adminConfigStore.authProviders.find((p) => p.configured);
+						const violationId = version.current.licenseEntitlementViolations?.find(
+							(v) => v.type === 'authProvider'
+						)?.name;
+						licenseRequiredProvider = violationId
+							? $adminConfigStore.authProviders.find((p) => p.id === violationId)
+							: undefined;
 					}}
 				>
 					<KeyRound class="size-4" />
@@ -229,7 +230,7 @@
 	bind:provider={licenseRequiredProvider}
 	licenseKey={license.current.licenseKey}
 	endpoint={AdminService.createCommunityLicense}
-	onSubmit={handleCreateLicense}
+	onSubmit={() => reloadPage()}
 	allowSignup
 	signUpMessage="Get permanent, free access to additional authentication providers, including Entra, Okta, JumpCloud, and Auth0, with a one-time registration up to 100 users."
 />

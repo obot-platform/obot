@@ -609,7 +609,7 @@
 												</IconButton>
 											{:else if isDraftResetting}
 												<IconButton
-													id="reset-confirm-{user.id}"
+													id={'reset-confirm-' + user.id}
 													variant="primary"
 													tooltip={{ text: 'Confirm password reset', disablePortal: true }}
 													disabled={saving}
