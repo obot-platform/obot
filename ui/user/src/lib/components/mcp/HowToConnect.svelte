@@ -17,9 +17,10 @@
 		url: string;
 		onLaunch?: () => void;
 		onEdit?: () => void;
+		onReauthenticate?: () => void;
 	}
 
-	let { id, displayName, url, onLaunch, onEdit }: Props = $props();
+	let { id, displayName, url, onLaunch, onEdit, onReauthenticate }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(displayName, url));
@@ -174,7 +175,7 @@
 		</div>
 	{/if}
 
-	{#if onLaunch || onEdit}
+	{#if onLaunch || onEdit || onReauthenticate}
 		{#if onLaunch}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
 			<p class="text-xs text-center">
@@ -184,19 +185,29 @@
 					onclick={onLaunch}>click here</button
 				>.
 			</p>
-		{:else if onEdit}
+		{:else if onEdit || onReauthenticate}
 			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
 				<span>
 					Preconfigure <CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
 				</span>
 			</div>
 			<div role="status" class="notification-info text-xs text-center">
-				This server has already been configured. If you need to update the configuration,
-				<button
-					class="text-blue-500 underline hover:text-blue-400"
-					aria-label="Edit configuration"
-					onclick={onEdit}>click here</button
-				>.
+				This server has already been configured.
+				{#if onEdit}
+					If you need to update the configuration,
+					<button
+						class="text-blue-500 underline hover:text-blue-400"
+						aria-label="Edit configuration"
+						onclick={onEdit}>click here</button
+					>.
+				{/if}
+				{#if onReauthenticate}
+					If you need to reauthenticate, <button
+						class="text-blue-500 underline hover:text-blue-400"
+						aria-label="Reauthenticate"
+						onclick={onReauthenticate}>click here</button
+					>.
+				{/if}
 			</div>
 		{/if}
 	{/if}

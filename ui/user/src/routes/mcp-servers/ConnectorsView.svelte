@@ -361,6 +361,11 @@
 			});
 		}
 	}}
+	onReauthenticate={({ server }) => {
+		if (server) {
+			reauthenticateServer(server);
+		}
+	}}
 />
 
 <McpSelectServerDeployment

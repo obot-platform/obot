@@ -64,6 +64,13 @@
 			entry?: MCPCatalogEntry;
 			instance?: MCPServerInstance;
 		}) => void;
+		onReauthenticate?: ({
+			server,
+			entry
+		}: {
+			server?: MCPCatalogServer;
+			entry?: MCPCatalogEntry;
+		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
 		renderIntroText?: ({
@@ -82,6 +89,7 @@
 		onConnect,
 		onClose,
 		onEdit,
+		onReauthenticate,
 		skipConnectDialog,
 		renderIntroText,
 		introTitle
@@ -116,8 +124,11 @@
 			(!instance && server && hasMultiUserInstanceConfiguration(server))
 	);
 	let isEditable = $derived(
-		(entry && !isMultiUserCatalogEntry(entry) && server) ||
+		(entry && !isMultiUserCatalogEntry(entry) && hasEditableConfiguration(entry) && server) ||
 			(server && instance && hasMultiUserInstanceConfiguration(server))
+	);
+	let isReauthenticatable = $derived(
+		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
 	);
 
 	let showIntroDialog = $state(false);
@@ -1142,6 +1153,12 @@
 					? () => {
 							connectDialog?.close();
 							onEdit({ entry, server, instance });
+						}
+					: undefined}
+				onReauthenticate={onReauthenticate && isReauthenticatable
+					? () => {
+							connectDialog?.close();
+							onReauthenticate({ server, entry });
 						}
 					: undefined}
 			/>
