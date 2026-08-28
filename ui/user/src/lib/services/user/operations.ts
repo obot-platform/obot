@@ -860,7 +860,7 @@ export async function listWorkspaceMCPCatalogEntries(
 export async function getWorkspaceMCPCatalogEntry(
 	workspaceID: string,
 	entryID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doGet(
 		`/workspaces/${workspaceID}/entries/${entryID}`,
@@ -1167,7 +1167,7 @@ export async function listWorkspaceMCPCatalogServers(
 export async function getWorkspaceMCPCatalogServer(
 	workspaceID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPCatalogServer> {
 	const response = (await doGet(
 		`/workspaces/${workspaceID}/servers/${serverID}`,

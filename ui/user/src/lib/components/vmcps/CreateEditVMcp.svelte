@@ -36,6 +36,7 @@
 	let selectedVMcp = $state<MCPCatalogEntry>();
 	let editingVMcp = $state<RuntimeFormData>();
 	let loadingVMcpAccess = $state(false);
+	let accessLoadController: AbortController | undefined;
 
 	let addAccessPolicyDialog = $state<ReturnType<typeof SearchAccessPolicies>>();
 	let confirmDeleteVMcp = $state<MCPCatalogEntry>();
@@ -110,6 +111,11 @@
 		initialAccessPolicies = [];
 	}
 
+	function abortAccessLoad() {
+		accessLoadController?.abort();
+		accessLoadController = undefined;
+	}
+
 	function ruleIncludesVMcp(rule: AccessControlRule, vmcpId: string) {
 		return (
 			rule.resources?.some(
@@ -159,6 +165,9 @@
 
 	export async function openEdit(vmcp: MCPCatalogEntry) {
 		closeCreate();
+		abortAccessLoad();
+		const controller = new AbortController();
+		accessLoadController = controller;
 		selectedVMcp = vmcp;
 		editingVMcp = vmcpToFormData(vmcp);
 		resetAccessPolicies();
@@ -166,19 +175,25 @@
 		loadingVMcpAccess = true;
 		editVMcpDialog?.open();
 
+		const editingId = vmcp.id;
 		try {
-			const rules = await AdminService.listAccessControlRules();
-			const assigned = rules.filter((rule) => ruleIncludesVMcp(rule, vmcp.id));
+			const rules = await AdminService.listAccessControlRules({ signal: controller.signal });
+			if (controller.signal.aborted || selectedVMcp?.id !== editingId) return;
+			const assigned = rules.filter((rule) => ruleIncludesVMcp(rule, editingId));
 			initialAccessPolicies = [...assigned];
 			accessPolicies = [...assigned];
 		} catch {
-			resetAccessPolicies();
+			if (!controller.signal.aborted && selectedVMcp?.id === editingId) resetAccessPolicies();
 		} finally {
-			loadingVMcpAccess = false;
+			if (accessLoadController === controller) {
+				accessLoadController = undefined;
+				loadingVMcpAccess = false;
+			}
 		}
 	}
 
 	function closeEdit() {
+		abortAccessLoad();
 		selectedVMcp = undefined;
 		editingVMcp = undefined;
 		resetAccessPolicies();

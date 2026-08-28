@@ -47,6 +47,7 @@
 	let mcpServer = $state<MCPCatalogServer>();
 	let promptInitialLaunch = $state(false);
 	let promptOAuthConfig = $state(false);
+	let hydrateController: AbortController | undefined;
 
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
 	let isAdminReadonly = $derived(!!profile.current.isAdminReadonly?.());
@@ -123,6 +124,9 @@
 	}
 
 	export async function open(entity: MCPCatalogEntry | MCPCatalogServer) {
+		hydrateController?.abort();
+		const controller = new AbortController();
+		hydrateController = controller;
 		selectServerTypeDialog?.close();
 		creating = false;
 		selectedServerType = undefined;
@@ -135,7 +139,8 @@
 			catalogEntry = undefined;
 		}
 		dialog?.open();
-		await hydrate(entity);
+		await hydrate(entity, controller.signal);
+		if (hydrateController === controller) hydrateController = undefined;
 	}
 
 	function handleSelectServerType(serverType: LaunchServerType) {
@@ -152,6 +157,8 @@
 	}
 
 	function resetView() {
+		hydrateController?.abort();
+		hydrateController = undefined;
 		catalogEntry = undefined;
 		mcpServer = undefined;
 		showUpgradeConfirm = false;
@@ -178,17 +185,26 @@
 		return 'isCatalogEntry' in entity && entity.isCatalogEntry;
 	}
 
-	async function hydrate(entity: MCPCatalogEntry | MCPCatalogServer) {
+	async function hydrate(entity: MCPCatalogEntry | MCPCatalogServer, signal: AbortSignal) {
 		try {
 			if (isCatalogEntryEntity(entity)) {
-				catalogEntry = await loadCatalogEntry(entity.id, entity.powerUserWorkspaceID);
-				mcpServer = undefined;
-			} else {
-				mcpServer = await loadCatalogServer(
+				const hydratedEntry = await loadCatalogEntry(
 					entity.id,
 					entity.powerUserWorkspaceID,
-					entity.mcpCatalogID
+					signal
 				);
+				if (signal.aborted) return;
+				catalogEntry = hydratedEntry;
+				mcpServer = undefined;
+			} else {
+				const hydratedServer = await loadCatalogServer(
+					entity.id,
+					entity.powerUserWorkspaceID,
+					entity.mcpCatalogID,
+					signal
+				);
+				if (signal.aborted) return;
+				mcpServer = hydratedServer;
 				catalogEntry = undefined;
 			}
 		} catch {
@@ -196,18 +212,25 @@
 		}
 	}
 
-	async function loadCatalogEntry(id: string, entryWorkspaceId?: string) {
+	async function loadCatalogEntry(id: string, entryWorkspaceId?: string, signal?: AbortSignal) {
+		const opts = signal ? { signal } : undefined;
 		if (entryWorkspaceId && !isAdmin) {
-			return UserService.getWorkspaceMCPCatalogEntry(entryWorkspaceId, id);
+			return UserService.getWorkspaceMCPCatalogEntry(entryWorkspaceId, id, opts);
 		}
-		return AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, id);
+		return AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, id, opts);
 	}
 
-	async function loadCatalogServer(id: string, serverWorkspaceId?: string, catalogId?: string) {
+	async function loadCatalogServer(
+		id: string,
+		serverWorkspaceId?: string,
+		catalogId?: string,
+		signal?: AbortSignal
+	) {
+		const opts = signal ? { signal } : undefined;
 		if (serverWorkspaceId && !isAdmin) {
-			return UserService.getWorkspaceMCPCatalogServer(serverWorkspaceId, id);
+			return UserService.getWorkspaceMCPCatalogServer(serverWorkspaceId, id, opts);
 		}
-		return AdminService.getMCPCatalogServer(catalogId || DEFAULT_MCP_CATALOG_ID, id);
+		return AdminService.getMCPCatalogServer(catalogId || DEFAULT_MCP_CATALOG_ID, id, opts);
 	}
 
 	async function handleCreated(id: string, _isMultiUserEntry: boolean, message?: string) {

@@ -161,6 +161,7 @@ export async function listMCPSecretBindingTargets(
 
 export async function listAccessControlRules(opts?: {
 	fetch?: Fetcher;
+	signal?: AbortSignal;
 }): Promise<AccessControlRule[]> {
 	const response = (await doGet(
 		`/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/access-control-rules`,
@@ -847,7 +848,7 @@ export async function listMCPCatalogEntries(
 export async function getMCPCatalogEntry(
 	catalogID: string,
 	entryID: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
 ): Promise<MCPCatalogEntry> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/entries/${entryID}`,
@@ -1091,7 +1092,7 @@ export async function listMCPCatalogServers(
 export async function getMCPCatalogServer(
 	catalogID: string,
 	serverID: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; dontLogErrors?: boolean }
 ): Promise<MCPCatalogServer> {
 	const response = (await doGet(
 		`/mcp-catalogs/${catalogID}/servers/${serverID}`,
