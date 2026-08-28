@@ -8,7 +8,13 @@ metadata:
 spec:
   replicas: {{ .Values.replicaCount }}
   strategy:
-    type: {{ if .Values.dev.useEmbeddedDb }}Recreate{{ else }}{{ .Values.updateStrategy }}{{ end }}
+    {{- if .Values.dev.useEmbeddedDb }}
+    type: Recreate
+    {{- else if .Values.deploymentStrategy }}
+    {{- toYaml .Values.deploymentStrategy | nindent 4 }}
+    {{- else }}
+    type: {{ .Values.updateStrategy }}
+    {{- end }}
   selector:
     matchLabels:
       {{- include "obot.selectorLabels" . | nindent 6 }}
