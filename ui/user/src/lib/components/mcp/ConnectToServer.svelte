@@ -52,6 +52,15 @@
 			entry?: MCPCatalogEntry;
 			instance?: MCPServerInstance;
 		}) => void;
+		onEdit?: ({
+			server,
+			entry,
+			instance
+		}: {
+			server?: MCPCatalogServer;
+			entry?: MCPCatalogEntry;
+			instance?: MCPServerInstance;
+		}) => void;
 		onClose?: () => void;
 		skipConnectDialog?: boolean;
 		renderIntroText?: ({
@@ -69,6 +78,7 @@
 		workspaceID,
 		onConnect,
 		onClose,
+		onEdit,
 		skipConnectDialog,
 		renderIntroText,
 		introTitle
@@ -97,6 +107,14 @@
 		isKubernetesRuntimeBackend(version.current.engine)
 			? undefined
 			: getSecretBindingEngineError(manifest)
+	);
+	let isLaunchable = $derived(
+		(entry && !isMultiUserCatalogEntry(entry) && !server) ||
+			(!instance && server && hasMultiUserInstanceConfiguration(server))
+	);
+	let isEditable = $derived(
+		(entry && !isMultiUserCatalogEntry(entry) && server) ||
+			(server && instance && hasMultiUserInstanceConfiguration(server))
 	);
 
 	let showIntroDialog = $state(false);
@@ -1085,6 +1103,22 @@
 				{url}
 				id={generateIdFromName(displayName)}
 				{displayName}
+				onLaunch={isLaunchable
+					? () => {
+							connectDialog?.close();
+							if (server && !instance && hasMultiUserInstanceConfiguration(server)) {
+								showIntroDialog = true;
+							} else if (entry) {
+								setupNewInstance(entry);
+							}
+						}
+					: undefined}
+				onEdit={onEdit && isEditable
+					? () => {
+							connectDialog?.close();
+							onEdit({ entry, server, instance });
+						}
+					: undefined}
 			/>
 		{/if}
 	{/if}

@@ -392,6 +392,16 @@
 		refresh();
 	}}
 	{skipConnectDialog}
+	onEdit={({ entry, server, instance }) => {
+		if (server && instance && isMultiUserServer(server)) {
+			connectToServerDialog?.open({ server, instance, configureInstance: true });
+		} else if (entry && server) {
+			editExistingDialog?.edit({
+				server,
+				entry
+			});
+		}
+	}}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
@@ -770,7 +780,7 @@
 
 	{#if (showDisconnectUser && server) || (entry && configuredServers.length > 0)}
 		<div class="flex flex-col gap-2 p-2 pt-1">
-			{#if entry && configuredServers.length > 0}
+			{#if entry && !isMultiUserCatalogEntry(entry) && configuredServers.length > 0}
 				<button
 					class="menu-button"
 					onclick={(e) => {

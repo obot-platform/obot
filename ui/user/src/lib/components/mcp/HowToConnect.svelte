@@ -8,15 +8,18 @@
 	import { getAiClientCommand, getAiClientMagicLink } from '$lib/services/user/mcp';
 	import { userDeviceSettings } from '$lib/stores';
 	import CopyField from '../CopyField.svelte';
+	import { CircleCheckBig } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		id: string;
 		displayName: string;
 		url: string;
+		onLaunch?: () => void;
+		onEdit?: () => void;
 	}
 
-	let { id, displayName, url }: Props = $props();
+	let { id, displayName, url, onLaunch, onEdit }: Props = $props();
 
 	let aiClientsMap = $derived(new Map(COMMON_AI_CLIENTS.map((client) => [client.id, client])));
 	let magicLinks = $derived(generateMcpLinks(displayName, url));
@@ -169,6 +172,33 @@
 				{/if}
 			{/each}
 		</div>
+	{/if}
+
+	{#if onLaunch || onEdit}
+		{#if onLaunch}
+			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>Preconfigure</div>
+			<p class="text-xs text-center">
+				If you need to configure this server or perform authentication before connecting, <button
+					class="text-blue-500 underline hover:text-blue-400"
+					aria-label="Preconfigure server"
+					onclick={onLaunch}>click here</button
+				>.
+			</p>
+		{:else if onEdit}
+			<div class={twMerge('divider', commands.length > 0 ? 'mt-8' : '')}>
+				<span>
+					Preconfigure <CircleCheckBig class="size-4 text-primary shrink-0 inline-block" />
+				</span>
+			</div>
+			<div role="status" class="notification-info text-xs text-center">
+				This server has already been configured. If you need to update the configuration,
+				<button
+					class="text-blue-500 underline hover:text-blue-400"
+					aria-label="Edit configuration"
+					onclick={onEdit}>click here</button
+				>.
+			</div>
+		{/if}
 	{/if}
 </div>
 <div class="divider mb-2"></div>

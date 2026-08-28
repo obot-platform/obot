@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
@@ -30,7 +32,17 @@
 	showBackButton
 >
 	{#snippet rightNavActions()}
-		<McpServerActions entry={catalogEntry} server={mcpServer} />
+		<McpServerActions
+			entry={catalogEntry}
+			server={mcpServer}
+			onConnect={({ server }) => {
+				if (server && server.id !== mcpServer.id) {
+					goto(resolve(`/mcp-servers/c/${catalogEntry.id}/instance/${server.id}`), {
+						replaceState: true
+					});
+				}
+			}}
+		/>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpDeprecatedNotice {deprecated} variant="notification" />
