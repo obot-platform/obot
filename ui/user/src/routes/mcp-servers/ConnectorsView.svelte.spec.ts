@@ -44,4 +44,40 @@ describe('MCP Servers ConnectorsView', () => {
 		await expect.element(descriptionPreview).toHaveClass(/line-clamp-2/);
 		await expect.element(descriptionPreview.locator('..')).not.toHaveClass(/line-clamp-2/);
 	});
+
+	it('shows the reauthenticate option for configured remote OAuth servers', async () => {
+		const entry = createMCPCatalogEntry({
+			id: 'remote-entry',
+			name: 'Remote OAuth Server',
+			runtime: 'remote',
+			manifest: {
+				remoteConfig: { fixedURL: 'https://example.com/mcp' }
+			}
+		});
+		const server = createMCPCatalogServer({
+			id: 'remote-server',
+			name: entry.manifest.name!,
+			runtime: 'remote',
+			catalogEntryID: entry.id,
+			userID: 'user-1',
+			connectURL: 'https://obot.example.com/mcp/remote-server',
+			oauthMetadata: {
+				protectedResourceUrl: 'https://example.com/.well-known/oauth-protected-resource'
+			}
+		});
+		mcpServersAndEntries.current = {
+			entries: [entry],
+			servers: [],
+			userInstances: [],
+			userConfiguredServers: [server],
+			loading: false,
+			lastFetched: null,
+			isInitialized: true
+		};
+
+		render(ConnectorsView);
+
+		await page.getByRole('button', { name: 'Connect', exact: true }).click();
+		await expect.element(page.getByRole('button', { name: 'Reauthenticate' })).toBeVisible();
+	});
 });
