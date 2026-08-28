@@ -200,8 +200,7 @@
 						aria-label="Edit configuration"
 						onclick={onEdit}>click here</button
 					>.
-				{/if}
-				{#if onReauthenticate}
+				{:else if onReauthenticate}
 					If you need to reauthenticate, <button
 						class="text-blue-500 underline hover:text-blue-400"
 						aria-label="Reauthenticate"

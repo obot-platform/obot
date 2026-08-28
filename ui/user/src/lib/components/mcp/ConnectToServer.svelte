@@ -128,7 +128,9 @@
 			(server && instance && hasMultiUserInstanceConfiguration(server))
 	);
 	let isReauthenticatable = $derived(
-		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+		server?.manifest.runtime === 'remote' &&
+			Object.keys(server.oauthMetadata ?? {}).length > 0 &&
+			!hasEditableConfiguration(server)
 	);
 
 	let showIntroDialog = $state(false);
