@@ -110,7 +110,7 @@
 		<ul class="mt-2 flex flex-wrap gap-1">
 			{#each items as item (item.id)}
 				<li
-					class="bg-base-400/50 dark:bg-base-300 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs"
+					class="bg-base-400/50 dark:bg-base-400 inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs"
 				>
 					<span>{item.label}</span>
 					<button
