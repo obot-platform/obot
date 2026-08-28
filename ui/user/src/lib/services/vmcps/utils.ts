@@ -114,7 +114,7 @@ function matchesOwnerFilter(
 function selectedVMcpFilterIds(filters: VMcpFilters) {
 	return {
 		nameIds: parseSelectedFilterIds(filters.names ?? ''),
-		ownerString: filters.owners ?? '',
+		ownerString: (filters.owners ?? '').trim(),
 		componentIds: parseSelectedFilterIds(filters.components ?? '')
 	};
 }
