@@ -9904,6 +9904,13 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 							Format:      "",
 						},
 					},
+					"valueConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ValueConfigured is derived by the API. For sensitive static values it reports whether an encrypted value exists without returning that value.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"sensitive": {
 						SchemaProps: spec.SchemaProps{
 							Description: "For user-supplied headers",
@@ -9999,6 +10006,13 @@ func schema_obot_platform_obot_apiclient_types_MCPHeader(ref common.ReferenceCal
 							Description: "For static headers",
 							Default:     "",
 							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"valueConfigured": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ValueConfigured is derived by the API. For sensitive static values it reports whether an encrypted value exists without returning that value.",
+							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},

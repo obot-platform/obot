@@ -124,7 +124,7 @@ func TestConvertSystemMCPServerCatalogEntryResources(t *testing.T) {
 				Resources: resources,
 			},
 		},
-	})
+	}, nil)
 
 	assert.Equal(t, resources, entry.Manifest.Resources)
 }

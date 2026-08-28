@@ -153,6 +153,7 @@ func (c *Controller) setupRoutes() {
 	// MCPServerCatalogEntry
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerCatalogEntry{}).FinalizeFunc(v1.MCPServerCatalogEntryFinalizer, mcpServerCatalogEntryHandler.RemoveOAuthCredentials)
+	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.MigrateStaticConfiguration)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureServerUserType)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.DeleteEntriesWithoutRuntime)
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateManifestHashAndLastUpdated)
@@ -164,9 +165,12 @@ func (c *Controller) setupRoutes() {
 
 	// SystemMCPServerCatalogEntry
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.SystemMCPServerCatalogEntry{}).FinalizeFunc(v1.SystemMCPServerCatalogEntryFinalizer, mcpServerCatalogEntryHandler.RemoveSystemCredentials)
+	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.MigrateSystemStaticConfiguration)
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
 
 	// MCPServer
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateStaticConfiguration)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
 	root.Type(&v1.MCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
@@ -247,6 +251,7 @@ func (c *Controller) setupRoutes() {
 
 	// System MCP Servers
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
+	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.MigrateStaticConfiguration)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(systemMCPServerHandler.EnsureDeployment)
 	root.Type(&v1.SystemMCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServer{}).FinalizeFunc(v1.SystemMCPServerFinalizer, systemMCPServerHandler.CleanupDeployment)

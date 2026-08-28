@@ -11,7 +11,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -531,32 +530,9 @@ func (h *Handler) getCredentialsForServers(
 		return make(map[string]map[string]string), nil
 	}
 
-	// Build credential contexts
-	credCtxs := make([]string, 0, len(servers))
-	for _, server := range servers {
-		ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
-		credCtxs = append(credCtxs, ctx)
-	}
-
-	// List credentials
-	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
-		CredentialContexts: credCtxs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	// Reveal and build map
 	credMap := make(map[string]map[string]string)
-	for _, cred := range creds {
-		if _, ok := credMap[cred.Name]; !ok {
-			revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
-			if err != nil {
-				// Skip if credential not found
-				continue
-			}
-			credMap[cred.Name] = revealed.Secrets
-		}
+	for _, server := range servers {
+		credMap[server.Name] = h.getCredentialsForServer(req, server, userID, catalogID, workspaceID)
 	}
 
 	return credMap, nil
@@ -569,13 +545,9 @@ func (h *Handler) getCredentialsForServer(
 ) map[string]string {
 	ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
 
-	revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
-	if err != nil {
-		// Return empty map if not found
-		return make(map[string]string)
-	}
-
-	return revealed.Secrets
+	user, _ := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
+	static, _ := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, mcp.StaticConfigurationCredentialName(server.Name))
+	return mcp.MergeRuntimeConfiguration(user.Secrets, static.Secrets)
 }
 
 func (h *Handler) buildCredentialContext(

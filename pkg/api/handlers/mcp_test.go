@@ -69,6 +69,30 @@ func TestConvertMCPServer_StaticEnvIsConfigured(t *testing.T) {
 	assert.Empty(t, converted.MissingRequiredEnvVars)
 }
 
+func TestConvertMCPServer_EncryptedStaticEnvIsConfigured(t *testing.T) {
+	server := v1.MCPServer{
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeNPX,
+				Env: []types.MCPEnv{{
+					Key:       "CATALOG_TOKEN",
+					Value:     "catalog-value",
+					Required:  true,
+					Sensitive: true,
+				}},
+			},
+		},
+	}
+	staticSecrets := mcp.ExtractStaticServerConfiguration(&server.Spec.Manifest, nil, true)
+
+	converted := ConvertMCPServer(server, staticSecrets, "", "")
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+	assert.True(t, converted.MCPServerManifest.Env[0].ValueConfigured)
+	assert.Empty(t, converted.MCPServerManifest.Env[0].Value)
+}
+
 func TestConvertMCPResources(t *testing.T) {
 	resources := &types.MCPResourceRequirements{
 		Requests: types.MCPResourceRequests{CPU: "250m", Memory: "512Mi"},
@@ -85,7 +109,7 @@ func TestConvertMCPResources(t *testing.T) {
 				Runtime:        types.RuntimeRemote,
 			},
 		},
-	}, "https://example.com")
+	}, "https://example.com", nil)
 	assert.Equal(t, resources, entry.Manifest.Resources)
 	assert.Equal(t, "https://example.com/mcp-connect/entry", entry.ConnectURL)
 
@@ -103,7 +127,7 @@ func TestConvertMCPResources(t *testing.T) {
 				},
 			},
 		},
-	}, "https://example.com")
+	}, "https://example.com", nil)
 	assert.Equal(t, "https://example.com/mcp-connect/composite-entry", compositeEntry.ConnectURL)
 
 	server := ConvertMCPServer(v1.MCPServer{
@@ -129,7 +153,7 @@ func TestConvertMCPServerCatalogEntryDetached(t *testing.T) {
 				UpgradeNote: "Review the new settings.",
 			},
 		},
-	}, "https://example.com")
+	}, "https://example.com", nil)
 
 	assert.True(t, entry.Detached)
 	assert.True(t, entry.Editable)
@@ -350,6 +374,7 @@ func TestTriggerUpdateScope(t *testing.T) {
 		t.Helper()
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
+				gatewayClient := newHandlerTestGatewayClient(t)
 				server := tt.server
 				server.Namespace = system.DefaultNamespace
 				objects := []kclient.Object{&server}
@@ -378,6 +403,7 @@ func TestTriggerUpdateScope(t *testing.T) {
 					ResponseWriter: httptest.NewRecorder(),
 					Request:        req,
 					Storage:        newFakeStorage(t, objects...),
+					GatewayClient:  gatewayClient,
 					User:           tt.user,
 				})
 
@@ -1399,6 +1425,66 @@ func newCreateServerSecretBindingK8sClient(t *testing.T, objects ...kclient.Obje
 	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).Build()
 }
 
+func TestTriggerCompositeUpdateRestoresStaticCredentialOnManifestConflict(t *testing.T) {
+	componentCatalogManifest := types.MCPServerCatalogEntryManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
+	}
+	componentServerManifest := types.MCPServerManifest{
+		Runtime:   types.RuntimeNPX,
+		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
+	}
+	originalManifest := types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		Env:     []types.MCPEnv{{Key: "TOKEN", Value: "old", Sensitive: true}},
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: "component",
+			Manifest:       componentServerManifest,
+		}}},
+	}
+	existingSecrets := mcp.ExtractStaticServerConfiguration(&originalManifest, nil, false)
+	server := v1.MCPServer{
+		Name:      "composite",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{
+			UserID:   "user",
+			Manifest: originalManifest,
+		},
+	}
+	conflictingServer := server.DeepCopy()
+	conflictingServer.Spec.Manifest.Description = "changed concurrently"
+	entry := v1.MCPServerCatalogEntry{Spec: v1.MCPServerCatalogEntrySpec{
+		Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeComposite,
+			Env:     []types.MCPEnv{{Key: "TOKEN", Value: "new", Sensitive: true}},
+			CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+				CatalogEntryID: "component",
+				Manifest:       componentCatalogManifest,
+			}}},
+		},
+	}}
+
+	gatewayClient := newHandlerTestGatewayClient(t)
+	credentialContext := "user-composite"
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, server.Name, existingSecrets))
+	req := api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/", nil),
+		Storage:       newFakeStorage(t, conflictingServer),
+		GatewayClient: gatewayClient,
+		User:          testUserWithRole("user", types.GroupAdmin),
+	}
+
+	err := (&MCPHandler{}).triggerCompositeUpdate(req, server, entry)
+	require.ErrorContains(t, err, "manifest changed during update")
+
+	actualSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, server.Name)
+	require.NoError(t, err)
+	assert.Equal(t, existingSecrets, actualSecrets)
+	emptyNameSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, "")
+	require.NoError(t, err)
+	assert.Empty(t, emptyNameSecrets)
+}
+
 func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *testing.T) {
 	server := v1.MCPServer{
 		Spec: v1.MCPServerSpec{
@@ -1506,7 +1592,7 @@ func TestServerManifestFromCatalogEntryManifestPreservesRemoteURLTemplateConfig(
 			},
 		},
 	}
-	addExtractedEnvVarsToCatalogEntry(&entry)
+	mcp.AddExtractedEnvVarsToCatalogEntry(&entry)
 
 	manifest, err := serverManifestFromCatalogEntryManifest(false, true, entry.Spec.Manifest, types.MCPServerManifest{})
 	require.NoError(t, err)
@@ -1572,7 +1658,7 @@ func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *tes
 		},
 	}
 
-	addExtractedEnvVarsToCatalogEntry(&entry)
+	mcp.AddExtractedEnvVarsToCatalogEntry(&entry)
 	headers := entry.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.RemoteConfig.Headers
 	assert.ElementsMatch(t, []types.MCPHeader{
 		{Name: "WORKSPACE", Key: "WORKSPACE", Description: "Automatically detected variable", Required: true},

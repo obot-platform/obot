@@ -48,7 +48,7 @@
 		untrack(() =>
 			data.options && data.options.length > 0
 				? 'options'
-				: (data.value?.length ?? 0) > 0 || usesSecretBindingSource(data)
+				: data.valueConfigured || (data.value?.length ?? 0) > 0 || usesSecretBindingSource(data)
 					? 'static'
 					: 'user_supplied'
 		)
@@ -57,7 +57,10 @@
 	let missingKey = $derived(showRequired && !data.key.trim());
 	let missingName = $derived(showRequired && !data.name.trim());
 	let missingValue = $derived(
-		showRequired && !data.value?.trim() && (data.options ?? []).length === 0
+		showRequired &&
+			!data.valueConfigured &&
+			!data.value?.trim() &&
+			(data.options ?? []).length === 0
 	);
 
 	$effect(() => {
@@ -147,6 +150,7 @@
 					data.required = option.id === 'static';
 					data.name = '';
 					data.value = '';
+					data.valueConfigured = false;
 					data.description = '';
 					data.sensitive = false;
 
@@ -199,7 +203,9 @@
 						class="text-input-filled bg-base-100 w-full shadow-none"
 						class:error={missingValue}
 						bind:value={data.value}
-						placeholder="e.g. 123abcdef456"
+						placeholder={data.valueConfigured
+							? 'Configured; enter a new value to replace'
+							: 'e.g. 123abcdef456'}
 						disabled={readonly || (data.options ?? []).length > 0}
 						type={data.sensitive ? 'password' : 'text'}
 						aria-required={!readonly ? 'true' : undefined}

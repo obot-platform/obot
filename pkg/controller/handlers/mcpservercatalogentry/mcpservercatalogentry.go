@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -29,6 +30,46 @@ func NewHandler(gatewayClient *gclient.Client) *Handler {
 	return &Handler{
 		gatewayClient: gatewayClient,
 	}
+}
+
+func (h *Handler) MigrateStaticConfiguration(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if !mcp.CatalogHasStaticConfigurationValues(&entry.Spec.Manifest) {
+		return nil
+	}
+	before := utils.Digest(entry.Spec.Manifest)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name)
+	if err != nil {
+		return err
+	}
+	secrets := mcp.ExtractStaticCatalogConfiguration(&entry.Spec.Manifest, existing, false)
+	if before == utils.Digest(entry.Spec.Manifest) {
+		return nil
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name, secrets); err != nil {
+		return fmt.Errorf("failed to store static configuration before migration: %w", err)
+	}
+	return req.Client.Update(req.Ctx, entry)
+}
+
+func (h *Handler) MigrateSystemStaticConfiguration(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
+	if !mcp.SystemCatalogHasStaticConfigurationValues(&entry.Spec.Manifest) {
+		return nil
+	}
+	before := utils.Digest(entry.Spec.Manifest)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name)
+	if err != nil {
+		return err
+	}
+	secrets := mcp.ExtractStaticSystemCatalogConfiguration(&entry.Spec.Manifest, existing, false)
+	if before == utils.Digest(entry.Spec.Manifest) {
+		return nil
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name, secrets); err != nil {
+		return fmt.Errorf("failed to store static configuration before migration: %w", err)
+	}
+	return req.Client.Update(req.Ctx, entry)
 }
 
 // EnsureUserCount ensures that the user count for an MCP server catalog entry is up to date.
@@ -147,10 +188,18 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 		}
 		return nil
 	}
+	manifest := entry.Spec.Manifest
+	if mcp.CatalogHasSensitiveStaticConfiguration(&manifest) {
+		entryCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{entry.Name}, mcp.StaticConfigurationCredentialName(entry.Name))
+		if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+			return err
+		}
+		manifest = mcp.HydrateStaticCatalogConfiguration(manifest, entryCredential.Secrets)
+	}
 
 	// Check each component for drift
 	var drifted bool
-	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
+	for _, component := range manifest.CompositeConfig.ComponentServers {
 		// Handle multi-user component drift
 		if component.MCPServerID != "" {
 			var server v1.MCPServer
@@ -179,6 +228,13 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 					break
 				}
 				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
+			}
+			if mcp.CatalogHasSensitiveStaticConfiguration(&componentEntry.Spec.Manifest) {
+				componentCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{componentEntry.Name}, mcp.StaticConfigurationCredentialName(componentEntry.Name))
+				if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+					return err
+				}
+				componentEntry.Spec.Manifest = mcp.HydrateStaticCatalogConfiguration(componentEntry.Spec.Manifest, componentCredential.Secrets)
 			}
 
 			// We added the EntryKey field, but it really shouldn't affect drift detection here.
@@ -324,6 +380,9 @@ func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Respo
 // RemoveOAuthCredentials removes OAuth credentials when a catalog entry is deleted.
 func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
+	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, entry.Name, mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
+		return fmt.Errorf("failed to remove static configuration credential: %w", err)
+	}
 
 	// Only process remote entries
 	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
@@ -341,5 +400,16 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 		slog.Info("Removed static OAuth credential for deleted MCP catalog entry", "entry", entry.Name)
 	}
 
+	return nil
+}
+
+func (h *Handler) RemoveSystemCredentials(req router.Request, _ router.Response) error {
+	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
+	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, entry.Name, mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
+		return fmt.Errorf("failed to remove system catalog static configuration credential: %w", err)
+	}
+	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), system.StaticOAuthCredentialName); err != nil {
+		return fmt.Errorf("failed to remove system catalog OAuth credential: %w", err)
+	}
 	return nil
 }
