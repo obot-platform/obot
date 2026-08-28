@@ -126,7 +126,9 @@
 	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
 	let canReauthenticate = $derived(
-		server?.manifest.runtime === 'remote' && Object.keys(server.oauthMetadata ?? {}).length > 0
+		server?.manifest.runtime === 'remote' &&
+			Object.keys(server.oauthMetadata ?? {}).length > 0 &&
+			!hasEditableConfiguration(server)
 	);
 	let canDebugOauth = $derived(canReauthenticate && profile.current?.hasAdminAccess?.());
 	let belongsToComposite = $derived(Boolean(server && server.compositeName));
