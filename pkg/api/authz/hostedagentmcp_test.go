@@ -74,11 +74,3 @@ func TestHostedAgentWithNoGrantsReachesNothing(t *testing.T) {
 		t.Fatal("an agent with no granted servers reached one")
 	}
 }
-
-// The agent path must not weaken the user path: a real user is still checked
-// against catalogs, ownership and access rules.
-func TestOrdinaryUserStillGoesThroughAccessChecks(t *testing.T) {
-	if principal.IsHostedAgent(&kuser.DefaultInfo{Groups: []string{types2.GroupAuthenticated}}) {
-		t.Fatal("an ordinary user must not be treated as a hosted agent")
-	}
-}

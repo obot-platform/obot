@@ -40,8 +40,10 @@ type MCPServerInstanceSpec struct {
 	Template bool `json:"template,omitempty"`
 	// CompositeName is the name of the composite MCP server that this MCP server instance is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
-	// MultiUserConfig indicates the configuration required from the MCP server that this instance points to.
-	MultiUserConfig *types.MultiUserConfig `json:"multiUserConfig,omitempty"`
+	// Config is the user-allowed configuration required by this instance's server.
+	Config []types.MCPConfig `json:"config,omitempty"`
+	// Deprecated: retained only to migrate per-user headers to Config.
+	DeprecatedMultiUserConfig *types.MultiUserConfig `json:"multiUserConfig,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

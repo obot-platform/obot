@@ -25,7 +25,8 @@ func TestSyncReadiness(t *testing.T) {
 		Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}},
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
 			Runtime:      types.RuntimeRemote,
-			RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp", Headers: []types.MCPHeader{{Key: "TOKEN", Required: true}}},
+			RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+			Config:       []types.MCPConfig{{Key: "TOKEN", Required: true, Usage: types.Header}},
 		}},
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}, StaticConfigurationHash: "hash"}}

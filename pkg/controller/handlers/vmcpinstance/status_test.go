@@ -19,7 +19,7 @@ func TestInstanceConfigurationStatus(t *testing.T) {
 		ID:            "one",
 		Configuration: []types.VMCPConfigurationPolicy{{Key: "HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed}},
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "HEADER", Required: true}}},
+			Config: []types.MCPConfig{{Key: "HEADER", Required: true, Usage: types.Header}},
 		}},
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}}}
@@ -41,7 +41,7 @@ func TestInstanceConfigurationStatus(t *testing.T) {
 		t.Fatalf("missing shared header not reported: %+v", instance.Status)
 	}
 	// Schema changes must update status even when the credential hash is unchanged.
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.Headers[0].Required = false
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[0].Required = false
 	if err := client.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestInstanceConfigurationStatus(t *testing.T) {
 		t.Fatalf("stale missing configuration: %+v", instance.Status)
 	}
 	vmcp.Spec.Manifest.ForceSingleUser = true
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.Headers[0].Required = true
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[0].Required = true
 	if err := client.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}

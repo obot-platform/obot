@@ -104,6 +104,28 @@ func (db *DB) AutoMigrate() (err error) {
 		return fmt.Errorf("failed to migrate API key skills access: %w", err)
 	}
 
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, uiCatalogConfigMigrationName, migrateUICatalogEntryConfig); err != nil {
+		return fmt.Errorf("failed to migrate UI catalog entry configuration: %w", err)
+	}
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, uiSystemCatalogConfigMigrationName, func(tx *gorm.DB) error {
+		return migrateUICatalogConfigTable(tx, "systemmcpservercatalogentry")
+	}); err != nil {
+		return fmt.Errorf("failed to migrate UI system catalog entry configuration: %w", err)
+	}
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, mcpServerConfigMigrationName, func(tx *gorm.DB) error {
+		if err := migrateUICatalogConfigTable(tx, "mcpserver"); err != nil {
+			return err
+		}
+		return migrateUICatalogConfigTable(tx, "mcpserverinstance")
+	}); err != nil {
+		return fmt.Errorf("failed to migrate MCP server configuration: %w", err)
+	}
+	if err = migrateIfEntryNotFoundInMigrationsTable(tx, systemMCPServerConfigMigrationName, func(tx *gorm.DB) error {
+		return migrateUICatalogConfigTable(tx, "systemmcpserver")
+	}); err != nil {
+		return fmt.Errorf("failed to migrate system MCP server configuration: %w", err)
+	}
+
 	if err := tx.AutoMigrate(
 		types.AuthToken{},
 		types.TokenRequest{},

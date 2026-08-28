@@ -5,18 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
-	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,24 +58,21 @@ func userCountForEntry(req router.Request, entry v1.MCPServerCatalogEntry) (int,
 		return 0, fmt.Errorf("failed to list MCP servers: %w", err)
 	}
 
-	isSingleUser := entry.Spec.Manifest.ServerUserType.IsSingleUser()
 	uniqueUsers := make(map[string]struct{}, len(mcpServers.Items))
 	userCount := 0
 	for _, server := range mcpServers.Items {
 		if !server.DeletionTimestamp.IsZero() || server.Spec.CompositeName != "" {
 			continue
 		}
-		if isSingleUser && server.Spec.UserID != "" {
+		if server.Spec.IsSingleUser() && server.Spec.UserID != "" {
 			uniqueUsers[server.Spec.UserID] = struct{}{}
-		} else if !isSingleUser {
+		} else if !server.Spec.IsSingleUser() {
 			if server.Status.MCPServerInstanceUserCount != nil {
 				userCount += *server.Status.MCPServerInstanceUserCount
 			}
 		}
 	}
-	if isSingleUser {
-		userCount = len(uniqueUsers)
-	}
+	userCount += len(uniqueUsers)
 
 	return userCount, nil
 }
@@ -91,17 +85,6 @@ func updateEntryUserCount(req router.Request, entry *v1.MCPServerCatalogEntry, n
 	}
 
 	return nil
-}
-
-// EnsureServerUserType backfills the serverUserType field to "singleUser" for
-// existing catalog entries that were created before the field was introduced.
-func (*Handler) EnsureServerUserType(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	if entry.Spec.Manifest.ServerUserType != "" {
-		return nil
-	}
-	entry.Spec.Manifest.ServerUserType = types.ServerUserTypeSingleUser
-	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
 func (h *Handler) DeleteEntriesWithoutRuntime(req router.Request, _ router.Response) error {
@@ -141,118 +124,6 @@ func (*Handler) UpdateSystemManifestHashAndLastUpdated(req router.Request, _ rou
 	}
 
 	return nil
-}
-
-// DetectCompositeDrift detects when a composite catalog entry's component snapshots have drifted
-// from their source catalog entries or multi-user servers
-func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	if entry.Spec.Manifest.Runtime != types.RuntimeComposite {
-		if entry.Status.NeedsUpdate {
-			entry.Status.NeedsUpdate = false
-			return req.Client.Status().Update(req.Ctx, entry)
-		}
-		return nil
-	}
-
-	// Check each component for drift
-	var drifted bool
-	for _, component := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-		// Handle multi-user component drift
-		if component.MCPServerID != "" {
-			var server v1.MCPServer
-			if err := req.Get(&server, entry.Namespace, component.MCPServerID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
-				return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
-			}
-
-			hasDrifted, err := mcpserver.ConfigurationHasDrifted(req.Ctx, h.gatewayClient, &server, component.Manifest, false)
-			if err != nil {
-				return fmt.Errorf("failed to detect drift for multi-user server %s: %w", component.MCPServerID, err)
-			}
-			if hasDrifted {
-				drifted = true
-				break
-			}
-		} else {
-			// Handle catalog entry component drift
-			var componentEntry v1.MCPServerCatalogEntry
-			if err := req.Get(&componentEntry, entry.Namespace, component.CatalogEntryID); err != nil {
-				if apierrors.IsNotFound(err) {
-					drifted = true
-					break
-				}
-				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
-			}
-
-			// We added the EntryKey field, but it really shouldn't affect drift detection here.
-			if component.Manifest.EntryKey == "" && componentEntry.Spec.Manifest.EntryKey != "" {
-				component.Manifest.EntryKey = componentEntry.Spec.Manifest.EntryKey
-			}
-
-			// Same for serverUserType
-			if component.Manifest.ServerUserType == "" && componentEntry.Spec.Manifest.ServerUserType != "" {
-				component.Manifest.ServerUserType = componentEntry.Spec.Manifest.ServerUserType
-			}
-
-			// UpgradeNote is informational metadata and should not affect configuration drift.
-			component.Manifest.UpgradeNote = ""
-			componentEntry.Spec.Manifest.UpgradeNote = ""
-
-			var (
-				snapshotHash = utils.Digest(component.Manifest)
-				currentHash  = utils.Digest(componentEntry.Spec.Manifest)
-			)
-			if snapshotHash != currentHash {
-				drifted = true
-				break
-			}
-		}
-	}
-
-	if entry.Status.NeedsUpdate != drifted {
-		slog.Info("MCP catalog entry composite drift status changed", "entry", entry.Name, "needsUpdate", drifted)
-		entry.Status.NeedsUpdate = drifted
-		return req.Client.Status().Update(req.Ctx, entry)
-	}
-
-	return nil
-}
-
-// CleanupNestedCompositeServers removes component servers with composite runtimes from composite catalog entries.
-// This handler cleans up entries that were created before API validation to prevent nested composite servers.
-func (*Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Response) error {
-	var (
-		entry    = req.Object.(*v1.MCPServerCatalogEntry)
-		manifest = entry.Spec.Manifest
-	)
-
-	if manifest.Runtime != types.RuntimeComposite ||
-		manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	// Remove all composite components from the server's manifest
-	var (
-		components    = manifest.CompositeConfig.ComponentServers
-		numComponents = len(components)
-	)
-	components = slices.DeleteFunc(components, func(component types.CatalogComponentServer) bool {
-		return component.Manifest.Runtime == types.RuntimeComposite
-	})
-
-	if numComponents == len(components) {
-		// No components were removed, so no need to update the manifest.
-		return nil
-	}
-
-	entry.Spec.Manifest.CompositeConfig.ComponentServers = components
-	slog.Info("Pruned nested composite components from MCP catalog entry", "entry", entry.Name, "removedComponents", numComponents-len(components))
-	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
 // requiresStaticOAuth reports whether entry is configured to use a static OAuth client. Only

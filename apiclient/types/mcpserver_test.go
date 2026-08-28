@@ -1,21 +1,163 @@
 package types
 
 import (
-	"encoding/json"
+	"strings"
 	"testing"
 )
 
-func TestRuntimeVMCPUsesVMCPWireValue(t *testing.T) {
-	if got, want := string(RuntimeVMCP), "vmcp"; got != want {
-		t.Fatalf("RuntimeVMCP = %q, want %q", got, want)
+func TestCatalogConfigValidation(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		config []MCPConfig
+		err    string
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name: "all usages",
+			config: []MCPConfig{
+				{
+					Key:   "ENV",
+					Usage: Env,
+				},
+				{
+					Key:   "Authorization",
+					Usage: Header,
+				},
+				{
+					Key:   "FILE",
+					Usage: File,
+				},
+				{
+					Key:   "DYNAMIC_FILE",
+					Usage: DynamicFile,
+				},
+				{
+					Key:   "INPUT",
+					Usage: Interpolated,
+				},
+			},
+		},
+		{
+			name:   "missing usage",
+			config: []MCPConfig{{Key: "KEY"}},
+			err:    "invalid usage",
+		},
+		{
+			name: "unknown usage",
+			config: []MCPConfig{{
+				Key:   "KEY",
+				Usage: "unknown",
+			}},
+			err: "invalid usage",
+		},
+		{
+			name:   "empty key",
+			config: []MCPConfig{{Usage: Env}},
+			err:    "key must not be empty",
+		},
+		{
+			name: "duplicate across usages",
+			config: []MCPConfig{
+				{
+					Key:   "KEY",
+					Usage: Env,
+				},
+				{
+					Key:   "KEY",
+					Usage: Header,
+				},
+			},
+			err: "duplicate config key",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := MCPServerCatalogEntryManifest{Config: test.config}
+			err := manifest.ValidateConfig()
+			if test.err == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), test.err) {
+				t.Fatalf("ValidateConfig() = %v, want %q", err, test.err)
+			}
+		})
 	}
+}
 
-	encoded, err := json.Marshal(RuntimeVMCP)
-	if err != nil {
-		t.Fatalf("marshal RuntimeVMCP: %v", err)
+func TestServerUserConfig(t *testing.T) {
+	server := MCPServerManifest{
+		Config: []MCPConfig{
+			{
+				Key:   "STATIC",
+				Usage: Header,
+			},
+			{
+				Key:         "USER",
+				Usage:       Header,
+				UserAllowed: true,
+			},
+		},
 	}
-	if got, want := string(encoded), `"vmcp"`; got != want {
-		t.Fatalf("marshaled RuntimeVMCP = %s, want %s", got, want)
+	if err := server.ValidateConfig(); err != nil {
+		t.Fatal(err)
+	}
+	userConfig := server.UserConfig()
+	if len(userConfig) != 1 || userConfig[0].Key != "USER" {
+		t.Fatalf("unexpected per-user configuration: %#v", userConfig)
+	}
+	catalog := MCPServerCatalogEntryManifest{Config: server.Config}
+	if err := catalog.ValidateConfig(); err == nil {
+		t.Fatal("catalog accepted deployment-only userAllowed")
+	}
+	catalog = server.ConvertToCatalogEntry()
+	if err := catalog.ValidateConfig(); err != nil {
+		t.Fatalf("server conversion retained deployment-only flags: %v", err)
+	}
+	if !server.Config[1].UserAllowed {
+		t.Fatal("catalog conversion changed the server")
+	}
+}
+
+func TestCatalogConfigurationRoundTrip(t *testing.T) {
+	config := []MCPConfig{}
+	for _, usage := range []Usage{Env, Header, File, DynamicFile, Interpolated} {
+		config = append(config, MCPConfig{
+			Key:       string(usage),
+			Usage:     usage,
+			Value:     "value",
+			Required:  true,
+			Sensitive: true,
+			Prefix:    "prefix",
+		})
+	}
+	entry := MCPServerCatalogEntryManifest{
+		Runtime:      RuntimeRemote,
+		RemoteConfig: &RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+		Config:       config,
+	}
+	server, err := MapCatalogEntryToServer(entry, "", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(server.Config) != len(config) {
+		t.Fatalf("configuration was not preserved: %+v", server.Config)
+	}
+	roundTrip := server.ConvertToCatalogEntry()
+	for _, want := range config {
+		var found bool
+		for _, got := range roundTrip.Config {
+			if got.Key == want.Key {
+				found = true
+				if got.Usage != want.Usage || got.Value != want.Value || got.Required != want.Required || got.Sensitive != want.Sensitive || got.Prefix != want.Prefix {
+					t.Fatalf("config changed: got %+v, want %+v", got, want)
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("missing config: %s", want.Key)
+		}
 	}
 }
 
@@ -44,10 +186,12 @@ func TestMapCatalogEntryToServerPreservesConfigurationOptions(t *testing.T) {
 	options := []MCPConfigurationOption{{Name: "US", Value: "us", Description: "US endpoint"}}
 	catalogEntry := MCPServerCatalogEntryManifest{
 		Runtime: RuntimeRemote,
-		Env:     []MCPEnv{{Key: "REGION", Options: options}},
+		Config: []MCPConfig{
+			{Key: "REGION", Options: options, Usage: Env},
+			{Key: "TIER", Options: options, Usage: Header},
+		},
 		RemoteConfig: &RemoteCatalogConfig{
 			FixedURL: "https://example.com/mcp",
-			Headers:  []MCPHeader{{Key: "TIER", Options: options}},
 		},
 	}
 
@@ -55,23 +199,28 @@ func TestMapCatalogEntryToServerPreservesConfigurationOptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Env) != 1 || len(result.Env[0].Options) != 1 || result.Env[0].Options[0] != options[0] {
-		t.Fatalf("environment options were not preserved: %#v", result.Env)
+	if len(result.Config) != 2 || len(result.Config[0].Options) != 1 || result.Config[0].Options[0] != options[0] {
+		t.Fatalf("environment options were not preserved: %#v", result.Config)
 	}
-	if result.RemoteConfig == nil || len(result.RemoteConfig.Headers) != 1 || len(result.RemoteConfig.Headers[0].Options) != 1 {
-		t.Fatalf("header options were not preserved: %#v", result.RemoteConfig)
+	if len(result.Config[1].Options) != 1 || result.Config[1].Usage != Header {
+		t.Fatalf("header options were not preserved: %#v", result.Config)
+	}
+	result.Config[0].Options[0].Value = "changed"
+	result.Config[1].Options[0].Value = "changed"
+	if catalogEntry.Config[0].Options[0].Value != "us" || catalogEntry.Config[1].Options[0].Value != "us" {
+		t.Fatal("runtime configuration aliases the catalog snapshot")
 	}
 }
 
 func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.T) {
 	manifest := MCPServerManifest{
 		Runtime: RuntimeRemote,
+		Config:  []MCPConfig{{Key: "Authorization", Name: "Authorization", Usage: Header}},
 		RemoteConfig: &RemoteRuntimeConfig{
 			URL:                 "https://api.example.com/mcp",
 			TunnelName:          "mcptunnel-office",
 			URLTemplate:         "https://${WORKSPACE}.example.com/mcp",
 			Hostname:            "*.example.com",
-			Headers:             []MCPHeader{{Key: "Authorization", Name: "Authorization"}},
 			StaticOAuthRequired: true,
 		},
 	}
@@ -93,35 +242,11 @@ func TestMCPServerManifestConvertToCatalogEntryPreservesRemoteFields(t *testing.
 	if result.RemoteConfig.Hostname != manifest.RemoteConfig.Hostname {
 		t.Errorf("Expected hostname %q, got %q", manifest.RemoteConfig.Hostname, result.RemoteConfig.Hostname)
 	}
-	if len(result.RemoteConfig.Headers) != 1 || result.RemoteConfig.Headers[0].Key != "Authorization" {
-		t.Errorf("Expected headers to be copied, got %v", result.RemoteConfig.Headers)
+	if len(result.Config) != 1 || result.Config[0].Key != "Authorization" || result.Config[0].Usage != Header {
+		t.Errorf("Expected headers to be copied, got %v", result.Config)
 	}
 	if !result.RemoteConfig.StaticOAuthRequired {
 		t.Error("Expected staticOAuthRequired to be copied")
-	}
-}
-
-func TestMCPServerManifestConvertToCatalogEntryPreservesCompositeToolPrefix(t *testing.T) {
-	manifest := MCPServerManifest{
-		Runtime: RuntimeComposite,
-		CompositeConfig: &CompositeRuntimeConfig{ComponentServers: []ComponentServer{{
-			CatalogEntryID: "component",
-			ToolPrefix:     "prefix_",
-			Manifest: MCPServerManifest{
-				Runtime:   RuntimeNPX,
-				NPXConfig: &NPXRuntimeConfig{Package: "component"},
-			},
-		}}},
-	}
-
-	result := manifest.ConvertToCatalogEntry()
-
-	if result.CompositeConfig == nil || len(result.CompositeConfig.ComponentServers) != 1 {
-		t.Fatalf("Expected one composite component, got %#v", result.CompositeConfig)
-	}
-	component := result.CompositeConfig.ComponentServers[0]
-	if component.ToolPrefix != "prefix_" {
-		t.Errorf("Expected toolPrefix %q, got %q", "prefix_", component.ToolPrefix)
 	}
 }
 

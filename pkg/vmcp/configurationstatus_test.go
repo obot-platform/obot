@@ -16,14 +16,14 @@ func TestMissingRequiredConfiguration(t *testing.T) {
 			{Key: "HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed},
 		},
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			Env: []types.MCPEnv{
-				{MCPHeader: types.MCPHeader{Key: "FIXED", Required: true}},
-				{MCPHeader: types.MCPHeader{Key: "USER", Required: true}, File: true},
-				{MCPHeader: types.MCPHeader{Key: "PROHIBITED", Required: true}},
-				{MCPHeader: types.MCPHeader{Key: "LITERAL", Required: true, Value: "static"}},
-				{MCPHeader: types.MCPHeader{Key: "OPTIONAL"}},
+			Config: []types.MCPConfig{
+				{Key: "FIXED", Required: true, Usage: types.Env},
+				{Key: "USER", Required: true, Usage: types.File},
+				{Key: "PROHIBITED", Required: true, Usage: types.Env},
+				{Key: "LITERAL", Required: true, Value: "static", Usage: types.Env},
+				{Key: "OPTIONAL", Usage: types.Env},
+				{Key: "HEADER", Required: true, Usage: types.Header},
 			},
-			RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "HEADER", Required: true}}},
 		}},
 	}
 	values := map[string]string{ConfigurationKey(component.ID, "FIXED"): "secret", ConfigurationKey(component.ID, "PROHIBITED"): "stale"}

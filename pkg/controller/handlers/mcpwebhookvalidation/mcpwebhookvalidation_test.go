@@ -22,8 +22,10 @@ func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
 			Port:  9999,
 			Path:  "/custom",
 		},
-		Env: []types.MCPEnv{{
-			Key: "CUSTOM", Value: "1",
+		Config: []types.MCPConfig{{
+			Key:   "CUSTOM",
+			Value: "1",
+			Usage: types.Env,
 		}},
 	}
 
@@ -35,8 +37,8 @@ func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
 	if server.Spec.Manifest.ContainerizedConfig == nil || server.Spec.Manifest.ContainerizedConfig.Image != "example/image:latest" {
 		t.Fatalf("expected containerized config image to be copied, got %#v", server.Spec.Manifest.ContainerizedConfig)
 	}
-	if len(server.Spec.Manifest.Env) != 1 || server.Spec.Manifest.Env[0].Key != "CUSTOM" {
-		t.Fatalf("expected env to be copied, got %#v", server.Spec.Manifest.Env)
+	if len(server.Spec.Manifest.Config) != 1 || server.Spec.Manifest.Config[0].Key != "CUSTOM" {
+		t.Fatalf("expected env to be copied, got %#v", server.Spec.Manifest.Config)
 	}
 	if server.Spec.WebhookValidationName != validation.Name {
 		t.Fatalf("expected webhook validation name %q, got %q", validation.Name, server.Spec.WebhookValidationName)
@@ -46,7 +48,7 @@ func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
 	if server.Spec.Manifest.Name != "custom-validator" {
 		t.Fatalf("expected copied manifest to be independent after mutation, got %q", server.Spec.Manifest.Name)
 	}
-	if server.Spec.Manifest.Env[0].Key == "WEBHOOK_URL" {
-		t.Fatalf("expected provided manifest to be used instead of derived webhook env, got %#v", server.Spec.Manifest.Env)
+	if server.Spec.Manifest.Config[0].Key == "WEBHOOK_URL" {
+		t.Fatalf("expected provided manifest to be used instead of derived webhook env, got %#v", server.Spec.Manifest.Config)
 	}
 }

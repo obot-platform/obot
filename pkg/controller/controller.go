@@ -190,21 +190,22 @@ func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, a
 
 		// Check OBOT_URL env var
 		var foundOBOTURLEntry bool
-		for i, env := range existing.Spec.Manifest.Env {
+		for i, env := range existing.Spec.Manifest.Config {
 			if env.Key == "OBOT_URL" {
 				foundOBOTURLEntry = true
 				if env.Value != internalURL {
-					existing.Spec.Manifest.Env[i].Value = internalURL
+					existing.Spec.Manifest.Config[i].Value = internalURL
 					needsUpdate = true
 				}
 			}
 		}
 		if !foundOBOTURLEntry {
-			existing.Spec.Manifest.Env = append(existing.Spec.Manifest.Env, types.MCPEnv{
+			existing.Spec.Manifest.Config = append(existing.Spec.Manifest.Config, types.MCPConfig{
 				Name:     "OBOT_URL",
 				Key:      "OBOT_URL",
 				Required: true,
 				Value:    internalURL,
+				Usage:    types.Env,
 			})
 			needsUpdate = true
 		}
@@ -240,14 +241,13 @@ func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, a
 					Port:  8080,
 					Path:  "/mcp",
 				},
-				Env: []types.MCPEnv{
-					{
-						Name:     "OBOT_URL",
-						Key:      "OBOT_URL",
-						Required: true,
-						Value:    internalURL,
-					},
-				},
+				Config: []types.MCPConfig{{
+					Name:     "OBOT_URL",
+					Key:      "OBOT_URL",
+					Required: true,
+					Value:    internalURL,
+					Usage:    types.Env,
+				}},
 			},
 		},
 	}

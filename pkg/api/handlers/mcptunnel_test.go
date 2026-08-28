@@ -276,27 +276,6 @@ func TestMCPTunnelHandlerUpdatePreservesCatalogEntryTargets(t *testing.T) {
 				},
 			},
 		},
-		&v1.MCPServerCatalogEntry{
-			Name:      "mcp1a-composite",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerCatalogEntrySpec{
-				Manifest: types.MCPServerCatalogEntryManifest{
-					Name:    "Operations Composite",
-					Runtime: types.RuntimeComposite,
-					CompositeConfig: &types.CompositeCatalogConfig{
-						ComponentServers: []types.CatalogComponentServer{{
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:   "https://operations.internal/mcp",
-									TunnelName: tunnelName,
-								},
-							},
-						}},
-					},
-				},
-			},
-		},
 	)
 	handler := NewMCPTunnelHandler(nil)
 
@@ -363,45 +342,9 @@ func TestMCPTunnelHandlerDeleteBlockedByCatalogEntries(t *testing.T) {
 				},
 			},
 		},
-		&v1.MCPServerCatalogEntry{
-			Name:      "mcp1a-composite",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerCatalogEntrySpec{
-				Manifest: types.MCPServerCatalogEntryManifest{
-					Name:    "Operations Composite",
-					Runtime: types.RuntimeComposite,
-					CompositeConfig: &types.CompositeCatalogConfig{
-						ComponentServers: []types.CatalogComponentServer{{
-							Manifest: types.MCPServerCatalogEntryManifest{
-								Runtime: types.RuntimeRemote,
-								RemoteConfig: &types.RemoteCatalogConfig{
-									FixedURL:   "https://operations.internal/mcp",
-									TunnelName: tunnelName,
-								},
-							},
-						}},
-					},
-				},
-			},
-		},
-		&v1.MCPServerCatalogEntry{
-			Name:      "mcp1unrelated",
-			Namespace: system.DefaultNamespace,
-			Spec: v1.MCPServerCatalogEntrySpec{
-				Manifest: types.MCPServerCatalogEntryManifest{
-					Name:    "Unrelated MCP",
-					Runtime: types.RuntimeRemote,
-					RemoteConfig: &types.RemoteCatalogConfig{
-						FixedURL:   "https://unrelated.internal/mcp",
-						TunnelName: "mt1warehouse",
-					},
-				},
-			},
-		},
 	)
 	closer := &mcpTunnelTestCloser{}
 	handler := NewMCPTunnelHandler(closer)
-
 	request := httptest.NewRequest(http.MethodDelete, "/api/mcp-tunnels/"+tunnelName, nil)
 	request.SetPathValue("id", tunnelName)
 	err := handler.Delete(api.Context{

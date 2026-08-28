@@ -46,17 +46,17 @@ func TestMCPServerLifecycle_NPXEverything(t *testing.T) {
 			ShortDescription: "integration test server",
 			Description:      "MCP Everything integration test server",
 			Runtime:          types.RuntimeNPX,
-			ServerUserType:   types.ServerUserTypeSingleUser,
 			NPXConfig: &types.NPXRuntimeConfig{
 				Package:               everythingPackage,
 				Args:                  []string{"stdio"},
 				StartupTimeoutSeconds: 120,
 			},
-			Env: []types.MCPEnv{{MCPHeader: types.MCPHeader{
+			Config: []types.MCPConfig{{
 				Name:     "Integration Value",
 				Key:      integrationEnvKey,
 				Required: true,
-			}}},
+				Usage:    types.Env,
+			}},
 		})
 		if entry.ID == "" {
 			t.Fatalf("catalog entry create returned empty ID: %+v", entry)

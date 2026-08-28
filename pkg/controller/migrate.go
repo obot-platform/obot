@@ -181,25 +181,16 @@ func extractAndClearMCPServerConfigValues(manifest *types.MCPServerManifest) (ma
 	configValues := make(map[string]string)
 	var changed bool
 
-	for i := range manifest.Env {
-		if manifest.Env[i].Value != "" {
-			if manifest.Env[i].Key != "" {
-				configValues[manifest.Env[i].Key] = manifest.Env[i].Value
-			}
-			manifest.Env[i].Value = ""
-			changed = true
+	for i := range manifest.Config {
+		if manifest.Config[i].UserAllowed {
+			continue
 		}
-	}
-
-	if manifest.RemoteConfig != nil {
-		for i := range manifest.RemoteConfig.Headers {
-			if manifest.RemoteConfig.Headers[i].Value != "" {
-				if manifest.RemoteConfig.Headers[i].Key != "" {
-					configValues[manifest.RemoteConfig.Headers[i].Key] = manifest.RemoteConfig.Headers[i].Value
-				}
-				manifest.RemoteConfig.Headers[i].Value = ""
-				changed = true
+		if manifest.Config[i].Value != "" {
+			if manifest.Config[i].Key != "" {
+				configValues[manifest.Config[i].Key] = manifest.Config[i].Value
 			}
+			manifest.Config[i].Value = ""
+			changed = true
 		}
 	}
 

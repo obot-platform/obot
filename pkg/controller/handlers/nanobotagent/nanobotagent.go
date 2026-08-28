@@ -123,15 +123,14 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			needsUpdate = true
 		}
 
-		expectedEnv := []types.MCPEnv{
+		expectedEnv := []types.MCPConfig{
 			{
 				Name:        "NANOBOT_ENV_FILE",
 				Description: "Environment variables file for Nanobot",
 				Key:         "NANOBOT_ENV_FILE",
 				Sensitive:   true,
 				Required:    true,
-				File:        true,
-				DynamicFile: true,
+				Usage:       types.DynamicFile,
 			},
 			{
 				Name:        "NANOBOT_CONFIG_FILE",
@@ -139,8 +138,7 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 				Key:         "NANOBOT_CONFIG_FILE",
 				Sensitive:   true,
 				Required:    true,
-				File:        true,
-				DynamicFile: true,
+				Usage:       types.DynamicFile,
 			},
 		}
 
@@ -156,14 +154,14 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 			}
 		}
 
-		if !reflect.DeepEqual(existing.Spec.Manifest.Env, expectedEnv) {
+		if !reflect.DeepEqual(existing.Spec.Manifest.Config, expectedEnv) {
 			needsUpdate = true
 		}
 
 		if needsUpdate {
 			slog.Debug("Updating nanobot MCP server config", "agent", agent.Name, "mcpServer", mcpServerName)
 			existing.Spec.Manifest.ContainerizedConfig.Args = expectedArgs
-			existing.Spec.Manifest.Env = expectedEnv
+			existing.Spec.Manifest.Config = expectedEnv
 			if err := req.Client.Update(req.Ctx, &existing); err != nil {
 				return fmt.Errorf("failed to update MCPServer: %w", err)
 			}
@@ -199,26 +197,22 @@ func (h *Handler) EnsureMCPServer(req router.Request, resp router.Response) erro
 					Path:        "/mcp",
 					HealthzPath: "/healthz",
 				},
-				Env: []types.MCPEnv{
-					{
-						Name:        "NANOBOT_ENV_FILE",
-						Description: "Environment variables file for Nanobot",
-						Key:         "NANOBOT_ENV_FILE",
-						Sensitive:   true,
-						Required:    true,
-						File:        true,
-						DynamicFile: true,
-					},
+				Config: []types.MCPConfig{{
+					Name:        "NANOBOT_ENV_FILE",
+					Description: "Environment variables file for Nanobot",
+					Key:         "NANOBOT_ENV_FILE",
+					Sensitive:   true,
+					Required:    true,
+					Usage:       types.DynamicFile,
+				},
 					{
 						Name:        "NANOBOT_CONFIG_FILE",
 						Description: "Provider config YAML for Nanobot",
 						Key:         "NANOBOT_CONFIG_FILE",
 						Sensitive:   true,
 						Required:    true,
-						File:        true,
-						DynamicFile: true,
-					},
-				},
+						Usage:       types.DynamicFile,
+					}},
 			},
 		},
 	}

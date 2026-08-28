@@ -18,8 +18,8 @@ type MCPServerInstance struct {
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 	// ConnectURL is the URL to connect to the MCP server.
 	ConnectURL string `json:"connectURL,omitempty"`
-	// MultiUserConfig is the multi-user configuration for this instance, which is copied from the MCP server's manifest. This will be nil if the MCP server does not have multi-user config.
-	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+	// Config contains the user-allowed configuration copied from the server.
+	Config []MCPConfig `json:"config,omitempty"`
 }
 
 type MCPServerInstanceList List[MCPServerInstance]

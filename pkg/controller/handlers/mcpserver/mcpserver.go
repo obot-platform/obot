@@ -263,16 +263,9 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 // its gateway credential before comparison.
 func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client, server *v1.MCPServer, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	staticKeys := make(map[string]struct{})
-	for _, env := range entryManifest.Env {
-		if env.Value != "" {
-			staticKeys[env.Key] = struct{}{}
-		}
-	}
-	if entryManifest.RemoteConfig != nil {
-		for _, header := range entryManifest.RemoteConfig.Headers {
-			if header.Value != "" {
-				staticKeys[header.Key] = struct{}{}
-			}
+	for _, config := range entryManifest.Config {
+		if config.Value != "" {
+			staticKeys[config.Key] = struct{}{}
 		}
 	}
 
@@ -290,21 +283,10 @@ func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client,
 			return false, err
 		}
 
-		serverManifest.Env = slices.Clone(serverManifest.Env)
-		for i, env := range serverManifest.Env {
+		serverManifest.Config = slices.Clone(serverManifest.Config)
+		for i, env := range serverManifest.Config {
 			if _, ok := staticKeys[env.Key]; ok && env.Value == "" {
-				serverManifest.Env[i].Value = credential.Secrets[env.Key]
-			}
-		}
-
-		if serverManifest.RemoteConfig != nil {
-			remoteConfig := *serverManifest.RemoteConfig
-			remoteConfig.Headers = slices.Clone(remoteConfig.Headers)
-			serverManifest.RemoteConfig = &remoteConfig
-			for i, header := range serverManifest.RemoteConfig.Headers {
-				if _, ok := staticKeys[header.Key]; ok && header.Value == "" {
-					serverManifest.RemoteConfig.Headers[i].Value = credential.Secrets[header.Key]
-				}
+				serverManifest.Config[i].Value = credential.Secrets[env.Key]
 			}
 		}
 	}
@@ -333,11 +315,7 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
 	case types.RuntimeComposite:
-		var err error
-		drifted, err = compositeConfigHasDrifted(serverManifest.CompositeConfig, entryManifest.CompositeConfig, defaultDenyAllEgress)
-		if err != nil {
-			return false, err
-		}
+		return true, nil
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -346,16 +324,12 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		return true, nil
 	}
 
-	// Check multi-user configuration
-	if multiUserConfigHasDrifted(serverManifest.MultiUserConfig, entryManifest.MultiUserConfig) {
-		return true, nil
-	}
-
 	// Check environment. Secret binding selections are deployment configuration,
 	// not source catalog drift.
-	serverEnv := withoutAdminManagedSecretBoundEnvFields(serverManifest.Env, entryManifest.Env)
-	entryEnv := withoutAdminManagedSecretBoundEnvFields(entryManifest.Env, serverManifest.Env)
-	if fieldSlicesHaveDrifted(serverEnv, entryEnv, mcpEnvMatchesCatalog) {
+	entryEnv := entryManifest.Config
+	serverEnv := withoutAdminManagedSecretBoundConfigFields(serverManifest.Config, entryEnv)
+	entryEnv = withoutAdminManagedSecretBoundConfigFields(entryEnv, serverManifest.Config)
+	if fieldSlicesHaveDrifted(serverEnv, entryEnv, mcpConfigMatchesCatalog) {
 		return true, nil
 	}
 
@@ -370,16 +344,6 @@ func resourcesHasDrifted(serverResources, entryResources *types.MCPResourceRequi
 		return true
 	}
 	return !reflect.DeepEqual(serverResources, entryResources)
-}
-
-func multiUserConfigHasDrifted(serverConfig, entryConfig *types.MultiUserConfig) bool {
-	if serverConfig == nil && entryConfig == nil {
-		return false
-	}
-	if serverConfig == nil || entryConfig == nil {
-		return true
-	}
-	return fieldSlicesHaveDrifted(serverConfig.UserDefinedHeaders, entryConfig.UserDefinedHeaders, mcpHeaderMatchesCatalog)
 }
 
 // uvxConfigHasDrifted checks if UVX configuration has drifted
@@ -457,47 +421,23 @@ func remoteConfigHasDrifted(serverConfig *types.RemoteRuntimeConfig, entryConfig
 		}
 	}
 
-	// Check if headers have drifted
-	serverHeaders := withoutAdminManagedSecretBoundHeaderFields(serverConfig.Headers, entryConfig.Headers)
-	entryHeaders := withoutAdminManagedSecretBoundHeaderFields(entryConfig.Headers, serverConfig.Headers)
-	return fieldSlicesHaveDrifted(serverHeaders, entryHeaders, mcpHeaderMatchesCatalog)
+	return false
 }
 
-// withoutAdminManagedSecretBoundEnvFields removes env fields that exist only on
+// withoutAdminManagedSecretBoundConfigFields removes env fields that exist only on
 // serverFields because an admin selected a deployment-level secret binding.
 // Catalog-owned fields are kept so pinned catalog bindings still participate in
 // drift detection.
-func withoutAdminManagedSecretBoundEnvFields(serverFields, entryFields []types.MCPEnv) []types.MCPEnv {
+func withoutAdminManagedSecretBoundConfigFields(serverFields, entryFields []types.MCPConfig) []types.MCPConfig {
 	entryKeys := make(map[string]struct{}, len(entryFields))
 	for _, field := range entryFields {
 		entryKeys[field.Key] = struct{}{}
 	}
 
-	result := make([]types.MCPEnv, 0, len(serverFields))
+	result := make([]types.MCPConfig, 0, len(serverFields))
 	for _, field := range serverFields {
 		_, entryHasField := entryKeys[field.Key]
-		if !entryHasField && adminAddedSecretBinding(field.SecretBinding) {
-			continue
-		}
-		result = append(result, field)
-	}
-	return result
-}
-
-// withoutAdminManagedSecretBoundHeaderFields removes header fields that exist
-// only on serverFields because an admin selected a deployment-level secret
-// binding. Catalog-owned fields are kept so pinned catalog bindings still
-// participate in drift detection.
-func withoutAdminManagedSecretBoundHeaderFields(serverFields, entryFields []types.MCPHeader) []types.MCPHeader {
-	entryKeys := make(map[string]struct{}, len(entryFields))
-	for _, field := range entryFields {
-		entryKeys[field.Key] = struct{}{}
-	}
-
-	result := make([]types.MCPHeader, 0, len(serverFields))
-	for _, field := range serverFields {
-		_, entryHasField := entryKeys[field.Key]
-		if !entryHasField && adminAddedSecretBinding(field.SecretBinding) {
+		if !entryHasField && (field.UserAllowed || adminAddedSecretBinding(field.SecretBinding)) {
 			continue
 		}
 		result = append(result, field)
@@ -529,7 +469,10 @@ func fieldSlicesHaveDrifted[T any](serverFields, entryFields []T, matches func(T
 	return false
 }
 
-func mcpEnvMatchesCatalog(serverField, entryField types.MCPEnv) bool {
+func mcpConfigMatchesCatalog(serverField, entryField types.MCPConfig) bool {
+	// Per-user access is deployment policy, not catalog schema drift.
+	serverField.UserAllowed = false
+	entryField.UserAllowed = false
 	if oneSidedAdminAddedSecretBinding(serverField.SecretBinding, entryField.SecretBinding) {
 		serverField.SecretBinding = nil
 		serverField.Value = entryField.Value
@@ -539,18 +482,6 @@ func mcpEnvMatchesCatalog(serverField, entryField types.MCPEnv) bool {
 		entryField.Value = serverField.Value
 	}
 
-	return reflect.DeepEqual(serverField, entryField)
-}
-
-func mcpHeaderMatchesCatalog(serverField, entryField types.MCPHeader) bool {
-	if oneSidedAdminAddedSecretBinding(serverField.SecretBinding, entryField.SecretBinding) {
-		serverField.SecretBinding = nil
-		serverField.Value = entryField.Value
-	}
-	if oneSidedAdminAddedSecretBinding(entryField.SecretBinding, serverField.SecretBinding) {
-		entryField.SecretBinding = nil
-		entryField.Value = serverField.Value
-	}
 	return reflect.DeepEqual(serverField, entryField)
 }
 
@@ -562,53 +493,6 @@ func oneSidedAdminAddedSecretBinding(left, right *types.MCPSecretBinding) bool {
 
 func adminAddedSecretBinding(binding *types.MCPSecretBinding) bool {
 	return binding != nil && binding.AdminAdded
-}
-
-// compositeConfigHasDrifted checks if the composite configuration has drifted
-func compositeConfigHasDrifted(serverConfig *types.CompositeRuntimeConfig, entryConfig *types.CompositeCatalogConfig, defaultDenyAllEgress bool) (bool, error) {
-	if serverConfig == nil && entryConfig == nil {
-		return false, nil
-	}
-	if serverConfig == nil || entryConfig == nil {
-		return true, nil
-	}
-
-	// Fast length check
-	if len(serverConfig.ComponentServers) != len(entryConfig.ComponentServers) {
-		return true, nil
-	}
-
-	entryComponents := make(map[string]types.CatalogComponentServer, len(entryConfig.ComponentServers))
-	for _, entryComponent := range entryConfig.ComponentServers {
-		if id := entryComponent.ComponentID(); id != "" {
-			entryComponents[id] = entryComponent
-		}
-	}
-
-	for _, serverComponent := range serverConfig.ComponentServers {
-		entryComponent, ok := entryComponents[serverComponent.ComponentID()]
-		if !ok {
-			return true, nil
-		}
-
-		// Compare tool prefix
-		if serverComponent.ToolPrefix != entryComponent.ToolPrefix {
-			return true, nil
-		}
-
-		// Compare tool overrides
-		if utils.Digest(serverComponent.ToolOverrides) != utils.Digest(entryComponent.ToolOverrides) {
-			return true, nil
-		}
-
-		// Compare manifests
-		drifted, err := configurationHasDrifted(serverComponent.Manifest, entryComponent.Manifest, defaultDenyAllEgress)
-		if err != nil || drifted {
-			return drifted, err
-		}
-	}
-
-	return false, nil
 }
 
 // EnsureMCPServerInstanceUserCount ensures that mcp server instance user count for multi-user MCP servers is up to date.
@@ -818,7 +702,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 						MCPServerName:        component.MCPServerID,
 						MCPCatalogName:       multiUserServer.Spec.MCPCatalogID,
 						PowerUserWorkspaceID: multiUserServer.Spec.PowerUserWorkspaceID,
-						MultiUserConfig:      multiUserServer.Spec.Manifest.MultiUserConfig,
+						Config:               multiUserServer.Spec.Manifest.UserConfig(),
 						UserID:               compositeServer.Spec.UserID,
 						CompositeName:        compositeServer.Name,
 					},
@@ -833,8 +717,8 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 					return fmt.Errorf("failed to get multi-user server %s: %w", component.MCPServerID, err)
 				}
 
-				if utils.Digest(existingInstance.Spec.MultiUserConfig) != utils.Digest(multiUserServer.Spec.Manifest.MultiUserConfig) {
-					existingInstance.Spec.MultiUserConfig = multiUserServer.Spec.Manifest.MultiUserConfig
+				if utils.Digest(existingInstance.Spec.Config) != utils.Digest(multiUserServer.Spec.Manifest.UserConfig()) {
+					existingInstance.Spec.Config = multiUserServer.Spec.Manifest.UserConfig()
 					if err := req.Client.Update(req.Ctx, &existingInstance); err != nil {
 						return fmt.Errorf("failed to update instance for multi-user component: %w", err)
 					}

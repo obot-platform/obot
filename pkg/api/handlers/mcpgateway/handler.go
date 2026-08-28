@@ -478,7 +478,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 	// obot-mcp-server where all env vars have static values.
 	credEnv := make(map[string]string)
 	var needsCredentials bool
-	for _, env := range systemServer.Spec.Manifest.Env {
+	for _, env := range systemServer.Spec.Manifest.Config {
 		if env.Value == "" {
 			needsCredentials = true
 			break
@@ -503,7 +503,7 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 		}
 	}
 
-	credEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)
+	credEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Config, credEnv, h.secretBindingAllowedLabel)
 	if err != nil {
 		return mcp.ServerConfig{}, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}

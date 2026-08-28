@@ -21,16 +21,14 @@ type MissingSecretBinding struct {
 	Binding *types.MCPSecretBinding
 }
 
-// MergeBoundCreds resolves every secretBinding referenced by envs and (for
-// remote runtime) remoteConfig.Headers from the obot namespace and returns a
+// MergeBoundCreds resolves every secretBinding referenced by config
+// from the obot namespace and returns a
 // NEW map containing credEnv merged with the resolved values:
 //
 //   - env bindings → out[env.Key] = <secret value>
 //   - header bindings → out[header.Key] = <secret value>
 //
-// Pass `manifest.Env, manifest.RemoteConfig` from any of MCPServerManifest,
-// SystemMCPServerManifest, or a synthesized shape — they share the same
-// MCPEnv / RemoteRuntimeConfig field types.
+// Pass manifest.Config from a server or catalog-entry manifest.
 //
 // Bound values overwrite any pre-existing credEnv entry for the same key.
 // The validator rejects the bound-and-literal combination at write-time, so
@@ -58,13 +56,12 @@ func MergeBoundCreds(
 	ctx context.Context,
 	c kclient.Client,
 	obotNamespace string,
-	envs []types.MCPEnv,
-	remoteConfig *types.RemoteRuntimeConfig,
+	config []types.MCPConfig,
 	credEnv map[string]string,
 	allowedLabel string,
 ) (map[string]string, error) {
 	// Fast path: no bindings → nothing to merge, return credEnv as-is.
-	if !hasAnyBinding(envs, remoteConfig) {
+	if !hasAnyBinding(config) {
 		return credEnv, nil
 	}
 
@@ -77,16 +74,9 @@ func MergeBoundCreds(
 		// bound keys so the downstream missing-required gate fires
 		// uniformly. The API validator rejects bindings on the docker
 		// backend, but be defensive.
-		for _, e := range envs {
+		for _, e := range config {
 			if e.SecretBinding != nil {
 				delete(merged, e.Key)
-			}
-		}
-		if remoteConfig != nil {
-			for _, h := range remoteConfig.Headers {
-				if h.SecretBinding != nil {
-					delete(merged, h.Key)
-				}
 			}
 		}
 		return merged, nil
@@ -128,7 +118,7 @@ func MergeBoundCreds(
 		return string(v), true, nil
 	}
 
-	for _, env := range envs {
+	for _, env := range config {
 		if env.SecretBinding == nil {
 			continue
 		}
@@ -149,72 +139,29 @@ func MergeBoundCreds(
 		merged[env.Key] = val
 	}
 
-	if remoteConfig != nil {
-		for _, h := range remoteConfig.Headers {
-			if h.SecretBinding == nil {
-				continue
-			}
-			delete(merged, h.Key)
-
-			val, ok, err := lookup(h.SecretBinding)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				continue
-			}
-			merged[h.Key] = val
-		}
-	}
-
 	return merged, nil
 }
 
-func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) ([]MissingSecretBinding, error) {
-	hasBinding := false
-	for _, env := range envs {
-		if env.SecretBinding != nil {
-			hasBinding = true
-			break
-		}
-	}
-	if !hasBinding && remoteConfig != nil {
-		for _, header := range remoteConfig.Headers {
-			if header.SecretBinding != nil {
-				hasBinding = true
-				break
-			}
-		}
-	}
-	if !hasBinding {
+func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace string, config []types.MCPConfig, allowedLabel string) ([]MissingSecretBinding, error) {
+	if !hasAnyBinding(config) {
 		return nil, nil
 	}
 	if c == nil {
 		return nil, fmt.Errorf("secret bindings require a Kubernetes client")
 	}
 
-	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, envs, remoteConfig, nil, allowedLabel)
+	resolved, err := MergeBoundCreds(ctx, c, obotNamespace, config, nil, allowedLabel)
 	if err != nil {
 		return nil, err
 	}
 
 	var missing []MissingSecretBinding
-	for _, env := range envs {
+	for _, env := range config {
 		if env.SecretBinding == nil {
 			continue
 		}
 		if _, ok := resolved[env.Key]; !ok {
-			missing = append(missing, MissingSecretBinding{Kind: "env", Header: env.MCPHeader, Binding: env.SecretBinding})
-		}
-	}
-	if remoteConfig != nil {
-		for _, header := range remoteConfig.Headers {
-			if header.SecretBinding == nil {
-				continue
-			}
-			if _, ok := resolved[header.Key]; !ok {
-				missing = append(missing, MissingSecretBinding{Kind: "header", Header: header, Binding: header.SecretBinding})
-			}
+			missing = append(missing, MissingSecretBinding{Kind: string(env.Usage), Header: env.ToHeader(), Binding: env.SecretBinding})
 		}
 	}
 	return missing, nil
@@ -222,8 +169,8 @@ func MissingSecretBindings(ctx context.Context, c kclient.Client, obotNamespace 
 
 // ValidateSecretBindingsAvailable verifies secret-bound config can be resolved
 // before creating/updating/launching a server that users cannot fix.
-func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig, allowedLabel string) error {
-	missing, err := MissingSecretBindings(ctx, c, obotNamespace, envs, remoteConfig, allowedLabel)
+func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obotNamespace string, config []types.MCPConfig, allowedLabel string) error {
+	missing, err := MissingSecretBindings(ctx, c, obotNamespace, config, allowedLabel)
 	if err != nil {
 		return err
 	}
@@ -237,17 +184,10 @@ func ValidateSecretBindingsAvailable(ctx context.Context, c kclient.Client, obot
 	return nil
 }
 
-func hasAnyBinding(envs []types.MCPEnv, remoteConfig *types.RemoteRuntimeConfig) bool {
-	for _, e := range envs {
+func hasAnyBinding(config []types.MCPConfig) bool {
+	for _, e := range config {
 		if e.SecretBinding != nil {
 			return true
-		}
-	}
-	if remoteConfig != nil {
-		for _, h := range remoteConfig.Headers {
-			if h.SecretBinding != nil {
-				return true
-			}
 		}
 	}
 	return false

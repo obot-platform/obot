@@ -12,7 +12,7 @@ import (
 )
 
 // ValidateCatalogEntryTunnelReferences verifies every tunnel reference in a
-// catalog manifest, including remote components embedded in a composite.
+// catalog manifest.
 func ValidateCatalogEntryTunnelReferences(ctx context.Context, client kclient.Client, manifest types.MCPServerCatalogEntryManifest) error {
 	switch manifest.Runtime {
 	case types.RuntimeRemote:
@@ -31,15 +31,6 @@ func ValidateCatalogEntryTunnelReferences(ctx context.Context, client kclient.Cl
 			return fmt.Errorf("remoteConfig.tunnelName requires a fixedURL or hostname")
 		}
 		return ValidateReference(ctx, client, manifest.RemoteConfig.TunnelName, target)
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return nil
-		}
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := ValidateCatalogEntryTunnelReferences(ctx, client, component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d]: %w", i, err)
-			}
-		}
 	}
 	return nil
 }

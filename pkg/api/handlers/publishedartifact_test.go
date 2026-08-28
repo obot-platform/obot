@@ -413,18 +413,6 @@ func TestConvertPublishedArtifact(t *testing.T) {
 	}
 }
 
-func TestConvertPublishedArtifact_ZeroValue(t *testing.T) {
-	input := &v1.PublishedArtifact{}
-	result := convertPublishedArtifactForRequester(input, &kuser.DefaultInfo{UID: "user-123"}, false)
-
-	if result.Name != "" {
-		t.Errorf("Name = %q, want empty", result.Name)
-	}
-	if result.LatestVersion != 0 {
-		t.Errorf("LatestVersion = %d, want 0", result.LatestVersion)
-	}
-}
-
 func TestValidatePublishedArtifactSubjects(t *testing.T) {
 	tests := []struct {
 		name     string

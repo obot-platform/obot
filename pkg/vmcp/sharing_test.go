@@ -1,15 +1,16 @@
 package vmcp
 
 import (
-	"github.com/obot-platform/obot/apiclient/types"
 	"testing"
+
+	"github.com/obot-platform/obot/apiclient/types"
 )
 
 func TestIsMultiUser(t *testing.T) {
 	manifest := types.VMCPManifest{Components: []types.VMCPComponent{{
 		Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}},
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "TOKEN"}}},
+			Config: []types.MCPConfig{{Key: "TOKEN", Usage: types.Header}},
 		}},
 	}}}
 	if !IsMultiUser(manifest) {
@@ -24,11 +25,11 @@ func TestIsMultiUser(t *testing.T) {
 		t.Fatal("forceSingleUser ignored")
 	}
 	manifest.ForceSingleUser = false
-	manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = nil
+	manifest.Components[0].CatalogEntry.Manifest.Config = nil
 	if IsMultiUser(manifest) {
 		t.Fatal("unknown user input must not share")
 	}
-	manifest.Components[0].CatalogEntry.Manifest.Env = []types.MCPEnv{{Key: "TOKEN"}}
+	manifest.Components[0].CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: types.Env}}
 	if IsMultiUser(manifest) {
 		t.Fatal("user environment input must not share")
 	}

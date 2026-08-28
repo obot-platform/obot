@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -36,48 +35,29 @@ func SanitizeName(name string) string {
 // NormalizeManifest applies the same compatibility normalization used when
 // Obot imports a catalog source.
 func NormalizeManifest(entry *types.MCPServerCatalogEntryManifest) {
-	normalizeEnv(entry.Env)
-	normalizeRemoteConfig(entry.Runtime, entry.RemoteConfig)
-	normalizeServerUserType(&entry.ServerUserType)
+	normalizeConfig(entry.Config)
 }
 
 // NormalizeSystemManifest applies the same compatibility normalization used
 // when Obot imports a system catalog source.
 func NormalizeSystemManifest(entry *types.SystemMCPServerCatalogEntryManifest) {
-	normalizeEnv(entry.Env)
-	normalizeRemoteConfig(entry.Runtime, entry.RemoteConfig)
-	normalizeServerUserType(&entry.ServerUserType)
+	normalizeConfig(entry.Config)
 }
 
-func normalizeEnv(envs []types.MCPEnv) {
-	for i, env := range envs {
-		if env.Key == "" {
-			env.Key = env.Name
+func normalizeConfig(configs []types.MCPConfig) {
+	for i, config := range configs {
+		if config.Key == "" {
+			config.Key = config.Name
 		}
-		if filepath.Ext(env.Key) != "" {
-			env.Key = strings.ReplaceAll(env.Key, ".", "_")
-			env.File = true
-		}
-		env.Key = strings.ReplaceAll(strings.ToUpper(env.Key), "-", "_")
-		envs[i] = env
-	}
-}
-
-func normalizeRemoteConfig(runtime types.Runtime, remoteConfig *types.RemoteCatalogConfig) {
-	if runtime == types.RuntimeRemote && remoteConfig != nil {
-		for i, header := range remoteConfig.Headers {
-			if header.Key == "" {
-				header.Key = header.Name
+		if config.Usage == types.Header {
+			config.Key = strings.ReplaceAll(strings.ToUpper(config.Key), "_", "-")
+		} else {
+			if config.Usage == types.File || config.Usage == types.DynamicFile {
+				config.Key = strings.ReplaceAll(config.Key, ".", "_")
 			}
-			header.Key = strings.ReplaceAll(strings.ToUpper(header.Key), "_", "-")
-			remoteConfig.Headers[i] = header
+			config.Key = strings.ReplaceAll(strings.ToUpper(config.Key), "-", "_")
 		}
-	}
-}
-
-func normalizeServerUserType(serverUserType *types.ServerUserType) {
-	if *serverUserType == "" {
-		*serverUserType = types.ServerUserTypeSingleUser
+		configs[i] = config
 	}
 }
 

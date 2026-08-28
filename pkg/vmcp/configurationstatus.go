@@ -15,7 +15,7 @@ func MissingRequiredConfiguration(component types.VMCPComponent, values map[stri
 		policies[policy.Key] = policy.Policy
 	}
 	var missing []string
-	check := func(item types.MCPHeader) {
+	check := func(item types.MCPConfig) {
 		if !item.Required || item.Value != "" || item.SecretBinding != nil {
 			return
 		}
@@ -28,13 +28,8 @@ func MissingRequiredConfiguration(component types.VMCPComponent, values map[stri
 			missing = append(missing, key)
 		}
 	}
-	for _, env := range component.CatalogEntry.Manifest.Env {
-		check(env.MCPHeader)
-	}
-	if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil {
-		for _, header := range remote.Headers {
-			check(header)
-		}
+	for _, config := range component.CatalogEntry.Manifest.Config {
+		check(config)
 	}
 	slices.Sort(missing)
 	return slices.Compact(missing)

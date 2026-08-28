@@ -138,7 +138,7 @@ func IsSystemServerConfigured(ctx context.Context, gatewayClient *gateway.Client
 		return false
 	}
 
-	for _, env := range server.Spec.Manifest.Env {
+	for _, env := range server.Spec.Manifest.Config {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			slog.Info("System MCP server missing required env var",
 				"server", server.Name, "envVar", env.Key)

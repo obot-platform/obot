@@ -87,30 +87,33 @@ npxConfig:
 
 func TestNormalizeManifest(t *testing.T) {
 	entry := types.MCPServerCatalogEntryManifest{
-		Runtime:      types.RuntimeRemote,
-		Env:          []types.MCPEnv{{Name: "config-file.json"}},
-		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Name: "api_key"}}},
+		Runtime: types.RuntimeRemote,
+		Config: []types.MCPConfig{
+			{Name: "config-file.json", Usage: types.File},
+			{Name: "api_key", Usage: types.Header},
+		},
 	}
 
 	NormalizeManifest(&entry)
 
-	require.Equal(t, types.ServerUserTypeSingleUser, entry.ServerUserType)
-	require.Equal(t, "CONFIG_FILE_JSON", entry.Env[0].Key)
-	require.True(t, entry.Env[0].File)
-	require.Equal(t, "API-KEY", entry.RemoteConfig.Headers[0].Key)
+	require.Equal(t, "CONFIG_FILE_JSON", entry.Config[0].Key)
+	require.Equal(t, "API-KEY", entry.Config[1].Key)
 }
 
 func TestNormalizeSystemManifest(t *testing.T) {
 	entry := types.SystemMCPServerCatalogEntryManifest{
-		Runtime:      types.RuntimeRemote,
-		Env:          []types.MCPEnv{{Name: "config-file.json"}},
-		RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Name: "api_key"}}},
+		Runtime: types.RuntimeRemote,
+		Config: []types.MCPConfig{
+			{Name: "config-file.json", Usage: types.File},
+			{Name: "api_key", Usage: types.Header},
+		},
+		RemoteConfig: &types.RemoteCatalogConfig{},
 	}
 
 	NormalizeSystemManifest(&entry)
 
-	require.Equal(t, types.ServerUserTypeSingleUser, entry.ServerUserType)
-	require.Equal(t, "CONFIG_FILE_JSON", entry.Env[0].Key)
-	require.True(t, entry.Env[0].File)
-	require.Equal(t, "API-KEY", entry.RemoteConfig.Headers[0].Key)
+	require.Equal(t, "CONFIG_FILE_JSON", entry.Config[0].Key)
+	require.Equal(t, types.File, entry.Config[0].Usage)
+	require.Equal(t, "API-KEY", entry.Config[1].Key)
+	require.Equal(t, types.Header, entry.Config[1].Usage)
 }

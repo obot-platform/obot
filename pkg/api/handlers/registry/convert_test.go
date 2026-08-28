@@ -137,7 +137,6 @@ func registryTestCatalogEntry(remoteConfig types.RemoteCatalogConfig) v1.MCPServ
 					FixedURL:            remoteConfig.FixedURL,
 					Hostname:            remoteConfig.Hostname,
 					URLTemplate:         remoteConfig.URLTemplate,
-					Headers:             remoteConfig.Headers,
 					StaticOAuthRequired: remoteConfig.StaticOAuthRequired,
 				},
 			},

@@ -326,27 +326,28 @@ func TestDeleteToolReferenceOwnedModels(t *testing.T) {
 
 func TestExtractAndClearMCPServerConfigValues(t *testing.T) {
 	manifest := types.MCPServerManifest{
-		Env: []types.MCPEnv{
+		Config: []types.MCPConfig{
 			{
+				Usage: types.Env,
 				Key:   "TOKEN",
 				Value: "secret-token",
 			},
 			{
-				Key: "EMPTY",
+				Usage: types.Env,
+				Key:   "EMPTY",
 			},
 			{
+				Usage: types.Env,
 				Value: "missing-key",
 			},
-		},
-		RemoteConfig: &types.RemoteRuntimeConfig{
-			Headers: []types.MCPHeader{
-				{
-					Key:   "Authorization",
-					Value: "Bearer secret",
-				},
-				{
-					Key: "X-Empty",
-				},
+			{
+				Usage: types.Header,
+				Key:   "Authorization",
+				Value: "Bearer secret",
+			},
+			{
+				Usage: types.Header,
+				Key:   "X-Empty",
 			},
 		},
 	}
@@ -358,18 +359,17 @@ func TestExtractAndClearMCPServerConfigValues(t *testing.T) {
 		"TOKEN":         "secret-token",
 		"Authorization": "Bearer secret",
 	}, values)
-	assert.Empty(t, manifest.Env[0].Value)
-	assert.Empty(t, manifest.Env[1].Value)
-	assert.Empty(t, manifest.Env[2].Value)
-	assert.Empty(t, manifest.RemoteConfig.Headers[0].Value)
-	assert.Empty(t, manifest.RemoteConfig.Headers[1].Value)
+	for _, field := range manifest.Config {
+		assert.Empty(t, field.Value)
+	}
 }
 
 func TestExtractAndClearMCPServerConfigValuesNoValues(t *testing.T) {
 	manifest := types.MCPServerManifest{
-		Env: []types.MCPEnv{
+		Config: []types.MCPConfig{
 			{
-				Key: "TOKEN",
+				Usage: types.Env,
+				Key:   "TOKEN",
 			},
 		},
 	}

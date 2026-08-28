@@ -299,10 +299,14 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 						Name: "one",
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
-								Name:        "cached-npx",
-								Runtime:     types.RuntimeNPX,
-								NPXConfig:   &types.NPXRuntimeConfig{Package: "cached-package"},
-								Env:         []types.MCPEnv{{Key: "TOKEN", Required: true}},
+								Name:      "cached-npx",
+								Runtime:   types.RuntimeNPX,
+								NPXConfig: &types.NPXRuntimeConfig{Package: "cached-package"},
+								Config: []types.MCPConfig{{
+									Key:      "TOKEN",
+									Required: true,
+									Usage:    types.Env,
+								}},
 								Description: "cached description",
 							},
 							UnsupportedTools: []string{"broken-tool"},
@@ -379,8 +383,8 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 	if npxServer.Spec.Manifest.Name != "cached-npx" || npxServer.Spec.Manifest.NPXConfig == nil || npxServer.Spec.Manifest.NPXConfig.Package != "cached-package" {
 		t.Fatalf("NPX server was not created from cached catalog configuration: %#v", npxServer.Spec.Manifest)
 	}
-	if len(npxServer.Spec.Manifest.Env) != 1 || npxServer.Spec.Manifest.Env[0].Key != "TOKEN" {
-		t.Fatalf("NPX server did not retain cached environment schema: %#v", npxServer.Spec.Manifest.Env)
+	if len(npxServer.Spec.Manifest.Config) != 1 || npxServer.Spec.Manifest.Config[0].Key != "TOKEN" {
+		t.Fatalf("NPX server did not retain cached environment schema: %#v", npxServer.Spec.Manifest.Config)
 	}
 	if len(npxServer.Spec.UnsupportedTools) != 1 || npxServer.Spec.UnsupportedTools[0] != "broken-tool" {
 		t.Fatalf("NPX server did not retain cached unsupported tools: %#v", npxServer.Spec.UnsupportedTools)

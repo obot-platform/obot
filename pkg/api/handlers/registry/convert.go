@@ -206,14 +206,9 @@ func ConvertMCPServerCatalogEntryToRegistry(
 func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 	manifest := entry.Spec.Manifest
 
-	// Composite servers always require configuration in the UI before they can be used.
-	if manifest.Runtime == obottypes.RuntimeComposite {
-		return true
-	}
-
-	for _, env := range manifest.Env {
+	for _, env := range manifest.Config {
 		// Required env values without a secret binding must be configured
-		if env.Required && env.SecretBinding == nil {
+		if env.Required && env.Value == "" && env.SecretBinding == nil {
 			return true
 		}
 	}
@@ -226,12 +221,6 @@ func catalogEntryRequiresConfiguration(entry v1.MCPServerCatalogEntry) bool {
 		// Without a fixed URL, the user must supply a connection URL.
 		if manifest.RemoteConfig.FixedURL == "" {
 			return true
-		}
-
-		for _, header := range manifest.RemoteConfig.Headers {
-			if header.Required && header.Value == "" && header.SecretBinding == nil {
-				return true
-			}
 		}
 	}
 

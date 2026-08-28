@@ -14,24 +14,24 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteHeaders(t *testing.T) {
+func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteConfig(t *testing.T) {
 	manifest := &types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
 		RemoteConfig: &types.RemoteCatalogConfig{
 			URLTemplate: "https://${EXISTING}.example.com/${DETECTED}",
-			Headers: []types.MCPHeader{{
-				Name: "Existing", Key: "EXISTING", Required: true,
-			}},
 		},
+		Config: []types.MCPConfig{{
+			Name: "Existing", Key: "EXISTING", Required: true,
+			Usage: types.Header,
+		}},
 	}
 
 	addExtractedEnvVarsToCatalogEntryManifest(manifest)
 
-	require.Empty(t, manifest.Env)
-	require.ElementsMatch(t, []types.MCPHeader{
-		{Name: "Existing", Key: "EXISTING", Required: true},
-		{Name: "DETECTED", Key: "DETECTED", Description: "Automatically detected variable", Required: true},
-	}, manifest.RemoteConfig.Headers)
+	require.ElementsMatch(t, []types.MCPConfig{
+		{Name: "Existing", Key: "EXISTING", Required: true, Usage: types.Header},
+		{Name: "DETECTED", Key: "DETECTED", Description: "Automatically detected variable", Required: true, Usage: types.Header},
+	}, manifest.Config)
 }
 
 func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *testing.T) {
@@ -45,8 +45,7 @@ func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *te
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
-				ServerUserType: types.ServerUserTypeSingleUser,
-				Runtime:        types.RuntimeRemote,
+				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteCatalogConfig{
 					Hostname: "api.example.com",
 				},
@@ -95,9 +94,8 @@ func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *
 		Name: entryID, Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			Manifest: types.MCPServerCatalogEntryManifest{
-				ServerUserType: types.ServerUserTypeSingleUser,
-				Runtime:        types.RuntimeNPX,
-				NPXConfig:      &types.NPXRuntimeConfig{Package: "example"},
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example"},
 				Resources: &types.MCPResourceRequirements{
 					Requests: types.MCPResourceRequests{CPU: "1"},
 				},

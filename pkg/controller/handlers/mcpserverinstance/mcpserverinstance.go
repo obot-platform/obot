@@ -50,8 +50,8 @@ func (h *Handler) UpdateMultiUserConfig(req router.Request, _ router.Response) e
 	}
 
 	if !server.Spec.IsSingleUser() {
-		if !equality.Semantic.DeepEqual(instance.Spec.MultiUserConfig, server.Spec.Manifest.MultiUserConfig) {
-			instance.Spec.MultiUserConfig = server.Spec.Manifest.MultiUserConfig
+		if !equality.Semantic.DeepEqual(instance.Spec.Config, server.Spec.Manifest.UserConfig()) {
+			instance.Spec.Config = server.Spec.Manifest.UserConfig()
 			return req.Client.Update(req.Ctx, instance)
 		}
 	}

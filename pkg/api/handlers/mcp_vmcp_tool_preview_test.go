@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -235,10 +234,20 @@ func vmcpToolPreviewTestObject(name string) *v1.VMCP {
 					RemoteConfig: &types.RemoteCatalogConfig{
 						FixedURL: url,
 					},
-					Env: []types.MCPEnv{
-						{MCPHeader: types.MCPHeader{Key: "TOKEN", Required: true}},
-						{MCPHeader: types.MCPHeader{Key: "USER"}},
-						{MCPHeader: types.MCPHeader{Key: "DENIED"}},
+					Config: []types.MCPConfig{
+						{
+							Key:      "TOKEN",
+							Required: true,
+							Usage:    types.Env,
+						},
+						{
+							Key:   "USER",
+							Usage: types.Env,
+						},
+						{
+							Key:   "DENIED",
+							Usage: types.Env,
+						},
 					},
 				},
 			},
@@ -251,7 +260,7 @@ func vmcpToolPreviewTestObject(name string) *v1.VMCP {
 	}
 
 	return &v1.VMCP{
-		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace},
+		Name: name, Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName: "Snapshot preview vMCP",

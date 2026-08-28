@@ -125,17 +125,21 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 				Port:  8099,
 				Path:  "/mcp",
 			},
-			Env: []types.MCPEnv{
-				{
-					Key: "WEBHOOK_URL", Value: webhookValidation.Spec.Manifest.URL,
-				},
-				{
-					Key: "WEBHOOK_SECRET", Sensitive: true,
-				},
-				{
-					Key: "PORT", Value: "8099",
-				},
+			Config: []types.MCPConfig{{
+				Key:   "WEBHOOK_URL",
+				Value: webhookValidation.Spec.Manifest.URL,
+				Usage: types.Env,
 			},
+				{
+					Key:       "WEBHOOK_SECRET",
+					Sensitive: true,
+					Usage:     types.Env,
+				},
+				{
+					Key:   "PORT",
+					Value: "8099",
+					Usage: types.Env,
+				}},
 		}
 	}
 

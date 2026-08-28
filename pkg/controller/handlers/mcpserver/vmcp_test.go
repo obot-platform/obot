@@ -239,7 +239,7 @@ func TestSyncVMCPSharedConfiguration(t *testing.T) {
 	component := types.VMCPComponent{
 		ID: "one",
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "HEADER"}}},
+			Config: []types.MCPConfig{{Key: "HEADER", Usage: types.Header}},
 		}},
 		Configuration: []types.VMCPConfigurationPolicy{
 			{Key: "STATIC", Policy: types.VMCPConfigurationPolicyFixed},

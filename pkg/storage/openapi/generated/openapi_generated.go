@@ -185,6 +185,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalog":                                schema_obot_platform_obot_apiclient_types_MCPCatalog(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogList":                            schema_obot_platform_obot_apiclient_types_MCPCatalogList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPCatalogManifest":                        schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPConfig":                                 schema_obot_platform_obot_apiclient_types_MCPConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption":                    schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPEnv":                                    schema_obot_platform_obot_apiclient_types_MCPEnv(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPHeader":                                 schema_obot_platform_obot_apiclient_types_MCPHeader(ref),
@@ -9837,6 +9838,105 @@ func schema_obot_platform_obot_apiclient_types_MCPCatalogManifest(ref common.Ref
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"userAllowed": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserAllowed marks per-user inputs on a deployed server rather than server-owned configuration.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For static config",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"sensitive": {
+						SchemaProps: spec.SchemaProps{
+							Description: "For user-supplied config",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"required": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"prefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"options": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Options constrains user-supplied values to selections owned by a Git-managed catalog entry.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption"),
+									},
+								},
+							},
+						},
+					},
+					"secretBinding": {
+						SchemaProps: spec.SchemaProps{
+							Description: "SecretBinding binds this value to a key in a pre-existing Kubernetes Secret",
+							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"),
+						},
+					},
+					"usage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Usage controls where the value is applied. All usages remain available for interpolation; Interpolated must not be injected into the environment.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"name", "description", "key", "value", "sensitive", "required", "usage"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPConfigurationOption", "github.com/obot-platform/obot/apiclient/types.MCPSecretBinding"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPConfigurationOption(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -9875,7 +9975,8 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "MCPEnv is retained only for legacy configuration migrations.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
@@ -9955,7 +10056,14 @@ func schema_obot_platform_obot_apiclient_types_MCPEnv(ref common.ReferenceCallba
 					},
 					"dynamicFile": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DynamicFile indicates that this file will be dynamically read by the process and that the server does not need to be restarted for changes to this file to be picked up. Ignored if File is false.",
+							Description: "DynamicFile is ignored unless File is true.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"interpolated": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Interpolated values are available to templates but not injected into the environment.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -10681,31 +10789,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
-					"compositeConfig": {
-						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig"),
-						},
-					},
-					"multiUserConfig": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MultiUserConfig is the multi-user specific configuration for this component server, if applicable.",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
-						},
-					},
-					"serverUserType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Valid values are \"singleUser\" and \"multiUser\". Some input paths normalize an empty value to \"singleUser\" for compatibility before validation.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"env": {
+					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPEnv"),
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
 									},
 								},
 							},
@@ -10721,7 +10811,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -10972,10 +11062,17 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 							Format:      "",
 						},
 					},
-					"multiUserConfig": {
+					"config": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MultiUserConfig is the multi-user configuration for this instance, which is copied from the MCP server's manifest. This will be nil if the MCP server does not have multi-user config.",
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+							Description: "Config contains the user-allowed configuration copied from the server.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -10983,7 +11080,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Metadata", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.Metadata"},
 	}
 }
 
@@ -11137,13 +11234,26 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 					},
 					"multiUserConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Multi-user specific configuration",
+							Description: "Deprecated: migrate per-user headers to Config with UserAllowed set.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
+									},
+								},
+							},
 						},
 					},
 					"env": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated: retained only to migrate stored server configuration to Config.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -11160,14 +11270,15 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 					},
 					"command": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Legacy fields that are deprecated, used only for cleaning up old servers",
+							Description: "Deprecated: retained only for migration of old servers.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"args": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated: retained only for migration of old servers.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -11180,13 +11291,15 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 					},
 					"url": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Deprecated: retained only for migration of old servers.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 					"headers": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Deprecated: retained only for migration of old servers.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -11207,7 +11320,7 @@ func schema_obot_platform_obot_apiclient_types_MCPServerManifest(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPHeader", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -14370,7 +14483,7 @@ func schema_obot_platform_obot_apiclient_types_MultiUserConfig(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "MultiUserConfig represents configuration for multi-user MCP servers in catalog entries",
+				Description: "MultiUserConfig is retained only for storage migrations.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"userDefinedHeaders": {
@@ -16073,22 +16186,9 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 							Format:      "",
 						},
 					},
-					"headers": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Required hostname for user URLs",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPHeader"),
-									},
-								},
-							},
-						},
-					},
 					"staticOAuthRequired": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
+							Description: "Required hostname for user URLs",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -16096,8 +16196,6 @@ func schema_obot_platform_obot_apiclient_types_RemoteCatalogConfig(ref common.Re
 				},
 			},
 		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPHeader"},
 	}
 }
 
@@ -16146,7 +16244,7 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 					},
 					"headers": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optional: Hostname constraint the URL conforms to",
+							Description: "Deprecated: retained only to migrate stored server configuration to Config.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -16159,9 +16257,8 @@ func schema_obot_platform_obot_apiclient_types_RemoteRuntimeConfig(ref common.Re
 					},
 					"staticOAuthRequired": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Optional",
-							Type:        []string{"boolean"},
-							Format:      "",
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 				},
@@ -17657,20 +17754,13 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManife
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig"),
 						},
 					},
-					"serverUserType": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ServerUserType specifies whether this catalog entry produces single-user or multi-user servers. Valid values are \"singleUser\" and \"multiUser\". Some input paths normalize an empty value to \"singleUser\" for compatibility before validation.",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"env": {
+					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPEnv"),
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
 									},
 								},
 							},
@@ -17686,7 +17776,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerCatalogEntryManife
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.FilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.FilterConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.MCPServerTool", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteCatalogConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -17801,9 +17891,22 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 							Ref: ref("github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig"),
 						},
 					},
-					"env": {
+					"config": {
 						SchemaProps: spec.SchemaProps{
 							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
+									},
+								},
+							},
+						},
+					},
+					"env": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Deprecated: retained only to migrate stored server configuration to Config.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -17823,7 +17926,7 @@ func schema_obot_platform_obot_apiclient_types_SystemMCPServerManifest(ref commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
+			"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MCPEnv", "github.com/obot-platform/obot/apiclient/types.MCPResourceRequirements", "github.com/obot-platform/obot/apiclient/types.NPXRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.RemoteRuntimeConfig", "github.com/obot-platform/obot/apiclient/types.UVXRuntimeConfig"},
 	}
 }
 
@@ -18719,7 +18822,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VMCPComponent is a snapshot of one catalog entry and the policy applied to it. Runtime resolution uses CatalogEntry rather than resolving the source live.",
+				Description: "VMCPComponent is a snapshot of one catalog entry and the policy applied to it. Runtime resolution uses CatalogEntry rather than resolving the source live. The API populates MCPCatalogID, CatalogEntry, and SourceDigest from the entry ID.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"id": {
@@ -23682,9 +23785,22 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 							Format:      "",
 						},
 					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Config is the user-allowed configuration required by this instance's server.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPConfig"),
+									},
+								},
+							},
+						},
+					},
 					"multiUserConfig": {
 						SchemaProps: spec.SchemaProps{
-							Description: "MultiUserConfig indicates the configuration required from the MCP server that this instance points to.",
+							Description: "Deprecated: retained only to migrate per-user headers to Config.",
 							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MultiUserConfig"),
 						},
 					},
@@ -23692,7 +23808,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
+			"github.com/obot-platform/obot/apiclient/types.MCPConfig", "github.com/obot-platform/obot/apiclient/types.MultiUserConfig"},
 	}
 }
 

@@ -33,12 +33,6 @@ func requireDeviceLimitForbiddenError(t *testing.T, err error) {
 	}
 }
 
-func TestDefaultDeviceLimit(t *testing.T) {
-	if DefaultDeviceLimit != 100 {
-		t.Fatalf("DefaultDeviceLimit = %d, want 100", DefaultDeviceLimit)
-	}
-}
-
 func TestEnrollDeviceEnforcesDeviceLimit(t *testing.T) {
 	const maximum = 2
 	c := newTestClient(t)

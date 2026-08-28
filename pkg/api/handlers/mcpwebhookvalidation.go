@@ -270,7 +270,7 @@ func convertMCPWebhookValidation(validation v1.MCPWebhookValidation, credEnv map
 
 	if manifest := validation.Spec.Manifest.SystemMCPServerManifest; manifest != nil {
 		result.Configured = true
-		for _, env := range manifest.Env {
+		for _, env := range manifest.Config {
 			if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 				result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 				result.Configured = false
@@ -487,8 +487,9 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 		UVXConfig:           entry.UVXConfig,
 		NPXConfig:           entry.NPXConfig,
 		ContainerizedConfig: entry.ContainerizedConfig,
-		Env:                 entry.Env,
-		Resources:           entry.Resources,
+
+		Resources: entry.Resources,
+		Config:    entry.Config,
 	}
 
 	if entry.RemoteConfig != nil {
@@ -497,7 +498,6 @@ func systemMCPServerManifestFromCatalogEntry(entry types.SystemMCPServerCatalogE
 			IsTemplate:          entry.RemoteConfig.URLTemplate != "",
 			URLTemplate:         entry.RemoteConfig.URLTemplate,
 			Hostname:            entry.RemoteConfig.Hostname,
-			Headers:             entry.RemoteConfig.Headers,
 			StaticOAuthRequired: entry.RemoteConfig.StaticOAuthRequired,
 		}
 	}
@@ -510,14 +510,14 @@ func applyRemoteURLTemplateToWebhookValidation(ctx context.Context, webhookValid
 	if manifest == nil {
 		return nil
 	}
-	if err := validateConfiguredOptions(manifest.Env, manifest.RemoteConfig, envVars); err != nil {
+	if err := validateConfiguredOptions(manifest.Config, envVars); err != nil {
 		return types.NewErrBadRequest("invalid configuration: %v", err)
 	}
 	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
 		return nil
 	}
 
-	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, manifest.Env, manifest.RemoteConfig.Headers, envVars)
+	finalURL, err := applyURLTemplate(manifest.RemoteConfig.URLTemplate, manifest.Config, envVars)
 	if err != nil {
 		if configErr, ok := errors.AsType[*urlTemplateConfigurationError](err); ok {
 			return types.NewErrBadRequest("invalid configuration: %v", configErr)

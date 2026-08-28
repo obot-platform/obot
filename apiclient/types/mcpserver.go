@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// Runtime constants for different MCP server execution environments
 const (
+	// Runtime constants for different MCP server execution environments
 	RuntimeUVX           Runtime = "uvx"
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
@@ -19,10 +19,9 @@ const (
 	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
 	defaultStartupTimeoutSeconds = 60
 
-	// ServerUserTypeSingleUser indicates each user gets their own MCP server instance.
+	// Retained for legacy MCP servers.
 	ServerUserTypeSingleUser ServerUserType = "singleUser"
-	// ServerUserTypeMultiUser indicates all users share a single MCP server.
-	ServerUserTypeMultiUser ServerUserType = "multiUser"
+	ServerUserTypeMultiUser  ServerUserType = "multiUser"
 )
 
 // Runtime represents the execution runtime type for MCP servers
@@ -65,26 +64,26 @@ type ContainerizedRuntimeConfig struct {
 
 // RemoteRuntimeConfig represents configuration for remote runtime (External MCP servers)
 type RemoteRuntimeConfig struct {
-	URL                 string      `json:"url"`                           // Required: Full URL to remote MCP server
-	TunnelName          string      `json:"tunnelName,omitempty"`          // Optional: MCPTunnel used to reach the remote MCP server
-	IsTemplate          bool        `json:"isTemplate"`                    // Optional: Whether the URL is a template
-	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
-	Hostname            string      `json:"hostname,omitempty"`            // Optional: Hostname constraint the URL conforms to
-	Headers             []MCPHeader `json:"headers,omitempty"`             // Optional
+	URL         string `json:"url"`                   // Required: Full URL to remote MCP server
+	TunnelName  string `json:"tunnelName,omitempty"`  // Optional: MCPTunnel used to reach the remote MCP server
+	IsTemplate  bool   `json:"isTemplate"`            // Optional: Whether the URL is a template
+	URLTemplate string `json:"urlTemplate,omitempty"` // URL template for user URLs
+	Hostname    string `json:"hostname,omitempty"`    // Optional: Hostname constraint the URL conforms to
+	// Deprecated: retained only to migrate stored server configuration to Config.
+	DeprecatedHeaders   []MCPHeader `json:"headers,omitempty"`
 	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth is required
 }
 
 // RemoteCatalogConfig represents template configuration for remote servers in catalog entries
 type RemoteCatalogConfig struct {
-	FixedURL            string      `json:"fixedURL,omitempty"`            // Fixed URL for all instances
-	TunnelName          string      `json:"tunnelName,omitempty"`          // Optional: MCPTunnel used to reach the remote MCP server
-	URLTemplate         string      `json:"urlTemplate,omitempty"`         // URL template for user URLs
-	Hostname            string      `json:"hostname,omitempty"`            // Required hostname for user URLs
-	Headers             []MCPHeader `json:"headers,omitempty"`             // Optional
-	StaticOAuthRequired bool        `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth configuration is required
+	FixedURL            string `json:"fixedURL,omitempty"`            // Fixed URL for all instances
+	TunnelName          string `json:"tunnelName,omitempty"`          // Optional: MCPTunnel used to reach the remote MCP server
+	URLTemplate         string `json:"urlTemplate,omitempty"`         // URL template for user URLs
+	Hostname            string `json:"hostname,omitempty"`            // Required hostname for user URLs
+	StaticOAuthRequired bool   `json:"staticOAuthRequired,omitempty"` // Indicates static OAuth configuration is required
 }
 
-// MultiUserConfig represents configuration for multi-user MCP servers in catalog entries
+// MultiUserConfig is retained only for storage migrations.
 type MultiUserConfig struct {
 	// Headers that users should provide when configuring their server instance.
 	UserDefinedHeaders []MCPHeader `json:"userDefinedHeaders,omitempty"`
@@ -160,6 +159,7 @@ type MCPServerCatalogEntryManifest struct {
 	Icon             string            `json:"icon"`
 	RepoURL          string            `json:"repoURL,omitempty"`
 	ToolPreview      []MCPServerTool   `json:"toolPreview,omitempty"`
+
 	// UpgradeNote is source-provided Markdown shown before applying catalog updates.
 	UpgradeNote string `json:"upgradeNote,omitempty"`
 
@@ -171,16 +171,8 @@ type MCPServerCatalogEntryManifest struct {
 	NPXConfig           *NPXRuntimeConfig           `json:"npxConfig,omitempty"`
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
-	CompositeConfig     *CompositeCatalogConfig     `json:"compositeConfig,omitempty"`
 
-	// MultiUserConfig is the multi-user specific configuration for this component server, if applicable.
-	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
-
-	// ServerUserType specifies whether this catalog entry produces single-user or multi-user servers.
-	// Valid values are "singleUser" and "multiUser". Some input paths normalize an empty value to "singleUser" for compatibility before validation.
-	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
-
-	Env []MCPEnv `json:"env,omitempty"`
+	Config []MCPConfig `json:"config,omitempty"`
 
 	Resources *MCPResourceRequirements `json:"resources,omitempty"`
 }
@@ -252,13 +244,123 @@ type MCPAllowedSecretBindingTarget struct {
 // MCPAllowedSecretBindingTargetList is a list of Kubernetes Secrets allowed for MCP secret bindings.
 type MCPAllowedSecretBindingTargetList List[MCPAllowedSecretBindingTarget]
 
+// MCPEnv is retained only for legacy configuration migrations.
 type MCPEnv struct {
 	MCPHeader `json:",inline"`
 	File      bool `json:"file"`
-	// DynamicFile indicates that this file will be dynamically read by the process and that the
-	// server does not need to be restarted for changes to this file to be picked up.
-	// Ignored if File is false.
+	// DynamicFile is ignored unless File is true.
 	DynamicFile bool `json:"dynamicFile,omitempty"`
+	// Interpolated values are available to templates but not injected into the environment.
+	Interpolated bool `json:"interpolated,omitempty"`
+}
+
+type MCPConfig struct {
+	// UserAllowed marks per-user inputs on a deployed server rather than server-owned configuration.
+	UserAllowed bool   `json:"userAllowed,omitempty"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+
+	Key string `json:"key"`
+
+	// For static config
+	Value string `json:"value"`
+
+	// For user-supplied config
+	Sensitive bool   `json:"sensitive"`
+	Required  bool   `json:"required"`
+	Prefix    string `json:"prefix,omitempty"` // Optional prefix to prepend to user-supplied values (e.g., "Bearer ")
+
+	// Options constrains user-supplied values to selections owned by a Git-managed catalog entry.
+	Options []MCPConfigurationOption `json:"options,omitempty"`
+
+	// SecretBinding binds this value to a key in a pre-existing Kubernetes Secret
+	SecretBinding *MCPSecretBinding `json:"secretBinding,omitempty"`
+
+	// Usage controls where the value is applied. All usages remain available
+	// for interpolation; Interpolated must not be injected into the environment.
+	Usage Usage `json:"usage"`
+}
+
+type Usage string
+
+const (
+	Env          Usage = "env"
+	Header       Usage = "header"
+	File         Usage = "file"
+	DynamicFile  Usage = "dynamicFile"
+	Interpolated Usage = "interpolated"
+)
+
+// ValidateConfig rejects ambiguous keys and missing or unknown usages.
+func (m MCPServerCatalogEntryManifest) ValidateConfig() error {
+	for _, config := range m.Config {
+		if config.UserAllowed {
+			return fmt.Errorf("config key %q: userAllowed is only supported on deployed servers", config.Key)
+		}
+	}
+	return (MCPServerManifest{Config: m.Config}).ValidateConfig()
+}
+
+func (m MCPServerManifest) ValidateConfig() error {
+	keys := make(map[string]struct{}, len(m.Config))
+	for _, config := range m.Config {
+		if config.Key == "" {
+			return fmt.Errorf("config key must not be empty")
+		}
+		if _, exists := keys[config.Key]; exists {
+			return fmt.Errorf("duplicate config key %q", config.Key)
+		}
+		keys[config.Key] = struct{}{}
+		switch config.Usage {
+		case Env, Header, File, DynamicFile, Interpolated:
+		default:
+			return fmt.Errorf("invalid usage %q for config key %q", config.Usage, config.Key)
+		}
+	}
+	return nil
+}
+
+func (c MCPConfig) ToHeader() MCPHeader {
+	return MCPHeader{
+		Name:          c.Name,
+		Description:   c.Description,
+		Key:           c.Key,
+		Value:         c.Value,
+		Sensitive:     c.Sensitive,
+		Required:      c.Required,
+		Prefix:        c.Prefix,
+		Options:       c.Options,
+		SecretBinding: c.SecretBinding,
+	}
+}
+
+func ConfigFromHeader(h MCPHeader) MCPConfig {
+	return MCPConfig{
+		Name:          h.Name,
+		Description:   h.Description,
+		Key:           h.Key,
+		Value:         h.Value,
+		Sensitive:     h.Sensitive,
+		Required:      h.Required,
+		Prefix:        h.Prefix,
+		Options:       h.Options,
+		SecretBinding: h.SecretBinding,
+		Usage:         Header,
+	}
+}
+
+func ConfigFromEnv(e MCPEnv) MCPConfig {
+	c := ConfigFromHeader(e.MCPHeader)
+	c.Usage = Env
+	switch {
+	case e.Interpolated:
+		c.Usage = Interpolated
+	case e.File && e.DynamicFile:
+		c.Usage = DynamicFile
+	case e.File:
+		c.Usage = File
+	}
+	return c
 }
 
 type MCPServerCatalogEntryList List[MCPServerCatalogEntry]
@@ -281,19 +383,35 @@ type MCPServerManifest struct {
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 	CompositeConfig     *CompositeRuntimeConfig     `json:"compositeConfig,omitempty"`
 
-	// Multi-user specific configuration
-	MultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
+	// Deprecated: migrate per-user headers to Config with UserAllowed set.
+	DeprecatedMultiUserConfig *MultiUserConfig `json:"multiUserConfig,omitempty"`
 
-	Env       []MCPEnv                 `json:"env,omitempty"`
-	Resources *MCPResourceRequirements `json:"resources,omitempty"`
+	Config []MCPConfig `json:"config,omitempty"`
+	// Deprecated: retained only to migrate stored server configuration to Config.
+	DeprecatedEnv []MCPEnv                 `json:"env,omitempty"`
+	Resources     *MCPResourceRequirements `json:"resources,omitempty"`
 
-	// Legacy fields that are deprecated, used only for cleaning up old servers
-	Command string      `json:"command,omitempty"`
-	Args    []string    `json:"args,omitempty"`
-	URL     string      `json:"url,omitempty"`
-	Headers []MCPHeader `json:"headers,omitempty"`
+	// Deprecated: retained only for migration of old servers.
+	DeprecatedCommand string `json:"command,omitempty"`
+	// Deprecated: retained only for migration of old servers.
+	DeprecatedArgs []string `json:"args,omitempty"`
+	// Deprecated: retained only for migration of old servers.
+	DeprecatedURL string `json:"url,omitempty"`
+	// Deprecated: retained only for migration of old servers.
+	DeprecatedHeaders []MCPHeader `json:"headers,omitempty"`
 
 	IdleShutdownIntervalHours int `json:"idleShutdownIntervalHours,omitempty"`
+}
+
+// UserConfig returns the per-user configuration schema of a deployed server.
+func (m MCPServerManifest) UserConfig() []MCPConfig {
+	var config []MCPConfig
+	for _, field := range m.Config {
+		if field.UserAllowed {
+			config = append(config, field)
+		}
+	}
+	return config
 }
 
 type MCPServer struct {
@@ -520,6 +638,10 @@ func (m SystemMCPServerManifest) RuntimeStartupTimeoutSeconds() int {
 	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
 }
 
+func (m SystemMCPServerCatalogEntryManifest) RuntimeStartupTimeoutSeconds() int {
+	return startupTimeoutSeconds(m.Runtime, m.UVXConfig, m.NPXConfig, m.ContainerizedConfig)
+}
+
 // ConvertToCatalogEntry converts an MCPServerManifest to an MCPServerCatalogEntryManifest.
 func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest {
 	catalogManifest := MCPServerCatalogEntryManifest{
@@ -529,10 +651,12 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 		Description:      m.Description,
 		Icon:             m.Icon,
 		Runtime:          m.Runtime,
-		Env:              m.Env,
 		ToolPreview:      m.ToolPreview,
-		MultiUserConfig:  m.MultiUserConfig,
 		Resources:        m.Resources,
+		Config:           m.DeepCopy().Config,
+	}
+	for i := range catalogManifest.Config {
+		catalogManifest.Config[i].UserAllowed = false
 	}
 
 	switch m.Runtime {
@@ -549,23 +673,8 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 				TunnelName:          m.RemoteConfig.TunnelName,
 				URLTemplate:         m.RemoteConfig.URLTemplate,
 				Hostname:            m.RemoteConfig.Hostname,
-				Headers:             m.RemoteConfig.Headers,
 				StaticOAuthRequired: m.RemoteConfig.StaticOAuthRequired,
 			}
-		}
-	case RuntimeComposite:
-		if m.CompositeConfig != nil {
-			componentServers := make([]CatalogComponentServer, len(m.CompositeConfig.ComponentServers))
-			for i, comp := range m.CompositeConfig.ComponentServers {
-				componentServers[i] = CatalogComponentServer{
-					CatalogEntryID: comp.CatalogEntryID,
-					MCPServerID:    comp.MCPServerID,
-					Manifest:       comp.Manifest.ConvertToCatalogEntry(),
-					ToolOverrides:  comp.ToolOverrides,
-					ToolPrefix:     comp.ToolPrefix,
-				}
-			}
-			catalogManifest.CompositeConfig = &CompositeCatalogConfig{ComponentServers: componentServers}
 		}
 	}
 
@@ -578,6 +687,9 @@ func (m MCPServerManifest) ConvertToCatalogEntry() MCPServerCatalogEntryManifest
 // This option exists to allow mapping disabled remote components of a composite server, which may
 // not have a user URL set until they are enabled.
 func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL string, disableHostnameValidation bool) (MCPServerManifest, error) {
+	if err := catalogEntry.ValidateConfig(); err != nil {
+		return MCPServerManifest{}, err
+	}
 	// The server owns mutable configuration fields; do not retain their slices from the catalog object.
 	catalogConfiguration := catalogEntry.DeepCopy()
 	serverManifest := MCPServerManifest{
@@ -589,9 +701,8 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 		Icon:             catalogEntry.Icon,
 		ToolPreview:      catalogEntry.ToolPreview,
 		Runtime:          catalogEntry.Runtime,
-		Env:              catalogConfiguration.Env,
+		Config:           catalogConfiguration.Config,
 		Resources:        catalogEntry.Resources,
-		MultiUserConfig:  catalogConfiguration.MultiUserConfig,
 	}
 
 	// Handle runtime-specific mapping
@@ -692,8 +803,7 @@ func MapCatalogEntryToServer(catalogEntry MCPServerCatalogEntryManifest, userURL
 			}
 		}
 
-		// Copy headers and static OAuth flag from catalog entry
-		remoteConfig.Headers = catalogConfiguration.RemoteConfig.Headers
+		// Copy the static OAuth flag from the catalog entry.
 		remoteConfig.StaticOAuthRequired = catalogEntry.RemoteConfig.StaticOAuthRequired
 		serverManifest.RemoteConfig = remoteConfig
 	default:

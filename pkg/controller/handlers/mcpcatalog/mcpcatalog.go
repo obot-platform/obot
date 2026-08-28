@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -142,7 +141,7 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		}
 		objs, err := h.readMCPCatalog(req.Ctx, mcpCatalog.Name, sourceURL, token, validationOptions)
 		if err != nil {
-			slog.Error("failed to read catalog source", "source", sourceURL, "error", err)
+			slog.Warn("Catalog source is incomplete; skipping invalid entries and retaining missing entries", "source", sourceURL, "error", err)
 			mcpCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
 			slog.Info("Read MCP catalog source successfully", "catalog", mcpCatalog.Name, "source", sourceURL, "entries", len(objs))
@@ -157,11 +156,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 		return fmt.Errorf("failed to check catalog entry conflicts: %w", err)
 	}
 	for sourceURL, errMsg := range conflictErrors {
-		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
-	}
-
-	toAdd, compositeRefErrors := h.resolveCompositeSourceRefs(req.Ctx, req.Client, mcpCatalog.Namespace, mcpCatalog.Name, toAdd, validationOptions)
-	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
 
@@ -362,135 +356,6 @@ func detachCatalogEntry(ctx context.Context, c kclient.Client, catalog *v1.MCPCa
 	})
 }
 
-// resolveCompositeSourceRefs rewrites GitOps portable component refs to stored
-// catalog entry names and snapshots the target manifests. Entries with invalid
-// portable refs are skipped so bad composites do not get applied.
-func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Client, namespace, catalogName string, objs []kclient.Object, options ...mcp.ValidationOptions) ([]kclient.Object, map[string]string) {
-	validationOptions := h.remoteURLValidationConfig
-	if len(options) > 0 {
-		validationOptions = options[0]
-	}
-	refs := make(map[string]*v1.MCPServerCatalogEntry)
-	entriesByName := make(map[string]*v1.MCPServerCatalogEntry)
-	for _, obj := range objs {
-		entry, ok := obj.(*v1.MCPServerCatalogEntry)
-		if !ok {
-			continue
-		}
-		entriesByName[entry.Name] = entry
-		if entry.Spec.SourceURL != "" && entry.Spec.Manifest.EntryKey != "" {
-			refs[sourceRef(mcp.SourceIDForURL(entry.Spec.SourceURL), entry.Spec.Manifest.EntryKey)] = entry
-		}
-	}
-
-	result := make([]kclient.Object, 0, len(objs))
-	errsBySourceURL := make(map[string]string)
-	for _, obj := range objs {
-		entry, ok := obj.(*v1.MCPServerCatalogEntry)
-		if !ok || entry.Spec.Manifest.Runtime != types.RuntimeComposite || entry.Spec.Manifest.CompositeConfig == nil {
-			result = append(result, obj)
-			continue
-		}
-
-		changed := false
-		var errs []error
-		for i := range entry.Spec.Manifest.CompositeConfig.ComponentServers {
-			component := &entry.Spec.Manifest.CompositeConfig.ComponentServers[i]
-			if component.MCPServerID != "" {
-				var server v1.MCPServer
-				if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: component.MCPServerID}, &server); err != nil {
-					errs = append(errs, fmt.Errorf("failed to get multi-user server %q: %w", component.MCPServerID, err))
-					continue
-				}
-				if server.Spec.IsSingleUser() {
-					errs = append(errs, fmt.Errorf("server %q is not a multi-user server", component.MCPServerID))
-					continue
-				}
-				if catalogName != "" && server.Spec.MCPCatalogID != catalogName {
-					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
-					continue
-				}
-
-				component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
-				changed = true
-				continue
-			}
-			if component.CatalogEntryID == "" {
-				continue
-			}
-
-			target, err := resolveComponentSourceRef(refs, mcp.SourceIDForURL(entry.Spec.SourceURL), component.CatalogEntryID)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			if target == nil {
-				target = entriesByName[component.CatalogEntryID]
-			}
-			if target == nil && c != nil {
-				var storedEntry v1.MCPServerCatalogEntry
-				if err := c.Get(ctx, kclient.ObjectKey{Namespace: namespace, Name: component.CatalogEntryID}, &storedEntry); err != nil && !apierrors.IsNotFound(err) {
-					errs = append(errs, fmt.Errorf("failed to get component catalog entry %q: %w", component.CatalogEntryID, err))
-					continue
-				} else if err == nil {
-					if catalogName != "" && storedEntry.Spec.MCPCatalogName != catalogName {
-						errs = append(errs, fmt.Errorf("component catalog entry %q not found in catalog %q", component.CatalogEntryID, catalogName))
-						continue
-					}
-					target = &storedEntry
-				}
-			}
-			if target == nil {
-				continue
-			}
-
-			component.CatalogEntryID = target.Name
-			component.Manifest = target.Spec.Manifest
-			changed = true
-		}
-
-		if len(errs) > 0 {
-			addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to resolve composite catalog entry %q: %v", entry.Name, errors.Join(errs...)))
-			continue
-		}
-
-		if changed {
-			if err := catalogvalidation.ValidateManifest(ctx, entry.Spec.Manifest, catalogvalidation.ValidationOptions{
-				MCP:        validationOptions,
-				MCPBackend: h.mcpBackend,
-				GitManaged: entry.IsGitManaged(),
-			}); err != nil {
-				addSyncError(errsBySourceURL, entry.Spec.SourceURL, fmt.Sprintf("failed to validate resolved composite catalog entry %q: %v", entry.Name, err))
-				continue
-			}
-		}
-
-		result = append(result, obj)
-	}
-
-	return result, errsBySourceURL
-}
-
-// resolveComponentSourceRef resolves GitOps portable refs. A bare entry key is
-// scoped to the current source; source::entryKey targets another source. If the
-// ref has no separator and no same-source match, callers can treat it as a
-// normal internal catalog entry ID.
-func resolveComponentSourceRef(refs map[string]*v1.MCPServerCatalogEntry, sourceID, catalogEntryID string) (*v1.MCPServerCatalogEntry, error) {
-	refSourceID, entryKey, hasSep, valid := parseSourceRef(sourceID, catalogEntryID)
-	if !valid {
-		return nil, fmt.Errorf("invalid catalogEntryID source ref %q", catalogEntryID)
-	}
-	if refSourceID == "" {
-		return nil, nil
-	}
-
-	target := refs[sourceRef(refSourceID, entryKey)]
-	if hasSep && target == nil {
-		return nil, fmt.Errorf("unresolved catalogEntryID source ref %q", catalogEntryID)
-	}
-	return target, nil
-}
-
 // parseSourceRef returns the source/key pair for either an explicit
 // source::entryKey reference or a same-source shorthand entryKey.
 func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey string, hasSep, valid bool) {
@@ -502,10 +367,6 @@ func parseSourceRef(sourceID, catalogEntryID string) (refSourceID, entryKey stri
 		return refSourceID, entryKey, true, false
 	}
 	return refSourceID, entryKey, true, refSourceID != "" && entryKey != ""
-}
-
-func sourceRef(sourceID, entryKey string) string {
-	return fmt.Sprintf("%s%s%s", sourceID, catalogReferenceSeparator, entryKey)
 }
 
 func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
@@ -554,7 +415,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		}
 		objs, err := h.readSystemMCPCatalog(req.Ctx, systemCatalog.Name, sourceURL, token)
 		if err != nil {
-			slog.Error("failed to read system catalog source", "source", sourceURL, "error", err)
+			slog.Warn("System catalog source is incomplete; skipping invalid entries and retaining missing entries", "source", sourceURL, "error", err)
 			systemCatalog.Status.SyncErrors[sourceURL] = err.Error()
 		} else {
 			slog.Info("Read system MCP catalog source successfully", "catalog", systemCatalog.Name, "source", sourceURL, "entries", len(objs))
@@ -595,12 +456,9 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
 	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
-	if err != nil {
-		return nil, err
-	}
 
 	systemObjs := make([]kclient.Object, 0, len(entries))
-	var errs []error
+	errs := []error{err}
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
 			delete(entry.Metadata, "categories")
@@ -640,12 +498,9 @@ func (h *Handler) readMCPCatalog(ctx context.Context, catalogName, sourceURL, to
 		validationOptions = options[0]
 	}
 	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
-	if err != nil {
-		return nil, err
-	}
 
 	objs := make([]kclient.Object, 0, len(entries))
-	var errs []error
+	errs := []error{err}
 	uniqueEntryKeys := make(map[string]struct{})
 	for _, entry := range entries {
 		if entry.Metadata["categories"] == "Official" {
@@ -705,7 +560,7 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 		if git.IsGitRepoURL(sourceURL) {
 			entries, err := readGitCatalogEntries[T](ctx, sourceURL, token)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
+				return entries, fmt.Errorf("failed to read git catalog %s: %w", sourceURL, err)
 			}
 			return entries, nil
 		}
@@ -732,7 +587,7 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 		}
 
 		var entries []T
-		if err = yaml.Unmarshal(contents, &entries); err != nil {
+		if err = yaml.UnmarshalStrict(contents, &entries); err != nil {
 			return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 		}
 		return entries, nil
@@ -745,7 +600,7 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 	if fileInfo.IsDir() {
 		entries, err := readCatalogDirectory[T](sourceURL)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
+			return entries, fmt.Errorf("failed to read catalog %s: %w", sourceURL, err)
 		}
 		return entries, nil
 	}
@@ -756,44 +611,42 @@ func readCatalogManifests[T any](ctx context.Context, httpClient *http.Client, s
 	}
 
 	var entries []T
-	if err = yaml.Unmarshal(contents, &entries); err != nil {
+	if err = yaml.UnmarshalStrict(contents, &entries); err != nil {
 		return nil, fmt.Errorf("failed to decode catalog %s: %w", sourceURL, err)
 	}
 	return entries, nil
 }
 
 func readCatalogDirectory[T any](catalog string) ([]T, error) {
-	files, usingObotCatalogsFile, err := catalogvalidation.WalkCatalogFiles(catalog)
+	files, _, err := catalogvalidation.WalkCatalogFiles(catalog)
 	if err != nil {
 		return nil, fmt.Errorf("failed to walk repository files: %w", err)
 	}
 
 	var entries []T
+	var errs []error
 	for path, walkErr := range files {
 		if walkErr != nil {
 			return nil, fmt.Errorf("failed to walk repository files: %w", walkErr)
 		}
-		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path, false)
+		fileEntries, _, err := catalogvalidation.DecodeCatalogFile[T](path, true)
 		if err == nil {
 			entries = append(entries, fileEntries...)
 			continue
 		}
-		if usingObotCatalogsFile {
-			slog.Warn("Failed to parse file as catalog entry", "path", path, "error", err)
-		} else {
-			slog.Debug("Failed to parse file as catalog entry", "path", path, "error", err)
-		}
+		slog.Warn("Skipping invalid catalog file", "path", path, "error", err)
+		errs = append(errs, fmt.Errorf("%s: %w", path, err))
 	}
-	return entries, nil
+	// Preserve partial results and report the incomplete source so sync does not
+	// mistake skipped files for upstream deletions.
+	return entries, errors.Join(errs...)
 }
 
 func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c kclient.Client) error {
 	var existing v1.MCPCatalog
 	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
-		// TODO: Remove this migration logic once we've migrated all Obot deployments to the new catalog path.
 		if i := slices.IndexFunc(existing.Spec.SourceURLs, func(url string) bool {
-			matched, _ := regexp.MatchString(`^(\./)?/?catalog$`, url)
-			return matched
+			return url == "https://github.com/obot-platform/mcp-catalog"
 		}); i >= 0 {
 			existing.Spec.SourceURLs[i] = h.defaultCatalogPath
 			if err := c.Update(ctx, &existing); err != nil {
@@ -829,7 +682,19 @@ func (h *Handler) SetUpDefaultMCPCatalog(ctx context.Context, c kclient.Client) 
 
 func (h *Handler) SetUpDefaultSystemMCPCatalog(ctx context.Context, c kclient.Client) error {
 	var existing v1.SystemMCPCatalog
-	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); !apierrors.IsNotFound(err) {
+	if err := c.Get(ctx, router.Key(system.DefaultNamespace, system.DefaultCatalog), &existing); err == nil {
+		if i := slices.IndexFunc(existing.Spec.SourceURLs, func(url string) bool {
+			return url == "https://github.com/obot-platform/system-mcp-catalog"
+		}); i >= 0 {
+			existing.Spec.SourceURLs[i] = h.defaultSystemCatalogPath
+			if err := c.Update(ctx, &existing); err != nil {
+				return fmt.Errorf("failed to migrate default system catalog: %w", err)
+			}
+			slog.Info("Migrated default system MCP catalog source URL", "catalog", existing.Name, "source", h.defaultCatalogPath)
+		}
+
+		return nil
+	} else if !apierrors.IsNotFound(err) {
 		return err
 	}
 

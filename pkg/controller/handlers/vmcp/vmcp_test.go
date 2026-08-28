@@ -27,8 +27,60 @@ func TestSharingTransitions(t *testing.T) {
 		{Name: "vmcpi1one", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}},
 		{Name: "vmcpi1two", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "2", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}},
 	}
-	for _, shared := range []bool{true, false, true} {
-		vmcp.Spec.Manifest.ForceSingleUser = !shared
+	for _, tc := range []struct {
+		name            string
+		policy          types.VMCPConfigurationPolicyType
+		usage           types.Usage
+		forceSingleUser bool
+		shared          bool
+	}{
+		{
+			name:   "no user configuration",
+			shared: true,
+		},
+		{
+			name:   "user environment",
+			policy: types.VMCPConfigurationPolicyUserAllowed,
+			usage:  types.Env,
+		},
+		{
+			name:   "fixed environment",
+			policy: types.VMCPConfigurationPolicyFixed,
+			usage:  types.Env,
+			shared: true,
+		},
+		{
+			name:   "user file",
+			policy: types.VMCPConfigurationPolicyUserAllowed,
+			usage:  types.File,
+		},
+		{
+			name:   "user header",
+			policy: types.VMCPConfigurationPolicyUserAllowed,
+			usage:  types.Header,
+			shared: true,
+		},
+		{
+			name:            "forced single user",
+			policy:          types.VMCPConfigurationPolicyUserAllowed,
+			usage:           types.Header,
+			forceSingleUser: true,
+		},
+		{
+			name:   "shared again",
+			policy: types.VMCPConfigurationPolicyUserAllowed,
+			usage:  types.Header,
+			shared: true,
+		},
+	} {
+		t.Log(tc.name)
+		shared := tc.shared
+		vmcp.Spec.Manifest.ForceSingleUser = tc.forceSingleUser
+		component := &vmcp.Spec.Manifest.Components[0]
+		if tc.policy != "" {
+			component.Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: tc.policy}}
+			component.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: tc.usage}}
+		}
 		if err := client.Update(t.Context(), vmcp); err != nil {
 			t.Fatal(err)
 		}
@@ -82,5 +134,39 @@ func TestSharingTransitions(t *testing.T) {
 				t.Fatal("existing component server did not adopt updated snapshot")
 			}
 		}
+	}
+}
+
+func TestEnsureMCPServersDeletesRemovedComponents(t *testing.T) {
+	component := func(id string) types.VMCPComponent {
+		return types.VMCPComponent{
+			ID: id,
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+				Name: id, Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+			}},
+		}
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{component("removed"), component("retained")},
+	}}}
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).Build()
+	req := router.Request{Ctx: t.Context(), Client: client, Object: vmcp}
+	if err := vmcphandler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[1:]
+	if err := client.Update(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
+	if err := vmcphandler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	var servers v1.MCPServerList
+	if err := client.List(t.Context(), &servers); err != nil {
+		t.Fatal(err)
+	}
+	if len(servers.Items) != 1 || servers.Items[0].Spec.VMCPComponentID != "retained" {
+		t.Fatalf("servers after component removal = %#v", servers.Items)
 	}
 }

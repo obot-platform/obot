@@ -153,13 +153,29 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 			errorField:  "containerizedConfig.startupTimeoutSeconds",
 		},
 		{
+			name: "invalid - per-user header is not allowed",
+			manifest: types.SystemMCPServerManifest{
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{URL: "https://example.com/mcp"},
+				Config: []types.MCPConfig{
+					{
+						Key:         "X-Tenant",
+						Usage:       types.Header,
+						UserAllowed: true,
+					},
+				},
+			},
+			expectError:         true,
+			expectedErrContains: "userAllowed is not supported for system MCP servers",
+		},
+		{
 			name: "invalid - env secret binding is not allowed",
 			manifest: types.SystemMCPServerManifest{
 				Runtime: types.RuntimeNPX,
 				NPXConfig: &types.NPXRuntimeConfig{
 					Package: "@example/server",
 				},
-				Env: []types.MCPEnv{{
+				Config: []types.MCPConfig{{Usage: types.Env,
 					Key: "API_KEY",
 					SecretBinding: &types.MCPSecretBinding{
 						Name: "my-secret",
@@ -176,14 +192,15 @@ func TestValidateSystemMCPServerManifest(t *testing.T) {
 				Runtime: types.RuntimeRemote,
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://example.com/mcp",
-					Headers: []types.MCPHeader{{
-						Key: "Authorization",
-						SecretBinding: &types.MCPSecretBinding{
-							Name: "my-secret",
-							Key:  "token",
-						},
-					}},
 				},
+				Config: []types.MCPConfig{{
+					Usage: types.Header,
+					Key:   "Authorization",
+					SecretBinding: &types.MCPSecretBinding{
+						Name: "my-secret",
+						Key:  "token",
+					},
+				}},
 			},
 			expectError:         true,
 			expectedErrContains: "secretBinding is not supported for system MCP servers",

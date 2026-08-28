@@ -30,6 +30,22 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+type recordingMCPAuthChecker struct {
+	server   v1.MCPServer
+	config   mcp.ServerConfig
+	oauthURL string
+}
+
+type recordingMCPServerTrigger struct {
+	keys []string
+}
+
+// vmcpActionInitialEventsClient supplies the watch-list behavior that the
+// Kubernetes API server provides but controller-runtime's fake watch omits.
+type vmcpActionInitialEventsClient struct {
+	kclient.WithWatch
+}
+
 func TestLaunchServerVMCPUsesDeclaredComponentsOnly(t *testing.T) {
 	const (
 		vmcpID      = "vmcp1launch"
@@ -150,7 +166,9 @@ func TestAggregateComponentServersForActionVMCPUsesServerConfigComponents(t *tes
 	server := v1.MCPServer{
 		ObjectMeta: objectMetaForVMCPActionTest("vmcp1aggregate"),
 		Spec: v1.MCPServerSpec{
-			Manifest: types.MCPServerManifest{Runtime: types.RuntimeVMCP},
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeVMCP,
+			},
 		},
 	}
 	serverConfig := mcp.ServerConfig{
@@ -169,12 +187,6 @@ func TestAggregateComponentServersForActionVMCPUsesServerConfigComponents(t *tes
 	require.NoError(t, err)
 	require.Len(t, components, 1)
 	assert.Equal(t, declared.Name, components[0].Name)
-}
-
-type recordingMCPAuthChecker struct {
-	server   v1.MCPServer
-	config   mcp.ServerConfig
-	oauthURL string
 }
 
 func newRecordingMCPAuthChecker(oauthURL string) *recordingMCPAuthChecker {
@@ -244,10 +256,6 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 	return vmcp, instance, component, unrelated
 }
 
-type recordingMCPServerTrigger struct {
-	keys []string
-}
-
 func (r *recordingMCPServerTrigger) Trigger(_ context.Context, _ schema.GroupVersionKind, key string, _ time.Duration) error {
 	r.keys = append(r.keys, key)
 	return nil
@@ -306,12 +314,6 @@ func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.
 	return manager, storageClient, gatewayClient
 }
 
-// vmcpActionInitialEventsClient supplies the watch-list behavior that the
-// Kubernetes API server provides but controller-runtime's fake watch omits.
-type vmcpActionInitialEventsClient struct {
-	kclient.WithWatch
-}
-
 func (c *vmcpActionInitialEventsClient) Watch(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) (watch.Interface, error) {
 	upstream, err := c.WithWatch.Watch(ctx, list, opts...)
 	if err != nil {
@@ -322,7 +324,7 @@ func (c *vmcpActionInitialEventsClient) Watch(ctx context.Context, list kclient.
 	listOptions := &kclient.ListOptions{}
 	listOptions.ApplyOptions(opts)
 	listOptions.Raw = nil
-	if err := c.WithWatch.List(ctx, initialList, listOptions); err != nil {
+	if err := c.List(ctx, initialList, listOptions); err != nil {
 		upstream.Stop()
 		return nil, err
 	}
@@ -370,12 +372,18 @@ func objectMetaForVMCPActionTest(name string) metav1.ObjectMeta {
 func TestSharedVMCPServerUsesOneScopeAndPerUserHeaders(t *testing.T) {
 	vmcp, first, server, _ := vmcpActionObjects("vmcp1shared", "1", "one", false)
 	vmcp.Spec.Manifest.ForceSingleUser = false
-	header := types.MCPHeader{Key: "TOKEN", Name: "X-Token", Required: true}
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{Headers: []types.MCPHeader{header}}
+	header := types.MCPConfig{
+		Key:      "TOKEN",
+		Name:     "X-Token",
+		Required: true,
+		Usage:    types.Header,
+	}
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{}
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config = []types.MCPConfig{header}
 	vmcp.Spec.Manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyUserAllowed}}
 	server.Spec.VMCPInstanceID = ""
 	server.Spec.VMCPID = vmcp.Name
-	server.Spec.Manifest.RemoteConfig.Headers = []types.MCPHeader{header}
+	server.Spec.Manifest.Config = []types.MCPConfig{header}
 	second := first.DeepCopy()
 	second.Name = "vmcpi1second"
 	second.Spec.UserID = "2"

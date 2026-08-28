@@ -55,7 +55,6 @@ func TestListEntriesFromAllSourcesMinimal(t *testing.T) {
 	require.Equal(t, "Short description", manifest.ShortDescription)
 	require.Equal(t, "https://example.com/icon.svg", manifest.Icon)
 	require.Equal(t, types.RuntimeRemote, manifest.Runtime)
-	require.Equal(t, types.ServerUserTypeSingleUser, manifest.ServerUserType)
 
 	manifestJSON, err := json.Marshal(manifest)
 	require.NoError(t, err)
@@ -68,7 +67,6 @@ func TestListEntriesFromAllSourcesMinimal(t *testing.T) {
 		"icon": "https://example.com/icon.svg",
 		"runtime": "remote",
 		"remoteConfig": {"fixedURL": "https://example.com/mcp"},
-		"serverUserType": "singleUser",
 		"upgradeNote": "Upgrade note"
 	}`, string(manifestJSON))
 }
@@ -78,9 +76,11 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 	entry.Spec.Manifest.UVXConfig = &types.UVXRuntimeConfig{Package: "python-package"}
 	entry.Spec.Manifest.NPXConfig = &types.NPXRuntimeConfig{Package: "node-package"}
 	entry.Spec.Manifest.ContainerizedConfig = &types.ContainerizedRuntimeConfig{Image: "example/image", Port: 8080, Path: "/mcp"}
-	entry.Spec.Manifest.CompositeConfig = &types.CompositeCatalogConfig{}
-	entry.Spec.Manifest.MultiUserConfig = &types.MultiUserConfig{}
-	entry.Spec.Manifest.Env = []types.MCPEnv{{Name: "Token", Key: "TOKEN"}}
+	entry.Spec.Manifest.Config = []types.MCPConfig{{
+		Name:  "Token",
+		Key:   "TOKEN",
+		Usage: types.Env,
+	}}
 	entry.Spec.Manifest.Resources = &types.MCPResourceRequirements{}
 
 	expected := entry.Spec.Manifest
@@ -90,31 +90,6 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 
 	actual := convertMCPServerCatalogEntryForList(entry, "", "", "", true)
 	require.Equal(t, expected, actual.Manifest)
-}
-
-func TestMinimalCatalogEntryMinimizesCompositeComponents(t *testing.T) {
-	entry := minimalResponseTestEntry()
-	component := minimalResponseTestEntry().Spec.Manifest
-	nestedComponent := minimalResponseTestEntry().Spec.Manifest
-	component.Runtime = types.RuntimeComposite
-	component.CompositeConfig = &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
-		Manifest: nestedComponent,
-	}}}
-	entry.Spec.Manifest.Runtime = types.RuntimeComposite
-	entry.Spec.Manifest.CompositeConfig = &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
-		Manifest: component,
-	}}}
-
-	actual := convertMCPServerCatalogEntryForList(entry, "", "", "", true)
-	component = actual.Manifest.CompositeConfig.ComponentServers[0].Manifest
-	nestedComponent = component.CompositeConfig.ComponentServers[0].Manifest
-
-	for _, manifest := range []types.MCPServerCatalogEntryManifest{actual.Manifest, component, nestedComponent} {
-		require.Empty(t, manifest.Description)
-		require.Empty(t, manifest.ToolPreview)
-		require.Empty(t, manifest.RepoURL)
-		require.Equal(t, "Upgrade note", manifest.UpgradeNote)
-	}
 }
 
 func TestListEntriesFromAllSourcesFullByDefault(t *testing.T) {
@@ -197,9 +172,8 @@ func minimalResponseTestEntry() v1.MCPServerCatalogEntry {
 				ToolPreview: []types.MCPServerTool{
 					{Name: "tool", Description: "Tool description"},
 				},
-				Runtime:        types.RuntimeRemote,
-				ServerUserType: types.ServerUserTypeSingleUser,
-				RemoteConfig:   &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+				Runtime:      types.RuntimeRemote,
+				RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
 			},
 		},
 	}

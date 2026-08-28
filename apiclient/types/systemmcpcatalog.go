@@ -55,13 +55,13 @@ type SystemMCPServerCatalogEntryManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteCatalogConfig        `json:"remoteConfig,omitempty"`
 
-	// ServerUserType specifies whether this catalog entry produces single-user or multi-user servers.
-	// Valid values are "singleUser" and "multiUser". Some input paths normalize an empty value to "singleUser" for compatibility before validation.
-	ServerUserType ServerUserType `json:"serverUserType,omitempty"`
-
-	Env []MCPEnv `json:"env,omitempty"`
+	Config []MCPConfig `json:"config,omitempty"`
 
 	Resources *MCPResourceRequirements `json:"resources,omitempty"`
+}
+
+func (m SystemMCPServerCatalogEntryManifest) ValidateConfig() error {
+	return (MCPServerCatalogEntryManifest{Config: m.Config}).ValidateConfig()
 }
 
 type FilterConfig struct {

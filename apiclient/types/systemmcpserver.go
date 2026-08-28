@@ -19,8 +19,10 @@ type SystemMCPServerManifest struct {
 	ContainerizedConfig *ContainerizedRuntimeConfig `json:"containerizedConfig,omitempty"`
 	RemoteConfig        *RemoteRuntimeConfig        `json:"remoteConfig,omitempty"`
 
-	Env       []MCPEnv                 `json:"env,omitempty"`
-	Resources *MCPResourceRequirements `json:"resources,omitempty"`
+	Config []MCPConfig `json:"config,omitempty"`
+	// Deprecated: retained only to migrate stored server configuration to Config.
+	DeprecatedEnv []MCPEnv                 `json:"env,omitempty"`
+	Resources     *MCPResourceRequirements `json:"resources,omitempty"`
 }
 
 type SystemMCPServer struct {

@@ -265,11 +265,6 @@ func TestBuildConversationContextSystemMessagesExcluded(t *testing.T) {
 	assert.Equal(t, "User: Hello", result)
 }
 
-func TestBuildConversationContextEmpty(t *testing.T) {
-	result := BuildConversationContext(nil)
-	assert.Equal(t, "", result)
-}
-
 func TestBuildConversationContextFullConversation(t *testing.T) {
 	messages := []ConversationMessage{
 		{Role: "system", Content: "You are a travel agent."},

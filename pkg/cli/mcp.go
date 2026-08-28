@@ -64,6 +64,7 @@ func (m *MCP) Customize(c *cobra.Command) {
 	c.Args = cobra.NoArgs
 	c.AddCommand(cmd.Command(&MCPSearch{root: m.root}))
 	c.AddCommand(cmd.Command(&MCPValidateCatalogYAML{}))
+	c.AddCommand(cmd.Command(&MCPConvertCatalogYAML{}))
 	c.AddCommand(cmd.Command(&MCPValidateSystemCatalogYAML{}))
 }
 

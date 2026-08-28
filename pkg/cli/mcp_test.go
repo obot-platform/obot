@@ -396,6 +396,26 @@ icon: icon
 runtime: npx
 npxConfig:
   package: test`,
+		"legacy-schema.yaml": `name: Legacy
+shortDescription: Legacy
+description: Legacy
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+serverUserType: singleUser
+env:
+  - key: TOKEN`,
+		"invalid-config.yaml": `name: Invalid Config
+shortDescription: Invalid Config
+description: Invalid Config
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+config:
+  - key: TOKEN
+    usage: unknown`,
 	}
 	for name, contents := range files {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(contents+"\n"), 0o600); err != nil {
@@ -414,6 +434,10 @@ npxConfig:
 		"filterConfig is required",
 		"invalid-name.yaml",
 		"invalid system catalog entry name after sanitization",
+		"legacy-schema.yaml",
+		"unknown field \"env\"",
+		"invalid-config.yaml",
+		"invalid usage \"unknown\" for config key \"TOKEN\"",
 	} {
 		if !strings.Contains(err.Error(), expected) {
 			t.Fatalf("error = %v, want %q", err, expected)

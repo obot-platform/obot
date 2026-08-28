@@ -149,7 +149,7 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 			MCPCatalogName:            server.Spec.MCPCatalogID,
 			MCPServerCatalogEntryName: entryName,
 			PowerUserWorkspaceID:      server.Spec.PowerUserWorkspaceID,
-			MultiUserConfig:           server.Spec.Manifest.MultiUserConfig,
+			Config:                    server.Spec.Manifest.UserConfig(),
 		},
 	}
 
@@ -199,8 +199,8 @@ func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error 
 	if err := req.Read(&envVars); err != nil {
 		return err
 	}
-	if mcpServerInstance.Spec.MultiUserConfig != nil {
-		missing, err := mcp.ValidateConfiguredOptions(nil, mcpServerInstance.Spec.MultiUserConfig.UserDefinedHeaders, envVars)
+	if mcpServerInstance.Spec.Config != nil {
+		missing, err := mcp.ValidateConfiguredOptions(mcpServerInstance.Spec.Config, envVars)
 		if err != nil {
 			return types.NewErrBadRequest("invalid configuration: %v", err)
 		}
@@ -279,7 +279,7 @@ func ConvertMCPServerInstance(instance v1.MCPServerInstance, credEnv map[string]
 		MCPServerCatalogEntryID: instance.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:    instance.Spec.PowerUserWorkspaceID,
 		ConnectURL:              fmt.Sprintf("%s/mcp-connect/%s", serverURL, slug),
-		MultiUserConfig:         instance.Spec.MultiUserConfig,
+		Config:                  instance.Spec.Config,
 	}
 }
 
@@ -300,15 +300,15 @@ func MCPServerInstanceCredentialContext(instance v1.MCPServerInstance) string {
 }
 
 func mcpServerInstanceMissingHeaders(instance v1.MCPServerInstance, credEnv map[string]string) []string {
-	if instance.Spec.MultiUserConfig == nil {
+	if instance.Spec.Config == nil {
 		return nil
 	}
 
 	var missingHeaders []string
 
-	for _, header := range instance.Spec.MultiUserConfig.UserDefinedHeaders {
+	for _, header := range instance.Spec.Config {
 		val := credEnv[header.Key]
-		if (val == "" || !mcp.ConfigurationOptionValueValid(header, credEnv)) && (header.Required || val != "") {
+		if (val == "" || !mcp.ConfigurationOptionValueValid(header.ToHeader(), credEnv)) && (header.Required || val != "") {
 			missingHeaders = append(missingHeaders, header.Key)
 		}
 	}
