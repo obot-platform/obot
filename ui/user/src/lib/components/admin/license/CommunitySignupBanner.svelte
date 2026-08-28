@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
 	import { X } from '@lucide/svelte';
 
 	interface Props {
@@ -15,7 +16,7 @@
 		role="status"
 	>
 		<p class="text-xs font-light max-w-2xl">
-			Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter!
+			{COMMUNITY_SIGNUP_BANNER_COPY}
 		</p>
 		<a href={resolve('/admin/license')} class="btn btn-xs btn-primary shrink-0"> Register </a>
 		<button

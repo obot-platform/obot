@@ -9,6 +9,7 @@
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import {
 		COMMUNITY_ENTITLEMENT,
+		COMMUNITY_SIGNUP_BANNER_COPY,
 		ENTERPRISE_ENTITLEMENT,
 		MODEL_PROVIDERS_ENTITLEMENT
 	} from '$lib/constants';
@@ -399,8 +400,7 @@
 					<div class="relative flex flex-col gap-4 p-4 sm:p-6">
 						<BetaLogo class="mx-auto" />
 						<p class="max-w-md text-sm font-light">
-							Register your email to unlock all remaining IDP and to receive the Obot Community
-							Newsletter.
+							{COMMUNITY_SIGNUP_BANNER_COPY}
 						</p>
 						<div
 							class="rounded-xl border border-base-300/80 bg-base-100/80 p-4 shadow-sm backdrop-blur-sm"

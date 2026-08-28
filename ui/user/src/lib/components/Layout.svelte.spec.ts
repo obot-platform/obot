@@ -1,4 +1,8 @@
-import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
+import {
+	COMMUNITY_ENTITLEMENT,
+	COMMUNITY_SIGNUP_BANNER_COPY,
+	ENTERPRISE_ENTITLEMENT
+} from '$lib/constants';
 import { Group } from '$lib/services';
 import type { License } from '$lib/services/admin/types';
 import type { Profile, Version } from '$lib/services/user/types';
@@ -256,8 +260,7 @@ describe('Layout.svelte', () => {
 	});
 
 	describe('community signup banner', () => {
-		const copy =
-			'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter!';
+		const copy = COMMUNITY_SIGNUP_BANNER_COPY;
 
 		it('shows for administrators without a community or enterprise license', async () => {
 			await renderLayout([Group.ADMIN]);

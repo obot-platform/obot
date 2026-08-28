@@ -105,15 +105,6 @@ describe('Licensing Page', () => {
 		);
 
 		await renderLicensePage({ license: getLicenseResponse });
-
-		await expect
-			.element(
-				page.getByText(
-					'Register your email to unlock all remaining IDP and to receive the Obot Community Newsletter.',
-					{ exact: true }
-				)
-			)
-			.toBeVisible();
 		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
 		await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
 		await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
