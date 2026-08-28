@@ -252,7 +252,7 @@
 									toggle(false);
 								}}
 							>
-								View Related Logs <ExternalLink class="size-4" />
+								View Audit Logs <ExternalLink class="size-4" />
 							</a>
 							<a
 								class="menu-button justify-between"
