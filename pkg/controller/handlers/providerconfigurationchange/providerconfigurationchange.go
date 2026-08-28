@@ -25,6 +25,12 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// OrphanedStagedCredentialGracePeriod protects credentials staged immediately
+	// before their ProviderConfigurationChange is persisted.
+	OrphanedStagedCredentialGracePeriod = 5 * time.Minute
+)
+
 type Handler struct {
 	gatewayClient   *gateway.Client
 	dispatcher      *dispatcher.Dispatcher
@@ -313,6 +319,41 @@ func EnsureDaemonSync(ctx context.Context, client kclient.Client) error {
 		return fmt.Errorf("ensure provider daemon sync: %w", err)
 	}
 	return nil
+}
+
+// CleanupOrphanedStagedCredentials deletes old staged credentials that are not
+// referenced by an existing ProviderConfigurationChange..
+func CleanupOrphanedStagedCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client, now time.Time, gracePeriod time.Duration) error {
+	var changes v1.ProviderConfigurationChangeList
+	if err := client.List(ctx, &changes); err != nil {
+		return fmt.Errorf("list provider configuration changes: %w", err)
+	}
+
+	referencedCredentials := make(map[string]struct{}, len(changes.Items))
+	for _, change := range changes.Items {
+		if change.Spec.StagedCredentialName != "" {
+			referencedCredentials[change.Spec.StagedCredentialName] = struct{}{}
+		}
+	}
+
+	credentials, err := gatewayClient.ListCredentials(ctx, gateway.ListCredentialsOptions{
+		CredentialContexts: []string{system.StagedProviderCredentialContext},
+	})
+	if err != nil {
+		return fmt.Errorf("list staged provider credentials: %w", err)
+	}
+
+	cutoff := now.Add(-gracePeriod)
+	var cleanupErrors []error
+	for _, credential := range credentials {
+		if _, ok := referencedCredentials[credential.Name]; ok || credential.CreatedAt.After(cutoff) {
+			continue
+		}
+		if _, err := gatewayClient.DeleteCredential(ctx, system.StagedProviderCredentialContext, credential.Name); err != nil {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("delete orphaned staged provider credential %q: %w", credential.Name, err))
+		}
+	}
+	return errors.Join(cleanupErrors...)
 }
 
 func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client) error {

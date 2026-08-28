@@ -255,6 +255,15 @@ func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, a
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	if err := providerconfigurationchange.CleanupOrphanedStagedCredentials(
+		ctx,
+		client,
+		c.services.GatewayClient,
+		time.Now(),
+		providerconfigurationchange.OrphanedStagedCredentialGracePeriod,
+	); err != nil {
+		panic(fmt.Errorf("cleanup orphaned staged provider credentials: %w", err))
+	}
 	if err := providerconfigurationchange.EnsureDaemonSync(ctx, client); err != nil {
 		panic(err)
 	}

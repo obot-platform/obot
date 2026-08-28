@@ -158,6 +158,58 @@ func TestAuthDeconfigurationPersistsCleanupBeforeCredentialDeletion(t *testing.T
 	assert.Equal(t, "old-secret", credential.Secrets["CLIENT_SECRET"])
 }
 
+func TestCleanupOrphanedStagedCredentials(t *testing.T) {
+	now := time.Date(2026, time.August, 28, 12, 0, 0, 0, time.UTC)
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         "auth-provider",
+			DesiredState:         v1.ProviderDesiredStateConfigured,
+			StagedCredentialName: "referenced-old-stage",
+		},
+	}
+	client := newProviderChangeTestClient(change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	upsertCredential := func(credentialContext, credentialName string, createdAt time.Time) {
+		t.Helper()
+		require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+			CreatedAt: createdAt,
+			Context:   credentialContext,
+			Name:      credentialName,
+			Secrets: map[string]string{
+				"SECRET": credentialName,
+			},
+		}))
+	}
+
+	upsertCredential(system.StagedProviderCredentialContext, "referenced-old-stage", now.Add(-2*OrphanedStagedCredentialGracePeriod))
+	upsertCredential(system.StagedProviderCredentialContext, "recent-orphan-stage", now.Add(-OrphanedStagedCredentialGracePeriod+time.Second))
+	upsertCredential(system.StagedProviderCredentialContext, "boundary-orphan-stage", now.Add(-OrphanedStagedCredentialGracePeriod))
+	upsertCredential(system.StagedProviderCredentialContext, "old-orphan-stage", now.Add(-OrphanedStagedCredentialGracePeriod-time.Second))
+	upsertCredential("active-provider-context", "old-active-credential", now.Add(-2*OrphanedStagedCredentialGracePeriod))
+
+	require.NoError(t, CleanupOrphanedStagedCredentials(
+		t.Context(),
+		client,
+		gatewayClient,
+		now,
+		OrphanedStagedCredentialGracePeriod,
+	))
+
+	_, err := gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "referenced-old-stage")
+	require.NoError(t, err)
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "recent-orphan-stage")
+	require.NoError(t, err)
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "boundary-orphan-stage")
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "old-orphan-stage")
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{"active-provider-context"}, "old-active-credential")
+	require.NoError(t, err)
+}
+
 func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
 	client := newProviderChangeTestClient()
 	handler := &Handler{now: func() time.Time { return time.Unix(10, 0).UTC() }}
