@@ -58,6 +58,15 @@ func newClientIDNativeExceptions(additional []string) map[string]struct{} {
 	return exceptions
 }
 
+func oauthAuthRequestClientID(authRequest v1.OAuthAuthRequest) string {
+	clientID := authRequest.Spec.ClientID
+	if clientID == "" || isClientIDMetadataDocumentURL(clientID) {
+		return clientID
+	}
+
+	return authRequest.Namespace + ":" + clientID
+}
+
 func (h *handler) resolveOAuthClient(ctx context.Context, c kclient.Client, clientID string) (v1.OAuthClient, error) {
 	if isClientIDMetadataDocumentURL(clientID) {
 		return h.resolveClientIDMetadataDocument(ctx, clientID)

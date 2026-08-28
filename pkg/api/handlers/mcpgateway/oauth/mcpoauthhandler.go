@@ -189,12 +189,13 @@ func (f *MCPOAuthHandlerFactory) downstreamOAuthClientName(req api.Context, oaut
 		return "", fmt.Errorf("originating OAuth request %s has no client ID", oauthAuthRequestID)
 	}
 
-	oauthClient, err := f.resolveOAuthClient(req.Context(), req.Storage, authRequest.Spec.ClientID)
+	clientID := oauthAuthRequestClientID(authRequest)
+	oauthClient, err := f.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve originating OAuth client %s: %w", authRequest.Spec.ClientID, err)
+		return "", fmt.Errorf("failed to resolve originating OAuth client %s: %w", clientID, err)
 	}
 	if oauthClient.Spec.Manifest.ClientName == "" {
-		return "", fmt.Errorf("originating OAuth client %s has no client name", authRequest.Spec.ClientID)
+		return "", fmt.Errorf("originating OAuth client %s has no client name", clientID)
 	}
 
 	return oauthClient.Spec.Manifest.ClientName, nil

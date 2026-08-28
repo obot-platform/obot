@@ -20,10 +20,11 @@ import (
 
 func TestDownstreamOAuthClientName(t *testing.T) {
 	const (
-		dcrAuthRequestID  = "oar1dcr"
-		cimdAuthRequestID = "oar1cimd"
-		dcrClientID       = "default:oac1cursor"
-		cimdClientID      = "https://claude.ai/oauth/claude-code-client-metadata"
+		dcrAuthRequestID   = "oar1dcr"
+		cimdAuthRequestID  = "oar1cimd"
+		dcrClientName      = "oac1cursor"
+		qualifiedDCRClient = system.DefaultNamespace + ":" + dcrClientName
+		cimdClientID       = "https://claude.ai/oauth/claude-code-client-metadata"
 	)
 
 	storage := clientfake.NewClientBuilder().
@@ -33,7 +34,7 @@ func TestDownstreamOAuthClientName(t *testing.T) {
 				Namespace: system.DefaultNamespace,
 				Name:      dcrAuthRequestID,
 				Spec: v1.OAuthAuthRequestSpec{
-					ClientID: dcrClientID,
+					ClientID: dcrClientName,
 				},
 			},
 			&v1.OAuthAuthRequest{
@@ -48,7 +49,7 @@ func TestDownstreamOAuthClientName(t *testing.T) {
 
 	resolver := func(_ context.Context, _ kclient.Client, clientID string) (v1.OAuthClient, error) {
 		switch clientID {
-		case dcrClientID:
+		case qualifiedDCRClient:
 			return oauthClientWithName("Cursor"), nil
 		case cimdClientID:
 			return oauthClientWithName("Claude Code"), nil

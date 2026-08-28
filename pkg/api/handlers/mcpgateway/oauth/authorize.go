@@ -363,11 +363,7 @@ func (h *handler) consent(req api.Context) error {
 		return nil
 	}
 
-	clientID := oauthAppAuthRequest.Spec.ClientID
-	if !isClientIDMetadataDocumentURL(clientID) {
-		clientID = oauthAppAuthRequest.Namespace + ":" + clientID
-	}
-
+	clientID := oauthAuthRequestClientID(oauthAppAuthRequest)
 	oauthClient, err := h.resolveOAuthClient(req.Context(), req.Storage, clientID)
 	if err != nil {
 		if oauthErr, ok := errors.AsType[oauthError](err); ok {
