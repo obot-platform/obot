@@ -25915,17 +25915,18 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"timestamp": {
+					"generation": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref(metav1.Time{}.OpenAPIModelName()),
+							Description: "Generation counts applied provider configuration changes. It only ever increments, so replicas can order broadcasts without comparing clocks. This is unrelated to the object's metadata.generation.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int64",
 						},
 					},
 				},
-				Required: []string{"timestamp"},
+				Required: []string{"generation"},
 			},
 		},
-		Dependencies: []string{
-			metav1.Time{}.OpenAPIModelName()},
 	}
 }
 

@@ -72,7 +72,6 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
 	require.NoError(t, err)
 	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
-	handler.now = func() time.Time { return time.Unix(100, 0).UTC() }
 
 	require.NoError(t, handler.Reconcile(router.Request{
 		Client:    client,
@@ -95,7 +94,7 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Name:      system.ProviderDaemonSyncName,
 	}, &daemonSync))
-	assert.True(t, time.Unix(101, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
 	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
 	require.NoError(t, err)
 
@@ -212,22 +211,25 @@ func TestCleanupOrphanedStagedCredentials(t *testing.T) {
 
 func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
 	client := newProviderChangeTestClient()
-	handler := &Handler{now: func() time.Time { return time.Unix(10, 0).UTC() }}
+	handler := &Handler{}
 	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
 
 	var daemonSync v1.ProviderDaemonSync
 	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.True(t, time.Unix(11, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
 
 	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.True(t, time.Unix(12, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+	assert.Equal(t, int64(2), daemonSync.Spec.Generation)
 
+	// A recreated singleton restarts at 1, which every replica has already
+	// acted on. Recreation therefore relies on those replicas having restarted
+	// too, which is the only way the object goes away.
 	require.NoError(t, client.Delete(t.Context(), &daemonSync))
 	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.False(t, daemonSync.Spec.Timestamp.IsZero())
+	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
 }
 
 func newProviderChangeTestClient(objects ...kclient.Object) kclient.WithWatch {

@@ -20,7 +20,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,7 +35,6 @@ type Handler struct {
 	dispatcher      *dispatcher.Dispatcher
 	licenseProvider *license.Provider
 	postgresDSN     string
-	now             func() time.Time
 }
 
 func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, postgresDSN string) *Handler {
@@ -45,7 +43,6 @@ func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licen
 		dispatcher:      dispatcher,
 		licenseProvider: licenseProvider,
 		postgresDSN:     postgresDSN,
-		now:             time.Now,
 	}
 }
 
@@ -89,7 +86,6 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 	}
 
 	change.Status.Applied = true
-	// TODO(g-linville): do we need to do a req.Client.Status().Update after this?
 	return nil
 }
 
@@ -322,7 +318,7 @@ func EnsureDaemonSync(ctx context.Context, client kclient.Client) error {
 }
 
 // CleanupOrphanedStagedCredentials deletes old staged credentials that are not
-// referenced by an existing ProviderConfigurationChange..
+// referenced by an existing ProviderConfigurationChange.
 func CleanupOrphanedStagedCredentials(ctx context.Context, client kclient.Client, gatewayClient *gateway.Client, now time.Time, gracePeriod time.Duration) error {
 	var changes v1.ProviderConfigurationChangeList
 	if err := client.List(ctx, &changes); err != nil {
@@ -374,14 +370,7 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client) 
 				return err
 			}
 		}
-		// metav1.Time persists at whole-second precision. Use the next whole
-		// second so a change in the same second as replica startup still compares
-		// newer than that replica's in-memory startup time.
-		next := h.now().Truncate(time.Second).Add(time.Second)
-		if !next.After(daemonSync.Spec.Timestamp.Time) {
-			next = daemonSync.Spec.Timestamp.Add(time.Second)
-		}
-		daemonSync.Spec.Timestamp = metav1.NewTime(next)
+		daemonSync.Spec.Generation++
 		return client.Update(ctx, &daemonSync)
 	})
 	if err != nil {

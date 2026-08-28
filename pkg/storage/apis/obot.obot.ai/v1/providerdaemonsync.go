@@ -15,7 +15,7 @@ type ProviderDaemonSync struct {
 }
 
 type ProviderDaemonSyncSpec struct {
-	Timestamp metav1.Time `json:"timestamp"`
+	Generation int64 `json:"generation"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
