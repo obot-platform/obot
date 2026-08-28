@@ -5,18 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/handlers/providers"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/wait"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -104,42 +101,30 @@ func (mp *ModelProviderHandler) Configure(req api.Context) error {
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
 		return err
+	} else if envVars == nil {
+		envVars = make(map[string]string)
 	}
-
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: modelProvider.Name,
-		Name:    modelProvider.Name,
-		Secrets: envVars,
-	}); err != nil {
-		return fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	// We only need to reprocess the model provider if this is the "global" model provider.
-	mp.dispatcher.StopModelProvider(modelProvider.Namespace, modelProvider.Name)
-
-	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-		if modelProvider.Annotations == nil {
-			modelProvider.Annotations = make(map[string]string, 1)
+	for key, value := range envVars {
+		if value == "" {
+			delete(envVars, key)
 		}
-		modelProvider.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-	} else {
-		delete(modelProvider.Annotations, v1.ModelProviderSyncAnnotation)
 	}
 
-	if err := req.Update(&modelProvider); err != nil {
-		return fmt.Errorf("failed to update model provider: %w", err)
+	stagedName, err := stageProviderCredential(req, envVars)
+	if err != nil {
+		return err
 	}
 
-	// Wait for the controllers to process to ensure the API will return correct configuration status.
-	if _, err := wait.For(req.Context(), req.Storage, &modelProvider, func(m *v1.ModelProvider) (bool, error) {
-		return m.Status.ObservedGeneration == m.Generation, nil
-	}, wait.Option{
-		Timeout: 10 * time.Second,
-	}); err != nil {
-		return fmt.Errorf("failed to wait for model provider: %w", err)
-	}
-
-	return nil
+	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+		Name:      modelProviderConfigurationChangeName(modelProvider.Name),
+		Namespace: modelProvider.Namespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeModel,
+			ProviderName:         modelProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateConfigured,
+			StagedCredentialName: stagedName,
+		},
+	})
 }
 
 func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
@@ -148,43 +133,15 @@ func (mp *ModelProviderHandler) Deconfigure(req api.Context) error {
 		return err
 	}
 
-	// If this is a "global" model provider, then the generic model provider context is added to handle more git-ops-ian deployments.
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{modelProvider.Name, system.GenericModelProviderCredentialContext}, modelProvider.Name)
-	if err != nil {
-		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return fmt.Errorf("failed to find credential: %w", err)
-		}
-	} else if _, err = req.GatewayClient.DeleteCredential(req.Context(), cred.Context, modelProvider.Name); err != nil {
-		return fmt.Errorf("failed to remove existing credential: %w", err)
-	}
-
-	// We only need to reprocess the model provider if this is the "global" model provider.
-	// Stop the model provider so that the credential is completely removed from the system.
-	mp.dispatcher.StopModelProvider(modelProvider.Namespace, modelProvider.Name)
-
-	if modelProvider.Annotations[v1.ModelProviderSyncAnnotation] == "" {
-		if modelProvider.Annotations == nil {
-			modelProvider.Annotations = make(map[string]string, 1)
-		}
-		modelProvider.Annotations[v1.ModelProviderSyncAnnotation] = "true"
-	} else {
-		delete(modelProvider.Annotations, v1.ModelProviderSyncAnnotation)
-	}
-
-	if err := req.Update(&modelProvider); err != nil {
-		return fmt.Errorf("failed to update model provider: %w", err)
-	}
-
-	// Wait for the controllers to process to ensure the API will return correct configuration status.
-	if _, err := wait.For(req.Context(), req.Storage, &modelProvider, func(m *v1.ModelProvider) (bool, error) {
-		return m.Status.ObservedGeneration == m.Generation, nil
-	}, wait.Option{
-		Timeout: 10 * time.Second,
-	}); err != nil {
-		return fmt.Errorf("failed to wait for model provider: %w", err)
-	}
-
-	return nil
+	return submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+		Name:      modelProviderConfigurationChangeName(modelProvider.Name),
+		Namespace: modelProvider.Namespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeModel,
+			ProviderName: modelProvider.Name,
+			DesiredState: v1.ProviderDesiredStateDeconfigured,
+		},
+	})
 }
 
 func (mp *ModelProviderHandler) Reveal(req api.Context) error {

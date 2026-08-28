@@ -1,27 +1,38 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
+	"github.com/obot-platform/nah/pkg/name"
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-type failAuthProviderCleanupCreateStorage struct {
+type failProviderChangeCreateStorage struct {
 	kclient.WithWatch
 }
 
-func (f *failAuthProviderCleanupCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
-	if _, ok := obj.(*v1.AuthProviderCleanup); ok {
-		return errors.New("injected cleanup create failure")
+func (f *failProviderChangeCreateStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
+	if _, ok := obj.(*v1.ProviderConfigurationChange); ok {
+		return errors.New("injected provider change create failure")
 	}
 	return f.WithWatch.Create(ctx, obj, opts...)
 }
@@ -39,7 +50,7 @@ func TestEnsureNoPendingAuthProviderCleanup(t *testing.T) {
 		Request: httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", nil),
 		Storage: newFakeStorage(t,
 			&v1.AuthProviderCleanup{
-				Name:      authProviderCleanupName("entra-auth-provider"),
+				Name:      name.SafeConcatName(system.AuthProviderCleanupPrefix, "entra-auth-provider"),
 				Namespace: system.DefaultNamespace,
 				Spec: v1.AuthProviderCleanupSpec{
 					AuthProviderName: "entra-auth-provider",
@@ -58,7 +69,7 @@ func TestEnsureNoPendingAuthProviderCleanupBlocksPrefixReuse(t *testing.T) {
 		Request: httptest.NewRequest(http.MethodPost, "/api/auth-providers/new-entra/configure", nil),
 		Storage: newFakeStorage(t,
 			&v1.AuthProviderCleanup{
-				Name:      authProviderCleanupName("old-entra"),
+				Name:      name.SafeConcatName(system.AuthProviderCleanupPrefix, "old-entra"),
 				Namespace: system.DefaultNamespace,
 				Spec: v1.AuthProviderCleanupSpec{
 					AuthProviderName: "old-entra",
@@ -80,61 +91,147 @@ func TestEnsureNoPendingAuthProviderCleanupBlocksPrefixReuse(t *testing.T) {
 	require.ErrorContains(t, err, "still being deconfigured")
 }
 
-func TestEnsureAuthProviderCleanupIsDeterministicAndIdempotent(t *testing.T) {
-	authProvider := v1.AuthProvider{
-		Name:      "entra-auth-provider",
-		Namespace: system.DefaultNamespace,
-		Spec: v1.AuthProviderSpec{
-			AuthProviderManifest: clienttypes.AuthProviderManifest{
-				GroupIDPrefix: "entra/",
-			},
-		},
-	}
-	req := api.Context{
-		Request: httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/deconfigure", nil),
-		Storage: newFakeStorage(t),
-	}
-
-	first, err := ensureAuthProviderCleanup(req, authProvider)
-	require.NoError(t, err)
-	require.Equal(t, authProviderCleanupName(authProvider.Name), first.Name)
-	require.False(t, first.Spec.Ready)
-
-	second, err := ensureAuthProviderCleanup(req, authProvider)
-	require.NoError(t, err)
-	require.Equal(t, first.Name, second.Name)
-
-	var cleanups v1.AuthProviderCleanupList
-	require.NoError(t, req.List(&cleanups))
-	require.Len(t, cleanups.Items, 1)
-
-	require.NoError(t, markAuthProviderCleanupReady(req, second))
-	var ready v1.AuthProviderCleanup
-	require.NoError(t, req.Get(&ready, second.Name))
-	require.True(t, ready.Spec.Ready)
-	require.NoError(t, markAuthProviderCleanupReady(req, second))
-}
-
-func TestDeconfigurePersistsCleanupIntentBeforeSideEffects(t *testing.T) {
+func TestConfigureAuthProviderStagesCredentialAndWaitsForChangeDeletion(t *testing.T) {
 	authProvider := &v1.AuthProvider{
 		Name:      "entra-auth-provider",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.AuthProviderSpec{
 			AuthProviderManifest: clienttypes.AuthProviderManifest{
-				GroupIDPrefix: "entra/",
+				RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
+					{
+						Name: "CLIENT_SECRET",
+					},
+				},
 			},
 		},
 	}
-	storage := &failAuthProviderCleanupCreateStorage{
-		WithWatch: newFakeStorage(t, authProvider),
-	}
-	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/deconfigure", nil)
+	storage := newAuthProviderTestStorage(authProvider)
+	gatewayClient := newHandlerTestGateway(t)
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, licenseProvider, "", "", "")
+	request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/entra-auth-provider/configure", bytes.NewBufferString(`{"CLIENT_SECRET":"secret","EMPTY":""}`))
 	request.SetPathValue("id", authProvider.Name)
 	req := api.Context{
-		Request: request,
-		Storage: storage,
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
 	}
 
-	err := (&AuthProviderHandler{}).Deconfigure(req)
-	require.ErrorContains(t, err, "persist cleanup intent")
+	errC := make(chan error, 1)
+	go func() {
+		errC <- NewAuthProviderHandler(providerDispatcher, "", licenseProvider).Configure(req)
+	}()
+
+	var change v1.ProviderConfigurationChange
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		err := storage.Get(t.Context(), kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.ProviderChangeAuthName,
+		}, &change)
+		assert.NoError(collect, err)
+	}, time.Second, 10*time.Millisecond)
+	assert.Equal(t, v1.ProviderTypeAuth, change.Spec.ProviderType)
+	assert.Equal(t, v1.ProviderDesiredStateConfigured, change.Spec.DesiredState)
+	assert.NotEmpty(t, change.Spec.StagedCredentialName)
+
+	staged, err := gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
+	require.NoError(t, err)
+	assert.Equal(t, "secret", staged.Secrets["CLIENT_SECRET"])
+	assert.NotEmpty(t, staged.Secrets[CookieSecretEnvVar])
+	assert.NotContains(t, staged.Secrets, "EMPTY")
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{authProvider.Name}, authProvider.Name)
+	require.Error(t, err)
+
+	require.NoError(t, storage.Delete(t.Context(), &change))
+	require.NoError(t, <-errC)
+}
+
+func newAuthProviderTestStorage(objects ...kclient.Object) kclient.WithWatch {
+	return fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(objects...).
+		WithIndex(&v1.AuthProvider{}, "status.configured", func(object kclient.Object) []string {
+			return []string{strconv.FormatBool(object.(*v1.AuthProvider).Status.Configured)}
+		}).
+		Build()
+}
+
+func TestSubmitProviderConfigurationChangeReturnsConflict(t *testing.T) {
+	existing := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeAuth,
+			ProviderName: "existing",
+			DesiredState: v1.ProviderDesiredStateDeconfigured,
+		},
+	}
+	req := api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/", nil),
+		Storage:       newFakeStorage(t, existing),
+		GatewayClient: newHandlerTestGateway(t),
+	}
+	err := submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+		Name:      existing.Name,
+		Namespace: existing.Namespace,
+		Spec:      existing.Spec,
+	})
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+}
+
+func TestFailedProviderChangeCreationRemovesOnlyItsStage(t *testing.T) {
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    "other-stage",
+		Secrets: map[string]string{"key": "other"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    "request-stage",
+		Secrets: map[string]string{"key": "request"},
+	}))
+	req := api.Context{
+		Request: httptest.NewRequest(http.MethodPost, "/", nil),
+		Storage: &failProviderChangeCreateStorage{
+			WithWatch: newFakeStorage(t),
+		},
+		GatewayClient: gatewayClient,
+	}
+	err := submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         "provider",
+			DesiredState:         v1.ProviderDesiredStateConfigured,
+			StagedCredentialName: "request-stage",
+		},
+	})
+	require.ErrorContains(t, err, "injected provider change create failure")
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "request-stage")
+	require.Error(t, err)
+	other, err := gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, "other-stage")
+	require.NoError(t, err)
+	assert.Equal(t, "other", other.Secrets["key"])
+}
+
+func TestWaitForProviderConfigurationChangeDeletionReturnsOnCancellation(t *testing.T) {
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+	}
+	storage := newFakeStorage(t, change)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	err := waitForProviderConfigurationChangeDeletion(ctx, storage, change)
+	require.ErrorIs(t, err, context.Canceled)
+
+	var persisted v1.ProviderConfigurationChange
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(change), &persisted))
+	require.False(t, apierrors.IsNotFound(err))
 }

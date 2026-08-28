@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
+	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/localauth"
@@ -254,6 +255,9 @@ func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, a
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	if err := providerconfigurationchange.EnsureDaemonSync(ctx, client); err != nil {
+		panic(err)
+	}
 	go c.providerHandler.PollRegistries(ctx, client)
 	var err error
 	for range 3 {
@@ -359,6 +363,11 @@ func (c *Controller) Start(ctx context.Context) error {
 	if c.services.EveryReplicaRouter != nil {
 		if err := c.services.EveryReplicaRouter.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start tunnel peer Kubernetes router: %w", err)
+		}
+	}
+	if c.services.ProviderDaemonRouter != nil {
+		if err := c.services.ProviderDaemonRouter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start provider daemon sync router: %w", err)
 		}
 	}
 

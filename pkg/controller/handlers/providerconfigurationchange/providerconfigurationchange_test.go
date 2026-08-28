@@ -1,0 +1,250 @@
+package providerconfigurationchange
+
+import (
+	"context"
+	"errors"
+	"testing"
+	"time"
+
+	"github.com/obot-platform/nah/pkg/router"
+	clienttypes "github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	"github.com/obot-platform/obot/pkg/gateway/server/dispatcher"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/system"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+type failCleanupCreateClient struct {
+	kclient.WithWatch
+}
+
+func (f *failCleanupCreateClient) Create(ctx context.Context, object kclient.Object, options ...kclient.CreateOption) error {
+	if _, ok := object.(*v1.AuthProviderCleanup); ok {
+		return errors.New("injected cleanup intent failure")
+	}
+	return f.WithWatch.Create(ctx, object, options...)
+}
+
+func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
+	provider := &v1.AuthProvider{
+		Name:       "auth-provider",
+		Namespace:  system.DefaultNamespace,
+		Generation: 7,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				RequiredConfigurationParameters: []clienttypes.ProviderConfigurationParameter{
+					{
+						Name: "CLIENT_SECRET",
+					},
+				},
+			},
+		},
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         provider.Name,
+			DesiredState:         v1.ProviderDesiredStateConfigured,
+			StagedCredentialName: "stage",
+		},
+	}
+	client := newProviderChangeTestClient(provider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    change.Spec.StagedCredentialName,
+		Secrets: map[string]string{
+			"CLIENT_SECRET": "new-secret",
+		},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+	handler.now = func() time.Time { return time.Unix(100, 0).UTC() }
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	assert.True(t, change.Status.Applied)
+
+	active, err := gatewayClient.RevealCredential(t.Context(), []string{provider.Name}, provider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "new-secret", active.Secrets["CLIENT_SECRET"])
+	var updatedProvider v1.AuthProvider
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(provider), &updatedProvider))
+	assert.True(t, updatedProvider.Status.Configured)
+	assert.Equal(t, provider.Generation, updatedProvider.Status.ObservedGeneration)
+	var daemonSync v1.ProviderDaemonSync
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      system.ProviderDaemonSyncName,
+	}, &daemonSync))
+	assert.True(t, time.Unix(101, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
+	require.NoError(t, err)
+
+	require.NoError(t, client.Status().Update(t.Context(), change))
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
+	require.Error(t, err)
+	var deletedChange v1.ProviderConfigurationChange
+	err = client.Get(t.Context(), kclient.ObjectKeyFromObject(change), &deletedChange)
+	require.True(t, apierrors.IsNotFound(err))
+}
+
+func TestAuthDeconfigurationPersistsCleanupBeforeCredentialDeletion(t *testing.T) {
+	provider := &v1.AuthProvider{
+		Name:      "auth-provider",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.AuthProviderSpec{
+			AuthProviderManifest: clienttypes.AuthProviderManifest{
+				GroupIDPrefix: "groups/",
+			},
+		},
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeAuth,
+			ProviderName: provider.Name,
+			DesiredState: v1.ProviderDesiredStateDeconfigured,
+		},
+	}
+	baseClient := newProviderChangeTestClient(provider, change)
+	client := &failCleanupCreateClient{WithWatch: baseClient}
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: provider.Name,
+		Name:    provider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "old-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, nil, licenseProvider, "")
+
+	err = handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil)
+	require.ErrorContains(t, err, "persist cleanup intent")
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{provider.Name}, provider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "old-secret", credential.Secrets["CLIENT_SECRET"])
+}
+
+func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
+	client := newProviderChangeTestClient()
+	handler := &Handler{now: func() time.Time { return time.Unix(10, 0).UTC() }}
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+
+	var daemonSync v1.ProviderDaemonSync
+	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}
+	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
+	assert.True(t, time.Unix(11, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
+	assert.True(t, time.Unix(12, 0).UTC().Equal(daemonSync.Spec.Timestamp.Time))
+
+	require.NoError(t, client.Delete(t.Context(), &daemonSync))
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
+	assert.False(t, daemonSync.Spec.Timestamp.IsZero())
+}
+
+func newProviderChangeTestClient(objects ...kclient.Object) kclient.WithWatch {
+	return fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithStatusSubresource(
+			&v1.AuthProvider{},
+			&v1.ModelProvider{},
+			&v1.ProviderConfigurationChange{},
+		).
+		WithObjects(objects...).
+		Build()
+}
+
+func newProviderChangeTestGateway(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	services, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	ctx, cancel := context.WithCancel(t.Context())
+	t.Cleanup(cancel)
+	gateway := gatewayclient.New(ctx, database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	t.Cleanup(func() { _ = gateway.Close() })
+	return gateway
+}
+
+func TestValidateChange(t *testing.T) {
+	tests := []struct {
+		name    string
+		change  v1.ProviderConfigurationChange
+		wantErr string
+	}{
+		{
+			name: "valid model configuration",
+			change: v1.ProviderConfigurationChange{
+				Name:      "pcc1-model-provider",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.ProviderConfigurationChangeSpec{
+					ProviderType:         v1.ProviderTypeModel,
+					ProviderName:         "model-provider",
+					DesiredState:         v1.ProviderDesiredStateConfigured,
+					StagedCredentialName: "stage",
+				},
+			},
+		},
+		{
+			name: "configuration requires stage",
+			change: v1.ProviderConfigurationChange{
+				Name:      system.ProviderChangeAuthName,
+				Namespace: system.DefaultNamespace,
+				Spec: v1.ProviderConfigurationChangeSpec{
+					ProviderType: v1.ProviderTypeAuth,
+					ProviderName: "auth-provider",
+					DesiredState: v1.ProviderDesiredStateConfigured,
+				},
+			},
+			wantErr: "no staged credential",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateChange(&test.change)
+			if test.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, test.wantErr)
+			}
+		})
+	}
+}

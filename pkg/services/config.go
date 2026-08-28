@@ -233,6 +233,7 @@ type Services struct {
 	LocalK8sClient            kclient.Client
 	LocalRouter               *router.Router
 	EveryReplicaRouter        *router.Router
+	ProviderDaemonRouter      *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
 	ServiceAccountIssuerError string
@@ -603,6 +604,16 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	providerDaemonRouter, err := nah.NewRouter("obot-provider-daemon-sync", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		Namespace:      system.DefaultNamespace,
+		ElectionConfig: nil,
+		HealthzPort:    -1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create provider daemon sync router: %w", err)
 	}
 
 	gatewayClient := client.New(
@@ -1319,6 +1330,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		LocalK8sClient:                       mcpLocalK8sClient,
 		LocalRouter:                          localRouter,
 		EveryReplicaRouter:                   tunnelPeerRouter,
+		ProviderDaemonRouter:                 providerDaemonRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,

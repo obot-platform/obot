@@ -12,7 +12,20 @@ import (
 )
 
 func (d *Dispatcher) ModelsForProvider(ctx context.Context, modelProvider v1.ModelProvider) (*openai.ModelsList, error) {
-	u, err := d.urlForModelProvider(ctx, providerKeyForModelProvider(modelProvider.Namespace, modelProvider.Name), modelProvider)
+	return d.modelsForProvider(ctx, providerKeyForModelProvider(modelProvider.Namespace, modelProvider.Name), modelProvider)
+}
+
+// FreshModelsForProvider discovers models through a short-lived daemon that
+// always reads the current credential. It cannot accidentally reuse a cached
+// provider process from before a credential change.
+func (d *Dispatcher) FreshModelsForProvider(ctx context.Context, modelProvider v1.ModelProvider) (*openai.ModelsList, error) {
+	key := fmt.Sprintf("%s/refresh/%d", providerKeyForModelProvider(modelProvider.Namespace, modelProvider.Name), d.modelRefreshSequence.Add(1))
+	defer d.stopDaemon(key)
+	return d.modelsForProvider(ctx, key, modelProvider)
+}
+
+func (d *Dispatcher) modelsForProvider(ctx context.Context, key string, modelProvider v1.ModelProvider) (*openai.ModelsList, error) {
+	u, err := d.urlForModelProvider(ctx, key, modelProvider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get URL for model provider %q: %w", modelProvider.Name, err)
 	}

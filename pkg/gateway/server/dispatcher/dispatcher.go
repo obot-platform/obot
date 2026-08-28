@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/obot-platform/obot/logger"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -36,6 +37,7 @@ type Dispatcher struct {
 	internalServerURL    string
 	authProviderExtraEnv map[string]string
 	ports                *ports
+	modelRefreshSequence atomic.Uint64
 
 	builtinLock         sync.RWMutex
 	builtinAuthProvider map[string]url.URL
