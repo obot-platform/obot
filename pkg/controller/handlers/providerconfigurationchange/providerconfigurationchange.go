@@ -81,7 +81,7 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 		}
 	}
 
-	if err := h.advanceDaemonSync(req.Ctx, req.Client); err != nil {
+	if err := h.advanceDaemonSync(req.Ctx, req.Client, change); err != nil {
 		return err
 	}
 
@@ -352,10 +352,11 @@ func CleanupOrphanedStagedCredentials(ctx context.Context, client kclient.Client
 	return errors.Join(cleanupErrors...)
 }
 
-func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client) error {
+func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, change *v1.ProviderConfigurationChange) error {
 	if err := EnsureDaemonSync(ctx, client); err != nil {
 		return err
 	}
+	revisionKey := providerDaemonRevisionKey(change.Spec.ProviderType, change.Namespace, change.Spec.ProviderName)
 	var daemonSync v1.ProviderDaemonSync
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}, &daemonSync); err != nil {
@@ -370,11 +371,23 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client) 
 				return err
 			}
 		}
-		daemonSync.Spec.Generation++
+		if daemonSync.Spec.Revisions == nil {
+			daemonSync.Spec.Revisions = make(map[string]v1.ProviderDaemonRevision)
+		}
+		revision := daemonSync.Spec.Revisions[revisionKey]
+		revision.ProviderType = change.Spec.ProviderType
+		revision.ProviderNamespace = change.Namespace
+		revision.ProviderName = change.Spec.ProviderName
+		revision.Revision++
+		daemonSync.Spec.Revisions[revisionKey] = revision
 		return client.Update(ctx, &daemonSync)
 	})
 	if err != nil {
 		return fmt.Errorf("advance provider daemon sync: %w", err)
 	}
 	return nil
+}
+
+func providerDaemonRevisionKey(providerType v1.ProviderType, namespace, providerName string) string {
+	return fmt.Sprintf("%s/%s/%s", providerType, namespace, providerName)
 }

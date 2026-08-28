@@ -71,36 +71,6 @@ func (d *Dispatcher) stopDaemon(id string) {
 	delete(d.ports.daemonPorts, id)
 }
 
-// StopAllAuthProviderDaemons stops every external authentication provider in
-// this process. Built-in authentication providers are registered separately
-// and are intentionally unaffected.
-func (d *Dispatcher) StopAllAuthProviderDaemons() {
-	d.stopProviderDaemonsWithPrefix("auth-provider/")
-}
-
-// StopAllModelProviderDaemons stops every model provider in this process.
-func (d *Dispatcher) StopAllModelProviderDaemons() {
-	d.stopProviderDaemonsWithPrefix("model-provider/")
-}
-
-func (d *Dispatcher) stopProviderDaemonsWithPrefix(prefix string) {
-	d.ports.daemonLock.Lock()
-	defer d.ports.daemonLock.Unlock()
-
-	for id, stop := range d.ports.daemonsRunning {
-		if !strings.HasPrefix(id, prefix) {
-			continue
-		}
-		if stop != nil {
-			stop()
-		}
-		delete(d.ports.daemonsRunning, id)
-		delete(d.ports.daemonGeneration, id)
-		delete(d.ports.usedPorts, d.ports.daemonPorts[id])
-		delete(d.ports.daemonPorts, id)
-	}
-}
-
 func (d *Dispatcher) nextPort() int64 {
 	if d.ports.startPort == 0 {
 		d.ports.startPort = 10240

@@ -94,7 +94,11 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Name:      system.ProviderDaemonSyncName,
 	}, &daemonSync))
-	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
+	revision := daemonSync.Spec.Revisions[providerDaemonRevisionKey(v1.ProviderTypeAuth, provider.Namespace, provider.Name)]
+	assert.Equal(t, v1.ProviderTypeAuth, revision.ProviderType)
+	assert.Equal(t, provider.Namespace, revision.ProviderNamespace)
+	assert.Equal(t, provider.Name, revision.ProviderName)
+	assert.Equal(t, int64(1), revision.Revision)
 	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
 	require.NoError(t, err)
 
@@ -212,24 +216,40 @@ func TestCleanupOrphanedStagedCredentials(t *testing.T) {
 func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
 	client := newProviderChangeTestClient()
 	handler := &Handler{}
-	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+	authChange := &v1.ProviderConfigurationChange{
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeAuth,
+			ProviderName: "auth-provider",
+		},
+	}
+	modelChange := &v1.ProviderConfigurationChange{
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeModel,
+			ProviderName: "model-provider",
+		},
+	}
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client, authChange))
 
 	var daemonSync v1.ProviderDaemonSync
 	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
+	authRevisionKey := providerDaemonRevisionKey(v1.ProviderTypeAuth, authChange.Namespace, authChange.Spec.ProviderName)
+	modelRevisionKey := providerDaemonRevisionKey(v1.ProviderTypeModel, modelChange.Namespace, modelChange.Spec.ProviderName)
+	assert.Equal(t, int64(1), daemonSync.Spec.Revisions[authRevisionKey].Revision)
 
-	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client, authChange))
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client, modelChange))
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.Equal(t, int64(2), daemonSync.Spec.Generation)
+	assert.Equal(t, int64(2), daemonSync.Spec.Revisions[authRevisionKey].Revision)
+	assert.Equal(t, int64(1), daemonSync.Spec.Revisions[modelRevisionKey].Revision)
 
-	// A recreated singleton restarts at 1, which every replica has already
-	// acted on. Recreation therefore relies on those replicas having restarted
-	// too, which is the only way the object goes away.
 	require.NoError(t, client.Delete(t.Context(), &daemonSync))
-	require.NoError(t, handler.advanceDaemonSync(t.Context(), client))
+	require.NoError(t, handler.advanceDaemonSync(t.Context(), client, authChange))
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
-	assert.Equal(t, int64(1), daemonSync.Spec.Generation)
+	assert.Equal(t, int64(1), daemonSync.Spec.Revisions[authRevisionKey].Revision)
+	assert.NotContains(t, daemonSync.Spec.Revisions, modelRevisionKey)
 }
 
 func newProviderChangeTestClient(objects ...kclient.Object) kclient.WithWatch {

@@ -15,7 +15,16 @@ type ProviderDaemonSync struct {
 }
 
 type ProviderDaemonSyncSpec struct {
-	Generation int64 `json:"generation"`
+	Revisions map[string]ProviderDaemonRevision `json:"revisions,omitempty"`
+}
+
+// ProviderDaemonRevision identifies a provider whose cached daemons must be
+// restarted whenever Revision advances.
+type ProviderDaemonRevision struct {
+	ProviderType      ProviderType `json:"providerType"`
+	ProviderNamespace string       `json:"providerNamespace"`
+	ProviderName      string       `json:"providerName"`
+	Revision          int64        `json:"revision"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

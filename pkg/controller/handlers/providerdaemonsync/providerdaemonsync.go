@@ -1,6 +1,7 @@
 package providerdaemonsync
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -8,35 +9,49 @@ import (
 )
 
 type daemonStopper interface {
-	StopAllAuthProviderDaemons()
-	StopAllModelProviderDaemons()
+	StopAuthProvider(namespace, authProviderName string)
+	StopModelProvider(namespace, modelProviderName string)
 }
 
 // Handler owns replica-local state and is registered on a router without
 // leader election, so each replica independently stops its cached daemons.
 type Handler struct {
-	mu             sync.Mutex
-	lastGeneration int64
-	dispatcher     daemonStopper
+	mu            sync.Mutex
+	lastRevisions map[string]int64
+	dispatcher    daemonStopper
 }
 
 func New(dispatcher daemonStopper) *Handler {
 	return &Handler{
-		dispatcher: dispatcher,
+		lastRevisions: make(map[string]int64),
+		dispatcher:    dispatcher,
 	}
 }
 
 func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
-	generation := req.Object.(*v1.ProviderDaemonSync).Spec.Generation
+	daemonSync := req.Object.(*v1.ProviderDaemonSync)
 
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if generation <= h.lastGeneration {
-		return nil
+	if h.lastRevisions == nil {
+		h.lastRevisions = make(map[string]int64)
 	}
 
-	h.dispatcher.StopAllAuthProviderDaemons()
-	h.dispatcher.StopAllModelProviderDaemons()
-	h.lastGeneration = generation
+	for key, revision := range daemonSync.Spec.Revisions {
+		observationKey := string(daemonSync.UID) + "/" + key
+		if revision.Revision <= h.lastRevisions[observationKey] {
+			continue
+		}
+
+		switch revision.ProviderType {
+		case v1.ProviderTypeAuth:
+			h.dispatcher.StopAuthProvider(revision.ProviderNamespace, revision.ProviderName)
+		case v1.ProviderTypeModel:
+			h.dispatcher.StopModelProvider(revision.ProviderNamespace, revision.ProviderName)
+		default:
+			return fmt.Errorf("provider daemon revision %q has invalid provider type %q", key, revision.ProviderType)
+		}
+		h.lastRevisions[observationKey] = revision.Revision
+	}
 	return nil
 }

@@ -876,6 +876,11 @@ func (in ProviderConfigurationChangeStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderDaemonRevision) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonRevision"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in ProviderDaemonSync) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonSync"
 }

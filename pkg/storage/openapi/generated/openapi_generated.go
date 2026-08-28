@@ -527,6 +527,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.ProviderConfigurationChangeList{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeList(ref),
 		v1.ProviderConfigurationChangeSpec{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeSpec(ref),
 		v1.ProviderConfigurationChangeStatus{}.OpenAPIModelName():                                 schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref),
+		v1.ProviderDaemonRevision{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonRevision(ref),
 		v1.ProviderDaemonSync{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref),
 		v1.ProviderDaemonSyncList{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonSyncList(ref),
 		v1.ProviderDaemonSyncSpec{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref),
@@ -25820,6 +25821,48 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref com
 	}
 }
 
+func schema_storage_apis_obotobotai_v1_ProviderDaemonRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ProviderDaemonRevision identifies a provider whose cached daemons must be restarted whenever Revision advances.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"providerType": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"providerNamespace": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"providerName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"revision": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"providerType", "providerNamespace", "providerName", "revision"},
+			},
+		},
+	}
+}
+
 func schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -25915,18 +25958,24 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref common.Referen
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
-					"generation": {
+					"revisions": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Generation counts applied provider configuration changes. It only ever increments, so replicas can order broadcasts without comparing clocks. This is unrelated to the object's metadata.generation.",
-							Default:     0,
-							Type:        []string{"integer"},
-							Format:      "int64",
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.ProviderDaemonRevision{}.OpenAPIModelName()),
+									},
+								},
+							},
 						},
 					},
 				},
-				Required: []string{"generation"},
 			},
 		},
+		Dependencies: []string{
+			v1.ProviderDaemonRevision{}.OpenAPIModelName()},
 	}
 }
 
