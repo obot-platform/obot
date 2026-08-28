@@ -402,6 +402,11 @@
 			});
 		}
 	}}
+	onReauthenticate={({ server }) => {
+		if (server) {
+			reauthenticateServer(server);
+		}
+	}}
 />
 
 <EditExistingDeployment bind:this={editExistingDialog} onUpdateConfigure={refresh} />
