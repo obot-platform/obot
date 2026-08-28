@@ -115,7 +115,7 @@
 		>
 			Email
 			<input
-				id="{idPrefix}-email"
+				id={idPrefix + '-email'}
 				class="text-input-filled"
 				name="email"
 				type="email"
