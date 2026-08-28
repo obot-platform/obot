@@ -108,6 +108,9 @@ func waitForExactProviderConfigurationChangeDeletion(ctx context.Context, watche
 				deleted, ok := event.Object.(*v1.ProviderConfigurationChange)
 				if ok && deleted.Namespace == change.Namespace && deleted.Name == change.Name &&
 					(change.UID == "" || deleted.UID == change.UID) {
+					if deleted.Status.Error != "" {
+						return false, types.NewErrBadRequest("%s", deleted.Status.Error)
+					}
 					return true, nil
 				}
 			case watch.Error:

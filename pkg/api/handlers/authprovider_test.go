@@ -22,6 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/watch"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -234,4 +235,27 @@ func TestWaitForProviderConfigurationChangeDeletionReturnsOnCancellation(t *test
 	var persisted v1.ProviderConfigurationChange
 	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(change), &persisted))
 	require.False(t, apierrors.IsNotFound(err))
+}
+
+func TestWaitForProviderConfigurationChangeDeletionReturnsTerminalError(t *testing.T) {
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Status: v1.ProviderConfigurationChangeStatus{
+			Error: "only one authentication provider can be configured at a time",
+		},
+	}
+	watcher := watch.NewRaceFreeFake()
+	errC := make(chan error, 1)
+	go func() {
+		_, err := waitForExactProviderConfigurationChangeDeletion(t.Context(), watcher, change)
+		errC <- err
+	}()
+
+	watcher.Delete(change)
+	err := <-errC
+	var httpErr *clienttypes.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
+	assert.Contains(t, httpErr.Error(), change.Status.Error)
 }

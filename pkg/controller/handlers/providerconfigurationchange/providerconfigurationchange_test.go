@@ -3,6 +3,7 @@ package providerconfigurationchange
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -112,6 +113,78 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 	}, nil))
 	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
 	require.Error(t, err)
+	var deletedChange v1.ProviderConfigurationChange
+	err = client.Get(t.Context(), kclient.ObjectKeyFromObject(change), &deletedChange)
+	require.True(t, apierrors.IsNotFound(err))
+}
+
+func TestConfigureAuthProviderRejectsConflictingConfiguredProvider(t *testing.T) {
+	configuredProvider := &v1.AuthProvider{
+		Name:      "configured-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status: v1.AuthProviderStatus{
+			Configured: true,
+		},
+	}
+	targetProvider := &v1.AuthProvider{
+		Name:      "target-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         targetProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateConfigured,
+			StagedCredentialName: "target-stage",
+		},
+	}
+	client := newProviderChangeTestClient(configuredProvider, targetProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: configuredProvider.Name,
+		Name:    configuredProvider.Name,
+		Secrets: map[string]string{
+			"CLIENT_SECRET": "configured-secret",
+		},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    change.Spec.StagedCredentialName,
+		Secrets: map[string]string{
+			"CLIENT_SECRET": "target-secret",
+		},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	require.NotEmpty(t, change.Status.Error)
+	assert.Contains(t, change.Status.Error, configuredProvider.Name)
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{targetProvider.Name}, targetProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+	configuredCredential, err := gatewayClient.RevealCredential(t.Context(), []string{configuredProvider.Name}, configuredProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "configured-secret", configuredCredential.Secrets["CLIENT_SECRET"])
+
+	require.NoError(t, client.Status().Update(t.Context(), change))
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
 	var deletedChange v1.ProviderConfigurationChange
 	err = client.Get(t.Context(), kclient.ObjectKeyFromObject(change), &deletedChange)
 	require.True(t, apierrors.IsNotFound(err))
@@ -255,6 +328,9 @@ func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
 func newProviderChangeTestClient(objects ...kclient.Object) kclient.WithWatch {
 	return fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.AuthProvider{}, "status.configured", func(object kclient.Object) []string {
+			return []string{strconv.FormatBool(object.(*v1.AuthProvider).Status.Configured)}
+		}).
 		WithStatusSubresource(
 			&v1.AuthProvider{},
 			&v1.ModelProvider{},

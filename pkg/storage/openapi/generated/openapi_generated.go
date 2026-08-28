@@ -25815,6 +25815,13 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref com
 							Format:      "",
 						},
 					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Error describes a terminal rejection. The remaining reconciliation only removes the staged credential and this task.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 			},
 		},

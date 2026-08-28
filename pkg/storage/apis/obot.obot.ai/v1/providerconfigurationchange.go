@@ -38,6 +38,9 @@ type ProviderConfigurationChangeStatus struct {
 	// Applied means all externally visible provider state has committed. The
 	// remaining reconciliation only removes the staged credential and this task.
 	Applied bool `json:"applied,omitempty"`
+	// Error describes a terminal rejection. The remaining reconciliation only
+	// removes the staged credential and this task.
+	Error string `json:"error,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
