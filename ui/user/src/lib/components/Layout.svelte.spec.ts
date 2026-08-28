@@ -127,7 +127,7 @@ describe('Layout.svelte', () => {
 	it('gives all users access to non-administrative sidebar navigation', async () => {
 		await renderLayout();
 
-		for (const name of ['Skills', 'Hosted Agents', 'Agent Identities']) {
+		for (const name of ['MCP Servers', 'Skills', 'Hosted Agents', 'Agent Identities']) {
 			await expect.element(page.getByRole('link', { name, exact: true })).toBeVisible();
 		}
 	});

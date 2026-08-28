@@ -106,7 +106,8 @@
 		LayoutGrid,
 		KeyRound,
 		Menu,
-		X
+		X,
+		Server
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -255,6 +256,12 @@
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let defaultLinks = $derived<NavLink[]>([
+		{
+			id: 'mcp-servers',
+			icon: Server,
+			label: 'MCP Servers',
+			href: '/mcp-servers'
+		},
 		{
 			id: 'mcp-skills',
 			icon: PencilRuler,
