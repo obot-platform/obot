@@ -8,7 +8,33 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/stretchr/testify/assert"
 )
+
+func TestConvertMCPWebhookValidationEncryptedStaticConfiguration(t *testing.T) {
+	validation := v1.MCPWebhookValidation{
+		Spec: v1.MCPWebhookValidationSpec{
+			Manifest: types.MCPWebhookValidationManifest{
+				SystemMCPServerManifest: &types.SystemMCPServerManifest{
+					Env: []types.MCPEnv{{
+						Key:       "TOKEN",
+						Value:     "secret-token",
+						Required:  true,
+						Sensitive: true,
+					}},
+				},
+			},
+		},
+	}
+	staticSecrets := mcp.ExtractStaticSystemServerConfiguration(validation.Spec.Manifest.SystemMCPServerManifest, nil, true)
+
+	converted := convertMCPWebhookValidation(validation, staticSecrets)
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+	assert.True(t, converted.SystemMCPServerManifest.Env[0].ValueConfigured)
+	assert.Empty(t, converted.SystemMCPServerManifest.Env[0].Value)
+}
 
 func TestMCPWebhookValidationManifest_Validate(t *testing.T) {
 	tests := []struct {

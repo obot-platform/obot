@@ -346,6 +346,7 @@ func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPSe
 }
 
 func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
+	mcpServer.Spec.Manifest = HydrateStaticServerConfiguration(mcpServer.Spec.Manifest, credEnv)
 	if _, err := ValidateConfiguredOptions(mcpServer.Spec.Manifest.Env, remoteHeaders(mcpServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}
@@ -497,6 +498,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
 func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []string, userID string, credEnv map[string]string) (ServerConfig, []string, error) {
+	systemServer.Spec.Manifest = HydrateStaticSystemServerConfiguration(systemServer.Spec.Manifest, credEnv)
 	if _, err := ValidateConfiguredOptions(systemServer.Spec.Manifest.Env, remoteHeaders(systemServer.Spec.Manifest.RemoteConfig), credEnv); err != nil {
 		return ServerConfig{}, nil, err
 	}

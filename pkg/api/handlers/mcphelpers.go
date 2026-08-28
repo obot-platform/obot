@@ -167,7 +167,6 @@ func ensureCredential(ctx context.Context, gatewayClient *gateway.Client, cred g
 		}
 		return true, nil
 	}
-
 	// Existing credential, check if it needs an update
 	var modified bool
 	for key, env := range cred.Secrets {
@@ -187,4 +186,27 @@ func ensureCredential(ctx context.Context, gatewayClient *gateway.Client, cred g
 	}
 
 	return true, nil
+}
+
+func revealCredentialSecrets(ctx context.Context, gatewayClient *gateway.Client, credentialContext, credentialName string) (map[string]string, error) {
+	credential, err := gatewayClient.RevealCredential(ctx, []string{credentialContext}, credentialName)
+	if err != nil {
+		if errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return map[string]string{}, nil
+		}
+		return nil, err
+	}
+	return credential.Secrets, nil
+}
+
+func storeCredentialSecrets(ctx context.Context, gatewayClient *gateway.Client, credentialContext, credentialName string, secrets map[string]string) error {
+	if len(secrets) == 0 {
+		_, err := gatewayClient.DeleteCredential(ctx, credentialContext, credentialName)
+		return err
+	}
+	return gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+		Context: credentialContext,
+		Name:    credentialName,
+		Secrets: secrets,
+	})
 }

@@ -156,9 +156,11 @@
 											]}
 											selected={config.headers[i].options
 												? 'options'
-												: config.headers[i].required
-													? 'user_supplied'
-													: 'static'}
+												: config.headers[i].valueConfigured ||
+													  config.headers[i].value ||
+													  !config.headers[i].required
+													? 'static'
+													: 'user_supplied'}
 											onSelect={(option) => {
 												if (!config.headers?.[i]) return;
 												if (option.id === 'user_supplied') {
@@ -170,6 +172,7 @@
 													config.headers[i].sensitive = false;
 												}
 												config.headers[i].value = '';
+												config.headers[i].valueConfigured = false;
 
 												if (option.id === 'options') {
 													if (!config.headers[i].options) {
@@ -262,6 +265,9 @@
 												id={`header-description-${i}`}
 												class="text-input-filled bg-base-100 w-full shadow-none"
 												bind:value={config.headers[i].value}
+												placeholder={config.headers[i].valueConfigured
+													? 'Configured; enter a new value to replace'
+													: undefined}
 												disabled={readonly}
 											/>
 										</div>

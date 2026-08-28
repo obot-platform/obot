@@ -10,6 +10,7 @@ import (
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -1023,13 +1024,13 @@ func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *tes
 	referenceManifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
 		Env: []types.MCPEnv{
-			{Key: "STATIC_ENV", Value: "stored-env"},
+			{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true},
 			{Key: "DYNAMIC_ENV"},
 		},
 		RemoteConfig: &types.RemoteCatalogConfig{
 			FixedURL: "https://api.example.com/mcp",
 			Headers: []types.MCPHeader{
-				{Key: "STATIC_HEADER", Value: "stored-header"},
+				{Key: "STATIC_HEADER", Value: "stored-header", Sensitive: true},
 				{Key: "EXISTING_HEADER", Value: "configured"},
 			},
 		},
@@ -1041,26 +1042,27 @@ func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *tes
 			Manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				Env: []types.MCPEnv{
-					{Key: "STATIC_ENV"},
+					{Key: "STATIC_ENV", Sensitive: true},
 					{Key: "DYNAMIC_ENV"},
 				},
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://api.example.com/mcp",
 					Headers: []types.MCPHeader{
-						{Key: "STATIC_HEADER"},
+						{Key: "STATIC_HEADER", Sensitive: true},
 						{Key: "EXISTING_HEADER", Value: "configured"},
 					},
 				},
 			},
 		},
 	}
+	staticManifest := server.DeepCopy().Spec.Manifest
+	staticManifest.Env[0].Value = "stored-env"
+	staticManifest.RemoteConfig.Headers[0].Value = "stored-header"
+	staticSecrets := mcp.ExtractStaticServerConfiguration(&staticManifest, nil, false)
 	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
 		Context: "default-shared-server",
-		Name:    server.Name,
-		Secrets: map[string]string{
-			"STATIC_ENV":    "stored-env",
-			"STATIC_HEADER": "stored-header",
-		},
+		Name:    mcp.StaticConfigurationCredentialName(server.Name),
+		Secrets: staticSecrets,
 	}))
 
 	drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, referenceManifest, false)
@@ -1496,7 +1498,7 @@ func TestDetectDriftClearsMultiUserCatalogEntryDeploymentWithAdminAddedEnvBindin
 	server.Status.NeedsUpdate = true
 
 	client := newFakeClient(t, entry, server)
-	err := (&Handler{}).DetectDrift(router.Request{
+	err := (&Handler{gatewayClient: newTestGatewayClient(t)}).DetectDrift(router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    server,

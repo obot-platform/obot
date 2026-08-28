@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 
 	"github.com/obot-platform/nah/pkg/router"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 type Handler struct {
@@ -24,6 +24,26 @@ func New(gatewayClient *gateway.Client, mcpLoader *mcp.SessionManager, serverURL
 		mcpSessionManager: mcpLoader,
 		serverURL:         serverURL,
 	}
+}
+
+func (h *Handler) MigrateStaticConfiguration(req router.Request, _ router.Response) error {
+	server := req.Object.(*v1.SystemMCPServer)
+	if !mcp.SystemServerHasStaticConfigurationValues(&server.Spec.Manifest) {
+		return nil
+	}
+	before := utils.Digest(server.Spec.Manifest)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, server.Name, server.Name)
+	if err != nil {
+		return err
+	}
+	secrets := mcp.ExtractStaticSystemServerConfiguration(&server.Spec.Manifest, existing, false)
+	if before == utils.Digest(server.Spec.Manifest) {
+		return nil
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, server.Name, server.Name, secrets); err != nil {
+		return fmt.Errorf("failed to store static configuration before migration: %w", err)
+	}
+	return req.Client.Update(req.Ctx, server)
 }
 
 // EnsureDeployment automatically deploys the server if Enabled=true and fully configured
@@ -56,23 +76,9 @@ func (h *Handler) EnsureDeployment(req router.Request, _ router.Response) error 
 	}
 
 	// Get credentials for deployment
-	credCtx := systemServer.Name
-	creds, err := h.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
+	credEnv, err := GetCredentialsForSystemServer(req.Ctx, h.gatewayClient, *systemServer)
 	if err != nil {
-		return fmt.Errorf("failed to list credentials: %w", err)
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		// Get credential details
-		credDetail, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credCtx}, cred.Name)
-		if err != nil {
-			continue
-		}
-
-		maps.Copy(credEnv, credDetail.Secrets)
+		return fmt.Errorf("failed to get credentials: %w", err)
 	}
 
 	audiences := systemServer.ValidConnectURLs(h.serverURL)
@@ -138,7 +144,13 @@ func IsSystemServerConfigured(ctx context.Context, gatewayClient *gateway.Client
 		return false
 	}
 
-	for _, env := range server.Spec.Manifest.Env {
+	return isSystemServerConfigured(server, credEnv)
+}
+
+func isSystemServerConfigured(server v1.SystemMCPServer, credEnv map[string]string) bool {
+	manifest := mcp.HydrateStaticSystemServerConfiguration(server.Spec.Manifest, credEnv)
+
+	for _, env := range manifest.Env {
 		if env.Required && env.Value == "" && credEnv[env.Key] == "" {
 			slog.Info("System MCP server missing required env var",
 				"server", server.Name, "envVar", env.Key)
@@ -149,25 +161,7 @@ func IsSystemServerConfigured(ctx context.Context, gatewayClient *gateway.Client
 	return true
 }
 
-// GetCredentialsForSystemServer retrieves all credentials for the given system MCP server and returns them as a single map of env vars.
+// GetCredentialsForSystemServer returns user and static configuration with static values taking precedence.
 func GetCredentialsForSystemServer(ctx context.Context, gatewayClient *gateway.Client, server v1.SystemMCPServer) (map[string]string, error) {
-	credCtx := server.Name
-	creds, err := gatewayClient.ListCredentials(ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	credEnv := make(map[string]string)
-	for _, cred := range creds {
-		credDetail, err := gatewayClient.RevealCredential(ctx, []string{credCtx}, cred.Name)
-		if err != nil {
-			continue
-		}
-
-		maps.Copy(credEnv, credDetail.Secrets)
-	}
-
-	return credEnv, nil
+	return mcp.RuntimeCredentialSecrets(ctx, gatewayClient, server.Name, server.Name)
 }

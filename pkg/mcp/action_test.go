@@ -25,7 +25,7 @@ func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteHeaders(t *test
 		},
 	}
 
-	addExtractedEnvVarsToCatalogEntryManifest(manifest)
+	AddExtractedEnvVarsToCatalogEntryManifest(manifest)
 
 	require.Empty(t, manifest.Env)
 	require.ElementsMatch(t, []types.MCPHeader{
