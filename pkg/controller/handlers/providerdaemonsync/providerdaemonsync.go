@@ -2,6 +2,7 @@ package providerdaemonsync
 
 import (
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -45,8 +46,18 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 
 		switch revision.ProviderType {
 		case v1.ProviderTypeAuth:
+			slog.Info("Stopping auth provider daemon after synchronized configuration change",
+				"authProvider", revision.ProviderName,
+				"namespace", revision.ProviderNamespace,
+				"revision", revision.Revision,
+			)
 			h.dispatcher.StopAuthProvider(revision.ProviderNamespace, revision.ProviderName)
 		case v1.ProviderTypeModel:
+			slog.Info("Stopping model provider daemon after synchronized configuration change",
+				"modelProvider", revision.ProviderName,
+				"namespace", revision.ProviderNamespace,
+				"revision", revision.Revision,
+			)
 			h.dispatcher.StopModelProvider(revision.ProviderNamespace, revision.ProviderName)
 		default:
 			return fmt.Errorf("provider daemon revision %q has invalid provider type %q", key, revision.ProviderType)
