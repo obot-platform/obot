@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -496,6 +498,89 @@ func TestPrepareTempServerConfigRejectsUnknownOption(t *testing.T) {
 	require.Contains(t, httpErr.Message, "not one of the configured options")
 }
 
+func TestMCPCatalogHandlerUpdateEntryHydratesComponentManifestFromCatalogEntry(t *testing.T) {
+	originalComponentManifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Original Component",
+		Runtime:        types.RuntimeNPX,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		NPXConfig:      &types.NPXRuntimeConfig{Package: "@example/original"},
+	}
+	differentComponentManifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Different Component",
+		Runtime:        types.RuntimeRemote,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		RemoteConfig:   &types.RemoteCatalogConfig{FixedURL: "https://different.example/mcp"},
+	}
+	updatedManifest := types.MCPServerCatalogEntryManifest{
+		Name:           "Composite",
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+			{
+				CatalogEntryID: "original-component",
+				Manifest:       differentComponentManifest,
+			},
+		}},
+	}
+	body, err := json.Marshal(updatedManifest)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPut, "/api/mcp-catalogs/custom/entries/composite", bytes.NewReader(body))
+	req.SetPathValue("catalog_id", "custom")
+	req.SetPathValue("entry_id", "composite")
+	storage := newFakeStorage(t,
+		&v1.MCPCatalog{Name: "custom", Namespace: system.DefaultNamespace},
+		&v1.MCPServerCatalogEntry{
+			Name: "original-component", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "custom",
+				Manifest:       originalComponentManifest,
+			},
+		},
+		&v1.MCPServerCatalogEntry{
+			Name: "different-component", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "custom",
+				Manifest:       differentComponentManifest,
+			},
+		},
+		&v1.MCPServerCatalogEntry{
+			Name: "composite", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerCatalogEntrySpec{
+				MCPCatalogName: "custom",
+				Editable:       true,
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:           "Composite",
+					Runtime:        types.RuntimeComposite,
+					ServerUserType: types.ServerUserTypeSingleUser,
+					CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
+						{CatalogEntryID: "original-component", Manifest: originalComponentManifest},
+					}},
+				},
+			},
+		},
+	)
+	err = (&MCPCatalogHandler{}).UpdateEntry(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		User:           &kuser.DefaultInfo{Groups: []string{types.GroupAdmin}},
+		Storage:        storage,
+	})
+
+	require.NoError(t, err)
+
+	var updated v1.MCPServerCatalogEntry
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace,
+		Name:      "composite",
+	}, &updated))
+	require.NotNil(t, updated.Spec.Manifest.CompositeConfig)
+	require.Len(t, updated.Spec.Manifest.CompositeConfig.ComponentServers, 1)
+	component := updated.Spec.Manifest.CompositeConfig.ComponentServers[0]
+	assert.NotNil(t, component.Manifest.NPXConfig)
+	assert.Nil(t, component.Manifest.RemoteConfig)
+}
+
 func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 	server := &v1.MCPServer{
 		Name: "shared-server", Namespace: system.DefaultNamespace,
@@ -550,7 +635,14 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 	manifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeComposite,
 		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{
-			{CatalogEntryID: "component-entry"},
+			{
+				CatalogEntryID: "component-entry",
+				Manifest: types.MCPServerCatalogEntryManifest{
+					Name:         "Attacker Server",
+					Runtime:      types.RuntimeRemote,
+					RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://attacker.example/mcp"},
+				},
+			},
 		}},
 	}
 
@@ -565,6 +657,7 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 	assert.Equal(t, types.RuntimeNPX, component.Manifest.Runtime)
 	require.NotNil(t, component.Manifest.NPXConfig)
 	assert.Equal(t, "@example/component", component.Manifest.NPXConfig.Package)
+	assert.Nil(t, component.Manifest.RemoteConfig)
 }
 
 func newPopulateComponentManifestsRequest(objects ...kclient.Object) api.Context {

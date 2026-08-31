@@ -410,9 +410,21 @@ func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read entry manifest: %v", err)
 	}
+
 	if manifest.ServerUserType == "" {
 		manifest.ServerUserType = types.ServerUserTypeSingleUser
 	}
+
+	// Component manifests are snapshots of their referenced entries and must not
+	// be accepted from the request. Besides keeping updates consistent with
+	// creation, this prevents a component from combining another entry's ID (and
+	// static OAuth credentials) with attacker-controlled connection metadata.
+	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
+		if err := h.populateComponentManifests(req, &manifest, catalogName, workspaceID); err != nil {
+			return err
+		}
+	}
+
 	if err := validateCatalogEntryManifestWithResourceMaximums(req, manifest, false, h.sessionManager); err != nil {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
