@@ -92,6 +92,31 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 	require.Equal(t, expected, actual.Manifest)
 }
 
+func TestMinimalCatalogEntryMinimizesCompositeComponents(t *testing.T) {
+	entry := minimalResponseTestEntry()
+	component := minimalResponseTestEntry().Spec.Manifest
+	nestedComponent := minimalResponseTestEntry().Spec.Manifest
+	component.Runtime = types.RuntimeComposite
+	component.CompositeConfig = &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+		Manifest: nestedComponent,
+	}}}
+	entry.Spec.Manifest.Runtime = types.RuntimeComposite
+	entry.Spec.Manifest.CompositeConfig = &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+		Manifest: component,
+	}}}
+
+	actual := convertMCPServerCatalogEntryForList(entry, "", "", "", true)
+	component = actual.Manifest.CompositeConfig.ComponentServers[0].Manifest
+	nestedComponent = component.CompositeConfig.ComponentServers[0].Manifest
+
+	for _, manifest := range []types.MCPServerCatalogEntryManifest{actual.Manifest, component, nestedComponent} {
+		require.Empty(t, manifest.Description)
+		require.Empty(t, manifest.ToolPreview)
+		require.Empty(t, manifest.RepoURL)
+		require.Equal(t, "Upgrade note", manifest.UpgradeNote)
+	}
+}
+
 func TestListEntriesFromAllSourcesFullByDefault(t *testing.T) {
 	entry := minimalResponseTestEntry()
 	storageClient := storage.Client(fake.NewClientBuilder().

@@ -278,11 +278,20 @@ func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, p
 
 func convertMCPServerCatalogEntryForList(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID, serverURL string, minimal bool) types.MCPServerCatalogEntry {
 	if minimal {
-		entry.Spec.Manifest.Description = ""
-		entry.Spec.Manifest.ToolPreview = nil
-		entry.Spec.Manifest.RepoURL = ""
+		minimizeMCPServerCatalogEntryManifest(&entry.Spec.Manifest)
 	}
 	return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, powerUserID, serverURL)
+}
+
+func minimizeMCPServerCatalogEntryManifest(manifest *types.MCPServerCatalogEntryManifest) {
+	manifest.Description = ""
+	manifest.ToolPreview = nil
+	manifest.RepoURL = ""
+	if manifest.CompositeConfig != nil {
+		for i := range manifest.CompositeConfig.ComponentServers {
+			minimizeMCPServerCatalogEntryManifest(&manifest.CompositeConfig.ComponentServers[i].Manifest)
+		}
+	}
 }
 
 func defaultCatalogEntryConnectURL(serverURL string, entry v1.MCPServerCatalogEntry) string {
