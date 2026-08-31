@@ -48,7 +48,7 @@ func TestListEntriesFromAllSourcesMinimal(t *testing.T) {
 	require.Equal(t, "test-entry-key", manifest.EntryKey)
 	require.Empty(t, manifest.Description)
 	require.Empty(t, manifest.ToolPreview)
-	require.Empty(t, manifest.UpgradeNote)
+	require.Equal(t, "Upgrade note", manifest.UpgradeNote)
 	require.Empty(t, manifest.RepoURL)
 	require.Equal(t, "https://example.com/mcp", manifest.RemoteConfig.FixedURL)
 	require.Equal(t, "Test Entry", manifest.Name)
@@ -68,7 +68,8 @@ func TestListEntriesFromAllSourcesMinimal(t *testing.T) {
 		"icon": "https://example.com/icon.svg",
 		"runtime": "remote",
 		"remoteConfig": {"fixedURL": "https://example.com/mcp"},
-		"serverUserType": "singleUser"
+		"serverUserType": "singleUser",
+		"upgradeNote": "Upgrade note"
 	}`, string(manifestJSON))
 }
 
@@ -85,7 +86,6 @@ func TestMinimalCatalogEntryPreservesLaunchConfiguration(t *testing.T) {
 	expected := entry.Spec.Manifest
 	expected.Description = ""
 	expected.ToolPreview = nil
-	expected.UpgradeNote = ""
 	expected.RepoURL = ""
 
 	actual := convertMCPServerCatalogEntryForList(entry, "", "", "", true)

@@ -280,7 +280,6 @@ func convertMCPServerCatalogEntryForList(entry v1.MCPServerCatalogEntry, powerUs
 	if minimal {
 		entry.Spec.Manifest.Description = ""
 		entry.Spec.Manifest.ToolPreview = nil
-		entry.Spec.Manifest.UpgradeNote = ""
 		entry.Spec.Manifest.RepoURL = ""
 	}
 	return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, powerUserID, serverURL)
