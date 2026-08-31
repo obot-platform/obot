@@ -90,10 +90,10 @@ func TestConfigureAuthProviderAppliesAndCleansUp(t *testing.T) {
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(provider), &updatedProvider))
 	assert.True(t, updatedProvider.Status.Configured)
 	assert.Equal(t, provider.Generation, updatedProvider.Status.ObservedGeneration)
-	var daemonSync v1.ProviderDaemonSync
+	var daemonSync v1.ProviderSync
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{
 		Namespace: system.DefaultNamespace,
-		Name:      system.ProviderDaemonSyncName,
+		Name:      system.ProviderSyncName,
 	}, &daemonSync))
 	revision := daemonSync.Spec.Revisions[providerDaemonRevisionKey(v1.ProviderTypeAuth, provider.Namespace, provider.Name)]
 	assert.Equal(t, v1.ProviderTypeAuth, revision.ProviderType)
@@ -305,8 +305,8 @@ func TestAdvanceDaemonSyncIsMonotonicAndRecreatesSingleton(t *testing.T) {
 	}
 	require.NoError(t, handler.advanceDaemonSync(t.Context(), client, authChange))
 
-	var daemonSync v1.ProviderDaemonSync
-	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}
+	var daemonSync v1.ProviderSync
+	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}
 	require.NoError(t, client.Get(t.Context(), key, &daemonSync))
 	authRevisionKey := providerDaemonRevisionKey(v1.ProviderTypeAuth, authChange.Namespace, authChange.Spec.ProviderName)
 	modelRevisionKey := providerDaemonRevisionKey(v1.ProviderTypeModel, modelChange.Namespace, modelChange.Spec.ProviderName)

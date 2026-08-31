@@ -50,7 +50,7 @@ const (
 
 	ObotMCPServerName      = SystemMCPServerPrefix + "obot-mcp-server"
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
-	ProviderDaemonSyncName = "provider-daemon-sync"
+	ProviderSyncName       = "provider-sync"
 )
 
 func IsMCPServerID(id string) bool {

@@ -6,21 +6,21 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// ProviderDaemonSync broadcasts provider credential changes to every replica.
-type ProviderDaemonSync struct {
+// ProviderSync broadcasts provider changes to every replica.
+type ProviderSync struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
 
-	Spec ProviderDaemonSyncSpec `json:"spec"`
+	Spec ProviderSyncSpec `json:"spec"`
 }
 
-type ProviderDaemonSyncSpec struct {
-	Revisions map[string]ProviderDaemonRevision `json:"revisions,omitempty"`
+type ProviderSyncSpec struct {
+	Revisions map[string]ProviderRevision `json:"revisions,omitempty"`
 }
 
-// ProviderDaemonRevision identifies a provider whose cached daemons must be
-// restarted whenever Revision advances.
-type ProviderDaemonRevision struct {
+// ProviderRevision identifies a provider whose configuration is out of date and
+// must be reconfigured.
+type ProviderRevision struct {
 	ProviderType      ProviderType `json:"providerType"`
 	ProviderNamespace string       `json:"providerNamespace"`
 	ProviderName      string       `json:"providerName"`
@@ -29,9 +29,9 @@ type ProviderDaemonRevision struct {
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-type ProviderDaemonSyncList struct {
+type ProviderSyncList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []ProviderDaemonSync `json:"items"`
+	Items []ProviderSync `json:"items"`
 }

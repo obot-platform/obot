@@ -1,8 +1,10 @@
-package providerdaemonsync
+package providersync
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"sync"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -14,33 +16,40 @@ type daemonStopper interface {
 	StopModelProvider(namespace, modelProviderName string)
 }
 
-// Handler owns replica-local state and is registered on a router without
-// leader election, so each replica independently stops its cached daemons.
-type Handler struct {
-	mu            sync.Mutex
-	lastRevisions map[string]int64
-	dispatcher    daemonStopper
+type licenseRefresher interface {
+	Validate(context.Context) error
 }
 
-func New(dispatcher daemonStopper) *Handler {
+// Handler owns replica-local state and is registered on a router without
+// leader election, so each replica independently refreshes its cached provider state.
+type Handler struct {
+	mu              sync.RWMutex
+	lastRevisions   map[string]int64
+	dispatcher      daemonStopper
+	licenseProvider licenseRefresher
+}
+
+func New(dispatcher daemonStopper, licenseProvider licenseRefresher) *Handler {
 	return &Handler{
-		lastRevisions: make(map[string]int64),
-		dispatcher:    dispatcher,
+		lastRevisions:   make(map[string]int64),
+		dispatcher:      dispatcher,
+		licenseProvider: licenseProvider,
 	}
 }
 
 func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
-	daemonSync := req.Object.(*v1.ProviderDaemonSync)
+	daemonSync := req.Object.(*v1.ProviderSync)
 
-	h.mu.Lock()
-	defer h.mu.Unlock()
+	h.mu.RLock()
 	if h.lastRevisions == nil {
 		h.lastRevisions = make(map[string]int64)
 	}
+	lastRevisions := maps.Clone(h.lastRevisions)
+	h.mu.RUnlock()
 
 	for key, revision := range daemonSync.Spec.Revisions {
 		observationKey := string(daemonSync.UID) + "/" + key
-		if revision.Revision <= h.lastRevisions[observationKey] {
+		if revision.Revision <= lastRevisions[observationKey] {
 			continue
 		}
 
@@ -59,10 +68,22 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 				"revision", revision.Revision,
 			)
 			h.dispatcher.StopModelProvider(revision.ProviderNamespace, revision.ProviderName)
+		case v1.ProviderTypeLicense:
+			slog.Info("Refreshing license after synchronized license check",
+				"revision", revision.Revision,
+			)
+			if err := h.licenseProvider.Validate(req.Ctx); err != nil {
+				return fmt.Errorf("refresh license at revision %d: %w", revision.Revision, err)
+			}
 		default:
 			return fmt.Errorf("provider daemon revision %q has invalid provider type %q", key, revision.ProviderType)
 		}
-		h.lastRevisions[observationKey] = revision.Revision
+		h.mu.Lock()
+		if h.lastRevisions[observationKey] < revision.Revision {
+			h.lastRevisions[observationKey] = revision.Revision
+		}
+		h.mu.Unlock()
 	}
+
 	return nil
 }

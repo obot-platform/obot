@@ -527,10 +527,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.ProviderConfigurationChangeList{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeList(ref),
 		v1.ProviderConfigurationChangeSpec{}.OpenAPIModelName():                                   schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeSpec(ref),
 		v1.ProviderConfigurationChangeStatus{}.OpenAPIModelName():                                 schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref),
-		v1.ProviderDaemonRevision{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonRevision(ref),
-		v1.ProviderDaemonSync{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref),
-		v1.ProviderDaemonSyncList{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonSyncList(ref),
-		v1.ProviderDaemonSyncSpec{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref),
+		v1.ProviderRevision{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_ProviderRevision(ref),
+		v1.ProviderSync{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_ProviderSync(ref),
+		v1.ProviderSyncList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_ProviderSyncList(ref),
+		v1.ProviderSyncSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_ProviderSyncSpec(ref),
 		v1.PublishedArtifact{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_PublishedArtifact(ref),
 		v1.PublishedArtifactList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_PublishedArtifactList(ref),
 		v1.PublishedArtifactSpec{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_PublishedArtifactSpec(ref),
@@ -25840,11 +25840,11 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeStatus(ref com
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_ProviderDaemonRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_ProviderRevision(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ProviderDaemonRevision identifies a provider whose cached daemons must be restarted whenever Revision advances.",
+				Description: "ProviderRevision identifies a provider whose configuration is out of date and must be reconfigured.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"providerType": {
@@ -25882,11 +25882,11 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonRevision(ref common.Referen
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_ProviderSync(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "ProviderDaemonSync broadcasts provider credential changes to every replica.",
+				Description: "ProviderSync broadcasts provider changes to every replica.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
@@ -25912,7 +25912,7 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref common.ReferenceCa
 					"spec": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
-							Ref:     ref(v1.ProviderDaemonSyncSpec{}.OpenAPIModelName()),
+							Ref:     ref(v1.ProviderSyncSpec{}.OpenAPIModelName()),
 						},
 					},
 				},
@@ -25920,11 +25920,11 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSync(ref common.ReferenceCa
 			},
 		},
 		Dependencies: []string{
-			v1.ProviderDaemonSyncSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+			v1.ProviderSyncSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_ProviderSyncList(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -25956,7 +25956,7 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncList(ref common.Referen
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.ProviderDaemonSync{}.OpenAPIModelName()),
+										Ref: ref(v1.ProviderSync{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -25967,11 +25967,11 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncList(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			v1.ProviderDaemonSync{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+			v1.ProviderSync{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
 	}
 }
 
-func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+func schema_storage_apis_obotobotai_v1_ProviderSyncSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
@@ -25984,7 +25984,7 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref common.Referen
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.ProviderDaemonRevision{}.OpenAPIModelName()),
+										Ref: ref(v1.ProviderRevision{}.OpenAPIModelName()),
 									},
 								},
 							},
@@ -25994,7 +25994,7 @@ func schema_storage_apis_obotobotai_v1_ProviderDaemonSyncSpec(ref common.Referen
 			},
 		},
 		Dependencies: []string{
-			v1.ProviderDaemonRevision{}.OpenAPIModelName()},
+			v1.ProviderRevision{}.OpenAPIModelName()},
 	}
 }
 

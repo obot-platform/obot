@@ -7,6 +7,7 @@ import (
 const (
 	ProviderTypeAuth                 ProviderType         = "auth"
 	ProviderTypeModel                ProviderType         = "model"
+	ProviderTypeLicense              ProviderType         = "license"
 	ProviderDesiredStateConfigured   ProviderDesiredState = "configured"
 	ProviderDesiredStateDeconfigured ProviderDesiredState = "deconfigured"
 )

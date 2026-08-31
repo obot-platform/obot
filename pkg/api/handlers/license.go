@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,8 +12,13 @@ import (
 
 	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/create"
 	"github.com/obot-platform/obot/pkg/license"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/upgrade"
+	"k8s.io/client-go/util/retry"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -103,7 +109,11 @@ func (h *LicenseHandler) CheckLicense(req api.Context) error {
 		return apitypes.NewErrHTTP(http.StatusTooManyRequests, "license can only be manually checked once every 5 minutes")
 	}
 
-	if err := h.licenseProvider.Validate(req.Context()); err != nil && !errors.Is(err, license.ErrNotConfigured) {
+	if err := h.licenseProvider.Validate(req.Context()); err != nil {
+		if !errors.Is(err, license.ErrNotConfigured) {
+			return err
+		}
+	} else if err := signalLicenseRefresh(req.Context(), req.Storage); err != nil {
 		return err
 	}
 
@@ -112,6 +122,42 @@ func (h *LicenseHandler) CheckLicense(req api.Context) error {
 		return err
 	}
 	return req.Write(status)
+}
+
+func signalLicenseRefresh(ctx context.Context, client kclient.Client) error {
+	providerSync := &v1.ProviderSync{
+		Name:      system.ProviderSyncName,
+		Namespace: system.DefaultNamespace,
+	}
+	if err := create.OrGet(ctx, client, providerSync); err != nil {
+		return fmt.Errorf("ensure provider sync for license refresh: %w", err)
+	}
+
+	originalRevision := providerSync.Spec.Revisions[string(v1.ProviderTypeLicense)].Revision
+	if err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		if err := client.Get(ctx, kclient.ObjectKeyFromObject(providerSync), providerSync); err != nil {
+			return err
+		}
+
+		if providerSync.Spec.Revisions == nil {
+			providerSync.Spec.Revisions = make(map[string]v1.ProviderRevision, 1)
+		}
+
+		if providerSync.Spec.Revisions[string(v1.ProviderTypeLicense)].Revision != originalRevision {
+			// The revision was already bumped, so we don't need to do it again.
+			return nil
+		}
+
+		providerSync.Spec.Revisions[string(v1.ProviderTypeLicense)] = v1.ProviderRevision{
+			ProviderType: v1.ProviderTypeLicense,
+			ProviderName: "LicenseProvider",
+			Revision:     originalRevision + 1,
+		}
+		return client.Update(ctx, providerSync)
+	}); err != nil {
+		return fmt.Errorf("signal license refresh: %w", err)
+	}
+	return nil
 }
 
 // reserveManualLicenseCheck reserves a manual license check, returning the time at which it can be checked again and whether the reservation was successful.
