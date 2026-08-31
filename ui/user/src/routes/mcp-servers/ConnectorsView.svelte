@@ -345,7 +345,7 @@
 							{/if}
 						</div>
 					</div>
-					<p class="text-xs text-muted-content min-h-8 mt-2 line-clamp-2">
+					<p class="text-xs text-muted-content mt-1 line-clamp-2">
 						<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toInlineHTMLFromMarkdown -->
 						{@html shortDescriptionHTML.get(d.id) ?? ''}
 					</p>

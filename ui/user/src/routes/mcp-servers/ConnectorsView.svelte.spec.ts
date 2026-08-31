@@ -51,6 +51,8 @@ describe('MCP Servers ConnectorsView', () => {
 		await expect.element(page.getByText('Deprecated', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Connected', { exact: true })).toBeVisible();
 		await expect.element(descriptionPreview).toHaveClass(/line-clamp-2/);
+		await expect.element(descriptionPreview).toHaveClass(/mt-1/);
+		await expect.element(descriptionPreview).not.toHaveClass(/min-h-8/);
 		await expect.element(descriptionPreview.locator('..')).not.toHaveClass(/line-clamp-2/);
 		await expect.element(descriptionPreview.locator('strong')).toHaveTextContent('formatted');
 		await expect
