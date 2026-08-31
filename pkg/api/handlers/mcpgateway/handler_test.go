@@ -14,12 +14,13 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
+func TestProxyStripsInboundGatewayCredentials(t *testing.T) {
 	tests := []struct {
 		name                      string
 		configuredUpstreamHeaders http.Header
 		tokenSource               oauth2.TokenSource
 		wantAuthorization         string
+		wantAPIKey                string
 	}{
 		{
 			name: "non-authorization upstream credential",
@@ -31,9 +32,11 @@ func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
 			name: "configured upstream authorization",
 			configuredUpstreamHeaders: http.Header{
 				"Authorization":  {"Bearer configured-upstream-token"},
+				"X-API-Key":      {"configured-upstream-api-key"},
 				"X-Filesapi-Key": {"files-api-key"},
 			},
 			wantAuthorization: "Bearer configured-upstream-token",
+			wantAPIKey:        "configured-upstream-api-key",
 		},
 		{
 			name: "upstream OAuth authorization",
@@ -75,6 +78,9 @@ func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
 				t.Fatal(err)
 			}
 			request.Header.Set("Authorization", "Bearer obot-gateway-jwt")
+			request.Header.Set("Cookie", "obot_access_token=local-session-secret")
+			request.Header.Set("Proxy-Authorization", "Bearer obot-proxy-token")
+			request.Header.Set("X-API-Key", "obot-api-key")
 
 			response, err := http.DefaultClient.Do(request)
 			if err != nil {
@@ -91,6 +97,15 @@ func TestProxyStripsInboundGatewayAuthorization(t *testing.T) {
 			}
 			if got.Get("Authorization") != tt.wantAuthorization {
 				t.Fatalf("Authorization = %q, want %q", got.Get("Authorization"), tt.wantAuthorization)
+			}
+			if got.Get("Cookie") != "" {
+				t.Fatalf("Cookie = %q, want empty", got.Get("Cookie"))
+			}
+			if got.Get("Proxy-Authorization") != "" {
+				t.Fatalf("Proxy-Authorization = %q, want empty", got.Get("Proxy-Authorization"))
+			}
+			if got.Get("X-API-Key") != tt.wantAPIKey {
+				t.Fatalf("X-API-Key = %q, want %q", got.Get("X-API-Key"), tt.wantAPIKey)
 			}
 		})
 	}

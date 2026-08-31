@@ -298,10 +298,12 @@ func (h *Handler) Proxy(req api.Context) error {
 }
 
 func rewriteProxyRequest(r *httputil.ProxyRequest, upstreamURL *url.URL) {
-	// Authorization authenticates the client to Obot and must not be forwarded
-	// to the upstream MCP server. The transport adds any configured or OAuth
-	// Authorization header after this rewrite.
-	r.Out.Header.Del("Authorization")
+	// These headers may authenticate the client to Obot and must not cross the
+	// trust boundary to the upstream MCP server. The transport adds any
+	// explicitly configured upstream credentials after this rewrite.
+	for _, header := range []string{"Authorization", "Cookie", "Proxy-Authorization", "X-API-Key"} {
+		r.Out.Header.Del(header)
+	}
 
 	// SetXForwarded preserves the X-Forwarded-For handling that ReverseProxy
 	// applied automatically under the deprecated Director. It also writes
