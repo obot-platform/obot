@@ -2,16 +2,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"log/slog"
-	"net/http"
 	"os"
 	"slices"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
@@ -25,11 +18,13 @@ import (
 const (
 	SessionStoreDB     SessionStore = "db"
 	SessionStoreCookie SessionStore = "cookie"
-
-	updateCheckInterval = 24 * time.Hour
 )
 
 type SessionStore string
+
+type UpgradeStatusReader interface {
+	Status() upgrade.Status
+}
 
 type VersionHandlerOptions struct {
 	GatewayClient           *client.Client
@@ -40,29 +35,17 @@ type VersionHandlerOptions struct {
 	MCPNetworkPolicyEnabled bool
 	MCPDefaultDenyAllEgress bool
 	AuthEnabled             bool
-	DisableUpdateCheck      bool
 	MessagePoliciesEnabled  bool
 	AgentsEnabled           bool
 	HostedAgentsEnabled     bool
 	HideK8sDetails          bool
+	UpgradeStatusReader     UpgradeStatusReader
 }
 
 type VersionHandler struct {
 	VersionHandlerOptions
 
 	sessionStore SessionStore
-
-	upgradeServerURL string
-	upgradeAvailable bool
-	latestVersion    string
-
-	upgradeLock sync.RWMutex
-}
-
-type upgradeCheckResponse struct {
-	UpgradeAvailable bool   `json:"upgradeAvailable"`
-	LatestVersion    string `json:"latestVersion"`
-	CurrentVersion   string `json:"currentVersion"`
 }
 
 func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
@@ -72,27 +55,11 @@ func sessionStoreFromPostgresDSN(postgresDSN string) SessionStore {
 	return SessionStoreCookie
 }
 
-func NewVersionHandler(ctx context.Context, opts VersionHandlerOptions) (*VersionHandler, error) {
-	v := &VersionHandler{
+func NewVersionHandler(opts VersionHandlerOptions) *VersionHandler {
+	return &VersionHandler{
 		VersionHandlerOptions: opts,
 		sessionStore:          sessionStoreFromPostgresDSN(opts.PostgresDSN),
-		upgradeServerURL:      upgrade.EndpointURL(upgrade.ServerBaseURL(), "check-upgrade"),
 	}
-
-	currentVersion, _, _ := strings.Cut(version.Get().String(), "+")
-	currentVersion, _, _ = strings.Cut(currentVersion, "-")
-
-	// Don't start the upgrade check if explicitly disabled or if this is a development version.
-	if !opts.DisableUpdateCheck && (!strings.HasPrefix(currentVersion, "v0.0.0") || os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true") {
-		installationID, err := upgrade.GetInstallationID(ctx, opts.GatewayClient)
-		if err != nil {
-			return nil, err
-		}
-
-		go v.startUpgradeCheck(ctx, installationID, currentVersion, opts.Engine)
-	}
-
-	return v, nil
 }
 
 func (v *VersionHandler) GetVersion(req api.Context) error {
@@ -114,10 +81,7 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		return nil, err
 	}
 
-	v.upgradeLock.RLock()
-	upgradeAvailable := v.upgradeAvailable
-	latestVersion := v.latestVersion
-	v.upgradeLock.RUnlock()
+	upgradeStatus := v.upgradeStatus()
 
 	entitlements, err := v.LicenseProvider.Entitlements(ctx)
 	if err != nil {
@@ -135,8 +99,8 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	}
 
 	values := map[string]any{
-		"upgradeAvailable":             upgradeAvailable,
-		"latestVersion":                latestVersion,
+		"upgradeAvailable":             upgradeStatus.UpgradeAvailable,
+		"latestVersion":                upgradeStatus.LatestVersion,
 		"obot":                         version.Get().String(),
 		"authEnabled":                  v.AuthEnabled,
 		"sessionStore":                 v.sessionStore,
@@ -184,6 +148,13 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	return values, nil
 }
 
+func (v *VersionHandler) upgradeStatus() upgrade.Status {
+	if v.UpgradeStatusReader == nil {
+		return upgrade.Status{}
+	}
+	return v.UpgradeStatusReader.Status()
+}
+
 func (v *VersionHandler) featureValues() map[string]bool {
 	return map[string]bool{
 		"messagePoliciesEnabled": v.MessagePoliciesEnabled,
@@ -206,78 +177,4 @@ func missingEntitlements(violations []license.Violation) []string {
 	}
 	slices.Sort(missing)
 	return missing
-}
-
-func (v *VersionHandler) startUpgradeCheck(ctx context.Context, installationID, currentVersion, engine string) {
-	timer := time.NewTimer(updateCheckInterval)
-	defer timer.Stop()
-
-	var err error
-	for {
-		distribution := "oss"
-		hasValidLicense, licenseErr := v.LicenseProvider.HasValidLicense(ctx)
-		if licenseErr != nil {
-			slog.Debug("failed to refresh license state for upgrade check", "error", licenseErr)
-		} else if hasValidLicense {
-			distribution = "enterprise"
-		}
-		if err = v.checkForUpgrade(ctx, installationID, currentVersion, engine, distribution); err != nil {
-			slog.Debug("failed to check for server upgrade", "error", err)
-		}
-
-		select {
-		case <-ctx.Done():
-			slog.Debug("upgrade check context cancelled, exiting")
-			return
-		case <-timer.C:
-			timer.Reset(updateCheckInterval)
-		}
-	}
-}
-
-func (v *VersionHandler) checkForUpgrade(ctx context.Context, installationID, currentVersion, engine, distribution string) error {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, v.upgradeServerURL, nil)
-	if err != nil {
-		return err
-	}
-
-	query := req.URL.Query()
-	query.Set("uid", installationID)
-	query.Set("engine", engine)
-	query.Set("distribution", distribution)
-	query.Set("current-version", currentVersion)
-	req.URL.RawQuery = query.Encode()
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
-	}
-
-	var upgradeInfo upgradeCheckResponse
-	if err := json.NewDecoder(resp.Body).Decode(&upgradeInfo); err != nil {
-		return err
-	}
-
-	v.upgradeLock.RLock()
-	currentUpgradeAvailable := v.upgradeAvailable
-	latestVersion := v.latestVersion
-	v.upgradeLock.RUnlock()
-
-	if currentUpgradeAvailable != upgradeInfo.UpgradeAvailable || latestVersion != upgradeInfo.LatestVersion {
-		v.upgradeLock.Lock()
-		v.upgradeAvailable = upgradeInfo.UpgradeAvailable
-		v.latestVersion = upgradeInfo.LatestVersion
-		v.upgradeLock.Unlock()
-	}
-
-	return nil
 }

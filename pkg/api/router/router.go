@@ -36,7 +36,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		return nil, err
 	}
 
-	version, err := handlers.NewVersionHandler(ctx, handlers.VersionHandlerOptions{
+	version := handlers.NewVersionHandler(handlers.VersionHandlerOptions{
 		GatewayClient:           services.GatewayClient,
 		StorageClient:           services.StorageClient,
 		LicenseProvider:         services.LicenseProvider,
@@ -45,15 +45,12 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		MCPNetworkPolicyEnabled: services.MCPNetworkPolicyEnabled,
 		MCPDefaultDenyAllEgress: services.MCPDefaultDenyAllEgress,
 		AuthEnabled:             services.AuthEnabled,
-		DisableUpdateCheck:      services.DisableUpdateCheck,
 		MessagePoliciesEnabled:  services.MessagePoliciesEnabled,
 		AgentsEnabled:           agentsEnabled,
 		HostedAgentsEnabled:     services.HostedAgentsEnabled,
 		HideK8sDetails:          services.HideK8sDetails,
+		UpgradeStatusReader:     services.VersionChecker,
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	mcpGateway, err := mcpgateway.NewHandler(
 		ctx,
