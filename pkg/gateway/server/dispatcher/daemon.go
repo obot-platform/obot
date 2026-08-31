@@ -22,9 +22,11 @@ import (
 )
 
 type ports struct {
-	daemonPorts    map[string]int64
-	daemonsRunning map[string]func()
-	daemonLock     sync.RWMutex
+	daemonPorts          map[string]int64
+	daemonsRunning       map[string]func()
+	daemonGeneration     map[string]uint64
+	nextDaemonGeneration uint64
+	daemonLock           sync.RWMutex
 
 	startPort, endPort int64
 	usedPorts          map[int64]struct{}
@@ -36,10 +38,11 @@ type ports struct {
 func newPorts() *ports {
 	daemonCtx, cancel := context.WithCancel(context.Background())
 	p := &ports{
-		daemonCtx:      daemonCtx,
-		daemonPorts:    map[string]int64{},
-		daemonsRunning: map[string]func(){},
-		usedPorts:      map[int64]struct{}{},
+		daemonCtx:        daemonCtx,
+		daemonPorts:      map[string]int64{},
+		daemonsRunning:   map[string]func(){},
+		daemonGeneration: map[string]uint64{},
+		usedPorts:        map[int64]struct{}{},
 	}
 	p.daemonClose = func() {
 		cancel()
@@ -63,6 +66,7 @@ func (d *Dispatcher) stopDaemon(id string) {
 	}
 
 	delete(d.ports.daemonsRunning, id)
+	delete(d.ports.daemonGeneration, id)
 	delete(d.ports.usedPorts, d.ports.daemonPorts[id])
 	delete(d.ports.daemonPorts, id)
 }
@@ -136,6 +140,9 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 
 	d.ports.daemonPorts[id] = port
 	d.ports.daemonsRunning[id] = stop
+	d.ports.nextDaemonGeneration++
+	generation := d.ports.nextDaemonGeneration
+	d.ports.daemonGeneration[id] = generation
 
 	killedCtx, killedCancel := context.WithCancelCause(ctx)
 	defer killedCancel(nil)
@@ -152,9 +159,15 @@ func (d *Dispatcher) startDaemon(env map[string]string, id, command string, args
 		d.ports.daemonLock.Lock()
 		defer d.ports.daemonLock.Unlock()
 
-		delete(d.ports.usedPorts, port)
-		delete(d.ports.daemonPorts, id)
-		delete(d.ports.daemonsRunning, id)
+		// A stopped daemon can be replaced under the same ID before its Wait
+		// goroutine completes. Only remove entries that still belong to this
+		// process, otherwise the old goroutine would tear down its replacement.
+		if d.ports.daemonGeneration[id] == generation {
+			delete(d.ports.usedPorts, port)
+			delete(d.ports.daemonPorts, id)
+			delete(d.ports.daemonsRunning, id)
+			delete(d.ports.daemonGeneration, id)
+		}
 	})
 
 	client := &http.Client{Timeout: 2 * time.Second}

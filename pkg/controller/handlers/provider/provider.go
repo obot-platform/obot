@@ -426,7 +426,7 @@ func SetAuthProviderConfiguredStatus(ctx context.Context, gatewayClient *gateway
 		missingConfigParams []string
 	)
 	if len(authProvider.Spec.RequiredConfigurationParameters) > 0 {
-		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericModelProviderCredentialContext}, authProvider.Name)
+		cred, err := gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to reveal credential for auth provider %q: %w", authProvider.Name, err)
 		}
@@ -498,12 +498,13 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		return nil
 	}
 
-	availableModels, err := dispatcher.ModelsForProvider(ctx, *modelProvider)
+	availableModels, err := dispatcher.FreshModelsForProvider(ctx, *modelProvider)
 	if err != nil {
 		// Don't error and retry because it will likely fail again. Log the error, and the user can re-sync manually.
 		// Also, the modelProvider.Status.Error field will bubble up to the user in the UI.
 
 		// Check if the model provider returned a properly formatted error message and set it as status
+		modelProvider.Status.Error = err.Error()
 		match := jsonErrRegexp.FindString(err.Error())
 		if match != "" {
 			modelProvider.Status.Error = match
@@ -533,6 +534,7 @@ func BackPopulateModels(ctx context.Context, client kclient.Client, dispatcher *
 		log.Errorf("%v", err)
 		return nil
 	}
+	modelProvider.Status.Error = ""
 
 	models := make([]kclient.Object, 0, len(availableModels.Models))
 	for _, model := range availableModels.Models {

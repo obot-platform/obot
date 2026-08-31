@@ -18,6 +18,7 @@ const (
 	ProjectPrefix                 = "p1"
 	UserDeletePrefix              = "ud1"
 	AuthProviderCleanupPrefix     = "apc1"
+	ProviderChangePrefix          = "pcc1"
 	UserRoleChangePrefix          = "urc1"
 	UserGroupChangePrefix         = "ugc1"
 	GroupRoleChangePrefix         = "grc1"
@@ -46,7 +47,9 @@ const (
 	PublishedArtifactPrefix       = "pa1"
 	OktaGroupMigrationPrefix      = "ogm1"
 
-	ObotMCPServerName = SystemMCPServerPrefix + "obot-mcp-server"
+	ObotMCPServerName      = SystemMCPServerPrefix + "obot-mcp-server"
+	ProviderChangeAuthName = ProviderChangePrefix + "auth"
+	ProviderDaemonSyncName = "provider-daemon-sync"
 )
 
 func IsMCPServerID(id string) bool {

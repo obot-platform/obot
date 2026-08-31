@@ -671,6 +671,46 @@ func (in ProjectV2List) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderConfigurationChange) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderConfigurationChange"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderConfigurationChangeList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderConfigurationChangeList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderConfigurationChangeSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderConfigurationChangeSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderConfigurationChangeStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderConfigurationChangeStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderDaemonRevision) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonRevision"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderDaemonSync) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonSync"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderDaemonSyncList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonSyncList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in ProviderDaemonSyncSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.ProviderDaemonSyncSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PublishedArtifact) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PublishedArtifact"
 }

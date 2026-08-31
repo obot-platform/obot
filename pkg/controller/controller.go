@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/modelinfosource"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
+	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/secret"
 	"github.com/obot-platform/obot/pkg/controller/handlers/tunnelpeer"
 	"github.com/obot-platform/obot/pkg/localauth"
@@ -53,6 +54,7 @@ func New(services *services.Services) (*Controller, error) {
 	}
 
 	c.setupRoutes()
+	c.setupEveryReplicaRoutes()
 	c.setupLocalK8sRoutes()
 
 	services.Router.PosStart(c.PostStart)
@@ -239,6 +241,18 @@ func (c *Controller) ensureObotMCPServer(ctx context.Context) error {
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	if err := providerconfigurationchange.CleanupOrphanedStagedCredentials(
+		ctx,
+		client,
+		c.services.GatewayClient,
+		time.Now(),
+		providerconfigurationchange.OrphanedStagedCredentialGracePeriod,
+	); err != nil {
+		panic(fmt.Errorf("cleanup orphaned staged provider credentials: %w", err))
+	}
+	if err := providerconfigurationchange.EnsureDaemonSync(ctx, client); err != nil {
+		panic(err)
+	}
 	go c.providerHandler.PollRegistries(ctx, client)
 	var err error
 	for range 3 {
@@ -341,9 +355,14 @@ func (c *Controller) Start(ctx context.Context) error {
 	}
 	// Tunnel peers are process-local, so this separate router intentionally has
 	// no leader election and runs its handler on every Obot replica.
+	if c.services.K8SEveryReplicaRouter != nil {
+		if err := c.services.K8SEveryReplicaRouter.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start tunnel peer Kubernetes router: %w", err)
+		}
+	}
 	if c.services.EveryReplicaRouter != nil {
 		if err := c.services.EveryReplicaRouter.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start tunnel peer Kubernetes router: %w", err)
+			return fmt.Errorf("failed to start every replica router: %w", err)
 		}
 	}
 
@@ -585,9 +604,9 @@ func (c *Controller) setupLocalK8sRoutes() {
 		c.services.LocalRouter.Type(&corev1.Secret{}).Namespace(c.services.ServiceNamespace).Name(serviceaccounts.NetworkPolicySecretName).IncludeRemoved().HandlerFunc(c.reconcileServiceAccountSecretChange)
 	}
 
-	if c.services.EveryReplicaRouter != nil {
+	if c.services.K8SEveryReplicaRouter != nil {
 		peerHandler := tunnelpeer.New(c.services.TunnelManager.ID, c.services.TunnelManager)
-		c.services.EveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
+		c.services.K8SEveryReplicaRouter.Type(&corev1.Service{}).Namespace(c.services.TunnelManager.ServiceNamespace).Name(c.services.TunnelManager.ServiceName).HandlerFunc(peerHandler.Reconcile)
 	}
 }
 

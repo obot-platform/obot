@@ -207,6 +207,7 @@ type Services struct {
 	// secretBindings live. Nil on the docker backend.
 	LocalK8sClient            kclient.Client
 	LocalRouter               *router.Router
+	K8SEveryReplicaRouter     *router.Router
 	EveryReplicaRouter        *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
@@ -497,6 +498,18 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	// This router intentionally has no leader election: its handlers maintain
+	// process-local state, so every replica must run them.
+	everyReplicaRouter, err := nah.NewRouter("obot-every-replica", &nah.Options{
+		RESTConfig:     restConfig,
+		Scheme:         scheme.Scheme,
+		Namespace:      system.DefaultNamespace,
+		ElectionConfig: nil,
+		HealthzPort:    -1,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create every replica router: %w", err)
 	}
 
 	gatewayClient := client.New(
@@ -1051,7 +1064,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		SkillAccessRuleHelper:                skillAccessRuleHelper,
 		LocalK8sClient:                       apiLocalK8sClient,
 		LocalRouter:                          localRouter,
-		EveryReplicaRouter:                   tunnelPeerRouter,
+		K8SEveryReplicaRouter:                tunnelPeerRouter,
+		EveryReplicaRouter:                   everyReplicaRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,

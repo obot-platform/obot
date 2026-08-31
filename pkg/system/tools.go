@@ -35,6 +35,7 @@ const (
 
 	GenericModelProviderCredentialContext = "model-provider"
 	GenericAuthProviderCredentialContext  = "auth-provider"
+	StagedProviderCredentialContext       = "provider-staged"
 
 	MCPWebhookValidationCredentialContext = "mcp-webhook-context"
 

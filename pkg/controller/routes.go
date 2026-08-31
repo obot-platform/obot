@@ -25,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/poweruserworkspace"
 	"github.com/obot-platform/obot/pkg/controller/handlers/project"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
+	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
@@ -36,6 +37,7 @@ func (c *Controller) setupRoutes() {
 	root := c.services.Router
 
 	providers := provider.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.ProviderRegistryPaths)
+	providerConfigurationChanges := providerconfigurationchange.New(c.services.GatewayClient, c.services.ProviderDispatcher, c.services.LicenseProvider, c.services.PostgresDSN)
 	credentialCleanup := cleanup.NewCredentials(c.services.MCPSessionManager, c.services.GatewayClient, c.services.ServerURL)
 	userCleanup := cleanup.NewUserCleanup(c.services.GatewayClient, c.services.AccessControlRuleHelper)
 	authProviderCleanup := cleanup.NewAuthProviderCleanup(c.services.GatewayClient)
@@ -88,6 +90,9 @@ func (c *Controller) setupRoutes() {
 
 	// Auth Provider Cleanup
 	root.Type(&v1.AuthProviderCleanup{}).HandlerFunc(authProviderCleanup.Cleanup)
+
+	// Provider Configuration Changes
+	root.Type(&v1.ProviderConfigurationChange{}).HandlerFunc(providerConfigurationChanges.Reconcile)
 
 	// ModelInfoSource
 	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)
