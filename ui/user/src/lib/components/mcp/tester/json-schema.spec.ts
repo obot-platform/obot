@@ -1,0 +1,166 @@
+import {
+	defaultJSONSchemaValue,
+	jsonValuesEqual,
+	pruneClearedProperties,
+	supportsGeneratedForm,
+	validateJSONSchema,
+	type JSONSchema
+} from './json-schema';
+import { describe, expect, it } from 'vitest';
+
+const schema: JSONSchema = {
+	type: 'object',
+	required: ['name', 'settings'],
+	properties: {
+		name: { type: 'string', minLength: 3, pattern: '^[a-z]+$' },
+		count: { type: 'integer', minimum: 1, maximum: 5 },
+		tags: { type: 'array', minItems: 1, items: { type: 'string' } },
+		settings: {
+			type: 'object',
+			required: ['enabled'],
+			properties: { enabled: { type: 'boolean', default: true } }
+		}
+	}
+};
+
+describe('MCP tester JSON Schema support', () => {
+	it('builds nested defaults for required and explicitly defaulted properties', () => {
+		expect(defaultJSONSchemaValue(schema)).toEqual({
+			name: '',
+			settings: { enabled: true }
+		});
+		expect(supportsGeneratedForm(schema)).toBe(true);
+	});
+
+	it('validates required, nested, array, string, and numeric constraints', () => {
+		expect(
+			validateJSONSchema(schema, {
+				name: 'A',
+				count: 8,
+				tags: [],
+				settings: {}
+			})
+		).toEqual(
+			expect.arrayContaining([
+				'name must contain at least 3 characters',
+				'count must be at most 5',
+				'tags must contain at least 1 items',
+				'settings.enabled is required'
+			])
+		);
+		expect(
+			validateJSONSchema(schema, {
+				name: 'valid',
+				count: 2,
+				tags: ['one'],
+				settings: { enabled: true }
+			})
+		).toEqual([]);
+	});
+
+	it('never runs a server-supplied pattern, so a catastrophic one cannot hang the tab', () => {
+		expect(validateJSONSchema(schema, { name: 'ABC', settings: { enabled: true } })).toEqual([]);
+
+		const catastrophic: JSONSchema = { type: 'string', pattern: '^(a+)+$' };
+		const started = performance.now();
+		expect(validateJSONSchema(catastrophic, `${'a'.repeat(40)}b`)).toEqual([]);
+		expect(performance.now() - started).toBeLessThan(100);
+	});
+
+	it('accepts every member of a union type and leaves unions to Raw JSON', () => {
+		const nullable: JSONSchema = {
+			type: 'object',
+			required: ['label'],
+			properties: {
+				label: { type: ['string', 'null'], minLength: 2 },
+				amount: { type: ['integer', 'string'] }
+			}
+		};
+
+		expect(validateJSONSchema(nullable, { label: null, amount: 3 })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'ok', amount: 'three' })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'a' })).toEqual([
+			'label must contain at least 2 characters'
+		]);
+		expect(validateJSONSchema(nullable, { label: null, amount: null })).toEqual([
+			'amount must not be null'
+		]);
+		expect(validateJSONSchema(nullable, { label: null, amount: true })).toEqual([
+			'amount must be one of these types: integer, string'
+		]);
+		expect(supportsGeneratedForm(nullable)).toBe(false);
+	});
+
+	it('compares const and enum JSON values structurally', () => {
+		const objectConst: JSONSchema = {
+			type: 'object',
+			const: { enabled: true, nested: ['one', { count: 2 }] }
+		};
+		const arrayEnum: JSONSchema = {
+			type: 'array',
+			enum: [['one', { count: 2 }]]
+		};
+
+		expect(validateJSONSchema(objectConst, defaultJSONSchemaValue(objectConst))).toEqual([]);
+		expect(
+			validateJSONSchema(objectConst, { nested: ['one', { count: 2 }], enabled: true })
+		).toEqual([]);
+		expect(
+			validateJSONSchema(objectConst, { enabled: false, nested: ['one', { count: 2 }] })
+		).toEqual(['Value must equal {"enabled":true,"nested":["one",{"count":2}]}']);
+		expect(validateJSONSchema(arrayEnum, defaultJSONSchemaValue(arrayEnum))).toEqual([]);
+		expect(jsonValuesEqual(['one', { count: 2 }], ['one', { count: 3 }])).toBe(false);
+	});
+
+	it('validates optional properties the user typed into and then cleared', () => {
+		const optional: JSONSchema = {
+			type: 'object',
+			properties: { nickname: { type: 'string', minLength: 3 } }
+		};
+
+		expect(validateJSONSchema(optional, { nickname: '' })).toEqual([
+			'nickname must contain at least 3 characters'
+		]);
+		expect(pruneClearedProperties(optional, { nickname: '' })).toEqual({});
+		expect(
+			validateJSONSchema(optional, pruneClearedProperties(optional, { nickname: '' }))
+		).toEqual([]);
+	});
+
+	it('keeps cleared required properties so they report as required, and prunes nested optionals', () => {
+		const nested: JSONSchema = {
+			type: 'object',
+			required: ['name'],
+			properties: {
+				name: { type: 'string', minLength: 3 },
+				settings: {
+					type: 'object',
+					properties: { note: { type: 'string', minLength: 3 } }
+				},
+				tags: { type: 'array', items: { type: 'string' } }
+			}
+		};
+		const pruned = pruneClearedProperties(nested, {
+			name: '',
+			settings: { note: '' },
+			tags: ['']
+		});
+
+		expect(pruned).toEqual({ name: '', settings: {}, tags: [''] });
+		expect(validateJSONSchema(nested, pruned)).toEqual(['name is required']);
+	});
+
+	it('accepts decimal multiples that binary floating point would reject', () => {
+		const tenths: JSONSchema = { type: 'number', multipleOf: 0.1 };
+
+		expect(0.3 % 0.1).not.toBe(0);
+		for (const value of [0.1, 0.3, 0.7, 1.1, 12.3, -0.3]) {
+			expect(validateJSONSchema(tenths, value)).toEqual([]);
+		}
+		expect(validateJSONSchema(tenths, 0.35)).toEqual(['Value must be a multiple of 0.1']);
+		expect(validateJSONSchema({ type: 'integer', multipleOf: 3 }, 7)).toEqual([
+			'Value must be a multiple of 3'
+		]);
+		expect(validateJSONSchema({ type: 'number', multipleOf: 0 }, 5)).toEqual([]);
+	});
+});

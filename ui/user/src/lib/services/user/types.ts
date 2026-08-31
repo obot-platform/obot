@@ -514,6 +514,7 @@ export interface MCPCatalogServer {
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeader?: string[];
+	missingOAuthCredentials?: boolean;
 	mcpCatalogID: string;
 	created: string;
 	deleted?: string;
@@ -531,6 +532,7 @@ export interface MCPCatalogServer {
 	powerUserWorkspaceID?: string;
 	deploymentStatus?: string;
 	compositeName?: string;
+	template?: boolean;
 	canConnect?: boolean;
 }
 export interface OAuthMetadata {
@@ -776,6 +778,7 @@ export interface ModelProviderList {
 export interface Model {
 	id: string;
 	active: boolean;
+	alias?: string;
 	aliasAssigned: boolean;
 	created: number;
 	modelProvider: string;

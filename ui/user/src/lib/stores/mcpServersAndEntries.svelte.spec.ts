@@ -84,6 +84,37 @@ describe('mcpServersAndEntries', () => {
 		]);
 	});
 
+	it('keeps an owned deployment connectable when an admin listing also returns it', async () => {
+		const requests = mockMcpRequests();
+		requests.adminServers.mockResolvedValue([{ id: 'owned-server' } as MCPCatalogServer]);
+		requests.configuredServers.mockResolvedValue([{ id: 'owned-server' } as MCPCatalogServer]);
+
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'user' });
+
+		expect(mcpServersAndEntries.current.userConfiguredServers).toEqual([
+			expect.objectContaining({ id: 'owned-server', canConnect: true })
+		]);
+
+		await mcpServersAndEntries.refreshUserConfiguredServers();
+		expect(mcpServersAndEntries.current.userConfiguredServers).toEqual([
+			expect.objectContaining({ id: 'owned-server', canConnect: true })
+		]);
+	});
+
+	it('keeps a live deployment when a duplicate copy is marked deleted', async () => {
+		const requests = mockMcpRequests();
+		requests.adminServers.mockResolvedValue([
+			{ id: 'stale-server', deleted: 'yes' } as unknown as MCPCatalogServer
+		]);
+		requests.configuredServers.mockResolvedValue([{ id: 'stale-server' } as MCPCatalogServer]);
+
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'user' });
+
+		expect(mcpServersAndEntries.current.userConfiguredServers).toEqual([
+			expect.objectContaining({ id: 'stale-server', canConnect: true })
+		]);
+	});
+
 	it('fetches user-scoped catalog servers once for a non-admin', async () => {
 		const requests = mockMcpRequests();
 		profile.current = {

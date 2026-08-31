@@ -1,0 +1,158 @@
+import JsonSchemaForm from './JsonSchemaForm.svelte';
+import type { JSONSchema } from './json-schema';
+import { describe, expect, it, vi } from 'vitest';
+import { render } from 'vitest-browser-svelte';
+import { page } from 'vitest/browser';
+
+const schema: JSONSchema = {
+	type: 'object',
+	required: ['name', 'count'],
+	properties: {
+		name: { type: 'string', minLength: 3 },
+		count: { type: 'integer', minimum: 1 },
+		mode: { type: 'string', enum: ['safe', 'fast'] },
+		tags: { type: 'array', items: { type: 'string' } },
+		options: {
+			type: 'object',
+			properties: { enabled: { type: 'boolean' } }
+		}
+	}
+};
+
+describe('JsonSchemaForm', () => {
+	it('renders nested generated controls and reports only valid arguments', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, { schema, onvalidchange });
+
+		await expect.element(page.getByLabelText('name *')).toBeVisible();
+		await expect.element(page.getByLabelText('count *')).toBeVisible();
+		await expect.element(page.getByLabelText('mode', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Add item' })).toBeVisible();
+
+		await page.getByLabelText('name *').fill('valid');
+		await page.getByLabelText('count *').fill('2');
+		await page.getByRole('button', { name: 'Add item' }).click();
+		await page.getByLabelText('tags item 1 *').fill('first');
+
+		await vi.waitFor(() => {
+			expect(onvalidchange).toHaveBeenLastCalledWith(
+				expect.objectContaining({ name: 'valid', count: 2, tags: ['first'] })
+			);
+		});
+	});
+
+	it('returns a cleared optional numeric field to its unset state', async () => {
+		const optional: JSONSchema = {
+			type: 'object',
+			required: ['name'],
+			properties: {
+				name: { type: 'string', minLength: 3 },
+				retries: { type: 'integer', minimum: 1 }
+			}
+		};
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, { schema: optional, onvalidchange });
+
+		await page.getByLabelText('name *').fill('valid');
+		await page.getByLabelText('retries', { exact: true }).fill('3');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', retries: 3 })
+		);
+
+		// Clearing it must drop the property rather than submit NaN or hold the form invalid.
+		await page.getByLabelText('retries', { exact: true }).fill('');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid' }));
+		await expect.element(page.getByText('retries must be a number')).not.toBeInTheDocument();
+	});
+
+	it('validates raw JSON syntax and schema constraints', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, { schema, onvalidchange });
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+
+		const raw = page.getByLabelText('Arguments JSON');
+		await raw.fill('{');
+		await expect.element(page.getByText(/Invalid JSON:/)).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+
+		await raw.fill('{"name":"ok","count":0}');
+		await expect.element(page.getByText('name must contain at least 3 characters')).toBeVisible();
+		await expect.element(page.getByText('count must be at least 1')).toBeVisible();
+
+		await raw.fill('{"name":"valid","count":1}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
+		);
+	});
+
+	it('clears a stale raw parse error when returning to the generated form', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, { schema, onvalidchange });
+
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		const raw = page.getByLabelText('Arguments JSON');
+		await raw.fill('{"name":"valid","count":1}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
+		);
+
+		await raw.fill('{"name":"valid","count":1,');
+		await expect.element(page.getByText(/Invalid JSON:/)).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		await expect.element(page.getByText(/Invalid JSON:/)).not.toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
+		);
+	});
+
+	it('leaves an optional enum unset instead of displaying a value it will not send', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['count'],
+				properties: {
+					count: { type: 'integer', minimum: 1 },
+					mode: { type: 'string', enum: ['safe', 'fast'] }
+				}
+			},
+			onvalidchange
+		});
+
+		const mode = page.getByLabelText('mode', { exact: true });
+		await expect.element(mode).toBeVisible();
+		const select = mode.element() as HTMLSelectElement;
+		expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Not set');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: 1 }));
+
+		await mode.selectOptions(page.getByRole('option', { name: 'safe' }));
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'safe' }))
+		);
+	});
+
+	it('shows a server pattern as a hint without handing it to constraint validation', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['slug'],
+				properties: { slug: { type: 'string', pattern: '^(a+)+$' } }
+			},
+			onvalidchange
+		});
+
+		const hint = page.getByText(/^Must match/);
+		await expect.element(hint).toBeVisible();
+		expect(hint.element().textContent).toContain('^(a+)+$');
+
+		const slug = page.getByLabelText('slug *');
+		expect(slug.element()).not.toHaveAttribute('pattern');
+		await slug.fill(`${'a'.repeat(40)}b`);
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ slug: `${'a'.repeat(40)}b` })
+		);
+	});
+});

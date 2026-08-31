@@ -87,6 +87,7 @@
 	"dependencies": {
 		"@codemirror/lang-markdown": "^6.5.0",
 		"@mcp-ui/client": "6.1.0",
+		"@modelcontextprotocol/sdk": "^1.29.0",
 		"@novnc/novnc": "1.4.0",
 		"@oddbird/popover-polyfill": "^0.6.1",
 		"@xterm/addon-fit": "^0.10.0",

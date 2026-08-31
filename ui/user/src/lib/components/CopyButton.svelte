@@ -32,6 +32,9 @@
 	let message = $state<string>(untrack(() => tooltipText));
 	let buttonTextToShow = $state(untrack(() => buttonText));
 	let copied = $state(false);
+	// Icon-only variants have no accessible name of their own; the tooltip is
+	// rendered in a portal marked aria-hidden, so it cannot supply one either.
+	let visibleText = $derived(noButtonText ? undefined : buttonTextToShow);
 	const COPIED_TEXT = 'Copied!';
 
 	function fallbackCopy(textToCopy: string): boolean {
@@ -95,6 +98,7 @@
 		use:tooltip={disabled ? undefined : message}
 		onclick={() => copy()}
 		{disabled}
+		aria-label={visibleText ? undefined : tooltipText}
 		onmouseenter={() => {
 			buttonTextToShow = buttonText;
 			copied = false;

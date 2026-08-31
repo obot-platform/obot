@@ -1854,6 +1854,94 @@
 	}
 }
 
+/*
+  Chat-rendered markdown (MCP tester assistant responses). Layers on top of
+  .milkdown-content: the editor styles make every child of a paragraph an
+  inline-block, which lets padded inline code stretch the line box and collide
+  with neighbouring block elements. Chat prose also wants tighter block rhythm
+  and tables that scroll instead of squashing their columns.
+*/
+.milkdown-content.tester-markdown {
+	& p {
+		margin-bottom: 0.75rem;
+
+		& * {
+			display: inline;
+		}
+	}
+
+	& h1,
+	& h2,
+	& h3,
+	& h4 {
+		margin-top: 1.25rem;
+		margin-bottom: 0.5rem;
+	}
+
+	& code {
+		display: inline;
+		padding: 0.125rem 0.375rem;
+		line-height: inherit;
+		vertical-align: baseline;
+		white-space: break-spaces;
+	}
+
+	& pre {
+		margin: 0.75rem 0;
+		overflow-x: auto;
+		border-radius: 0.375rem;
+		background-color: var(--color-base-200);
+
+		& code {
+			display: block;
+			padding: 0;
+			background-color: transparent;
+			white-space: pre;
+		}
+
+		.dark & {
+			background-color: var(--color-base-300);
+		}
+	}
+
+	& hr {
+		margin: 1rem 0;
+		border: 0;
+		border-top: 1px solid var(--color-base-400);
+	}
+
+	& ol,
+	& ul {
+		margin: 0.75rem 0;
+		padding-left: 1.25rem;
+
+		& li {
+			margin-bottom: 0.25rem;
+		}
+
+		& li > p:last-child {
+			margin-bottom: 0;
+		}
+	}
+
+	& table {
+		display: block;
+		width: max-content;
+		max-width: 100%;
+		margin: 0.75rem 0;
+		overflow-x: auto;
+		border-radius: 0.375rem;
+	}
+
+	& > :first-child {
+		margin-top: 0;
+	}
+
+	& > :last-child {
+		margin-bottom: 0;
+	}
+}
+
 .dark {
 	--primary: var(--theme-primary-dark, var(--color-blue-500));
 }

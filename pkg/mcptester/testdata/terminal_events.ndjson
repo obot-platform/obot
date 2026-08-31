@@ -1,0 +1,6 @@
+{"type":"completion","reason":"stop"}
+{"type":"tool_calls","calls":[{"id":"call-1","name":"first","arguments":{}},{"id":"call-2","name":"second","arguments":{"value":2}}]}
+{"type":"error","error":{"code":"provider_error","message":"provider unavailable","retryable":true}}
+{"type":"error","error":{"code":"unsupported_response","message":"malformed model event"}}
+{"type":"error","error":{"code":"cancelled","message":"request cancelled"}}
+{"type":"error","error":{"code":"policy_denied","message":"request denied by policy"}}

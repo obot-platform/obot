@@ -58,9 +58,14 @@ const store = $state<{
 });
 
 function filterOutDuplicateAndDeleted(servers: MCPCatalogServer[]) {
-	return servers.filter(
-		(server, index, self) => index === self.findIndex((t) => t.id === server.id) && !server.deleted
-	);
+	const live = servers.filter((server) => !server.deleted);
+	return live
+		.filter((server, index) => index === live.findIndex((other) => other.id === server.id))
+		.map((server) =>
+			!server.canConnect && live.some((other) => other.id === server.id && other.canConnect)
+				? { ...server, canConnect: true }
+				: server
+		);
 }
 
 function setCanConnectAndFilterDeleted(
@@ -133,7 +138,10 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 				canConnect: accessibleServerIds.has(server.id)
 			}));
 			userInstances = await UserService.listMcpServerInstances();
-			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
+			userConfiguredServers = filterOutDuplicateAndDeleted([
+				...servers,
+				...ownConfiguredServers.map((server) => ({ ...server, canConnect: true }))
+			]);
 		} else {
 			const userScopedServersPromise = UserService.listMCPCatalogServers();
 			const [ownConfiguredServers, entriesResult, userScopedServers, serversResult] =
@@ -155,7 +163,10 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 				canConnect: accessibleServerIds.has(server.id)
 			}));
 			userInstances = await UserService.listMcpServerInstances();
-			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
+			userConfiguredServers = filterOutDuplicateAndDeleted([
+				...servers,
+				...ownConfiguredServers.map((server) => ({ ...server, canConnect: true }))
+			]);
 		}
 		if (generation !== fetchGeneration) {
 			return;
@@ -203,7 +214,10 @@ async function refreshEntries() {
 				)
 			};
 		} else {
-			const entries = await UserService.listMCPs({ minimal: true });
+			const entries = (await UserService.listMCPs({ minimal: true })).map((entry) => ({
+				...entry,
+				canConnect: true
+			}));
 			store.current = {
 				...store.current,
 				entries: entries.filter((entry) => !entry.deleted)
@@ -215,7 +229,10 @@ async function refreshEntries() {
 }
 
 async function refreshUserConfiguredServers() {
-	const ownConfiguredServers = await UserService.listSingleOrRemoteMcpServers();
+	const ownConfiguredServers = (await UserService.listSingleOrRemoteMcpServers()).map((server) => ({
+		...server,
+		canConnect: true
+	}));
 	const userConfiguredServers = filterOutDuplicateAndDeleted([
 		...store.current.servers,
 		...ownConfiguredServers

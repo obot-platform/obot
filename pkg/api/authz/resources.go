@@ -69,6 +69,7 @@ var (
 			"GET    /api/mcp-servers/{mcpserver_id}/resources/{resource_uri}",
 			"GET    /api/mcp-servers/{mcpserver_id}/prompts",
 			"GET    /api/mcp-servers/{mcpserver_id}/prompts/{prompt_name}",
+			"POST   /api/mcp-servers/{mcp_id}/tester/chat",
 			"GET    /api/users/{user_id}",
 			"DELETE /api/users/{user_id}",
 			"PATCH  /api/users/{user_id}",
