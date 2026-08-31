@@ -113,10 +113,22 @@ func TestNormalizeVersion(t *testing.T) {
 		value string
 		want  string
 	}{
-		{value: "v1.2.3", want: "v1.2.3"},
-		{value: "v1.2.3+build.4", want: "v1.2.3"},
-		{value: "v1.2.3-rc.1", want: "v1.2.3"},
-		{value: "v1.2.3-rc.1+build.4", want: "v1.2.3"},
+		{
+			value: "v1.2.3",
+			want:  "v1.2.3",
+		},
+		{
+			value: "v1.2.3+build.4",
+			want:  "v1.2.3",
+		},
+		{
+			value: "v1.2.3-rc.1",
+			want:  "v1.2.3",
+		},
+		{
+			value: "v1.2.3-rc.1+build.4",
+			want:  "v1.2.3",
+		},
 	} {
 		t.Run(test.value, func(t *testing.T) {
 			if got := normalizeVersion(test.value); got != test.want {
@@ -132,8 +144,15 @@ func TestVersionCheckerDoesNotStartWhenDisabledOrDevelopment(t *testing.T) {
 		disabled bool
 		version  string
 	}{
-		{name: "disabled", disabled: true, version: "v1.2.3"},
-		{name: "development", version: "v0.0.0-dev"},
+		{
+			name:     "disabled",
+			disabled: true,
+			version:  "v1.2.3",
+		},
+		{
+			name:    "development",
+			version: "v0.0.0-dev",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			propertyClient := &checkerPropertyClient{}
@@ -234,9 +253,21 @@ func TestVersionCheckerDistribution(t *testing.T) {
 		provider checkerLicenseProvider
 		want     string
 	}{
-		{name: "enterprise", provider: checkerLicenseProvider{valid: true}, want: "enterprise"},
-		{name: "oss", provider: checkerLicenseProvider{}, want: "oss"},
-		{name: "license error", provider: checkerLicenseProvider{err: errors.New("refresh failed")}, want: "oss"},
+		{
+			name:     "enterprise",
+			provider: checkerLicenseProvider{valid: true},
+			want:     "enterprise",
+		},
+		{
+			name:     "oss",
+			provider: checkerLicenseProvider{},
+			want:     "oss",
+		},
+		{
+			name:     "license error",
+			provider: checkerLicenseProvider{err: errors.New("refresh failed")},
+			want:     "oss",
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			requests := make(chan *http.Request, 2)
@@ -267,8 +298,16 @@ func TestVersionCheckerResponseFailuresDoNotChangeStatusOrStopSchedule(t *testin
 		statusCode int
 		body       string
 	}{
-		{name: "non-OK", statusCode: http.StatusBadGateway, body: "upgrade server unavailable"},
-		{name: "malformed JSON", statusCode: http.StatusOK, body: `{"upgradeAvailable":`},
+		{
+			name:       "non-OK",
+			statusCode: http.StatusBadGateway,
+			body:       "upgrade server unavailable",
+		},
+		{
+			name:       "malformed JSON",
+			statusCode: http.StatusOK,
+			body:       `{"upgradeAvailable":`,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			requests := make(chan *http.Request, 1)

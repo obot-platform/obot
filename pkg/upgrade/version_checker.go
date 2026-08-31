@@ -39,10 +39,6 @@ type validLicenseProvider interface {
 	HasValidLicense(context.Context) (bool, error)
 }
 
-type httpClient interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
 type timer interface {
 	C() <-chan time.Time
 	Reset(time.Duration)
@@ -55,7 +51,7 @@ type realTimer struct {
 
 type VersionChecker struct {
 	licenseProvider  validLicenseProvider
-	httpClient       httpClient
+	httpClient       *http.Client
 	engine           string
 	installationID   string
 	currentVersion   string
