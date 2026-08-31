@@ -157,7 +157,7 @@ func TestListCatalogEntriesMinimal(t *testing.T) {
 			return []string{obj.(*v1.MCPServerCatalogEntry).Spec.MCPCatalogName}
 		}).
 		Build())
-	request := httptest.NewRequest(http.MethodGet, "/api/mcp-catalogs/default/entries?all=true&minimal=true", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/mcp-catalogs/default/entries?all=true&minimal=TRUE", nil)
 	request.SetPathValue("catalog_id", system.DefaultCatalog)
 	recorder := httptest.NewRecorder()
 
