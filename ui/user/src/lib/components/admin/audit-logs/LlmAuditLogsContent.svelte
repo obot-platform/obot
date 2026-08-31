@@ -324,7 +324,7 @@
 		formType: 'export' | 'scheduled' | 'storage',
 		next?: 'export' | 'scheduled'
 	) {
-		const url = new URL('/admin/llm-audit-logs/exports', page.url.origin);
+		const url = new URL('/audit-logs/llm/exports', page.url.origin);
 		page.url.searchParams.forEach((value, key) => {
 			url.searchParams.set(key, value);
 		});
@@ -414,7 +414,7 @@
 					<button
 						class="btn btn-neutral rounded-4xl"
 						onclick={() => {
-							goto('/admin/llm-audit-logs/exports');
+							goto('/audit-logs/llm/exports');
 						}}
 					>
 						<Settings class="size-4" />

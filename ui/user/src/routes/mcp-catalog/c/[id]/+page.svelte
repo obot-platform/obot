@@ -5,6 +5,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import DiffDialog from '$lib/components/admin/DiffDialog.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
@@ -21,7 +22,6 @@
 	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
 	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';

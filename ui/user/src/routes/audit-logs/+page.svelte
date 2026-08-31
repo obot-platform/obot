@@ -1,30 +1,42 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
+	import TabLayout from '$lib/components/TabLayout.svelte';
 	import AuditLogsPageContent from '$lib/components/admin/audit-logs/AuditLogsPageContent.svelte';
+	import LlmAuditLogsContent from '$lib/components/admin/audit-logs/LlmAuditLogsContent.svelte';
 	import VirtualPageRoot from '$lib/components/ui/virtual-page/virtual-page-viewport.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import type { Component } from 'svelte';
-	import { fade } from 'svelte/transition';
-
-	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout
-	classes={{ childrenContainer: 'max-w-none', container: '' }}
+<svelte:head>
+	<title>Obot | Audit Logs</title>
+</svelte:head>
+
+<TabLayout
+	title="Audit Logs"
+	defaultView="mcp"
+	classes={{ childrenContainer: 'max-w-none' }}
 	main={{
 		component: VirtualPageRoot as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
 	}}
-	title="Audit Logs"
-	subtitle="MCP Management"
->
-	<div class="flex-1" in:fade={{ duration }} out:fade={{ duration }}>
-		<div class="flex min-h-full flex-col gap-8 pb-8">
-			<AuditLogsPageContent />
-		</div>
-	</div>
-</Layout>
+	views={[
+		{ label: 'MCP', value: 'mcp', content: mcp },
+		{ label: 'LLM', value: 'llm', content: llm },
+		{ label: 'Chat', value: 'chat', content: chat }
+	]}
+/>
 
-<svelte:head>
-	<title>Obot | MCP Audit Logs</title>
-</svelte:head>
+{#snippet mcp()}
+	<div class="flex min-h-full flex-col gap-8 pb-8">
+		<AuditLogsPageContent />
+	</div>
+{/snippet}
+
+{#snippet llm()}
+	<div class="flex min-h-full flex-col gap-6">
+		<LlmAuditLogsContent />
+	</div>
+{/snippet}
+
+{#snippet chat()}
+	<!-- Chat audit logs -->
+{/snippet}

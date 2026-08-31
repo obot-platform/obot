@@ -14,17 +14,20 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
 
-	const authProviderPath = '/admin/auth-providers';
-	const modelProviderPath = '/admin/model-providers';
+	const authProviderPath = '/admin/identity-access';
+	const modelProviderPath = '/models?view=model-providers';
 
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
 		version.current.authEnabled ? storeData.authProviderConfigured : true
 	);
+	const view = $derived(page.url.searchParams.get('view'));
 	const requiresModelProviderConfiguration = $derived(
 		version.current.agentsEnabled !== false && !storeData.modelProviderConfigured
 	);
-	const isOnAuthProvidersPage = $derived(page.url.pathname === authProviderPath);
+	const isOnAuthProvidersPage = $derived(
+		page.url.pathname === authProviderPath && view === 'auth-providers'
+	);
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	$effect(() => {

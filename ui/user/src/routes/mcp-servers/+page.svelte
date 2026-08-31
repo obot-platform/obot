@@ -1,80 +1,391 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
-	import Search from '$lib/components/Search.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { Group } from '$lib/services';
-	import { profile } from '$lib/stores/index';
-	import { setUrlParamAndUpdateUrl } from '$lib/url';
-	import ConnectorsView from './ConnectorsView.svelte';
-	import { Server } from '@lucide/svelte';
-	import { fade, fly } from 'svelte/transition';
+	import TabLayout from '$lib/components/TabLayout.svelte';
+	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
+	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
+	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
+	import {
+		DEFAULT_MCP_CATALOG_ID,
+		MCP_ACCESS_POLICY_FIELD_IDS,
+		MCP_FILTERS_FIELD_IDS
+	} from '$lib/constants';
+	import Loading from '$lib/icons/Loading.svelte';
+	import {
+		AdminService,
+		Group,
+		UserService,
+		type LaunchServerType,
+		type MCPCatalog,
+		type OrgUser
+	} from '$lib/services';
+	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		goto,
+		setFilterUrlParams,
+		setSortUrlParams
+	} from '$lib/url';
+	import DeploymentsView from './DeploymentsView.svelte';
+	import EntriesView from './EntriesView.svelte';
+	import FiltersView from './FiltersView.svelte';
+	import McpPoliciesView from './McpPoliciesView.svelte';
+	import SourceUrlsView from './SourceUrlsView.svelte';
+	import TunnelsView from './TunnelsView.svelte';
+	import { Plus, RefreshCcw, Server } from '@lucide/svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
 
-	let { data } = $props();
+	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
+	const viewValues = [
+		'servers',
+		'sources',
+		'git-credentials',
+		'deployments',
+		'filters',
+		'tunnels',
+		'access-policy'
+	] as const;
+	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'composite'];
 
-	let workspaceId = $derived(data.workspace?.id);
-	let isAtLeastPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
+	const { data } = $props();
+	const { workspaceId } = $derived(data);
+	const query = $derived(page.url.searchParams.get('query') || '');
 
-	let query = $derived(page.url.searchParams.get('query') || '');
+	let users = $state<OrgUser[]>([]);
+	let urlFilters = $state(getTableUrlParamsFilters());
+	let initSort = $derived(getTableUrlParamsSort());
+	let defaultCatalog = $state<MCPCatalog>();
+	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
+	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
+	let filtersTab = $state<ReturnType<typeof FiltersView>>();
+	let gitCredentialsView = $state<ReturnType<typeof GitCredentialsView>>();
+	let gitCredentials = $state(untrack(() => data.gitCredentials));
+	let filtersLoading = $state(false);
+	let syncing = $state(false);
+	let syncInterval = $state<ReturnType<typeof setInterval>>();
 
-	const updateSearchQuery = (value: string) => {
-		setUrlParamAndUpdateUrl(page.url, 'query', value);
-	};
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let canCreateEntry = $derived(
+		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
+	);
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let selectedView = $derived.by(() => {
+		const requested = page.url.searchParams.get('view');
+		return requested && viewValues.includes(requested as (typeof viewValues)[number])
+			? requested
+			: 'servers';
+	});
+	// The servers view carries the chosen server type in `new`; every other view just flags `new`.
+	let newServerType = $derived.by(() => {
+		const requested = page.url.searchParams.get('new');
+		return serverTypes.includes(requested as LaunchServerType)
+			? (requested as LaunchServerType)
+			: undefined;
+	});
+	let creating = $derived(
+		page.url.searchParams.has('new') &&
+			((selectedView === 'servers' && !!newServerType) ||
+				selectedView === 'filters' ||
+				selectedView === 'tunnels' ||
+				selectedView === 'access-policy')
+	);
+	let layoutTitle = $derived.by(() => {
+		if (!creating) return 'MCP Servers';
+		switch (selectedView) {
+			case 'servers':
+				return 'Add Catalog Entry';
+			case 'filters':
+				return 'Create Filter';
+			case 'tunnels':
+				return 'Create MCP Tunnel';
+			case 'access-policy':
+				return 'Create MCP Access Policy';
+			default:
+				return 'MCP Servers';
+		}
+	});
+	let views = [
+		{ label: 'Servers', value: 'servers', content: servers },
+		{ label: 'Sources', value: 'sources', content: sources },
+		{ label: 'Filters', value: 'filters', content: filters },
+		{ label: 'Tunnels', value: 'tunnels', content: tunnels },
+		{ label: 'Access Policy', value: 'access-policy', content: accessPolicy },
+		{
+			label: 'Git Credentials',
+			value: 'git-credentials',
+			content: gitCredentialsTab
+		},
+		{ label: 'Deployments', value: 'deployments', content: deployments }
+	];
 
-	const duration = PAGE_TRANSITION_DURATION;
-	let title = 'MCP Servers';
+	onMount(async () => {
+		users = await UserService.listUsersIncludeDeleted();
+		defaultCatalog = profile.current.hasAdminAccess?.()
+			? await AdminService.getMCPCatalog(defaultCatalogId)
+			: undefined;
+
+		if (defaultCatalog?.isSyncing) {
+			pollTillSyncComplete();
+		}
+	});
+
+	function handleFilter(property: string, values: string[]) {
+		if (values.length === 0) {
+			delete urlFilters[property];
+			urlFilters = { ...urlFilters };
+		} else {
+			urlFilters[property] = values;
+		}
+		setFilterUrlParams(property, values);
+	}
+
+	function handleClearAllFilters() {
+		urlFilters = {};
+		clearUrlParams();
+	}
+
+	function pollTillSyncComplete() {
+		if (syncInterval) {
+			clearInterval(syncInterval);
+		}
+
+		if (!hasAdminAccess) {
+			return;
+		}
+
+		syncInterval = setInterval(async () => {
+			defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+			if (defaultCatalog && !defaultCatalog.isSyncing) {
+				if (syncInterval) {
+					clearInterval(syncInterval);
+				}
+				mcpServersAndEntries.refreshAll();
+				syncing = false;
+			}
+		}, 5000);
+	}
+
+	async function sync() {
+		if (!hasAdminAccess) {
+			return;
+		}
+
+		syncing = true;
+		await AdminService.refreshMCPCatalog(defaultCatalogId);
+		defaultCatalog = await AdminService.getMCPCatalog(defaultCatalogId);
+		if (defaultCatalog?.isSyncing) {
+			pollTillSyncComplete();
+		}
+	}
+
+	function selectServerType(type: LaunchServerType) {
+		selectServerTypeDialog?.close();
+		openCreate('servers', type);
+	}
+
+	function closeCreateScreen() {
+		goto(`${page.url.pathname}?view=${selectedView}`);
+	}
+
+	function openCreate(view: string, value: string = 'true') {
+		goto(`${page.url.pathname}?view=${view}&new=${value}`);
+	}
+
+	onDestroy(() => {
+		if (syncInterval) {
+			clearInterval(syncInterval);
+		}
+	});
 </script>
 
-<Layout classes={{ navbar: 'bg-base-200', container: 'pt-0' }} {title}>
-	{#snippet rightNavActions()}
-		<a class="btn btn-primary" href={resolve('/install-cli')}>Get Obot CLI</a>
-	{/snippet}
-	<div class="flex min-h-full flex-col gap-2" in:fade>
-		{@render mainContent()}
-	</div>
-</Layout>
+<svelte:head>
+	<title>Obot | {layoutTitle}</title>
+</svelte:head>
 
-{#snippet mainContent()}
-	<div
-		class="flex flex-col"
-		in:fly={{ x: 100, delay: duration, duration }}
-		out:fly={{ x: -100, duration }}
-	>
-		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
-			<div class="mb-2">
-				<Search
-					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-					value={query}
-					onChange={updateSearchQuery}
-					placeholder="Search servers..."
-				/>
-			</div>
-		</div>
-		<ConnectorsView id={workspaceId} entity="workspace" {query}>
-			{#snippet noDataContent()}
-				<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
-					<Server class="text-base-content/80 size-24 opacity-25" />
-					<h4 class="text-muted-content text-lg font-semibold">No created MCP servers</h4>
-					<p class="text-muted-content text-sm font-light">
-						{#if isAtLeastPowerUser}
-							Looks like you don't have any servers created yet. <br />
-							Go to
-							<a
-								href={resolve(`${profile.current.hasAdminAccess?.() ? '/admin' : ''}/mcp-catalog`)}
-								class="text-link">MCP Management ▸ MCP Servers</a
-							> to get started.
-						{:else}
-							There are no servers available to connect to yet. <br />
-							Please check back later or contact your administrator.
-						{/if}
-					</p>
-				</div>
+{#if creating}
+	<Layout title={layoutTitle} showBackButton onBackButtonClick={closeCreateScreen}>
+		{#if selectedView === 'servers'}
+			<McpServerEntryForm
+				entity={hasAdminAccess ? 'catalog' : 'workspace'}
+				id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
+				type={newServerType}
+				onCancel={closeCreateScreen}
+				excludeViews={['overview']}
+			/>
+		{:else if selectedView === 'filters'}
+			{@render filters()}
+		{:else if selectedView === 'tunnels'}
+			{@render tunnels()}
+		{:else if selectedView === 'access-policy'}
+			{@render accessPolicy()}
+		{/if}
+	</Layout>
+{:else}
+	<TabLayout
+		title="MCP Servers"
+		defaultView="servers"
+		rightNavActions={navActions}
+		{views}
+		classes={{ childrenContainer: 'max-w-none' }}
+	/>
+{/if}
+
+{#snippet navActions(view: string)}
+	{#if view === 'servers' && canCreateEntry && !isAdminReadonly}
+		<button
+			class="btn btn-primary btn-block w-full text-sm md:w-52"
+			id="add-catalog-entry-button"
+			onclick={() => selectServerTypeDialog?.open()}
+		>
+			<Plus class="size-4" /> Add Catalog Entry
+		</button>
+	{:else if view === 'sources' && hasAdminAccess && !isAdminReadonly}
+		<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>
+			{#if syncing}
+				<Loading class="size-4" /> Syncing...
+			{:else}
+				<RefreshCcw class="size-4" />
+				Sync
+			{/if}
+		</button>
+		<button
+			id="add-catalog-source-button"
+			class="btn btn-primary btn-block w-full text-sm md:w-52"
+			onclick={() => sourceDialog?.open()}
+		>
+			<Plus class="size-4" /> Add Catalog Source
+		</button>
+	{:else if view === 'git-credentials' && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => gitCredentialsView?.openCreate()}
+		>
+			<Plus class="size-4" /> Create Git Credential
+		</button>
+	{:else if view === 'filters' && !isAdminReadonly}
+		{#if filtersLoading}
+			<Loading class="size-4" />
+		{/if}
+		<DotDotDot
+			class="btn btn-block btn-primary w-full text-sm md:w-fit"
+			placement="bottom"
+			classes={{ popover: 'z-50' }}
+			id={MCP_FILTERS_FIELD_IDS.addFilterBtn}
+			ariaLabel="Add New Filter"
+		>
+			{#snippet icon()}
+				<span class="flex items-center justify-center gap-1">
+					<Plus class="size-4" /> Add New Filter
+				</span>
 			{/snippet}
-		</ConnectorsView>
+			<button
+				id={MCP_FILTERS_FIELD_IDS.createCustomBtn}
+				class="menu-button"
+				onclick={() => openCreate('filters')}
+			>
+				Create Custom
+			</button>
+			<button
+				id={MCP_FILTERS_FIELD_IDS.createBuiltInBtn}
+				class="menu-button"
+				disabled={data.systemCatalogEntries.length === 0}
+				onclick={() => filtersTab?.openBuiltInPicker()}
+			>
+				Create From Built-in
+			</button>
+		</DotDotDot>
+	{:else if view === 'tunnels' && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => openCreate('tunnels')}
+		>
+			<Plus class="size-4" />
+			Create MCP Tunnel
+		</button>
+	{:else if view === 'access-policy' && !isAdminReadonly}
+		<button
+			id={MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn}
+			class="btn btn-primary flex items-center gap-1 text-sm"
+			onclick={() => openCreate('access-policy')}
+		>
+			<Plus class="size-4" /> Add Access Policy
+		</button>
+	{/if}
+{/snippet}
+
+{#snippet servers()}
+	<EntriesView
+		entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
+		id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
+		bind:catalog={defaultCatalog}
+		readonly={isAdminReadonly}
+		{usersMap}
+		{query}
+		{urlFilters}
+		onFilter={handleFilter}
+		onClearAllFilters={handleClearAllFilters}
+		onSort={setSortUrlParams}
+		{initSort}
+	>
+		{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+	</EntriesView>
+{/snippet}
+
+{#snippet sources()}
+	<SourceUrlsView
+		catalog={defaultCatalog}
+		readonly={isAdminReadonly}
+		{query}
+		{syncing}
+		onSync={sync}
+		onEdit={(url, index) => {
+			sourceDialog?.edit(url, index);
+		}}
+	/>
+{/snippet}
+
+{#snippet gitCredentialsTab()}
+	<GitCredentialsView bind:this={gitCredentialsView} bind:gitCredentials />
+{/snippet}
+
+{#snippet deployments()}
+	<DeploymentsView />
+{/snippet}
+
+{#snippet filters()}
+	<FiltersView
+		bind:this={filtersTab}
+		bind:loading={filtersLoading}
+		filters={data.filters}
+		systemCatalogEntries={data.systemCatalogEntries}
+	/>
+{/snippet}
+
+{#snippet tunnels()}
+	<TunnelsView mcpTunnels={data.mcpTunnels} tunnelConnections={data.tunnelConnections} />
+{/snippet}
+
+{#snippet accessPolicy()}
+	<McpPoliciesView
+		accessControlRules={data.accessControlRules}
+		creating={creating && selectedView === 'access-policy'}
+	/>
+{/snippet}
+
+{#snippet displayNoData()}
+	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
+		<Server class="text-muted-content size-24 opacity-25" />
+		<h4 class="text-muted-content text-lg font-semibold">No created entries</h4>
+		<p class="text-muted-content text-sm font-light">
+			Looks like you don't have any entries created yet.
+		</p>
 	</div>
 {/snippet}
 
-<svelte:head>
-	<title>Obot | MCP Servers</title>
-</svelte:head>
+<McpServerGitSync bind:this={sourceDialog} {defaultCatalog} {gitCredentials} onSync={sync} />
+<SelectServerType bind:this={selectServerTypeDialog} onSelectServerType={selectServerType} />

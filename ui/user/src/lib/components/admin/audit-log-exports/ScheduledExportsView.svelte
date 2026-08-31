@@ -172,8 +172,8 @@
 	function handleRowClick(scheduledExport: ScheduledAuditLogExport) {
 		goto(
 			logType === 'llm'
-				? `/admin/llm-audit-logs/exports/scheduled/${scheduledExport.id}/edit`
-				: `/admin/audit-logs/exports/scheduled/${scheduledExport.id}/edit`
+				? `/audit-logs/llm/exports/scheduled/${scheduledExport.id}/edit`
+				: `/audit-logs/mcp/exports/scheduled/${scheduledExport.id}/edit`
 		);
 	}
 </script>

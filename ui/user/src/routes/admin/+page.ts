@@ -19,7 +19,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	if (hasAccess && !showSetupHandoff) {
 		throw redirect(
 			307,
-			profile?.isBootstrapUser?.() ? '/admin/auth-providers' : '/admin/dashboard'
+			profile?.isBootstrapUser?.() ? '/admin/identity-access?view=auth-providers' : '/vmcps'
 		);
 	}
 

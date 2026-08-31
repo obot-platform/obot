@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
+	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
@@ -8,7 +9,6 @@
 	import { AdminService } from '$lib/services';
 	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
-	import McpConnectUrlDialog from '../../McpConnectUrlDialog.svelte';
 	import { Link2Icon } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';

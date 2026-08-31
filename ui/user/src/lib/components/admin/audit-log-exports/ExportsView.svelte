@@ -127,8 +127,8 @@
 	function handleRowClick(exportItem: AuditLogExport) {
 		goto(
 			logType === 'llm'
-				? `/admin/llm-audit-logs/exports/${exportItem.id}/view`
-				: `/admin/audit-logs/exports/${exportItem.id}/view`
+				? `/audit-logs/llm/exports/${exportItem.id}/view`
+				: `/audit-logs/mcp/exports/${exportItem.id}/view`
 		);
 	}
 </script>

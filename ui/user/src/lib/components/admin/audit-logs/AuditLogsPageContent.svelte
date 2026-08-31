@@ -539,7 +539,7 @@
 			const response = await AdminService.getStorageCredentials();
 
 			// Prepare URL with current filters and time range
-			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			const url = new URL(window.location.origin + `/audit-logs/mcp/exports`);
 			url.searchParams.set('form', formType);
 
 			if (includeFilters) {
@@ -569,7 +569,7 @@
 			}
 		} catch (error) {
 			console.error('Failed to get storage credentials:', error);
-			const url = new URL(window.location.origin + `/admin/audit-logs/exports`);
+			const url = new URL(window.location.origin + `/audit-logs/mcp/exports`);
 			url.searchParams.set('form', 'storage');
 			url.searchParams.set('next', formType);
 
@@ -635,12 +635,7 @@
 		</div>
 	</div>
 	{#if hasFilterPills || showAuditExportActions}
-		<div
-			class={twMerge(
-				showAuditExportActions && '@min-[768px]:mt-4',
-				'flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row'
-			)}
-		>
+		<div class="flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row">
 			<div class="min-w-0 grow hidden @min-[768px]:block">
 				{@render filters()}
 			</div>
@@ -663,7 +658,7 @@
 					<button
 						class="btn btn-neutral rounded-4xl"
 						onclick={() => {
-							goto('/admin/audit-logs/exports');
+							goto('/mcp/audit-logs/exports');
 						}}
 					>
 						<Settings class="size-4" />

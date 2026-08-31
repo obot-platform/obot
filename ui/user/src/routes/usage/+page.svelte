@@ -1,18 +1,37 @@
 <script lang="ts">
-	import Layout from '$lib/components/Layout.svelte';
-	import UsageGraphs from '$lib/components/admin/usage/UsageGraphs.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { fade } from 'svelte/transition';
+	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
+	import { profile } from '$lib/stores';
+	import LlmUsageView from './LlmUsageView.svelte';
+	import McpUsageView from './McpUsageView.svelte';
 
-	const duration = PAGE_TRANSITION_DURATION;
+	let hasAdminAccess = $derived(Boolean(profile.current.hasAdminAccess?.()));
+	let views = $derived.by(() => {
+		const items: TabView[] = [{ label: 'MCP', value: 'mcp', content: mcp }];
+		if (hasAdminAccess) {
+			items.push({ label: 'LLM', value: 'llm', content: llm });
+		}
+		return items;
+	});
 </script>
-
-<Layout classes={{ container: '', childrenContainer: 'max-w-none' }} title="Usage">
-	<div class="mb-4 flex h-dvh min-h-full flex-col gap-8 pb-8" in:fade={{ duration }}>
-		<UsageGraphs />
-	</div>
-</Layout>
 
 <svelte:head>
 	<title>Obot | Usage</title>
 </svelte:head>
+
+<TabLayout
+	title="Usage"
+	defaultView="mcp"
+	{views}
+	classes={{
+		childrenContainer: 'max-w-none',
+		noSidebarTitle: 'pl-4 md:pl-8 mx-auto md:max-w-(--breakpoint-xl) pt-4'
+	}}
+/>
+
+{#snippet mcp()}
+	<McpUsageView />
+{/snippet}
+
+{#snippet llm()}
+	<LlmUsageView />
+{/snippet}

@@ -159,7 +159,7 @@
 							onclick={async () => {
 								loadingCancelTempUser = true;
 								await AdminService.cancelTempLogin();
-								goto('/admin/auth-providers', { replaceState: true });
+								goto('/admin/identity-access?view=auth-providers', { replaceState: true });
 							}}
 							disabled={loadingCancelTempUser || loadingConfirmTempUser}
 						>
