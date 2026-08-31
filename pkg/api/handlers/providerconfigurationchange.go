@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 	"uuid"
 
 	"github.com/obot-platform/nah/pkg/name"
@@ -14,10 +15,12 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	providerConfigurationChangeTimeout = 2 * time.Minute
 )
 
 func modelProviderConfigurationChangeName(providerName string) string {
@@ -55,67 +58,23 @@ func submitProviderConfigurationChange(req api.Context, change *v1.ProviderConfi
 		return errors.Join(fmt.Errorf("create provider configuration change: %w", err), cleanupErr)
 	}
 
-	if err := waitForProviderConfigurationChangeDeletion(req.Context(), req.Storage, change); err != nil {
+	return waitForProviderConfigurationChange(req, change)
+}
+
+func waitForProviderConfigurationChange(req api.Context, change *v1.ProviderConfigurationChange) error {
+	settled, err := wait.For(req.Context(), req.Storage, change, func(current *v1.ProviderConfigurationChange) (bool, error) {
+		return current.Status.Applied || current.Status.Error != "", nil
+	}, wait.Option{Timeout: providerConfigurationChangeTimeout})
+	if apierrors.IsNotFound(err) {
+		// The controller applied the change and cleaned it up before we observed
+		// its status, so there is nothing left to report.
+		return nil
+	} else if err != nil {
 		return fmt.Errorf("wait for provider configuration change %q: %w", change.Name, err)
 	}
+
+	if settled.Status.Error != "" {
+		return types.NewErrBadRequest("%s", settled.Status.Error)
+	}
 	return nil
-}
-
-// waitForProviderConfigurationChangeDeletion deliberately has no internal
-// timeout. The persisted change outlives an HTTP request, while this wait ends
-// only when that request is canceled or the exact submitted object is deleted.
-func waitForProviderConfigurationChangeDeletion(ctx context.Context, client kclient.WithWatch, change *v1.ProviderConfigurationChange) error {
-	for {
-		var current v1.ProviderConfigurationChange
-		if err := client.Get(ctx, kclient.ObjectKeyFromObject(change), &current); apierrors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
-
-		watcher, err := client.Watch(ctx, &v1.ProviderConfigurationChangeList{},
-			kclient.InNamespace(change.Namespace),
-			kclient.MatchingFields{"metadata.name": change.Name},
-			&kclient.ListOptions{Raw: &metav1.ListOptions{ResourceVersion: current.ResourceVersion}},
-		)
-		if err != nil {
-			return err
-		}
-
-		deleted, err := waitForExactProviderConfigurationChangeDeletion(ctx, watcher, change)
-		watcher.Stop()
-		if err != nil {
-			return err
-		}
-		if deleted {
-			return nil
-		}
-		// A watch can close during storage reconnects. Re-read and resume it.
-	}
-}
-
-func waitForExactProviderConfigurationChangeDeletion(ctx context.Context, watcher watch.Interface, change *v1.ProviderConfigurationChange) (bool, error) {
-	for {
-		select {
-		case <-ctx.Done():
-			return false, context.Cause(ctx)
-		case event, ok := <-watcher.ResultChan():
-			if !ok {
-				return false, nil
-			}
-			switch event.Type {
-			case watch.Deleted:
-				deleted, ok := event.Object.(*v1.ProviderConfigurationChange)
-				if ok && deleted.Namespace == change.Namespace && deleted.Name == change.Name &&
-					(change.UID == "" || deleted.UID == change.UID) {
-					if deleted.Status.Error != "" {
-						return false, types.NewErrBadRequest("%s", deleted.Status.Error)
-					}
-					return true, nil
-				}
-			case watch.Error:
-				return false, apierrors.FromObject(event.Object)
-			}
-		}
-	}
 }

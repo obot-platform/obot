@@ -31,7 +31,6 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/project"
 	"github.com/obot-platform/obot/pkg/controller/handlers/provider"
 	"github.com/obot-platform/obot/pkg/controller/handlers/providerconfigurationchange"
-	"github.com/obot-platform/obot/pkg/controller/handlers/providerdaemonsync"
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
@@ -103,16 +102,6 @@ func (c *Controller) setupRoutes() {
 
 	// Provider Configuration Changes
 	root.Type(&v1.ProviderConfigurationChange{}).HandlerFunc(providerConfigurationChanges.Reconcile)
-
-	// This router intentionally has no leader election. Every replica observes
-	// the singleton and clears only its own process-local provider daemons.
-	if c.services.ProviderDaemonRouter != nil {
-		providerDaemonSync := providerdaemonsync.New(c.services.ProviderDispatcher)
-		c.services.ProviderDaemonRouter.Type(&v1.ProviderDaemonSync{}).
-			Namespace(system.DefaultNamespace).
-			Name(system.ProviderDaemonSyncName).
-			HandlerFunc(providerDaemonSync.Reconcile)
-	}
 
 	// ModelInfoSource
 	root.Type(&v1.ModelInfoSource{}).HandlerFunc(modelInfoSource.Sync)

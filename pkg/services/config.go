@@ -232,8 +232,8 @@ type Services struct {
 	// secretBindings live. Nil on the docker backend.
 	LocalK8sClient            kclient.Client
 	LocalRouter               *router.Router
+	K8SEveryReplicaRouter     *router.Router
 	EveryReplicaRouter        *router.Router
-	ProviderDaemonRouter      *router.Router
 	MCPServerNamespace        string
 	ServiceAccountIssuerURL   string
 	ServiceAccountIssuerError string
@@ -605,7 +605,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if err != nil {
 		return nil, err
 	}
-	providerDaemonRouter, err := nah.NewRouter("obot-provider-daemon-sync", &nah.Options{
+	// This router intentionally has no leader election: its handlers maintain
+	// process-local state, so every replica must run them.
+	everyReplicaRouter, err := nah.NewRouter("obot-every-replica", &nah.Options{
 		RESTConfig:     restConfig,
 		Scheme:         scheme.Scheme,
 		Namespace:      system.DefaultNamespace,
@@ -613,7 +615,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HealthzPort:    -1,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create provider daemon sync router: %w", err)
+		return nil, fmt.Errorf("failed to create every replica router: %w", err)
 	}
 
 	gatewayClient := client.New(
@@ -1329,8 +1331,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		HostedAgentAccessRuleHelper:          hostedAgentAccessRuleHelper,
 		LocalK8sClient:                       mcpLocalK8sClient,
 		LocalRouter:                          localRouter,
-		EveryReplicaRouter:                   tunnelPeerRouter,
-		ProviderDaemonRouter:                 providerDaemonRouter,
+		K8SEveryReplicaRouter:                tunnelPeerRouter,
+		EveryReplicaRouter:                   everyReplicaRouter,
 		MCPServerNamespace:                   config.MCPNamespace,
 		ServiceAccountIssuerURL:              serviceAccountIssuerURL,
 		ServiceAccountIssuerError:            serviceAccountIssuerError,

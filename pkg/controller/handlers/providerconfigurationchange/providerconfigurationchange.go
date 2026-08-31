@@ -56,9 +56,6 @@ func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licen
 
 func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 	change := req.Object.(*v1.ProviderConfigurationChange)
-	if err := validateChange(change); err != nil {
-		return err
-	}
 
 	if change.Status.Applied || change.Status.Error != "" {
 		if change.Spec.StagedCredentialName != "" {
@@ -67,6 +64,12 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 			}
 		}
 		return req.Delete(change)
+	}
+
+	if err := validateChange(change); err != nil {
+		// The next reconciliation will delete the PCC.
+		change.Status.Error = err.Error()
+		return nil
 	}
 
 	var stagedSecrets map[string]string
@@ -379,16 +382,9 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, 
 	var daemonSync v1.ProviderDaemonSync
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}, &daemonSync); err != nil {
-			if apierrors.IsNotFound(err) {
-				if err := EnsureDaemonSync(ctx, client); err != nil {
-					return err
-				}
-				if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}, &daemonSync); err != nil {
-					return err
-				}
-			} else {
-				return err
-			}
+			// EnsureDaemonSync above created the singleton if it was missing, so
+			// anything failing here is worth requeuing the whole change for.
+			return err
 		}
 		if daemonSync.Spec.Revisions == nil {
 			daemonSync.Spec.Revisions = make(map[string]v1.ProviderDaemonRevision)

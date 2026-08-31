@@ -21,8 +21,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/watch"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -221,41 +219,53 @@ func TestFailedProviderChangeCreationRemovesOnlyItsStage(t *testing.T) {
 	assert.Equal(t, "other", other.Secrets["key"])
 }
 
-func TestWaitForProviderConfigurationChangeDeletionReturnsOnCancellation(t *testing.T) {
-	change := &v1.ProviderConfigurationChange{
-		Name:      system.ProviderChangeAuthName,
-		Namespace: system.DefaultNamespace,
-	}
-	storage := newFakeStorage(t, change)
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	err := waitForProviderConfigurationChangeDeletion(ctx, storage, change)
-	require.ErrorIs(t, err, context.Canceled)
+func TestSubmitProviderConfigurationChangeReturnsTerminalError(t *testing.T) {
+	const terminalError = "only one authentication provider can be configured at a time"
 
-	var persisted v1.ProviderConfigurationChange
-	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(change), &persisted))
-	require.False(t, apierrors.IsNotFound(err))
-}
-
-func TestWaitForProviderConfigurationChangeDeletionReturnsTerminalError(t *testing.T) {
-	change := &v1.ProviderConfigurationChange{
-		Name:      system.ProviderChangeAuthName,
-		Namespace: system.DefaultNamespace,
-		Status: v1.ProviderConfigurationChangeStatus{
-			Error: "only one authentication provider can be configured at a time",
-		},
+	storage := newFakeStorage(t)
+	req := api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/", nil),
+		Storage:       storage,
+		GatewayClient: newHandlerTestGateway(t),
 	}
-	watcher := watch.NewRaceFreeFake()
+
 	errC := make(chan error, 1)
 	go func() {
-		_, err := waitForExactProviderConfigurationChangeDeletion(t.Context(), watcher, change)
-		errC <- err
+		errC <- submitProviderConfigurationChange(req, &v1.ProviderConfigurationChange{
+			Name:      system.ProviderChangeAuthName,
+			Namespace: system.DefaultNamespace,
+			Spec: v1.ProviderConfigurationChangeSpec{
+				ProviderType: v1.ProviderTypeAuth,
+				ProviderName: "provider",
+				DesiredState: v1.ProviderDesiredStateDeconfigured,
+			},
+		})
 	}()
 
-	watcher.Delete(change)
-	err := <-errC
+	// The wait only starts watching once the change exists, so keep writing the
+	// terminal status until the watch picks it up.
+	var err error
+	require.Eventually(t, func() bool {
+		var persisted v1.ProviderConfigurationChange
+		if getErr := storage.Get(t.Context(), kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.ProviderChangeAuthName,
+		}, &persisted); getErr == nil {
+			persisted.Status.Error = terminalError
+			// The fake client has no status subresource for this type, so the
+			// status has to be written with a regular update.
+			_ = storage.Update(t.Context(), &persisted)
+		}
+		select {
+		case err = <-errC:
+			return true
+		case <-time.After(10 * time.Millisecond):
+			return false
+		}
+	}, 10*time.Second, time.Millisecond)
+
 	var httpErr *clienttypes.ErrHTTP
 	require.ErrorAs(t, err, &httpErr)
 	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
-	assert.Contains(t, httpErr.Error(), change.Status.Error)
+	assert.Contains(t, httpErr.Error(), terminalError)
 }
