@@ -33,6 +33,7 @@
 	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
+	import McpTesterAction from './tester/McpTesterAction.svelte';
 	import {
 		KeyRound,
 		PencilLine,
@@ -48,6 +49,7 @@
 
 	type ServerSelectMode =
 		| 'connect'
+		| 'test'
 		| 'rename'
 		| 'edit'
 		| 'disconnect'
@@ -227,7 +229,6 @@
 			true;
 		return entryCanConnect && serverCanConnect;
 	});
-
 	let requiresStaticOAuth = $derived(
 		entry?.manifest?.runtime === 'remote' && entry?.manifest?.remoteConfig?.staticOAuthRequired
 	);
@@ -237,6 +238,26 @@
 		oauthConfiguredOverride !== undefined
 			? oauthConfiguredOverride
 			: !requiresStaticOAuth || entry?.oauthCredentialConfigured
+	);
+	let showConnectButton = $derived(
+		!belongsToComposite &&
+			!hideActions &&
+			Boolean(
+				(entry && !server) ||
+				(server &&
+					(isMultiUserServer(server) ||
+						!server.catalogEntryID ||
+						(server.catalogEntryID && server.userID === profile.current.id)))
+			)
+	);
+	let connectionDisabled = $derived(
+		Boolean(
+			loading ||
+			hasLicenseEntitlementViolations ||
+			(isMultiUserCatalogEntryRow && !catalogID && !workspaceID) ||
+			!canConnect ||
+			(requiresStaticOAuth && oauthConfigured === false)
+		)
 	);
 
 	function refresh() {
@@ -301,6 +322,23 @@
 		selectServerDialog?.open(servers);
 	}
 
+	function testCatalogEntry() {
+		if (!entry) return;
+		if (configuredServers.length === 1) {
+			goto(`/mcp-servers/test/${encodeURIComponent(configuredServers[0].id)}`);
+			return;
+		}
+		if (configuredServers.length > 1) {
+			handleShowSelectServerDialog('test', configuredServers);
+			return;
+		}
+		connectToServerDialog?.setupNewInstance(entry, ({ server: createdServer }) => {
+			if (createdServer) {
+				goto(`/mcp-servers/test/${encodeURIComponent(createdServer.id)}`);
+			}
+		});
+	}
+
 	async function reauthenticateServer(item: MCPCatalogServer) {
 		await UserService.clearMcpServerOAuth(item.id);
 		await connectToServerDialog?.authenticate(item, entry);
@@ -308,17 +346,19 @@
 	}
 </script>
 
+<McpTesterAction
+	{server}
+	{entry}
+	forceVisible={showConnectButton}
+	disabled={showConnectButton && connectionDisabled}
+	ontest={!server && entry ? testCatalogEntry : undefined}
+/>
+
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
 <div class="contents" class:hidden={belongsToComposite || hideActions}>
 	<button
 		class="btn btn-primary flex w-full items-center gap-1 text-sm disabled:cursor-not-allowed disabled:opacity-50 md:w-fit"
-		class:hidden={!(
-			(entry && !server) ||
-			(server &&
-				(isMultiUserServer(server) ||
-					!server.catalogEntryID ||
-					(server.catalogEntryID && server.userID === profile.current.id)))
-		)}
+		class:hidden={!showConnectButton}
 		use:tooltip={{
 			text: hasLicenseEntitlementViolations
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
@@ -361,11 +401,7 @@
 				});
 			}
 		}}
-		disabled={loading ||
-			hasLicenseEntitlementViolations ||
-			(isMultiUserCatalogEntryRow && !catalogID && !workspaceID) ||
-			!canConnect ||
-			(requiresStaticOAuth && oauthConfigured === false)}
+		disabled={connectionDisabled}
 	>
 		{#if loading}
 			<Loading class="size-4" />
@@ -438,6 +474,10 @@
 					await restartServer(d);
 					await mcpServersAndEntries.refreshAll();
 				}
+				break;
+			}
+			case 'test': {
+				goto(`/mcp-servers/test/${encodeURIComponent(d.id)}`);
 				break;
 			}
 			case 'disconnect': {

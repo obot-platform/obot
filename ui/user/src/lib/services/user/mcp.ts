@@ -38,6 +38,19 @@ export function getMCPDisplayName(
 	return (item && 'alias' in item && item?.alias) || item?.manifest.name || fallback;
 }
 
+// The tester is only applicable to a concrete deployment that the current
+// user can connect to. Management visibility is deliberately insufficient.
+export function canTestMCPServer(
+	server?: MCPCatalogServer,
+	connectionAuthorizedServers: MCPCatalogServer[] = []
+): boolean {
+	if (!server || server.deleted || server.compositeName) return false;
+	if (server.canConnect !== undefined) return server.canConnect;
+	return connectionAuthorizedServers.some(
+		(candidate) => candidate.id === server.id && candidate.canConnect === true
+	);
+}
+
 export function supportsMCPBackendDetails(item?: { manifest?: { runtime?: string } }): boolean {
 	const runtime = item?.manifest?.runtime;
 	return runtime !== 'remote' && runtime !== 'composite';

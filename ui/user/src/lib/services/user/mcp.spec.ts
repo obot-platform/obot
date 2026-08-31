@@ -1,5 +1,10 @@
-import type { MCPConfigurationOption, MCPSubField, RuntimeFormData } from '$lib/services';
-import { validateRuntimeForm } from './mcp';
+import type {
+	MCPConfigurationOption,
+	MCPCatalogServer,
+	MCPSubField,
+	RuntimeFormData
+} from '$lib/services';
+import { canTestMCPServer, validateRuntimeForm } from './mcp';
 import { describe, expect, it } from 'vitest';
 
 function runtimeForm(options: MCPConfigurationOption[]): RuntimeFormData {
@@ -114,5 +119,35 @@ describe('validateRuntimeForm configuration options', () => {
 
 		expect(validateRuntimeForm(withValue, 'hosted').required.env).toBe(true);
 		expect(validateRuntimeForm(withSecretBinding, 'hosted').required.env).toBe(true);
+	});
+});
+
+describe('canTestMCPServer', () => {
+	const deployment = {
+		id: 'server-1',
+		manifest: { name: 'Test Server' }
+	} as MCPCatalogServer;
+
+	it('requires an explicit connection grant for a concrete deployment', () => {
+		expect(canTestMCPServer({ ...deployment, canConnect: true })).toBe(true);
+		expect(canTestMCPServer(deployment)).toBe(false);
+		expect(canTestMCPServer({ ...deployment, canConnect: false })).toBe(false);
+		expect(canTestMCPServer(deployment, [{ ...deployment, canConnect: true }])).toBe(true);
+		expect(
+			canTestMCPServer({ ...deployment, canConnect: false }, [{ ...deployment, canConnect: true }])
+		).toBe(false);
+	});
+
+	it('excludes deleted deployments and internal composite children', () => {
+		expect(
+			canTestMCPServer({
+				...deployment,
+				canConnect: true,
+				deleted: '2026-09-01T00:00:00Z'
+			})
+		).toBe(false);
+		expect(
+			canTestMCPServer({ ...deployment, canConnect: true, compositeName: 'composite-parent' })
+		).toBe(false);
 	});
 });

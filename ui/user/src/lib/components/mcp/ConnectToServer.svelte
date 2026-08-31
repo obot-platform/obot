@@ -43,18 +43,16 @@
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
+	type ConnectionResult = {
+		server?: MCPCatalogServer;
+		entry?: MCPCatalogEntry;
+		instance?: MCPServerInstance;
+	};
+
 	interface Props {
 		catalogID?: string;
 		workspaceID?: string;
-		onConnect?: ({
-			server,
-			entry,
-			instance
-		}: {
-			server?: MCPCatalogServer;
-			entry?: MCPCatalogEntry;
-			instance?: MCPServerInstance;
-		}) => void;
+		onConnect?: (result: ConnectionResult) => void;
 		onEdit?: ({
 			server,
 			entry,
@@ -152,6 +150,7 @@
 	let launchMissingSecretBinding = $state(false);
 	let error = $state<string>();
 	let saving = $state(false);
+	let connectCompletion: ((result: ConnectionResult) => void) | undefined;
 
 	let shouldShowAlias = $derived(
 		isDeployingMultiUserCatalogEntry ||
@@ -206,19 +205,26 @@
 		onClose?.();
 	}
 
+	function notifyConnected(skipOnConnect = false) {
+		const result = { server, entry, instance };
+		if (!skipOnConnect) onConnect?.(result);
+		const completion = connectCompletion;
+		connectCompletion = undefined;
+		completion?.(result);
+	}
+
 	function handleConnect(skipOnConnect?: boolean) {
 		launchState = undefined;
 		configDialog?.close();
-		if (!skipConnectDialog) {
+		if (!skipConnectDialog && !connectCompletion) {
 			connectDialog?.open();
 		}
 
-		if (onConnect && !skipOnConnect) {
-			onConnect({ server, entry, instance });
-		}
+		notifyConnected(skipOnConnect);
 	}
 
 	export async function authenticate(item: MCPCatalogServer, parentEntry?: MCPCatalogEntry) {
+		connectCompletion = undefined;
 		server = item;
 		entry = parentEntry;
 		instance = undefined;
@@ -795,10 +801,10 @@
 				if (showSetAccessPolicy) {
 					selectRulesDialog?.open();
 				} else {
-					onConnect?.({ server, entry });
+					notifyConnected();
 				}
 			} else {
-				onConnect?.({ server, entry });
+				notifyConnected();
 			}
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -1003,10 +1009,14 @@
 		}
 	}
 
-	export function setupNewInstance(initEntry: MCPCatalogEntry) {
+	export function setupNewInstance(
+		initEntry: MCPCatalogEntry,
+		onComplete?: (result: ConnectionResult) => void
+	) {
 		entry = initEntry;
 		server = undefined;
 		instance = undefined;
+		connectCompletion = onComplete;
 		showIntroDialog = true;
 	}
 
@@ -1047,6 +1057,7 @@
 		instance?: MCPServerInstance;
 		configureInstance?: boolean;
 	}) {
+		connectCompletion = undefined;
 		server = initServer;
 		entry = initEntry;
 		instance = initInstance;
@@ -1444,6 +1455,6 @@
 	entity={workspaceID ? 'workspace' : 'catalog'}
 	id={workspaceID ?? DEFAULT_MCP_CATALOG_ID}
 	onSubmit={() => {
-		onConnect?.({ server, entry });
+		notifyConnected();
 	}}
 />
