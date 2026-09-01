@@ -492,8 +492,8 @@ github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67 h1:QGhIjCb7NuBsI
 github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67/go.mod h1:zj/4glDORtg3DKkLvTN2RUpm1gZnRU3dlbr3dZ4Pc2Q=
 github.com/obot-platform/kinm v0.0.0-20260717005812-cd2688a2a64e h1:o439PMKepm2yIrx+2TmCZFCnFXRWObpo3zbK/Z+BUqk=
 github.com/obot-platform/kinm v0.0.0-20260717005812-cd2688a2a64e/go.mod h1:mJ2Mx/FzMK2WmfxamD2V9N7TeakulKdmGHw4qvMjzUs=
-github.com/obot-platform/mmmcp v0.1.2-0.20260828132651-5760e94fead2 h1:s766XNBzedQku6gK/iDphOVt5eYmsHryjtTVVcztKQw=
-github.com/obot-platform/mmmcp v0.1.2-0.20260828132651-5760e94fead2/go.mod h1:IM+X47ERoflOPn9ZEtrKki5zp4mAz9J6Ov5wvZBot+M=
+github.com/obot-platform/mmmcp v0.1.2 h1:M0IQlmnF73bZfbLT8ArZ/mFVSMRoH+bFmqCe/YwvDtk=
+github.com/obot-platform/mmmcp v0.1.2/go.mod h1:IM+X47ERoflOPn9ZEtrKki5zp4mAz9J6Ov5wvZBot+M=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f h1:yoMKu8I8gFlsBOSPs+guQdsSWscaipIjDIBIIl2a7ho=
 github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f/go.mod h1:m3e3C4G/Y/ZYRc6CdMj9n8JfVRCzIc7N8FUvjemsVtY=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

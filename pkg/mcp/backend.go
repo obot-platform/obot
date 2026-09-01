@@ -16,6 +16,7 @@ import (
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/version"
 )
 
 const (
@@ -56,6 +57,8 @@ type ErrNotSupportedByBackend struct {
 }
 
 type mmmcpFileConfig struct {
+	Name    string            `json:"name" yaml:"name"`
+	Version string            `json:"version" yaml:"version"`
 	Servers []mmmcpFileServer `json:"servers" yaml:"servers"`
 }
 
@@ -265,6 +268,15 @@ func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
 
 // MMMCPConfig converts a server configuration into mmmcp's runtime configuration.
 func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config {
+	serverName := server.MCPServerDisplayName
+	if serverName == "" {
+		serverName = server.MCPServerName
+	}
+	config := &mmmcpconfig.Config{
+		Name:    serverName,
+		Version: version.Get().String(),
+	}
+
 	if server.Runtime == types.RuntimeComposite {
 		passthroughHeaders := make([]string, 0, len(server.PassthroughHeaderNames)+1)
 		passthroughHeaders = append(passthroughHeaders, "Authorization")
@@ -292,7 +304,8 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 			})
 		}
 
-		return &mmmcpconfig.Config{Servers: servers}
+		config.Servers = servers
+		return config
 	}
 
 	replacer := strings.NewReplacer("/", "-", ":", "-", "?", "-")
@@ -302,25 +315,27 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		completeEnv[k] = string(v)
 	}
 
-	name := replacer.Replace(server.MCPServerDisplayName)
-	if name == "" {
-		name = replacer.Replace(server.MCPServerName)
-	}
+	componentName := replacer.Replace(serverName)
 
-	return &mmmcpconfig.Config{Servers: []mmmcpconfig.Server{{
-		Name:               name,
+	config.Servers = []mmmcpconfig.Server{{
+		Name:               componentName,
 		URL:                server.URL,
 		Headers:            keyValueSliceToMap(server.Headers),
 		PassthroughHeaders: server.PassthroughHeaderNames,
 		Command:            server.Command,
 		Args:               slices.Clone(server.Args),
 		Env:                completeEnv,
-	}}}
+	}}
+	return config
 }
 
 func constructMCPServerMMMCPYAML(server ServerConfig, env map[string][]byte) ([]byte, error) {
 	config := MMMCPConfig(server, env)
-	fileConfig := mmmcpFileConfig{Servers: make([]mmmcpFileServer, 0, len(config.Servers))}
+	fileConfig := mmmcpFileConfig{
+		Name:    config.Name,
+		Version: config.Version,
+		Servers: make([]mmmcpFileServer, 0, len(config.Servers)),
+	}
 	for _, server := range config.Servers {
 		args := make([]string, len(server.Args))
 		for i, arg := range server.Args {

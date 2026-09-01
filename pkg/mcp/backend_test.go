@@ -11,6 +11,7 @@ import (
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/version"
 )
 
 func TestConstructMCPServerMMMCPYAML(t *testing.T) {
@@ -33,6 +34,9 @@ func TestConstructMCPServerMMMCPYAML(t *testing.T) {
 	if len(cfg.Servers) != 1 {
 		t.Fatalf("server count = %d, want 1", len(cfg.Servers))
 	}
+	if cfg.Name != "Test/Server" || cfg.Version != version.Get().String() {
+		t.Fatalf("server identity = %q/%q, want %q/%q", cfg.Name, cfg.Version, "Test/Server", version.Get().String())
+	}
 	server := cfg.Servers[0]
 	if server.Name != "Test-Server" || server.Command != "npx" {
 		t.Fatalf("unexpected mmmcp server identity: %#v", server)
@@ -48,6 +52,8 @@ func TestConstructMCPServerMMMCPYAML(t *testing.T) {
 func TestMMMCPConfigPreservesCompositeSettings(t *testing.T) {
 	config := MMMCPConfig(ServerConfig{
 		Runtime:                types.RuntimeComposite,
+		MCPServerName:          "composite-server",
+		MCPServerDisplayName:   "Composite Server",
 		PassthroughHeaderNames: []string{"X-Tenant"},
 		Components: []ComponentServer{
 			{
@@ -68,6 +74,9 @@ func TestMMMCPConfigPreservesCompositeSettings(t *testing.T) {
 		},
 	}, nil)
 
+	if config.Name != "Composite Server" || config.Version != version.Get().String() {
+		t.Fatalf("server identity = %q/%q, want %q/%q", config.Name, config.Version, "Composite Server", version.Get().String())
+	}
 	if len(config.Servers) != 1 {
 		t.Fatalf("got %d component servers, want 1", len(config.Servers))
 	}
@@ -86,6 +95,17 @@ func TestMMMCPConfigPreservesCompositeSettings(t *testing.T) {
 	}
 	if tool := server.Tools[1]; tool.Name != "disabled" || tool.Enabled {
 		t.Fatalf("unexpected disabled tool override: %#v", tool)
+	}
+}
+
+func TestMMMCPConfigServerNameFallsBackToName(t *testing.T) {
+	config := MMMCPConfig(ServerConfig{
+		MCPServerName: "fallback-server",
+		URL:           "http://127.0.0.1:8080/mcp",
+	}, nil)
+
+	if config.Name != "fallback-server" || config.Version != version.Get().String() {
+		t.Fatalf("server identity = %q/%q, want %q/%q", config.Name, config.Version, "fallback-server", version.Get().String())
 	}
 }
 
