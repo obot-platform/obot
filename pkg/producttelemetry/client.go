@@ -20,13 +20,9 @@ const (
 	initialRetryDelay        = time.Second
 )
 
-type httpClient interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
 // Client sends product telemetry reports to Upgrade Server.
 type Client struct {
-	httpClient     httpClient
+	httpClient     *http.Client
 	requestURL     string
 	requestTimeout time.Duration
 	maxAttempts    int
