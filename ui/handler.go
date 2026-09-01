@@ -12,13 +12,15 @@ import (
 	"github.com/obot-platform/obot/pkg/oauth"
 )
 
+const (
+	// immutablePrefix is where the UI build puts its content-hashed assets.
+	immutablePrefix = "/_app/immutable/"
+)
+
 var (
 	//go:embed all:user/*build
 	embedded embed.FS
 )
-
-// immutablePrefix is where the UI build puts its content-hashed assets.
-const immutablePrefix = "/_app/immutable/"
 
 type uiServer struct {
 	rp       *httputil.ReverseProxy

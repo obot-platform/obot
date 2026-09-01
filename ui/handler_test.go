@@ -10,7 +10,9 @@ import (
 	"testing/fstest"
 )
 
-const chromeUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+const (
+	chromeUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+)
 
 func testUIServer() *uiServer {
 	return &uiServer{fsys: fstest.MapFS{
