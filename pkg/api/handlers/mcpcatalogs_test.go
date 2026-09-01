@@ -30,6 +30,31 @@ type fakeCapacityInfoProvider struct {
 	err         error
 }
 
+func TestStaticOAuthCredentialSecrets(t *testing.T) {
+	t.Run("requires client ID", func(t *testing.T) {
+		_, err := staticOAuthCredentialSecrets(types.MCPServerOAuthCredentialRequest{ClientSecret: "secret"})
+		require.ErrorContains(t, err, "clientID is required")
+	})
+
+	t.Run("accepts public client", func(t *testing.T) {
+		secrets, err := staticOAuthCredentialSecrets(types.MCPServerOAuthCredentialRequest{ClientID: " public-client "})
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{"CLIENT_ID": "public-client"}, secrets)
+	})
+
+	t.Run("accepts confidential client", func(t *testing.T) {
+		secrets, err := staticOAuthCredentialSecrets(types.MCPServerOAuthCredentialRequest{
+			ClientID:     " client-id ",
+			ClientSecret: " client-secret ",
+		})
+		require.NoError(t, err)
+		require.Equal(t, map[string]string{
+			"CLIENT_ID":     "client-id",
+			"CLIENT_SECRET": "client-secret",
+		}, secrets)
+	})
+}
+
 func TestAcceptCatalogEntryOwnership(t *testing.T) {
 	entry := &v1.MCPServerCatalogEntry{
 		Annotations: map[string]string{

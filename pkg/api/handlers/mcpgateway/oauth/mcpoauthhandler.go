@@ -234,7 +234,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authorizationServer.AuthorizationEndpoint,
 			TokenURL:  authorizationServer.TokenEndpoint,
-			AuthStyle: staticOAuthAuthStyle(registration.TokenEndpointAuthMethod),
+			AuthStyle: staticOAuthAuthStyle(registration.TokenEndpointAuthMethod, clientSecret != ""),
 		},
 	}
 	if registration.Scope != "" {
@@ -272,7 +272,11 @@ func staticOAuthMetadata(metadata mcp.OAuthMetadata, redirectURL string) (mcp.Au
 		"Obot MCP Gateway", redirectURL, registration.Scope), nil
 }
 
-func staticOAuthAuthStyle(method string) oauth2.AuthStyle {
+func staticOAuthAuthStyle(method string, hasClientSecret bool) oauth2.AuthStyle {
+	if !hasClientSecret {
+		return oauth2.AuthStyleInParams
+	}
+
 	switch method {
 	case "client_secret_basic":
 		return oauth2.AuthStyleInHeader
@@ -329,7 +333,7 @@ func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 		if err == nil {
 			clientID := cred.Secrets["CLIENT_ID"]
 			clientSecret := cred.Secrets["CLIENT_SECRET"]
-			if clientID != "" && clientSecret != "" {
+			if clientID != "" {
 				return clientID, clientSecret, nil
 			}
 		}

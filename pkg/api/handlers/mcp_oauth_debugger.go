@@ -48,7 +48,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 	}
 
 	var registered types.OAuthClient
-	if clientID != "" && clientSecret != "" {
+	if clientID != "" {
 		registered = oauthDebuggerStaticClient(clientID, clientSecret, authServer)
 	} else if useCIMD {
 		clientID = system.OAuthClientIDMetadataURL(m.serverURL)
@@ -57,7 +57,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		registered = m.oauthDebuggerCIMDClient(authServer, registration)
 	} else {
 		if authServer.RegistrationEndpoint == "" {
-			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint, must configure static client ID and secret")
+			return types.NewErrBadRequest("OAuth metadata does not include a dynamic client registration endpoint; a static client ID must be configured")
 		}
 
 		httpClient, err := m.mcpSessionManager.HTTPClientForServer(serverConfig, mcp.HTTPClientOptions{Timeout: 10 * time.Second, DirectConnect: true})
@@ -293,7 +293,7 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 	if server.Spec.MCPServerCatalogEntryName != "" {
 		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
 		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
-		if err == nil && cred.Secrets["CLIENT_ID"] != "" && cred.Secrets["CLIENT_SECRET"] != "" {
+		if err == nil && cred.Secrets["CLIENT_ID"] != "" {
 			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil
 		}
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
@@ -304,9 +304,9 @@ func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServe
 	return "", "", nil
 }
 
-func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, clientSecret string) bool {
+func (m *MCPHandler) useOAuthDebuggerCIMD(server v1.MCPServer, clientID, _ string) bool {
 	return !m.forceDynamicClient &&
-		(clientID == "" || clientSecret == "") &&
+		clientID == "" &&
 		server.Status.OAuthMetadata != nil &&
 		server.Status.OAuthMetadata.ClientIDMetadataDocumentSupported &&
 		strings.HasPrefix(m.serverURL, "https://")
@@ -345,7 +345,7 @@ func oauthDebuggerConfig(clientID, clientSecret, authURL, tokenURL, tokenEndpoin
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authURL,
 			TokenURL:  tokenURL,
-			AuthStyle: oauthDebuggerAuthStyle(tokenEndpointAuthMethod),
+			AuthStyle: oauthDebuggerAuthStyle(tokenEndpointAuthMethod, clientSecret != ""),
 		},
 		RedirectURL: redirectURL,
 	}
@@ -372,7 +372,11 @@ func oauthDebuggerConfigFromPendingState(pendingState *gwtypes.MCPOAuthPendingSt
 	return conf
 }
 
-func oauthDebuggerAuthStyle(method string) oauth2.AuthStyle {
+func oauthDebuggerAuthStyle(method string, hasClientSecret bool) oauth2.AuthStyle {
+	if !hasClientSecret {
+		return oauth2.AuthStyleInParams
+	}
+
 	switch method {
 	case "client_secret_basic":
 		return oauth2.AuthStyleInHeader

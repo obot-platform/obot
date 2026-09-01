@@ -71,12 +71,8 @@
 			return;
 		}
 
-		// Initial setup: Validate all required fields
+		// Client ID is required; public OAuth clients do not have a client secret.
 		if (!form.clientID.trim()) {
-			showRequired = true;
-			return;
-		}
-		if (!form.clientSecret.trim()) {
 			showRequired = true;
 			return;
 		}
@@ -150,8 +146,8 @@
 			</p>
 		{:else}
 			<p class="text-muted-content text-sm font-light">
-				This remote MCP server requires OAuth configuration. Provide the client credentials from
-				your OAuth provider.
+				This remote MCP server requires OAuth configuration. Provide the client ID and, for a
+				confidential client, its client secret.
 			</p>
 		{/if}
 
@@ -171,13 +167,10 @@
 			</div>
 
 			<div class="flex flex-col gap-1">
-				<label for="clientSecret" class:text-error={showRequired && !form.clientSecret}>
-					Client Secret
-				</label>
+				<label for="clientSecret">Client Secret (optional)</label>
 				<SensitiveInput
 					name="clientSecret"
 					bind:value={form.clientSecret}
-					error={showRequired && !form.clientSecret}
 					placeholder={oauthStatus?.configured ? '••••••••' : 'your-client-secret'}
 					readonly={oauthStatus?.configured}
 					classes={{ input: oauthStatus?.configured ? 'opacity-60' : '' }}

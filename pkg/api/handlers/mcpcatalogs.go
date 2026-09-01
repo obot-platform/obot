@@ -1916,32 +1916,21 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 	_, err = req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
 	credentialsExist := err == nil
 
-	var clientID, clientSecret string
-
 	if credentialsExist {
 		// Credentials already exist - must delete and recreate to change them
 		return types.NewErrBadRequest("credentials already exist; delete and recreate credentials to change them")
 	}
 
-	// Initial setup mode: All fields are required
-	// Trim whitespace before validation
-	trimmedClientID := strings.TrimSpace(credReq.ClientID)
-	trimmedClientSecret := strings.TrimSpace(credReq.ClientSecret)
-	if trimmedClientID == "" || trimmedClientSecret == "" {
-		return types.NewErrBadRequest("clientID and clientSecret are required")
+	secrets, err := staticOAuthCredentialSecrets(credReq)
+	if err != nil {
+		return err
 	}
-
-	clientID = trimmedClientID
-	clientSecret = trimmedClientSecret
 
 	// Store new credential
 	cred := gatewaytypes.Credential{
 		Context: credName,
 		Name:    system.StaticOAuthCredentialName,
-		Secrets: map[string]string{
-			"CLIENT_ID":     clientID,
-			"CLIENT_SECRET": clientSecret,
-		},
+		Secrets: secrets,
 	}
 	if err := req.GatewayClient.UpsertCredential(req.Context(), cred); err != nil {
 		return fmt.Errorf("failed to create OAuth credential: %w", err)
@@ -1958,8 +1947,21 @@ func (h *MCPCatalogHandler) SetOAuthCredentials(req api.Context) error {
 
 	return req.Write(types.MCPServerOAuthCredentialStatus{
 		Configured: true,
-		ClientID:   clientID,
+		ClientID:   secrets["CLIENT_ID"],
 	})
+}
+
+func staticOAuthCredentialSecrets(credReq types.MCPServerOAuthCredentialRequest) (map[string]string, error) {
+	clientID := strings.TrimSpace(credReq.ClientID)
+	if clientID == "" {
+		return nil, types.NewErrBadRequest("clientID is required")
+	}
+
+	secrets := map[string]string{"CLIENT_ID": clientID}
+	if clientSecret := strings.TrimSpace(credReq.ClientSecret); clientSecret != "" {
+		secrets["CLIENT_SECRET"] = clientSecret
+	}
+	return secrets, nil
 }
 
 // DeleteOAuthCredentials removes OAuth credentials for a catalog entry.

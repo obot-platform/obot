@@ -11224,13 +11224,12 @@ func schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialRequest(r
 					},
 					"clientSecret": {
 						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
+							Type:   []string{"string"},
+							Format: "",
 						},
 					},
 				},
-				Required: []string{"clientID", "clientSecret"},
+				Required: []string{"clientID"},
 			},
 		},
 	}

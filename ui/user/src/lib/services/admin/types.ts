@@ -913,7 +913,7 @@ export type MCPFilterInput = Omit<MCPFilter, 'id'> & { id?: string };
 
 export interface MCPServerOAuthCredentialRequest {
 	clientID: string;
-	clientSecret: string;
+	clientSecret?: string;
 }
 export interface MCPServerOAuthCredentialStatus {
 	configured: boolean;

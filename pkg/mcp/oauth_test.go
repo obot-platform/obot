@@ -266,6 +266,22 @@ func TestResolveClientInfoUsesStaticClientLookup(t *testing.T) {
 	require.Equal(t, 1, lookup.calls)
 }
 
+func TestResolveClientInfoUsesPublicStaticClientLookup(t *testing.T) {
+	lookup := &oauthTestClientCredLookup{clientID: "public-client-id"}
+	o := &oauth{clientLookup: lookup}
+
+	clientInfo, err := o.resolveClientInfo(t.Context(), "test-server", oauthMetadataDiscovery{
+		ProtectedResourceMetadata: protectedResourceMetadata{
+			AuthorizationServers: []string{"https://issuer.example"},
+		},
+		AuthorizationServerMetadata: AuthorizationServerMetadata{},
+	})
+	require.NoError(t, err)
+	require.Equal(t, lookup.clientID, clientInfo.ClientID)
+	require.Empty(t, clientInfo.ClientSecret)
+	require.Equal(t, 1, lookup.calls)
+}
+
 func TestResolveClientInfoNilLookupFallsThroughToDynamicRegistration(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		require.Equal(t, http.MethodPost, req.Method)

@@ -676,7 +676,7 @@ func (o *oauth) resolveClientInfo(ctx context.Context, serverName string, discov
 	if o.clientLookup != nil {
 		clientInfo.ClientID, clientInfo.ClientSecret, lookupErr = o.clientLookup.Lookup(ctx)
 	}
-	if lookupErr == nil && clientInfo.ClientID != "" && clientInfo.ClientSecret != "" {
+	if lookupErr == nil && clientInfo.ClientID != "" {
 		slog.Info("using static oauth client credentials", "server", serverName, "authorization_server", protectedResourceMetadata.AuthorizationServers[0])
 		return clientInfo, nil
 	}

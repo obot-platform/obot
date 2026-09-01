@@ -140,18 +140,21 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 
 func TestOAuthDebuggerAuthStyle(t *testing.T) {
 	tests := []struct {
-		method   string
-		expected oauth2.AuthStyle
+		name            string
+		method          string
+		hasClientSecret bool
+		expected        oauth2.AuthStyle
 	}{
-		{method: "client_secret_basic", expected: oauth2.AuthStyleInHeader},
-		{method: "client_secret_post", expected: oauth2.AuthStyleInParams},
-		{method: "", expected: oauth2.AuthStyleAutoDetect},
-		{method: "private_key_jwt", expected: oauth2.AuthStyleAutoDetect},
+		{name: "public client", method: "client_secret_basic", expected: oauth2.AuthStyleInParams},
+		{name: "confidential client basic", method: "client_secret_basic", hasClientSecret: true, expected: oauth2.AuthStyleInHeader},
+		{name: "confidential client post", method: "client_secret_post", hasClientSecret: true, expected: oauth2.AuthStyleInParams},
+		{name: "confidential client unspecified", hasClientSecret: true, expected: oauth2.AuthStyleAutoDetect},
+		{name: "confidential client private key", method: "private_key_jwt", hasClientSecret: true, expected: oauth2.AuthStyleAutoDetect},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.method, func(t *testing.T) {
-			if actual := oauthDebuggerAuthStyle(tt.method); actual != tt.expected {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := oauthDebuggerAuthStyle(tt.method, tt.hasClientSecret); actual != tt.expected {
 				t.Fatalf("expected %v, got %v", tt.expected, actual)
 			}
 		})
@@ -211,6 +214,14 @@ func TestOAuthDebuggerUsesCIMD(t *testing.T) {
 			},
 			clientID:     "client-id",
 			clientSecret: "client-secret",
+		},
+		{
+			name:      "public static client wins",
+			serverURL: "https://obot.example.com",
+			oauthMeta: &v1.OAuthMetadata{
+				ClientIDMetadataDocumentSupported: true,
+			},
+			clientID: "public-client-id",
 		},
 		{
 			name:      "unsupported by auth server",

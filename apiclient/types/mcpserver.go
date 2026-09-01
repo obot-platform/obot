@@ -438,7 +438,7 @@ type RuntimeValidationError struct {
 // MCPServerOAuthCredentialRequest represents a request to set OAuth credentials for an MCP server
 type MCPServerOAuthCredentialRequest struct {
 	ClientID     string `json:"clientID"`
-	ClientSecret string `json:"clientSecret"`
+	ClientSecret string `json:"clientSecret,omitempty"`
 }
 
 // MCPServerOAuthCredentialStatus represents the status of OAuth credentials for an MCP server
