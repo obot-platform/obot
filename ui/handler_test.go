@@ -7,7 +7,69 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"testing/fstest"
 )
+
+const chromeUA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+
+func testUIServer() *uiServer {
+	return &uiServer{fsys: fstest.MapFS{
+		"user/build/index.html":                       {Data: []byte("<html>index</html>")},
+		"user/build/fallback.html":                    {Data: []byte("<html>fallback</html>")},
+		"user/build/_app/immutable/nodes/0.abc123.js": {Data: []byte("export const x = 1")},
+	}}
+}
+
+func serve(t *testing.T, urlPath, userAgent string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "http://obot.example.com"+urlPath, nil)
+	if userAgent != "" {
+		req.Header.Set("User-Agent", userAgent)
+	}
+	rec := httptest.NewRecorder()
+	testUIServer().ServeHTTP(rec, req)
+	return rec
+}
+
+// A cached 404 for a hashed asset breaks the app for every client behind that
+// cache, so files that exist must serve regardless of User-Agent.
+func TestExistingAssetsServeToNonBrowserClients(t *testing.T) {
+	for _, ua := range []string{
+		"Python/3.12 aiohttp/3.14.3",
+		"curl/8.7.1",
+		"Go-http-client/2.0",
+		"", // no User-Agent header at all
+		chromeUA,
+	} {
+		rec := serve(t, "/_app/immutable/nodes/0.abc123.js", ua)
+		if rec.Code != http.StatusOK {
+			t.Errorf("User-Agent %q: expected 200 for an asset that exists, got %d", ua, rec.Code)
+		}
+	}
+}
+
+// Unknown paths must not hand programmatic clients the SPA fallback, or a
+// mistyped API path looks like a 200 full of HTML.
+func TestUnknownPathReturns404ForNonBrowsers(t *testing.T) {
+	rec := serve(t, "/api/definitely-not-a-route", "Go-http-client/2.0")
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404 for a non-browser client, got %d", rec.Code)
+	}
+	if got := rec.Header().Get("Cache-Control"); got != "no-store" {
+		t.Errorf("expected Cache-Control no-store so the 404 is never cached, got %q", got)
+	}
+}
+
+// Browsers still get the SPA fallback so client-side routes survive a refresh.
+func TestUnknownPathServesFallbackForBrowsers(t *testing.T) {
+	rec := serve(t, "/some/client/side/route", chromeUA)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 fallback for a browser, got %d", rec.Code)
+	}
+	if body := rec.Body.String(); body != "<html>fallback</html>" {
+		t.Errorf("expected the SPA fallback body, got %q", body)
+	}
+}
 
 // The proxy was migrated from the deprecated ReverseProxy.Director to Rewrite.
 // Director made ReverseProxy set X-Forwarded-For automatically; Rewrite does not
