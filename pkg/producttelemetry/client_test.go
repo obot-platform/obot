@@ -35,18 +35,45 @@ func testRequest() clienttypes.ProductTelemetryRequest {
 		Engine:         "kubernetes",
 		CurrentVersion: "v0.26.0",
 		Metrics: &clienttypes.ProductTelemetryMetrics{
-			TotalUsers:        new(int64(42)),
-			ActiveUsers:       new(int64(10)),
-			BuiltInMCPServers: &servers,
+			TotalUsers:                  new(int64(42)),
+			DeployedMCPServers:          new(int64(0)),
+			CustomMCPServerEntryCount:   new(int64(4)),
+			BuiltInMCPServers:           &servers,
+			AuthProviderType:            new("github"),
+			MCPAuditLogCount:            new(int64(0)),
+			SentryScanCount:             new(int64(14)),
+			SentryEnforcementEventCount: new(int64(3)),
+			ManagedSkillCount:           new(int64(27)),
 		},
 	}
 }
 
 func TestClientSend(t *testing.T) {
-	wantBody := `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":10,"deployedMCPServers":null,"customMCPServerEntryCount":null,"builtInMCPServers":[{"id":"github","name":"GitHub","deploymentCount":2,"userCount":7}],"authProviderType":null,"mcpAuditLogCount":null,"llmAuditLogCount":null,"sentryScanCount":null,"sentryEnforcementEventCount":null,"managedSkillCount":null}}`
+	fullRequest := testRequest()
+	metadataOnlyRequest := testRequest()
+	metadataOnlyRequest.Metrics = nil
 
-	for _, responseBody := range []string{"", "ignored success body"} {
-		t.Run(responseBody, func(t *testing.T) {
+	tests := []struct {
+		name         string
+		request      clienttypes.ProductTelemetryRequest
+		wantBody     string
+		responseBody string
+	}{
+		{
+			name:         "full report preserves null and zero metrics",
+			request:      fullRequest,
+			wantBody:     `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":null,"deployedMCPServers":0,"customMCPServerEntryCount":4,"builtInMCPServers":[{"id":"github","name":"GitHub","deploymentCount":2,"userCount":7}],"authProviderType":"github","mcpAuditLogCount":0,"llmAuditLogCount":null,"sentryScanCount":14,"sentryEnforcementEventCount":3,"managedSkillCount":27}}`,
+			responseBody: "ignored success body",
+		},
+		{
+			name:     "metadata-only report omits metrics",
+			request:  metadataOnlyRequest,
+			wantBody: `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0"}`,
+		},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
 				if request.Method != http.MethodPost {
 					t.Errorf("method = %q, want POST", request.Method)
@@ -61,16 +88,16 @@ func TestClientSend(t *testing.T) {
 				if err != nil {
 					t.Errorf("read request body: %v", err)
 				}
-				if string(body) != wantBody {
-					t.Errorf("body = %s, want %s", body, wantBody)
+				if string(body) != testCase.wantBody {
+					t.Errorf("body = %s, want %s", body, testCase.wantBody)
 				}
 				response.WriteHeader(http.StatusAccepted)
-				_, _ = io.WriteString(response, responseBody)
+				_, _ = io.WriteString(response, testCase.responseBody)
 			}))
 			defer server.Close()
 
 			client := NewClient(server.URL+"/root/", server.Client())
-			if err := client.Send(t.Context(), testRequest()); err != nil {
+			if err := client.Send(t.Context(), testCase.request); err != nil {
 				t.Fatalf("Send() error = %v", err)
 			}
 		})
