@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		modelAccessPolicy = await AdminService.getModelAccessPolicy(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/model-access-policies/${id}`, profile.current);
+		handleRouteError(err, `/models/access-policies/${id}`, profile.current);
 	}
 
 	return {

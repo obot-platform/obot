@@ -96,7 +96,7 @@
 		try {
 			await AdminService.deleteMCPTunnel(mcpTunnel.id);
 			success.add('MCP tunnel deleted successfully.');
-			goto('/admin/mcp-tunnels');
+			goto('/mcp-servers?view=tunnels');
 		} finally {
 			deleting = false;
 		}

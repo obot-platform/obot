@@ -59,6 +59,15 @@ export const load: PageLoad = async ({ fetch, parent, depends }) => {
 
 	try {
 		const workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
+		if (!profile.hasAdminAccess?.()) {
+			try {
+				accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId, {
+					fetch
+				});
+			} catch (err) {
+				handleRouteError(err, '/mcp-servers', profile);
+			}
+		}
 		return {
 			workspaceId,
 			gitCredentials,

@@ -374,6 +374,7 @@
 	<McpPoliciesView
 		accessControlRules={data.accessControlRules}
 		creating={creating && selectedView === 'access-policy'}
+		{workspaceId}
 	/>
 {/snippet}
 

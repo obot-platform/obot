@@ -31,10 +31,12 @@
 		component: VirtualPageRoot as unknown as Component,
 		props: { class: '', as: 'main', itemHeight: 56, overscan: 5 }
 	}}
-	views={[
-		{ label: 'MCP', value: 'mcp', content: mcp },
-		{ label: 'LLM', value: 'llm', content: llm }
-	]}
+	views={profile.current.hasAdminAccess?.()
+		? [
+				{ label: 'MCP', value: 'mcp', content: mcp },
+				{ label: 'LLM', value: 'llm', content: llm }
+			]
+		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />
 
 {#snippet navActions(view: string)}

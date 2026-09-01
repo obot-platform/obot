@@ -40,7 +40,7 @@
 	async function navigateToCreated(policy: ModelAccessPolicy) {
 		await accessibleModels.refresh();
 		clearUrlParams(['new']);
-		goto(`/admin/model-access-policies/${policy.id}`, { replaceState: false });
+		goto(`/models/access-policies/${policy.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -76,7 +76,7 @@
 		data={tableData}
 		fields={['displayName', 'modelsCount']}
 		onClickRow={(d, isCtrlClick) => {
-			const url = `/admin/model-access-policies/${d.id}`;
+			const url = `/models/access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
 		}}
 		headers={[

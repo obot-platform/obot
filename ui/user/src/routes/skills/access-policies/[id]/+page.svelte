@@ -18,7 +18,7 @@
 		<SkillAccessPolicyForm
 			{skillAccessPolicy}
 			onUpdate={() => {
-				goto('/admin/skill-access-policies');
+				goto('/skills?view=access-policies');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

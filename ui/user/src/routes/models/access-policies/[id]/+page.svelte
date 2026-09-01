@@ -19,7 +19,7 @@
 			{modelAccessPolicy}
 			onUpdate={() => {
 				accessibleModels.refresh();
-				goto('/admin/model-access-policies');
+				goto('/models?view=access-policies');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

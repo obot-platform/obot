@@ -1,28 +1,59 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
+	import { MCP_PUBLISHER_ALL_OPTION, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import {
+		fetchMcpServerAndEntries,
+		getPoweruserWorkspace,
+		initMcpServerAndEntries
+	} from '$lib/context/poweruserWorkspace.svelte';
 	import { mcpServersAndEntries, profile } from '$lib/stores/index.js';
 	import { goto } from '$lib/url';
+	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
-	const { accessControlRule } = $derived(data);
+	const { accessControlRule, workspaceId } = $derived(data);
 	const duration = PAGE_TRANSITION_DURATION;
+	const isAdmin = $derived(profile.current.hasAdminAccess?.());
+
+	if (!untrack(() => profile.current.hasAdminAccess?.())) {
+		initMcpServerAndEntries();
+	}
+
+	onMount(() => {
+		if (!isAdmin && workspaceId) {
+			fetchMcpServerAndEntries(workspaceId);
+		}
+	});
 
 	let title = $derived(accessControlRule?.displayName ?? 'MCP Registry');
 </script>
 
 <Layout {title} showBackButton>
 	<div class="h-full w-full" in:fly={{ x: 100, duration }} out:fly={{ x: -100, duration }}>
-		<AccessControlRuleForm
-			{accessControlRule}
-			onUpdate={() => {
-				goto('/admin/mcp-access-policies');
-			}}
-			mcpEntriesContextFn={() => mcpServersAndEntries.current}
-			readonly={profile.current.isAdminReadonly?.()}
-		/>
+		{#if isAdmin}
+			<AccessControlRuleForm
+				{accessControlRule}
+				onUpdate={() => {
+					goto('/mcp-servers?view=access-policy');
+				}}
+				mcpEntriesContextFn={() => mcpServersAndEntries.current}
+				readonly={profile.current.isAdminReadonly?.()}
+			/>
+		{:else}
+			<AccessControlRuleForm
+				{accessControlRule}
+				onUpdate={() => {
+					goto('/mcp-servers?view=access-policy');
+				}}
+				entity="workspace"
+				id={workspaceId}
+				mcpEntriesContextFn={getPoweruserWorkspace}
+				all={MCP_PUBLISHER_ALL_OPTION}
+				readonly={profile.current.isAdminReadonly?.()}
+			/>
+		{/if}
 	</div>
 </Layout>
 

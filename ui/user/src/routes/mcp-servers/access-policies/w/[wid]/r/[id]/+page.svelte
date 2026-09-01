@@ -18,7 +18,7 @@
 		<AccessControlRuleForm
 			{accessControlRule}
 			onUpdate={() => {
-				goto('/admin/mcp-access-policies');
+				goto('/mcp-servers?view=access-policy');
 			}}
 			entity="workspace"
 			id={workspaceId}

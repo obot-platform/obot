@@ -9,7 +9,7 @@ export const load: PageLoad = async ({ params, fetch }) => {
 	try {
 		accessControlRule = await UserService.getWorkspaceAccessControlRule(wid, id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/mcp-access-policies/w/${wid}/r/${id}`, profile.current);
+		handleRouteError(err, `/mcp-servers/access-policies/w/${wid}/r/${id}`, profile.current);
 	}
 
 	return {

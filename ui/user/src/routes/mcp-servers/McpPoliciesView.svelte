@@ -5,26 +5,53 @@
 	import AccessControlRuleForm from '$lib/components/admin/AccessControlRuleForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
-	import { MCP_ACCESS_POLICY_FIELD_IDS, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import {
+		MCP_ACCESS_POLICY_FIELD_IDS,
+		MCP_PUBLISHER_ALL_OPTION,
+		PAGE_TRANSITION_DURATION
+	} from '$lib/constants';
+	import {
+		fetchMcpServerAndEntries,
+		getPoweruserWorkspace,
+		initMcpServerAndEntries
+	} from '$lib/context/poweruserWorkspace.svelte';
 	import { AdminService, UserService, type OrgUser, type AccessControlRule } from '$lib/services';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
 	import { goto, clearUrlParams } from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { BookOpenText, Plus, Trash2 } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
 		accessControlRules: AccessControlRule[];
 		creating?: boolean;
+		workspaceId?: string;
 	}
 
-	let { accessControlRules, creating = false }: Props = $props();
+	let { accessControlRules: initialRules, creating = false, workspaceId }: Props = $props();
+
+	let accessControlRules = $state<AccessControlRule[]>(untrack(() => initialRules));
+	$effect(() => {
+		accessControlRules = initialRules;
+	});
 
 	let ruleToDelete = $state<AccessControlRule>();
-
 	let users = $state<OrgUser[]>([]);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let isAdmin = $derived(profile.current.hasAdminAccess?.());
+	let isReadonly = $derived(profile.current.isAdminReadonly?.());
+
+	if (!untrack(() => profile.current.hasAdminAccess?.())) {
+		initMcpServerAndEntries();
+	}
+
+	const poweruserWorkspace = untrack(() =>
+		profile.current.hasAdminAccess?.() ? undefined : getPoweruserWorkspace()
+	);
+	const totalWorkspaceServers = $derived(
+		(poweruserWorkspace?.entries.length ?? 0) + (poweruserWorkspace?.servers.length ?? 0)
+	);
 
 	let validAccessControlRules = $derived(
 		accessControlRules.filter((rule) => (rule.powerUserID ? usersMap.has(rule.powerUserID) : true))
@@ -74,11 +101,9 @@
 			.map((d) => convertToTableData(d, 'user'))
 	);
 
-	let isReadonly = $derived(profile.current.isAdminReadonly?.());
-
 	async function navigateToCreated(rule: AccessControlRule) {
 		clearUrlParams(['new']);
-		goto(`/admin/mcp-access-policies/${rule.id}`);
+		goto(`/mcp-servers/access-policies/${rule.id}`);
 	}
 
 	function getAcrServerCount(powerUserWorkspaceID: string) {
@@ -91,8 +116,21 @@
 		);
 	}
 
+	function policyDetailUrl(rule: AccessControlRule) {
+		if (isAdmin && rule.powerUserWorkspaceID) {
+			return `/mcp-servers/access-policies/w/${rule.powerUserWorkspaceID}/r/${rule.id}`;
+		}
+		return `/mcp-servers/access-policies/${rule.id}`;
+	}
+
 	onMount(async () => {
-		users = await UserService.listUsersIncludeDeleted();
+		if (isAdmin) {
+			users = await UserService.listUsersIncludeDeleted();
+			return;
+		}
+		if (workspaceId) {
+			fetchMcpServerAndEntries(workspaceId);
+		}
 	});
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -119,7 +157,7 @@
 
 				{@render addRuleButton(MCP_ACCESS_POLICY_FIELD_IDS.addPolicyEmptyBtn)}
 			</div>
-		{:else}
+		{:else if isAdmin}
 			<div class="flex flex-col gap-2">
 				<h4 class="text-base font-semibold">Admin Managed Access Policies</h4>
 				{@render accessControlRuleTable('global')}
@@ -133,6 +171,50 @@
 					{@render accessControlRuleTable('user')}
 				</div>
 			</details>
+		{:else}
+			<Table
+				data={accessControlRules}
+				fields={['displayName', 'servers']}
+				onClickRow={(d, isCtrlClick) => {
+					openUrl(policyDetailUrl(d), isCtrlClick);
+				}}
+				headers={[
+					{
+						title: 'Name',
+						property: 'displayName'
+					}
+				]}
+			>
+				{#snippet actions(d)}
+					{#if !isReadonly}
+						<IconButton
+							variant="danger"
+							onclick={(e) => {
+								e.stopPropagation();
+								ruleToDelete = d;
+							}}
+							tooltip={{ text: 'Delete Rule' }}
+						>
+							<Trash2 class="size-4" />
+						</IconButton>
+					{/if}
+				{/snippet}
+				{#snippet onRenderColumn(property, d)}
+					{#if property === 'servers'}
+						{@const hasEverything = d.resources?.find((r) => r.id === '*')}
+						{@const count = hasEverything
+							? totalWorkspaceServers
+							: ((d.resources &&
+									d.resources.filter(
+										(r) => r.type === 'mcpServerCatalogEntry' || r.type === 'mcpServer'
+									).length) ??
+								0)}
+						{count ? count : '-'}
+					{:else}
+						{d[property as keyof typeof d]}
+					{/if}
+				{/snippet}
+			</Table>
 		{/if}
 	</div>
 {/if}
@@ -145,10 +227,7 @@
 			? ['displayName', 'serversCount']
 			: ['displayName', 'serversCount', 'owner']}
 		onClickRow={(d, isCtrlClick) => {
-			const url = d.powerUserWorkspaceID
-				? `/admin/mcp-access-policies/w/${d.powerUserWorkspaceID}/r/${d.id}`
-				: `/admin/mcp-access-policies/${d.id}`;
-			openUrl(url, isCtrlClick);
+			openUrl(policyDetailUrl(d), isCtrlClick);
 		}}
 		headers={[
 			{
@@ -209,10 +288,20 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<AccessControlRuleForm
-			onCreate={navigateToCreated}
-			mcpEntriesContextFn={() => mcpServersAndEntries.current}
-		/>
+		{#if isAdmin}
+			<AccessControlRuleForm
+				onCreate={navigateToCreated}
+				mcpEntriesContextFn={() => mcpServersAndEntries.current}
+			/>
+		{:else}
+			<AccessControlRuleForm
+				onCreate={navigateToCreated}
+				entity="workspace"
+				id={workspaceId}
+				mcpEntriesContextFn={getPoweruserWorkspace}
+				all={MCP_PUBLISHER_ALL_OPTION}
+			/>
+		{/if}
 	</div>
 {/snippet}
 
@@ -221,7 +310,10 @@
 	show={Boolean(ruleToDelete)}
 	onsuccess={async () => {
 		if (!ruleToDelete) return;
-		if (ruleToDelete.powerUserWorkspaceID) {
+		if (!isAdmin && workspaceId) {
+			await UserService.deleteWorkspaceAccessControlRule(workspaceId, ruleToDelete.id);
+			accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId);
+		} else if (ruleToDelete.powerUserWorkspaceID) {
 			await UserService.deleteWorkspaceAccessControlRule(
 				ruleToDelete.powerUserWorkspaceID,
 				ruleToDelete.id
