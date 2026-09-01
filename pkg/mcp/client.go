@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -29,11 +30,13 @@ type Client struct {
 type ClientOption struct {
 	// OAuthClientName overrides ClientName only for dynamic client registration.
 	OAuthClientName string
-	ClientName      string
-	ClientVersion   string
-	TokenStorage    TokenStorage
-	CallbackHandler CallbackHandler
-	ClientLookup    ClientCredLookup
+	// OAuthClientIDMetadataDocument is empty when CIMD must not be used.
+	OAuthClientIDMetadataDocument string
+	ClientName                    string
+	ClientVersion                 string
+	TokenStorage                  TokenStorage
+	CallbackHandler               CallbackHandler
+	ClientLookup                  ClientCredLookup
 }
 
 func (c *Client) hasValidToken() bool {
@@ -163,14 +166,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		return nil, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
 
-	var oauthHandler auth.OAuthHandler = authorizationErrorOAuthHandler{}
-	if clientOpts.TokenStorage != nil {
-		oauthClientName := clientOpts.OAuthClientName
-		if oauthClientName == "" {
-			oauthClientName = clientOpts.ClientName
-		}
-		oauthHandler = newOAuth(httpClient, clientOpts.CallbackHandler, clientOpts.ClientLookup, clientOpts.TokenStorage, server.MCPServerName, oauthClientName, sm.baseURL+"/oauth/mcp/callback", system.OAuthClientIDMetadataURL(sm.baseURL))
-	}
+	oauthHandler := sm.oauthHandlerForClient(httpClient, server.MCPServerName, clientOpts)
 
 	session, err := c.Connect(ctx, &gomcp.StreamableClientTransport{
 		Endpoint:             url,
@@ -204,4 +200,25 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 	}
 
 	return result, nil
+}
+
+func (sm *SessionManager) oauthHandlerForClient(httpClient *http.Client, serverName string, clientOpts ClientOption) auth.OAuthHandler {
+	if clientOpts.TokenStorage == nil {
+		return authorizationErrorOAuthHandler{}
+	}
+
+	oauthClientName := clientOpts.OAuthClientName
+	if oauthClientName == "" {
+		oauthClientName = clientOpts.ClientName
+	}
+	return newOAuth(
+		httpClient,
+		clientOpts.CallbackHandler,
+		clientOpts.ClientLookup,
+		clientOpts.TokenStorage,
+		serverName,
+		oauthClientName,
+		sm.baseURL+"/oauth/mcp/callback",
+		clientOpts.OAuthClientIDMetadataDocument,
+	)
 }

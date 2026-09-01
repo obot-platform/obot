@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )
@@ -19,6 +20,37 @@ type staticOAuthTokenStorage struct {
 
 type staticOAuthGlobalTokenStore struct {
 	storage mcp.TokenStorage
+}
+
+func TestNewMCPOAuthHandlerFactoryConfiguresCIMD(t *testing.T) {
+	tests := []struct {
+		name               string
+		baseURL            string
+		forceDynamicClient bool
+		want               string
+	}{
+		{
+			name:    "enabled by default for HTTPS",
+			baseURL: "https://obot.example.com",
+			want:    system.OAuthClientIDMetadataURL("https://obot.example.com"),
+		},
+		{
+			name:               "disabled when dynamic registration is forced",
+			baseURL:            "https://obot.example.com",
+			forceDynamicClient: true,
+		},
+		{
+			name:    "disabled for HTTP",
+			baseURL: "http://obot.example.com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			factory := NewMCPOAuthHandlerFactory(tt.baseURL, nil, nil, nil, nil, "", tt.forceDynamicClient)
+			require.Equal(t, tt.want, factory.cimdDocumentURL)
+		})
+	}
 }
 
 func (s *staticOAuthTokenStorage) TokenSource(context.Context) (oauth2.TokenSource, error) {
