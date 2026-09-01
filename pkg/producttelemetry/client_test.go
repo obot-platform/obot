@@ -172,6 +172,7 @@ func TestClientRetriesTransientFailures(t *testing.T) {
 			})
 			client := NewClient("https://upgrade.example.test", &http.Client{Transport: transport})
 			var delays []time.Duration
+			client.retryDelay = exponentialRetryDelay
 			client.sleep = func(_ context.Context, delay time.Duration) error {
 				delays = append(delays, delay)
 				return nil
@@ -204,6 +205,7 @@ func TestClientRetryExhaustion(t *testing.T) {
 		})
 		client := NewClient("https://upgrade.example.test", &http.Client{Transport: transport})
 		var delays []time.Duration
+		client.retryDelay = exponentialRetryDelay
 		client.sleep = func(_ context.Context, delay time.Duration) error {
 			delays = append(delays, delay)
 			return nil
@@ -247,6 +249,63 @@ func TestClientRetryExhaustion(t *testing.T) {
 			t.Fatalf("attempts = %d, want %d", attempts, maxRequestAttempts)
 		}
 	})
+}
+
+func TestClientHonorsRetryAfter(t *testing.T) {
+	var attempts int
+	transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
+		attempts++
+		if attempts == 1 {
+			response := httpResponse(http.StatusTooManyRequests, "rate limited")
+			response.Header.Set("Retry-After", "60")
+			return response, nil
+		}
+		return httpResponse(http.StatusAccepted, ""), nil
+	})
+	client := NewClient("https://upgrade.example.test", &http.Client{Transport: transport})
+	client.retryDelay = func(int) time.Duration { return time.Millisecond }
+	var delays []time.Duration
+	client.sleep = func(_ context.Context, delay time.Duration) error {
+		delays = append(delays, delay)
+		return nil
+	}
+
+	if err := client.Send(t.Context(), testRequest()); err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d, want 2", attempts)
+	}
+	if len(delays) != 1 || delays[0] != time.Minute {
+		t.Fatalf("delays = %v, want [1m0s]", delays)
+	}
+}
+
+func TestParseRetryAfter(t *testing.T) {
+	now := time.Date(2026, time.September, 1, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name      string
+		value     string
+		wantDelay time.Duration
+		wantOK    bool
+	}{
+		{name: "seconds", value: " 120 ", wantDelay: 2 * time.Minute, wantOK: true},
+		{name: "zero seconds", value: "0", wantOK: true},
+		{name: "HTTP date", value: now.Add(3 * time.Minute).Format(http.TimeFormat), wantDelay: 3 * time.Minute, wantOK: true},
+		{name: "past HTTP date", value: now.Add(-time.Minute).Format(http.TimeFormat), wantOK: true},
+		{name: "negative seconds", value: "-1"},
+		{name: "invalid", value: "later"},
+		{name: "empty"},
+	}
+
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			delay, ok := parseRetryAfter(testCase.value, now)
+			if ok != testCase.wantOK || delay != testCase.wantDelay {
+				t.Fatalf("parseRetryAfter(%q) = (%v, %v), want (%v, %v)", testCase.value, delay, ok, testCase.wantDelay, testCase.wantOK)
+			}
+		})
+	}
 }
 
 func TestClientReturnsBoundedHTTPError(t *testing.T) {
@@ -348,4 +407,8 @@ func httpResponse(statusCode int, body string) *http.Response {
 		Header:     make(http.Header),
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+}
+
+func exponentialRetryDelay(attempt int) time.Duration {
+	return initialRetryDelay << attempt
 }

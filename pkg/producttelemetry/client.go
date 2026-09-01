@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/obot-platform/obot/apiclient"
@@ -40,10 +43,8 @@ func NewClient(baseURL string, client *http.Client) *Client {
 		requestURL:     upgrade.EndpointURL(baseURL, productTelemetryEndpoint),
 		requestTimeout: requestTimeout,
 		maxAttempts:    maxRequestAttempts,
-		retryDelay: func(attempt int) time.Duration {
-			return initialRetryDelay << attempt
-		},
-		sleep: sleep,
+		retryDelay:     retryDelay,
+		sleep:          sleep,
 	}
 }
 
@@ -56,14 +57,18 @@ func (c *Client) Send(ctx context.Context, request clienttypes.ProductTelemetryR
 	}
 
 	for attempt := range c.maxAttempts {
-		retry, err := c.send(ctx, body)
+		retry, retryAfter, err := c.send(ctx, body)
 		if err == nil {
 			return nil
 		}
 		if !retry || attempt == c.maxAttempts-1 {
 			return err
 		}
-		if err := c.sleep(ctx, c.retryDelay(attempt)); err != nil {
+		delay := c.retryDelay(attempt)
+		if retryAfter != nil {
+			delay = *retryAfter
+		}
+		if err := c.sleep(ctx, delay); err != nil {
 			return fmt.Errorf("send product telemetry request: %w", err)
 		}
 	}
@@ -71,31 +76,62 @@ func (c *Client) Send(ctx context.Context, request clienttypes.ProductTelemetryR
 	return nil
 }
 
-func (c *Client) send(ctx context.Context, body []byte) (bool, error) {
+func (c *Client) send(ctx context.Context, body []byte) (bool, *time.Duration, error) {
 	requestContext, cancel := context.WithTimeout(ctx, c.requestTimeout)
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(requestContext, http.MethodPost, c.requestURL, bytes.NewReader(body))
 	if err != nil {
-		return false, fmt.Errorf("create product telemetry request: %w", err)
+		return false, nil, fmt.Errorf("create product telemetry request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		if ctx.Err() != nil {
-			return false, fmt.Errorf("send product telemetry request: %w", ctx.Err())
+			return false, nil, fmt.Errorf("send product telemetry request: %w", ctx.Err())
 		}
-		return true, fmt.Errorf("send product telemetry request: %w", err)
+		return true, nil, fmt.Errorf("send product telemetry request: %w", err)
 	}
 	if response.StatusCode == http.StatusAccepted {
 		_ = response.Body.Close()
-		return false, nil
+		return false, nil, nil
 	}
 
 	retry := response.StatusCode == http.StatusTooManyRequests ||
 		response.StatusCode >= http.StatusInternalServerError && response.StatusCode <= 599
-	return retry, fmt.Errorf("product telemetry request failed: %w", apiclient.ErrorFromResponse(response))
+	var retryAfter *time.Duration
+	if retry {
+		if delay, ok := parseRetryAfter(response.Header.Get("Retry-After"), time.Now()); ok {
+			retryAfter = &delay
+		}
+	}
+	return retry, retryAfter, fmt.Errorf("product telemetry request failed: %w", apiclient.ErrorFromResponse(response))
+}
+
+func retryDelay(attempt int) time.Duration {
+	delay := initialRetryDelay << attempt
+	return delay/2 + time.Duration(rand.Int64N(int64(delay/2)+1))
+}
+
+func parseRetryAfter(value string, now time.Time) (time.Duration, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+
+	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil {
+		if seconds < 0 || seconds > int64(time.Duration(1<<63-1)/time.Second) {
+			return 0, false
+		}
+		return time.Duration(seconds) * time.Second, true
+	}
+
+	retryAt, err := http.ParseTime(value)
+	if err != nil {
+		return 0, false
+	}
+	return max(retryAt.Sub(now), 0), true
 }
 
 func sleep(ctx context.Context, delay time.Duration) error {

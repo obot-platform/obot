@@ -1,6 +1,8 @@
 package types
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	ProductTelemetryDistributionUnlicensed ProductTelemetryDistribution = "Unlicensed"
