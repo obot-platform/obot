@@ -93,7 +93,7 @@ func (c *Client) send(ctx context.Context, body []byte) (bool, *time.Duration, e
 		}
 		return true, nil, fmt.Errorf("send product telemetry request: %w", err)
 	}
-	if response.StatusCode == http.StatusAccepted {
+	if response.StatusCode >= http.StatusOK && response.StatusCode < http.StatusMultipleChoices {
 		_ = response.Body.Close()
 		return false, nil, nil
 	}
