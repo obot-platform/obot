@@ -47,8 +47,9 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 		return err
 	}
 
+	staticClient := clientID != ""
 	var registered types.OAuthClient
-	if clientID != "" {
+	if staticClient {
 		registered = oauthDebuggerStaticClient(clientID, clientSecret, authServer)
 	} else if useCIMD {
 		clientID = system.OAuthClientIDMetadataURL(m.serverURL)
@@ -85,7 +86,7 @@ func (m *MCPHandler) RegisterOAuthDebuggerClient(req api.Context) error {
 
 	state := strings.ToLower(rand.Text())
 
-	conf := oauthDebuggerConfig(clientID, clientSecret, authServer.AuthorizationEndpoint, authServer.TokenEndpoint, registration.TokenEndpointAuthMethod, firstString(registration.RedirectURIs), registration.Scope)
+	conf := oauthDebuggerConfig(clientID, clientSecret, authServer.AuthorizationEndpoint, authServer.TokenEndpoint, registration.TokenEndpointAuthMethod, firstString(registration.RedirectURIs), registration.Scope, staticClient)
 	resourceURL = mcp.ResolveOAuthResourceURL(authServer.AuthorizationEndpoint, resourceURL, serverConfig.URL)
 	if err := req.GatewayClient.CreateMCPOAuthPendingState(
 		req.Context(),
@@ -286,6 +287,8 @@ func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, r
 	if err := json.NewDecoder(response.Body).Decode(&registered); err != nil {
 		return registered, fmt.Errorf("failed to decode OAuth client registration response: %w", err)
 	}
+	// Static is an Obot-side classification, not a dynamic client registration response field.
+	registered.Static = false
 	return registered, nil
 }
 
@@ -338,14 +341,14 @@ func oauthDebuggerStaticClient(clientID, clientSecret string, authServer mcp.Aut
 	return client
 }
 
-func oauthDebuggerConfig(clientID, clientSecret, authURL, tokenURL, tokenEndpointAuthMethod, redirectURL, scope string) *oauth2.Config {
+func oauthDebuggerConfig(clientID, clientSecret, authURL, tokenURL, tokenEndpointAuthMethod, redirectURL, scope string, staticClient bool) *oauth2.Config {
 	conf := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authURL,
 			TokenURL:  tokenURL,
-			AuthStyle: oauthDebuggerAuthStyle(tokenEndpointAuthMethod, clientSecret != ""),
+			AuthStyle: oauthDebuggerAuthStyle(tokenEndpointAuthMethod, clientSecret != "", staticClient),
 		},
 		RedirectURL: redirectURL,
 	}
@@ -372,7 +375,11 @@ func oauthDebuggerConfigFromPendingState(pendingState *gwtypes.MCPOAuthPendingSt
 	return conf
 }
 
-func oauthDebuggerAuthStyle(method string, hasClientSecret bool) oauth2.AuthStyle {
+func oauthDebuggerAuthStyle(method string, hasClientSecret, staticClient bool) oauth2.AuthStyle {
+	if staticClient {
+		return oauth2.AuthStyleAutoDetect
+	}
+
 	if !hasClientSecret {
 		return oauth2.AuthStyleInParams
 	}

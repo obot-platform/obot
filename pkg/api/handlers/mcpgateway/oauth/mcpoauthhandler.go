@@ -235,7 +235,7 @@ func (f *MCPOAuthHandlerFactory) staticOAuthURL(ctx context.Context, serverConfi
 		Endpoint: oauth2.Endpoint{
 			AuthURL:   authorizationServer.AuthorizationEndpoint,
 			TokenURL:  authorizationServer.TokenEndpoint,
-			AuthStyle: staticOAuthAuthStyle(registration.TokenEndpointAuthMethod, clientSecret != ""),
+			AuthStyle: oauth2.AuthStyleAutoDetect,
 		},
 	}
 	if registration.Scope != "" {
@@ -271,21 +271,6 @@ func staticOAuthMetadata(metadata mcp.OAuthMetadata, redirectURL string) (mcp.Au
 
 	return authorizationServer, mcp.AuthServerMetadataToClientRegistration(authorizationServer,
 		"Obot MCP Gateway", redirectURL, registration.Scope), nil
-}
-
-func staticOAuthAuthStyle(method string, hasClientSecret bool) oauth2.AuthStyle {
-	if !hasClientSecret {
-		return oauth2.AuthStyleInParams
-	}
-
-	switch method {
-	case "client_secret_basic":
-		return oauth2.AuthStyleInHeader
-	case "client_secret_post":
-		return oauth2.AuthStyleInParams
-	default:
-		return oauth2.AuthStyleAutoDetect
-	}
 }
 
 func (f *MCPOAuthHandlerFactory) newMCPOAuthHandler(gatewayClient *client.Client, userID, mcpID, mcpURL, oauthAuthRequestID, catalogEntryName string) *mcpOAuthHandler {
