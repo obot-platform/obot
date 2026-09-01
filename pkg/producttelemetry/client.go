@@ -21,6 +21,7 @@ const (
 	requestTimeout           = 30 * time.Second
 	maxRequestAttempts       = 5
 	initialRetryDelay        = time.Second
+	maxRetryDelay            = 5 * time.Minute
 )
 
 // Client sends product telemetry reports to Upgrade Server.
@@ -123,8 +124,11 @@ func parseRetryAfter(value string, now time.Time) (time.Duration, bool) {
 	}
 
 	if seconds, err := strconv.ParseInt(value, 10, 64); err == nil {
-		if seconds < 0 || seconds > int64(time.Duration(1<<63-1)/time.Second) {
+		if seconds < 0 {
 			return 0, false
+		}
+		if seconds > int64(maxRetryDelay/time.Second) {
+			return maxRetryDelay, true
 		}
 		return time.Duration(seconds) * time.Second, true
 	}
@@ -133,7 +137,7 @@ func parseRetryAfter(value string, now time.Time) (time.Duration, bool) {
 	if err != nil {
 		return 0, false
 	}
-	return max(retryAt.Sub(now), 0), true
+	return min(max(retryAt.Sub(now), 0), maxRetryDelay), true
 }
 
 func sleep(ctx context.Context, delay time.Duration) error {

@@ -290,8 +290,10 @@ func TestParseRetryAfter(t *testing.T) {
 		wantOK    bool
 	}{
 		{name: "seconds", value: " 120 ", wantDelay: 2 * time.Minute, wantOK: true},
+		{name: "seconds clamped", value: "999999999", wantDelay: maxRetryDelay, wantOK: true},
 		{name: "zero seconds", value: "0", wantOK: true},
 		{name: "HTTP date", value: now.Add(3 * time.Minute).Format(http.TimeFormat), wantDelay: 3 * time.Minute, wantOK: true},
+		{name: "HTTP date clamped", value: now.Add(24 * time.Hour).Format(http.TimeFormat), wantDelay: maxRetryDelay, wantOK: true},
 		{name: "past HTTP date", value: now.Add(-time.Minute).Format(http.TimeFormat), wantOK: true},
 		{name: "negative seconds", value: "-1"},
 		{name: "invalid", value: "later"},
