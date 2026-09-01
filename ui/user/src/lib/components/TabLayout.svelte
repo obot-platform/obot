@@ -95,55 +95,60 @@
 		childrenContainer: twMerge('pt-0', classes?.childrenContainer)
 	}}
 >
-	<div class="flex h-full w-full gap-4 flex-col" in:fly={{ x: 100, duration, delay: duration }}>
-		<div class="w-full mt-4">
-			<OverflowContainer
-				class="scrollbar-none flex shrink-0 min-h-12 w-full items-center gap-2 overflow-x-auto"
-				style="scroll-behavior: smooth;"
-			>
-				{#snippet children({ x, hasMoreLeft, hasMoreRight, scrollLeft, scrollRight })}
-					{#if x}
-						<button
-							disabled={!hasMoreLeft}
-							onclick={scrollLeft}
-							class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronLeft class="size-full" />
-						</button>
-					{/if}
+	<div
+		class={twMerge('flex h-full w-full gap-4 flex-col', views.length === 1 ? 'pt-4' : '')}
+		in:fly={{ x: 100, duration, delay: duration }}
+	>
+		{#if views.length > 1}
+			<div class="w-full mt-4">
+				<OverflowContainer
+					class="scrollbar-none flex shrink-0 min-h-12 w-full items-center gap-2 overflow-x-auto"
+					style="scroll-behavior: smooth;"
+				>
+					{#snippet children({ x, hasMoreLeft, hasMoreRight, scrollLeft, scrollRight })}
+						{#if x}
+							<button
+								disabled={!hasMoreLeft}
+								onclick={scrollLeft}
+								class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky left-0 flex aspect-square h-full items-center justify-center rounded-l-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+							>
+								<ChevronLeft class="size-full" />
+							</button>
+						{/if}
 
-					<div class="flex flex-1 flex-col">
-						<div class="flex flex-1 relative z-10">
-							{#each views as viewOption (viewOption.value)}
-								<button
-									id={`tab-${viewOption.value}`}
-									class={twMerge(
-										'border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-400',
-										selectedView === viewOption.value
-											? 'border-primary border-b-3 bg-base-100 dark:bg-base-300 rounded-t-md font-medium'
-											: 'hover:border-primary/25 text-muted-content hover:text-base-content'
-									)}
-									onclick={() => selectView(viewOption.value)}
-								>
-									{viewOption.label}
-								</button>
-							{/each}
+						<div class="flex flex-1 flex-col">
+							<div class="flex flex-1 relative z-10">
+								{#each views as viewOption (viewOption.value)}
+									<button
+										id={`tab-${viewOption.value}`}
+										class={twMerge(
+											'border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-400',
+											selectedView === viewOption.value
+												? 'border-primary border-b-3 bg-base-100 dark:bg-base-300 rounded-t-md font-medium'
+												: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+										)}
+										onclick={() => selectView(viewOption.value)}
+									>
+										{viewOption.label}
+									</button>
+								{/each}
+							</div>
+							<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
 						</div>
-						<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
-					</div>
 
-					{#if x}
-						<button
-							disabled={!hasMoreRight}
-							onclick={scrollRight}
-							class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
-						>
-							<ChevronRight class="size-full" />
-						</button>
-					{/if}
-				{/snippet}
-			</OverflowContainer>
-		</div>
+						{#if x}
+							<button
+								disabled={!hasMoreRight}
+								onclick={scrollRight}
+								class="shrink-0 z-20 bg-base-200 dark:bg-base-100 sticky right-0 flex aspect-square h-full items-center justify-center rounded-r-md p-2.5 opacity-100 transition-all duration-200 disabled:opacity-30"
+							>
+								<ChevronRight class="size-full" />
+							</button>
+						{/if}
+					{/snippet}
+				</OverflowContainer>
+			</div>
+		{/if}
 		{#if selected}
 			{@render selected.content()}
 		{/if}
