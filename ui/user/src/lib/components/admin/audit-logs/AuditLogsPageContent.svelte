@@ -9,7 +9,6 @@
 		isAuditLogAPIKeyFilterOption
 	} from '$lib/auditlogs';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
@@ -22,7 +21,6 @@
 		type AuditLogURLFilters,
 		AdminService,
 		type AuditLogEvent,
-		Group,
 		UserService
 	} from '$lib/services';
 	import type { PaginatedResponse } from '$lib/services/http';
@@ -40,7 +38,7 @@
 		toAuditLogTimelineChartRow,
 		type AuditLogTimelineChartRow
 	} from './timelineUtils';
-	import { ChevronLeft, ChevronRight, Funnel, Captions, Plus, Settings } from '@lucide/svelte';
+	import { ChevronLeft, ChevronRight, Funnel, Captions } from '@lucide/svelte';
 	import { set, endOfDay, isBefore, subDays } from 'date-fns';
 	import { debounce } from 'es-toolkit';
 	import type { Snippet } from 'svelte';
@@ -290,12 +288,6 @@
 
 	const hasFilterPills = $derived(Object.keys(pillsSearchParamFilters).length > 0);
 
-	const showAuditExportActions = $derived(
-		!isServerScoped &&
-			!isApiKeyScoped &&
-			(profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.OWNER))
-	);
-
 	// Filters to be used in the audit logs slideover
 	// Exclude filters that are set via props and not undefined
 	const auditLogsSlideoverFilters = $derived.by<Partial<AuditLogURLFilters>>(() => {
@@ -518,7 +510,7 @@
 		pageIndexLocal.current = 0;
 	}
 
-	async function handleExportRequest(formType: 'export' | 'scheduled') {
+	export async function handleExportRequest(formType: 'export' | 'scheduled') {
 		// Check if there are any active filters. Intentionally skip carrying event_type over.
 		const hasActiveFilters =
 			Object.keys(pillsSearchParamFilters).some((key) => key !== 'event_type') || Boolean(query);
@@ -634,42 +626,8 @@
 			</div>
 		</div>
 	</div>
-	{#if hasFilterPills || showAuditExportActions}
-		<div class="flex flex-col flex-nowrap gap-4 @min-[768px]:flex-row">
-			<div class="min-w-0 grow hidden @min-[768px]:block">
-				{@render filters()}
-			</div>
-			{#if showAuditExportActions}
-				<div class="@min-[768px]:ml-auto flex shrink-0 gap-4">
-					<DotDotDot class="btn btn-block btn-primary w-fit text-sm" placement="bottom">
-						{#snippet icon()}
-							<span class="flex items-center justify-center gap-1">
-								<Plus class="size-4" /> Create Export
-							</span>
-						{/snippet}
-						<button class="menu-button" onclick={() => handleExportRequest('export')}>
-							Create One-time Export
-						</button>
-						<button class="menu-button" onclick={() => handleExportRequest('scheduled')}>
-							Create Export Schedule
-						</button>
-					</DotDotDot>
-
-					<button
-						class="btn btn-neutral rounded-4xl"
-						onclick={() => {
-							goto('/mcp/audit-logs/exports');
-						}}
-					>
-						<Settings class="size-4" />
-						Manage Exports
-					</button>
-				</div>
-			{/if}
-			<div class="min-w-0 grow block @min-[768px]:hidden">
-				{@render filters()}
-			</div>
-		</div>
+	{#if hasFilterPills}
+		{@render filters()}
 	{/if}
 </div>
 

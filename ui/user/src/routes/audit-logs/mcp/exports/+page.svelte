@@ -166,7 +166,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<Layout classes={{ navbar: 'bg-base-200' }} showBackButton title="Audit Log Exports">
+<Layout showBackButton title="MCP Audit Log Exports">
 	<div class="flex min-h-full flex-col gap-8" in:fade>
 		{#if showForm}
 			{@render formScreen()}
@@ -174,6 +174,21 @@
 			{@render mainContent()}
 		{/if}
 	</div>
+
+	{#snippet rightNavActions()}
+		<div class="flex gap-2">
+			{#if !isAdminReadonly}
+				<button
+					class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
+					onclick={() => openForm('storage')}
+				>
+					<Settings class="size-4" />
+					Configure Storage
+				</button>
+			{/if}
+			{@render addButton()}
+		</div>
+	{/snippet}
 </Layout>
 
 {#snippet mainContent()}
@@ -182,29 +197,6 @@
 		in:fly={{ x: 100, delay: duration, duration }}
 		out:fly={{ x: -100, duration }}
 	>
-		<div
-			class="mb-4 flex flex-col items-center justify-start md:mb-8 md:flex-row md:justify-between"
-		>
-			<div class="flex items-center gap-2">
-				<h1 class="text-2xl font-semibold">Audit Log Exports</h1>
-			</div>
-
-			<div class="mt-4 w-full shrink-0 md:mt-0 md:w-fit">
-				<div class="flex gap-2">
-					{#if !isAdminReadonly}
-						<button
-							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
-							onclick={() => openForm('storage')}
-						>
-							<Settings class="size-4" />
-							Configure Storage
-						</button>
-					{/if}
-					{@render addButton()}
-				</div>
-			</div>
-		</div>
-
 		<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full pb-1">
 			<div class="mb-2">
 				<Search
@@ -271,5 +263,5 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | Audit Log Exports</title>
+	<title>Obot | MCP Audit Log Exports</title>
 </svelte:head>
