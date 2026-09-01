@@ -1,6 +1,7 @@
 package mcpservercatalogentry
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
@@ -18,6 +20,14 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// credentialClient is the slice of the gateway client the OAuth reconcile uses. Taking it as a
+// parameter rather than storing it keeps the reconcile exercisable without a database behind it,
+// and leaves the Handler holding the concrete client the rest of its methods need.
+type credentialClient interface {
+	RevealCredential(ctx context.Context, contexts []string, name string) (gatewaytypes.Credential, error)
+	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
+}
 
 // Handler handles operations for MCP server catalog entries
 type Handler struct {
@@ -247,93 +257,147 @@ func (*Handler) CleanupNestedCompositeEntries(req router.Request, _ router.Respo
 	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, entry))
 }
 
-// CleanupUnusedOAuthCredentials removes OAuth credentials for remote catalog entries
-// that no longer require static OAuth configuration.
-func (h *Handler) CleanupUnusedOAuthCredentials(req router.Request, _ router.Response) error {
-	entry := req.Object.(*v1.MCPServerCatalogEntry)
-
-	// Only process remote entries
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
-		return nil
-	}
-
-	// Only cleanup if RemoteConfig exists and StaticOAuthRequired is false
-	if entry.Spec.Manifest.RemoteConfig != nil && entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
-		return nil
-	}
-
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), system.StaticOAuthCredentialName)
-	if err != nil {
-		return fmt.Errorf("failed to delete OAuth credential: %w", err)
-	}
-	if deleted {
-		slog.Info("Deleted unused static OAuth credential for MCP catalog entry", "entry", entry.Name)
-	}
-
-	return nil
+// requiresStaticOAuth reports whether entry is configured to use a static OAuth client. Only
+// entries in that shape ever have a static OAuth credential.
+func requiresStaticOAuth(entry *v1.MCPServerCatalogEntry) bool {
+	return entry.Spec.Manifest.Runtime == types.RuntimeRemote &&
+		entry.Spec.Manifest.RemoteConfig != nil &&
+		entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired
 }
 
-// EnsureOAuthCredentialStatus updates the OAuthCredentialConfigured status field
-// for remote catalog entries that require static OAuth.
-func (h *Handler) EnsureOAuthCredentialStatus(req router.Request, _ router.Response) error {
+// ReconcileOAuthCredential keeps an entry's static OAuth credential and the
+// Status.OAuthCredentialConfigured record of it in agreement.
+//
+// The status is what lets this handler stay quiet. It queries the credential store only in the
+// states where that record could be wrong:
+//
+//   - An entry that requires static OAuth but is not recorded as configured is re-read on every
+//     pass. A credential can appear without the controller being told, because the API writes the
+//     credential first and sets the sync annotation second, so a failure in between leaves a
+//     credential with nothing pointing at it. This is the path that repairs such a status.
+//   - An entry already recorded as configured is trusted. Every path that removes a credential
+//     either sets the sync annotation or deletes the entry outright, so the record cannot go stale
+//     without one of those firing. If the annotation write of a removal fails, the status reads
+//     configured until the API is used again, which shows a stale value but cannot orphan a
+//     credential.
+//   - Everything else is left alone, which is most of a catalog. This used to be the expensive
+//     case: every remote entry that does not require static OAuth issued a DELETE matching zero
+//     rows on every reconcile, 168 of the 207 entries in the default catalog, in a burst of one
+//     query per entry through a connection pool of five.
+//
+// Deleting a credential and clearing the status have to happen in that order and in one handler.
+// nah runs every handler registered for a type even after an earlier one returns an error, so
+// while these were two handlers a failed delete did not stop the status from being cleared, and
+// an entry that lost its status that way would never be looked at again.
+func (h *Handler) ReconcileOAuthCredential(req router.Request, resp router.Response) error {
+	return reconcileOAuthCredential(req, resp, h.gatewayClient)
+}
+
+func reconcileOAuthCredential(req router.Request, _ router.Response, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Clear sync annotation if present
-	if _, exists := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]; exists {
-		delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
-		if err := req.Client.Update(req.Ctx, entry); err != nil {
-			return fmt.Errorf("failed to clear sync annotation: %w", err)
-		}
-		slog.Info("Cleared sync annotation for MCP catalog entry", "entry", entry.Name)
-	}
+	// Set by the API after it writes or deletes a credential, so this pass reads the store
+	// instead of trusting a status that predates the write.
+	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
 
-	// Only process remote entries that require static OAuth
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote ||
-		entry.Spec.Manifest.RemoteConfig == nil ||
-		!entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired {
-		// Clear status if not applicable
-		if entry.Status.OAuthCredentialConfigured {
-			entry.Status.OAuthCredentialConfigured = false
-			slog.Info("Cleared static OAuth credential status for MCP catalog entry", "entry", entry.Name)
-			return req.Client.Status().Update(req.Ctx, entry)
-		}
-
-		return nil
-	}
-
-	// Check if credentials exist
-	credName := system.MCPOAuthCredentialName(entry.Name)
-	_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{credName}, system.StaticOAuthCredentialName)
-
-	var configured bool
-	if err == nil {
-		configured = true
-	} else if !errors.As(err, &gclient.CredentialNotFoundError{}) {
-		return fmt.Errorf("failed to check credential status: %w", err)
+	configured, err := syncOAuthCredential(req.Ctx, creds, entry, recheck)
+	if err != nil {
+		return err
 	}
 
 	if entry.Status.OAuthCredentialConfigured != configured {
 		entry.Status.OAuthCredentialConfigured = configured
 		slog.Info("Updated static OAuth credential status for MCP catalog entry", "entry", entry.Name, "configured", configured)
-		return req.Client.Status().Update(req.Ctx, entry)
+		if err := req.Client.Status().Update(req.Ctx, entry); err != nil {
+			return fmt.Errorf("failed to update OAuth credential status: %w", err)
+		}
 	}
+
+	if !recheck {
+		return nil
+	}
+
+	// Cleared last, so that a failure anywhere above leaves the recheck pending for the next pass.
+	delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
+	if err := req.Client.Update(req.Ctx, entry); err != nil {
+		return fmt.Errorf("failed to clear sync annotation: %w", err)
+	}
+	slog.Info("Cleared sync annotation for MCP catalog entry", "entry", entry.Name)
 
 	return nil
 }
 
+// syncOAuthCredential brings the credential store in line with entry and reports whether a static
+// OAuth credential exists for it afterwards.
+func syncOAuthCredential(ctx context.Context, creds credentialClient, entry *v1.MCPServerCatalogEntry, recheck bool) (bool, error) {
+	credName := system.MCPOAuthCredentialName(entry.Name)
+
+	if requiresStaticOAuth(entry) {
+		if entry.Status.OAuthCredentialConfigured && !recheck {
+			return true, nil
+		}
+
+		_, err := creds.RevealCredential(ctx, []string{credName}, system.StaticOAuthCredentialName)
+		if err == nil {
+			return true, nil
+		}
+		if !errors.As(err, &gclient.CredentialNotFoundError{}) {
+			return false, fmt.Errorf("failed to check OAuth credential status: %w", err)
+		}
+
+		return false, nil
+	}
+
+	// The entry does not use a static OAuth client, so any credential it holds is left over from
+	// when it did. The runtime is deliberately not checked here: an entry converted away from
+	// remote keeps its credential under the same name, and nothing else would ever remove it.
+	//
+	// recheck is what makes a credential the status does not know about visible here, for the case
+	// where the manifest stops requiring static OAuth between the API writing a credential and this
+	// handler observing it. The status is still clear at that point, so the annotation is the only
+	// sign that there is anything to delete.
+	//
+	// A credential written by an API call whose annotation update then failed reaches the same
+	// state with no annotation to go on, and this guard skips it. That needs the entry to lose
+	// staticOAuthRequired before the reconcile the failed update queued, and it leaves a credential
+	// only removable by hand.
+	if !entry.Status.OAuthCredentialConfigured && !recheck {
+		return false, nil
+	}
+
+	deleted, err := creds.DeleteCredential(ctx, credName, system.StaticOAuthCredentialName)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete OAuth credential: %w", err)
+	}
+	if deleted {
+		slog.Info("Deleted unused static OAuth credential for MCP catalog entry", "entry", entry.Name)
+	}
+
+	return false, nil
+}
+
 // RemoveOAuthCredentials removes OAuth credentials when a catalog entry is deleted.
-func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) error {
+func (h *Handler) RemoveOAuthCredentials(req router.Request, resp router.Response) error {
+	return removeOAuthCredentials(req, resp, h.gatewayClient)
+}
+
+func removeOAuthCredentials(req router.Request, _ router.Response, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Only process remote entries
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote {
+	// A remote entry is always swept, because getting this wrong on the way out leaves a credential
+	// nothing will ever look at again. Any other runtime is swept only when something says it may
+	// still hold a credential from back when it was remote, which keeps the deletion of an ordinary
+	// entry query-free. The sync annotation counts as well as the status, since it is the only sign
+	// left when the API wrote a credential that no reconcile has observed yet.
+	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote && !entry.Status.OAuthCredentialConfigured && !recheck {
 		return nil
 	}
 
 	// Build the credential name for this entry
 	credName := system.MCPOAuthCredentialName(entry.Name)
 
-	deleted, err := h.gatewayClient.DeleteCredential(req.Ctx, credName, system.StaticOAuthCredentialName)
+	deleted, err := creds.DeleteCredential(req.Ctx, credName, system.StaticOAuthCredentialName)
 	if err != nil {
 		return fmt.Errorf("failed to delete OAuth credential: %w", err)
 	}
