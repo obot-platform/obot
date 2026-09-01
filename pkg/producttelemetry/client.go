@@ -109,6 +109,8 @@ func (c *Client) send(ctx context.Context, body []byte) (bool, *time.Duration, e
 	return retry, retryAfter, fmt.Errorf("product telemetry request failed: %w", apiclient.ErrorFromResponse(response))
 }
 
+// retryDelay applies equal jitter to exponential backoff: half of the delay is
+// fixed and the other half is randomized to keep clients from retrying in sync.
 func retryDelay(attempt int) time.Duration {
 	delay := initialRetryDelay << attempt
 	return delay/2 + time.Duration(rand.Int64N(int64(delay/2)+1))
