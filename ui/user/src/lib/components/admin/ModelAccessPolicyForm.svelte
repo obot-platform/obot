@@ -541,7 +541,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							goto('/admin/model-access-policies');
+							goto('/models?view=access-policies');
 						}}
 					>
 						Cancel
@@ -642,7 +642,7 @@
 		if (!modelAccessPolicy.id) return;
 		saving = true;
 		await AdminService.deleteModelAccessPolicy(modelAccessPolicy.id);
-		goto('/admin/model-access-policies');
+		goto('/models?view=access-policies');
 	}}
 	oncancel={() => (deletingPolicy = false)}
 />

@@ -612,7 +612,7 @@
 		>
 			<div class="flex w-full justify-end gap-2">
 				{#if !agent.id}
-					<button class="btn btn-secondary text-sm" onclick={() => goto('/admin/hosted-agents')}>
+					<button class="btn btn-secondary text-sm" onclick={() => goto('/hosted-agents')}>
 						Cancel
 					</button>
 					<button
@@ -698,7 +698,7 @@
 		if (!agent.id) return;
 		saving = true;
 		await AdminService.deleteHostedAgent(agent.id);
-		goto('/admin/hosted-agents');
+		goto('/hosted-agents');
 	}}
 	oncancel={() => (deleting = false)}
 />

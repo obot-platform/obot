@@ -92,7 +92,7 @@
 		try {
 			await AdminService.deleteDeviceScan(scan.id);
 			deleteOpen = false;
-			goto(`${urlPrefix}/devices/${page.params.device_id}`);
+			goto(`/inventory/devices/${page.params.device_id}`);
 		} catch (e) {
 			deleteError = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -209,7 +209,7 @@
 <Layout
 	title="Device Scan"
 	showBackButton
-	onBackButtonClick={() => goto(`${urlPrefix}/devices/${deviceIdParam}`)}
+	onBackButtonClick={() => goto(`/inventory/devices/${deviceIdParam}`)}
 >
 	<div
 		class="flex flex-col gap-6"

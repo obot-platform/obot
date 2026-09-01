@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import HostedAgentAccessPolicyForm from '$lib/components/admin/HostedAgentAccessPolicyForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
@@ -32,7 +31,7 @@
 
 	async function navigateToCreated(policy: HostedAgentAccessPolicy) {
 		clearUrlParams(['new']);
-		goto(`/admin/hosted-agent-access-policies/${policy.id}`, { replaceState: false });
+		goto(`/hosted-agents/access-policies/${policy.id}`, { replaceState: false });
 	}
 
 	const duration = PAGE_TRANSITION_DURATION;
@@ -100,7 +99,7 @@
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
-				goto(`${page.url.pathname}?view=access-policy&new=true`);
+				goto(`/hosted-agents?view=access-policies&new=true`);
 			}}
 		>
 			<Plus class="size-4" /> Add Access Policy

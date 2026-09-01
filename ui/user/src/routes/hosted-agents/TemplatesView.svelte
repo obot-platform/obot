@@ -40,7 +40,7 @@
 
 	async function navigateToCreated(agent: HostedAgent) {
 		clearUrlParams(['new']);
-		goto(`/admin/hosted-agents/${agent.id}`, { replaceState: false });
+		goto(`/hosted-agents/${agent.id}`, { replaceState: false });
 	}
 </script>
 

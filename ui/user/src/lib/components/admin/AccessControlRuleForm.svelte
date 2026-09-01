@@ -442,9 +442,9 @@
 							if (redirect) {
 								goto(redirect);
 							} else if (profile.current.hasAdminAccess?.()) {
-								goto('/admin/mcp-access-policies');
+								goto('/mcp-servers?view=access-policies');
 							} else {
-								goto('/mcp-access-policies');
+								goto('/mcp-servers?view=access-policies');
 							}
 						}}
 					>
@@ -585,7 +585,7 @@
 		await (entity === 'workspace'
 			? UserService.deleteWorkspaceAccessControlRule(id, accessControlRule.id)
 			: AdminService.deleteAccessControlRule(accessControlRule.id));
-		goto('/admin/mcp-access-policies');
+		goto('/mcp-servers?view=access-policies');
 	}}
 	oncancel={() => (deletingRule = false)}
 />

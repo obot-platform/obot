@@ -183,7 +183,6 @@
 	const duration = PAGE_TRANSITION_DURATION;
 
 	const hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	const urlPrefix = $derived(hasAdminAccess ? '/admin' : '');
 </script>
 
 <svelte:head>
@@ -197,7 +196,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(resolve(`${urlPrefix}/devices`));
+			goto(resolve('/inventory?view=devices'));
 		}
 	}}
 >
@@ -331,7 +330,7 @@
 							filterable={['client', 'transport', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/mcp/${d.id}`),
+									resolve(`/inventory/devices/${deviceId}/scans/${latest?.id}/mcp/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -363,7 +362,7 @@
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
 														resolve(
-															`${urlPrefix}/devices/mcp-servers/${encodeURIComponent(d.configHash)}`
+															`/inventory/devices/mcp-servers/${encodeURIComponent(d.configHash)}`
 														),
 														isCtrlClick
 													);
@@ -398,7 +397,7 @@
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/skills/${d.id}`),
+									resolve(`/inventory/devices/${deviceId}/scans/${latest?.id}/skills/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -427,7 +426,7 @@
 												onclick={(e) => {
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
-														resolve(`${urlPrefix}/devices/skills/${encodeURIComponent(d.name)}`),
+														resolve(`/inventory/devices/skills/${encodeURIComponent(d.name)}`),
 														isCtrlClick
 													);
 													toggle();
@@ -470,7 +469,7 @@
 							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									resolve(`${urlPrefix}/devices/${deviceId}/scans/${latest?.id}/plugins/${d.id}`),
+									resolve(`/inventory/devices/${deviceId}/scans/${latest?.id}/plugins/${d.id}`),
 									isCtrlClick
 								);
 							}}
@@ -537,7 +536,7 @@
 						{ title: 'Clients', property: 'client_count' }
 					]}
 					onClickRow={(d, isCtrlClick) => {
-						openUrl(resolve(`${urlPrefix}/devices/${deviceId}/scans/${d.id}`), isCtrlClick);
+						openUrl(resolve(`/inventory/devices/${deviceId}/scans/${d.id}`), isCtrlClick);
 					}}
 				>
 					{#snippet onRenderColumn(property, d: HistoryRow)}
@@ -573,7 +572,7 @@
 	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(client)}`)}
+			href={resolve(`/inventory/devices/clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

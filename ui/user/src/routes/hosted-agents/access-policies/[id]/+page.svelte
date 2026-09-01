@@ -18,7 +18,7 @@
 		<HostedAgentAccessPolicyForm
 			{hostedAgentAccessPolicy}
 			onUpdate={() => {
-				goto('/admin/hosted-agent-access-policies');
+				goto('/hosted-agents?view=access-policies');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

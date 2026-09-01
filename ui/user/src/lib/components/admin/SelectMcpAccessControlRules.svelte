@@ -12,7 +12,7 @@
 		type OrgGroup,
 		type AccessControlRuleSubject
 	} from '$lib/services';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { mcpServersAndEntries } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
@@ -129,11 +129,7 @@
 		await mcpServersAndEntries.refreshAll();
 		updatingBeforeCreate = false;
 
-		goto(
-			profile.current?.hasAdminAccess?.()
-				? '/admin/mcp-access-policies?new=true'
-				: '/mcp-access-policies?new=true'
-		);
+		goto('/mcp-servers?view=access-policies&new=true');
 	}
 </script>
 

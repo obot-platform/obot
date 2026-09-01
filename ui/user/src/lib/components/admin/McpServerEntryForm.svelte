@@ -109,7 +109,6 @@
 
 	let entry = $state(untrack(() => initialEntry));
 	let lastSyncedInitialEntry: MCPCatalogEntry | MCPCatalogServer | undefined = undefined;
-	let prefix = $derived(profile.current.hasAdminAccess?.() ? '/admin' : '');
 
 	$effect(() => {
 		const next = initialEntry;
@@ -676,7 +675,7 @@
 		if (onCancel) {
 			onCancel();
 		} else {
-			goto(`${prefix}/mcp-catalog`);
+			goto('/mcp-servers');
 		}
 	}
 
@@ -1357,7 +1356,7 @@
 	show={deleteServer}
 	onsuccess={async () => {
 		if (!id || !entry) return;
-		const url = `${prefix}/mcp-catalog` as `/${string}`;
+		const url = '/mcp-servers' as `/${string}`;
 
 		if (!('isCatalogEntry' in entry)) {
 			const workspaceID = entry.powerUserWorkspaceID || (entity === 'workspace' ? id : undefined);

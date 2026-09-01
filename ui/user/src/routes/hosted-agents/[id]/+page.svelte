@@ -18,7 +18,7 @@
 		<HostedAgentForm
 			{hostedAgent}
 			onUpdate={() => {
-				goto('/admin/hosted-agents');
+				goto('/hosted-agents');
 			}}
 			readonly={profile.current.isAdminReadonly?.()}
 		/>

@@ -104,7 +104,7 @@
 		const tunnelID = createdTunnel?.id;
 		createdTunnel = undefined;
 		if (tunnelID) {
-			goto(`/admin/mcp-tunnels/${tunnelID}`, { replaceState: true });
+			goto(`/mcp-servers/tunnels/${tunnelID}`, { replaceState: true });
 		}
 	}
 </script>

@@ -387,7 +387,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							goto('/admin/skill-access-policies');
+							goto('/skills?view=access-policies');
 						}}
 					>
 						Cancel
@@ -490,7 +490,7 @@
 		if (!skillAccessPolicy.id) return;
 		saving = true;
 		await AdminService.deleteSkillAccessPolicy(skillAccessPolicy.id);
-		goto('/admin/skill-access-policies');
+		goto('/skills?view=access-policies');
 	}}
 	oncancel={() => (deletingPolicy = false)}
 />

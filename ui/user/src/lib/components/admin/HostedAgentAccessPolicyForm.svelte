@@ -366,7 +366,7 @@
 					<button
 						class="btn btn-secondary text-sm"
 						onclick={() => {
-							goto('/admin/hosted-agent-access-policies');
+							goto('/hosted-agents?view=access-policies');
 						}}
 					>
 						Cancel
@@ -464,7 +464,7 @@
 		if (!policy.id) return;
 		saving = true;
 		await AdminService.deleteHostedAgentAccessPolicy(policy.id);
-		goto('/admin/hosted-agent-access-policies');
+		goto('/hosted-agents?view=access-policies');
 	}}
 	oncancel={() => (deletingPolicy = false)}
 />
