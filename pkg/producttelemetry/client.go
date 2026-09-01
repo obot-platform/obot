@@ -5,11 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient"
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/upgrade"
 )
@@ -18,7 +17,6 @@ const (
 	productTelemetryEndpoint = "product-telemetry"
 	requestTimeout           = 30 * time.Second
 	maxRequestAttempts       = 5
-	maxErrorResponseBytes    = 64 * 1024
 	initialRetryDelay        = time.Second
 )
 
@@ -94,36 +92,14 @@ func (c *Client) send(ctx context.Context, body []byte) (bool, error) {
 		}
 		return true, fmt.Errorf("send product telemetry request: %w", err)
 	}
-	defer response.Body.Close()
-
 	if response.StatusCode == http.StatusAccepted {
+		_ = response.Body.Close()
 		return false, nil
 	}
 
-	responseErr := responseError(response)
 	retry := response.StatusCode == http.StatusTooManyRequests ||
 		response.StatusCode >= http.StatusInternalServerError && response.StatusCode <= 599
-	return retry, responseErr
-}
-
-func responseError(response *http.Response) error {
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxErrorResponseBytes+1))
-	if err != nil {
-		return fmt.Errorf("product telemetry request returned status %d; read response body: %w", response.StatusCode, err)
-	}
-
-	truncated := len(body) > maxErrorResponseBytes
-	if truncated {
-		body = body[:maxErrorResponseBytes]
-	}
-	message := strings.TrimSpace(string(body))
-	if message == "" {
-		return fmt.Errorf("product telemetry request returned status %d", response.StatusCode)
-	}
-	if truncated {
-		message += " [truncated]"
-	}
-	return fmt.Errorf("product telemetry request returned status %d: %s", response.StatusCode, message)
+	return retry, fmt.Errorf("product telemetry request failed: %w", apiclient.ErrorFromResponse(response))
 }
 
 func sleep(ctx context.Context, delay time.Duration) error {

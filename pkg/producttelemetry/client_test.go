@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -86,8 +85,9 @@ func TestClientDoesNotRetryNonRetryableResponse(t *testing.T) {
 			defer server.Close()
 
 			err := NewClient(server.URL, server.Client()).Send(t.Context(), testRequest())
-			if err == nil || !strings.Contains(err.Error(), "status "+strconv.Itoa(statusCode)) {
-				t.Fatalf("Send() error = %v, want status %d", err, statusCode)
+			var httpErr *clienttypes.ErrHTTP
+			if !errors.As(err, &httpErr) || httpErr.Code != statusCode {
+				t.Fatalf("Send() error = %v, want HTTP status %d", err, statusCode)
 			}
 			if !strings.Contains(err.Error(), "specific server error") {
 				t.Fatalf("Send() error = %v, want response body", err)
@@ -180,7 +180,9 @@ func TestClientRetryExhaustion(t *testing.T) {
 		}
 
 		err := client.Send(t.Context(), testRequest())
-		if err == nil || !strings.Contains(err.Error(), "status 503") || !strings.Contains(err.Error(), "still unavailable") {
+		var httpErr *clienttypes.ErrHTTP
+		if !errors.As(err, &httpErr) || httpErr.Code != http.StatusServiceUnavailable ||
+			!strings.Contains(err.Error(), "still unavailable") {
 			t.Fatalf("Send() error = %v, want final status and response body", err)
 		}
 		if attempts != maxRequestAttempts {
@@ -217,16 +219,17 @@ func TestClientRetryExhaustion(t *testing.T) {
 	})
 }
 
-func TestClientBoundsErrorResponseBody(t *testing.T) {
-	body := strings.Repeat("x", maxErrorResponseBytes) + "secret tail"
+func TestClientReturnsBoundedHTTPError(t *testing.T) {
+	body := strings.Repeat("x", 100_000) + "secret tail"
 	transport := roundTripFunc(func(*http.Request) (*http.Response, error) {
 		return httpResponse(http.StatusBadRequest, body), nil
 	})
 	client := NewClient("https://upgrade.example.test", &http.Client{Transport: transport})
 
 	err := client.Send(t.Context(), testRequest())
-	if err == nil || !strings.Contains(err.Error(), "[truncated]") {
-		t.Fatalf("Send() error = %v, want truncation marker", err)
+	var httpErr *clienttypes.ErrHTTP
+	if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.HasSuffix(httpErr.Message, "…") {
+		t.Fatalf("Send() error = %v, want bounded HTTP error", err)
 	}
 	if strings.Contains(err.Error(), "secret tail") {
 		t.Fatalf("Send() error included body beyond limit")

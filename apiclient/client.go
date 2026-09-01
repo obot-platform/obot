@@ -242,7 +242,7 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 		return nil, nil, err
 	}
 	if resp.StatusCode > 399 {
-		return nil, nil, errFromResponse(resp)
+		return nil, nil, ErrorFromResponse(resp)
 	}
 	if debug && !slices.Contains(headerKV, "text/event-stream") {
 		var data string
@@ -261,9 +261,9 @@ func (c *Client) doRequestWithBaseURL(ctx context.Context, method, baseURL, path
 	return req, resp, err
 }
 
-// errFromResponse builds the error for a non-2xx response and closes its body.
-// Callers get no response on this path, so nothing else can close it.
-func errFromResponse(resp *http.Response) error {
+// ErrorFromResponse builds a bounded HTTP error from a response, consuming and closing its body.
+// Callers should use it only after deciding that the response status represents an error.
+func ErrorFromResponse(resp *http.Response) error {
 	defer resp.Body.Close()
 
 	data, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes+1))

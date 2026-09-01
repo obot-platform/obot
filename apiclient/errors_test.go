@@ -23,7 +23,7 @@ func (b *trackedBody) Close() error {
 	return nil
 }
 
-func TestErrFromResponse(t *testing.T) {
+func TestErrorFromResponse(t *testing.T) {
 	const htmlPage = `<!doctype html><html><head><title>404</title></head><body>`
 
 	tests := []struct {
@@ -80,7 +80,7 @@ func TestErrFromResponse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			body := &trackedBody{Reader: strings.NewReader(tt.body)}
-			err := errFromResponse(&http.Response{
+			err := ErrorFromResponse(&http.Response{
 				StatusCode: tt.status,
 				// Shaped like net/http's own: "401 Unauthorized".
 				Status: fmt.Sprintf("%d %s", tt.status, http.StatusText(tt.status)),
