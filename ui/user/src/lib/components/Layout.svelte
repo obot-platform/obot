@@ -319,7 +319,7 @@
 				{
 					id: 'inventory',
 					label: 'Inventory',
-					href: '/admin/inventory',
+					href: '/inventory',
 					beta: true
 				},
 				...(profile.current.hasAdminAccess?.()

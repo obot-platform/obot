@@ -23,7 +23,6 @@
 	classes={{ childrenContainer: 'max-w-none' }}
 	views={[
 		{ label: 'Users', value: 'users', content: users },
-		{ label: 'Agents', value: 'agents', content: agents },
 		{ label: 'Groups', value: 'groups', content: groups },
 		{ label: 'Roles', value: 'roles', content: roles },
 		{ label: 'Auth Providers', value: 'auth-providers', content: authProviders }
@@ -43,10 +42,6 @@
 
 {#snippet users()}
 	<UsersView users={data.users} />
-{/snippet}
-
-{#snippet agents()}
-	<!-- Agents -->
 {/snippet}
 
 {#snippet groups()}

@@ -25,6 +25,7 @@ import {
 	type Fetcher,
 	type PaginatedResponse
 } from '../http';
+import type { Skill } from '../nanobot/types';
 import { AUDIT_LOG_FILTER_OPTIONS_LIMIT } from './constants';
 import {
 	type AppNotification,
@@ -1377,6 +1378,14 @@ export async function getLicense(opts?: { fetch?: Fetcher }): Promise<License> {
 }
 
 // Skills
+
+export async function listSkills(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<Skill[]> {
+	const response = (await doGet('/skills', opts)) as ItemsResponse<Skill>;
+	return response.items ?? [];
+}
 
 export async function downloadSkill(
 	id: string,

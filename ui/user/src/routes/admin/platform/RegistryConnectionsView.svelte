@@ -27,7 +27,6 @@
 		getTableUrlParamsSort({ property: isAdminPage ? 'userDisplay' : 'name', order: 'asc' })
 	);
 	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
-	let isAdminReadonly = $derived(isAdminPage && profile.current.isAdminReadonly?.());
 
 	const tableData = $derived(
 		apiKeys
@@ -75,99 +74,99 @@
 	}
 </script>
 
-	<div class="flex flex-col gap-4">
-		{#if isAdminPage || apiKeys.length > 0}
-			<p class="text-muted-content mb-1 whitespace-pre-line text-sm">
-				{AUTH_SCOPE_DESCRIPTION}
+<div class="flex flex-col gap-4">
+	{#if isAdminPage || apiKeys.length > 0}
+		<p class="text-muted-content mb-1 whitespace-pre-line text-sm">
+			{AUTH_SCOPE_DESCRIPTION}
+		</p>
+	{/if}
+	{#if apiKeys.length === 0}
+		<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
+			<KeyRound class="text-base-content/80 size-24 opacity-50" />
+			<h4 class="text-muted-content text-lg font-semibold">No Agent Identities</h4>
+			<p class="text-muted-content text-sm font-light">
+				{isAdminPage
+					? "Looks like there aren't any agent auth scopes in the system yet."
+					: "Looks like you don't have any agent auth scopes yet!"}
+				<br />
+				Click the "Create Agent Auth Scope" button above to get started.
 			</p>
-		{/if}
-		{#if apiKeys.length === 0}
-			<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
-				<KeyRound class="text-base-content/80 size-24 opacity-50" />
-				<h4 class="text-muted-content text-lg font-semibold">No Agent Identities</h4>
-				<p class="text-muted-content text-sm font-light">
-					{isAdminPage
-						? "Looks like there aren't any agent auth scopes in the system yet."
-						: "Looks like you don't have any agent auth scopes yet!"}
-					<br />
-					Click the "Create Agent Auth Scope" button above to get started.
-				</p>
 
-				{#if !isAdminPage}
-					<div class="notification-info mt-8">
-						<div class="flex flex-col gap-2">
-							<div class="flex items-center gap-2">
-								<Info class="size-4 shrink-0" />
-								<p class="text-sm font-semibold">What are these for?</p>
-							</div>
-							<p class="whitespace-pre-line text-left text-sm font-light">
-								{AUTH_SCOPE_DESCRIPTION}
-								<button class="text-link inline" onclick={showCreateForm}
-									>Create your first auth scope</button
-								>
-							</p>
+			{#if !isAdminPage}
+				<div class="notification-info mt-8">
+					<div class="flex flex-col gap-2">
+						<div class="flex items-center gap-2">
+							<Info class="size-4 shrink-0" />
+							<p class="text-sm font-semibold">What are these for?</p>
 						</div>
+						<p class="whitespace-pre-line text-left text-sm font-light">
+							{AUTH_SCOPE_DESCRIPTION}
+							<button class="text-link inline" onclick={showCreateForm}
+								>Create your first auth scope</button
+							>
+						</p>
 					</div>
-				{/if}
-			</div>
-		{:else}
-			<Table
-				data={tableData}
-				fields={isAdminPage
-					? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
-					: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
-				headers={[
-					...(isAdminPage ? [{ title: 'Created By', property: 'userDisplay' }] : []),
-					{ title: 'Capabilities', property: 'capabilitiesDisplay' },
-					{ title: 'Last Used', property: 'lastUsedAt' },
-					{ title: 'Expires', property: 'expiresAt' }
-				]}
-				filterable={isAdminPage ? ['userDisplay', 'name'] : undefined}
-				sortable={isAdminPage
-					? ['userDisplay', 'name', 'lastUsedAt', 'expiresAt']
-					: ['lastUsedAt', 'expiresAt']}
-				{initSort}
-				onSort={setSortUrlParams}
-				onClickRow={(d, isCtrlClick) => {
-					const url = `${isAdminPage ? '/admin' : ''}/agent-auth-scopes/${d.id}`;
-					openUrl(url, isCtrlClick);
-				}}
-				columnMaxWidths={isAdminPage
-					? { userDisplay: 200, capabilitiesDisplay: 200, description: 200 }
-					: undefined}
-			>
-				{#snippet onRenderColumn(property, d)}
-					{#if property === 'description'}
-						<span class="text-muted">{d.description || '-'}</span>
-					{:else if property === 'capabilitiesDisplay'}
-						{#if d.capabilitiesDisplay.length}
-							<div class="flex max-w-48 flex-wrap gap-1 py-1">
-								{#each d.capabilitiesDisplay as capability (capability)}
-									<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
-								{/each}
-								{#if d.mcpServerIds.length}
-									<span class="badge badge-ghost badge-xs whitespace-nowrap">Servers</span>
-								{/if}
-							</div>
-						{:else}
-							<span class="text-muted">-</span>
-						{/if}
-					{:else if property === 'lastUsedAt'}
-						{d.lastUsedAtDisplay}
-					{:else if property === 'expiresAt'}
-						{d.expiresAtDisplay}
-					{:else if property === 'prefix'}
-						<span class="whitespace-nowrap">{d.prefix}</span>
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<Table
+			data={tableData}
+			fields={isAdminPage
+				? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
+				: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
+			headers={[
+				...(isAdminPage ? [{ title: 'Created By', property: 'userDisplay' }] : []),
+				{ title: 'Capabilities', property: 'capabilitiesDisplay' },
+				{ title: 'Last Used', property: 'lastUsedAt' },
+				{ title: 'Expires', property: 'expiresAt' }
+			]}
+			filterable={isAdminPage ? ['userDisplay', 'name'] : undefined}
+			sortable={isAdminPage
+				? ['userDisplay', 'name', 'lastUsedAt', 'expiresAt']
+				: ['lastUsedAt', 'expiresAt']}
+			{initSort}
+			onSort={setSortUrlParams}
+			onClickRow={(d, isCtrlClick) => {
+				const url = `${isAdminPage ? '/admin' : ''}/agent-auth-scopes/${d.id}`;
+				openUrl(url, isCtrlClick);
+			}}
+			columnMaxWidths={isAdminPage
+				? { userDisplay: 200, capabilitiesDisplay: 200, description: 200 }
+				: undefined}
+		>
+			{#snippet onRenderColumn(property, d)}
+				{#if property === 'description'}
+					<span class="text-muted">{d.description || '-'}</span>
+				{:else if property === 'capabilitiesDisplay'}
+					{#if d.capabilitiesDisplay.length}
+						<div class="flex max-w-48 flex-wrap gap-1 py-1">
+							{#each d.capabilitiesDisplay as capability (capability)}
+								<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
+							{/each}
+							{#if d.mcpServerIds.length}
+								<span class="badge badge-ghost badge-xs whitespace-nowrap">Servers</span>
+							{/if}
+						</div>
 					{:else}
-						{d[property as keyof typeof d]}
+						<span class="text-muted">-</span>
 					{/if}
-				{/snippet}
-				{#snippet actions(d)}
-					{@render authScopeActions(d)}
-				{/snippet}
-			</Table>
-		{/if}
-	</div>
+				{:else if property === 'lastUsedAt'}
+					{d.lastUsedAtDisplay}
+				{:else if property === 'expiresAt'}
+					{d.expiresAtDisplay}
+				{:else if property === 'prefix'}
+					<span class="whitespace-nowrap">{d.prefix}</span>
+				{:else}
+					{d[property as keyof typeof d]}
+				{/if}
+			{/snippet}
+			{#snippet actions(d)}
+				{@render authScopeActions(d)}
+			{/snippet}
+		</Table>
+	{/if}
+</div>
 
 {#snippet authScopeActions(d: APIKey)}
 	{@const isOwner = d.userId.toString() === profile.current.id.toString()}

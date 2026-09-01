@@ -4,7 +4,6 @@ import { AdminService, UserService, type Model, type ModelProvider } from '$lib/
 import type { ModelAccessPolicy } from '$lib/services/admin/types';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile, models: initialModels } = await parent();
@@ -23,11 +22,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 			accessibleModels.set(models);
 		}
 	} catch (err) {
-		handleRouteError(err, '/v2/models', profile);
-	}
-
-	if (!hasAdminAccess && models.length === 0) {
-		throw redirect(302, '/');
+		handleRouteError(err, '/models', profile);
 	}
 
 	let modelProviders: ModelProvider[] = [];
@@ -37,13 +32,13 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		try {
 			modelProviders = await AdminService.listModelProviders({ fetch });
 		} catch (err) {
-			handleRouteError(err, '/v2/models', profile);
+			handleRouteError(err, '/models', profile);
 		}
 
 		try {
 			modelAccessPolicies = await AdminService.listModelAccessPolicies({ fetch });
 		} catch (err) {
-			handleRouteError(err, '/v2/models', profile);
+			handleRouteError(err, '/models', profile);
 		}
 	}
 

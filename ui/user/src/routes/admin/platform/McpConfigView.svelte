@@ -39,9 +39,7 @@
 	let saving = $state(false);
 	let showSaved = $state(false);
 	let timeout = $state<ReturnType<typeof setTimeout>>();
-	let resourceInfo = $state(
-		untrack(() => parseSchedulingResources(initialK8sSettings?.resources))
-	);
+	let resourceInfo = $state(untrack(() => parseSchedulingResources(initialK8sSettings?.resources)));
 
 	function convertResourcesForOutput(output: ReturnType<typeof parseSchedulingResources>) {
 		let outputString = '';
@@ -102,193 +100,191 @@
 </script>
 
 <div class="relative h-full w-full" transition:fade={{ duration }}>
-		{#if k8sSettings}
-			<div class="flex flex-col gap-8">
-				<SchedulingForm
-					readonly={schedulingReadonly}
-					locked={k8sSettings.setViaHelm}
-					maximumsLocked={k8sSettings.maximumsSetViaHelm}
-					bind:resourceInfo
-					bind:affinity={k8sSettings.affinity}
-					bind:tolerations={k8sSettings.tolerations}
-					bind:runtimeClassName={k8sSettings.runtimeClassName}
-					type="mcpserver"
-				>
-					{#snippet notes()}
-						<div class="notification-info p-3 text-sm font-light">
-							<div class="flex items-center gap-2">
-								<Info class="size-6" />
-								<p class="text-md font-semibold">Configuration Notes</p>
-							</div>
-							<ul class="list-disc px-8 py-1 text-sm">
-								<li>
-									The below configuration maps directly to Kubernetes fields and functionality. <br
-									/>
-									Links have been provided to the relevant Kubernetes documentation inline below.
-								</li>
-								<li>Resource configurations apply to all pods in the deployment.</li>
-								<li>Changes will take effect on the next deployment or pod restart.</li>
-								<li>Invalid YAML/JSON will be rejected during validation.</li>
-							</ul>
+	{#if k8sSettings}
+		<div class="flex flex-col gap-8">
+			<SchedulingForm
+				readonly={schedulingReadonly}
+				locked={k8sSettings.setViaHelm}
+				maximumsLocked={k8sSettings.maximumsSetViaHelm}
+				bind:resourceInfo
+				bind:affinity={k8sSettings.affinity}
+				bind:tolerations={k8sSettings.tolerations}
+				bind:runtimeClassName={k8sSettings.runtimeClassName}
+				type="mcpserver"
+			>
+				{#snippet notes()}
+					<div class="notification-info p-3 text-sm font-light">
+						<div class="flex items-center gap-2">
+							<Info class="size-6" />
+							<p class="text-md font-semibold">Configuration Notes</p>
 						</div>
-					{/snippet}
-					{#snippet maximumResources()}
-						{#if k8sSettings}
-							<div>
-								{@render headerContent('Maximum Settings', true)}
-								<p class="text-sm">
-									Define the maximum allowed values for CPU and memory requests and limits for
-									hosted MCP server pods. Leave a value empty to allow no maximum.
-								</p>
-							</div>
-							<div class="flex flex-col gap-1">
-								<h3 class="text-base font-semibold">CPU Settings</h3>
-								<div class="grid grid-cols-2 gap-4">
-									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-										<label class="input-label" for="max-cpu-request">Max Request</label>
-										<input
-											type="text"
-											id="max-cpu-request"
-											bind:value={k8sSettings.maxCpuRequest}
-											class="text-input-filled dark:bg-base-100"
-											disabled={maximumsReadonly}
-											placeholder="example: 500m"
-										/>
-									</div>
-									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-										<label class="input-label" for="max-cpu-limit">Max Limit</label>
-										<input
-											type="text"
-											id="max-cpu-limit"
-											bind:value={k8sSettings.maxCpuLimit}
-											class="text-input-filled dark:bg-base-100"
-											disabled={maximumsReadonly}
-											placeholder="example: 1"
-										/>
-									</div>
-								</div>
-							</div>
-							<div class="flex flex-col gap-1">
-								<h3 class="text-base font-semibold">Memory Settings</h3>
-								<div class="grid grid-cols-2 gap-4">
-									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-										<label class="input-label" for="max-memory-request">Max Request</label>
-										<input
-											type="text"
-											id="max-memory-request"
-											bind:value={k8sSettings.maxMemoryRequest}
-											class="text-input-filled dark:bg-base-100"
-											disabled={maximumsReadonly}
-											placeholder="example: 512Mi"
-										/>
-									</div>
-									<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
-										<label class="input-label" for="max-memory-limit">Max Limit</label>
-										<input
-											type="text"
-											id="max-memory-limit"
-											bind:value={k8sSettings.maxMemoryLimit}
-											class="text-input-filled dark:bg-base-100"
-											disabled={maximumsReadonly}
-											placeholder="example: 1Gi"
-										/>
-									</div>
-								</div>
-							</div>
-						{/if}
-					{/snippet}
-					<div class="paper mt-1">
+						<ul class="list-disc px-8 py-1 text-sm">
+							<li>
+								The below configuration maps directly to Kubernetes fields and functionality. <br />
+								Links have been provided to the relevant Kubernetes documentation inline below.
+							</li>
+							<li>Resource configurations apply to all pods in the deployment.</li>
+							<li>Changes will take effect on the next deployment or pod restart.</li>
+							<li>Invalid YAML/JSON will be rejected during validation.</li>
+						</ul>
+					</div>
+				{/snippet}
+				{#snippet maximumResources()}
+					{#if k8sSettings}
 						<div>
-							{@render headerContent('Nanobot Workspace Storage')}
+							{@render headerContent('Maximum Settings', true)}
 							<p class="text-sm">
-								Configure the storage class and volume size used for nanobot workspace volumes.
-								These values map to Kubernetes StorageClass configuration and persistent volume
-								sizes. See the Kubernetes <a
-									href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
-									class="text-link"
-									rel="external"
-									target="_blank">StorageClass documentation</a
-								> for more details.
+								Define the maximum allowed values for CPU and memory requests and limits for hosted
+								MCP server pods. Leave a value empty to allow no maximum.
 							</p>
 						</div>
-						<div class="flex flex-col gap-4">
-							<div class="flex flex-col gap-1">
-								<label class="input-label" for="storage-class-name">StorageClass Name</label>
-								<input
-									type="text"
-									id="storage-class-name"
-									bind:value={k8sSettings.storageClassName}
-									class="text-input-filled dark:bg-base-100"
-									disabled={schedulingReadonly}
-									placeholder="example: fast-ssd"
-								/>
-								<p class="text-xs font-light text-muted-content">
-									Leave empty to use the cluster default StorageClass.
-								</p>
-							</div>
-							<div class="flex flex-col gap-1">
-								<label class="input-label" for="nanobot-workspace-size">Workspace Volume Size</label
-								>
-								<input
-									type="text"
-									id="nanobot-workspace-size"
-									bind:value={k8sSettings.nanobotWorkspaceSize}
-									class="text-input-filled dark:bg-base-100"
-									disabled={schedulingReadonly}
-									placeholder="example: 10Gi"
-								/>
-								<p class="text-xs font-light text-muted-content">
-									Use units like Gi or Mi (example: 10Gi, 512Mi).
-								</p>
+						<div class="flex flex-col gap-1">
+							<h3 class="text-base font-semibold">CPU Settings</h3>
+							<div class="grid grid-cols-2 gap-4">
+								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+									<label class="input-label" for="max-cpu-request">Max Request</label>
+									<input
+										type="text"
+										id="max-cpu-request"
+										bind:value={k8sSettings.maxCpuRequest}
+										class="text-input-filled dark:bg-base-100"
+										disabled={maximumsReadonly}
+										placeholder="example: 500m"
+									/>
+								</div>
+								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+									<label class="input-label" for="max-cpu-limit">Max Limit</label>
+									<input
+										type="text"
+										id="max-cpu-limit"
+										bind:value={k8sSettings.maxCpuLimit}
+										class="text-input-filled dark:bg-base-100"
+										disabled={maximumsReadonly}
+										placeholder="example: 1"
+									/>
+								</div>
 							</div>
 						</div>
+						<div class="flex flex-col gap-1">
+							<h3 class="text-base font-semibold">Memory Settings</h3>
+							<div class="grid grid-cols-2 gap-4">
+								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+									<label class="input-label" for="max-memory-request">Max Request</label>
+									<input
+										type="text"
+										id="max-memory-request"
+										bind:value={k8sSettings.maxMemoryRequest}
+										class="text-input-filled dark:bg-base-100"
+										disabled={maximumsReadonly}
+										placeholder="example: 512Mi"
+									/>
+								</div>
+								<div class="flex flex-1 flex-col gap-1 col-span-2 md:col-span-1">
+									<label class="input-label" for="max-memory-limit">Max Limit</label>
+									<input
+										type="text"
+										id="max-memory-limit"
+										bind:value={k8sSettings.maxMemoryLimit}
+										class="text-input-filled dark:bg-base-100"
+										disabled={maximumsReadonly}
+										placeholder="example: 1Gi"
+									/>
+								</div>
+							</div>
+						</div>
+					{/if}
+				{/snippet}
+				<div class="paper mt-1">
+					<div>
+						{@render headerContent('Nanobot Workspace Storage')}
+						<p class="text-sm">
+							Configure the storage class and volume size used for nanobot workspace volumes. These
+							values map to Kubernetes StorageClass configuration and persistent volume sizes. See
+							the Kubernetes <a
+								href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
+								class="text-link"
+								rel="external"
+								target="_blank">StorageClass documentation</a
+							> for more details.
+						</p>
 					</div>
-				</SchedulingForm>
+					<div class="flex flex-col gap-4">
+						<div class="flex flex-col gap-1">
+							<label class="input-label" for="storage-class-name">StorageClass Name</label>
+							<input
+								type="text"
+								id="storage-class-name"
+								bind:value={k8sSettings.storageClassName}
+								class="text-input-filled dark:bg-base-100"
+								disabled={schedulingReadonly}
+								placeholder="example: fast-ssd"
+							/>
+							<p class="text-xs font-light text-muted-content">
+								Leave empty to use the cluster default StorageClass.
+							</p>
+						</div>
+						<div class="flex flex-col gap-1">
+							<label class="input-label" for="nanobot-workspace-size">Workspace Volume Size</label>
+							<input
+								type="text"
+								id="nanobot-workspace-size"
+								bind:value={k8sSettings.nanobotWorkspaceSize}
+								class="text-input-filled dark:bg-base-100"
+								disabled={schedulingReadonly}
+								placeholder="example: 10Gi"
+							/>
+							<p class="text-xs font-light text-muted-content">
+								Use units like Gi or Mi (example: 10Gi, 512Mi).
+							</p>
+						</div>
+					</div>
+				</div>
+			</SchedulingForm>
 
-				{#if !readonly}
-					<div
-						class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+			{#if !readonly}
+				<div
+					class="bg-base-200 dark:bg-base-100 sticky bottom-0 left-0 flex w-[calc(100%+2em)] -translate-x-4 justify-end gap-4 p-4 md:w-[calc(100%+4em)] md:-translate-x-8 md:px-8"
+				>
+					{#if showSaved}
+						<span
+							in:fade={{ duration: 200 }}
+							class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
+						>
+							Your changes have been saved.
+						</span>
+					{/if}
+
+					<button
+						class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
+						onclick={() => {
+							k8sSettings = prevK8sSettings;
+							resourceInfo = parseSchedulingResources(prevK8sSettings?.resources);
+						}}
 					>
-						{#if showSaved}
-							<span
-								in:fade={{ duration: 200 }}
-								class="text-muted-content flex min-h-10 items-center px-4 text-sm font-extralight"
-							>
-								Your changes have been saved.
-							</span>
+						Reset
+					</button>
+					<button
+						class="btn btn-primary flex items-center gap-1"
+						disabled={saving}
+						onclick={handleSave}
+					>
+						{#if saving}
+							<Loading class="size-4" />
+						{:else}
+							Save
 						{/if}
-
-						<button
-							class="btn btn-secondary hover:bg-base-400 flex items-center gap-1 bg-transparent"
-							onclick={() => {
-								k8sSettings = prevK8sSettings;
-								resourceInfo = parseSchedulingResources(prevK8sSettings?.resources);
-							}}
-						>
-							Reset
-						</button>
-						<button
-							class="btn btn-primary flex items-center gap-1"
-							disabled={saving}
-							onclick={handleSave}
-						>
-							{#if saving}
-								<Loading class="size-4" />
-							{:else}
-								Save
-							{/if}
-						</button>
-					</div>
-				{:else}
-					<div class="h-4"></div>
-				{/if}
-			</div>
-		{:else}
-			<p class="text-muted-content text-sm font-light">
-				MCP server scheduling is only available when Obot is running on Kubernetes.
-			</p>
-		{/if}
-	</div>
+					</button>
+				</div>
+			{:else}
+				<div class="h-4"></div>
+			{/if}
+		</div>
+	{:else}
+		<p class="text-muted-content text-sm font-light">
+			MCP server scheduling is only available when Obot is running on Kubernetes.
+		</p>
+	{/if}
+</div>
 
 {#snippet headerContent(title: string, isMaximumSetViaHelm?: boolean)}
 	{@const isHelmDeployed = isMaximumSetViaHelm

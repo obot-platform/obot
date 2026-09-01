@@ -1,5 +1,5 @@
 import { handleRouteError, HttpError } from '$lib/errors';
-import { AdminService } from '$lib/services';
+import { AdminService, UserService } from '$lib/services';
 import type { GitCredential, SkillAccessPolicy, SkillRepository } from '$lib/services/admin/types';
 import type { Skill } from '$lib/services/nanobot/types';
 import type { PageLoad } from './$types';
@@ -15,33 +15,35 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const view = url.searchParams.get('view');
 	const isSkillsView = view !== 'sources' && view !== 'access-policy' && view !== 'git-credentials';
 
-	try {
-		[skillRepositories, gitCredentials] = await Promise.all([
-			AdminService.listSkillRepositories({ fetch, dontLogErrors: true }),
-			AdminService.listGitCredentials({ fetch, dontLogErrors: true }).catch(() => [])
-		]);
-	} catch (err) {
-		handleRouteError(err, '/v2/skills', profile);
+	if (profile.hasAdminAccess?.()) {
+		try {
+			[skillRepositories, gitCredentials] = await Promise.all([
+				AdminService.listSkillRepositories({ fetch, dontLogErrors: true }),
+				AdminService.listGitCredentials({ fetch, dontLogErrors: true }).catch(() => [])
+			]);
+		} catch (err) {
+			handleRouteError(err, '/skills', profile);
+		}
 	}
 
 	if (isSkillsView) {
 		try {
-			skills = await AdminService.listAllSkills({ fetch, dontLogErrors: true });
+			skills = profile.hasAdminAccess?.()
+				? await AdminService.listAllSkills({ fetch, dontLogErrors: true })
+				: await UserService.listSkills({ fetch, dontLogErrors: true });
 		} catch (err) {
 			if (err instanceof HttpError && err.statusCode === 402) {
 				skills = [];
 				showLicenseError = true;
 			} else {
-				handleRouteError(err, '/v2/skills', profile);
+				handleRouteError(err, '/skills', profile);
 			}
 		}
-	}
-
-	if (profile.hasAdminAccess?.()) {
+	} else if (profile.hasAdminAccess?.()) {
 		try {
 			skillAccessPolicies = await AdminService.listSkillAccessPolicies({ fetch });
 		} catch (err) {
-			handleRouteError(err, '/v2/skills', profile);
+			handleRouteError(err, '/skills', profile);
 		}
 	}
 
