@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import type { MCPFilter } from '$lib/services/admin/types';
 	import { goto } from '$lib/url';
-	import FilterView from '../FilterView.svelte';
+	import FilterView from '../../FilterView.svelte';
 
 	let { data }: { data: { filter: MCPFilter } } = $props();
 	let { filter } = $derived(data);

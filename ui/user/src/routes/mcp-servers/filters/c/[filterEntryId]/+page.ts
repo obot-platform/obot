@@ -17,6 +17,6 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 		);
 		return { entry };
 	} catch (err) {
-		handleRouteError(err, `/admin/filters/c/${filterEntryId}`, profile);
+		handleRouteError(err, `/mcp-servers/filters/c/${filterEntryId}`, profile);
 	}
 };

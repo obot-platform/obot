@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { MCPFilterInput, MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
-	import FilterView from '../../FilterView.svelte';
+	import FilterView from '../../../FilterView.svelte';
 	import { untrack } from 'svelte';
 
 	let { data } = $props();

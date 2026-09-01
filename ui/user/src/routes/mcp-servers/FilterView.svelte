@@ -96,7 +96,7 @@
 				<FilterForm
 					{filter}
 					onUpdate={() => {
-						goto('/admin/filters', { invalidateAll: true });
+						goto('/mcp-servers?view=filters', { invalidateAll: true });
 					}}
 					readonly={profile.current.isAdminReadonly?.()}
 					mcpSystemCatalogEntryId={entry?.id || filter.systemMCPServerCatalogEntryID}
@@ -138,7 +138,7 @@
 			<FilterForm
 				{filter}
 				onCreate={() => {
-					goto('/admin/filters', { invalidateAll: true });
+					goto('/mcp-servers?view=filters', { invalidateAll: true });
 				}}
 				readonly={profile.current.isAdminReadonly?.()}
 				mcpSystemCatalogEntryId={entry?.id}
@@ -153,7 +153,7 @@
 	onsuccess={async () => {
 		if (!filter?.id) return;
 		await AdminService.deleteMCPFilter(filter.id);
-		await goto('/admin/filters', { invalidateAll: true });
+		await goto('/mcp-servers?view=filters', { invalidateAll: true });
 	}}
 	oncancel={() => (deletingFilter = false)}
 />

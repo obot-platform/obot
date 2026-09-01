@@ -20,6 +20,10 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 		});
 		return { entry, filter };
 	} catch (err) {
-		handleRouteError(err, `/admin/filters/c/${filterEntryId}/instance/${instanceId}`, profile);
+		handleRouteError(
+			err,
+			`/mcp-servers/filters/c/${filterEntryId}/instance/${instanceId}`,
+			profile
+		);
 	}
 };

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$lib/url';
-	import FilterView from '../../../../FilterView.svelte';
+	import FilterView from '../../../../../FilterView.svelte';
 
 	let { data } = $props();
 	let { filter, entry } = $derived(data);

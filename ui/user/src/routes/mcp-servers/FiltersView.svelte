@@ -115,7 +115,7 @@
 			data={filteredTableData}
 			fields={['name', 'selectors', 'status']}
 			onClickRow={(d, isCtrlClick) => {
-				openUrl(`/admin/filters/${d.id}`, isCtrlClick);
+				openUrl(`/mcp-servers/filters/${d.id}`, isCtrlClick);
 			}}
 			filterable={['name', 'status']}
 			filters={urlFilters}
@@ -192,7 +192,7 @@
 		{query}
 		entries={systemCatalogEntries}
 		onSelect={(d) => {
-			goto(`/admin/filters/c/${d.id}`);
+			goto(`/mcp-servers/filters/c/${d.id}`);
 			builtInFiltersDialog?.close();
 		}}
 	/>

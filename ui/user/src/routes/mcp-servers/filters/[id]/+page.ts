@@ -10,6 +10,6 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 		const filter = await AdminService.getMCPFilter(id, { fetch });
 		return { filter };
 	} catch (err) {
-		handleRouteError(err, `/admin/filters/${id}`, profile);
+		handleRouteError(err, `/mcp-servers/filters/${id}`, profile);
 	}
 };

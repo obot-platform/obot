@@ -1138,7 +1138,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						setLastVisitedMcpServer();
-						const url = `/admin/filters/${d.id}`;
+						const url = `/mcp-servers/filters/${d.id}`;
 						openUrl(url, isCtrlClick);
 					}}
 				>
