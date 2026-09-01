@@ -204,7 +204,7 @@
 		]}
 		{filterable}
 		onClickRow={(d, isCtrlClick) => {
-			openUrl(resolve(`/admin/devices/${d.deviceID}`), isCtrlClick);
+			openUrl(resolve(`/inventory/devices/${d.deviceID}`), isCtrlClick);
 		}}
 		{initSort}
 		onFilter={setFilterUrlParams}

@@ -1,19 +1,9 @@
-import { handleRouteError } from '$lib/errors';
-import { UserService } from '$lib/services';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ params, fetch }) => {
-	const { id, wid } = params;
-	let accessControlRule;
-	try {
-		accessControlRule = await UserService.getWorkspaceAccessControlRule(wid, id, { fetch });
-	} catch (err) {
-		handleRouteError(err, `/admin/mcp-access-policies/w/${wid}/r/${id}`, profile.current);
-	}
-
-	return {
-		accessControlRule,
-		workspaceId: wid
-	};
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(
+		301,
+		`/mcp-servers/access-policies/w/${encodeURIComponent(params.wid)}/r/${encodeURIComponent(params.id)}${url.search}`
+	);
 };

@@ -1,19 +1,9 @@
-import { handleRouteError } from '$lib/errors';
-import { AdminService, type HostedAgentAccessPolicy } from '$lib/services';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ params, fetch, parent }) => {
-	const { id } = params;
-	const { profile } = await parent();
-
-	let hostedAgentAccessPolicy: HostedAgentAccessPolicy | undefined;
-	try {
-		hostedAgentAccessPolicy = await AdminService.getHostedAgentAccessPolicy(id, { fetch });
-	} catch (err) {
-		handleRouteError(err, `/admin/hosted-agent-access-policies/${id}`, profile);
-	}
-
-	return {
-		hostedAgentAccessPolicy
-	};
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(
+		301,
+		`/hosted-agents/access-policies/${encodeURIComponent(params.id)}${url.search}`
+	);
 };

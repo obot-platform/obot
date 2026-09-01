@@ -161,7 +161,7 @@
 					]}
 					onClickRow={(d, isCtrlClick) => {
 						openUrl(
-							`/admin/devices/${d.deviceID}/scans/${d.deviceScanID}/mcp/${d.id}`,
+							`/inventory/devices/${d.deviceID}/scans/${d.deviceScanID}/mcp/${d.id}`,
 							isCtrlClick
 						);
 					}}
@@ -169,7 +169,7 @@
 					{#snippet onRenderColumn(property, d: Row)}
 						{#if property === 'shortDeviceID'}
 							<a
-								href={resolve(`/admin/devices/${d.deviceID}`)}
+								href={resolve(`/inventory/devices/${d.deviceID}`)}
 								class="btn-link text-primary"
 								title={d.deviceID}
 								onclick={(e) => e.stopPropagation()}

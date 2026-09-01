@@ -1,19 +1,6 @@
-import { handleRouteError } from '$lib/errors';
-import { AdminService, type SkillAccessPolicy } from '$lib/services';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ params, fetch, parent }) => {
-	const { id } = params;
-	const { profile } = await parent();
-
-	let skillAccessPolicy: SkillAccessPolicy | undefined;
-	try {
-		skillAccessPolicy = await AdminService.getSkillAccessPolicy(id, { fetch });
-	} catch (err) {
-		handleRouteError(err, `/admin/skill-access-policies/${id}`, profile);
-	}
-
-	return {
-		skillAccessPolicy
-	};
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(301, `/skills/access-policies/${encodeURIComponent(params.id)}${url.search}`);
 };

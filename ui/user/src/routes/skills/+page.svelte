@@ -46,7 +46,7 @@
 		if (hasAdminAccess) {
 			items.push(
 				{ label: 'Sources', value: 'sources', content: sourcesView },
-				{ label: 'Access Policy', value: 'access-policy', content: accessPolicy },
+				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy },
 				{ label: 'Git Credentials', value: 'git-credentials', content: gitCredentialsTab }
 			);
 		}
