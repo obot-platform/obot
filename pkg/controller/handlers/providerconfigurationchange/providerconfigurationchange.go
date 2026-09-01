@@ -332,9 +332,9 @@ func dropAuthProviderSessionTables(authProvider v1.AuthProvider, postgresDSN str
 }
 
 func EnsureDaemonSync(ctx context.Context, client kclient.Client) error {
-	sync := &v1.ProviderDaemonSync{
+	sync := &v1.ProviderSync{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      system.ProviderDaemonSyncName,
+			Name:      system.ProviderSyncName,
 			Namespace: system.DefaultNamespace,
 		},
 	}
@@ -384,15 +384,15 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, 
 		return err
 	}
 	revisionKey := providerDaemonRevisionKey(change.Spec.ProviderType, change.Namespace, change.Spec.ProviderName)
-	var daemonSync v1.ProviderDaemonSync
+	var daemonSync v1.ProviderSync
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
-		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderDaemonSyncName}, &daemonSync); err != nil {
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &daemonSync); err != nil {
 			// EnsureDaemonSync above created the singleton if it was missing, so
 			// anything failing here is worth requeuing the whole change for.
 			return err
 		}
 		if daemonSync.Spec.Revisions == nil {
-			daemonSync.Spec.Revisions = make(map[string]v1.ProviderDaemonRevision)
+			daemonSync.Spec.Revisions = make(map[string]v1.ProviderRevision)
 		}
 		revision := daemonSync.Spec.Revisions[revisionKey]
 		revision.ProviderType = change.Spec.ProviderType

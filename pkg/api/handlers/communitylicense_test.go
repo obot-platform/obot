@@ -31,6 +31,7 @@ type fakeCommunityLicenseProvider struct {
 	setCalls          int
 	hasValidCalls     int
 	lastInstalledKey  string
+	validateError     error
 }
 
 func (p *fakeCommunityLicenseProvider) LicenseKey(context.Context) (string, error) {
@@ -64,7 +65,7 @@ func (p *fakeCommunityLicenseProvider) RemoveLicenseKey(context.Context) error {
 }
 
 func (p *fakeCommunityLicenseProvider) Validate(context.Context) error {
-	return nil
+	return p.validateError
 }
 
 func (p *fakeCommunityLicenseProvider) HasValidLicense(context.Context) (bool, error) {
