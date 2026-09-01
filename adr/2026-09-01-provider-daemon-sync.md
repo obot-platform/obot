@@ -23,7 +23,7 @@ of different ways, depending on what was changed.
 
 ## Decision
 
-We moved some of the responsibilities for configuring and deconfiguring providers from the API
+Some of the responsibilities for configuring and deconfiguring providers were moved from the API
 handlers to a controller. The controller that does it also updates a new ProviderDaemonSync singleton
 that is watched by a controller that runs in all replicas. When they see the ProviderDaemonSync change,
 they stop the outdated provider daemon, so that it restarts with the new configuration the next time
