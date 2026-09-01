@@ -34,6 +34,13 @@ const (
 	GenericAuthProviderCredentialContext  = "auth-provider"
 	StagedProviderCredentialContext       = "provider-staged"
 
+	// ReplacementAuthProviderCredentialContext holds the settings of a replacement auth provider
+	// while the current one keeps serving logins, persisting until an owner activates or discards
+	// it. StagedProviderCredentialContext, by contrast, only parks a credential until the
+	// controller applies it. It is its own context because isAuthProviderConfigured reads only a
+	// provider's own context and the generic one, so a replacement is never the login provider.
+	ReplacementAuthProviderCredentialContext = "replacement-auth-provider"
+
 	MCPWebhookValidationCredentialContext = "mcp-webhook-context"
 
 	JWKCredentialContext = "jwk"

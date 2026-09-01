@@ -19,9 +19,10 @@
 	import { errors, license, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte.js';
 	import { clearUrlParams } from '$lib/url';
-	import { TriangleAlert, Info } from '@lucide/svelte';
+	import { TriangleAlert, Info, CircleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let {
 		authProviders: initialAuthProviders,
@@ -64,6 +65,47 @@
 	let configuringAuthProviderValues = $state<Record<string, string>>();
 	let atLeastOneConfigured = $derived(authProviders.some((provider) => provider.configured));
 	let showInitialAuthProvider = $derived<string | null>(page.url.searchParams.get('provider'));
+	let stagedProvider = $derived(authProviders.find((provider) => provider.staged));
+	let activeProvider = $derived(authProviders.find((provider) => provider.configured));
+	let switchError = $state<string>();
+	let switching = $state(false);
+
+	// Set when the owner goes back to edit a staged provider's settings, which is how a rejected
+	// sign-in gets fixed. Local intent rather than server state, so it overrides the derived step.
+	let editingStagedCredentials = $state(false);
+	// Which step of a switch the dialog shows. Every input is server state, so a refresh, a second
+	// tab, and another administrator all see the same step, with nothing carried in the URL.
+	let switchStep = $derived.by(() => {
+		if (!configuringAuthProvider || editingStagedCredentials) return 'configure';
+		const staged = authProviders.find((provider) => provider.id === configuringAuthProvider!.id);
+		if (!staged?.staged) return 'configure';
+		return staged.verifiedEmail ? 'switch' : 'signin';
+	});
+	let switchVerifiedEmail = $derived(
+		authProviders.find((provider) => provider.id === configuringAuthProvider?.id)?.verifiedEmail
+	);
+	// A switch is only offered when this provider would replace a different one. Configuring the
+	// first provider on a fresh install stays the plain form.
+	let isOwner = $derived(!!profile.current.isOwner?.());
+	let isReadonly = $derived(!!profile.current.isAdminReadonly?.());
+	// Replacing the provider everyone signs in with is an owner operation, so an administrator is
+	// not offered the switch at all rather than being stopped partway through it.
+	function switchNeedsOwner(provider: AuthProvider) {
+		return (
+			!isReadonly &&
+			!isOwner &&
+			atLeastOneConfigured &&
+			!provider.configured &&
+			activeProvider?.id !== provider.id
+		);
+	}
+
+	let isSwitching = $derived(
+		!!configuringAuthProvider &&
+			atLeastOneConfigured &&
+			!configuringAuthProvider.configured &&
+			activeProvider?.id !== configuringAuthProvider.id
+	);
 
 	let setupLoading = $state(false);
 	let setupSignInDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -143,6 +185,20 @@
 		}
 	});
 
+	// Returning from the verification lands here with nothing in the URL to say so, and the switch
+	// is then one click from done. Only the owner can finish it, so nobody else is interrupted by a
+	// dialog they cannot act on. Guarded so closing it is respected for the rest of the page's life.
+	let autoOpenedVerifiedSwitch = $state(false);
+	$effect(() => {
+		if (autoOpenedVerifiedSwitch || !isOwner || isBootstrapUser || localAuthConfigureOpen) return;
+
+		const verified = authProviders.find((provider) => provider.staged && provider.verifiedEmail);
+		if (!verified) return;
+
+		autoOpenedVerifiedSwitch = true;
+		handleClickConfigure(verified);
+	});
+
 	function getDocumentationUrl(authProviderId?: string) {
 		if (!authProviderId) return undefined;
 		const idRef = {
@@ -193,9 +249,22 @@
 			loading = true;
 			configureError = undefined;
 			try {
-				await AdminService.configureAuthProvider(configuringAuthProvider.id, form);
+				const staging = isSwitching;
+				if (staging) {
+					await AdminService.stageAuthProvider(configuringAuthProvider.id, form);
+				} else {
+					await AdminService.configureAuthProvider(configuringAuthProvider.id, form);
+				}
 				authProviders = await AdminService.listAuthProviders();
 				adminConfigStore.updateAuthProviders(authProviders);
+
+				if (staging) {
+					// Staging alone changes nothing about who serves logins, so the dialog stays open
+					// and moves to the sign-in step rather than looking finished.
+					switchError = undefined;
+					editingStagedCredentials = false;
+					return;
+				}
 				providerConfigure?.close();
 
 				if (isBootstrapUser) {
@@ -217,12 +286,65 @@
 		form: Record<string, string>
 	): Promise<string | undefined> {
 		try {
-			await AdminService.configureAuthProvider(CommonAuthProviderIds.LOCAL, form);
+			// Local follows the same rule as every other provider: with something else already
+			// serving logins, saving settings stages a replacement rather than taking over.
+			if (atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL) {
+				await AdminService.stageAuthProvider(CommonAuthProviderIds.LOCAL, form);
+			} else {
+				await AdminService.configureAuthProvider(CommonAuthProviderIds.LOCAL, form);
+			}
 			authProviders = await AdminService.listAuthProviders();
 			adminConfigStore.updateAuthProviders(authProviders);
 			return undefined;
 		} catch (err) {
 			return parseErrorContent(err).message;
+		}
+	}
+
+	async function refreshAuthProviders() {
+		authProviders = await AdminService.listAuthProviders();
+		adminConfigStore.updateAuthProviders(authProviders);
+	}
+
+	async function handleVerifyStagedProvider() {
+		if (!stagedProvider) return;
+		switching = true;
+		switchError = undefined;
+		try {
+			window.location.href = await AdminService.verifyAuthProvider(stagedProvider.id);
+		} catch (err) {
+			switchError = parseErrorContent(err).message;
+			switching = false;
+		}
+	}
+
+	async function handleActivateStagedProvider() {
+		if (!stagedProvider) return;
+		switching = true;
+		switchError = undefined;
+		try {
+			await AdminService.activateAuthProvider(stagedProvider.id);
+			providerConfigure?.close();
+			await refreshAuthProviders();
+		} catch (err) {
+			switchError = parseErrorContent(err).message;
+		} finally {
+			switching = false;
+		}
+	}
+
+	async function handleDiscardStagedProvider() {
+		if (!stagedProvider) return;
+		switching = true;
+		switchError = undefined;
+		try {
+			await AdminService.unstageAuthProvider(stagedProvider.id);
+			providerConfigure?.close();
+			await refreshAuthProviders();
+		} catch (err) {
+			switchError = parseErrorContent(err).message;
+		} finally {
+			switching = false;
 		}
 	}
 
@@ -281,6 +403,8 @@
 			return;
 		}
 
+		editingStagedCredentials = false;
+		switchError = undefined;
 		configuringAuthProvider = authProvider;
 		try {
 			configuringAuthProviderValues = await AdminService.revealAuthProvider(authProvider.id);
@@ -296,12 +420,26 @@
 			}
 		}
 
-		if (authProvider.id === CommonAuthProviderIds.LOCAL) {
+		// A staged Local provider is past the step its own dialog covers, so resuming goes to the
+		// sign-in that proves it rather than back to editing users.
+		if (authProvider.id === CommonAuthProviderIds.LOCAL && !authProvider.staged) {
 			localAuthConfigureOpen = true;
 			localAuthConfigure?.open();
 		} else {
 			providerConfigure?.open();
 		}
+	}
+
+	// Local's first step lives in its own dialog, so going back from the sign-in step has to hand
+	// control there instead of rendering a parameter form Local does not have.
+	function handleEditStagedCredentials() {
+		if (configuringAuthProvider?.id === CommonAuthProviderIds.LOCAL) {
+			providerConfigure?.close();
+			localAuthConfigureOpen = true;
+			localAuthConfigure?.open();
+			return;
+		}
+		editingStagedCredentials = true;
 	}
 
 	async function handleLocalAuthClose(userCount: number) {
@@ -310,6 +448,19 @@
 		showInitialAuthProvider = null;
 		if (isBootstrapUser && userCount > 0) {
 			await prepareOwnerSetup();
+		}
+
+		// Local manages its users in its own dialog, so that dialog stands in for the first step of
+		// a switch. Without this handoff the settings stage and the flow stops there.
+		await refreshAuthProviders();
+		const local = authProviders.find(
+			(provider) => provider.id === CommonAuthProviderIds.LOCAL && provider.staged
+		);
+		if (local && userCount > 0) {
+			configuringAuthProvider = local;
+			editingStagedCredentials = false;
+			switchError = undefined;
+			providerConfigure?.open();
 		}
 	}
 </script>
@@ -333,15 +484,25 @@
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 			{#each sortedAuthProviders as authProvider (authProvider.id)}
 				<ProviderCard
-					disableConfigure={atLeastOneConfigured && !authProvider.configured}
+					disableConfigure={switchNeedsOwner(authProvider) ||
+						(atLeastOneConfigured &&
+							!authProvider.configured &&
+							!!stagedProvider &&
+							!authProvider.staged)}
+					disableConfigureReason={switchNeedsOwner(authProvider)
+						? 'Only an owner can replace the auth provider everyone signs in with.'
+						: undefined}
 					provider={authProvider}
+					staged={authProvider.staged}
 					recommended={RecommendedModelProviders.includes(authProvider.id)}
 					onConfigure={() => handleClickConfigure(authProvider)}
-					onDeconfigure={async () => {
-						confirmDeconfigureAuthProvider = authProvider;
-						deconfigureAuthProviderDialog?.open();
-					}}
-					readonly={profile.current.isAdminReadonly?.()}
+					onDeconfigure={activeProvider?.id === authProvider.id
+						? undefined
+						: () => {
+								confirmDeconfigureAuthProvider = authProvider;
+								deconfigureAuthProviderDialog?.open();
+							}}
+					readonly={isReadonly}
 					licenseKey={license.current.licenseKey}
 				/>
 			{/each}
@@ -351,6 +512,107 @@
 	{/if}
 </div>
 
+{#snippet switchSteps()}
+	{@const done = { configure: 0, signin: 1, switch: 2 }[switchStep] ?? 0}
+	<ol class="flex items-center gap-2 px-4 pb-4">
+		{#each ['Configure', 'Sign in', 'Switch'] as label, index (label)}
+			{#if index > 0}
+				<li class="bg-base-400 h-px min-w-3 grow" aria-hidden="true"></li>
+			{/if}
+			<li class="flex flex-none items-center gap-1.5">
+				<span
+					class={twMerge(
+						'flex size-5 items-center justify-center rounded-full border text-[11px]',
+						index < done && 'border-success bg-success text-white',
+						index === done && 'border-primary bg-primary text-white',
+						index > done && 'border-base-400 text-muted-content'
+					)}
+					aria-current={index === done ? 'step' : undefined}
+				>
+					{#if index < done}✓{:else}{index + 1}{/if}
+				</span>
+				<span
+					class={twMerge(
+						'text-sm',
+						index === done ? 'font-medium' : 'text-muted-content font-light'
+					)}
+				>
+					{label}
+				</span>
+			</li>
+		{/each}
+	</ol>
+{/snippet}
+
+{#snippet switchBody()}
+	{#if switchError}
+		<div class="notification-error flex items-start gap-2" role="alert">
+			<CircleAlert class="mt-0.5 size-5 shrink-0 text-error" />
+			<p class="text-sm font-light">{switchError}</p>
+		</div>
+	{/if}
+	{#if switchStep === 'signin'}
+		<p class="text-sm font-light">
+			Sign in with <b>{configuringAuthProvider?.name}</b> to confirm the connection works. The
+			account you use <b>becomes the owner of Obot</b> after the switch.
+		</p>
+		<div class="notification-info p-3 text-sm font-light">
+			{activeProvider?.name ?? 'The current provider'} keeps serving logins until you finish the switch.
+			You can come back to this step later.
+		</div>
+	{:else}
+		<div class="bg-base-200 flex items-center gap-3 rounded-lg p-3">
+			<div class="flex min-w-0 flex-col">
+				<span class="truncate text-sm font-medium">{switchVerifiedEmail}</span>
+				<span class="text-muted-content text-xs font-light"> Will own Obot after the switch </span>
+			</div>
+			<span class="text-success ml-auto flex-none text-xs">Verified</span>
+		</div>
+		<p class="text-muted-content text-xs font-light">
+			Not the right account?
+			<button class="text-link underline" disabled={switching} onclick={handleVerifyStagedProvider}>
+				Sign in again
+			</button>
+		</p>
+		<div class="notification-alert flex items-start gap-2 text-sm font-light">
+			<TriangleAlert class="mt-0.5 size-5 shrink-0 text-warning" />
+			<span>
+				{configuringAuthProvider?.name} becomes the only way to sign in, and
+				{activeProvider?.name ?? 'the current provider'} sessions end. Its users and their work will not
+				transfer.
+			</span>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet switchFooter(submit: () => void)}
+	{#if switchStep !== 'configure'}
+		<button
+			class="btn btn-link text-muted-content px-0"
+			disabled={switching}
+			onclick={handleDiscardStagedProvider}
+		>
+			Discard switch
+		</button>
+	{/if}
+	<div class="grow"></div>
+	{#if switchStep === 'configure'}
+		<button class="btn" disabled={loading} onclick={() => providerConfigure?.close()}>
+			Cancel
+		</button>
+		<button class="btn btn-primary" disabled={loading} onclick={submit}>Continue</button>
+	{:else if switchStep === 'signin'}
+		<button class="btn" disabled={switching} onclick={handleEditStagedCredentials}> Back </button>
+		<button class="btn btn-primary" disabled={switching} onclick={handleVerifyStagedProvider}>
+			Sign in with {configuringAuthProvider?.name}
+		</button>
+	{:else}
+		<button class="btn btn-primary" disabled={switching} onclick={handleActivateStagedProvider}>
+			Switch to {configuringAuthProvider?.name}
+		</button>
+	{/if}
+{/snippet}
+
 <ProviderConfigure
 	bind:this={providerConfigure}
 	provider={configuringAuthProvider}
@@ -359,6 +621,10 @@
 	{loading}
 	error={configureError}
 	readonly={profile.current.isAdminReadonly?.()}
+	title={isSwitching ? `Switch to ${configuringAuthProvider?.name}` : undefined}
+	steps={isSwitching ? switchSteps : undefined}
+	body={isSwitching && switchStep !== 'configure' ? switchBody : undefined}
+	footer={isSwitching ? switchFooter : undefined}
 >
 	{#snippet note()}
 		{@const documentationUrl = getDocumentationUrl(configuringAuthProvider?.id)}
@@ -402,6 +668,7 @@
 	readonly={profile.current.isAdminReadonly?.()}
 	onConfigure={handleLocalAuthConfigure}
 	onClose={handleLocalAuthClose}
+	switching={atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL}
 >
 	{#snippet additionalActions()}
 		{#if showInitialAuthProvider}

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
+	"github.com/obot-platform/obot/pkg/utils"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -191,6 +193,18 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			}
 		}
 
+		// Enforced after audit logging is installed and refreshed provider cookies are replayed, so
+		// rejected probes stay auditable and a cookie refresh is not lost to a blocked operation.
+		if utils.FirstSet(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req) {
+			if req.Pattern != "/" {
+				http.Error(rw, "password change required", http.StatusForbidden)
+			} else {
+				rd := req.URL.RequestURI()
+				http.Redirect(rw, req, "/change-password?rd="+url.QueryEscape(rd), http.StatusSeeOther)
+			}
+			return
+		}
+
 		var shouldLogError bool
 		err = s.providerEntitlementGate.Check(req)
 		if err == nil {
@@ -252,6 +266,19 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 			slog.Error("Error handling request", "path", req.URL.Path, "error", err)
 		}
 	}
+}
+
+func passwordChangeRequestAllowed(req *http.Request) bool {
+	if isStaticAssetPath(req.URL.Path) || req.URL.Path == "/change-password" || strings.HasPrefix(req.URL.Path, "/change-password/") || req.URL.Path == "/oauth2/sign_out" {
+		return true
+	}
+	return (req.Method == http.MethodGet && slices.Contains([]string{
+		"/api/me",
+		"/api/version",
+		"/api/license",
+		"/api/app-preferences",
+	}, req.URL.Path)) ||
+		(req.Method == http.MethodPost && req.URL.Path == "/api/local-auth/change-password")
 }
 
 func (w *headersResponseWriter) Unwrap() http.ResponseWriter {
@@ -323,7 +350,14 @@ func (w *headersResponseWriter) Push(target string, opts *http.PushOptions) erro
 // isStaticAssetPath returns true if the path is a static asset that should be
 // exempt from rate limiting. This includes SvelteKit chunks, CSS, and UI images.
 func isStaticAssetPath(path string) bool {
-	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/")
+	return strings.HasPrefix(path, "/_app/") || strings.HasPrefix(path, "/user/images/") || slices.Contains([]string{
+		"/favicon.ico",
+		"/favicon-16x16.png",
+		"/favicon-32x32.png",
+		"/apple-touch-icon.png",
+		"/android-chrome-192x192.png",
+		"/android-chrome-512x512.png",
+	}, path)
 }
 
 func (rw *responseWriter) WriteHeader(code int) {

@@ -10,6 +10,15 @@ const (
 	ProviderTypeLicense              ProviderType         = "license"
 	ProviderDesiredStateConfigured   ProviderDesiredState = "configured"
 	ProviderDesiredStateDeconfigured ProviderDesiredState = "deconfigured"
+	// ProviderDesiredStateSwitched replaces the configured auth provider with another in one
+	// reconcile. It is separate so ProviderDesiredStateConfigured keeps its empty-slot conflict check.
+	ProviderDesiredStateSwitched ProviderDesiredState = "switched"
+	// ProviderDesiredStateStaged saves a replacement auth provider's settings while the configured
+	// one keeps serving logins. It goes through a change so the one-staged rule is serialized.
+	ProviderDesiredStateStaged ProviderDesiredState = "staged"
+	// ProviderDesiredStateUnstaged discards a staged replacement, leaving the configured provider
+	// untouched. It shares the switch's serialization so a discard cannot interleave with one.
+	ProviderDesiredStateUnstaged ProviderDesiredState = "unstaged"
 )
 
 type ProviderType string
@@ -33,6 +42,9 @@ type ProviderConfigurationChangeSpec struct {
 	ProviderName         string               `json:"providerName"`
 	DesiredState         ProviderDesiredState `json:"desiredState"`
 	StagedCredentialName string               `json:"stagedCredentialName,omitempty"`
+	// ReplacesProviderName names the auth provider a switch takes over from. It must be the
+	// currently configured one, and is deconfigured in the reconcile that promotes the replacement.
+	ReplacesProviderName string `json:"replacesProviderName,omitempty"`
 }
 
 type ProviderConfigurationChangeStatus struct {

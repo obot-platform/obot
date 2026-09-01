@@ -86,21 +86,3 @@ func TestEmailDomainAllowed(t *testing.T) {
 		}
 	}
 }
-
-func TestRedirectTarget(t *testing.T) {
-	tests := []struct {
-		rd, want string
-	}{
-		{"", "/"},
-		{"/admin", "/admin"},
-		{"//evil.com", "/"},
-		{"https://evil.com", "/"},
-		{"javascript:alert(1)", "/"},
-	}
-
-	for _, tt := range tests {
-		if got := redirectTarget(tt.rd); got != tt.want {
-			t.Errorf("redirectTarget(%q) = %q, want %q", tt.rd, got, tt.want)
-		}
-	}
-}

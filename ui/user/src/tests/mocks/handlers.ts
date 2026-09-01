@@ -36,6 +36,14 @@ export const handlers = [
 	http.get('/api/mcp-catalogs/default/entries/all-servers', () =>
 		HttpResponse.json({ items: data.listAllCatalogDeployedSingleRemoteServersResponse })
 	),
+	// Catalog entry and vMCP forms lazily load these on mount, so every spec that renders one needs
+	// them even when they are not what the spec is asserting.
+	http.get('/api/mcp-catalogs/:catalogID/access-control-rules', () =>
+		HttpResponse.json({ items: [] })
+	),
+	http.get('/api/mcp-catalogs/:catalogID/entries/:entryID/servers', () =>
+		HttpResponse.json({ items: [] })
+	),
 	http.get('/api/mcp-catalogs/default/servers', () =>
 		HttpResponse.json({ items: data.listMCPCatalogServersResponse })
 	),

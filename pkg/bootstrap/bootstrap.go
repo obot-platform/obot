@@ -26,6 +26,7 @@ const (
 type Bootstrap struct {
 	token, serverURL                  string
 	authEnabled, forceEnableBootstrap bool
+	disabled                          bool
 	gatewayClient                     *client.Client
 	authProviderGetter                configuredAuthProviderGetter
 }
@@ -34,7 +35,20 @@ type configuredAuthProviderGetter interface {
 	GetConfiguredAuthProvider(context.Context) (string, error)
 }
 
-func New(ctx context.Context, serverURL string, c *client.Client, authProviderGetter configuredAuthProviderGetter, authEnabled, forceEnableBootstrap bool) (*Bootstrap, error) {
+// New builds the bootstrap token handler. disabled turns off bootstrap-token generation and
+// authentication, which startup does once it has provisioned the local auth owner through a
+// separately secured setup link.
+func New(ctx context.Context, serverURL string, c *client.Client, authProviderGetter configuredAuthProviderGetter, authEnabled, forceEnableBootstrap, disabled bool) (*Bootstrap, error) {
+	if disabled {
+		return &Bootstrap{
+			serverURL:            serverURL,
+			authEnabled:          authEnabled,
+			forceEnableBootstrap: false,
+			disabled:             true,
+			gatewayClient:        c,
+			authProviderGetter:   authProviderGetter,
+		}, nil
+	}
 	if !authEnabled {
 		// Auth is not enabled, so skip token generation.
 		return &Bootstrap{
@@ -142,7 +156,7 @@ func printToken(token string) {
 }
 
 func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Response, bool, error) {
-	if !b.authEnabled {
+	if b.disabled || !b.authEnabled {
 		return nil, false, nil
 	}
 
@@ -191,6 +205,10 @@ func (b *Bootstrap) AuthenticateRequest(req *http.Request) (*authenticator.Respo
 }
 
 func (b *Bootstrap) Login(req api.Context) error {
+	if b.disabled {
+		http.Error(req.ResponseWriter, "bootstrap login is disabled", http.StatusNotFound)
+		return nil
+	}
 	if !b.authEnabled {
 		http.Error(req.ResponseWriter, "auth is not enabled", http.StatusNotFound)
 		return nil
@@ -242,6 +260,9 @@ func (b *Bootstrap) Logout(req api.Context) error {
 }
 
 func (b *Bootstrap) IsEnabled(req api.Context) error {
+	if b.disabled {
+		return req.Write(map[string]bool{"enabled": false, "setupEnabled": false})
+	}
 	setupEnabled, err := b.SetupEnabled(req.Context())
 	if err != nil {
 		return err
@@ -256,7 +277,7 @@ func (b *Bootstrap) IsEnabled(req api.Context) error {
 }
 
 func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
-	if !b.authEnabled {
+	if b.disabled || !b.authEnabled {
 		return false, nil
 	}
 
@@ -264,7 +285,7 @@ func (b *Bootstrap) Enabled(ctx context.Context) (bool, error) {
 }
 
 func (b *Bootstrap) SetupEnabled(ctx context.Context) (bool, error) {
-	if !b.authEnabled {
+	if b.disabled || !b.authEnabled {
 		return false, nil
 	}
 

@@ -97,7 +97,9 @@
 			(pathname === '/mcp-servers' && (view === 'entries' || view === 'access-policies')) ||
 			pathname.startsWith('/mcp-servers/access-policies/');
 		const scope = usesAdminMcpData ? 'admin' : 'user';
-		if (profile.current.loaded) {
+		// A restricted session is walled off from every one of these endpoints, so prefetching the
+		// catalog only produces a wall of 403s (and races to create the same identity).
+		if (profile.current.loaded && !profile.current.requirePasswordChange) {
 			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: usesAdminMcpData, scope }));
 		}
 	});

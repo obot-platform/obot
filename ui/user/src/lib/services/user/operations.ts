@@ -65,6 +65,16 @@ import {
 
 type ItemsResponse<T> = { items: T[] | null };
 
+export async function activateInitialLocalAuthOwner(setupToken: string): Promise<void> {
+	// The activation page renders setup-link failures inline, and is an anonymous-safe route, so
+	// errors are kept off the global toast store and a 401 stays on-page.
+	await doPost('/local-auth/activate', { setupToken }, { dontLogErrors: true });
+}
+
+export async function changeLocalAuthPassword(password: string): Promise<void> {
+	await doPost('/local-auth/change-password', { password });
+}
+
 export async function listTunnelConnections(opts?: {
 	fetch?: Fetcher;
 	dontLogErrors?: boolean;
@@ -737,6 +747,9 @@ export async function getProfile(opts?: { fetch?: Fetcher }): Promise<Profile> {
 	};
 	obj.isAdminReadonly = () => {
 		return !obj.groups.includes(Group.ADMIN) && obj.groups.includes(Group.AUDITOR);
+	};
+	obj.isOwner = () => {
+		return obj.groups.includes(Group.OWNER);
 	};
 	obj.isBootstrapUser = () => {
 		return obj.username === BOOTSTRAP_USER_ID;

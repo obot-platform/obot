@@ -7,8 +7,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 type ConfirmOwnerRequest struct {
@@ -64,28 +62,8 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	// Check if the user has an explicit role from environment variables
-	explicitRole := req.GatewayClient.HasExplicitRole(user.Email)
-
-	// Ensure user has Owner role
-	// Note: If the user is a hardcoded Admin or Owner from environment variables,
-	// we must respect that configuration and not override it.
-	if !user.Role.HasRole(types.RoleOwner) {
-		// Don't promote hardcoded Admins - that would override explicit configuration
-		if explicitRole.HasRole(types.RoleAdmin) {
-			slog.Info("Rejecting owner promotion for explicitly configured admin", "userID", user.ID)
-			return types.NewErrHTTP(http.StatusBadRequest,
-				fmt.Sprintf("cannot promote user %s to Owner: user is configured as Admin via environment variables", user.Email))
-		}
-
-		// Update user role to Owner
-		user.Role = user.Role.SwitchBaseRole(types.RoleOwner)
-
-		// Update in database
-		if _, err := req.GatewayClient.UpdateUser(req.Context(), true, user, fmt.Sprintf("%d", user.ID)); err != nil {
-			return fmt.Errorf("failed to update user role: %w", err)
-		}
-		slog.Info("Promoted temporary setup user to owner", "userID", user.ID)
+	if err := PromoteToOwner(req, user); err != nil {
+		return err
 	}
 
 	// Clear the temporary cache
@@ -93,17 +71,6 @@ func (h *Handler) ConfirmOwner(req api.Context) error {
 		return fmt.Errorf("failed to clear temp user cache: %w", err)
 	}
 	slog.Info("Cleared temporary setup user cache after owner confirmation", "userID", user.ID)
-
-	// Create the UserRoleChange
-	if err := req.Create(&v1.UserRoleChange{
-		GenerateName: system.UserRoleChangePrefix,
-		Namespace:    system.DefaultNamespace,
-		Spec: v1.UserRoleChangeSpec{
-			UserID: user.ID,
-		},
-	}); err != nil {
-		slog.Warn("failed to create user role change for new owner", "userID", user.ID, "error", err)
-	}
 
 	return req.Write(ConfirmOwnerResponse{
 		Success: true,

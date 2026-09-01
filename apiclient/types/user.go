@@ -82,6 +82,7 @@ type User struct {
 	DeletedAt              *Time    `json:"deletedAt,omitempty"`
 	OriginalEmail          string   `json:"originalEmail,omitempty"`
 	OriginalUsername       string   `json:"originalUsername,omitempty"`
+	RequirePasswordChange  bool     `json:"requirePasswordChange,omitempty"`
 }
 
 type UserList List[User]

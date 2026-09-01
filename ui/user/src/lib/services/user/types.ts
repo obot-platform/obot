@@ -857,6 +857,7 @@ export interface Profile {
 	hasAdminAccess?: () => boolean;
 	isAdmin?: () => boolean;
 	isAdminReadonly?: () => boolean;
+	isOwner?: () => boolean;
 	isBootstrapUser?: () => boolean;
 	canImpersonate?: () => boolean;
 	unauthorized?: boolean;
@@ -865,6 +866,7 @@ export interface Profile {
 	expired?: boolean;
 	created?: string;
 	displayName?: string;
+	requirePasswordChange?: boolean;
 }
 
 // Schedule

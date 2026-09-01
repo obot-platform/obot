@@ -617,6 +617,10 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/auth-providers/{id}", authProviders.ByID)
 	mux.HandleFunc("POST /api/auth-providers/{id}/configure", authProviders.Configure)
 	mux.HandleFunc("POST /api/auth-providers/{id}/deconfigure", authProviders.Deconfigure)
+	mux.HandleFunc("POST /api/auth-providers/{id}/stage", authProviders.Stage)
+	mux.HandleFunc("DELETE /api/auth-providers/{id}/stage", authProviders.Unstage)
+	mux.HandleFunc("POST /api/auth-providers/{id}/verify", authProviders.Verify)
+	mux.HandleFunc("POST /api/auth-providers/{id}/activate", authProviders.Activate)
 	mux.HandleFunc("POST /api/auth-providers/{id}/reveal", authProviders.Reveal)
 
 	// Local auth provider users
@@ -624,6 +628,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/local-auth/users", localAuth.Create)
 	mux.HandleFunc("POST /api/local-auth/users/{id}/password", localAuth.SetPassword)
 	mux.HandleFunc("DELETE /api/local-auth/users/{id}", localAuth.Delete)
+	mux.HandleFunc("POST /api/local-auth/activate", localAuth.Activate)
+	mux.HandleFunc("POST /api/local-auth/change-password", localAuth.ChangePassword)
 
 	// Bootstrap
 	mux.HandleFunc("GET /api/bootstrap", services.Bootstrapper.IsEnabled)

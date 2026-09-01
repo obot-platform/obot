@@ -398,3 +398,349 @@ func TestValidateChange(t *testing.T) {
 		})
 	}
 }
+
+// A verified replacement has to be able to take over while the outgoing provider is still
+// configured, and both halves have to land in one reconcile so the switch cannot stop half done.
+func TestConfigureAuthProviderReplacesOutgoingProvider(t *testing.T) {
+	outgoingProvider := &v1.AuthProvider{
+		Name:      "outgoing-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	replacementProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         replacementProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateSwitched,
+			ReplacesProviderName: outgoingProvider.Name,
+		},
+	}
+	client := newProviderChangeTestClient(outgoingProvider, replacementProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: outgoingProvider.Name,
+		Name:    outgoingProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "outgoing-secret"},
+	}))
+	// A switch promotes what staging already saved, rather than carrying its own credential.
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.ReplacementAuthProviderCredentialContext,
+		Name:    replacementProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "replacement-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+
+	// Being the outgoing provider is what makes this allowed; without it the conflict check rejects.
+	assert.Empty(t, change.Status.Error)
+
+	replacementCredential, err := gatewayClient.RevealCredential(t.Context(), []string{replacementProvider.Name}, replacementProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "replacement-secret", replacementCredential.Secrets["CLIENT_SECRET"])
+
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{outgoingProvider.Name}, outgoingProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+
+	// Cleared in the same reconcile, so there is no window where the winner is also still staged.
+	_, err = gatewayClient.RevealCredential(t.Context(),
+		[]string{system.ReplacementAuthProviderCredentialContext}, replacementProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+
+	// Every replica has to drop both daemons, not just the one named on the change.
+	var daemonSync v1.ProviderSync
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{
+		Namespace: system.DefaultNamespace, Name: system.ProviderSyncName,
+	}, &daemonSync))
+	assert.NotZero(t, daemonSync.Spec.Revisions[providerDaemonRevisionKey(
+		v1.ProviderTypeAuth, system.DefaultNamespace, replacementProvider.Name)].Revision)
+	assert.NotZero(t, daemonSync.Spec.Revisions[providerDaemonRevisionKey(
+		v1.ProviderTypeAuth, system.DefaultNamespace, outgoingProvider.Name)].Revision)
+}
+
+// Staging saves the replacement's settings without disturbing whoever is serving logins.
+func TestStageAuthProviderSavesReplacementWithoutTouchingActive(t *testing.T) {
+	activeProvider := &v1.AuthProvider{
+		Name:      "active-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	incomingProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         incomingProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateStaged,
+			StagedCredentialName: "incoming-stage",
+		},
+	}
+	client := newProviderChangeTestClient(activeProvider, incomingProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: activeProvider.Name,
+		Name:    activeProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    change.Spec.StagedCredentialName,
+		Secrets: map[string]string{"CLIENT_SECRET": "incoming-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	assert.Empty(t, change.Status.Error)
+
+	staged, err := gatewayClient.RevealCredential(t.Context(),
+		[]string{system.ReplacementAuthProviderCredentialContext}, incomingProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "incoming-secret", staged.Secrets["CLIENT_SECRET"])
+
+	// Staging must leave the provider actually serving logins completely alone.
+	active, err := gatewayClient.RevealCredential(t.Context(), []string{activeProvider.Name}, activeProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "active-secret", active.Secrets["CLIENT_SECRET"])
+
+	// The replacement is not configured, so it must not become reachable as a login provider.
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{incomingProvider.Name}, incomingProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+}
+
+// The one-staged-provider rule is enforced here rather than in the handler, which is what makes it
+// safe against two callers staging different providers at the same time.
+func TestStageAuthProviderRejectsASecondReplacement(t *testing.T) {
+	activeProvider := &v1.AuthProvider{
+		Name:      "active-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	incomingProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         incomingProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateStaged,
+			StagedCredentialName: "incoming-stage",
+		},
+	}
+	client := newProviderChangeTestClient(activeProvider, incomingProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: activeProvider.Name,
+		Name:    activeProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.ReplacementAuthProviderCredentialContext,
+		Name:    "other-auth-provider",
+		Secrets: map[string]string{"CLIENT_SECRET": "other-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    change.Spec.StagedCredentialName,
+		Secrets: map[string]string{"CLIENT_SECRET": "incoming-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+
+	assert.Contains(t, change.Status.Error, "only one replacement provider can be staged")
+	_, err = gatewayClient.RevealCredential(t.Context(),
+		[]string{system.ReplacementAuthProviderCredentialContext}, incomingProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+}
+
+// Discarding goes through the same change as switching, so the two cannot interleave.
+func TestUnstageAuthProviderDiscardsTheReplacement(t *testing.T) {
+	incomingProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType: v1.ProviderTypeAuth,
+			ProviderName: incomingProvider.Name,
+			DesiredState: v1.ProviderDesiredStateUnstaged,
+		},
+	}
+	client := newProviderChangeTestClient(incomingProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.ReplacementAuthProviderCredentialContext,
+		Name:    incomingProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "incoming-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	assert.Empty(t, change.Status.Error)
+
+	_, err = gatewayClient.RevealCredential(t.Context(),
+		[]string{system.ReplacementAuthProviderCredentialContext}, incomingProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+}
+
+// A switch names the provider it expects to take over from. If something else is configured the
+// caller's view of the world is stale, so the switch is refused rather than applied blind.
+func TestSwitchAuthProviderRejectsUnexpectedConfiguredProvider(t *testing.T) {
+	configuredProvider := &v1.AuthProvider{
+		Name:      "unexpected-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	replacementProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	staleOutgoing := &v1.AuthProvider{
+		Name:      "stale-outgoing-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         replacementProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateSwitched,
+			ReplacesProviderName: staleOutgoing.Name,
+		},
+	}
+	client := newProviderChangeTestClient(configuredProvider, replacementProvider, staleOutgoing, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: configuredProvider.Name,
+		Name:    configuredProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "unexpected-secret"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+
+	// Asserted on content rather than emptiness: a change rejected by validation also records an
+	// error, which is how this passed for a while without reaching the conflict at all.
+	require.Contains(t, change.Status.Error, "only one authentication provider can be configured")
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{replacementProvider.Name}, replacementProvider.Name)
+	require.ErrorAs(t, err, &gatewayclient.CredentialNotFoundError{})
+	unexpectedCredential, err := gatewayClient.RevealCredential(t.Context(), []string{configuredProvider.Name}, configuredProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "unexpected-secret", unexpectedCredential.Secrets["CLIENT_SECRET"])
+}
+
+// Switching back to Local is the direction that was impossible before: its settings never reached
+// the staging path at all, so an installation that had moved to an external provider could not
+// return without deconfiguring first and locking everybody out. Nothing about staging is specific
+// to a provider, and this holds that open.
+func TestStageAuthProviderAcceptsLocalAsTheReplacement(t *testing.T) {
+	activeProvider := &v1.AuthProvider{
+		Name:      "active-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	localProvider := &v1.AuthProvider{
+		Name:      system.LocalAuthProvider,
+		Namespace: system.DefaultNamespace,
+	}
+	change := &v1.ProviderConfigurationChange{
+		Name:      system.ProviderChangeAuthName,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.ProviderConfigurationChangeSpec{
+			ProviderType:         v1.ProviderTypeAuth,
+			ProviderName:         localProvider.Name,
+			DesiredState:         v1.ProviderDesiredStateStaged,
+			StagedCredentialName: "local-stage",
+		},
+	}
+	client := newProviderChangeTestClient(activeProvider, localProvider, change)
+	gatewayClient := newProviderChangeTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: activeProvider.Name,
+		Name:    activeProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.StagedProviderCredentialContext,
+		Name:    change.Spec.StagedCredentialName,
+		// Local is configured by allowed domains alone, so this is its whole configuration.
+		Secrets: map[string]string{"OBOT_AUTH_PROVIDER_EMAIL_DOMAINS": "example.com"},
+	}))
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	handler := New(gatewayClient, dispatcher.New(nil, client, gatewayClient, licenseProvider, "", "", ""), licenseProvider, "")
+
+	require.NoError(t, handler.Reconcile(router.Request{
+		Client:    client,
+		Object:    change,
+		Ctx:       t.Context(),
+		Namespace: change.Namespace,
+		Name:      change.Name,
+	}, nil))
+	assert.Empty(t, change.Status.Error)
+
+	staged, err := gatewayClient.RevealCredential(t.Context(),
+		[]string{system.ReplacementAuthProviderCredentialContext}, localProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "example.com", staged.Secrets["OBOT_AUTH_PROVIDER_EMAIL_DOMAINS"])
+
+	active, err := gatewayClient.RevealCredential(t.Context(), []string{activeProvider.Name}, activeProvider.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "active-secret", active.Secrets["CLIENT_SECRET"])
+}

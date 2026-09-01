@@ -37,6 +37,7 @@ export function createMockProfile(groups: string[] = [Group.ADMIN]): Profile {
 		hasAdminAccess: () => groups.includes(Group.ADMIN) || groups.includes(Group.AUDITOR),
 		isAdmin: () => groups.includes(Group.ADMIN),
 		isAdminReadonly: () => !groups.includes(Group.ADMIN) && groups.includes(Group.AUDITOR),
+		isOwner: () => groups.includes(Group.OWNER),
 		isBootstrapUser: () => false
 	};
 }
