@@ -16,7 +16,9 @@ func testUIServer() *uiServer {
 	return &uiServer{fsys: fstest.MapFS{
 		"user/build/index.html":                       {Data: []byte("<html>index</html>")},
 		"user/build/fallback.html":                    {Data: []byte("<html>fallback</html>")},
+		"user/build/mcp-servers.html":                 {Data: []byte("<html>mcp-servers</html>")},
 		"user/build/_app/immutable/nodes/0.abc123.js": {Data: []byte("export const x = 1")},
+		"user/build/favicon.ico":                      {Data: []byte("icon")},
 	}}
 }
 
@@ -68,6 +70,31 @@ func TestUnknownPathServesFallbackForBrowsers(t *testing.T) {
 	}
 	if body := rec.Body.String(); body != "<html>fallback</html>" {
 		t.Errorf("expected the SPA fallback body, got %q", body)
+	}
+}
+
+// Hashed assets can be cached forever; the HTML that names them must not be, or
+// a client keeps asking for chunks from a build that is no longer deployed.
+func TestCacheHeaders(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		urlPath  string
+		expected string
+	}{
+		{"hashed asset", "/_app/immutable/nodes/0.abc123.js", "public, max-age=31536000, immutable"},
+		{"index", "/", "no-cache"},
+		{"mcp-servers entry point", "/mcp-servers", "no-cache"},
+		{"SPA fallback", "/some/client/side/route", "no-cache"},
+		// Not content-hashed, so it must not be marked immutable. Left without a
+		// directive rather than forced to revalidate on every request.
+		{"favicon", "/favicon.ico", ""},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(t, tt.urlPath, chromeUA)
+			if got := rec.Header().Get("Cache-Control"); got != tt.expected {
+				t.Errorf("expected Cache-Control %q, got %q", tt.expected, got)
+			}
+		})
 	}
 }
 

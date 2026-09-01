@@ -17,6 +17,9 @@ var (
 	embedded embed.FS
 )
 
+// immutablePrefix is where the UI build puts its content-hashed assets.
+const immutablePrefix = "/_app/immutable/"
+
 type uiServer struct {
 	rp       *httputil.ReverseProxy
 	userOnly bool
@@ -51,6 +54,16 @@ func newUIProxy(port int) *httputil.ReverseProxy {
 	}
 }
 
+// serveHTML serves one of the UI's HTML entry points. Each one names the
+// content-hashed assets of the build it came from, and those assets only exist
+// in that build's binary, so a stale copy asks for chunks the running binary
+// does not have. no-cache still lets a client hold onto it, but forces a
+// revalidation before it is used.
+func (s *uiServer) serveHTML(w http.ResponseWriter, r *http.Request, name string) {
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeFileFS(w, r, s.fsys, name)
+}
+
 func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Always include the X-Frame-Options header
 	w.Header().Set("X-Frame-Options", "DENY")
@@ -67,23 +80,28 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	userPath := path.Join("user/build/", r.URL.Path)
 
 	if r.URL.Path == "/" {
-		http.ServeFileFS(w, r, s.fsys, "user/build/index.html")
+		s.serveHTML(w, r, "user/build/index.html")
 	} else if r.URL.Path == "/admin" {
-		http.ServeFileFS(w, r, s.fsys, "user/build/admin.html")
+		s.serveHTML(w, r, "user/build/admin.html")
 	} else if r.URL.Path == "/admin/" {
 		// we have to redirect to /admin instead of serving the index.html file because ending slash will laod a different route for js files
 		http.Redirect(w, r, "/admin", http.StatusFound)
 	} else if r.URL.Path == "/mcp-servers/" {
 		http.Redirect(w, r, "/mcp-servers", http.StatusFound)
 	} else if r.URL.Path == "/mcp-servers" {
-		http.ServeFileFS(w, r, s.fsys, "user/build/mcp-servers.html")
+		s.serveHTML(w, r, "user/build/mcp-servers.html")
 	} else if pathWithoutTrailingSlash, ok := strings.CutSuffix(r.URL.Path, "/"); ok {
 		// Paths with trailing slashes should redirect to without slash to avoid directory listings
 		http.Redirect(w, r, pathWithoutTrailingSlash, http.StatusFound)
 	} else if _, err := fs.Stat(s.fsys, userPath+".html"); err == nil {
 		// Try .html version first (for SvelteKit prerendered pages)
-		http.ServeFileFS(w, r, s.fsys, userPath+".html")
+		s.serveHTML(w, r, userPath+".html")
 	} else if _, err := fs.Stat(s.fsys, userPath); err == nil {
+		if strings.HasPrefix(r.URL.Path, immutablePrefix) {
+			// These filenames carry a hash of their contents, so what a given URL
+			// returns can never change and the client never has to ask again.
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		http.ServeFileFS(w, r, s.fsys, userPath)
 	} else if !strings.Contains(strings.ToLower(r.UserAgent()), "mozilla") {
 		// Non-browser clients get a real 404 for unknown paths rather than the SPA
@@ -93,6 +111,6 @@ func (s *uiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		http.NotFound(w, r)
 	} else {
-		http.ServeFileFS(w, r, s.fsys, "user/build/fallback.html")
+		s.serveHTML(w, r, "user/build/fallback.html")
 	}
 }
