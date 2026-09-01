@@ -3,12 +3,14 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import type { SkillRepository } from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { formatTimeAgo } from '$lib/time';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import { GitBranch, PencilRuler, TriangleAlert } from '@lucide/svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		skills: Skill[];
@@ -49,7 +51,7 @@
 	}
 </script>
 
-<div class="flex min-h-full flex-col">
+<div class="flex min-h-full flex-col" in:fade={{ duration: PAGE_TRANSITION_DURATION }}>
 	<div class="bg-base-200 dark:bg-base-100 sticky top-0 z-20 w-full">
 		<div class="mb-2">
 			<Search

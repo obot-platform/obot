@@ -1,66 +1,51 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { type SkillAccessPolicy } from '$lib/services/admin/types';
 	import { AdminService } from '$lib/services/index.js';
 	import { profile } from '$lib/stores/index.js';
-	import { clearUrlParams, goto } from '$lib/url';
+	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import { Plus, Trash2, Vault } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		skillAccessPolicies: SkillAccessPolicy[];
-		creating?: boolean;
 	}
 
-	let { skillAccessPolicies: initialPolicies, creating = false }: Props = $props();
+	let { skillAccessPolicies: initialPolicies }: Props = $props();
 	let skillAccessPolicies = $state(untrack(() => initialPolicies));
 	let policyToDelete = $state<SkillAccessPolicy>();
 
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 
-	async function navigateToCreated(policy: SkillAccessPolicy) {
-		clearUrlParams(['new']);
-		goto(`/admin/skill-access-policies/${policy.id}`, { replaceState: false });
-	}
-
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-{#if creating}
-	{@render createPolicyScreen()}
-{:else}
-	<div
-		class="flex flex-col gap-8"
-		in:fly={{ x: 100, delay: duration, duration }}
-		out:fly={{ x: -100, duration }}
-	>
-		{#if skillAccessPolicies.length === 0}
-			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-				<Vault class="text-muted-content size-24 opacity-25" />
-				<h4 class="text-muted-content text-lg font-semibold">No skill access policies</h4>
-				<p class="text-muted-content text-sm font-light">
-					Looks like you don't have any skill access policies created yet. <br />
-					{#if !isReadonly}
-						Click the button below to get started.
-					{/if}
-				</p>
+<div class="flex flex-col gap-8" in:fade={{ duration }}>
+	{#if skillAccessPolicies.length === 0}
+		<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
+			<Vault class="text-muted-content size-24 opacity-25" />
+			<h4 class="text-muted-content text-lg font-semibold">No skill access policies</h4>
+			<p class="text-muted-content text-sm font-light">
+				Looks like you don't have any skill access policies created yet. <br />
+				{#if !isReadonly}
+					Click the button below to get started.
+				{/if}
+			</p>
 
-				{@render addPolicyButton()}
-			</div>
-		{:else}
-			<div class="flex flex-col gap-2">
-				{@render skillAccessPolicyTable()}
-			</div>
-		{/if}
-	</div>
-{/if}
+			{@render addPolicyButton()}
+		</div>
+	{:else}
+		<div class="flex flex-col gap-2">
+			{@render skillAccessPolicyTable()}
+		</div>
+	{/if}
+</div>
 
 {#snippet skillAccessPolicyTable()}
 	<Table
@@ -68,7 +53,7 @@
 		fields={['displayName']}
 		headers={[{ property: 'displayName', title: 'Name' }]}
 		onClickRow={(d, isCtrlClick) => {
-			const url = `/admin/skill-access-policies/${d.id}`;
+			const url = `/skills/access-policies/${d.id}`;
 			openUrl(url, isCtrlClick);
 		}}
 		sortable={['displayName']}
@@ -99,23 +84,13 @@
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
 				goto(
-					`${page.url.pathname}?view=${page.url.searchParams.get('view') ?? 'access-policy'}&new=true`
+					`${page.url.pathname}?view=${page.url.searchParams.get('view') ?? 'access-policies'}&new=true`
 				);
 			}}
 		>
 			<Plus class="size-4" /> Add Access Policy
 		</button>
 	{/if}
-{/snippet}
-
-{#snippet createPolicyScreen()}
-	<div
-		class="h-full w-full"
-		in:fly={{ x: 100, delay: duration, duration }}
-		out:fly={{ x: -100, duration }}
-	>
-		<SkillAccessPolicyForm onCreate={navigateToCreated} readonly={isReadonly} />
-	</div>
 {/snippet}
 
 <Confirm

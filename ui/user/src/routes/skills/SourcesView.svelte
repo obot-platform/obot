@@ -4,10 +4,12 @@
 	import Search from '$lib/components/Search.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { SkillRepository } from '$lib/services/admin/types';
 	import { isWebURL, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Pencil, PencilRuler, RefreshCcw, Trash2, TriangleAlert } from '@lucide/svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		skillRepositories: SkillRepository[];
@@ -52,7 +54,7 @@
 	}
 </script>
 
-<div class="flex min-h-full flex-col">
+<div class="flex min-h-full flex-col" in:fade={{ duration: PAGE_TRANSITION_DURATION }}>
 	<div class="bg-base-200 dark:bg-base-100 sticky top-0 z-20 w-full">
 		<div class="mb-2">
 			<Search

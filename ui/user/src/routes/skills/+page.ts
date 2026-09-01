@@ -13,7 +13,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let showLicenseError = false;
 
 	const view = url.searchParams.get('view');
-	const isSkillsView = view !== 'sources' && view !== 'access-policy' && view !== 'git-credentials';
+	const isSkillsView =
+		view !== 'sources' && view !== 'access-policies' && view !== 'git-credentials';
 
 	if (profile.hasAdminAccess?.()) {
 		try {

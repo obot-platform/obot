@@ -1,25 +1,32 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
+	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
+	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
 	import { AdminService } from '$lib/services';
-	import type { GitCredential, SkillRepository } from '$lib/services/admin/types';
+	import type {
+		GitCredential,
+		SkillAccessPolicy,
+		SkillRepository
+	} from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors, profile } from '$lib/stores';
 	import { clearUrlParams, getTableUrlParamsFilters, goto, setFilterUrlParams } from '$lib/url';
 	import SkillsPoliciesView from './SkillsPoliciesView.svelte';
-	import SkillsTab from './SkillsTab.svelte';
-	import SourcesTab from './SourcesTab.svelte';
+	import SkillsView from './SkillsView.svelte';
+	import SourcesView from './SourcesView.svelte';
 	import { Info, Plus, TriangleAlert, X } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import { slide } from 'svelte/transition';
+	import { fly, slide } from 'svelte/transition';
 
 	type RepositoryCredentialType = 'none' | 'shared' | 'token';
 
@@ -32,14 +39,15 @@
 	let { data } = $props();
 	let isAdminReadonly = $derived(Boolean(profile.current.isAdminReadonly?.()));
 	let hasAdminAccess = $derived(Boolean(profile.current.hasAdminAccess?.()));
-	const viewValues = ['skills', 'sources', 'git-credentials', 'access-policy'] as const;
+	const viewValues = ['skills', 'sources', 'git-credentials', 'access-policies'] as const;
 	let selectedView = $derived.by(() => {
 		const requested = page.url.searchParams.get('view');
 		return requested && viewValues.includes(requested as (typeof viewValues)[number])
 			? requested
 			: 'skills';
 	});
-	let creating = $derived(selectedView === 'access-policy' && page.url.searchParams.has('new'));
+	let creating = $derived(selectedView === 'access-policies' && page.url.searchParams.has('new'));
+	const duration = PAGE_TRANSITION_DURATION;
 	let layoutTitle = $derived(creating ? 'Create Skill Access Policy' : 'Skills');
 	let views = $derived.by(() => {
 		const items: TabView[] = [{ label: 'Skills', value: 'skills', content: skillsView }];
@@ -274,6 +282,11 @@
 		goto(`${page.url.pathname}?view=${selectedView}`);
 	}
 
+	function navigateToCreated(policy: SkillAccessPolicy) {
+		clearUrlParams(['new']);
+		goto(`/skills/access-policies/${policy.id}`, { replaceState: false });
+	}
+
 	onDestroy(() => {
 		for (const interval of syncInterval.values()) {
 			clearInterval(interval);
@@ -285,21 +298,27 @@
 	<title>Obot | {layoutTitle}</title>
 </svelte:head>
 
-<TabLayout
-	title={layoutTitle}
-	defaultView="skills"
-	showBackButton={creating}
-	onBackButtonClick={closeCreateScreen}
-	rightNavActions={navActions}
-	{views}
-	classes={{ childrenContainer: 'max-w-none' }}
-/>
+{#if creating}
+	<Layout title={layoutTitle} showBackButton onBackButtonClick={closeCreateScreen}>
+		<div class="h-full w-full" in:fly|global={{ x: 100, delay: duration, duration }}>
+			<SkillAccessPolicyForm onCreate={navigateToCreated} readonly={isAdminReadonly} />
+		</div>
+	</Layout>
+{:else}
+	<TabLayout
+		title={layoutTitle}
+		defaultView="skills"
+		rightNavActions={navActions}
+		{views}
+		classes={{ childrenContainer: 'max-w-none' }}
+	/>
+{/if}
 
 {#snippet navActions(view: string)}
-	{#if !isAdminReadonly && view === 'access-policy' && !creating}
+	{#if !isAdminReadonly && view === 'access-policies'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => goto(`${page.url.pathname}?view=access-policy&new=true`)}
+			onclick={() => goto(`${page.url.pathname}?view=access-policies&new=true`)}
 		>
 			<Plus class="size-4" /> Add Access Policy
 		</button>
@@ -328,7 +347,7 @@
 			</div>
 		</div>
 	{/if}
-	<SkillsTab
+	<SkillsView
 		{skills}
 		{skillRepositories}
 		{showLicenseError}
@@ -349,7 +368,7 @@
 			</div>
 		</div>
 	{/if}
-	<SourcesTab
+	<SourcesView
 		{skillRepositories}
 		syncingIds={syncing}
 		{isAdminReadonly}
@@ -369,7 +388,7 @@
 {/snippet}
 
 {#snippet accessPolicy()}
-	<SkillsPoliciesView skillAccessPolicies={data.skillAccessPolicies} {creating} />
+	<SkillsPoliciesView skillAccessPolicies={data.skillAccessPolicies} />
 {/snippet}
 
 <Confirm
