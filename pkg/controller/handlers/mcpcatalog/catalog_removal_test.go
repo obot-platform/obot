@@ -300,19 +300,26 @@ func TestRemoveCatalogChildren(t *testing.T) {
 	}
 	client := newCatalogFakeClient(catalog, entry, server, unrelatedEntry, unrelatedServer)
 
-	err := (&Handler{}).RemoveCatalogChildren(router.Request{
+	request := router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    catalog,
 		Namespace: catalog.Namespace,
 		Name:      catalog.Name,
-	}, &router.ResponseWrapper{})
+	}
+	response := &router.ResponseWrapper{}
+	err := (&Handler{}).RemoveCatalogChildren(request, response)
 	require.NoError(t, err)
+	assert.Equal(t, catalogRemovalRetryInterval, response.Delay)
 
 	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{})))
 	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(server), &v1.MCPServer{})))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelatedEntry), &v1.MCPServerCatalogEntry{}))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelatedServer), &v1.MCPServer{}))
+
+	response = &router.ResponseWrapper{}
+	require.NoError(t, (&Handler{}).RemoveCatalogChildren(request, response))
+	assert.Zero(t, response.Delay)
 }
 
 func TestRemoveSystemCatalogEntries(t *testing.T) {
@@ -329,17 +336,24 @@ func TestRemoveSystemCatalogEntries(t *testing.T) {
 	}
 	client := newCatalogFakeClient(catalog, entry, unrelated)
 
-	err := (&Handler{}).RemoveSystemCatalogEntries(router.Request{
+	request := router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    catalog,
 		Namespace: catalog.Namespace,
 		Name:      catalog.Name,
-	}, &router.ResponseWrapper{})
+	}
+	response := &router.ResponseWrapper{}
+	err := (&Handler{}).RemoveSystemCatalogEntries(request, response)
 	require.NoError(t, err)
+	assert.Equal(t, catalogRemovalRetryInterval, response.Delay)
 
 	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.SystemMCPServerCatalogEntry{})))
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelated), &v1.SystemMCPServerCatalogEntry{}))
+
+	response = &router.ResponseWrapper{}
+	require.NoError(t, (&Handler{}).RemoveSystemCatalogEntries(request, response))
+	assert.Zero(t, response.Delay)
 }
 
 func testCatalog() *v1.MCPCatalog {

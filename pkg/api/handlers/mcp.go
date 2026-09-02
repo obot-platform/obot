@@ -1587,8 +1587,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	}
 
 	if catalogID != "" {
-		var catalog v1.MCPCatalog
-		if err := req.Get(&catalog, catalogID); err != nil {
+		if err := ensureMCPCatalogAcceptsChildren(req, catalogID); err != nil {
 			return err
 		}
 
@@ -1707,6 +1706,11 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	// (which would otherwise ship a literal "${VAR}" string at runtime).
 	if err := mcp.ValidateTemplateReferences(server.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
+	}
+	if catalogID != "" {
+		if err := ensureMCPCatalogAcceptsChildren(req, catalogID); err != nil {
+			return err
+		}
 	}
 	if err := req.Create(&server); err != nil {
 		return err

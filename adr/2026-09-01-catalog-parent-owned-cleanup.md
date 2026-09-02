@@ -29,8 +29,9 @@ pruning orphaned entries.
 
 Catalog children no longer register generic deletion references to their parent catalog. MCPCatalog
 and SystemMCPCatalog finalizers instead list and delete their children when the parent itself is
-deleted. Hourly catalog reconciliation, apply, drift repair, and system-catalog pruning remain
-unchanged.
+deleted. The finalizers remain until a follow-up pass confirms that no children remain, and entry
+or catalog-scoped server creation is rejected once a catalog begins terminating. Hourly catalog
+reconciliation, apply, drift repair, and system-catalog pruning remain unchanged.
 
 ## Rationale
 

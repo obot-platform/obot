@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -28,6 +29,59 @@ type fakeCapacityInfoProvider struct {
 	serverNames []string
 	info        types.MCPCapacityInfo
 	err         error
+}
+
+func TestCreateEntryRejectsDeletingMCPCatalog(t *testing.T) {
+	now := metav1.Now()
+	catalog := &v1.MCPCatalog{
+		Name:              "catalog-1",
+		Namespace:         system.DefaultNamespace,
+		DeletionTimestamp: &now,
+		Finalizers:        []string{"test-finalizer"},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/", nil)
+	request.SetPathValue("catalog_id", catalog.Name)
+
+	err := (&MCPCatalogHandler{}).CreateEntry(api.Context{
+		Request:        request,
+		ResponseWriter: httptest.NewRecorder(),
+		Storage: storage.Client(fake.NewClientBuilder().
+			WithScheme(storagescheme.Scheme).
+			WithObjects(catalog).
+			Build()),
+	})
+
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "being deleted")
+}
+
+func TestCreateServerRejectsDeletingMCPCatalog(t *testing.T) {
+	now := metav1.Now()
+	catalog := &v1.MCPCatalog{
+		Name:              "catalog-1",
+		Namespace:         system.DefaultNamespace,
+		DeletionTimestamp: &now,
+		Finalizers:        []string{"test-finalizer"},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{}`))
+	request.SetPathValue("catalog_id", catalog.Name)
+
+	err := (&MCPHandler{}).CreateServer(api.Context{
+		Request:        request,
+		ResponseWriter: httptest.NewRecorder(),
+		Storage: storage.Client(fake.NewClientBuilder().
+			WithScheme(storagescheme.Scheme).
+			WithObjects(catalog).
+			Build()),
+		User: &kuser.DefaultInfo{UID: "user-1"},
+	})
+
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "being deleted")
 }
 
 func TestStaticOAuthCredentialSecrets(t *testing.T) {

@@ -1,12 +1,47 @@
 package handlers
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestCreateEntryRejectsDeletingSystemMCPCatalog(t *testing.T) {
+	now := metav1.Now()
+	catalog := &v1.SystemMCPCatalog{
+		Name:              "catalog-1",
+		Namespace:         system.DefaultNamespace,
+		DeletionTimestamp: &now,
+		Finalizers:        []string{"test-finalizer"},
+	}
+	request := httptest.NewRequest(http.MethodPost, "/", nil)
+	request.SetPathValue("catalog_id", catalog.Name)
+
+	err := (&SystemMCPCatalogHandler{}).CreateEntry(api.Context{
+		Request:        request,
+		ResponseWriter: httptest.NewRecorder(),
+		Storage: storage.Client(fake.NewClientBuilder().
+			WithScheme(storagescheme.Scheme).
+			WithObjects(catalog).
+			Build()),
+	})
+
+	var httpErr *types.ErrHTTP
+	require.ErrorAs(t, err, &httpErr)
+	assert.Equal(t, http.StatusConflict, httpErr.Code)
+	assert.Contains(t, httpErr.Message, "being deleted")
+}
 
 func TestMaskCatalogCredential(t *testing.T) {
 	assert.Equal(t, "****", maskCatalogCredential(""))

@@ -48,6 +48,8 @@ const (
 	forceSyncStartupAnnotation = "obot.ai/force-sync-startup"
 	// Bump this any time this functionality is needed.
 	startupSyncGeneration = "1"
+
+	catalogRemovalRetryInterval = time.Second
 )
 
 type Handler struct {
@@ -596,7 +598,7 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 // RemoveCatalogChildren replaces child-side deletion watches with parent-side cleanup.
 // Watching an MCPCatalog from every catalog entry and catalog-scoped server causes any
 // catalog status update to reconcile every child at once.
-func (*Handler) RemoveCatalogChildren(req router.Request, _ router.Response) error {
+func (*Handler) RemoveCatalogChildren(req router.Request, resp router.Response) error {
 	catalog := req.Object.(*v1.MCPCatalog)
 
 	var entries v1.MCPServerCatalogEntryList
@@ -622,13 +624,16 @@ func (*Handler) RemoveCatalogChildren(req router.Request, _ router.Response) err
 			return fmt.Errorf("failed to delete server %q for catalog %q: %w", servers.Items[i].Name, catalog.Name, err)
 		}
 	}
+	if len(entries.Items) > 0 || len(servers.Items) > 0 {
+		resp.RetryAfter(catalogRemovalRetryInterval)
+	}
 
 	return nil
 }
 
 // RemoveSystemCatalogEntries performs the deletion cleanup previously provided by
 // every SystemMCPServerCatalogEntry watching its parent catalog.
-func (*Handler) RemoveSystemCatalogEntries(req router.Request, _ router.Response) error {
+func (*Handler) RemoveSystemCatalogEntries(req router.Request, resp router.Response) error {
 	catalog := req.Object.(*v1.SystemMCPCatalog)
 
 	var entries v1.SystemMCPServerCatalogEntryList
@@ -641,6 +646,9 @@ func (*Handler) RemoveSystemCatalogEntries(req router.Request, _ router.Response
 		if err := req.Client.Delete(req.Ctx, &entries.Items[i]); err != nil && !apierrors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete entry %q for system catalog %q: %w", entries.Items[i].Name, catalog.Name, err)
 		}
+	}
+	if len(entries.Items) > 0 {
+		resp.RetryAfter(catalogRemovalRetryInterval)
 	}
 
 	return nil

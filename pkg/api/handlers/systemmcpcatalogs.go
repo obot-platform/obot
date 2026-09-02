@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"slices"
 	"strings"
@@ -193,8 +194,8 @@ func (*SystemMCPCatalogHandler) GetEntry(req api.Context) error {
 
 func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 	catalogName := req.PathValue("catalog_id")
-	if err := req.Get(&v1.SystemMCPCatalog{}, catalogName); err != nil {
-		return fmt.Errorf("failed to get system catalog: %w", err)
+	if err := ensureSystemMCPCatalogAcceptsEntries(req, catalogName); err != nil {
+		return err
 	}
 
 	var manifest types.SystemMCPServerCatalogEntryManifest
@@ -214,10 +215,26 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 			Manifest:             manifest,
 		},
 	}
+	// Check again immediately before creation so validation work does not leave a
+	// wide window for the catalog to begin terminating.
+	if err := ensureSystemMCPCatalogAcceptsEntries(req, catalogName); err != nil {
+		return err
+	}
 	if err := req.Create(&entry); err != nil {
 		return fmt.Errorf("failed to create system catalog entry: %w", err)
 	}
 	return req.Write(ConvertSystemMCPServerCatalogEntry(entry))
+}
+
+func ensureSystemMCPCatalogAcceptsEntries(req api.Context, catalogName string) error {
+	var catalog v1.SystemMCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get system catalog: %w", err)
+	}
+	if !catalog.DeletionTimestamp.IsZero() {
+		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("system catalog %q is being deleted", catalogName))
+	}
+	return nil
 }
 
 func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {

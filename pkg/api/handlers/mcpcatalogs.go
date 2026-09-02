@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"regexp"
 	"slices"
 	"sort"
@@ -309,8 +310,8 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 
 	// Verify the scope exists
 	if catalogName != "" {
-		if err := req.Get(&v1.MCPCatalog{}, catalogName); err != nil {
-			return fmt.Errorf("failed to get catalog: %w", err)
+		if err := ensureMCPCatalogAcceptsChildren(req, catalogName); err != nil {
+			return err
 		}
 	} else if workspaceID != "" {
 		if err := req.Get(&v1.PowerUserWorkspace{}, workspaceID); err != nil {
@@ -368,11 +369,29 @@ func (h *MCPCatalogHandler) CreateEntry(req api.Context) error {
 		entry.Spec.PowerUserWorkspaceID = workspaceID
 	}
 
+	// Check again immediately before creation so validation work does not leave a
+	// wide window for the catalog to begin terminating.
+	if catalogName != "" {
+		if err := ensureMCPCatalogAcceptsChildren(req, catalogName); err != nil {
+			return err
+		}
+	}
 	if err := req.Create(&entry); err != nil {
 		return fmt.Errorf("failed to create entry: %w", err)
 	}
 
 	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
+func ensureMCPCatalogAcceptsChildren(req api.Context, catalogName string) error {
+	var catalog v1.MCPCatalog
+	if err := req.Get(&catalog, catalogName); err != nil {
+		return fmt.Errorf("failed to get catalog: %w", err)
+	}
+	if !catalog.DeletionTimestamp.IsZero() {
+		return types.NewErrHTTP(http.StatusConflict, fmt.Sprintf("catalog %q is being deleted", catalogName))
+	}
+	return nil
 }
 
 func (h *MCPCatalogHandler) UpdateEntry(req api.Context) error {
