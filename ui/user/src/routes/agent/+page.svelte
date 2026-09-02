@@ -90,7 +90,8 @@
 		childrenContainer: 'max-w-full h-[calc(100dvh-4rem)]',
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
-		sidebarRoot: 'bg-base-200'
+		sidebarRoot: 'bg-base-200',
+		navbar: 'border-b-0'
 	}}
 	whiteBackground
 	disableResize

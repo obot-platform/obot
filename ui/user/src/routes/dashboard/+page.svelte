@@ -143,29 +143,33 @@
 				loadingToolUsage = false;
 			});
 
-		AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
-			.then((stats) => {
-				deviceScanStats = stats;
-			})
-			.catch((error) => {
-				if (error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				loadingDeviceScanStats = false;
-			});
+		if (profile.current.hasAdminAccess?.()) {
+			AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
+				.then((stats) => {
+					deviceScanStats = stats;
+				})
+				.catch((error) => {
+					if (error?.name === 'AbortError') return;
+					errors.append(error);
+				})
+				.finally(() => {
+					loadingDeviceScanStats = false;
+				});
+		}
 
-		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
-			UserService.listUsersIncludeDeleted(),
-			AdminService.listTotalTokenUsage({ start, end }),
-			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
-			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
-		]);
+		if (profile.current.hasAdminAccess?.()) {
+			const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
+				UserService.listUsersIncludeDeleted(),
+				AdminService.listTotalTokenUsage({ start, end }),
+				AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
+				AdminService.listAllWorkspaceDeployedSingleRemoteServers()
+			]);
 
-		usersData = users;
-		totalTokensData = tokens;
-		deployedCatalogEntryServers = catalogServers;
-		deployedWorkspaceCatalogEntryServers = workspaceServers;
+			usersData = users;
+			totalTokensData = tokens;
+			deployedCatalogEntryServers = catalogServers;
+			deployedWorkspaceCatalogEntryServers = workspaceServers;
+		}
 		loading = false;
 	});
 
@@ -296,129 +300,141 @@
 
 <Layout title="Dashboard" classes={{ childrenContainer: 'max-w-none', container: '' }}>
 	<div class="@container grid min-w-0 w-full max-w-full grid-cols-12 gap-4">
-		<div class="col-span-12 grid grid-cols-12 gap-4">
-			<div
-				class={twMerge(
-					'paper flex min-w-0 flex-col gap-0 p-0 h-full',
-					hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
-				)}
-			>
-				{#if hasDeviceScans}
-					<div class="shrink-0 border-b border-base-300 px-4 py-2">
-						<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
-					</div>
-				{/if}
-				<div class="@container min-w-0 w-full max-w-full">
-					<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12">
-						{#each platformStatTiles as platformStat (platformStat.id)}
-							{@render platformStatCell(platformStat)}
-						{/each}
-					</div>
-				</div>
-			</div>
-			{#if hasDeviceScans}
+		{#if profile.current.hasAdminAccess?.()}
+			<div class="col-span-12 grid grid-cols-12 gap-4">
 				<div
-					class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7 h-full"
-					in:fly={{ x: 100, duration: 150 }}
+					class={twMerge(
+						'paper flex min-w-0 flex-col gap-0 p-0 h-full',
+						hasDeviceScans ? ' col-span-12 @3xl:col-span-5' : 'col-span-12'
+					)}
 				>
-					<div class="col-span-12 border-b border-base-300 px-4 py-2">
-						<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
-					</div>
+					{#if hasDeviceScans}
+						<div class="shrink-0 border-b border-base-300 px-4 py-2">
+							<h4 class="flex items-center font-light text-xs uppercase">On Platform</h4>
+						</div>
+					{/if}
 					<div class="@container min-w-0 w-full max-w-full">
-						<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-5">
-							{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
-								{@render deviceScanStatCell(deviceScanStat)}
+						<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12">
+							{#each platformStatTiles as platformStat (platformStat.id)}
+								{@render platformStatCell(platformStat)}
 							{/each}
 						</div>
 					</div>
 				</div>
+				{#if hasDeviceScans}
+					<div
+						class="gap-0 paper min-w-0 p-0 col-span-12 @3xl:col-span-7 h-full"
+						in:fly={{ x: 100, duration: 150 }}
+					>
+						<div class="col-span-12 border-b border-base-300 px-4 py-2">
+							<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
+						</div>
+						<div class="@container min-w-0 w-full max-w-full">
+							<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-5">
+								{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
+									{@render deviceScanStatCell(deviceScanStat)}
+								{/each}
+							</div>
+						</div>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#if profile.current.hasAdminAccess?.()}
+			{#if hasDeviceScans}
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+					{@render serverActivityGraph()}
+					{#if loadingDeviceScanStats}
+						<Skeleton type="card" class="min-h-72 h-full w-full" />
+					{:else}
+						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
+							<DeviceScanDonutCard
+								title="Top Device Skills"
+								buckets={deviceScanSkillBuckets}
+								totalGroups={totalDeviceScanSkillGroups}
+								emptyMsg="No skills observed yet."
+								class="h-full"
+								classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
+							/>
+						</div>
+					{/if}
+				</div>
+
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
+					{@render topServerDeploymentList()}
+					{#if loadingDeviceScanStats}
+						<Skeleton type="card" class="min-h-72 h-full w-full" />
+						<Skeleton type="card" class="min-h-72 h-full w-full" />
+					{:else}
+						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
+							<DeviceScanDonutCard
+								legendOnBottom
+								title="Device Clients"
+								buckets={deviceScanClientBuckets}
+								totalGroups={totalDeviceScanClientGroups}
+								emptyMsg="No clients observed yet."
+								class="h-full"
+							/>
+						</div>
+						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
+							<DeviceScanDonutCard
+								legendOnBottom
+								title="Top Device MCP Servers"
+								buckets={deviceScanMcpBuckets}
+								totalGroups={totalDeviceScanMcpGroups}
+								emptyMsg="No MCP servers observed yet."
+								class="h-full"
+							/>
+						</div>
+					{/if}
+				</div>
+
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+					{@render toolUsageGraph()}
+					{#if loadingDeviceScanStats}
+						<Skeleton type="card" class="min-h-80 h-full w-full" />
+					{:else}
+						<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
+							<DeviceScanTimelineCard
+								rangeStart={start}
+								rangeEnd={end}
+								timelineRows={deviceScanTimelineRows}
+								totalSubmissions={totalDeviceScanSubmissions}
+							/>
+						</div>
+					{/if}
+				</div>
+
+				<div class="col-span-12">
+					<TokenUsageTimelineCard startDate={start} endDate={end} />
+				</div>
+
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+					{@render popularTools()}
+					{@render toolAverageResponseTime()}
+				</div>
+			{:else}
+				<div class="col-span-12">
+					<TokenUsageTimelineCard startDate={start} endDate={end} />
+				</div>
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
+					{@render toolUsageGraph()}
+					{@render serverActivityGraph()}
+				</div>
+				<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
+					{@render popularTools()}
+					{@render toolAverageResponseTime()}
+					{@render topServerDeploymentList()}
+				</div>
 			{/if}
-		</div>
-
-		{#if hasDeviceScans}
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-				{@render serverActivityGraph()}
-				{#if loadingDeviceScanStats}
-					<Skeleton type="card" class="min-h-72 h-full w-full" />
-				{:else}
-					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-						<DeviceScanDonutCard
-							title="Top Device Skills"
-							buckets={deviceScanSkillBuckets}
-							totalGroups={totalDeviceScanSkillGroups}
-							emptyMsg="No skills observed yet."
-							class="h-full"
-							classes={{ graphContainer: '@md:w-1/2', graph: 'h-56 w-full' }}
-						/>
-					</div>
-				{/if}
-			</div>
-
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
-				{@render topServerDeploymentList()}
-				{#if loadingDeviceScanStats}
-					<Skeleton type="card" class="min-h-72 h-full w-full" />
-					<Skeleton type="card" class="min-h-72 h-full w-full" />
-				{:else}
-					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-						<DeviceScanDonutCard
-							legendOnBottom
-							title="Device Clients"
-							buckets={deviceScanClientBuckets}
-							totalGroups={totalDeviceScanClientGroups}
-							emptyMsg="No clients observed yet."
-							class="h-full"
-						/>
-					</div>
-					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-						<DeviceScanDonutCard
-							legendOnBottom
-							title="Top Device MCP Servers"
-							buckets={deviceScanMcpBuckets}
-							totalGroups={totalDeviceScanMcpGroups}
-							emptyMsg="No MCP servers observed yet."
-							class="h-full"
-						/>
-					</div>
-				{/if}
-			</div>
-
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-				{@render toolUsageGraph()}
-				{#if loadingDeviceScanStats}
-					<Skeleton type="card" class="min-h-80 h-full w-full" />
-				{:else}
-					<div class="min-h-0 h-full" in:fly={{ x: 100, duration: 150 }}>
-						<DeviceScanTimelineCard
-							rangeStart={start}
-							rangeEnd={end}
-							timelineRows={deviceScanTimelineRows}
-							totalSubmissions={totalDeviceScanSubmissions}
-						/>
-					</div>
-				{/if}
-			</div>
-
-			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
-			</div>
-
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-				{@render popularTools()}
-				{@render toolAverageResponseTime()}
-			</div>
 		{:else}
-			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
+			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4">
+				{@render toolUsageGraph()}
 			</div>
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
-				{@render toolUsageGraph()}
-				{@render serverActivityGraph()}
-			</div>
-			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-3">
 				{@render popularTools()}
 				{@render toolAverageResponseTime()}
-				{@render topServerDeploymentList()}
 			</div>
 		{/if}
 	</div>

@@ -315,7 +315,8 @@
 		collapsedSidebarHeaderContent: 'pb-0',
 		sidebar: 'pt-0 px-0',
 		sidebarRoot: 'bg-base-200',
-		noSidebarTitle: 'md:text-xl text-base'
+		noSidebarTitle: 'md:text-xl text-base',
+		navbar: 'border-b-0'
 	}}
 	showBackButton={responsive.isMobile
 		? showBackButton && !layout.quickBarAccessOpen
