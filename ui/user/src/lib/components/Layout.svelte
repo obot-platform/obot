@@ -282,18 +282,7 @@
 					id: 'models',
 					label: 'Models',
 					href: '/models'
-				},
-				...(version.current.engine === 'kubernetes'
-					? [
-							{
-								id: 'image-pull-secrets',
-								href: '/admin/image-pull-secrets',
-								label: 'Image Pull Secrets',
-								disabled: isBootStrapUser,
-								collapsible: false
-							}
-						]
-					: [])
+				}
 			]
 		},
 		{

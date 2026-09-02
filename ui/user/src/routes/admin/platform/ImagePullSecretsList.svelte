@@ -15,6 +15,7 @@
 		mutationsDisabled?: boolean;
 		refreshing?: boolean;
 		onCreate: () => void;
+		onEdit?: (secret: ImagePullSecret, isCtrlClick: boolean) => void;
 		onStatus: (secret: ImagePullSecret) => void;
 		onTest: (secret: ImagePullSecret) => void;
 		onRefresh: (secret: ImagePullSecret) => void;
@@ -26,11 +27,20 @@
 		mutationsDisabled = false,
 		refreshing = false,
 		onCreate,
+		onEdit,
 		onStatus,
 		onTest,
 		onRefresh,
 		onDelete
 	}: Props = $props();
+
+	function openEdit(secret: ImagePullSecret, isCtrlClick: boolean) {
+		if (onEdit) {
+			onEdit(secret, isCtrlClick);
+			return;
+		}
+		openUrl(`/admin/image-pull-secrets?id=${secret.id}`, isCtrlClick);
+	}
 
 	let tableData = $derived(
 		imagePullSecrets.map((item) => ({
@@ -82,8 +92,7 @@
 					]}
 					sortable={['displayName', 'detail', 'id']}
 					filterable={['displayName', 'detail']}
-					onClickRow={(row, isCtrlClick) =>
-						openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
+					onClickRow={(row, isCtrlClick) => openEdit(row, isCtrlClick)}
 				>
 					{#snippet actions(secret)}
 						<DotDotDot
@@ -152,8 +161,7 @@
 		]}
 		sortable={['displayName', 'detail', 'id', 'statusLabel', 'lastSuccess']}
 		filterable={['statusLabel']}
-		onClickRow={(row, isCtrlClick) =>
-			openUrl(`/admin/image-pull-secrets?id=${row.id}`, isCtrlClick)}
+		onClickRow={(row, isCtrlClick) => openEdit(row, isCtrlClick)}
 	>
 		{#snippet actions(secret)}
 			<DotDotDot

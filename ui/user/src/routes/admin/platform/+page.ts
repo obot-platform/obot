@@ -1,14 +1,14 @@
 import { handleRouteError } from '$lib/errors';
 import {
 	AdminService,
-	ApiKeysService,
 	UserService,
 	type AppNotification,
+	type GitCredential,
+	type ImagePullSecret,
+	type ImagePullSecretCapability,
 	type K8sSettings,
-	type License,
-	type OrgUser
+	type License
 } from '$lib/services';
-import type { APIKey } from '$lib/services/api-keys/types';
 import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
 import type { PageLoad } from './$types';
 
@@ -17,7 +17,8 @@ const views = new Set([
 	'branding',
 	'notifications',
 	'mcp-config',
-	'registry-connections'
+	'registry-connections',
+	'git-credentials'
 ]);
 
 let hasHydratedAppNotification = false;
@@ -35,10 +36,17 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let license: License | undefined;
 	let appNotification: AppNotification = defaultAppNotification;
 	let k8sSettings: K8sSettings | undefined;
-	let apiKeys: APIKey[] = [];
-	let users: OrgUser[] = [];
+	let capability: ImagePullSecretCapability = { available: false };
+	let imagePullSecrets: ImagePullSecret[] = [];
+	let gitCredentials: GitCredential[] = [];
 
 	switch (view) {
+		case 'git-credentials':
+			gitCredentials = await AdminService.listGitCredentials({
+				fetch,
+				dontLogErrors: true
+			}).catch(() => []);
+			break;
 		case 'license':
 			try {
 				license = await UserService.getLicense({ fetch });
@@ -79,9 +87,9 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 			break;
 		case 'registry-connections':
 			try {
-				[apiKeys, users] = await Promise.all([
-					ApiKeysService.listAllApiKeys({ fetch }),
-					UserService.listUsers({ fetch })
+				[capability, imagePullSecrets] = await Promise.all([
+					AdminService.getImagePullSecretCapability({ fetch }),
+					AdminService.listImagePullSecrets({ fetch })
 				]);
 			} catch (err) {
 				handleRouteError(err, '/admin/platform?view=registry-connections', profile);
@@ -94,7 +102,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		appPreferences,
 		appNotification,
 		k8sSettings,
-		apiKeys,
-		users
+		capability,
+		imagePullSecrets,
+		gitCredentials
 	};
 };

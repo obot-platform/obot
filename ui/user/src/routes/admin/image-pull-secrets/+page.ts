@@ -1,14 +1,8 @@
-import { AdminService, type ImagePullSecret, type ImagePullSecretCapability } from '$lib/services';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ fetch }) => {
-	const [capability, imagePullSecrets] = await Promise.all([
-		AdminService.getImagePullSecretCapability({ fetch }),
-		AdminService.listImagePullSecrets({ fetch })
-	]);
-
-	return {
-		capability: capability as ImagePullSecretCapability,
-		imagePullSecrets: imagePullSecrets as ImagePullSecret[]
-	};
+export const load: PageLoad = ({ url }) => {
+	const searchParams = new URLSearchParams(url.searchParams);
+	searchParams.delete('view');
+	throw redirect(301, `/admin/platform?view=registry-connections&${searchParams}`);
 };

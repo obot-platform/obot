@@ -2,10 +2,9 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout from '$lib/components/TabLayout.svelte';
-	import ApiKeyRevealDialog from '$lib/components/agent-auth-scope/ApiKeyRevealDialog.svelte';
-	import CreateAgentAuthScopeForm from '$lib/components/agent-auth-scope/CreateAgentAuthScopeForm.svelte';
+	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import type { APIKeyCreateResponse } from '$lib/services/api-keys/types';
+	import type { ImagePullSecret, ImagePullSecretCapability } from '$lib/services';
 	import { profile, version } from '$lib/stores';
 	import { compileAppPreferences } from '$lib/stores/appPreferences.svelte';
 	import { goto } from '$lib/url';
@@ -17,17 +16,26 @@
 	import RegistryConnectionsView from './RegistryConnectionsView.svelte';
 	import { Plus } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 
 	const duration = PAGE_TRANSITION_DURATION;
+	const REGISTRY_CONNECTIONS_PATH = '/admin/platform?view=registry-connections';
 
 	let { data } = $props();
-	let apiKeys = $state(untrack(() => data.apiKeys));
-	let createdKeyValue = $state<string>();
+	let capability = $state<ImagePullSecretCapability>(
+		untrack(() => data.capability ?? { available: false })
+	);
+	let imagePullSecrets = $state<ImagePullSecret[]>(untrack(() => data.imagePullSecrets ?? []));
 	let registryView = $state<ReturnType<typeof RegistryConnectionsView>>();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let creatingRegistryConnection = $derived(
-		page.url.searchParams.get('view') === 'registry-connections' && page.url.searchParams.has('new')
+		page.url.searchParams.get('view') === 'registry-connections' &&
+			(page.url.searchParams.get('create') === 'true' || Boolean(page.url.searchParams.get('id')))
+	);
+	let registryFormTitle = $derived(
+		page.url.searchParams.get('create') === 'true'
+			? 'Create Image Pull Secret'
+			: 'Edit Image Pull Secret'
 	);
 	let brandingPreferences = $derived(data.appPreferences ?? compileAppPreferences());
 
@@ -38,23 +46,25 @@
 		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 			? [{ label: 'MCP Config', value: 'mcp-config', content: mcpConfig }]
 			: []),
-		{ label: 'Registry Connections', value: 'registry-connections', content: registryConnections }
+		...(version.current.engine === 'kubernetes'
+			? [
+					{
+						label: 'Registry Connections',
+						value: 'registry-connections',
+						content: registryConnections
+					}
+				]
+			: []),
+		{ label: 'Git Credentials', value: 'git-credentials', content: gitCredentials }
 	]);
 
 	$effect(() => {
-		apiKeys = data.apiKeys;
+		capability = data.capability ?? { available: false };
+		imagePullSecrets = data.imagePullSecrets ?? [];
 	});
 
-	function hideCreateForm() {
-		const url = new URL(page.url);
-		url.searchParams.delete('new');
-		goto(url, { replaceState: true });
-	}
-
-	function handleCreate(newKey: APIKeyCreateResponse) {
-		apiKeys = [newKey, ...apiKeys];
-		createdKeyValue = newKey.key;
-		hideCreateForm();
+	function hideRegistryForm() {
+		goto(REGISTRY_CONNECTIONS_PATH, { replaceState: true, noScroll: true });
 	}
 </script>
 
@@ -63,13 +73,9 @@
 </svelte:head>
 
 {#if creatingRegistryConnection}
-	<Layout title="Create Agent Identity" showBackButton onBackButtonClick={hideCreateForm}>
-		<div
-			class="h-full w-full"
-			in:fly={{ x: 100, delay: duration, duration }}
-			out:fly={{ x: -100, duration }}
-		>
-			<CreateAgentAuthScopeForm onCreate={handleCreate} onCancel={hideCreateForm} />
+	<Layout title={registryFormTitle} showBackButton onBackButtonClick={hideRegistryForm}>
+		<div class="h-full w-full" in:fade={{ duration }}>
+			<RegistryConnectionsView bind:this={registryView} bind:capability bind:imagePullSecrets />
 		</div>
 	</Layout>
 {:else}
@@ -90,13 +96,13 @@
 {/snippet}
 
 {#snippet navActions(view: string)}
-	{#if view === 'registry-connections' && !isAdminReadonly}
+	{#if view === 'registry-connections' && !isAdminReadonly && capability.available}
 		<button
 			class="btn btn-primary flex items-center gap-2 text-sm"
 			onclick={() => registryView?.openCreateForm()}
 		>
 			<Plus class="size-4" />
-			Create Agent Auth Scope
+			Create New Secret
 		</button>
 	{/if}
 {/snippet}
@@ -118,7 +124,9 @@
 {/snippet}
 
 {#snippet registryConnections()}
-	<RegistryConnectionsView bind:this={registryView} bind:apiKeys users={data.users} />
+	<RegistryConnectionsView bind:this={registryView} bind:capability bind:imagePullSecrets />
 {/snippet}
 
-<ApiKeyRevealDialog keyValue={createdKeyValue} onClose={() => (createdKeyValue = undefined)} />
+{#snippet gitCredentials()}
+	<GitCredentialsView gitCredentials={data.gitCredentials} />
+{/snippet}

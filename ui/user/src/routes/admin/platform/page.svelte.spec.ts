@@ -1,7 +1,11 @@
 import { page as appPage } from '$app/state';
 import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import * as navigation from '$lib/navigation';
-import type { License } from '$lib/services/admin/types';
+import type {
+	ImagePullSecret,
+	ImagePullSecretCapability,
+	License
+} from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getLicenseResponse, getVersionResponse } from '../../../tests/mocks/data';
@@ -18,20 +22,32 @@ vi.mock(import('$lib/navigation'), { spy: true });
 async function renderPlatformPage({
 	license = getLicenseResponse,
 	versionOverrides = {},
-	view = 'license'
+	view = 'license',
+	create = false,
+	capability = { available: false },
+	imagePullSecrets = []
 }: {
 	license?: License;
 	versionOverrides?: Partial<Version>;
 	view?: string;
+	create?: boolean;
+	capability?: ImagePullSecretCapability;
+	imagePullSecrets?: ImagePullSecret[];
 } = {}) {
 	appPage.url.searchParams.set('view', view);
+	if (create) {
+		appPage.url.searchParams.set('create', 'true');
+	} else {
+		appPage.url.searchParams.delete('create');
+	}
 
 	const data = await preparePageData<PageData>({
 		license,
 		appNotification: undefined,
 		k8sSettings: undefined,
-		apiKeys: [],
-		users: [],
+		capability,
+		imagePullSecrets,
+		gitCredentials: [],
 		version: {
 			...getVersionResponse,
 			...versionOverrides
@@ -43,6 +59,8 @@ async function renderPlatformPage({
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	appPage.url.searchParams.delete('create');
+	appPage.url.searchParams.delete('id');
 });
 
 describe('Platform Page', () => {
@@ -230,6 +248,50 @@ describe('Platform Page', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Resolve', exact: true }))
 				.toBeVisible();
+		});
+	});
+
+	describe('registry connections tab', () => {
+		it('hides the tab when the engine is not kubernetes', async () => {
+			await renderPlatformPage({
+				view: 'license',
+				capability: { available: true }
+			});
+
+			await expect
+				.element(page.getByRole('button', { name: 'Registry Connections', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('renders image pull secrets as the tab content', async () => {
+			await renderPlatformPage({
+				view: 'registry-connections',
+				capability: { available: true },
+				versionOverrides: { engine: 'kubernetes' }
+			});
+
+			await expect
+				.element(page.getByRole('button', { name: 'Registry Connections', exact: true }))
+				.toBeVisible();
+			await expect.element(page.getByText('No image pull secrets', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Create New Secret', exact: true }).first())
+				.toBeVisible();
+		});
+
+		it('opens the create form from the platform overlay', async () => {
+			await renderPlatformPage({
+				view: 'registry-connections',
+				create: true,
+				capability: { available: true },
+				versionOverrides: { engine: 'kubernetes' }
+			});
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Create Image Pull Secret', exact: true }))
+				.toBeVisible();
+			await expect.element(page.getByText('Registry Server', { exact: true })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Create', exact: true })).toBeVisible();
 		});
 	});
 });

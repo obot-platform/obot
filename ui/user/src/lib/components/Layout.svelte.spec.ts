@@ -155,15 +155,6 @@ describe('Layout.svelte', () => {
 					await expect.element(page.getByCSS('#launch-agent-chat')).toBeVisible();
 				});
 			});
-
-			describe('when the Kubernetes engine is enabled', () => {
-				it('shows image pull secrets navigation', async () => {
-					await renderLayout([Group.ADMIN], { engine: 'kubernetes', hideK8sDetails: false });
-					// await expandSection('ai-resources', '/vmcps');
-
-					await expectLink('/admin/image-pull-secrets');
-				});
-			});
 		});
 
 		describe('when the user is a power user', () => {

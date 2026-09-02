@@ -54,12 +54,6 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 					handleRouteError(err, '/skills', profile);
 				}
 				break;
-			case 'git-credentials':
-				gitCredentials = await AdminService.listGitCredentials({
-					fetch,
-					dontLogErrors: true
-				}).catch(() => []);
-				break;
 			case 'access-policies':
 				try {
 					skillAccessPolicies = await AdminService.listSkillAccessPolicies({ fetch });

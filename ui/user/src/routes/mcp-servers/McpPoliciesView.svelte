@@ -273,7 +273,7 @@
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => {
 				goto(
-					`${page.url.pathname}?view=${page.url.searchParams.get('view') ?? 'access-policy'}&new=true`
+					`${page.url.pathname}?view=${page.url.searchParams.get('view') ?? 'access-policies'}&new=true`
 				);
 			}}
 		>

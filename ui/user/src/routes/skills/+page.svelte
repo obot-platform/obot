@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -6,7 +7,6 @@
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
-	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
 	import SkillAccessPolicyForm from '$lib/components/admin/SkillAccessPolicyForm.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants.js';
@@ -23,7 +23,7 @@
 	import SkillsPoliciesView from './SkillsPoliciesView.svelte';
 	import SkillsView from './SkillsView.svelte';
 	import SourcesView from './SourcesView.svelte';
-	import { Info, Plus, TriangleAlert, X } from '@lucide/svelte';
+	import { Info, Plus, Settings, TriangleAlert, X } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { fly, slide } from 'svelte/transition';
@@ -54,8 +54,7 @@
 		if (hasAdminAccess) {
 			items.push(
 				{ label: 'Sources', value: 'sources', content: sourcesView },
-				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy },
-				{ label: 'Git Credentials', value: 'git-credentials', content: gitCredentialsTab }
+				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }
 			);
 		}
 		return items;
@@ -85,7 +84,6 @@
 		}
 	});
 
-	let gitCredentialsView = $state<ReturnType<typeof GitCredentialsView>>();
 	let sourceDialog = $state<HTMLDialogElement | undefined>(undefined);
 	let syncErrorDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let syncError = $state<{ url: string; error: string }>();
@@ -326,14 +324,13 @@
 		>
 			<Plus class="size-4" /> Add Access Policy
 		</button>
-	{:else if !isAdminReadonly && view === 'git-credentials' && gitCredentials.length > 0}
-		<button
-			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => gitCredentialsView?.openCreate()}
-		>
-			<Plus class="size-4" /> Create Git Credential
-		</button>
 	{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
+		<a
+			class="btn btn-secondary flex items-center gap-1 text-sm"
+			href={resolve('/admin/platform?view=git-credentials')}
+		>
+			<Settings class="size-4" /> Manage Credentials
+		</a>
 		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
 			<Plus class="size-4" /> Add Source URL
 		</button>
@@ -385,10 +382,6 @@
 		}}
 		onSelectRepository={openSkillsForRepository}
 	/>
-{/snippet}
-
-{#snippet gitCredentialsTab()}
-	<GitCredentialsView bind:this={gitCredentialsView} bind:gitCredentials />
 {/snippet}
 
 {#snippet accessPolicy()}

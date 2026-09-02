@@ -1,205 +1,335 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import Table from '$lib/components/table/Table.svelte';
-	import { ApiKeysService, type OrgUser } from '$lib/services';
-	import { AUTH_SCOPE_DESCRIPTION } from '$lib/services/api-keys/constants.js';
-	import { getAPIKeyCapabilityLabels, type APIKey } from '$lib/services/api-keys/types';
-	import { profile } from '$lib/stores';
-	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
-	import { goto, getTableUrlParamsSort, setSortUrlParams } from '$lib/url';
-	import { getUserDisplayName, openUrl } from '$lib/utils';
-	import { Info, KeyRound, Trash2 } from '@lucide/svelte';
+	import {
+		AdminService,
+		type ImagePullSecret,
+		type ImagePullSecretCapability,
+		type ImagePullSecretManifest,
+		type ImagePullSecretTestResponse
+	} from '$lib/services';
+	import { canTest } from '$lib/services/admin/utils';
+	import { profile } from '$lib/stores/index.js';
+	import { goto } from '$lib/url';
+	import { openUrl } from '$lib/utils.js';
+	import CapabilityBanner from './CapabilityBanner.svelte';
+	import ImagePullSecretForm from './ImagePullSecretForm.svelte';
+	import ImagePullSecretStatusDialog from './ImagePullSecretStatusDialog.svelte';
+	import ImagePullSecretTestDialog from './ImagePullSecretTestDialog.svelte';
+	import ImagePullSecretsList from './ImagePullSecretsList.svelte';
+	import { defaultForm, displayName, formFromSecret, type ImagePullSecretFormState } from './types';
+	import { untrack } from 'svelte';
+
+	const LIST_PATH = '/admin/platform?view=registry-connections';
 
 	interface Props {
-		apiKeys: APIKey[];
-		users: OrgUser[];
+		capability: ImagePullSecretCapability;
+		imagePullSecrets: ImagePullSecret[];
 	}
 
-	let { apiKeys = $bindable(), users }: Props = $props();
-	let isAdminPage = true;
+	let { capability = $bindable(), imagePullSecrets = $bindable() }: Props = $props();
 
-	let deletingKey = $state<APIKey>();
-	let loading = $state(false);
-	let initSort = $derived(
-		getTableUrlParamsSort({ property: isAdminPage ? 'userDisplay' : 'name', order: 'asc' })
-	);
-	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let form = $state<ImagePullSecretFormState>(untrack(() => defaultForm('basic')));
+	let showECRAdvanced = $state(false);
 
-	const tableData = $derived(
-		apiKeys
-			.map((key) => ({
-				...key,
-				prefix: `ok1-${key.userId}-${key.id}-*****`,
-				userDisplay: getUserDisplayName(usersMap, String(key.userId)),
-				capabilitiesDisplay: getAPIKeyCapabilityLabels(key),
-				createdAtDisplay: formatTimeAgo(key.createdAt).relativeTime,
-				lastUsedAtDisplay: key.lastUsedAt ? formatTimeAgo(key.lastUsedAt).relativeTime : 'Never',
-				expiresAtDisplay: key.expiresAt ? formatTimeUntil(key.expiresAt).relativeTime : 'Never',
-				mcpServerIds: key.mcpServerIds ?? []
-			}))
-			.filter((key) =>
-				isAdminPage ? true : key.userId.toString() === profile.current.id.toString()
-			)
-	);
+	let saving = $state(false);
+	let testing = $state(false);
+	let refreshing = $state(false);
+	let statusLoading = $state(false);
 
-	async function handleDelete() {
-		const keyToDelete = deletingKey;
-		if (!keyToDelete) return;
-		loading = true;
-		try {
-			await (isAdminPage ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
-				keyToDelete.id.toString()
-			);
-			apiKeys = apiKeys.filter((k) => k.id !== keyToDelete.id);
-		} finally {
-			loading = false;
-			deletingKey = undefined;
-		}
-	}
+	let testResult = $state<ImagePullSecretTestResponse>();
+	let statusDetails = $state<ImagePullSecret>();
 
-	function showCreateForm() {
-		const url = new URL(page.url);
-		url.searchParams.set('new', 'true');
-		if (!url.searchParams.get('view')) {
-			url.searchParams.set('view', 'registry-connections');
-		}
-		goto(url);
-	}
+	let testError = $state('');
+	let statusError = $state('');
+	let refreshMessage = $state('');
+	let testImage = $state('');
+	let activeFormKey = $state('');
+	let showRequired = $state(false);
+
+	let deletingSecret = $state<ImagePullSecret>();
+	let refreshingSecret = $state<ImagePullSecret>();
+	let testingSecret = $state<ImagePullSecret>();
+	let statusSecret = $state<ImagePullSecret>();
+
+	let testDialog = $state<ReturnType<typeof ImagePullSecretTestDialog>>();
+	let statusDialog = $state<ReturnType<typeof ImagePullSecretStatusDialog>>();
+
+	let selectedId = $derived(page.url.searchParams.get('id'));
+	let creatingSecret = $derived(page.url.searchParams.get('create') === 'true');
+	let currentSecret = $derived(imagePullSecrets.find((item) => item.id === selectedId));
+	let showForm = $derived(Boolean(creatingSecret || selectedId));
+	let isReadonly = $derived(profile.current.isAdminReadonly?.());
+	let mutationsDisabled = $derived(isReadonly || !capability.available);
+	let requiredErrors = $derived(showRequired ? requiredFieldErrors() : {});
+
+	$effect(() => {
+		const key = creatingSecret ? 'new' : selectedId ? `edit:${selectedId}` : '';
+		if (key === activeFormKey) return;
+
+		activeFormKey = key;
+		testResult = undefined;
+		testError = '';
+		refreshMessage = '';
+		showRequired = false;
+		showECRAdvanced = false;
+		form = currentSecret ? formFromSecret(currentSecret) : defaultForm('basic');
+	});
 
 	export function openCreateForm() {
-		showCreateForm();
+		createNewSecret();
+	}
+
+	function requiredFieldErrors(): Record<string, string> {
+		const errors: Record<string, string> = {};
+
+		if (form.type === 'basic') {
+			if (!form.server.trim()) errors.server = 'Registry Server is required';
+			if (!form.username.trim()) errors.username = 'Username is required';
+			if (!currentSecret?.status?.passwordConfigured && !form.password) {
+				errors.password = 'Password is required';
+			}
+		} else {
+			if (!form.roleARN.trim()) errors.roleARN = 'Role ARN is required';
+			if (!form.region.trim()) errors.region = 'Region is required';
+		}
+
+		return errors;
+	}
+
+	function inputFromForm(): ImagePullSecretManifest {
+		const input: ImagePullSecretManifest = {
+			enabled: form.enabled,
+			type: form.type,
+			displayName: form.displayName.trim()
+		};
+
+		if (form.type === 'basic') {
+			input.basic = {
+				server: form.server.trim(),
+				username: form.username.trim()
+			};
+			if (form.password) {
+				input.basic.password = form.password;
+			}
+		} else {
+			input.ecr = {
+				roleARN: form.roleARN.trim(),
+				region: form.region.trim(),
+				issuerURL: form.issuerURL.trim(),
+				audience: form.audience.trim(),
+				refreshSchedule: form.refreshSchedule.trim()
+			};
+		}
+
+		return input;
+	}
+
+	function upsertSecret(secret: ImagePullSecret) {
+		const index = imagePullSecrets.findIndex((item) => item.id === secret.id);
+		if (index === -1) {
+			imagePullSecrets = [secret, ...imagePullSecrets];
+		} else {
+			imagePullSecrets = imagePullSecrets.map((item) => (item.id === secret.id ? secret : item));
+		}
+	}
+
+	async function refreshList() {
+		const [nextCapability, nextSecrets] = await Promise.all([
+			AdminService.getImagePullSecretCapability(),
+			AdminService.listImagePullSecrets()
+		]);
+		capability = nextCapability;
+		imagePullSecrets = nextSecrets;
+	}
+
+	async function saveSecret() {
+		if (mutationsDisabled) return;
+		showRequired = true;
+		if (Object.keys(requiredFieldErrors()).length > 0) return;
+
+		saving = true;
+		testResult = undefined;
+		testError = '';
+		try {
+			const input = inputFromForm();
+			const saved = currentSecret
+				? await AdminService.updateImagePullSecret(currentSecret.id, input)
+				: await AdminService.createImagePullSecret(input);
+			upsertSecret(saved);
+			await refreshList();
+			goto(LIST_PATH, { replaceState: true, noScroll: true });
+		} finally {
+			saving = false;
+		}
+	}
+
+	function openTestDialog(secret: ImagePullSecret) {
+		if (!canTest(secret)) return;
+		testingSecret = secret;
+		testImage = '';
+		testResult = undefined;
+		testError = '';
+		testDialog?.open();
+	}
+
+	function resetTestDialog() {
+		testingSecret = undefined;
+		testImage = '';
+		testResult = undefined;
+		testError = '';
+	}
+
+	async function testSecret() {
+		if (!testingSecret || !canTest(testingSecret) || !testImage.trim() || mutationsDisabled) return;
+		testing = true;
+		testResult = undefined;
+		testError = '';
+		try {
+			testResult = await AdminService.testImagePullSecret(
+				testingSecret.id,
+				{ image: testImage.trim() },
+				{ dontLogErrors: true }
+			);
+		} catch (err) {
+			testError = err instanceof Error ? err.message : 'Image pull secret test failed';
+		} finally {
+			testing = false;
+		}
+	}
+
+	async function openStatusDialog(secret: ImagePullSecret) {
+		statusSecret = secret;
+		statusDetails = undefined;
+		statusError = '';
+		statusLoading = true;
+		statusDialog?.open();
+		try {
+			const details = await AdminService.getImagePullSecret(secret.id, {
+				dontLogErrors: true
+			});
+			statusDetails = details;
+			upsertSecret(details);
+		} catch (err) {
+			statusError = err instanceof Error ? err.message : 'Failed to load image pull secret status';
+		} finally {
+			statusLoading = false;
+		}
+	}
+
+	function resetStatusDialog() {
+		statusSecret = undefined;
+		statusDetails = undefined;
+		statusError = '';
+		statusLoading = false;
+	}
+
+	async function refreshECR(secret: ImagePullSecret) {
+		if (mutationsDisabled) return;
+		refreshing = true;
+		refreshMessage = '';
+		try {
+			const response = await AdminService.refreshImagePullSecret(secret.id);
+			refreshMessage = response.message ?? 'Refresh started';
+			await refreshList();
+		} finally {
+			refreshing = false;
+		}
+	}
+
+	function createNewSecret() {
+		goto(`${LIST_PATH}&create=true`, { noScroll: true });
+	}
+
+	function editSecret(secret: ImagePullSecret, isCtrlClick: boolean) {
+		openUrl(`${LIST_PATH}&id=${secret.id}`, isCtrlClick);
 	}
 </script>
 
-<div class="flex flex-col gap-4">
-	{#if isAdminPage || apiKeys.length > 0}
-		<p class="text-muted-content mb-1 whitespace-pre-line text-sm">
-			{AUTH_SCOPE_DESCRIPTION}
-		</p>
-	{/if}
-	{#if apiKeys.length === 0}
-		<div class="mt-26 flex w-lg flex-col items-center gap-4 self-center text-center">
-			<KeyRound class="text-base-content/80 size-24 opacity-50" />
-			<h4 class="text-muted-content text-lg font-semibold">No Agent Identities</h4>
-			<p class="text-muted-content text-sm font-light">
-				{isAdminPage
-					? "Looks like there aren't any agent auth scopes in the system yet."
-					: "Looks like you don't have any agent auth scopes yet!"}
-				<br />
-				Click the "Create Agent Auth Scope" button above to get started.
-			</p>
-
-			{#if !isAdminPage}
-				<div class="notification-info mt-8">
-					<div class="flex flex-col gap-2">
-						<div class="flex items-center gap-2">
-							<Info class="size-4 shrink-0" />
-							<p class="text-sm font-semibold">What are these for?</p>
-						</div>
-						<p class="whitespace-pre-line text-left text-sm font-light">
-							{AUTH_SCOPE_DESCRIPTION}
-							<button class="text-link inline" onclick={showCreateForm}
-								>Create your first auth scope</button
-							>
-						</p>
-					</div>
-				</div>
-			{/if}
-		</div>
-	{:else}
-		<Table
-			data={tableData}
-			fields={isAdminPage
-				? ['userDisplay', 'name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']
-				: ['name', 'capabilitiesDisplay', 'lastUsedAt', 'expiresAt']}
-			headers={[
-				...(isAdminPage ? [{ title: 'Created By', property: 'userDisplay' }] : []),
-				{ title: 'Capabilities', property: 'capabilitiesDisplay' },
-				{ title: 'Last Used', property: 'lastUsedAt' },
-				{ title: 'Expires', property: 'expiresAt' }
-			]}
-			filterable={isAdminPage ? ['userDisplay', 'name'] : undefined}
-			sortable={isAdminPage
-				? ['userDisplay', 'name', 'lastUsedAt', 'expiresAt']
-				: ['lastUsedAt', 'expiresAt']}
-			{initSort}
-			onSort={setSortUrlParams}
-			onClickRow={(d, isCtrlClick) => {
-				const url = `${isAdminPage ? '/admin' : ''}/agent-auth-scopes/${d.id}`;
-				openUrl(url, isCtrlClick);
-			}}
-			columnMaxWidths={isAdminPage
-				? { userDisplay: 200, capabilitiesDisplay: 200, description: 200 }
-				: undefined}
-		>
-			{#snippet onRenderColumn(property, d)}
-				{#if property === 'description'}
-					<span class="text-muted">{d.description || '-'}</span>
-				{:else if property === 'capabilitiesDisplay'}
-					{#if d.capabilitiesDisplay.length}
-						<div class="flex max-w-48 flex-wrap gap-1 py-1">
-							{#each d.capabilitiesDisplay as capability (capability)}
-								<span class="badge badge-ghost badge-xs whitespace-nowrap">{capability}</span>
-							{/each}
-							{#if d.mcpServerIds.length}
-								<span class="badge badge-ghost badge-xs whitespace-nowrap">Servers</span>
-							{/if}
-						</div>
-					{:else}
-						<span class="text-muted">-</span>
-					{/if}
-				{:else if property === 'lastUsedAt'}
-					{d.lastUsedAtDisplay}
-				{:else if property === 'expiresAt'}
-					{d.expiresAtDisplay}
-				{:else if property === 'prefix'}
-					<span class="whitespace-nowrap">{d.prefix}</span>
-				{:else}
-					{d[property as keyof typeof d]}
-				{/if}
-			{/snippet}
-			{#snippet actions(d)}
-				{@render authScopeActions(d)}
-			{/snippet}
-		</Table>
-	{/if}
-</div>
-
-{#snippet authScopeActions(d: APIKey)}
-	{@const isOwner = d.userId.toString() === profile.current.id.toString()}
-	{@const prefix = `ok1-${d.userId}-${d.id}-*****`}
-	{@const url: `/${string}` = `/admin/agent-auth-scopes/${d.id}/${encodeURIComponent(prefix)}`}
-	<DotDotDot classes={{ menu: 'min-w-48 p-0' }}>
-		{#if profile.current.hasAdminAccess?.()}
-			<div
-				class="bg-base-100 dark:bg-base-300 rounded-t-xl pt-2 pb-1 pl-4 text-[11px] font-semibold uppercase"
-			>
-				View Related Logs
-			</div>
-			<div class="flex flex-col gap-1 p-2 bg-base-200">
-				<a class="menu-button" href={resolve(url)}>
-					{prefix}
-				</a>
-			</div>
+{#if showForm}
+	<ImagePullSecretForm
+		bind:form
+		bind:showECRAdvanced
+		{capability}
+		{currentSecret}
+		{selectedId}
+		{mutationsDisabled}
+		{saving}
+		{refreshing}
+		{refreshMessage}
+		{requiredErrors}
+		onSave={saveSecret}
+		onRefresh={refreshECR}
+	/>
+{:else}
+	<div class="flex flex-col gap-6">
+		{#if !capability.available}
+			<CapabilityBanner reason={capability.reason} />
 		{/if}
-		{#if profile.current.isAdmin?.() || isOwner}
-			<div class="flex flex-col gap-1 p-2 pt-1">
-				<button class="menu-button text-error" onclick={() => (deletingKey = d)}>
-					<Trash2 class="size-4" />
-					Delete
-				</button>
-			</div>
-		{/if}
-	</DotDotDot>
-{/snippet}
+		<ImagePullSecretsList
+			{imagePullSecrets}
+			{mutationsDisabled}
+			{refreshing}
+			onCreate={createNewSecret}
+			onEdit={editSecret}
+			onStatus={openStatusDialog}
+			onTest={openTestDialog}
+			onRefresh={(secret) => (refreshingSecret = secret)}
+			onDelete={(secret) => (deletingSecret = secret)}
+		/>
+	</div>
+{/if}
 
 <Confirm
-	msg={`Delete "${deletingKey?.name}"?`}
-	show={Boolean(deletingKey)}
-	{loading}
-	onsuccess={handleDelete}
-	oncancel={() => (deletingKey = undefined)}
+	msg={`Delete ${deletingSecret ? displayName(deletingSecret) : 'this image pull secret'}?`}
+	show={Boolean(deletingSecret)}
+	loading={saving}
+	onsuccess={async () => {
+		if (!deletingSecret) return;
+		saving = true;
+		try {
+			await AdminService.deleteImagePullSecret(deletingSecret.id);
+			imagePullSecrets = imagePullSecrets.filter((item) => item.id !== deletingSecret?.id);
+			deletingSecret = undefined;
+		} finally {
+			saving = false;
+		}
+	}}
+	oncancel={() => (deletingSecret = undefined)}
+/>
+
+<Confirm
+	title="Refresh Image Pull Secret"
+	type="info"
+	msg={`Refresh ${refreshingSecret ? displayName(refreshingSecret) : 'this image pull secret'}?`}
+	note="This requests an immediate refresh of the generated ECR image pull secret."
+	show={Boolean(refreshingSecret)}
+	loading={refreshing}
+	submitText="Refresh"
+	onsuccess={async () => {
+		if (!refreshingSecret) return;
+		await refreshECR(refreshingSecret);
+		refreshingSecret = undefined;
+	}}
+	oncancel={() => (refreshingSecret = undefined)}
+/>
+
+<ImagePullSecretStatusDialog
+	bind:this={statusDialog}
+	secret={statusSecret}
+	details={statusDetails}
+	loading={statusLoading}
+	error={statusError}
+	onClose={resetStatusDialog}
+/>
+
+<ImagePullSecretTestDialog
+	bind:this={testDialog}
+	secret={testingSecret}
+	bind:testImage
+	{testing}
+	{testResult}
+	{testError}
+	onTest={testSecret}
+	onClose={resetTestDialog}
 />

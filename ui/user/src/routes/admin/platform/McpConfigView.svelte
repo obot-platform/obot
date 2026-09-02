@@ -99,7 +99,7 @@
 	}
 </script>
 
-<div class="relative h-full w-full" transition:fade={{ duration }}>
+<div class="relative h-full w-full" in:fade={{ duration }}>
 	{#if k8sSettings}
 		<div class="flex flex-col gap-8">
 			<SchedulingForm

@@ -112,7 +112,7 @@
 	}
 </script>
 
-<div class="relative h-full w-full @container flex flex-col gap-4" transition:fade={{ duration }}>
+<div class="relative h-full w-full @container flex flex-col gap-4" in:fade={{ duration }}>
 	<div class="paper gap-0.5">
 		<div>
 			<p class="text-sm font-medium mb-2">Banner Preview</p>

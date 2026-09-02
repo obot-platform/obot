@@ -36,7 +36,7 @@
 			<AccessControlRuleForm
 				{accessControlRule}
 				onUpdate={() => {
-					goto('/mcp-servers?view=access-policy');
+					goto('/mcp-servers?view=access-policies');
 				}}
 				mcpEntriesContextFn={() => mcpServersAndEntries.current}
 				readonly={profile.current.isAdminReadonly?.()}
@@ -45,7 +45,7 @@
 			<AccessControlRuleForm
 				{accessControlRule}
 				onUpdate={() => {
-					goto('/mcp-servers?view=access-policy');
+					goto('/mcp-servers?view=access-policies');
 				}}
 				entity="workspace"
 				id={workspaceId}

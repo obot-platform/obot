@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import TabLayout from '$lib/components/TabLayout.svelte';
-	import GitCredentialsView from '$lib/components/admin/GitCredentialsView.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpServerGitSync from '$lib/components/admin/McpServerGitSync.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
@@ -37,7 +37,7 @@
 	import McpPoliciesView from './McpPoliciesView.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import TunnelsView from './TunnelsView.svelte';
-	import { Plus, RefreshCcw, Server } from '@lucide/svelte';
+	import { Plus, RefreshCcw, Server, Settings } from '@lucide/svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
@@ -48,7 +48,7 @@
 		'deployments',
 		'filters',
 		'tunnels',
-		'access-policy'
+		'access-policies'
 	] as const;
 	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'composite'];
 
@@ -63,7 +63,6 @@
 	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let filtersTab = $state<ReturnType<typeof FiltersView>>();
-	let gitCredentialsView = $state<ReturnType<typeof GitCredentialsView>>();
 	let gitCredentials = $state(untrack(() => data.gitCredentials));
 	let filtersLoading = $state(false);
 	let syncing = $state(false);
@@ -95,7 +94,7 @@
 			((selectedView === 'servers' && !!newServerType) ||
 				selectedView === 'filters' ||
 				selectedView === 'tunnels' ||
-				selectedView === 'access-policy')
+				selectedView === 'access-policies')
 	);
 	let layoutTitle = $derived.by(() => {
 		if (!creating) return 'MCP Servers';
@@ -106,7 +105,7 @@
 				return 'Create Filter';
 			case 'tunnels':
 				return 'Create MCP Tunnel';
-			case 'access-policy':
+			case 'access-policies':
 				return 'Create MCP Access Policy';
 			default:
 				return 'MCP Servers';
@@ -122,16 +121,11 @@
 					{ label: 'Sources', value: 'sources', content: sources },
 					{ label: 'Filters', value: 'filters', content: filters },
 					{ label: 'Tunnels', value: 'tunnels', content: tunnels },
-					{
-						label: 'Git Credentials',
-						value: 'git-credentials',
-						content: gitCredentialsTab
-					},
 					{ label: 'Deployments', value: 'deployments', content: deployments }
 				]
 			: []),
 		...(isPowerUserPlus || hasAdminAccess
-			? [{ label: 'Access Policy', value: 'access-policy', content: accessPolicy }]
+			? [{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }]
 			: [])
 	]);
 
@@ -233,7 +227,7 @@
 			{@render filters()}
 		{:else if selectedView === 'tunnels'}
 			{@render tunnels()}
-		{:else if selectedView === 'access-policy'}
+		{:else if selectedView === 'access-policies'}
 			{@render accessPolicy()}
 		{/if}
 	</Layout>
@@ -265,19 +259,18 @@
 				Sync
 			{/if}
 		</button>
+		<a
+			class="btn btn-secondary flex items-center gap-1 text-sm"
+			href={resolve('/admin/platform?view=git-credentials')}
+		>
+			<Settings class="size-4" /> Manage Credentials
+		</a>
 		<button
 			id="add-catalog-source-button"
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			onclick={() => sourceDialog?.open()}
 		>
 			<Plus class="size-4" /> Add Catalog Source
-		</button>
-	{:else if view === 'git-credentials' && !isAdminReadonly}
-		<button
-			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => gitCredentialsView?.openCreate()}
-		>
-			<Plus class="size-4" /> Create Git Credential
 		</button>
 	{:else if view === 'filters' && !isAdminReadonly}
 		{#if filtersLoading}
@@ -319,11 +312,11 @@
 			<Plus class="size-4" />
 			Create MCP Tunnel
 		</button>
-	{:else if view === 'access-policy' && !isAdminReadonly}
+	{:else if view === 'access-policies' && !isAdminReadonly}
 		<button
 			id={MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn}
 			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => openCreate('access-policy')}
+			onclick={() => openCreate('access-policies')}
 		>
 			<Plus class="size-4" /> Add Access Policy
 		</button>
@@ -365,10 +358,6 @@
 	/>
 {/snippet}
 
-{#snippet gitCredentialsTab()}
-	<GitCredentialsView bind:this={gitCredentialsView} bind:gitCredentials />
-{/snippet}
-
 {#snippet deployments()}
 	<DeploymentsView />
 {/snippet}
@@ -389,7 +378,7 @@
 {#snippet accessPolicy()}
 	<McpPoliciesView
 		accessControlRules={data.accessControlRules}
-		creating={creating && selectedView === 'access-policy'}
+		creating={creating && selectedView === 'access-policies'}
 		{workspaceId}
 	/>
 {/snippet}

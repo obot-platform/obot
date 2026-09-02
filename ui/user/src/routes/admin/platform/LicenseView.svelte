@@ -160,7 +160,7 @@
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 
-<div class="h-full w-full @container" in:fade={{ duration }} out:fade={{ duration }}>
+<div class="h-full w-full @container" in:fade={{ duration }}>
 	<div class="flex flex-col gap-4">
 		{#if showUserLimitNotice}
 			<UserLimitNotice />

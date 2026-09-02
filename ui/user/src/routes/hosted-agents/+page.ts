@@ -18,7 +18,7 @@ const views = new Set([
 	'harnesses',
 	'pools',
 	'config-sources',
-	'access-policy'
+	'access-policies'
 ]);
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
@@ -74,7 +74,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				case 'config-sources':
 					agentCatalogs = await AdminService.listAgentCatalogs({ fetch });
 					break;
-				case 'access-policy':
+				case 'access-policies':
 					hostedAgentAccessPolicies = await AdminService.listHostedAgentAccessPolicies({
 						fetch
 					});

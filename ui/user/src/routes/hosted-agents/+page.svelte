@@ -18,7 +18,9 @@
 	let selectedView = $derived(page.url.searchParams.get('view') ?? 'agents');
 	let creating = $derived(hasAdminAccess && !isAdminReadonly && page.url.searchParams.has('new'));
 	let createTitle = $derived(
-		selectedView === 'access-policy' ? 'Create Hosted Agent Access Policy' : 'Create Agent Template'
+		selectedView === 'access-policies'
+			? 'Create Hosted Agent Access Policy'
+			: 'Create Agent Template'
 	);
 
 	let harnessesView = $state<ReturnType<typeof HarnessesView>>();
@@ -32,7 +34,7 @@
 				{ label: 'Harnesses', value: 'harnesses', content: harnesses },
 				{ label: 'Pools', value: 'pools', content: pools },
 				{ label: 'Config Sources', value: 'config-sources', content: configSources },
-				{ label: 'Access Policy', value: 'access-policy', content: accessPolicy }
+				{ label: 'Access Policies', value: 'access-policies', content: accessPolicy }
 			);
 		}
 		return items;
@@ -55,7 +57,7 @@
 
 {#if creating}
 	<Layout title={createTitle} showBackButton onBackButtonClick={hideCreate}>
-		{#if selectedView === 'access-policy'}
+		{#if selectedView === 'access-policies'}
 			<AccessPolicyView hostedAgentAccessPolicies={data.hostedAgentAccessPolicies} creating />
 		{:else}
 			<TemplatesView templates={data.templates} harnesses={data.harnesses} creating />
@@ -93,7 +95,7 @@
 		>
 			<Plus class="size-4" /> Add Config Source
 		</button>
-	{:else if !isAdminReadonly && view === 'access-policy'}
+	{:else if !isAdminReadonly && view === 'access-policies'}
 		<button
 			class="btn btn-primary flex items-center gap-1 text-sm"
 			onclick={() => showCreate(view)}

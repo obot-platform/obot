@@ -20,7 +20,7 @@ const views = new Set([
 	'deployments',
 	'filters',
 	'tunnels',
-	'access-policy'
+	'access-policies'
 ]);
 
 export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
@@ -40,7 +40,6 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	if (profile.hasAdminAccess?.()) {
 		switch (view) {
 			case 'sources':
-			case 'git-credentials':
 				gitCredentials = await AdminService.listGitCredentials({
 					fetch,
 					dontLogErrors: true
@@ -63,7 +62,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 					}).catch(() => undefined)
 				]);
 				break;
-			case 'access-policy':
+			case 'access-policies':
 				depends('mcp-access-policies:data');
 				try {
 					const [adminAccessControlRules, userWorkspacesAccessControlRules] = await Promise.all([
@@ -78,7 +77,8 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 		}
 	}
 
-	const needsWorkspace = !profile.hasAdminAccess?.() && ['servers', 'access-policy'].includes(view);
+	const needsWorkspace =
+		!profile.hasAdminAccess?.() && ['servers', 'access-policies'].includes(view);
 	if (!needsWorkspace) {
 		return {
 			workspaceId: undefined,
@@ -93,7 +93,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 
 	try {
 		const workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
-		if (view === 'access-policy' && isPowerUserOrAdmin) {
+		if (view === 'access-policies' && isPowerUserOrAdmin) {
 			depends('mcp-access-policies:data');
 			try {
 				accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId, {
