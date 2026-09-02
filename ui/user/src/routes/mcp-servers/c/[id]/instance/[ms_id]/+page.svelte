@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -17,6 +18,7 @@
 	} from '$lib/services';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { isConnectorsNavigation } from '../../../../utils.js';
 	import { CircleFadingArrowUp, Info, GitCompare } from '@lucide/svelte';
 	import { type Component, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -38,6 +40,7 @@
 	let isComposite = $derived(catalogEntry?.manifest?.runtime === 'composite');
 	let needsUpdate = $derived(catalogEntry?.needsUpdate === true);
 	let showUpgradeNotification = $derived(isComposite && needsUpdate && !isAdminReadonly);
+	let preview = $derived(isConnectorsNavigation(page.url));
 
 	let upgrading = $state(false);
 	let showUpgradeConfirm = $state(false);
@@ -237,6 +240,7 @@
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={sourceID}
 			entity={sourceEntity}
+			limitViews={preview ? ['overview', 'tools'] : undefined}
 		/>
 	</div>
 </Layout>

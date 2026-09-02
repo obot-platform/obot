@@ -22,6 +22,7 @@
 	import { isDeprecatedMCPServer, isMultiUserCatalogEntry } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
+	import { isConnectorsNavigation } from '../../utils';
 	import { CircleFadingArrowUp, Info, GitCompare, Link2Icon } from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -43,6 +44,7 @@
 	let workspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
+	let preview = $derived(isConnectorsNavigation(page.url));
 
 	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
 	let mcpServerActions = $state<ReturnType<typeof McpServerActions>>();
@@ -269,6 +271,7 @@
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={serverScopeID}
 			entity={serverScopeEntity}
+			limitViews={preview ? ['overview', 'tools'] : undefined}
 		/>
 	</div>
 </Layout>

@@ -44,6 +44,8 @@ export const RecommendedModelProviders = [
 
 export const PROJECT_MCP_SERVER_NAME = 'MCP Servers';
 export const DEFAULT_MCP_CATALOG_ID = 'default';
+export const MCP_NAV_SOURCE_PARAM = 'from';
+export const MCP_CONNECTORS_NAV_SOURCE = 'connectors';
 export const DEFAULT_SYSTEM_MCP_CATALOG_ID = 'default';
 
 export const CommonAuthProviderIds = {

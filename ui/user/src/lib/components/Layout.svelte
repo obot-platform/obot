@@ -327,22 +327,6 @@
 								beta: true
 							}
 						]
-					: []),
-				...(version.current.messagePoliciesEnabled && profile.current.hasAdminAccess?.()
-					? [
-							{
-								id: 'message-policies',
-								href: '/admin/message-policies',
-								label: 'Message Policies',
-								collapsible: false
-							},
-							{
-								id: 'policy-violations',
-								href: '/admin/policy-violations',
-								label: 'Message Policy Violations',
-								collapsible: false
-							}
-						]
 					: [])
 			]
 		},

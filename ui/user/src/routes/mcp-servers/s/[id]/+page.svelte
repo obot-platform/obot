@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
 	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
@@ -9,6 +10,7 @@
 	import { AdminService } from '$lib/services';
 	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
+	import { isConnectorsNavigation } from '../../utils.js';
 	import { Link2Icon } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -26,6 +28,7 @@
 	let deprecated = $derived(
 		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
 	);
+	let preview = $derived(isConnectorsNavigation(page.url));
 </script>
 
 <Layout
@@ -70,6 +73,7 @@
 			entity={serverScopeEntity}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit
+			limitViews={preview ? ['overview', 'tools'] : undefined}
 		/>
 	</div>
 </Layout>

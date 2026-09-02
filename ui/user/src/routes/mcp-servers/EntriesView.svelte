@@ -150,8 +150,18 @@
 		)
 	);
 
+	function getEntryUrl(d: Item, params: Record<string, string> = {}) {
+		if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
+			params = { ...params, wid: d.data.powerUserWorkspaceID };
+		}
+		const query = Object.entries(params)
+			.map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+			.join('&');
+		return `/mcp-servers/c/${d.data.id}${query ? `?${query}` : ''}`;
+	}
+
 	function getAuditLogsUrl(d: Item) {
-		return `/mcp-servers/c/${d.id}?view=audit-logs`;
+		return getEntryUrl(d, { view: 'audit-logs' });
 	}
 
 	async function fetch() {
@@ -293,13 +303,7 @@
 				filterable={['name', 'type', 'source']}
 				{filters}
 				onClickRow={(d, isCtrlClick) => {
-					let url = `/mcp-servers/c/${d.data.id}`;
-
-					if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
-						url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);
-					}
-
-					openUrl(url, isCtrlClick);
+					openUrl(getEntryUrl(d), isCtrlClick);
 				}}
 				{initSort}
 				{onFilter}

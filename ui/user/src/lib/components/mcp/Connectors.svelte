@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
 	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpSelectServerDeployment from '$lib/components/mcp/McpSelectServerDeployment.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
+	import { MCP_CONNECTORS_NAV_SOURCE, MCP_NAV_SOURCE_PARAM } from '$lib/constants';
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import {
 		UserService,
@@ -162,6 +161,10 @@
 		await disconnectMcpServerUser(server);
 	}
 
+	function asConnectorUrl(path: string) {
+		return `${path}?${MCP_NAV_SOURCE_PARAM}=${MCP_CONNECTORS_NAV_SOURCE}`;
+	}
+
 	function handleShowSelectServerDialog(
 		entry: MCPCatalogEntry,
 		mode: ServerSelectMode = 'connect'
@@ -203,7 +206,9 @@
 			}
 		}
 
-		openUrl(url, isCtrlClick);
+		if (url) {
+			openUrl(asConnectorUrl(url), isCtrlClick);
+		}
 	}
 
 	function isInteractiveChildEvent(e: MouseEvent | KeyboardEvent) {
@@ -403,12 +408,13 @@
 		selectServerDialog?.close();
 		switch (selectServerMode) {
 			case 'server-details': {
-				goto(
-					resolve(
+				openUrl(
+					asConnectorUrl(
 						isMultiUserServer(d)
 							? `/mcp-servers/s/${d.id}`
 							: `/mcp-servers/c/${d.catalogEntryID}/instance/${d.id}`
-					)
+					),
+					false
 				);
 				break;
 			}

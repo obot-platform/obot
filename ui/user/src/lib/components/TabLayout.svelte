@@ -122,10 +122,10 @@
 									<button
 										id={`tab-${viewOption.value}`}
 										class={twMerge(
-											'border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-300 rounded-t-xs',
+											'relative border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-200 rounded-t-xs after:absolute after:bottom-0 after:duration-200 after:transition-all after:left-1/2 after:-translate-x-1/2 after:h-0 after:w-0 after:border-x-5 after:border-x-transparent after:border-b-5 after:border-b-transparent after:content-[""]',
 											selectedView === viewOption.value
-												? 'border-primary border-b-3 bg-base-100 dark:bg-base-300 font-medium'
-												: 'hover:border-primary/50 hover:border-b-3'
+												? 'border-primary border-b-3 bg-primary font-medium text-white after:border-b-white border-b-white'
+												: 'hover:border-white/50 hover:border-b-3 hover:after:border-b-white/50'
 										)}
 										onclick={() => selectView(viewOption.value)}
 									>

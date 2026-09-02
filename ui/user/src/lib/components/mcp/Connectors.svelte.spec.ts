@@ -6,12 +6,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
-vi.mock(import('$lib/utils'), { spy: true });
-
 const shortDescription =
 	'A **formatted** description with [documentation](https://example.com/docs). ![Short demo](https://example.com/short-demo.gif)';
 const fullDescription =
 	'Full description that should not render. ![Large demo](https://example.com/large-demo.gif)';
+
+vi.mock('$lib/utils', async (importOriginal) => ({
+	...(await importOriginal<typeof import('$lib/utils')>()),
+	openUrl: vi.fn()
+}));
 
 describe('MCP Servers ConnectorsView', () => {
 	beforeEach(() => {
@@ -136,5 +139,17 @@ describe('MCP Servers ConnectorsView', () => {
 
 		await page.getByRole('button', { name: 'Connect', exact: true }).click();
 		await expect.element(page.getByRole('button', { name: 'Reauthenticate' })).toBeVisible();
+	});
+
+	it('marks detail navigation as coming from the connectors list', async () => {
+		vi.mocked(openUrl).mockClear();
+		render(Connectors, { query: 'Deprecated' });
+
+		await page.getByRole('button', { name: /Deprecated Connected Server/ }).click();
+
+		expect(openUrl).toHaveBeenCalledWith(
+			'/mcp-servers/c/deprecated-connected-entry/instance/configured-server?from=connectors',
+			false
+		);
 	});
 });
