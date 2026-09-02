@@ -31,7 +31,7 @@
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpServersAndEntries, mcpTunnelConnections, profile, version } from '$lib/stores';
 	import { openUrl } from '$lib/utils';
-	import EditExistingDeployment from '../../lib/components/mcp/EditExistingDeployment.svelte';
+	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import { CircleFadingArrowUp, Server } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';

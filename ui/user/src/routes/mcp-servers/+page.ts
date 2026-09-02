@@ -12,7 +12,6 @@ import {
 	type TunnelConnection
 } from '$lib/services';
 import type { PageLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
 const views = new Set([
 	'servers',
@@ -30,10 +29,6 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	const view = requestedView && views.has(requestedView) ? requestedView : 'servers';
 
 	const isPowerUserOrAdmin = profile.groups.includes(Group.POWERUSER) || profile.hasAdminAccess?.();
-
-	if (!isPowerUserOrAdmin) {
-		throw redirect(302, '/');
-	}
 
 	let gitCredentials: GitCredential[] = [];
 	let filters: MCPFilter[] = [];
@@ -98,7 +93,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 
 	try {
 		const workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
-		if (view === 'access-policy') {
+		if (view === 'access-policy' && isPowerUserOrAdmin) {
 			depends('mcp-access-policies:data');
 			try {
 				accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId, {

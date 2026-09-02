@@ -268,15 +268,11 @@
 					label: 'vMCPs',
 					href: '/vmcps'
 				},
-				...(profile.current.hasAdminAccess?.()
-					? [
-							{
-								id: 'mcp-servers',
-								label: 'MCP Servers',
-								href: '/mcp-servers'
-							}
-						]
-					: []),
+				{
+					id: 'mcp-servers',
+					label: 'MCP Servers',
+					href: '/mcp-servers'
+				},
 				{
 					id: 'skills',
 					label: 'Skills',

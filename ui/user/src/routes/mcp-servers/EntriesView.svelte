@@ -276,12 +276,14 @@
 		{/if}
 	{:else}
 		<div class="flex flex-col gap-2">
-			<Search
-				value={query}
-				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-				onChange={updateQuery}
-				placeholder="Search filters..."
-			/>
+			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
+				<Search
+					value={query}
+					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+					onChange={updateQuery}
+					placeholder="Search MCP servers..."
+				/>
+			</div>
 			<Table
 				data={filteredTableData}
 				remeasureKey={tunnelConnectionsKey}

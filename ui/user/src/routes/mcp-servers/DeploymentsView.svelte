@@ -60,15 +60,13 @@
 </script>
 
 <div class="flex min-h-full flex-col">
-	<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
-		<div class="mb-2">
-			<Search
-				class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-				value={query}
-				onChange={updateSearchQuery}
-				placeholder="Search deployments..."
-			/>
-		</div>
+	<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1 mb-2">
+		<Search
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+			value={query}
+			onChange={updateSearchQuery}
+			placeholder="Search deployments..."
+		/>
 	</div>
 	<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
 		<DeploymentsView

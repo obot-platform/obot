@@ -1,7 +1,7 @@
 import { mcpServersAndEntries } from '$lib/stores';
 import { openUrl } from '$lib/utils';
-import { createMCPCatalogEntry, createMCPCatalogServer } from '../../tests/helpers/mcp';
-import ConnectorsView from './ConnectorsView.svelte';
+import { createMCPCatalogEntry, createMCPCatalogServer } from '../../../tests/helpers/mcp';
+import Connectors from './Connectors.svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
@@ -45,7 +45,7 @@ describe('MCP Servers ConnectorsView', () => {
 	});
 
 	it('clamps the description independently from the title and status badges', async () => {
-		render(ConnectorsView, { query: 'Deprecated' });
+		render(Connectors, { query: 'Deprecated' });
 
 		const descriptionPreview = page.getByText(/A formatted description with documentation/);
 		await expect.element(page.getByText('Deprecated', { exact: true })).toBeVisible();
@@ -66,7 +66,7 @@ describe('MCP Servers ConnectorsView', () => {
 	});
 
 	it('defers loading connector icons', async () => {
-		render(ConnectorsView, { query: 'Deprecated' });
+		render(Connectors, { query: 'Deprecated' });
 
 		const icon = page.getByRole('img', { name: 'Deprecated Connected Server' });
 		await expect.element(icon).toHaveAttribute('loading', 'lazy');
@@ -74,7 +74,7 @@ describe('MCP Servers ConnectorsView', () => {
 	});
 
 	it('keeps mouse and keyboard link activation from selecting the connector row', async () => {
-		render(ConnectorsView, { query: 'Deprecated' });
+		render(Connectors, { query: 'Deprecated' });
 
 		const link = page.getByRole('link', { name: 'documentation' });
 		const anchor = link.element() as HTMLAnchorElement;
@@ -95,7 +95,7 @@ describe('MCP Servers ConnectorsView', () => {
 	});
 
 	it('selects the connector when non-interactive row content is clicked', async () => {
-		render(ConnectorsView, { query: 'Deprecated' });
+		render(Connectors, { query: 'Deprecated' });
 
 		await page.getByText('Deprecated Connected Server', { exact: true }).click();
 
@@ -132,7 +132,7 @@ describe('MCP Servers ConnectorsView', () => {
 			isInitialized: true
 		};
 
-		render(ConnectorsView);
+		render(Connectors);
 
 		await page.getByRole('button', { name: 'Connect', exact: true }).click();
 		await expect.element(page.getByRole('button', { name: 'Reauthenticate' })).toBeVisible();

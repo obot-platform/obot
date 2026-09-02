@@ -30,6 +30,7 @@
 		setFilterUrlParams,
 		setSortUrlParams
 	} from '$lib/url';
+	import ConnectorsView from './ConnectorsView.svelte';
 	import DeploymentsView from './DeploymentsView.svelte';
 	import EntriesView from './EntriesView.svelte';
 	import FiltersView from './FiltersView.svelte';
@@ -70,6 +71,7 @@
 
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let isPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let canCreateEntry = $derived(
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
 	);
@@ -109,19 +111,25 @@
 				return 'MCP Servers';
 		}
 	});
-	let views = [
+	let views = $derived([
 		{ label: 'Servers', value: 'servers', content: servers },
-		{ label: 'Sources', value: 'sources', content: sources },
-		{ label: 'Filters', value: 'filters', content: filters },
-		{ label: 'Tunnels', value: 'tunnels', content: tunnels },
-		{ label: 'Access Policy', value: 'access-policy', content: accessPolicy },
-		{
-			label: 'Git Credentials',
-			value: 'git-credentials',
-			content: gitCredentialsTab
-		},
-		{ label: 'Deployments', value: 'deployments', content: deployments }
-	];
+		...(hasAdminAccess ? [{ label: 'Sources', value: 'sources', content: sources }] : []),
+		...(isPowerUserPlus || hasAdminAccess
+			? [{ label: 'Filters', value: 'filters', content: filters }]
+			: []),
+		...(hasAdminAccess
+			? [
+					{ label: 'Tunnels', value: 'tunnels', content: tunnels },
+					{ label: 'Access Policy', value: 'access-policy', content: accessPolicy },
+					{
+						label: 'Git Credentials',
+						value: 'git-credentials',
+						content: gitCredentialsTab
+					},
+					{ label: 'Deployments', value: 'deployments', content: deployments }
+				]
+			: [])
+	]);
 
 	onMount(async () => {
 		users = await UserService.listUsersIncludeDeleted();
@@ -319,21 +327,25 @@
 {/snippet}
 
 {#snippet servers()}
-	<EntriesView
-		entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
-		id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
-		bind:catalog={defaultCatalog}
-		readonly={isAdminReadonly}
-		{usersMap}
-		{query}
-		{urlFilters}
-		onFilter={handleFilter}
-		onClearAllFilters={handleClearAllFilters}
-		onSort={setSortUrlParams}
-		{initSort}
-	>
-		{#snippet noDataContent()}{@render displayNoData()}{/snippet}
-	</EntriesView>
+	{#if hasAdminAccess}
+		<EntriesView
+			entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
+			id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
+			bind:catalog={defaultCatalog}
+			readonly={isAdminReadonly}
+			{usersMap}
+			{query}
+			{urlFilters}
+			onFilter={handleFilter}
+			onClearAllFilters={handleClearAllFilters}
+			onSort={setSortUrlParams}
+			{initSort}
+		>
+			{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+		</EntriesView>
+	{:else}
+		<ConnectorsView {workspaceId} />
+	{/if}
 {/snippet}
 
 {#snippet sources()}
