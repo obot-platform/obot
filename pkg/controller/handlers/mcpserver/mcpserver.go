@@ -110,7 +110,7 @@ func (h *Handler) DetectDrift(req router.Request, _ router.Response) error {
 		return err
 	}
 	if mcp.CatalogHasSensitiveStaticConfiguration(&entry.Spec.Manifest) {
-		entryCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{entry.Name}, mcp.StaticConfigurationCredentialName(entry.Name))
+		entryCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{mcp.CatalogEntryStaticCredentialContext(entry.Name)}, mcp.StaticConfigurationCredentialName(entry.Name))
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return err
 		}

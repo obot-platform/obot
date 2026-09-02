@@ -705,7 +705,7 @@ func TestPopulateComponentManifestsRehydratesStaticConfiguration(t *testing.T) {
 	secrets := mcp.ExtractStaticCatalogConfiguration(&sourceManifest, nil, false)
 	req := newPopulateComponentManifestsRequest(t, entry)
 	require.NoError(t, req.GatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: entry.Name, Name: mcp.StaticConfigurationCredentialName(entry.Name), Secrets: secrets,
+		Context: mcp.CatalogEntryStaticCredentialContext(entry.Name), Name: mcp.StaticConfigurationCredentialName(entry.Name), Secrets: secrets,
 	}))
 	manifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeComposite,

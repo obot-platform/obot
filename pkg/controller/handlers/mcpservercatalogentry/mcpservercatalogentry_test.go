@@ -57,7 +57,7 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 
 	client := newFakeClient(compositeEntry, sharedServer)
 	gatewayClient := newTestGatewayClient(t)
-	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, compositeEntry.Name, compositeEntry.Name, map[string]string{"API_KEY": "secret"}))
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext(compositeEntry.Name), compositeEntry.Name, map[string]string{"API_KEY": "secret"}))
 	err := (&Handler{gatewayClient: gatewayClient}).DetectCompositeDrift(router.Request{
 		Client:    client,
 		Ctx:       t.Context(),

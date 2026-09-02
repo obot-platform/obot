@@ -1,6 +1,7 @@
 package mcpcatalog
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -14,6 +15,43 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+func TestCredentializeCatalogObjectsIsolatesRegularAndSystemEntriesWithSameName(t *testing.T) {
+	gatewayClient := newStaticConfigTestGatewayClient(t)
+	handler := &Handler{gatewayClient: gatewayClient}
+	const entryName = "default-shared"
+
+	regular := &v1.MCPServerCatalogEntry{Name: entryName, Spec: v1.MCPServerCatalogEntrySpec{
+		Manifest: types.MCPServerCatalogEntryManifest{Env: []types.MCPEnv{{
+			Key: "TOKEN", Value: "regular-secret", Sensitive: true,
+		}}},
+	}}
+	systemEntry := &v1.SystemMCPServerCatalogEntry{Name: entryName, Spec: v1.SystemMCPServerCatalogEntrySpec{
+		Manifest: types.SystemMCPServerCatalogEntryManifest{Env: []types.MCPEnv{{
+			Key: "TOKEN", Value: "system-secret", Sensitive: true,
+		}}},
+	}}
+	require.NoError(t, handler.credentializeCatalogObjects(t.Context(), []kclient.Object{regular, systemEntry}))
+
+	regularContext := mcp.CatalogEntryStaticCredentialContext(entryName)
+	systemContext := mcp.SystemCatalogEntryStaticCredentialContext(entryName)
+	regularSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, regularContext, entryName)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"TOKEN": "regular-secret"}, regularSecrets)
+	systemSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, systemContext, entryName)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"TOKEN": "system-secret"}, systemSecrets)
+
+	_, err = gatewayClient.DeleteCredential(t.Context(), regularContext, mcp.StaticConfigurationCredentialName(entryName))
+	require.NoError(t, err)
+	_, err = gatewayClient.RevealCredential(t.Context(), []string{regularContext}, mcp.StaticConfigurationCredentialName(entryName))
+	require.Error(t, err)
+	var notFound gatewayclient.CredentialNotFoundError
+	require.True(t, errors.As(err, &notFound))
+	systemSecrets, err = mcp.StaticCredentialSecrets(t.Context(), gatewayClient, systemContext, entryName)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"TOKEN": "system-secret"}, systemSecrets)
+}
+
 func TestCredentializeCatalogObjectsRestoresCredentialsWhenCredentializationFails(t *testing.T) {
 	gatewayClient := newStaticConfigTestGatewayClient(t)
 	handler := &Handler{gatewayClient: gatewayClient}
@@ -22,7 +60,7 @@ func TestCredentializeCatalogObjectsRestoresCredentialsWhenCredentializationFail
 		Key: "TOKEN", Value: "old", Sensitive: true,
 	}}}
 	oldSecrets := mcp.ExtractStaticCatalogConfiguration(&oldManifest, nil, false)
-	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, "entry", "entry", oldSecrets))
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext("entry"), "entry", oldSecrets))
 
 	entry := &v1.MCPServerCatalogEntry{Name: "entry", Spec: v1.MCPServerCatalogEntrySpec{
 		Manifest: types.MCPServerCatalogEntryManifest{Env: []types.MCPEnv{{
@@ -36,7 +74,7 @@ func TestCredentializeCatalogObjectsRestoresCredentialsWhenCredentializationFail
 	}}
 	require.Error(t, handler.credentializeCatalogObjects(t.Context(), []kclient.Object{entry, invalidEntry}))
 
-	secrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, "entry", "entry")
+	secrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext("entry"), "entry")
 	require.NoError(t, err)
 	require.Equal(t, oldSecrets, secrets)
 }
@@ -66,12 +104,12 @@ func TestCredentializeCatalogObjectsPreservesResolvedComponentStaticConfiguratio
 	err := handler.credentializeCatalogObjects(t.Context(), objects)
 	require.NoError(t, err)
 
-	targetSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, target.Name, target.Name)
+	targetSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext(target.Name), target.Name)
 	require.NoError(t, err)
 	targetManifest := mcp.HydrateStaticCatalogConfiguration(target.Spec.Manifest, targetSecrets)
 	require.Equal(t, "secret", targetManifest.Env[0].Value)
 
-	compositeSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, composite.Name, composite.Name)
+	compositeSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext(composite.Name), composite.Name)
 	require.NoError(t, err)
 	compositeManifest := mcp.HydrateStaticCatalogConfiguration(composite.Spec.Manifest, compositeSecrets)
 	require.Equal(t, "secret", compositeManifest.CompositeConfig.ComponentServers[0].Manifest.Env[0].Value)

@@ -183,7 +183,7 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
-	secrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name)
+	secrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return fmt.Errorf("failed to reveal static configuration: %w", err)
 	}
@@ -1618,7 +1618,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		}
 		if mcp.CatalogHasSensitiveStaticConfiguration(&catalogEntry.Spec.Manifest) {
 			var err error
-			catalogStaticSecrets, err = mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, catalogEntry.Name, catalogEntry.Name)
+			catalogStaticSecrets, err = mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(catalogEntry.Name), catalogEntry.Name)
 			if err != nil {
 				return fmt.Errorf("failed to reveal catalog static configuration: %w", err)
 			}
@@ -3888,7 +3888,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 		return err
 	}
-	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name)
+	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return fmt.Errorf("failed to reveal catalog static configuration: %w", err)
 	}

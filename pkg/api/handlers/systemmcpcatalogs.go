@@ -188,7 +188,7 @@ func (*SystemMCPCatalogHandler) GetEntry(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	secrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name)
+	secrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return fmt.Errorf("failed to reveal static configuration: %w", err)
 	}
@@ -223,7 +223,7 @@ func (h *SystemMCPCatalogHandler) CreateEntry(req api.Context) error {
 		return fmt.Errorf("failed to create system catalog entry: %w", err)
 	}
 	if len(credentialSecrets) > 0 {
-		if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name, credentialSecrets); err != nil {
+		if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name, credentialSecrets); err != nil {
 			_ = req.Delete(&entry)
 			return fmt.Errorf("failed to store static configuration: %w", err)
 		}
@@ -248,17 +248,17 @@ func (h *SystemMCPCatalogHandler) UpdateEntry(req api.Context) error {
 		return types.NewErrBadRequest("failed to validate entry manifest: %v", err)
 	}
 	manifest.ToolPreview = entry.Spec.Manifest.ToolPreview
-	existingSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name)
+	existingSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return fmt.Errorf("failed to reveal static configuration: %w", err)
 	}
 	credentialSecrets := mcp.ExtractStaticSystemCatalogConfiguration(&manifest, existingSecrets, true)
-	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name, credentialSecrets); err != nil {
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name, credentialSecrets); err != nil {
 		return fmt.Errorf("failed to store static configuration: %w", err)
 	}
 	entry.Spec.Manifest = manifest
 	if err := req.Update(entry); err != nil {
-		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name, existingSecrets)
+		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name, existingSecrets)
 		return fmt.Errorf("failed to update system catalog entry: %w", err)
 	}
 	return req.Write(ConvertSystemMCPServerCatalogEntry(*entry, credentialSecrets))
