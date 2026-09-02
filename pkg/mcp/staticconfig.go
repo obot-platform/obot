@@ -125,7 +125,8 @@ func fieldsHaveSensitiveStaticConfiguration(env []types.MCPEnv, headers []types.
 // editable is true, configured placeholders preserve matching existing values.
 // Composite component manifests are processed recursively.
 func ExtractStaticCatalogConfiguration(m *types.MCPServerCatalogEntryManifest, existing map[string]string, editable bool) map[string]string {
-	secrets, seen := cloneConfiguration(existing), map[string]struct{}{}
+	secrets := cloneConfiguration(existing)
+	seen := map[string]struct{}{}
 	walkCatalogFields(m, "", secrets, seen, editable)
 	removeUnseenStaticValues(secrets, seen)
 	return secrets
@@ -147,7 +148,8 @@ func walkCatalogFields(m *types.MCPServerCatalogEntryManifest, prefix string, se
 // editable is true, configured placeholders preserve matching existing values.
 // Composite component manifests are processed recursively.
 func ExtractStaticServerConfiguration(m *types.MCPServerManifest, existing map[string]string, editable bool) map[string]string {
-	secrets, seen := cloneConfiguration(existing), map[string]struct{}{}
+	secrets := cloneConfiguration(existing)
+	seen := map[string]struct{}{}
 	walkServerFields(m, "", secrets, seen, editable)
 	removeUnseenStaticValues(secrets, seen)
 	return secrets
@@ -169,7 +171,8 @@ func walkServerFields(m *types.MCPServerManifest, prefix string, secrets map[str
 // When editable is true, configured placeholders preserve matching existing
 // values.
 func ExtractStaticSystemCatalogConfiguration(m *types.SystemMCPServerCatalogEntryManifest, existing map[string]string, editable bool) map[string]string {
-	secrets, seen := cloneConfiguration(existing), map[string]struct{}{}
+	secrets := cloneConfiguration(existing)
+	seen := map[string]struct{}{}
 	walkFields(m.Env, catalogHeaders(m.RemoteConfig), "", secrets, seen, editable)
 	removeUnseenStaticValues(secrets, seen)
 	return secrets
@@ -180,7 +183,8 @@ func ExtractStaticSystemCatalogConfiguration(m *types.SystemMCPServerCatalogEntr
 // When editable is true, configured placeholders preserve matching existing
 // values.
 func ExtractStaticSystemServerConfiguration(m *types.SystemMCPServerManifest, existing map[string]string, editable bool) map[string]string {
-	secrets, seen := cloneConfiguration(existing), map[string]struct{}{}
+	secrets := cloneConfiguration(existing)
+	seen := map[string]struct{}{}
 	walkFields(m.Env, runtimeHeaders(m.RemoteConfig), "", secrets, seen, editable)
 	removeUnseenStaticValues(secrets, seen)
 	return secrets
@@ -203,7 +207,8 @@ func processStaticField(f *types.MCPHeader, path string, secrets map[string]stri
 	}
 	seen[path] = struct{}{}
 	if f.Value != "" {
-		secrets[path], f.Value = f.Value, ""
+		secrets[path] = f.Value
+		f.Value = ""
 		f.ValueConfigured = true
 		return
 	}
@@ -342,14 +347,16 @@ func RedactStaticSystemServerConfiguration(m *types.SystemMCPServerManifest, sec
 func redactFields(env []types.MCPEnv, headers []types.MCPHeader) {
 	for i := range env {
 		if env[i].Sensitive {
-			env[i].ValueConfigured, env[i].Value = env[i].ValueConfigured || env[i].Value != "", ""
+			env[i].ValueConfigured = env[i].ValueConfigured || env[i].Value != ""
+			env[i].Value = ""
 		} else {
 			env[i].ValueConfigured = false
 		}
 	}
 	for i := range headers {
 		if headers[i].Sensitive {
-			headers[i].ValueConfigured, headers[i].Value = headers[i].ValueConfigured || headers[i].Value != "", ""
+			headers[i].ValueConfigured = headers[i].ValueConfigured || headers[i].Value != ""
+			headers[i].Value = ""
 		} else {
 			headers[i].ValueConfigured = false
 		}
