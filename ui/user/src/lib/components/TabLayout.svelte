@@ -59,6 +59,8 @@
 		return views[0]?.value;
 	});
 
+	let selectedIndex = $derived(views.findIndex((candidate) => candidate.value === selectedView));
+
 	let selected = $derived(views.find((candidate) => candidate.value === selectedView));
 
 	function selectView(value: string) {
@@ -111,15 +113,22 @@
 						{/if}
 
 						<div class="flex flex-1 flex-col">
-							<div class="flex flex-1 relative z-10">
-								{#each views as viewOption (viewOption.value)}
+							<div class={twMerge('flex flex-1 relative z-10 pr-2', x && 'pl-2')}>
+								{#each views as viewOption, index (viewOption.value)}
+									{@const isSelected = selectedView === viewOption.value}
 									<button
 										id={`tab-${viewOption.value}`}
 										class={twMerge(
-											'relative border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-200 rounded-t-xs after:absolute after:bottom-0 after:duration-200 after:transition-all after:left-1/2 after:-translate-x-1/2 after:h-0 after:w-0 after:border-x-5 after:border-x-transparent after:border-b-5 after:border-b-transparent after:content-[""]',
-											selectedView === viewOption.value
-												? 'border-primary border-b-3 bg-primary font-medium text-white after:border-b-white border-b-white'
-												: 'hover:border-white/50 hover:border-b-3 hover:after:border-b-white/50'
+											'tab-flare relative font-light text-md rounded-t-lg text-nowrap px-8 py-2',
+											isSelected
+												? 'tab-selected z-10 font-medium bg-primary text-white after:absolute after:-bottom-0.75 after:left-1/2 after:-translate-x-1/2 after:h-0 after:w-0 after:border-x-5 after:border-x-transparent after:border-b-5 after:border-b-base-300 after:dark:border-base-100 after:content-[""]'
+												: 'tab-hover-flare hover:bg-primary/20',
+											!isSelected && index === selectedIndex + 1 && 'tab-flare-no-left',
+											!isSelected && index === selectedIndex - 1 && 'tab-flare-no-right',
+											!isSelected &&
+												index !== selectedIndex - 1 &&
+												index !== views.length - 1 &&
+												'tab-separator'
 										)}
 										onclick={() => selectView(viewOption.value)}
 									>
@@ -127,7 +136,7 @@
 									</button>
 								{/each}
 							</div>
-							<div class="bg-base-400 h-0.5 w-full shrink-0 -translate-y-0.5"></div>
+							<div class="bg-primary h-0.75 w-full shrink-0"></div>
 						</div>
 
 						{#if x}
@@ -148,3 +157,78 @@
 		{/if}
 	</div>
 </Layout>
+
+<style>
+	/* Both bottom corner flares are drawn as two layers of a single pseudo-element,
+	   leaving ::after free for the separator */
+	.tab-flare {
+		--tab-flare-left: radial-gradient(
+			circle at top left,
+			transparent 0.5rem,
+			var(--tab-flare-color) 0.5rem
+		);
+		--tab-flare-right: radial-gradient(
+			circle at top right,
+			transparent 0.5rem,
+			var(--tab-flare-color) 0.5rem
+		);
+	}
+
+	.tab-flare::before {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: -0.5rem;
+		right: -0.5rem;
+		height: 0.5rem;
+		pointer-events: none;
+		background-image: var(--tab-flare-left), var(--tab-flare-right);
+		background-position:
+			left bottom,
+			right bottom;
+		background-size: 0.5rem 0.5rem;
+		background-repeat: no-repeat;
+	}
+
+	.tab-flare-no-left {
+		--tab-flare-left: none;
+	}
+
+	.tab-flare-no-right {
+		--tab-flare-right: none;
+	}
+
+	.tab-selected {
+		--tab-flare-color: var(--color-primary);
+	}
+
+	.tab-hover-flare {
+		--tab-flare-color: color-mix(in oklab, var(--color-primary) 20%, transparent);
+	}
+
+	.tab-hover-flare::before {
+		opacity: 0;
+	}
+
+	.tab-hover-flare:hover::before {
+		opacity: 1;
+	}
+
+	.tab-separator::after {
+		content: '';
+		position: absolute;
+		right: 0;
+		top: 50%;
+		translate: 0 -50%;
+		width: 1px;
+		height: 1.25rem;
+		background-color: color-mix(in oklab, var(--color-base-content) 20%, transparent);
+		pointer-events: none;
+	}
+
+	/* A flare takes the separator's place on whichever side is hovered */
+	.tab-separator:hover::after,
+	.tab-separator:has(+ button:hover)::after {
+		display: none;
+	}
+</style>
