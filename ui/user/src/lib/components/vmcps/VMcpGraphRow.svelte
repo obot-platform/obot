@@ -244,7 +244,7 @@
 							     default action along with it, so these links have to close it themselves. -->
 							<a
 								class="menu-button justify-between"
-								href={resolve(`/admin/audit-logs?mcp_id=${encodeURIComponent(vmcp.id)}`)}
+								href={resolve(`/audit-logs?mcp_id=${encodeURIComponent(vmcp.id)}`)}
 								target="_blank"
 								rel="noopener"
 								onclick={(e) => {
@@ -256,7 +256,7 @@
 							</a>
 							<a
 								class="menu-button justify-between"
-								href={resolve(`/admin/usage?mcp_id=${encodeURIComponent(vmcp.id)}`)}
+								href={resolve(`/usage?mcp_id=${encodeURIComponent(vmcp.id)}`)}
 								target="_blank"
 								rel="noopener"
 								onclick={(e) => {

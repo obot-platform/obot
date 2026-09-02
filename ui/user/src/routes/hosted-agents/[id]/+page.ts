@@ -15,7 +15,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	try {
 		hostedAgent = await AdminService.getHostedAgent(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/hosted-agents/${id}`, profile);
+		handleRouteError(err, `/hosted-agents/${id}`, profile);
 	}
 
 	return {

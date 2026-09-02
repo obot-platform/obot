@@ -7,13 +7,11 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 	const { id } = params;
 	const wid = url.searchParams.get('wid');
 
-	const prefix = profile.hasAdminAccess?.() ? '/admin' : '';
-
 	let mcpServer;
 	try {
 		mcpServer = await getMCPCatalogServer(id, wid, profile, fetch);
 	} catch (err) {
-		handleRouteError(err, `${prefix}/mcp-catalog/s/${id}`, profile);
+		handleRouteError(err, `/mcp-servers/s/${id}`, profile);
 	}
 
 	let catalogEntry;
@@ -24,7 +22,7 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 			// Only swallow 404 — the referenced entry was deleted but the server still
 			// points at it. Surface anything else so real failures aren't hidden.
 			if (parseErrorContent(err).status !== 404) {
-				handleRouteError(err, `${prefix}/mcp-catalog/s/${id}`, profile);
+				handleRouteError(err, `/mcp-servers/s/${id}`, profile);
 			}
 		}
 	}

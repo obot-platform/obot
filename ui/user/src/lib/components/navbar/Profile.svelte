@@ -298,11 +298,7 @@
 				{/if}
 			{/if}
 			{#if showMcpManagement && !impersonating}
-				<a
-					href={resolve(profile.current.hasAdminAccess?.() ? '/dashboard' : '/vmcps')}
-					rel="external"
-					class="dropdown-link"
-				>
+				<a href={resolve('/dashboard')} rel="external" class="dropdown-link">
 					<LayoutDashboard class="size-4" /> App Platform
 				</a>
 			{/if}

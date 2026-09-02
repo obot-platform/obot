@@ -7,13 +7,11 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 	const wid = url.searchParams.get('wid');
 
 	const { profile } = await parent();
-	const prefix = profile.hasAdminAccess?.() ? '/admin' : '';
-
 	let catalogEntry;
 	try {
 		catalogEntry = await getMCPCatalogEntry(id, wid, profile, fetch);
 	} catch (err) {
-		handleRouteError(err, `${prefix}/mcp-catalog/c/${id}`, profile);
+		handleRouteError(err, `/mcp-servers/c/${id}`, profile);
 	}
 
 	return {

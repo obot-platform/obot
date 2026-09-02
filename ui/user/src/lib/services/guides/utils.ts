@@ -18,6 +18,9 @@ import { isValid } from 'date-fns';
 export function generateLessonItems() {
 	const isAdvancedRoute =
 		page.url.pathname.startsWith('/admin') ||
+		page.url.pathname.startsWith('/mcp-servers') ||
+		page.url.pathname.startsWith('/skills') ||
+		page.url.pathname.startsWith('/inventory') ||
 		page.url.pathname.includes('mcp-catalog') ||
 		page.url.pathname.includes('access-policies');
 	const isAtLeastPoweruser = profile.current.groups.includes(Group.POWERUSER);

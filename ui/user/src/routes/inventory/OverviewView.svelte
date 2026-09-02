@@ -130,14 +130,12 @@
 		reload();
 	}
 
-	type SeeMoreTarget = 'devices' | 'mcps' | 'skills';
-
 	type StatTile = {
 		key: string;
 		label: string;
 		value: number;
 		icon: typeof Laptop;
-		seeMore?: SeeMoreTarget;
+		seeMore?: `/${string}`;
 	};
 
 	let tiles = $derived<StatTile[]>([
@@ -146,7 +144,7 @@
 			label: 'Unique Devices',
 			value: stats?.deviceCount ?? 0,
 			icon: Laptop,
-			seeMore: 'devices'
+			seeMore: '/inventory?view=devices'
 		},
 		{
 			key: 'users',
@@ -158,21 +156,22 @@
 			key: 'clients',
 			label: 'Unique Clients',
 			value: totalClientGroups,
-			icon: MonitorCheck
+			icon: MonitorCheck,
+			seeMore: '/inventory?view=device-clients'
 		},
 		{
 			key: 'mcps',
 			label: 'Unique MCPs',
 			value: totalMcpGroups,
 			icon: Server,
-			seeMore: 'mcps'
+			seeMore: '/inventory?view=device-mcp-servers'
 		},
 		{
 			key: 'skills',
 			label: 'Unique Skills',
 			value: totalSkillGroups,
 			icon: PencilRuler,
-			seeMore: 'skills'
+			seeMore: '/inventory?view=device-skills'
 		}
 	]);
 </script>
@@ -232,34 +231,12 @@
 {/if}
 
 {#snippet statCell(tile: StatTile)}
-	{#if tile.seeMore === 'devices'}
+	{#if tile.seeMore}
 		<a
-			href={resolve('/admin/devices')}
+			href={resolve(tile.seeMore)}
 			onclick={(e) => {
 				e.preventDefault();
-				openUrl(resolve('/admin/devices'), e.ctrlKey || e.metaKey);
-			}}
-			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
-		>
-			{@render statCellInner(tile, true)}
-		</a>
-	{:else if tile.seeMore === 'mcps'}
-		<a
-			href={resolve('/admin/devices/mcp-servers')}
-			onclick={(e) => {
-				e.preventDefault();
-				openUrl(resolve('/admin/devices/mcp-servers'), e.ctrlKey || e.metaKey);
-			}}
-			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
-		>
-			{@render statCellInner(tile, true)}
-		</a>
-	{:else if tile.seeMore === 'skills'}
-		<a
-			href={resolve('/admin/devices/skills')}
-			onclick={(e) => {
-				e.preventDefault();
-				openUrl(resolve('/admin/devices/skills'), e.ctrlKey || e.metaKey);
+				openUrl(resolve(tile.seeMore!), e.ctrlKey || e.metaKey);
 			}}
 			class="hover:bg-base-300/50 group flex items-center justify-between gap-3 p-4 transition-colors"
 		>

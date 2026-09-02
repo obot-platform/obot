@@ -2,5 +2,5 @@ import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 export const load: PageLoad = ({ params, url }) => {
-	throw redirect(301, `/mcp-servers/filters${encodeURIComponent(params.id)}${url.search}`);
+	throw redirect(301, `/mcp-servers/filters/${encodeURIComponent(params.id)}${url.search}`);
 };

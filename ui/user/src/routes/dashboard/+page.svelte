@@ -170,17 +170,11 @@
 	});
 
 	function getServerUrl(server: MCPCatalogServer) {
-		if (server.powerUserWorkspaceID) {
-			return `/admin/mcp-catalog/w/${server.powerUserWorkspaceID}/s/${server.id}?view=server-instances`;
-		}
-		return `/admin/mcp-catalog/s/${server.id}?view=server-instances`;
+		return `/mcp-servers/s/${server.id}?view=server-instances`;
 	}
 
 	function getEntryUrl(entry: MCPCatalogEntry) {
-		if (entry.powerUserWorkspaceID) {
-			return `/admin/mcp-catalog/w/${entry.powerUserWorkspaceID}/c/${entry.id}?view=server-instances`;
-		}
-		return `/admin/mcp-catalog/c/${entry.id}?view=server-instances`;
+		return `/mcp-servers/c/${entry.id}?view=server-instances`;
 	}
 
 	const platformStatTiles = $derived([
@@ -190,7 +184,7 @@
 			loading,
 			value: usersData.length,
 			icon: Users,
-			seeMore: '/admin/users'
+			seeMore: '/admin/identity-access?view=users'
 		},
 		{
 			id: 'monthly-active-users',
@@ -198,7 +192,7 @@
 			loading,
 			value: monthlyActiveUsers,
 			icon: Activity,
-			seeMore: '/admin/users'
+			seeMore: '/admin/identity-access?view=users'
 		},
 		{
 			id: 'total-tokens',
@@ -206,7 +200,7 @@
 			loading,
 			value: totalTokensData?.totalTokens ?? 0,
 			icon: Coins,
-			seeMore: '/admin/token-usage'
+			seeMore: '/usage?view=llm'
 		},
 		{
 			id: 'total-spend',
@@ -214,7 +208,7 @@
 			loading,
 			value: totalTokensData?.totalSpend ?? 0,
 			icon: CircleDollarSign,
-			seeMore: '/admin/token-usage'
+			seeMore: '/usage?view=llm'
 		}
 	]);
 
@@ -264,7 +258,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.deviceCount ?? 0,
 			icon: Laptop,
-			seeMore: '/admin/devices?view=devices'
+			seeMore: '/inventory?view=devices'
 		},
 		{
 			id: 'device-users',
@@ -279,7 +273,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.clients?.length ?? 0,
 			icon: MonitorCheck,
-			seeMore: '/admin/devices?view=device-clients'
+			seeMore: '/inventory?view=device-clients'
 		},
 		{
 			id: 'device-mcps',
@@ -287,7 +281,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.mcpServers?.length ?? 0,
 			icon: Server,
-			seeMore: '/admin/devices?view=device-mcp-servers'
+			seeMore: '/inventory?view=device-mcp-servers'
 		},
 		{
 			id: 'device-skills',
@@ -295,7 +289,7 @@
 			loading: loadingDeviceScanStats,
 			value: deviceScanStats?.skills?.length ?? 0,
 			icon: PencilRuler,
-			seeMore: '/admin/devices?view=device-skills'
+			seeMore: '/inventory?view=device-skills'
 		}
 	]);
 </script>
@@ -531,7 +525,7 @@
 			{#if !isBootStrapUser && totalServers > 0}
 				<div class="flex justify-end">
 					<a
-						href={resolve('/admin/mcp-deployments')}
+						href={resolve('/mcp-servers?view=deployments')}
 						class="text-[11px] transition-colors self-end translate-x-2 duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 					>
 						See More <ChevronRight class="size-3" />
@@ -596,7 +590,7 @@
 		<div class="flex grow"></div>
 		{#if popularServers.length > 0 && !isBootStrapUser}
 			<a
-				href={resolve('/admin/mcp-catalog')}
+				href={resolve('/mcp-servers')}
 				class="justify-end self-end text-[11px] translate-x-2 transition-colors duration-200 bg-base-400/50 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1"
 			>
 				See More <ChevronRight class="size-3" />
@@ -721,7 +715,7 @@
 		<div class="flex grow min-h-0"></div>
 		{#if topToolCalls.length > 0 && !isBootStrapUser}
 			<a
-				href={resolve('/admin/usage')}
+				href={resolve('/usage')}
 				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
 				See More <ChevronRight class="size-3" />
@@ -768,7 +762,7 @@
 		<div class="flex grow min-h-0"></div>
 		{#if avgToolCallResponseTime.length > 0 && !isBootStrapUser}
 			<a
-				href={resolve('/admin/usage')}
+				href={resolve('/usage')}
 				class="text-[11px] translate-x-2 self-end bg-base-400/50 transition-colors duration-200 hover:bg-base-400 rounded-md py-0.5 w-fit px-2 flex items-center gap-1 mt-2"
 			>
 				See More <ChevronRight class="size-3" />

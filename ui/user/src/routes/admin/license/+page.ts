@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	try {
 		license = await UserService.getLicense({ fetch });
 	} catch (err) {
-		handleRouteError(err, '/admin/license', profile);
+		handleRouteError(err, '/admin/platform?view=license', profile);
 	}
 
 	return {

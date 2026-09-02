@@ -151,16 +151,7 @@
 	);
 
 	function getAuditLogsUrl(d: Item) {
-		let useAdminUrl =
-			window.location.pathname.includes('/admin') && profile.current.hasAdminAccess?.();
-
-		if (useAdminUrl) {
-			return d.data.powerUserWorkspaceID
-				? `/admin/mcp-catalog/w/${d.data.powerUserWorkspaceID}/c/${d.id}?view=audit-logs`
-				: `/admin/mcp-catalog/c/${d.id}?view=audit-logs`;
-		}
-
-		return `/mcp-catalog/c/${d.id}?view=audit-logs`;
+		return `/mcp-servers/c/${d.id}?view=audit-logs`;
 	}
 
 	async function fetch() {
@@ -300,8 +291,7 @@
 				filterable={['name', 'type', 'source']}
 				{filters}
 				onClickRow={(d, isCtrlClick) => {
-					const prefix = profile.current.hasAdminAccess?.() ? '/admin' : '';
-					let url = `${prefix}/mcp-catalog/c/${d.data.id}`;
+					let url = `/mcp-servers/c/${d.data.id}`;
 
 					if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
 						url += '?wid=' + encodeURIComponent(d.data.powerUserWorkspaceID);

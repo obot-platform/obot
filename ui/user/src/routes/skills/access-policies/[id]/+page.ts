@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	try {
 		skillAccessPolicy = await AdminService.getSkillAccessPolicy(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/skill-access-policies/${id}`, profile);
+		handleRouteError(err, `/skills/access-policies/${id}`, profile);
 	}
 
 	return {

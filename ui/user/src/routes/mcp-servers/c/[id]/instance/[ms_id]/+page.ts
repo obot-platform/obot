@@ -6,7 +6,6 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 	const catalogEntryId = params.id;
 	const mcpServerId = params.ms_id;
 	const { profile } = await parent();
-	const prefix = profile.hasAdminAccess?.() ? '/admin' : '';
 	const wid = url.searchParams.get('wid');
 
 	let catalogEntry;
@@ -17,7 +16,7 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 	} catch (err) {
 		handleRouteError(
 			err,
-			`${prefix}/mcp-catalog/c/${catalogEntryId}/instance/${mcpServerId}`,
+			`/mcp-servers/c/${catalogEntryId}/instance/${mcpServerId}`,
 			profile
 		);
 	}

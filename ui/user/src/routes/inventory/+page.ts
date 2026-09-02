@@ -39,7 +39,7 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 		if (statsResult.status === 'fulfilled') {
 			stats = statsResult.value;
 		} else {
-			handleRouteError(statsResult.reason, '/admin/devices', profile);
+			handleRouteError(statsResult.reason, '/inventory', profile);
 		}
 
 		if (configurationsResult.status === 'fulfilled') {
@@ -47,7 +47,7 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 				configurationsResult.value.find((candidate) => candidate.isDefault) ??
 				configurationsResult.value[0];
 		} else {
-			handleRouteError(configurationsResult.reason, '/admin/devices', profile);
+			handleRouteError(configurationsResult.reason, '/inventory', profile);
 		}
 
 		if (sourceResult.status === 'fulfilled') {
@@ -66,7 +66,7 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 			try {
 				enrollmentKeys = await AdminService.listMDMEnrollmentKeys(configuration.id, { fetch });
 			} catch (err) {
-				handleRouteError(err, '/admin/devices?view=configuration', profile);
+				handleRouteError(err, '/inventory?view=configuration', profile);
 			}
 		}
 	}

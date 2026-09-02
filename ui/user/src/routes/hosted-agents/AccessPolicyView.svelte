@@ -70,7 +70,7 @@
 		fields={['displayName']}
 		headers={[{ property: 'displayName', title: 'Name' }]}
 		onClickRow={(d, isCtrlClick) => {
-			openUrl(`/admin/hosted-agent-access-policies/${d.id}`, isCtrlClick);
+			openUrl(`/hosted-agents/access-policies/${d.id}`, isCtrlClick);
 		}}
 		sortable={['displayName']}
 	>

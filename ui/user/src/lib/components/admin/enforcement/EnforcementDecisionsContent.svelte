@@ -393,7 +393,7 @@
 			<TriangleAlert class="size-4 shrink-0" />
 			<span class="text-xs">
 				Enforcement is currently disabled, so no new decisions are being recorded.
-				<a class="text-link" href={resolve('/admin/devices?view=configuration')}
+				<a class="text-link" href={resolve('/inventory?view=configuration')}
 					>Enable it on the Devices page.</a
 				>
 			</span>

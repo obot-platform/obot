@@ -108,10 +108,7 @@
 		onFilter={setFilterUrlParams}
 		onClearAllFilters={() => clearUrlParams(['name', 'transport'])}
 		onClickRow={(d, isCtrlClick) => {
-			openUrl(
-				resolve(`/admin/devices/mcp-servers/${encodeURIComponent(d.configHash)}`),
-				isCtrlClick
-			);
+			openUrl(resolve(`/inventory/mcp-servers/${encodeURIComponent(d.configHash)}`), isCtrlClick);
 		}}
 	>
 		{#snippet onRenderColumn(property, d: Row)}

@@ -992,15 +992,13 @@
 					if (!entry) return;
 					setLastVisitedMcpServer();
 
-					const isAdminRoute = window.location.pathname.includes('/admin/');
-
 					let url: string;
 					if (entity === 'workspace') {
-						url = !isAdminRoute
+						url = !profile.current.hasAdminAccess?.()
 							? `/mcp-access-policies/${d.id}`
-							: `/admin/mcp-access-policies/w/${id}/r/${d.id}`;
+							: `/mcp-servers/access-policies/w/${id}/r/${d.id}`;
 					} else {
-						url = `/admin/mcp-access-policies/${d.id}`;
+						url = `/mcp-servers/access-policies/${d.id}`;
 					}
 					openUrl(url, isCtrlClick);
 				}}
@@ -1104,7 +1102,7 @@
 							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
 							<p class="text-muted-content text-sm font-light">
 								See more usage details in the server's <a
-									href={resolve(`/admin/audit-logs?${param}`)}
+									href={resolve(`/audit-logs?${param}`)}
 									class="text-link"
 								>
 									Audit Logs

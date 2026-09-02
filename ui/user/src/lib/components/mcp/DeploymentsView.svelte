@@ -562,15 +562,15 @@
 		const useAdminUrl = profile.current.hasAdminAccess?.();
 		if (isComposite) {
 			return useAdminUrl
-				? `/admin/audit-logs?mcp_id=${d.compositeName}`
+				? `/audit-logs?mcp_id=${d.compositeName}`
 				: `/audit-logs?mcp_id=${d.compositeName}`;
 		}
 		return isMultiUser
 			? useAdminUrl
-				? `/admin/audit-logs?mcp_server_display_name=${d.manifest.name}`
+				? `/audit-logs?mcp_server_display_name=${d.manifest.name}`
 				: `/audit-logs?mcp_server_display_name=${d.manifest.name}`
 			: useAdminUrl
-				? `/admin/audit-logs?mcp_id=${d.id}`
+				? `/audit-logs?mcp_id=${d.id}`
 				: `/audit-logs?mcp_id=${d.id}`;
 	}
 
@@ -594,20 +594,20 @@
 		if (d.powerUserWorkspaceID) {
 			// Workspace catalog entry deployment
 			if (d.catalogEntryID) {
-				return `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/c/${d.catalogEntryID}`;
+				return `/mcp-servers/c/${d.catalogEntryID}`;
 			}
 
 			// Workspace multi-user server
-			return `/admin/mcp-catalog/w/${d.powerUserWorkspaceID}/s/${d.id}`;
+			return `/mcp-servers/s/${d.id}`;
 		}
 
 		// Global catalog entry deployment
 		if (d.catalogEntryID) {
-			return `/admin/mcp-catalog/c/${d.catalogEntryID}`;
+			return `/mcp-servers/c/${d.catalogEntryID}`;
 		}
 
 		// Global multi-user server
-		return `/admin/mcp-catalog/s/${d.id}`;
+		return `/mcp-servers/s/${d.id}`;
 	}
 
 	function isRestartableServer(d: MCPCatalogServer) {

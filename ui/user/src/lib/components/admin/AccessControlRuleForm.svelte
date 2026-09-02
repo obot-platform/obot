@@ -158,7 +158,7 @@
 					redirect =
 						entity === 'workspace'
 							? `/mcp-catalog/c/${entry.id}`
-							: `/admin/mcp-catalog/c/${entry.id}`;
+							: `/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -169,7 +169,7 @@
 						redirect =
 							entity === 'workspace'
 								? `/mcp-catalog/s/${server.id}`
-								: `/admin/mcp-catalog/s/${server.id}`;
+								: `/mcp-servers/s/${server.id}`;
 					}
 				}
 			}

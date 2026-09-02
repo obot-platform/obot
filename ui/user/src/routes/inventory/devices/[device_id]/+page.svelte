@@ -572,7 +572,7 @@
 	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`/inventory/devices/clients/${encodeURIComponent(client)}`)}
+			href={resolve(`/inventory/clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

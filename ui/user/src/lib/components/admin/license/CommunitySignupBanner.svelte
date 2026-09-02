@@ -18,7 +18,9 @@
 		<p class="text-xs font-light max-w-2xl">
 			{COMMUNITY_SIGNUP_BANNER_COPY}
 		</p>
-		<a href={resolve('/admin/license')} class="btn btn-xs btn-primary shrink-0"> Register </a>
+		<a href={resolve('/admin/platform?view=license')} class="btn btn-xs btn-primary shrink-0">
+			Register
+		</a>
 		<button
 			class="btn btn-circle text-primary hover:text-base-content btn-xs w-fit h-fit p-0.5 dark:hover:bg-base-400"
 			onclick={onDismiss}

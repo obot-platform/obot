@@ -45,8 +45,6 @@
 	let scanIdNum = $derived(scan?.id);
 
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	let urlPrefix = $derived((hasAdminAccess ? '/admin' : '') as `/${string}`);
-
 	$effect(() => {
 		const id = submittedById;
 		if (!id) {
@@ -346,7 +344,7 @@
 							filterable={['client', 'transport', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/mcp/${d.id}`,
+									`/inventory/devices/${deviceIdParam}/scans/${scanIdParam}/mcp/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -380,7 +378,7 @@
 							filterable={['client', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/skills/${d.id}`,
+									`/inventory/devices/${deviceIdParam}/scans/${scanIdParam}/skills/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -427,7 +425,7 @@
 							filterable={['client', 'pluginType', 'scope']}
 							onClickRow={(d, isCtrlClick) => {
 								openUrl(
-									`${urlPrefix}/devices/${deviceIdParam}/scans/${scanIdParam}/plugins/${d.id}`,
+									`/inventory/devices/${deviceIdParam}/scans/${scanIdParam}/plugins/${d.id}`,
 									isCtrlClick
 								);
 							}}
@@ -461,7 +459,7 @@
 								? (d, isCtrlClick) => {
 										if (d.name.trim() === 'multi') return;
 										openUrl(
-											resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(d.name)}`),
+											resolve(`/inventory/clients/${encodeURIComponent(d.name)}`),
 											isCtrlClick
 										);
 									}
@@ -498,7 +496,7 @@
 	{#if client && client.trim() !== 'multi' && client !== AGENTS_HOME_CLIENT_LABEL && hasAdminAccess}
 		<a
 			class="btn-link text-blue-500"
-			href={resolve(`${urlPrefix}/devices/clients/${encodeURIComponent(client)}`)}
+			href={resolve(`/inventory/clients/${encodeURIComponent(client)}`)}
 			onclick={(e) => e.stopPropagation()}
 		>
 			{client}

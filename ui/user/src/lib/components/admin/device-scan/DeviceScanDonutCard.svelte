@@ -69,11 +69,11 @@
 					{#if bucket.drilldown === 'mcp' && !bucket.isOther}
 						<li class="min-w-0">
 							<a
-								href={resolve(`/admin/devices/mcp-servers/${encodeURIComponent(bucket.key)}`)}
+								href={resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`)}
 								onclick={(e) => {
 									e.preventDefault();
 									openUrl(
-										resolve(`/admin/devices/mcp-servers/${encodeURIComponent(bucket.key)}`),
+										resolve(`/inventory/mcp-servers/${encodeURIComponent(bucket.key)}`),
 										e.ctrlKey || e.metaKey
 									);
 								}}
@@ -91,11 +91,11 @@
 					{:else if bucket.drilldown === 'skill' && !bucket.isOther}
 						<li class="min-w-0">
 							<a
-								href={resolve(`/admin/devices/skills/${encodeURIComponent(bucket.key)}`)}
+								href={resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`)}
 								onclick={(e) => {
 									e.preventDefault();
 									openUrl(
-										resolve(`/admin/devices/skills/${encodeURIComponent(bucket.key)}`),
+										resolve(`/inventory/skills/${encodeURIComponent(bucket.key)}`),
 										e.ctrlKey || e.metaKey
 									);
 								}}

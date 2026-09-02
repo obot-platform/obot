@@ -32,6 +32,6 @@ export const load: PageLoad = async ({
 		]);
 		return { detail, occurrences, pageSize: PAGE_SIZE };
 	} catch (err) {
-		handleRouteError(err, `/admin/devices/mcp-servers/${params.hash}`, profile.current);
+		handleRouteError(err, `/inventory/mcp-servers/${params.hash}`, profile.current);
 	}
 };

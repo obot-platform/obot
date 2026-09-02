@@ -26,7 +26,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	try {
 		license = await UserService.getLicense({ fetch });
 	} catch (err) {
-		handleRouteError(err, '/admin/license', profile);
+		handleRouteError(err, '/admin/platform?view=license', profile);
 	}
 
 	let appNotification: AppNotification = defaultAppNotification;
@@ -48,7 +48,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 			...(response ?? {})
 		};
 	} catch (err) {
-		handleRouteError(err, '/admin/app-notification', profile);
+		handleRouteError(err, '/admin/platform?view=notifications', profile);
 	}
 
 	let k8sSettings: K8sSettings | undefined;
@@ -56,7 +56,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		try {
 			k8sSettings = await AdminService.listK8sSettings({ fetch });
 		} catch (err) {
-			handleRouteError(err, '/admin/server-scheduling', profile);
+			handleRouteError(err, '/admin/platform?view=mcp-config', profile);
 		}
 	}
 
@@ -68,7 +68,7 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 			UserService.listUsers({ fetch })
 		]);
 	} catch (err) {
-		handleRouteError(err, '/admin/agent-auth-scopes', profile);
+		handleRouteError(err, '/admin/platform?view=registry-connections', profile);
 	}
 
 	return {

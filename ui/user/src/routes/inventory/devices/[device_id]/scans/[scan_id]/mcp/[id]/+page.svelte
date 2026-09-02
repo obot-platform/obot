@@ -7,7 +7,6 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { deriveDeviceScope, formatDeviceClient } from '$lib/format.js';
 	import type { DeviceScanMCPServer } from '$lib/services/user/types';
-	import { profile } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { findParentPlugin, shortHash } from '../../_shared/files';
 	import { fly } from 'svelte/transition';
@@ -18,10 +17,8 @@
 	let server = $derived<DeviceScanMCPServer | undefined>(
 		scan?.mcpServers?.find((m) => m.id === id)
 	);
-	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	let urlPrefix = $derived((hasAdminAccess ? '/admin' : '') as `/${string}`);
 	let backHref = $derived(
-		`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}`
+		`/inventory/devices/${page.params.device_id}/scans/${page.params.scan_id}`
 	);
 
 	let endpoint = $derived(
@@ -148,7 +145,7 @@
 							<a
 								class="text-sm text-link"
 								href={resolve(
-									`${urlPrefix}/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
+									`/inventory/devices/${page.params.device_id}/scans/${page.params.scan_id}/plugins/${parentPlugin.id}`
 								)}
 							>
 								{parentPlugin.name}

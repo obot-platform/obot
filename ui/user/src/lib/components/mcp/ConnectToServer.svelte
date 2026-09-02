@@ -1313,7 +1313,7 @@
 										onclick={async () => {
 											await deleteCatalogEntryServer();
 											const url = profile.current.isAdmin?.()
-												? `/admin/mcp-catalog/c/${entry?.id}`
+												? `/mcp-servers/c/${entry?.id}`
 												: `/mcp-catalog/c/${entry?.id}`;
 											goto(url);
 											toggle(false);

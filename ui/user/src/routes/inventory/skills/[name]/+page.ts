@@ -25,6 +25,6 @@ export const load: PageLoad = async ({
 		]);
 		return { detail, occurrences, pageSize: PAGE_SIZE };
 	} catch (err) {
-		handleRouteError(err, `/admin/devices/skills/${params.name}`, profile.current);
+		handleRouteError(err, `/inventory/skills/${params.name}`, profile.current);
 	}
 };

@@ -10,7 +10,7 @@ import type {
 	HostedAgentPoolAssignment,
 	HostedAgentPoolDefaults
 } from '$lib/services/admin/types';
-import type { PageLoad } from '../v2/hosted-agents/$types';
+import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile } = await parent();

@@ -44,7 +44,7 @@ export const steps: GuideStep[] = [
 		content: ['The "Configuration" tab contains all the information needed to set up Obot Sentry.'],
 		action: [
 			{
-				routeContains: '/admin/devices',
+				routeContains: '/inventory',
 				elementExists: MDM_DEVICES_CONFIGURATION_FIELD_IDS.getStartedButton,
 				highlight: {
 					selector: {
@@ -62,7 +62,7 @@ export const steps: GuideStep[] = [
 				}
 			},
 			{
-				routeContains: '/admin/devices',
+				routeContains: '/inventory',
 				elementMissing: MDM_DEVICES_CONFIGURATION_FIELD_IDS.getStartedButton,
 				elementExists: MDM_DEVICES_CONFIGURATION_FIELD_IDS.configurationTab,
 				highlight: {

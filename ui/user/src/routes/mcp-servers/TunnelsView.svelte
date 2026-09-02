@@ -145,7 +145,8 @@
 			filterable={['displayName', 'status']}
 			sortable={['displayName', 'status']}
 			noAutoHideFields={['displayName', 'status']}
-			onClickRow={(tunnel, isCtrlClick) => openUrl(`/admin/mcp-tunnels/${tunnel.id}`, isCtrlClick)}
+			onClickRow={(tunnel, isCtrlClick) =>
+				openUrl(`/mcp-servers/tunnels/${tunnel.id}`, isCtrlClick)}
 		>
 			{#snippet actions(tunnel)}
 				{#if !isReadonly}

@@ -46,7 +46,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(resolve('/inventory?view=clients'));
+			goto(resolve('/inventory?view=device-clients'));
 		}
 	}}
 >
@@ -121,7 +121,7 @@
 									return;
 								}
 								openUrl(
-									resolve(`/admin/devices/mcp-servers/${encodeURIComponent(d.configHash)}`),
+									resolve(`/inventory/mcp-servers/${encodeURIComponent(d.configHash)}`),
 									isCtrlClick
 								);
 							}}
@@ -149,10 +149,7 @@
 								{ title: 'Has Scripts', property: 'hasScripts' }
 							]}
 							onClickRow={(d, isCtrlClick) => {
-								openUrl(
-									resolve(`/admin/devices/skills/${encodeURIComponent(d.name)}`),
-									isCtrlClick
-								);
+								openUrl(resolve(`/inventory/skills/${encodeURIComponent(d.name)}`), isCtrlClick);
 							}}
 						>
 							{#snippet onRenderColumn(property, d)}

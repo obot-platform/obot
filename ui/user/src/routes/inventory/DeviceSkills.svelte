@@ -127,7 +127,7 @@
 		{initSort}
 		onSort={handleSort}
 		onClickRow={(d, isCtrlClick) => {
-			openUrl(resolve(`/admin/devices/skills/${encodeURIComponent(d.name)}`), isCtrlClick);
+			openUrl(resolve(`/inventory/skills/${encodeURIComponent(d.name)}`), isCtrlClick);
 		}}
 	>
 		{#snippet onRenderColumn(property, d: Row)}

@@ -601,8 +601,7 @@ export async function convertCompositeInfoToLaunchFormData(
 }
 
 export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
-	const prefix = prefixPath ?? '/mcp-catalog';
-	const adminPrefix = `/admin${prefix}`;
+	const prefix = prefixPath ?? '/mcp-servers';
 	const belongsToWorkspace = d.powerUserWorkspaceID ? true : false;
 	// Route by the server's actual user type, not by the presence of a catalog
 	// entry. Multi-user servers deployed from a catalog entry carry a
@@ -616,18 +615,18 @@ export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
 		if (isMulti && d.catalogEntryID) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `${adminPrefix}/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `${adminPrefix}/s/${d.id}/details`;
+					? `${prefix}/s/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${prefix}/s/${d.id}/details`;
 		} else if (isMulti) {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `${adminPrefix}/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `${adminPrefix}/s/${d.id}`;
+					? `${prefix}/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${prefix}/s/${d.id}`;
 		} else {
 			url =
 				belongsToWorkspace && d.powerUserWorkspaceID
-					? `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
-					: `${adminPrefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
+					? `${prefix}/c/${d.catalogEntryID}/instance/${d.id}/details?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`
+					: `${prefix}/c/${d.catalogEntryID}/instance/${d.id}/details`;
 		}
 	} else {
 		url = isMulti

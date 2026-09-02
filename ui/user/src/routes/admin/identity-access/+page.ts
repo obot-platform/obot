@@ -29,7 +29,7 @@ export const load: PageLoad = async ({ fetch }) => {
 			console.error('Failed to resolve group names:', err);
 		}
 	} catch (err) {
-		handleRouteError(err, `/admin/groups`, profile.current);
+		handleRouteError(err, '/admin/identity-access?view=groups', profile.current);
 	}
 
 	try {

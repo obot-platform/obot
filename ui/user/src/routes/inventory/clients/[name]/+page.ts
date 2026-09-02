@@ -18,6 +18,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
 		]);
 		return { client, users };
 	} catch (err) {
-		handleRouteError(err, `/admin/devices/clients/${params.name}`, profile.current);
+		handleRouteError(err, `/inventory/clients/${params.name}`, profile.current);
 	}
 };

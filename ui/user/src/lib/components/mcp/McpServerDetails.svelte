@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { page } from '$app/state';
 	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
@@ -47,7 +46,6 @@
 	);
 	let supportsDetails = $derived(supportsMCPBackendDetails(server));
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
-	let isAdminUrl = $derived(page.url.pathname.includes('/admin'));
 	let entity = $derived(
 		overrideEntity ?? (server && server?.powerUserWorkspaceID ? 'workspace' : 'catalog')
 	);
@@ -70,27 +68,19 @@
 
 		if (compositeParentName || entity === 'agent') return null;
 
-		if (isAdminUrl) {
-			const adminPrefix = page.url.pathname.startsWith('/admin/mcp-deployments')
-				? '/admin/mcp-deployments'
-				: '/admin/mcp-catalog';
-
-			if (!hasAdminAccess) return null;
-			return entity === 'workspace'
-				? catalogEntry?.id
-					? `${adminPrefix}/w/${entityId}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `${adminPrefix}/w/${entityId}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`
-				: catalogEntry?.id
-					? `${adminPrefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-					: `${adminPrefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+		const prefix = '/mcp-servers';
+		if (hasAdminAccess) {
+			return catalogEntry?.id
+				? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+				: `${prefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 		}
 
 		// Basic users can access audit logs for their own single-user servers
 		let isOwnServer = server && isOwnSingleUserServer(server, profile.current?.id);
 		if (!isOwnServer && !profile.current?.groups.includes(Group.POWERUSER)) return null;
 		return catalogEntry?.id
-			? `/mcp-catalog/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `/mcp-catalog/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+			? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
+			: `${prefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
 	}
 </script>
 

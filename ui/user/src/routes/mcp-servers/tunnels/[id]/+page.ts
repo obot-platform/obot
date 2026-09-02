@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 	try {
 		mcpTunnel = await AdminService.getMCPTunnel(params.id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/mcp-tunnels/${params.id}`, profile.current);
+		handleRouteError(err, `/mcp-servers/tunnels/${params.id}`, profile.current);
 	}
 
 	try {

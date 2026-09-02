@@ -10,7 +10,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	try {
 		hostedAgentAccessPolicy = await AdminService.getHostedAgentAccessPolicy(id, { fetch });
 	} catch (err) {
-		handleRouteError(err, `/admin/hosted-agent-access-policies/${id}`, profile);
+		handleRouteError(err, `/hosted-agents/access-policies/${id}`, profile);
 	}
 
 	return {
