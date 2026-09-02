@@ -494,8 +494,8 @@ github.com/obot-platform/kinm v0.0.0-20260717005812-cd2688a2a64e h1:o439PMKepm2y
 github.com/obot-platform/kinm v0.0.0-20260717005812-cd2688a2a64e/go.mod h1:mJ2Mx/FzMK2WmfxamD2V9N7TeakulKdmGHw4qvMjzUs=
 github.com/obot-platform/mmmcp v0.1.2 h1:M0IQlmnF73bZfbLT8ArZ/mFVSMRoH+bFmqCe/YwvDtk=
 github.com/obot-platform/mmmcp v0.1.2/go.mod h1:IM+X47ERoflOPn9ZEtrKki5zp4mAz9J6Ov5wvZBot+M=
-github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f h1:yoMKu8I8gFlsBOSPs+guQdsSWscaipIjDIBIIl2a7ho=
-github.com/obot-platform/nah v0.0.0-20260707163210-8bdf0035e79f/go.mod h1:m3e3C4G/Y/ZYRc6CdMj9n8JfVRCzIc7N8FUvjemsVtY=
+github.com/obot-platform/nah v0.0.0-20260902222426-636420908be9 h1:ghr7sLW3yg5fBoCuHGOz9ZVa3xcv0JuYUtFAq2plZnw=
+github.com/obot-platform/nah v0.0.0-20260902222426-636420908be9/go.mod h1:XYTsRgyYAHyKS9yAy3j5LFdWGJM48EmneZ1otits+dU=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.12.0/go.mod h1:oUhWkIvk5aDxtKvDDuw8gItl8pKl42LzjC9KZE0HfGg=
 github.com/onsi/ginkgo v1.16.5 h1:8xi0RTUf59SOSfEtZMvwTvXYMzG4gV23XVHOZiXNtnE=
