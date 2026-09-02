@@ -1072,6 +1072,49 @@ func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *tes
 	assert.Empty(t, server.Spec.Manifest.RemoteConfig.Headers[0].Value)
 }
 
+func TestConfigurationHasDriftedRestoresNestedCompositeStaticValues(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
+	referenceManifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+			CatalogEntryID: "component",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX,
+				Env:     []types.MCPEnv{{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true}},
+			},
+		}}},
+	}
+	server := &v1.MCPServer{
+		Name: "composite-server",
+		Spec: v1.MCPServerSpec{
+			MCPCatalogID: "default",
+			Manifest: types.MCPServerManifest{
+				Runtime: types.RuntimeComposite,
+				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+					CatalogEntryID: "component",
+					Manifest: types.MCPServerManifest{
+						Runtime: types.RuntimeNPX,
+						Env:     []types.MCPEnv{{Key: "STATIC_ENV", Sensitive: true}},
+					},
+				}}},
+			},
+		},
+	}
+	staticManifest := server.DeepCopy().Spec.Manifest
+	staticManifest.CompositeConfig.ComponentServers[0].Manifest.Env[0].Value = "stored-env"
+	staticSecrets := mcp.ExtractStaticServerConfiguration(&staticManifest, nil, false)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: "default-composite-server",
+		Name:    mcp.StaticConfigurationCredentialName(server.Name),
+		Secrets: staticSecrets,
+	}))
+
+	drifted, err := ConfigurationHasDrifted(t.Context(), gatewayClient, server, referenceManifest, false)
+	require.NoError(t, err)
+	assert.False(t, drifted)
+	assert.Empty(t, server.Spec.Manifest.CompositeConfig.ComponentServers[0].Manifest.Env[0].Value)
+}
+
 func TestRuntimeSpecificDriftFunctions(t *testing.T) {
 	t.Run("uvxConfigHasDrifted", func(t *testing.T) {
 		tests := []struct {
