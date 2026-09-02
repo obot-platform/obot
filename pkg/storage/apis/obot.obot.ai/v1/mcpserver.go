@@ -172,7 +172,6 @@ func (in *MCPServer) FieldNames() []string {
 
 func (in *MCPServer) DeleteRefs() []Ref {
 	refs := []Ref{
-		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogID},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},

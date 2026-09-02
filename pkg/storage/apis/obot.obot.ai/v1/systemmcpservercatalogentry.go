@@ -9,7 +9,6 @@ import (
 )
 
 var (
-	_ DeleteRefs    = (*SystemMCPServerCatalogEntry)(nil)
 	_ fields.Fields = (*SystemMCPServerCatalogEntry)(nil)
 )
 
@@ -75,8 +74,4 @@ func (in *SystemMCPServerCatalogEntry) FieldNames() []string {
 		"spec.systemMCPCatalogName",
 		"spec.manifest.systemMCPServerType",
 	}
-}
-
-func (in *SystemMCPServerCatalogEntry) DeleteRefs() []Ref {
-	return []Ref{{ObjType: &SystemMCPCatalog{}, Name: in.Spec.SystemMCPCatalogName}}
 }

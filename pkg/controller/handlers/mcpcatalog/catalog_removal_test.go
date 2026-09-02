@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/apply"
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
@@ -282,6 +283,65 @@ func TestDetachCatalogEntryIgnoresNotFound(t *testing.T) {
 	require.NoError(t, detachCatalogEntry(t.Context(), newCatalogFakeClient(), catalog, "missing"))
 }
 
+func TestRemoveCatalogChildren(t *testing.T) {
+	catalog := testCatalog()
+	entry := managedCatalogEntry(t, catalog, "managed-entry")
+	server := &v1.MCPServer{
+		Name:      "catalog-server",
+		Namespace: catalog.Namespace,
+		Spec:      v1.MCPServerSpec{MCPCatalogID: catalog.Name},
+	}
+	unrelatedEntry := managedCatalogEntry(t, catalog, "unrelated-entry")
+	unrelatedEntry.Spec.MCPCatalogName = "other"
+	unrelatedServer := &v1.MCPServer{
+		Name:      "unrelated-server",
+		Namespace: catalog.Namespace,
+		Spec:      v1.MCPServerSpec{MCPCatalogID: "other"},
+	}
+	client := newCatalogFakeClient(catalog, entry, server, unrelatedEntry, unrelatedServer)
+
+	err := (&Handler{}).RemoveCatalogChildren(router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    catalog,
+		Namespace: catalog.Namespace,
+		Name:      catalog.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.MCPServerCatalogEntry{})))
+	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(server), &v1.MCPServer{})))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelatedEntry), &v1.MCPServerCatalogEntry{}))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelatedServer), &v1.MCPServer{}))
+}
+
+func TestRemoveSystemCatalogEntries(t *testing.T) {
+	catalog := &v1.SystemMCPCatalog{Name: "system-catalog", Namespace: "default"}
+	entry := &v1.SystemMCPServerCatalogEntry{
+		Name:      "system-entry",
+		Namespace: catalog.Namespace,
+		Spec:      v1.SystemMCPServerCatalogEntrySpec{SystemMCPCatalogName: catalog.Name},
+	}
+	unrelated := &v1.SystemMCPServerCatalogEntry{
+		Name:      "unrelated-system-entry",
+		Namespace: catalog.Namespace,
+		Spec:      v1.SystemMCPServerCatalogEntrySpec{SystemMCPCatalogName: "other"},
+	}
+	client := newCatalogFakeClient(catalog, entry, unrelated)
+
+	err := (&Handler{}).RemoveSystemCatalogEntries(router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    catalog,
+		Namespace: catalog.Namespace,
+		Name:      catalog.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+
+	assert.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), &v1.SystemMCPServerCatalogEntry{})))
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(unrelated), &v1.SystemMCPServerCatalogEntry{}))
+}
+
 func testCatalog() *v1.MCPCatalog {
 	return &v1.MCPCatalog{
 		APIVersion: v1.SchemeGroupVersion.String(), Kind: "MCPCatalog",
@@ -318,10 +378,13 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 	}
 }
 
-func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
+func newCatalogFakeClient(objects ...kclient.Object) kclient.WithWatch {
 	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPCatalog"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServerCatalogEntry"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServer"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPCatalog"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPServerCatalogEntry"), meta.RESTScopeNamespace)
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
 		WithRESTMapper(restMapper).
@@ -338,6 +401,20 @@ func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
 				return nil
 			}
 			return []string{server.Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.mcpCatalogID", func(obj kclient.Object) []string {
+			server := obj.(*v1.MCPServer)
+			if server.Spec.MCPCatalogID == "" {
+				return nil
+			}
+			return []string{server.Spec.MCPCatalogID}
+		}).
+		WithIndex(&v1.SystemMCPServerCatalogEntry{}, "spec.systemMCPCatalogName", func(obj kclient.Object) []string {
+			entry := obj.(*v1.SystemMCPServerCatalogEntry)
+			if entry.Spec.SystemMCPCatalogName == "" {
+				return nil
+			}
+			return []string{entry.Spec.SystemMCPCatalogName}
 		}).
 		WithObjects(objects...).
 		Build()

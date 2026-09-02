@@ -12,6 +12,8 @@ const (
 	GitCredentialFinalizer         = "obot.obot.ai/git-credential"
 	HostedAgentInstanceFinalizer   = "obot.obot.ai/hosted-agent-instance"
 	HostedAgentPoolFinalizer       = "obot.obot.ai/hosted-agent-pool"
+	MCPCatalogFinalizer            = "obot.obot.ai/mcp-catalog"
+	SystemMCPCatalogFinalizer      = "obot.obot.ai/system-mcp-catalog"
 
 	ModelProviderSyncAnnotation         = "obot.ai/model-provider-sync"
 	MCPCatalogSyncAnnotation            = "obot.ai/mcp-catalog-sync"

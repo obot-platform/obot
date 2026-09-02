@@ -114,9 +114,11 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.Sync)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServersForCatalog)
 	root.Type(&v1.MCPCatalog{}).HandlerFunc(mcpCatalog.DeleteUnauthorizedMCPServerInstancesForCatalog)
+	root.Type(&v1.MCPCatalog{}).FinalizeFunc(v1.MCPCatalogFinalizer, mcpCatalog.RemoveCatalogChildren)
 
 	// SystemMCPCatalog
 	root.Type(&v1.SystemMCPCatalog{}).HandlerFunc(mcpCatalog.SyncSystem)
+	root.Type(&v1.SystemMCPCatalog{}).FinalizeFunc(v1.SystemMCPCatalogFinalizer, mcpCatalog.RemoveSystemCatalogEntries)
 
 	// SkillRepository
 	root.Type(&v1.SkillRepository{}).HandlerFunc(skillRepository.Sync)
@@ -163,7 +165,6 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.EnsureOAuthCredentialStatus)
 
 	// SystemMCPServerCatalogEntry
-	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
 
 	// MCPServer

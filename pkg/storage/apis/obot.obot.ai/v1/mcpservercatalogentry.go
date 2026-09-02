@@ -100,7 +100,6 @@ func (in *MCPServerCatalogEntry) FieldNames() []string {
 
 func (in *MCPServerCatalogEntry) DeleteRefs() []Ref {
 	return []Ref{
-		{ObjType: &MCPCatalog{}, Name: in.Spec.MCPCatalogName},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 	}
 }

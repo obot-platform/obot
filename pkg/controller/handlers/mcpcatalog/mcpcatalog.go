@@ -593,6 +593,59 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 	return app.Apply(req.Ctx, systemCatalog, toAdd...)
 }
 
+// RemoveCatalogChildren replaces child-side deletion watches with parent-side cleanup.
+// Watching an MCPCatalog from every catalog entry and catalog-scoped server causes any
+// catalog status update to reconcile every child at once.
+func (*Handler) RemoveCatalogChildren(req router.Request, _ router.Response) error {
+	catalog := req.Object.(*v1.MCPCatalog)
+
+	var entries v1.MCPServerCatalogEntryList
+	if err := req.Client.List(req.Ctx, &entries,
+		kclient.InNamespace(catalog.Namespace),
+		kclient.MatchingFields{"spec.mcpCatalogName": catalog.Name}); err != nil {
+		return fmt.Errorf("failed to list entries for catalog %q: %w", catalog.Name, err)
+	}
+	for i := range entries.Items {
+		if err := req.Client.Delete(req.Ctx, &entries.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete entry %q for catalog %q: %w", entries.Items[i].Name, catalog.Name, err)
+		}
+	}
+
+	var servers v1.MCPServerList
+	if err := req.Client.List(req.Ctx, &servers,
+		kclient.InNamespace(catalog.Namespace),
+		kclient.MatchingFields{"spec.mcpCatalogID": catalog.Name}); err != nil {
+		return fmt.Errorf("failed to list servers for catalog %q: %w", catalog.Name, err)
+	}
+	for i := range servers.Items {
+		if err := req.Client.Delete(req.Ctx, &servers.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete server %q for catalog %q: %w", servers.Items[i].Name, catalog.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// RemoveSystemCatalogEntries performs the deletion cleanup previously provided by
+// every SystemMCPServerCatalogEntry watching its parent catalog.
+func (*Handler) RemoveSystemCatalogEntries(req router.Request, _ router.Response) error {
+	catalog := req.Object.(*v1.SystemMCPCatalog)
+
+	var entries v1.SystemMCPServerCatalogEntryList
+	if err := req.Client.List(req.Ctx, &entries,
+		kclient.InNamespace(catalog.Namespace),
+		kclient.MatchingFields{"spec.systemMCPCatalogName": catalog.Name}); err != nil {
+		return fmt.Errorf("failed to list entries for system catalog %q: %w", catalog.Name, err)
+	}
+	for i := range entries.Items {
+		if err := req.Client.Delete(req.Ctx, &entries.Items[i]); err != nil && !apierrors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete entry %q for system catalog %q: %w", entries.Items[i].Name, catalog.Name, err)
+		}
+	}
+
+	return nil
+}
+
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {
 	entries, err := readCatalogManifests[types.SystemMCPServerCatalogEntryManifest](ctx, h.httpClient, sourceURL, token)
 	if err != nil {
