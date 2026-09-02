@@ -15,8 +15,8 @@ import type { PageLoad } from './$types';
 
 const views = new Set([
 	'servers',
+	'entries',
 	'sources',
-	'git-credentials',
 	'deployments',
 	'filters',
 	'tunnels',
@@ -78,7 +78,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	}
 
 	const needsWorkspace =
-		!profile.hasAdminAccess?.() && ['servers', 'access-policies'].includes(view);
+		!profile.hasAdminAccess?.() && ['entries', 'access-policies'].includes(view);
 	if (!needsWorkspace) {
 		return {
 			workspaceId: undefined,

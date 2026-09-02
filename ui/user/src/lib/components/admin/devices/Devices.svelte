@@ -96,7 +96,7 @@
 		});
 	});
 
-	let total = $derived(devicesToShow?.length ?? 0);
+	let total = $derived(devicesResp.total ?? 0);
 	let lastPageIndex = $derived(total > 0 ? Math.ceil(total / PAGE_SIZE) - 1 : 0);
 	let initSort = $derived(getTableUrlParamsSort({ property: 'scannedAt', order: 'desc' }));
 

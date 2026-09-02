@@ -4,5 +4,5 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = ({ url }) => {
 	const searchParams = new URLSearchParams(url.searchParams);
 	searchParams.delete('view');
-	throw redirect(301, `/models?view=model-providers&${searchParams}`);
+	throw redirect(301, `/admin/platform?view=git-credentials&${searchParams}`);
 };

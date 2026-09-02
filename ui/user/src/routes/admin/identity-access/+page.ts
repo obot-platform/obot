@@ -44,7 +44,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 			try {
 				defaultUsersRole = await AdminService.getDefaultUsersRoleSettings({ fetch });
 			} catch (err) {
-				handleRouteError(err, `/user-configuration`, profile.current);
+				handleRouteError(err, `/admin/identity-access?view=roles`, profile.current);
 			}
 			break;
 		case 'auth-providers':
@@ -55,7 +55,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 					authProviders = await AdminService.listAuthProviders({ fetch });
 				}
 			} catch (err) {
-				handleRouteError(err, '/v2/identity-access', profile.current);
+				handleRouteError(err, '/admin/identity-access', profile.current);
 			}
 			break;
 	}

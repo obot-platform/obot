@@ -4,7 +4,7 @@ import type { GitCredential, SkillAccessPolicy, SkillRepository } from '$lib/ser
 import type { Skill } from '$lib/services/nanobot/types';
 import type { PageLoad } from './$types';
 
-const views = new Set(['skills', 'sources', 'git-credentials', 'access-policies']);
+const views = new Set(['skills', 'sources', 'access-policies']);
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();

@@ -43,6 +43,7 @@
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	const viewValues = [
 		'servers',
+		'entries',
 		'sources',
 		'git-credentials',
 		'deployments',
@@ -91,7 +92,7 @@
 	});
 	let creating = $derived(
 		page.url.searchParams.has('new') &&
-			((selectedView === 'servers' && !!newServerType) ||
+			((selectedView === 'entries' && !!newServerType) ||
 				selectedView === 'filters' ||
 				selectedView === 'tunnels' ||
 				selectedView === 'access-policies')
@@ -99,7 +100,7 @@
 	let layoutTitle = $derived.by(() => {
 		if (!creating) return 'MCP Servers';
 		switch (selectedView) {
-			case 'servers':
+			case 'entries':
 				return 'Add Catalog Entry';
 			case 'filters':
 				return 'Create Filter';
@@ -191,7 +192,7 @@
 
 	function selectServerType(type: LaunchServerType) {
 		selectServerTypeDialog?.close();
-		openCreate('servers', type);
+		openCreate('entries', type);
 	}
 
 	function closeCreateScreen() {
@@ -215,7 +216,7 @@
 
 {#if creating}
 	<Layout title={layoutTitle} showBackButton onBackButtonClick={closeCreateScreen}>
-		{#if selectedView === 'servers'}
+		{#if selectedView === 'entries'}
 			<McpServerEntryForm
 				entity={hasAdminAccess ? 'catalog' : 'workspace'}
 				id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}

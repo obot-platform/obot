@@ -88,9 +88,12 @@
 					<button
 						onclick={(e) => {
 							const isCtrlClick = e.metaKey || e.ctrlKey;
+							const workspaceScope = catalogEntry.powerUserWorkspaceID
+								? `?wid=${encodeURIComponent(catalogEntry.powerUserWorkspaceID)}`
+								: '';
 							const url = componentServer.catalogEntryID
-								? `/mcp-servers/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details`
-								: `/mcp-servers/s/${componentServer.mcpServerID}/details`;
+								? `/mcp-servers/c/${componentServer.catalogEntryID}/instance/${catalogEntryServerId}/details${workspaceScope}`
+								: `/mcp-servers/s/${componentServer.mcpServerID}/details${workspaceScope}`;
 
 							sessionStorage.setItem(
 								ADMIN_SESSION_STORAGE.LAST_VISITED_MCP_SERVER,

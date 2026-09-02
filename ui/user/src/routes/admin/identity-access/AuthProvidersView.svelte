@@ -134,7 +134,6 @@
 
 	$effect(() => {
 		if (showInitialAuthProvider) {
-			console.log('changed');
 			const authProvider = sortedAuthProviders.find(
 				(provider) => provider.id === showInitialAuthProvider
 			);

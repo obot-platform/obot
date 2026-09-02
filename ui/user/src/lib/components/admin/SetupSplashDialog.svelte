@@ -118,7 +118,7 @@
 				}
 
 				if (!isAuthProviderConfigured) {
-					goto(authProviderPath);
+					goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
 				} else if (requiresModelProviderConfiguration) {
 					goto(modelProviderPath);
 				}

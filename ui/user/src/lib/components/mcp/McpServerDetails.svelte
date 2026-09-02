@@ -70,9 +70,10 @@
 
 		const prefix = '/mcp-servers';
 		if (hasAdminAccess) {
+			const workspaceScope = entity === 'workspace' ? `&wid=${encodeURIComponent(entityId)}` : '';
 			return catalogEntry?.id
-				? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-				: `${prefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
+				? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}${workspaceScope}`
+				: `${prefix}/s/${encodeURIComponent(id)}?view=audit-logs&user_id=${d.id}${workspaceScope}`;
 		}
 
 		// Basic users can access audit logs for their own single-user servers

@@ -317,23 +317,25 @@
 {/if}
 
 {#snippet navActions(view: string)}
-	{#if !isAdminReadonly && view === 'access-policies'}
-		<button
-			class="btn btn-primary flex items-center gap-1 text-sm"
-			onclick={() => goto(`${page.url.pathname}?view=access-policies&new=true`)}
-		>
-			<Plus class="size-4" /> Add Access Policy
-		</button>
-	{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
-		<a
-			class="btn btn-secondary flex items-center gap-1 text-sm"
-			href={resolve('/admin/platform?view=git-credentials')}
-		>
-			<Settings class="size-4" /> Manage Credentials
-		</a>
-		<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
-			<Plus class="size-4" /> Add Source URL
-		</button>
+	{#if hasAdminAccess}
+		{#if !isAdminReadonly && view === 'access-policies'}
+			<button
+				class="btn btn-primary flex items-center gap-1 text-sm"
+				onclick={() => goto(`${page.url.pathname}?view=access-policies&new=true`)}
+			>
+				<Plus class="size-4" /> Add Access Policy
+			</button>
+		{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
+			<a
+				class="btn btn-secondary flex items-center gap-1 text-sm"
+				href={resolve('/admin/platform?view=git-credentials')}
+			>
+				<Settings class="size-4" /> Manage Credentials
+			</a>
+			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
+				<Plus class="size-4" /> Add Source URL
+			</button>
+		{/if}
 	{/if}
 {/snippet}
 

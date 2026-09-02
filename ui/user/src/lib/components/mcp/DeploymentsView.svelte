@@ -594,11 +594,11 @@
 		if (d.powerUserWorkspaceID) {
 			// Workspace catalog entry deployment
 			if (d.catalogEntryID) {
-				return `/mcp-servers/c/${d.catalogEntryID}`;
+				return `/mcp-servers/c/${d.catalogEntryID}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`;
 			}
 
 			// Workspace multi-user server
-			return `/mcp-servers/s/${d.id}`;
+			return `/mcp-servers/s/${d.id}?wid=${encodeURIComponent(d.powerUserWorkspaceID)}`;
 		}
 
 		// Global catalog entry deployment

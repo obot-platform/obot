@@ -361,9 +361,7 @@
 													}
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
-														resolve(
-															`/inventory/devices/mcp-servers/${encodeURIComponent(d.configHash)}`
-														),
+														resolve(`/inventory/mcp-servers/${encodeURIComponent(d.configHash)}`),
 														isCtrlClick
 													);
 													toggle();

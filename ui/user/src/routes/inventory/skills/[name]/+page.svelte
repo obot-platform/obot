@@ -79,7 +79,7 @@
 		if (typeof window !== 'undefined' && window.history.length > 1) {
 			window.history.back();
 		} else {
-			goto(resolve('/inventory/devices?view=device-skills'));
+			goto(resolve('/inventory?view=device-skills'));
 		}
 	}}
 >
