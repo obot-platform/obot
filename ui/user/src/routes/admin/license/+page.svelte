@@ -8,6 +8,7 @@
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import {
+		CLOUD_ENTITLEMENT,
 		COMMUNITY_ENTITLEMENT,
 		COMMUNITY_SIGNUP_BANNER_COPY,
 		ENTERPRISE_ENTITLEMENT,
@@ -24,7 +25,11 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let { data } = $props();
-	const editionEntitlements = new Set([COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT]);
+	const editionEntitlements = new Set([
+		COMMUNITY_ENTITLEMENT,
+		ENTERPRISE_ENTITLEMENT,
+		CLOUD_ENTITLEMENT
+	]);
 	const lockedLicenseMessage = 'The license key is locked and cannot be updated.';
 
 	let license = $state(untrack(() => data.license));
@@ -130,6 +135,7 @@
 	function formatEntitlementName(entitlement: string): string {
 		if (entitlement === COMMUNITY_ENTITLEMENT) return 'Obot Community';
 		if (entitlement === ENTERPRISE_ENTITLEMENT) return 'Obot Enterprise';
+		if (entitlement === CLOUD_ENTITLEMENT) return 'Obot Cloud';
 		const name = entitlement.replace(/^OBOT_(?:ENTERPRISE_)?/, '');
 		if (name === entitlement) return entitlement;
 

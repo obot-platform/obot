@@ -1,4 +1,4 @@
-import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import * as navigation from '$lib/navigation';
 import type { License } from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
@@ -88,6 +88,24 @@ describe('Licensing Page', () => {
 			.element(page.getByRole('button', { name: 'Delete License', exact: true }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByText('Danger Zone', { exact: true })).not.toBeInTheDocument();
+	});
+
+	it('renders the Cloud entitlement label ahead of non-edition entitlements', async () => {
+		await renderLicensePage({
+			license: {
+				...getLicenseResponse,
+				licenseKey: 'cloud-license-key',
+				enterprise: true,
+				entitlements: ['OBOT_SOME_FEATURE', CLOUD_ENTITLEMENT]
+			}
+		});
+
+		await expect.element(page.getByText('Obot Cloud', { exact: true })).toBeVisible();
+		await expect.element(page.getByText('Some Feature', { exact: true })).toBeVisible();
+
+		const badges = await page.getByRole('listitem').elements();
+		const badgeText = badges.map((el) => el.textContent?.trim());
+		expect(badgeText.indexOf('Obot Cloud')).toBeLessThan(badgeText.indexOf('Some Feature'));
 	});
 
 	it('lets the user register for a community license when none is present', async () => {
