@@ -12,14 +12,11 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import OverflowContainer from '$lib/components/OverflowContainer.svelte';
-	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { clearUrlParams, goto } from '$lib/url';
 	import { ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import type { Component } from 'svelte';
-	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	const duration = PAGE_TRANSITION_DURATION;
 	const VIEW_PARAM = 'view';
 
 	interface Props {
@@ -95,10 +92,7 @@
 		childrenContainer: twMerge('pt-0', classes?.childrenContainer)
 	}}
 >
-	<div
-		class={twMerge('flex h-full w-full gap-4 flex-col', views.length === 1 ? 'pt-4' : '')}
-		in:fly={{ x: 100, duration, delay: duration }}
-	>
+	<div class={twMerge('flex h-full w-full gap-4 flex-col', views.length === 1 ? 'pt-4' : '')}>
 		{#if views.length > 1}
 			<div class="w-full mt-4">
 				<OverflowContainer

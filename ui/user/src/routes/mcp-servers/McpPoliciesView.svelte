@@ -21,7 +21,7 @@
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import { BookOpenText, Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade, fly } from 'svelte/transition';
 
 	interface Props {
 		accessControlRules: AccessControlRule[];
@@ -139,11 +139,7 @@
 {#if creating}
 	{@render createRuleScreen()}
 {:else}
-	<div
-		class="flex flex-col gap-8"
-		in:fly={{ x: 100, delay: duration, duration }}
-		out:fly={{ x: -100, duration }}
-	>
+	<div class="flex flex-col gap-8" in:fade={{ duration }}>
 		{#if accessControlRules.length === 0}
 			<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
 				<BookOpenText class="text-muted-content size-24 opacity-25" />
@@ -283,11 +279,7 @@
 {/snippet}
 
 {#snippet createRuleScreen()}
-	<div
-		class="h-full w-full"
-		in:fly={{ x: 100, delay: duration, duration }}
-		out:fly={{ x: -100, duration }}
-	>
+	<div class="h-full w-full" in:fly|global={{ x: 100, delay: duration, duration }}>
 		{#if isAdmin}
 			<AccessControlRuleForm
 				onCreate={navigateToCreated}

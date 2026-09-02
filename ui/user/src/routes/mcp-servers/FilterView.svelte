@@ -14,7 +14,7 @@
 	import { goto } from '$lib/url';
 	import { BookOpenText, Trash2 } from '@lucide/svelte';
 	import type { Component } from 'svelte';
-	import { fly } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -54,11 +54,7 @@
 	{title}
 	showBackButton
 >
-	<div
-		class="h-full w-full flex flex-col gap-4"
-		in:fly={{ x: 100, duration }}
-		out:fly={{ x: -100, duration }}
-	>
+	<div class="h-full w-full flex flex-col gap-4" in:fade={{ duration }}>
 		{#if filter?.id}
 			<div class="flex w-full items-center justify-between gap-4">
 				<h1 class="flex items-center gap-4 text-2xl font-semibold">
