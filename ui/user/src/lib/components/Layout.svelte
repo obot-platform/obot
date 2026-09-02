@@ -263,11 +263,11 @@
 			label: 'AI Resources',
 			collapsible: true,
 			items: [
-				{
-					id: 'vmcp',
-					label: 'vMCPs',
-					href: '/vmcps'
-				},
+				// {
+				// 	id: 'vmcp',
+				// 	label: 'vMCPs',
+				// 	href: '/vmcps'
+				// },
 				{
 					id: 'mcp-servers',
 					label: 'MCP Servers',

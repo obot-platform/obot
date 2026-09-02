@@ -18,7 +18,7 @@ const children = createRawSnippet(() => ({ render: () => '<div></div>' }));
 
 const sharedLinks = [
 	'/dashboard',
-	'/vmcps',
+	//'/vmcps',
 	'/mcp-servers',
 	'/skills',
 	'/models',
@@ -96,7 +96,7 @@ async function expectNoLink(href: string) {
 }
 
 async function expectSharedNavigation() {
-	await expandSection('ai-resources', '/vmcps');
+	// await expandSection('ai-resources', '/vmcps');
 	await expandSection('operations', '/audit-logs');
 
 	for (const href of sharedLinks) {
@@ -159,7 +159,7 @@ describe('Layout.svelte', () => {
 			describe('when the Kubernetes engine is enabled', () => {
 				it('shows image pull secrets navigation', async () => {
 					await renderLayout([Group.ADMIN], { engine: 'kubernetes', hideK8sDetails: false });
-					await expandSection('ai-resources', '/vmcps');
+					// await expandSection('ai-resources', '/vmcps');
 
 					await expectLink('/admin/image-pull-secrets');
 				});
