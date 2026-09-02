@@ -237,7 +237,6 @@
 			readonly={isAdminReadonly || isSourcedEntry}
 			id={sourceID}
 			entity={sourceEntity}
-			excludeViews={['overview']}
 		/>
 	</div>
 </Layout>

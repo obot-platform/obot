@@ -70,7 +70,6 @@
 			entity={serverScopeEntity}
 			readonly={profile.current.isAdminReadonly?.()}
 			allowMultiUserServerConfigurationEdit
-			excludeViews={['overview']}
 		/>
 	</div>
 </Layout>

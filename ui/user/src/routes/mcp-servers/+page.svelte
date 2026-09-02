@@ -71,6 +71,7 @@
 
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	let isPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let canCreateEntry = $derived(
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
@@ -113,9 +114,11 @@
 	});
 	let views = $derived([
 		{ label: 'Servers', value: 'servers', content: servers },
+		...(hasAdminAccess || isPowerUser
+			? [{ label: 'Entries', value: 'entries', content: entries }]
+			: []),
 		...(hasAdminAccess
 			? [
-					{ label: 'Entries', value: 'entries', content: entries },
 					{ label: 'Sources', value: 'sources', content: sources },
 					{ label: 'Filters', value: 'filters', content: filters },
 					{ label: 'Tunnels', value: 'tunnels', content: tunnels },
