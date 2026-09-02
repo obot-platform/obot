@@ -594,18 +594,12 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.ElectionFile != "" {
 		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
 	} else {
-		// Hold the controller lock in a plain table instead of as a Lease in the
-		// versioned store. A Lease is rewritten every renew period, and in an
-		// append-only store that made it the most expensive object in the database:
-		// hundreds of row versions of a single row, sorted on every read, by every
-		// replica. The local Kubernetes election further down is unchanged; it runs
-		// against a real cluster, where a Lease is the right tool.
-		//
-		// WithLegacyLeaseLock covers the rolling update that introduces this change:
-		// while the leader_lock table has no row, a replica defers to the Lease that
-		// replicas on the previous release still hold, so old and new replicas never
-		// run two leaders. The Lease is no longer read once the first row exists.
-		// Remove the call in the release after this one ships everywhere.
+		// Hold the controller lock in a plain table rather than as a Lease in the
+		// versioned store, where every renew appended a row version and made the
+		// Lease the most expensive object in the database. The local Kubernetes
+		// election below still uses a real Lease. WithLegacyLeaseLock keeps one
+		// leader during the rolling update that introduces this change; remove it in
+		// the release after.
 		electionConfig = leader.NewSQLElectionConfig("obot-controller", dbAccess.SQLDB).
 			WithLegacyLeaseLock("", leaderElectionRESTConfig(restConfig))
 	}
