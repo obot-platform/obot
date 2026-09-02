@@ -71,7 +71,6 @@
 
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
-	let isPowerUser = $derived(profile.current.groups.includes(Group.POWERUSER));
 	let isPowerUserPlus = $derived(profile.current.groups.includes(Group.POWERUSER_PLUS));
 	let canCreateEntry = $derived(
 		profile.current.groups.includes(Group.ADMIN) || profile.current.groups.includes(Group.POWERUSER)
@@ -116,6 +115,7 @@
 		{ label: 'Servers', value: 'servers', content: servers },
 		...(hasAdminAccess
 			? [
+					{ label: 'Entries', value: 'entries', content: entries },
 					{ label: 'Sources', value: 'sources', content: sources },
 					{ label: 'Filters', value: 'filters', content: filters },
 					{ label: 'Tunnels', value: 'tunnels', content: tunnels },
@@ -245,7 +245,7 @@
 {/if}
 
 {#snippet navActions(view: string)}
-	{#if view === 'servers' && canCreateEntry && !isAdminReadonly}
+	{#if view === 'entries' && canCreateEntry && !isAdminReadonly}
 		<button
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			id="add-catalog-entry-button"
@@ -327,26 +327,26 @@
 	{/if}
 {/snippet}
 
+{#snippet entries()}
+	<EntriesView
+		entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
+		id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
+		bind:catalog={defaultCatalog}
+		readonly={isAdminReadonly}
+		{usersMap}
+		{query}
+		{urlFilters}
+		onFilter={handleFilter}
+		onClearAllFilters={handleClearAllFilters}
+		onSort={setSortUrlParams}
+		{initSort}
+	>
+		{#snippet noDataContent()}{@render displayNoData()}{/snippet}
+	</EntriesView>
+{/snippet}
+
 {#snippet servers()}
-	{#if isPowerUser || hasAdminAccess}
-		<EntriesView
-			entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
-			id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
-			bind:catalog={defaultCatalog}
-			readonly={isAdminReadonly}
-			{usersMap}
-			{query}
-			{urlFilters}
-			onFilter={handleFilter}
-			onClearAllFilters={handleClearAllFilters}
-			onSort={setSortUrlParams}
-			{initSort}
-		>
-			{#snippet noDataContent()}{@render displayNoData()}{/snippet}
-		</EntriesView>
-	{:else}
-		<ConnectorsView {workspaceId} />
-	{/if}
+	<ConnectorsView {workspaceId} />
 {/snippet}
 
 {#snippet sources()}

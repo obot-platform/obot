@@ -35,7 +35,7 @@
 		{ label: 'License', value: 'license', content: license },
 		{ label: 'Branding', value: 'branding', content: branding },
 		{ label: 'Notifications', value: 'notifications', content: notifications },
-		...(version.current.engine === 'kubernetes'
+		...(version.current.engine === 'kubernetes' && !version.current.hideK8sDetails
 			? [{ label: 'MCP Config', value: 'mcp-config', content: mcpConfig }]
 			: []),
 		{ label: 'Registry Connections', value: 'registry-connections', content: registryConnections }
