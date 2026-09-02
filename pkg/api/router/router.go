@@ -575,6 +575,11 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/eula", eulaHandler.Get)
 	mux.HandleFunc("PUT /api/eula", eulaHandler.Update)
 
+	// Product Telemetry Consent
+	productTelemetryConsentHandler := handlers.NewProductTelemetryConsentHandler(services.ProductTelemetryConsent)
+	mux.HandleFunc("GET /api/product-telemetry-consent", productTelemetryConsentHandler.Get)
+	mux.HandleFunc("PUT /api/product-telemetry-consent", productTelemetryConsentHandler.Update)
+
 	// App Preferences
 	appPrefsHandler := handlers.NewAppPreferencesHandler()
 	mux.HandleFunc("GET /api/app-preferences", appPrefsHandler.Get)

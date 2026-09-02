@@ -148,6 +148,8 @@ var (
 		"/api/hosted-agent-pool-assignments/",
 		"GET /api/eula",
 		"PUT /api/eula",
+		"GET /api/product-telemetry-consent",
+		"PUT /api/product-telemetry-consent",
 		"PUT /api/app-preferences",
 		"PUT /api/app-notification",
 

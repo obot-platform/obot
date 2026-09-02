@@ -282,6 +282,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.PodSecurityAdmissionSettings":              schema_obot_platform_obot_apiclient_types_PodSecurityAdmissionSettings(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace":                        schema_obot_platform_obot_apiclient_types_PowerUserWorkspace(ref),
 		"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspaceList":                    schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsent":                   schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref),
+		"github.com/obot-platform/obot/apiclient/types.ProductTelemetryConsentUpdate":             schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref),
 		"github.com/obot-platform/obot/apiclient/types.Project":                                   schema_obot_platform_obot_apiclient_types_Project(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectList":                               schema_obot_platform_obot_apiclient_types_ProjectList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ProjectManifest":                           schema_obot_platform_obot_apiclient_types_ProjectManifest(ref),
@@ -14773,6 +14775,46 @@ func schema_obot_platform_obot_apiclient_types_PowerUserWorkspaceList(ref common
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.PowerUserWorkspace"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ProductTelemetryConsent is the installation-wide product telemetry consent state. A nil Consent means that no administrator has made a decision yet.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"consent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"consent"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ProductTelemetryConsentUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "ProductTelemetryConsentUpdate is the request for changing product telemetry consent. Consent is a pointer so the API can reject a missing or null value.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"consent": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"consent"},
+			},
+		},
 	}
 }
 
