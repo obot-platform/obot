@@ -297,22 +297,8 @@ func (h *Handler) DetectK8sSettingsDrift(req router.Request, _ router.Response) 
 // and a catalog entry manifest. Static values omitted from the persisted server manifest are restored from
 // its gateway credential before comparison.
 func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client, server *v1.MCPServer, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
-	staticKeys := make(map[string]struct{})
-	for _, env := range entryManifest.Env {
-		if env.Sensitive || env.Value != "" {
-			staticKeys[env.Key] = struct{}{}
-		}
-	}
-	if entryManifest.RemoteConfig != nil {
-		for _, header := range entryManifest.RemoteConfig.Headers {
-			if header.Sensitive || header.Value != "" {
-				staticKeys[header.Key] = struct{}{}
-			}
-		}
-	}
-
 	serverManifest := server.Spec.Manifest
-	if len(staticKeys) > 0 {
+	if mcp.CatalogHasSensitiveStaticConfiguration(&entryManifest) {
 		credentialContext := server.Spec.UserID
 		if server.Spec.MCPCatalogID != "" {
 			credentialContext = server.Spec.MCPCatalogID
