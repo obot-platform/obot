@@ -134,9 +134,13 @@ Users with Power User role (or higher) have their own PowerUserWorkspace for cre
 
 REST API handlers are in `/pkg/api/handlers/`. Each handler file corresponds to a resource type (agents, assistants, threads, credentials, etc.). The API server runs on port 8080 by default.
 
+## Go Testing Conventions
+
+- In table-driven tests, initialize struct fields using field names (not positional literals), with each field on its own line.
+
 ## Go Linting Configuration
 
-Uses golangci-lint v2.9.0 with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
+Uses golangci-lint (version pinned by `GOLANGCI_LINT_VERSION` in the Makefile) with these linters enabled: errcheck, govet, ineffassign, revive, staticcheck, thelper, unused, whitespace. Formatters: gofmt, goimports.
 
 ## Module Structure
 
