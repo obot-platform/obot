@@ -909,10 +909,16 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				return err
 			}
 			componentSecrets := mcp.ExtractStaticServerConfiguration(&componentManifest, existingCredential.Secrets, false)
-			if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, childContext, existingServer.Name, componentSecrets); err != nil {
-				return fmt.Errorf("failed to store component static configuration: %w", err)
+			credentialChanged := !maps.Equal(existingCredential.Secrets, componentSecrets)
+			if credentialChanged {
+				if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, childContext, existingServer.Name, componentSecrets); err != nil {
+					return fmt.Errorf("failed to store component static configuration: %w", err)
+				}
 			}
 			restoreCredential := func(cause error) error {
+				if !credentialChanged {
+					return cause
+				}
 				if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, childContext, existingServer.Name, existingCredential.Secrets); err != nil {
 					return errors.Join(cause, fmt.Errorf("failed to restore component static configuration: %w", err))
 				}
