@@ -45,7 +45,7 @@ func (h *Handler) MigrateStaticConfiguration(req router.Request, _ router.Respon
 		return nil
 	}
 	before := utils.Digest(entry.Spec.Manifest)
-	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (h *Handler) MigrateStaticConfiguration(req router.Request, _ router.Respon
 	if before == utils.Digest(entry.Spec.Manifest) {
 		return nil
 	}
-	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name, secrets); err != nil {
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name, secrets); err != nil {
 		return fmt.Errorf("failed to store static configuration before migration: %w", err)
 	}
 	return req.Client.Update(req.Ctx, entry)
@@ -65,7 +65,7 @@ func (h *Handler) MigrateSystemStaticConfiguration(req router.Request, _ router.
 		return nil
 	}
 	before := utils.Digest(entry.Spec.Manifest)
-	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return err
 	}
@@ -73,7 +73,7 @@ func (h *Handler) MigrateSystemStaticConfiguration(req router.Request, _ router.
 	if before == utils.Digest(entry.Spec.Manifest) {
 		return nil
 	}
-	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, entry.Name, entry.Name, secrets); err != nil {
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name, secrets); err != nil {
 		return fmt.Errorf("failed to store static configuration before migration: %w", err)
 	}
 	return req.Client.Update(req.Ctx, entry)
@@ -197,7 +197,7 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 	}
 	manifest := entry.Spec.Manifest
 	if mcp.CatalogHasSensitiveStaticConfiguration(&manifest) {
-		entryCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{entry.Name}, mcp.StaticConfigurationCredentialName(entry.Name))
+		entryCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{mcp.CatalogEntryStaticCredentialContext(entry.Name)}, mcp.StaticConfigurationCredentialName(entry.Name))
 		if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 			return err
 		}
@@ -237,7 +237,7 @@ func (h *Handler) DetectCompositeDrift(req router.Request, _ router.Response) er
 				return fmt.Errorf("failed to get component catalog entry %s: %w", component.CatalogEntryID, err)
 			}
 			if mcp.CatalogHasSensitiveStaticConfiguration(&componentEntry.Spec.Manifest) {
-				componentCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{componentEntry.Name}, mcp.StaticConfigurationCredentialName(componentEntry.Name))
+				componentCredential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{mcp.CatalogEntryStaticCredentialContext(componentEntry.Name)}, mcp.StaticConfigurationCredentialName(componentEntry.Name))
 				if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 					return err
 				}
@@ -408,7 +408,7 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) 
 
 func removeOAuthCredentials(req router.Request, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
-	if _, err := creds.DeleteCredential(req.Ctx, entry.Name, mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
+	if _, err := creds.DeleteCredential(req.Ctx, mcp.CatalogEntryStaticCredentialContext(entry.Name), mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
 		return fmt.Errorf("failed to remove static configuration credential: %w", err)
 	}
 
@@ -435,7 +435,7 @@ func removeOAuthCredentials(req router.Request, creds credentialClient) error {
 
 func (h *Handler) RemoveSystemCredentials(req router.Request, _ router.Response) error {
 	entry := req.Object.(*v1.SystemMCPServerCatalogEntry)
-	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, entry.Name, mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
+	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
 		return fmt.Errorf("failed to remove system catalog static configuration credential: %w", err)
 	}
 	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), system.StaticOAuthCredentialName); err != nil {

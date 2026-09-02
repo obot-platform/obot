@@ -459,7 +459,7 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 				continue
 			}
 			if mcp.CatalogHasSensitiveStaticConfiguration(&target.Spec.Manifest) {
-				credential, err := h.gatewayClient.RevealCredential(ctx, []string{target.Name}, mcp.StaticConfigurationCredentialName(target.Name))
+				credential, err := h.gatewayClient.RevealCredential(ctx, []string{mcp.CatalogEntryStaticCredentialContext(target.Name)}, mcp.StaticConfigurationCredentialName(target.Name))
 				if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 					errs = append(errs, err)
 					continue
@@ -639,19 +639,21 @@ func (h *Handler) credentializeCatalogObjects(ctx context.Context, objects []kcl
 
 	for _, object := range objects {
 		var extract func(map[string]string) map[string]string
+		var credentialContext string
 		switch entry := object.(type) {
 		case *v1.MCPServerCatalogEntry:
+			credentialContext = mcp.CatalogEntryStaticCredentialContext(entry.Name)
 			extract = func(existing map[string]string) map[string]string {
 				return mcp.ExtractStaticCatalogConfiguration(&entry.Spec.Manifest, existing, false)
 			}
 		case *v1.SystemMCPServerCatalogEntry:
+			credentialContext = mcp.SystemCatalogEntryStaticCredentialContext(entry.Name)
 			extract = func(existing map[string]string) map[string]string {
 				return mcp.ExtractStaticSystemCatalogConfiguration(&entry.Spec.Manifest, existing, false)
 			}
 		default:
 			continue
 		}
-		credentialContext := object.GetName()
 		existing, err := mcp.StaticCredentialSecrets(ctx, h.gatewayClient, credentialContext, object.GetName())
 		if err != nil {
 			return errors.Join(err, rollback())

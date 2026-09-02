@@ -506,7 +506,7 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 	if err := req.Get(&entry, manifest.SystemMCPServerCatalogEntryID); err != nil {
 		return err
 	}
-	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, entry.Name, entry.Name)
+	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name)
 	if err != nil {
 		return err
 	}
