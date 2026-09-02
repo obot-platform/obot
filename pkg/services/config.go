@@ -594,12 +594,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.ElectionFile != "" {
 		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
 	} else {
-		// Hold the controller lock in a plain table rather than as a Lease in the
-		// versioned store, where every renew appended a row version and made the
-		// Lease the most expensive object in the database. The local Kubernetes
-		// election below still uses a real Lease. WithLegacyLeaseLock keeps one
-		// leader during the rolling update that introduces this change; remove it in
-		// the release after.
 		electionConfig = leader.NewSQLElectionConfig("obot-controller", dbAccess.SQLDB).
 			WithLegacyLeaseLock("", leaderElectionRESTConfig(restConfig))
 	}
