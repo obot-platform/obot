@@ -600,7 +600,14 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		// hundreds of row versions of a single row, sorted on every read, by every
 		// replica. The local Kubernetes election further down is unchanged; it runs
 		// against a real cluster, where a Lease is the right tool.
-		electionConfig = leader.NewSQLElectionConfig("obot-controller", dbAccess.SQLDB)
+		//
+		// WithLegacyLeaseLock covers the rolling update that introduces this change:
+		// while the leader_lock table has no row, a replica defers to the Lease that
+		// replicas on the previous release still hold, so old and new replicas never
+		// run two leaders. The Lease is no longer read once the first row exists.
+		// Remove the call in the release after this one ships everywhere.
+		electionConfig = leader.NewSQLElectionConfig("obot-controller", dbAccess.SQLDB).
+			WithLegacyLeaseLock("", leaderElectionRESTConfig(restConfig))
 	}
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		RESTConfig:     restConfig,
