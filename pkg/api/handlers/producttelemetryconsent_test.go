@@ -38,6 +38,9 @@ func TestProductTelemetryConsentGetStates(t *testing.T) {
 	if response.Consent != nil {
 		t.Fatalf("undecided response consent = %t, want nil", *response.Consent)
 	}
+	if strings.Contains(recorder.Body.String(), `"consent"`) {
+		t.Fatalf("undecided response includes consent: %s", recorder.Body.String())
+	}
 
 	for _, want := range []bool{false, true} {
 		if err := consent.Set(t.Context(), want); err != nil {

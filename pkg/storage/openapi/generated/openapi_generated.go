@@ -14792,7 +14792,6 @@ func schema_obot_platform_obot_apiclient_types_ProductTelemetryConsent(ref commo
 						},
 					},
 				},
-				Required: []string{"consent"},
 			},
 		},
 	}

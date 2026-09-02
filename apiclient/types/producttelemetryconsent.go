@@ -3,7 +3,7 @@ package types
 // ProductTelemetryConsent is the installation-wide product telemetry consent state.
 // A nil Consent means that no administrator has made a decision yet.
 type ProductTelemetryConsent struct {
-	Consent *bool `json:"consent"`
+	Consent *bool `json:"consent,omitempty"`
 }
 
 // ProductTelemetryConsentUpdate is the request for changing product telemetry consent.
