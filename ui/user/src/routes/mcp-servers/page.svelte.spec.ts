@@ -131,9 +131,7 @@ describe('MCP Servers Page', () => {
 				await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
 				await page.getByRole('button', { name: 'Update Server', exact: true }).click();
 
-				await expect
-					.element(page.getByRole('heading', { name: 'Before upgrading' }))
-					.toBeVisible();
+				await expect.element(page.getByRole('heading', { name: 'Before upgrading' })).toBeVisible();
 				const upgradeDialog = page.getByRole('dialog').filter({ hasText: 'Before upgrading' });
 				await expect
 					.element(upgradeDialog.getByCSS('strong').filter({ hasText: 'safe mode' }))
@@ -263,9 +261,7 @@ describe('MCP Servers Page', () => {
 				await expect
 					.element(page.getByRole('heading', { name: 'Before upgrading' }))
 					.toHaveLength(1);
-				await expect
-					.element(page.getByText('Entry Single Update', { exact: true }))
-					.toBeVisible();
+				await expect.element(page.getByText('Entry Single Update', { exact: true })).toBeVisible();
 				await expect
 					.element(page.getByText('Entry Empty Upgrade Note', { exact: true }))
 					.not.toBeInTheDocument();

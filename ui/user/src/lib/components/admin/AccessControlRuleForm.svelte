@@ -156,9 +156,7 @@
 						{ id: entry.id, type: 'mcpServerCatalogEntry' }
 					];
 					redirect =
-						entity === 'workspace'
-							? `/mcp-catalog/c/${entry.id}`
-							: `/mcp-servers/c/${entry.id}`;
+						entity === 'workspace' ? `/mcp-catalog/c/${entry.id}` : `/mcp-servers/c/${entry.id}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {

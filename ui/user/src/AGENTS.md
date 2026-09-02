@@ -41,12 +41,12 @@ Optional: for large new surfaces, sketch coverage with `it.skip` / `describe` bl
 
 Before writing a new test, open the closest matching spec and mirror its structure:
 
-| Pattern                                             | Reference                                                                                                   |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Admin route + `preparePageData` + form/dialog flows | `routes/admin/platform/page.svelte.spec.ts`, `routes/admin/identity-access/page.svelte.spec.ts`               |
+| Pattern                                             | Reference                                                                                         |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Admin route + `preparePageData` + form/dialog flows | `routes/admin/platform/page.svelte.spec.ts`, `routes/admin/identity-access/page.svelte.spec.ts`   |
 | Route that loads MCP data via MSW + store setup     | `routes/mcp-servers/page.svelte.spec.ts`, `routes/mcp-catalog/s/[id]/details/page.svelte.spec.ts` |
-| Shared layout / role-based navigation               | `lib/components/Layout.svelte.spec.ts`                                                                      |
-| Form component + validation + `worker.use`          | `lib/components/admin/CatalogServerForm.svelte.spec.ts`                                                     |
+| Shared layout / role-based navigation               | `lib/components/Layout.svelte.spec.ts`                                                            |
+| Form component + validation + `worker.use`          | `lib/components/admin/CatalogServerForm.svelte.spec.ts`                                           |
 
 Copy local helpers (`renderXPage`, `mockXApis`, fixture builders) from those files rather than inventing new harness styles.
 
