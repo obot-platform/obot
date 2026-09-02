@@ -23,7 +23,7 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		const defaultRoute = isAdminOrOwner ? '/dashboard' : '/vmcps';
+		const defaultRoute = isAdminOrOwner ? '/vmcps' : '/dashboard'; // change to /vmcps when implemented for both
 		throw redirect(302, defaultRoute);
 	}
 
