@@ -6,7 +6,7 @@ import { worker } from '../../tests/mocks/worker';
 import VMcpsPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
@@ -83,6 +83,18 @@ function mockUpdateEntry(vmcp: MCPCatalogEntry, onUpdate: (manifest: unknown) =>
 
 function componentServersFrom(manifest: unknown) {
 	return (manifest as MCPCatalogEntryServerManifest).compositeConfig?.componentServers ?? [];
+}
+
+function mockEntryDetails(entry: MCPCatalogEntry) {
+	const listServers = vi.fn();
+	worker.use(
+		http.get(`/api/mcp-catalogs/default/entries/${entry.id}`, () => HttpResponse.json(entry)),
+		http.get(`/api/mcp-catalogs/default/entries/${entry.id}/servers`, () => {
+			listServers();
+			return HttpResponse.json({ items: [] });
+		})
+	);
+	return listServers;
 }
 
 function panelCard(name: string) {
@@ -220,6 +232,11 @@ describe('vMCPs Page', () => {
 
 	describe('dragging a server from the panel onto the canvas', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+		let listSlackServers: ReturnType<typeof mockEntryDetails>;
+
+		beforeEach(() => {
+			listSlackServers = mockEntryDetails(slack);
+		});
 
 		function vmcpCard() {
 			return page.getByRole('button', { name: 'Edit Issue Tracker vMCP' });
@@ -279,26 +296,22 @@ describe('vMCPs Page', () => {
 		});
 
 		it('opens the server details when the press never travels far enough to drag', async () => {
-			const listServers = vi.fn();
-			worker.use(
-				http.get(`/api/mcp-catalogs/default/entries/${slack.id}`, () => HttpResponse.json(slack)),
-				http.get(`/api/mcp-catalogs/default/entries/${slack.id}/servers`, () => {
-					listServers();
-					return HttpResponse.json({ items: [] });
-				})
-			);
 			await renderVMcpsPage(createVMcp(), [slack]);
 
 			const { el, from } = await pressCard(panelCard('Slack'), 15);
 			pointer(el, 'pointerup', 15, from);
 
 			await expect.element(page.getByRole('dialog').first()).toBeVisible();
-			await vi.waitFor(() => expect(listServers).toHaveBeenCalled());
+			await vi.waitFor(() => expect(listSlackServers).toHaveBeenCalled());
 		});
 	});
 
 	describe('dragging a server from the panel onto the table view', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+
+		beforeEach(() => {
+			mockEntryDetails(slack);
+		});
 
 		async function showTableView() {
 			await page.getByRole('button', { name: 'Table View' }).click({ force: true });
