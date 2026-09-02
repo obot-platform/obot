@@ -594,7 +594,13 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if config.ElectionFile != "" {
 		electionConfig = leader.NewFileElectionConfig(config.ElectionFile)
 	} else {
-		electionConfig = leader.NewDefaultElectionConfig("", "obot-controller", leaderElectionRESTConfig(restConfig))
+		// Hold the controller lock in a plain table instead of as a Lease in the
+		// versioned store. A Lease is rewritten every renew period, and in an
+		// append-only store that made it the most expensive object in the database:
+		// hundreds of row versions of a single row, sorted on every read, by every
+		// replica. The local Kubernetes election further down is unchanged; it runs
+		// against a real cluster, where a Lease is the right tool.
+		electionConfig = leader.NewSQLElectionConfig("obot-controller", dbAccess.SQLDB)
 	}
 	r, err := nah.NewRouter("obot-controller", &nah.Options{
 		RESTConfig:     restConfig,
