@@ -128,18 +128,21 @@ func TestOAuthDebuggerMetadataErrors(t *testing.T) {
 
 func TestOAuthDebuggerAuthStyle(t *testing.T) {
 	tests := []struct {
-		method   string
-		expected oauth2.AuthStyle
+		name         string
+		method       string
+		staticClient bool
+		expected     oauth2.AuthStyle
 	}{
-		{method: "client_secret_basic", expected: oauth2.AuthStyleInHeader},
-		{method: "client_secret_post", expected: oauth2.AuthStyleInParams},
-		{method: "", expected: oauth2.AuthStyleAutoDetect},
-		{method: "private_key_jwt", expected: oauth2.AuthStyleAutoDetect},
+		{name: "static client", method: "client_secret_basic", staticClient: true, expected: oauth2.AuthStyleAutoDetect},
+		{name: "dynamic client basic", method: "client_secret_basic", expected: oauth2.AuthStyleInHeader},
+		{name: "dynamic client post", method: "client_secret_post", expected: oauth2.AuthStyleInParams},
+		{name: "dynamic client unspecified", expected: oauth2.AuthStyleAutoDetect},
+		{name: "dynamic client private key", method: "private_key_jwt", expected: oauth2.AuthStyleAutoDetect},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.method, func(t *testing.T) {
-			if actual := oauthDebuggerAuthStyle(tt.method); actual != tt.expected {
+		t.Run(tt.name, func(t *testing.T) {
+			if actual := oauthDebuggerAuthStyle(tt.method, tt.staticClient); actual != tt.expected {
 				t.Fatalf("expected %v, got %v", tt.expected, actual)
 			}
 		})
@@ -274,6 +277,8 @@ func TestRegisterOAuthDebuggerClientUsesProvidedHTTPClient(t *testing.T) {
 		ClientID:     "registered-client",
 		ClientSecret: "registered-secret",
 	}
+	registrationResponse := expected
+	registrationResponse.Static = true
 	called := false
 	httpClient := &http.Client{Transport: oauthDebuggerRoundTripFunc(func(request *http.Request) (*http.Response, error) {
 		called = true
@@ -290,7 +295,7 @@ func TestRegisterOAuthDebuggerClientUsesProvidedHTTPClient(t *testing.T) {
 			t.Errorf("registration request = %#v, want %#v", actual, registration)
 		}
 
-		body := strings.NewReader(string(mustJSON(t, expected)))
+		body := strings.NewReader(string(mustJSON(t, registrationResponse)))
 		return &http.Response{
 			StatusCode: http.StatusCreated,
 			Header:     make(http.Header),
