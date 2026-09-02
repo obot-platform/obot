@@ -29,11 +29,12 @@ func testRequest() clienttypes.ProductTelemetryRequest {
 		UserCount:       7,
 	}}
 	return clienttypes.ProductTelemetryRequest{
-		InstallationID: "7d7d83d8-2af0-4da8-ae2d-102d8eaa70be",
-		ReportedAt:     time.Date(2026, time.August, 31, 0, 4, 12, 0, time.UTC),
-		Distribution:   clienttypes.ProductTelemetryDistributionCloud,
-		Engine:         "kubernetes",
-		CurrentVersion: "v0.26.0",
+		InstallationID:   "7d7d83d8-2af0-4da8-ae2d-102d8eaa70be",
+		LicenseMachineID: "ab65c9ac-c012-4567-89ab-1b520aa26584",
+		ReportedAt:       time.Date(2026, time.August, 31, 0, 4, 12, 0, time.UTC),
+		Distribution:     clienttypes.ProductTelemetryDistributionCloud,
+		Engine:           "kubernetes",
+		CurrentVersion:   "v0.26.0",
 		Metrics: &clienttypes.ProductTelemetryMetrics{
 			TotalUsers:                  new(int64(42)),
 			DeployedMCPServers:          new(int64(0)),
@@ -62,13 +63,13 @@ func TestClientSend(t *testing.T) {
 		{
 			name:         "full report preserves null and zero metrics",
 			request:      fullRequest,
-			wantBody:     `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":null,"deployedMCPServers":0,"customMCPServerEntryCount":4,"builtInMCPServers":[{"id":"github","name":"GitHub","deploymentCount":2,"userCount":7}],"authProviderType":"github","mcpAuditLogCount":0,"llmAuditLogCount":null,"sentryScanCount":14,"sentryEnforcementEventCount":3,"managedSkillCount":27}}`,
+			wantBody:     `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","licenseMachineID":"ab65c9ac-c012-4567-89ab-1b520aa26584","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0","metrics":{"totalUsers":42,"activeUsers":null,"deployedMCPServers":0,"customMCPServerEntryCount":4,"builtInMCPServers":[{"id":"github","name":"GitHub","deploymentCount":2,"userCount":7}],"authProviderType":"github","mcpAuditLogCount":0,"llmAuditLogCount":null,"sentryScanCount":14,"sentryEnforcementEventCount":3,"managedSkillCount":27}}`,
 			responseBody: "ignored success body",
 		},
 		{
 			name:     "metadata-only report omits metrics",
 			request:  metadataOnlyRequest,
-			wantBody: `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0"}`,
+			wantBody: `{"installationID":"7d7d83d8-2af0-4da8-ae2d-102d8eaa70be","licenseMachineID":"ab65c9ac-c012-4567-89ab-1b520aa26584","reportedAt":"2026-08-31T00:04:12Z","distribution":"Cloud","engine":"kubernetes","currentVersion":"v0.26.0"}`,
 		},
 	}
 

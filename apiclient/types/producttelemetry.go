@@ -18,12 +18,15 @@ type ProductTelemetryDistribution string
 // +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
 type ProductTelemetryRequest struct {
-	InstallationID string                       `json:"installationID"`
-	ReportedAt     time.Time                    `json:"reportedAt"`
-	Distribution   ProductTelemetryDistribution `json:"distribution"`
-	Engine         string                       `json:"engine"`
-	CurrentVersion string                       `json:"currentVersion"`
-	Metrics        *ProductTelemetryMetrics     `json:"metrics,omitempty"`
+	// InstallationID is the stable identifier used by Obot's upgrade service.
+	InstallationID string `json:"installationID"`
+	// LicenseMachineID is the persisted Keygen machine fingerprint.
+	LicenseMachineID string                       `json:"licenseMachineID"`
+	ReportedAt       time.Time                    `json:"reportedAt"`
+	Distribution     ProductTelemetryDistribution `json:"distribution"`
+	Engine           string                       `json:"engine"`
+	CurrentVersion   string                       `json:"currentVersion"`
+	Metrics          *ProductTelemetryMetrics     `json:"metrics,omitempty"`
 }
 
 // ProductTelemetryMetrics contains the aggregate metrics authorized for a report.
