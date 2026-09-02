@@ -76,6 +76,10 @@
 	});
 
 	$effect(() => {
+		gitCredentials = data.gitCredentials ?? [];
+	});
+
+	$effect(() => {
 		if (selectedView === 'skills') {
 			skills = data.skills ?? [];
 		}

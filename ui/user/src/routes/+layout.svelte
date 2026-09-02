@@ -93,10 +93,9 @@
 	$effect(() => {
 		const pathname = page.url.pathname;
 		const scope = pathname.startsWith('/mcp-servers') ? 'user' : 'admin';
+		const view = page.url.searchParams.get('view');
 		const isMcpCatalogRoute =
-			pathname === '/mcp-catalog' ||
-			pathname === '/admin/mcp-catalog' ||
-			pathname === '/mcp-servers';
+			pathname === '/vmcps' || (pathname === '/mcp-servers' && (!view || view === 'servers'));
 		if (profile.current.loaded) {
 			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: isMcpCatalogRoute, scope }));
 		}
@@ -104,11 +103,10 @@
 
 	$effect(() => {
 		const pathname = page.url.pathname;
+		const view = page.url.searchParams.get('view');
 		const usesMcpTunnelStatus =
-			pathname.startsWith('/mcp-servers') ||
-			pathname.startsWith('/mcp-catalog') ||
-			pathname.startsWith('/admin/mcp-catalog') ||
-			pathname.startsWith('/admin/mcp-deployments');
+			(pathname.startsWith('/mcp-servers') && (!view || view === 'servers')) ||
+			pathname.startsWith('/vmcps');
 
 		if (profile.current.loaded && usesMcpTunnelStatus) {
 			return mcpTunnelConnections.startPolling();

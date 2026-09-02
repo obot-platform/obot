@@ -12,24 +12,24 @@ import type {
 } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ fetch, parent }) => {
+const views = new Set([
+	'agents',
+	'templates',
+	'harnesses',
+	'pools',
+	'config-sources',
+	'access-policy'
+]);
+
+export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
+	const requestedView = url.searchParams.get('view');
+	const view = requestedView && views.has(requestedView) ? requestedView : 'agents';
 
 	let hostedAgents: HostedAgent[] = [];
 	let instances: HostedAgentInstance[] = [];
 	let pools: HostedAgentPool[] = [];
-
-	try {
-		[hostedAgents, instances, pools] = await Promise.all([
-			AdminService.listHostedAgents({ fetch }),
-			AdminService.listHostedAgentInstances(undefined, { fetch }),
-			AdminService.listHostedAgentPools({ fetch })
-		]);
-	} catch (err) {
-		handleRouteError(err, '/v2/hosted-agents', profile);
-	}
-
 	let templates: HostedAgent[] = [];
 	let agentCatalogs: AgentCatalog[] = [];
 	let harnesses: Harness[] = [];
@@ -38,21 +38,48 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 	let poolDefaults: HostedAgentPoolDefaults | undefined;
 	let hostedAgentAccessPolicies: HostedAgentAccessPolicy[] = [];
 
-	if (hasAdminAccess) {
+	if (view === 'agents') {
 		try {
-			[templates, agentCatalogs, harnesses, adminPools, adminAssignments] = await Promise.all([
-				AdminService.listHostedAgents({ fetch, all: true }),
-				AdminService.listAgentCatalogs({ fetch }),
-				AdminService.listHarnesses({ fetch }),
-				AdminService.listHostedAgentPools({ fetch }),
-				AdminService.listHostedAgentPoolAssignments({ fetch })
+			[hostedAgents, instances, pools] = await Promise.all([
+				AdminService.listHostedAgents({ fetch }),
+				AdminService.listHostedAgentInstances(undefined, { fetch }),
+				AdminService.listHostedAgentPools({ fetch })
 			]);
-			try {
-				poolDefaults = await AdminService.getHostedAgentPoolDefaults({ fetch });
-			} catch {
-				// Defaults do not exist until an administrator configures them.
+		} catch (err) {
+			handleRouteError(err, '/v2/hosted-agents', profile);
+		}
+	} else if (hasAdminAccess) {
+		try {
+			switch (view) {
+				case 'templates':
+					[templates, harnesses] = await Promise.all([
+						AdminService.listHostedAgents({ fetch, all: true }),
+						AdminService.listHarnesses({ fetch })
+					]);
+					break;
+				case 'harnesses':
+					harnesses = await AdminService.listHarnesses({ fetch });
+					break;
+				case 'pools':
+					[adminPools, adminAssignments] = await Promise.all([
+						AdminService.listHostedAgentPools({ fetch }),
+						AdminService.listHostedAgentPoolAssignments({ fetch })
+					]);
+					try {
+						poolDefaults = await AdminService.getHostedAgentPoolDefaults({ fetch });
+					} catch {
+						// Defaults do not exist until an administrator configures them.
+					}
+					break;
+				case 'config-sources':
+					agentCatalogs = await AdminService.listAgentCatalogs({ fetch });
+					break;
+				case 'access-policy':
+					hostedAgentAccessPolicies = await AdminService.listHostedAgentAccessPolicies({
+						fetch
+					});
+					break;
 			}
-			hostedAgentAccessPolicies = await AdminService.listHostedAgentAccessPolicies({ fetch });
 		} catch (err) {
 			handleRouteError(err, '/v2/hosted-agents', profile);
 		}

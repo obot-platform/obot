@@ -10,12 +10,23 @@ import type {
 import type { PageLoad } from './$types';
 import { DEFAULT_WINDOW_MS } from './constants';
 
+const views = new Set([
+	'overview',
+	'configuration',
+	'devices',
+	'device-clients',
+	'device-mcp-servers',
+	'device-skills'
+]);
+
 export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 	// Named so pages that rewrite this fleet's policy — the enforcement decisions
 	// page adds allowlist entries of its own — can mark this data stale.
 	depends('devices:data');
 
 	const { profile } = await parent();
+	const requestedView = url.searchParams.get('view');
+	let view = requestedView && views.has(requestedView) ? requestedView : undefined;
 	const end = url.searchParams.get('end') ?? new Date().toISOString();
 	const start =
 		url.searchParams.get('start') ?? new Date(Date.now() - DEFAULT_WINDOW_MS).toISOString();
@@ -27,28 +38,40 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 	let assets: MDMAsset[] = [];
 	let assetLoadError: string | undefined;
 
-	if (profile.hasAdminAccess?.()) {
-		const [statsResult, configurationsResult, sourceResult, assetsResult] =
-			await Promise.allSettled([
-				AdminService.getDeviceScanStats({ start, end }, { fetch }),
-				AdminService.listMDMConfigurations({ fetch }),
-				AdminService.getMDMAssetSource({ fetch }),
-				AdminService.listMDMAssets({ fetch })
-			]);
+	if (!profile.hasAdminAccess?.()) {
+		return {
+			stats,
+			range: { start, end },
+			configuration,
+			enrollmentKeys,
+			assetSource,
+			assets,
+			assetLoadError
+		};
+	}
 
-		if (statsResult.status === 'fulfilled') {
-			stats = statsResult.value;
-		} else {
-			handleRouteError(statsResult.reason, '/inventory', profile);
+	async function loadConfigurations() {
+		try {
+			const configurations = await AdminService.listMDMConfigurations({ fetch });
+			configuration = configurations.find((candidate) => candidate.isDefault) ?? configurations[0];
+		} catch (err) {
+			handleRouteError(err, '/inventory', profile);
 		}
+	}
 
-		if (configurationsResult.status === 'fulfilled') {
-			configuration =
-				configurationsResult.value.find((candidate) => candidate.isDefault) ??
-				configurationsResult.value[0];
-		} else {
-			handleRouteError(configurationsResult.reason, '/inventory', profile);
+	async function loadStats() {
+		try {
+			stats = await AdminService.getDeviceScanStats({ start, end }, { fetch });
+		} catch (err) {
+			handleRouteError(err, '/inventory', profile);
 		}
+	}
+
+	async function loadConfigurationDetails() {
+		const [sourceResult, assetsResult] = await Promise.allSettled([
+			AdminService.getMDMAssetSource({ fetch }),
+			AdminService.listMDMAssets({ fetch })
+		]);
 
 		if (sourceResult.status === 'fulfilled') {
 			assetSource = sourceResult.value;
@@ -69,6 +92,23 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 				handleRouteError(err, '/inventory?view=configuration', profile);
 			}
 		}
+	}
+
+	if (!view) {
+		await loadConfigurations();
+		view = configuration ? 'overview' : 'configuration';
+	}
+
+	switch (view) {
+		case 'overview':
+			await loadStats();
+			break;
+		case 'configuration':
+			if (!configuration) {
+				await loadConfigurations();
+			}
+			await loadConfigurationDetails();
+			break;
 	}
 
 	return {

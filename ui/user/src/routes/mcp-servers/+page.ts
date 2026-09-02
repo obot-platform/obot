@@ -14,15 +14,25 @@ import {
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-export const load: PageLoad = async ({ fetch, parent, depends }) => {
-	depends('mcp-access-policies:data');
+const views = new Set([
+	'servers',
+	'sources',
+	'git-credentials',
+	'deployments',
+	'filters',
+	'tunnels',
+	'access-policy'
+]);
 
+export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	const { profile } = await parent();
+	const requestedView = url.searchParams.get('view');
+	const view = requestedView && views.has(requestedView) ? requestedView : 'servers';
 
 	const isPowerUserOrAdmin = profile.groups.includes(Group.POWERUSER) || profile.hasAdminAccess?.();
 
 	if (!isPowerUserOrAdmin) {
-		throw redirect(302, '/mcp-servers');
+		throw redirect(302, '/');
 	}
 
 	let gitCredentials: GitCredential[] = [];
@@ -33,33 +43,63 @@ export const load: PageLoad = async ({ fetch, parent, depends }) => {
 	let accessControlRules: AccessControlRule[] = [];
 
 	if (profile.hasAdminAccess?.()) {
-		gitCredentials = await AdminService.listGitCredentials({ fetch, dontLogErrors: true }).catch(
-			() => []
-		);
-		filters = await AdminService.listMCPFilters({ fetch }).catch(() => []);
-		systemCatalogEntries = await AdminService.listSystemMCPCatalogEntries(
-			DEFAULT_SYSTEM_MCP_CATALOG_ID,
-			{ fetch }
-		).catch(() => []);
-		mcpTunnels = await AdminService.listMCPTunnels({ fetch }).catch(() => []);
-		tunnelConnections = await AdminService.listTunnelConnections({
-			fetch,
-			dontLogErrors: true
-		}).catch(() => undefined);
-
-		try {
-			const adminAccessControlRules = await AdminService.listAccessControlRules({ fetch });
-			const userWorkspacesAccessControlRules =
-				await AdminService.listAllUserWorkspaceAccessControlRules({ fetch });
-			accessControlRules = [...adminAccessControlRules, ...userWorkspacesAccessControlRules];
-		} catch (err) {
-			handleRouteError(err, '/mcp-servers', profile);
+		switch (view) {
+			case 'sources':
+			case 'git-credentials':
+				gitCredentials = await AdminService.listGitCredentials({
+					fetch,
+					dontLogErrors: true
+				}).catch(() => []);
+				break;
+			case 'filters':
+				[filters, systemCatalogEntries] = await Promise.all([
+					AdminService.listMCPFilters({ fetch }).catch(() => []),
+					AdminService.listSystemMCPCatalogEntries(DEFAULT_SYSTEM_MCP_CATALOG_ID, {
+						fetch
+					}).catch(() => [])
+				]);
+				break;
+			case 'tunnels':
+				[mcpTunnels, tunnelConnections] = await Promise.all([
+					AdminService.listMCPTunnels({ fetch }).catch(() => []),
+					AdminService.listTunnelConnections({
+						fetch,
+						dontLogErrors: true
+					}).catch(() => undefined)
+				]);
+				break;
+			case 'access-policy':
+				depends('mcp-access-policies:data');
+				try {
+					const [adminAccessControlRules, userWorkspacesAccessControlRules] = await Promise.all([
+						AdminService.listAccessControlRules({ fetch }),
+						AdminService.listAllUserWorkspaceAccessControlRules({ fetch })
+					]);
+					accessControlRules = [...adminAccessControlRules, ...userWorkspacesAccessControlRules];
+				} catch (err) {
+					handleRouteError(err, '/mcp-servers', profile);
+				}
+				break;
 		}
+	}
+
+	const needsWorkspace = !profile.hasAdminAccess?.() && ['servers', 'access-policy'].includes(view);
+	if (!needsWorkspace) {
+		return {
+			workspaceId: undefined,
+			gitCredentials,
+			filters,
+			systemCatalogEntries,
+			mcpTunnels,
+			tunnelConnections,
+			accessControlRules
+		};
 	}
 
 	try {
 		const workspaceId = await UserService.fetchWorkspaceIDForProfile(profile.id, { fetch });
-		if (!profile.hasAdminAccess?.()) {
+		if (view === 'access-policy') {
+			depends('mcp-access-policies:data');
 			try {
 				accessControlRules = await UserService.listWorkspaceAccessControlRules(workspaceId, {
 					fetch

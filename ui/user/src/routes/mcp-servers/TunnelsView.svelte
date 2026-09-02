@@ -7,32 +7,32 @@
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import { AdminService, type MCPTunnel, type TunnelConnection } from '$lib/services';
-	import { profile } from '$lib/stores';
+	import { mcpTunnelConnections, profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import { Cable, Plus, Trash2 } from '@lucide/svelte';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 
 	interface Props {
 		mcpTunnels?: MCPTunnel[];
 		tunnelConnections?: TunnelConnection[];
 	}
 
-	let { mcpTunnels = $bindable([]), tunnelConnections = $bindable(undefined) }: Props = $props();
+	let { mcpTunnels = $bindable([]), tunnelConnections }: Props = $props();
 
 	let localTunnels = $state<MCPTunnel[]>(untrack(() => mcpTunnels));
-	let localConnections = $state<TunnelConnection[] | undefined>(untrack(() => tunnelConnections));
 	let tunnelToDelete = $state<MCPTunnel>();
 	let createdTunnel = $state<MCPTunnel>();
 	let deleting = $state(false);
-	let refreshingConnections = false;
+
+	let connections = $derived(mcpTunnelConnections.current.connections ?? tunnelConnections);
 
 	let showCreateTunnel = $derived(page.url.searchParams.has('new'));
 	let isReadonly = $derived(profile.current.isAdminReadonly?.());
 	let tableData = $derived.by(() => {
 		const connectionsByName = new Map(
-			(localConnections ?? []).map((connection) => [connection.name, connection])
+			(connections ?? []).map((connection) => [connection.name, connection])
 		);
 
 		return localTunnels.map((tunnel) => {
@@ -42,55 +42,14 @@
 				allowedURLs: tunnel.manifest.allowedURLs?.join(', ') || '-',
 				connection,
 				displayName: tunnel.manifest.displayName?.trim() || tunnel.id,
-				status:
-					localConnections === undefined ? 'Unknown' : connection ? 'Connected' : 'Disconnected'
+				status: connections === undefined ? 'Unknown' : connection ? 'Connected' : 'Disconnected'
 			};
 		});
 	});
-	const CONNECTION_POLL_INTERVAL_MS = 5000;
 
 	function createUrl() {
 		return `${page.url.pathname}?view=tunnels&new=true`;
 	}
-
-	async function refreshTunnelConnections() {
-		if (refreshingConnections) return;
-
-		refreshingConnections = true;
-		try {
-			localConnections = await AdminService.listTunnelConnections({ dontLogErrors: true });
-			tunnelConnections = localConnections;
-		} catch {
-			localConnections = undefined;
-			tunnelConnections = undefined;
-		} finally {
-			refreshingConnections = false;
-		}
-	}
-
-	onMount(() => {
-		const shouldRefresh = () =>
-			document.visibilityState === 'visible' && localTunnels.length > 0 && !showCreateTunnel;
-		if (shouldRefresh()) {
-			void refreshTunnelConnections();
-		}
-		const interval = window.setInterval(() => {
-			if (shouldRefresh()) {
-				void refreshTunnelConnections();
-			}
-		}, CONNECTION_POLL_INTERVAL_MS);
-		const handleVisibilityChange = () => {
-			if (shouldRefresh()) {
-				void refreshTunnelConnections();
-			}
-		};
-		document.addEventListener('visibilitychange', handleVisibilityChange);
-
-		return () => {
-			window.clearInterval(interval);
-			document.removeEventListener('visibilitychange', handleVisibilityChange);
-		};
-	});
 
 	function createTunnel() {
 		goto(createUrl());
@@ -166,7 +125,7 @@
 				{#if property === 'status'}
 					<MCPTunnelConnectionStatus
 						connection={tunnel.connection}
-						known={localConnections !== undefined}
+						known={connections !== undefined}
 					/>
 				{:else if property === 'allowedURLs'}
 					<span class="line-clamp-2 break-all" title={tunnel.allowedURLs}>

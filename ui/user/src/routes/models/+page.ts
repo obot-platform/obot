@@ -5,40 +5,49 @@ import type { ModelAccessPolicy } from '$lib/services/admin/types';
 import accessibleModels, { filterAccessibleModels } from '$lib/stores/accessibleModels.svelte';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ fetch, parent }) => {
+const views = new Set(['models', 'model-providers', 'access-policies']);
+
+export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile, models: initialModels } = await parent();
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
+	const requestedView = url.searchParams.get('view');
+	const view = requestedView && views.has(requestedView) ? requestedView : 'models';
 
 	let models: Model[] = [];
-	try {
-		const response =
-			browser && accessibleModels.initialized && accessibleModels.current.length > 0
-				? accessibleModels.current
-				: (initialModels ?? (await UserService.listModels({ fetch })));
-
-		models = filterAccessibleModels(response ?? []);
-
-		if (browser) {
-			accessibleModels.set(models);
-		}
-	} catch (err) {
-		handleRouteError(err, '/models', profile);
-	}
-
 	let modelProviders: ModelProvider[] = [];
 	let modelAccessPolicies: ModelAccessPolicy[] = [];
 
-	if (hasAdminAccess) {
+	if (view === 'models') {
 		try {
-			modelProviders = await AdminService.listModelProviders({ fetch });
+			const response =
+				browser && accessibleModels.initialized && accessibleModels.current.length > 0
+					? accessibleModels.current
+					: (initialModels ?? (await UserService.listModels({ fetch })));
+
+			models = filterAccessibleModels(response ?? []);
+
+			if (browser) {
+				accessibleModels.set(models);
+			}
 		} catch (err) {
 			handleRouteError(err, '/models', profile);
 		}
-
-		try {
-			modelAccessPolicies = await AdminService.listModelAccessPolicies({ fetch });
-		} catch (err) {
-			handleRouteError(err, '/models', profile);
+	} else if (hasAdminAccess) {
+		switch (view) {
+			case 'model-providers':
+				try {
+					modelProviders = await AdminService.listModelProviders({ fetch });
+				} catch (err) {
+					handleRouteError(err, '/models', profile);
+				}
+				break;
+			case 'access-policies':
+				try {
+					modelAccessPolicies = await AdminService.listModelAccessPolicies({ fetch });
+				} catch (err) {
+					handleRouteError(err, '/models', profile);
+				}
+				break;
 		}
 	}
 
