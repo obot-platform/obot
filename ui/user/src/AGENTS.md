@@ -43,8 +43,8 @@ Before writing a new test, open the closest matching spec and mirror its structu
 
 | Pattern                                             | Reference                                                                                                   |
 | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Admin route + `preparePageData` + form/dialog flows | `routes/admin/license/page.svelte.spec.ts`, `routes/admin/auth-providers/page.svelte.spec.ts`               |
-| Route that loads MCP data via MSW + store setup     | `routes/admin/mcp-deployments/page.svelte.spec.ts`, `routes/mcp-catalog/s/[id]/details/page.svelte.spec.ts` |
+| Admin route + `preparePageData` + form/dialog flows | `routes/admin/platform/page.svelte.spec.ts`, `routes/admin/identity-access/page.svelte.spec.ts`               |
+| Route that loads MCP data via MSW + store setup     | `routes/mcp-servers/page.svelte.spec.ts`, `routes/mcp-catalog/s/[id]/details/page.svelte.spec.ts` |
 | Shared layout / role-based navigation               | `lib/components/Layout.svelte.spec.ts`                                                                      |
 | Form component + validation + `worker.use`          | `lib/components/admin/CatalogServerForm.svelte.spec.ts`                                                     |
 

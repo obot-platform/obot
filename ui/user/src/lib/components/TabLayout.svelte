@@ -122,10 +122,10 @@
 									<button
 										id={`tab-${viewOption.value}`}
 										class={twMerge(
-											'border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-400',
+											'border-b-2 font-light text-nowrap border-transparent px-8 py-2 transition-colors duration-300 rounded-t-xs',
 											selectedView === viewOption.value
-												? 'border-primary border-b-3 bg-base-100 dark:bg-base-300 rounded-t-md font-medium'
-												: 'hover:border-primary/25 text-muted-content hover:text-base-content'
+												? 'border-primary border-b-3 bg-base-100 dark:bg-base-300 font-medium'
+												: 'hover:border-primary/50 hover:border-b-3'
 										)}
 										onclick={() => selectView(viewOption.value)}
 									>
