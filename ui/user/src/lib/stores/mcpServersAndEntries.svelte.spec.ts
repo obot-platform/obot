@@ -149,7 +149,7 @@ describe('mcpServersAndEntries', () => {
 		expect(requests.adminServers).toHaveBeenCalledOnce();
 		expect(requests.workspaceEntries).toHaveBeenCalledOnce();
 		expect(requests.workspaceServers).toHaveBeenCalledOnce();
-		expect(requests.configuredServers).toHaveBeenCalledOnce();
+		expect(requests.configuredServers).not.toHaveBeenCalled();
 		expect(requests.userEntries).not.toHaveBeenCalled();
 		expect(requests.userServers).not.toHaveBeenCalled();
 		expect(requests.instances).not.toHaveBeenCalled();

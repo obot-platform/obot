@@ -103,21 +103,19 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 		let userInstances: MCPServerInstance[] = [];
 
 		if (scope === 'dashboard' && profile.current.hasAdminAccess?.()) {
-			const [adminEntries, adminServers, workspaceEntries, workspaceServers, ownConfiguredServers] =
-				await Promise.all([
-					AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, {
-						all: true,
-						minimal: true
-					}),
-					AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
-					AdminService.listAllUserWorkspaceCatalogEntries(),
-					AdminService.listAllUserWorkspaceMCPServers(),
-					UserService.listSingleOrRemoteMcpServers()
-				]);
+			const [adminEntries, adminServers, workspaceEntries, workspaceServers] = await Promise.all([
+				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, {
+					all: true,
+					minimal: true
+				}),
+				AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
+				AdminService.listAllUserWorkspaceCatalogEntries(),
+				AdminService.listAllUserWorkspaceMCPServers()
+			]);
 
 			entries = [...adminEntries, ...workspaceEntries].filter((entry) => !entry.deleted);
 			servers = [...adminServers, ...workspaceServers];
-			userConfiguredServers = filterOutDuplicateAndDeleted([...servers, ...ownConfiguredServers]);
+			userConfiguredServers = filterOutDuplicateAndDeleted(servers);
 		} else if (scope === 'admin' && profile.current.hasAdminAccess?.()) {
 			const [
 				adminEntries,

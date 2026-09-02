@@ -10,6 +10,7 @@
 	import { formatTokenUsageUSD } from '$lib/components/admin/token-usage/tokenUsageTimeline';
 	import DonutGraph from '$lib/components/graph/DonutGraph.svelte';
 	import HorizontalBarGraph from '$lib/components/graph/HorizontalBarGraph.svelte';
+	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 	import { formatNumber } from '$lib/format';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
@@ -86,9 +87,25 @@
 		).length
 	);
 
+	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let serversData = $derived.by(() => {
 		if (mcpServersAndEntries.current.loading || loading) return [];
-		return mcpServersAndEntries.current.userConfiguredServers;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		const seen = new Set<string>();
+		const result: MCPCatalogServer[] = [];
+		for (const list of [
+			deployedCatalogEntryServers,
+			deployedWorkspaceCatalogEntryServers,
+			mcpServersAndEntries.current.servers
+		]) {
+			for (const server of list) {
+				if (server.deleted || seen.has(server.id)) continue;
+				seen.add(server.id);
+				result.push(server);
+			}
+		}
+		return result;
 	});
 
 	const serverAndEntries = $derived(mcpServersAndEntries.current);
@@ -142,13 +159,17 @@
 			loadingDeviceScanStats = false;
 		}
 
-		const [users, tokens] = await Promise.all([
+		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
 			UserService.listUsersIncludeDeleted(),
-			AdminService.listTotalTokenUsage({ start, end })
+			AdminService.listTotalTokenUsage({ start, end }),
+			AdminService.listAllCatalogDeployedSingleRemoteServers(DEFAULT_MCP_CATALOG_ID),
+			AdminService.listAllWorkspaceDeployedSingleRemoteServers()
 		]);
 
 		usersData = users;
 		totalTokensData = tokens;
+		deployedCatalogEntryServers = catalogServers;
+		deployedWorkspaceCatalogEntryServers = workspaceServers;
 		loading = false;
 	});
 
@@ -537,7 +558,9 @@
 					{@const displayName =
 						'server' in info ? getMCPDisplayName(info.server) : info.entry?.manifest.name}
 					{@const description =
-						'server' in info ? info.server?.manifest.description : info.entry?.manifest.description}
+						'server' in info
+							? info.server?.manifest.description
+							: info.entry?.manifest.shortDescription}
 					{@const url = info.server
 						? getServerUrl(info.server)
 						: info.entry
