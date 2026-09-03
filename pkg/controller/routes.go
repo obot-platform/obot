@@ -170,9 +170,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.SystemMCPServerCatalogEntry{}).HandlerFunc(mcpServerCatalogEntryHandler.UpdateSystemManifestHashAndLastUpdated)
 
 	// MCPServer
-	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateStaticConfiguration)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.EnsureMCPCatalogID)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateStaticConfiguration)
 	root.Type(&v1.MCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
