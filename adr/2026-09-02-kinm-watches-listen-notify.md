@@ -41,8 +41,10 @@ Notifications for one table are combined over 1 second. The first one wakes the 
 away, and any that follow within the second collapse into a single wake up at the end of it.
 
 When a replica is promoted to leader, refresh every watch. Obot calls `Factory.Refresh` from the
-post start hook that nah runs on promotion, so every watch lists once before the new leader acts
-on the cache it had as a standby.
+post start hook that nah runs on promotion, so every watch lists again rather than carrying a
+standby's staleness into the leader. nah starts the controllers before it runs post start hooks,
+and Refresh does not wait for the lists it triggers, so a controller can run briefly against the
+older cache before the new one arrives.
 
 ## Rationale
 
