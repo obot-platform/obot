@@ -283,12 +283,12 @@ func HydrateStaticSystemServerConfiguration(m types.SystemMCPServerManifest, sec
 
 func rehydrateFields(env []types.MCPEnv, headers []types.MCPHeader, prefix string, secrets map[string]string) {
 	for i := range env {
-		if env[i].Sensitive && env[i].Value == "" {
+		if env[i].ValueConfigured && isPotentialStaticField(env[i].MCPHeader) && env[i].Value == "" {
 			env[i].Value = secrets[staticFieldPath(prefix, env[i].Key)]
 		}
 	}
 	for i := range headers {
-		if headers[i].Sensitive && headers[i].Value == "" {
+		if headers[i].ValueConfigured && isPotentialStaticField(headers[i]) && headers[i].Value == "" {
 			headers[i].Value = secrets[staticFieldPath(prefix, headers[i].Key)]
 		}
 	}

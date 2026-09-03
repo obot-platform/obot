@@ -694,7 +694,7 @@ func TestPopulateComponentManifestsRehydratesStaticConfiguration(t *testing.T) {
 			MCPCatalogName: "custom",
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX, ServerUserType: types.ServerUserTypeSingleUser,
-				Env:       []types.MCPEnv{{Key: "TOKEN", Sensitive: true}},
+				Env:       []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}},
 				NPXConfig: &types.NPXRuntimeConfig{Package: "example"},
 			},
 		},
