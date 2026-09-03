@@ -3930,10 +3930,13 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name, updatedServerSecrets); err != nil {
 		return fmt.Errorf("failed to update server static configuration: %w", err)
 	}
+	rollbackServerSecrets := func(cause error) error {
+		return errors.Join(cause, mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name, existingServerSecrets))
+	}
 
 	// Shutdown the server, even if there is no credential
 	if err := m.removeMCPServer(req.Context(), server); err != nil {
-		return err
+		return rollbackServerSecrets(err)
 	}
 
 	// Use RetryOnConflict because catalog-entry updates cause controller-side
@@ -3956,8 +3959,7 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		mcp.ExtractStaticServerConfiguration(&latest.Spec.Manifest, updatedServerSecrets, false)
 		return req.Update(&latest)
 	}); err != nil {
-		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name, existingServerSecrets)
-		return err
+		return rollbackServerSecrets(err)
 	}
 
 	return nil

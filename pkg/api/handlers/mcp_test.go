@@ -593,6 +593,52 @@ func TestTriggerUpdateScope(t *testing.T) {
 	})
 }
 
+func TestTriggerUpdateRestoresStaticCredentialWhenShutdownFails(t *testing.T) {
+	gatewayClient := newHandlerTestGatewayClient(t)
+	server := v1.MCPServer{
+		Name:      "server",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{
+			UserID:                    "owner",
+			MCPServerCatalogEntryName: "entry",
+			Manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "old-package"},
+				Env:       []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}},
+			},
+		},
+		Status: v1.MCPServerStatus{NeedsUpdate: true},
+	}
+	entry := v1.MCPServerCatalogEntry{
+		Name:      "entry",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime:   types.RuntimeNPX,
+			NPXConfig: &types.NPXRuntimeConfig{Package: "new-package"},
+			Env:       []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}},
+		}},
+	}
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name, map[string]string{"TOKEN": "new"}))
+	serverContext := mcpServerCredentialContext(server)
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, serverContext, server.Name, map[string]string{"TOKEN": "old"}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/server/trigger-update", nil)
+	req.SetPathValue("mcp_server_id", server.Name)
+	shutdownErr := fmt.Errorf("shutdown failed")
+	err := (&MCPHandler{shutdownMCPServer: func(string) error { return shutdownErr }}).TriggerUpdate(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        req,
+		Storage:        newFakeStorage(t, &server, &entry),
+		GatewayClient:  gatewayClient,
+		User:           testUserWithRole("admin", types.GroupAdmin),
+	})
+	require.ErrorIs(t, err, shutdownErr)
+
+	secrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, serverContext, server.Name)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"TOKEN": "old"}, secrets)
+}
+
 // Test functions for applyURLTemplate
 func TestApplyURLTemplate(t *testing.T) {
 	tests := []struct {
