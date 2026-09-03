@@ -1,3 +1,4 @@
+import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import {
 	AdminService,
 	UserService,
@@ -134,5 +135,38 @@ describe('mcpServersAndEntries', () => {
 		expect(requests.adminServers).toHaveBeenCalledTimes(2);
 		expect(requests.workspaceEntries).toHaveBeenCalledOnce();
 		expect(requests.workspaceServers).toHaveBeenCalledOnce();
+	});
+
+	it('loads only dashboard MCP data for an admin dashboard', async () => {
+		const requests = mockMcpRequests();
+
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'dashboard' });
+
+		expect(requests.adminEntries).toHaveBeenCalledWith(DEFAULT_MCP_CATALOG_ID, {
+			all: true,
+			minimal: true
+		});
+		expect(requests.adminServers).toHaveBeenCalledOnce();
+		expect(requests.workspaceEntries).toHaveBeenCalledOnce();
+		expect(requests.workspaceServers).toHaveBeenCalledOnce();
+		expect(requests.configuredServers).not.toHaveBeenCalled();
+		expect(requests.userEntries).not.toHaveBeenCalled();
+		expect(requests.userServers).not.toHaveBeenCalled();
+		expect(requests.instances).not.toHaveBeenCalled();
+	});
+
+	it('preserves the minimal dashboard scope when refreshing entries', async () => {
+		const requests = mockMcpRequests();
+		await mcpServersAndEntries.fetchData({ forceRefresh: true, scope: 'dashboard' });
+		vi.clearAllMocks();
+
+		await mcpServersAndEntries.refreshEntries();
+
+		expect(requests.adminEntries).toHaveBeenCalledWith(DEFAULT_MCP_CATALOG_ID, {
+			all: true,
+			minimal: true
+		});
+		expect(requests.workspaceEntries).toHaveBeenCalledOnce();
+		expect(requests.userEntries).not.toHaveBeenCalled();
 	});
 });

@@ -32,6 +32,7 @@
 		TIMELINE_AGGREGATE_THRESHOLD,
 		type TokenUsageTimelineItem
 	} from './tokenUsageTimeline';
+	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	type Props = {
@@ -53,8 +54,8 @@
 		endDate,
 		data: externalData,
 		loading: externalLoading = false,
-		users: externalUsers = [],
-		models: externalModels = [],
+		users: externalUsers,
+		models: externalModels,
 		selectedTokenType: externalTokenType,
 		groupBy: externalGroupBy,
 		onTokenTypeChange,
@@ -71,9 +72,12 @@
 
 	const selfFetch = $derived(externalData === undefined);
 	const data = $derived(externalData ?? fetchedData);
-	const users = $derived(externalUsers.length > 0 ? externalUsers : fetchedUsers);
-	const models = $derived(externalModels.length > 0 ? externalModels : fetchedModels);
+	const users = $derived(externalUsers ?? fetchedUsers);
+	const models = $derived(externalModels ?? fetchedModels);
 	const loading = $derived(selfFetch ? fetchLoading : externalLoading);
+	const fetchRangeKey = $derived(
+		selfFetch ? `${startDate.getTime()}:${endDate.getTime()}` : undefined
+	);
 
 	const selectedTokenType = $derived(externalTokenType ?? internalTokenType);
 	const groupBy = $derived(externalGroupBy ?? internalGroupBy);
@@ -101,17 +105,17 @@
 		try {
 			const [tokenUsage, usersList, modelsList] = await Promise.all([
 				AdminService.listTokenUsage(timeRange, { signal }),
-				externalUsers.length > 0
+				externalUsers !== undefined
 					? Promise.resolve(externalUsers)
 					: UserService.listUsersIncludeDeleted(),
-				externalModels.length > 0
+				externalModels !== undefined
 					? Promise.resolve(externalModels)
 					: AdminService.listModels({ all: true })
 			]);
 			if (signal.aborted) return;
 			fetchedData = tokenUsage;
-			if (externalUsers.length === 0) fetchedUsers = usersList;
-			if (externalModels.length === 0) fetchedModels = modelsList;
+			if (externalUsers === undefined) fetchedUsers = usersList;
+			if (externalModels === undefined) fetchedModels = modelsList;
 		} catch (error) {
 			if ((error as Error)?.name === 'AbortError') return;
 			errors.append(error);
@@ -121,8 +125,9 @@
 	}
 
 	$effect(() => {
-		if (!selfFetch) return;
-		fetchData(startDate, endDate);
+		if (fetchRangeKey === undefined) return;
+		const [start, end] = untrack(() => [startDate, endDate]);
+		untrack(() => fetchData(start, end));
 		return () => fetchAbortController?.abort();
 	});
 

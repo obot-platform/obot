@@ -19,7 +19,7 @@ interface McpServerAndEntries {
 	isInitialized: boolean;
 }
 
-type MCPDataScope = 'user' | 'admin';
+type MCPDataScope = 'user' | 'admin' | 'dashboard';
 
 interface MCPDataOptions {
 	forceRefresh?: boolean;
@@ -102,7 +102,21 @@ async function fetchData({ forceRefresh = false, scope = 'admin' }: MCPDataOptio
 		let userConfiguredServers: MCPCatalogServer[] = [];
 		let userInstances: MCPServerInstance[] = [];
 
-		if (scope === 'admin' && profile.current.hasAdminAccess?.()) {
+		if (scope === 'dashboard' && profile.current.hasAdminAccess?.()) {
+			const [adminEntries, adminServers, workspaceEntries, workspaceServers] = await Promise.all([
+				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, {
+					all: true,
+					minimal: true
+				}),
+				AdminService.listMCPCatalogServers(DEFAULT_MCP_CATALOG_ID, { all: true }),
+				AdminService.listAllUserWorkspaceCatalogEntries(),
+				AdminService.listAllUserWorkspaceMCPServers()
+			]);
+
+			entries = [...adminEntries, ...workspaceEntries].filter((entry) => !entry.deleted);
+			servers = [...adminServers, ...workspaceServers];
+			userConfiguredServers = filterOutDuplicateAndDeleted(servers);
+		} else if (scope === 'admin' && profile.current.hasAdminAccess?.()) {
 			const [
 				adminEntries,
 				adminServers,
@@ -189,7 +203,19 @@ async function initialize(options: MCPDataOptions = {}) {
 
 async function refreshEntries() {
 	try {
-		if (loadedScope !== 'user' && profile.current.hasAdminAccess?.()) {
+		if (loadedScope === 'dashboard' && profile.current.hasAdminAccess?.()) {
+			const [adminEntries, workspaceEntries] = await Promise.all([
+				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, {
+					all: true,
+					minimal: true
+				}),
+				AdminService.listAllUserWorkspaceCatalogEntries()
+			]);
+			store.current = {
+				...store.current,
+				entries: [...adminEntries, ...workspaceEntries].filter((entry) => !entry.deleted)
+			};
+		} else if (loadedScope !== 'user' && profile.current.hasAdminAccess?.()) {
 			const [adminEntries, workspaceEntries, userScopedEntries] = await Promise.all([
 				AdminService.listMCPCatalogEntries(DEFAULT_MCP_CATALOG_ID, { all: true }),
 				AdminService.listAllUserWorkspaceCatalogEntries(),

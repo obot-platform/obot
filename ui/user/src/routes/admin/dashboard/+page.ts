@@ -3,13 +3,18 @@ import { UserService } from '$lib/services';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch, parent }) => {
-	const { profile } = await parent();
 	let hasDeviceScans = false;
-	try {
-		const response = await UserService.listDeviceScans({ limit: 1 }, { fetch });
-		hasDeviceScans = response.total > 0;
-	} catch (err) {
-		handleRouteError(err, '/admin/dashboard', profile);
+	const [parentData, scansResult] = await Promise.all([
+		parent(),
+		UserService.listDeviceScans({ limit: 1 }, { fetch })
+			.then((response) => ({ response }))
+			.catch((error: unknown) => ({ error }))
+	]);
+
+	if ('response' in scansResult) {
+		hasDeviceScans = scansResult.response.total > 0;
+	} else {
+		handleRouteError(scansResult.error, '/admin/dashboard', parentData.profile);
 	}
 
 	return {

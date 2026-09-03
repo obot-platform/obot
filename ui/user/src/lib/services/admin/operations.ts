@@ -829,11 +829,13 @@ export async function listAllCatalogDeployedSingleRemoteServers(
 
 export async function listMCPCatalogEntries(
 	catalogID: string,
-	opts?: { fetch?: Fetcher; all?: boolean }
+	opts?: { fetch?: Fetcher; all?: boolean; minimal?: boolean }
 ): Promise<MCPCatalogEntry[]> {
-	const url = opts?.all
-		? `/mcp-catalogs/${catalogID}/entries?all=true`
-		: `/mcp-catalogs/${catalogID}/entries`;
+	const params = new URLSearchParams();
+	if (opts?.all) params.set('all', 'true');
+	if (opts?.minimal) params.set('minimal', 'true');
+	const query = params.size > 0 ? `?${params}` : '';
+	const url = `/mcp-catalogs/${catalogID}/entries${query}`;
 	const response = (await doGet(url, opts)) as ItemsResponse<MCPCatalogEntry>;
 	return (
 		response.items?.map((item) => {

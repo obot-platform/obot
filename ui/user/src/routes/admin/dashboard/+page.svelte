@@ -143,17 +143,21 @@
 				loadingToolUsage = false;
 			});
 
-		AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
-			.then((stats) => {
-				deviceScanStats = stats;
-			})
-			.catch((error) => {
-				if (error?.name === 'AbortError') return;
-				errors.append(error);
-			})
-			.finally(() => {
-				loadingDeviceScanStats = false;
-			});
+		if (hasDeviceScans) {
+			AdminService.getDeviceScanStats({ start: start.toISOString(), end: end.toISOString() })
+				.then((stats) => {
+					deviceScanStats = stats;
+				})
+				.catch((error) => {
+					if (error?.name === 'AbortError') return;
+					errors.append(error);
+				})
+				.finally(() => {
+					loadingDeviceScanStats = false;
+				});
+		} else {
+			loadingDeviceScanStats = false;
+		}
 
 		const [users, tokens, catalogServers, workspaceServers] = await Promise.all([
 			UserService.listUsersIncludeDeleted(),
@@ -406,7 +410,7 @@
 			</div>
 
 			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
+				<TokenUsageTimelineCard startDate={start} endDate={end} users={usersData} />
 			</div>
 
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
@@ -415,7 +419,7 @@
 			</div>
 		{:else}
 			<div class="col-span-12">
-				<TokenUsageTimelineCard startDate={start} endDate={end} />
+				<TokenUsageTimelineCard startDate={start} endDate={end} users={usersData} />
 			</div>
 			<div class="col-span-12 grid grid-cols-1 items-stretch gap-4 @3xl:grid-cols-2">
 				{@render toolUsageGraph()}
@@ -554,7 +558,9 @@
 					{@const displayName =
 						'server' in info ? getMCPDisplayName(info.server) : info.entry?.manifest.name}
 					{@const description =
-						'server' in info ? info.server?.manifest.description : info.entry?.manifest.description}
+						'server' in info
+							? info.server?.manifest.description
+							: info.entry?.manifest.shortDescription}
 					{@const url = info.server
 						? getServerUrl(info.server)
 						: info.entry
