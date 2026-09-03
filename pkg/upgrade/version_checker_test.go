@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/license"
 )
 
 type checkerPropertyClient struct {
@@ -21,8 +23,8 @@ type checkerPropertyClient struct {
 }
 
 type checkerLicenseProvider struct {
-	valid bool
-	err   error
+	entitlements []string
+	err          error
 }
 
 func (c *checkerPropertyClient) GetOrCreateProperty(_ context.Context, key, value string) (gatewaytypes.Property, error) {
@@ -44,11 +46,11 @@ func (c *checkerPropertyClient) callCount() int {
 	return c.calls
 }
 
-func (p checkerLicenseProvider) HasValidLicense(context.Context) (bool, error) {
-	return p.valid, p.err
+func (p checkerLicenseProvider) Entitlements(context.Context) ([]string, error) {
+	return p.entitlements, p.err
 }
 
-func testVersionChecker(licenseProvider validLicenseProvider, serverURL string) *VersionChecker {
+func testVersionChecker(licenseProvider entitlementProvider, serverURL string) *VersionChecker {
 	return &VersionChecker{
 		licenseProvider:  licenseProvider,
 		httpClient:       http.DefaultClient,
@@ -179,7 +181,7 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	propertyClient := &checkerPropertyClient{value: "installation-1"}
-	checker := testVersionChecker(checkerLicenseProvider{valid: true}, server.URL+"/check-upgrade")
+	checker := testVersionChecker(checkerLicenseProvider{entitlements: []string{license.EnterpriseEntitlement}}, server.URL+"/check-upgrade")
 	checker.currentVersion = "v1.2.3-rc.1+build.4"
 	if err := checker.start(ctx, propertyClient, false, true); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -196,7 +198,7 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 	for key, want := range map[string]string{
 		"uid":             "installation-1",
 		"engine":          "docker",
-		"distribution":    "enterprise",
+		"distribution":    string(clienttypes.ProductTelemetryDistributionEnterprise),
 		"current-version": "v1.2.3",
 	} {
 		if got := query.Get(key); got != want {
@@ -234,22 +236,49 @@ func TestVersionCheckerDistribution(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		provider checkerLicenseProvider
-		want     string
+		want     clienttypes.ProductTelemetryDistribution
 	}{
 		{
-			name:     "enterprise",
-			provider: checkerLicenseProvider{valid: true},
-			want:     "enterprise",
+			name:     "cloud",
+			provider: checkerLicenseProvider{entitlements: []string{license.CloudEntitlement}},
+			want:     clienttypes.ProductTelemetryDistributionCloud,
 		},
 		{
-			name:     "oss",
+			name:     "enterprise",
+			provider: checkerLicenseProvider{entitlements: []string{license.EnterpriseEntitlement}},
+			want:     clienttypes.ProductTelemetryDistributionEnterprise,
+		},
+		{
+			name:     "community",
+			provider: checkerLicenseProvider{entitlements: []string{license.CommunityEntitlement}},
+			want:     clienttypes.ProductTelemetryDistributionCommunity,
+		},
+		{
+			name: "enterprise takes precedence",
+			provider: checkerLicenseProvider{entitlements: []string{
+				license.CommunityEntitlement,
+				license.EnterpriseEntitlement,
+			}},
+			want: clienttypes.ProductTelemetryDistributionEnterprise,
+		},
+		{
+			name: "cloud takes precedence",
+			provider: checkerLicenseProvider{entitlements: []string{
+				license.CommunityEntitlement,
+				license.EnterpriseEntitlement,
+				license.CloudEntitlement,
+			}},
+			want: clienttypes.ProductTelemetryDistributionCloud,
+		},
+		{
+			name:     "unlicensed",
 			provider: checkerLicenseProvider{},
-			want:     "oss",
+			want:     clienttypes.ProductTelemetryDistributionUnlicensed,
 		},
 		{
 			name:     "license error",
 			provider: checkerLicenseProvider{err: errors.New("refresh failed")},
-			want:     "oss",
+			want:     clienttypes.ProductTelemetryDistributionUnlicensed,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -266,7 +295,7 @@ func TestVersionCheckerDistribution(t *testing.T) {
 				t.Fatalf("start() error = %v", err)
 			}
 			request := waitForRequest(t, requests)
-			if got := request.URL.Query().Get("distribution"); got != test.want {
+			if got := request.URL.Query().Get("distribution"); got != string(test.want) {
 				t.Fatalf("distribution = %q, want %q", got, test.want)
 			}
 			cancel()

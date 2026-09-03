@@ -8,10 +8,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/version"
@@ -35,12 +37,12 @@ type VersionCheckerOptions struct {
 	DisableUpdateCheck bool
 }
 
-type validLicenseProvider interface {
-	HasValidLicense(context.Context) (bool, error)
+type entitlementProvider interface {
+	Entitlements(context.Context) ([]string, error)
 }
 
 type VersionChecker struct {
-	licenseProvider  validLicenseProvider
+	licenseProvider  entitlementProvider
 	httpClient       *http.Client
 	engine           string
 	installationID   string
@@ -116,12 +118,17 @@ func (c *VersionChecker) run(ctx context.Context) {
 	defer timer.Stop()
 
 	for {
-		distribution := "oss"
-		hasValidLicense, err := c.licenseProvider.HasValidLicense(ctx)
-		if err != nil {
+		distribution := clienttypes.ProductTelemetryDistributionUnlicensed
+		entitlements, err := c.licenseProvider.Entitlements(ctx)
+		switch {
+		case err != nil:
 			slog.Debug("failed to refresh license state for upgrade check", "error", err)
-		} else if hasValidLicense {
-			distribution = "enterprise"
+		case slices.Contains(entitlements, license.CloudEntitlement):
+			distribution = clienttypes.ProductTelemetryDistributionCloud
+		case slices.Contains(entitlements, license.EnterpriseEntitlement):
+			distribution = clienttypes.ProductTelemetryDistributionEnterprise
+		case slices.Contains(entitlements, license.CommunityEntitlement):
+			distribution = clienttypes.ProductTelemetryDistributionCommunity
 		}
 		if err := c.checkForUpgrade(ctx, distribution); err != nil {
 			slog.Debug("failed to check for server upgrade", "error", err)
@@ -137,7 +144,7 @@ func (c *VersionChecker) run(ctx context.Context) {
 	}
 }
 
-func (c *VersionChecker) checkForUpgrade(ctx context.Context, distribution string) error {
+func (c *VersionChecker) checkForUpgrade(ctx context.Context, distribution clienttypes.ProductTelemetryDistribution) error {
 	ctx, cancel := context.WithTimeout(ctx, c.requestTimeout)
 	defer cancel()
 
@@ -149,7 +156,7 @@ func (c *VersionChecker) checkForUpgrade(ctx context.Context, distribution strin
 	query := req.URL.Query()
 	query.Set("uid", c.installationID)
 	query.Set("engine", c.engine)
-	query.Set("distribution", distribution)
+	query.Set("distribution", string(distribution))
 	query.Set("current-version", c.currentVersion)
 	req.URL.RawQuery = query.Encode()
 

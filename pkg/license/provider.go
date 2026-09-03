@@ -35,6 +35,9 @@ const (
 	// CommunityEntitlement is required to enable community edition.
 	CommunityEntitlement = "OBOT_COMMUNITY"
 
+	// CloudEntitlement identifies Obot Cloud deployments.
+	CloudEntitlement = "OBOT_CLOUD"
+
 	// EnterpriseModelProvidersEntitlement is required to enable enterprise model providers.
 	EnterpriseModelProvidersEntitlement = "OBOT_ENTERPRISE_MODEL_PROVIDERS"
 
