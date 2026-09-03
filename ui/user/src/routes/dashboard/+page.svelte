@@ -188,7 +188,7 @@
 			loading,
 			value: usersData.length,
 			icon: Users,
-			seeMore: '/admin/identity-access?view=users'
+			seeMore: '/identity-access?view=users'
 		},
 		{
 			id: 'monthly-active-users',
@@ -196,7 +196,7 @@
 			loading,
 			value: monthlyActiveUsers,
 			icon: Activity,
-			seeMore: '/admin/identity-access?view=users'
+			seeMore: '/identity-access?view=users'
 		},
 		{
 			id: 'total-tokens',

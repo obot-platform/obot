@@ -24,10 +24,11 @@ const sharedLinks = [
 	'/models',
 	'/audit-logs',
 	'/usage',
-	'/inventory'
+	'/inventory',
+	'/identity-access'
 ];
 
-const adminOnlyLinks = ['/admin/enforcement-events', '/admin/identity-access', '/admin/platform'];
+const adminOnlyLinks = ['/admin/enforcement-events', '/admin/platform'];
 
 function createProfile(groups: string[]): Profile {
 	return {

@@ -270,7 +270,16 @@
 					id: 'models',
 					label: 'Models',
 					href: '/models'
-				}
+				},
+				...(profile.current.hasAdminAccess?.() && agentsFeatureEnabled
+					? [
+							{
+								id: 'obot-agents',
+								label: 'Agents',
+								href: '/admin/agents'
+							}
+						]
+					: [])
 			]
 		},
 		{
@@ -317,6 +326,22 @@
 					}
 				]
 			: []),
+		{
+			id: 'identity-and-access',
+			label: 'Identity & Access',
+			icon: Users,
+			href: '/identity-access'
+		},
+		...(profile.current.hasAdminAccess?.()
+			? [
+					{
+						id: 'platform',
+						label: 'Platform',
+						icon: Settings2,
+						href: '/admin/platform'
+					}
+				]
+			: []),
 		...(agentsFeatureEnabled
 			? [
 					{
@@ -328,22 +353,6 @@
 						collapsible: false,
 						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
 						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
-					}
-				]
-			: []),
-		...(profile.current.hasAdminAccess?.()
-			? [
-					{
-						id: 'identity-and-access',
-						label: 'Identity & Access',
-						icon: Users,
-						href: '/admin/identity-access'
-					},
-					{
-						id: 'platform',
-						label: 'Platform',
-						icon: Settings2,
-						href: '/admin/platform'
 					}
 				]
 			: [])

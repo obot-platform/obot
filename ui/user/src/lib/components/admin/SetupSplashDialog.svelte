@@ -14,7 +14,7 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
 
-	const authProviderPath = '/admin/identity-access';
+	const authProviderPath = '/identity-access';
 	const modelProviderPath = '/models?view=model-providers';
 
 	const storeData = $derived($adminConfigStore);

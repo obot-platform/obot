@@ -1,11 +1,12 @@
 import { page as appPage } from '$app/state';
 import { ApiKeysService, Group } from '$lib/services';
 import type { APIKey } from '$lib/services/api-keys/types';
-import { createMockProfile, preparePageData } from '../../../../tests/helpers/pageData';
-import { worker } from '../../../../tests/mocks/worker';
+import { createMockProfile, preparePageData } from '../../../../../tests/helpers/pageData';
+import { worker } from '../../../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import { load } from './+page';
 import AgentAuthScopeApiKeyPage from './+page.svelte';
+import { isRedirect } from '@sveltejs/kit';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -24,13 +25,12 @@ const apiKey: APIKey = {
 
 const apiKeyPrefix = `ok1-${apiKey.userId}-${apiKey.id}-*****`;
 
-function loadAgentAuthScopeApiKey(pathname: string) {
-	const profile = createMockProfile();
+function loadAgentAuthScopeApiKey(groups: string[]) {
+	const profile = createMockProfile(groups);
 	return load({
 		fetch: vi.fn(),
 		params: { id: apiKey.id.toString(), api_key: apiKeyPrefix },
-		parent: vi.fn(async () => ({ profile })),
-		url: new URL(pathname, 'http://localhost')
+		parent: vi.fn(async () => ({ profile }))
 	} as unknown as Parameters<typeof load>[0]);
 }
 
@@ -120,27 +120,31 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('Agent Auth Scope API key route selection', () => {
-	it('gets current-user scope for non-admin URL', async () => {
-		const getApiKey = vi.spyOn(ApiKeysService, 'getApiKey').mockResolvedValue(apiKey);
+describe('Agent Auth Scope API key load', () => {
+	it('redirects users without admin access', async () => {
+		const getApiKey = vi.spyOn(ApiKeysService, 'getApiKey');
 		const getAnyApiKey = vi.spyOn(ApiKeysService, 'getAnyApiKey');
 
-		const result = await loadAgentAuthScopeApiKey(
-			`/agent-auth-scopes/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
-		);
+		try {
+			await loadAgentAuthScopeApiKey([Group.USER]);
+			expect.unreachable('expected a redirect');
+		} catch (err) {
+			expect(isRedirect(err)).toBe(true);
+			if (isRedirect(err)) {
+				expect(err.status).toBe(302);
+				expect(err.location).toBe('/');
+			}
+		}
 
-		expect(result).toEqual({ apiKey, apiKeyId: apiKeyPrefix, isAdmin: false });
-		expect(getApiKey).toHaveBeenCalledWith(apiKey.id.toString(), expect.any(Object));
+		expect(getApiKey).not.toHaveBeenCalled();
 		expect(getAnyApiKey).not.toHaveBeenCalled();
 	});
 
-	it('gets any scope for admin URL', async () => {
+	it('gets any scope for users with admin access', async () => {
 		const getApiKey = vi.spyOn(ApiKeysService, 'getApiKey');
 		const getAnyApiKey = vi.spyOn(ApiKeysService, 'getAnyApiKey').mockResolvedValue(apiKey);
 
-		const result = await loadAgentAuthScopeApiKey(
-			`/admin/agent-auth-scopes/${apiKey.id}/${encodeURIComponent(apiKeyPrefix)}`
-		);
+		const result = await loadAgentAuthScopeApiKey([Group.ADMIN]);
 
 		expect(result).toEqual({ apiKey, apiKeyId: apiKeyPrefix, isAdmin: true });
 		expect(getApiKey).not.toHaveBeenCalled();

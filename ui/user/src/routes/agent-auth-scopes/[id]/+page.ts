@@ -1,25 +1,6 @@
-import { handleRouteError } from '$lib/errors';
-import { ApiKeysService } from '$lib/services';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
-const ADMIN_AGENT_AUTH_SCOPES_PREFIX = '/admin/agent-auth-scopes';
-
-export const load: PageLoad = async ({ params, parent, fetch, url }) => {
-	const { profile } = await parent();
-	const { id } = params;
-	const isAdmin =
-		url.pathname === ADMIN_AGENT_AUTH_SCOPES_PREFIX ||
-		url.pathname.startsWith(`${ADMIN_AGENT_AUTH_SCOPES_PREFIX}/`);
-	let apiKey;
-	try {
-		apiKey = await (isAdmin ? ApiKeysService.getAnyApiKey : ApiKeysService.getApiKey)(id, {
-			fetch
-		});
-	} catch (err) {
-		handleRouteError(err, `${isAdmin ? '/admin' : ''}/agent-auth-scopes/${id}`, profile);
-	}
-	return {
-		apiKey,
-		isAdmin
-	};
+export const load: PageLoad = ({ params, url }) => {
+	throw redirect(301, `/identity-access/agents/${encodeURIComponent(params.id)}${url.search}`);
 };

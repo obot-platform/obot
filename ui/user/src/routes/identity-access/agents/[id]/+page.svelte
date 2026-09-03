@@ -22,7 +22,7 @@
 					await (isAdmin ? ApiKeysService.deleteAnyApiKey : ApiKeysService.deleteApiKey)(
 						apiKey.id.toString()
 					);
-					goto(`${isAdmin ? '/admin' : ''}/agent-auth-scopes`, { replaceState: true });
+					goto('/identity-access?view=agents', { replaceState: true });
 				}}
 			/>
 		{/if}

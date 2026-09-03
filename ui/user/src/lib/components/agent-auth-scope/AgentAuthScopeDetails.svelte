@@ -197,15 +197,21 @@
 			<section class="paper gap-2 p-4">
 				<p class="text-lg font-semibold" id="agent-auth-scope-keys">API Keys</p>
 				<div class="flex flex-col gap-2" role="group" aria-labelledby="agent-auth-scope-keys">
-					<a
-						href={resolve(
-							`${isAdmin ? '/admin' : ''}/agent-auth-scopes/${agentAuthScope.id}/${encodeURIComponent(agentAuthScope.prefix)}` as `/${string}`
-						)}
-						class="bg-base-200 hover:bg-base-300 flex justify-between items-center gap-3 rounded-lg p-3 text-sm transition-colors"
-					>
-						{agentAuthScope.prefix}
-						<Eye class="size-4" />
-					</a>
+					{#if isAdmin}
+						<a
+							href={resolve(
+								`/identity-access/agents/${agentAuthScope.id}/${encodeURIComponent(agentAuthScope.prefix)}` as `/${string}`
+							)}
+							class="bg-base-200 hover:bg-base-300 flex justify-between items-center gap-3 rounded-lg p-3 text-sm transition-colors"
+						>
+							{agentAuthScope.prefix}
+							<Eye class="size-4" />
+						</a>
+					{:else}
+						<p class="bg-base-200 flex rounded-lg p-3 text-sm">
+							{agentAuthScope.prefix}
+						</p>
+					{/if}
 				</div>
 			</section>
 		</div>

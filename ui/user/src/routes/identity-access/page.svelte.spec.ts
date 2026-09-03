@@ -1,13 +1,16 @@
 import { page as appPage } from '$app/state';
 import { CommonAuthProviderIds } from '$lib/constants';
+import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
-import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
+import type { APIKey } from '$lib/services/api-keys/types';
+import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
 import {
 	initiateTempLoginResponse,
 	listAuthProvidersResponse,
-	listExplicitRoleEmailsResponse
-} from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/worker';
+	listExplicitRoleEmailsResponse,
+	listUsersResponse
+} from '../../tests/mocks/data';
+import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import IdentityAccessPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
@@ -36,14 +39,20 @@ async function renderIdentityAccessPage({
 	authProviders = [googleProvider, entraProvider],
 	authEnabled = true,
 	bootstrap = false,
-	view = 'auth-providers'
+	view = 'auth-providers',
+	groups,
+	apiKeys = [],
+	users = []
 }: {
 	authProviders?: AuthProvider[];
 	authEnabled?: boolean;
 	bootstrap?: boolean;
 	view?: string;
+	groups?: string[];
+	apiKeys?: APIKey[];
+	users?: PageData['users'];
 } = {}) {
-	const profile = createMockProfile();
+	const profile = createMockProfile(groups);
 	if (bootstrap) {
 		profile.username = 'bootstrap';
 		profile.isBootstrapUser = () => true;
@@ -54,12 +63,13 @@ async function renderIdentityAccessPage({
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 
 	const data = await preparePageData<PageData>({
-		users: [],
+		users,
 		groups: [],
 		groupRoleAssignments: [],
 		defaultUsersRole: undefined,
 		authProviders,
 		authEnabled,
+		apiKeys,
 		profile
 	});
 
@@ -109,6 +119,56 @@ afterEach(() => {
 });
 
 describe('Identity & Access Page', () => {
+	describe('agents tab', () => {
+		const apiKey: APIKey = {
+			id: 42,
+			userId: Number(listUsersResponse[0].id),
+			name: 'Test Agent Scope',
+			canAccessAPI: false,
+			canAccessLLMProxy: true,
+			canAccessSkills: false,
+			canAccessDeviceScans: false,
+			createdAt: '2026-01-01T00:00:00.000Z'
+		};
+
+		it('non-admin users only see the Agents tab and can create a scope', async () => {
+			await renderIdentityAccessPage({
+				view: 'agents',
+				groups: [Group.USER],
+				apiKeys: [apiKey]
+			});
+
+			await expect
+				.element(page.getByRole('button', { name: 'Users', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Groups', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Roles', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Auth Providers', exact: true }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Create Agent Auth Scope', exact: true }))
+				.toBeVisible();
+			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
+		});
+
+		it('hides create for readonly admins', async () => {
+			await renderIdentityAccessPage({
+				view: 'agents',
+				groups: [Group.AUDITOR],
+				apiKeys: [apiKey]
+			});
+
+			await expect
+				.element(page.getByRole('button', { name: 'Create Agent Auth Scope', exact: true }))
+				.not.toBeInTheDocument();
+		});
+	});
+
 	describe('auth providers tab', () => {
 		describe('configure auth provider', () => {
 			it('bootstrap user sees owner handoff dialog after configuring', async () => {
