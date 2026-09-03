@@ -408,8 +408,5 @@ func (h *Handler) RemoveSystemCredentials(req router.Request, _ router.Response)
 	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), mcp.StaticConfigurationCredentialName(entry.Name)); err != nil {
 		return fmt.Errorf("failed to remove system catalog static configuration credential: %w", err)
 	}
-	if _, err := h.gatewayClient.DeleteCredential(req.Ctx, system.MCPOAuthCredentialName(entry.Name), system.StaticOAuthCredentialName); err != nil {
-		return fmt.Errorf("failed to remove system catalog OAuth credential: %w", err)
-	}
 	return nil
 }
