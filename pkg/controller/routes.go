@@ -226,6 +226,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.OAuthToken{}).HandlerFunc(cleanup.Cleanup)
 
 	// MCP Webhook Validations
+	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.MigrateStaticConfiguration)
 	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.CleanupResources)
 	root.Type(&v1.MCPWebhookValidation{}).HandlerFunc(mcpWebhookValidations.EnsureSystemServer)
 

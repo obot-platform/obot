@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -27,6 +28,28 @@ func New(gatewayClient *gateway.Client, webhookBaseImage string) *Handler {
 		gatewayClient:    gatewayClient,
 		webhookBaseImage: webhookBaseImage,
 	}
+}
+
+func (h *Handler) MigrateStaticConfiguration(req router.Request, _ router.Response) error {
+	webhookValidation := req.Object.(*v1.MCPWebhookValidation)
+	manifest := webhookValidation.Spec.Manifest.SystemMCPServerManifest
+	if manifest == nil || !mcp.SystemServerHasStaticConfigurationValues(manifest) {
+		return nil
+	}
+
+	before := utils.Digest(webhookValidation.Spec.Manifest)
+	existing, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name)
+	if err != nil {
+		return err
+	}
+	secrets := mcp.ExtractStaticSystemServerConfiguration(manifest, existing, false)
+	if before == utils.Digest(webhookValidation.Spec.Manifest) {
+		return nil
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, secrets); err != nil {
+		return fmt.Errorf("failed to store static configuration before migration: %w", err)
+	}
+	return req.Client.Update(req.Ctx, webhookValidation)
 }
 
 func (h *Handler) CleanupResources(req router.Request, _ router.Response) error {

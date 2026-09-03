@@ -15,6 +15,7 @@ import (
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -69,6 +70,47 @@ func TestEnsureSystemServerCopiesStaticConfigurationCredential(t *testing.T) {
 	derivedStatic, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, derivedName, derivedName)
 	require.NoError(t, err)
 	require.Equal(t, map[string]string{"TOKEN": "static-token"}, derivedStatic)
+}
+
+func TestMigrateStaticConfiguration(t *testing.T) {
+	gatewayClient := newWebhookValidationTestGatewayClient(t)
+	validation := &v1.MCPWebhookValidation{
+		Name:      "validation-1",
+		Namespace: "default",
+		Spec: v1.MCPWebhookValidationSpec{
+			Manifest: types.MCPWebhookValidationManifest{
+				SystemMCPServerManifest: &types.SystemMCPServerManifest{
+					Env: []types.MCPEnv{{
+						Key:       "TOKEN",
+						Value:     "legacy-token",
+						Sensitive: true,
+					}},
+				},
+			},
+		},
+	}
+	storageClient := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).Build()
+	require.NoError(t, storageClient.Create(t.Context(), validation))
+
+	err := (&Handler{gatewayClient: gatewayClient}).MigrateStaticConfiguration(router.Request{
+		Client:    storageClient,
+		Ctx:       t.Context(),
+		Object:    validation,
+		Namespace: validation.Namespace,
+		Name:      validation.Name,
+	}, &router.ResponseWrapper{})
+	require.NoError(t, err)
+	require.Empty(t, validation.Spec.Manifest.SystemMCPServerManifest.Env[0].Value)
+	require.True(t, validation.Spec.Manifest.SystemMCPServerManifest.Env[0].ValueConfigured)
+
+	staticSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, system.MCPWebhookValidationCredentialContext, validation.Name)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{"TOKEN": "legacy-token"}, staticSecrets)
+
+	var stored v1.MCPWebhookValidation
+	require.NoError(t, storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(validation), &stored))
+	require.Empty(t, stored.Spec.Manifest.SystemMCPServerManifest.Env[0].Value)
+	require.True(t, stored.Spec.Manifest.SystemMCPServerManifest.Env[0].ValueConfigured)
 }
 
 func TestDesiredSystemServer_CopiesProvidedManifest(t *testing.T) {
