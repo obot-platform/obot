@@ -11,7 +11,10 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile, models: initialModels } = await parent();
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
 	const requestedView = url.searchParams.get('view');
-	const view = requestedView && views.has(requestedView) ? requestedView : 'models';
+	const view =
+		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'models')
+			? requestedView
+			: 'models';
 
 	let models: Model[] = [];
 	let modelProviders: ModelProvider[] = [];

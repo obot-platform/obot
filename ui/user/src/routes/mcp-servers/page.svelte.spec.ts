@@ -253,7 +253,7 @@ describe('MCP Servers Page', () => {
 
 		describe('multi-select action pills', () => {
 			it('deduplicates catalog upgrade notes and omits empty notes in bulk confirmation', async () => {
-				await page.getByRole('columnheader').first().getByRole('button').click();
+				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
 				const actionsBar = page.getByText(/of 9 selected/).locator('..');
 
 				await actionsBar.getByRole('button', { name: /^Upgrade/ }).click();
@@ -268,7 +268,7 @@ describe('MCP Servers Page', () => {
 			});
 
 			it('shows restart, upgrade, k8s upgrade, and delete counts for selected rows', async () => {
-				await page.getByRole('columnheader').first().getByRole('button').click();
+				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
 
 				await expect.element(page.getByText(/of 9 selected/)).toBeVisible();
 

@@ -46,7 +46,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				AdminService.listHostedAgentPools({ fetch })
 			]);
 		} catch (err) {
-			handleRouteError(err, '/v2/hosted-agents', profile);
+			handleRouteError(err, '/hosted-agents', profile);
 		}
 	} else if (hasAdminAccess) {
 		try {
@@ -81,7 +81,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 					break;
 			}
 		} catch (err) {
-			handleRouteError(err, '/v2/hosted-agents', profile);
+			handleRouteError(err, '/hosted-agents', profile);
 		}
 	}
 

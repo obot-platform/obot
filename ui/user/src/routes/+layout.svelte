@@ -107,7 +107,7 @@
 		const view = page.url.searchParams.get('view');
 		const usesMcpTunnelStatus =
 			(pathname.startsWith('/mcp-servers') &&
-				(!view || view === 'servers' || view === 'entries')) ||
+				(!view || view === 'servers' || view === 'entries' || view === 'deployments')) ||
 			pathname.startsWith('/vmcps');
 
 		if (profile.current.loaded && usesMcpTunnelStatus) {
