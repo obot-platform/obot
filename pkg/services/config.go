@@ -1273,6 +1273,17 @@ func New(ctx context.Context, config Config) (*Services, error) {
 	if mcp.IsKubernetesBackend(config.MCPRuntimeBackend) {
 		mcpLocalK8sClient = apiLocalK8sClient
 	}
+
+	versionChecker, err := upgrade.NewVersionChecker(ctx, upgrade.VersionCheckerOptions{
+		GatewayClient:      gatewayClient,
+		LicenseProvider:    licenseProvider,
+		Engine:             config.MCPRuntimeBackend,
+		DisableUpdateCheck: config.DisableUpdateCheck,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,
@@ -1374,6 +1385,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPNetworkPolicyProviderValues:       config.MCPNetworkPolicyProviderValues,
 		ArtifactBlobBucket:                   config.ArtifactStorageBucket,
 		LicenseProvider:                      licenseProvider,
+		VersionChecker:                       versionChecker,
 	}
 
 	if (config.ArtifactStorageProvider == "") != (config.ArtifactStorageBucket == "") {
@@ -1400,17 +1412,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		svcs.ArtifactBlobStore = artifactBlobStore
 		svcs.ArtifactBlobBucket = "default"
 	}
-
-	versionChecker, err := upgrade.NewVersionChecker(ctx, upgrade.VersionCheckerOptions{
-		GatewayClient:      gatewayClient,
-		LicenseProvider:    licenseProvider,
-		Engine:             config.MCPRuntimeBackend,
-		DisableUpdateCheck: config.DisableUpdateCheck,
-	})
-	if err != nil {
-		return nil, err
-	}
-	svcs.VersionChecker = versionChecker
 
 	return svcs, nil
 }
