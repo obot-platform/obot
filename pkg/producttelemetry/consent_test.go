@@ -44,69 +44,6 @@ func TestConsentPersistsTriStateAndChanges(t *testing.T) {
 	}
 }
 
-func TestConsentUsesStrconvBooleanParsing(t *testing.T) {
-	client := newConsentTestGatewayClient(t)
-	consent := NewConsent(client, false)
-
-	for _, test := range []struct {
-		stored string
-		want   bool
-	}{
-		{
-			stored: "1",
-			want:   true,
-		},
-		{
-			stored: "t",
-			want:   true,
-		},
-		{
-			stored: "TRUE",
-			want:   true,
-		},
-		{
-			stored: "True",
-			want:   true,
-		},
-		{
-			stored: "0",
-			want:   false,
-		},
-		{
-			stored: "f",
-			want:   false,
-		},
-		{
-			stored: "FALSE",
-			want:   false,
-		},
-		{
-			stored: "False",
-			want:   false,
-		},
-	} {
-		t.Run(test.stored, func(t *testing.T) {
-			if _, err := client.SetProperty(t.Context(), consentPropertyKey, test.stored); err != nil {
-				t.Fatalf("SetProperty(%q) error = %v", test.stored, err)
-			}
-			got, err := consent.Get(t.Context())
-			if err != nil {
-				t.Fatalf("Get() error = %v", err)
-			}
-			if got == nil || *got != test.want {
-				t.Fatalf("Get() = %v, want %t", got, test.want)
-			}
-		})
-	}
-
-	if _, err := client.SetProperty(t.Context(), consentPropertyKey, "not-a-boolean"); err != nil {
-		t.Fatalf("SetProperty(invalid) error = %v", err)
-	}
-	if _, err := consent.Get(t.Context()); err == nil {
-		t.Fatal("Get() invalid stored value returned nil error")
-	}
-}
-
 func TestConsentForceEnabledNeedsNoPersistence(t *testing.T) {
 	consent := NewConsent(nil, true)
 

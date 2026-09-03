@@ -39,8 +39,7 @@ func (c *Consent) ForceEnabled() bool {
 // consent is force-enabled, Get returns true without consulting persistence.
 func (c *Consent) Get(ctx context.Context) (*bool, error) {
 	if c.forceEnabled {
-		value := true
-		return &value, nil
+		return new(true), nil
 	}
 
 	property, err := c.gatewayClient.GetProperty(ctx, consentPropertyKey)
