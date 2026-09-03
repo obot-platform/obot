@@ -57,7 +57,7 @@ func TestNextDailyReportTime(t *testing.T) {
 func TestPublisherReadsConsentBeforeEveryRun(t *testing.T) {
 	values := []*bool{nil, new(false), new(true)}
 	var consentCalls, sendCalls int
-	gatewayClient := &requestPropertyClient{}
+	gatewayClient := newRequestGateway()
 	publisher := newPublisher(
 		consentReaderFunc(func(context.Context) (*bool, error) {
 			value := values[consentCalls]
@@ -65,6 +65,10 @@ func TestPublisherReadsConsentBeforeEveryRun(t *testing.T) {
 			return value, nil
 		}),
 		gatewayClient,
+		testStorageClient(),
+		testEntitlements(),
+		"",
+		"docker",
 		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
 			sendCalls++
 			return nil
@@ -74,8 +78,8 @@ func TestPublisherReadsConsentBeforeEveryRun(t *testing.T) {
 	for range values {
 		publisher.runOnce(t.Context())
 	}
-	if consentCalls != 3 || gatewayClient.calls != 1 || sendCalls != 1 {
-		t.Fatalf("calls = consent:%d build:%d send:%d, want 3,1,1", consentCalls, gatewayClient.calls, sendCalls)
+	if consentCalls != 3 || gatewayClient.propertyCalls != 2 || sendCalls != 1 {
+		t.Fatalf("calls = consent:%d properties:%d send:%d, want 3,2,1", consentCalls, gatewayClient.propertyCalls, sendCalls)
 	}
 }
 
@@ -83,7 +87,11 @@ func TestPublisherForceEnabledSendsReport(t *testing.T) {
 	var got clienttypes.ProductTelemetryRequest
 	publisher := newPublisher(
 		NewConsent(nil, true),
-		&requestPropertyClient{value: "installation-id"},
+		newRequestGateway(),
+		testStorageClient(),
+		testEntitlements(),
+		"",
+		"docker",
 		reportSenderFunc(func(_ context.Context, report clienttypes.ProductTelemetryRequest) error {
 			got = report
 			return nil
@@ -100,7 +108,7 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 	tests := []struct {
 		name          string
 		consent       consentReader
-		gatewayClient installationPropertyClient
+		gatewayClient requestGatewayClient
 		sender        reportSender
 		wantSends     int
 	}{
@@ -109,16 +117,20 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 			consent: consentReaderFunc(func(context.Context) (*bool, error) {
 				return nil, errors.New("consent unavailable")
 			}),
-			gatewayClient: &requestPropertyClient{},
+			gatewayClient: newRequestGateway(),
 			sender: reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
 				t.Fatal("sender called after consent failure")
 				return nil
 			}),
 		},
 		{
-			name:          "builder failure",
-			consent:       consentReaderFunc(func(context.Context) (*bool, error) { return new(true), nil }),
-			gatewayClient: &requestPropertyClient{err: errors.New("database unavailable")},
+			name:    "builder failure",
+			consent: consentReaderFunc(func(context.Context) (*bool, error) { return new(true), nil }),
+			gatewayClient: func() requestGatewayClient {
+				gateway := newRequestGateway()
+				gateway.propertyErrors = map[string]error{"installation_id": errors.New("database unavailable")}
+				return gateway
+			}(),
 			sender: reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
 				t.Fatal("sender called after builder failure")
 				return nil
@@ -127,7 +139,7 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 		{
 			name:          "sender failure",
 			consent:       consentReaderFunc(func(context.Context) (*bool, error) { return new(true), nil }),
-			gatewayClient: &requestPropertyClient{},
+			gatewayClient: newRequestGateway(),
 			sender: reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
 				return errors.New("delivery unavailable")
 			}),
@@ -142,7 +154,7 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 				sends++
 				return testCase.sender.Send(ctx, report)
 			})
-			publisher := newPublisher(testCase.consent, testCase.gatewayClient, sender)
+			publisher := newPublisher(testCase.consent, testCase.gatewayClient, testStorageClient(), testEntitlements(), "", "docker", sender)
 			publisher.runOnce(t.Context())
 			if sends != testCase.wantSends {
 				t.Fatalf("sender calls = %d, want %d", sends, testCase.wantSends)
@@ -166,7 +178,7 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 		t.Fatalf("enable consent: %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher := NewPublisher(ctx, consent, gatewayClient)
+	publisher := NewPublisher(ctx, consent, gatewayClient, testStorageClient(), testEntitlements(), "", "docker")
 
 	select {
 	case <-started:
