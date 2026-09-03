@@ -1,5 +1,5 @@
 import { page as appPage } from '$app/state';
-import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
+import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import * as navigation from '$lib/navigation';
 import type {
 	ImagePullSecret,
@@ -248,6 +248,24 @@ describe('Platform Page', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Resolve', exact: true }))
 				.toBeVisible();
+		});
+
+		it('renders the Cloud entitlement label ahead of non-edition entitlements', async () => {
+			await renderPlatformPage({
+				license: {
+					...getLicenseResponse,
+					licenseKey: 'cloud-license-key',
+					enterprise: true,
+					entitlements: ['OBOT_SOME_FEATURE', CLOUD_ENTITLEMENT]
+				}
+			});
+
+			await expect.element(page.getByText('Obot Cloud', { exact: true })).toBeVisible();
+			await expect.element(page.getByText('Some Feature', { exact: true })).toBeVisible();
+
+			const badges = await page.getByRole('listitem').elements();
+			const badgeText = badges.map((el) => el.textContent?.trim());
+			expect(badgeText.indexOf('Obot Cloud')).toBeLessThan(badgeText.indexOf('Some Feature'));
 		});
 	});
 
