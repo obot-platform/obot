@@ -1109,6 +1109,12 @@ export const ModelAliasToUsageMap = {
 	[ModelAlias.Vision]: ModelUsage.Vision
 } as const;
 
+// Product analytics
+
+export interface ProductTelemetryConsent {
+	consent?: boolean;
+}
+
 // Setup
 
 export interface TempUser {

@@ -13,6 +13,7 @@
 	import { AdminService, UserService, Group, Role, type OrgUser } from '$lib/services';
 	import { userRoleOptions } from '$lib/services/admin/constants';
 	import { profile, version } from '$lib/stores';
+	import { clearProductAnalyticsPromptDismissal } from '$lib/stores/productTelemetryConsent.svelte';
 	import { formatTimeAgo } from '$lib/time';
 	import { replaceState } from '$lib/url';
 	import {
@@ -450,6 +451,7 @@
 			return;
 		}
 		await AdminService.bootstrapLogout();
+		clearProductAnalyticsPromptDismissal();
 		window.location.href = '/oauth2/sign_out?rd=/admin';
 		confirmHandoffToUser = undefined;
 	}}
