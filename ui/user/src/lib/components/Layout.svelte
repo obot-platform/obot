@@ -276,7 +276,8 @@
 							{
 								id: 'obot-agents',
 								label: 'Agents',
-								href: '/admin/agents'
+								href: '/admin/agents',
+								disabled: isBootStrapUser || !agentLinkEnabled
 							}
 						]
 					: [])
