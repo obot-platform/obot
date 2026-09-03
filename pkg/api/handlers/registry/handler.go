@@ -11,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	"github.com/obot-platform/obot/pkg/api/handlers"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -530,9 +531,43 @@ func (h *Handler) getCredentialsForServers(
 		return make(map[string]map[string]string), nil
 	}
 
-	credMap := make(map[string]map[string]string)
+	credCtxs := make([]string, 0, len(servers))
+	serverByCredCtx := make(map[string]string, len(servers))
 	for _, server := range servers {
-		credMap[server.Name] = h.getCredentialsForServer(req, server, userID, catalogID, workspaceID)
+		ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
+		credCtxs = append(credCtxs, ctx)
+		serverByCredCtx[ctx] = server.Name
+	}
+
+	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
+		CredentialContexts: credCtxs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list credentials: %w", err)
+	}
+
+	userCredentials := make(map[string]map[string]string, len(servers))
+	staticCredentials := make(map[string]map[string]string, len(servers))
+	for _, cred := range creds {
+		serverName, ok := serverByCredCtx[cred.Context]
+		if !ok || (cred.Name != serverName && cred.Name != mcp.StaticConfigurationCredentialName(serverName)) {
+			continue
+		}
+
+		revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
+		if err != nil {
+			continue
+		}
+		if cred.Name == serverName {
+			userCredentials[serverName] = revealed.Secrets
+		} else {
+			staticCredentials[serverName] = revealed.Secrets
+		}
+	}
+
+	credMap := make(map[string]map[string]string, len(servers))
+	for _, server := range servers {
+		credMap[server.Name] = mcp.MergeRuntimeConfiguration(userCredentials[server.Name], staticCredentials[server.Name])
 	}
 
 	return credMap, nil
