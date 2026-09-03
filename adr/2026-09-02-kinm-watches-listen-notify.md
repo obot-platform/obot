@@ -15,69 +15,68 @@ None.
 
 ## Context
 
-Every Obot replica holds a kinm watch on each of its object types, about 44 of them. When
-nothing has woken a watch, it lists its table again every 2 seconds. That poll is the only way
-one replica learns about a write made by another, because kinm's in process broadcast reaches
-only the process that did the write.
+Every Obot replica held a kinm watch on each of its object types, about 44 of them. A watch that
+nothing had woken listed its table again every 2 seconds. The poll was the only way one replica
+learned about a write made by another.
 
-The cost is paid whether or not anything is happening. Ten idle environments with one replica
-each cost about 1,000 statements per second on one shared Cloud SQL instance. With two replicas
-each they cost about 1,960, and database CPU doubled with them, because the standby keeps its
-caches warm and so polls exactly as hard as the leader.
+The cost was the same whether or not anything was happening. Ten idle environments with one
+replica each cost about 1,000 statements per second on one shared Cloud SQL instance. With two
+replicas each they cost about 1,960, and database CPU doubled along with it. The standby kept its
+caches warm, so it polled exactly as hard as the leader.
 
 ## Decision
 
-Writes announce themselves and watches wait to be told, instead of asking.
+Change how a replica learns about another replica's writes, from polling every 2 seconds to
+Postgres LISTEN/NOTIFY. kinm runs `pg_notify` inside every writing transaction, naming the table.
+Each replica holds one dedicated Postgres connection that listens for those notifications. When
+one arrives, the listener wakes the watches on that table the same way a local write does, so
+nothing downstream changes. A listener does not count as connected until a notification it sent
+itself comes back.
 
-kinm runs `pg_notify` inside every writing transaction, naming the table. Each process holds one
-dedicated Postgres connection that listens for those notifications and, when one names a table,
-calls the same broadcast the in process write path already calls. Everything downstream of that
-broadcast is unchanged. A listener only reports itself connected once a notification it sends
-itself has come back, so a connection that cannot deliver notifications does not count as one.
+The poll becomes a backup for when notifications do not arrive, and drops from every 2 seconds to
+every 2 minutes. If the listener is not connected, polling is all a replica has, so it goes back
+to every 2 seconds.
 
-While the listener is connected, a watch that nothing has woken lists again every 2 minutes
-rather than every 2 seconds. Whenever the listener is not connected, the 2 second poll returns.
-Notifications for one table are combined over 1 second; the first after a quiet moment passes
-straight through, and the rest collapse into one wake up at the end of the second.
+Notifications for one table are combined over 1 second. The first one wakes the watches straight
+away, and any that follow within the second collapse into a single wake up at the end of it.
 
-Obot keeps the kinm `Factory` on `Services` and calls `Factory.Refresh` from the post start hook
-that nah runs on promotion to leader. Refresh wakes every watch in the process so each lists once
-before the new leader acts on the cache it had as a standby.
+When a replica is promoted to leader, refresh every watch. Obot calls `Factory.Refresh` from the
+post start hook that nah runs on promotion, so every watch lists once before the new leader acts
+on the cache it had as a standby.
 
 ## Rationale
 
-Notifications rather than cheaper polling, because polling a smaller table would have shrunk the
-idle cost but kept it proportional to the number of replicas, and its interval could not have been
-lengthened without giving up change detection latency. With notifications carrying the changes,
-the poll can be long.
+A replica no longer asks the database whether anything changed. An idle environment costs nothing
+for its watches, however many replicas it runs.
 
-The poll is kept rather than removed, because a replica on the previous version emits nothing.
-During a rolling upgrade, a replica already on the new code would otherwise stay stale on any
-table the old replica wrote until that table happened to be written again. The 2 minute poll
-bounds that with no coordination between deploys.
+The poll has to stay because a replica running the previous version does not announce its writes.
+During a rolling upgrade a replica already on the new code would otherwise miss those writes until
+something touched the same table again. Two minutes puts a ceiling on how long that lasts, and
+needs no coordination between deploys.
 
-Notifications are combined over 1 second so that a continuously written table costs every other
-replica at most one list per second, against one every 2 seconds today, and no table becomes more
-expensive than it was.
+One second bounds what a busy table costs every other replica. However fast a table is written,
+its watches elsewhere wake at most once a second, so a burst of writes on one replica cannot turn
+into a burst of queries on all of them.
 
-Watches are refreshed on promotion because nah starts its informer cache once and does not list
-again when a standby becomes the leader. Whatever the standby had missed, the leader would then
-act on. One list per type, once per promotion, closes that.
+The refresh on promotion is needed because nah starts its cache once and never lists again when a
+standby becomes leader. Whatever the standby missed, the new leader would act on.
 
 ## Consequences
 
-Idle statement load from watches falls about 19x, measured at 196 statements per second per
-environment on the previous code against 10.1 with this change. Most of what remains is the
-leader election lease, addressed separately in nah.
+Idle statement load from watches falls about 19x, from 196 statements per second per environment
+to 10.1. Most of what is left is the leader election lease, which nah handles separately.
 
-A change made on one replica reaches the other in about 17ms when the table was quiet, and within
-1 second otherwise. Obot's controllers write a finalizer after every create, so steady writes to a
-controlled type see about 500ms. The bound today is 2 seconds.
+A change made on one replica reaches the other in milliseconds if the table was quiet, or within a
+second if it was busy. Before, it took up to 2 seconds.
+
+A table that is written continuously costs the other replicas about twice what it did, one wake up
+a second against one every 2 seconds, in exchange for the idle case costing nothing.
 
 Each replica holds one more Postgres connection, named `kinm-listener` in `pg_stat_activity`.
 
-The first rolling deploy of this version has a window, once per environment, where an upgraded
-replica can be up to 2 minutes behind a replica still on the old code. It closes on its own.
+On the first deploy of this version an upgraded replica can run up to 2 minutes behind one still
+on the old code. The lag lasts until that replica is upgraded too, and only happens on this one
+deploy.
 
 `KINM_DB_DISABLE_NOTIFY=true` restores the previous behavior exactly. `KINM_DB_WATCH_POLL_SECONDS`
 and `KINM_DB_NOTIFY_DEBOUNCE_MILLISECONDS` tune the two intervals.

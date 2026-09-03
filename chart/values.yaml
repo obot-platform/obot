@@ -138,6 +138,12 @@ config:
   KINM_DB_MAX_CONNECTIONS: "5"
   # config.KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS -- Advanced - the maximum lifetime of a connection in the database pool for kinm in seconds
   KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS: "180"
+  # config.KINM_DB_WATCH_POLL_SECONDS -- Advanced - how long a kinm watch waits before listing again when nothing has woken it, in seconds, while the change listener is connected
+  KINM_DB_WATCH_POLL_SECONDS: "120"
+  # config.KINM_DB_NOTIFY_DEBOUNCE_MILLISECONDS -- Advanced - how often change notifications may wake the watches on one table in kinm, in milliseconds
+  KINM_DB_NOTIFY_DEBOUNCE_MILLISECONDS: "1000"
+  # config.KINM_DB_DISABLE_NOTIFY -- Advanced - disables kinm's use of PostgreSQL LISTEN/NOTIFY, so replicas learn about each other's writes by polling
+  KINM_DB_DISABLE_NOTIFY: "false"
   # config.OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS -- Advanced - the maximum number of idle connections in the database pool for the auth provider
   OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS: "2"
   # config.OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS -- Advanced - the maximum number of connections in the database pool for the auth provider
