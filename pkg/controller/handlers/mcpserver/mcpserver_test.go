@@ -1024,13 +1024,13 @@ func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *tes
 	referenceManifest := types.MCPServerCatalogEntryManifest{
 		Runtime: types.RuntimeRemote,
 		Env: []types.MCPEnv{
-			{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true},
+			{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true, ValueConfigured: true},
 			{Key: "DYNAMIC_ENV"},
 		},
 		RemoteConfig: &types.RemoteCatalogConfig{
 			FixedURL: "https://api.example.com/mcp",
 			Headers: []types.MCPHeader{
-				{Key: "STATIC_HEADER", Value: "stored-header", Sensitive: true},
+				{Key: "STATIC_HEADER", Value: "stored-header", Sensitive: true, ValueConfigured: true},
 				{Key: "EXISTING_HEADER", Value: "configured"},
 			},
 		},
@@ -1042,13 +1042,13 @@ func TestConfigurationHasDriftedRestoresStaticValuesWithoutMutatingServer(t *tes
 			Manifest: types.MCPServerManifest{
 				Runtime: types.RuntimeRemote,
 				Env: []types.MCPEnv{
-					{Key: "STATIC_ENV", Sensitive: true},
+					{Key: "STATIC_ENV", Sensitive: true, ValueConfigured: true},
 					{Key: "DYNAMIC_ENV"},
 				},
 				RemoteConfig: &types.RemoteRuntimeConfig{
 					URL: "https://api.example.com/mcp",
 					Headers: []types.MCPHeader{
-						{Key: "STATIC_HEADER", Sensitive: true},
+						{Key: "STATIC_HEADER", Sensitive: true, ValueConfigured: true},
 						{Key: "EXISTING_HEADER", Value: "configured"},
 					},
 				},
@@ -1080,7 +1080,7 @@ func TestConfigurationHasDriftedRestoresNestedCompositeStaticValues(t *testing.T
 			CatalogEntryID: "component",
 			Manifest: types.MCPServerCatalogEntryManifest{
 				Runtime: types.RuntimeNPX,
-				Env:     []types.MCPEnv{{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true}},
+				Env:     []types.MCPEnv{{Key: "STATIC_ENV", Value: "stored-env", Sensitive: true, ValueConfigured: true}},
 			},
 		}}},
 	}
@@ -1094,7 +1094,7 @@ func TestConfigurationHasDriftedRestoresNestedCompositeStaticValues(t *testing.T
 					CatalogEntryID: "component",
 					Manifest: types.MCPServerManifest{
 						Runtime: types.RuntimeNPX,
-						Env:     []types.MCPEnv{{Key: "STATIC_ENV", Sensitive: true}},
+						Env:     []types.MCPEnv{{Key: "STATIC_ENV", Sensitive: true, ValueConfigured: true}},
 					},
 				}}},
 			},

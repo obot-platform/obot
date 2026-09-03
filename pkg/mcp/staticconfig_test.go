@@ -174,15 +174,35 @@ func TestStaticConfigurationEnvAndHeaderShareUserStyleKey(t *testing.T) {
 }
 
 func TestHydrateStaticSystemConfigurationDoesNotMutateSource(t *testing.T) {
-	catalog := types.SystemMCPServerCatalogEntryManifest{Env: []types.MCPEnv{{Key: "TOKEN", Sensitive: true}}}
+	catalog := types.SystemMCPServerCatalogEntryManifest{Env: []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}}}
 	hydratedCatalog := HydrateStaticSystemCatalogConfiguration(catalog, map[string]string{"TOKEN": "catalog"})
 	assert.Empty(t, catalog.Env[0].Value)
 	assert.Equal(t, "catalog", hydratedCatalog.Env[0].Value)
 
-	server := types.SystemMCPServerManifest{Env: []types.MCPEnv{{Key: "TOKEN", Sensitive: true}}}
+	server := types.SystemMCPServerManifest{Env: []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}}}
 	hydratedServer := HydrateStaticSystemServerConfiguration(server, map[string]string{"TOKEN": "server"})
 	assert.Empty(t, server.Env[0].Value)
 	assert.Equal(t, "server", hydratedServer.Env[0].Value)
+}
+
+func TestHydrateStaticConfigurationOnlyHydratesExtractedFields(t *testing.T) {
+	manifest := types.MCPServerManifest{
+		Env: []types.MCPEnv{
+			{Key: "STATIC", Sensitive: true, ValueConfigured: true},
+			{Key: "USER", Sensitive: true, Prefix: "Bearer "},
+			{Key: "OPTION", Sensitive: true, ValueConfigured: true, Options: []types.MCPConfigurationOption{{Name: "One", Value: "one"}}},
+		},
+	}
+
+	hydrated := HydrateStaticServerConfiguration(manifest, map[string]string{
+		"STATIC": "static-value",
+		"USER":   "user-value",
+		"OPTION": "option-value",
+	})
+
+	assert.Equal(t, "static-value", hydrated.Env[0].Value)
+	assert.Empty(t, hydrated.Env[1].Value)
+	assert.Empty(t, hydrated.Env[2].Value)
 }
 
 func TestMergeRuntimeConfigurationStaticOverridesUser(t *testing.T) {

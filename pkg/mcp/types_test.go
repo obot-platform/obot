@@ -571,7 +571,7 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "header with prefix applied to user value",
 			headers: []types.MCPHeader{
-				{Key: "Authorization", Prefix: "Bearer ", Required: true},
+				{Key: "Authorization", Prefix: "Bearer ", Required: true, Sensitive: true},
 			},
 			credEnv:         map[string]string{"Authorization": "my-token"},
 			expectedHeaders: []string{"Authorization=Bearer my-token"},
@@ -589,7 +589,7 @@ func TestServerToServerConfig_WithPrefix(t *testing.T) {
 		{
 			name: "env var with Bearer prefix",
 			env: []types.MCPEnv{
-				{Key: "API_KEY", Prefix: "Bearer ", Required: true},
+				{Key: "API_KEY", Prefix: "Bearer ", Required: true, Sensitive: true},
 			},
 			credEnv:         map[string]string{"API_KEY": "secret-key-123"},
 			expectedEnv:     []string{"API_KEY=Bearer secret-key-123"},
