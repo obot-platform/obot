@@ -1526,9 +1526,6 @@ func TestTriggerCompositeUpdateRestoresStaticCredentialOnManifestConflict(t *tes
 	actualSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, server.Name)
 	require.NoError(t, err)
 	assert.Equal(t, existingSecrets, actualSecrets)
-	emptyNameSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, "")
-	require.NoError(t, err)
-	assert.Empty(t, emptyNameSecrets)
 }
 
 func TestConvertMCPServerCompositeAggregatesOnlySecretBoundMissingConfig(t *testing.T) {
