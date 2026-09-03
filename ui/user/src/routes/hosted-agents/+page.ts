@@ -44,7 +44,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	if (view === 'agents') {
 		try {
 			[hostedAgents, instances, pools] = await Promise.all([
-				AdminService.listHostedAgents({ fetch }),
+				AdminService.listHostedAgents({ fetch, all: hasAdminAccess }),
 				AdminService.listHostedAgentInstances(undefined, { fetch }),
 				AdminService.listHostedAgentPools({ fetch })
 			]);
