@@ -34,4 +34,24 @@ describe('Product Analytics settings loader', () => {
 			} as unknown as Parameters<NonNullable<typeof load>>[0])
 		).rejects.toMatchObject({ status: 403 });
 	});
+
+	it('fetches current consent instead of reusing the root layout snapshot', async () => {
+		const parentData = createPageData({
+			productTelemetryConsentAvailable: true,
+			productTelemetryConsent: { consent: false }
+		});
+		const fetch = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ consent: true }), {
+				headers: { 'Content-Type': 'application/json' }
+			})
+		);
+
+		const result = await load({
+			fetch,
+			parent: async () => parentData
+		} as unknown as Parameters<NonNullable<typeof load>>[0]);
+
+		expect(fetch).toHaveBeenCalledOnce();
+		expect(result).toEqual({ productTelemetryConsent: { consent: true } });
+	});
 });

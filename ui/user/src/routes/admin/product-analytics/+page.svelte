@@ -8,11 +8,8 @@
 	import { fade } from 'svelte/transition';
 
 	let { data } = $props();
-	const initialConsent = untrack(() =>
-		productTelemetryConsent.available === true
-			? productTelemetryConsent.consent
-			: data.productTelemetryConsent.consent
-	);
+	const initialConsent = untrack(() => data.productTelemetryConsent.consent);
+	untrack(() => productTelemetryConsent.initialize(data.productTelemetryConsent, true));
 	let persistedConsent = $state<boolean | undefined>(initialConsent);
 	let selectedConsent = $state<boolean | undefined>(initialConsent);
 	let saving = $state(false);

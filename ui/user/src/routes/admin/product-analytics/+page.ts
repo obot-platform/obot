@@ -14,10 +14,6 @@ export const load: PageLoad = async ({ fetch, parent }) => {
 		throw error(404, { message: 'Product Analytics consent controls are unavailable.' });
 	}
 
-	if (data.productTelemetryConsentAvailable === true && data.productTelemetryConsent) {
-		return { productTelemetryConsent: data.productTelemetryConsent };
-	}
-
 	try {
 		const productTelemetryConsent: ProductTelemetryConsent =
 			await AdminService.getProductTelemetryConsent({ fetch, dontLogErrors: true });
