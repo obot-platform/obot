@@ -33,14 +33,18 @@
 	});
 
 	$effect(() => {
-		if (browser && dialog && shouldShow && !isOpen) {
+		if (!browser || !dialog) return;
+
+		if (shouldShow && !isOpen) {
 			untrack(() => dialog?.open());
+		} else if (!shouldShow && isOpen) {
+			untrack(() => dialog?.close());
 		}
 	});
 
 	function handleClose() {
 		isOpen = false;
-		if (productTelemetryConsent.consent === undefined) {
+		if (shouldShow && productTelemetryConsent.consent === undefined) {
 			dismissProductAnalyticsPrompt();
 			dismissed = true;
 		}
