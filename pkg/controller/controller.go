@@ -256,6 +256,11 @@ func reconcileObotMCPServer(ctx context.Context, storageClient kclient.Client, a
 }
 
 func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
+	// This process was just promoted. As a standby its watches waited on
+	// notifications, and a peer that was not sending them leaves the cache up to a
+	// poll interval behind. Have every watch list again before acting on it.
+	c.services.StorageDB.Refresh()
+
 	if err := providerconfigurationchange.CleanupOrphanedStagedCredentials(
 		ctx,
 		client,
