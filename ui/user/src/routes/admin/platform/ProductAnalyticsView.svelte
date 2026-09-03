@@ -47,8 +47,9 @@
 				prioritize improvements.
 			</p>
 			<p>
-				Obot does not collect prompts, messages, credentials, URLs, configuration values, or
-				audit-log content as part of product analytics.
+				Obot does not collect prompts, messages, credentials, URLs, custom MCP server configuration
+				details, authentication-provider settings beyond its type, or audit-log content as part of
+				product analytics.
 			</p>
 		</div>
 

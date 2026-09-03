@@ -34,6 +34,17 @@ describe('ProductAnalyticsConsentDialog', () => {
 			.toBeVisible();
 	});
 
+	it('accurately summarizes excluded configuration details', async () => {
+		await renderDialog();
+		await expect
+			.element(
+				page.getByText(
+					/custom MCP server configuration\s+details, authentication-provider settings beyond its type/
+				)
+			)
+			.toBeVisible();
+	});
+
 	it.each([
 		['auditor', [Group.AUDITOR]],
 		['power user', [Group.POWERUSER]],
