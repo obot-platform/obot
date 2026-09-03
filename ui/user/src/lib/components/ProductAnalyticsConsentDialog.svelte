@@ -14,12 +14,17 @@
 	let dismissed = $state(true);
 	let isOpen = $state(false);
 	let saving = $state(false);
+	let isOnProductAnalyticsSettings = $derived(
+		page.url.pathname === '/admin/product-analytics' ||
+			(page.url.pathname === '/admin/platform' &&
+				page.url.searchParams.get('view') === 'product-analytics')
+	);
 
 	let shouldShow = $derived(
 		profile.current.groups.includes(Group.ADMIN) &&
 			productTelemetryConsent.available === true &&
 			productTelemetryConsent.consent === undefined &&
-			page.url.pathname !== '/admin/product-analytics' &&
+			!isOnProductAnalyticsSettings &&
 			!dismissed
 	);
 
@@ -73,7 +78,7 @@
 			Obot does not collect prompts, messages, credentials, URLs, configuration values, or audit-log
 			content as part of product analytics.
 		</p>
-		<p>You can change this choice later in App Management.</p>
+		<p>You can change this choice later in Platform under Product Analytics.</p>
 		<a
 			class="text-link w-fit"
 			href="https://docs.obot.ai/configuration/product-analytics"

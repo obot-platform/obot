@@ -1,13 +1,15 @@
 import { handleRouteError } from '$lib/errors';
 import {
 	AdminService,
+	Group,
 	UserService,
 	type AppNotification,
 	type GitCredential,
 	type ImagePullSecret,
 	type ImagePullSecretCapability,
 	type K8sSettings,
-	type License
+	type License,
+	type ProductTelemetryConsent
 } from '$lib/services';
 import { defaultAppNotification } from '$lib/stores/appNotification.svelte';
 import type { PageLoad } from './$types';
@@ -16,6 +18,7 @@ const views = new Set([
 	'license',
 	'branding',
 	'notifications',
+	'product-analytics',
 	'mcp-config',
 	'registry-connections',
 	'git-credentials'
@@ -28,10 +31,19 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		profile,
 		version,
 		appPreferences,
-		appNotification: initialAppNotification
+		appNotification: initialAppNotification,
+		productTelemetryConsent: initialProductTelemetryConsent,
+		productTelemetryConsentAvailable
 	} = await parent();
+	const canManageProductAnalytics =
+		productTelemetryConsentAvailable === true && profile.groups.includes(Group.ADMIN);
 	const requestedView = url.searchParams.get('view');
-	const view = requestedView && views.has(requestedView) ? requestedView : 'license';
+	const view =
+		requestedView &&
+		views.has(requestedView) &&
+		(requestedView !== 'product-analytics' || canManageProductAnalytics)
+			? requestedView
+			: 'license';
 
 	let license: License | undefined;
 	let appNotification: AppNotification = defaultAppNotification;
@@ -39,6 +51,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	let capability: ImagePullSecretCapability = { available: false };
 	let imagePullSecrets: ImagePullSecret[] = [];
 	let gitCredentials: GitCredential[] = [];
+	let productTelemetryConsent: ProductTelemetryConsent | undefined = initialProductTelemetryConsent;
 
 	switch (view) {
 		case 'git-credentials':
@@ -76,6 +89,16 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				handleRouteError(err, '/admin/platform?view=notifications', profile);
 			}
 			break;
+		case 'product-analytics':
+			try {
+				productTelemetryConsent = await AdminService.getProductTelemetryConsent({
+					fetch,
+					dontLogErrors: true
+				});
+			} catch (err) {
+				handleRouteError(err, '/admin/platform?view=product-analytics', profile);
+			}
+			break;
 		case 'mcp-config':
 			if (version?.engine === 'kubernetes' && !version?.hideK8sDetails) {
 				try {
@@ -104,6 +127,8 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 		k8sSettings,
 		capability,
 		imagePullSecrets,
-		gitCredentials
+		gitCredentials,
+		productTelemetryConsent,
+		productTelemetryConsentAvailable
 	};
 };

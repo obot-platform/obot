@@ -1,25 +1,22 @@
 import type { ProductTelemetryConsent } from '$lib/services';
 import { productTelemetryConsent } from '$lib/stores';
 import { success } from '$lib/stores/success';
-import { preparePageData } from '../../../tests/helpers/pageData';
 import { worker } from '../../../tests/mocks/worker';
-import type { PageData } from './$types';
-import ProductAnalyticsPage from './+page.svelte';
+import ProductAnalyticsView from './ProductAnalyticsView.svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-async function renderPage(consent?: boolean, storeConsent = consent) {
-	const productAnalytics = { consent } satisfies ProductTelemetryConsent;
-	const data = await preparePageData<PageData>({ productTelemetryConsent: productAnalytics });
+function renderView(consent?: boolean, storeConsent = consent) {
+	const currentConsent = { consent } satisfies ProductTelemetryConsent;
 	productTelemetryConsent.initialize({ consent: storeConsent }, true);
-	return render(ProductAnalyticsPage, { data });
+	return render(ProductAnalyticsView, { consent: currentConsent });
 }
 
-describe('Product Analytics settings page', () => {
+describe('Product Analytics settings view', () => {
 	it('explains the aggregate data and privacy boundaries', async () => {
-		await renderPage();
+		await renderView();
 		await expect.element(page.getByText(/Share aggregate product-usage information/)).toBeVisible();
 		await expect
 			.element(page.getByText(/does not collect prompts, messages, credentials, URLs/))
@@ -27,7 +24,7 @@ describe('Product Analytics settings page', () => {
 	});
 
 	it('prefers fresh route data over stale shared state and synchronizes the store', async () => {
-		await renderPage(true, false);
+		await renderView(true, false);
 		await expect
 			.element(page.getByRole('radio', { name: 'Enable product analytics', exact: true }))
 			.toBeChecked();
@@ -42,7 +39,7 @@ describe('Product Analytics settings page', () => {
 		[true, 'Enabled'],
 		[false, 'Disabled']
 	] as const)('renders consent %s as %s', async (consent, status) => {
-		await renderPage(consent);
+		await renderView(consent);
 		await expect
 			.element(page.getByCSS('[aria-label="Current product analytics status"]'))
 			.toHaveTextContent(status);
@@ -61,7 +58,7 @@ describe('Product Analytics settings page', () => {
 			})
 		);
 
-		await renderPage(initial);
+		await renderView(initial);
 		const save = page.getByRole('button', { name: 'Save', exact: true });
 		await expect.element(save).toBeDisabled();
 		await page
@@ -95,7 +92,7 @@ describe('Product Analytics settings page', () => {
 			)
 		);
 
-		await renderPage(false);
+		await renderView(false);
 		const enabled = page.getByRole('radio', {
 			name: 'Enable product analytics',
 			exact: true
