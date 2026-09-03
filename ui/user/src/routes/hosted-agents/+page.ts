@@ -25,7 +25,10 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
 	const requestedView = url.searchParams.get('view');
-	const view = requestedView && views.has(requestedView) ? requestedView : 'agents';
+	const view =
+		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'agents')
+			? requestedView
+			: 'agents';
 
 	let hostedAgents: HostedAgent[] = [];
 	let instances: HostedAgentInstance[] = [];

@@ -105,10 +105,13 @@
 	$effect(() => {
 		const pathname = page.url.pathname;
 		const view = page.url.searchParams.get('view');
+		const isSingleMcpServerView =
+			pathname.startsWith('/mcp-servers/c/') || pathname.startsWith('/mcp-servers/s/');
+		const isValidMcpServersView =
+			pathname === '/mcp-servers' &&
+			(!view || ['servers', 'entries', 'deployments', 'tunnels'].includes(view));
 		const usesMcpTunnelStatus =
-			(pathname.startsWith('/mcp-servers') &&
-				(!view || view === 'servers' || view === 'entries' || view === 'deployments')) ||
-			pathname.startsWith('/vmcps');
+			isSingleMcpServerView || isValidMcpServersView || pathname.startsWith('/vmcps');
 
 		if (profile.current.loaded && usesMcpTunnelStatus) {
 			return mcpTunnelConnections.startPolling();
