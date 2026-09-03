@@ -11,7 +11,11 @@ export const load: PageLoad = async ({ params, url, fetch, parent }) => {
 	try {
 		catalogEntry = await getMCPCatalogEntry(catalogEntryId, url, profile, fetch);
 	} catch (err) {
-		handleRouteError(err, `/mcp-servers/c/${catalogEntryId}/instance/${mcpServerId}`, profile);
+		handleRouteError(
+			err,
+			`/mcp-servers/c/${catalogEntryId}/instance/${mcpServerId}/details`,
+			profile
+		);
 	}
 
 	return {

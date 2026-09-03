@@ -93,10 +93,12 @@
 	$effect(() => {
 		const pathname = page.url.pathname;
 		const view = page.url.searchParams.get('view');
-		const isMcpCatalogRoute = pathname === '/mcp-servers' && view === 'entries';
-		const scope = isMcpCatalogRoute ? 'admin' : 'user';
+		const usesAdminMcpData =
+			(pathname === '/mcp-servers' && (view === 'entries' || view === 'access-policies')) ||
+			pathname.startsWith('/mcp-servers/access-policies/');
+		const scope = usesAdminMcpData ? 'admin' : 'user';
 		if (profile.current.loaded) {
-			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: isMcpCatalogRoute, scope }));
+			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: usesAdminMcpData, scope }));
 		}
 	});
 

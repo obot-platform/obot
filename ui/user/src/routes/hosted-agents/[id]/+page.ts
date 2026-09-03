@@ -8,7 +8,7 @@ export const load: PageLoad = async ({ params, fetch, parent }) => {
 	const { profile } = await parent();
 
 	if (!profile.hasAdminAccess?.()) {
-		throw redirect(301, `/hosted-agents`);
+		throw redirect(307, `/hosted-agents`);
 	}
 
 	let hostedAgent: HostedAgent | undefined;

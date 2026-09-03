@@ -91,8 +91,7 @@
 			: undefined;
 	});
 	let creating = $derived(
-		hasAdminAccess &&
-			!isAdminReadonly &&
+		((hasAdminAccess && !isAdminReadonly) || isPowerUserPlus) &&
 			page.url.searchParams.has('new') &&
 			((selectedView === 'entries' && !!newServerType) ||
 				['filters', 'tunnels', 'access-policies'].includes(selectedView))

@@ -1,4 +1,4 @@
-import { UserService, type AuthProvider, type BootstrapStatus, Group } from '$lib/services';
+import { UserService, type AuthProvider, type BootstrapStatus } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -14,8 +14,6 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			UserService.listAuthProviders({ fetch })
 		]);
 	}
-	const isAdminOrOwner =
-		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.OWNER);
 
 	if (loggedIn) {
 		const redirectRoute = url.searchParams.get('rd');
@@ -23,8 +21,8 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		const defaultRoute = isAdminOrOwner ? '/vmcps' : '/dashboard'; // change to /vmcps when implemented for both
-		throw redirect(302, defaultRoute);
+		// change to /vmcps when implemented for both
+		throw redirect(302, '/dashboard');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
