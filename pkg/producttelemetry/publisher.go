@@ -8,6 +8,7 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/upgrade"
 )
 
@@ -25,29 +26,41 @@ type reportSender interface {
 
 // Publisher collects and sends product telemetry at startup and at a fixed daily UTC time.
 type Publisher struct {
-	consent       consentReader
-	gatewayClient installationPropertyClient
-	sender        reportSender
-	done          chan struct{}
+	consent               consentReader
+	gatewayClient         requestGatewayClient
+	storageClient         storage.Client
+	licenseProvider       licenseEntitlementProvider
+	defaultMCPCatalogPath string
+	engine                string
+	sender                reportSender
+	done                  chan struct{}
 }
 
 // NewPublisher creates and immediately starts a product telemetry publisher.
-func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayclient.Client) *Publisher {
+func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayclient.Client, storageClient storage.Client, licenseProvider licenseEntitlementProvider, defaultMCPCatalogPath, engine string) *Publisher {
 	publisher := newPublisher(
 		consent,
 		gatewayClient,
+		storageClient,
+		licenseProvider,
+		defaultMCPCatalogPath,
+		engine,
 		NewClient(upgrade.ServerBaseURL(), nil),
 	)
 	go publisher.run(ctx)
 	return publisher
 }
 
-func newPublisher(consent consentReader, gatewayClient installationPropertyClient, sender reportSender) *Publisher {
+func newPublisher(consent consentReader, gatewayClient requestGatewayClient, storageClient storage.Client, licenseProvider licenseEntitlementProvider, defaultMCPCatalogPath, engine string, sender reportSender) *Publisher {
 	return &Publisher{
-		consent:       consent,
-		gatewayClient: gatewayClient,
-		sender:        sender,
-		done:          make(chan struct{}),
+		consent:               consent,
+		gatewayClient:         gatewayClient,
+		storageClient:         storageClient,
+		licenseProvider:       licenseProvider,
+		defaultMCPCatalogPath: defaultMCPCatalogPath,
+		engine:                engine,
+		sender:                sender,
+		done:                  make(chan struct{}),
 	}
 }
 
@@ -75,7 +88,7 @@ func (p *Publisher) runOnce(ctx context.Context) {
 		return
 	}
 
-	report, err := buildRequest(ctx, p.gatewayClient)
+	report, err := buildRequest(ctx, p.gatewayClient, p.storageClient, p.licenseProvider, p.defaultMCPCatalogPath, p.engine)
 	if err != nil {
 		logJobError(ctx, "failed to build product telemetry report", err)
 		return

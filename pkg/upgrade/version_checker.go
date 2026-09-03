@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -118,18 +117,11 @@ func (c *VersionChecker) run(ctx context.Context) {
 	defer timer.Stop()
 
 	for {
-		distribution := clienttypes.ProductTelemetryDistributionUnregistered
 		entitlements, err := c.licenseProvider.Entitlements(ctx)
-		switch {
-		case err != nil:
+		if err != nil {
 			slog.Debug("failed to refresh license state for upgrade check", "error", err)
-		case slices.Contains(entitlements, license.CloudEntitlement):
-			distribution = clienttypes.ProductTelemetryDistributionCloud
-		case slices.Contains(entitlements, license.EnterpriseEntitlement):
-			distribution = clienttypes.ProductTelemetryDistributionEnterprise
-		case slices.Contains(entitlements, license.CommunityEntitlement):
-			distribution = clienttypes.ProductTelemetryDistributionRegistered
 		}
+		distribution := license.GetDistributionFromEntitlements(entitlements)
 		if err := c.checkForUpgrade(ctx, distribution); err != nil {
 			slog.Debug("failed to check for server upgrade", "error", err)
 		}
