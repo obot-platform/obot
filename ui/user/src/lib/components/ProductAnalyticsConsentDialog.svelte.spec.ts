@@ -68,6 +68,16 @@ describe('ProductAnalyticsConsentDialog', () => {
 		}
 	});
 
+	it('closes when it becomes ineligible without recording a dismissal', async () => {
+		await renderDialog();
+		await expect.element(page.getByCSS('#product-analytics-consent-dialog')).toBeVisible();
+
+		productTelemetryConsent.initialize({}, false);
+
+		await expect.element(page.getByCSS('#product-analytics-consent-dialog')).not.toBeVisible();
+		expect(isProductAnalyticsPromptDismissed()).toBe(false);
+	});
+
 	it.each([
 		['Share analytics', true],
 		['Don’t share', false]
