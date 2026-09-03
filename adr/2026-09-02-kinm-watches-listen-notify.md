@@ -7,7 +7,7 @@
 
 ## Related issues
 
-https://github.com/obot-platform/obot/issues/7737
+None.
 
 ## Related ODPs
 
