@@ -46,7 +46,12 @@
 			? requested
 			: 'skills';
 	});
-	let creating = $derived(selectedView === 'access-policies' && page.url.searchParams.has('new'));
+	let creating = $derived(
+		hasAdminAccess &&
+			!isAdminReadonly &&
+			selectedView === 'access-policies' &&
+			page.url.searchParams.has('new')
+	);
 	const duration = PAGE_TRANSITION_DURATION;
 	let layoutTitle = $derived(creating ? 'Create Skill Access Policy' : 'Skills');
 	let views = $derived.by(() => {

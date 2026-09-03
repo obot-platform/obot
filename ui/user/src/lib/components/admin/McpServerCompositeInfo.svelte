@@ -196,7 +196,7 @@
 			{#if catalogEntry?.id && profile.current?.hasAdminAccess?.()}
 				<a
 					href={resolve(
-						`/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${encodeURIComponent(d.id)}`
+						`/mcp-servers/c/${catalogEntry.id}?view=audit-logs&user_id=${encodeURIComponent(d.id)}${catalogEntry.powerUserWorkspaceID ? `&wid=${encodeURIComponent(catalogEntry.powerUserWorkspaceID)}` : ''}`
 					)}
 					class="btn btn-link"
 				>

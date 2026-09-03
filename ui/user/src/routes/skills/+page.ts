@@ -9,8 +9,11 @@ const views = new Set(['skills', 'sources', 'access-policies']);
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
 	const requestedView = url.searchParams.get('view');
-	const view = requestedView && views.has(requestedView) ? requestedView : 'skills';
 	const hasAdminAccess = profile.hasAdminAccess?.() ?? false;
+	const view =
+		requestedView && views.has(requestedView) && (hasAdminAccess || requestedView === 'skills')
+			? requestedView
+			: 'skills';
 
 	let skillRepositories: SkillRepository[] = [];
 	let skills: Skill[] = [];

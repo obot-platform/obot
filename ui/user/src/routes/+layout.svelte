@@ -93,7 +93,7 @@
 	$effect(() => {
 		const pathname = page.url.pathname;
 		const view = page.url.searchParams.get('view');
-		const isMcpCatalogRoute = pathname === '/mcp-servers' && (!view || view === 'entries');
+		const isMcpCatalogRoute = pathname === '/mcp-servers' && view === 'entries';
 		const scope = isMcpCatalogRoute ? 'admin' : 'user';
 		if (profile.current.loaded) {
 			untrack(() => mcpServersAndEntries.initialize({ forceRefresh: isMcpCatalogRoute, scope }));

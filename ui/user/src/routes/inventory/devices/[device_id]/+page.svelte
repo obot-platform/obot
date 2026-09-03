@@ -424,7 +424,7 @@
 												onclick={(e) => {
 													const isCtrlClick = e.ctrlKey || e.metaKey;
 													openUrl(
-														resolve(`/inventory/devices/skills/${encodeURIComponent(d.name)}`),
+														resolve(`/inventory/skills/${encodeURIComponent(d.name)}`),
 														isCtrlClick
 													);
 													toggle();

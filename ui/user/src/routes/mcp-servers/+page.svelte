@@ -91,11 +91,11 @@
 			: undefined;
 	});
 	let creating = $derived(
-		page.url.searchParams.has('new') &&
+		hasAdminAccess &&
+			!isAdminReadonly &&
+			page.url.searchParams.has('new') &&
 			((selectedView === 'entries' && !!newServerType) ||
-				selectedView === 'filters' ||
-				selectedView === 'tunnels' ||
-				selectedView === 'access-policies')
+				['filters', 'tunnels', 'access-policies'].includes(selectedView))
 	);
 	let layoutTitle = $derived.by(() => {
 		if (!creating) return 'MCP Servers';

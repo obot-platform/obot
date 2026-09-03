@@ -16,7 +16,12 @@
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.() ?? data.hasAdminAccess);
 	let selectedView = $derived(page.url.searchParams.get('view') ?? 'agents');
-	let creating = $derived(hasAdminAccess && !isAdminReadonly && page.url.searchParams.has('new'));
+	let creating = $derived(
+		hasAdminAccess &&
+			!isAdminReadonly &&
+			['access-policies', 'templates'].includes(selectedView) &&
+			page.url.searchParams.has('new')
+	);
 	let createTitle = $derived(
 		selectedView === 'access-policies'
 			? 'Create Hosted Agent Access Policy'

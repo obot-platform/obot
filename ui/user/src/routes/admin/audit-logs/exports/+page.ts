@@ -4,5 +4,5 @@ import { redirect } from '@sveltejs/kit';
 export const load: PageLoad = ({ url }) => {
 	const searchParams = new URLSearchParams(url.searchParams);
 	searchParams.delete('view');
-	throw redirect(301, `/mcp-servers?view=access-policies&${searchParams}`);
+	throw redirect(301, `/audit-logs/mcp/exports?${searchParams}`);
 };
