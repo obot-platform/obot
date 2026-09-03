@@ -47,9 +47,9 @@ upgrade a replica already on the new code would otherwise stay stale on any tabl
 wrote until that table happened to be written again. The poll bounds that at 2 minutes with no
 coordination between deploys.
 
-The debounce is 1 second rather than shorter so that a continuously written table costs every
-other replica one list per second, against one every 2 seconds today, and no table becomes more
-expensive than it was. At 100ms the same table would have cost ten a second.
+The debounce is 1 second so that a continuously written table costs every other replica at most
+one list per second, against one every 2 seconds today, and no table becomes more expensive than
+it was.
 
 nah starts its informer cache once and does not list again on promotion, so a standby's
 staleness would become the leader's. One list per type, once per promotion, is cheap.
@@ -60,9 +60,9 @@ healthy.
 
 ## Consequences
 
-Idle statement load from watches falls about 15x, measured at 196 statements per second per
-environment on the previous code against 12.7 with a one minute poll and 10.1 with the two
-minute poll. Most of what remains is the leader election lease, addressed separately in nah.
+Idle statement load from watches falls about 19x, measured at 196 statements per second per
+environment on the previous code against 10.1 with this change. Most of what remains is the
+leader election lease, addressed separately in nah.
 
 A change made on one replica reaches the other in about 17ms when the table was quiet, and
 within 1 second otherwise. Obot's controllers write a finalizer after every create, so steady
