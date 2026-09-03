@@ -36,9 +36,6 @@ Read the row by primary key and update it in place with a version check. Keep
 client-go's election algorithm, TTL, and retry period as they are. The lock type is
 selectable in nah as `ResourceLockType` `sql`, next to the existing file lock.
 
-Keep the `obot-local-controller` election on a Lease in the Kubernetes cluster it
-manages.
-
 In the release that introduces the change, enable `WithLegacyLeaseLock`. While the
 `leader_lock` table has no row, a replica follows the Lease that replicas on the
 previous release still hold. After the last of them releases the Lease and five
@@ -51,9 +48,6 @@ A row read by primary key and updated in place has one version, so the cost of e
 read is the same on every poll and does not grow between compactions. The version
 check on update gives the same guarantee client-go's Lease lock gives: a replica can
 only write over a record it has read, so two replicas cannot both hold the lock.
-
-In the Kubernetes cluster, a Lease is a single object in etcd, read and written in
-one round trip, and the local controller has the cluster access it needs already.
 
 A rolling update runs replicas on the old release and the new release side by side.
 If the new replicas did not read the Lease, each release would elect its own leader
