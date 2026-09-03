@@ -26,14 +26,15 @@ describe('Product Analytics settings page', () => {
 			.toBeVisible();
 	});
 
-	it('shows consent saved by the prompt during client-side navigation', async () => {
-		await renderPage(undefined, true);
+	it('prefers fresh route data over stale shared state and synchronizes the store', async () => {
+		await renderPage(true, false);
 		await expect
 			.element(page.getByRole('radio', { name: 'Enable product analytics', exact: true }))
 			.toBeChecked();
 		await expect
 			.element(page.getByCSS('[aria-label="Current product analytics status"]'))
 			.toHaveTextContent('Enabled');
+		expect(productTelemetryConsent.consent).toBe(true);
 	});
 
 	it.each([
