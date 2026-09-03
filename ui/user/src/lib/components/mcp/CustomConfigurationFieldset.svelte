@@ -192,6 +192,9 @@
 						class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"
 						class:error={missingValue}
 						bind:value={data.value}
+						placeholder={data.valueConfigured
+							? 'Configured; enter a new value to replace'
+							: undefined}
 						disabled={readonly}
 						rows={(data.value ?? '').split('\n').length + 1}
 						aria-required={!readonly ? 'true' : undefined}

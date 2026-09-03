@@ -71,20 +71,23 @@ describe('CustomConfigurationFieldset.svelte', () => {
 			.not.toHaveAttribute('aria-invalid', 'true');
 	});
 
-	it('shows an encrypted static value as configured', async () => {
-		await renderFieldset({
-			data: field({ key: 'API_KEY', sensitive: true, valueConfigured: true }),
-			showRequired: true
-		});
+	it.each([false, true])(
+		'shows an encrypted static value as configured when file is %s',
+		async (file) => {
+			await renderFieldset({
+				data: field({ key: 'API_KEY', sensitive: true, valueConfigured: true, file }),
+				showRequired: true
+			});
 
-		await expect.element(page.getByCSS('#env-value-type-test')).toHaveTextContent('Static');
-		await expect
-			.element(page.getByLabelText('Static Value'))
-			.toHaveAttribute('placeholder', 'Configured; enter a new value to replace');
-		await expect
-			.element(page.getByLabelText('Static Value'))
-			.not.toHaveAttribute('aria-invalid', 'true');
-	});
+			await expect.element(page.getByCSS('#env-value-type-test')).toHaveTextContent('Static');
+			await expect
+				.element(page.getByLabelText('Static Value'))
+				.toHaveAttribute('placeholder', 'Configured; enter a new value to replace');
+			await expect
+				.element(page.getByLabelText('Static Value'))
+				.not.toHaveAttribute('aria-invalid', 'true');
+		}
+	);
 
 	it('marks an empty static Value invalid only after validation', async () => {
 		await renderFieldset({ showRequired: true });
