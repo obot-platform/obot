@@ -39,16 +39,6 @@ type validLicenseProvider interface {
 	HasValidLicense(context.Context) (bool, error)
 }
 
-type timer interface {
-	C() <-chan time.Time
-	Reset(time.Duration)
-	Stop()
-}
-
-type realTimer struct {
-	*time.Timer
-}
-
 type VersionChecker struct {
 	licenseProvider  validLicenseProvider
 	httpClient       *http.Client
@@ -58,7 +48,6 @@ type VersionChecker struct {
 	upgradeServerURL string
 	checkInterval    time.Duration
 	requestTimeout   time.Duration
-	newTimer         func(time.Duration) timer
 
 	statusLock sync.RWMutex
 	status     Status
@@ -72,18 +61,6 @@ type upgradeCheckResponse struct {
 	CurrentVersion   string `json:"currentVersion"`
 }
 
-func (t realTimer) C() <-chan time.Time {
-	return t.Timer.C
-}
-
-func (t realTimer) Reset(duration time.Duration) {
-	t.Timer.Reset(duration)
-}
-
-func (t realTimer) Stop() {
-	t.Timer.Stop()
-}
-
 func NewVersionChecker(ctx context.Context, opts VersionCheckerOptions) (*VersionChecker, error) {
 	checker := &VersionChecker{
 		licenseProvider:  opts.LicenseProvider,
@@ -93,10 +70,7 @@ func NewVersionChecker(ctx context.Context, opts VersionCheckerOptions) (*Versio
 		upgradeServerURL: EndpointURL(ServerBaseURL(), upgradeCheckEndpoint),
 		checkInterval:    upgradeCheckInterval,
 		requestTimeout:   upgradeCheckTimeout,
-		newTimer: func(duration time.Duration) timer {
-			return realTimer{Timer: time.NewTimer(duration)}
-		},
-		done: make(chan struct{}),
+		done:             make(chan struct{}),
 	}
 	if err := checker.start(ctx, opts.GatewayClient, opts.DisableUpdateCheck, os.Getenv("OBOT_FORCE_UPGRADE_CHECK") == "true"); err != nil {
 		return nil, err
@@ -138,7 +112,7 @@ func (c *VersionChecker) Status() Status {
 func (c *VersionChecker) run(ctx context.Context) {
 	defer close(c.done)
 
-	timer := c.newTimer(c.checkInterval)
+	timer := time.NewTimer(c.checkInterval)
 	defer timer.Stop()
 
 	for {
@@ -157,7 +131,7 @@ func (c *VersionChecker) run(ctx context.Context) {
 		case <-ctx.Done():
 			slog.Debug("upgrade check context cancelled, exiting")
 			return
-		case <-timer.C():
+		case <-timer.C:
 			timer.Reset(c.checkInterval)
 		}
 	}

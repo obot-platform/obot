@@ -25,10 +25,6 @@ type checkerLicenseProvider struct {
 	err   error
 }
 
-type manualTimer struct {
-	c chan time.Time
-}
-
 func (c *checkerPropertyClient) GetOrCreateProperty(_ context.Context, key, value string) (gatewaytypes.Property, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -52,27 +48,16 @@ func (p checkerLicenseProvider) HasValidLicense(context.Context) (bool, error) {
 	return p.valid, p.err
 }
 
-func newManualTimer() *manualTimer {
-	return &manualTimer{c: make(chan time.Time, 1)}
-}
-
-func (t *manualTimer) C() <-chan time.Time { return t.c }
-func (t *manualTimer) Reset(time.Duration) {}
-func (t *manualTimer) Stop()               {}
-
-func testVersionChecker(licenseProvider validLicenseProvider, serverURL string, testTimer timer) *VersionChecker {
+func testVersionChecker(licenseProvider validLicenseProvider, serverURL string) *VersionChecker {
 	return &VersionChecker{
 		licenseProvider:  licenseProvider,
 		httpClient:       http.DefaultClient,
 		engine:           "docker",
 		currentVersion:   "v1.2.3",
 		upgradeServerURL: serverURL,
-		checkInterval:    upgradeCheckInterval,
+		checkInterval:    10 * time.Millisecond,
 		requestTimeout:   upgradeCheckTimeout,
-		newTimer: func(time.Duration) timer {
-			return testTimer
-		},
-		done: make(chan struct{}),
+		done:             make(chan struct{}),
 	}
 }
 
@@ -194,8 +179,7 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	propertyClient := &checkerPropertyClient{value: "installation-1"}
-	testTimer := newManualTimer()
-	checker := testVersionChecker(checkerLicenseProvider{valid: true}, server.URL+"/check-upgrade", testTimer)
+	checker := testVersionChecker(checkerLicenseProvider{valid: true}, server.URL+"/check-upgrade")
 	checker.currentVersion = "v1.2.3-rc.1+build.4"
 	if err := checker.start(ctx, propertyClient, false, true); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -221,7 +205,6 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 	}
 	waitForStatus(t, checker, Status{UpgradeAvailable: true, LatestVersion: "v1.3.0"})
 
-	testTimer.c <- time.Now()
 	waitForRequest(t, requests)
 
 	cancel()
@@ -237,7 +220,7 @@ func TestVersionCheckerDevelopmentVersionCanBeForced(t *testing.T) {
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	checker := testVersionChecker(checkerLicenseProvider{}, server.URL, newManualTimer())
+	checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
 	checker.currentVersion = "v0.0.0-dev"
 	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, true); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -278,7 +261,7 @@ func TestVersionCheckerDistribution(t *testing.T) {
 			defer server.Close()
 
 			ctx, cancel := context.WithCancel(t.Context())
-			checker := testVersionChecker(test.provider, server.URL, newManualTimer())
+			checker := testVersionChecker(test.provider, server.URL)
 			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
 				t.Fatalf("start() error = %v", err)
 			}
@@ -319,13 +302,11 @@ func TestVersionCheckerResponseFailuresDoNotChangeStatusOrStopSchedule(t *testin
 			defer server.Close()
 
 			ctx, cancel := context.WithCancel(t.Context())
-			testTimer := newManualTimer()
-			checker := testVersionChecker(checkerLicenseProvider{}, server.URL, testTimer)
+			checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
 			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
 				t.Fatalf("start() error = %v", err)
 			}
 			waitForRequest(t, requests)
-			testTimer.c <- time.Now()
 			waitForRequest(t, requests)
 			if got := checker.Status(); got != (Status{}) {
 				t.Fatalf("Status() = %#v, want zero status", got)
@@ -350,8 +331,7 @@ func TestVersionCheckerRequestTimeoutDoesNotStopSchedule(t *testing.T) {
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	testTimer := newManualTimer()
-	checker := testVersionChecker(checkerLicenseProvider{}, server.URL, testTimer)
+	checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
 	checker.requestTimeout = 20 * time.Millisecond
 	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -361,7 +341,6 @@ func TestVersionCheckerRequestTimeoutDoesNotStopSchedule(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for request")
 	}
-	testTimer.c <- time.Now()
 	select {
 	case <-requests:
 	case <-time.After(2 * time.Second):
