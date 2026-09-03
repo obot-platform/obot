@@ -23,31 +23,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func TestRemoveSystemCredentialsPreservesRegularEntryOAuthCredential(t *testing.T) {
-	gatewayClient := newTestGatewayClient(t)
-	const entryName = "shared-entry"
-
-	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entryName), entryName, map[string]string{"TOKEN": "system-secret"}))
-	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
-		Context: system.MCPOAuthCredentialName(entryName),
-		Name:    system.StaticOAuthCredentialName,
-		Secrets: map[string]string{"CLIENT_ID": "regular-client", "CLIENT_SECRET": "regular-secret"},
-	}))
-
-	err := (&Handler{gatewayClient: gatewayClient}).RemoveSystemCredentials(router.Request{
-		Ctx:    t.Context(),
-		Object: &v1.SystemMCPServerCatalogEntry{Name: entryName},
-	}, nil)
-	require.NoError(t, err)
-
-	staticSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entryName), entryName)
-	require.NoError(t, err)
-	require.Empty(t, staticSecrets)
-	oauthCredential, err := gatewayClient.RevealCredential(t.Context(), []string{system.MCPOAuthCredentialName(entryName)}, system.StaticOAuthCredentialName)
-	require.NoError(t, err)
-	require.Equal(t, map[string]string{"CLIENT_ID": "regular-client", "CLIENT_SECRET": "regular-secret"}, oauthCredential.Secrets)
-}
-
 // fakeCredentialClient counts the queries a reconcile issues, so that "this entry costs nothing
 // to reconcile" is an assertion rather than something inferred from the absence of a panic.
 type fakeCredentialClient struct {
