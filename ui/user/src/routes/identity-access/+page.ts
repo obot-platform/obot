@@ -44,7 +44,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 				try {
 					users = await UserService.listUsers({ fetch });
 				} catch (err) {
-					handleRouteError(err, `/users`, profile);
+					handleRouteError(err, `/identity-access?view=users`, profile);
 				}
 				break;
 			case 'groups':
@@ -77,7 +77,7 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 						authProviders = await AdminService.listAuthProviders({ fetch });
 					}
 				} catch (err) {
-					handleRouteError(err, '/identity-access', profile);
+					handleRouteError(err, '/identity-access?view=auth-providers', profile);
 				}
 				break;
 		}
