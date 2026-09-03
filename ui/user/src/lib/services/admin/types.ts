@@ -558,13 +558,6 @@ export interface K8sSettings {
 	setViaHelm?: boolean;
 }
 
-export interface AppK8sSettings {
-	affinity?: string;
-	tolerations?: string;
-	resources?: string;
-	runtimeClassName?: string;
-}
-
 export interface K8sSettingsManifest {
 	affinity?: string;
 	maxCpuLimit?: string;
