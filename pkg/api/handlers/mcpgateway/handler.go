@@ -435,15 +435,24 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
-	// Only look up credentials if the manifest has env vars without static values.
+	// Only look up credentials if the manifest has env vars or remote headers
+	// without static values.
 	// This avoids expensive credential lookups on the hot path for servers like
-	// obot-mcp-server where all env vars have static values.
+	// obot-mcp-server where all configuration has static values.
 	credEnv := make(map[string]string)
 	var needsCredentials bool
 	for _, env := range systemServer.Spec.Manifest.Env {
 		if env.Value == "" {
 			needsCredentials = true
 			break
+		}
+	}
+	if !needsCredentials && systemServer.Spec.Manifest.RemoteConfig != nil {
+		for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
+			if header.Value == "" {
+				needsCredentials = true
+				break
+			}
 		}
 	}
 
