@@ -326,6 +326,10 @@ describe('vMCPs Page', () => {
 			return page.getByRole('region', { name: 'MCP Servers in Issue Tracker vMCP' });
 		}
 
+		function openDialog() {
+			return page.getByCSS('dialog[open]');
+		}
+
 		/** Presses the Slack panel card and drags it over `target`, without releasing. */
 		async function dragSlackOnto(target: ReturnType<typeof page.getByRole>, pointerId: number) {
 			const targetEl = await target.element();
@@ -374,8 +378,8 @@ describe('vMCPs Page', () => {
 					page.getByCSS('dialog[open]').getByText(componentEntry.manifest.name!, { exact: true })
 				)
 				.toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Edit tools' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Remove' })).toBeVisible();
+			await expect.element(openDialog().getByRole('button', { name: 'Edit tools' })).toBeVisible();
+			await expect.element(openDialog().getByRole('button', { name: 'Remove' })).toBeVisible();
 		});
 
 		it('opens the tool setup flow from Edit tools when no overrides are stored', async () => {
@@ -383,7 +387,7 @@ describe('vMCPs Page', () => {
 			await showTableView();
 			await vmcpRow().click();
 
-			await page.getByRole('button', { name: 'Edit tools' }).click();
+			await openDialog().getByRole('button', { name: 'Edit tools' }).click();
 
 			await expect
 				.element(page.getByRole('button', { name: 'Get Started', exact: true }))
@@ -398,7 +402,7 @@ describe('vMCPs Page', () => {
 			await showTableView();
 			await vmcpRow().click();
 
-			await page.getByRole('button', { name: 'Edit tools' }).click();
+			await openDialog().getByRole('button', { name: 'Edit tools' }).click();
 
 			await expect.element(page.getByText('Configure GitHub Tools')).toBeVisible();
 			await expect
@@ -411,7 +415,7 @@ describe('vMCPs Page', () => {
 			await showTableView();
 			await vmcpRow().click();
 
-			await page.getByRole('button', { name: 'Remove' }).click();
+			await openDialog().getByRole('button', { name: 'Remove' }).click();
 
 			await expect.element(page.getByText('Confirm Remove')).toBeVisible();
 			await expect

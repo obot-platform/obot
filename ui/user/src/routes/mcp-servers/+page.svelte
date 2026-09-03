@@ -90,12 +90,16 @@
 			? (requested as LaunchServerType)
 			: undefined;
 	});
-	let creating = $derived(
-		((hasAdminAccess && !isAdminReadonly) || isPowerUserPlus) &&
-			page.url.searchParams.has('new') &&
-			((selectedView === 'entries' && !!newServerType) ||
-				['filters', 'tunnels', 'access-policies'].includes(selectedView))
-	);
+	let creating = $derived.by(() => {
+		if (!page.url.searchParams.has('new')) return false;
+		const isNewEntry = selectedView === 'entries' && !!newServerType;
+		if (isPowerUser && isNewEntry) return true;
+		if (isPowerUserPlus && (isNewEntry || selectedView === 'access-policies')) return true;
+		if (hasAdminAccess && !isAdminReadonly) {
+			return isNewEntry || ['access-policies', 'filters', 'tunnels'].includes(selectedView);
+		}
+		return false;
+	});
 	let layoutTitle = $derived.by(() => {
 		if (!creating) return 'MCP Servers';
 		switch (selectedView) {
