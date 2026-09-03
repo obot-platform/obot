@@ -15,13 +15,28 @@ const (
 )
 
 func testUIServer() *uiServer {
-	return &uiServer{fsys: fstest.MapFS{
+	return newUIServer(fstest.MapFS{
 		"user/build/index.html":                       {Data: []byte("<html>index</html>")},
+		"user/build/admin.html":                       {Data: []byte("<html>admin</html>")},
 		"user/build/fallback.html":                    {Data: []byte("<html>fallback</html>")},
 		"user/build/mcp-servers.html":                 {Data: []byte("<html>mcp-servers</html>")},
 		"user/build/_app/immutable/nodes/0.abc123.js": {Data: []byte("export const x = 1")},
 		"user/build/favicon.ico":                      {Data: []byte("icon")},
-	}}
+	})
+}
+
+// serveConditional repeats a request with the ETag the first response carried,
+// which is what a browser does when it revalidates a copy it already holds.
+func serveConditional(t *testing.T, urlPath, etag string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, "http://obot.example.com"+urlPath, nil)
+	req.Header.Set("User-Agent", chromeUA)
+	req.Header.Set("If-None-Match", etag)
+	rec := httptest.NewRecorder()
+	testUIServer().ServeHTTP(rec, req)
+
+	return rec
 }
 
 func serve(t *testing.T, urlPath, userAgent string) *httptest.ResponseRecorder {
@@ -157,5 +172,112 @@ func TestUIProxyForwardsToLocalhostWithXForwardedFor(t *testing.T) {
 	}
 	if gotProto != "http" {
 		t.Errorf("expected X-Forwarded-Proto http for a non-TLS hop, got %q", gotProto)
+	}
+}
+
+// Serving from an embed.FS leaves Go with no validator to send, because every
+// embedded file reports a zero ModTime and ServeContent omits Last-Modified for
+// one. Every file we serve needs an ETag so a client holding a copy can
+// revalidate it.
+func TestETagIsSetOnEveryServedFile(t *testing.T) {
+	for _, urlPath := range []string{
+		"/",
+		"/admin",
+		"/mcp-servers",
+		"/some/client/side/route",
+		"/_app/immutable/nodes/0.abc123.js",
+		"/favicon.ico",
+	} {
+		t.Run(urlPath, func(t *testing.T) {
+			rec := serve(t, urlPath, chromeUA)
+			if etag := rec.Header().Get("ETag"); etag == "" {
+				t.Error("expected an ETag so the client can revalidate, got none")
+			}
+		})
+	}
+}
+
+// Without a validator, no-cache means the client downloads the whole page again
+// on every navigation. With one, revalidation costs a 304 and no body.
+func TestRevalidationReturns304(t *testing.T) {
+	for _, urlPath := range []string{
+		"/",
+		"/some/client/side/route",
+		"/_app/immutable/nodes/0.abc123.js",
+	} {
+		t.Run(urlPath, func(t *testing.T) {
+			first := serve(t, urlPath, chromeUA)
+			if first.Code != http.StatusOK {
+				t.Fatalf("expected 200 on the first request, got %d", first.Code)
+			}
+
+			second := serveConditional(t, urlPath, first.Header().Get("ETag"))
+			if second.Code != http.StatusNotModified {
+				t.Errorf("expected 304 when the client already has this copy, got %d", second.Code)
+			}
+			if body := second.Body.String(); body != "" {
+				t.Errorf("expected no body on a 304, got %q", body)
+			}
+		})
+	}
+}
+
+// Cloudflare rewrites a strong ETag to a weak one when it compresses a
+// response, so the browser revalidates with the weak form against the strong
+// one we set. RFC 7232 uses weak comparison for If-None-Match, and this pins
+// that we get the 304 rather than the whole body.
+func TestRevalidationAcceptsAWeakenedETag(t *testing.T) {
+	first := serve(t, "/", chromeUA)
+
+	rec := serveConditional(t, "/", "W/"+first.Header().Get("ETag"))
+	if rec.Code != http.StatusNotModified {
+		t.Errorf("expected 304 for a weakened form of our own ETag, got %d", rec.Code)
+	}
+}
+
+// A 304 that drops Cache-Control would leave the client with a stored copy and
+// no instruction to revalidate it next time.
+func TestCacheControlSurvivesA304(t *testing.T) {
+	first := serve(t, "/", chromeUA)
+
+	rec := serveConditional(t, "/", first.Header().Get("ETag"))
+	if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Errorf("expected Cache-Control no-cache on the 304, got %q", got)
+	}
+}
+
+// A stale ETag has to serve the new file, or a client keeps its old copy after
+// a deploy. This is the case that matters for the HTML, since each page names
+// the hashed assets of the build it came from.
+func TestChangedContentServesTheNewFile(t *testing.T) {
+	rec := serveConditional(t, "/", `"etag-from-an-older-build"`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 when the client's copy is stale, got %d", rec.Code)
+	}
+	if body := rec.Body.String(); body != "<html>index</html>" {
+		t.Errorf("expected the current index body, got %q", body)
+	}
+}
+
+// The ETag has to identify the file, so that two different files never share
+// one and the same file keeps its ETag across replicas and restarts.
+func TestETagsIdentifyContent(t *testing.T) {
+	index := serve(t, "/", chromeUA).Header().Get("ETag")
+	asset := serve(t, "/_app/immutable/nodes/0.abc123.js", chromeUA).Header().Get("ETag")
+
+	if index == asset {
+		t.Error("expected different files to have different ETags")
+	}
+	if again := serve(t, "/", chromeUA).Header().Get("ETag"); again != index {
+		t.Errorf("expected a stable ETag for unchanged content, got %q then %q", index, again)
+	}
+}
+
+// A 404 is not a representation of anything, and it is already marked no-store
+// so that a deploy adding the path is not shadowed by a cached miss.
+func TestNoETagOn404(t *testing.T) {
+	rec := serve(t, "/api/definitely-not-a-route", "Go-http-client/2.0")
+	if etag := rec.Header().Get("ETag"); etag != "" {
+		t.Errorf("expected no ETag on a 404, got %q", etag)
 	}
 }
