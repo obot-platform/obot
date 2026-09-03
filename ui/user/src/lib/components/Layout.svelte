@@ -111,17 +111,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	let navCollapsed = $state({ ...navCollapsedCache });
-	let showAdvancedPane = $state(untrack(() => isAdvancedPaneRoute(page.url.pathname)));
 	let animatingNavSectionId = $state<string | null>(null);
-
-	function isAdvancedPaneRoute(route: string): boolean {
-		return (
-			route.includes('/admin') ||
-			['/mcp-catalog', '/mcp-access-policies', '/audit-logs', '/usage'].some((p) =>
-				route.startsWith(p)
-			)
-		);
-	}
 
 	function isNavCollapsed(id: string): boolean {
 		return navCollapsed[id] ?? false;
@@ -219,15 +209,13 @@
 
 	function saveSidebarScroll() {
 		if (!sidebarScroll) return;
-		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
-		sidebarScrollTopCache[pane] = sidebarScroll.scrollTop;
+		sidebarScrollTopCache.default = sidebarScroll.scrollTop;
 	}
 
 	async function restoreSidebarScroll() {
 		await tick();
 		if (!sidebarScroll) return;
-		const pane: SidebarPane = showAdvancedPane ? 'advanced' : 'default';
-		const scrollTop = sidebarScrollTopCache[pane];
+		const scrollTop = sidebarScrollTopCache.default;
 		if (scrollTop !== null) {
 			sidebarScroll.scrollTop = scrollTop;
 		}

@@ -150,13 +150,14 @@
 			);
 			if (!existingResourceIds.has(initialAdditionId)) {
 				const entry = mcpEntriesMap.get(initialAdditionId);
+				const workspaceScope = entity === 'workspace' ? `?wid=${id}` : '';
+
 				if (entry) {
 					accessControlRule.resources = [
 						...(accessControlRule.resources ?? []),
 						{ id: entry.id, type: 'mcpServerCatalogEntry' }
 					];
-					redirect =
-						entity === 'workspace' ? `/mcp-catalog/c/${entry.id}` : `/mcp-servers/c/${entry.id}`;
+					redirect = `/mcp-servers/c/${entry.id}${workspaceScope}`;
 				} else {
 					const server = mcpServersMap.get(initialAdditionId);
 					if (server) {
@@ -164,10 +165,7 @@
 							...(accessControlRule.resources ?? []),
 							{ id: server.id, type: 'mcpServer' }
 						];
-						redirect =
-							entity === 'workspace'
-								? `/mcp-catalog/s/${server.id}`
-								: `/mcp-servers/s/${server.id}`;
+						redirect = `/mcp-servers/s/${server.id}${workspaceScope}`;
 					}
 				}
 			}

@@ -40,7 +40,11 @@ export const reroute: Reroute = ({ url }) => {
 	}
 
 	if (pathname === ADMIN_DEVICES_PREFIX || pathname.startsWith(`${ADMIN_DEVICES_PREFIX}/`)) {
-		return pathname.replace(ADMIN_DEVICES_PREFIX, '/inventory');
+		// support devices/[id] routes to /inventory/devices/[id]
+		const suffix = pathname.slice(ADMIN_DEVICES_PREFIX.length);
+		if (!suffix || suffix === '/') return '/inventory';
+		if (/^\/(?:skills|mcp-servers|clients)(?:\/|$)/.test(suffix)) return `/inventory${suffix}`;
+		return `/inventory/devices${suffix}`;
 	}
 
 	if (pathname.startsWith(ADMIN_MCP_AUDIT_LOGS_PREFIX)) {
