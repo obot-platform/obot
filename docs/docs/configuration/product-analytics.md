@@ -21,7 +21,7 @@ no decision has been recorded.
 Until an Owner or Admin explicitly opts in, Obot does not send a product-telemetry request. An
 installation that opts out also sends no product-telemetry request.
 
-Owners and Admins can change the installation's decision at any time from **App Management > Product
+Owners and Admins can change the installation's decision at any time from **Platform > Product
 Analytics**.
 
 An operator can force-enable product analytics by setting

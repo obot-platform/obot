@@ -72,8 +72,7 @@
 		profile,
 		responsive,
 		version,
-		appNotification as appNotificationStore,
-		productTelemetryConsent
+		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import { isAgentEnabled, validateVersionUserLimit } from '$lib/utils';
@@ -341,16 +340,6 @@
 						label: 'Platform',
 						icon: Settings2,
 						href: '/admin/platform'
-					}
-				]
-			: []),
-		...(productTelemetryConsent.available === true && profile.current.isAdmin?.()
-			? [
-					{
-						id: 'product-analytics',
-						label: 'Product Analytics',
-						icon: Settings2,
-						href: '/admin/product-analytics'
 					}
 				]
 			: []),

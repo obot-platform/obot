@@ -1,13 +1,14 @@
 import { page as appPage } from '$app/state';
 import { CLOUD_ENTITLEMENT, COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import * as navigation from '$lib/navigation';
+import { Group, type ProductTelemetryConsent } from '$lib/services';
 import type {
 	ImagePullSecret,
 	ImagePullSecretCapability,
 	License
 } from '$lib/services/admin/types';
 import type { Version } from '$lib/services/user/types';
-import { preparePageData } from '../../../tests/helpers/pageData';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getLicenseResponse, getVersionResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import type { PageData } from './$types';
@@ -25,7 +26,10 @@ async function renderPlatformPage({
 	view = 'license',
 	create = false,
 	capability = { available: false },
-	imagePullSecrets = []
+	imagePullSecrets = [],
+	groups = [Group.ADMIN],
+	productAnalyticsAvailable = true,
+	productAnalyticsConsent = { consent: undefined }
 }: {
 	license?: License;
 	versionOverrides?: Partial<Version>;
@@ -33,6 +37,9 @@ async function renderPlatformPage({
 	create?: boolean;
 	capability?: ImagePullSecretCapability;
 	imagePullSecrets?: ImagePullSecret[];
+	groups?: string[];
+	productAnalyticsAvailable?: boolean;
+	productAnalyticsConsent?: ProductTelemetryConsent;
 } = {}) {
 	appPage.url.searchParams.set('view', view);
 	if (create) {
@@ -42,12 +49,15 @@ async function renderPlatformPage({
 	}
 
 	const data = await preparePageData<PageData>({
+		profile: createMockProfile(groups),
 		license,
 		appNotification: undefined,
 		k8sSettings: undefined,
 		capability,
 		imagePullSecrets,
 		gitCredentials: [],
+		productTelemetryConsentAvailable: productAnalyticsAvailable,
+		productTelemetryConsent: productAnalyticsConsent,
 		version: {
 			...getVersionResponse,
 			...versionOverrides
@@ -70,6 +80,35 @@ describe('Platform Page', () => {
 
 	afterEach(() => {
 		vi.mocked(navigation.reloadPage).mockRestore();
+	});
+
+	describe('product analytics tab', () => {
+		it('shows Product Analytics inside Platform instead of the sidebar', async () => {
+			await renderPlatformPage({ view: 'product-analytics' });
+
+			await expect
+				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
+				.toBeVisible();
+			await expect
+				.element(page.getByText(/Share aggregate product-usage information/))
+				.toBeVisible();
+		});
+
+		it('is hidden when consent controls are unavailable', async () => {
+			await renderPlatformPage({ productAnalyticsAvailable: false });
+
+			await expect
+				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('is hidden from read-only administrators', async () => {
+			await renderPlatformPage({ groups: [Group.AUDITOR] });
+
+			await expect
+				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
+				.not.toBeInTheDocument();
+		});
 	});
 
 	describe('license tab', () => {

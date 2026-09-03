@@ -6,13 +6,7 @@ import {
 import { Group } from '$lib/services';
 import type { License } from '$lib/services/admin/types';
 import type { Profile, Version } from '$lib/services/user/types';
-import {
-	defaultModelAliases,
-	license as licenseStore,
-	productTelemetryConsent,
-	profile,
-	version
-} from '$lib/stores';
+import { defaultModelAliases, license as licenseStore, profile, version } from '$lib/stores';
 import { getLicenseResponse, getProfileResponse, getVersionResponse } from '../../tests/mocks/data';
 import Layout from './Layout.svelte';
 import { createRawSnippet, tick } from 'svelte';
@@ -54,8 +48,7 @@ async function renderLayout(
 	groups: string[] = [],
 	versionOverrides: Partial<Version> = {},
 	licenseOverrides: Partial<License> = {},
-	profileOverrides: Partial<Profile> = {},
-	productAnalyticsAvailable = true
+	profileOverrides: Partial<Profile> = {}
 ) {
 	profile.initialize({
 		...createProfile(groups),
@@ -71,7 +64,6 @@ async function renderLayout(
 		...getLicenseResponse,
 		...licenseOverrides
 	});
-	productTelemetryConsent.initialize({}, productAnalyticsAvailable);
 	await defaultModelAliases.initialize([]);
 
 	return render(Layout, { children });
@@ -155,11 +147,6 @@ describe('Layout.svelte', () => {
 				await renderLayout([Group.ADMIN]);
 				await expectSharedNavigation();
 				await expectAdminOnlyNavigation();
-				await expectLink('/admin/product-analytics');
-			});
-
-			it('hides Product Analytics when consent controls are unavailable', async () => {
-				await renderLayout([Group.ADMIN], {}, {}, {}, false);
 				await expectNoLink('/admin/product-analytics');
 			});
 

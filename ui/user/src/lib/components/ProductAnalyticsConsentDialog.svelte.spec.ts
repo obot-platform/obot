@@ -53,11 +53,11 @@ describe('ProductAnalyticsConsentDialog', () => {
 		await expect.element(page.getByCSS('#product-analytics-consent-dialog')).not.toBeVisible();
 	});
 
-	it('does not prompt on the product analytics settings page', async () => {
+	it('does not prompt on the Product Analytics Platform tab', async () => {
 		const originalUrl = Object.getOwnPropertyDescriptor(appPage, 'url');
 		Object.defineProperty(appPage, 'url', {
 			configurable: true,
-			value: new URL('/admin/product-analytics', window.location.origin)
+			value: new URL('/admin/platform?view=product-analytics', window.location.origin)
 		});
 
 		try {
