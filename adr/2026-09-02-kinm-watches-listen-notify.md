@@ -20,9 +20,9 @@ nothing has woken a watch, it lists its table again every 2 seconds. That poll i
 one replica learns about a write made by another, because kinm's in process broadcast reaches
 only the process that did the write.
 
-The cost is paid whether or not anything is happening. With two replicas per environment on one
-shared Cloud SQL instance, ten idle environments cost about 1,960 statements per second, and
-moving from one replica to two roughly doubled database CPU, because the standby keeps its
+The cost is paid whether or not anything is happening. Ten idle environments with one replica
+each cost about 1,000 statements per second on one shared Cloud SQL instance. With two replicas
+each they cost about 1,960, and database CPU doubled with them, because the standby keeps its
 caches warm and so polls exactly as hard as the leader.
 
 ## Decision
