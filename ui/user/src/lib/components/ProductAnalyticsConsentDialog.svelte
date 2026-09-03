@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
+	import { page } from '$app/state';
 	import { AdminService, Group } from '$lib/services';
 	import { productTelemetryConsent, profile } from '$lib/stores';
 	import {
@@ -18,6 +19,7 @@
 		profile.current.groups.includes(Group.ADMIN) &&
 			productTelemetryConsent.available === true &&
 			productTelemetryConsent.consent === undefined &&
+			page.url.pathname !== '/admin/product-analytics' &&
 			!dismissed
 	);
 

@@ -1,3 +1,4 @@
+import { page as appPage } from '$app/state';
 import { Group } from '$lib/services';
 import { errors, productTelemetryConsent, profile } from '$lib/stores';
 import {
@@ -50,6 +51,21 @@ describe('ProductAnalyticsConsentDialog', () => {
 	it('does not prompt when the consent API is unavailable', async () => {
 		await renderDialog([Group.ADMIN], undefined, false);
 		await expect.element(page.getByCSS('#product-analytics-consent-dialog')).not.toBeVisible();
+	});
+
+	it('does not prompt on the product analytics settings page', async () => {
+		const originalUrl = Object.getOwnPropertyDescriptor(appPage, 'url');
+		Object.defineProperty(appPage, 'url', {
+			configurable: true,
+			value: new URL('/admin/product-analytics', window.location.origin)
+		});
+
+		try {
+			await renderDialog();
+			await expect.element(page.getByCSS('#product-analytics-consent-dialog')).not.toBeVisible();
+		} finally {
+			if (originalUrl) Object.defineProperty(appPage, 'url', originalUrl);
+		}
 	});
 
 	it.each([
