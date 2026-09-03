@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -74,7 +75,7 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 func (h *Handler) EnsureSystemServer(req router.Request, _ router.Response) error {
 	webhookValidation := req.Object.(*v1.MCPWebhookValidation)
 
-	cred, err := h.getWebhookCredential(req, webhookValidation.Name)
+	cred, staticCred, err := h.getWebhookCredentials(req, webhookValidation.Name)
 	if err != nil {
 		return err
 	}
@@ -92,6 +93,16 @@ func (h *Handler) EnsureSystemServer(req router.Request, _ router.Response) erro
 		}
 	} else if err != nil {
 		return fmt.Errorf("failed to get credential for webhook validation server %s: %w", webhookValidation.Name, err)
+	}
+
+	existingStaticCred, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, desired.Name, desired.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get static configuration credential for webhook validation server %s: %w", webhookValidation.Name, err)
+	}
+	if !maps.Equal(staticCred, existingStaticCred) {
+		if err := mcp.StoreStaticCredentialSecrets(req.Ctx, h.gatewayClient, desired.Name, desired.Name, staticCred); err != nil {
+			return fmt.Errorf("failed to store static configuration credential for webhook validation server %s: %w", webhookValidation.Name, err)
+		}
 	}
 
 	webhookValidation.Status.Configured = systemmcpserver.IsSystemServerConfigured(req.Ctx, h.gatewayClient, desired)
@@ -158,18 +169,23 @@ func desiredSystemServer(webhookValidation *v1.MCPWebhookValidation, image strin
 	}
 }
 
-func (h *Handler) getWebhookCredential(req router.Request, name string) (map[string]string, error) {
+func (h *Handler) getWebhookCredentials(req router.Request, name string) (map[string]string, map[string]string, error) {
 	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{system.MCPWebhookValidationCredentialContext}, name)
 	if err != nil {
-		if errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return nil, nil
+		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
+			return nil, nil, err
 		}
-		return nil, err
+		cred.Secrets = nil
 	}
 
 	if s := cred.Secrets["secret"]; s != "" {
 		delete(cred.Secrets, "secret")
 		cred.Secrets["WEBHOOK_SECRET"] = s
 	}
-	return cred.Secrets, nil
+
+	staticCred, err := mcp.StaticCredentialSecrets(req.Ctx, h.gatewayClient, system.MCPWebhookValidationCredentialContext, name)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cred.Secrets, staticCred, nil
 }
