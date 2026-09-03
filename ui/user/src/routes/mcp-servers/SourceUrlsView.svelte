@@ -7,8 +7,8 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { AdminService, type MCPCatalog } from '$lib/services';
 	import { isWebURL } from '$lib/url';
-	import { TriangleAlert, Link2, Pencil, Trash2 } from '@lucide/svelte';
-	import { fade } from 'svelte/transition';
+	import { TriangleAlert, Link2, Pencil, Trash2, Info } from '@lucide/svelte';
+	import { fade, slide } from 'svelte/transition';
 
 	interface Props {
 		catalog?: MCPCatalog;
@@ -37,6 +37,14 @@
 </script>
 
 <div class="flex flex-col gap-2" in:fade={{ duration: PAGE_TRANSITION_DURATION }}>
+	{#if catalog?.isSyncing}
+		<div class="notification-info p-3 text-sm font-light" transition:slide={{ axis: 'y' }}>
+			<div class="flex items-center gap-3">
+				<Info class="size-6" />
+				<div>The system is currently syncing with your configured Git repositories.</div>
+			</div>
+		</div>
+	{/if}
 	{#if catalog?.sourceURLs && catalog.sourceURLs.length > 0 && catalog.id}
 		<Table
 			data={tableData}

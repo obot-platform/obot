@@ -50,6 +50,7 @@
 		CircleFadingArrowUp,
 		Ellipsis,
 		GitBranch,
+		Info,
 		Link2Icon,
 		RocketIcon,
 		Server,
@@ -59,6 +60,7 @@
 		UsersIcon
 	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
+	import { slide } from 'svelte/transition';
 
 	type Item = ReturnType<typeof convertEntriesToTableData>[number];
 
@@ -270,22 +272,31 @@
 	};
 </script>
 
-{#if mcpServersAndEntries.current.loading && tableData.length === 0}
-	<Skeleton
-		type="table"
-		count={10}
-		classes={{ header: 'h-14 rounded-none', body: 'rounded-none' }}
-	/>
-{/if}
-{#if mcpServersAndEntries.current.isInitialized}
-	{#if filteredTableData.length === 0}
-		{#if noDataContent}
-			<div class="flex flex-col gap-px">
-				{@render noDataContent?.()}
+<div class="flex h-full w-full gap-2 flex-col">
+	{#if catalog?.isSyncing}
+		<div class="notification-info p-3 text-sm font-light" transition:slide={{ axis: 'y' }}>
+			<div class="flex items-center gap-3">
+				<Info class="size-6" />
+				<div>The system is currently syncing with your configured Git repositories.</div>
 			</div>
-		{/if}
-	{:else}
-		<div class="flex flex-col gap-2">
+		</div>
+	{/if}
+
+	{#if mcpServersAndEntries.current.loading && tableData.length === 0}
+		<Skeleton
+			type="table"
+			count={10}
+			classes={{ header: 'h-14 rounded-none', body: 'rounded-none' }}
+		/>
+	{/if}
+	{#if mcpServersAndEntries.current.isInitialized}
+		{#if filteredTableData.length === 0}
+			{#if noDataContent}
+				<div class="flex flex-col gap-px">
+					{@render noDataContent?.()}
+				</div>
+			{/if}
+		{:else}
 			<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 				<Search
 					value={query}
@@ -510,9 +521,9 @@
 					</DotDotDot>
 				{/snippet}
 			</Table>
-		</div>
+		{/if}
 	{/if}
-{/if}
+</div>
 
 <McpConfirmDelete
 	names={[deletingEntry?.manifest?.name ?? '']}
