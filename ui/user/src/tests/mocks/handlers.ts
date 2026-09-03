@@ -49,6 +49,7 @@ export const handlers = [
 	http.get('/api/me', () => HttpResponse.json(data.getProfileResponse)),
 	http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
 	http.get('/api/models', () => HttpResponse.json({ items: data.listModelsResponse })),
+	http.get('/api/product-telemetry-consent', () => HttpResponse.json({})),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>

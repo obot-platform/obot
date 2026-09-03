@@ -74,6 +74,7 @@ const sidebars = {
 				"configuration/mcp-server-egress-control",
 				"configuration/audit-log-export",
 				"configuration/mcp-server-oauth-configuration",
+				"configuration/product-analytics",
 				"configuration/server-configuration",
 				{
 					type: "category",
