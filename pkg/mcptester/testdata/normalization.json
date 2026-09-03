@@ -1,0 +1,62 @@
+[
+  {
+    "name": "responses text",
+    "dialect": "OpenAIResponses",
+    "stream": "data: {\"type\":\"response.created\"}\n\ndata: {\"type\":\"response.output_text.delta\",\"delta\":\"hello\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"text_delta","delta":"hello"},
+      {"type":"completion","reason":"stop"}
+    ]
+  },
+  {
+    "name": "chat completions text",
+    "dialect": "OpenAIChatCompletions",
+    "stream": "data: {\"choices\":[{\"delta\":{\"content\":\"hello\"},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"text_delta","delta":"hello"},
+      {"type":"completion","reason":"stop"}
+    ]
+  },
+  {
+    "name": "anthropic text",
+    "dialect": "AnthropicMessages",
+    "stream": "data: {\"type\":\"message_start\",\"message\":{}}\n\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hello\"}}\n\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"}}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"text_delta","delta":"hello"},
+      {"type":"completion","reason":"stop"}
+    ]
+  },
+  {
+    "name": "responses tool",
+    "dialect": "OpenAIResponses",
+    "stream": "data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"item-1\",\"call_id\":\"call-1\",\"type\":\"function_call\",\"name\":\"lookup\",\"arguments\":\"\"}}\n\ndata: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"item-1\",\"output_index\":0,\"delta\":\"{\\\"query\\\":\\\"obot\\\"}\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"tool_calls","calls":[{"id":"call-1","name":"lookup","arguments":{"query":"obot"}}]},
+      {"type":"completion","reason":"tool_calls"}
+    ]
+  },
+  {
+    "name": "chat completions tool",
+    "dialect": "OpenAIChatCompletions",
+    "stream": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\"}}]},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"obot\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"tool_calls","calls":[{"id":"call-1","name":"lookup","arguments":{"query":"obot"}}]},
+      {"type":"completion","reason":"tool_calls"}
+    ]
+  },
+  {
+    "name": "anthropic tool",
+    "dialect": "AnthropicMessages",
+    "stream": "data: {\"type\":\"message_start\",\"message\":{}}\n\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"call-1\",\"name\":\"lookup\",\"input\":{}}}\n\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\\\":\\\"obot\\\"}\"}}\n\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"}}\n\n",
+    "expected": [
+      {"type":"assistant_message_start"},
+      {"type":"tool_calls","calls":[{"id":"call-1","name":"lookup","arguments":{"query":"obot"}}]},
+      {"type":"completion","reason":"tool_calls"}
+    ]
+  }
+]

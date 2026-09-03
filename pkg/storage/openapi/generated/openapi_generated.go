@@ -210,6 +210,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerOAuthCredentialStatus":            schema_obot_platform_obot_apiclient_types_MCPServerOAuthCredentialStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerTool":                             schema_obot_platform_obot_apiclient_types_MCPServerTool(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServersNeedingK8sUpdateList":            schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterChatMessage":                      schema_obot_platform_obot_apiclient_types_MCPTesterChatMessage(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterChatRequest":                      schema_obot_platform_obot_apiclient_types_MCPTesterChatRequest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterContent":                          schema_obot_platform_obot_apiclient_types_MCPTesterContent(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterErrorResponse":                    schema_obot_platform_obot_apiclient_types_MCPTesterErrorResponse(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterStreamError":                      schema_obot_platform_obot_apiclient_types_MCPTesterStreamError(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterStreamEvent":                      schema_obot_platform_obot_apiclient_types_MCPTesterStreamEvent(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterTool":                             schema_obot_platform_obot_apiclient_types_MCPTesterTool(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterToolCall":                         schema_obot_platform_obot_apiclient_types_MCPTesterToolCall(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPTesterToolResult":                       schema_obot_platform_obot_apiclient_types_MCPTesterToolResult(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStats":                          schema_obot_platform_obot_apiclient_types_MCPToolCallStats(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPToolCallStatsItem":                      schema_obot_platform_obot_apiclient_types_MCPToolCallStatsItem(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPTunnel":                                 schema_obot_platform_obot_apiclient_types_MCPTunnel(ref),
@@ -11363,6 +11372,354 @@ func schema_obot_platform_obot_apiclient_types_MCPServersNeedingK8sUpdateList(re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.MCPServerNeedingK8sUpdate"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterChatMessage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"role": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterContent"),
+									},
+								},
+							},
+						},
+					},
+					"toolCalls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterToolCall"),
+									},
+								},
+							},
+						},
+					},
+					"toolResult": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterToolResult"),
+						},
+					},
+				},
+				Required: []string{"role"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTesterContent", "github.com/obot-platform/obot/apiclient/types.MCPTesterToolCall", "github.com/obot-platform/obot/apiclient/types.MCPTesterToolResult"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterChatRequest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPTesterChatRequest is the complete, page-held context for one stateless MCP tester model continuation. The selected MCP server and model are always server-owned and therefore deliberately absent from this contract.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"messages": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterChatMessage"),
+									},
+								},
+							},
+						},
+					},
+					"tools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterTool"),
+									},
+								},
+							},
+						},
+					},
+					"round": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int32",
+						},
+					},
+				},
+				Required: []string{"messages", "round"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTesterChatMessage", "github.com/obot-platform/obot/apiclient/types.MCPTesterTool"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterContent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"text": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"uri": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"mimeType": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"type", "text"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterErrorResponse(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPTesterErrorResponse is returned when a request fails before the event stream can start. Once streaming begins the same error shape is carried by an MCPTesterStreamEvent instead.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPTesterStreamError"),
+						},
+					},
+				},
+				Required: []string{"error"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTesterStreamError"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterStreamError(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"code": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"message": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"retryable": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"code", "message"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterStreamEvent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPTesterStreamEvent is the only event shape emitted to the browser. Exactly one payload field is populated for each Type.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"delta": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"calls": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterToolCall"),
+									},
+								},
+							},
+						},
+					},
+					"reason": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.MCPTesterStreamError"),
+						},
+					},
+				},
+				Required: []string{"type"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPTesterStreamError", "github.com/obot-platform/obot/apiclient/types.MCPTesterToolCall"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterTool(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"inputSchema": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+					"outputSchema": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"name", "inputSchema"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterToolCall(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"arguments": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"id", "name", "arguments"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_MCPTesterToolResult(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"callID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"content": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "byte",
+						},
+					},
+				},
+				Required: []string{"callID", "status", "content"},
+			},
+		},
 	}
 }
 

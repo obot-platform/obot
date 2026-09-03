@@ -514,6 +514,7 @@ export interface MCPCatalogServer {
 	catalogEntryID: string;
 	missingRequiredEnvVars: string[];
 	missingRequiredHeader?: string[];
+	missingOAuthCredentials?: boolean;
 	mcpCatalogID: string;
 	created: string;
 	deleted?: string;

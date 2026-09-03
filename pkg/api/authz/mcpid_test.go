@@ -661,6 +661,39 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 	}
 }
 
+func TestMCPTesterChatAuthorizationUsesConnectionPermission(t *testing.T) {
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
+		&v1.MCPServer{
+			Name:      "ms1tester",
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{
+				UserID: "user-uid",
+			},
+		},
+	).Build()
+	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+
+	allowedRequest := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", nil)
+	allowed := authorizer.Authorize(allowedRequest, &user.DefaultInfo{
+		Name:   "user",
+		UID:    "user-uid",
+		Groups: []string{types.GroupAPI},
+	})
+	if !allowed {
+		t.Fatal("authorized MCP user cannot access tester Chat")
+	}
+
+	deniedRequest := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", nil)
+	denied := authorizer.Authorize(deniedRequest, &user.DefaultInfo{
+		Name:   "management-only-user",
+		UID:    "management-only-uid",
+		Groups: []string{types.GroupAPI},
+	})
+	if denied {
+		t.Fatal("management-only user can access tester Chat")
+	}
+}
+
 func newMCPIDIsAuthorizedTestStorage(objects ...kclient.Object) kclient.Client {
 	return clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).

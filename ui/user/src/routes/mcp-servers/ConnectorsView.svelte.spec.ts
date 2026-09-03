@@ -102,6 +102,13 @@ describe('MCP Servers ConnectorsView', () => {
 		expect(openUrl).toHaveBeenCalledOnce();
 	});
 
+	it('does not show Test on the MCP Servers list', async () => {
+		render(ConnectorsView, { query: 'Deprecated' });
+
+		await expect.element(page.getByText('Test', { exact: true })).not.toBeInTheDocument();
+		await expect.element(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
+	});
+
 	it('shows the reauthenticate option for configured remote OAuth servers', async () => {
 		const entry = createMCPCatalogEntry({
 			id: 'remote-entry',

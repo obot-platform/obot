@@ -34,17 +34,24 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 	// servers on the template were granted by the administrator who published
 	// it, and servers on the instance were checked against the owner when they
 	// were attached.
-	if principal.IsHostedAgent(user.Info) {
-		return MCPIDIsAuthorized(req.Context(), a.uncached,
-			user.GetExtra()["authorized_mcp_ids"], user.GetUID(), resources.MCPID)
+	return UserCanConnectToMCP(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID)
+}
+
+// UserCanConnectToMCP applies the same current-user authorization used by the
+// MCP gateway. API handlers that act on an MCP deployment without traversing
+// /mcp-connect must call this rather than relying on management visibility.
+func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
+	if principal.IsHostedAgent(user) {
+		return MCPIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), mcpID)
 	}
 
-	if authorized, err := CheckMCPIDAccess(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID); err != nil || !authorized {
+	authorized, err := CheckMCPIDAccess(ctx, client, acrHelper, user, mcpID)
+	if err != nil || !authorized {
 		return false, err
 	}
 
 	if authorizedMCPIDs := user.GetExtra()["authorized_mcp_ids"]; len(authorizedMCPIDs) > 0 {
-		return MCPIDIsAuthorized(req.Context(), a.uncached, authorizedMCPIDs, user.GetUID(), resources.MCPID)
+		return MCPIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), mcpID)
 	}
 
 	return true, nil

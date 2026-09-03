@@ -118,6 +118,29 @@ export async function getMcpCatalogServer(
 	return (await doGet(`/all-mcps/servers/${id}`, opts)) as MCPCatalogServer;
 }
 
+// Returns a deployment only when it appears in the current user's
+// authorization-filtered server listings. Management-only visibility is not a
+// connection grant and is intentionally not consulted here.
+export async function getMCPTesterServer(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer> {
+	const [personalServers, sharedServers] = await Promise.all([
+		listSingleOrRemoteMcpServers(opts),
+		listMCPCatalogServers(opts)
+	]);
+	const server = [...personalServers, ...sharedServers].find(
+		(candidate) => candidate.id === id && !candidate.deleted && !candidate.compositeName
+	);
+	if (!server) {
+		throw new HttpError(404, `404 /mcp-servers/test/${id}: MCP server not found`);
+	}
+	return {
+		...server,
+		canConnect: true
+	};
+}
+
 export async function listMcpCatalogServerTools(
 	id: string,
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }

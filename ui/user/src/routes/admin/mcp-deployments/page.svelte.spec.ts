@@ -102,6 +102,18 @@ describe('MCP Deployments Page', () => {
 	});
 
 	describe('ellipsis menu actions', () => {
+		it('does not show Test for internal composite children', async () => {
+			await openRowActions(fixtures.serverCompositeChild.manifest.name!);
+			await expect
+				.element(
+					page.getByRole('link', {
+						name: `Test ${fixtures.serverCompositeChild.manifest.name}`,
+						exact: true
+					})
+				)
+				.not.toBeInTheDocument();
+		});
+
 		it('renders and sanitizes a catalog upgrade note in single confirmation', async () => {
 			await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
 			await page.getByRole('button', { name: 'Update Server', exact: true }).click();
