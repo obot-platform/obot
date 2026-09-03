@@ -12,7 +12,9 @@ import (
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
 )
 
-const anthropicVersion = "2023-06-01"
+const (
+	anthropicVersion = "2023-06-01"
+)
 
 // NewLLMProxyRequest builds the request the tester handler will send through
 // Obot's existing LLM gateway. Reusing the browser request's authentication
