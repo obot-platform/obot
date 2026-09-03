@@ -8,8 +8,8 @@ When enabled, Obot reports aggregate product usage once per day. These reports h
 understand which capabilities are used and prioritize product improvements. Product analytics
 applies to the installation as a whole, not to an individual user.
 
-Obot does not include prompts, messages, credentials, URLs, configuration values, or audit-log
-content in product-analytics reports.
+Obot does not include prompts, messages, credentials, URLs, custom MCP server configuration details,
+authentication-provider settings beyond its type, or audit-log content in product-analytics reports.
 
 ## Consent
 

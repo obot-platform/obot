@@ -19,7 +19,11 @@ describe('Product Analytics settings view', () => {
 		await renderView();
 		await expect.element(page.getByText(/Share aggregate product-usage information/)).toBeVisible();
 		await expect
-			.element(page.getByText(/does not collect prompts, messages, credentials, URLs/))
+			.element(
+				page.getByText(
+					/custom MCP server configuration\s+details, authentication-provider settings beyond its type/
+				)
+			)
 			.toBeVisible();
 	});
 
