@@ -24,6 +24,9 @@ The Obot server is configured via environment variables. The following configura
 | `KINM_DB_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the Kinm database pool. Overrides the idle connection count set by `KINM_DB_CONNECTIONS`. | `2` |
 | `KINM_DB_MAX_CONNECTIONS` | The maximum number of open connections in the Kinm database pool. Overrides the open connection count set by `KINM_DB_CONNECTIONS`. | `5` |
 | `KINM_DB_MAX_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the Kinm database pool, in seconds. | `180` |
+| `KINM_DB_WATCH_POLL_SECONDS` | How long a Kinm watch waits before listing again when nothing has woken it, in seconds. Only applies while the change listener is connected. Without a connected listener a watch polls every 2 seconds, which this does not change. | `120` |
+| `KINM_DB_NOTIFY_DEBOUNCE_MILLISECONDS` | How often change notifications may wake the watches on one table, in milliseconds. The first change after a quiet moment is never delayed. | `1000` |
+| `KINM_DB_DISABLE_NOTIFY` | Disables Kinm's use of PostgreSQL LISTEN/NOTIFY, so replicas learn about each other's writes by polling every 2 seconds instead. | `false` |
 | `OBOT_AUTH_PROVIDER_POSTGRES_MAX_IDLE_CONNECTIONS` | The maximum number of idle connections in the PostgreSQL database pool used by authentication providers. | `2` |
 | `OBOT_AUTH_PROVIDER_POSTGRES_MAX_CONNECTIONS` | The maximum number of open connections in the PostgreSQL database pool used by authentication providers. | `5` |
 | `OBOT_AUTH_PROVIDER_POSTGRES_CONNECTION_LIFETIME_SECONDS` | The maximum lifetime of a connection in the PostgreSQL database pool used by authentication providers, in seconds. | `180` |
