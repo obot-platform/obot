@@ -232,6 +232,7 @@ type Services struct {
 	MCPOAuthClientNativeExceptions []string
 	ForceDynamicClient             bool
 	ProductTelemetryConsent        *producttelemetry.Consent
+	ProductTelemetryPublisher      *producttelemetry.Publisher
 
 	// LocalK8sClient is a kclient for the local Kubernetes cluster — the
 	// cluster the obot pod runs in, where source Secrets for
@@ -1286,6 +1287,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, err
 	}
 
+	telemetryConsent := producttelemetry.NewConsent(gatewayClient, config.ProductAnalyticsForceEnabled)
+
 	// For now, always auto-migrate the gateway database
 	svcs := &Services{
 		EncryptionConfig:      encryptionConfig,
@@ -1343,7 +1346,8 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		MCPOAuthClientSecretExpiration: oauthClientExpiration,
 		MCPOAuthClientNativeExceptions: config.MCPOAuthClientNativeExceptions,
 		ForceDynamicClient:             config.ForceDynamicClient,
-		ProductTelemetryConsent:        producttelemetry.NewConsent(gatewayClient, config.ProductAnalyticsForceEnabled),
+		ProductTelemetryConsent:        telemetryConsent,
+		ProductTelemetryPublisher:      producttelemetry.NewPublisher(ctx, telemetryConsent, gatewayClient),
 		AccessControlRuleHelper:        acrHelper,
 		ModelAccessPolicyHelper:        mapHelper,
 
