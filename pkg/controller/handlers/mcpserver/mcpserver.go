@@ -910,14 +910,19 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 				}
 				return cause
 			}
-			if utils.Digest(existingServer.Spec.Manifest) == utils.Digest(componentManifest) {
+			manifestChanged := utils.Digest(existingServer.Spec.Manifest) != utils.Digest(componentManifest)
+			if !credentialChanged && !manifestChanged {
 				delete(existingServers, component.CatalogEntryID)
 				continue
 			}
-			slog.Info("Updating component MCP server manifest for composite server", "composite", compositeServer.Name, "componentServer", existingServer.Name)
-			// Ensure the server is shut down before updating it
+			slog.Info("Updating component MCP server configuration for composite server", "composite", compositeServer.Name, "componentServer", existingServer.Name)
+			// Ensure the server is shut down before updating its manifest or credentials.
 			if err := h.mcpSessionManager.ShutdownServer(req.Ctx, existingServer.Name); err != nil {
 				return restoreCredential(err)
+			}
+			if !manifestChanged {
+				delete(existingServers, component.CatalogEntryID)
+				continue
 			}
 
 			if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
