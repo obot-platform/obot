@@ -249,9 +249,9 @@ func TestVersionCheckerDistribution(t *testing.T) {
 			want:     clienttypes.ProductTelemetryDistributionEnterprise,
 		},
 		{
-			name:     "community",
+			name:     "registered",
 			provider: checkerLicenseProvider{entitlements: []string{license.CommunityEntitlement}},
-			want:     clienttypes.ProductTelemetryDistributionCommunity,
+			want:     clienttypes.ProductTelemetryDistributionRegistered,
 		},
 		{
 			name: "enterprise takes precedence",
@@ -271,14 +271,14 @@ func TestVersionCheckerDistribution(t *testing.T) {
 			want: clienttypes.ProductTelemetryDistributionCloud,
 		},
 		{
-			name:     "unlicensed",
+			name:     "unregistered",
 			provider: checkerLicenseProvider{},
-			want:     clienttypes.ProductTelemetryDistributionUnlicensed,
+			want:     clienttypes.ProductTelemetryDistributionUnregistered,
 		},
 		{
 			name:     "license error",
 			provider: checkerLicenseProvider{err: errors.New("refresh failed")},
-			want:     clienttypes.ProductTelemetryDistributionUnlicensed,
+			want:     clienttypes.ProductTelemetryDistributionUnregistered,
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

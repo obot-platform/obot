@@ -118,7 +118,7 @@ func (c *VersionChecker) run(ctx context.Context) {
 	defer timer.Stop()
 
 	for {
-		distribution := clienttypes.ProductTelemetryDistributionUnlicensed
+		distribution := clienttypes.ProductTelemetryDistributionUnregistered
 		entitlements, err := c.licenseProvider.Entitlements(ctx)
 		switch {
 		case err != nil:
@@ -128,7 +128,7 @@ func (c *VersionChecker) run(ctx context.Context) {
 		case slices.Contains(entitlements, license.EnterpriseEntitlement):
 			distribution = clienttypes.ProductTelemetryDistributionEnterprise
 		case slices.Contains(entitlements, license.CommunityEntitlement):
-			distribution = clienttypes.ProductTelemetryDistributionCommunity
+			distribution = clienttypes.ProductTelemetryDistributionRegistered
 		}
 		if err := c.checkForUpgrade(ctx, distribution); err != nil {
 			slog.Debug("failed to check for server upgrade", "error", err)

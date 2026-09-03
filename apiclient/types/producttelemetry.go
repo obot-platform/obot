@@ -5,10 +5,10 @@ import (
 )
 
 const (
-	ProductTelemetryDistributionUnlicensed ProductTelemetryDistribution = "Unlicensed"
-	ProductTelemetryDistributionCommunity  ProductTelemetryDistribution = "Community"
-	ProductTelemetryDistributionEnterprise ProductTelemetryDistribution = "Enterprise"
-	ProductTelemetryDistributionCloud      ProductTelemetryDistribution = "Cloud"
+	ProductTelemetryDistributionUnregistered ProductTelemetryDistribution = "Unregistered"
+	ProductTelemetryDistributionRegistered   ProductTelemetryDistribution = "Registered"
+	ProductTelemetryDistributionEnterprise   ProductTelemetryDistribution = "Enterprise"
+	ProductTelemetryDistributionCloud        ProductTelemetryDistribution = "Cloud"
 )
 
 // ProductTelemetryDistribution identifies the Obot distribution sending telemetry.
