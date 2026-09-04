@@ -257,8 +257,8 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	}
 }
 
-func TestBuildRequestPreservesUnavailableDistribution(t *testing.T) {
-	report, err := buildRequest(
+func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
+	_, err := buildRequest(
 		t.Context(),
 		newRequestGateway(),
 		testStorageClient(),
@@ -268,11 +268,8 @@ func TestBuildRequestPreservesUnavailableDistribution(t *testing.T) {
 		"",
 		"docker",
 	)
-	if err != nil {
-		t.Fatalf("buildRequest() error = %v", err)
-	}
-	if report.Distribution != clienttypes.ProductTelemetryDistributionUnregistered {
-		t.Fatalf("distribution = %q, want %q", report.Distribution, clienttypes.ProductTelemetryDistributionUnregistered)
+	if err == nil || !strings.Contains(err.Error(), "get product telemetry distribution") {
+		t.Fatalf("buildRequest() error = %v, want distribution error", err)
 	}
 }
 
