@@ -489,7 +489,7 @@ func runOAuthReconcile(t *testing.T, creds *fakeCredentialClient, entry *v1.MCPS
 		Object:    entry,
 		Namespace: entry.Namespace,
 		Name:      entry.Name,
-	}, &router.ResponseWrapper{}, creds)
+	}, creds)
 
 	var stored v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(t.Context(), router.Key(entry.Namespace, entry.Name), &stored))

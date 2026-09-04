@@ -269,11 +269,11 @@ func requiresStaticOAuth(entry *v1.MCPServerCatalogEntry) bool {
 // The delete and the status update must stay in one handler. nah runs every handler for a type
 // even after an earlier one errors, so as two handlers a failed delete did not stop the status
 // being cleared, and a cleared status meant the entry was never queried again.
-func (h *Handler) ReconcileOAuthCredential(req router.Request, resp router.Response) error {
-	return reconcileOAuthCredential(req, resp, h.gatewayClient)
+func (h *Handler) ReconcileOAuthCredential(req router.Request, _ router.Response) error {
+	return reconcileOAuthCredential(req, h.gatewayClient)
 }
 
-func reconcileOAuthCredential(req router.Request, _ router.Response, creds credentialClient) error {
+func reconcileOAuthCredential(req router.Request, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
 	// Set by the API after it writes or deletes a credential.
