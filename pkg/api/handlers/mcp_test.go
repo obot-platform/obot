@@ -1475,14 +1475,15 @@ func TestTriggerCompositeUpdateRestoresStaticCredentialOnManifestConflict(t *tes
 	componentCatalogManifest := types.MCPServerCatalogEntryManifest{
 		Runtime:   types.RuntimeNPX,
 		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
+		Env:       []types.MCPEnv{{Key: "TOKEN", Value: "new", Sensitive: true}},
 	}
 	componentServerManifest := types.MCPServerManifest{
 		Runtime:   types.RuntimeNPX,
 		NPXConfig: &types.NPXRuntimeConfig{Package: "component"},
+		Env:       []types.MCPEnv{{Key: "TOKEN", Value: "old", Sensitive: true}},
 	}
 	originalManifest := types.MCPServerManifest{
 		Runtime: types.RuntimeComposite,
-		Env:     []types.MCPEnv{{Key: "TOKEN", Value: "old", Sensitive: true}},
 		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
 			CatalogEntryID: "component",
 			Manifest:       componentServerManifest,
@@ -1502,7 +1503,6 @@ func TestTriggerCompositeUpdateRestoresStaticCredentialOnManifestConflict(t *tes
 	entry := v1.MCPServerCatalogEntry{Spec: v1.MCPServerCatalogEntrySpec{
 		Manifest: types.MCPServerCatalogEntryManifest{
 			Runtime: types.RuntimeComposite,
-			Env:     []types.MCPEnv{{Key: "TOKEN", Value: "new", Sensitive: true}},
 			CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
 				CatalogEntryID: "component",
 				Manifest:       componentCatalogManifest,
