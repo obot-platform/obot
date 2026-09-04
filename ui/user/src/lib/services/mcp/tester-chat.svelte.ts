@@ -411,7 +411,11 @@ export class MCPTesterChat {
 		void this.#resolveBatch();
 	}
 
-	async #executeCall(call: TesterToolApproval, workflow: TesterWorkflow): Promise<void> {
+	async #executeCall(
+		call: TesterToolApproval,
+		workflow: TesterWorkflow,
+		generation: number
+	): Promise<void> {
 		let modelResult: TesterChatToolResult;
 
 		if (call.decision === 'rejected') {
@@ -451,6 +455,10 @@ export class MCPTesterChat {
 			call.result = rawResult;
 		}
 
+		// The "New Chat" button can clear the conversation while a tool is executing.
+		// So if the chat generation doesn't match, don't show the tool result.
+		if (this.#generation !== generation) return;
+
 		call.execution = 'complete';
 		call.modelResult = modelResult;
 		this.messages.push({ role: 'tool', toolResult: modelResult });
@@ -474,7 +482,7 @@ export class MCPTesterChat {
 				}
 				if (!this.#isCurrent(workflow, generation)) return;
 				this.status = 'executing-tools';
-				await this.#executeCall(call, workflow);
+				await this.#executeCall(call, workflow, generation);
 			}
 		} finally {
 			this.#resolvingBatch = false;

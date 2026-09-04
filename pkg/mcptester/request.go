@@ -150,6 +150,7 @@ func validateMessage(message types.MCPTesterChatMessage, toolNames, callIDs, res
 }
 
 func validateContent(contents []types.MCPTesterContent, allowResource bool) error {
+	var total int
 	for index, content := range contents {
 		if content.Text == "" {
 			return fmt.Errorf("content %d has empty text", index)
@@ -166,11 +167,12 @@ func validateContent(contents []types.MCPTesterContent, allowResource bool) erro
 			if strings.TrimSpace(content.URI) == "" {
 				return fmt.Errorf("resource content %d requires a URI", index)
 			}
-			if len(contentText([]types.MCPTesterContent{content})) > types.MCPTesterMaxModelBoundContentSize {
-				return fmt.Errorf("resource content %d exceeds %d bytes", index, types.MCPTesterMaxModelBoundContentSize)
-			}
 		default:
 			return fmt.Errorf("content %d has invalid type %q", index, content.Type)
+		}
+		total += len(contentText([]types.MCPTesterContent{content}))
+		if total > types.MCPTesterMaxModelBoundContentSize {
+			return fmt.Errorf("content exceeds %d bytes", types.MCPTesterMaxModelBoundContentSize)
 		}
 	}
 	return nil

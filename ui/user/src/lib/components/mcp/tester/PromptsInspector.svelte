@@ -28,7 +28,9 @@
 		) ?? false
 	);
 	let promptSupported = $derived(
-		inspector.result?.value?.messages.every((message) => message.content.type === 'text') ?? false
+		(inspector.result?.value?.messages.length ?? 0) > 0 &&
+			(inspector.result?.value?.messages.every((message) => message.content.type === 'text') ??
+				false)
 	);
 	let getActive = $derived(session.activeWorkflow?.label === 'prompt get');
 
@@ -41,12 +43,15 @@
 
 	async function getPrompt() {
 		if (!selected || requiredMissing) return;
+		const name = selected.name;
 		inspector.result = undefined;
 		inspector.stageError = undefined;
 		const args = Object.fromEntries(
 			Object.entries(inspector.argumentsValue).filter(([, value]) => value.trim() !== '')
 		);
-		inspector.result = await session.getPrompt(selected.name, args);
+		const result = await session.getPrompt(name, args);
+		if (inspector.selectedName !== name) return;
+		inspector.result = result;
 	}
 
 	function useInChat() {

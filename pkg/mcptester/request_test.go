@@ -101,6 +101,31 @@ func TestValidateChatRequestRejectsInvalidAndOversizedModelContent(t *testing.T)
 	}
 
 	request = validChatRequest()
+	request.Messages[0].Content[0] = types.MCPTesterContent{
+		Type: types.MCPTesterContentTypeText,
+		Text: strings.Repeat("x", types.MCPTesterMaxModelBoundContentSize+1),
+	}
+	if err := ValidateChatRequest(request); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("ValidateChatRequest() error = %v, want oversized text error", err)
+	}
+
+	request = validChatRequest()
+	half := types.MCPTesterMaxModelBoundContentSize/2 + 1
+	request.Messages[0].Content = []types.MCPTesterContent{
+		{
+			Type: types.MCPTesterContentTypeText,
+			Text: strings.Repeat("x", half),
+		},
+		{
+			Type: types.MCPTesterContentTypeText,
+			Text: strings.Repeat("y", half),
+		},
+	}
+	if err := ValidateChatRequest(request); err == nil || !strings.Contains(err.Error(), "exceeds") {
+		t.Fatalf("ValidateChatRequest() error = %v, want oversized combined content error", err)
+	}
+
+	request = validChatRequest()
 	request.Tools[0].InputSchema = json.RawMessage(`[]`)
 	if err := ValidateChatRequest(request); err == nil || !strings.Contains(err.Error(), "JSON object") {
 		t.Fatalf("ValidateChatRequest() error = %v, want schema object error", err)

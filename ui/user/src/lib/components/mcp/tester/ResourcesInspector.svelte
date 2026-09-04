@@ -29,9 +29,11 @@
 	);
 	let readActive = $derived(session.activeWorkflow?.label === 'resource read');
 	let resourceStageable = $derived(
-		inspector.result?.value?.contents.every(
-			(content) => 'text' in content && isTextualMimeType(content.mimeType)
-		) ?? false
+		(inspector.result?.value?.contents.length ?? 0) > 0 &&
+			(inspector.result?.value?.contents.every(
+				(content) => 'text' in content && isTextualMimeType(content.mimeType)
+			) ??
+				false)
 	);
 
 	function renderedContent(content: ResourceContents): unknown {
@@ -50,14 +52,20 @@
 		inspector.result = undefined;
 		inspector.stageError = undefined;
 		if (session.activeWorkflow) return;
-		inspector.result = await session.readResource(uri);
+		await readResource(uri);
 	}
 
 	async function retryRead() {
 		if (!inspector.selectedURI || session.activeWorkflow) return;
 		inspector.result = undefined;
 		inspector.stageError = undefined;
-		inspector.result = await session.readResource(inspector.selectedURI);
+		await readResource(inspector.selectedURI);
+	}
+
+	async function readResource(uri: string) {
+		const result = await session.readResource(uri);
+		if (inspector.selectedURI !== uri) return;
+		inspector.result = result;
 	}
 
 	function useInChat() {

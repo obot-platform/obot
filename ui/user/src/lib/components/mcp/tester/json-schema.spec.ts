@@ -56,4 +56,28 @@ describe('MCP tester JSON Schema support', () => {
 			})
 		).toEqual([]);
 	});
+
+	it('accepts every member of a union type and leaves unions to Raw JSON', () => {
+		const nullable: JSONSchema = {
+			type: 'object',
+			required: ['label'],
+			properties: {
+				label: { type: ['string', 'null'], minLength: 2 },
+				amount: { type: ['integer', 'string'] }
+			}
+		};
+
+		expect(validateJSONSchema(nullable, { label: null, amount: 3 })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'ok', amount: 'three' })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'a' })).toEqual([
+			'label must contain at least 2 characters'
+		]);
+		expect(validateJSONSchema(nullable, { label: null, amount: null })).toEqual([
+			'amount must not be null'
+		]);
+		expect(validateJSONSchema(nullable, { label: null, amount: true })).toEqual([
+			'amount must be one of these types: integer, string'
+		]);
+		expect(supportsGeneratedForm(nullable)).toBe(false);
+	});
 });

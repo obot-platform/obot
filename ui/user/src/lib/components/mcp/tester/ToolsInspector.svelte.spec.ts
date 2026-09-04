@@ -104,4 +104,18 @@ describe('ToolsInspector', () => {
 
 		session.close();
 	});
+
+	it('locks the tool list while a workflow runs so results stay with their tool', async () => {
+		const { session } = renderInspector(3);
+		await page.getByRole('button', { name: 'tool_0' }).click();
+		await expect.element(page.getByRole('button', { name: 'Call' })).toBeVisible();
+
+		const workflow = session.beginWorkflow('direct', 'tool call');
+		await expect.element(page.getByRole('button', { name: 'tool_1' })).toBeDisabled();
+
+		session.finishWorkflow(workflow);
+		await expect.element(page.getByRole('button', { name: 'tool_1' })).toBeEnabled();
+
+		session.close();
+	});
 });

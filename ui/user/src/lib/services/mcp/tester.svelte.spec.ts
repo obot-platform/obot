@@ -216,6 +216,13 @@ describe('MCPTesterSession', () => {
 				messages: [{ role: 'user', content: { type: 'text', text: 'x'.repeat(100 * 1024 + 1) } }]
 			} as GetPromptResult)
 		).toMatchObject({ ok: false, message: expect.stringContaining('100 KiB') });
+		expect(session.stagePrompt('empty', { messages: [] } as GetPromptResult)).toMatchObject({
+			ok: false
+		});
+		expect(session.stageResource('empty', { contents: [] } as ReadResourceResult)).toMatchObject({
+			ok: false
+		});
+		expect(session.stagedContext).toHaveLength(2);
 		session.close();
 	});
 

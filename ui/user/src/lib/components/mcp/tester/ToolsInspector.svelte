@@ -32,8 +32,12 @@
 
 	async function callTool() {
 		if (!selected || !inspector.argumentsValue) return;
+		const name = selected.name;
+		const args = inspector.argumentsValue;
 		inspector.result = undefined;
-		inspector.result = await session.callTool(selected.name, inspector.argumentsValue);
+		const result = await session.callTool(name, args);
+		if (inspector.selectedName !== name) return;
+		inspector.result = result;
 	}
 
 	$effect(() => {

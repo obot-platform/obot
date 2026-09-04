@@ -19,15 +19,15 @@ export class LoggingTransport implements Transport {
 
 	onclose?: () => void;
 	onerror?: (error: Error) => void;
-	onmessage?: <T extends JSONRPCMessage>(message: T, extra?: MessageExtraInfo) => void;
+	onmessage?: (message: JSONRPCMessage, extra?: MessageExtraInfo) => void;
 
 	constructor(inner: StreamableHTTPClientTransport, sink: MCPMessageSink) {
 		this.inner = inner;
 		this.#sink = sink;
-		inner.onmessage = (message) => {
+		inner.onmessage = ((message: JSONRPCMessage, extra?: MessageExtraInfo) => {
 			this.#sink?.recordMessage('incoming', message);
-			this.onmessage?.(message);
-		};
+			this.onmessage?.(message, extra);
+		}) as StreamableHTTPClientTransport['onmessage'];
 		inner.onerror = (error) => {
 			this.#sink?.recordError(error);
 			this.onerror?.(error);

@@ -57,9 +57,29 @@ function labelPath(path: string): string {
 }
 
 export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''): string[] {
-	const errors: string[] = [];
-	const type = schemaType(schema);
 	const label = labelPath(path);
+
+	// Union types are validated against each member so a nullable schema such as
+	// `type: ['string', 'null']` accepts null, and the generated form declines
+	// them (see supportsGeneratedForm) in favor of Raw JSON.
+	if (Array.isArray(schema.type)) {
+		if (value === null) {
+			return schema.type.includes('null') ? [] : [`${label} must not be null`];
+		}
+		const members = schema.type.filter((type) => type !== 'null');
+		if (!members.length) return [`${label} must be null`];
+		const attempts = members.map((type) => validateJSONSchema({ ...schema, type }, value, path));
+		if (attempts.some((memberErrors) => memberErrors.length === 0)) return [];
+		return attempts.length === 1
+			? attempts[0]
+			: [`${label} must be one of these types: ${members.join(', ')}`];
+	}
+	if (schema.type === 'null') {
+		return value === null ? [] : [`${label} must be null`];
+	}
+
+	const errors: string[] = [];
+	const type = schema.type;
 
 	if (schema.const !== undefined && value !== schema.const) {
 		errors.push(`${label} must equal ${JSON.stringify(schema.const)}`);
@@ -157,7 +177,9 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 }
 
 export function supportsGeneratedForm(schema: JSONSchema): boolean {
-	const type = schemaType(schema);
+	// Unions have no single control that can express every member, so Raw JSON owns them.
+	if (Array.isArray(schema.type)) return false;
+	const type = schema.type;
 	if (!type || !['object', 'array', 'string', 'number', 'integer', 'boolean'].includes(type)) {
 		return false;
 	}

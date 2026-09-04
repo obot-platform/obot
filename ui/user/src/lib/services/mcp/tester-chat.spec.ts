@@ -533,4 +533,51 @@ describe('MCPTesterChat', () => {
 		expect(chat.error).toBeUndefined();
 		session.close();
 	});
+
+	it('drops a tool result that lands after New Chat cleared the conversation', async () => {
+		const session = await readySession({ tools: {} }, (request) => {
+			if (request.method === 'tools/list') {
+				return { tools: [{ name: 'slow', inputSchema: { type: 'object' } }] };
+			}
+		});
+		let toolSettled = false;
+		vi.spyOn(session, 'callChatTool').mockImplementation(
+			async (_name, _args, signal) =>
+				await new Promise((resolve) => {
+					signal.addEventListener(
+						'abort',
+						() => {
+							toolSettled = true;
+							resolve({ status: 'cancelled', durationMs: 1, message: 'Cancelled by user' });
+						},
+						{ once: true }
+					);
+				})
+		);
+		const chat = new MCPTesterChat(
+			session,
+			server.id,
+			vi.fn<typeof fetch>(async () =>
+				stream(
+					{ type: 'assistant_message_start' },
+					{ type: 'tool_calls', calls: [{ id: 'call-slow', name: 'slow', arguments: {} }] },
+					{ type: 'completion', reason: 'tool_calls' }
+				)
+			)
+		);
+
+		await chat.send('Run slowly');
+		chat.approve('call-slow');
+		await vi.waitFor(() => expect(chat.status).toBe('executing-tools'));
+
+		chat.newChat();
+		expect(session.activeWorkflow).toBeUndefined();
+
+		// The in-flight call resolves against the aborted signal after New Chat, and its
+		// result answers a tool call the fresh conversation no longer contains.
+		await vi.waitFor(() => expect(toolSettled).toBe(true));
+		await vi.waitFor(() => expect(chat.status).toBe('idle'));
+		expect(chat.messages).toEqual([]);
+		session.close();
+	});
 });

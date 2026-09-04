@@ -513,6 +513,9 @@ export class MCPTesterSession {
 	}
 
 	stagePrompt(name: string, result: GetPromptResult): StageResult {
+		if (result.messages.length === 0) {
+			return { ok: false, message: 'This prompt resolved to no messages.' };
+		}
 		if (result.messages.some((message) => message.content.type !== 'text')) {
 			return {
 				ok: false,
@@ -537,6 +540,9 @@ export class MCPTesterSession {
 	}
 
 	stageResource(name: string, result: ReadResourceResult): StageResult {
+		if (result.contents.length === 0) {
+			return { ok: false, message: 'This resource returned no content.' };
+		}
 		const textContents = result.contents.filter(
 			(content): content is ResourceContents & { text: string } =>
 				'text' in content && isTextualMimeType(content.mimeType)

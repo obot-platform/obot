@@ -87,11 +87,12 @@
 				<li>
 					<button
 						type="button"
-						class={`hover:bg-base-200 dark:hover:bg-base-300 w-full rounded-lg border p-3 text-left ${
+						class={`hover:bg-base-200 dark:hover:bg-base-300 w-full rounded-lg border p-3 text-left disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent dark:disabled:hover:bg-transparent ${
 							selectedId === item.id
 								? 'border-primary bg-primary/5'
 								: 'border-base-300 dark:border-base-400'
 						}`}
+						disabled={busy}
 						onclick={() => onselect(item.id)}
 						aria-pressed={selectedId === item.id}
 					>
