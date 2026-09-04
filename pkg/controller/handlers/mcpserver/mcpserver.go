@@ -753,6 +753,7 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 		len(manifest.CompositeConfig.ComponentServers) < 1 {
 		return nil
 	}
+	persistedManifestHash := utils.Digest(manifest)
 	credentialContext := compositeServer.Spec.UserID
 	if compositeServer.Spec.MCPCatalogID != "" {
 		credentialContext = compositeServer.Spec.MCPCatalogID
@@ -961,9 +962,9 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 
 	// All of the component MCP servers should now match the manifest of the composite.
 	// Update the status hash to reflect the observed state.
-	if manifestHash := utils.Digest(manifest); compositeServer.Status.ObservedCompositeManifestHash != manifestHash {
-		compositeServer.Status.ObservedCompositeManifestHash = manifestHash
-		slog.Info("Updated observed composite manifest hash", "composite", compositeServer.Name, "hash", manifestHash)
+	if compositeServer.Status.ObservedCompositeManifestHash != persistedManifestHash {
+		compositeServer.Status.ObservedCompositeManifestHash = persistedManifestHash
+		slog.Info("Updated observed composite manifest hash", "composite", compositeServer.Name, "hash", persistedManifestHash)
 		if err := req.Client.Status().Update(req.Ctx, compositeServer); err != nil {
 			return fmt.Errorf("failed to update composite server status: %w", err)
 		}
