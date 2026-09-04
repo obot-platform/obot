@@ -346,17 +346,17 @@ func syncOAuthCredential(ctx context.Context, creds credentialClient, entry *v1.
 }
 
 // RemoveOAuthCredentials removes OAuth credentials when a catalog entry is deleted.
-func (h *Handler) RemoveOAuthCredentials(req router.Request, resp router.Response) error {
-	return removeOAuthCredentials(req, resp, h.gatewayClient)
+func (h *Handler) RemoveOAuthCredentials(req router.Request, _ router.Response) error {
+	return removeOAuthCredentials(req, h.gatewayClient)
 }
 
-func removeOAuthCredentials(req router.Request, _ router.Response, creds credentialClient) error {
+func removeOAuthCredentials(req router.Request, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Always sweep a remote entry, since being wrong on the way out strands the credential. Sweep
-	// any other runtime only when the status or a pending annotation says one may still exist.
+	// An entry on its way out is always swept, since being wrong there strands the credential. The
+	// rest of the guard only matters if this is ever called outside the deletion path.
 	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
-	if entry.Spec.Manifest.Runtime != types.RuntimeRemote && !entry.Status.OAuthCredentialConfigured && !recheck {
+	if entry.Spec.Manifest.Runtime != types.RuntimeRemote && !entry.Status.OAuthCredentialConfigured && !recheck && entry.DeletionTimestamp.IsZero() {
 		return nil
 	}
 

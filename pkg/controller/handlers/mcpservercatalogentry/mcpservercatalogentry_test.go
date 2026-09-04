@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -13,6 +14,7 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -685,6 +687,16 @@ func TestRemoveOAuthCredentialsOnDeletedEntry(t *testing.T) {
 			wantDeletes: 1,
 		},
 		{
+			name: "entry of another runtime being deleted is swept",
+			entry: func() *v1.MCPServerCatalogEntry {
+				e := converted()
+				e.DeletionTimestamp = &metav1.Time{Time: time.Now()}
+				e.Finalizers = []string{v1.MCPServerCatalogEntryFinalizer}
+				return e
+			},
+			wantDeletes: 1,
+		},
+		{
 			name: "entry of another runtime with a pending recheck is swept",
 			entry: func() *v1.MCPServerCatalogEntry {
 				e := converted()
@@ -706,7 +718,7 @@ func TestRemoveOAuthCredentialsOnDeletedEntry(t *testing.T) {
 				Object:    entry,
 				Namespace: entry.Namespace,
 				Name:      entry.Name,
-			}, &router.ResponseWrapper{}, creds)
+			}, creds)
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantDeletes, creds.deletes)
