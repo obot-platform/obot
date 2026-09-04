@@ -127,6 +127,31 @@ describe('MCP Servers Page', () => {
 		});
 
 		describe('ellipsis menu actions', () => {
+			it('loads the full catalog entry before showing a deployment diff', async () => {
+				const fullDescription = 'Full description loaded for the deployment diff';
+				const toolDescription = 'Full tool preview loaded for the deployment diff';
+				worker.use(
+					http.get('/api/all-mcps/entries/:entryID', ({ params }) => {
+						const entry = fixtures.entries.find((candidate) => candidate.id === params.entryID);
+						return HttpResponse.json({
+							...entry,
+							manifest: {
+								...entry?.manifest,
+								description: fullDescription,
+								toolPreview: [{ name: 'full_tool', description: toolDescription }]
+							}
+						});
+					})
+				);
+
+				await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
+				await page.getByRole('button', { name: 'View Diff', exact: true }).click();
+
+				const diffDialog = page.getByRole('dialog').filter({ hasText: 'New Version' });
+				await expect.element(diffDialog).toHaveTextContent(fullDescription);
+				await expect.element(diffDialog).toHaveTextContent(toolDescription);
+			});
+
 			it('renders and sanitizes a catalog upgrade note in single confirmation', async () => {
 				await openRowActions(fixtures.serverSingleNeedsUpdate.manifest.name!);
 				await page.getByRole('button', { name: 'Update Server', exact: true }).click();
