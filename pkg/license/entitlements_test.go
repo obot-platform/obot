@@ -37,3 +37,22 @@ func TestMissingAndRequire(t *testing.T) {
 		t.Fatalf("Require() status = %d, want %d", httpErr.Code, http.StatusPaymentRequired)
 	}
 }
+
+func TestGetDistributionFromEntitlements(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		entitlements []string
+		want         types.ProductTelemetryDistribution
+	}{
+		{name: "unregistered", want: types.ProductTelemetryDistributionUnregistered},
+		{name: "registered", entitlements: []string{CommunityEntitlement}, want: types.ProductTelemetryDistributionRegistered},
+		{name: "enterprise", entitlements: []string{CommunityEntitlement, EnterpriseEntitlement}, want: types.ProductTelemetryDistributionEnterprise},
+		{name: "cloud", entitlements: []string{CommunityEntitlement, EnterpriseEntitlement, CloudEntitlement}, want: types.ProductTelemetryDistributionCloud},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if got := GetDistributionFromEntitlements(test.entitlements); got != test.want {
+				t.Fatalf("GetDistributionFromEntitlements() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
