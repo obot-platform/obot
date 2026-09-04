@@ -215,3 +215,41 @@ func TestEnsureServerReadyHealthzPathWaitsForOK(t *testing.T) {
 		t.Fatalf("expected two healthz calls, got %d", calls)
 	}
 }
+
+func TestMMMCPConfigDisablesNPXAudit(t *testing.T) {
+	tests := []struct {
+		name    string
+		runtime types.Runtime
+		want    bool
+	}{
+		{
+			name:    "npx",
+			runtime: types.RuntimeNPX,
+			want:    true,
+		},
+		{
+			name:    "uvx",
+			runtime: types.RuntimeUVX,
+			want:    false,
+		},
+		{
+			name:    "containerized",
+			runtime: types.RuntimeContainerized,
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := MMMCPConfig(ServerConfig{
+				MCPServerName: "test-server",
+				Runtime:       tt.runtime,
+			}, nil)
+
+			_, got := config.Servers[0].Env["NPM_CONFIG_AUDIT"]
+			if got != tt.want {
+				t.Fatalf("NPM_CONFIG_AUDIT present = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

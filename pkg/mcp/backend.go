@@ -315,6 +315,13 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		completeEnv[k] = string(v)
 	}
 
+	if server.Runtime == types.RuntimeNPX {
+		// npx audits the installed tree against the registry before it execs the server. The
+		// result is only logged, nothing here can act on it, and the audit endpoint is
+		// intermittently unresponsive.
+		completeEnv["NPM_CONFIG_AUDIT"] = "false"
+	}
+
 	componentName := replacer.Replace(serverName)
 
 	config.Servers = []mmmcpconfig.Server{{
