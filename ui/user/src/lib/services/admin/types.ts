@@ -706,7 +706,6 @@ export interface RemoteRuntimeConfigAdmin {
 }
 export interface RemoteCatalogConfigAdmin {
 	fixedURL?: string;
-	headers?: MCPCatalogEntryFieldManifest[];
 	hostname?: string;
 	staticOAuthRequired?: boolean;
 	tunnelName?: string;
@@ -725,7 +724,6 @@ export interface MCPCatalogEntryServerManifest {
 	upgradeNote?: string;
 	icon?: string;
 	config?: MCPConfig[];
-	env?: MCPCatalogEntryFieldManifest[];
 	repoURL?: string;
 	name?: string;
 	shortDescription?: string;
