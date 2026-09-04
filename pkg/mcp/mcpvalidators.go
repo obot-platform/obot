@@ -882,6 +882,13 @@ func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest ty
 			Message: "expected composite runtime",
 		}
 	}
+	if len(manifest.Env) > 0 {
+		return types.RuntimeValidationError{
+			Runtime: types.RuntimeComposite,
+			Field:   "env",
+			Message: "environment variables must be configured on component servers",
+		}
+	}
 
 	if manifest.CompositeConfig == nil {
 		return types.RuntimeValidationError{

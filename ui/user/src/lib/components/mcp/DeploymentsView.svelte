@@ -436,6 +436,19 @@
 		return prompted;
 	}
 
+	async function showDeploymentDiff(server: MCPCatalogServer) {
+		if (!server.catalogEntryID) return;
+
+		try {
+			const catalogEntry = await UserService.getMCP(server.catalogEntryID);
+			existingServer = server;
+			updatedServer = catalogEntry;
+			diffDialog?.open();
+		} catch (error) {
+			console.error('Failed to load catalog entry for deployment diff:', error);
+		}
+	}
+
 	function upgradeNotesForConfirmation() {
 		const servers =
 			showUpgradeConfirm?.type === 'single'
@@ -846,13 +859,11 @@
 									<button
 										class="menu-button-primary"
 										disabled={updating[d.id]?.inProgress || readonly || !!d.compositeName}
-										onclick={(e) => {
+										onclick={async (e) => {
 											e.stopPropagation();
 											if (!d.catalogEntryID) return;
 
-											existingServer = d;
-											updatedServer = entriesMap[d.catalogEntryID];
-											diffDialog?.open();
+											await showDeploymentDiff(d);
 											toggle(false);
 										}}
 									>

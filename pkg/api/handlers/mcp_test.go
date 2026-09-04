@@ -12,6 +12,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	mcpservercontroller "github.com/obot-platform/obot/pkg/controller/handlers/mcpserver"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -1547,6 +1548,58 @@ func TestServerManifestFromCatalogEntryManifestAllowsMissingCompositeRemoteHostn
 	require.NotNil(t, component.Manifest.RemoteConfig)
 	assert.Equal(t, "api.example.com", component.Manifest.RemoteConfig.Hostname)
 	assert.Empty(t, component.Manifest.RemoteConfig.URL)
+}
+
+func TestCompositeCatalogEntryTopLevelEnvIsRejectedBeforeItCausesDrift(t *testing.T) {
+	entryManifest := types.MCPServerCatalogEntryManifest{
+		Runtime:        types.RuntimeComposite,
+		ServerUserType: types.ServerUserTypeSingleUser,
+		Env: []types.MCPEnv{
+			{
+				Key:      "UNUSED_API_KEY",
+				Name:     "Unused API Key",
+				Required: true,
+			},
+		},
+		CompositeConfig: &types.CompositeCatalogConfig{
+			ComponentServers: []types.CatalogComponentServer{
+				{
+					CatalogEntryID: "component-entry",
+					Manifest: types.MCPServerCatalogEntryManifest{
+						Runtime: types.RuntimeNPX,
+						NPXConfig: &types.NPXRuntimeConfig{
+							Package: "component-package",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	serverManifest, err := serverManifestFromCatalogEntryManifest(
+		false,
+		false,
+		entryManifest,
+		types.MCPServerManifest{},
+	)
+	require.NoError(t, err)
+	require.Empty(t, serverManifest.Env)
+
+	drifted, err := mcpservercontroller.ConfigurationHasDrifted(
+		t.Context(),
+		nil,
+		&v1.MCPServer{Spec: v1.MCPServerSpec{Manifest: serverManifest}},
+		entryManifest,
+		false,
+	)
+	require.NoError(t, err)
+	require.True(t, drifted)
+
+	require.Equal(t, types.RuntimeValidationError{
+		Runtime: types.RuntimeComposite,
+		Field:   "env",
+		Message: "environment variables must be configured on component servers",
+	}, mcp.ValidateCatalogEntryManifest(t.Context(), entryManifest, false, mcp.ValidationOptions{}))
 }
 
 func TestAddExtractedEnvVarsToCatalogEntryRecursesIntoCompositeComponents(t *testing.T) {
