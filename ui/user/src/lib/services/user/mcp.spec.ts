@@ -1,5 +1,10 @@
-import type { MCPConfigurationOption, MCPSubField, RuntimeFormData } from '$lib/services';
-import { validateRuntimeForm } from './mcp';
+import type {
+	MCPCatalogEntry,
+	MCPConfigurationOption,
+	MCPSubField,
+	RuntimeFormData
+} from '$lib/services';
+import { hasEditableConfiguration, isCatalogStaticField, validateRuntimeForm } from './mcp';
 import { describe, expect, it } from 'vitest';
 
 function runtimeForm(options: MCPConfigurationOption[]): RuntimeFormData {
@@ -114,5 +119,82 @@ describe('validateRuntimeForm configuration options', () => {
 
 		expect(validateRuntimeForm(withValue, 'hosted').required.env).toBe(true);
 		expect(validateRuntimeForm(withSecretBinding, 'hosted').required.env).toBe(true);
+	});
+});
+
+describe('catalog static configuration', () => {
+	it('recognizes redacted configured values as static', () => {
+		expect(isCatalogStaticField({ value: '', valueConfigured: true })).toBe(true);
+	});
+
+	it('does not treat a configured static field as editable', () => {
+		const entry = {
+			isCatalogEntry: true,
+			manifest: {
+				runtime: 'npx',
+				serverUserType: 'singleUser',
+				env: [
+					{
+						key: 'SECRET_KEY',
+						name: 'Static Secret',
+						description: '',
+						value: '',
+						valueConfigured: true,
+						required: false,
+						sensitive: true
+					}
+				]
+			}
+		} as MCPCatalogEntry;
+
+		expect(hasEditableConfiguration(entry)).toBe(false);
+	});
+
+	it('keeps other fields editable when a catalog also has static configuration', () => {
+		const entry = {
+			isCatalogEntry: true,
+			manifest: {
+				runtime: 'npx',
+				serverUserType: 'singleUser',
+				env: [
+					{
+						key: 'GREETING',
+						value: '',
+						valueConfigured: false,
+						required: true,
+						sensitive: false
+					},
+					{
+						key: 'SECRET_KEY',
+						value: '',
+						valueConfigured: true,
+						required: false,
+						sensitive: true
+					}
+				]
+			}
+		} as MCPCatalogEntry;
+
+		expect(hasEditableConfiguration(entry)).toBe(true);
+	});
+
+	it('does not treat a deployed server static field as editable', () => {
+		const server = {
+			configured: true,
+			manifest: {
+				runtime: 'npx',
+				env: [
+					{
+						key: 'SECRET_KEY',
+						value: '',
+						valueConfigured: true,
+						required: true,
+						sensitive: true
+					}
+				]
+			}
+		} as unknown as Parameters<typeof hasEditableConfiguration>[0];
+
+		expect(hasEditableConfiguration(server)).toBe(false);
 	});
 });

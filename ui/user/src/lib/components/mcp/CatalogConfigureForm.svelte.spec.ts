@@ -1,5 +1,5 @@
 import type { MCPSubField } from '$lib/services';
-import CatalogConfigureForm from './CatalogConfigureForm.svelte';
+import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
@@ -63,6 +63,43 @@ const scenarios = [
 ];
 
 describe('CatalogConfigureForm.svelte configuration options', () => {
+	it('shows user-supplied fields and hides configured static fields', async () => {
+		const result = await render(CatalogConfigureForm, {
+			form: undefined,
+			name: 'Catalog server',
+			animate: null
+		});
+		await result.rerender({
+			form: {
+				envs: [
+					{
+						key: 'GREETING',
+						name: 'Greeting',
+						description: 'Greeting description',
+						value: '',
+						required: true,
+						sensitive: false,
+						isStatic: false
+					},
+					{
+						key: 'SECRET_KEY',
+						name: 'Static Secret',
+						description: 'Static secret description',
+						value: '',
+						valueConfigured: true,
+						required: false,
+						sensitive: true,
+						isStatic: true
+					}
+				]
+			} as unknown as LaunchFormData
+		});
+		await result.component.open();
+
+		await expect.element(page.getByRole('textbox', { name: 'Greeting' })).toBeVisible();
+		await expect.element(page.getByText('Static Secret', { exact: true })).not.toBeInTheDocument();
+	});
+
 	it.each(scenarios)('handles $name options', async ({ form, id, label }) => {
 		const onSave = vi.fn();
 		const result = await render(CatalogConfigureForm, {

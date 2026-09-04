@@ -14,6 +14,7 @@
 		convertEnvHeadersToRecord,
 		hasEditableConfiguration,
 		hasSecretBinding,
+		isCatalogStaticField,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
 	import { ExternalLink, SettingsIcon, ShieldAlertIcon } from '@lucide/svelte';
@@ -180,12 +181,12 @@
 					envs: nextConsent.mcpServer.manifest.env?.map((env) => ({
 						...env,
 						value: values[env.key] ?? '',
-						isStatic: Boolean(env.value)
+						isStatic: isCatalogStaticField(env)
 					})),
 					headers: nextConsent.mcpServer.manifest.remoteConfig?.headers?.map((header) => ({
 						...header,
 						value: values[header.key] ?? '',
-						isStatic: Boolean(header.value)
+						isStatic: isCatalogStaticField(header)
 					})),
 					url: nextConsent.mcpServer.manifest.remoteConfig?.url,
 					hostname: nextConsent.mcpServer.manifest.remoteConfig?.hostname

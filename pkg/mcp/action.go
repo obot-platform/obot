@@ -148,6 +148,16 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 		}
 		AddExtractedEnvVarsToCatalogEntry(&entry)
 
+		var catalogStaticSecrets map[string]string
+		if CatalogHasSensitiveStaticConfiguration(&entry.Spec.Manifest) {
+			var err error
+			catalogStaticSecrets, err = StaticCredentialSecrets(ctx, sm.gatewayClient, CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
+			if err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to reveal static configuration for catalog entry %s: %w", id, err)
+			}
+			entry.Spec.Manifest = HydrateStaticCatalogConfiguration(entry.Spec.Manifest, catalogStaticSecrets)
+		}
+
 		var servers v1.MCPServerList
 		if err := sm.storageClient.List(ctx, &servers,
 			kclient.InNamespace(system.DefaultNamespace),
@@ -197,8 +207,15 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
+			serverStaticSecrets := ExtractStaticServerConfiguration(&server.Spec.Manifest, nil, true)
 			if err := sm.storageClient.Create(ctx, &server); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
+			}
+			if len(serverStaticSecrets) > 0 {
+				if err := StoreStaticCredentialSecrets(ctx, sm.gatewayClient, serverCredentialContext(serverScope(server), server.Name), server.Name, serverStaticSecrets); err != nil {
+					_ = sm.storageClient.Delete(ctx, &server)
+					return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to store static configuration for MCP server %s: %w", server.Name, err)
+				}
 			}
 
 			if server.Spec.Manifest.Runtime == types.RuntimeComposite &&
@@ -307,24 +324,10 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
 
-	var (
-		credCtxs []string
-		scope    string
-	)
-	if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		scope = server.Spec.MCPCatalogID
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-		scope = server.Spec.PowerUserWorkspaceID
-	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-		scope = server.Spec.UserID
-	}
-
 	addExtractedEnvVars(&server)
 
-	credEnv, err := sm.runtimeCredentials(ctx, credCtxs[0], server.Name)
+	scope := serverScope(server)
+	credEnv, err := sm.runtimeCredentials(ctx, serverCredentialContext(scope, server.Name), server.Name)
 	if err != nil {
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -390,6 +393,20 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 
 func (sm *SessionManager) runtimeCredentials(ctx context.Context, credentialContext, serverName string) (map[string]string, error) {
 	return RuntimeCredentialSecrets(ctx, sm.gatewayClient, credentialContext, serverName)
+}
+
+func serverScope(server v1.MCPServer) string {
+	if server.Spec.MCPCatalogID != "" {
+		return server.Spec.MCPCatalogID
+	}
+	if server.Spec.PowerUserWorkspaceID != "" {
+		return server.Spec.PowerUserWorkspaceID
+	}
+	return server.Spec.UserID
+}
+
+func serverCredentialContext(scope, serverName string) string {
+	return fmt.Sprintf("%s-%s", scope, serverName)
 }
 
 func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]Webhook, error) {
