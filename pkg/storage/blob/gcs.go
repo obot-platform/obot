@@ -77,7 +77,7 @@ func (g *GCSStore) Test(ctx context.Context) error {
 
 func (g *GCSStore) createClient(ctx context.Context) (*gcsstorage.Client, error) {
 	if g.config.ServiceAccountJSON != "" {
-		return gcsstorage.NewClient(ctx, option.WithCredentialsJSON([]byte(g.config.ServiceAccountJSON)))
+		return gcsstorage.NewClient(ctx, option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(g.config.ServiceAccountJSON)))
 	}
 	return gcsstorage.NewClient(ctx)
 }
