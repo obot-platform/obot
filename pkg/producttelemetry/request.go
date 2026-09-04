@@ -11,7 +11,6 @@ import (
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
-	"github.com/obot-platform/obot/pkg/mcp"
 	storagev1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/upgrade"
@@ -61,17 +60,10 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 		LicenseMachineID: licenseMachineID.Value,
 		ReportedAt:       reportedAt,
 		Distribution:     distribution,
-		Engine:           normalizeEngine(engine),
+		Engine:           engine,
 		CurrentVersion:   version.Get().String(),
 		Metrics:          &metrics,
 	}, nil
-}
-
-func normalizeEngine(engine string) string {
-	if mcp.IsKubernetesBackend(engine) {
-		return mcp.RuntimeBackendKubernetes
-	}
-	return engine
 }
 
 // collectMetrics gathers usage and inventory metrics, leaving fields nil when their source is unavailable.

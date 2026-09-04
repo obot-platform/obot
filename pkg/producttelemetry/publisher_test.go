@@ -9,6 +9,7 @@ import (
 	"time"
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 )
 
 type consentReaderFunc func(context.Context) (*bool, error)
@@ -51,6 +52,13 @@ func TestNextDailyReportTime(t *testing.T) {
 				t.Fatalf("nextDailyReportTime(%v) = %v, want %v", testCase.now, got, testCase.want)
 			}
 		})
+	}
+}
+
+func TestNewPublisherNormalizesEngine(t *testing.T) {
+	publisher := newPublisher(nil, nil, nil, nil, "", "k8s", nil)
+	if publisher.engine != mcp.RuntimeBackendKubernetes {
+		t.Fatalf("engine = %q, want %q", publisher.engine, mcp.RuntimeBackendKubernetes)
 	}
 }
 

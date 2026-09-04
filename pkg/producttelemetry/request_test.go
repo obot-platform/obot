@@ -170,7 +170,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	)
 
 	before := time.Now().UTC()
-	report, err := buildRequest(t.Context(), gateway, storageClient, testEntitlements(license.CommunityEntitlement), "/built-ins", "k8s")
+	report, err := buildRequest(t.Context(), gateway, storageClient, testEntitlements(license.CommunityEntitlement), "/built-ins", "kubernetes")
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
