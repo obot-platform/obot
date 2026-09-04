@@ -1148,6 +1148,30 @@ export interface SkillAccessPolicyManifest {
 	resources: SkillAccessPolicyResource[];
 }
 
+export interface VMcpRepository {
+	id: string;
+	created: string;
+	deleted?: string;
+	displayName: string;
+	repoURL: string;
+	ref: string;
+	lastSyncTime?: string;
+	isSyncing: boolean;
+	syncError?: string;
+	resolvedCommitSHA?: string;
+	discoveredVMcpCount: number;
+	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
+}
+
+export interface VMcpRepositoryManifest {
+	displayName: string;
+	repoURL: string;
+	ref: string;
+	sourceURLCredentials?: Record<string, string>;
+	gitCredentialID?: string;
+}
+
 // Agent sources
 
 export interface AgentCatalogManifest {

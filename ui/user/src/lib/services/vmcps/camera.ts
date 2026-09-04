@@ -54,19 +54,18 @@ export function fitCamera(
 }
 
 /**
- * Where the canvas opens: actual size, top of the world in view. Centered horizontally only when
- * the world fits, so a wide world still starts at its left edge rather than off-screen.
+ * Where the canvas opens: actual size, centered in the viewport. A world too large to fit anchors
+ * at `padding` on that axis, so its top-left corner stays in view rather than going off-screen.
  */
 export function defaultCamera(
 	viewport: { width: number; height: number },
-	world: { width: number },
+	world: { width: number; height: number },
 	padding = 32
 ): Camera {
-	const overflows = world.width + padding * 2 > viewport.width;
 	return {
 		zoom: 1,
-		x: overflows ? padding : (viewport.width - world.width) / 2,
-		y: padding
+		x: Math.max(padding, (viewport.width - world.width) / 2),
+		y: Math.max(padding, (viewport.height - world.height) / 2)
 	};
 }
 

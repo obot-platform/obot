@@ -22,6 +22,7 @@
 	import ConfirmAuditorRoleDialog from './ConfirmAuditorRoleDialog.svelte';
 	import ConfirmOwnerRoleDialog from './ConfirmOwnerRoleDialog.svelte';
 	import ConfirmUserImpersonationRoleDialog from './ConfirmUserImpersonationRoleDialog.svelte';
+	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import type { GroupAssignment } from './types';
 	import { debounce } from 'es-toolkit';
 	import { untrack } from 'svelte';
@@ -84,6 +85,7 @@
 
 	type TableItem = (typeof filteredGroups)[0];
 
+	let currentAccessDialog = $state<ReturnType<typeof CurrentAccessDialog>>();
 	let updatingRole = $state<TableItem>();
 	let deletingGroup = $state<TableItem>();
 	let showAddAssignment = $state(false);
@@ -190,8 +192,20 @@
 					{/snippet}
 
 					{#snippet actions(d)}
-						{#if !isAdminReadonly}
-							<DotDotDot>
+						<DotDotDot>
+							<button
+								class="menu-button"
+								onclick={() => {
+									currentAccessDialog?.open({
+										kind: 'group',
+										id: d.id,
+										name: d.name
+									});
+								}}
+							>
+								View Access Policies
+							</button>
+							{#if !isAdminReadonly}
 								<button
 									class="menu-button"
 									disabled={!profile.current.groups.includes(Group.OWNER) &&
@@ -213,14 +227,16 @@
 										Remove Role Assignment
 									</button>
 								{/if}
-							</DotDotDot>
-						{/if}
+							{/if}
+						</DotDotDot>
 					{/snippet}
 				</Table>
 			</div>
 		</div>
 	</div>
 </div>
+
+<CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
 	title="Confirm Role Removal"

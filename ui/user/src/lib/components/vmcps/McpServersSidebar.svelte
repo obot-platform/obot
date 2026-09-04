@@ -60,6 +60,7 @@
 	let eligibleEntries = $derived(
 		mcpServersAndEntries.current.entries.filter(
 			(entry) =>
+				entry.manifest.runtime !== 'vmcp' &&
 				(settings.showDeprecatedServers || !isDeprecatedMCPServer(entry)) &&
 				(showAllConnectors || !isWorkspaceOwned(entry))
 		)
@@ -174,11 +175,11 @@
 <div
 	bind:this={panelEl}
 	class={twMerge(
-		'bg-base-100 dark:bg-base-300 border-base-300 overflow-y-auto border-l flex',
+		'bg-base-100 dark:bg-base-200 border-base-300 overflow-y-auto border-l flex',
 		responsive.isMobile
 			? 'fixed z-40 h-[calc(100dvh-4rem)] w-dvw top-16 right-0'
 			: 'static max-h-dvh',
-		open ? (responsive.isMobile ? 'w-dvw' : 'w-4xl') : 'w-10'
+		open ? (responsive.isMobile ? 'w-dvw' : 'w-4xl') : 'w-11'
 	)}
 >
 	<button
@@ -203,7 +204,7 @@
 			)}
 		/>
 	</button>
-	<div class="h-full flex flex-col grow" in:fly={{ x: 100 }}>
+	<div class="h-full flex flex-col grow" in:fly={{ x: 100, duration: 150 }}>
 		{#if open}
 			{@render selectionScreen()}
 		{/if}
@@ -213,12 +214,12 @@
 {#snippet selectionScreen()}
 	<div
 		id="mcp-server-selection-screen"
-		class="flex w-full min-w-0 flex-col overflow-y-auto pl-2 pr-4 pb-4"
+		class="flex w-full min-w-0 flex-col overflow-y-auto pl-2 pr-2 pb-4"
 	>
-		<div class="sticky z-10 top-0 left-0 w-full bg-base-100 dark:bg-base-300 px-0 py-4">
+		<div class="sticky z-10 top-0 left-0 w-full bg-base-100 dark:bg-base-200 px-0 py-4">
 			<Search
 				value={query}
-				class="text-sm"
+				class="text-sm dark:bg-base-100 shadow-inner"
 				placeholder="Search MCP servers..."
 				onChange={onSearch}
 			/>
@@ -229,7 +230,7 @@
 					class="flex grow items-center"
 				>
 					<span
-						class="text-sm font-light h-10 shrink-0 px-4 border border-base-300 dark:border-base-200 borded-r-none rounded-l-sm flex items-center justify-center"
+						class="text-sm font-light h-10 shrink-0 px-4 border border-base-300 dark:border-base-100 borded-r-none rounded-l-sm flex items-center justify-center"
 					>
 						Sort by
 					</span>
@@ -239,7 +240,7 @@
 						bind:selected={sortBy}
 						placeholder="Sort by"
 						ariaLabelledby="mcp-server-sort-by-label"
-						class="text-sm bg-base-200 dark:bg-base-200 shadow-inner! rounded-l-none rounded-r-sm"
+						class="text-sm bg-base-200 dark:bg-base-100 shadow-inner! rounded-l-none rounded-r-sm"
 						classes={{ root: 'w-full', option: 'text-sm' }}
 					/>
 				</label>
@@ -277,8 +278,8 @@
 		id="mcp-create-catalog-entry-button"
 		type="button"
 		class={twMerge(
-			'group w-full bg-base-100 dark:bg-base-300 border-dashed flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
-			'hover:bg-base-300 dark:hover:bg-base-200 border-base-300 dark:border-base-400',
+			'group w-full bg-base-100 dark:bg-base-200 border-dashed flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
+			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
 			drag.isDraggingNewEntry && 'cursor-grabbing opacity-30'
 		)}
 		aria-label="Create a new entry, or drag it onto a vMCP or Create vMCP"
@@ -359,8 +360,8 @@
 		id={`mcp-server-card-${entry.id}`}
 		type="button"
 		class={twMerge(
-			'w-full bg-base-100 dark:bg-base-300 flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
-			'hover:bg-base-300 dark:hover:bg-base-200 border-base-300 dark:border-base-400',
+			'w-full bg-base-100 dark:bg-base-200 flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
+			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
 			dragging && 'cursor-grabbing opacity-30'
 		)}
 		aria-label={`View ${entry.manifest.name ?? 'server'} details, or drag it onto a vMCP or Create vMCP`}

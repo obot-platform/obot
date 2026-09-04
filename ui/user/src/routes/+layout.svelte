@@ -11,6 +11,7 @@
 		version,
 		mcpServersAndEntries,
 		mcpTunnelConnections,
+		vmcpInstances,
 		defaultModelAliases,
 		userDeviceSettings,
 		license,
@@ -127,6 +128,13 @@
 
 		if (profile.current.loaded && usesMcpTunnelStatus) {
 			return mcpTunnelConnections.startPolling();
+		}
+	});
+
+	$effect(() => {
+		const onVmcps = page.url.pathname === '/vmcps' || page.url.pathname.startsWith('/vmcps/');
+		if (profile.current.loaded && onVmcps) {
+			return vmcpInstances.startWatching();
 		}
 	});
 </script>

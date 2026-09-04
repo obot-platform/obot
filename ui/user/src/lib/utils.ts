@@ -439,3 +439,14 @@ export function parseSchedulingResources(resources?: string) {
 
 	return result;
 }
+
+export function isInteractiveChildEvent(e: MouseEvent | KeyboardEvent) {
+	if (!(e.target instanceof Element)) {
+		return false;
+	}
+
+	const interactiveElement = e.target.closest(
+		'a, button, input, select, textarea, [role="button"]'
+	);
+	return interactiveElement !== null && interactiveElement !== e.currentTarget;
+}

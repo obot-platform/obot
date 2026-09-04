@@ -20,11 +20,9 @@ export const SHORT_DESCRIPTION_MAX_LENGTH = 160;
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 1.5;
 export const ZOOM_STEP = 1.2;
-export const VMCP_ROW_GAP = 40;
 export const VMCP_COLLAPSED_ROW_HEIGHT = 236;
 export const VMCP_CARD_HEIGHT = 236;
 export const VMCP_COMPONENT_HEIGHT = 148;
-export const VMCP_CREATE_HEIGHT = 168;
 export const VMCP_COMPONENT_WINDOW_THRESHOLD = 15;
 export const VMCP_OVERSCAN_ROWS = 2;
 

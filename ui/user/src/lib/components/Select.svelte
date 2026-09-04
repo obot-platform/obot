@@ -29,6 +29,7 @@
 		displayCount?: boolean;
 		ariaLabelledby?: string;
 		ariaDescribedby?: string;
+		invalid?: boolean;
 	}
 </script>
 
@@ -63,7 +64,8 @@
 		buttonTitle,
 		displayCount,
 		ariaLabelledby,
-		ariaDescribedby
+		ariaDescribedby,
+		invalid
 	}: SelectProps<T> = $props();
 
 	const selectedValues = $derived.by(() => {
@@ -167,10 +169,12 @@
 			aria-haspopup="listbox"
 			aria-expanded={popover?.matches(':popover-open') ?? false}
 			aria-controls={`${id}-popover`}
+			aria-invalid={invalid || undefined}
 			class={twMerge(
 				'dark:bg-base-200 text-md bg-base-100 flex min-h-10 w-full grow cursor-pointer resize-none items-center gap-2 rounded-lg px-2 py-2 text-left shadow-sm',
 				disabled && 'pointer-events-none cursor-default opacity-50',
 				multiple && 'flex-wrap',
+				invalid && 'border border-error bg-error/20 ring-error ring-1',
 				klass
 			)}
 			style={`anchor-name: --${id}-anchor;`}

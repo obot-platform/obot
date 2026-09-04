@@ -51,7 +51,7 @@
 	interface Props {
 		form?: LaunchFormData | CompositeLaunchFormData;
 		name?: string;
-		icon?: string;
+		icon?: string | Snippet;
 		onSave?: () => void;
 		onCancel?: () => void;
 		onClose?: () => void;
@@ -93,10 +93,10 @@
 		disableOutsideClick,
 		displayDescriptionInline,
 		configurationTitle,
+		showComponentToggle = true,
 		secretBindingTargets,
 		disableEnvSecretBindings,
 		deprecated,
-		showComponentToggle = true,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -405,7 +405,7 @@
 			isOpen = false;
 		}
 	}}
-	class={isCompositeForm(form) ? 'bg-base-200 dark:bg-base-100' : ''}
+	class={isCompositeForm(form) ? 'bg-base-200' : ''}
 	disableClickOutside={loading}
 	hideClose={loading}
 	classes={{
@@ -415,8 +415,10 @@
 	{#snippet titleContent()}
 		<div class="flex items-center gap-2">
 			<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
-				{#if icon}
+				{#if typeof icon === 'string'}
 					<img src={icon} alt={name} class="size-8" />
+				{:else if icon}
+					{@render icon()}
 				{:else}
 					<Server class="size-8" />
 				{/if}
@@ -496,7 +498,7 @@
 								{@const headers = getNonStaticServerFields(comp.headers)}
 								{@const envs = getNonStaticServerFields(comp.envs)}
 
-								<div class="border-t border-base-300 p-3">
+								<div class="border-t border-base-300 p-3 flex flex-col gap-2">
 									<McpDeprecatedNotice
 										deprecated={comp.deprecated}
 										variant="notification"

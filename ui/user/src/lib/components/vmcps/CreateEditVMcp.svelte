@@ -2,45 +2,59 @@
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type VMCP, type VMCPComponent, type VMCPManifest } from '$lib/services';
-	import { initVMcp } from '$lib/services/vmcps/utils';
+	import { UserService, type VMCP, type VMCPComponent } from '$lib/services';
+	import { initVMcp, vmcpManifest, type VMcpFormData } from '$lib/services/vmcps/utils';
 	import { errors } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import { Trash2 } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onCreated?: (created: VMCP) => void | Promise<void>;
-		onChanged?: (changed: VMCP) => void | Promise<void>;
-		onDeleted?: (id: string) => void | Promise<void>;
+		onDeleted?: (deleted: VMCP) => void | Promise<void>;
+		onUpdated?: (updated: VMCP) => void | Promise<void>;
 	}
 
-	let { onCreated, onChanged, onDeleted }: Props = $props();
+	let { onCreated, onDeleted, onUpdated }: Props = $props();
 
-	let creatingVMcp = $state<VMCPManifest>(initVMcp());
+	let creatingVMcp = $state<VMcpFormData>(initVMcp());
+	let creatingComponents = $state<VMCPComponent[]>([]);
 	let showRequired = $state<Record<string, boolean>>({});
 	let saving = $state(false);
 
 	let createVMcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let editVMcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedVMcp = $state<VMCP>();
-	let editingVMcp = $state<VMCPManifest>();
+	let editingVMcp = $state<VMcpFormData>();
+
 	let confirmDeleteVMcp = $state<VMCP>();
 	let deletingVMcp = $state(false);
 
-	function validateManifest(manifest: VMCPManifest) {
+	async function handleCreateVMcp() {
 		showRequired = {};
-		if (!manifest.displayName.trim()) showRequired.displayName = true;
-		if (!manifest.description?.trim()) showRequired.description = true;
-		return Object.keys(showRequired).length === 0;
+		if (creatingVMcp.displayName.trim() === '') {
+			showRequired.displayName = true;
+		}
+
+		if (!creatingVMcp.description || creatingVMcp.description.trim() === '') {
+			showRequired.description = true;
+		}
+
+		if (Object.keys(showRequired).length > 0) {
+			return;
+		}
+
+		await saveVMcp();
 	}
 
-	async function handleCreateVMcp() {
-		if (!validateManifest(creatingVMcp)) return;
-
+	async function saveVMcp() {
 		saving = true;
 		try {
-			const created = await UserService.createVMCP(creatingVMcp);
+			const created = await UserService.createVMCP({
+				displayName: creatingVMcp.displayName.trim(),
+				description: creatingVMcp.description.trim(),
+				components: creatingComponents
+			});
+
 			success.add(`${created.displayName} vMCP added.`);
 			closeCreate();
 			await onCreated?.(created);
@@ -54,43 +68,37 @@
 	export function openCreate(components: VMCPComponent[] = []) {
 		if (saving) return;
 		closeEdit();
-		creatingVMcp = {
-			...initVMcp(),
-			components: [...components]
-		};
+		creatingComponents = components;
+		creatingVMcp = initVMcp();
 
 		if (components.length === 1) {
-			const manifest = components[0].catalogEntry.manifest;
-			creatingVMcp.displayName =
-				components[0].name || manifest.name || components[0].mcpServerCatalogEntryID;
-			creatingVMcp.description = manifest.shortDescription || manifest.description;
+			creatingVMcp.displayName = components[0].name ?? '';
+			creatingVMcp.description = components[0].catalogEntry?.manifest?.shortDescription ?? '';
 		}
 
 		showRequired = {};
 		createVMcpDialog?.open();
 	}
 
-	function closeCreate() {
-		creatingVMcp = initVMcp();
-		showRequired = {};
-		createVMcpDialog?.close();
+	export function openDelete(vmcp: VMCP) {
+		selectedVMcp = vmcp;
+		confirmDeleteVMcp = vmcp;
 	}
 
-	function vmcpToManifest(vmcp: VMCP): VMCPManifest {
-		return {
-			displayName: vmcp.displayName,
-			description: vmcp.description,
-			icon: vmcp.icon,
-			components: vmcp.components,
-			profiles: vmcp.profiles,
-			forceSingleUser: vmcp.forceSingleUser
-		};
+	function closeCreate() {
+		creatingVMcp = initVMcp();
+		creatingComponents = [];
+		showRequired = {};
+		createVMcpDialog?.close();
 	}
 
 	export function openEdit(vmcp: VMCP) {
 		closeCreate();
 		selectedVMcp = vmcp;
-		editingVMcp = vmcpToManifest(vmcp);
+		editingVMcp = {
+			displayName: vmcp.displayName ?? '',
+			description: vmcp.description ?? ''
+		};
 		showRequired = {};
 		editVMcpDialog?.open();
 	}
@@ -105,13 +113,15 @@
 	async function handleDeleteVMcp() {
 		if (!confirmDeleteVMcp) return;
 
+		const deleted = confirmDeleteVMcp;
 		deletingVMcp = true;
 		try {
-			const id = confirmDeleteVMcp.id;
-			await UserService.deleteVMCP(id);
-			if (selectedVMcp?.id === id) closeEdit();
-			await onDeleted?.(id);
-			success.add(`${confirmDeleteVMcp.displayName} vMCP deleted.`);
+			await UserService.deleteVMCP(deleted.id);
+			if (selectedVMcp?.id === deleted.id) {
+				closeEdit();
+			}
+			success.add(`${deleted.displayName} vMCP deleted.`);
+			await onDeleted?.(deleted);
 		} catch {
 			errors.append('Failed to delete vMCP.');
 		} finally {
@@ -121,14 +131,27 @@
 	}
 
 	async function handleUpdateVMcp() {
-		if (!selectedVMcp || !editingVMcp || !validateManifest(editingVMcp)) return;
+		if (!selectedVMcp || !editingVMcp) return;
+
+		showRequired = {};
+		if (editingVMcp.displayName.trim() === '') {
+			showRequired.displayName = true;
+		}
+		if (!editingVMcp.description?.trim()) {
+			showRequired.description = true;
+		}
+		if (Object.keys(showRequired).length > 0) return;
 
 		saving = true;
 		try {
-			const updated = await UserService.updateVMCP(selectedVMcp.id, editingVMcp);
-			await onChanged?.(updated);
-			success.add(`${updated.displayName} vMCP updated.`);
+			const updatedVMcp = await UserService.updateVMCP(selectedVMcp.id, {
+				...vmcpManifest(selectedVMcp),
+				displayName: editingVMcp.displayName.trim(),
+				description: editingVMcp.description.trim()
+			});
+			success.add(`${updatedVMcp.displayName} vMCP updated.`);
 			closeEdit();
+			await onUpdated?.(updatedVMcp);
 		} catch {
 			errors.append('Failed to update vMCP.');
 		} finally {
@@ -202,8 +225,6 @@
 		{/if}
 	</div>
 
-	<p class="mt-3 text-xs">Add an MCP server before connecting to this vMCP.</p>
-
 	<div class="flex justify-end gap-2 mt-4">
 		<button class="btn btn-ghost btn-sm text-xs" onclick={closeCreate} disabled={saving}>
 			Cancel
@@ -218,12 +239,7 @@
 	</div>
 </ResponsiveDialog>
 
-<ResponsiveDialog
-	class="w-md"
-	bind:this={editVMcpDialog}
-	title={`Edit ${editingVMcp?.displayName ?? 'vMCP'}`}
-	onClose={closeEdit}
->
+<ResponsiveDialog class="w-md" bind:this={editVMcpDialog} title="Edit vMCP" onClose={closeEdit}>
 	{#if editingVMcp}
 		<div class="mb-4 flex flex-col gap-1">
 			<label
@@ -265,31 +281,17 @@
 			{/if}
 		</div>
 
-		<div class="divider mt-4 mb-2"></div>
-		<div class="flex items-center justify-between gap-2">
-			<button
-				class="btn btn-error btn-soft btn-sm"
-				onclick={() => {
-					if (!selectedVMcp) return;
-					editVMcpDialog?.close();
-					confirmDeleteVMcp = selectedVMcp;
-				}}
-				disabled={saving || deletingVMcp}
-			>
-				<Trash2 class="size-4" /> Delete
+		<div class="flex justify-end gap-2 mt-4">
+			<button class="btn btn-ghost btn-sm text-xs" onclick={closeEdit} disabled={saving}>
+				Cancel
 			</button>
-			<div class="flex gap-2">
-				<button class="btn btn-ghost btn-sm text-xs" onclick={closeEdit} disabled={saving}>
-					Cancel
-				</button>
-				<button class="btn btn-primary btn-sm text-xs" onclick={handleUpdateVMcp} disabled={saving}>
-					{#if saving}
-						<Loading class="text-primary-content size-4" />
-					{:else}
-						Save changes
-					{/if}
-				</button>
-			</div>
+			<button class="btn btn-primary btn-sm text-xs" onclick={handleUpdateVMcp} disabled={saving}>
+				{#if saving}
+					<Loading class="text-primary-content size-4" />
+				{:else}
+					Save
+				{/if}
+			</button>
 		</div>
 	{/if}
 </ResponsiveDialog>

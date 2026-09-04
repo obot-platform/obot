@@ -24,6 +24,7 @@
 		setFilterUrlParams
 	} from '$lib/url.js';
 	import { getUserRoleLabel, validateVersionUserLimit } from '$lib/utils';
+	import CurrentAccessDialog from './CurrentAccessDialog.svelte';
 	import { Handshake, Info, ShieldAlert } from '@lucide/svelte';
 	import { debounce } from 'es-toolkit';
 	import { untrack } from 'svelte';
@@ -60,6 +61,7 @@
 
 	type TableItem = (typeof tableData)[0];
 
+	let currentAccessDialog = $state<ReturnType<typeof CurrentAccessDialog>>();
 	let updateRoleDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let updatingRole = $state<TableItem>();
 	let deletingUser = $state<TableItem>();
@@ -254,8 +256,21 @@
 					{/if}
 				{/snippet}
 				{#snippet actions(d)}
-					{#if !isAdminReadonly}
-						<DotDotDot>
+					<DotDotDot>
+						<button
+							class="menu-button"
+							onclick={() => {
+								currentAccessDialog?.open({
+									kind: 'user',
+									id: d.id,
+									name: d.name,
+									groupIds: d.groups
+								});
+							}}
+						>
+							View Access Policies
+						</button>
+						{#if !isAdminReadonly}
 							<button
 								class="menu-button"
 								disabled={!profile.current.groups.includes(Group.OWNER) &&
@@ -275,13 +290,15 @@
 							>
 								Delete User
 							</button>
-						</DotDotDot>
-					{/if}
+						{/if}
+					</DotDotDot>
 				{/snippet}
 			</Table>
 		</div>
 	</div>
 </div>
+
+<CurrentAccessDialog bind:this={currentAccessDialog} />
 
 <Confirm
 	msg={`Delete user ${deletingUser?.email}?`}

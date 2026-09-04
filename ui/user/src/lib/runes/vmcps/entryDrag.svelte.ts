@@ -1,7 +1,6 @@
 import type { MCPCatalogEntry, VMCP } from '$lib/services';
 import { borderAnchor, buildWirePath, distanceToRect } from '../../services/vmcps/utils';
 import type { Action } from 'svelte/action';
-import type { Attachment } from 'svelte/attachments';
 
 export const CREATE_VMCP_DROP_ID = '__create__';
 
@@ -22,6 +21,10 @@ type DropTarget = {
 export interface EntryDragOptions {
 	vmcps: () => VMCP[];
 	panelEl: () => HTMLElement | undefined;
+	/** Graph canvas. A drag over this surface links to {@link canvasDropId} without a proximity check. */
+	canvasEl?: () => HTMLElement | undefined;
+	/** Selected vMCP id, or {@link CREATE_VMCP_DROP_ID} when the canvas is empty. */
+	canvasDropId?: () => string | undefined;
 	openEntry: (entry: MCPCatalogEntry) => void;
 	createEntry: (target?: { vmcp?: VMCP }) => void;
 	dropOnCreate: (entry: MCPCatalogEntry) => void;
@@ -83,6 +86,12 @@ export function createEntryDrag(options: EntryDragOptions) {
 		return x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
 	}
 
+	function isInside(el: HTMLElement | undefined, x: number, y: number) {
+		if (!el) return false;
+		const rect = el.getBoundingClientRect();
+		return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+	}
+
 	function dropTargets() {
 		const targets: DropTarget[] = [];
 		if (createEl) {
@@ -106,6 +115,26 @@ export function createEntryDrag(options: EntryDragOptions) {
 	function updateLinkTarget() {
 		if (!drag?.active || !isOutsidePanel(drag.x, drag.y)) {
 			clearLinkTarget();
+			return;
+		}
+
+		// A target the pointer sits directly on wins, so the create button and the component blocks
+		// drawn on the canvas stay droppable. Anywhere else on the canvas falls back to the canvas
+		// itself rather than making the user come within reach of a card.
+		const point = { x: drag.x, y: drag.y };
+		const hovered = dropTargets().find((target) => isInside(target.el, point.x, point.y));
+		if (hovered) {
+			linkedVMcpId = hovered.vmcpId;
+			linkedViaComponentsPanel = hovered.isComponentsPanel;
+			linkedComponentKey = hovered.componentKey;
+			return;
+		}
+
+		const canvasDropId = options.canvasDropId?.();
+		if (canvasDropId && isInside(options.canvasEl?.(), drag.x, drag.y)) {
+			linkedVMcpId = canvasDropId;
+			linkedViaComponentsPanel = false;
+			linkedComponentKey = undefined;
 			return;
 		}
 
@@ -220,17 +249,6 @@ export function createEntryDrag(options: EntryDragOptions) {
 		};
 	};
 
-	/**
-	 * Attachment form of {@link vmcpTarget}, for drop targets a parent can only reach through a
-	 * prop rather than a directive, such as a row rendered by a shared table component.
-	 */
-	const vmcpTargetAttachment =
-		(vmcpId: string): Attachment<HTMLElement> =>
-		(node) => {
-			const registered = vmcpTarget(node, vmcpId);
-			return () => registered?.destroy?.();
-		};
-
 	const componentTarget: Action<HTMLElement, ComponentTarget> = (node, target) => {
 		let current = `${target.vmcpId}::${target.key}`;
 		componentEls[current] = { target, el: node };
@@ -290,7 +308,6 @@ export function createEntryDrag(options: EntryDragOptions) {
 		pointerUp,
 		createTarget,
 		vmcpTarget,
-		vmcpTargetAttachment,
 		componentTarget
 	};
 }

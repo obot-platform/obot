@@ -12,6 +12,7 @@
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
+	import { fade } from 'svelte/transition';
 
 	interface Props {
 		component?: VMCPComponent;
@@ -253,74 +254,44 @@
 	bind:this={setupDialog}
 	animate="slide"
 	title={`Configure ${configuringEntry?.manifest.name ?? 'MCP Server'} Tools`}
-	class="md:w-sm"
+	class="md:w-md"
 	onClose={cancelSetup}
 >
 	{#if configuringEntry}
-		{#if !refresh && tools.length > 0}
-			<p class="text-muted-content mb-6 text-sm font-light">
-				Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog entry
-				is not queried while editing an existing component.
-			</p>
-		{:else if refresh}
-			<p class="text-muted-content mb-6 text-sm font-light">
-				Fetch tools using this component's stored configuration before editing.
-			</p>
-		{:else}
-			<p class="text-muted-content mb-6 text-sm font-light">
-				Fetch tools using this component's stored configuration before editing.
-			</p>
-		{/if}
-		<p class="mb-6 text-sm">
-			{tools.length > 0
-				? `${tools.length} cached tool${tools.length === 1 ? '' : 's'} available.`
-				: 'No cached tool preview is available for this component.'}
-		</p>
-		{#if loading}
-			<div class="mb-4 flex items-center justify-center gap-1">
-				<Loading class="text-muted-content size-4" />
-				<p class="text-muted-content text-sm font-light">Fetching tools...</p>
-			</div>
-		{/if}
-		{#if error}
-			<p class="text-error mb-4 text-sm" role="alert">{error}</p>
-		{/if}
 		{#if oauthURL}
 			<p class="mb-4 text-sm">
 				MCP server requires OAuth authentication before its tools can be fetched.
 			</p>
-			<div class="flex w-full gap-2">
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
-				<a
-					href={oauthURL}
-					rel="external"
-					target="_blank"
-					class="btn btn-primary flex-1 justify-center"
-				>
+		{:else if !refresh && tools.length > 0}
+			<p class="text-muted-content mb-6 text-sm font-light">
+				Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog entry
+				is not queried while editing an existing component.
+			</p>
+		{:else}
+			<p class="text-muted-content mb-6 text-sm font-light">
+				Fetch tools using this component's stored configuration before editing.
+			</p>
+		{/if}
+
+		{#if error}
+			<p class="text-error mb-4 text-sm" role="alert">{error}</p>
+		{/if}
+		<div class="flex w-full flex-col gap-2">
+			{#if oauthURL}
+				<a in:fade href={oauthURL} rel="external" target="_blank" class="btn btn-primary">
 					Authenticate
 				</a>
-				<!-- eslint-enable svelte/no-navigation-without-resolve -->
-				<button
-					class="btn btn-secondary flex-1"
-					disabled={loading}
-					onclick={() => void fetchLiveTools()}
-				>
-					Retry
+			{:else}
+				<button class="btn btn-primary" disabled={loading} onclick={configureTools}>
+					{#if loading}
+						<Loading class="text-primary-content size-4" />
+					{:else}
+						Configure Tools
+					{/if}
 				</button>
-			</div>
-		{:else}
-			<div class="flex w-full flex-col gap-2">
-				<button class="btn btn-secondary" onclick={cancelSetup}>Skip, I'll Do Later</button>
-				<button class="btn btn-primary" disabled={loading} onclick={configureTools}
-					>Configure Tools</button
-				>
-			</div>
-		{/if}
-		{#if oauthURL}
-			<button class="btn btn-secondary mt-2 w-full" onclick={cancelSetup}
-				>Skip, I'll Do Later</button
-			>
-		{/if}
+			{/if}
+			<button class="btn btn-ghost rounded-full" onclick={cancelSetup}>Skip, I'll Do Later</button>
+		</div>
 	{/if}
 </ResponsiveDialog>
 

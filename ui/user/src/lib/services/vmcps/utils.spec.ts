@@ -1,24 +1,21 @@
-import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
-import { AiClient } from '../user/constants';
+import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { SHORT_DESCRIPTION_MAX_LENGTH } from './constants';
 import type { RectLike } from './types';
 import {
 	appendComponentLabel,
 	borderAnchor,
-	buildConnectAllSnippets,
 	buildMcpServerFilterOptions,
 	buildVMcpComponentFilterOptions,
 	buildWirePath,
+	catalogConfigurationFields,
 	distanceToRect,
 	filterMcpServersByCategories,
 	isJoinedComponentLabel,
 	isWorkspaceOwned,
 	joinComponentLabels,
 	matchesQuery,
-	resolveVMcpComponents,
 	sortMcpServers,
-	sortVMcps,
-	vmcpConnectURL
+	sortVMcps
 } from './utils';
 import { describe, expect, it } from 'vitest';
 
@@ -33,34 +30,73 @@ function pointsOf(path: string) {
 	});
 }
 
+describe('catalogConfigurationFields', () => {
+	it('returns the catalog config list', () => {
+		const entry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'Slack',
+			manifest: {
+				config: [
+					{
+						key: 'API_TOKEN',
+						name: 'API token',
+						description: 'Token',
+						required: true,
+						sensitive: true,
+						value: '',
+						usage: 'env'
+					}
+				]
+			}
+		});
+
+		expect(catalogConfigurationFields(entry)).toEqual([
+			expect.objectContaining({ key: 'API_TOKEN', usage: 'env' })
+		]);
+	});
+});
+
 describe('isWorkspaceOwned', () => {
-	it('is true for a personal vMCP', () => {
-		expect(isWorkspaceOwned(createVMCP({ id: 'vmcp-1', userID: 'user-1' }))).toBe(true);
+	it('is true for a workspace server', () => {
+		expect(
+			isWorkspaceOwned(
+				createMCPCatalogEntry({ id: 'entry-1', name: 'Slack', powerUserWorkspaceID: 'ws-1' })
+			)
+		).toBe(true);
 	});
 
-	it('is false for an administrator-owned vMCP', () => {
-		expect(isWorkspaceOwned(createVMCP({ id: 'vmcp-1', userID: '' }))).toBe(false);
+	it('is true for a power-user server without a workspace id', () => {
+		expect(
+			isWorkspaceOwned(
+				createMCPCatalogEntry({ id: 'entry-1', name: 'Slack', powerUserID: 'user-1' })
+			)
+		).toBe(true);
+	});
+
+	it('is false for a shared catalog server', () => {
+		expect(isWorkspaceOwned(createMCPCatalogEntry({ id: 'entry-1', name: 'Slack' }))).toBe(false);
 	});
 });
 
 describe('matchesQuery', () => {
-	const vmcp = createVMCP({
-		id: 'vmcp-1',
-		displayName: 'GitHub',
-		description: 'Issues and pull requests'
+	const entry = createMCPCatalogEntry({
+		id: 'entry-1',
+		name: 'GitHub',
+		manifest: { shortDescription: 'Issues and pull requests', description: 'Source forge' }
 	});
 
 	it('matches the name regardless of case', () => {
-		expect(matchesQuery(vmcp, 'github')).toBe(true);
-		expect(matchesQuery(vmcp, 'GITHUB')).toBe(true);
+		expect(matchesQuery(entry, 'github')).toBe(true);
+		expect(matchesQuery(entry, 'GITHUB')).toBe(true);
 	});
 
-	it('matches the description', () => {
-		expect(matchesQuery(vmcp, 'pull requests')).toBe(true);
+	it('matches the short description and the description', () => {
+		expect(matchesQuery(entry, 'pull requests')).toBe(true);
+		expect(matchesQuery(entry, 'forge')).toBe(true);
 	});
 
 	it('does not match unrelated text', () => {
-		expect(matchesQuery(vmcp, 'slack')).toBe(false);
+		expect(matchesQuery(entry, 'slack')).toBe(false);
 	});
 });
 
@@ -68,7 +104,8 @@ describe('sortVMcps', () => {
 	const zeta = createVMCP({
 		id: 'vmcp-z',
 		displayName: 'Zeta',
-		created: '2020-01-01T00:00:00.000Z'
+		created: '2020-01-01T00:00:00.000Z',
+		components: []
 	});
 	const alpha = createVMCP(
 		{
@@ -80,18 +117,18 @@ describe('sortVMcps', () => {
 	);
 
 	it('orders by name, ignoring case', () => {
-		expect(sortVMcps([zeta, alpha], 'name').map((entry) => entry.id)).toEqual(['vmcp-a', 'vmcp-z']);
+		expect(sortVMcps([zeta, alpha], 'name').map((vmcp) => vmcp.id)).toEqual(['vmcp-a', 'vmcp-z']);
 	});
 
 	it('orders by created date, newest first', () => {
-		expect(sortVMcps([zeta, alpha], 'created').map((entry) => entry.id)).toEqual([
+		expect(sortVMcps([zeta, alpha], 'created').map((vmcp) => vmcp.id)).toEqual([
 			'vmcp-a',
 			'vmcp-z'
 		]);
 	});
 
 	it('orders by component server count, largest first', () => {
-		expect(sortVMcps([zeta, alpha], 'componentServers').map((entry) => entry.id)).toEqual([
+		expect(sortVMcps([zeta, alpha], 'componentServers').map((vmcp) => vmcp.id)).toEqual([
 			'vmcp-a',
 			'vmcp-z'
 		]);
@@ -99,21 +136,16 @@ describe('sortVMcps', () => {
 });
 
 describe('vMCP filter options', () => {
+	const github = createMCPCatalogEntry({ id: 'entry-github', name: 'GitHub' });
 	const first = createVMCP(
 		{
 			id: 'vmcp-a',
 			displayName: 'Alpha',
 			userID: 'user-1'
 		},
-		[createMCPCatalogEntry({ id: 'entry-github', name: 'GitHub' })]
+		[github]
 	);
-	const second = createVMCP(
-		{
-			id: 'vmcp-b',
-			displayName: 'Bravo'
-		},
-		[createMCPCatalogEntry({ id: 'entry-github', name: 'GitHub' })]
-	);
+	const second = createVMCP({ id: 'vmcp-b', displayName: 'Bravo' }, [github]);
 
 	it('lists component servers without duplicates', () => {
 		expect(
@@ -121,57 +153,6 @@ describe('vMCP filter options', () => {
 				id === 'entry-github' ? 'GitHub' : undefined
 			)
 		).toEqual([{ id: 'entry-github', label: 'GitHub' }]);
-	});
-});
-
-describe('resolveVMcpComponents', () => {
-	it('keeps each component snapshot preview and original override keys separate', () => {
-		const github = createMCPCatalogEntry({
-			id: 'entry-github',
-			name: 'GitHub',
-			manifest: {
-				toolPreview: [{ id: 'create_issue', name: 'create_issue', description: 'Create an issue' }]
-			}
-		});
-		const slack = createMCPCatalogEntry({
-			id: 'entry-slack',
-			name: 'Slack',
-			manifest: {
-				toolPreview: [{ id: 'send_message', name: 'send_message', description: 'Send a message' }]
-			}
-		});
-		const githubComponent = createVMCPComponent(github, {
-			id: 'component-github',
-			toolPrefix: 'github_',
-			toolOverrides: [{ name: 'create_issue', overrideName: 'open_issue', enabled: true }]
-		});
-		const slackComponent = createVMCPComponent(slack, {
-			id: 'component-slack',
-			toolPrefix: 'slack_'
-		});
-		const vmcp = createVMCP(
-			{
-				id: 'vmcp-tools',
-				displayName: 'Tool Gateway',
-				components: [githubComponent, slackComponent]
-			},
-			[github, slack]
-		);
-
-		const components = resolveVMcpComponents(vmcp);
-		expect(components).toHaveLength(2);
-		expect(components[0]).toMatchObject({
-			name: 'GitHub',
-			toolOverrides: [{ name: 'create_issue', overrideName: 'open_issue', enabled: true }],
-			toolPreview: [{ name: 'create_issue' }]
-		});
-		expect(components[1]).toMatchObject({
-			name: 'Slack',
-			toolOverrides: undefined,
-			toolPreview: [{ name: 'send_message' }]
-		});
-		expect(components[0].toolPreview?.map((tool) => tool.name)).not.toContain('send_message');
-		expect(components[1].toolPreview?.map((tool) => tool.name)).not.toContain('create_issue');
 	});
 });
 
@@ -218,43 +199,6 @@ describe('sortMcpServers', () => {
 			'entry-slack',
 			'entry-obscure'
 		]);
-	});
-});
-
-describe('vMCP connection snippets', () => {
-	it('uses the VMCP link when the API supplies one', () => {
-		const vmcp = createVMCP({
-			id: 'vmcp-link',
-			displayName: 'Gateway',
-			links: { connectURL: 'https://obot.example/mcp-connect/vmcp-link' }
-		});
-
-		expect(vmcpConnectURL(vmcp)).toBe('https://obot.example/mcp-connect/vmcp-link');
-		const [snippet] = buildConnectAllSnippets(AiClient.VSCode, [vmcp], false);
-		expect(JSON.parse(snippet.value)).toEqual({
-			servers: {
-				Gateway: { type: 'http', url: 'https://obot.example/mcp-connect/vmcp-link' }
-			}
-		});
-	});
-
-	it('constructs a first-class VMCP URL without a legacy catalog connectURL', () => {
-		const vmcp = createVMCP({ id: 'vmcp-derived', displayName: 'Derived' });
-		const previousWindow = globalThis.window;
-		Object.defineProperty(globalThis, 'window', {
-			configurable: true,
-			value: { location: { origin: 'https://obot.example' } }
-		});
-		try {
-			expect(vmcpConnectURL({ ...vmcp, links: undefined })).toBe(
-				'https://obot.example/mcp-connect/vmcp-derived'
-			);
-		} finally {
-			Object.defineProperty(globalThis, 'window', {
-				configurable: true,
-				value: previousWindow
-			});
-		}
 	});
 });
 

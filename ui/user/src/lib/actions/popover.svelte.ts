@@ -195,7 +195,14 @@ export default function popover(initialOptions?: PopoverOptions): Popover {
 
 		const onRefBlur = (e: FocusEvent) => {
 			if (interactive && relatedInside(e.relatedTarget)) return;
-			onRefLeave();
+			// A focused ref also blurs on its way out of the DOM, and that teardown can run while
+			// Svelte is evaluating a derived, where closing the tooltip would be an illegal state
+			// write. Leaving on the next microtask puts the write back outside that window, and by
+			// then focus has settled, so a ref that kept it never closes.
+			queueMicrotask(() => {
+				if (document.activeElement === ref) return;
+				onRefLeave();
+			});
 		};
 
 		const onTooltipFocusOut = (e: FocusEvent) => {

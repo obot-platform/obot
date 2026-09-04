@@ -163,6 +163,7 @@
 					class:opacity-60={oauthStatus?.configured}
 					placeholder="your-client-id"
 					readonly={oauthStatus?.configured}
+					autocomplete="off"
 				/>
 			</div>
 

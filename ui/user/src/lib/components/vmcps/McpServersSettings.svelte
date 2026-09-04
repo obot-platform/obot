@@ -53,6 +53,7 @@
 	aria-expanded={open}
 	aria-controls={VMCP_IDS.SETTINGS_PANEL_ID}
 	onclick={() => dialog?.open()}
+	class="dark:hover:bg-base-100"
 >
 	<Settings class="size-4" />
 </IconButton>

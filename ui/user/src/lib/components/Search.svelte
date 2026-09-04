@@ -10,6 +10,7 @@
 		onMouseUp?: (e: MouseEvent) => void;
 		compact?: boolean;
 		value?: string;
+		id?: string;
 	}
 
 	let {
@@ -20,6 +21,11 @@
 		onMouseUp,
 		compact,
 		value = '',
+		id = `search-input-${placeholder
+			.replace(/\.+$/, '')
+			.trim()
+			.toLowerCase()
+			.replace(/\s+/g, '-')}`,
 		...restProps
 	}: Props = $props();
 	let searchTimeout: ReturnType<typeof setTimeout>;
@@ -45,8 +51,9 @@
 	}
 </script>
 
-<div class="relative w-full" {...restProps}>
+<label class="relative w-full" {...restProps}>
 	<input
+		{id}
 		bind:this={input}
 		{value}
 		type="text"
@@ -69,4 +76,4 @@
 	>
 		<SearchIcon class={twMerge(compact && 'size-4')} />
 	</button>
-</div>
+</label>

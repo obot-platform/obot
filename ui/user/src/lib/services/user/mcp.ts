@@ -21,7 +21,8 @@ import {
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry,
 	type SystemMCPServerCatalogEntryManifest,
-	type ToolOverride
+	type ToolOverride,
+	type VMCPComponentCatalogEntrySnapshot
 } from '..';
 import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
 
@@ -140,7 +141,11 @@ export function getManifestConfiguration(
 }
 
 export function hasEditableConfiguration(
-	item: MCPCatalogEntry | MCPCatalogServer | SystemMCPServerCatalogEntry
+	item:
+		| MCPCatalogEntry
+		| MCPCatalogServer
+		| SystemMCPServerCatalogEntry
+		| VMCPComponentCatalogEntrySnapshot
 ) {
 	if (!item.manifest) return false;
 	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
@@ -374,7 +379,7 @@ function hasMissingSecretBinding(entry: MCPCatalogEntry, servers: MCPCatalogServ
 	return false;
 }
 
-function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatalogServer) {
+export function serverHasMissingSecretBinding(_entry: MCPCatalogEntry, server: MCPCatalogServer) {
 	return hasMissingSecretBindingConfig(
 		server.manifest,
 		server.missingRequiredEnvVars,

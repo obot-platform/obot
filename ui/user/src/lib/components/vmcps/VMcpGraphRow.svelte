@@ -1,8 +1,5 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import CopyButton from '$lib/components/CopyButton.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
-	import { formatNumber } from '$lib/format';
+	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import type { VMCP } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
@@ -13,8 +10,10 @@
 	import type { RowContext, VMcpComponentView } from '$lib/services/vmcps/types';
 	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
+	import VMcpCard from './VMcpCard.svelte';
+	import VMcpIcon from './VMcpIcon.svelte';
 	import './vmcpGraph.css';
-	import { ChevronsRight, ExternalLink, Layers, PencilRuler, Server } from '@lucide/svelte';
+	import { ChevronsRight, Layers, Server } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -31,6 +30,7 @@
 		onToggleExpand: () => void;
 		onEdit: () => void;
 		onConnect: () => void;
+		onDelete?: () => void;
 		onModifyComponent: (component: VMcpComponentView) => void;
 	}
 
@@ -43,11 +43,12 @@
 		onToggleExpand,
 		onEdit,
 		onConnect,
+		onDelete,
 		onModifyComponent
 	}: Props = $props();
 
-	const roughEstimationText =
-		'This is a rough approximation of the number of tools available. The exact number may vary.';
+	// const roughEstimationText =
+	// 	'This is a rough approximation of the number of tools available. The exact number may vary.';
 
 	let componentRange = $derived.by(() => {
 		if (!expanded) return { start: 0, end: 0 };
@@ -61,26 +62,6 @@
 			count: components.length,
 			itemHeight: VMCP_COMPONENT_HEIGHT
 		});
-	});
-
-	let { toolsCount, totalToolsCount, isRoughToolCountEstimate } = $derived.by(() => {
-		let isRoughToolCountEstimate = false;
-		let totalToolsCount = 0;
-		let toolsCount = components.reduce((count, component) => {
-			if (!component.toolOverrides) {
-				isRoughToolCountEstimate = true;
-			}
-			if (component.toolOverrides) {
-				const enabledCount = component.toolOverrides.filter((tool) => tool.enabled === true).length;
-				totalToolsCount += component.toolOverrides.length;
-				return count + enabledCount;
-			}
-
-			const previewCount = component.toolPreview?.length || 0;
-			totalToolsCount += previewCount;
-			return count + previewCount;
-		}, 0);
-		return { toolsCount, totalToolsCount, isRoughToolCountEstimate };
 	});
 
 	function chainDelay(index: number) {
@@ -207,110 +188,43 @@
 
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
+	{@const name = vmcp.displayName || 'vMCP'}
 	<div
 		use:drag.vmcpTarget={vmcp.id}
 		class={twMerge(
-			'max-w-full md:w-sm shrink-0 rounded-lg translate-y-0 transition-transform',
+			'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
 			linked
 				? 'vmcp-drop-target border-primary text-primary'
 				: 'p-0.5 hover:aura text-transparent hover:text-primary hover:-translate-y-0.5'
 		)}
 		in:fade={{ duration: 150 }}
 	>
-		<div
-			class="bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative flex rounded-lg border border-transparent p-2 text-left transition-all duration-200 shadow-sm"
+		<VMcpCard
+			id={vmcp.id}
+			{name}
+			descriptionHTML={vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined}
+			connectURL={vmcpConnectURL(vmcp)}
+			selectAriaLabel={`Edit ${name}`}
+			onSelect={onEdit}
+			{onConnect}
+			{onDelete}
+			class="bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative cursor-pointer gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200"
 		>
-			<div class="flex size-full flex-col">
-				<div class="flex items-center justify-between gap-2 mb-2">
-					<button
-						type="button"
-						class="flex min-w-0 grow cursor-pointer items-center gap-2 rounded-md text-left after:absolute after:inset-0 after:rounded-lg after:content-[''] focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-primary"
-						onclick={onEdit}
-						aria-label={`Edit ${vmcp.displayName || 'vMCP'}`}
-					>
-						<div class="bg-primary/10 text-primary shrink-0 rounded-md p-2">
-							<Layers class="size-5" />
-						</div>
-						<div class="flex min-w-0 grow flex-col">
-							<p class="truncate text-sm font-semibold">{vmcp.displayName}</p>
-						</div>
-					</button>
-					<DotDotDot
-						placement="bottom-start"
-						class="relative z-10 size-9 shrink-0"
-						classes={{ menu: 'min-w-48' }}
-					>
-						{#snippet children({ toggle })}
-							<!-- The menu closes itself on any click that reaches it, and cancels that click's
-							     default action along with it, so these links have to close it themselves. -->
-							<a
-								class="menu-button justify-between"
-								href={resolve(`/audit-logs?mcp_id=${encodeURIComponent(vmcp.id)}`)}
-								target="_blank"
-								rel="noopener"
-								onclick={(e) => {
-									e.stopPropagation();
-									toggle(false);
-								}}
-							>
-								View Audit Logs <ExternalLink class="size-4" />
-							</a>
-							<a
-								class="menu-button justify-between"
-								href={resolve(`/usage?mcp_id=${encodeURIComponent(vmcp.id)}`)}
-								target="_blank"
-								rel="noopener"
-								onclick={(e) => {
-									e.stopPropagation();
-									toggle(false);
-								}}
-							>
-								View Usage <ExternalLink class="size-4" />
-							</a>
-						{/snippet}
-					</DotDotDot>
-				</div>
-
-				<div class="flex items-center gap-2">
-					<div
-						class="relative z-10 flex grow items-center border border-base-300 dark:border-base-400 rounded-lg"
-					>
-						<button
-							class="btn flex grow font-mono text-xs uppercase bg-primary/10 hover:bg-primary hover:text-primary-content border-transparent rounded-r-none"
-							onclick={onConnect}
-						>
-							Connect
-						</button>
-						<CopyButton
-							tooltipText="Copy Connect URL"
-							text={vmcpConnectURL(vmcp)}
-							noButtonText
-							classes={{
-								button:
-									'size-10 p-2 hover:bg-primary hover:text-primary-content justify-center rounded-r-md border-l border-l-base-300 dark:border-l-base-400'
-							}}
-						/>
+			{#snippet icon()}
+				{#if vmcp.components.length > 0}
+					<VMcpIcon
+						components={vmcp.components.map((component) => ({
+							name: component.name,
+							icon: component.catalogEntry.manifest.icon
+						}))}
+					/>
+				{:else}
+					<div class="bg-primary/10 text-primary shrink-0 rounded-md p-2">
+						<Layers class="size-5" />
 					</div>
-					<div
-						class="relative z-10 badge badge-primary badge-soft py-4 w-26"
-						title={roughEstimationText}
-					>
-						<PencilRuler class="size-4 shrink-0" aria-label="Tools" />
-						<div class="flex grow justify-center">
-							{#if totalToolsCount > 0}
-								<span class="font-mono text-xs">
-									{isRoughToolCountEstimate ? '≈' : ''}{formatNumber(toolsCount)}/{formatNumber(
-										totalToolsCount
-									)}
-								</span>
-							{:else if components.length > 0}
-								<span class="font-mono text-xs">All</span>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
+				{/if}
+			{/snippet}
+		</VMcpCard>
 	</div>
 {/snippet}
 
@@ -327,7 +241,7 @@
 		in:fade={{ delay: CREATE_WIRE_DURATION_MS, duration: 200 }}
 	>
 		<p class="text-muted-content text-xs italic">
-			No servers yet. Drag one in from the Add Tools panel.
+			No servers yet. Drag one in from the MCP Servers panel.
 		</p>
 	</div>
 {/snippet}

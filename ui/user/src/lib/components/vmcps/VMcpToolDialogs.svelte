@@ -64,54 +64,32 @@
 	{/snippet}
 </Confirm>
 
-<Confirm
-	show={flow.dialog === 'added-confirm'}
-	onsuccess={flow.selectToolsForAdded}
-	oncancel={flow.close}
-	title="Add MCP Server"
-	type="info"
-	submitText="Select Which Tools To Enable"
-	cancelText="Add All Tools"
-	classes={{
-		actions: 'flex-col md:flex-col',
-		confirm: 'btn-secondary'
-	}}
->
-	{#snippet msgContent()}
-		{@render serverHeading()}
-	{/snippet}
-	{#snippet note()}
-		<b>{flow.addedServer?.component.catalogEntry.manifest.name ?? 'this server'}</b> has been added
-		to
-		<b>{flow.addedServer?.vmcp.displayName ?? 'this vMCP'}</b>. Would you like to add all tools or
-		select which tools to enable?
-	{/snippet}
-</Confirm>
-
 <ResponsiveDialog
 	animate="slide"
-	class="w-md"
+	class="w-sm"
 	bind:this={addedCreateDialog}
 	title="Add Tools"
 	onClose={() => handleDialogClose('added-create')}
 >
-	{#if flow.dialog === 'added-create'}
-		<div class="mb-4">
+	<div class="flex flex-col gap-4 items-center">
+		{#if flow.dialog === 'added-create'}
 			{@render serverHeading()}
-		</div>
-		<p class="mb-4 text-sm font-light">
-			<b>{flow.addedServer?.component.catalogEntry.manifest.name ?? 'this server'}</b> has been
-			added to
-			<b>{flow.addedServer?.vmcp.displayName ?? 'this vMCP'}</b>. Would you like to add all tools or
-			select which tools to enable?
-		</p>
-		<div class="flex flex-col gap-2">
-			<button class="btn btn-secondary btn-sm text-xs" onclick={flow.close}>Add All Tools</button>
-			<button class="btn btn-primary btn-sm text-xs" onclick={flow.selectToolsForAdded}>
-				Select Which Tools To Enable
-			</button>
-		</div>
-	{/if}
+			<p class="text-sm font-light text-center">
+				<b>{flow.addedServer?.component.manifest.name ?? 'this server'}</b> has been added to
+				<b>{flow.addedServer?.vmcp.displayName ?? 'this vMCP'}</b>.
+			</p>
+			<p class="text-sm font-light text-center">
+				It is recommended to select which tools to enable to properly secure the vMCP. Otherwise,
+				you can skip this step and allow all tools to be enabled.
+			</p>
+			<div class="flex flex-col gap-2 w-full">
+				<button class="btn btn-primary" onclick={flow.selectToolsForAdded}> Modify Tools </button>
+				<button class="btn btn-ghost rounded-full text-xs" onclick={flow.close}
+					>I understand, skip & allow all tools</button
+				>
+			</div>
+		{/if}
+	</div>
 </ResponsiveDialog>
 
 <VMcpToolsSetup
@@ -124,15 +102,18 @@
 	otherEffectiveNames={flow.otherEffectiveNames}
 	otherToolPrefixes={flow.otherToolPrefixes}
 	onCancel={flow.close}
-	onSuccess={(config) =>
-		flow.saveTools({
-			...flow.configuringComponent!,
+	onSuccess={(config) => {
+		const component = flow.configuringComponent;
+		if (!component) return;
+		void flow.saveTools({
+			...component,
 			toolPrefix: config.toolPrefix,
 			toolOverrides: config.toolOverrides
-		})}
+		});
+	}}
 >
 	{#snippet additionalActions()}
-		{#if flow.modifyingExistingComponent}
+		{#if flow.modifyingExistingComponent && !flow.collecting}
 			{@render removeComponentButton()}
 		{/if}
 	{/snippet}
@@ -179,7 +160,6 @@
 >
 	{#snippet additionalActions()}
 		<div class="flex items-center gap-3">
-			{@render removeComponentButton()}
 			<IconButton
 				tooltip={{ text: 'Refresh tools', disablePortal: true, placement: 'right' }}
 				onclick={flow.refreshTools}
@@ -193,14 +173,14 @@
 
 {#snippet serverHeading()}
 	<span class="flex items-center gap-2 text-base font-semibold">
-		{#if flow.addedServer?.component.catalogEntry.manifest.icon}
-			<img src={flow.addedServer.component.catalogEntry.manifest.icon} alt="" class="size-6 icon" />
+		{#if flow.addedServer?.component.manifest.icon}
+			<img src={flow.addedServer.component.manifest.icon} alt="" class="size-6 icon" />
 		{:else}
 			<div class="icon">
 				<Server class="size-6" />
 			</div>
 		{/if}
-		{flow.addedServer?.component.catalogEntry.manifest.name}
+		{flow.addedServer?.component.manifest.name}
 	</span>
 {/snippet}
 

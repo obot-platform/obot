@@ -51,17 +51,18 @@ describe('fitCamera', () => {
 });
 
 describe('defaultCamera', () => {
-	it('opens at 100% with the top of the world in view', () => {
-		const camera = defaultCamera({ width: 1200, height: 800 }, { width: 900 }, 32);
+	it('opens at 100% with the world centered', () => {
+		const camera = defaultCamera({ width: 1200, height: 800 }, { width: 900, height: 300 }, 32);
 		expect(camera.zoom).toBe(1);
-		expect(camera.y).toBe(32);
 		expect(camera.x).toBe(150);
+		expect(camera.y).toBe(250);
 	});
 
-	it('anchors to the left edge when the world is wider than the viewport', () => {
-		const camera = defaultCamera({ width: 600, height: 800 }, { width: 900 }, 32);
+	it('anchors to the top left corner when the world is larger than the viewport', () => {
+		const camera = defaultCamera({ width: 600, height: 200 }, { width: 900, height: 300 }, 32);
 		expect(camera.zoom).toBe(1);
 		expect(camera.x).toBe(32);
+		expect(camera.y).toBe(32);
 	});
 });
 

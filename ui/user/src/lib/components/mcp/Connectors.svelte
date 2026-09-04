@@ -29,7 +29,7 @@
 	} from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpServersAndEntries, mcpTunnelConnections, profile, version } from '$lib/stores';
-	import { openUrl } from '$lib/utils';
+	import { isInteractiveChildEvent, openUrl } from '$lib/utils';
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import { CircleFadingArrowUp, Server } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -209,17 +209,6 @@
 		if (url) {
 			openUrl(asConnectorUrl(url), isCtrlClick);
 		}
-	}
-
-	function isInteractiveChildEvent(e: MouseEvent | KeyboardEvent) {
-		if (!(e.target instanceof Element)) {
-			return false;
-		}
-
-		const interactiveElement = e.target.closest(
-			'a, button, input, select, textarea, [role="button"]'
-		);
-		return interactiveElement !== null && interactiveElement !== e.currentTarget;
 	}
 
 	function handleConnect(d: MCPCatalogEntry | MCPCatalogServer) {

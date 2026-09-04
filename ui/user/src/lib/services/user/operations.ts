@@ -153,7 +153,10 @@ export async function getVMCPComponentToolPreviewsOauth(
 	return response.oauthURL ?? '';
 }
 
-export async function listVMCPInstances(opts?: { fetch?: Fetcher }): Promise<VMCPInstance[]> {
+export async function listVMCPInstances(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<VMCPInstance[]> {
 	const response = (await doGet('/vmcp-instances', opts)) as ItemsResponse<VMCPInstance>;
 	return response.items ?? [];
 }
