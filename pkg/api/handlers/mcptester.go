@@ -170,7 +170,7 @@ func (h *MCPTesterHandler) writeProxyError(req api.Context, response *http.Respo
 
 	switch response.StatusCode {
 	case http.StatusUnauthorized:
-		// The model provider rejected its credential.ß
+		// The model provider rejected its credential.
 		return writeMCPTesterError(req, http.StatusBadGateway, types.MCPTesterErrorProvider, message, false)
 	case http.StatusForbidden:
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorPolicyDenied, message, false)

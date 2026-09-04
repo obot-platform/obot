@@ -1,5 +1,6 @@
 import {
 	defaultJSONSchemaValue,
+	jsonValuesEqual,
 	supportsGeneratedForm,
 	validateJSONSchema,
 	type JSONSchema
@@ -87,5 +88,26 @@ describe('MCP tester JSON Schema support', () => {
 			'amount must be one of these types: integer, string'
 		]);
 		expect(supportsGeneratedForm(nullable)).toBe(false);
+	});
+
+	it('compares const and enum JSON values structurally', () => {
+		const objectConst: JSONSchema = {
+			type: 'object',
+			const: { enabled: true, nested: ['one', { count: 2 }] }
+		};
+		const arrayEnum: JSONSchema = {
+			type: 'array',
+			enum: [['one', { count: 2 }]]
+		};
+
+		expect(validateJSONSchema(objectConst, defaultJSONSchemaValue(objectConst))).toEqual([]);
+		expect(
+			validateJSONSchema(objectConst, { nested: ['one', { count: 2 }], enabled: true })
+		).toEqual([]);
+		expect(
+			validateJSONSchema(objectConst, { enabled: false, nested: ['one', { count: 2 }] })
+		).toEqual(['Value must equal {"enabled":true,"nested":["one",{"count":2}]}']);
+		expect(validateJSONSchema(arrayEnum, defaultJSONSchemaValue(arrayEnum))).toEqual([]);
+		expect(jsonValuesEqual(['one', { count: 2 }], ['one', { count: 3 }])).toBe(false);
 	});
 });

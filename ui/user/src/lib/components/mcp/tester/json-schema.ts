@@ -27,6 +27,38 @@ function schemaType(schema: JSONSchema): string | undefined {
 	return Array.isArray(schema.type) ? schema.type.find((type) => type !== 'null') : schema.type;
 }
 
+export function jsonValuesEqual(left: unknown, right: unknown): boolean {
+	if (left === right) return true;
+	if (Array.isArray(left)) {
+		return (
+			Array.isArray(right) &&
+			left.length === right.length &&
+			left.every((value, index) => jsonValuesEqual(value, right[index]))
+		);
+	}
+	if (
+		typeof left !== 'object' ||
+		left === null ||
+		typeof right !== 'object' ||
+		right === null ||
+		Array.isArray(right)
+	) {
+		return false;
+	}
+
+	const leftObject = left as Record<string, unknown>;
+	const rightObject = right as Record<string, unknown>;
+	const keys = Object.keys(leftObject);
+	return (
+		keys.length === Object.keys(rightObject).length &&
+		keys.every(
+			(key) =>
+				Object.prototype.hasOwnProperty.call(rightObject, key) &&
+				jsonValuesEqual(leftObject[key], rightObject[key])
+		)
+	);
+}
+
 export function defaultJSONSchemaValue(schema: JSONSchema): unknown {
 	if (schema.default !== undefined) return structuredClone(schema.default);
 	if (schema.const !== undefined) return structuredClone(schema.const);
@@ -81,10 +113,10 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 	const errors: string[] = [];
 	const type = schema.type;
 
-	if (schema.const !== undefined && value !== schema.const) {
+	if (schema.const !== undefined && !jsonValuesEqual(value, schema.const)) {
 		errors.push(`${label} must equal ${JSON.stringify(schema.const)}`);
 	}
-	if (schema.enum && !schema.enum.some((entry) => Object.is(entry, value))) {
+	if (schema.enum && !schema.enum.some((entry) => jsonValuesEqual(entry, value))) {
 		errors.push(`${label} must be one of the allowed values`);
 	}
 
