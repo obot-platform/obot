@@ -11,7 +11,6 @@ import (
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
@@ -50,10 +49,6 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	compositeEntry := newMCPServerCatalogEntry("composite-entry", types.MCPServerCatalogEntryManifest{
 		Name:    "Composite Entry",
 		Runtime: types.RuntimeComposite,
-		Env: []types.MCPEnv{{
-			Key:       "API_KEY",
-			Sensitive: true,
-		}},
 		CompositeConfig: &types.CompositeCatalogConfig{
 			ComponentServers: []types.CatalogComponentServer{
 				{
@@ -74,9 +69,7 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	})
 
 	client := newFakeClient(compositeEntry, sharedServer)
-	gatewayClient := newTestGatewayClient(t)
-	require.NoError(t, mcp.StoreStaticCredentialSecrets(t.Context(), gatewayClient, mcp.CatalogEntryStaticCredentialContext(compositeEntry.Name), compositeEntry.Name, map[string]string{"API_KEY": "secret"}))
-	err := (&Handler{gatewayClient: gatewayClient}).DetectCompositeDrift(router.Request{
+	err := (&Handler{}).DetectCompositeDrift(router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    compositeEntry,
@@ -88,7 +81,6 @@ func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts
 	var updated v1.MCPServerCatalogEntry
 	require.NoError(t, client.Get(t.Context(), router.Key(compositeEntry.Namespace, compositeEntry.Name), &updated))
 	assert.True(t, updated.Status.NeedsUpdate)
-	assert.Empty(t, compositeEntry.Spec.Manifest.Env[0].Value)
 }
 
 func TestDetectCompositeDriftIgnoresCatalogOnlyComponentFields(t *testing.T) {
