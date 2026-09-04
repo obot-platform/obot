@@ -5,14 +5,15 @@
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { stripMarkdownToText } from '$lib/markdown';
-	import { ApiKeysService, type MCPCatalogServer, type APIKeyCreateResponse } from '$lib/services';
+	import { ApiKeysService, UserService, type VMCP, type APIKeyCreateResponse } from '$lib/services';
 	import {
 		API_KEY_CREATABLE_CAPABILITIES,
 		type APIKeyCreatableCapabilityKey
 	} from '$lib/services/api-keys/types';
 	import { compileAvailableMcpServers, getMCPDisplayName } from '$lib/services/user/mcp';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { Check, Server } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -36,13 +37,32 @@
 	let search = $state('');
 	let loading = $state(false);
 	let showValidation = $state(false);
+	let vmcps = $state<VMCP[]>([]);
+	onMount(() => {
+		UserService.listVMCPs()
+			.then((items) => (vmcps = items))
+			.catch(() => errors.append('Failed to load vMCPs.'));
+	});
 
-	let mcpServers = $derived(
-		compileAvailableMcpServers(
+	let mcpServers = $derived([
+		...compileAvailableMcpServers(
 			mcpServersAndEntries.current.servers,
 			mcpServersAndEntries.current.userConfiguredServers
-		)
-	);
+		).map((server) => ({
+			id: server.id,
+			name: getMCPDisplayName(server),
+			description: server.manifest.description,
+			icon: server.manifest.icon,
+			legacy: server
+		})),
+		...vmcps.map((vmcp) => ({
+			id: vmcp.id,
+			name: vmcp.displayName || vmcp.id,
+			description: vmcp.description,
+			icon: vmcp.icon,
+			legacy: undefined
+		}))
+	]);
 
 	let nameError = $derived(showValidation && !name.trim());
 	let hasOptionalCapability = $derived(
@@ -54,16 +74,16 @@
 
 	const allServersOption = {
 		id: '*',
-		manifest: {
-			name: 'All MCP Servers',
-			description: 'Grant access to all MCP servers, including any added in the future'
-		}
-	} as MCPCatalogServer;
+		name: 'All MCP Servers',
+		description: 'Grant access to all MCP servers, including any added in the future',
+		icon: '',
+		legacy: undefined
+	};
 
 	let filteredServers = $derived.by(() => {
 		const searchLower = search.toLowerCase();
 		const servers = search
-			? mcpServers.filter((s) => getMCPDisplayName(s).toLowerCase().includes(searchLower))
+			? mcpServers.filter((s) => s.name.toLowerCase().includes(searchLower))
 			: mcpServers;
 
 		// Include "All MCP Servers" option if it matches the search or there's no search
@@ -209,20 +229,20 @@
 					>
 						<div class="flex w-full items-center gap-3 overflow-hidden">
 							<div class="shrink-0">
-								{#if server.manifest.icon}
-									<img src={server.manifest.icon} alt={getMCPDisplayName(server)} class="size-6" />
+								{#if server.icon}
+									<img src={server.icon} alt={server.name} class="size-6" />
 								{:else}
 									<Server class="text-muted-content size-6" />
 								{/if}
 							</div>
 							<div class="flex min-w-0 grow flex-col">
 								<div class="flex items-center gap-2">
-									<p class="min-w-0 truncate text-sm">{getMCPDisplayName(server)}</p>
-									<McpDeprecatedNotice item={server} />
+									<p class="min-w-0 truncate text-sm">{server.name}</p>
+									{#if server.legacy}<McpDeprecatedNotice item={server.legacy} />{/if}
 								</div>
-								{#if server.manifest.description}
+								{#if server.description}
 									<span class="text-muted-content line-clamp-1 text-xs">
-										{stripMarkdownToText(server.manifest.description)}
+										{stripMarkdownToText(server.description)}
 									</span>
 								{/if}
 							</div>

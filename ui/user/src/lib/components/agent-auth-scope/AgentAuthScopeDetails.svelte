@@ -2,19 +2,21 @@
 	import { resolve } from '$app/paths';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { stripMarkdownToText } from '$lib/markdown';
+	import { UserService, type VMCP } from '$lib/services';
 	import { API_KEY_CREATABLE_CAPABILITIES, type APIKey } from '$lib/services/api-keys/types';
 	import {
 		compileAvailableMcpServers,
 		getMCPDisplayName,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
-	import { mcpServersAndEntries, profile } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile } from '$lib/stores';
 	import { formatTimeAgo, formatTimeUntil } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
 	import McpDeprecatedNotice from '../mcp/McpDeprecatedNotice.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import { KeyRound, Server, Trash2 } from '@lucide/svelte';
 	import { Eye } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -27,6 +29,12 @@
 	let { agentAuthScope, isAdmin = false, onDelete }: Props = $props();
 	let deletingAgentAuthScope = $state(false);
 	let saving = $state(false);
+	let vmcps = $state<VMCP[]>([]);
+	onMount(() => {
+		UserService.listVMCPs()
+			.then((items) => (vmcps = items))
+			.catch(() => errors.append('Failed to load vMCPs.'));
+	});
 
 	let mcpServers = $derived(
 		compileAvailableMcpServers(
@@ -42,6 +50,16 @@
 	let resolvedServers = $derived.by(() => {
 		if (!agentAuthScope?.mcpServerIds || isAllServers) return [];
 		return agentAuthScope.mcpServerIds.map((id) => {
+			const vmcp = vmcps.find((item) => item.id === id);
+			if (vmcp)
+				return {
+					id,
+					name: vmcp.displayName || id,
+					description: vmcp.description,
+					icon: vmcp.icon,
+					exists: true,
+					deprecated: false
+				};
 			const server = serverMap.get(id);
 			return {
 				id,

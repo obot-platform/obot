@@ -58,6 +58,7 @@ export const handlers = [
 	http.get('/api/model-providers', () => HttpResponse.json({ items: [] })),
 	http.get('/api/models', () => HttpResponse.json({ items: data.listModelsResponse })),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
+	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>
 		HttpResponse.json({ items: data.listAllUserWorkspaceCatalogEntriesResponse })

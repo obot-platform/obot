@@ -60,7 +60,11 @@ import {
 	type AccessControlRule,
 	type AccessControlRuleManifest,
 	type K8sServerDetail,
-	type MCPSubField
+	type MCPSubField,
+	type VMCP,
+	type VMCPInstance,
+	type VMCPManifest,
+	type VMCPConfiguration
 } from './types';
 
 type ItemsResponse<T> = { items: T[] | null };
@@ -73,6 +77,108 @@ export async function activateInitialLocalAuthOwner(setupToken: string): Promise
 
 export async function changeLocalAuthPassword(password: string): Promise<void> {
 	await doPost('/local-auth/change-password', { password });
+}
+
+// Shared UI actions use each resource’s own API routes.
+function mcpActionPath(id: string, legacyCollection = 'mcp-servers'): string {
+	return `/${id.startsWith('vmcp1') ? 'vmcps' : legacyCollection}/${id}`;
+}
+
+// Virtual MCPs
+
+export async function listVMCPs(opts?: { fetch?: Fetcher }): Promise<VMCP[]> {
+	const response = (await doGet('/vmcps', opts)) as ItemsResponse<VMCP>;
+	return response.items ?? [];
+}
+
+export async function getVMCP(id: string, opts?: { fetch?: Fetcher }): Promise<VMCP> {
+	return (await doGet(`/vmcps/${id}`, opts)) as VMCP;
+}
+
+export async function getMCPServerOrVMCP(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<MCPCatalogServer | VMCP> {
+	const path = id.startsWith('vmcp1') ? `/vmcps/${id}` : `/mcp-servers/${id}`;
+	return (await doGet(path, opts)) as MCPCatalogServer | VMCP;
+}
+
+export async function createVMCP(
+	manifest: VMCPManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<VMCP> {
+	return (await doPost('/vmcps', manifest, opts)) as VMCP;
+}
+
+export async function updateVMCP(
+	id: string,
+	manifest: VMCPManifest,
+	opts?: { fetch?: Fetcher }
+): Promise<VMCP> {
+	return (await doPut(`/vmcps/${id}`, manifest, opts)) as VMCP;
+}
+
+export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
+	await doDelete(`/vmcps/${id}`, opts);
+}
+
+export async function generateVMCPComponentToolPreviews(
+	vmcpID: string,
+	componentID: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<MCPCatalogEntry> {
+	const response = await doPost(
+		`/vmcps/${vmcpID}/components/${componentID}/generate-tool-previews`,
+		{},
+		{
+			...opts,
+			dontLogErrors: true
+		}
+	);
+	return response as MCPCatalogEntry;
+}
+
+export async function getVMCPComponentToolPreviewsOauth(
+	vmcpID: string,
+	componentID: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<string> {
+	const response = (await doPost(
+		`/vmcps/${vmcpID}/components/${componentID}/generate-tool-previews/oauth-url`,
+		{},
+		{
+			...opts,
+			dontLogErrors: true
+		}
+	)) as { oauthURL?: string };
+	return response.oauthURL ?? '';
+}
+
+export async function listVMCPInstances(opts?: { fetch?: Fetcher }): Promise<VMCPInstance[]> {
+	const response = (await doGet('/vmcp-instances', opts)) as ItemsResponse<VMCPInstance>;
+	return response.items ?? [];
+}
+
+export async function getVMCPInstance(
+	id: string,
+	opts?: { fetch?: Fetcher }
+): Promise<VMCPInstance> {
+	return (await doGet(`/vmcp-instances/${id}`, opts)) as VMCPInstance;
+}
+
+export async function createVMCPInstance(vmcpID: string): Promise<VMCPInstance> {
+	return (await doPost('/vmcp-instances', { vmcpID })) as VMCPInstance;
+}
+
+export async function configureVMCPInstance(
+	id: string,
+	configuration: VMCPConfiguration
+): Promise<VMCPInstance> {
+	return (await doPost(`/vmcp-instances/${id}/configure`, configuration)) as VMCPInstance;
+}
+
+export async function deleteVMCPInstance(id: string): Promise<void> {
+	await doDelete(`/vmcp-instances/${id}`);
 }
 
 export async function listTunnelConnections(opts?: {
@@ -158,7 +264,7 @@ export async function listMcpCatalogServerTools(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerTool[]> {
 	try {
-		return (await doGet(`/all-mcps/servers/${id}/tools`, {
+		return (await doGet(`${mcpActionPath(id, 'all-mcps/servers')}/tools`, {
 			...opts,
 			dontLogErrors: true
 		})) as MCPServerTool[];
@@ -178,7 +284,7 @@ export async function listMcpCatalogServerPrompts(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPServerPrompt[]> {
 	try {
-		return (await doGet(`/all-mcps/servers/${id}/prompts`, {
+		return (await doGet(`${mcpActionPath(id, 'all-mcps/servers')}/prompts`, {
 			...opts,
 			dontLogErrors: true
 		})) as MCPServerPrompt[];
@@ -195,7 +301,7 @@ export async function listMcpCatalogServerResources(
 	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<McpServerResource[]> {
 	try {
-		return (await doGet(`/all-mcps/servers/${id}/resources`, {
+		return (await doGet(`${mcpActionPath(id, 'all-mcps/servers')}/resources`, {
 			...opts,
 			dontLogErrors: true
 		})) as McpServerResource[];
@@ -530,7 +636,7 @@ export async function clearMcpServerOAuth(
 	id: string,
 	opts?: { signal?: AbortSignal }
 ): Promise<void> {
-	await doDelete(`/mcp-servers/${id}/oauth`, opts);
+	await doDelete(`${mcpActionPath(id)}/oauth`, opts);
 }
 
 // 412 means oauth is needed
@@ -539,7 +645,7 @@ export async function getMcpServerOauthURL(
 	opts?: { signal?: AbortSignal }
 ): Promise<string> {
 	try {
-		const response = (await doGet(`/mcp-servers/${id}/oauth-url`, {
+		const response = (await doGet(`${mcpActionPath(id)}/oauth-url`, {
 			dontLogErrors: true,
 			signal: opts?.signal
 		})) as {
@@ -556,7 +662,7 @@ export async function isMcpServerOauthNeeded(
 	opts?: { signal?: AbortSignal }
 ): Promise<boolean> {
 	try {
-		await doPost(`/mcp-servers/${id}/check-oauth`, {
+		await doPost(`${mcpActionPath(id)}/check-oauth`, {
 			dontLogErrors: true,
 			signal: opts?.signal
 		});
@@ -597,7 +703,7 @@ export async function validateSingleOrRemoteMcpServerLaunched(mcpServerId: strin
 	code?: number;
 }> {
 	try {
-		await doPost(`/mcp-servers/${mcpServerId}/launch`, {}, { dontLogErrors: true });
+		await doPost(`${mcpActionPath(mcpServerId)}/launch`, {}, { dontLogErrors: true });
 		return {
 			success: true
 		};
@@ -623,7 +729,7 @@ export async function listSingleOrRemoteMcpServerLogs(mcpServerId: string): Prom
 
 export async function listSingleOrRemoteMcpServerPrompts(id: string): Promise<MCPServerPrompt[]> {
 	try {
-		const response = (await doGet(`/mcp-servers/${id}/prompts`, {
+		const response = (await doGet(`${mcpActionPath(id)}/prompts`, {
 			dontLogErrors: true
 		})) as ItemsResponse<MCPServerPrompt>;
 		return response.items ?? [];
@@ -639,7 +745,7 @@ export async function listSingleOrRemoteMcpServerResources(
 	id: string
 ): Promise<McpServerResource[]> {
 	try {
-		const response = (await doGet(`/mcp-servers/${id}/resources`, {
+		const response = (await doGet(`${mcpActionPath(id)}/resources`, {
 			dontLogErrors: true
 		})) as ItemsResponse<McpServerResource>;
 		return response.items ?? [];
@@ -1093,6 +1199,8 @@ export async function getWorkspaceCatalogEntryServerK8sDetails(
 export type PendingCompositeAuth = {
 	catalogEntryID?: string;
 	mcpServerID: string;
+	name?: string;
+	icon?: string;
 	authURL: string;
 };
 

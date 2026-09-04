@@ -15,7 +15,7 @@
  * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
  *    and keep all types for that domain inside it.
  */
-import type { MCPConfig } from '../admin/types';
+import type { MCPCatalogEntryServerManifest, MCPConfig } from '../admin/types';
 
 // Access control rules
 
@@ -560,9 +560,115 @@ export interface MCPServerInstance {
 	connectURL?: string;
 }
 
+// Virtual MCPs
+
+export type VMCPConfigurationPolicyType = 'prohibited' | 'fixed' | 'userAllowed';
+
+export interface VMCPConfigurationPolicy {
+	key: string;
+	policy?: VMCPConfigurationPolicyType;
+	value?: string;
+}
+
+export interface VMCPComponentCatalogEntrySnapshot {
+	manifest: MCPCatalogEntryServerManifest;
+	unsupportedTools?: string[];
+}
+
+export interface VMCPComponent {
+	allowedTools?: string[];
+	catalogEntry: VMCPComponentCatalogEntrySnapshot;
+	configuration?: VMCPConfigurationPolicy[];
+	id?: string;
+	mcpCatalogID: string;
+	mcpServerCatalogEntryID: string;
+	name: string;
+	oauthCredentialID?: string;
+	sourceDigest?: string;
+	toolOverrides?: ToolOverride[];
+	toolPrefix?: string;
+}
+
+export interface VMCPProfile {
+	allowAllTools: boolean;
+	allowedTools?: VMCPToolSet;
+	name: string;
+	subjects: AccessControlRuleSubject[];
+}
+
+export type VMCPToolSet = Record<string, string[]>;
+
+export interface VMCPManifest {
+	components: VMCPComponent[];
+	description?: string;
+	displayName: string;
+	forceSingleUser?: boolean;
+	icon?: string;
+	profiles?: VMCPProfile[];
+}
+
+export interface VMCPStatus {
+	components?: VMCPComponentStatus[];
+	ready?: boolean;
+}
+
+export interface VMCPComponentStatus {
+	error?: string;
+	name: string;
+	ready?: boolean;
+	needsUpdate?: boolean;
+	sourceMissing?: boolean;
+}
+
+export interface VMCP extends VMCPManifest {
+	created: string;
+	deleted?: string;
+	id: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	staticConfigurationHash?: string;
+	status?: VMCPStatus;
+	type?: string;
+	userID?: string;
+}
+
+export interface VMCPList {
+	items: VMCP[];
+}
+
+export interface VMCPConfiguration {
+	components: Record<string, Record<string, string>>;
+}
+
+export interface VMCPInstanceManifest {
+	enabledTools?: VMCPToolSet | null;
+	vmcpID: string;
+}
+
+export interface VMCPInstanceStatus {
+	configured?: boolean;
+	missingRequiredConfiguration?: string[];
+	userConfigurationHash?: string;
+}
+
+export interface VMCPInstance extends VMCPInstanceManifest {
+	created: string;
+	deleted?: string;
+	id: string;
+	links?: Record<string, string>;
+	metadata?: Record<string, string>;
+	status?: VMCPInstanceStatus;
+	type?: string;
+	userID: string;
+}
+
+export interface VMCPInstanceList {
+	items: VMCPInstance[];
+}
+
 // MCP runtime
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite' | 'vmcp';
 export interface MCPConfigurationOption {
 	name: string;
 	value: string;
