@@ -8,6 +8,7 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/upgrade"
 )
@@ -52,6 +53,9 @@ func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayc
 }
 
 func newPublisher(consent consentReader, gatewayClient requestGatewayClient, storageClient storage.Client, licenseProvider licenseEntitlementProvider, defaultMCPCatalogPath, engine string, sender reportSender) *Publisher {
+	if mcp.IsKubernetesBackend(engine) {
+		engine = mcp.RuntimeBackendKubernetes
+	}
 	return &Publisher{
 		consent:               consent,
 		gatewayClient:         gatewayClient,
