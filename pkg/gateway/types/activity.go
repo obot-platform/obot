@@ -9,8 +9,8 @@ import (
 
 type APIActivity struct {
 	ID     uint
-	UserID string
-	Date   time.Time
+	UserID string    `gorm:"index:idx_api_activity_date_user,priority:2"`
+	Date   time.Time `gorm:"index:idx_api_activity_date_user,priority:1"`
 }
 
 type RunTokenActivity struct {
