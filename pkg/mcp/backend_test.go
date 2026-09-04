@@ -220,22 +220,23 @@ func TestMMMCPConfigDisablesNPXAudit(t *testing.T) {
 	tests := []struct {
 		name    string
 		runtime types.Runtime
-		want    bool
+		// want is the expected NPM_CONFIG_AUDIT value, empty when it should not be set at all.
+		want string
 	}{
 		{
 			name:    "npx",
 			runtime: types.RuntimeNPX,
-			want:    true,
+			want:    "false",
 		},
 		{
 			name:    "uvx",
 			runtime: types.RuntimeUVX,
-			want:    false,
+			want:    "",
 		},
 		{
 			name:    "containerized",
 			runtime: types.RuntimeContainerized,
-			want:    false,
+			want:    "",
 		},
 	}
 
@@ -246,9 +247,8 @@ func TestMMMCPConfigDisablesNPXAudit(t *testing.T) {
 				Runtime:       tt.runtime,
 			}, nil)
 
-			_, got := config.Servers[0].Env["NPM_CONFIG_AUDIT"]
-			if got != tt.want {
-				t.Fatalf("NPM_CONFIG_AUDIT present = %v, want %v", got, tt.want)
+			if got := config.Servers[0].Env["NPM_CONFIG_AUDIT"]; got != tt.want {
+				t.Fatalf("NPM_CONFIG_AUDIT = %q, want %q", got, tt.want)
 			}
 		})
 	}
