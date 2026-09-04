@@ -57,9 +57,17 @@ type MCPServerSpec struct {
 	CompositeName string `json:"compositeName,omitempty"`
 	// NanobotAgentID is the name of the NanobotAgent that created this MCP server, if there is one.
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
+	// VMCPInstanceID is the VMCPInstance that owns this component server, if there is one.
+	VMCPInstanceID string `json:"vmcpInstanceID,omitempty"`
+	// VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.
+	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
 }
 
 type MCPServerStatus struct {
+	// VMCPStaticConfigurationHash is the VMCP static configuration hash last copied to this server's credential.
+	VMCPStaticConfigurationHash string `json:"vmcpStaticConfigurationHash,omitempty"`
+	// VMCPUserConfigurationHash is the VMCP instance user configuration hash last copied to this server's credential.
+	VMCPUserConfigurationHash string `json:"vmcpUserConfigurationHash,omitempty"`
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.
@@ -152,6 +160,10 @@ func (in *MCPServer) Get(field string) (value string) {
 		return strconv.FormatBool(in.Spec.Template)
 	case "spec.compositeName":
 		return in.Spec.CompositeName
+	case "spec.vmcpInstanceID":
+		return in.Spec.VMCPInstanceID
+	case "spec.vmcpComponentID":
+		return in.Spec.VMCPComponentID
 	case "spec.manifest.runtime":
 		return string(in.Spec.Manifest.Runtime)
 	}
@@ -166,6 +178,8 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.powerUserWorkspaceID",
 		"spec.template",
 		"spec.compositeName",
+		"spec.vmcpInstanceID",
+		"spec.vmcpComponentID",
 		"spec.manifest.runtime",
 	}
 }
@@ -176,6 +190,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
+		{ObjType: &VMCPInstance{}, Name: in.Spec.VMCPInstanceID},
 	}
 	if in.Spec.CompositeName == "" {
 		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.

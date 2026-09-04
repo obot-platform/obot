@@ -101,6 +101,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	modelProviders := handlers.NewModelProviderHandler(services.ProviderDispatcher, services.LicenseProvider)
 	modelAccessPolicies := handlers.NewModelAccessPolicyHandler()
 	messagePolicies := handlers.NewMessagePolicyHandler()
+	vmcps := handlers.NewVMCPHandler()
+	vmcpInstances := handlers.NewVMCPInstanceHandler()
 	policyViolations := handlers.NewMessagePolicyViolationHandler()
 	deviceScans := handlers.NewDeviceScansHandler()
 	mdmAssetSources := handlers.NewMDMAssetSourceHandler()
@@ -215,6 +217,23 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("POST /api/mcp-server-instances/{mcp_server_instance_id}/deconfigure", serverInstances.DeconfigureServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}", serverInstances.DeleteServerInstance)
 	mux.HandleFunc("DELETE /api/mcp-server-instances/{mcp_server_instance_id}/oauth", serverInstances.ClearOAuthCredentials)
+
+	// Virtual MCPs
+	mux.HandleFunc("GET /api/vmcps", vmcps.List)
+	mux.HandleFunc("POST /api/vmcps", vmcps.Create)
+	mux.HandleFunc("GET /api/vmcps/{vmcp_id}", vmcps.Get)
+	mux.HandleFunc("PUT /api/vmcps/{vmcp_id}", vmcps.Update)
+	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
+	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
+	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
+
+	// Virtual MCP instances
+	mux.HandleFunc("GET /api/vmcp-instances", vmcpInstances.List)
+	mux.HandleFunc("POST /api/vmcp-instances", vmcpInstances.Create)
+	mux.HandleFunc("GET /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Get)
+	mux.HandleFunc("PUT /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Update)
+	mux.HandleFunc("DELETE /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Delete)
+	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/configure", vmcpInstances.Configure)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

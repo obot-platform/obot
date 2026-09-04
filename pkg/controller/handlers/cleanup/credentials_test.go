@@ -11,6 +11,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -144,4 +145,71 @@ func TestRemoveAuditLogCredKeepsSweepPendingWhenDeleteFails(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, server.GetAnnotations(), v1.AuditLogCredentialRemovedAnnotation,
 		"a failed delete must leave the sweep pending")
+}
+
+func TestRemoveVMCPConfigurationCredentials(t *testing.T) {
+	tests := []struct {
+		name    string
+		object  kclient.Object
+		context string
+		cleanup func(*Credentials, router.Request, router.Response) error
+	}{
+		{
+			name: "static configuration",
+			object: &v1.VMCP{
+				Name:      "vmcp1test",
+				Namespace: "default",
+			},
+			context: vmcp.StaticConfigurationCredentialContext("vmcp1test"),
+			cleanup: (*Credentials).RemoveVMCPStaticConfigurationCredentials,
+		},
+		{
+			name: "instance configuration",
+			object: &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+			},
+			context: vmcp.InstanceConfigurationCredentialContext("vmcpi1test"),
+			cleanup: (*Credentials).RemoveVMCPInstanceConfigurationCredentials,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gatewayClient := newCredentialsCleanupGatewayClient(t)
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: tt.context,
+				Name:    vmcp.ConfigurationCredentialName(),
+				Secrets: map[string]string{"secret": "value"},
+			}))
+			require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+				Context: "unrelated",
+				Name:    vmcp.ConfigurationCredentialName(),
+				Secrets: map[string]string{"secret": "value"},
+			}))
+
+			cleanup := NewCredentials(nil, gatewayClient, "")
+			req := router.Request{Ctx: t.Context(), Name: tt.object.GetName(), Object: tt.object}
+			require.NoError(t, tt.cleanup(cleanup, req, &router.ResponseWrapper{}))
+			require.NoError(t, tt.cleanup(cleanup, req, &router.ResponseWrapper{}), "cleanup must be retry-safe")
+
+			assert.False(t, credentialExists(t, gatewayClient, tt.context, vmcp.ConfigurationCredentialName()))
+			assert.True(t, credentialExists(t, gatewayClient, "unrelated", vmcp.ConfigurationCredentialName()))
+		})
+	}
+}
+
+func TestRemoveVMCPConfigurationCredentialsLeavesFailureForRetry(t *testing.T) {
+	cleanup := NewCredentials(nil, newCredentialsCleanupGatewayClient(t), "")
+	require.NoError(t, cleanup.gatewayClient.Close())
+
+	err := cleanup.RemoveVMCPStaticConfigurationCredentials(router.Request{
+		Name: "vmcp1test",
+		Ctx:  t.Context(),
+		Object: &v1.VMCP{
+			Name:      "vmcp1test",
+			Namespace: "default",
+		},
+	}, &router.ResponseWrapper{})
+	require.Error(t, err)
 }

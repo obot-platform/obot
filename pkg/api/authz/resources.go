@@ -48,6 +48,19 @@ var (
 			"POST   /api/mcp-server-instances/{mcp_server_instance_id}/reveal",
 			"POST   /api/mcp-server-instances/{mcp_server_instance_id}/configure",
 			"POST   /api/mcp-server-instances/{mcp_server_instance_id}/deconfigure",
+			"GET    /api/vmcps",
+			"POST   /api/vmcps",
+			"GET    /api/vmcps/{vmcp_id}",
+			"PUT    /api/vmcps/{vmcp_id}",
+			"DELETE /api/vmcps/{vmcp_id}",
+			"POST   /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews",
+			"POST   /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url",
+			"GET    /api/vmcp-instances",
+			"POST   /api/vmcp-instances",
+			"GET    /api/vmcp-instances/{vmcp_instance_id}",
+			"PUT    /api/vmcp-instances/{vmcp_instance_id}",
+			"DELETE /api/vmcp-instances/{vmcp_instance_id}",
+			"POST   /api/vmcp-instances/{vmcp_instance_id}/configure",
 			"GET    /api/mcp-servers",
 			"GET    /api/mcp-servers/{mcpserver_id}",
 			"POST   /api/mcp-servers/{mcpserver_id}/launch",
@@ -179,6 +192,8 @@ type Resources struct {
 	MCPServerID             string
 	MCPServerInstanceID     string
 	MCPServerCatalogEntryID string
+	VMCPID                  string
+	VMCPInstanceID          string
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
 	MCPID                 string
 	WorkspaceID           string
@@ -198,6 +213,8 @@ type ResourcesAuthorized struct {
 	MCPServer             *v1.MCPServer
 	MCPServerInstance     *v1.MCPServerInstance
 	MCPServerCatalogEntry *v1.MCPServerCatalogEntry
+	VMCP                  *v1.VMCP
+	VMCPInstance          *v1.VMCPInstance
 	PowerUserWorkspace    *v1.PowerUserWorkspace
 	NanobotAgent          *v1.NanobotAgent
 	Project               *v1.Project
@@ -212,6 +229,8 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		MCPServerID:             vars("mcpserver_id"),
 		MCPServerInstanceID:     vars("mcp_server_instance_id"),
 		MCPServerCatalogEntryID: vars("entry_id"),
+		VMCPID:                  vars("vmcp_id"),
+		VMCPInstanceID:          vars("vmcp_instance_id"),
 		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, or a catalog entry ID
 		WorkspaceID:             vars("workspace_id"),
 		NanobotAgentID:          vars("nanobot_agent_id"),
@@ -238,6 +257,14 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkMCPServerInstance(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkVMCP(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkVMCPInstance(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

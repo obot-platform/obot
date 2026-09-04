@@ -9,6 +9,7 @@ import (
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/vmcp"
 )
 
 type Credentials struct {
@@ -82,6 +83,16 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 	}
 
 	return nil
+}
+
+func (c *Credentials) RemoveVMCPStaticConfigurationCredentials(req router.Request, _ router.Response) error {
+	_, err := c.gatewayClient.DeleteCredential(req.Ctx, vmcp.StaticConfigurationCredentialContext(req.Name), vmcp.ConfigurationCredentialName())
+	return err
+}
+
+func (c *Credentials) RemoveVMCPInstanceConfigurationCredentials(req router.Request, _ router.Response) error {
+	_, err := c.gatewayClient.DeleteCredential(req.Ctx, vmcp.InstanceConfigurationCredentialContext(req.Name), vmcp.ConfigurationCredentialName())
+	return err
 }
 
 // RemoveAuditLogCred removes the credential an older Obot stored per server for token exchange

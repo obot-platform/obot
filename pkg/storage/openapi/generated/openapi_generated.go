@@ -198,6 +198,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntry":                     schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntry(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryList":                 schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryList(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest":             schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot":             schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntrySnapshot(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerDetails":                          schema_obot_platform_obot_apiclient_types_MCPServerDetails(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerEvent":                            schema_obot_platform_obot_apiclient_types_MCPServerEvent(ref),
 		"github.com/obot-platform/obot/apiclient/types.MCPServerInstance":                         schema_obot_platform_obot_apiclient_types_MCPServerInstance(ref),
@@ -362,6 +363,19 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.User":                                      schema_obot_platform_obot_apiclient_types_User(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserDefaultRoleSetting":                    schema_obot_platform_obot_apiclient_types_UserDefaultRoleSetting(ref),
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                  schema_obot_platform_obot_apiclient_types_UserList(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCP":                                      schema_obot_platform_obot_apiclient_types_VMCP(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPComponent":                             schema_obot_platform_obot_apiclient_types_VMCPComponent(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus":                       schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPConfiguration":                         schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy":                   schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPInstance":                              schema_obot_platform_obot_apiclient_types_VMCPInstance(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceList":                          schema_obot_platform_obot_apiclient_types_VMCPInstanceList(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest":                      schema_obot_platform_obot_apiclient_types_VMCPInstanceManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus":                        schema_obot_platform_obot_apiclient_types_VMCPInstanceStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPList":                                  schema_obot_platform_obot_apiclient_types_VMCPList(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPManifest":                              schema_obot_platform_obot_apiclient_types_VMCPManifest(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfile":                               schema_obot_platform_obot_apiclient_types_VMCPProfile(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                             schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
 		v1.AccessControlRule{}.OpenAPIModelName():                                                 schema_storage_apis_obotobotai_v1_AccessControlRule(ref),
 		v1.AccessControlRuleList{}.OpenAPIModelName():                                             schema_storage_apis_obotobotai_v1_AccessControlRuleList(ref),
@@ -583,6 +597,15 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.UserRoleChange{}.OpenAPIModelName():                                                    schema_storage_apis_obotobotai_v1_UserRoleChange(ref),
 		v1.UserRoleChangeList{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeList(ref),
 		v1.UserRoleChangeSpec{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref),
+		v1.VMCP{}.OpenAPIModelName():                                                              schema_storage_apis_obotobotai_v1_VMCP(ref),
+		v1.VMCPComponentStatus{}.OpenAPIModelName():                                               schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref),
+		v1.VMCPInstance{}.OpenAPIModelName():                                                      schema_storage_apis_obotobotai_v1_VMCPInstance(ref),
+		v1.VMCPInstanceList{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceList(ref),
+		v1.VMCPInstanceSpec{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref),
+		v1.VMCPInstanceStatus{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref),
+		v1.VMCPList{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPList(ref),
+		v1.VMCPSpec{}.OpenAPIModelName():                                                          schema_storage_apis_obotobotai_v1_VMCPSpec(ref),
+		v1.VMCPStatus{}.OpenAPIModelName():                                                        schema_storage_apis_obotobotai_v1_VMCPStatus(ref),
 		coordinationv1.Lease{}.OpenAPIModelName():                                                 schema_k8sio_api_coordination_v1_Lease(ref),
 		coordinationv1.LeaseList{}.OpenAPIModelName():                                             schema_k8sio_api_coordination_v1_LeaseList(ref),
 		coordinationv1.LeaseSpec{}.OpenAPIModelName():                                             schema_k8sio_api_coordination_v1_LeaseSpec(ref),
@@ -10701,6 +10724,41 @@ func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntryManifest(ref
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_MCPServerCatalogEntrySnapshot(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "MCPServerCatalogEntrySnapshot is the catalog-entry data retained by a VMCP. Source ownership and mutable status are deliberately not included.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
+						},
+					},
+					"unsupportedTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"manifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_MCPServerDetails(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -18523,6 +18581,730 @@ func schema_obot_platform_obot_apiclient_types_UserList(ref common.ReferenceCall
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCP is a stable, optionally multi-component MCP endpoint definition.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deleted": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponent"),
+									},
+								},
+							},
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPProfile"),
+									},
+								},
+							},
+						},
+					},
+					"forceSingleUser": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"staticConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPStatus"),
+						},
+					},
+				},
+				Required: []string{"created", "displayName", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.VMCPComponent", "github.com/obot-platform/obot/apiclient/types.VMCPProfile", "github.com/obot-platform/obot/apiclient/types.VMCPStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPComponent is a snapshot of one catalog entry and the policy applied to it. Runtime resolution uses CatalogEntry rather than resolving the source live.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ID is the immutable, server-assigned identity used to scope component configuration.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mcpCatalogID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"mcpServerCatalogEntryID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"catalogEntry": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot"),
+						},
+					},
+					"sourceDigest": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"configuration": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy"),
+									},
+								},
+							},
+						},
+					},
+					"oauthCredentialID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"allowedTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"toolPrefix": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"toolOverrides": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.ToolOverride"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "mcpCatalogID", "mcpServerCatalogEntryID", "catalogEntry"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntrySnapshot", "github.com/obot-platform/obot/apiclient/types.ToolOverride", "github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceMissing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPConfiguration groups configuration values by VMCP component ID.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type: []string{"object"},
+										AdditionalProperties: &spec.SchemaOrBool{
+											Allows: true,
+											Schema: &spec.Schema{
+												SchemaProps: spec.SchemaProps{
+													Type:   []string{"string"},
+													Format: "",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"components"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"key": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"policy": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"value": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Value is write-only fixed configuration. The API removes it from the persisted VMCP manifest and stores it in the VMCP credential.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"key"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPInstance(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"id": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"created": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"deleted": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+					"links": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"enabledTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus"),
+						},
+					},
+				},
+				Required: []string{"created", "vmcpID", "userID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPInstanceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPInstance"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPInstance"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPInstanceManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"vmcpID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"enabledTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"vmcpID"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPInstanceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"missingRequiredConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"userConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCP"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCP"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPManifest(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPManifest contains the user-managed portion of a VMCP.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"displayName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"description": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"icon": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponent"),
+									},
+								},
+							},
+						},
+					},
+					"profiles": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPProfile"),
+									},
+								},
+							},
+						},
+					},
+					"forceSingleUser": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"displayName", "components"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponent", "github.com/obot-platform/obot/apiclient/types.VMCPProfile"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VMCPProfile grants access and tools to matching users and groups. Profiles are additive. AllowAllTools means all tools enabled on the VMCP are granted; otherwise only AllowedTools are granted, including an intentionally empty set.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"subjects": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.Subject"),
+									},
+								},
+							},
+						},
+					},
+					"allowAllTools": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowedTools": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"name", "subjects"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.Subject"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus"},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_WebhookStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -23009,6 +23791,20 @@ func schema_storage_apis_obotobotai_v1_MCPServerSpec(ref common.ReferenceCallbac
 							Format:      "",
 						},
 					},
+					"vmcpInstanceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPInstanceID is the VMCPInstance that owns this component server, if there is one.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpComponentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"manifest"},
 			},
@@ -23024,6 +23820,20 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"vmcpStaticConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPStaticConfigurationHash is the VMCP static configuration hash last copied to this server's credential.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpUserConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPUserConfigurationHash is the VMCP instance user configuration hash last copied to this server's credential.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.",
@@ -28244,6 +29054,369 @@ func schema_storage_apis_obotobotai_v1_UserRoleChangeSpec(ref common.ReferenceCa
 				},
 			},
 		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCP(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.VMCPSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.VMCPStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCPSpec{}.OpenAPIModelName(), v1.VMCPStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"error": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"sourceMissing": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"needsUpdate": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPInstance(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.VMCPInstanceSpec{}.OpenAPIModelName()),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(v1.VMCPInstanceStatus{}.OpenAPIModelName()),
+						},
+					},
+				},
+				Required: []string{"metadata", "spec", "status"},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCPInstanceSpec{}.OpenAPIModelName(), v1.VMCPInstanceStatus{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPInstanceList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPInstance{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCPInstance{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"manifest", "userID"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPInstanceStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"configured": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"missingRequiredConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"userConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCP{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"metadata", "items"},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCP{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"manifest": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPManifest"),
+						},
+					},
+					"userID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "UserID is set for a personal VMCP and empty for an administrator-created shared VMCP.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"staticConfigurationHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"manifest"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPManifest"},
+	}
+}
+
+func schema_storage_apis_obotobotai_v1_VMCPStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"ready": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"components": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref(v1.VMCPComponentStatus{}.OpenAPIModelName()),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			v1.VMCPComponentStatus{}.OpenAPIModelName()},
 	}
 }
 

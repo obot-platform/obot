@@ -33,6 +33,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
+	"github.com/obot-platform/obot/pkg/controller/handlers/vmcpinstance"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 )
@@ -51,6 +52,7 @@ func (c *Controller) setupRoutes() {
 	skillRepository := skillrepository.New(c.services.GatewayClient)
 	mcpserver := mcpserver.New(c.services.GatewayClient, c.services.MCPSessionManager, c.services.MCPOAuthTokenStorage, c.services.MCPNetworkPolicyEnabled, c.services.MCPDefaultDenyAllEgress, c.services.SingleUserIdleServerShutdownInterval, c.services.MultiUserIdleServerShutdownInterval, c.services.AgentIdleServerShutdownInterval, c.services.ServerURL, c.services.MCPRuntimeBackend, c.services.MCPImagePullSecrets)
 	mcpserverinstance := mcpserverinstance.New(c.services.GatewayClient)
+	vmcpinstance := vmcpinstance.New(c.services.GatewayClient)
 	accesscontrolrule := accesscontrolrule.New(c.services.AccessControlRuleHelper)
 	mcpWebhookValidations := mcpwebhookvalidation.New(c.services.GatewayClient, c.services.MCPHTTPWebhookBaseImage)
 	powerUserWorkspaceHandler := poweruserworkspace.NewHandler(c.services.GatewayClient)
@@ -168,6 +170,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.MigrateSharedWithinMCPCatalogName)
 	root.Type(&v1.MCPServer{}).HandlerFunc(credentialCleanup.RemoveAuditLogCred)
 	root.Type(&v1.MCPServer{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.SyncVMCPConfiguration)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersWithoutRuntime)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.DeleteServersForAnonymousUser)
 	root.Type(&v1.MCPServer{}).HandlerFunc(mcpserver.CleanupNestedCompositeServers)
@@ -191,6 +194,12 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
+
+	// VMCPInstance
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncUserConfigurationHash)
+	root.Type(&v1.VMCPInstance{}).FinalizeFunc(v1.VMCPInstanceFinalizer, credentialCleanup.RemoveVMCPInstanceConfigurationCredentials)
 
 	// MCPClientSession
 	root.Type(&v1.MCPClientSession{}).HandlerFunc(mcpClientSessionHandler.Cleanup)

@@ -1104,3 +1104,48 @@ func (in UserRoleChangeList) OpenAPIModelName() string {
 func (in UserRoleChangeSpec) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.UserRoleChangeSpec"
 }
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCP) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCP"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPComponentStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPComponentStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPInstance) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPInstance"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPInstanceList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPInstanceList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPInstanceSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPInstanceSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPInstanceStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPInstanceStatus"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPList) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPList"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPSpec) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPSpec"
+}
+
+// OpenAPIModelName returns the OpenAPI model name for this type.
+func (in VMCPStatus) OpenAPIModelName() string {
+	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.VMCPStatus"
+}

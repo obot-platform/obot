@@ -5,6 +5,8 @@ const (
 	MCPServerFinalizer             = "obot.obot.ai/mcp-server"
 	MCPServerCatalogEntryFinalizer = "obot.obot.ai/mcp-server-catalog-entry"
 	MCPServerInstanceFinalizer     = "obot.obot.ai/mcp-server-instance"
+	VMCPFinalizer                  = "obot.obot.ai/vmcp"
+	VMCPInstanceFinalizer          = "obot.obot.ai/vmcp-instance"
 	AccessControlRuleFinalizer     = "obot.obot.ai/access-control-rule"
 	SystemMCPServerFinalizer       = "obot.obot.ai/system-mcp-server"
 	NanobotAgentFinalizer          = "obot.obot.ai/nanobot-agent"

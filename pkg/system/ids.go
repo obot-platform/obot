@@ -22,6 +22,8 @@ const (
 	MCPTunnelPrefix               = "mt1"
 	MCPNetworkPolicyPrefix        = "mnp1"
 	MCPServerInstancePrefix       = "msi1"
+	VMCPPrefix                    = "vmcp1"
+	VMCPInstancePrefix            = "vmcpi1"
 	ImagePullSecretPrefix         = "ips1"
 	GitCredentialPrefix           = "gc1"
 	SystemCatalogPrefix           = "smcat1"
