@@ -7,7 +7,16 @@ To learn more about the release, try:
   $ helm status {{ .Release.Name }}
   $ helm get all {{ .Release.Name }}
 
-{{ if and (eq .Values.config.OBOT_SERVER_ENABLE_AUTHENTICATION true) (not .Values.secret.existingSecret) }}
+{{ if eq .Values.config.OBOT_SERVER_ENABLE_AUTHENTICATION true }}
+{{- if .Values.config.OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL }}
+The initial local-auth owner is configured for {{ .Values.config.OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL }}.
+Send that user a link in this form, substituting the setup token supplied in the Secret:
+  https://your-obot-host/activate#token=<setup-token>
+{{- end }}
+{{- /* Provisioning an initial owner disables bootstrap login and suppresses the generated
+       token, so this command would have nothing to retrieve. */}}
+{{- if and (not .Values.config.OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL) (not .Values.secret.existingSecret) }}
 You can retrieve the bootstrap token by running:
   $ kubectl get secret -n {{ .Release.Namespace }} {{ include "obot.secret.secretName" . }} -ojson | jq -r .data.OBOT_BOOTSTRAP_TOKEN | base64 -d; echo
+{{- end }}
 {{ end }}

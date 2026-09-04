@@ -9,10 +9,14 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/api/server/requestinfo"
+	"github.com/obot-platform/obot/pkg/auth"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/hash"
 	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -24,12 +28,18 @@ type LocalAuthHandler struct {
 // Passwords are never returned, in any form.
 type LocalAuthUser struct {
 	types.Metadata
-	Email string `json:"email"`
+	Email                 string `json:"email"`
+	RequirePasswordChange bool   `json:"requirePasswordChange"`
 }
 
 type localAuthUserRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email                 string `json:"email"`
+	Password              string `json:"password"`
+	RequirePasswordChange *bool  `json:"requirePasswordChange,omitempty"`
+}
+
+type localAuthActivationRequest struct {
+	SetupToken string `json:"setupToken"`
 }
 
 func NewLocalAuthHandler(provider *localauth.Provider) *LocalAuthHandler {
@@ -51,9 +61,10 @@ func (h *LocalAuthHandler) List(req api.Context) error {
 	items := make([]LocalAuthUser, 0, len(users))
 	for _, user := range users {
 		items = append(items, LocalAuthUser{
-			ID:      strconv.FormatUint(uint64(user.ID), 10),
-			Created: *types.NewTime(user.CreatedAt),
-			Email:   user.Email,
+			ID:                    strconv.FormatUint(uint64(user.ID), 10),
+			Created:               *types.NewTime(user.CreatedAt),
+			Email:                 user.Email,
+			RequirePasswordChange: user.RequirePasswordChange,
 		})
 	}
 
@@ -70,19 +81,20 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password)
+	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange))
 	if errors.Is(err, gateway.ErrLocalAuthUserExists) {
 		return types.NewErrBadRequest("a local user with that email already exists")
-	} else if invalid := (localauth.InvalidUserError{}); errors.As(err, &invalid) {
+	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
 		return types.NewErrBadRequest("%s", invalid.Error())
 	} else if err != nil {
 		return fmt.Errorf("failed to create local auth user: %w", err)
 	}
 
 	return req.Write(LocalAuthUser{
-		ID:      strconv.FormatUint(uint64(user.ID), 10),
-		Created: *types.NewTime(user.CreatedAt),
-		Email:   user.Email,
+		ID:                    strconv.FormatUint(uint64(user.ID), 10),
+		Created:               *types.NewTime(user.CreatedAt),
+		Email:                 user.Email,
+		RequirePasswordChange: user.RequirePasswordChange,
 	})
 }
 
@@ -102,16 +114,87 @@ func (h *LocalAuthHandler) SetPassword(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	err = h.provider.SetPassword(req.Context(), id, body.Password)
+	err = h.provider.SetPassword(req.Context(), id, body.Password, defaultTrue(body.RequirePasswordChange))
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return types.NewErrNotFound("local auth user not found")
-	} else if invalid := (localauth.InvalidUserError{}); errors.As(err, &invalid) {
+	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
 		return types.NewErrBadRequest("%s", invalid.Error())
 	} else if err != nil {
 		return fmt.Errorf("failed to set password for local auth user: %w", err)
 	}
 
 	return nil
+}
+
+// Activate validates the initial owner's setup token and establishes a restricted local auth
+// session. Invalid, expired, and completed links intentionally get the same response.
+func (h *LocalAuthHandler) Activate(req api.Context) error {
+	if err := h.enabled(); err != nil {
+		return err
+	}
+
+	var body localAuthActivationRequest
+	if err := req.Read(&body); err != nil {
+		return types.NewErrBadRequest("invalid request body")
+	}
+
+	token, expiresAt, err := h.provider.ActivateInitialOwner(req.Context(), body.SetupToken)
+	if err != nil {
+		// Logged so repeated failures are visible as possible token guessing. The setup token and
+		// the owner's email are deliberately left out.
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			slog.Warn("Rejected an initial local auth owner setup link", "sourceIP", requestinfo.GetSourceIP(req.Request))
+		} else {
+			slog.Warn("Failed to activate initial local auth owner", "error", err)
+		}
+		return types.NewErrHTTP(http.StatusUnauthorized, "invalid or expired setup link")
+	}
+
+	h.provider.SetSessionCookie(req.ResponseWriter, token, expiresAt)
+	return req.Write(map[string]bool{"activated": true})
+}
+
+// ChangePassword changes the caller's own local-auth password. It cannot target an email or user
+// ID supplied by the caller.
+func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
+	if err := h.enabled(); err != nil {
+		return err
+	}
+	name, namespace := req.AuthProviderNameAndNamespace()
+	if name != system.LocalAuthProvider || namespace != system.DefaultNamespace {
+		return types.NewErrBadRequest("the current user is not authenticated with the local provider")
+	}
+	if utils.FirstSet(req.User.GetExtra()["password_change_required"]...) != "true" {
+		return types.NewErrBadRequest("the current local user does not require a password change")
+	}
+
+	var body localAuthUserRequest
+	if err := req.Read(&body); err != nil {
+		return types.NewErrBadRequest("invalid request body: %v", err)
+	}
+
+	email := utils.FirstSet(req.User.GetExtra()["email"]...)
+	localUser, err := req.GatewayClient.LocalAuthUserByEmail(req.Context(), email)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return types.NewErrNotFound("local auth user not found")
+	} else if err != nil {
+		return fmt.Errorf("failed to find current local auth user: %w", err)
+	}
+
+	cookie, err := req.Cookie(auth.ObotAccessTokenCookie)
+	if err != nil || cookie.Value == "" {
+		return types.NewErrHTTP(http.StatusUnauthorized, "local auth session is required")
+	}
+	if err := h.provider.ChangePassword(req.Context(), localUser.ID, body.Password, hash.String(cookie.Value)); err != nil {
+		if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
+			return types.NewErrBadRequest("%s", invalid.Error())
+		} else if errors.Is(err, gorm.ErrRecordNotFound) {
+			return types.NewErrHTTP(http.StatusConflict, "password setup has already been completed or the session is no longer valid")
+		}
+		return fmt.Errorf("failed to change password: %w", err)
+	}
+
+	return req.Write(map[string]bool{"changed": true})
 }
 
 func (h *LocalAuthHandler) Delete(req api.Context) error {
@@ -188,4 +271,8 @@ func localAuthUserID(req api.Context) (uint, error) {
 		return 0, types.NewErrBadRequest("invalid local auth user ID")
 	}
 	return uint(id), nil
+}
+
+func defaultTrue(value *bool) bool {
+	return value == nil || *value
 }

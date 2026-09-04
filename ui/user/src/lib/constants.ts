@@ -8,7 +8,10 @@ export const UNAUTHORIZED_PATHS = new Set([
 	'/admin',
 	// The local auth provider's login form: anonymous by definition, so a 401 from the layout's
 	// profile fetch must not bounce the user back to the provider list.
-	'/login/local'
+	'/login/local',
+	// Activation carries its setup token in the URL fragment, so redirecting an anonymous visitor
+	// away would discard the only browser-side copy of it.
+	'/activate'
 ]);
 
 export const PAGE_TRANSITION_DURATION = 200;

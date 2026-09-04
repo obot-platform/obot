@@ -22,7 +22,7 @@ const localProvider: AuthProvider = {
 const validPassword = 'a'.repeat(LOCAL_AUTH_MIN_PASSWORD_LENGTH);
 
 function createdUser(email: string): LocalAuthUser {
-	return { id: 'user-1', email, created: '2026-08-18T12:00:00Z' };
+	return { id: 'user-1', email, created: '2026-08-18T12:00:00Z', requirePasswordChange: false };
 }
 
 function mockLocalUsers({
@@ -30,14 +30,18 @@ function mockLocalUsers({
 	createUser = vi.fn()
 }: {
 	existing?: LocalAuthUser[];
-	createUser?: (body: { email: string; password: string }) => void;
+	createUser?: (body: { email: string; password: string; requirePasswordChange: boolean }) => void;
 } = {}) {
 	let users = [...existing];
 
 	worker.use(
 		http.get('/api/local-auth/users', () => HttpResponse.json({ items: users })),
 		http.post('/api/local-auth/users', async ({ request }) => {
-			const body = (await request.json()) as { email: string; password: string };
+			const body = (await request.json()) as {
+				email: string;
+				password: string;
+				requirePasswordChange: boolean;
+			};
 			createUser(body);
 			const user = createdUser(body.email);
 			users = [...users, user];
@@ -48,7 +52,7 @@ function mockLocalUsers({
 	return { createUser };
 }
 
-async function renderConfiguredDialog(props: { readonly?: boolean } = {}) {
+async function renderConfiguredDialog(props: { readonly?: boolean; switching?: boolean } = {}) {
 	const dialog = await renderOpenDialog(LocalAuthConfigure, {
 		provider: localProvider,
 		values: { OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*' },
@@ -119,9 +123,87 @@ describe('LocalAuthConfigure.svelte', () => {
 		await vi.waitFor(() => {
 			expect(createUser).toHaveBeenCalledWith({
 				email: 'ada@example.com',
-				password: validPassword
+				password: validPassword,
+				requirePasswordChange: true
 			});
 		});
+	});
+
+	// During a switch the account created here is the one the administrator immediately signs in as
+	// to prove the replacement works. A forced password change would put that sign-in behind the
+	// restricted-session wall, so the switch could never complete on the first pass.
+	it('does not force a password change on the owner created for a switch', async () => {
+		const { createUser } = mockLocalUsers();
+		const dialog = await renderConfiguredDialog({ switching: true });
+
+		await dialog.getByRole('button', { name: 'Add New User', exact: true }).click();
+		await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+		await page.getByCSS('#local-user-password-draft').fill(validPassword);
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createUser).toHaveBeenCalledWith({
+				email: 'ada@example.com',
+				password: validPassword,
+				requirePasswordChange: false
+			});
+		});
+	});
+
+	it('lets the administrator turn the password-change requirement off', async () => {
+		const { createUser } = mockLocalUsers();
+		const dialog = await renderConfiguredDialog();
+
+		await dialog.getByRole('button', { name: 'Add New User', exact: true }).click();
+		await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+		await page.getByCSS('#local-user-password-draft').fill(validPassword);
+		await dialog
+			.getByRole('checkbox', { name: /Require the user to change this password/ })
+			.click();
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createUser).toHaveBeenCalledWith({
+				email: 'ada@example.com',
+				password: validPassword,
+				requirePasswordChange: false
+			});
+		});
+	});
+
+	it('warns that local users will not transfer to another auth provider', async () => {
+		mockLocalUsers();
+		const dialog = await renderConfiguredDialog();
+
+		// Switching providers can mint a new Obot user, stranding whatever these users set up, so
+		// the local user management page has to say so.
+		await expect
+			.element(
+				dialog.getByText(
+					/can create a new Obot user, and these users and their work will not\s+transfer/
+				)
+			)
+			.toBeVisible();
+	});
+
+	it('marks only the users who still owe a password change', async () => {
+		mockLocalUsers({
+			existing: [
+				{ ...createdUser('pending@example.com'), id: 'user-1', requirePasswordChange: true },
+				{ ...createdUser('settled@example.com'), id: 'user-2', requirePasswordChange: false }
+			]
+		});
+		const dialog = await renderConfiguredDialog();
+
+		const pending = dialog.getByText('pending@example.com', { exact: true }).locator('..');
+		const settled = dialog.getByText('settled@example.com', { exact: true }).locator('..');
+
+		await expect
+			.element(pending.getByText('Password change required', { exact: true }))
+			.toBeVisible();
+		await expect
+			.element(settled.getByText('Password change required', { exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('keeps the draft open when Enter is pressed with incomplete fields', async () => {

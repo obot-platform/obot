@@ -269,3 +269,115 @@ func TestSubmitProviderConfigurationChangeReturnsTerminalError(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, httpErr.Code)
 	assert.Contains(t, httpErr.Error(), terminalError)
 }
+
+func TestActivateAuthProviderRequiresAVerificationForThatProvider(t *testing.T) {
+	activeProvider := &v1.AuthProvider{
+		Name:      "active-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	stagedProvider := &v1.AuthProvider{
+		Name:      "incoming-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	storage := newAuthProviderTestStorage(activeProvider, stagedProvider)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: activeProvider.Name,
+		Name:    activeProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: system.ReplacementAuthProviderCredentialContext,
+		Name:    stagedProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "incoming-secret"},
+	}))
+
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, licenseProvider, "", "", "")
+	handler := NewAuthProviderHandler(providerDispatcher, "", licenseProvider)
+
+	activate := func() error {
+		request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/incoming-auth-provider/activate", nil)
+		request.SetPathValue("id", stagedProvider.Name)
+		return handler.Activate(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        request,
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+		})
+	}
+
+	// Nothing has signed in through the replacement yet.
+	require.ErrorContains(t, activate(), "verify it before completing the switch")
+
+	// A verification against some other provider proves nothing about this one, so it must not
+	// stand in for one. Otherwise an unrelated bootstrap sign-in would open the switch.
+	require.NoError(t, gatewayClient.SetTempUserCache(t.Context(),
+		&gatewaytypes.User{ID: 1, Email: "owner@example.com"},
+		"some-other-auth-provider", system.DefaultNamespace))
+	require.ErrorContains(t, activate(), "verify it before completing the switch")
+
+	// The outgoing provider is still the one serving logins throughout.
+	configured, err := providerDispatcher.GetConfiguredAuthProvider(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, activeProvider.Name, configured)
+}
+
+// Turning off the only provider serving logins leaves nobody able to sign in and no session left
+// to undo it with, which is the state an administrator cannot recover from on their own.
+func TestDeconfigureAuthProviderRefusesToRemoveTheLastWayIn(t *testing.T) {
+	activeProvider := &v1.AuthProvider{
+		Name:      "active-auth-provider",
+		Namespace: system.DefaultNamespace,
+		Status:    v1.AuthProviderStatus{Configured: true},
+	}
+	otherProvider := &v1.AuthProvider{
+		Name:      "other-auth-provider",
+		Namespace: system.DefaultNamespace,
+	}
+	storage := newAuthProviderTestStorage(activeProvider, otherProvider)
+	gatewayClient := newHandlerTestGateway(t)
+	require.NoError(t, gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: activeProvider.Name,
+		Name:    activeProvider.Name,
+		Secrets: map[string]string{"CLIENT_SECRET": "active-secret"},
+	}))
+
+	licenseProvider, err := license.NewProvider(t.Context(), nil, license.Config{})
+	require.NoError(t, err)
+	providerDispatcher := dispatcher.New(nil, storage, gatewayClient, licenseProvider, "", "", "")
+	handler := NewAuthProviderHandler(providerDispatcher, "", licenseProvider)
+
+	deconfigure := func(name string) error {
+		request := httptest.NewRequest(http.MethodPost, "/api/auth-providers/"+name+"/deconfigure", nil)
+		request.SetPathValue("id", name)
+		return handler.Deconfigure(api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        request,
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+		})
+	}
+
+	require.ErrorContains(t, deconfigure(activeProvider.Name), "would leave no way to sign in")
+
+	// A provider that is not the one serving logins has nothing to do with this, and is still
+	// deconfigured normally.
+	errC := make(chan error, 1)
+	go func() { errC <- deconfigure(otherProvider.Name) }()
+
+	var change v1.ProviderConfigurationChange
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		assert.NoError(collect, storage.Get(t.Context(), kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      system.ProviderChangeAuthName,
+		}, &change))
+	}, time.Second, 10*time.Millisecond)
+	assert.Equal(t, v1.ProviderDesiredStateDeconfigured, change.Spec.DesiredState)
+	assert.Equal(t, otherProvider.Name, change.Spec.ProviderName)
+
+	require.NoError(t, storage.Delete(t.Context(), &change))
+	require.NoError(t, <-errC)
+}

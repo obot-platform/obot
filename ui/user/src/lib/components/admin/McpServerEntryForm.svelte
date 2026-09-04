@@ -344,6 +344,9 @@
 						refreshToolsDisplay();
 					}
 				})
+				// Nothing awaits this, so a failed load is swallowed here rather than surfacing as an
+				// unhandled rejection. The list stays as it was and the spinner still clears below.
+				.catch(() => {})
 				.finally(() => {
 					if (!cancelled) {
 						serverInstancesLoading = false;
@@ -723,13 +726,15 @@
 					entity === 'workspace'
 						? UserService.listWorkspaceMCPServersForEntry
 						: AdminService.listMCPServersForEntry;
-				listInstances(id, updatedEntry.id).then((response) => {
-					resolvedConfiguredServers = response.filter((s) => !s.deleted);
-					refreshToolsDisplay();
-					if (response.length > 0 && response.some((instance) => instance)) {
-						showUpdateExistingDeploymentsConfirm = true;
-					}
-				});
+				listInstances(id, updatedEntry.id)
+					.then((response) => {
+						resolvedConfiguredServers = response.filter((s) => !s.deleted);
+						refreshToolsDisplay();
+						if (response.length > 0 && response.some((instance) => instance)) {
+							showUpdateExistingDeploymentsConfirm = true;
+						}
+					})
+					.catch(() => {});
 			}
 			if (message) {
 				success.add(message);

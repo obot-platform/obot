@@ -2847,6 +2847,20 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format: "",
 						},
 					},
+					"staged": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Staged means this provider's settings are saved as a replacement while another provider still serves logins.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"verifiedEmail": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VerifiedEmail is the address that signed in through this provider to prove the staged settings work, and that will hold Owner once the switch completes. It is set only while the provider is staged.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"CommonProviderStatus"},
 			},
@@ -18135,6 +18149,12 @@ func schema_obot_platform_obot_apiclient_types_User(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"requirePasswordChange": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "lastActiveDay"},
 			},
@@ -25845,6 +25865,13 @@ func schema_storage_apis_obotobotai_v1_ProviderConfigurationChangeSpec(ref commo
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"replacesProviderName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ReplacesProviderName names the auth provider a switch takes over from. It must be the currently configured one, and is deconfigured in the reconcile that promotes the replacement.",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},

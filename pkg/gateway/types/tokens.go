@@ -10,6 +10,9 @@ import (
 const (
 	TokenRequestPurposeDeviceLogin = "device-login"
 	TokenRequestPurposeSetup       = "setup"
+	// TokenRequestPurposeAuthProviderVerify backs the one-time login used to prove a staged
+	// replacement auth provider works before it is activated.
+	TokenRequestPurposeAuthProviderVerify = "auth-provider-verify"
 )
 
 type AuthToken struct {
@@ -42,6 +45,9 @@ type TokenRequest struct {
 	CompletionRedirectURL string
 	Error                 string
 	TokenRetrieved        bool
+	// OwnerUserID is the user who started a staged auth provider verification. Only they may open
+	// the resulting login, so a verification cannot be picked up by another signed-in user.
+	OwnerUserID *uint
 }
 
 type MCPOAuthToken struct {

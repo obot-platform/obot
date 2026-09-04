@@ -261,6 +261,11 @@ export interface BaseProvider {
 }
 export interface AuthProvider extends BaseProvider {
 	type: 'authprovider';
+	// Settings saved as a replacement while another provider still serves logins.
+	staged?: boolean;
+	// The address that signed in through this staged provider to prove it works, and the address
+	// that will hold Owner once the switch completes. Absent until a verification succeeds.
+	verifiedEmail?: string;
 }
 
 // A user of the built-in local auth provider. Passwords are never returned by the API.
@@ -268,6 +273,7 @@ export interface LocalAuthUser {
 	id: string;
 	email: string;
 	created: string;
+	requirePasswordChange: boolean;
 }
 
 // Devices

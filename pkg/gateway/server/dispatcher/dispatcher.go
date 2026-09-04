@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"sync/atomic"
 
 	"github.com/obot-platform/obot/logger"
+	"github.com/obot-platform/obot/pkg/auth"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
@@ -107,12 +109,8 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 		return url.URL{}, fmt.Errorf("failed to get provider: %w", err)
 	}
 
-	if len(authProvider.Status.MissingConfigurationParameters) > 0 {
-		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(authProvider.Status.MissingConfigurationParameters, ", "))
-	}
-
 	credEnv := map[string]string{}
-	cred, err := d.gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext}, authProvider.Name)
+	cred, err := d.gatewayClient.RevealCredential(ctx, []string{authProvider.Name, system.GenericAuthProviderCredentialContext, system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
 	if err != nil {
 		if !errors.As(err, &client.CredentialNotFoundError{}) {
 			return url.URL{}, fmt.Errorf("failed to reveal provider credential: %w", err)
@@ -122,6 +120,18 @@ func (d *Dispatcher) URLForAuthProvider(ctx context.Context, namespace, authProv
 	}
 
 	maps.Copy(credEnv, d.authProviderExtraEnv)
+
+	// Check the environment the daemon will actually receive rather than Status, which the
+	// controller computes from the active contexts alone and so never sees a staged replacement.
+	var missing []string
+	for _, param := range authProvider.Spec.RequiredConfigurationParameters {
+		if _, ok := credEnv[param.Name]; !ok {
+			missing = append(missing, param.Name)
+		}
+	}
+	if len(missing) > 0 {
+		return url.URL{}, fmt.Errorf("provider %q is not configured, missing configuration parameters: %s", authProviderName, strings.Join(missing, ", "))
+	}
 
 	credEnv["LOG_LEVEL"] = providerLogLevel()
 
@@ -233,6 +243,46 @@ func (d *Dispatcher) GetConfiguredAuthProvider(ctx context.Context) (string, err
 	}
 
 	return "", nil
+}
+
+// GetStagedAuthProvider returns the name of the auth provider whose replacement settings are
+// staged, or "" when none is. Staged settings live in their own credential context, so they are
+// invisible to GetConfiguredAuthProvider and cannot become the login provider.
+func (d *Dispatcher) GetStagedAuthProvider(ctx context.Context) (string, error) {
+	creds, err := d.gatewayClient.ListCredentials(ctx, client.ListCredentialsOptions{
+		CredentialContexts: []string{system.ReplacementAuthProviderCredentialContext},
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to list staged auth provider credentials: %w", err)
+	}
+	if len(creds) == 0 {
+		return "", nil
+	}
+	return creds[0].Name, nil
+}
+
+// LoginableAuthProvider reports whether a login may use this provider: the configured one always,
+// plus the staged one for a request carrying the verification it was issued for. Without that ID
+// the staged provider is never loginable, so a verification is not a public login path.
+func (d *Dispatcher) LoginableAuthProvider(ctx context.Context, r *http.Request, name string) (bool, error) {
+	configured, err := d.GetConfiguredAuthProvider(ctx)
+	if err != nil {
+		return false, err
+	}
+	if configured == "" || configured == name {
+		return true, nil
+	}
+
+	staged, err := d.GetStagedAuthProvider(ctx)
+	if err != nil || staged != name {
+		return false, err
+	}
+
+	cookie, cookieErr := r.Cookie(auth.AuthProviderVerifyCookie)
+	if cookieErr != nil {
+		return false, nil
+	}
+	return d.gatewayClient.AuthProviderVerificationActive(ctx, cookie.Value)
 }
 
 // isAuthProviderConfigured checks an auth provider to see if all of its required environment variables are set.

@@ -66,8 +66,9 @@ var (
 		"POST /api/license",
 		"POST /api/license/community",
 		"DELETE /api/license",
-		"/api/auth-providers",
-		"/api/auth-providers/",
+		"POST /api/auth-providers/{id}/configure",
+		"POST /api/auth-providers/{id}/deconfigure",
+		"POST /api/auth-providers/{id}/reveal",
 		"/api/local-auth/users",
 		"/api/local-auth/users/",
 		"/api/model-providers",
@@ -164,9 +165,16 @@ var (
 		"/api/projects/",
 		"GET /api/nanobot-agents",
 	}
+	ownerRules = []string{
+		"POST /api/auth-providers/{id}/stage",
+		"DELETE /api/auth-providers/{id}/stage",
+		"POST /api/auth-providers/{id}/verify",
+		"POST /api/auth-providers/{id}/activate",
+	}
+
 	staticRules = map[string][]string{
 		types.GroupAdmin: adminAndOwnerRules,
-		types.GroupOwner: adminAndOwnerRules,
+		types.GroupOwner: append(slices.Clone(adminAndOwnerRules), ownerRules...),
 		types.GroupAuditor: {
 			"GET /api/admin-api-keys",
 			"GET /api/admin-api-keys/{id}",
@@ -202,7 +210,7 @@ var (
 			"GET /api/image-pull-secrets/",
 			"GET /api/git-credentials",
 			"GET /api/git-credentials/",
-			"POST /api/auth-providers/",
+			"POST /api/auth-providers/{id}/reveal",
 			"GET /api/local-auth/users",
 			"GET /api/local-auth/users/",
 			"GET /api/workspaces/",
@@ -252,6 +260,7 @@ var (
 			"GET /api/bootstrap",
 			"POST /api/bootstrap/login",
 			"POST /api/bootstrap/logout",
+			"POST /api/local-auth/activate",
 
 			"GET /api/app-oauth/authorize/{id}",
 			"GET /api/app-oauth/refresh/{id}",
@@ -350,6 +359,7 @@ var (
 		types.GroupAuthenticated: {
 			"GET /oauth/userinfo",
 			"GET /api/me",
+			"POST /api/local-auth/change-password",
 		},
 
 		types.GroupSkills: {

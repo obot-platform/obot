@@ -19,13 +19,18 @@
 		experimental?: boolean;
 		provider: BaseProvider;
 		onConfigure: () => void;
-		onDeconfigure: () => void;
+		// Omitted when the provider cannot be deconfigured, so the menu is not offered at all.
+		onDeconfigure?: () => void;
 		configuredActions?: Snippet<[BaseProvider]>;
 		deprecated?: boolean;
 		readonly?: boolean;
 		disableConfigure?: boolean;
+		// Shown as a tooltip when disableConfigure hides the reason the button cannot be used.
+		disableConfigureReason?: string;
 		isComingSoon?: boolean;
 		licenseKey?: string;
+		// Settings saved as a replacement while another provider still serves logins.
+		staged?: boolean;
 	}
 
 	const {
@@ -38,8 +43,10 @@
 		deprecated,
 		readonly,
 		disableConfigure,
+		disableConfigureReason,
 		isComingSoon,
-		licenseKey
+		licenseKey,
+		staged
 	}: Props = $props();
 
 	const isLicenseRequired = $derived(
@@ -74,15 +81,17 @@
 				{#if configuredActions}
 					{@render configuredActions(provider)}
 				{/if}
-				<DotDotDot>
-					<button
-						disabled={readonly}
-						class="menu-button text-error"
-						onclick={() => onDeconfigure()}
-					>
-						Deconfigure Provider
-					</button>
-				</DotDotDot>
+				{#if onDeconfigure}
+					<DotDotDot>
+						<button
+							disabled={readonly}
+							class="menu-button text-error"
+							onclick={() => onDeconfigure()}
+						>
+							Deconfigure Provider
+						</button>
+					</DotDotDot>
+				{/if}
 			{/if}
 		</div>
 	</div>
@@ -103,7 +112,8 @@
 			isLicenseRequired &&
 				!provider.configured &&
 				'border-transparent bg-base-200 dark:bg-base-300 text-muted-content',
-			isLicenseRequired && provider.configured && 'border-transparent bg-warning/10 text-warning'
+			isLicenseRequired && provider.configured && 'border-transparent bg-warning/10 text-warning',
+			staged && !provider.configured && 'border-warning/40 bg-warning/10 text-warning'
 		)}
 	>
 		<span class="flex items-center gap-1.5 text-xs font-light">
@@ -126,6 +136,8 @@
 				{/if}
 			{:else if provider.configured}
 				<CircleCheck class="size-4 text-success" /> Configured
+			{:else if staged}
+				<TriangleAlert class="size-4 text-warning" /> Staged
 			{:else}
 				<CircleSlash class="size-4 text-error" /> Not Configured
 			{/if}
@@ -140,22 +152,31 @@
 				<Construction class="size-4" /> Coming Soon
 			</div>
 		{:else}
-			<button
-				onclick={onConfigure}
-				class={twMerge(
-					'w-full border-0 text-sm btn',
-					provider.configured ? 'btn-secondary' : 'btn-primary'
-				)}
-				disabled={disableConfigure}
+			<div
+				class="w-full"
+				use:tooltip={disableConfigure && disableConfigureReason
+					? { classes: ['w-fit'], text: disableConfigureReason }
+					: undefined}
 			>
-				{#if readonly}
-					View
-				{:else if provider.configured}
-					Modify
-				{:else}
-					Configure
-				{/if}
-			</button>
+				<button
+					onclick={onConfigure}
+					class={twMerge(
+						'w-full border-0 text-sm btn',
+						provider.configured || staged ? 'btn-secondary' : 'btn-primary'
+					)}
+					disabled={disableConfigure}
+				>
+					{#if readonly}
+						View
+					{:else if provider.configured}
+						Modify
+					{:else if staged}
+						Resume switch
+					{:else}
+						Configure
+					{/if}
+				</button>
+			</div>
 		{/if}
 	</div>
 </div>

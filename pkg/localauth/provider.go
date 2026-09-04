@@ -37,6 +37,8 @@ const (
 
 	// LoginPath is the UI route that renders the login form.
 	LoginPath = "/login/local"
+	// ChangePasswordPath is the only application page a restricted local-auth session may use.
+	ChangePasswordPath = "/change-password"
 
 	sessionDuration = 7 * 24 * time.Hour
 
@@ -136,7 +138,7 @@ func (p *Provider) cleanupSessions(ctx context.Context) {
 
 // start redirects to the login form in the UI, preserving the post-login redirect target.
 func (p *Provider) start(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, LoginPath+"?rd="+url.QueryEscape(redirectTarget(r.URL.Query().Get("rd"))), http.StatusFound)
+	http.Redirect(w, r, LoginPath+"?rd="+url.QueryEscape(auth.SafeRedirectPath(r.URL.Query().Get("rd"))), http.StatusFound)
 }
 
 func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +147,7 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rd := redirectTarget(r.FormValue("rd"))
+	rd := auth.SafeRedirectPath(r.FormValue("rd"))
 
 	// Reject cross-origin logins. Browsers always send Origin on POST, so this blocks login CSRF
 	// without requiring the login form to carry a token.
@@ -215,6 +217,38 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	p.setSessionCookie(w, token, expiresAt)
+
+	if user.RequirePasswordChange {
+		rd = ChangePasswordPath + "?rd=" + url.QueryEscape(rd)
+	}
+	http.Redirect(w, r, rd, http.StatusFound)
+}
+
+// ActivateInitialOwner validates a setup token and starts a restricted session for the account it
+// was bound to. The token stays reusable until password completion or expiry, and an invalid one
+// tells the caller nothing about the account.
+func (p *Provider) ActivateInitialOwner(ctx context.Context, setupToken string) (string, time.Time, error) {
+	if len(setupToken) < 32 {
+		return "", time.Time{}, gorm.ErrRecordNotFound
+	}
+
+	token, err := generateToken()
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	expiresAt := time.Now().Add(sessionDuration)
+	if _, err := p.gatewayClient.ActivateLocalAuthUser(ctx, hash.String(setupToken), hash.String(token), expiresAt); err != nil {
+		return "", time.Time{}, err
+	}
+	return token, expiresAt, nil
+}
+
+func (p *Provider) SetSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
+	p.setSessionCookie(w, token, expiresAt)
+}
+
+func (p *Provider) setSessionCookie(w http.ResponseWriter, token string, expiresAt time.Time) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.ObotAccessTokenCookie,
 		Value:    token,
@@ -224,8 +258,6 @@ func (p *Provider) login(w http.ResponseWriter, r *http.Request) {
 		Secure:   p.secureCookies(),
 		SameSite: http.SameSiteLaxMode,
 	})
-
-	http.Redirect(w, r, rd, http.StatusFound)
 }
 
 func (p *Provider) loginFailed(w http.ResponseWriter, r *http.Request, rd, message string) {
@@ -249,7 +281,7 @@ func (p *Provider) signOut(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 
-	http.Redirect(w, r, redirectTarget(r.URL.Query().Get("rd")), http.StatusFound)
+	http.Redirect(w, r, auth.SafeRedirectPath(r.URL.Query().Get("rd")), http.StatusFound)
 }
 
 // getState resolves the session cookie on a serialized request into the user it belongs to.
@@ -283,10 +315,11 @@ func (p *Provider) getState(w http.ResponseWriter, r *http.Request) {
 		// email rather than the session token so that user info needs no database lookup: the
 		// gateway asks for it from inside an open transaction, and on SQLite — which allows a
 		// single connection — a query here would deadlock against that transaction.
-		AccessToken:       p.tokens.sign(user.Email),
-		User:              user.Email,
-		PreferredUsername: user.Email,
-		Email:             user.Email,
+		AccessToken:           p.tokens.sign(user.Email),
+		User:                  user.Email,
+		PreferredUsername:     user.Email,
+		Email:                 user.Email,
+		RequirePasswordChange: user.RequirePasswordChange,
 	})
 }
 
@@ -307,7 +340,11 @@ func (p *Provider) getUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Provider) emailDomainAllowed(ctx context.Context, email string) (bool, error) {
-	cred, err := p.gatewayClient.RevealCredential(ctx, []string{ProviderName, system.GenericAuthProviderCredentialContext}, ProviderName)
+	cred, err := p.gatewayClient.RevealCredential(ctx, []string{
+		ProviderName,
+		system.GenericAuthProviderCredentialContext,
+		system.ReplacementAuthProviderCredentialContext,
+	}, ProviderName)
 	if err != nil {
 		if errors.As(err, &client.CredentialNotFoundError{}) {
 			return false, nil
@@ -336,14 +373,6 @@ func emailDomainAllowed(domains, email string) bool {
 
 func (p *Provider) secureCookies() bool {
 	return strings.HasPrefix(p.serverURL, "https://")
-}
-
-// redirectTarget sanitizes a post-login redirect so that it can only point back into Obot.
-func redirectTarget(rd string) string {
-	if !strings.HasPrefix(rd, "/") || strings.HasPrefix(rd, "//") {
-		return "/"
-	}
-	return rd
 }
 
 // sameOrigin reports whether the request was initiated by the page it claims to come from.

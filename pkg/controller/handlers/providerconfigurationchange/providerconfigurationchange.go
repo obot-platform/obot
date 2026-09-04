@@ -41,8 +41,20 @@ type authProviderConflictError struct {
 	configuredProvider string
 }
 
+// terminalError rejects a change on its own merits rather than on a transient failure. It is
+// recorded on the change instead of requeued, so the waiting caller gets the reason, not a timeout.
+type terminalError struct {
+	msg string
+}
+
 func (e *authProviderConflictError) Error() string {
 	return fmt.Sprintf("only one authentication provider can be configured at a time. Please deconfigure %q first", e.configuredProvider)
+}
+
+func (e *terminalError) Error() string { return e.msg }
+
+func terminalf(format string, args ...any) error {
+	return &terminalError{msg: fmt.Sprintf(format, args...)}
 }
 
 func New(gatewayClient *gateway.Client, dispatcher *dispatcher.Dispatcher, licenseProvider *license.Provider, postgresDSN string) *Handler {
@@ -73,7 +85,7 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 	}
 
 	var stagedSecrets map[string]string
-	if change.Spec.DesiredState == v1.ProviderDesiredStateConfigured {
+	if change.Spec.StagedCredentialName != "" {
 		credential, err := h.gatewayClient.RevealCredential(req.Ctx, []string{system.StagedProviderCredentialContext}, change.Spec.StagedCredentialName)
 		if err != nil {
 			return fmt.Errorf("reveal staged provider credential %q: %w", change.Spec.StagedCredentialName, err)
@@ -86,6 +98,10 @@ func (h *Handler) Reconcile(req router.Request, _ router.Response) error {
 		if err := h.reconcileAuthProvider(req.Ctx, req.Client, change, stagedSecrets); err != nil {
 			if conflictErr, ok := errors.AsType[*authProviderConflictError](err); ok {
 				change.Status.Error = conflictErr.Error()
+				return nil
+			}
+			if terminal, ok := errors.AsType[*terminalError](err); ok {
+				change.Status.Error = terminal.Error()
 				return nil
 			}
 			return err
@@ -127,9 +143,50 @@ func validateChange(change *v1.ProviderConfigurationChange) error {
 		if change.Spec.StagedCredentialName == "" {
 			return fmt.Errorf("provider configuration change %q has no staged credential", change.Name)
 		}
+		if change.Spec.ReplacesProviderName != "" {
+			return fmt.Errorf("configuration change %q must not replace a provider; use %q", change.Name, v1.ProviderDesiredStateSwitched)
+		}
+	case v1.ProviderDesiredStateSwitched:
+		if change.Spec.ProviderType != v1.ProviderTypeAuth {
+			return fmt.Errorf("switch change %q may only target an auth provider", change.Name)
+		}
+		// The settings a switch promotes are the ones already staged under the replacement
+		// context, so a switch carries no transient credential of its own.
+		if change.Spec.StagedCredentialName != "" {
+			return fmt.Errorf("switch change %q must not reference a staged credential", change.Name)
+		}
+		if change.Spec.ReplacesProviderName == "" {
+			return fmt.Errorf("switch change %q must name the provider it replaces", change.Name)
+		}
+		if change.Spec.ReplacesProviderName == change.Spec.ProviderName {
+			return fmt.Errorf("switch change %q cannot replace itself", change.Name)
+		}
+	case v1.ProviderDesiredStateStaged:
+		if change.Spec.ProviderType != v1.ProviderTypeAuth {
+			return fmt.Errorf("staging change %q may only target an auth provider", change.Name)
+		}
+		if change.Spec.StagedCredentialName == "" {
+			return fmt.Errorf("staging change %q has no staged credential", change.Name)
+		}
+		if change.Spec.ReplacesProviderName != "" {
+			return fmt.Errorf("staging change %q must not replace a provider; use %q", change.Name, v1.ProviderDesiredStateSwitched)
+		}
+	case v1.ProviderDesiredStateUnstaged:
+		if change.Spec.ProviderType != v1.ProviderTypeAuth {
+			return fmt.Errorf("unstaging change %q may only target an auth provider", change.Name)
+		}
+		if change.Spec.StagedCredentialName != "" {
+			return fmt.Errorf("unstaging change %q must not reference a staged credential", change.Name)
+		}
+		if change.Spec.ReplacesProviderName != "" {
+			return fmt.Errorf("unstaging change %q must not replace a provider", change.Name)
+		}
 	case v1.ProviderDesiredStateDeconfigured:
 		if change.Spec.StagedCredentialName != "" {
 			return fmt.Errorf("deconfiguration change %q must not reference a staged credential", change.Name)
+		}
+		if change.Spec.ReplacesProviderName != "" {
+			return fmt.Errorf("deconfiguration change %q must not replace a provider", change.Name)
 		}
 	default:
 		return fmt.Errorf("provider configuration change %q has invalid desired state %q", change.Name, change.Spec.DesiredState)
@@ -143,7 +200,8 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		return fmt.Errorf("get auth provider %q: %w", change.Spec.ProviderName, err)
 	}
 
-	if change.Spec.DesiredState == v1.ProviderDesiredStateConfigured {
+	switch change.Spec.DesiredState {
+	case v1.ProviderDesiredStateConfigured:
 		configuredProvider, err := h.dispatcher.GetConfiguredAuthProvider(ctx)
 		if err != nil {
 			return fmt.Errorf("get configured auth provider: %w", err)
@@ -158,7 +216,94 @@ func (h *Handler) reconcileAuthProvider(ctx context.Context, client kclient.Clie
 		}); err != nil {
 			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
 		}
-	} else {
+
+	case v1.ProviderDesiredStateSwitched:
+		// Stricter than the configure path: that one accepts an empty slot, this one accepts only
+		// the exact provider the caller expects to replace.
+		configuredProvider, err := h.dispatcher.GetConfiguredAuthProvider(ctx)
+		if err != nil {
+			return fmt.Errorf("get configured auth provider: %w", err)
+		}
+		if configuredProvider != change.Spec.ReplacesProviderName {
+			return &authProviderConflictError{configuredProvider: configuredProvider}
+		}
+
+		var outgoingProvider v1.AuthProvider
+		if err := client.Get(ctx, kclient.ObjectKey{Namespace: change.Namespace, Name: change.Spec.ReplacesProviderName}, &outgoingProvider); err != nil {
+			return fmt.Errorf("get outgoing auth provider %q: %w", change.Spec.ReplacesProviderName, err)
+		}
+
+		replacement, err := h.gatewayClient.RevealCredential(ctx, []string{system.ReplacementAuthProviderCredentialContext}, authProvider.Name)
+		if err != nil {
+			if errors.As(err, &gateway.CredentialNotFoundError{}) {
+				return terminalf("no staged configuration for auth provider %q", authProvider.Name)
+			}
+			return fmt.Errorf("read staged configuration for auth provider %q: %w", authProvider.Name, err)
+		}
+
+		// Promote before deconfiguring, so a failure in the second half leaves the provider the
+		// owner is signed in through configured rather than locking everyone out.
+		if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+			Context: authProvider.Name,
+			Name:    authProvider.Name,
+			Secrets: replacement.Secrets,
+		}); err != nil {
+			return fmt.Errorf("promote credential for auth provider %q: %w", authProvider.Name, err)
+		}
+		if err := h.deconfigureAuthProvider(ctx, client, outgoingProvider); err != nil {
+			return err
+		}
+		if err := provider.SetAuthProviderConfiguredStatus(ctx, h.gatewayClient, h.licenseProvider, &outgoingProvider); err != nil {
+			return fmt.Errorf("recompute auth provider %q status: %w", outgoingProvider.Name, err)
+		}
+		if err := client.Status().Update(ctx, &outgoingProvider); err != nil {
+			return fmt.Errorf("update auth provider %q status: %w", outgoingProvider.Name, err)
+		}
+		if err := AdvanceDaemonRevision(ctx, client, v1.ProviderTypeAuth, change.Namespace, outgoingProvider.Name); err != nil {
+			return err
+		}
+		if _, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name); err != nil {
+			return fmt.Errorf("clear staged configuration for auth provider %q: %w", authProvider.Name, err)
+		}
+
+	case v1.ProviderDesiredStateStaged:
+		configuredProvider, err := h.dispatcher.GetConfiguredAuthProvider(ctx)
+		if err != nil {
+			return fmt.Errorf("get configured auth provider: %w", err)
+		}
+		if configuredProvider == "" {
+			return terminalf("no authentication provider is configured, so there is nothing to replace")
+		}
+		if configuredProvider == authProvider.Name {
+			return terminalf("%q is already the active authentication provider", authProvider.Name)
+		}
+		// Checked here rather than in the handler so it runs under the same serialization as the
+		// check above, and two concurrent stagings cannot both pass it.
+		stagedProvider, err := h.dispatcher.GetStagedAuthProvider(ctx)
+		if err != nil {
+			return fmt.Errorf("get staged auth provider: %w", err)
+		}
+		if stagedProvider != "" && stagedProvider != authProvider.Name {
+			return terminalf("only one replacement provider can be staged at a time. Please discard %q first", stagedProvider)
+		}
+		if err := h.gatewayClient.UpsertCredential(ctx, gatewaytypes.Credential{
+			Context: system.ReplacementAuthProviderCredentialContext,
+			Name:    authProvider.Name,
+			Secrets: stagedSecrets,
+		}); err != nil {
+			return fmt.Errorf("stage credential for auth provider %q: %w", authProvider.Name, err)
+		}
+
+	case v1.ProviderDesiredStateUnstaged:
+		deleted, err := h.gatewayClient.DeleteCredential(ctx, system.ReplacementAuthProviderCredentialContext, authProvider.Name)
+		if err != nil {
+			return fmt.Errorf("discard staged configuration for auth provider %q: %w", authProvider.Name, err)
+		}
+		if !deleted {
+			return terminalf("no staged configuration for auth provider %q", authProvider.Name)
+		}
+
+	default:
 		if err := h.deconfigureAuthProvider(ctx, client, authProvider); err != nil {
 			return err
 		}
@@ -375,10 +520,16 @@ func CleanupOrphanedStagedCredentials(ctx context.Context, client kclient.Client
 }
 
 func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, change *v1.ProviderConfigurationChange) error {
+	return AdvanceDaemonRevision(ctx, client, change.Spec.ProviderType, change.Namespace, change.Spec.ProviderName)
+}
+
+// AdvanceDaemonRevision bumps a provider's revision so every replica drops its daemon and restarts
+// it with the current configuration on the next request.
+func AdvanceDaemonRevision(ctx context.Context, client kclient.Client, providerType v1.ProviderType, namespace, providerName string) error {
 	if err := EnsureDaemonSync(ctx, client); err != nil {
 		return err
 	}
-	revisionKey := providerDaemonRevisionKey(change.Spec.ProviderType, change.Namespace, change.Spec.ProviderName)
+	revisionKey := providerDaemonRevisionKey(providerType, namespace, providerName)
 	var daemonSync v1.ProviderSync
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: system.ProviderSyncName}, &daemonSync); err != nil {
@@ -390,9 +541,9 @@ func (h *Handler) advanceDaemonSync(ctx context.Context, client kclient.Client, 
 			daemonSync.Spec.Revisions = make(map[string]v1.ProviderRevision)
 		}
 		revision := daemonSync.Spec.Revisions[revisionKey]
-		revision.ProviderType = change.Spec.ProviderType
-		revision.ProviderNamespace = change.Namespace
-		revision.ProviderName = change.Spec.ProviderName
+		revision.ProviderType = providerType
+		revision.ProviderNamespace = namespace
+		revision.ProviderName = providerName
 		revision.Revision++
 		daemonSync.Spec.Revisions[revisionKey] = revision
 		return client.Update(ctx, &daemonSync)

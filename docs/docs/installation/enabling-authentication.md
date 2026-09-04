@@ -52,6 +52,9 @@ config:
 | `OBOT_BOOTSTRAP_TOKEN` | No | Token used for bootstrap login while no auth provider is configured or no non-bootstrap owner user exists. If not set, a token will be generated and printed to the logs. |
 | `OBOT_SERVER_AUTH_OWNER_EMAILS` | No | Email address that will have owner access after logging in via the auth provider. If not set, the bootstrap user will be prompted to log in via the auth provider and set themselves as the owner. |
 | `OBOT_SERVER_AUTH_ADMIN_EMAILS` | No | Additional email addresses that will have admin access |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_EMAIL` | No | Initial local-auth owner's email. Must be set with the setup token. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN` | No | At least 32 characters of high-entropy, randomly generated secret material used to activate the initial owner. Store as a secret; `openssl rand -hex 32` is the recommended generator. |
+| `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | No | Setup-link validity in hours. Defaults to `168`. |
 
 ## Step 2: Start Obot and Login
 

@@ -367,6 +367,39 @@ export async function deconfigureAuthProvider(
 	await doPost(`/auth-providers/${authProviderID}/deconfigure`, {}, opts);
 }
 
+export async function stageAuthProvider(
+	authProviderID: string,
+	envs: Record<string, string>,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/auth-providers/${authProviderID}/stage`, envs, opts);
+}
+
+export async function unstageAuthProvider(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doDelete(`/auth-providers/${authProviderID}/stage`, opts);
+}
+
+// Returns the URL that starts the one-time login used to prove the staged provider works.
+export async function verifyAuthProvider(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<string> {
+	const response = (await doPost(`/auth-providers/${authProviderID}/verify`, {}, opts)) as {
+		redirectURL: string;
+	};
+	return response.redirectURL;
+}
+
+export async function activateAuthProvider(
+	authProviderID: string,
+	opts?: { fetch?: Fetcher }
+): Promise<void> {
+	await doPost(`/auth-providers/${authProviderID}/activate`, {}, opts);
+}
+
 // Local auth provider users
 
 export async function listLocalAuthUsers(opts?: { fetch?: Fetcher }): Promise<LocalAuthUser[]> {
@@ -377,17 +410,23 @@ export async function listLocalAuthUsers(opts?: { fetch?: Fetcher }): Promise<Lo
 export async function createLocalAuthUser(
 	email: string,
 	password: string,
+	requirePasswordChange = true,
 	opts?: { fetch?: Fetcher }
 ): Promise<LocalAuthUser> {
-	return (await doPost('/local-auth/users', { email, password }, opts)) as LocalAuthUser;
+	return (await doPost(
+		'/local-auth/users',
+		{ email, password, requirePasswordChange },
+		opts
+	)) as LocalAuthUser;
 }
 
 export async function setLocalAuthUserPassword(
 	id: string,
 	password: string,
+	requirePasswordChange = true,
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
-	await doPost(`/local-auth/users/${id}/password`, { password }, opts);
+	await doPost(`/local-auth/users/${id}/password`, { password, requirePasswordChange }, opts);
 }
 
 export async function deleteLocalAuthUser(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
