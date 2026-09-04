@@ -51,17 +51,12 @@ func credentialExists(t *testing.T, client *gatewayclient.Client, credentialCont
 	return false
 }
 
-// The credential this sweeps was written per server by EnsureOAuthClient, which no longer exists.
-// Nothing recreates it, so a server should be swept once and then never queried again.
 func TestRemoveAuditLogCred(t *testing.T) {
 	tests := []struct {
-		name string
-		// object is the server as the controller sees it at the start of the pass.
-		object func() kclient.Object
-		// credentialName is the credential seeded in the store for that server.
+		name           string
+		object         func() kclient.Object
 		credentialName string
-		// wantDeleted is whether the seeded credential should be gone afterwards.
-		wantDeleted bool
+		wantDeleted    bool
 	}{
 		{
 			name: "server that has not been swept loses the credential",
@@ -123,13 +118,11 @@ func TestRemoveAuditLogCred(t *testing.T) {
 
 			assert.Equal(t, !tt.wantDeleted, credentialExists(t, gatewayClient, object.GetName(), tt.credentialName))
 			assert.Contains(t, object.GetAnnotations(), v1.AuditLogCredentialRemovedAnnotation,
-				"the server should be recorded as swept either way, so it is never queried again")
+				"a swept server must be recorded so it is never queried again")
 		})
 	}
 }
 
-// The annotation is the only thing that stops the sweep running again, so it must not be written
-// on a pass where the delete did not happen.
 func TestRemoveAuditLogCredKeepsSweepPendingWhenDeleteFails(t *testing.T) {
 	server := &v1.MCPServer{
 		Name:      "ms1abcdef",
@@ -150,5 +143,5 @@ func TestRemoveAuditLogCredKeepsSweepPendingWhenDeleteFails(t *testing.T) {
 
 	require.Error(t, err)
 	assert.NotContains(t, server.GetAnnotations(), v1.AuditLogCredentialRemovedAnnotation,
-		"a failed delete must leave the sweep pending for the next pass")
+		"a failed delete must leave the sweep pending")
 }

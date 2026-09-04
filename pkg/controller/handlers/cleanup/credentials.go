@@ -85,15 +85,8 @@ func (c *Credentials) RemoveMCPInstanceCredentials(req router.Request, _ router.
 }
 
 // RemoveAuditLogCred removes the credential an older Obot stored per server for token exchange
-// and external audit log submitting, at context and name both equal to the server's name. That
-// credential was written by EnsureOAuthClient, which no longer exists, so a server only ever needs
-// sweeping once.
-//
-// The sweep cannot be a migration, because Obot is deployed by others and an upgrade arrives
-// whenever a deployer takes it. So it stays a handler, and an annotation on the server records
-// that it has run. Without that annotation it is a DELETE against the credentials table on every
-// reconcile of every server, matching no rows, which is one of the largest sources of slow query
-// log lines in a busy deployment.
+// and external audit log submitting. Nothing creates it any more, so a server is swept once and
+// the annotation records that it has been.
 func (c *Credentials) RemoveAuditLogCred(req router.Request, _ router.Response) error {
 	if _, swept := req.Object.GetAnnotations()[v1.AuditLogCredentialRemovedAnnotation]; swept {
 		return nil
@@ -112,8 +105,7 @@ func (c *Credentials) RemoveAuditLogCred(req router.Request, _ router.Response) 
 		slog.Info("Removed legacy token exchange and audit log credential", "server", req.Name)
 	}
 
-	// Recorded only after the delete succeeds, so a failure leaves the sweep pending rather than
-	// marking a server clean that still holds the credential.
+	// Recorded only after the delete succeeds, so a failure retries.
 	annotations := req.Object.GetAnnotations()
 	if annotations == nil {
 		annotations = make(map[string]string, 1)
