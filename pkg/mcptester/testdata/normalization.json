@@ -32,6 +32,7 @@
   {
     "name": "responses tool",
     "dialect": "OpenAIResponses",
+    "tools": [{"name":"lookup","inputSchema":{"type":"object"}}],
     "stream": "data: {\"type\":\"response.output_item.added\",\"output_index\":0,\"item\":{\"id\":\"item-1\",\"call_id\":\"call-1\",\"type\":\"function_call\",\"name\":\"lookup\",\"arguments\":\"\"}}\n\ndata: {\"type\":\"response.function_call_arguments.delta\",\"item_id\":\"item-1\",\"output_index\":0,\"delta\":\"{\\\"query\\\":\\\"obot\\\"}\"}\n\ndata: {\"type\":\"response.completed\",\"response\":{\"status\":\"completed\"}}\n\n",
     "expected": [
       {"type":"assistant_message_start"},
@@ -42,6 +43,7 @@
   {
     "name": "chat completions tool",
     "dialect": "OpenAIChatCompletions",
+    "tools": [{"name":"lookup","inputSchema":{"type":"object"}}],
     "stream": "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"function\":{\"name\":\"lookup\",\"arguments\":\"{\\\"query\\\":\"}}]},\"finish_reason\":null}]}\n\ndata: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"\\\"obot\\\"}\"}}]},\"finish_reason\":\"tool_calls\"}]}\n\n",
     "expected": [
       {"type":"assistant_message_start"},
@@ -52,6 +54,7 @@
   {
     "name": "anthropic tool",
     "dialect": "AnthropicMessages",
+    "tools": [{"name":"lookup","inputSchema":{"type":"object"}}],
     "stream": "data: {\"type\":\"message_start\",\"message\":{}}\n\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"tool_use\",\"id\":\"call-1\",\"name\":\"lookup\",\"input\":{}}}\n\ndata: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"query\\\":\\\"obot\\\"}\"}}\n\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"}}\n\n",
     "expected": [
       {"type":"assistant_message_start"},

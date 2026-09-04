@@ -29,16 +29,22 @@ type streamNormalizer struct {
 	finished  bool
 	calls     map[int]*pendingToolCall
 	itemIndex map[string]int
+	toolNames map[string]struct{}
 }
 
 // NormalizeStream converts provider SSE into the MCP tester event contract.
 // Provider event names and partial argument encoding never cross this boundary.
-func NormalizeStream(ctx context.Context, dialect llmtypes.Dialect, input io.Reader, emit EventEmitter) error {
+func NormalizeStream(ctx context.Context, dialect llmtypes.Dialect, tools []types.MCPTesterTool, input io.Reader, emit EventEmitter) error {
+	toolNames := make(map[string]struct{}, len(tools))
+	for _, tool := range tools {
+		toolNames[tool.Name] = struct{}{}
+	}
 	n := &streamNormalizer{
 		dialect:   dialect,
 		emit:      emit,
 		calls:     map[int]*pendingToolCall{},
 		itemIndex: map[string]int{},
+		toolNames: toolNames,
 	}
 
 	if err := n.checkContext(ctx); err != nil {
@@ -135,7 +141,7 @@ func (n *streamNormalizer) consumeResponses(data []byte) error {
 	switch event.Type {
 	case "response.created", "response.in_progress":
 		return n.start()
-	case "response.output_text.delta":
+	case "response.output_text.delta", "response.refusal.delta":
 		if err := n.start(); err != nil {
 			return err
 		}
@@ -184,6 +190,7 @@ func (n *streamNormalizer) consumeChatCompletions(data []byte) error {
 		Choices []struct {
 			Delta struct {
 				Content   string `json:"content"`
+				Refusal   string `json:"refusal"`
 				ToolCalls []struct {
 					Index    int    `json:"index"`
 					ID       string `json:"id"`
@@ -203,13 +210,13 @@ func (n *streamNormalizer) consumeChatCompletions(data []byte) error {
 		return n.fail(types.MCPTesterErrorProvider, event.Error.Message, true)
 	}
 	for _, choice := range event.Choices {
-		if choice.Delta.Content != "" {
+		if text := firstNonEmpty(choice.Delta.Content, choice.Delta.Refusal); text != "" {
 			if err := n.start(); err != nil {
 				return err
 			}
 			if err := n.emit(types.MCPTesterStreamEvent{
 				Type:  types.MCPTesterStreamEventTextDelta,
-				Delta: choice.Delta.Content,
+				Delta: text,
 			}); err != nil {
 				return err
 			}
@@ -353,6 +360,7 @@ func (n *streamNormalizer) normalizedCalls() ([]types.MCPTesterToolCall, error) 
 	}
 	sort.Ints(indexes)
 	result := make([]types.MCPTesterToolCall, 0, len(indexes))
+	seen := make(map[string]struct{}, len(indexes))
 	for _, index := range indexes {
 		call := n.calls[index]
 		arguments := strings.TrimSpace(call.arguments.String())
@@ -362,6 +370,13 @@ func (n *streamNormalizer) normalizedCalls() ([]types.MCPTesterToolCall, error) 
 		if call.id == "" || call.name == "" || !json.Valid([]byte(arguments)) {
 			return nil, fmt.Errorf("model returned an invalid tool call at index %d", index)
 		}
+		if _, advertised := n.toolNames[call.name]; !advertised {
+			return nil, fmt.Errorf("model returned a call to tool %q, which was not provided in this request", call.name)
+		}
+		if _, duplicate := seen[call.id]; duplicate {
+			return nil, fmt.Errorf("model returned duplicate tool call ID %q", call.id)
+		}
+		seen[call.id] = struct{}{}
 		result = append(result, types.MCPTesterToolCall{
 			ID:        call.id,
 			Name:      call.name,

@@ -37,7 +37,11 @@
 	});
 
 	function setMode(next: 'form' | 'raw') {
-		if (next === 'raw') rawValue = JSON.stringify(formValue, null, 2);
+		if (next === 'raw') {
+			rawValue = JSON.stringify(formValue, null, 2);
+		} else {
+			rawParseError = undefined;
+		}
 		mode = next;
 	}
 

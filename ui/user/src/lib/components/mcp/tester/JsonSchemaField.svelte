@@ -23,6 +23,7 @@
 		onchange
 	}: Props = $props();
 	let id = $derived(`mcp-tester-field-${path.replace(/[^a-zA-Z0-9_-]/g, '-')}`);
+	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
 	);
@@ -69,7 +70,7 @@
 		{#each Object.entries(schema.properties ?? {}) as [name, property] (name)}
 			<JsonSchemaField
 				schema={property}
-				value={objectValue()[name] ?? defaultJSONSchemaValue(property)}
+				value={objectValue()[name]}
 				label={property.title || name}
 				path={`${path}-${name}`}
 				required={schema.required?.includes(name)}
@@ -132,18 +133,15 @@
 			<select
 				{id}
 				class="text-input-filled w-full"
-				value={String(
-					Math.max(
-						0,
-						schema.enum.findIndex((entry) => Object.is(entry, value))
-					)
-				)}
 				aria-describedby={schema.description ? `${id}-description` : undefined}
 				{disabled}
 				onchange={(event) => onchange(schema.enum?.[Number(event.currentTarget.value)])}
 			>
+				{#if !required || enumIndex < 0}
+					<option value={-1} selected={enumIndex < 0}>Not set</option>
+				{/if}
 				{#each schema.enum as option, index (index)}
-					<option value={index}
+					<option value={index} selected={index === enumIndex}
 						>{typeof option === 'string' ? option : JSON.stringify(option)}</option
 					>
 				{/each}

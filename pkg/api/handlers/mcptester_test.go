@@ -245,6 +245,20 @@ func TestMCPTesterChatNormalizesProxyPolicyAndProviderFailures(t *testing.T) {
 	if !strings.Contains(provider.Body.String(), `"retryable":true`) {
 		t.Fatalf("provider response = %s, want retryable error", provider.Body.String())
 	}
+
+	credentialUpstream := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
+		http.Error(response, "invalid api key", http.StatusUnauthorized)
+	}))
+	t.Cleanup(credentialUpstream.Close)
+	credentialHandler := NewMCPTesterHandler(storage, resolver, nil, fakeMCPTesterModelAccess{allowed: true}, credentialUpstream.URL, credentialUpstream.Client())
+	credential := runMCPTesterChat(t, credentialHandler, "user-1", `{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`)
+	assertMCPTesterError(t, credential, http.StatusBadGateway, types.MCPTesterErrorProvider)
+	if strings.Contains(credential.Body.String(), string(types.MCPTesterErrorAccessDenied)) {
+		t.Fatalf("credential response = %s, want no access-denied code", credential.Body.String())
+	}
+	if strings.Contains(credential.Body.String(), `"retryable":true`) {
+		t.Fatalf("credential response = %s, want a non-retryable provider error", credential.Body.String())
+	}
 }
 
 func TestMCPTesterChatPropagatesCancellationToProxy(t *testing.T) {

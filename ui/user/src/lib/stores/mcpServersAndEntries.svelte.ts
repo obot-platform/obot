@@ -58,9 +58,14 @@ const store = $state<{
 });
 
 function filterOutDuplicateAndDeleted(servers: MCPCatalogServer[]) {
-	return servers.filter(
-		(server, index, self) => index === self.findIndex((t) => t.id === server.id) && !server.deleted
-	);
+	const live = servers.filter((server) => !server.deleted);
+	return live
+		.filter((server, index) => index === live.findIndex((other) => other.id === server.id))
+		.map((server) =>
+			!server.canConnect && live.some((other) => other.id === server.id && other.canConnect)
+				? { ...server, canConnect: true }
+				: server
+		);
 }
 
 function setCanConnectAndFilterDeleted(

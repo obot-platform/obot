@@ -118,7 +118,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 	req.WriteHeader(http.StatusOK)
 	req.Flush()
 
-	_ = mcptester.NormalizeStream(req.Context(), model.Dialect, response.Body, func(event types.MCPTesterStreamEvent) error {
+	_ = mcptester.NormalizeStream(req.Context(), model.Dialect, chatRequest.Tools, response.Body, func(event types.MCPTesterStreamEvent) error {
 		data, err := json.Marshal(event)
 		if err != nil {
 			return err
@@ -170,7 +170,8 @@ func (h *MCPTesterHandler) writeProxyError(req api.Context, response *http.Respo
 
 	switch response.StatusCode {
 	case http.StatusUnauthorized:
-		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, message, false)
+		// The model provider rejected its credential.ß
+		return writeMCPTesterError(req, http.StatusBadGateway, types.MCPTesterErrorProvider, message, false)
 	case http.StatusForbidden:
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorPolicyDenied, message, false)
 	default:

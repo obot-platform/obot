@@ -61,6 +61,54 @@ describe('JsonSchemaForm', () => {
 		);
 	});
 
+	it('clears a stale raw parse error when returning to the generated form', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, { schema, onvalidchange });
+
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		const raw = page.getByLabelText('Arguments JSON');
+		await raw.fill('{"name":"valid","count":1}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
+		);
+
+		await raw.fill('{"name":"valid","count":1,');
+		await expect.element(page.getByText(/Invalid JSON:/)).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		await expect.element(page.getByText(/Invalid JSON:/)).not.toBeInTheDocument();
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
+		);
+	});
+
+	it('leaves an optional enum unset instead of displaying a value it will not send', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['count'],
+				properties: {
+					count: { type: 'integer', minimum: 1 },
+					mode: { type: 'string', enum: ['safe', 'fast'] }
+				}
+			},
+			onvalidchange
+		});
+
+		const mode = page.getByLabelText('mode', { exact: true });
+		await expect.element(mode).toBeVisible();
+		const select = mode.element() as HTMLSelectElement;
+		expect(select.selectedOptions[0]?.textContent?.trim()).toBe('Not set');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: 1 }));
+
+		await mode.selectOptions(page.getByRole('option', { name: 'safe' }));
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith(expect.objectContaining({ mode: 'safe' }))
+		);
+	});
+
 	it('shows a server pattern as a hint without handing it to constraint validation', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, {

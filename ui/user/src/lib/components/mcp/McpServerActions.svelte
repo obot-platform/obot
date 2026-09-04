@@ -123,6 +123,9 @@
 	let restartableConfiguredServers = $derived(
 		configuredServers.filter((server) => supportsMCPBackendDetails(server))
 	);
+	let testableConfiguredServers = $derived(
+		configuredServers.filter((server) => server.canConnect !== false && !server.compositeName)
+	);
 
 	// Connecting from a multi-user catalog entry row always starts a new shared server deployment.
 	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
@@ -324,12 +327,12 @@
 
 	function testCatalogEntry() {
 		if (!entry) return;
-		if (configuredServers.length === 1) {
-			goto(`/mcp-servers/test/${encodeURIComponent(configuredServers[0].id)}`);
+		if (testableConfiguredServers.length === 1) {
+			goto(`/mcp-servers/test/${encodeURIComponent(testableConfiguredServers[0].id)}`);
 			return;
 		}
-		if (configuredServers.length > 1) {
-			handleShowSelectServerDialog('test', configuredServers);
+		if (testableConfiguredServers.length > 1) {
+			handleShowSelectServerDialog('test', testableConfiguredServers);
 			return;
 		}
 		connectToServerDialog?.setupNewInstance(entry, ({ server: createdServer }) => {
