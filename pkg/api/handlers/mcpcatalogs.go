@@ -1979,6 +1979,17 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 		return err
 	}
 
+	// Written before the credential is deleted. The controller decides whether an entry is worth a
+	// credential query from its status and this annotation, so a delete that lands without it
+	// leaves the status reading configured with nothing left to correct it.
+	if entry.Annotations == nil {
+		entry.Annotations = make(map[string]string, 1)
+	}
+	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
+	if err := req.Update(entry); err != nil {
+		return fmt.Errorf("failed to trigger reconciliation: %w", err)
+	}
+
 	credName := system.MCPOAuthCredentialName(entry.Name)
 	deleted, err := req.GatewayClient.DeleteCredential(req.Context(), credName, system.StaticOAuthCredentialName)
 	if err != nil {
@@ -1995,15 +2006,6 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 				slog.Warn("failed to delete OAuth tokens for MCP server", "serverName", server.Name, "catalogEntryName", entry.Name, "error", err)
 			}
 		}
-	}
-
-	// Trigger reconciliation to update the status
-	if entry.Annotations == nil {
-		entry.Annotations = make(map[string]string, 1)
-	}
-	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
-	if err := req.Update(entry); err != nil {
-		return fmt.Errorf("failed to trigger reconciliation: %w", err)
 	}
 
 	return req.Write(map[string]bool{"deleted": deleted})
