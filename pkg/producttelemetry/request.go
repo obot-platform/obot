@@ -33,8 +33,8 @@ type licenseEntitlementProvider interface {
 	Entitlements(context.Context) ([]string, error)
 }
 
-// buildRequest constructs a telemetry payload, failing only when stable installation identity cannot be loaded.
-// Distribution and usage metrics are collected on a best-effort basis.
+// buildRequest constructs a telemetry payload, failing when required installation metadata cannot be loaded.
+// Usage metrics are collected on a best-effort basis.
 func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, storageClient kclient.Reader, licenseProvider licenseEntitlementProvider, defaultMCPCatalogPath, engine string) (clienttypes.ProductTelemetryRequest, error) {
 	installationID, err := upgrade.GetInstallationID(ctx, gatewayClient)
 	if err != nil {
@@ -48,7 +48,7 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 
 	entitlements, err := licenseProvider.Entitlements(ctx)
 	if err != nil {
-		slog.Warn("failed to collect product telemetry distribution", "error", err)
+		return clienttypes.ProductTelemetryRequest{}, fmt.Errorf("get product telemetry distribution: %w", err)
 	}
 	distribution := license.GetDistributionFromEntitlements(entitlements)
 
