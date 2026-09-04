@@ -6,14 +6,25 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type pendingComponentAuth struct {
 	CatalogEntryID string `json:"catalogEntryID"`
 	MCPServerID    string `json:"mcpServerID"`
+	Name           string `json:"name,omitempty"`
+	Icon           string `json:"icon,omitempty"`
 	AuthURL        string `json:"authURL"`
+}
+
+func pendingComponentDisplayName(componentServer v1.MCPServer) string {
+	if componentServer.Spec.Manifest.Name != "" {
+		return componentServer.Spec.Manifest.Name
+	}
+	return componentServer.Name
 }
 
 // checkCompositeAuth checks if the composite OAuth flow is complete.
@@ -23,8 +34,29 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		compositeMCPID     = req.PathValue("mcp_id")
 		oauthAuthRequestID = req.URL.Query().Get("oauth_auth_request")
 	)
-	var compositeServer v1.MCPServer
-	if err := req.Get(&compositeServer, compositeMCPID); err != nil {
+	var (
+		compositeServer v1.MCPServer
+		compositeConfig mcp.ServerConfig
+	)
+	if system.IsVMCPID(compositeMCPID) {
+		var err error
+		compositeConfig, err = h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), compositeMCPID, req.User.GetUID())
+		if err != nil {
+			return fmt.Errorf("failed to get vMCP config: %w", err)
+		}
+		compositeServer = v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      compositeMCPID,
+				Namespace: compositeConfig.MCPServerNamespace,
+			},
+			Spec: v1.MCPServerSpec{
+				Manifest: types.MCPServerManifest{
+					Name:    compositeConfig.MCPServerDisplayName,
+					Runtime: types.RuntimeVMCP,
+				},
+			},
+		}
+	} else if err := req.Get(&compositeServer, compositeMCPID); err != nil {
 		return fmt.Errorf("failed to get composite server: %w", err)
 	}
 
@@ -35,32 +67,18 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		}
 	}
 
-	var componentServers v1.MCPServerList
-	if err := req.Storage.List(req.Context(), &componentServers,
-		kclient.InNamespace(compositeServer.Namespace),
-		kclient.MatchingFields{"spec.compositeName": compositeServer.Name},
-	); err != nil {
-		return fmt.Errorf("failed to list component servers: %w", err)
+	componentServers, err := h.oauthChecker.componentServersForAuth(req, compositeServer, compositeConfig)
+	if err != nil {
+		return err
 	}
 
 	var (
 		userID  = req.User.GetUID()
-		pending = make([]pendingComponentAuth, 0, len(componentServers.Items))
+		pending = make([]pendingComponentAuth, 0, len(componentServers))
 	)
-	// Build disabled set by catalog entry ID for O(1) checks
-	var compositeConfig types.CompositeRuntimeConfig
-	if compositeServer.Spec.Manifest.CompositeConfig != nil {
-		compositeConfig = *compositeServer.Spec.Manifest.CompositeConfig
-	}
 
-	disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
-	for _, comp := range compositeConfig.ComponentServers {
-		disabledComponents[comp.CatalogEntryID] = comp.Disabled
-	}
-
-	for _, componentServer := range componentServers.Items {
-		if disabledComponents[componentServer.Spec.MCPServerCatalogEntryName] ||
-			componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
+	for _, componentServer := range componentServers {
+		if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 			continue
 		}
 
@@ -77,6 +95,8 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		pending = append(pending, pendingComponentAuth{
 			CatalogEntryID: componentServer.Spec.MCPServerCatalogEntryName,
 			MCPServerID:    componentServer.Name,
+			Name:           pendingComponentDisplayName(componentServer),
+			Icon:           componentServer.Spec.Manifest.Icon,
 			AuthURL:        authURL,
 		})
 	}

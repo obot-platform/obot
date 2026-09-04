@@ -14,6 +14,7 @@ const (
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
 	RuntimeComposite     Runtime = "composite"
+	RuntimeVMCP          Runtime = "vmcp"
 
 	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
 	defaultStartupTimeoutSeconds = 60

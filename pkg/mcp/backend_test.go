@@ -98,6 +98,45 @@ func TestMMMCPConfigPreservesCompositeSettings(t *testing.T) {
 	}
 }
 
+func TestMMMCPConfigTreatsVMCPAsAggregate(t *testing.T) {
+	config := MMMCPConfig(ServerConfig{
+		Runtime:              types.RuntimeVMCP,
+		MCPServerName:        "vmcp-server",
+		MCPServerDisplayName: "VMCP Server",
+		Components: []ComponentServer{
+			{
+				DisplayName: "search",
+				URL:         "http://127.0.0.1:8080/mcp-connect/search",
+				ToolPrefix:  "search_",
+				Tools: []types.ToolOverride{
+					{
+						Name:                "find",
+						OverrideName:        "find_documents",
+						Description:         "find a document",
+						OverrideDescription: "find documents",
+						Enabled:             true,
+					},
+				},
+			},
+		},
+	}, nil)
+
+	if config.Name != "VMCP Server" || len(config.Servers) != 1 {
+		t.Fatalf("vMCP config = %#v, want one aggregate component", config)
+	}
+	server := config.Servers[0]
+	if server.Name != "search" || server.URL != "http://127.0.0.1:8080/mcp-connect/search" || server.Prefix != "search_" {
+		t.Fatalf("vMCP component = %#v, want preserved name, URL, and prefix", server)
+	}
+	if len(server.Tools) != 1 {
+		t.Fatalf("vMCP tool overrides = %#v, want one", server.Tools)
+	}
+	tool := server.Tools[0]
+	if tool.Name != "find" || tool.OverrideName != "find_documents" || tool.Description != "find a document" || tool.OverrideDescription != "find documents" || !tool.Enabled {
+		t.Fatalf("vMCP tool override = %#v, want preserved override", tool)
+	}
+}
+
 func TestMMMCPConfigServerNameFallsBackToName(t *testing.T) {
 	config := MMMCPConfig(ServerConfig{
 		MCPServerName: "fallback-server",

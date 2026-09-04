@@ -19,11 +19,27 @@ type Option struct {
 	WaitForExists bool
 }
 
-func complete(opts ...Option) (result Option) {
+type ListOption struct {
+	Timeout     time.Duration
+	ListOptions []kclient.ListOption
+}
+
+func completeOptions(opts ...Option) (result Option) {
 	for _, opt := range opts {
 		result.Timeout = cmp.Or(result.Timeout, opt.Timeout)
 		result.Create = cmp.Or(result.Create, opt.Create)
 		result.WaitForExists = cmp.Or(result.WaitForExists, opt.WaitForExists)
+	}
+	if result.Timeout == 0 {
+		result.Timeout = 2 * time.Minute
+	}
+	return
+}
+
+func completeListOptions(opts ...ListOption) (result ListOption) {
+	for _, opt := range opts {
+		result.Timeout = cmp.Or(result.Timeout, opt.Timeout)
+		result.ListOptions = append(result.ListOptions, opt.ListOptions...)
 	}
 	if result.Timeout == 0 {
 		result.Timeout = 2 * time.Minute
@@ -57,7 +73,7 @@ func load(ctx context.Context, c kclient.Client, obj kclient.Object, create bool
 }
 
 func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, condition func(T) (bool, error), opts ...Option) (def T, _ error) {
-	opt := complete(opts...)
+	opt := completeOptions(opts...)
 
 	obj = obj.DeepCopyObject().(T)
 
@@ -87,14 +103,12 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 		}
 	}
 
-	timeout := int64(opt.Timeout / time.Second)
-
 	w, err := c.Watch(ctx, list.(kclient.ObjectList),
 		kclient.InNamespace(obj.GetNamespace()),
 		kclient.MatchingFields{"metadata.name": obj.GetName()},
 		&kclient.ListOptions{
 			Raw: &metav1.ListOptions{
-				TimeoutSeconds:  &timeout,
+				TimeoutSeconds:  new(int64(opt.Timeout / time.Second)),
 				ResourceVersion: obj.GetResourceVersion(),
 			},
 		})
@@ -129,4 +143,61 @@ func For[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, cond
 	}
 
 	return def, fmt.Errorf("timeout waiting for %s %s to meet condition", gvk.Kind, obj.GetName())
+}
+
+func ForList[T kclient.Object](ctx context.Context, c kclient.WithWatch, obj T, namespace string, condition func(T) (bool, error), opts ...ListOption) error {
+	opt := completeListOptions(opts...)
+
+	gvk, err := c.GroupVersionKindFor(obj)
+	if err != nil {
+		return err
+	}
+
+	list, err := c.Scheme().New(schema.GroupVersionKind{
+		Group:   gvk.Group,
+		Version: gvk.Version,
+		Kind:    gvk.Kind + "List",
+	})
+	if err != nil {
+		return err
+	}
+	watchOptions := append([]kclient.ListOption{kclient.InNamespace(namespace)}, opt.ListOptions...)
+	watchOptions = append(watchOptions,
+		&kclient.ListOptions{
+			Raw: &metav1.ListOptions{
+				AllowWatchBookmarks:  true,
+				ResourceVersionMatch: metav1.ResourceVersionMatchNotOlderThan,
+				SendInitialEvents:    new(true),
+				TimeoutSeconds:       new(int64(opt.Timeout / time.Second)),
+			},
+		})
+	w, err := c.Watch(ctx, list.(kclient.ObjectList), watchOptions...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		w.Stop()
+		//nolint:revive
+		for range w.ResultChan() {
+		}
+	}()
+
+	for event := range w.ResultChan() {
+		switch event.Type {
+		case watch.Added, watch.Modified:
+			typedObject, ok := event.Object.(T)
+			if !ok {
+				return fmt.Errorf("unexpected %T in %s watch", event.Object, gvk.Kind)
+			}
+			if ok, err := condition(typedObject); err != nil {
+				return err
+			} else if ok {
+				return nil
+			}
+		case watch.Error:
+			return apierrors.FromObject(event.Object)
+		}
+	}
+
+	return fmt.Errorf("timeout waiting for %s list", gvk.Kind)
 }

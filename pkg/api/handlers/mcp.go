@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -619,7 +620,7 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -631,33 +632,13 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err := req.List(&componentServers,
-			kclient.InNamespace(server.Namespace),
-			kclient.MatchingFields{
-				"spec.compositeName": server.Name,
-			},
-		); err != nil {
-			return fmt.Errorf("failed to list child servers: %w", err)
+	if server.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		componentServers, err := m.aggregateComponentServersForAction(req, server, serverConfig)
+		if err != nil {
+			return err
 		}
 
-		// Build disabled set from parent composite manifest; default is enabled
-		var compositeConfig types.CompositeRuntimeConfig
-		if server.Spec.Manifest.CompositeConfig != nil {
-			compositeConfig = *server.Spec.Manifest.CompositeConfig
-		}
-		disabledComponents := make(map[string]bool, len(compositeConfig.ComponentServers))
-		for _, comp := range compositeConfig.ComponentServers {
-			disabledComponents[comp.CatalogEntryID] = comp.Disabled
-		}
-
-		for _, component := range componentServers.Items {
-			// Skip if disabled in composite config
-			if disabledComponents[component.Spec.MCPServerCatalogEntryName] {
-				continue
-			}
-
+		for _, component := range componentServers {
 			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
@@ -707,7 +688,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -723,24 +704,14 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 	if err != nil {
 		return err
 	}
-	if !needsOAuth && server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err := req.Storage.List(req.Context(), &componentServers, &kclient.ListOptions{
-			Namespace:     server.Namespace,
-			FieldSelector: fields.OneTermEqualSelector("spec.compositeName", server.Name),
-		}); err != nil {
-			return fmt.Errorf("failed to list composite MCP component servers: %w", err)
+	if !needsOAuth && server.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		componentServers, err := m.aggregateComponentServersForAction(req, server, serverConfig)
+		if err != nil {
+			return err
 		}
-
-		disabled := make(map[string]bool)
-		if server.Spec.Manifest.CompositeConfig != nil {
-			for _, component := range server.Spec.Manifest.CompositeConfig.ComponentServers {
-				disabled[component.CatalogEntryID] = component.Disabled
-			}
-		}
-		for i := range componentServers.Items {
-			component := &componentServers.Items[i]
-			if disabled[component.Spec.MCPServerCatalogEntryName] || component.Spec.Manifest.Runtime != types.RuntimeRemote {
+		for i := range componentServers {
+			component := &componentServers[i]
+			if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
 			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
@@ -784,7 +755,7 @@ func (m *MCPHandler) GetOAuthURL(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
 
-	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
 	if err != nil {
 		return err
 	}
@@ -1295,14 +1266,45 @@ func validateServerScope(req api.Context, server v1.MCPServer) error {
 	return nil
 }
 
+// mcpActionID lets MCPServer and vMCP routes share action handlers without sharing authorization.
+func mcpActionID(req api.Context) string {
+	return cmp.Or(req.PathValue("vmcp_id"), req.PathValue("mcp_server_id"))
+}
+
 func serverForActionWithCapabilities(req api.Context, mcpSessionManager *mcp.SessionManager) (v1.MCPServer, mcp.ServerConfig, *gomcp.ServerCapabilities, error) {
-	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), req.PathValue("mcp_server_id"), req.User.GetUID())
+	server, serverConfig, err := mcpSessionManager.ServerForAction(req.Context(), mcpActionID(req), req.User.GetUID())
 	if err != nil {
 		return server, serverConfig, nil, err
 	}
 
 	caps, err := mcpSessionManager.ServerCapabilities(req.Context(), serverConfig)
 	return server, serverConfig, caps, err
+}
+
+// aggregateComponentServersForAction resolves the component MCPServers used by
+// a vMCP action. Component names come from the cached ServerConfig produced
+// for the vMCP instance.
+func (m *MCPHandler) aggregateComponentServersForAction(req api.Context, server v1.MCPServer, serverConfig mcp.ServerConfig) ([]v1.MCPServer, error) {
+	if server.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		components := make([]v1.MCPServer, 0, len(serverConfig.Components))
+		for _, component := range serverConfig.Components {
+			if component.Name == "" {
+				return nil, fmt.Errorf("vMCP %s contains a component without an MCP server", server.Name)
+			}
+
+			var componentServer v1.MCPServer
+			if err := req.Storage.Get(req.Context(), kclient.ObjectKey{
+				Namespace: server.Namespace,
+				Name:      component.Name,
+			}, &componentServer); err != nil {
+				return nil, fmt.Errorf("failed to get vMCP component server %s: %w", component.Name, err)
+			}
+			components = append(components, componentServer)
+		}
+
+		return components, nil
+	}
+	return nil, nil
 }
 
 // serverManifestFromCatalogEntryManifest converts a catalog entry manifest to a server manifest.
@@ -3322,9 +3324,59 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 	catalogID := req.PathValue("catalog_id")
 	workspaceID := req.PathValue("workspace_id")
+	mcpServerID := mcpActionID(req)
+
+	if system.IsVMCPID(mcpServerID) {
+		server, serverConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), mcpServerID, req.User.GetUID())
+		if err != nil {
+			return err
+		}
+
+		// vMCPs are synthetic MCP servers and intentionally have no catalog or
+		// workspace scope. Keep the same scope check as the legacy endpoint so
+		// scoped routes cannot address an unrelated vMCP.
+		if server.Spec.MCPCatalogID != catalogID || server.Spec.PowerUserWorkspaceID != workspaceID {
+			return types.NewErrNotFound("MCP server not found")
+		}
+
+		componentServers, err := m.aggregateComponentServersForAction(req, server, serverConfig)
+		if err != nil {
+			return err
+		}
+
+		for _, component := range componentServers {
+			if component.Spec.Manifest.Runtime != types.RuntimeRemote ||
+				component.Spec.Manifest.RemoteConfig == nil {
+				continue
+			}
+
+			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+			if err != nil {
+				return fmt.Errorf("failed to get config for vMCP component server %s: %w", component.Name, err)
+			}
+			if componentConfig.Runtime != types.RuntimeRemote {
+				continue
+			}
+			componentURL := componentConfig.URL
+			if componentURL == "" {
+				componentURL = component.Spec.Manifest.RemoteConfig.URL
+			}
+
+			if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), componentServer.Name, componentURL); err != nil {
+				return fmt.Errorf("failed to delete OAuth credentials: %v", err)
+			}
+
+			if err := m.triggerMCPServerControllers(req.Context(), componentServer.Name); err != nil {
+				return fmt.Errorf("failed to trigger MCP server reconciliation: %w", err)
+			}
+		}
+
+		req.WriteHeader(http.StatusNoContent)
+		return nil
+	}
 
 	var server v1.MCPServer
-	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
+	if err := req.Get(&server, mcpServerID); err != nil {
 		return err
 	}
 
@@ -3363,7 +3415,7 @@ func (m *MCPHandler) GetServerDetails(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeVMCP {
 		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support details retrieval", server.Name, server.Spec.Manifest.Runtime)
 	}
 
@@ -3414,7 +3466,7 @@ func (m *MCPHandler) RestartServerDeployment(req api.Context) error {
 		return err
 	}
 
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if server.Spec.Manifest.Runtime == types.RuntimeRemote || server.Spec.Manifest.Runtime == types.RuntimeVMCP {
 		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support restart", server.Name, server.Spec.Manifest.Runtime)
 	}
 
@@ -3822,7 +3874,7 @@ func (m *MCPHandler) StreamServerLogs(req api.Context) error {
 		return err
 	}
 
-	if serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeComposite {
+	if serverConfig.Runtime == types.RuntimeRemote || serverConfig.Runtime == types.RuntimeVMCP {
 		return types.NewErrBadRequest("MCP server %s has runtime %s, which does not support log retrieval", server.Name, serverConfig.Runtime)
 	}
 

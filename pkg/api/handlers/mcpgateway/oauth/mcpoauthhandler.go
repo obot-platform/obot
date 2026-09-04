@@ -64,30 +64,14 @@ func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManage
 }
 
 func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig, userID, mcpID, oauthAppAuthRequestID string) (string, error) {
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err := f.client.List(req.Context(), &componentServers,
-			kclient.InNamespace(mcpServer.Namespace),
-			kclient.MatchingFields{"spec.compositeName": mcpServer.Name},
-		); err != nil {
-			return "", fmt.Errorf("failed to list component servers")
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		componentServers, err := f.componentServersForAuth(req, mcpServer, mcpServerConfig)
+		if err != nil {
+			return "", err
 		}
 
-		// Precompute disabled component set for quick lookup (by catalog entry ID only)
-		var compositeConfig types.CompositeRuntimeConfig
-		if mcpServer.Spec.Manifest.CompositeConfig != nil {
-			compositeConfig = *mcpServer.Spec.Manifest.CompositeConfig
-		}
-
-		disabled := make(map[string]bool, len(compositeConfig.ComponentServers))
-		for _, comp := range compositeConfig.ComponentServers {
-			disabled[comp.CatalogEntryID] = comp.Disabled
-		}
-
-		for _, componentServer := range componentServers.Items {
-			// Skip disabled components defined in the composite server config using O(1) lookups
-			if disabled[componentServer.Spec.MCPServerCatalogEntryName] ||
-				componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
+		for _, componentServer := range componentServers {
+			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
 
@@ -105,8 +89,8 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			}
 
 			if u != "" {
-				// At least one component requires OAuth
-				slog.Info("Composite MCP server requires component OAuth authentication", "compositeMCPID", mcpID, "componentMCPID", componentServer.Name)
+				// At least one component requires OAuth.
+				slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID, "componentMCPID", componentServer.Name)
 				if oauthAppAuthRequestID != "" {
 					return fmt.Sprintf("%s/auth/mcp/composite/%s?oauth_auth_request=%s", f.baseURL, mcpID, oauthAppAuthRequestID), nil
 				}
@@ -116,7 +100,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		}
 
 		// No component requires OAuth
-		slog.Info("Composite MCP server passed OAuth check with no pending component authentication", "compositeMCPID", mcpID)
+		slog.Info("Aggregate MCP server passed OAuth check with no pending component authentication", "mcpID", mcpID)
 		return "", nil
 	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
 		// Not a remote or composite server, no OAuth required
@@ -172,6 +156,32 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
 		return u, nil
 	}
+}
+
+func (f *MCPOAuthHandlerFactory) componentServersForAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig) ([]v1.MCPServer, error) {
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeVMCP {
+		componentServers := make([]v1.MCPServer, 0, len(mcpServerConfig.Components))
+		for _, component := range mcpServerConfig.Components {
+			var componentServer v1.MCPServer
+			key := kclient.ObjectKey{
+				Namespace: mcpServer.Namespace,
+				Name:      component.Name,
+			}
+			var err error
+			if req.Storage != nil {
+				err = req.Storage.Get(req.Context(), key, &componentServer)
+			} else {
+				err = f.client.Get(req.Context(), key, &componentServer)
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to get vMCP component server %q: %w", component.Name, err)
+			}
+			componentServers = append(componentServers, componentServer)
+		}
+		return componentServers, nil
+	}
+
+	return nil, nil
 }
 
 func (f *MCPOAuthHandlerFactory) downstreamOAuthClientName(req api.Context, oauthAuthRequestID string) (string, error) {

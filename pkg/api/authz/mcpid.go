@@ -88,6 +88,14 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		}
 		// If this is a system MCP server, then allow access. The system MCP server will enforce its own authorization.
 		return systemMCPServer.Spec.Manifest.Enabled == nil || *systemMCPServer.Spec.Manifest.Enabled, nil
+
+	case system.IsVMCPID(mcpID):
+		var vmcp v1.VMCP
+		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpID), &vmcp); err != nil {
+			return false, err
+		}
+
+		return UserCanConnectVMCP(user, &vmcp), nil
 	default:
 		var entry v1.MCPServerCatalogEntry
 		if err := client.Get(ctx, router.Key(system.DefaultNamespace, mcpID), &entry); err != nil {

@@ -79,7 +79,10 @@ func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) 
 		return false, err
 	}
 
-	if req.Method == http.MethodGet {
+	// Launch and per-user OAuth actions consume the vMCP; they do not manage its definition.
+	if req.Method == http.MethodGet ||
+		(req.Method == http.MethodPost && (req.URL.Path == "/api/vmcps/"+resources.VMCPID+"/launch" || req.URL.Path == "/api/vmcps/"+resources.VMCPID+"/check-oauth")) ||
+		(req.Method == http.MethodDelete && req.URL.Path == "/api/vmcps/"+resources.VMCPID+"/oauth") {
 		if UserCanReadVMCP(u, &vmcp) {
 			resources.Authorizated.VMCP = &vmcp
 			return true, nil

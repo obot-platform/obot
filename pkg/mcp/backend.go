@@ -277,7 +277,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 		Version: version.Get().String(),
 	}
 
-	if server.Runtime == types.RuntimeComposite {
+	if server.Runtime == types.RuntimeVMCP {
 		passthroughHeaders := make([]string, 0, len(server.PassthroughHeaderNames)+1)
 		passthroughHeaders = append(passthroughHeaders, "Authorization")
 		passthroughHeaders = append(passthroughHeaders, server.PassthroughHeaderNames...)

@@ -62,6 +62,13 @@ func IsMCPServerInstanceID(id string) bool {
 	return strings.HasPrefix(id, MCPServerInstancePrefix)
 }
 
+func IsVMCPID(id string) bool {
+	return strings.HasPrefix(id, VMCPPrefix)
+}
+
+func IsVMCPInstanceID(id string) bool {
+	return strings.HasPrefix(id, VMCPInstancePrefix)
+}
 func IsPowerUserWorkspaceID(id string) bool {
 	return strings.HasPrefix(id, PowerUserWorkspacePrefix)
 }

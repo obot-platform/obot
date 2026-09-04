@@ -117,6 +117,88 @@ func TestCheckMCPIDChecksSystemMCPServerEnabled(t *testing.T) {
 	}
 }
 
+func TestCheckMCPIDChecksVMCPAccess(t *testing.T) {
+	shared := &v1.VMCP{
+		Name:      "vmcp1shared",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			Manifest: types.VMCPManifest{
+				Components: []types.VMCPComponent{{ID: "component"}},
+				Profiles: []types.VMCPProfile{
+					{
+						Name: "allowed-users",
+						Subjects: []types.Subject{
+							{
+								Type: types.SubjectTypeUser,
+								ID:   "allowed-user",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	personal := &v1.VMCP{
+		Name:      "vmcp1personal",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID:   "owner-user",
+			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{ID: "component"}}},
+		},
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(shared, personal).Build()
+	authorizer := &Authorizer{
+		cache:    storage,
+		uncached: storage,
+	}
+
+	tests := []struct {
+		name    string
+		mcpID   string
+		userID  string
+		allowed bool
+	}{
+		{
+			name:    "shared profile user is allowed",
+			mcpID:   shared.Name,
+			userID:  "allowed-user",
+			allowed: true,
+		},
+		{
+			name:   "shared unrelated user is denied",
+			mcpID:  shared.Name,
+			userID: "other-user",
+		},
+		{
+			name:    "personal owner is allowed",
+			mcpID:   personal.Name,
+			userID:  "owner-user",
+			allowed: true,
+		},
+		{
+			name:   "personal non-owner is denied",
+			mcpID:  personal.Name,
+			userID: "other-user",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/mcp-connect/"+tt.mcpID, nil)
+			ok, err := authorizer.checkMCPID(req, &Resources{MCPID: tt.mcpID}, newUser(&user.DefaultInfo{
+				Name: tt.userID,
+				UID:  tt.userID,
+			}))
+			if err != nil {
+				t.Fatalf("checkMCPID() error = %v", err)
+			}
+			if ok != tt.allowed {
+				t.Fatalf("checkMCPID() = %v, want %v", ok, tt.allowed)
+			}
+		})
+	}
+}
+
 func TestCheckMCPIDChecksMCPServerCatalogAccess(t *testing.T) {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(&v1.MCPServer{
 		Name:      "ms1catalog",

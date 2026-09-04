@@ -23,6 +23,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
 	"github.com/obot-platform/obot/pkg/utils"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -1442,6 +1443,211 @@ func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(req api.Contex
 	return req.Write(map[string]string{"oauthURL": oauthURL})
 }
 
+// GenerateVMCPComponentToolPreviews generates tool previews for a vMCP
+// component using the manifest snapshot stored on the vMCP. The source
+// catalog entry is intentionally not consulted: a vMCP component is a
+// deployed snapshot and preview generation must use the same definition.
+func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviews(req api.Context) error {
+	vmcp, component, server, serverConfig, err := h.vmcpComponentToolPreviewConfig(req)
+	if err != nil {
+		return err
+	}
+
+	if serverConfig.Runtime == types.RuntimeRemote {
+		oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+		if err != nil {
+			return fmt.Errorf("failed to check for MCP auth: %w", err)
+		}
+		if oauthURL != "" {
+			return types.NewErrBadRequest("MCP server requires OAuth authentication")
+		}
+		if h.gatewayClient != nil {
+			defer func() {
+				_ = h.gatewayClient.DeleteMCPOAuthTokens(context.Background(), "system", server.Name)
+			}()
+		}
+	}
+
+	toolPreviews, err := h.sessionManager.GenerateToolPreviews(req.Context(), server, serverConfig)
+	if err != nil {
+		return fmt.Errorf("failed to generate tool preview: %w", err)
+	}
+
+	return h.writeVMCPComponentToolPreview(req, vmcp, component, toolPreviews)
+}
+
+// GenerateVMCPComponentToolPreviewsOAuthURL returns the OAuth URL, if any,
+// needed to generate previews for a vMCP component.
+func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviewsOAuthURL(req api.Context) error {
+	_, _, server, serverConfig, err := h.vmcpComponentToolPreviewConfig(req)
+	if err != nil {
+		return err
+	}
+	if serverConfig.Runtime != types.RuntimeRemote {
+		return req.Write(map[string]string{"oauthURL": ""})
+	}
+
+	oauthURL, err := h.oauthChecker.CheckForMCPAuth(req, server, serverConfig, "system", server.Name, "")
+	if err != nil {
+		return types.NewErrBadRequest("failed to check for MCP auth: %v", err)
+	}
+	return req.Write(map[string]string{"oauthURL": oauthURL})
+}
+
+// vmcpComponentToolPreviewConfig builds the temporary server used by both
+// vMCP component preview endpoints. Only fixed configuration from the vMCP's
+// VMCP-scoped credential is used; callers cannot override vMCP policy by
+// posting arbitrary configuration to this endpoint.
+func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.VMCP, types.VMCPComponent, v1.MCPServer, mcp.ServerConfig, error) {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return vmcp, types.VMCPComponent{}, v1.MCPServer{}, mcp.ServerConfig{}, fmt.Errorf("failed to get vMCP: %w", err)
+	}
+
+	componentID := req.PathValue("component_id")
+	var component *types.VMCPComponent
+	for index := range vmcp.Spec.Manifest.Components {
+		candidate := &vmcp.Spec.Manifest.Components[index]
+		if candidate.ID == componentID || (candidate.ID == "" && candidate.MCPServerCatalogEntryID == componentID) {
+			component = candidate
+			break
+		}
+	}
+	if component == nil {
+		return vmcp, types.VMCPComponent{}, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrNotFound("vMCP component not found")
+	}
+
+	manifest := component.CatalogEntry.Manifest.DeepCopy()
+	if manifest == nil {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("vMCP component has no catalog-entry snapshot")
+	}
+	// ServerUserType is retained in the legacy manifest shape for compatibility,
+	// but vMCP runtime sharing is derived from its configuration policy.
+	manifest.ServerUserType = types.ServerUserTypeSingleUser
+	if vmcpComponentIsMultiUser(vmcp.Spec.Manifest, *component) {
+		manifest.ServerUserType = types.ServerUserTypeMultiUser
+	}
+
+	staticConfiguration, err := h.vmcpStaticConfiguration(req, vmcp.Name, *component)
+	if err != nil {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
+	if err != nil {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
+	}
+	catalogName := component.MCPCatalogID
+	server, serverConfig, err := tempServerAndConfig(
+		req.Context(),
+		req.Storage,
+		req.LocalK8sClient,
+		req.ObotNamespace,
+		h.secretBindingAllowedLabel,
+		component.MCPServerCatalogEntryID,
+		catalogName,
+		*manifest,
+		staticConfiguration,
+		"",
+		h.serverURL,
+		validationOptions,
+	)
+	if err != nil {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("failed to create temporary server and config: %v", err)
+	}
+
+	// GenerateToolPreviews uses the system OAuth identity. Include the
+	// requester and vMCP component in the temporary server name so concurrent
+	// preview requests never share OAuth state or a runtime.
+	tempName := "vmcp-tool-preview-" + utils.Digest(struct {
+		VMCPID              string
+		ComponentID         string
+		UserID              string
+		SnapshotDigest      string
+		ConfigurationDigest string
+	}{
+		VMCPID:              vmcp.Name,
+		ComponentID:         component.ID,
+		UserID:              req.User.GetUID(),
+		SnapshotDigest:      utils.Digest(*manifest),
+		ConfigurationDigest: utils.Digest(staticConfiguration),
+	})[:16]
+	server.Name = tempName
+	serverConfig.MCPServerName = tempName
+
+	return vmcp, *component, server, serverConfig, nil
+}
+
+func (h *MCPCatalogHandler) vmcpStaticConfiguration(req api.Context, vmcpID string, component types.VMCPComponent) (map[string]string, error) {
+	configuration := map[string]string{}
+	if h.gatewayClient == nil {
+		return nil, fmt.Errorf("gateway client is not configured")
+	}
+	credential, err := h.gatewayClient.RevealCredential(
+		req.Context(),
+		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcpID)},
+		vmcpconfig.ConfigurationCredentialName(),
+	)
+	if err != nil {
+		if errors.As(err, &gclient.CredentialNotFoundError{}) {
+			return configuration, nil
+		}
+		return nil, fmt.Errorf("failed to reveal vMCP static configuration: %w", err)
+	}
+	fixedKeys := make(map[string]struct{}, len(component.Configuration))
+	for _, policy := range component.Configuration {
+		if policy.Policy == types.VMCPConfigurationPolicyFixed {
+			fixedKeys[policy.Key] = struct{}{}
+		}
+	}
+	for key, value := range credential.Secrets {
+		keyComponentID, configurationKey, ok := vmcpconfig.ParseConfigurationKey(key)
+		if ok && keyComponentID == component.ID {
+			if _, isFixed := fixedKeys[configurationKey]; !isFixed {
+				continue
+			}
+			configuration[configurationKey] = value
+		}
+	}
+	return configuration, nil
+}
+
+func vmcpComponentIsMultiUser(manifest types.VMCPManifest, component types.VMCPComponent) bool {
+	if manifest.ForceSingleUser {
+		return false
+	}
+	headerKeys := map[string]struct{}{}
+	if component.CatalogEntry.Manifest.RemoteConfig != nil {
+		for _, header := range component.CatalogEntry.Manifest.RemoteConfig.Headers {
+			headerKeys[header.Key] = struct{}{}
+		}
+	}
+	for _, policy := range component.Configuration {
+		if policy.Policy == types.VMCPConfigurationPolicyUserAllowed {
+			if _, isHeader := headerKeys[policy.Key]; !isHeader {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func (h *MCPCatalogHandler) writeVMCPComponentToolPreview(req api.Context, vmcp v1.VMCP, component types.VMCPComponent, toolPreviews []types.MCPServerTool) error {
+	manifest := component.CatalogEntry.Manifest.DeepCopy()
+	if manifest == nil {
+		return types.NewErrBadRequest("vMCP component has no catalog-entry snapshot")
+	}
+	manifest.ToolPreview = toolPreviews
+	entry := v1.MCPServerCatalogEntry{
+		Name:      component.MCPServerCatalogEntryID,
+		Namespace: vmcp.Namespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: component.MCPCatalogID,
+			Manifest:       *manifest,
+		},
+	}
+	return req.Write(ConvertMCPServerCatalogEntry(entry, h.serverURL))
+}
+
 func (h *MCPCatalogHandler) generateCompositeOAuthURLs(req api.Context, entry v1.MCPServerCatalogEntry) error {
 	// Read configuration from request body (same as generateCompositeToolPreviews)
 	var configRequest struct {
@@ -1568,6 +1774,10 @@ func tempServerAndConfig(ctx context.Context, client kclient.Client, localK8sCli
 	if len(missingFields) > 0 {
 		return v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("missing required configuration fields: %v", missingFields)
 	}
+	if serverConfig.AuditLogMetadata == nil {
+		serverConfig.AuditLogMetadata = map[string]string{}
+	}
+	serverConfig.AuditLogMetadata[mcp.AuditLogIgnore] = "true"
 
 	return tempMCPServer, serverConfig, nil
 }

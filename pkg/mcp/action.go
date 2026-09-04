@@ -35,8 +35,19 @@ type missingCatalogEntryAdminConfig struct {
 }
 
 // IDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
-// The connect URL could have an MCP server ID, server instance ID, or MCP catalog entry ID.
+// The connect URL could have a vMCP ID, MCP server ID, server instance ID, or MCP catalog entry ID.
 func (sm *SessionManager) IDAndAudienceFromConnectURL(ctx context.Context, id, userID string) (string, string, error) {
+	if system.IsVMCPID(id) {
+		var vmcp v1.VMCP
+		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{
+			Namespace: system.DefaultNamespace,
+			Name:      id,
+		}, &vmcp); err != nil {
+			return "", "", err
+		}
+		return id, id, nil
+	}
+
 	server, instance, err := sm.serverOrInstanceFromConnectURL(ctx, id, userID)
 	if err != nil {
 		return "", "", err
@@ -62,6 +73,27 @@ func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx con
 }
 
 func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, userID string, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
+	if system.IsVMCPID(id) {
+		config, err := sm.ServerConfigForVMCP(ctx, id, userID)
+		if err != nil {
+			return "", v1.MCPServer{}, ServerConfig{}, nil, err
+		}
+
+		return id, v1.MCPServer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      id,
+				Namespace: config.MCPServerNamespace,
+			},
+			Spec: v1.MCPServerSpec{
+				Manifest: types.MCPServerManifest{
+					Name:    config.MCPServerDisplayName,
+					Runtime: types.RuntimeVMCP,
+				},
+				UserID: config.OwnerUserID,
+			},
+		}, config, nil, nil
+	}
+
 	server, instance, err := sm.serverOrInstanceFromConnectURL(ctx, id, userID)
 	if err != nil {
 		return "", v1.MCPServer{}, ServerConfig{}, nil, err
@@ -80,6 +112,11 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, 
 }
 
 func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string) (v1.MCPServer, ServerConfig, error) {
+	if system.IsVMCPID(id) {
+		_, server, serverConfig, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
+		return server, serverConfig, err
+	}
+
 	var server v1.MCPServer
 	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}, &server); err != nil {
 		return server, ServerConfig{}, err

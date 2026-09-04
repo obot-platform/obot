@@ -543,19 +543,19 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
-	// Check if the MCP server is a component of a composite; only finalize if it's not
+	// Check if the MCP server is a component of an aggregate; only finalize if it's not
 	var server v1.MCPServer
 	if err := req.Get(&server, mcpServerID); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
 		return nil
 	}
 
-	if server.Spec.CompositeName != "" {
-		// MCP server is a component of a composite.
+	if server.Spec.CompositeName != "" || server.Spec.VMCPInstanceID != "" {
+		// MCP server is a component of an aggregate.
 		// Redirect to OAuth completion page; the checkCompositeAuth handler will redirect back
-		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the composite server's
+		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the aggregate server's
 		// component servers are completed.
-		slog.Info("MCP OAuth callback completed for composite component server, awaiting composite finalization", "authRequest", oauthAppAuthRequest.Name, "mcpServer", server.Name, "composite", server.Spec.CompositeName)
+		slog.Info("MCP OAuth callback completed for aggregate component server, awaiting aggregate finalization", "authRequest", oauthAppAuthRequest.Name, "mcpServer", server.Name, "composite", server.Spec.CompositeName, "vmcpInstance", server.Spec.VMCPInstanceID)
 		http.Redirect(req.ResponseWriter, req.Request, "/auth/oauth/complete", http.StatusFound)
 		return nil
 	}

@@ -1,8 +1,23 @@
 package types
 
 import (
+	"encoding/json"
 	"testing"
 )
+
+func TestRuntimeVMCPUsesVMCPWireValue(t *testing.T) {
+	if got, want := string(RuntimeVMCP), "vmcp"; got != want {
+		t.Fatalf("RuntimeVMCP = %q, want %q", got, want)
+	}
+
+	encoded, err := json.Marshal(RuntimeVMCP)
+	if err != nil {
+		t.Fatalf("marshal RuntimeVMCP: %v", err)
+	}
+	if got, want := string(encoded), `"vmcp"`; got != want {
+		t.Fatalf("marshaled RuntimeVMCP = %s, want %s", got, want)
+	}
+}
 
 func TestMapCatalogEntryToServerCopiesResources(t *testing.T) {
 	resources := &MCPResourceRequirements{
