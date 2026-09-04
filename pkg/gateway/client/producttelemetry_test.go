@@ -9,6 +9,13 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
+func TestProductTelemetryActivityIndex(t *testing.T) {
+	c := newTestClient(t)
+	if !c.db.WithContext(t.Context()).Migrator().HasIndex(&types.APIActivity{}, "idx_api_activity_date_user") {
+		t.Fatal("API activity date/user index is missing")
+	}
+}
+
 func TestProductTelemetryDailyCounts(t *testing.T) {
 	c := newTestClient(t)
 	start := time.Date(2026, time.September, 2, 0, 0, 0, 0, time.UTC)
