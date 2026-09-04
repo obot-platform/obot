@@ -21,9 +21,6 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// credentialClient is the slice of the gateway client the OAuth reconcile uses. Taking it as a
-// parameter rather than storing it keeps the reconcile exercisable without a database behind it,
-// and leaves the Handler holding the concrete client the rest of its methods need.
 type credentialClient interface {
 	RevealCredential(ctx context.Context, contexts []string, name string) (gatewaytypes.Credential, error)
 	DeleteCredential(ctx context.Context, credentialContext, name string) (bool, error)
@@ -265,30 +262,13 @@ func requiresStaticOAuth(entry *v1.MCPServerCatalogEntry) bool {
 		entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired
 }
 
-// ReconcileOAuthCredential keeps an entry's static OAuth credential and the
-// Status.OAuthCredentialConfigured record of it in agreement.
+// ReconcileOAuthCredential keeps an entry's static OAuth credential and
+// Status.OAuthCredentialConfigured in agreement, querying the credential store only when that
+// status could be wrong.
 //
-// The status is what lets this handler stay quiet. It queries the credential store only in the
-// states where that record could be wrong:
-//
-//   - An entry that requires static OAuth but is not recorded as configured is re-read on every
-//     pass. A credential can appear without the controller being told, because the API writes the
-//     credential first and sets the sync annotation second, so a failure in between leaves a
-//     credential with nothing pointing at it. This is the path that repairs such a status.
-//   - An entry already recorded as configured is trusted. Every path that removes a credential
-//     either sets the sync annotation or deletes the entry outright, so the record cannot go stale
-//     without one of those firing. If the annotation write of a removal fails, the status reads
-//     configured until the API is used again, which shows a stale value but cannot orphan a
-//     credential.
-//   - Everything else is left alone, which is most of a catalog. This used to be the expensive
-//     case: every remote entry that does not require static OAuth issued a DELETE matching zero
-//     rows on every reconcile, 168 of the 207 entries in the default catalog, in a burst of one
-//     query per entry through a connection pool of five.
-//
-// Deleting a credential and clearing the status have to happen in that order and in one handler.
-// nah runs every handler registered for a type even after an earlier one returns an error, so
-// while these were two handlers a failed delete did not stop the status from being cleared, and
-// an entry that lost its status that way would never be looked at again.
+// The delete and the status update must stay in one handler. nah runs every handler for a type
+// even after an earlier one errors, so as two handlers a failed delete did not stop the status
+// being cleared, and a cleared status meant the entry was never queried again.
 func (h *Handler) ReconcileOAuthCredential(req router.Request, resp router.Response) error {
 	return reconcileOAuthCredential(req, resp, h.gatewayClient)
 }
@@ -296,8 +276,7 @@ func (h *Handler) ReconcileOAuthCredential(req router.Request, resp router.Respo
 func reconcileOAuthCredential(req router.Request, _ router.Response, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// Set by the API after it writes or deletes a credential, so this pass reads the store
-	// instead of trusting a status that predates the write.
+	// Set by the API after it writes or deletes a credential.
 	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
 
 	configured, err := syncOAuthCredential(req.Ctx, creds, entry, recheck)
@@ -317,7 +296,7 @@ func reconcileOAuthCredential(req router.Request, _ router.Response, creds crede
 		return nil
 	}
 
-	// Cleared last, so that a failure anywhere above leaves the recheck pending for the next pass.
+	// Cleared last, so a failure above leaves the recheck pending.
 	delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
 	if err := req.Client.Update(req.Ctx, entry); err != nil {
 		return fmt.Errorf("failed to clear sync annotation: %w", err)
@@ -327,8 +306,8 @@ func reconcileOAuthCredential(req router.Request, _ router.Response, creds crede
 	return nil
 }
 
-// syncOAuthCredential brings the credential store in line with entry and reports whether a static
-// OAuth credential exists for it afterwards.
+// syncOAuthCredential brings the credential store in line with entry and reports whether a
+// credential exists for it afterwards.
 func syncOAuthCredential(ctx context.Context, creds credentialClient, entry *v1.MCPServerCatalogEntry, recheck bool) (bool, error) {
 	credName := system.MCPOAuthCredentialName(entry.Name)
 
@@ -348,19 +327,9 @@ func syncOAuthCredential(ctx context.Context, creds credentialClient, entry *v1.
 		return false, nil
 	}
 
-	// The entry does not use a static OAuth client, so any credential it holds is left over from
-	// when it did. The runtime is deliberately not checked here: an entry converted away from
-	// remote keeps its credential under the same name, and nothing else would ever remove it.
-	//
-	// recheck is what makes a credential the status does not know about visible here, for the case
-	// where the manifest stops requiring static OAuth between the API writing a credential and this
-	// handler observing it. The status is still clear at that point, so the annotation is the only
-	// sign that there is anything to delete.
-	//
-	// A credential written by an API call whose annotation update then failed reaches the same
-	// state with no annotation to go on, and this guard skips it. That needs the entry to lose
-	// staticOAuthRequired before the reconcile the failed update queued, and it leaves a credential
-	// only removable by hand.
+	// Any credential here is left over from when the entry did use static OAuth. The runtime is
+	// not checked, because an entry changed away from remote keeps its credential under the same
+	// name and nothing else would remove it.
 	if !entry.Status.OAuthCredentialConfigured && !recheck {
 		return false, nil
 	}
@@ -384,11 +353,8 @@ func (h *Handler) RemoveOAuthCredentials(req router.Request, resp router.Respons
 func removeOAuthCredentials(req router.Request, _ router.Response, creds credentialClient) error {
 	entry := req.Object.(*v1.MCPServerCatalogEntry)
 
-	// A remote entry is always swept, because getting this wrong on the way out leaves a credential
-	// nothing will ever look at again. Any other runtime is swept only when something says it may
-	// still hold a credential from back when it was remote, which keeps the deletion of an ordinary
-	// entry query-free. The sync annotation counts as well as the status, since it is the only sign
-	// left when the API wrote a credential that no reconcile has observed yet.
+	// Always sweep a remote entry, since being wrong on the way out strands the credential. Sweep
+	// any other runtime only when the status or a pending annotation says one may still exist.
 	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
 	if entry.Spec.Manifest.Runtime != types.RuntimeRemote && !entry.Status.OAuthCredentialConfigured && !recheck {
 		return nil
