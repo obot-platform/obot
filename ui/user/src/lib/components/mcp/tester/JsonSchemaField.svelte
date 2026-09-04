@@ -26,6 +26,14 @@
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
 	);
+	let textDescribedBy = $derived(
+		[
+			schema.description ? `${id}-description` : undefined,
+			schema.pattern ? `${id}-pattern` : undefined
+		]
+			.filter(Boolean)
+			.join(' ') || undefined
+	);
 
 	function objectValue(): Record<string, unknown> {
 		return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -172,12 +180,17 @@
 				value={typeof value === 'string' ? value : ''}
 				minlength={schema.minLength}
 				maxlength={schema.maxLength}
-				pattern={schema.pattern}
 				{required}
 				{disabled}
-				aria-describedby={schema.description ? `${id}-description` : undefined}
+				aria-describedby={textDescribedBy}
 				oninput={(event) => onchange(event.currentTarget.value)}
 			/>
+			{#if schema.pattern}
+				<!-- We don't evaluate the pattern here in case it freezes the tab. -->
+				<p id={`${id}-pattern`} class="text-xs text-muted-content">
+					Must match <code class="break-all">{schema.pattern}</code>
+				</p>
+			{/if}
 		{/if}
 	</div>
 {/if}

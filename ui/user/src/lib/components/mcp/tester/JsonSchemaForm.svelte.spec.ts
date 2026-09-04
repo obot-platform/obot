@@ -60,4 +60,27 @@ describe('JsonSchemaForm', () => {
 			expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'valid', count: 1 })
 		);
 	});
+
+	it('shows a server pattern as a hint without handing it to constraint validation', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['slug'],
+				properties: { slug: { type: 'string', pattern: '^(a+)+$' } }
+			},
+			onvalidchange
+		});
+
+		const hint = page.getByText(/^Must match/);
+		await expect.element(hint).toBeVisible();
+		expect(hint.element().textContent).toContain('^(a+)+$');
+
+		const slug = page.getByLabelText('slug *');
+		expect(slug.element()).not.toHaveAttribute('pattern');
+		await slug.fill(`${'a'.repeat(40)}b`);
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ slug: `${'a'.repeat(40)}b` })
+		);
+	});
 });

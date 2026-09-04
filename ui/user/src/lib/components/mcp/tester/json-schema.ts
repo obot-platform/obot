@@ -137,13 +137,7 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 		if (schema.maxLength !== undefined && value.length > schema.maxLength) {
 			errors.push(`${label} must contain at most ${schema.maxLength} characters`);
 		}
-		if (schema.pattern) {
-			try {
-				if (!new RegExp(schema.pattern).test(value)) errors.push(`${label} has an invalid format`);
-			} catch {
-				// The server remains authoritative when it supplies an invalid pattern.
-			}
-		}
+		// schema.pattern is deliberately not evaluated, in case it could freeze the tab.
 		return errors;
 	}
 

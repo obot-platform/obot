@@ -41,7 +41,6 @@ describe('MCP tester JSON Schema support', () => {
 		).toEqual(
 			expect.arrayContaining([
 				'name must contain at least 3 characters',
-				'name has an invalid format',
 				'count must be at most 5',
 				'tags must contain at least 1 items',
 				'settings.enabled is required'
@@ -55,6 +54,15 @@ describe('MCP tester JSON Schema support', () => {
 				settings: { enabled: true }
 			})
 		).toEqual([]);
+	});
+
+	it('never runs a server-supplied pattern, so a catastrophic one cannot hang the tab', () => {
+		expect(validateJSONSchema(schema, { name: 'ABC', settings: { enabled: true } })).toEqual([]);
+
+		const catastrophic: JSONSchema = { type: 'string', pattern: '^(a+)+$' };
+		const started = performance.now();
+		expect(validateJSONSchema(catastrophic, `${'a'.repeat(40)}b`)).toEqual([]);
+		expect(performance.now() - started).toBeLessThan(100);
 	});
 
 	it('accepts every member of a union type and leaves unions to Raw JSON', () => {
