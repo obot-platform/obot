@@ -170,9 +170,6 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 	if manifest.SystemMCPServerManifest != nil {
 		staticCred = mcp.ExtractStaticSystemServerConfiguration(manifest.SystemMCPServerManifest, existingStaticSecrets, true)
 	}
-	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, staticCred); err != nil {
-		return fmt.Errorf("failed to store static configuration: %w", err)
-	}
 
 	webhookValidation.Spec.Manifest = manifest
 
@@ -191,6 +188,9 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		}
 
 		secretCred = cred.Secrets
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, staticCred); err != nil {
+		return fmt.Errorf("failed to store static configuration: %w", err)
 	}
 
 	if err := req.Update(&webhookValidation); err != nil {
