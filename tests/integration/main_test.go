@@ -18,6 +18,7 @@ import (
 
 	"github.com/obot-platform/obot/pkg/server"
 	"github.com/obot-platform/obot/pkg/services"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 type obotApplication struct {
@@ -103,6 +104,9 @@ func startObotApplication() (*obotApplication, error) {
 	if err := app.waitForHealth(baseURL, 2*time.Minute); err != nil {
 		return nil, errors.Join(err, app.stop())
 	}
+	if err := app.waitForDefaultCatalog(baseURL, 2*time.Minute); err != nil {
+		return nil, errors.Join(err, app.stop())
+	}
 	return app, nil
 }
 
@@ -185,6 +189,41 @@ func (a *obotApplication) waitForHealth(baseURL string, timeout time.Duration) e
 			return fmt.Errorf("timed out waiting for %s/api/healthz", baseURL)
 		case <-ticker.C:
 			resp, err := client.Get(baseURL + "/api/healthz")
+			if err != nil {
+				continue
+			}
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+		}
+	}
+}
+
+// waitForDefaultCatalog waits for the default MCPCatalog to exist. The controller creates it in
+// its PostStart hook, independently of the HTTP server, so a healthy server does not mean the
+// catalog is there yet.
+func (a *obotApplication) waitForDefaultCatalog(baseURL string, timeout time.Duration) error {
+	deadline := time.NewTimer(timeout)
+	defer deadline.Stop()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	client := &http.Client{Timeout: time.Second}
+	url := baseURL + "/api/mcp-catalogs/" + system.DefaultCatalog
+
+	for {
+		select {
+		case err := <-a.done:
+			a.exited = true
+			if err == nil {
+				err = errors.New("server exited without an error")
+			}
+			return fmt.Errorf("Obot exited before creating the default catalog: %w", err)
+		case <-deadline.C:
+			return fmt.Errorf("timed out waiting for %s", url)
+		case <-ticker.C:
+			resp, err := client.Get(url)
 			if err != nil {
 				continue
 			}
