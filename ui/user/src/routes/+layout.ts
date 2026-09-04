@@ -1,11 +1,15 @@
 import { dev } from '$app/environment';
+import { getHttpStatusCode } from '$lib/errors';
 import {
+	AdminService,
+	Group,
 	UserService,
 	type AppNotification,
 	type AppPreferences,
 	type DefaultModelAlias,
 	type License,
 	type Model,
+	type ProductTelemetryConsent,
 	type Profile,
 	type Version
 } from '$lib/services';
@@ -49,14 +53,24 @@ export const load: LayoutLoad = async ({ fetch }) => {
 	let defaultModelAliases: DefaultModelAlias[] | undefined;
 	let models: Model[] | undefined;
 	let appNotification: AppNotification | undefined;
+	let productTelemetryConsent: ProductTelemetryConsent | undefined;
+	let productTelemetryConsentAvailable: boolean | undefined;
 
 	if (!profile.unauthorized) {
-		const [defaultModelAliasesResult, modelsResult, appNotificationResult] =
-			await Promise.allSettled([
-				UserService.listDefaultModelAliases({ fetch }),
-				UserService.listModels({ fetch }),
-				UserService.getAppNotification({ fetch })
-			]);
+		const isAdmin = profile.groups.includes(Group.ADMIN);
+		const [
+			defaultModelAliasesResult,
+			modelsResult,
+			appNotificationResult,
+			productTelemetryConsentResult
+		] = await Promise.allSettled([
+			UserService.listDefaultModelAliases({ fetch }),
+			UserService.listModels({ fetch }),
+			UserService.getAppNotification({ fetch }),
+			isAdmin
+				? AdminService.getProductTelemetryConsent({ fetch, dontLogErrors: true })
+				: Promise.resolve(undefined)
+		]);
 		defaultModelAliases =
 			defaultModelAliasesResult.status === 'fulfilled'
 				? defaultModelAliasesResult.value
@@ -64,6 +78,16 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		models = modelsResult.status === 'fulfilled' ? modelsResult.value : undefined;
 		appNotification =
 			appNotificationResult.status === 'fulfilled' ? appNotificationResult.value : undefined;
+
+		if (isAdmin) {
+			if (productTelemetryConsentResult.status === 'fulfilled') {
+				productTelemetryConsent = productTelemetryConsentResult.value;
+				productTelemetryConsentAvailable = true;
+			} else {
+				productTelemetryConsentAvailable =
+					getHttpStatusCode(productTelemetryConsentResult.reason) === 404 ? false : undefined;
+			}
+		}
 	}
 
 	return {
@@ -73,6 +97,8 @@ export const load: LayoutLoad = async ({ fetch }) => {
 		license,
 		defaultModelAliases,
 		models,
-		appNotification
+		appNotification,
+		productTelemetryConsent,
+		productTelemetryConsentAvailable
 	};
 };

@@ -140,7 +140,8 @@ import type {
 	MDMDevice,
 	MDMEnrollmentKey,
 	MDMEnrollmentKeyCreateResponse,
-	LocalAuthUser
+	LocalAuthUser,
+	ProductTelemetryConsent
 } from './types';
 import { MCPCompositeDeletionDependencyError } from './types';
 
@@ -520,6 +521,21 @@ export async function acceptEula() {
 	})) as {
 		accepted: boolean;
 	};
+}
+
+// Product analytics
+
+export async function getProductTelemetryConsent(
+	opts?: RequestOptions
+): Promise<ProductTelemetryConsent> {
+	return (await doGet('/product-telemetry-consent', opts)) as ProductTelemetryConsent;
+}
+
+export async function updateProductTelemetryConsent(
+	consent: boolean,
+	opts?: RequestOptions
+): Promise<ProductTelemetryConsent> {
+	return (await doPut('/product-telemetry-consent', { consent }, opts)) as ProductTelemetryConsent;
 }
 
 // Group role assignments

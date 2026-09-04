@@ -147,6 +147,7 @@ describe('Layout.svelte', () => {
 				await renderLayout([Group.ADMIN]);
 				await expectSharedNavigation();
 				await expectAdminOnlyNavigation();
+				await expectNoLink('/admin/product-analytics');
 			});
 
 			describe('when agents are enabled', () => {
@@ -188,6 +189,7 @@ describe('Layout.svelte', () => {
 				await renderLayout([Group.USER, Group.AUDITOR]);
 				await expectSharedNavigation();
 				await expectAdminOnlyNavigation();
+				await expectNoLink('/admin/product-analytics');
 			});
 		});
 	});
