@@ -15,6 +15,7 @@
  * 3. **New sections** — Add a section header, place it in alphabetical order among other sections,
  *    and keep all types for that domain inside it.
  */
+import type { MCPConfig } from '../admin/types';
 
 // Access control rules
 
@@ -550,7 +551,7 @@ export interface MCPServerInstance {
 	deleted?: string;
 	links?: Record<string, string>;
 	metadata?: Record<string, string>;
-	multiUserConfig?: MultiUserConfig;
+	config?: MCPConfig[];
 	configured: boolean;
 	missingRequiredHeaders?: string[];
 	userID: string;
@@ -571,6 +572,7 @@ export interface MCPSubField {
 	description: string;
 	file?: boolean;
 	dynamicFile?: boolean;
+	interpolated?: boolean;
 	key: string;
 	name: string;
 	options?: MCPConfigurationOption[];
@@ -625,7 +627,6 @@ export interface MCPResourceRequirements {
 }
 export interface RemoteRuntimeConfig {
 	fixedURL?: string;
-	headers?: MCPSubField[];
 	hostname?: string;
 	isTemplate?: boolean;
 	tunnelName?: string;
@@ -634,7 +635,6 @@ export interface RemoteRuntimeConfig {
 }
 export interface RemoteCatalogConfig {
 	fixedURL?: string;
-	headers?: MCPSubField[];
 	hostname?: string;
 	tunnelName?: string;
 	urlTemplate?: string;
@@ -685,7 +685,7 @@ export interface MCPServer {
 	shortDescription?: string;
 	icon?: string;
 	name?: string;
-	env?: MCPSubField[];
+	config?: MCPConfig[];
 	toolPreview?: MCPServerTool[];
 	metadata?: {
 		categories?: string;
@@ -698,7 +698,6 @@ export interface MCPServer {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
 	compositeConfig?: CompositeRuntimeConfig;
-	multiUserConfig?: MultiUserConfig;
 	resources?: MCPResourceRequirements;
 }
 export interface MCPServerTool {

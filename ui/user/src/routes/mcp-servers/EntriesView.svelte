@@ -56,8 +56,7 @@
 		Server,
 		Settings,
 		Trash2,
-		TriangleAlert,
-		UsersIcon
+		TriangleAlert
 	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { slide } from 'svelte/transition';
@@ -396,11 +395,6 @@
 						</div>
 					{:else if property === 'type'}
 						{d.type}
-						{#if 'isCatalogEntry' in d.data && d.data.manifest.serverUserType === 'multiUser'}
-							<div class="p-2" use:tooltip={{ text: 'Multi-tenant' }}>
-								<UsersIcon class="size-3 text-muted-content" />
-							</div>
-						{/if}
 						{#if !isMultiUserCatalogEntry(d.data) && hasEditableConfiguration(d.data)}
 							<div class="p-2" use:tooltip={{ text: 'Requires user configuration' }}>
 								<Settings class="size-3 text-muted-content" />

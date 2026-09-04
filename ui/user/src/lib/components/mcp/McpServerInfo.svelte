@@ -4,6 +4,7 @@
 	import { toHTMLFromMarkdownWithNewTabLinks } from '$lib/markdown';
 	import { type MCPCatalogServer } from '$lib/services';
 	import type { MCPCatalogEntry } from '$lib/services/admin/types';
+	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import { responsive } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import type { Snippet } from 'svelte';
@@ -27,13 +28,19 @@
 	};
 
 	function convertEntryDetails(entry: MCPCatalogEntry | MCPCatalogServer) {
+		const { env, headers } = getManifestConfiguration(
+			'manifest' in entry ? entry.manifest : undefined
+		);
+		const requiredConfiguration = [...env, ...headers]
+			.filter((field) => field.required)
+			.map((field) => field.name)
+			.join(', ');
 		let items: Record<string, EntryDetail> = {};
 		if (!('isCatalogEntry' in entry) && ('manifest' in entry || 'mcpID' in entry)) {
 			items = {
 				requiredConfig: {
 					label: 'Required Configuration',
-					value:
-						'manifest' in entry ? (entry.manifest?.env?.map((e) => e.key).join(', ') ?? []) : []
+					value: requiredConfiguration
 				},
 				users: {
 					label: 'Users',
@@ -60,11 +67,7 @@
 			items = {
 				requiredConfig: {
 					label: 'Required Configuration',
-					value:
-						entry.manifest?.env
-							?.filter((e) => e.required)
-							.map((e) => e.name)
-							.join(', ') ?? []
+					value: requiredConfiguration
 				},
 				users: {
 					label: 'Users',

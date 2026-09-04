@@ -3,6 +3,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { MCPAllowedSecretBindingTarget, MCPTunnel } from '$lib/services';
 	import type {
+		LegacyRemoteCatalogConfigAdmin,
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
@@ -21,7 +22,7 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		config: RemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
+		config: LegacyRemoteCatalogConfigAdmin | RemoteRuntimeConfigAdmin;
 		variant?: 'catalog' | 'server';
 		readonly?: boolean;
 		showRequired?: Record<string, boolean>;
@@ -35,6 +36,7 @@
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		tunnels?: MCPTunnel[];
 		tunnelsLoading?: boolean;
+		hideHeaders?: boolean;
 		children?: Snippet;
 		afterHeaders?: Snippet;
 	}
@@ -53,6 +55,7 @@
 		secretBindingTargets,
 		tunnels,
 		tunnelsLoading = false,
+		hideHeaders = false,
 		children,
 		afterHeaders
 	}: Props = $props();
@@ -343,7 +346,9 @@
 
 		{@render children?.()}
 	</div>
-	{@render remoteHeaders(false)}
+	{#if !hideHeaders}
+		{@render remoteHeaders(false)}
+	{/if}
 	{@render afterHeaders?.()}
 {:else if !showAdvanced}
 	{@const remoteConfig = config as RemoteCatalogConfigAdmin}
@@ -556,7 +561,9 @@
 			{@render children?.()}
 		</div>
 	</div>
-	{@render remoteHeaders(selectedType === 'urlTemplate')}
+	{#if !hideHeaders}
+		{@render remoteHeaders(selectedType === 'urlTemplate')}
+	{/if}
 	{@render afterHeaders?.()}
 	<!-- Static OAuth Configuration -->
 	{#if config && !disableStaticOAuth}

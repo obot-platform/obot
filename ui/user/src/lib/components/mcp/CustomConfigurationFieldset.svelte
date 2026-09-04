@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MCPAllowedSecretBindingTarget, MCPSubField } from '$lib/services';
+	import type { MCPAllowedSecretBindingTarget, MCPConfig, MCPSubField } from '$lib/services';
 	import { version } from '$lib/stores';
 	import Select from '../Select.svelte';
 	import Toggle from '../Toggle.svelte';
@@ -9,7 +9,7 @@
 	import { untrack } from 'svelte';
 
 	interface Props {
-		data: MCPSubField & { secretBindingSource?: string };
+		data: (MCPSubField | MCPConfig) & { secretBindingSource?: string };
 		id: string;
 		serverUserType?: 'singleUser' | 'multiUser';
 		readonly?: boolean;
@@ -44,6 +44,12 @@
 		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
 	}
 
+	function isFileConfiguration(field: MCPSubField | MCPConfig) {
+		return 'usage' in field
+			? field.usage === 'file' || field.usage === 'dynamicFile'
+			: Boolean(field.file);
+	}
+
 	let selectedType = $state(
 		untrack(() =>
 			data.options && data.options.length > 0
@@ -66,7 +72,11 @@
 			data.secretBindingSource = 'value';
 			data.required = true;
 			data.sensitive = false;
-			data.file = false;
+			if ('usage' in data) {
+				data.usage = 'interpolated';
+			} else {
+				data.file = false;
+			}
 		} else if (data && usesSecretBindingSource(data)) {
 			data.sensitive = true;
 		}
@@ -182,7 +192,7 @@
 		{#if !usesSecretBindingSource(data)}
 			<div class="flex w-full flex-col gap-1">
 				<label for={`env-value-${id}`} class="sr-only">Static Value</label>
-				{#if data.file}
+				{#if isFileConfiguration(data)}
 					<textarea
 						id={`env-value-${id}`}
 						class="text-input-filled bg-base-100 min-h-24 w-full resize-y shadow-none"

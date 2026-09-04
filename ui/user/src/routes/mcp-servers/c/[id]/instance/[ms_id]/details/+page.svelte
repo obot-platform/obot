@@ -44,9 +44,10 @@
 <Layout {title} showBackButton>
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
-			{#if catalogEntry?.manifest.runtime === 'composite'}
+			{#if mcpServer?.manifest.runtime === 'composite'}
 				<McpServerCompositeInfo
 					{mcpServerId}
+					{mcpServer}
 					name={title}
 					{connectedUsers}
 					entity="catalog"

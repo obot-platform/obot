@@ -8,6 +8,7 @@
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import { HttpError } from '$lib/errors';
 	import { UserService, type OAuthConsent } from '$lib/services';
+	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
 		convertCompositeInfoToLaunchFormData,
 		convertCompositeLaunchFormDataToPayload,
@@ -48,9 +49,11 @@
 			return hasEditableConfiguration(consent.mcpServer);
 		}
 		if (consent.mcpServerInstance) {
-			return (consent.mcpServerInstance.multiUserConfig?.userDefinedHeaders ?? []).some(
-				(header) => !hasSecretBinding(header)
-			);
+			return (
+				(consent.mcpServerInstance.config ?? []).filter(
+					(field) => field.usage === 'header' && field.userAllowed
+				) ?? []
+			).some((header) => !hasSecretBinding(header));
 		}
 		return false;
 	});
@@ -157,13 +160,13 @@
 					})
 				);
 				configureForm = {
-					headers: nextConsent.mcpServerInstance.multiUserConfig?.userDefinedHeaders?.map(
-						(header) => ({
+					headers: (nextConsent.mcpServerInstance.config ?? [])
+						.filter((field) => field.usage === 'header' && field.userAllowed)
+						?.map((header) => ({
 							...header,
 							value: values[header.key] ?? '',
 							isStatic: false
-						})
-					)
+						}))
 				};
 			} else if (nextConsent.mcpServer?.id) {
 				if (nextConsent.mcpServer.manifest.runtime === 'composite') {
@@ -177,16 +180,18 @@
 					})
 				);
 				configureForm = {
-					envs: nextConsent.mcpServer.manifest.env?.map((env) => ({
+					envs: getManifestConfiguration(nextConsent.mcpServer.manifest).env?.map((env) => ({
 						...env,
 						value: values[env.key] ?? '',
 						isStatic: Boolean(env.value)
 					})),
-					headers: nextConsent.mcpServer.manifest.remoteConfig?.headers?.map((header) => ({
-						...header,
-						value: values[header.key] ?? '',
-						isStatic: Boolean(header.value)
-					})),
+					headers: getManifestConfiguration(nextConsent.mcpServer.manifest).headers?.map(
+						(header) => ({
+							...header,
+							value: values[header.key] ?? '',
+							isStatic: Boolean(header.value)
+						})
+					),
 					url: nextConsent.mcpServer.manifest.remoteConfig?.url,
 					hostname: nextConsent.mcpServer.manifest.remoteConfig?.hostname
 				};

@@ -16,6 +16,7 @@
 		type RuntimeFormData
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
+	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
 		convertServerRuntimeFormDataToManifest,
 		validateRuntimeForm
@@ -214,7 +215,7 @@
 				icon: manifest.icon ?? '',
 				name: manifest.name ?? '',
 				description: manifest.description ?? '',
-				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				env: getManifestConfiguration(manifest).env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime ?? 'npx',
 				npxConfig: undefined,
 				uvxConfig: undefined,
@@ -246,7 +247,8 @@
 					formData.remoteServerConfig = manifest.remoteConfig
 						? {
 								url: manifest.remoteConfig.url ?? '',
-								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? []
+								headers:
+									getManifestConfiguration(manifest).headers.map((h) => ({ ...h, value: '' })) ?? []
 							}
 						: { url: '', headers: [] };
 					break;
@@ -370,32 +372,11 @@
 		mcpServerManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest> | undefined
 	) {
 		if (mcpServerManifest) {
-			let configValues: Record<string, string> = {};
-
-			// Add environment variables
-			if (mcpServerManifest.manifest.env) {
-				const envValues = Object.fromEntries(
-					mcpServerManifest.manifest.env
-
-						.filter((env) => env.key && env.value) // Only include env vars with both key and value
-
-						.map((env) => [env.key, env.value])
-				);
-				configValues = { ...configValues, ...envValues };
-			}
-
-			// Add headers from remote config (only for remote runtime)
-			if (
-				mcpServerManifest.manifest.runtime === 'remote' &&
-				mcpServerManifest.manifest.remoteConfig?.headers
-			) {
-				const headerValues = Object.fromEntries(
-					mcpServerManifest.manifest.remoteConfig.headers
-						.filter((header) => header.key && header.value) // Only include headers with both key and value
-						.map((header) => [header.key, header.value])
-				);
-				configValues = { ...configValues, ...headerValues };
-			}
+			const configValues = Object.fromEntries(
+				(mcpServerManifest.manifest.config ?? [])
+					.filter((field) => !field.userAllowed && field.key && field.value)
+					.map((field) => [field.key, field.value])
+			);
 
 			// Configure the server with the collected values if any exist
 			if (Object.keys(configValues).length > 0) {

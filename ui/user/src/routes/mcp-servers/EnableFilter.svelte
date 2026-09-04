@@ -14,7 +14,11 @@
 		type SystemMCPServerCatalogEntry
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/user/mcp';
+	import {
+		convertEnvHeadersToRecord,
+		getManifestConfiguration,
+		hasEditableConfiguration
+	} from '$lib/services/user/mcp';
 
 	interface Props {
 		configuredFilterServers: SystemMCPServer[];
@@ -49,13 +53,14 @@
 	let saving = $state(false);
 
 	function initConfigureForm(item: SystemMCPServerCatalogEntry) {
+		const { env, headers } = getManifestConfiguration(item.manifest);
 		configureForm = {
 			name: '',
-			envs: item.manifest?.env?.map((env) => ({
+			envs: env.map((env) => ({
 				...env,
 				value: ''
 			})),
-			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
+			headers: headers.map((header) => ({
 				...header,
 				value: '',
 				isStatic: header.value !== ''

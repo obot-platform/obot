@@ -90,9 +90,10 @@
 		{#if tunnelDisconnected}
 			<McpTunnelDisconnectedStatus detailed />
 		{/if}
-		{#if catalogEntry?.manifest.runtime === 'composite'}
+		{#if server?.manifest.runtime === 'composite'}
 			<McpServerCompositeInfo
 				{mcpServerId}
+				mcpServer={server}
 				name={title}
 				entity="catalog"
 				entityId={DEFAULT_MCP_CATALOG_ID}

@@ -12,7 +12,7 @@
 		type ServerK8sSettings
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { supportsMCPBackendDetails } from '$lib/services/user/mcp';
+	import { getManifestConfiguration, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import Confirm from '../Confirm.svelte';
@@ -331,10 +331,11 @@
 			};
 		}
 
-		const envMap = new Map(catalogEntry.manifest.env?.map((env) => [env.key, env]));
-		const headerMap = new Map(
-			catalogEntry.manifest.remoteConfig?.headers?.map((header) => [header.key, header])
+		const { env: envFields, headers: headerFields } = getManifestConfiguration(
+			catalogEntry.manifest
 		);
+		const envMap = new Map(envFields.map((field) => [field.key, field]));
+		const headerMap = new Map(headerFields.map((field) => [field.key, field]));
 
 		const envs: ConfigRow[] = [];
 		const headers: ConfigRow[] = [];
@@ -365,27 +366,27 @@
 
 		// Include secret-bound fields — their values are not stored by Obot so they
 		// won't appear in revealedValues, but we can still show the binding reference.
-		for (const env of catalogEntry.manifest.env ?? []) {
-			if (env.secretBinding && !revealedValues?.[env.key]) {
+		for (const field of envFields) {
+			if (field.secretBinding && !revealedValues?.[field.key]) {
 				envs.push({
-					id: env.key,
-					label: env.name ?? env.key,
+					id: field.key,
+					label: field.name ?? field.key,
 					value: '',
 					sensitive: false,
-					file: env.file,
-					dynamicFile: env.dynamicFile,
-					secretBinding: env.secretBinding
+					file: field.file,
+					dynamicFile: field.dynamicFile,
+					secretBinding: field.secretBinding
 				});
 			}
 		}
-		for (const header of catalogEntry.manifest.remoteConfig?.headers ?? []) {
-			if (header.secretBinding && !revealedValues?.[header.key]) {
+		for (const field of headerFields) {
+			if (field.secretBinding && !revealedValues?.[field.key]) {
 				headers.push({
-					id: header.key,
-					label: header.name ?? header.key,
+					id: field.key,
+					label: field.name ?? field.key,
 					value: '',
 					sensitive: false,
-					secretBinding: header.secretBinding
+					secretBinding: field.secretBinding
 				});
 			}
 		}
@@ -419,7 +420,8 @@
 			];
 		}
 
-		for (const env of manifest?.env ?? []) {
+		const { env: envFields, headers: headerFields } = getManifestConfiguration(manifest);
+		for (const env of envFields) {
 			if (env.secretBinding && missingEnvKeys.has(env.key)) {
 				results.push({
 					label: env.name ?? env.key,
@@ -428,7 +430,7 @@
 				});
 			}
 		}
-		for (const header of manifest?.remoteConfig?.headers ?? []) {
+		for (const header of headerFields) {
 			if (header.secretBinding && missingHeaderKeys.has(header.key)) {
 				results.push({
 					label: header.name ?? header.key,

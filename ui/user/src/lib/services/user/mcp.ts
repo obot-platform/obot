@@ -9,6 +9,7 @@ import {
 	type CompositeServerToolRow,
 	type LaunchServerType,
 	type MCPCatalogEntry,
+	type MCPCatalogEntryFieldManifest,
 	type MCPCatalogEntryServerManifest,
 	type MCPCatalogServer,
 	type MCPCatalogServerManifest,
@@ -20,6 +21,7 @@ import {
 	type OrgUser,
 	type RuntimeFormData,
 	type SystemMCPServerCatalogEntry,
+	type SystemMCPServerCatalogEntryManifest,
 	type ToolOverride
 } from '..';
 import { AiClient, MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from './constants';
@@ -117,6 +119,27 @@ function hasEditableURL(remoteConfig?: { fixedURL?: string; hostname?: string } 
 	return Boolean(remoteConfig && !remoteConfig.fixedURL && remoteConfig.hostname);
 }
 
+// Present flattened configuration as the environment/header sections used by forms.
+export function getManifestConfiguration(
+	manifest?: MCPCatalogEntryServerManifest | MCPServer | SystemMCPServerCatalogEntryManifest
+): { env: MCPCatalogEntryFieldManifest[]; headers: MCPCatalogEntryFieldManifest[] } {
+	if (!manifest) return { env: [], headers: [] };
+	return {
+		env: (manifest.config ?? [])
+			.filter((field) => field.usage !== 'header')
+			.map(({ usage, ...field }) => ({
+				...field,
+				value: field.value ?? '',
+				file: usage === 'file' || usage === 'dynamicFile',
+				dynamicFile: usage === 'dynamicFile',
+				interpolated: usage === 'interpolated'
+			})),
+		headers: (manifest.config ?? [])
+			.filter((field) => field.usage === 'header' && !field.userAllowed)
+			.map(({ usage: _usage, ...field }) => ({ ...field, value: field.value ?? '' }))
+	};
+}
+
 export function hasEditableConfiguration(
 	item: MCPCatalogEntry | MCPCatalogServer | SystemMCPServerCatalogEntry
 ) {
@@ -125,30 +148,32 @@ export function hasEditableConfiguration(
 	if ('compositeConfig' in item.manifest && item.manifest.runtime === 'composite') {
 		const componentServers = item.manifest.compositeConfig?.componentServers || [];
 		return componentServers.some((component) => {
-			const hasEnvs = hasEditableFields(component.manifest?.env);
+			const fields = getManifestConfiguration(component.manifest);
+			const hasEnvs = hasEditableFields(fields.env);
 			const hasHeaders =
-				(component?.manifest?.remoteConfig?.headers?.filter?.(
-					(header) => !header.value && !hasSecretBinding(header)
-				)?.length ?? 0) > 0;
+				(fields.headers.filter((header) => !header.value && !hasSecretBinding(header))?.length ??
+					0) > 0;
 			const hasUrlToFill = hasEditableURL(component.manifest?.remoteConfig);
 			return hasEnvs || hasHeaders || hasUrlToFill;
 		});
 	}
 
 	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
-	const hasEnvsToFill = hasEditableFields(item.manifest?.env);
+	const fields = getManifestConfiguration(item.manifest);
+	const hasEnvsToFill = hasEditableFields(fields.env);
 	const hasHeadersToFill =
-		(item?.manifest?.remoteConfig?.headers?.filter?.(
-			(header) => !header.value && !hasSecretBinding(header)
-		)?.length ?? 0) > 0;
+		(fields.headers.filter((header) => !header.value && !hasSecretBinding(header))?.length ?? 0) >
+		0;
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }
 
 type SecretBindingManifest = {
-	env?: MCPSubField[];
+	config?: (MCPSubField & { usage: string })[];
 	remoteConfig?: {
-		headers?: MCPSubField[];
+		fixedURL?: string;
+		hostname?: string;
+		urlTemplate?: string;
 	};
 	runtime?: string;
 	compositeConfig?: {
@@ -160,8 +185,7 @@ type SecretBindingManifest = {
 
 export function manifestHasSecretBindings(manifest?: SecretBindingManifest | null): boolean {
 	if (!manifest) return false;
-	if ((manifest.env ?? []).some(hasSecretBinding)) return true;
-	if ((manifest.remoteConfig?.headers ?? []).some(hasSecretBinding)) return true;
+	if ((manifest.config ?? []).some(hasSecretBinding)) return true;
 	if (manifest.runtime === 'composite') {
 		return (manifest.compositeConfig?.componentServers ?? []).some((component) =>
 			manifestHasSecretBindings(component.manifest)
@@ -179,12 +203,11 @@ export function hasMissingSecretBindingConfig(
 	const missingEnvKeys = new Set(missingEnvVars ?? []);
 	const missingHeaderKeys = new Set(missingHeaders ?? []);
 
-	if ((manifest.env ?? []).some((env) => hasSecretBinding(env) && missingEnvKeys.has(env.key))) {
-		return true;
-	}
 	if (
-		(manifest.remoteConfig?.headers ?? []).some(
-			(header) => hasSecretBinding(header) && missingHeaderKeys.has(header.key)
+		(manifest.config ?? []).some(
+			(field) =>
+				hasSecretBinding(field) &&
+				(field.usage === 'header' ? missingHeaderKeys : missingEnvKeys).has(field.key)
 		)
 	) {
 		return true;
@@ -463,14 +486,9 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 	return 'Hosted';
 }
 
-export function isMultiUserCatalogEntry(entry?: MCPCatalogEntry | MCPCatalogServer) {
-	if (!entry) return false;
-	if (!('isCatalogEntry' in entry)) return false;
-	return (
-		entry?.manifest?.serverUserType === 'multiUser' &&
-		entry.manifest.runtime !== 'remote' &&
-		entry.manifest.runtime !== 'composite'
-	);
+export function isMultiUserCatalogEntry(_entry?: MCPCatalogEntry | MCPCatalogServer) {
+	// Sharing is configured on a vMCP, never on its source catalog entry.
+	return false;
 }
 
 export function isMultiUserServer(server?: MCPCatalogServer) {
@@ -514,7 +532,7 @@ export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormD
 
 export async function convertCompositeInfoToLaunchFormData(
 	server: MCPCatalogServer,
-	parent?: MCPCatalogEntry
+	_parent?: MCPCatalogEntry
 ) {
 	let initial: Record<string, { config: Record<string, string>; url?: string; disabled?: boolean }>;
 	try {
@@ -534,12 +552,7 @@ export async function convertCompositeInfoToLaunchFormData(
 			{ config: Record<string, string>; url?: string; disabled?: boolean }
 		>;
 	}
-	// Prefer existing server's runtime composite manifest for edit flows;
-	// fall back to parent catalog entry only if server lacks composite config
-	const components =
-		server?.manifest?.compositeConfig?.componentServers ||
-		(parent && 'manifest' in parent ? parent?.manifest?.compositeConfig?.componentServers : []) ||
-		[];
+	const components = server?.manifest?.compositeConfig?.componentServers ?? [];
 	const componentConfigs: Record<
 		string,
 		{
@@ -576,20 +589,22 @@ export async function convertCompositeInfoToLaunchFormData(
 			isMultiUser,
 			envs: isMultiUser
 				? []
-				: (m.env ?? []).map((e) => ({
+				: getManifestConfiguration(m).env.map((e) => ({
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
 						value: init?.config?.[e.key] ?? e.value ?? '',
 						isStatic: !init?.config?.[e.key] && Boolean(e.value)
 					})),
 			headers: isMultiUser
-				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: init?.config?.[h.key] ?? '',
-						isStatic: false
-					}))
-				: (m.remoteConfig?.headers ?? []).map((h) => ({
+				? (m.config ?? [])
+						.filter((field) => field.usage === 'header' && field.userAllowed)
+						.map((h) => ({
+							...(h as unknown as Record<string, unknown>),
+							key: h.key,
+							value: init?.config?.[h.key] ?? '',
+							isStatic: false
+						}))
+				: getManifestConfiguration(m).headers.map((h) => ({
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
 						value: init?.config?.[h.key] ?? h.value ?? '',
@@ -925,8 +940,32 @@ export const convertServerRuntimeFormDataToManifest = (
 				? { shortDescription: baseData.shortDescription }
 				: {}),
 			icon: baseData.icon,
-			env: baseData.env,
-			multiUserConfig: baseData.multiUserConfig,
+			config: [
+				...baseData.env.map(({ file, dynamicFile, interpolated, ...field }) => ({
+					...field,
+					usage: interpolated
+						? ('interpolated' as const)
+						: file
+							? dynamicFile
+								? ('dynamicFile' as const)
+								: ('file' as const)
+							: ('env' as const)
+				})),
+				...(baseData.remoteServerConfig?.headers ?? []).map(
+					({ file: _file, dynamicFile: _dynamicFile, interpolated: _interpolated, ...field }) => ({
+						...field,
+						usage: 'header' as const
+					})
+				),
+				...(baseData.multiUserConfig?.userDefinedHeaders ?? []).map(
+					({ file: _file, dynamicFile: _dynamicFile, interpolated: _interpolated, ...field }) => ({
+						...field,
+						value: field.value ?? '',
+						usage: 'header' as const,
+						userAllowed: true
+					})
+				)
+			],
 			runtime: baseData.runtime,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
@@ -977,7 +1016,6 @@ export const convertServerRuntimeFormDataToManifest = (
 			if (baseData.remoteServerConfig) {
 				serverManifest.manifest.remoteConfig = {
 					url: baseData.remoteServerConfig.url,
-					headers: baseData.remoteServerConfig.headers || [],
 					tunnelName: baseData.remoteServerConfig.tunnelName
 				};
 			}

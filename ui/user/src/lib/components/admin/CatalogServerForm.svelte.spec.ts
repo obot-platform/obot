@@ -1,29 +1,23 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
+import type { MCPCatalogEntry } from '$lib/services';
+import { createMCPCatalogServer } from '../../../tests/helpers/mcp';
 import { createMCPCatalogEntryResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import CatalogServerForm from './CatalogServerForm.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 const catalogID = 'test-catalog';
 
-async function renderSingleTenantForm(onSubmit = vi.fn()) {
-	await render(CatalogServerForm, {
-		id: catalogID,
-		entity: 'catalog',
-		type: 'hosted',
-		onSubmit
-	});
+beforeEach(() => {
+	worker.use(
+		http.get('/api/mcp-catalogs/default/access-control-rules', () => HttpResponse.json([]))
+	);
+});
 
-	await page.getByCSS('#server-configuration-selector').click();
-	await page.getByRole('button', { name: 'Single-tenant', exact: true }).click();
-
-	return onSubmit;
-}
-
-async function renderMultiTenantForm(onSubmit = vi.fn()) {
+async function renderHostedForm(onSubmit = vi.fn()) {
 	await render(CatalogServerForm, {
 		id: catalogID,
 		entity: 'catalog',
@@ -77,14 +71,14 @@ async function addConfiguration() {
 	await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
 }
 
-async function selectStaticConfiguration() {
-	await page.getByCSS(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-0`).click();
+async function selectStaticConfiguration(index = 0) {
+	await page.getByCSS(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-${index}`).click();
 	await page.getByRole('button', { name: 'Static', exact: true }).click();
 }
 
 describe('CatalogServerForm.svelte', () => {
 	it('shows a required validation indicator when Name is empty', async () => {
-		await renderSingleTenantForm();
+		await renderHostedForm();
 		await fillRequiredServerFields({ name: '' });
 
 		await submitForm();
@@ -96,7 +90,7 @@ describe('CatalogServerForm.svelte', () => {
 	});
 
 	it('shows a required validation indicator when Short Description is empty', async () => {
-		await renderSingleTenantForm();
+		await renderHostedForm();
 		await fillRequiredServerFields({ shortDescription: '' });
 
 		await submitForm();
@@ -109,9 +103,9 @@ describe('CatalogServerForm.svelte', () => {
 			.toBeVisible();
 	});
 
-	describe('single-tenant hosted catalog entry', () => {
+	describe('hosted catalog entry', () => {
 		it('shows required validation indicators for an empty Configuration Key and Name', async () => {
-			await renderSingleTenantForm();
+			await renderHostedForm();
 			await fillRequiredServerFields();
 			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
 
@@ -125,13 +119,13 @@ describe('CatalogServerForm.svelte', () => {
 				.toHaveClass(/error/);
 		});
 
-		it('submits a valid single-tenant hosted catalog entry', async () => {
+		it('submits a valid hosted catalog entry', async () => {
 			worker.use(
 				http.post(`/api/mcp-catalogs/${catalogID}/entries`, async () => {
 					return HttpResponse.json(createMCPCatalogEntryResponse);
 				})
 			);
-			const onSubmit = await renderSingleTenantForm();
+			const onSubmit = await renderHostedForm();
 			await fillRequiredServerFields();
 			await page.getByCSS(`#${CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}`).click();
 			await page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('TEST_API_KEY');
@@ -146,26 +140,8 @@ describe('CatalogServerForm.svelte', () => {
 				);
 			});
 		});
-	});
-
-	describe('multi-tenant hosted catalog entry', () => {
-		it('shows required validation indicators for an empty User-Supplied Key and Name', async () => {
-			await renderMultiTenantForm();
-			await fillRequiredServerFields();
-			await addConfiguration();
-
-			await submitForm();
-
-			await expect
-				.element(page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`))
-				.toHaveClass(/error/);
-			await expect
-				.element(page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`))
-				.toHaveClass(/error/);
-		});
-
-		it('shows required validation indicators for an empty Static Key and Value', async () => {
-			await renderMultiTenantForm();
+		it('shows required validation indicators for an empty static configuration', async () => {
+			await renderHostedForm();
 			await fillRequiredServerFields();
 			await addConfiguration();
 			await selectStaticConfiguration();
@@ -180,17 +156,17 @@ describe('CatalogServerForm.svelte', () => {
 				.toHaveClass(/error/);
 		});
 
-		it('submits a valid entry with User-Supplied Configuration', async () => {
+		it('submits a valid entry with user-supplied configuration', async () => {
 			mockCatalogEntrySubmit();
-			const onSubmit = await renderMultiTenantForm();
+			const onSubmit = await renderHostedForm();
 			await fillRequiredServerFields();
 			await addConfiguration();
 			await page
 				.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
-				.fill(createMCPCatalogEntryResponse.manifest.env[0].key);
+				.fill(createMCPCatalogEntryResponse.manifest.config[0].key);
 			await page
 				.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`)
-				.fill(createMCPCatalogEntryResponse.manifest.env[0].name);
+				.fill(createMCPCatalogEntryResponse.manifest.config[0].name);
 
 			await submitForm();
 
@@ -202,15 +178,15 @@ describe('CatalogServerForm.svelte', () => {
 			});
 		});
 
-		it('submits a valid entry with Static Configuration', async () => {
+		it('submits a valid entry with static configuration', async () => {
 			mockCatalogEntrySubmit();
-			const onSubmit = await renderMultiTenantForm();
+			const onSubmit = await renderHostedForm();
 			await fillRequiredServerFields();
 			await addConfiguration();
 			await selectStaticConfiguration();
 			await page
 				.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`)
-				.fill(createMCPCatalogEntryResponse.manifest.env[0].key);
+				.fill(createMCPCatalogEntryResponse.manifest.config[0].key);
 			await page
 				.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`)
 				.fill('test-api-key-value');
@@ -223,6 +199,134 @@ describe('CatalogServerForm.svelte', () => {
 					'Catalog entry updated successfully!'
 				);
 			});
+		});
+
+		it('edits and submits every configuration usage without legacy fields', async () => {
+			const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);
+			const usages = ['env', 'header', 'file', 'dynamicFile', 'interpolated'] as const;
+			entry.manifest.config = usages.map((usage, index) => ({
+				key: `CONFIG_${index}`,
+				name: '',
+				description: '',
+				required: false,
+				sensitive: false,
+				value: 'value',
+				userAllowed: true,
+				usage
+			}));
+			let submitted: Record<string, unknown> | undefined;
+			worker.use(
+				http.put(`/api/mcp-catalogs/${catalogID}/entries/${entry.id}`, async ({ request }) => {
+					submitted = (await request.json()) as Record<string, unknown>;
+					return HttpResponse.json(entry);
+				})
+			);
+
+			await render(CatalogServerForm, { id: catalogID, entity: 'catalog', entry });
+			await page.getByCSS('#catalog-config-usage-0').click();
+			for (const usage of [
+				'Environment Variable',
+				'Header',
+				'File',
+				'Dynamic File',
+				'Interpolated Value'
+			]) {
+				await expect.element(page.getByRole('button', { name: usage, exact: true })).toBeVisible();
+			}
+			await page.getByRole('button', { name: 'Header', exact: true }).click();
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			expect(submitted).not.toHaveProperty('env');
+			expect(submitted).not.toHaveProperty('serverUserType');
+			expect(submitted).not.toHaveProperty('multiUserConfig');
+			expect(submitted).not.toHaveProperty('remoteConfig');
+			for (const field of submitted?.config as Record<string, unknown>[]) {
+				expect(field).not.toHaveProperty('userAllowed');
+			}
+			expect((submitted?.config as { usage: string }[]).map(({ usage }) => usage)).toEqual([
+				'header',
+				'header',
+				'file',
+				'dynamicFile',
+				'interpolated'
+			]);
+		});
+
+		it('submits flattened deployed server configuration and stores values separately', async () => {
+			const server = createMCPCatalogServer({
+				id: 'legacy-server',
+				name: 'Legacy server',
+				userID: 'user-1',
+				serverUserType: 'multiUser',
+				env: [
+					{
+						key: 'LEGACY_KEY',
+						name: 'Legacy key',
+						description: '',
+						required: false,
+						sensitive: false,
+						value: ''
+					}
+				]
+			});
+			let submitted: Record<string, unknown> | undefined;
+			let configured: Record<string, unknown> | undefined;
+			worker.use(
+				http.put(`/api/mcp-catalogs/${catalogID}/servers/${server.id}`, async ({ request }) => {
+					submitted = (await request.json()) as Record<string, unknown>;
+					return HttpResponse.json(server);
+				}),
+				http.post(
+					`/api/mcp-catalogs/${catalogID}/servers/${server.id}/reveal`,
+					() => new HttpResponse(null, { status: 404 })
+				),
+				http.post(
+					`/api/mcp-catalogs/${catalogID}/servers/${server.id}/configure`,
+					async ({ request }) => {
+						configured = (await request.json()) as Record<string, unknown>;
+						return HttpResponse.json(server);
+					}
+				)
+			);
+
+			await render(CatalogServerForm, { id: catalogID, entity: 'catalog', entry: server });
+			await selectStaticConfiguration();
+			await page.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('legacy-value');
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			await vi.waitFor(() => expect(configured).toEqual({ LEGACY_KEY: 'legacy-value' }));
+			expect(submitted?.config).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ key: 'LEGACY_KEY', usage: 'env', value: '' })
+				])
+			);
+			expect(submitted).not.toHaveProperty('env');
+		});
+
+		it('validates duplicate configuration keys for workspace catalog entries', async () => {
+			const createEntry = vi.fn();
+			worker.use(
+				http.post(`/api/workspaces/${catalogID}/entries`, async () => {
+					createEntry();
+					return HttpResponse.json(createMCPCatalogEntryResponse);
+				})
+			);
+			await render(CatalogServerForm, { id: catalogID, entity: 'workspace', type: 'hosted' });
+			await fillRequiredServerFields();
+			await addConfiguration();
+			await addConfiguration();
+			await selectStaticConfiguration(0);
+			await selectStaticConfiguration(1);
+			for (const index of [0, 1]) {
+				await page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-${index}`).fill('DUPLICATE');
+				await page.getByCSS(`#env-value-${CATALOG_SERVER_FIELD_IDS.env}-${index}`).fill('value');
+			}
+
+			await submitForm();
+
+			expect(createEntry).not.toHaveBeenCalled();
 		});
 	});
 

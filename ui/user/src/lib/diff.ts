@@ -3,6 +3,14 @@ import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
 import type { MCPServer } from '$lib/services/user/types';
 
 type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
+type DiffManifest = ManifestDiff & {
+	config?: DiffField[];
+	compositeConfig?: {
+		componentServers?: {
+			manifest?: DiffManifest;
+		}[];
+	};
+};
 
 /**
  * Strips fields from a manifest that should not be considered when computing
@@ -11,7 +19,6 @@ type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
  *
  * - `entryKey`: identifies an entry within its catalog source, not server configuration
  * - `repoURL`: tracks the source repository, not server configuration
- * - `serverUserType`: exists only on catalog entry manifests
  * - `upgradeNote`: informational catalog metadata shown before an upgrade
  * - `remoteConfig.fixedURL`: catalog-only field translated to `url` at deploy time
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
@@ -37,7 +44,6 @@ export function stripManifestMetadata<T>(
 		if (!m || typeof m !== 'object') return;
 		delete m.entryKey;
 		delete m.repoURL;
-		delete m.serverUserType;
 		delete m.upgradeNote;
 		if (m.remoteConfig) {
 			delete m.remoteConfig.fixedURL;
@@ -55,29 +61,27 @@ export function stripManifestMetadata<T>(
 	return clone as T;
 }
 
-export function normalizeManifestsForDiff<T>(currentManifest: T, newManifest: T): [T, T] {
+export function normalizeManifestsForDiff<Current, Next>(
+	currentManifest: Current,
+	newManifest: Next
+): [Current, Next] {
 	const current = stripManifestMetadata(currentManifest, {
 		keepSecretBindingMetadata: true
-	}) as ManifestDiff;
+	}) as DiffManifest;
 	const next = stripManifestMetadata(newManifest, {
 		keepSecretBindingMetadata: true
-	}) as ManifestDiff;
+	}) as DiffManifest;
 
 	// stripManifestMetadata returns undefined for an undefined manifest. Bail out before
 	// dereferencing so callers fall through to their "unable to compare" fallback UI
 	// instead of throwing on current.compositeConfig.
 	if (!current || !next) {
-		return [current as T, next as T];
+		return [current as Current, next as Next];
 	}
 
-	const normalize = (currentShape?: ManifestDiff, nextShape?: ManifestDiff) => {
+	const normalize = (currentShape?: DiffManifest, nextShape?: DiffManifest) => {
 		if (!currentShape || !nextShape) return;
-		normalizeFieldList(currentShape.env, nextShape.env);
-		normalizeFieldList(currentShape.remoteConfig?.headers, nextShape.remoteConfig?.headers);
-		normalizeFieldList(
-			currentShape.multiUserConfig?.userDefinedHeaders,
-			nextShape.multiUserConfig?.userDefinedHeaders
-		);
+		normalizeFieldList(currentShape.config, nextShape.config);
 	};
 
 	normalize(current, next);
@@ -89,7 +93,7 @@ export function normalizeManifestsForDiff<T>(currentManifest: T, newManifest: T)
 
 	stripSecretBindingMetadata(current);
 	stripSecretBindingMetadata(next);
-	return [current as T, next as T];
+	return [current as Current, next as Next];
 }
 
 type DiffField = {
@@ -143,17 +147,11 @@ function normalizeAdminAddedFieldBindings(
 	}
 }
 
-function stripSecretBindingMetadata(manifest?: ManifestDiff) {
+function stripSecretBindingMetadata(manifest?: DiffManifest) {
 	if (!manifest || typeof manifest !== 'object') return;
 
-	const stripFields = (m?: ManifestDiff) => {
-		for (const field of m?.env ?? []) {
-			if (field.secretBinding) delete field.secretBinding.adminAdded;
-		}
-		for (const field of m?.remoteConfig?.headers ?? []) {
-			if (field.secretBinding) delete field.secretBinding.adminAdded;
-		}
-		for (const field of m?.multiUserConfig?.userDefinedHeaders ?? []) {
+	const stripFields = (m?: DiffManifest) => {
+		for (const field of m?.config ?? []) {
 			if (field.secretBinding) delete field.secretBinding.adminAdded;
 		}
 	};

@@ -15,6 +15,7 @@
 		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getMCPDisplayName,
+		getManifestConfiguration,
 		getSecretBindingEngineError,
 		hasSecretBinding,
 		isDeprecatedMCPServer,
@@ -109,8 +110,8 @@
 		};
 		const updated = {
 			...manifest,
-			env: manifest.env?.map((field) => {
-				const formField = envByKey.get(field.key);
+			config: manifest.config?.map((field) => {
+				const formField = (field.usage === 'header' ? headerByKey : envByKey).get(field.key);
 				if (!formField?.secretBinding) return withoutSecretBinding(field);
 				return { ...field, value: '', secretBinding: formField.secretBinding };
 			})
@@ -118,12 +119,7 @@
 		if (manifest.remoteConfig) {
 			updated.remoteConfig = {
 				...manifest.remoteConfig,
-				...(form.url?.trim() ? { url: form.url.trim() } : {}),
-				headers: manifest.remoteConfig.headers?.map((field) => {
-					const formField = headerByKey.get(field.key);
-					if (!formField?.secretBinding) return withoutSecretBinding(field);
-					return { ...field, value: '', secretBinding: formField.secretBinding };
-				})
+				...(form.url?.trim() ? { url: form.url.trim() } : {})
 			};
 		}
 		return updated as unknown as MCPCatalogServerManifest['manifest'];
@@ -174,15 +170,16 @@
 			}
 			values = {};
 		}
-		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
-		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
+		const templateConfiguration = getManifestConfiguration(entry?.manifest);
+		const templateEnvBindings = templateBindingByKey(templateConfiguration.env);
+		const templateHeaderBindings = templateBindingByKey(templateConfiguration.headers);
 		configureForm = {
 			name: server.alias || '',
-			envs: server.manifest.env?.map((env) => ({
+			envs: getManifestConfiguration(server.manifest).env?.map((env) => ({
 				...markPinnedSecretBinding(env, templateEnvBindings),
 				value: values[env.key] ?? ''
 			})),
-			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
+			headers: getManifestConfiguration(server.manifest).headers?.map((header) => ({
 				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
 				isStatic: header.value !== ''
@@ -240,14 +237,15 @@
 			values = {};
 		}
 
-		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
-		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
+		const templateConfiguration = getManifestConfiguration(entry?.manifest);
+		const templateEnvBindings = templateBindingByKey(templateConfiguration.env);
+		const templateHeaderBindings = templateBindingByKey(templateConfiguration.headers);
 		const form: LaunchFormData = {
-			envs: updatedServer.manifest.env?.map((env) => ({
+			envs: getManifestConfiguration(updatedServer.manifest).env?.map((env) => ({
 				...markPinnedSecretBinding(env, templateEnvBindings),
 				value: values[env.key] ?? ''
 			})),
-			headers: updatedServer.manifest.remoteConfig?.headers?.map((header) => ({
+			headers: getManifestConfiguration(updatedServer.manifest).headers?.map((header) => ({
 				...markPinnedSecretBinding(header, templateHeaderBindings),
 				value: values[header.key] ?? '',
 				isStatic: header.value !== ''

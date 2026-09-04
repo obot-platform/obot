@@ -51,7 +51,7 @@
 		'tunnels',
 		'access-policies'
 	] as const;
-	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote', 'composite'];
+	const serverTypes: LaunchServerType[] = ['hosted', 'multi', 'remote'];
 
 	const { data } = $props();
 	const { workspaceId } = $derived(data);

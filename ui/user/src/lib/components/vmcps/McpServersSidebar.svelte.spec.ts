@@ -117,16 +117,15 @@ describe('McpServersSidebar.svelte', () => {
 			name: 'Composite',
 			runtime: 'composite'
 		});
-		const multiUser = createMCPCatalogEntry({
+		const standardEntry = createMCPCatalogEntry({
 			id: 'entry-multi',
-			name: 'Multi User',
-			serverUserType: 'multiUser'
+			name: 'Standard Entry'
 		});
-		await renderSidebar({ entries: [github, composite, multiUser] });
+		await renderSidebar({ entries: [github, composite, standardEntry] });
 
 		await expect.element(card('GitHub')).toBeVisible();
 		await expect.element(card('Composite')).not.toBeInTheDocument();
-		await expect.element(card('Multi User')).not.toBeInTheDocument();
+		await expect.element(card('Standard Entry')).toBeVisible();
 	});
 
 	it('says so when nothing is left to show', async () => {

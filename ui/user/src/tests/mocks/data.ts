@@ -291,13 +291,12 @@ export const createMCPCatalogEntryResponse = {
 		description: '',
 		icon: '',
 		runtime: 'npx',
-		serverUserType: 'singleUser',
 		npxConfig: {
 			package: '@modelcontextprotocol/server-everything',
 			args: [],
 			egressDomains: []
 		},
-		env: [
+		config: [
 			{
 				key: 'TEST_API_KEY',
 				name: 'Test API Key',
@@ -305,7 +304,7 @@ export const createMCPCatalogEntryResponse = {
 				required: false,
 				sensitive: false,
 				value: '',
-				file: false
+				usage: 'env'
 			}
 		]
 	},
@@ -426,49 +425,27 @@ export function createMcpServerDetailsFixtures() {
 	const entrySingle = createMCPCatalogEntry({
 		id: 'entry-details-single',
 		name: 'Hosted Single User Entry',
-		runtime: 'npx',
-		serverUserType: 'singleUser'
+		runtime: 'npx'
 	});
 	const entryRemote = createMCPCatalogEntry({
 		id: 'entry-details-remote',
 		name: 'Remote Entry',
-		runtime: 'remote',
-		serverUserType: 'singleUser'
+		runtime: 'remote'
 	});
 	const entryCompositeChild = createMCPCatalogEntry({
 		id: 'entry-details-composite-child',
 		name: 'Composite Child Entry',
-		runtime: 'npx',
-		serverUserType: 'singleUser'
+		runtime: 'npx'
 	});
 	const entryComposite = createMCPCatalogEntry({
 		id: 'entry-details-composite',
 		name: 'Composite Entry',
-		runtime: 'composite',
-		serverUserType: 'singleUser',
-		manifest: {
-			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: entryCompositeChild.id,
-						manifest: {
-							name: 'Composite Child Entry',
-							runtime: 'npx',
-							serverUserType: 'singleUser',
-							icon: '',
-							shortDescription: '',
-							description: ''
-						}
-					}
-				]
-			}
-		}
+		runtime: 'composite'
 	});
 	const entryMulti = createMCPCatalogEntry({
 		id: 'entry-details-multi',
 		name: 'Hosted Multi User Entry',
-		runtime: 'npx',
-		serverUserType: 'multiUser'
+		runtime: 'npx'
 	});
 
 	const serverSingle = createMCPCatalogServer({
@@ -598,7 +575,6 @@ export function createDeploymentsPageFixtures() {
 		id: 'entry-single-update',
 		name: 'Entry Single Update',
 		runtime: 'npx',
-		serverUserType: 'singleUser',
 		env: [editableEnvField],
 		manifest: {
 			upgradeNote:
@@ -609,40 +585,34 @@ export function createDeploymentsPageFixtures() {
 		id: 'entry-empty-upgrade-note',
 		name: 'Entry Empty Upgrade Note',
 		runtime: 'npx',
-		serverUserType: 'singleUser',
 		manifest: { upgradeNote: '   ' }
 	});
 	const entrySingleK8s = createMCPCatalogEntry({
 		id: 'entry-single-k8s',
 		name: 'Entry Single K8s',
 		runtime: 'npx',
-		serverUserType: 'singleUser',
 		env: [editableEnvField]
 	});
 	const entryMulti = createMCPCatalogEntry({
 		id: 'entry-multi',
 		name: 'Entry Multi User',
 		runtime: 'npx',
-		serverUserType: 'multiUser',
 		env: [editableEnvField]
 	});
 	const entryRemote = createMCPCatalogEntry({
 		id: 'entry-remote',
 		name: 'Entry Remote',
-		runtime: 'remote',
-		serverUserType: 'singleUser'
+		runtime: 'remote'
 	});
 	const entryComposite = createMCPCatalogEntry({
 		id: 'entry-composite',
 		name: 'Entry Composite',
-		runtime: 'composite',
-		serverUserType: 'singleUser'
+		runtime: 'composite'
 	});
 	const entryCompositeChild = createMCPCatalogEntry({
 		id: 'entry-composite-child',
 		name: 'Entry Composite Child',
 		runtime: 'npx',
-		serverUserType: 'singleUser',
 		env: [editableEnvField]
 	});
 

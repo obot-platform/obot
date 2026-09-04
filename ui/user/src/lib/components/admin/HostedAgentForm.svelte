@@ -105,7 +105,7 @@
 		...mcpEntries.map((entry) => ({
 			id: entry.id,
 			name: entry.manifest?.name || entry.id,
-			detail: entry.manifest?.serverUserType === 'multiUser' ? 'Multi-user' : 'Single-user'
+			detail: 'Catalog entry'
 		})),
 		...mcpCatalogServers.map((server) => ({
 			id: server.id,

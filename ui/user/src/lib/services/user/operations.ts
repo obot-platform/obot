@@ -1237,7 +1237,7 @@ export async function deployWorkspaceMultiUserCatalogEntry(
 	workspaceID: string,
 	catalogEntryID: string,
 	server?: {
-		manifest?: { env?: MCPSubField[]; remoteConfig?: { url?: string; headers?: MCPSubField[] } };
+		manifest?: { config?: (MCPSubField & { usage: string })[]; remoteConfig?: { url?: string } };
 		alias?: string;
 	},
 	opts?: { fetch?: Fetcher }

@@ -20,6 +20,7 @@
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
+		getManifestConfiguration,
 		getServerTypeLabel,
 		getSource,
 		isMultiUserCatalogEntry,
@@ -589,7 +590,7 @@
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
 
-		if (entry.manifest?.runtime === 'composite') {
+		if (!('isCatalogEntry' in entry) && entry.manifest?.runtime === 'composite') {
 			const comps = entry.manifest?.compositeConfig?.componentServers || [];
 			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
 			for (const c of comps) {
@@ -612,8 +613,11 @@
 							isMultiUser: true
 						}
 					: {
-							envs: (c.manifest?.env || []).map((e) => ({ ...e, value: '' })),
-							headers: (c.manifest?.remoteConfig?.headers || []).map((h) => ({ ...h, value: '' })),
+							envs: getManifestConfiguration(c.manifest).env.map((e) => ({ ...e, value: '' })),
+							headers: getManifestConfiguration(c.manifest).headers.map((h) => ({
+								...h,
+								value: ''
+							})),
 							...(hasHostname
 								? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
 								: {}),
@@ -636,13 +640,14 @@
 			'hostname' in entry.manifest.remoteConfig &&
 			entry.manifest.remoteConfig.hostname;
 
+		const { env, headers } = getManifestConfiguration(entry.manifest);
 		configureForm = {
 			name: '',
-			envs: entry.manifest?.env?.map((env) => ({
+			envs: env.map((env) => ({
 				...env,
 				value: ''
 			})),
-			headers: entry.manifest?.remoteConfig?.headers?.map((header) => ({
+			headers: headers.map((header) => ({
 				...header,
 				value: ''
 			})),
@@ -713,10 +718,7 @@
 
 	function handleSubmit(updatedEntry: MCPCatalogEntry | MCPCatalogServer, message?: string) {
 		if (onSubmit) {
-			const isMultiUserEntry =
-				'isCatalogEntry' in updatedEntry
-					? updatedEntry.manifest?.serverUserType === 'multiUser'
-					: true;
+			const isMultiUserEntry = !('isCatalogEntry' in updatedEntry);
 			onSubmit(updatedEntry.id, isMultiUserEntry, message);
 		} else {
 			entry = updatedEntry;
@@ -1470,9 +1472,12 @@
 				Multiple components require authentication. Please authenticate each component below:
 			</p>
 			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
-				{@const component = entry?.manifest?.compositeConfig?.componentServers?.find(
-					(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
-				)}
+				{@const component =
+					entry && !('isCatalogEntry' in entry)
+						? entry.manifest?.compositeConfig?.componentServers?.find(
+								(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
+							)
+						: undefined}
 				{@const componentName = component?.manifest?.name || componentId}
 				<div class="flex items-center justify-between gap-2 rounded border border-base-400 p-3">
 					<div class="flex items-center gap-2">

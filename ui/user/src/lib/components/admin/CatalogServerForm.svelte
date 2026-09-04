@@ -18,6 +18,7 @@
 		Group
 	} from '$lib/services';
 	import { MAX_CATALOG_ENTRY_SHORT_DESCRIPTION_LENGTH } from '$lib/services/user/constants';
+	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
 		convertCategoriesToMetadata,
 		convertServerRuntimeFormDataToManifest,
@@ -25,13 +26,11 @@
 		isKubernetesRuntimeBackend,
 		sanitizeEgressDomains,
 		sanitizeResourceRuntimeConfig,
-		toolOverrideValue,
 		validateRuntimeForm
 	} from '$lib/services/user/mcp';
 	import { errors, profile, version } from '$lib/stores';
 	import MarkdownInput from '../MarkdownInput.svelte';
-	import Select from '../Select.svelte';
-	import CompositeRuntimeForm from '../mcp/CompositeRuntimeForm.svelte';
+	import CatalogConfigurationForm from '../mcp/CatalogConfigurationForm.svelte';
 	import ContainerizedRuntimeForm from '../mcp/ContainerizedRuntimeForm.svelte';
 	import CustomConfigurationForm from '../mcp/CustomConfigurationForm.svelte';
 	import MultiUserHeadersForm from '../mcp/MultiUserHeadersForm.svelte';
@@ -78,11 +77,7 @@
 		} else {
 			// For catalog entries, determine type based on runtime
 			const catalogEntry = entry as MCPCatalogEntry;
-			return catalogEntry.manifest.runtime === 'composite'
-				? 'composite'
-				: catalogEntry.manifest.runtime === 'remote'
-					? 'remote'
-					: 'hosted';
+			return catalogEntry.manifest.runtime === 'remote' ? 'remote' : 'hosted';
 		}
 	}
 
@@ -92,7 +87,6 @@
 	let showRequired = $state<Record<string, boolean>>({});
 	let showInvalid = $state<Record<string, boolean>>({});
 	let loading = $state(false);
-	let compositeHasToolNameErrors = $state(false);
 	let mcpResourceDefaults = $state<MCPResourceRequirements>();
 	let mcpTunnels = $state<MCPTunnel[]>();
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>();
@@ -107,7 +101,7 @@
 	const secretBoundHeaders = $derived(
 		(type === 'multi'
 			? (formData.remoteServerConfig?.headers ?? [])
-			: (formData.remoteConfig?.headers ?? [])
+			: (formData.config ?? []).filter((field) => field.usage === 'header')
 		).filter((h) => hasSecretBinding(h))
 	);
 	const secretBindingsSupported = $derived(isKubernetesRuntimeBackend(version.current.engine));
@@ -116,7 +110,7 @@
 			entity === 'catalog' &&
 			profile.current?.isAdmin?.() &&
 			!readonly &&
-			(type === 'multi' || (type === 'hosted' && formData.serverUserType === 'multiUser'))
+			(type === 'multi' || entity === 'catalog')
 	);
 	const editableSecretBindingTargets = $derived(
 		canEditSecretBindings ? secretBindingTargets : undefined
@@ -191,6 +185,7 @@
 				icon: '',
 				serverUserType: isHostedType && entity === 'catalog' ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
+				config: type !== 'multi' ? [] : undefined,
 				resources:
 					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
 				npxConfig: defaultNpxConfig(),
@@ -217,7 +212,7 @@
 				shortDescription: manifest.shortDescription ?? '',
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
-				env: manifest.env?.map((env) => ({ ...env, value: '' })) ?? [],
+				env: getManifestConfiguration(manifest).env?.map((env) => ({ ...env, value: '' })) ?? [],
 				runtime: manifest.runtime,
 				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
@@ -227,7 +222,11 @@
 				remoteServerConfig: undefined,
 				compositeConfig: undefined,
 				compositeServerConfig: undefined,
-				multiUserConfig: manifest.multiUserConfig ?? { userDefinedHeaders: [] }
+				multiUserConfig: {
+					userDefinedHeaders: (manifest.config ?? []).filter(
+						(field) => field.usage === 'header' && field.userAllowed
+					)
+				}
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -248,7 +247,9 @@
 					formData.remoteServerConfig = manifest.remoteConfig
 						? {
 								url: manifest.remoteConfig.url,
-								headers: manifest.remoteConfig.headers?.map((h) => ({ ...h, value: '' })) ?? [],
+								headers:
+									getManifestConfiguration(manifest).headers.map((h) => ({ ...h, value: '' })) ??
+									[],
 								tunnelName: manifest.remoteConfig.tunnelName
 							}
 						: { url: '', headers: [] };
@@ -267,9 +268,10 @@
 				name: manifest.name ?? '',
 				icon: manifest.icon ?? '',
 				shortDescription: manifest.shortDescription ?? '',
-				env: manifest.env?.map((env) => ({ ...env, value: env.value ?? '' })) ?? [],
+				env: [],
+				config: manifest.config?.map((config) => ({ ...config, value: config.value ?? '' })) ?? [],
 				description: manifest.description ?? '',
-				serverUserType: manifest.serverUserType,
+				serverUserType: 'multiUser',
 				runtime: manifest.runtime,
 				resources:
 					manifest.runtime !== 'composite'
@@ -280,10 +282,7 @@
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
-				multiUserConfig:
-					manifest.serverUserType === 'multiUser'
-						? (manifest.multiUserConfig ?? { userDefinedHeaders: [] })
-						: undefined
+				multiUserConfig: undefined
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -301,10 +300,7 @@
 					formData.startupTimeoutSeconds = manifest.containerizedConfig?.startupTimeoutSeconds;
 					break;
 				case 'remote':
-					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '', headers: [] };
-					break;
-				case 'composite':
-					formData.compositeConfig = manifest.compositeConfig || { componentServers: [] };
+					formData.remoteConfig = manifest.remoteConfig || { fixedURL: '' };
 					break;
 			}
 
@@ -390,9 +386,6 @@
 					formData.remoteConfig = { fixedURL: '', headers: [] };
 				}
 				break;
-			case 'composite':
-				formData.compositeConfig = { componentServers: [] };
-				break;
 		}
 	}
 
@@ -410,13 +403,20 @@
 	function stripSecretBindingSource<T extends object>(field: T) {
 		const rest = { ...field } as T & {
 			secretBindingSource?: string;
+			userAllowed?: boolean;
 		};
 		delete rest.secretBindingSource;
+		delete rest.userAllowed;
 		return rest;
 	}
 
+	function hasDuplicateConfigKeys() {
+		const keys = (formData.config ?? []).map(({ key }) => key.trim()).filter(Boolean);
+		return new Set(keys).size !== keys.length;
+	}
+
 	onMount(() => {
-		if ((type === 'multi' || type === 'remote') && entry && id) {
+		if (entry?.type === 'mcpserver' && id) {
 			revealCatalogServer(id, entry.id, entity);
 		}
 		if (version.current.engine === 'kubernetes') {
@@ -466,11 +466,8 @@
 				? { shortDescription: baseData.shortDescription }
 				: {}),
 			icon: baseData.icon,
-			env: baseData.env?.map(stripSecretBindingSource),
+			config: baseData.config?.map(stripSecretBindingSource),
 			runtime: baseData.runtime,
-			serverUserType: baseData.serverUserType,
-			multiUserConfig:
-				baseData.serverUserType === 'multiUser' ? baseData.multiUserConfig : undefined,
 			...(resources ? { resources } : {}),
 			...convertCategoriesToMetadata(categories, metadata)
 		};
@@ -521,23 +518,8 @@
 						fixedURL: baseData.remoteConfig.fixedURL?.trim() || undefined,
 						hostname: baseData.remoteConfig.hostname?.trim() || undefined,
 						urlTemplate: baseData.remoteConfig.urlTemplate?.trim() || undefined,
-						headers: baseData.remoteConfig.headers?.map(stripSecretBindingSource) || [],
 						staticOAuthRequired: baseData.remoteConfig.staticOAuthRequired,
 						tunnelName: baseData.remoteConfig.tunnelName?.trim() || undefined
-					};
-				}
-				break;
-			case 'composite':
-				if (baseData.compositeConfig) {
-					manifest.compositeConfig = {
-						componentServers: baseData.compositeConfig.componentServers.map((component) => ({
-							...component,
-							toolOverrides: component.toolOverrides?.map((tool) => ({
-								...tool,
-								overrideName: toolOverrideValue(tool.overrideName, tool.name),
-								overrideDescription: toolOverrideValue(tool.overrideDescription, tool.description)
-							}))
-						}))
 					};
 				}
 				break;
@@ -550,18 +532,10 @@
 		serverManifest: ReturnType<typeof convertServerRuntimeFormDataToManifest>
 	): ReturnType<typeof convertServerRuntimeFormDataToManifest> {
 		const manifest = { ...serverManifest.manifest };
-		if (manifest.env) {
-			manifest.env = manifest.env.map(({ value: _value, ...rest }) => {
+		if (manifest.config) {
+			manifest.config = manifest.config.map(({ value: _value, ...rest }) => {
 				return { value: '', ...rest };
 			});
-		}
-		if (manifest.remoteConfig?.headers) {
-			manifest.remoteConfig = {
-				...manifest.remoteConfig,
-				headers: manifest.remoteConfig.headers.map(({ value: _value, ...rest }) => {
-					return { value: '', ...rest };
-				})
-			};
 		}
 		return { ...serverManifest, manifest };
 	}
@@ -610,30 +584,11 @@
 			response = await createServerFn(id, omitSecretValuesFromServerManifest(serverManifest));
 		}
 
-		let configValues: Record<string, string> = {};
-
-		// Add environment variables
-		if (serverManifest.manifest.env) {
-			const envValues = Object.fromEntries(
-				serverManifest.manifest.env
-					.filter((env) => env.key && env.value) // Only include env vars with both key and value
-					.map((env) => [env.key, env.value])
-			);
-			configValues = { ...configValues, ...envValues };
-		}
-
-		// Add headers from remote config (only for remote runtime)
-		if (
-			serverManifest.manifest.runtime === 'remote' &&
-			serverManifest.manifest.remoteConfig?.headers
-		) {
-			const headerValues = Object.fromEntries(
-				serverManifest.manifest.remoteConfig.headers
-					.filter((header) => header.key && header.value) // Only include headers with both key and value
-					.map((header) => [header.key, header.value])
-			);
-			configValues = { ...configValues, ...headerValues };
-		}
+		const configValues = Object.fromEntries(
+			(serverManifest.manifest.config ?? [])
+				.filter((field) => !field.userAllowed && field.key && field.value)
+				.map((field) => [field.key, field.value])
+		);
 
 		// Configure the server with the collected values if any exist
 		if (Object.keys(configValues).length > 0) {
@@ -648,13 +603,18 @@
 	}
 
 	async function handleSubmit() {
-		if (!id) return;
+		if (!id || type === 'composite' || formData.runtime === 'composite') return;
 
 		// reset
 		showRequired = {};
 		showInvalid = {};
 
-		const { required, invalid } = validateRuntimeForm(formData, type);
+		const validationData =
+			type !== 'multi' ? { ...formData, env: formData.config ?? [] } : formData;
+		const { required, invalid } = validateRuntimeForm(validationData, type);
+		if (type !== 'multi' && hasDuplicateConfigKeys()) {
+			invalid.env = true;
+		}
 		if (Object.keys(required).length > 0 || Object.keys(invalid).length > 0) {
 			showRequired = required;
 			showInvalid = invalid;
@@ -667,10 +627,9 @@
 			const handleFns = {
 				hosted: handleEntrySubmit,
 				multi: handleServerSubmit,
-				remote: handleEntrySubmit,
-				composite: handleEntrySubmit
+				remote: handleEntrySubmit
 			};
-			const entryResponse = await handleFns[type]?.(id);
+			const entryResponse = await handleFns[type](id);
 			savedEntry = entryResponse;
 
 			// Check if OAuth config is needed - redirect to detail page first, then show modal there
@@ -690,16 +649,14 @@
 					rule.subjects?.some((s) => s.id === '*') && rule.resources?.some((r) => r.id === '*')
 			);
 			const showSetAccessPolicy = isAtLeastPowerUserPlus && !entry && !hasEverythingEveryoneRule;
-			const isSingleTenantCatalogEntry =
-				'isCatalogEntry' in savedEntry && savedEntry.manifest.serverUserType === 'singleUser';
-			if (showSetAccessPolicy && isSingleTenantCatalogEntry) {
+			if (showSetAccessPolicy) {
 				await selectRulesDialog?.open();
 				loading = false;
-			} else {
-				loading = false;
-				formData = convertToFormData(entryResponse);
-				onSubmit?.(entryResponse, 'Catalog entry updated successfully!');
+				return;
 			}
+			loading = false;
+			formData = convertToFormData(entryResponse);
+			onSubmit?.(entryResponse, 'Catalog entry updated successfully!');
 		} catch (error) {
 			loading = false;
 			throw error;
@@ -878,74 +835,6 @@
 		</div>
 	</section>
 
-	{#if type === 'hosted'}
-		<section
-			class="paper p-4"
-			aria-labelledby={`${CATALOG_SERVER_FIELD_IDS.tenancy}-heading`}
-			id={CATALOG_SERVER_FIELD_IDS.tenancy}
-		>
-			<h4 id={`${CATALOG_SERVER_FIELD_IDS.tenancy}-heading`} class="text-sm font-semibold">
-				Server Tenancy
-			</h4>
-
-			{#if entity === 'catalog'}
-				<div class="notification-info" role="status">
-					<div class="flex items-center gap-2">
-						<Info class="size-4" aria-hidden="true" />
-						<div>
-							<p class="text-xs font-light">
-								Once the server tenancy has been set, it cannot be changed. In order to change the
-								configuration, you must delete the server and create a new one.
-							</p>
-						</div>
-					</div>
-				</div>
-			{/if}
-
-			<div class="flex items-center gap-4">
-				<span id={CATALOG_SERVER_FIELD_IDS.serverType} class="text-sm font-light">Type</span>
-				<div class="w-full">
-					<Select
-						id="server-configuration-selector"
-						class="bg-base-200 dark:bg-base-100 dark:border-base-400 flex-1 border border-transparent shadow-none"
-						options={[
-							{ id: 'multiUser', label: 'Multi-tenant' },
-							{ id: 'singleUser', label: 'Single-tenant' }
-						]}
-						selected={formData.serverUserType}
-						ariaLabelledby={CATALOG_SERVER_FIELD_IDS.serverType}
-						ariaDescribedby={CATALOG_SERVER_FIELD_IDS.serverTypeHint}
-						onSelect={(option) => {
-							formData.serverUserType = option.id as 'singleUser' | 'multiUser';
-							formData.multiUserConfig =
-								option.id === 'multiUser' ? { userDefinedHeaders: [] } : undefined;
-							if (
-								secretBindingsSupported &&
-								entity === 'catalog' &&
-								profile.current?.isAdmin?.() &&
-								option.id === 'multiUser' &&
-								secretBindingTargets === undefined
-							) {
-								loadSecretBindingTargets();
-							}
-						}}
-						disabled={readonly || !!entry?.id || entity !== 'catalog'}
-					/>
-				</div>
-			</div>
-
-			<p id={CATALOG_SERVER_FIELD_IDS.serverTypeHint} class="text-muted-content text-xs">
-				{#if entity === 'catalog'}
-					Set tenancy to <i>Single-tenant</i> if each user should connect to their own private
-					instance of the server. <br />
-					<i>Multi-tenancy</i> has all users connect to the same server instance.
-				{:else}
-					<i>Single-tenant</i> requires each user to connect to their own private instance of the server.
-				{/if}
-			</p>
-		</section>
-	{/if}
-
 	<!-- Runtime Selection -->
 	<RuntimeSelector
 		bind:runtime={formData.runtime}
@@ -1015,6 +904,7 @@
 		{:else if formData.runtime === 'remote' && formData.remoteConfig}
 			<RemoteRuntimeForm
 				bind:config={formData.remoteConfig}
+				hideHeaders={type !== 'multi'}
 				tunnels={canConfigureTunnels ? mcpTunnels : undefined}
 				tunnelsLoading={canConfigureTunnels && mcpTunnels === undefined}
 				{readonly}
@@ -1024,27 +914,6 @@
 				isNewEntry={!entry}
 				{onConfigureOAuth}
 				{canConfigureOAuthCredentials}
-			>
-				{#snippet afterHeaders()}
-					{#if formData.remoteConfig?.urlTemplate !== undefined}
-						<CustomConfigurationForm
-							bind:config={formData.env}
-							{readonly}
-							serverUserType={formData.serverUserType}
-							showRequired={showRequired.env}
-							showInvalid={showInvalid.env}
-							urlTemplateVariables
-						/>
-					{/if}
-				{/snippet}
-			</RemoteRuntimeForm>
-		{:else if formData.runtime === 'composite' && formData.compositeConfig}
-			<CompositeRuntimeForm
-				bind:config={formData.compositeConfig}
-				bind:hasToolNameErrors={compositeHasToolNameErrors}
-				{readonly}
-				catalogId={id}
-				id={entry?.id}
 			/>
 		{/if}
 	</div>
@@ -1057,8 +926,15 @@
 		/>
 	{/if}
 
-	<!-- Environment Variables Section -->
-	{#if !['remote', 'composite'].includes(formData.runtime)}
+	{#if type !== 'multi' && formData.runtime !== 'composite'}
+		<CatalogConfigurationForm
+			bind:config={formData.config}
+			{readonly}
+			secretBindingTargets={editableSecretBindingTargets}
+			showRequired={showRequired.env}
+			showInvalid={showInvalid.env}
+		/>
+	{:else if !['remote', 'composite'].includes(formData.runtime)}
 		<CustomConfigurationForm
 			bind:config={formData.env}
 			{readonly}
@@ -1070,7 +946,7 @@
 		/>
 	{/if}
 
-	{#if formData.serverUserType === 'multiUser' && formData.multiUserConfig}
+	{#if type === 'multi' && formData.multiUserConfig}
 		<MultiUserHeadersForm bind:headers={formData.multiUserConfig.userDefinedHeaders} {readonly} />
 	{/if}
 
@@ -1100,11 +976,7 @@
 				type="submit"
 				data-form-action="save"
 				class="btn btn-primary flex items-center gap-1"
-				disabled={loading ||
-					(formData.runtime === 'composite' &&
-						(!formData.compositeConfig?.componentServers ||
-							formData.compositeConfig.componentServers.length === 0 ||
-							compositeHasToolNameErrors))}
+				disabled={loading}
 				aria-busy={loading}
 				id={CATALOG_SERVER_FIELD_IDS.submitBtn}
 			>

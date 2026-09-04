@@ -153,7 +153,9 @@
 			!readonly &&
 			allowMultiUserServerConfigurationEdit &&
 			instance &&
-			(server.manifest.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0
+			((server.manifest.config ?? []).filter(
+				(field) => field.usage === 'header' && field.userAllowed
+			)?.length ?? 0) > 0
 		)
 	);
 	let canDeleteMultiUserServer = $derived(

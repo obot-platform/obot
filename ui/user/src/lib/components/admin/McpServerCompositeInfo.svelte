@@ -21,6 +21,7 @@
 		entity?: 'workspace' | 'catalog';
 		entityId?: string;
 		catalogEntry?: MCPCatalogEntry;
+		mcpServer?: MCPCatalogServer;
 		mcpServerId?: string;
 		mcpServerInstanceId?: string;
 		classes?: {
@@ -31,7 +32,7 @@
 		hideTitle?: boolean;
 	}
 
-	let { name, connectedUsers, classes, entityId, catalogEntry, mcpServerId, hideTitle }: Props =
+	let { name, connectedUsers, classes, catalogEntry, mcpServer, mcpServerId, hideTitle }: Props =
 		$props();
 	let servers = $state<MCPCatalogServer[]>([]);
 	let loadingServers = $state(true);
@@ -39,7 +40,7 @@
 	let serversMap = $derived(new Map(servers.map((s) => [s.catalogEntryID || s.id, s])));
 
 	onMount(async () => {
-		if (!mcpServerId || !catalogEntry?.id || !entityId) {
+		if (!mcpServerId || !mcpServer) {
 			loadingServers = false;
 			return;
 		}
@@ -72,11 +73,11 @@
 	</div>
 {/if}
 
-{#if catalogEntry?.manifest.compositeConfig?.componentServers}
+{#if mcpServer?.manifest.compositeConfig?.componentServers}
 	<div>
 		<h2 class="mb-2 text-lg font-semibold">MCP Servers</h2>
 		<div class="flex flex-col gap-2">
-			{#each catalogEntry.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID || componentServer.mcpServerID)}
+			{#each mcpServer.manifest.compositeConfig.componentServers as componentServer (componentServer.catalogEntryID || componentServer.mcpServerID)}
 				{@const catalogEntryServerId =
 					componentServer.catalogEntryID && serversMap.get(componentServer.catalogEntryID)?.id}
 				{@const multiUserServerId = componentServer.mcpServerID}
@@ -88,7 +89,7 @@
 					<button
 						onclick={(e) => {
 							const isCtrlClick = e.metaKey || e.ctrlKey;
-							const workspaceScope = catalogEntry.powerUserWorkspaceID
+							const workspaceScope = catalogEntry?.powerUserWorkspaceID
 								? `?wid=${encodeURIComponent(catalogEntry.powerUserWorkspaceID)}`
 								: '';
 							const url = componentServer.catalogEntryID

@@ -49,6 +49,8 @@ export default defineConfig(({ mode }) => {
 					extends: true,
 					test: {
 						name: 'client',
+						// Concurrent browser files can exhaust the short interaction timeout.
+						fileParallelism: false,
 						// Timeout for browser tests - prevent hanging on element lookups
 						testTimeout: 2000,
 						browser: {

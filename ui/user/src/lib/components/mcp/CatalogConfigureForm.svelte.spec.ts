@@ -1,4 +1,6 @@
 import type { MCPSubField } from '$lib/services';
+import type { MCPCatalogEntryServerManifest } from '$lib/services/admin/types';
+import { convertEnvHeadersToRecord, getManifestConfiguration } from '$lib/services/user/mcp';
 import CatalogConfigureForm from './CatalogConfigureForm.svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
@@ -63,6 +65,60 @@ const scenarios = [
 ];
 
 describe('CatalogConfigureForm.svelte configuration options', () => {
+	it('renders flattened environment and header inputs', async () => {
+		const manifest = {
+			name: 'Configured server',
+			runtime: 'npx',
+			config: [
+				{
+					key: 'TOKEN',
+					name: 'Token',
+					description: 'API token',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'env' as const
+				},
+				{
+					key: 'Authorization',
+					name: 'Authorization',
+					description: 'Authorization header',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'header' as const
+				}
+			]
+		} satisfies MCPCatalogEntryServerManifest;
+		const configuration = getManifestConfiguration(manifest);
+		const form = { envs: configuration.env, headers: configuration.headers };
+		const onSave = vi.fn();
+		const result = await render(CatalogConfigureForm, {
+			form,
+			name: manifest.name,
+			onSave,
+			animate: null
+		});
+
+		await result.component.open();
+		const token = page.getByCSS('#Token');
+		const authorization = page.getByCSS('#Authorization');
+		await expect.element(token).toBeVisible();
+		await expect.element(authorization).toBeVisible();
+		await token.fill('token-value');
+		await authorization.fill('Bearer token-value');
+		await page.getByRole('button', { name: 'Save' }).click();
+		expect(onSave).toHaveBeenCalledOnce();
+		expect(form).toMatchObject({
+			envs: [{ key: 'TOKEN', value: 'token-value' }],
+			headers: [{ key: 'Authorization', value: 'Bearer token-value' }]
+		});
+		expect(convertEnvHeadersToRecord(form.envs, form.headers)).toEqual({
+			TOKEN: 'token-value',
+			Authorization: 'Bearer token-value'
+		});
+	});
+
 	it.each(scenarios)('handles $name options', async ({ form, id, label }) => {
 		const onSave = vi.fn();
 		const result = await render(CatalogConfigureForm, {

@@ -88,9 +88,6 @@
 						return true;
 					}
 
-					// exclude multi-user catalog entries
-					if (entry.manifest.serverUserType === 'multiUser') return false;
-
 					return entity === 'catalog'
 						? !entry.powerUserWorkspaceID
 						: workspaceId

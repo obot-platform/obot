@@ -697,6 +697,7 @@ export interface MCPCatalogEntryFieldManifest {
 	value: string;
 	file?: boolean;
 	dynamicFile?: boolean;
+	interpolated?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
 }
@@ -713,6 +714,14 @@ export interface RemoteCatalogConfigAdmin {
 	tunnelName?: string;
 	urlTemplate?: string;
 }
+export interface LegacyRemoteCatalogConfigAdmin extends RemoteCatalogConfigAdmin {
+	headers?: MCPCatalogEntryFieldManifest[];
+}
+export type MCPConfigUsage = 'env' | 'header' | 'file' | 'dynamicFile' | 'interpolated';
+export type MCPConfig = Omit<
+	MCPCatalogEntryFieldManifest,
+	'file' | 'dynamicFile' | 'interpolated'
+> & { usage: MCPConfigUsage; userAllowed?: boolean };
 export interface CompositeCatalogConfig {
 	componentServers: CatalogComponentServer[];
 }
@@ -724,8 +733,10 @@ export interface CatalogComponentServer {
 	toolPrefix?: string;
 }
 export interface MCPCatalogEntryServerManifest {
+	entryKey?: string;
 	upgradeNote?: string;
 	icon?: string;
+	config?: MCPConfig[];
 	env?: MCPCatalogEntryFieldManifest[];
 	repoURL?: string;
 	name?: string;
@@ -739,13 +750,11 @@ export interface MCPCatalogEntryServerManifest {
 	};
 
 	runtime: Runtime;
-	serverUserType: 'singleUser' | 'multiUser';
 	uvxConfig?: UVXRuntimeConfig;
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
 	compositeConfig?: CompositeCatalogConfig;
-	multiUserConfig?: MultiUserConfig;
 	resources?: MCPResourceRequirements;
 }
 export interface MCPCatalogEntry {
@@ -753,6 +762,7 @@ export interface MCPCatalogEntry {
 	created: string;
 	deleted?: string;
 	manifest: MCPCatalogEntryServerManifest;
+	unsupportedTools?: string[];
 	editable?: boolean;
 	detached?: boolean;
 	sourceURL?: string;
@@ -793,6 +803,7 @@ export interface RuntimeFormData {
 	metadata?: MCPCatalogEntryServerManifest['metadata'];
 	serverUserType: 'singleUser' | 'multiUser';
 	env: MCPCatalogEntryFieldManifest[];
+	config?: MCPConfig[];
 
 	// Runtime selection
 	runtime: Runtime;
@@ -801,20 +812,20 @@ export interface RuntimeFormData {
 	npxConfig?: NPXRuntimeConfig;
 	uvxConfig?: UVXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
-	remoteConfig?: RemoteCatalogConfigAdmin; // For catalog entries
+	remoteConfig?: LegacyRemoteCatalogConfigAdmin; // Form state; flattened when saving catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
 	compositeConfig?: CompositeCatalogConfig; // For catalog entries
 	compositeServerConfig?: CompositeRuntimeConfig; // For servers
-	multiUserConfig?: MultiUserConfig; // For servers
+	multiUserConfig?: MultiUserConfig; // Form state; flattened into config when saving servers
 	resources?: MCPResourceRequirements;
 
 	startupTimeoutSeconds?: number;
 }
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
-	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig' | 'serverUserType'> & {
-		remoteConfig?: RemoteRuntimeConfigAdmin;
-		multiUserConfig?: MultiUserConfig;
+	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig'> & {
+		compositeConfig?: CompositeRuntimeConfig;
+		remoteConfig?: Omit<RemoteRuntimeConfigAdmin, 'headers'>;
 	};
 }
 export interface MCPHeaderManifest {
@@ -854,12 +865,12 @@ export interface MCPFilterRemoteRuntimeConfig {
 	isTemplate?: boolean;
 	urlTemplate?: string;
 	hostname?: string;
-	headers?: MCPHeaderManifest[];
 	staticOAuthRequired?: boolean;
 }
 export interface MCPEnvManifest extends MCPHeaderManifest {
 	file?: boolean;
 	dynamicFile?: boolean;
+	interpolated?: boolean;
 }
 export interface MCPFilterServerManifest {
 	metadata?: Record<string, string>;
@@ -873,7 +884,7 @@ export interface MCPFilterServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: MCPFilterRemoteRuntimeConfig;
-	env?: MCPEnvManifest[];
+	config?: MCPConfig[];
 }
 export interface MCPFilterManifest {
 	name?: string;
@@ -1479,7 +1490,7 @@ export interface SystemMCPServerCatalogEntryManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
-	env?: MCPEnvManifest[];
+	config?: MCPConfig[];
 }
 export interface SystemMCPServerCatalogEntry {
 	id: string;
@@ -1516,7 +1527,7 @@ export interface SystemMCPServerManifest {
 		hostname?: string;
 		staticOAuthRequired?: boolean;
 	};
-	env?: MCPEnvManifest[];
+	config?: MCPConfig[];
 }
 export interface SystemMCPServer {
 	id: string;

@@ -16,6 +16,7 @@
 		convertEnvHeadersToRecord,
 		deriveToolPrefix,
 		getSecretBindingEngineError,
+		getManifestConfiguration,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
 		isDeprecatedMCPServer,
@@ -123,10 +124,7 @@
 	): MCPCatalogEntryServerManifest {
 		return 'isCatalogEntry' in entry
 			? entry.manifest
-			: ({
-					...entry.manifest,
-					serverUserType: entry.serverUserType
-				} as unknown as MCPCatalogEntryServerManifest);
+			: (entry.manifest as unknown as MCPCatalogEntryServerManifest);
 	}
 
 	export function close() {
@@ -162,12 +160,13 @@
 	}
 
 	function initConfigureForm(entry: MCPCatalogEntry) {
+		const { env, headers } = getManifestConfiguration(entry.manifest);
 		configureForm = {
-			envs: entry.manifest?.env?.map((env) => ({ ...env, value: '' })),
-			headers: entry.manifest?.remoteConfig?.headers?.map((h) => ({
-				...h,
+			envs: env.map((field) => ({ ...field, value: '' })),
+			headers: headers.map((field) => ({
+				...field,
 				value: '',
-				isStatic: h.value !== ''
+				isStatic: field.value !== ''
 			})),
 			...(entry.manifest?.remoteConfig?.hostname
 				? { hostname: entry.manifest.remoteConfig.hostname, url: '' }
@@ -367,9 +366,7 @@
 		};
 		return {
 			...ctx,
-			entries: ctx.entries.filter(
-				(e) => e.manifest?.runtime !== 'composite' && e.manifest?.serverUserType !== 'multiUser'
-			)
+			entries: ctx.entries
 		};
 	}}
 	singleSelect

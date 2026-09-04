@@ -20,6 +20,7 @@
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
 		getMCPDisplayName,
+		getManifestConfiguration,
 		hasSecretBinding,
 		isDeprecatedMCPServer,
 		supportsMCPBackendDetails
@@ -257,20 +258,21 @@
 	}
 
 	function initConfigureForm(item: MCPCatalogEntry) {
+		const { env, headers } = getManifestConfiguration(item.manifest);
 		configureFormTitle = undefined;
 		configureForm = {
 			name: '',
-			envs: item.manifest?.env?.map((env) => ({
-				...env,
+			envs: env.map((field) => ({
+				...field,
 				value: '',
-				isStatic: env.value !== '',
-				secretBindingReadonly: hasSecretBinding(env)
+				isStatic: field.value !== '',
+				secretBindingReadonly: hasSecretBinding(field)
 			})),
-			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
-				...header,
+			headers: headers.map((field) => ({
+				...field,
 				value: '',
-				isStatic: header.value !== '',
-				secretBindingReadonly: hasSecretBinding(header)
+				isStatic: field.value !== '',
+				secretBindingReadonly: hasSecretBinding(field)
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }
@@ -290,6 +292,8 @@
 				required: field.required,
 				sensitive: field.sensitive,
 				file: field.file,
+				dynamicFile: field.dynamicFile,
+				interpolated: field.interpolated,
 				prefix: field.prefix,
 				secretBinding: field.secretBinding,
 				value: ''
@@ -297,10 +301,9 @@
 	}
 
 	type TemplateDeployManifest = {
-		env?: MCPSubField[];
+		config?: (MCPSubField & { usage: string })[];
 		remoteConfig?: {
 			url?: string;
-			headers?: MCPSubField[];
 		};
 	};
 
@@ -311,13 +314,24 @@
 		const headers = secretBoundFields(form?.headers);
 		const url = form?.url?.trim();
 		const manifest: TemplateDeployManifest = {};
-		if (env.length > 0) {
-			manifest.env = env;
+		if (env.length > 0 || headers.length > 0) {
+			manifest.config = [
+				...env.map(({ file, dynamicFile, interpolated, ...field }) => ({
+					...field,
+					usage: interpolated
+						? 'interpolated'
+						: file
+							? dynamicFile
+								? 'dynamicFile'
+								: 'file'
+							: 'env'
+				})),
+				...headers.map((field) => ({ ...field, usage: 'header' }))
+			];
 		}
-		if (url || headers.length > 0) {
+		if (url) {
 			manifest.remoteConfig = {
-				...(url ? { url } : {}),
-				...(headers.length > 0 ? { headers } : {})
+				url
 			};
 		}
 		return Object.keys(manifest).length > 0 ? manifest : undefined;
@@ -339,81 +353,32 @@
 			}
 		}
 		configureForm = {
-			headers: item.manifest?.multiUserConfig?.userDefinedHeaders?.map((header) => ({
-				...header,
-				value: values[header.key] ?? '',
-				isStatic: false
-			}))
+			headers: (item.manifest?.config ?? [])
+				.filter((field) => field.usage === 'header' && field.userAllowed)
+				?.map((header) => ({
+					...header,
+					value: values[header.key] ?? '',
+					isStatic: false
+				}))
 		};
 		configDialog?.open();
 	}
 
 	function hasMultiUserInstanceConfiguration(item?: MCPCatalogServer) {
-		return (item?.manifest?.multiUserConfig?.userDefinedHeaders?.length ?? 0) > 0;
+		return (
+			((item?.manifest?.config ?? []).filter(
+				(field) => field.usage === 'header' && field.userAllowed
+			)?.length ?? 0) > 0
+		);
 	}
 
-	function isMultiUserCatalogEntry(item?: MCPCatalogEntry) {
-		return item?.manifest?.serverUserType === 'multiUser';
+	function isMultiUserCatalogEntry(_item?: MCPCatalogEntry) {
+		return false;
 	}
 
 	function initCompositeForm(item: MCPCatalogEntry) {
-		configureFormTitle = undefined;
-		// For composite: open form first to collect per-component URLs before creating
-		if (item.manifest.runtime === 'composite') {
-			const components = item.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: Record<
-				string,
-				{
-					name?: string;
-					icon?: string;
-					deprecated?: boolean;
-					hostname?: string;
-					url?: string;
-					disabled?: boolean;
-					isMultiUser?: boolean;
-					envs?: Array<Record<string, unknown> & { key: string; value: string }>;
-					headers?: Array<Record<string, unknown> & { key: string; value: string }>;
-				}
-			> = {};
-			for (const c of components) {
-				const id = c.catalogEntryID || c.mcpServerID;
-				if (!id || !c.manifest) continue;
-				const m = c.manifest;
-				const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
-				componentConfigs[id] = {
-					name: m.name,
-					icon: m.icon,
-					deprecated: isDeprecatedMCPServer({ manifest: m }),
-					hostname: isMultiUser ? undefined : m.remoteConfig?.hostname,
-					url: isMultiUser ? undefined : (m.remoteConfig?.fixedURL ?? ''),
-					disabled: false,
-					isMultiUser,
-					envs: isMultiUser
-						? []
-						: (m.env ?? []).map((e) => ({
-								...(e as unknown as Record<string, unknown>),
-								key: e.key,
-								value: '',
-								isStatic: e.value !== ''
-							})),
-					headers: isMultiUser
-						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
-								...(h as unknown as Record<string, unknown>),
-								key: h.key,
-								value: '',
-								isStatic: false
-							}))
-						: (m.remoteConfig?.headers ?? []).map((h) => ({
-								...(h as unknown as Record<string, unknown>),
-								key: h.key,
-								value: '',
-								isStatic: h.value !== ''
-							}))
-				};
-			}
-			configureForm = { componentConfigs } as CompositeLaunchFormData;
-			configDialog?.open();
-		}
+		initConfigureForm(item);
+		configDialog?.open();
 	}
 
 	function listLaunchLogs(mcpServerId: string) {
@@ -467,11 +432,11 @@
 		const missingEnvKeys = new Set(mcpServer.missingRequiredEnvVars ?? []);
 		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeader ?? []);
 		const missing = [
-			...(mcpServer.manifest.env ?? [])
-				.filter((env) => env.secretBinding && missingEnvKeys.has(env.key))
+			...getManifestConfiguration(mcpServer.manifest)
+				.env.filter((env) => env.secretBinding && missingEnvKeys.has(env.key))
 				.map((env) => env.key),
-			...(mcpServer.manifest.remoteConfig?.headers ?? [])
-				.filter((header) => header.secretBinding && missingHeaderKeys.has(header.key))
+			...getManifestConfiguration(mcpServer.manifest)
+				.headers.filter((header) => header.secretBinding && missingHeaderKeys.has(header.key))
 				.map((header) => header.key)
 		];
 		if (missing.length === 0) return undefined;
@@ -767,7 +732,7 @@
 			server = created;
 
 			const staticEnvValues =
-				entry.manifest.env?.reduce<Record<string, string>>((acc, env) => {
+				getManifestConfiguration(entry.manifest).env.reduce<Record<string, string>>((acc, env) => {
 					if (env.value) {
 						acc[env.key] = env.value;
 					}
