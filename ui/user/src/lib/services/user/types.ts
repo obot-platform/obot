@@ -575,6 +575,7 @@ export interface MCPSubField {
 	required: boolean;
 	sensitive: boolean;
 	value?: string;
+	valueConfigured?: boolean;
 	prefix?: string;
 	secretBinding?: MCPSecretBinding;
 }

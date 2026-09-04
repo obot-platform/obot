@@ -83,7 +83,7 @@ func (p *PowerUserWorkspaceHandler) ListAllEntries(req api.Context) error {
 		}
 
 		for _, entry := range list2.Items {
-			catalogEntries = append(catalogEntries, ConvertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID, p.serverURL))
+			catalogEntries = append(catalogEntries, ConvertMCPServerCatalogEntryWithWorkspace(entry, item.Name, item.Spec.UserID, p.serverURL, nil))
 		}
 	}
 

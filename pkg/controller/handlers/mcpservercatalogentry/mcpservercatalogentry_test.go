@@ -2,11 +2,15 @@ package mcpservercatalogentry
 
 import (
 	"testing"
+	"time"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -191,7 +195,7 @@ func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
 			SecretBinding: binding}},
 	})
 	client := newFakeClient(compositeEntry, sharedServer)
-	err := (&Handler{}).DetectCompositeDrift(router.Request{
+	err := (&Handler{gatewayClient: newTestGatewayClient(t)}).DetectCompositeDrift(router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    compositeEntry,
@@ -425,4 +429,16 @@ func newMCPServer(name string, manifest types.MCPServerManifest) *v1.MCPServer {
 			Manifest: manifest,
 		},
 	}
+}
+
+func newTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	client := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }

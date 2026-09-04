@@ -696,6 +696,7 @@ export interface MCPCatalogEntryFieldManifest {
 	required: boolean;
 	sensitive: boolean;
 	value: string;
+	valueConfigured?: boolean;
 	file?: boolean;
 	dynamicFile?: boolean;
 	prefix?: string;
@@ -824,6 +825,7 @@ export interface MCPHeaderManifest {
 	description: string;
 	key: string;
 	value: string;
+	valueConfigured?: boolean;
 	sensitive: boolean;
 	required: boolean;
 	prefix?: string;

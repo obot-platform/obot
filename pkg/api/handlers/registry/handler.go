@@ -531,14 +531,14 @@ func (h *Handler) getCredentialsForServers(
 		return make(map[string]map[string]string), nil
 	}
 
-	// Build credential contexts
 	credCtxs := make([]string, 0, len(servers))
+	serverByCredCtx := make(map[string]string, len(servers))
 	for _, server := range servers {
 		ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
 		credCtxs = append(credCtxs, ctx)
+		serverByCredCtx[ctx] = server.Name
 	}
 
-	// List credentials
 	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
 		CredentialContexts: credCtxs,
 	})
@@ -546,17 +546,28 @@ func (h *Handler) getCredentialsForServers(
 		return nil, fmt.Errorf("failed to list credentials: %w", err)
 	}
 
-	// Reveal and build map
-	credMap := make(map[string]map[string]string)
+	userCredentials := make(map[string]map[string]string, len(servers))
+	staticCredentials := make(map[string]map[string]string, len(servers))
 	for _, cred := range creds {
-		if _, ok := credMap[cred.Name]; !ok {
-			revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
-			if err != nil {
-				// Skip if credential not found
-				continue
-			}
-			credMap[cred.Name] = revealed.Secrets
+		serverName, ok := serverByCredCtx[cred.Context]
+		if !ok || (cred.Name != serverName && cred.Name != mcp.StaticConfigurationCredentialName(serverName)) {
+			continue
 		}
+
+		revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{cred.Context}, cred.Name)
+		if err != nil {
+			continue
+		}
+		if cred.Name == serverName {
+			userCredentials[serverName] = revealed.Secrets
+		} else {
+			staticCredentials[serverName] = revealed.Secrets
+		}
+	}
+
+	credMap := make(map[string]map[string]string, len(servers))
+	for _, server := range servers {
+		credMap[server.Name] = mcp.MergeRuntimeConfiguration(userCredentials[server.Name], staticCredentials[server.Name])
 	}
 
 	return credMap, nil
@@ -569,13 +580,9 @@ func (h *Handler) getCredentialsForServer(
 ) map[string]string {
 	ctx := h.buildCredentialContext(server, userID, catalogID, workspaceID)
 
-	revealed, err := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
-	if err != nil {
-		// Return empty map if not found
-		return make(map[string]string)
-	}
-
-	return revealed.Secrets
+	user, _ := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, server.Name)
+	static, _ := req.GatewayClient.RevealCredential(req.Context(), []string{ctx}, mcp.StaticConfigurationCredentialName(server.Name))
+	return mcp.MergeRuntimeConfiguration(user.Secrets, static.Secrets)
 }
 
 func (h *Handler) buildCredentialContext(

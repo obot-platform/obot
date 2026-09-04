@@ -213,6 +213,9 @@ type MCPHeader struct {
 
 	// For static headers
 	Value string `json:"value"`
+	// ValueConfigured is derived by the API. For sensitive static values it reports
+	// whether an encrypted value exists without returning that value.
+	ValueConfigured bool `json:"valueConfigured,omitempty"`
 
 	// For user-supplied headers
 	Sensitive bool   `json:"sensitive"`

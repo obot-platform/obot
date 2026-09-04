@@ -18,7 +18,7 @@ import (
 	mmmcpconfig "github.com/obot-platform/mmmcp/config"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/principal"
@@ -435,9 +435,10 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 		return mcp.ServerConfig{}, apierrors.NewNotFound(schema.GroupResource{Group: "obot.obot.ai", Resource: "systemmcpserver"}, mcpID)
 	}
 
-	// Only look up credentials if the manifest has env vars without static values.
+	// Only look up credentials if the manifest has env vars or remote headers
+	// without static values.
 	// This avoids expensive credential lookups on the hot path for servers like
-	// obot-mcp-server where all env vars have static values.
+	// obot-mcp-server where all configuration has static values.
 	credEnv := make(map[string]string)
 	var needsCredentials bool
 	for _, env := range systemServer.Spec.Manifest.Env {
@@ -446,23 +447,21 @@ func (h *Handler) ensureSystemServerIsDeployed(req api.Context, mcpID string) (m
 			break
 		}
 	}
+	if !needsCredentials && systemServer.Spec.Manifest.RemoteConfig != nil {
+		for _, header := range systemServer.Spec.Manifest.RemoteConfig.Headers {
+			if header.Value == "" {
+				needsCredentials = true
+				break
+			}
+		}
+	}
 
 	if needsCredentials {
-		credCtx := systemServer.Name
-		creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
-			CredentialContexts: []string{credCtx},
-		})
+		credentials, err := systemmcpserver.GetCredentialsForSystemServer(req.Context(), req.GatewayClient, systemServer)
 		if err != nil {
-			return mcp.ServerConfig{}, fmt.Errorf("failed to list credentials for system server: %w", err)
+			return mcp.ServerConfig{}, fmt.Errorf("failed to get credentials for system server: %w", err)
 		}
-
-		for _, cred := range creds {
-			credDetail, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, cred.Name)
-			if err != nil {
-				continue
-			}
-			maps.Copy(credEnv, credDetail.Secrets)
-		}
+		credEnv = credentials
 	}
 
 	credEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, systemServer.Spec.Manifest.Env, systemServer.Spec.Manifest.RemoteConfig, credEnv, h.secretBindingAllowedLabel)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -589,6 +590,7 @@ func TestMCPCatalogHandlerUpdateEntryHydratesComponentManifestFromCatalogEntry(t
 		ResponseWriter: httptest.NewRecorder(),
 		Request:        req,
 		User:           &kuser.DefaultInfo{Groups: []string{types.GroupAdmin}},
+		GatewayClient:  newHandlerTestGatewayClient(t),
 		Storage:        storage,
 	})
 
@@ -630,7 +632,7 @@ func TestPopulateComponentManifestsHydratesMCPServerID(t *testing.T) {
 		}},
 	}
 
-	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(server), &manifest, "default", "")
+	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(t, server), &manifest, "default", "")
 
 	require.NoError(t, err)
 	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
@@ -671,7 +673,7 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 		}},
 	}
 
-	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(entry), &manifest, "custom", "")
+	err := (&MCPCatalogHandler{}).populateComponentManifests(newPopulateComponentManifestsRequest(t, entry), &manifest, "custom", "")
 
 	require.NoError(t, err)
 	require.Len(t, manifest.CompositeConfig.ComponentServers, 1)
@@ -685,10 +687,44 @@ func TestPopulateComponentManifestsHydratesSameCatalogEntryID(t *testing.T) {
 	assert.Nil(t, component.Manifest.RemoteConfig)
 }
 
-func newPopulateComponentManifestsRequest(objects ...kclient.Object) api.Context {
+func TestPopulateComponentManifestsRehydratesStaticConfiguration(t *testing.T) {
+	entry := &v1.MCPServerCatalogEntry{
+		Name: "entry-1", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: "custom",
+			Manifest: types.MCPServerCatalogEntryManifest{
+				Runtime: types.RuntimeNPX, ServerUserType: types.ServerUserTypeSingleUser,
+				Env:       []types.MCPEnv{{Key: "TOKEN", Sensitive: true, ValueConfigured: true}},
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example"},
+			},
+		},
+	}
+	sourceManifest := types.MCPServerCatalogEntryManifest{
+		Env: []types.MCPEnv{{Key: "TOKEN", Value: "rotated", Sensitive: true}},
+	}
+	secrets := mcp.ExtractStaticCatalogConfiguration(&sourceManifest, nil, false)
+	req := newPopulateComponentManifestsRequest(t, entry)
+	require.NoError(t, req.GatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: mcp.CatalogEntryStaticCredentialContext(entry.Name), Name: mcp.StaticConfigurationCredentialName(entry.Name), Secrets: secrets,
+	}))
+	manifest := types.MCPServerCatalogEntryManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeCatalogConfig{ComponentServers: []types.CatalogComponentServer{{
+			CatalogEntryID: entry.Name,
+		}}},
+	}
+
+	require.NoError(t, (&MCPCatalogHandler{}).populateComponentManifests(req, &manifest, "custom", ""))
+	require.Equal(t, "rotated", manifest.CompositeConfig.ComponentServers[0].Manifest.Env[0].Value)
+}
+
+func newPopulateComponentManifestsRequest(t *testing.T, objects ...kclient.Object) api.Context {
+	t.Helper()
+
 	return api.Context{
 		Request:        httptest.NewRequest(http.MethodGet, "/", nil),
 		ResponseWriter: httptest.NewRecorder(),
+		GatewayClient:  newHandlerTestGatewayClient(t),
 		Storage: storage.Client(fake.NewClientBuilder().
 			WithScheme(storagescheme.Scheme).
 			WithObjects(objects...).

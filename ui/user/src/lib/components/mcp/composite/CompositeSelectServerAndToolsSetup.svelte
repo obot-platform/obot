@@ -18,6 +18,7 @@
 		getSecretBindingEngineError,
 		isKubernetesRuntimeBackend,
 		hasEditableConfiguration,
+		isCatalogStaticField,
 		isDeprecatedMCPServer,
 		toolOverridesFromRows
 	} from '$lib/services/user/mcp';
@@ -163,11 +164,15 @@
 
 	function initConfigureForm(entry: MCPCatalogEntry) {
 		configureForm = {
-			envs: entry.manifest?.env?.map((env) => ({ ...env, value: '' })),
+			envs: entry.manifest?.env?.map((env) => ({
+				...env,
+				value: '',
+				isStatic: isCatalogStaticField(env)
+			})),
 			headers: entry.manifest?.remoteConfig?.headers?.map((h) => ({
 				...h,
 				value: '',
-				isStatic: h.value !== ''
+				isStatic: isCatalogStaticField(h)
 			})),
 			...(entry.manifest?.remoteConfig?.hostname
 				? { hostname: entry.manifest.remoteConfig.hostname, url: '' }
