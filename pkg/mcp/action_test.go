@@ -107,12 +107,10 @@ func TestServerOrInstanceFromConnectURLCopiesStaticCatalogConfiguration(t *testi
 				Runtime:        types.RuntimeNPX,
 				NPXConfig:      &types.NPXRuntimeConfig{Package: "example"},
 				Env: []types.MCPEnv{{
-					MCPHeader: types.MCPHeader{
-						Name:            "Static Secret",
-						Key:             staticKey,
-						Sensitive:       true,
-						ValueConfigured: true,
-					},
+					Name:            "Static Secret",
+					Key:             staticKey,
+					Sensitive:       true,
+					ValueConfigured: true,
 				}},
 			},
 		},
