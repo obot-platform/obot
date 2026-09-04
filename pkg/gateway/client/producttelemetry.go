@@ -10,14 +10,17 @@ import (
 )
 
 func (c *Client) ActiveUserCountByDate(ctx context.Context, start, end time.Time) (int64, error) {
-	activeUserIDs := c.db.WithContext(ctx).
+	var activeUserIDs []string
+	if err := c.db.WithContext(ctx).
 		Model(new(types.APIActivity)).
 		Distinct("user_id").
 		Where("date >= ? AND date < ?", start.UTC(), end.UTC()).
 		Where("user_id != ?", system.BootstrapName).
 		Where("user_id != ?", "anonymous").
 		Where("user_id != ?", "").
-		Select("user_id")
+		Pluck("user_id", &activeUserIDs).Error; err != nil {
+		return 0, err
+	}
 
 	var count int64
 	err := c.db.WithContext(ctx).
