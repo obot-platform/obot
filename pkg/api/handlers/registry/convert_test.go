@@ -28,6 +28,30 @@ func TestConvertMCPServerCatalogEntryToRegistryRemoteFixedURLHasRemote(t *testin
 	}
 }
 
+func TestConvertMCPServerCatalogEntryToRegistryConfiguredStaticHeaderHasRemote(t *testing.T) {
+	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{
+		FixedURL: "https://api.example.com/mcp",
+		Headers: []types.MCPHeader{{
+			Key:             "Authorization",
+			Required:        true,
+			Sensitive:       true,
+			ValueConfigured: true,
+		}},
+	})
+
+	got, err := ConvertMCPServerCatalogEntryToRegistry(t.Context(), entry, "https://obot.example.com", "com.example.obot", newMimeFetcher())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got.Meta.Obot != nil && got.Meta.Obot.ConfigurationRequired {
+		t.Fatalf("expected configured static header to be directly connectable, got obot meta %#v", got.Meta.Obot)
+	}
+	if len(got.Server.Remotes) != 1 {
+		t.Fatalf("remote count = %d, want 1", len(got.Server.Remotes))
+	}
+}
+
 func TestConvertMCPServerCatalogEntryToRegistryRemoteHostnameRequiresConfiguration(t *testing.T) {
 	entry := registryTestCatalogEntry(types.RemoteCatalogConfig{
 		Hostname: "api.example.com",
