@@ -1320,8 +1320,6 @@ func New(ctx context.Context, config Config) (*Services, error) {
 
 	versionChecker, err := upgrade.NewVersionChecker(ctx, upgrade.VersionCheckerOptions{
 		GatewayClient:      gatewayClient,
-		LicenseProvider:    licenseProvider,
-		Engine:             config.MCPRuntimeBackend,
 		DisableUpdateCheck: config.DisableUpdateCheck,
 	})
 	if err != nil {

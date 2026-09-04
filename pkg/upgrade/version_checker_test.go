@@ -10,9 +10,7 @@ import (
 	"testing"
 	"time"
 
-	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/license"
 )
 
 type checkerPropertyClient struct {
@@ -20,11 +18,6 @@ type checkerPropertyClient struct {
 	value string
 	calls int
 	err   error
-}
-
-type checkerLicenseProvider struct {
-	entitlements []string
-	err          error
 }
 
 func (c *checkerPropertyClient) GetOrCreateProperty(_ context.Context, key, value string) (gatewaytypes.Property, error) {
@@ -46,15 +39,9 @@ func (c *checkerPropertyClient) callCount() int {
 	return c.calls
 }
 
-func (p checkerLicenseProvider) Entitlements(context.Context) ([]string, error) {
-	return p.entitlements, p.err
-}
-
-func testVersionChecker(licenseProvider entitlementProvider, serverURL string) *VersionChecker {
+func testVersionChecker(serverURL string) *VersionChecker {
 	return &VersionChecker{
-		licenseProvider:  licenseProvider,
 		httpClient:       http.DefaultClient,
-		engine:           "docker",
 		currentVersion:   "v1.2.3",
 		upgradeServerURL: serverURL,
 		checkInterval:    10 * time.Millisecond,
@@ -181,7 +168,7 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	propertyClient := &checkerPropertyClient{value: "installation-1"}
-	checker := testVersionChecker(checkerLicenseProvider{entitlements: []string{license.EnterpriseEntitlement}}, server.URL+"/check-upgrade")
+	checker := testVersionChecker(server.URL + "/check-upgrade")
 	checker.currentVersion = "v1.2.3-rc.1+build.4"
 	if err := checker.start(ctx, propertyClient, false, true); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -197,12 +184,15 @@ func TestVersionCheckerChecksImmediatelyAndOnSchedule(t *testing.T) {
 	query := request.URL.Query()
 	for key, want := range map[string]string{
 		"uid":             "installation-1",
-		"engine":          "docker",
-		"distribution":    string(clienttypes.ProductTelemetryDistributionEnterprise),
 		"current-version": "v1.2.3",
 	} {
 		if got := query.Get(key); got != want {
 			t.Errorf("query %q = %q, want %q", key, got, want)
+		}
+	}
+	for _, key := range []string{"engine", "distribution"} {
+		if query.Has(key) {
+			t.Errorf("query unexpectedly contains %q", key)
 		}
 	}
 	waitForStatus(t, checker, Status{UpgradeAvailable: true, LatestVersion: "v1.3.0"})
@@ -222,7 +212,7 @@ func TestVersionCheckerDevelopmentVersionCanBeForced(t *testing.T) {
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
+	checker := testVersionChecker(server.URL)
 	checker.currentVersion = "v0.0.0-dev"
 	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, true); err != nil {
 		t.Fatalf("start() error = %v", err)
@@ -230,78 +220,6 @@ func TestVersionCheckerDevelopmentVersionCanBeForced(t *testing.T) {
 	waitForRequest(t, requests)
 	cancel()
 	waitForDone(t, checker.done)
-}
-
-func TestVersionCheckerDistribution(t *testing.T) {
-	for _, test := range []struct {
-		name     string
-		provider checkerLicenseProvider
-		want     clienttypes.ProductTelemetryDistribution
-	}{
-		{
-			name:     "cloud",
-			provider: checkerLicenseProvider{entitlements: []string{license.CloudEntitlement}},
-			want:     clienttypes.ProductTelemetryDistributionCloud,
-		},
-		{
-			name:     "enterprise",
-			provider: checkerLicenseProvider{entitlements: []string{license.EnterpriseEntitlement}},
-			want:     clienttypes.ProductTelemetryDistributionEnterprise,
-		},
-		{
-			name:     "registered",
-			provider: checkerLicenseProvider{entitlements: []string{license.CommunityEntitlement}},
-			want:     clienttypes.ProductTelemetryDistributionRegistered,
-		},
-		{
-			name: "enterprise takes precedence",
-			provider: checkerLicenseProvider{entitlements: []string{
-				license.CommunityEntitlement,
-				license.EnterpriseEntitlement,
-			}},
-			want: clienttypes.ProductTelemetryDistributionEnterprise,
-		},
-		{
-			name: "cloud takes precedence",
-			provider: checkerLicenseProvider{entitlements: []string{
-				license.CommunityEntitlement,
-				license.EnterpriseEntitlement,
-				license.CloudEntitlement,
-			}},
-			want: clienttypes.ProductTelemetryDistributionCloud,
-		},
-		{
-			name:     "unregistered",
-			provider: checkerLicenseProvider{},
-			want:     clienttypes.ProductTelemetryDistributionUnregistered,
-		},
-		{
-			name:     "license error",
-			provider: checkerLicenseProvider{err: errors.New("refresh failed")},
-			want:     clienttypes.ProductTelemetryDistributionUnregistered,
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			requests := make(chan *http.Request, 2)
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-				requests <- request.Clone(request.Context())
-				_, _ = w.Write([]byte(`{"upgradeAvailable":false,"latestVersion":""}`))
-			}))
-			defer server.Close()
-
-			ctx, cancel := context.WithCancel(t.Context())
-			checker := testVersionChecker(test.provider, server.URL)
-			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
-				t.Fatalf("start() error = %v", err)
-			}
-			request := waitForRequest(t, requests)
-			if got := request.URL.Query().Get("distribution"); got != string(test.want) {
-				t.Fatalf("distribution = %q, want %q", got, test.want)
-			}
-			cancel()
-			waitForDone(t, checker.done)
-		})
-	}
 }
 
 func TestVersionCheckerResponseFailuresDoNotChangeStatusOrStopSchedule(t *testing.T) {
@@ -331,7 +249,7 @@ func TestVersionCheckerResponseFailuresDoNotChangeStatusOrStopSchedule(t *testin
 			defer server.Close()
 
 			ctx, cancel := context.WithCancel(t.Context())
-			checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
+			checker := testVersionChecker(server.URL)
 			if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
 				t.Fatalf("start() error = %v", err)
 			}
@@ -360,7 +278,7 @@ func TestVersionCheckerRequestTimeoutDoesNotStopSchedule(t *testing.T) {
 	defer server.Close()
 
 	ctx, cancel := context.WithCancel(t.Context())
-	checker := testVersionChecker(checkerLicenseProvider{}, server.URL)
+	checker := testVersionChecker(server.URL)
 	checker.requestTimeout = 20 * time.Millisecond
 	if err := checker.start(ctx, &checkerPropertyClient{value: "installation"}, false, false); err != nil {
 		t.Fatalf("start() error = %v", err)
