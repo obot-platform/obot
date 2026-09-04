@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
 	import type { MCPAllowedSecretBindingTarget, MCPCatalogEntryFieldManifest } from '$lib/services';
-	import { hasSecretBinding } from '$lib/services/user/mcp';
+	import { hasSecretBinding, isCatalogStaticField } from '$lib/services/user/mcp';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import CustomConfigurationFieldset from './CustomConfigurationFieldset.svelte';
@@ -41,13 +41,35 @@
 	// original indices so bind:value still points at the right config slot.
 	const indexedConfig = $derived((config ?? []).map((item, i) => ({ item, index: i })));
 	const canBindSecrets = $derived(secretBindingTargets !== undefined);
-	const userConfig = $derived(
+	const visibleConfig = $derived(
 		urlTemplateVariables
 			? indexedConfig
 			: canBindSecrets
 				? indexedConfig
 				: indexedConfig.filter(({ item }) => !hasSecretBinding(item))
 	);
+	const userConfig = $derived(
+		readonly && !urlTemplateVariables
+			? visibleConfig.filter(({ item }) => !isCatalogStaticField(item))
+			: visibleConfig
+	);
+	const staticConfig = $derived(
+		readonly && !urlTemplateVariables
+			? visibleConfig.filter(({ item }) => isCatalogStaticField(item))
+			: []
+	);
+	const configurationSections = $derived([
+		{
+			kind: 'user' as const,
+			title: urlTemplateVariables
+				? 'URL Template Variables'
+				: readonly && serverUserType === 'singleUser'
+					? 'User Supplied Configuration'
+					: 'Configuration',
+			items: userConfig
+		},
+		{ kind: 'static' as const, title: 'Static Configuration', items: staticConfig }
+	]);
 	const secretBoundEnvs = $derived(
 		urlTemplateVariables || canBindSecrets
 			? []
@@ -61,139 +83,138 @@
 	const inputClass = 'text-input-filled bg-base-100 w-full shadow-none';
 </script>
 
-<!-- Environment Variables / Files Section -->
-{#if !readonly || (readonly && userConfig.length > 0)}
-	<div
-		class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
-		id={CATALOG_SERVER_FIELD_IDS.configuration}
-	>
-		<h4 class="text-sm font-semibold">
-			{urlTemplateVariables
-				? 'URL Template Variables'
-				: serverUserType === 'singleUser'
-					? 'User Supplied Configuration'
-					: 'Configuration'}
-		</h4>
-		{#if urlTemplateVariables}
-			<p class="text-muted-content text-xs font-light">
-				Define the ${'{VARIABLE}'} placeholders in the URL template. Users provide a value for each variable
-				during setup.
-			</p>
-		{/if}
+<!-- Environment Variables / Files Sections -->
+{#each configurationSections as section (section.kind)}
+	{#if (!readonly && section.kind === 'user') || section.items.length > 0}
+		<div
+			class="dark:bg-base-200 dark:border-base-400 bg-base-100 flex flex-col gap-4 rounded-lg border border-transparent p-4 shadow-sm"
+			id={section.kind === 'user'
+				? CATALOG_SERVER_FIELD_IDS.configuration
+				: `${CATALOG_SERVER_FIELD_IDS.configuration}-static`}
+		>
+			<h4 class="text-sm font-semibold">{section.title}</h4>
+			{#if urlTemplateVariables}
+				<p class="text-muted-content text-xs font-light">
+					Define the ${'{VARIABLE}'} placeholders in the URL template. Users provide a value for each
+					variable during setup.
+				</p>
+			{/if}
 
-		{#each userConfig as { item, index: i } (i)}
-			{#if overrideEnvField?.includes(item.key) && overrideEnvTemplate}
-				{@render overrideEnvTemplate({ config: config![i], index: i })}
-			{:else}
-				<div
-					class="dark:border-base-400 bg-base-200 dark:bg-base-300 flex w-full items-start gap-4 rounded-lg border border-transparent p-4"
-				>
-					<div class="flex w-full flex-col gap-4">
-						{#if !urlTemplateVariables}
-							<div class="flex w-full flex-col gap-1">
-								<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
-								<Select
-									class="dark:border-base-400 bg-base-100 border border-transparent"
-									classes={{
-										root: 'flex grow'
-									}}
-									options={[
-										{ label: 'Environment Variable', id: 'environment_variable_type' },
-										{ label: 'File', id: 'file_type' }
-									]}
-									disabled={readonly || isPrebuiltEntry}
-									selected={config![i].file ? 'file_type' : 'environment_variable_type'}
-									onSelect={(option) => {
-										if (option.id === 'file_type') {
-											config![i].file = true;
-										} else {
-											config![i].file = false;
-										}
-									}}
-									id={`env-type-${i}`}
-								/>
-							</div>
+			{#each section.items as { item, index: i } (i)}
+				{#if overrideEnvField?.includes(item.key) && overrideEnvTemplate}
+					{@render overrideEnvTemplate({ config: config![i], index: i })}
+				{:else}
+					<div
+						class="dark:border-base-400 bg-base-200 dark:bg-base-300 flex w-full items-start gap-4 rounded-lg border border-transparent p-4"
+					>
+						<div class="flex w-full flex-col gap-4">
+							{#if !urlTemplateVariables}
+								<div class="flex w-full flex-col gap-1">
+									<label for={`env-type-${i}`} class="text-sm font-light">Type</label>
+									<Select
+										class="dark:border-base-400 bg-base-100 border border-transparent"
+										classes={{
+											root: 'flex grow'
+										}}
+										options={[
+											{ label: 'Environment Variable', id: 'environment_variable_type' },
+											{ label: 'File', id: 'file_type' }
+										]}
+										disabled={readonly || isPrebuiltEntry}
+										selected={config![i].file ? 'file_type' : 'environment_variable_type'}
+										onSelect={(option) => {
+											if (option.id === 'file_type') {
+												config![i].file = true;
+											} else {
+												config![i].file = false;
+											}
+										}}
+										id={`env-type-${i}`}
+									/>
+								</div>
 
-							<p class="text-muted-content text-xs font-light">
-								{#if config![i].file}
-									The value {serverUserType === 'singleUser' ? 'the user supplies' : 'you provide'} will
-									be written to a file. An environment variable will be created using the name you specify
-									in the Key field and its value will be the path to that file. This environment variable
-									will be set inside your deployment and you can reference it in the arguments section
-									above using the syntax ${'{KEY_NAME}'}.
-								{:else}
-									{serverUserType === 'singleUser'
-										? 'The value the user supplies'
-										: 'The value you provide'} will be set as an environment variable using the name you
-									specify in the Key field. This environment variable will be set inside your deployment
-									and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
-								{/if}
-							</p>
+								<p class="text-muted-content text-xs font-light">
+									{#if config![i].file}
+										The value {serverUserType === 'singleUser'
+											? 'the user supplies'
+											: 'you provide'} will be written to a file. An environment variable will be created
+										using the name you specify in the Key field and its value will be the path to that
+										file. This environment variable will be set inside your deployment and you can reference
+										it in the arguments section above using the syntax ${'{KEY_NAME}'}.
+									{:else}
+										{serverUserType === 'singleUser'
+											? 'The value the user supplies'
+											: 'The value you provide'} will be set as an environment variable using the name
+										you specify in the Key field. This environment variable will be set inside your deployment
+										and you can reference it in the arguments section above using the syntax ${'{KEY_NAME}'}.
+									{/if}
+								</p>
+							{/if}
+
+							<CustomConfigurationFieldset
+								id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
+								bind:data={config![i]}
+								{serverUserType}
+								{readonly}
+								{isPrebuiltEntry}
+								{secretBindingTargets}
+								classes={{
+									input: inputClass
+								}}
+								{showRequired}
+								{showInvalid}
+								urlTemplateVariable={urlTemplateVariables}
+							/>
+						</div>
+						{#if !readonly && !isPrebuiltEntry}
+							<IconButton
+								class="mt-6"
+								id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
+								variant="danger"
+								onclick={() => {
+									config!.splice(i, 1);
+								}}
+								disabled={isPrebuiltEntry}
+							>
+								<Trash2 class="size-4" />
+							</IconButton>
 						{/if}
-
-						<CustomConfigurationFieldset
-							id={`${CATALOG_SERVER_FIELD_IDS.env}-${i}`}
-							bind:data={config![i]}
-							{serverUserType}
-							{readonly}
-							{isPrebuiltEntry}
-							{secretBindingTargets}
-							classes={{
-								input: inputClass
-							}}
-							{showRequired}
-							{showInvalid}
-							urlTemplateVariable={urlTemplateVariables}
-						/>
 					</div>
-					{#if !readonly && !isPrebuiltEntry}
-						<IconButton
-							class="mt-6"
-							id={`${CATALOG_SERVER_FIELD_IDS.removeConfigurationBtn}-${i}`}
-							variant="danger"
-							onclick={() => {
-								config!.splice(i, 1);
-							}}
-							disabled={isPrebuiltEntry}
-						>
-							<Trash2 class="size-4" />
-						</IconButton>
-					{/if}
+				{/if}
+			{/each}
+
+			{#if section.kind === 'user' && !readonly && !isPrebuiltEntry}
+				<div class="flex justify-end">
+					<button
+						id={CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}
+						class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
+						type="button"
+						onclick={() => {
+							if (config) {
+								config.push({
+									key: '',
+									description: '',
+									name: '',
+									value: '',
+									required: urlTemplateVariables,
+									sensitive: false,
+									file: false
+								});
+							}
+						}}
+					>
+						<Plus class="size-4" />
+						{urlTemplateVariables
+							? 'URL Variable'
+							: serverUserType === 'singleUser'
+								? 'User Configuration'
+								: 'Configuration'}
+					</button>
 				</div>
 			{/if}
-		{/each}
-
-		{#if !readonly && !isPrebuiltEntry}
-			<div class="flex justify-end">
-				<button
-					id={CATALOG_SERVER_FIELD_IDS.addConfigurationBtn}
-					class="btn btn-secondary btn-sm flex items-center gap-1 text-xs"
-					type="button"
-					onclick={() => {
-						if (config) {
-							config.push({
-								key: '',
-								description: '',
-								name: '',
-								value: '',
-								required: urlTemplateVariables,
-								sensitive: false,
-								file: false
-							});
-						}
-					}}
-				>
-					<Plus class="size-4" />
-					{urlTemplateVariables
-						? 'URL Variable'
-						: serverUserType === 'singleUser'
-							? 'User Configuration'
-							: 'Configuration'}
-				</button>
-			</div>
-		{/if}
-	</div>
-{/if}
+		</div>
+	{/if}
+{/each}
 
 <!-- Secret-bound Configuration Section -->
 {#if allSecretBound.length > 0}

@@ -21,6 +21,7 @@
 		hasEditableConfiguration,
 		getMCPDisplayName,
 		hasSecretBinding,
+		isCatalogStaticField,
 		isDeprecatedMCPServer,
 		supportsMCPBackendDetails
 	} from '$lib/services/user/mcp';
@@ -257,13 +258,13 @@
 			envs: item.manifest?.env?.map((env) => ({
 				...env,
 				value: '',
-				isStatic: env.value !== '',
+				isStatic: isCatalogStaticField(env),
 				secretBindingReadonly: hasSecretBinding(env)
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',
-				isStatic: header.value !== '',
+				isStatic: isCatalogStaticField(header),
 				secretBindingReadonly: hasSecretBinding(header)
 			})),
 			...(item.manifest?.remoteConfig?.hostname
@@ -388,7 +389,7 @@
 								...(e as unknown as Record<string, unknown>),
 								key: e.key,
 								value: '',
-								isStatic: e.value !== ''
+								isStatic: isCatalogStaticField(e)
 							})),
 					headers: isMultiUser
 						? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -401,7 +402,7 @@
 								...(h as unknown as Record<string, unknown>),
 								key: h.key,
 								value: '',
-								isStatic: h.value !== ''
+								isStatic: isCatalogStaticField(h)
 							}))
 				};
 			}
