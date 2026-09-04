@@ -14,6 +14,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1276,6 +1277,20 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 	return fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
 		WithStatusSubresource(&v1.MCPServer{}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			server := obj.(*v1.MCPServer)
+			if server.Spec.CompositeName == "" {
+				return nil
+			}
+			return []string{server.Spec.CompositeName}
+		}).
+		WithIndex(&v1.MCPServerInstance{}, "spec.compositeName", func(obj kclient.Object) []string {
+			instance := obj.(*v1.MCPServerInstance)
+			if instance.Spec.CompositeName == "" {
+				return nil
+			}
+			return []string{instance.Spec.CompositeName}
+		}).
 		WithIndex(&v1.MCPNetworkPolicy{}, "spec.mcpServerName", func(obj kclient.Object) []string {
 			policy := obj.(*v1.MCPNetworkPolicy)
 			if policy.Spec.MCPServerName == "" {
@@ -1285,6 +1300,57 @@ func newFakeClient(t *testing.T, objects ...kclient.Object) kclient.WithWatch {
 		}).
 		WithObjects(objects...).
 		Build()
+}
+
+func TestEnsureCompositeComponentsHashesPersistedManifest(t *testing.T) {
+	gatewayClient := newTestGatewayClient(t)
+	manifest := types.MCPServerManifest{
+		Runtime: types.RuntimeComposite,
+		CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{{
+			CatalogEntryID: "component-entry",
+			Manifest: types.MCPServerManifest{
+				Runtime:   types.RuntimeNPX,
+				NPXConfig: &types.NPXRuntimeConfig{Package: "example"},
+				Env:       []types.MCPEnv{{Key: "TOKEN", Value: "secret-token", Sensitive: true}},
+			},
+		}}},
+	}
+	staticSecrets := mcp.ExtractStaticServerConfiguration(&manifest, nil, false)
+	server := newMCPServer("composite-server")
+	server.Spec.UserID = "user-1"
+	server.Spec.Manifest = manifest
+	persistedManifestHash := utils.Digest(server.Spec.Manifest)
+	require.NoError(t, mcp.StoreStaticCredentialSecrets(
+		t.Context(), gatewayClient, "user-1-composite-server", server.Name, staticSecrets,
+	))
+
+	client := newFakeClient(t, server)
+	req := router.Request{
+		Client:    client,
+		Ctx:       t.Context(),
+		Object:    server,
+		Namespace: server.Namespace,
+		Name:      server.Name,
+	}
+	require.NoError(t, (&Handler{gatewayClient: gatewayClient}).EnsureCompositeComponents(req, &router.ResponseWrapper{}))
+
+	var updated v1.MCPServer
+	require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
+	assert.Equal(t, persistedManifestHash, updated.Status.ObservedCompositeManifestHash)
+	assert.Equal(t, utils.Digest(updated.Spec.Manifest), updated.Status.ObservedCompositeManifestHash)
+
+	var children v1.MCPServerList
+	require.NoError(t, client.List(t.Context(), &children, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.compositeName": server.Name,
+	}))
+	require.Len(t, children.Items, 1)
+	child := children.Items[0]
+	require.Len(t, child.Spec.Manifest.Env, 1)
+	assert.Empty(t, child.Spec.Manifest.Env[0].Value)
+	assert.True(t, child.Spec.Manifest.Env[0].ValueConfigured)
+	childSecrets, err := mcp.StaticCredentialSecrets(t.Context(), gatewayClient, "user-1-"+child.Name, child.Name)
+	require.NoError(t, err)
+	assert.Equal(t, "secret-token", childSecrets["TOKEN"])
 }
 
 func newMCPServer(name string) *v1.MCPServer {
