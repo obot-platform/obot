@@ -25,6 +25,13 @@ describe('Product Analytics settings view', () => {
 				)
 			)
 			.toBeVisible();
+		await expect
+			.element(
+				page.getByText(
+					/software update checks are separate and may send the installation ID and current version/i
+				)
+			)
+			.toBeVisible();
 	});
 
 	it('prefers fresh route data over stale shared state and synchronizes the store', async () => {

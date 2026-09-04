@@ -104,7 +104,8 @@
 		</fieldset>
 
 		<p class="text-xs font-light text-muted-content">
-			This setting does not affect the independent software update check. See the
+			Software update checks are separate and may send the installation ID and current version even
+			when product analytics is disabled. See the
 			<a
 				class="text-link"
 				href="https://docs.obot.ai/configuration/product-analytics"

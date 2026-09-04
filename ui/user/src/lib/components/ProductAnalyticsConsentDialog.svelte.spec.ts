@@ -45,6 +45,17 @@ describe('ProductAnalyticsConsentDialog', () => {
 			.toBeVisible();
 	});
 
+	it('discloses that software update checks are separate', async () => {
+		await renderDialog();
+		await expect
+			.element(
+				page.getByText(
+					/software update checks are separate and may send the installation ID and current version/i
+				)
+			)
+			.toBeVisible();
+	});
+
 	it.each([
 		['auditor', [Group.AUDITOR]],
 		['power user', [Group.POWERUSER]],

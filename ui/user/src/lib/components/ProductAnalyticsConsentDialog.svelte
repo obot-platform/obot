@@ -83,6 +83,10 @@
 			details, authentication-provider settings beyond its type, or audit-log content as part of
 			product analytics.
 		</p>
+		<p>
+			Software update checks are separate and may send the installation ID and current version even
+			when product analytics is disabled.
+		</p>
 		<p>You can change this choice later in Platform under Product Analytics.</p>
 		<a
 			class="text-link w-fit"
