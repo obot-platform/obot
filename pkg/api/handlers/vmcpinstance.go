@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -74,6 +75,14 @@ func (*VMCPInstanceHandler) Create(req api.Context) error {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
 
+	if !authz.UserCanReadVMCP(req.User, &vmcp) {
+		return types.NewErrForbidden("access denied to VMCP %q", manifest.VMCPID)
+	}
+
+	if err := authz.ValidateVMCPToolSelection(req.User, &vmcp, manifest.EnabledTools); err != nil {
+		return err
+	}
+
 	var existing v1.VMCPInstanceList
 	if err := req.List(&existing, kclient.MatchingFields{
 		"spec.userID":          req.User.GetUID(),
@@ -118,6 +127,25 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 	}
 	if manifest.VMCPID != instance.Spec.Manifest.VMCPID {
 		return types.NewErrBadRequest("vmcpID cannot be changed")
+	}
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, manifest.VMCPID); err != nil {
+		return err
+	}
+	selectionUser := req.User
+	if instance.Spec.UserID != req.User.GetUID() && len(manifest.EnabledTools) > 0 {
+		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		}
+		owner, err := req.GatewayClient.UserInfoByID(req.Context(), uint(id))
+		if err != nil {
+			return err
+		}
+		selectionUser = owner
+	}
+	if err := authz.ValidateVMCPToolSelection(selectionUser, &vmcp, manifest.EnabledTools); err != nil {
+		return err
 	}
 	instance.Spec.Manifest = manifest
 	if err := req.Update(&instance); err != nil {

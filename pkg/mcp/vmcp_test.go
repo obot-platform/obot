@@ -21,6 +21,87 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestRestrictComponentTools(t *testing.T) {
+	renamed := types.ToolOverride{
+		Name:                "find",
+		OverrideName:        "search",
+		OverrideDescription: "Search documents",
+		Enabled:             true,
+	}
+	for _, tt := range []struct {
+		name        string
+		component   ComponentServer
+		allowed     []types.VMCPToolReference
+		componentID string
+		want        []types.ToolOverride
+		disabled    bool
+	}{
+		{
+			name:        "component wildcard preserves enabled and disabled overrides",
+			component:   ComponentServer{Tools: []types.ToolOverride{renamed, {Name: "delete", Enabled: false}}},
+			componentID: "docs",
+			allowed:     []types.VMCPToolReference{{ComponentID: "docs", Name: "*"}},
+			want:        []types.ToolOverride{renamed, {Name: "delete", Enabled: false}},
+		},
+		{
+			name:        "component wildcard without overrides stays unrestricted",
+			componentID: "docs",
+			allowed:     []types.VMCPToolReference{{ComponentID: "docs", Name: "*"}},
+		},
+		{
+			name:        "wildcard on another component grants nothing",
+			componentID: "docs",
+			allowed:     []types.VMCPToolReference{{ComponentID: "other", Name: "*"}},
+			disabled:    true,
+		},
+		{
+			name:      "all preserves overrides",
+			component: ComponentServer{Tools: []types.ToolOverride{renamed}},
+			want:      []types.ToolOverride{renamed},
+		},
+		{
+			name:     "empty grant disables tools",
+			allowed:  []types.VMCPToolReference{},
+			disabled: true,
+		},
+		{
+			name:        "grants original name despite prefix and rename",
+			component:   ComponentServer{ToolPrefix: "docs", Tools: []types.ToolOverride{renamed, {Name: "delete", Enabled: false}}},
+			componentID: "docs-component",
+			allowed:     []types.VMCPToolReference{{ComponentID: "docs-component", Name: "find"}, {ComponentID: "docs-component", Name: "delete"}},
+			want:        []types.ToolOverride{renamed},
+		},
+		{
+			name:        "same named tool on another component does not grant access",
+			component:   ComponentServer{Tools: []types.ToolOverride{renamed}},
+			componentID: "docs-component",
+			allowed:     []types.VMCPToolReference{{ComponentID: "other-component", Name: "find"}},
+			disabled:    true,
+		},
+		{
+			name:        "creates override for granted upstream tool",
+			componentID: "docs-component",
+			allowed:     []types.VMCPToolReference{{ComponentID: "docs-component", Name: "find"}},
+			want:        []types.ToolOverride{{Name: "find", Enabled: true}},
+		},
+		{
+			name:        "wrong component has no grant",
+			componentID: "docs-component",
+			allowed:     []types.VMCPToolReference{{ComponentID: "files-component", Name: "find"}},
+			disabled:    true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := restrictComponentTools(&tt.component, tt.allowed, tt.componentID); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(tt.component.Tools, tt.want) || tt.component.DisableTools != tt.disabled {
+				t.Fatalf("got tools %#v, disabled %v; want %#v, disabled %v", tt.component.Tools, tt.component.DisableTools, tt.want, tt.disabled)
+			}
+		})
+	}
+}
+
 func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	const (
 		vmcpID = "vmcp1shared"
@@ -36,7 +117,18 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		},
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName: "Shared VMCP",
+				DisplayName:     "Shared VMCP",
+				ForceSingleUser: true,
+				Profiles: []types.VMCPProfile{
+					{
+						Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
+						AllowedTools: types.VMCPToolSet{"search-component": []string{"find"}},
+					},
+					{
+						Subjects:     []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+						AllowedTools: types.VMCPToolSet{"files-component": []string{"read"}},
+					},
+				},
 				Components: []types.VMCPComponent{
 					{
 						ID:   "search-component",
@@ -81,7 +173,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID:       vmcpID,
-				EnabledTools: []string{"find_documents"},
+				EnabledTools: types.VMCPToolSet{"search-component": []string{"find", "not_granted"}},
 			},
 			UserID: userID,
 		},
@@ -225,6 +317,9 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if searchMMMCP == nil || filesMMMCP == nil {
 		t.Fatalf("MMMCP config components = %#v, want search and files", mmmcpConfig.Servers)
 	}
+	if searchMMMCP.DisableTools || !filesMMMCP.DisableTools {
+		t.Fatal("only the search component should expose tools")
+	}
 	if searchMMMCP.Prefix != "search" || searchMMMCP.URL != wantSearchURL {
 		t.Fatalf("MMMCP search component = %#v, want prefix and URL", *searchMMMCP)
 	}
@@ -324,7 +419,8 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 		},
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName: "Not Ready VMCP",
+				DisplayName:     "Not Ready VMCP",
+				ForceSingleUser: true,
 				Components: []types.VMCPComponent{
 					{
 						ID:   "first-component",
@@ -434,6 +530,9 @@ func vmcpComponentServer(name, instanceID, userID, componentID, displayName, url
 func newVMCPTestStorage(objects ...client.Object) storage.Client {
 	return &vmcpInitialEventsStorage{Client: fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj client.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.VMCPID}
+		}).
 		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj client.Object) []string {
 			return []string{obj.(*v1.VMCPInstance).Spec.UserID}
 		}).
@@ -505,3 +604,29 @@ func (s *vmcpInitialEventsStorage) Watch(ctx context.Context, list client.Object
 }
 
 const vmcpTestListenPort = 18080
+
+func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
+	vmcp := &v1.VMCP{Name: "vmcp1multi", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "one", Name: "one"}},
+	}}}
+	shared := vmcpComponentServer("ms1shared", "", "", "one", "one", "https://example.com/mcp")
+	shared.Spec.VMCPID = vmcp.Name
+	stale := vmcpComponentServer("ms1stale", "vmcpi1stale", "1", "one", "wrong", "https://wrong.example.com")
+	storage := newVMCPTestStorage(vmcp, shared, stale)
+	manager := &SessionManager{storageClient: storage}
+	for _, userID := range []string{"1", "2"} {
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, userID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(cfg.Components) != 1 || cfg.Components[0].Name != shared.Name {
+			t.Fatalf("user %s: wrong shared components: %#v", userID, cfg.Components)
+		}
+		if cfg.MCPServerName != vmcp.Name {
+			t.Fatalf("wrong aggregate identity: %s", cfg.MCPServerName)
+		}
+		if cfg.AuditLogMetadata["mcpID"] != vmcp.Name || cfg.AuditLogMetadata["userID"] != userID {
+			t.Fatalf("wrong shared vMCP audit attribution: %#v", cfg.AuditLogMetadata)
+		}
+	}
+}

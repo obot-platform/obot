@@ -12,11 +12,13 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	storageServices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -190,7 +192,8 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 		ObjectMeta: objectMetaForVMCPActionTest(vmcpID),
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName: "Test vMCP",
+				ForceSingleUser: true,
+				DisplayName:     "Test vMCP",
 				Components: []types.VMCPComponent{{
 					ID:                      componentID,
 					Name:                    "component-a",
@@ -362,4 +365,41 @@ func (c *vmcpActionInitialEventsClient) Watch(ctx context.Context, list kclient.
 
 func objectMetaForVMCPActionTest(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace}
+}
+
+func TestSharedVMCPServerUsesOneScopeAndPerUserHeaders(t *testing.T) {
+	vmcp, first, server, _ := vmcpActionObjects("vmcp1shared", "1", "one", false)
+	vmcp.Spec.Manifest.ForceSingleUser = false
+	header := types.MCPHeader{Key: "TOKEN", Name: "X-Token", Required: true}
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{Headers: []types.MCPHeader{header}}
+	vmcp.Spec.Manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyUserAllowed}}
+	server.Spec.VMCPInstanceID = ""
+	server.Spec.VMCPID = vmcp.Name
+	server.Spec.Manifest.RemoteConfig.Headers = []types.MCPHeader{header}
+	second := first.DeepCopy()
+	second.Name = "vmcpi1second"
+	second.Spec.UserID = "2"
+	manager, storage, credentials := newVMCPActionSessionManager(t, vmcp, first, second, server)
+	for _, instance := range []*v1.VMCPInstance{first, second} {
+		require.NoError(t, credentials.UpsertCredential(t.Context(), gatewaytypes.Credential{
+			Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+			Name:    vmcpconfig.ConfigurationCredentialName(),
+			Secrets: map[string]string{vmcpconfig.ConfigurationKey("one", "TOKEN"): "token-" + instance.Spec.UserID},
+		}))
+	}
+	var previousScope string
+	for _, userID := range []string{"1", "2", "1"} {
+		id, resolved, cfg, err := manager.ServerForActionWithConnectID(t.Context(), server.Name, userID)
+		require.NoError(t, err)
+		require.Equal(t, server.Name, id)
+		require.Equal(t, server.Name, resolved.Name)
+		require.Contains(t, cfg.Headers, "TOKEN=token-"+userID)
+		if previousScope != "" {
+			require.Equal(t, previousScope, cfg.Scope)
+		}
+		previousScope = cfg.Scope
+	}
+	var legacyInstances v1.MCPServerInstanceList
+	require.NoError(t, storage.List(t.Context(), &legacyInstances))
+	require.Empty(t, legacyInstances.Items)
 }

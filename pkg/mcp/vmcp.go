@@ -2,14 +2,19 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"slices"
-
 	"github.com/obot-platform/obot/apiclient/types"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/obot-platform/obot/pkg/wait"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
+	"maps"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"slices"
+	"strconv"
 )
 
 // ServerConfigForVMCP resolves the component servers for a VMCP instance into
@@ -68,6 +73,10 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 
 	// Collect the servers via a map here, but return them in the same order as the components in the manifest.
 	serversByComponent := make(map[string]v1.MCPServer, len(expectedComponents))
+	serverSelector := kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name}
+	if vmcpaccess.IsMultiUser(vmcp.Spec.Manifest) {
+		serverSelector = kclient.MatchingFields{"spec.vmcpID": vmcp.Name}
+	}
 	if len(expectedComponents) > 0 {
 		if err := wait.ForList(ctx, sm.storageClient, &v1.MCPServer{}, vmcp.Namespace, func(server *v1.MCPServer) (bool, error) {
 			if _, ok := expectedComponents[server.Spec.VMCPComponentID]; !ok {
@@ -78,7 +87,7 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 			return len(expectedComponents) == 0, nil
 		}, wait.ListOption{
 			ListOptions: []kclient.ListOption{
-				kclient.MatchingFields{"spec.vmcpInstanceID": instance.Name},
+				serverSelector,
 			},
 		}); err != nil {
 			return ServerConfig{}, fmt.Errorf("wait for MCPServers for VMCP %q: %w", vmcpID, err)
@@ -97,6 +106,34 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 		})
 	}
 
+	// Resolve current group membership for group profiles, including action paths
+	// that have only the resource owner's ID rather than an authenticated request.
+	var user kuser.Info = &kuser.DefaultInfo{UID: userID}
+	needsGroups := false
+	for _, profile := range vmcp.Spec.Manifest.Profiles {
+		for _, subject := range profile.Subjects {
+			needsGroups = needsGroups || subject.Type == types.SubjectTypeGroup
+		}
+	}
+	if needsGroups {
+		id, err := strconv.ParseUint(userID, 10, 64)
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("invalid VMCP user ID: %w", err)
+		}
+		user, err = sm.gatewayClient.UserInfoByID(ctx, uint(id))
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("resolve VMCP user groups: %w", err)
+		}
+	}
+	allowedTools := vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID != userID {
+		allowedTools = []types.VMCPToolReference{}
+	}
+	for i := range components {
+		if err := restrictComponentTools(&components[i], allowedTools, vmcp.Spec.Manifest.Components[i].ID); err != nil {
+			return ServerConfig{}, err
+		}
+	}
 	return ServerConfig{
 		Runtime:              types.RuntimeVMCP,
 		MCPServerName:        vmcpID,
@@ -111,4 +148,75 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 			"userID":               userID,
 		},
 	}, nil
+}
+
+// Match stable component identities and original tool names. An empty
+// intersection must disable tools explicitly: no overrides means unrestricted.
+func restrictComponentTools(component *ComponentServer, allowed []types.VMCPToolReference, componentID string) error {
+	if allowed == nil || component.DisableTools || slices.Contains(allowed, types.VMCPToolReference{ComponentID: componentID, Name: "*"}) {
+		return nil
+	}
+	var tools []types.ToolOverride
+	if len(component.Tools) > 0 {
+		for _, tool := range component.Tools {
+			if tool.Enabled && slices.Contains(allowed, types.VMCPToolReference{ComponentID: componentID, Name: tool.Name}) {
+				tools = append(tools, tool)
+			}
+		}
+	} else {
+		for _, ref := range allowed {
+			if ref.ComponentID == componentID {
+				tools = append(tools, types.ToolOverride{Name: ref.Name, Enabled: true})
+			}
+		}
+	}
+	component.Tools = tools
+	component.DisableTools = len(tools) == 0
+	return nil
+}
+
+// Shared servers persist fixed values only. User headers are resolved for this
+// request, never copied into the shared server's credential.
+func (sm *SessionManager) sharedVMCPConfiguration(ctx context.Context, server v1.MCPServer, userID string, fixed map[string]string) (map[string]string, error) {
+	var vmcp v1.VMCP
+	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: server.Namespace, Name: server.Spec.VMCPID}, &vmcp); err != nil {
+		return nil, err
+	}
+	if !vmcpaccess.IsMultiUser(vmcp.Spec.Manifest) {
+		return nil, fmt.Errorf("VMCP %q is no longer multi-user", vmcp.Name)
+	}
+	var instances v1.VMCPInstanceList
+	if err := sm.storageClient.List(ctx, &instances, kclient.InNamespace(server.Namespace), kclient.MatchingFields{
+		"spec.userID":          userID,
+		"spec.manifest.vmcpID": vmcp.Name,
+	}); err != nil {
+		return nil, err
+	}
+	if len(instances.Items) != 1 {
+		return nil, fmt.Errorf("expected one VMCP instance for user %q", userID)
+	}
+	credential, err := sm.gatewayClient.RevealCredential(ctx, []string{vmcpaccess.InstanceConfigurationCredentialContext(instances.Items[0].Name)}, vmcpaccess.ConfigurationCredentialName())
+	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+		return nil, err
+	}
+	values := maps.Clone(fixed)
+	if values == nil {
+		values = map[string]string{}
+	}
+	for _, component := range vmcp.Spec.Manifest.Components {
+		if component.ID != server.Spec.VMCPComponentID {
+			continue
+		}
+		for _, policy := range component.Configuration {
+			if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
+				continue
+			}
+			// Ignore any stale shared value left over from a previous fixed policy.
+			delete(values, policy.Key)
+			if value, ok := credential.Secrets[vmcpaccess.ConfigurationKey(component.ID, policy.Key)]; ok {
+				values[policy.Key] = value
+			}
+		}
+	}
+	return values, nil
 }

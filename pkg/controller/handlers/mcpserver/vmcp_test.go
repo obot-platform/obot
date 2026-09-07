@@ -200,3 +200,58 @@ func TestSyncVMCPConfigurationSkipsMatchingHashes(t *testing.T) {
 		t.Fatalf("expected no MCPServer credential to be written, got %v", err)
 	}
 }
+
+func TestSyncVMCPSharedConfiguration(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	component := types.VMCPComponent{
+		ID: "one",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			RemoteConfig: &types.RemoteCatalogConfig{Headers: []types.MCPHeader{{Key: "HEADER"}}},
+		}},
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "STATIC", Policy: types.VMCPConfigurationPolicyFixed},
+			{Key: "HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		},
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{
+		StaticConfigurationHash: "new-hash",
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+	}}
+	server := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: component.ID}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1old", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
+	stale := &v1.MCPServer{Name: "ms1old", Namespace: "default", Spec: v1.MCPServerSpec{VMCPInstanceID: instance.Name, UserID: "1", VMCPComponentID: component.ID}}
+	storage := fake.NewClientBuilder().WithScheme(scheme).WithStatusSubresource(&v1.MCPServer{}).WithObjects(vmcp, server, instance, stale).Build()
+	gatewayClient := newTestGatewayClient(t)
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "STATIC"): "fixed", vmcpconfig.ConfigurationKey(component.ID, "HEADER"): "wrong"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	handler := &Handler{gatewayClient: gatewayClient}
+	for _, obj := range []*v1.MCPServer{server, stale} {
+		if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(obj), obj); err != nil {
+			t.Fatal(err)
+		}
+		if err := handler.SyncVMCPConfiguration(router.Request{Ctx: t.Context(), Client: storage, Object: obj}, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{server.Spec.UserID + "-" + server.Name}, server.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(credential.Secrets) != 1 || credential.Secrets["STATIC"] != "fixed" {
+		t.Fatalf("shared credential = %#v", credential.Secrets)
+	}
+	if server.Status.VMCPStaticConfigurationHash != "new-hash" || server.Status.VMCPUserConfigurationHash != "" {
+		t.Fatal("wrong shared configuration hashes")
+	}
+	if _, err := gatewayClient.RevealCredential(t.Context(), []string{"1-" + stale.Name}, stale.Name); !errors.As(err, &client.CredentialNotFoundError{}) {
+		t.Fatalf("obsolete instance credential was written: %v", err)
+	}
+}

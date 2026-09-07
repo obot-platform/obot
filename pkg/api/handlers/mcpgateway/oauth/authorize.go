@@ -550,12 +550,12 @@ func (h *handler) oauthCallback(req api.Context) error {
 		return nil
 	}
 
-	if server.Spec.CompositeName != "" || server.Spec.VMCPInstanceID != "" {
+	if server.Spec.CompositeName != "" || server.Spec.VMCPInstanceID != "" || server.Spec.VMCPID != "" {
 		// MCP server is a component of an aggregate.
 		// Redirect to OAuth completion page; the checkCompositeAuth handler will redirect back
 		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the aggregate server's
 		// component servers are completed.
-		slog.Info("MCP OAuth callback completed for aggregate component server, awaiting aggregate finalization", "authRequest", oauthAppAuthRequest.Name, "mcpServer", server.Name, "composite", server.Spec.CompositeName, "vmcpInstance", server.Spec.VMCPInstanceID)
+		slog.Info("MCP OAuth callback completed for aggregate component server, awaiting aggregate finalization", "authRequest", oauthAppAuthRequest.Name, "mcpServer", server.Name, "composite", server.Spec.CompositeName, "vmcpInstance", server.Spec.VMCPInstanceID, "vmcp", server.Spec.VMCPID)
 		http.Redirect(req.ResponseWriter, req.Request, "/auth/oauth/complete", http.StatusFound)
 		return nil
 	}

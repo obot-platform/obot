@@ -454,6 +454,8 @@ func ValidateRemoteMCPURL(ctx context.Context, rawURL string, config RemoteMCPUR
 func serverID(server ServerConfig) string {
 	// The user ID is not part of the server ID.
 	server.UserID = ""
+	// Audit attribution belongs to the client session, not the shared deployment.
+	server.AuditLogMetadata = nil
 	// Neither are the passthrough header values since they are per-user.
 	server.PassthroughHeaderValues = nil
 	// The Webhooks are handled dynamically and are not part of the server ID.
@@ -477,7 +479,7 @@ func serverID(server ServerConfig) string {
 }
 
 func clientID(server ServerConfig, clientScope string) string {
-	return serverID(server) + utils.Digest(server.PassthroughHeaderValues) + clientScope
+	return serverID(server) + utils.Digest(server.PassthroughHeaderValues) + utils.Digest(server.UserID) + clientScope
 }
 
 // GenerateToolPreviews creates a temporary MCP server from a catalog entry, lists its tools,

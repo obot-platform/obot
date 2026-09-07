@@ -76,6 +76,45 @@ func TestOAuthHandlerForClientUsesConfiguredClientIDMetadataDocument(t *testing.
 	}
 }
 
+func TestServerIDSharesDeploymentButNotUserSession(t *testing.T) {
+	first := ServerConfig{
+		Runtime:       "containerized",
+		MCPServerName: "ms1shared",
+		Scope:         "ms1shared-vmcp1shared",
+		UserID:        "1",
+		AuditLogMetadata: map[string]string{
+			"mcpID":  "ms1shared",
+			"userID": "1",
+		},
+	}
+	second := first
+	second.UserID = "2"
+	second.AuditLogMetadata = map[string]string{
+		"mcpID":  "ms1shared",
+		"userID": "2",
+	}
+	if serverID(first) != serverID(second) {
+		t.Fatal("audit attribution must not change the shared deployment")
+	}
+	if clientID(first, "default") == clientID(second, "default") {
+		t.Fatal("different users must retain separate authenticated client sessions")
+	}
+	if first.AuditLogMetadata["userID"] != "1" || second.AuditLogMetadata["userID"] != "2" {
+		t.Fatal("computing IDs must not modify audit metadata")
+	}
+	second.UserID = first.UserID
+	if clientID(first, "default") != clientID(second, "default") {
+		t.Fatal("audit metadata alone must not change the client session")
+	}
+	if clientID(first, "default") == clientID(first, oauthCheckClientScope) {
+		t.Fatal("OAuth checks must retain separate client sessions")
+	}
+	second.Scope = "ms1dedicated-vmcpi1second"
+	if serverID(first) == serverID(second) {
+		t.Fatal("instance-scoped servers must retain separate deployments")
+	}
+}
+
 func TestServerIDIgnoresDynamicFileData(t *testing.T) {
 	serverA := ServerConfig{
 		Runtime:       "containerized",

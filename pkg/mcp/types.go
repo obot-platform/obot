@@ -86,11 +86,12 @@ type File struct {
 }
 
 type ComponentServer struct {
-	Name        string               `json:"name"`
-	DisplayName string               `json:"displayName"`
-	URL         string               `json:"url"`
-	Tools       []types.ToolOverride `json:"tools"`
-	ToolPrefix  string               `json:"toolPrefix"`
+	DisableTools bool                 `json:"disableTools,omitempty"`
+	Name         string               `json:"name"`
+	DisplayName  string               `json:"displayName"`
+	URL          string               `json:"url"`
+	Tools        []types.ToolOverride `json:"tools"`
+	ToolPrefix   string               `json:"toolPrefix"`
 }
 
 func (s ServerConfig) IsAgentServer() bool {
@@ -410,14 +411,14 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		Runtime:                mcpServer.Spec.Manifest.Runtime,
 		Audiences:              audiences,
 		PassthroughHeaderNames: passthroughHeaderNames,
-		ComponentMCPServer:     mcpServer.Spec.CompositeName != "",
+		ComponentMCPServer:     mcpServer.Spec.VMCPComponentID != "",
 		AgentName:              mcpServer.Spec.NanobotAgentID,
 		StartupTimeout:         startupTimeout,
 		Resources:              resources,
 	}
 
-	if mcpServer.Spec.CompositeName == "" {
-		// Don't set these for component MCP servers. Audit logging is handled at the composite level for these.
+	if !serverConfig.ComponentMCPServer {
+		// Component requests are audited at the vMCP level.
 		serverConfig.AuditLogMetadata = map[string]string{
 			"mcpID":                     mcpServer.Name,
 			"mcpServerCatalogEntryName": mcpServer.Spec.MCPServerCatalogEntryName,

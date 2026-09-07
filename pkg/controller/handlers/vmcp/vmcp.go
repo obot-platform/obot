@@ -1,0 +1,71 @@
+package vmcp
+
+import (
+	"fmt"
+	"slices"
+
+	"github.com/obot-platform/nah/pkg/name"
+	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+// EnsureMCPServers owns the single set of servers used by a multi-user VMCP.
+func EnsureMCPServers(req router.Request, _ router.Response) error {
+	vmcp := req.Object.(*v1.VMCP)
+	var existing v1.MCPServerList
+	if err := req.List(&existing, &kclient.ListOptions{Namespace: vmcp.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.vmcpID", vmcp.Name)}); err != nil {
+		return err
+	}
+	if !vmcpconfig.IsMultiUser(vmcp.Spec.Manifest) {
+		for i := range existing.Items {
+			if err := req.Client.Delete(req.Ctx, &existing.Items[i]); kclient.IgnoreNotFound(err) != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	// Validate every component before creating any server.
+	servers := make([]v1.MCPServer, 0, len(vmcp.Spec.Manifest.Components))
+	for _, component := range vmcp.Spec.Manifest.Components {
+		if component.ID == "" {
+			return fmt.Errorf("component ID is required")
+		}
+		manifest, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true)
+		if err != nil {
+			return err
+		}
+		servers = append(servers, v1.MCPServer{
+			Name:      name.SafeConcatName(system.MCPServerPrefix+vmcp.Name, component.ID),
+			Namespace: vmcp.Namespace,
+			Spec: v1.MCPServerSpec{
+				Manifest:         manifest,
+				UnsupportedTools: slices.Clone(component.CatalogEntry.UnsupportedTools),
+				UserID:           vmcp.Spec.UserID,
+				VMCPID:           vmcp.Name,
+				VMCPComponentID:  component.ID,
+			},
+		})
+	}
+	for i := range servers {
+		server := &servers[i]
+		var current v1.MCPServer
+		if err := req.Get(&current, server.Namespace, server.Name); err == nil {
+			if current.Spec.VMCPID != vmcp.Name || current.Spec.VMCPInstanceID != "" || current.Spec.VMCPComponentID != server.Spec.VMCPComponentID {
+				return fmt.Errorf("MCPServer %q already exists with different VMCP ownership", server.Name)
+			}
+			continue
+		} else if !apierrors.IsNotFound(err) {
+			return err
+		}
+		if err := req.Client.Create(req.Ctx, server); err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
+		}
+	}
+	return nil
+}

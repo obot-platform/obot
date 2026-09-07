@@ -37,6 +37,68 @@ func (s *vmcpTestStorage) Create(ctx context.Context, obj kclient.Object, opts .
 	return s.WithWatch.Create(ctx, obj, opts...)
 }
 
+func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		update  bool
+		current bool
+		desired bool
+	}{
+		{
+			name:    "create with override",
+			desired: true,
+		},
+		{
+			name:    "enable override",
+			update:  true,
+			desired: true,
+		},
+		{
+			name:    "disable override",
+			update:  true,
+			current: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			storage := newVMCPTestStorage()
+			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{
+				UserID:   "1",
+				Manifest: types.VMCPManifest{ForceSingleUser: tc.current},
+			}}
+			if tc.update {
+				if err := storage.Create(t.Context(), vmcp); err != nil {
+					t.Fatal(err)
+				}
+			}
+			body, err := json.Marshal(types.VMCPManifest{ForceSingleUser: tc.desired})
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body))
+			request.SetPathValue("vmcp_id", vmcp.Name)
+			ctx := api.Context{Request: request, Storage: storage, User: &user.DefaultInfo{UID: "1", Groups: []string{types.GroupPowerUserPlus}}}
+			if tc.update {
+				err = NewVMCPHandler().Update(ctx)
+			} else {
+				err = NewVMCPHandler().Create(ctx)
+			}
+			if err == nil || !strings.Contains(err.Error(), "only administrators") {
+				t.Fatalf("expected authorization denial before any configuration writes, got %v", err)
+			}
+			var list v1.VMCPList
+			if err := storage.List(t.Context(), &list); err != nil {
+				t.Fatal(err)
+			}
+			if !tc.update && len(list.Items) != 0 {
+				t.Fatal("rejected create persisted a VMCP")
+			}
+			if tc.update && (len(list.Items) != 1 || list.Items[0].Spec.Manifest.ForceSingleUser != tc.current) {
+				t.Fatal("rejected update changed the override")
+			}
+		})
+	}
+}
+
 func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	storage := newVMCPTestStorage()
 	gatewayClient := newHandlerTestGateway(t)
@@ -178,6 +240,50 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	}
 }
 
+func TestVMCPInstanceSelectionValidation(t *testing.T) {
+	for _, method := range []string{http.MethodPost, http.MethodPut} {
+		for _, selection := range []types.VMCPToolSet{nil, {}, {"everything": []string{"echo"}}, {"everything": []string{"forbidden"}}} {
+			t.Run(fmt.Sprintf("%s/%v", method, selection), func(t *testing.T) {
+				vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+					Components: []types.VMCPComponent{{ID: "everything", Name: "everything", AllowedTools: []string{"echo"}}},
+					Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, AllowedTools: types.VMCPToolSet{"everything": []string{"echo"}}}},
+				}}}
+				instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{
+					UserID:   "1",
+					Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+				}}
+				storage := newVMCPTestStorage(vmcp)
+				if method == http.MethodPut {
+					if err := storage.Create(t.Context(), instance); err != nil {
+						t.Fatal(err)
+					}
+				}
+				body, err := json.Marshal(types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: selection})
+				if err != nil {
+					t.Fatal(err)
+				}
+				req := httptest.NewRequest(method, "/api/vmcp-instances", bytes.NewReader(body))
+				req.SetPathValue("vmcp_instance_id", instance.Name)
+				ctx := api.Context{
+					ResponseWriter: httptest.NewRecorder(),
+					Request:        req,
+					Storage:        storage,
+					User:           &user.DefaultInfo{UID: "1", Extra: map[string][]string{"auth_provider_groups": {"team"}}},
+				}
+				if method == http.MethodPost {
+					err = NewVMCPInstanceHandler().Create(ctx)
+				} else {
+					err = NewVMCPInstanceHandler().Update(ctx)
+				}
+				rejected := len(selection["everything"]) > 0 && selection["everything"][0] == "forbidden"
+				if (err != nil) != rejected {
+					t.Fatalf("selection %v: error = %v", selection, err)
+				}
+			})
+		}
+	}
+}
+
 func TestVMCPInstanceCreateIsIdempotentPerUserAndVMCP(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp-shared",
@@ -186,12 +292,12 @@ func TestVMCPInstanceCreateIsIdempotentPerUserAndVMCP(t *testing.T) {
 			Name:          "default",
 			Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
 			AllowAllTools: true,
-		}}}},
+		}}, Components: []types.VMCPComponent{{ID: "component", Name: "component"}}}},
 	}
 	storage := newVMCPTestStorage(vmcp)
 	handler := NewVMCPInstanceHandler()
 	u := &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}
-	manifest := types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: []string{"tool-a"}}
+	manifest := types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"component": []string{"tool-a"}}}
 
 	first := callVMCPInstanceCreate(t, storage, handler, manifest, u)
 	second := callVMCPInstanceCreate(t, storage, handler, manifest, u)

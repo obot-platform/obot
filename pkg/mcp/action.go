@@ -137,7 +137,7 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
 
-		if !server.Spec.IsSingleUser() {
+		if !server.Spec.IsSingleUser() && server.Spec.VMCPID == "" {
 			var instances v1.MCPServerInstanceList
 			if err := sm.storageClient.List(ctx, &instances,
 				kclient.InNamespace(system.DefaultNamespace),
@@ -348,7 +348,10 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		credCtxs []string
 		scope    string
 	)
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.VMCPID != "" {
+		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+		scope = server.Spec.VMCPID
+	} else if server.Spec.MCPCatalogID != "" {
 		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
 		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
@@ -364,6 +367,12 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 	cred, err := sm.gatewayClient.RevealCredential(ctx, credCtxs, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
+	}
+	if server.Spec.VMCPID != "" {
+		cred.Secrets, err = sm.sharedVMCPConfiguration(ctx, server, userID, cred.Secrets)
+		if err != nil {
+			return ServerConfig{}, nil, err
+		}
 	}
 
 	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, sm.secretBindingAllowedLabel)

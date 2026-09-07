@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -224,12 +223,6 @@ func (h *Handler) Proxy(req api.Context) error {
 			for _, component := range serverConfig.Components {
 				authorizedMCPIDs = append(authorizedMCPIDs, component.Name)
 			}
-			userGroups := append([]string(nil), req.User.GetGroups()...)
-			for _, group := range []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated} {
-				if !slices.Contains(userGroups, group) {
-					userGroups = append(userGroups, group)
-				}
-			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
 			_, token, err = h.tokenService.NewToken(req.Context(), persistent.TokenContext{
@@ -239,7 +232,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				UserID:           req.User.GetUID(),
 				UserName:         req.User.GetName(),
 				UserEmail:        cmp.Or(req.User.GetExtra()["email"]...),
-				UserGroups:       userGroups,
+				UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
 				MCPID:            serverConfig.MCPServerName,
 				AuthorizedMCPIDs: authorizedMCPIDs,
 			})

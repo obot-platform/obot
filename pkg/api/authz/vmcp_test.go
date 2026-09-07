@@ -15,6 +15,96 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestEmptyVMCPIsReadableButNotConnectable(t *testing.T) {
+	u := &user.DefaultInfo{UID: "owner"}
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1empty",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID:   u.UID,
+			Manifest: types.VMCPManifest{DisplayName: "Empty draft"},
+		},
+	}
+	vmcp.Spec.Manifest.Default()
+	if err := vmcp.Spec.Manifest.Validate(); err != nil {
+		t.Fatalf("empty draft should be valid: %v", err)
+	}
+	if !UserCanReadVMCP(u, vmcp) || !UserCanManageVMCP(u, vmcp) {
+		t.Fatal("owner must be able to read and edit the empty draft")
+	}
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp).Build()
+	if allowed, err := CheckMCPIDAccess(t.Context(), storage, nil, u, vmcp.Name); err != nil || allowed {
+		t.Fatalf("empty draft connection: allowed=%v, err=%v", allowed, err)
+	}
+	vmcp.Spec.Manifest.Components = []types.VMCPComponent{{ID: "component"}}
+	if !UserCanConnectVMCP(u, vmcp) {
+		t.Fatal("owner should connect after adding a component")
+	}
+}
+
+func TestCheckVMCPForceSingleUser(t *testing.T) {
+	for _, role := range []types.Role{types.RoleBasic, types.RolePowerUserPlus, types.RoleAdmin, types.RoleOwner} {
+		for _, current := range []bool{false, true} {
+			for _, desired := range []bool{false, true} {
+				u := &user.DefaultInfo{Groups: role.Groups()}
+				err := CheckVMCPForceSingleUser(u, current, desired)
+				allowed := current == desired || role == types.RoleAdmin || role == types.RoleOwner
+				if (err == nil) != allowed {
+					t.Fatalf("role=%v current=%v desired=%v: %v", role, current, desired, err)
+				}
+			}
+		}
+	}
+}
+
+func TestValidateComponentWildcardSelection(t *testing.T) {
+	u := &user.DefaultInfo{UID: "1"}
+	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{
+			{ID: "gmail", ToolOverrides: []types.ToolOverride{{Name: "read", Enabled: true}, {Name: "delete", Enabled: false}}},
+			{ID: "everything"},
+		},
+		Profiles: []types.VMCPProfile{{
+			Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+			AllowedTools: types.VMCPToolSet{"gmail": {"*"}, "everything": {"echo"}},
+		}},
+	}}}
+	for _, tt := range []struct {
+		name      string
+		selection types.VMCPToolSet
+		valid     bool
+	}{
+		{
+			name:      "concrete subset of wildcard",
+			selection: types.VMCPToolSet{"gmail": {"read"}},
+			valid:     true,
+		},
+		{
+			name:      "wildcard subset of wildcard",
+			selection: types.VMCPToolSet{"gmail": {"*"}},
+			valid:     true,
+		},
+		{
+			name:      "disabled tool rejected",
+			selection: types.VMCPToolSet{"gmail": {"delete"}},
+		},
+		{
+			name:      "wildcard cannot widen explicit grant",
+			selection: types.VMCPToolSet{"everything": {"*"}},
+		},
+		{
+			name:      "wildcard cannot cross components",
+			selection: types.VMCPToolSet{"everything": {"read"}},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateVMCPToolSelection(u, vmcp, tt.selection); (err == nil) != tt.valid {
+				t.Fatalf("validation error = %v, valid = %v", err, tt.valid)
+			}
+		})
+	}
+}
+
 func TestVMCPAuthorization(t *testing.T) {
 	shared := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp-shared"),

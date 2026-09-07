@@ -217,6 +217,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 	}
 
 	groups := tokenContext.UserGroups
+	extra["obot_groups"] = slices.Clone(groups)
 
 	// Look up auth provider group memberships from the gateway DB
 	if userID, err := strconv.ParseUint(tokenContext.UserID, 10, 64); err == nil {
@@ -233,7 +234,7 @@ func (t *TokenService) AuthenticateRequest(req *http.Request) (*authenticator.Re
 				} else if effectiveRole, err := t.gatewayClient.ResolveUserEffectiveRole(req.Context(), gatewayUser, authGroupIDs); err != nil {
 					slog.Warn("failed to resolve effective role for user", "userID", tokenContext.UserID, "error", err)
 				} else {
-					groups = effectiveRole.Groups()
+					extra["obot_groups"] = effectiveRole.RoleGroups()
 				}
 			}
 		}

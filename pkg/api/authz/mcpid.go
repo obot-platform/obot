@@ -73,6 +73,13 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
+		if mcpServer.Spec.VMCPID != "" {
+			var vmcp v1.VMCP
+			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPID), &vmcp); err != nil {
+				return false, err
+			}
+			return UserCanConnectVMCP(user, &vmcp), nil
+		}
 		if mcpServer.Spec.IsCatalogServer() {
 			return acrHelper.UserHasAccessToMCPServerInCatalog(user, mcpID, mcpServer.Spec.MCPCatalogID)
 		} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
@@ -140,6 +147,7 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 		}
 
 		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
+			mcpServer.Spec.VMCPID != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.VMCPID) ||
 			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) ||
 			mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
 	default:

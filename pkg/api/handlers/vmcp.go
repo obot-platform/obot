@@ -49,6 +49,9 @@ func (*VMCPHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 	manifest.Default()
+	if err := authz.CheckVMCPForceSingleUser(req.User, false, manifest.ForceSingleUser); err != nil {
+		return err
+	}
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
@@ -56,7 +59,6 @@ func (*VMCPHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest)
-
 	var userID string
 	if !req.UserIsAdmin() {
 		userID = req.User.GetUID()
@@ -91,12 +93,15 @@ func (*VMCPHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 	manifest.DefaultConfigurationPolicies()
-	if err := manifest.Validate(); err != nil {
-		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
-	}
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+	if err := authz.CheckVMCPForceSingleUser(req.User, vmcp.Spec.Manifest.ForceSingleUser, manifest.ForceSingleUser); err != nil {
+		return err
+	}
+	if err := manifest.Validate(); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)

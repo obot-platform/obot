@@ -7,12 +7,79 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/api"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
 	sservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
+	"k8s.io/apiserver/pkg/authentication/user"
+	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestOAuthCallbackComponentCompletion(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"access_token":"token","token_type":"Bearer"}`))
+	}))
+	defer tokenServer.Close()
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, client.Close()) })
+	state := newStateManager(client)
+	h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: state}}
+	for _, tt := range []struct {
+		name string
+		spec v1.MCPServerSpec
+		want string
+	}{
+		{
+			name: "shared vmcp",
+			spec: v1.MCPServerSpec{VMCPID: "vmcp1shared"},
+			want: "/auth/oauth/complete",
+		},
+		{
+			name: "dedicated vmcp",
+			spec: v1.MCPServerSpec{VMCPInstanceID: "vmcpi1dedicated"},
+			want: "/auth/oauth/complete",
+		},
+		{
+			name: "legacy composite",
+			spec: v1.MCPServerSpec{CompositeName: "ms1composite"},
+			want: "/auth/oauth/complete",
+		},
+		{
+			name: "standalone",
+			want: oauthCompletionURL("oar1request"),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &v1.MCPServer{Name: "ms1component", Namespace: system.DefaultNamespace, Spec: tt.spec}
+			authRequest := &v1.OAuthAuthRequest{Name: "oar1request", Namespace: system.DefaultNamespace, Spec: v1.OAuthAuthRequestSpec{RedirectURI: "https://client.example/callback"}}
+			storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(server, authRequest).Build()
+			require.NoError(t, state.store(t.Context(), "1", server.Name, "https://upstream.example/mcp", authRequest.Name, "state", "verifier", "", &oauth2.Config{
+				ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
+			}))
+			response := httptest.NewRecorder()
+			require.NoError(t, h.oauthCallback(api.Context{
+				Request:        httptest.NewRequest(http.MethodGet, "/oauth/mcp/callback?state=state&code=code", nil),
+				ResponseWriter: response,
+				Storage:        storage,
+				User:           &user.DefaultInfo{UID: "1", Name: "user", Groups: []string{types.GroupAuthenticated}},
+			}))
+			require.Equal(t, http.StatusFound, response.Code)
+			require.Equal(t, tt.want, response.Header().Get("Location"))
+		})
+	}
+}
 
 func TestStateManagerExchangesAuthorizationCodeWithStoredResource(t *testing.T) {
 	const (

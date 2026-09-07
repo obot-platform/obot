@@ -33,6 +33,7 @@ import (
 	"github.com/obot-platform/obot/pkg/controller/handlers/scheduledauditlogexport"
 	"github.com/obot-platform/obot/pkg/controller/handlers/skillrepository"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
+	vmcphandler "github.com/obot-platform/obot/pkg/controller/handlers/vmcp"
 	"github.com/obot-platform/obot/pkg/controller/handlers/vmcpinstance"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -196,7 +197,9 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
 
 	// VMCPInstance
+	root.Type(&v1.VMCP{}).HandlerFunc(vmcphandler.EnsureMCPServers)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.ReconcileToolSelection)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncUserConfigurationHash)
 	root.Type(&v1.VMCPInstance{}).FinalizeFunc(v1.VMCPInstanceFinalizer, credentialCleanup.RemoveVMCPInstanceConfigurationCredentials)

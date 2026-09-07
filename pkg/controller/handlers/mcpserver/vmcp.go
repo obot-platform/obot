@@ -17,26 +17,35 @@ import (
 // the backward-compatible credential consumed by its MCPServer.
 func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
-	if server.Spec.VMCPInstanceID == "" {
+	if server.Spec.VMCPInstanceID == "" && server.Spec.VMCPID == "" {
 		return nil
 	}
 
 	var instance v1.VMCPInstance
-	if err := req.Get(&instance, server.Namespace, server.Spec.VMCPInstanceID); apierrors.IsNotFound(err) {
-		// The cleanup handler removes servers whose VMCP instance no longer exists.
-		return nil
-	} else if err != nil {
-		return fmt.Errorf("get VMCP instance %q: %w", server.Spec.VMCPInstanceID, err)
-	}
-	if server.Spec.UserID != instance.Spec.UserID {
-		return fmt.Errorf("MCPServer %q user %q does not match VMCP instance user %q", server.Name, server.Spec.UserID, instance.Spec.UserID)
+	vmcpID := server.Spec.VMCPID
+	if server.Spec.VMCPInstanceID != "" {
+		if err := req.Get(&instance, server.Namespace, server.Spec.VMCPInstanceID); apierrors.IsNotFound(err) {
+			// The cleanup handler removes servers whose VMCP instance no longer exists.
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("get VMCP instance %q: %w", server.Spec.VMCPInstanceID, err)
+		}
+		if server.Spec.UserID != instance.Spec.UserID {
+			return fmt.Errorf("MCPServer %q user %q does not match VMCP instance user %q", server.Name, server.Spec.UserID, instance.Spec.UserID)
+		}
+		vmcpID = instance.Spec.Manifest.VMCPID
 	}
 
 	var vmcp v1.VMCP
-	if err := req.Get(&vmcp, server.Namespace, instance.Spec.Manifest.VMCPID); apierrors.IsNotFound(err) {
+	if err := req.Get(&vmcp, server.Namespace, vmcpID); apierrors.IsNotFound(err) {
 		return nil
 	} else if err != nil {
-		return fmt.Errorf("get VMCP %q: %w", instance.Spec.Manifest.VMCPID, err)
+		return fmt.Errorf("get VMCP %q: %w", vmcpID, err)
+	}
+	shared := vmcpconfig.IsMultiUser(vmcp.Spec.Manifest)
+	if shared != (server.Spec.VMCPInstanceID == "") {
+		// The owning controller deletes servers from the previous sharing mode.
+		return nil
 	}
 
 	if server.Status.VMCPStaticConfigurationHash == vmcp.Spec.StaticConfigurationHash &&
@@ -56,12 +65,15 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	if err != nil {
 		return fmt.Errorf("reveal static configuration for VMCP %q: %w", vmcp.Name, err)
 	}
-	userConfiguration, err := h.revealVMCPConfiguration(
-		req,
-		vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
-	)
-	if err != nil {
-		return fmt.Errorf("reveal user configuration for VMCP instance %q: %w", instance.Name, err)
+	var userConfiguration map[string]string
+	if !shared {
+		userConfiguration, err = h.revealVMCPConfiguration(
+			req,
+			vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		)
+		if err != nil {
+			return fmt.Errorf("reveal user configuration for VMCP instance %q: %w", instance.Name, err)
+		}
 	}
 
 	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{

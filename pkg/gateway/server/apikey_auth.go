@@ -189,9 +189,11 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 	}
 
 	attribution := principal.NewAPIKeyAttribution(apiKey.ID, apiKey.UserID, apiKey.Name)
+	groups := apiKey.Groups(u)
 	extra := map[string][]string{
 		"email":                   {u.Email},
 		"authorized_mcp_ids":      apiKey.MCPServerIDs,
+		"obot_groups":             u.Role.RoleGroups(),
 		principal.APIKeyIDExtra:   {fmt.Sprintf("%d", attribution.ID)},
 		principal.APIKeyNameExtra: {attribution.Name},
 	}
@@ -207,7 +209,7 @@ func (a *APIKeyAuthenticator) AuthenticateRequest(req *http.Request) (*authentic
 		User: &user.DefaultInfo{
 			Name:   u.Username,
 			UID:    fmt.Sprintf("%d", u.ID),
-			Groups: apiKey.Groups(u),
+			Groups: groups,
 			Extra:  extra,
 		},
 	}, true, nil

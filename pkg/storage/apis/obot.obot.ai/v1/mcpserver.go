@@ -59,6 +59,8 @@ type MCPServerSpec struct {
 	NanobotAgentID string `json:"nanobotAgentID,omitempty"`
 	// VMCPInstanceID is the VMCPInstance that owns this component server, if there is one.
 	VMCPInstanceID string `json:"vmcpInstanceID,omitempty"`
+	// VMCPID owns a shared component server, mutually exclusive with VMCPInstanceID.
+	VMCPID string `json:"vmcpID,omitempty"`
 	// VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.
 	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
 }
@@ -162,6 +164,8 @@ func (in *MCPServer) Get(field string) (value string) {
 		return in.Spec.CompositeName
 	case "spec.vmcpInstanceID":
 		return in.Spec.VMCPInstanceID
+	case "spec.vmcpID":
+		return in.Spec.VMCPID
 	case "spec.vmcpComponentID":
 		return in.Spec.VMCPComponentID
 	case "spec.manifest.runtime":
@@ -179,6 +183,7 @@ func (in *MCPServer) FieldNames() []string {
 		"spec.template",
 		"spec.compositeName",
 		"spec.vmcpInstanceID",
+		"spec.vmcpID",
 		"spec.vmcpComponentID",
 		"spec.manifest.runtime",
 	}
@@ -191,6 +196,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &NanobotAgent{}, Name: in.Spec.NanobotAgentID},
 		{ObjType: &VMCPInstance{}, Name: in.Spec.VMCPInstanceID},
+		{ObjType: &VMCP{}, Name: in.Spec.VMCPID},
 	}
 	if in.Spec.CompositeName == "" {
 		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
@@ -210,7 +216,7 @@ func (in *MCPServer) ValidConnectURLs(base string) []string {
 
 // IsSingleUser returns true if this is a single-user MCP server.
 func (s MCPServerSpec) IsSingleUser() bool {
-	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == ""
+	return s.MCPCatalogID == "" && s.PowerUserWorkspaceID == "" && s.VMCPID == ""
 }
 
 // IsOwnedBy returns true if the given user created this server and it is not

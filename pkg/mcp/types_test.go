@@ -13,6 +13,64 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+func TestServerToServerConfigComponentAuditLogs(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		spec      v1.MCPServerSpec
+		component bool
+	}{
+		{
+			name: "standalone",
+		},
+		{
+			name: "shared vMCP component",
+			spec: v1.MCPServerSpec{
+				VMCPID:          "vmcp1shared",
+				VMCPComponentID: "component",
+			},
+			component: true,
+		},
+		{
+			name: "dedicated vMCP component",
+			spec: v1.MCPServerSpec{
+				VMCPInstanceID:  "vmcpi1user",
+				VMCPComponentID: "component",
+			},
+			component: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := v1.MCPServer{
+				Name: "ms1server",
+				Spec: test.spec,
+			}
+			server.Spec.Manifest = types.MCPServerManifest{
+				Runtime: types.RuntimeRemote,
+				RemoteConfig: &types.RemoteRuntimeConfig{
+					URL: "https://example.com/mcp",
+				},
+			}
+			config, _, err := ServerToServerConfig(server, nil, "user", "scope", "default", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if config.ComponentMCPServer != test.component {
+				t.Fatalf("ComponentMCPServer = %v, want %v", config.ComponentMCPServer, test.component)
+			}
+			if ignored := config.AuditLogMetadata[AuditLogIgnore] == "true"; ignored != test.component {
+				t.Fatalf("audit ignore = %v, want %v", ignored, test.component)
+			}
+			if test.component {
+				if len(config.AuditLogMetadata) != 1 {
+					t.Fatalf("unexpected component audit attribution: %#v", config.AuditLogMetadata)
+				}
+			} else if config.AuditLogMetadata["mcpID"] != server.Name {
+				t.Fatalf("missing server audit attribution: %#v", config.AuditLogMetadata)
+			}
+		})
+	}
+}
+
 func TestCoreResourceRequirements(t *testing.T) {
 	t.Run("nil resources returns nil", func(t *testing.T) {
 		result, err := CoreResourceRequirements(nil)

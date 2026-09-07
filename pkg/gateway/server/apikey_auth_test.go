@@ -44,6 +44,10 @@ func TestAPIKeyAuthenticatorCarriesAuditAttribution(t *testing.T) {
 	if !ok || response == nil || response.User == nil {
 		t.Fatal("expected API key to authenticate")
 	}
+	wantObotGroups := types2.RoleBasic.RoleGroups()
+	if !slices.Equal(response.User.GetExtra()["obot_groups"], wantObotGroups) {
+		t.Fatalf("Obot groups extra = %v, want role groups %v", response.User.GetExtra()["obot_groups"], wantObotGroups)
+	}
 	attribution, ok := principal.APIKeyAttributionFromUser(response.User)
 	if !ok || attribution.ID != created.ID || attribution.Name != "CLI token" {
 		t.Fatalf("attribution = %#v, %v; want key %d named CLI token", attribution, ok, created.ID)

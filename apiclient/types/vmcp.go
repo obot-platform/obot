@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -68,10 +69,88 @@ type VMCPConfigurationPolicyType string
 // are additive. AllowAllTools means all tools enabled on the VMCP are granted;
 // otherwise only AllowedTools are granted, including an intentionally empty set.
 type VMCPProfile struct {
-	Name          string    `json:"name"`
-	Subjects      []Subject `json:"subjects"`
-	AllowAllTools bool      `json:"allowAllTools,omitempty"`
-	AllowedTools  []string  `json:"allowedTools,omitempty"`
+	Name          string      `json:"name"`
+	Subjects      []Subject   `json:"subjects"`
+	AllowAllTools bool        `json:"allowAllTools,omitempty"`
+	AllowedTools  VMCPToolSet `json:"allowedTools,omitempty"`
+}
+
+// VMCPToolSet maps component IDs to original upstream tool names.
+type VMCPToolSet map[string][]string
+
+func ToolSetFromReferences(refs []VMCPToolReference) VMCPToolSet {
+	if refs == nil {
+		return nil
+	}
+	result := VMCPToolSet{}
+	for _, ref := range refs {
+		result[ref.ComponentID] = append(result[ref.ComponentID], ref.Name)
+	}
+	return result
+}
+
+func (s VMCPToolSet) References() []VMCPToolReference {
+	if s == nil {
+		return nil
+	}
+	refs := []VMCPToolReference{}
+	for componentID, names := range s {
+		for _, name := range names {
+			refs = append(refs, VMCPToolReference{ComponentID: componentID, Name: name})
+		}
+	}
+	return refs
+}
+
+// VMCPToolReference identifies an upstream tool independently of display names,
+// prefixes, and tool-name overrides.
+type VMCPToolReference struct {
+	ComponentID string `json:"componentID"`
+	Name        string `json:"name"`
+}
+
+func (r VMCPToolReference) Validate() error {
+	if r.ComponentID == "" || r.Name == "" {
+		return fmt.Errorf("tool reference requires componentID and original tool name")
+	}
+	return nil
+}
+
+// ValidateToolReference checks component ownership and explicit component restrictions.
+// A snapshot without overrides need not contain a complete, current tool preview.
+func (m VMCPManifest) ValidateToolReference(ref VMCPToolReference) error {
+	if err := ref.Validate(); err != nil {
+		return err
+	}
+	for _, component := range m.Components {
+		if component.ID != ref.ComponentID {
+			continue
+		}
+		if ref.Name == "*" || len(component.ToolOverrides) == 0 {
+			return nil
+		}
+		for _, tool := range component.ToolOverrides {
+			if tool.Name == ref.Name && tool.Enabled {
+				return nil
+			}
+		}
+		return fmt.Errorf("tool %q is not enabled on component %q", ref.Name, ref.ComponentID)
+	}
+	return fmt.Errorf("unknown tool component %q", ref.ComponentID)
+}
+
+func (m VMCPManifest) ValidateToolSet(tools VMCPToolSet) error {
+	for componentID, names := range tools {
+		if componentID == "" || !slices.ContainsFunc(m.Components, func(component VMCPComponent) bool { return component.ID == componentID }) {
+			return fmt.Errorf("unknown tool component %q", componentID)
+		}
+		for _, name := range names {
+			if err := m.ValidateToolReference(VMCPToolReference{ComponentID: componentID, Name: name}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 type VMCPStatus struct {
@@ -102,8 +181,9 @@ type VMCPConfiguration struct {
 }
 
 type VMCPInstanceManifest struct {
-	VMCPID       string   `json:"vmcpID"`
-	EnabledTools []string `json:"enabledTools,omitempty"`
+	VMCPID string `json:"vmcpID"`
+	// Nil follows the current grant; an empty map explicitly selects no tools.
+	EnabledTools VMCPToolSet `json:"enabledTools"`
 }
 
 type VMCPInstanceStatus struct {
@@ -191,6 +271,9 @@ func (m VMCPManifest) Validate() error {
 
 	profileNames := make(map[string]struct{}, len(m.Profiles))
 	for _, profile := range m.Profiles {
+		if err := m.ValidateToolSet(profile.AllowedTools); err != nil {
+			return fmt.Errorf("profile %q: %w", profile.Name, err)
+		}
 		if profile.Name == "" {
 			return fmt.Errorf("profile name is required")
 		}
@@ -214,6 +297,11 @@ func (m VMCPManifest) Validate() error {
 func (m VMCPInstanceManifest) Validate() error {
 	if m.VMCPID == "" {
 		return fmt.Errorf("vmcpID is required")
+	}
+	for _, tool := range m.EnabledTools.References() {
+		if err := tool.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

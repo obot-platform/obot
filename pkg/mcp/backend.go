@@ -301,6 +301,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 				URL:                component.URL,
 				PassthroughHeaders: passthroughHeaders,
 				Tools:              tools,
+				DisableTools:       component.DisableTools,
 			})
 		}
 

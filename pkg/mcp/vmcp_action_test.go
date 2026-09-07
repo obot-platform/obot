@@ -7,7 +7,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
@@ -19,13 +18,12 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 	instanceID := "vmcpi1-action-instance"
 	componentID := "component"
 	vmcp := &v1.VMCP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmcpID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      vmcpID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName: "Action VMCP",
+				DisplayName:     "Action VMCP",
+				ForceSingleUser: true,
 				Components: []types.VMCPComponent{
 					{
 						ID:   componentID,
@@ -42,10 +40,8 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		},
 	}
 	instance := &v1.VMCPInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instanceID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      instanceID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID: vmcpID,
@@ -54,10 +50,8 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		},
 	}
 	componentServer := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ms1-action-component",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "ms1-action-component",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{
 				Name:    "Component",

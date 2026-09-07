@@ -8,11 +8,35 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
 func IsVMCPAdministrator(u kuser.Info) bool {
 	return slices.Contains(u.GetGroups(), types.GroupAdmin)
+}
+
+// CheckVMCPForceSingleUser permits only administrators to change the override.
+// Personal owners can still edit other fields while preserving an existing value.
+func CheckVMCPForceSingleUser(u kuser.Info, current, desired bool) error {
+	if current != desired && !IsVMCPAdministrator(u) {
+		return types.NewErrForbidden("only administrators can change forceSingleUser")
+	}
+	return nil
+}
+
+// ValidateVMCPToolSelection rejects explicit selections outside the profile union.
+func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection types.VMCPToolSet) error {
+	if err := vmcp.Spec.Manifest.ValidateToolSet(selection); err != nil {
+		return types.NewErrBadRequest("invalid tool selection: %v", err)
+	}
+	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
+	for _, tool := range selection.References() {
+		if (vmcp.Spec.UserID != "" && vmcp.Spec.UserID != u.GetUID()) || !vmcpaccess.ToolGranted(grant, tool) {
+			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
+		}
+	}
+	return nil
 }
 
 // UserCanReadVMCP applies the VMCP visibility model. A personal VMCP is only
@@ -38,35 +62,7 @@ func UserCanReadVMCPInstance(u kuser.Info, instance *v1.VMCPInstance, vmcp *v1.V
 }
 
 func userMatchesVMCPProfile(u kuser.Info, profiles []types.VMCPProfile) bool {
-	groups := make(map[string]struct{}, len(u.GetGroups()))
-	for _, group := range u.GetGroups() {
-		groups[group] = struct{}{}
-	}
-	for _, extraName := range []string{"obot_groups", "auth_provider_groups"} {
-		for _, group := range u.GetExtra()[extraName] {
-			groups[group] = struct{}{}
-		}
-	}
-
-	for _, profile := range profiles {
-		for _, subject := range profile.Subjects {
-			switch subject.Type {
-			case types.SubjectTypeSelector:
-				if subject.ID == "*" {
-					return true
-				}
-			case types.SubjectTypeUser:
-				if subject.ID == u.GetUID() {
-					return true
-				}
-			case types.SubjectTypeGroup:
-				if _, ok := groups[subject.ID]; ok {
-					return true
-				}
-			}
-		}
-	}
-	return false
+	return len(vmcpaccess.MatchingProfiles(u, profiles)) > 0
 }
 
 func (a *Authorizer) checkVMCP(req *http.Request, resources *Resources, u User) (bool, error) {

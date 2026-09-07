@@ -4,6 +4,38 @@ import (
 	"testing"
 )
 
+func TestVMCPToolSetValidation(t *testing.T) {
+	manifest := VMCPManifest{Components: []VMCPComponent{{
+		ID: "everything",
+		ToolOverrides: []ToolOverride{
+			{Name: "echo", OverrideName: "renamed", Enabled: true},
+			{Name: "disabled"},
+		},
+	}}}
+	for _, ref := range []VMCPToolReference{
+		{Name: "echo"},
+		{ComponentID: "other", Name: "echo"},
+		{ComponentID: "everything", Name: "renamed"},
+		{ComponentID: "everything", Name: "disabled"},
+	} {
+		if err := manifest.ValidateToolReference(ref); err == nil {
+			t.Fatalf("accepted invalid reference %#v", ref)
+		}
+	}
+	if err := manifest.ValidateToolReference(VMCPToolReference{ComponentID: "everything", Name: "echo"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := manifest.ValidateToolSet(VMCPToolSet{"other": {}}); err == nil {
+		t.Fatal("ValidateToolSet() accepted an empty unknown component")
+	}
+	if err := manifest.ValidateToolSet(VMCPToolSet{"everything": {"*"}}); err != nil {
+		t.Fatalf("component wildcard rejected: %v", err)
+	}
+	if err := manifest.ValidateToolSet(VMCPToolSet{"other": {"*"}}); err == nil {
+		t.Fatal("wildcard accepted for an unknown component")
+	}
+}
+
 func TestVMCPManifestDefault(t *testing.T) {
 	manifest := VMCPManifest{
 		Components: []VMCPComponent{{

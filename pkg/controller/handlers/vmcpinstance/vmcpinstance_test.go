@@ -2,6 +2,8 @@ package vmcpinstance
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/obot-platform/nah/pkg/router"
@@ -12,9 +14,96 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"k8s.io/apimachinery/pkg/runtime"
+	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestReconcileToolSelection(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, AllowedTools: types.VMCPToolSet{"everything": []string{"echo"}}}},
+	}}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		UserID:   "1",
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"everything": []string{"echo", "revoked"}}},
+	}}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
+	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) { return u, nil }}
+	req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
+	for _, want := range []types.VMCPToolSet{{"everything": []string{"echo"}}, {}, {}} {
+		if err := handler.ReconcileToolSelection(req, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, want) {
+			t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, want)
+		}
+		// Losing the group removes the last tool. Regaining it must not restore selection.
+		if len(u.Extra["obot_groups"]) > 0 {
+			u.Extra = nil
+		} else {
+			u.Extra = map[string][]string{"obot_groups": {"team"}}
+		}
+		data, err := json.Marshal(instance)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(data, instance); err != nil {
+			t.Fatal(err)
+		}
+	}
+	instance.Spec.Manifest.EnabledTools = nil
+	if err := handler.ReconcileToolSelection(req, nil); err != nil || instance.Spec.Manifest.EnabledTools != nil {
+		t.Fatalf("implicit selection changed: %v", err)
+	}
+}
+
+func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{
+			ID: "everything", Name: "everything", ToolOverrides: []types.ToolOverride{{Name: "echo", Enabled: true}},
+		}, {
+			ID: "other", Name: "other", ToolOverrides: []types.ToolOverride{{Name: "echo", Enabled: true}},
+		}},
+		Profiles: []types.VMCPProfile{{
+			Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			AllowAllTools: true,
+		}},
+	}}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		UserID: "1",
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{
+			"everything": []string{"echo"},
+			"":           []string{"echo"}, // Legacy name is ambiguous and must remain denied.
+		}},
+	}}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) {
+		return &kuser.DefaultInfo{UID: "1"}, nil
+	}}
+	if err := handler.ReconcileToolSelection(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance); err != nil {
+		t.Fatal(err)
+	}
+	want := types.VMCPToolSet{"everything": []string{"echo"}}
+	if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, want) {
+		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, want)
+	}
+}
 
 func TestSyncUserConfigurationHash(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -209,6 +298,10 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 		Object: instance,
 	}
 
+	vmcp.Spec.Manifest.ForceSingleUser = true
+	if err := client.Update(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
 	handler := New(nil)
 	if err := handler.EnsureMCPServers(req, nil); err != nil {
 		t.Fatal(err)

@@ -3,6 +3,8 @@ package persistent
 import (
 	"crypto/ed25519"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -15,6 +17,29 @@ import (
 const (
 	testServerURL = "https://obot.example.com"
 )
+
+func TestAuthenticateRequestAddsObotGroupsToExtra(t *testing.T) {
+	tokenService := newTestTokenService(t)
+	wantGroups := []string{types.GroupMCP, types.GroupAuthenticated}
+
+	_, token, err := tokenService.NewToken(t.Context(), TokenContext{
+		Audience:   testServerURL + "/mcp-connect/server-id",
+		IssuedAt:   NewTime(time.Now().Add(-time.Minute)),
+		ExpiresAt:  NewTime(time.Now().Add(time.Hour)),
+		UserID:     "non-numeric-user",
+		UserGroups: wantGroups,
+	})
+	require.NoError(t, err)
+	req := httptest.NewRequest(http.MethodGet, testServerURL, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	response, ok, err := tokenService.AuthenticateRequest(req)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.NotNil(t, response)
+	assert.Equal(t, wantGroups, response.User.GetGroups())
+	assert.Equal(t, wantGroups, response.User.GetExtra()["obot_groups"])
+}
 
 func newTestTokenService(t *testing.T) *TokenService {
 	t.Helper()
