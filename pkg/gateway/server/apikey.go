@@ -76,6 +76,16 @@ func (s *Server) createAPIKey(apiContext api.Context) error {
 			// Access is checked at authentication time
 			continue
 		}
+		if system.IsVMCPID(serverID) {
+			var vmcp v1.VMCP
+			if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverID}, &vmcp); err != nil {
+				return types2.NewErrBadRequest("MCP server %q not found", serverID)
+			}
+			if !authz.UserCanReadVMCP(apiContext.User, &vmcp) {
+				errs = append(errs, fmt.Errorf("MCP server %q not found", serverID))
+			}
+			continue
+		}
 
 		var server v1.MCPServer
 		if err := apiContext.Storage.Get(apiContext.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: serverID}, &server); err != nil {

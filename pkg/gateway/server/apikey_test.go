@@ -8,8 +8,35 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"k8s.io/apiserver/pkg/authentication/user"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestCreateAPIKeyScopedToVMCP(t *testing.T) {
+	for _, allowed := range []bool{true, false} {
+		t.Run(strconv.FormatBool(allowed), func(t *testing.T) {
+			s, gatewayClient := newTokenRequestTestServer(t)
+			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default"}
+			if allowed {
+				vmcp.Spec.Manifest.Profiles = []clienttypes.VMCPProfile{{Subjects: []clienttypes.Subject{{Type: clienttypes.SubjectTypeGroup, ID: "team"}}}}
+			}
+			ctx, recorder := newTokenRequestAPIContext(t, gatewayClient, http.MethodPost, "/api/api-keys", createAPIKeyRequest{
+				Name:         "vMCP key",
+				MCPServerIDs: []string{vmcp.Name},
+			}, &user.DefaultInfo{UID: "7", Extra: map[string][]string{"obot_groups": {"team"}}})
+			ctx.Storage = fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).Build()
+			err := s.createAPIKey(ctx)
+			if (err == nil) != allowed {
+				t.Fatalf("allowed=%v, error=%v", allowed, err)
+			}
+			if allowed && recorder.Code != http.StatusCreated {
+				t.Fatalf("status=%d", recorder.Code)
+			}
+		})
+	}
+}
 
 func TestDeleteAPIKeyEndpointRevokesAndRetainsTheKey(t *testing.T) {
 	s, gatewayClient := newTokenRequestTestServer(t)

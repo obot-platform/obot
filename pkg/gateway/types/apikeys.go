@@ -44,7 +44,7 @@ type APIKeyScopes struct {
 	CanAccessDeviceScans        bool `json:"canAccessDeviceScans" gorm:"default:false;not null"`
 	CanAccessPublishedArtifacts bool `json:"canAccessPublishedArtifacts" gorm:"default:false;not null"`
 
-	// MCPServerIDs contains Kubernetes resource names of MCPServers this key can access.
+	// MCPServerIDs contains resource names of MCPServers or VMCPs this key can access.
 	// Supports all server types: single-user, multi-user, remote, and composite.
 	// Use "*" as a wildcard to grant access to all servers the user can access.
 	// This may be empty for skills-only API keys.

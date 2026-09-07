@@ -73,9 +73,20 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		if mcpServer.Spec.VMCPID != "" {
+		vmcpID := mcpServer.Spec.VMCPID
+		if mcpServer.Spec.VMCPInstanceID != "" {
+			var instance v1.VMCPInstance
+			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPInstanceID), &instance); err != nil {
+				return false, err
+			}
+			if instance.Spec.UserID != user.GetUID() || mcpServer.Spec.UserID != user.GetUID() {
+				return false, nil
+			}
+			vmcpID = instance.Spec.Manifest.VMCPID
+		}
+		if vmcpID != "" {
 			var vmcp v1.VMCP
-			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPID), &vmcp); err != nil {
+			if err := client.Get(ctx, router.Key(mcpServer.Namespace, vmcpID), &vmcp); err != nil {
 				return false, err
 			}
 			return UserCanConnectVMCP(user, &vmcp), nil
@@ -146,10 +157,20 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 			return false, err
 		}
 
+		if mcpServer.Spec.VMCPInstanceID != "" {
+			var instance v1.VMCPInstance
+			if err := client.Get(ctx, kclient.ObjectKey{Namespace: mcpServer.Namespace, Name: mcpServer.Spec.VMCPInstanceID}, &instance); err != nil {
+				return false, err
+			}
+			return instance.Spec.UserID == userID && mcpServer.Spec.UserID == userID && slices.Contains(authorizedMCPServers, instance.Spec.Manifest.VMCPID), nil
+		}
 		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
 			mcpServer.Spec.VMCPID != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.VMCPID) ||
 			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) ||
 			mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
+	case system.IsVMCPID(mcpID):
+		// Only an explicit vMCP scope (or wildcard above) grants its endpoint.
+		return false, nil
 	default:
 		// Check for MCP servers associated with a catalog entry with this ID.
 		if err := client.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: mcpID}, &v1.MCPServerCatalogEntry{}); apierrors.IsNotFound(err) {

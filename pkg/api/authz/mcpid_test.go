@@ -16,6 +16,41 @@ import (
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func TestVMCPAPIKeyScopes(t *testing.T) {
+	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "component"}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowAllTools: true}},
+	}}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
+	shared := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name}}
+	dedicated := &v1.MCPServer{Name: "ms1dedicated", Namespace: "default", Spec: v1.MCPServerSpec{VMCPInstanceID: instance.Name, UserID: "7"}}
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp, instance, shared, dedicated).Build()
+	for _, id := range []string{vmcp.Name, shared.Name, dedicated.Name} {
+		for _, scope := range []string{vmcp.Name, "*", "vmcp1other"} {
+			u := &user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {scope}}}
+			authorizer := &Authorizer{cache: storage, uncached: storage}
+			ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(u))
+			if err != nil || ok != (scope != "vmcp1other") {
+				t.Fatalf("id=%s scope=%s: allowed=%v error=%v", id, scope, ok, err)
+			}
+		}
+	}
+	if ok, err := MCPIDIsAuthorized(t.Context(), storage, []string{vmcp.Name}, "other", dedicated.Name); err != nil || ok {
+		t.Fatalf("scope crossed instance ownership: allowed=%v error=%v", ok, err)
+	}
+	vmcp.Spec.Manifest.Profiles = nil
+	if err := storage.Update(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
+	authorizer := &Authorizer{cache: storage, uncached: storage}
+	for _, id := range []string{vmcp.Name, shared.Name, dedicated.Name} {
+		ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {vmcp.Name}}}))
+		if err != nil || ok {
+			t.Fatalf("revoked profile still authorized for %s: %v, %v", id, ok, err)
+		}
+	}
+}
+
 func TestCheckMCPIDAllowsAnonymousMCPConnect(t *testing.T) {
 	authorizer := &Authorizer{}
 	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/ms1test", nil)
