@@ -1,8 +1,42 @@
 package types
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 )
+
+func TestVMCPSnapshotOmitsToolPreviews(t *testing.T) {
+	snapshot := MCPServerCatalogEntrySnapshot{
+		Manifest: MCPServerCatalogEntryManifest{
+			Name:        "server",
+			ToolPreview: []MCPServerTool{{Name: "echo"}},
+		},
+		UnsupportedTools: []string{"disabled"},
+	}
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded MCPServerCatalogEntrySnapshot
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Manifest.ToolPreview) != 1 {
+		t.Fatal("serialization modified the source manifest")
+	}
+	if decoded.Manifest.ToolPreview != nil || decoded.Manifest.Name != "server" || !reflect.DeepEqual(decoded.UnsupportedTools, snapshot.UnsupportedTools) {
+		t.Fatalf("unexpected snapshot: %#v", decoded)
+	}
+	snapshot.Manifest.ToolPreview = nil
+	withoutPreview, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(withoutPreview) {
+		t.Fatal("tool previews changed the serialized snapshot")
+	}
+}
 
 func TestVMCPToolSetValidation(t *testing.T) {
 	manifest := VMCPManifest{Components: []VMCPComponent{{

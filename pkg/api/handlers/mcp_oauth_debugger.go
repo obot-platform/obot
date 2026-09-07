@@ -19,6 +19,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"golang.org/x/oauth2"
 )
 
@@ -293,8 +294,11 @@ func registerOAuthDebuggerClient(ctx context.Context, httpClient *http.Client, r
 }
 
 func (m *MCPHandler) lookupStaticOAuthClient(req api.Context, server v1.MCPServer) (string, string, error) {
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		credName := system.MCPOAuthCredentialName(server.Spec.MCPServerCatalogEntryName)
+	credName, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), req.Storage, server)
+	if err != nil {
+		return "", "", err
+	}
+	if credName != "" {
 		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credName}, system.StaticOAuthCredentialName)
 		if err == nil && cred.Secrets["CLIENT_ID"] != "" {
 			return cred.Secrets["CLIENT_ID"], cred.Secrets["CLIENT_SECRET"], nil

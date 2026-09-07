@@ -61,6 +61,7 @@ var (
 			"GET    /api/vmcps/{vmcp_id}/prompts",
 			"GET    /api/vmcps/{vmcp_id}/prompts/{prompt_name}",
 			"PUT    /api/vmcps/{vmcp_id}",
+			"POST   /api/vmcps/{vmcp_id}/trigger-update",
 			"DELETE /api/vmcps/{vmcp_id}",
 			"POST   /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews",
 			"POST   /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url",

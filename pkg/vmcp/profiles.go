@@ -8,6 +8,19 @@ import (
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 )
 
+// PruneRemovedComponentProfiles removes grants only for components that were
+// actually removed, leaving unrelated invalid references for validation.
+func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *types.VMCPManifest) {
+	for _, component := range previous {
+		if slices.ContainsFunc(manifest.Components, func(current types.VMCPComponent) bool { return current.ID == component.ID }) {
+			continue
+		}
+		for i := range manifest.Profiles {
+			delete(manifest.Profiles[i].AllowedTools, component.ID)
+		}
+	}
+}
+
 // MatchingProfiles uses both Obot and authentication-provider groups.
 func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPProfile {
 	groups := slices.Clone(u.GetGroups())

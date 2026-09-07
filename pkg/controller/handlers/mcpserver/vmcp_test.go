@@ -10,11 +10,41 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestVMCPOAuthCredentialStatusWithoutCatalogSource(t *testing.T) {
+	ref := system.MCPOAuthCredentialName("deleted-source")
+	vmcp := &v1.VMCP{Name: "vmcp1oauth", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "one", OAuthCredentialID: ref}},
+	}}}
+	server := &v1.MCPServer{Name: "ms1oauth", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: "one"}}
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, server).WithStatusSubresource(server).Build()
+	gw := newTestGatewayClient(t)
+	handler := &Handler{gatewayClient: gw}
+	for _, configured := range []bool{false, true, false} {
+		if configured {
+			if err := gw.UpsertCredential(t.Context(), gatewaytypes.Credential{Context: ref, Name: system.StaticOAuthCredentialName, Secrets: map[string]string{"CLIENT_ID": "client"}}); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if _, err := gw.DeleteCredential(t.Context(), ref, system.StaticOAuthCredentialName); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := handler.SyncOAuthCredentialStatus(router.Request{Ctx: t.Context(), Client: storage, Object: server}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if server.Status.OAuthCredentialConfigured != configured {
+			t.Fatalf("configured = %v, want %v", server.Status.OAuthCredentialConfigured, configured)
+		}
+	}
+}
 
 func TestSyncVMCPConfigurationCopiesComponentConfiguration(t *testing.T) {
 	scheme := runtime.NewScheme()

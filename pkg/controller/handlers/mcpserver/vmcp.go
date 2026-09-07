@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/system"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
@@ -133,4 +134,32 @@ func mcpServerConfiguration(component types.VMCPComponent, staticConfiguration, 
 		}
 	}
 	return configuration
+}
+
+func (h *Handler) syncVMCPOAuthCredentialStatus(req router.Request, server *v1.MCPServer) error {
+	ref, sourceID, err := vmcpconfig.ServerOAuthCredentialReference(req.Ctx, req.Client, *server)
+	if err != nil {
+		return err
+	}
+	var configured bool
+	if ref != "" {
+		// Watch credential configuration/rotation events on the source, but a
+		// missing source must not prevent resolving its retained credential.
+		if sourceID != "" {
+			var entry v1.MCPServerCatalogEntry
+			if err := req.Get(&entry, server.Namespace, sourceID); err != nil && !apierrors.IsNotFound(err) {
+				return err
+			}
+		}
+		_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
+		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
+			return err
+		}
+		configured = err == nil
+	}
+	if server.Status.OAuthCredentialConfigured == configured {
+		return nil
+	}
+	server.Status.OAuthCredentialConfigured = configured
+	return req.Client.Status().Update(req.Ctx, server)
 }

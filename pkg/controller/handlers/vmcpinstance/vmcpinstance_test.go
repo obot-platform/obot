@@ -3,6 +3,7 @@ package vmcpinstance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 	"testing"
 
@@ -150,8 +151,10 @@ func TestSyncUserConfigurationHash(t *testing.T) {
 		WithObjects(vmcp, instance).
 		Build()
 	userKey := vmcpconfig.ConfigurationKey("component-one", "HEADER")
+	reveals := 0
 	handler := &Handler{
 		revealCredential: func(_ context.Context, contexts []string, name string) (gatewaytypes.Credential, error) {
+			reveals++
 			if len(contexts) != 1 || contexts[0] != vmcpconfig.InstanceConfigurationCredentialContext(instance.Name) {
 				t.Fatalf("credential contexts = %#v", contexts)
 			}
@@ -183,6 +186,30 @@ func TestSyncUserConfigurationHash(t *testing.T) {
 	want := utils.Digest(map[string]string{userKey: "user-value"})
 	if updated.Status.UserConfigurationHash != want {
 		t.Fatalf("user configuration hash = %q, want %q", updated.Status.UserConfigurationHash, want)
+	}
+	req := router.Request{Ctx: t.Context(), Client: client, Object: &updated}
+	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if reveals != 1 {
+		t.Fatal("unchanged configuration was revealed again")
+	}
+	updated.Annotations = map[string]string{v1.VMCPInstanceConfigurationSyncAnnotation: "updated"}
+	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if reveals != 2 {
+		t.Fatal("configuration update did not recheck credential")
+	}
+	vmcp.Spec.Manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyFixed
+	if err := client.Update(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if reveals != 3 || updated.Status.UserConfigurationHash != utils.Digest(map[string]string{}) {
+		t.Fatal("policy update did not recompute the filtered configuration")
 	}
 }
 
@@ -233,6 +260,24 @@ func TestSyncUserConfigurationHashUsesEmptyConfigurationWhenCredentialIsMissing(
 	want := utils.Digest(map[string]string{})
 	if updated.Status.UserConfigurationHash != want {
 		t.Fatalf("user configuration hash = %q, want %q", updated.Status.UserConfigurationHash, want)
+	}
+	// Cache missing credentials too, but retry failed checks of a new version.
+	handler.revealCredential = func(context.Context, []string, string) (gatewaytypes.Credential, error) {
+		return gatewaytypes.Credential{}, errors.New("unavailable")
+	}
+	req := router.Request{Ctx: t.Context(), Client: client, Object: &updated}
+	if err := handler.SyncUserConfigurationHash(req, nil); err != nil {
+		t.Fatalf("cached missing credential was queried again: %v", err)
+	}
+	previousHash := updated.Status.ConfigurationCheckHash
+	updated.Annotations = map[string]string{v1.VMCPInstanceConfigurationSyncAnnotation: "retry"}
+	for range 2 {
+		if err := handler.SyncUserConfigurationHash(req, nil); err == nil {
+			t.Fatal("expected credential error")
+		}
+		if updated.Status.ConfigurationCheckHash != previousHash {
+			t.Fatal("failed reveal was acknowledged")
+		}
 	}
 }
 

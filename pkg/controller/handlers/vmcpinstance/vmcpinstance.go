@@ -87,6 +87,10 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 	}
 
 	configuration := map[string]string{}
+	checkHash := utils.Digest([]any{vmcp.Spec.Manifest.Components, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]})
+	if instance.Status.ConfigurationCheckHash == checkHash {
+		return nil
+	}
 	credential, err := h.revealCredential(req.Ctx,
 		[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
 		vmcpconfig.ConfigurationCredentialName(),
@@ -97,11 +101,17 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 		return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
 	}
 
-	configurationHash := utils.Digest(configuration)
-	if instance.Status.UserConfigurationHash == configurationHash {
-		return nil
+	var missing []string
+	for _, component := range vmcp.Spec.Manifest.Components {
+		missing = append(missing, vmcpconfig.MissingRequiredConfiguration(component, configuration, true)...)
 	}
+	slices.Sort(missing)
+	configured := len(missing) == 0
+	configurationHash := utils.Digest(configuration)
+	instance.Status.ConfigurationCheckHash = checkHash
 	instance.Status.UserConfigurationHash = configurationHash
+	instance.Status.Configured = configured
+	instance.Status.MissingRequiredConfiguration = missing
 	return req.Client.Status().Update(req.Ctx, instance)
 }
 
@@ -162,6 +172,17 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 			if existing.Spec.VMCPInstanceID != instance.Name || existing.Spec.VMCPComponentID != server.Spec.VMCPComponentID {
 				return fmt.Errorf("MCPServer %q already exists with different VMCP ownership", server.Name)
 			}
+			if existing.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] {
+				existing.Spec.Manifest = server.Spec.Manifest
+				existing.Spec.UnsupportedTools = server.Spec.UnsupportedTools
+				if existing.Annotations == nil {
+					existing.Annotations = map[string]string{}
+				}
+				existing.Annotations[v1.VMCPSnapshotDigestAnnotation] = server.Annotations[v1.VMCPSnapshotDigestAnnotation]
+				if err := req.Client.Update(req.Ctx, &existing); err != nil {
+					return err
+				}
+			}
 			continue
 		} else if !apierrors.IsNotFound(err) {
 			return fmt.Errorf("get MCPServer %q: %w", server.Name, err)
@@ -189,8 +210,9 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 	}
 
 	return v1.MCPServer{
-		Name:      name.SafeConcatName(system.MCPServerPrefix+instance.Name, component.ID),
-		Namespace: instance.Namespace,
+		Name:        name.SafeConcatName(system.MCPServerPrefix+instance.Name, component.ID),
+		Namespace:   instance.Namespace,
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: utils.Digest(component.CatalogEntry)},
 		Spec: v1.MCPServerSpec{
 			Manifest:         manifest,
 			UnsupportedTools: slices.Clone(component.CatalogEntry.UnsupportedTools),

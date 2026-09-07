@@ -61,5 +61,26 @@ func TestSharingTransitions(t *testing.T) {
 				t.Fatal("snapshot not copied")
 			}
 		}
+		vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Name += "-updated"
+		if err := client.Update(t.Context(), vmcp); err != nil {
+			t.Fatal(err)
+		}
+		if err := vmcphandler.EnsureMCPServers(req, nil); err != nil {
+			t.Fatal(err)
+		}
+		for _, instance := range instances {
+			if err := vmcpinstance.New(nil).EnsureMCPServers(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
+				t.Fatal(err)
+			}
+		}
+		for _, old := range servers.Items {
+			var updated v1.MCPServer
+			if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(&old), &updated); err != nil {
+				t.Fatal(err)
+			}
+			if updated.Spec.Manifest.Name != vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Name {
+				t.Fatal("existing component server did not adopt updated snapshot")
+			}
+		}
 	}
 }

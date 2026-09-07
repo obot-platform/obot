@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -33,6 +34,7 @@ type VMCPManifest struct {
 
 // VMCPComponent is a snapshot of one catalog entry and the policy applied to it.
 // Runtime resolution uses CatalogEntry rather than resolving the source live.
+// The API populates MCPCatalogID, CatalogEntry, and SourceDigest from the entry ID.
 type VMCPComponent struct {
 	// ID is the immutable, server-assigned identity used to scope component configuration.
 	ID                      string                        `json:"id,omitempty"`
@@ -53,6 +55,14 @@ type VMCPComponent struct {
 type MCPServerCatalogEntrySnapshot struct {
 	Manifest         MCPServerCatalogEntryManifest `json:"manifest"`
 	UnsupportedTools []string                      `json:"unsupportedTools,omitempty"`
+}
+
+// MarshalJSON excludes tool previews from storage, API responses, and snapshot
+// digests. Previews are fetched on demand, not part of the deployed definition.
+func (s MCPServerCatalogEntrySnapshot) MarshalJSON() ([]byte, error) {
+	type snapshot MCPServerCatalogEntrySnapshot
+	s.Manifest.ToolPreview = nil
+	return json.Marshal(snapshot(s))
 }
 
 type VMCPConfigurationPolicy struct {
@@ -242,9 +252,6 @@ func (m VMCPManifest) Validate() error {
 			return fmt.Errorf("duplicate component name %q", component.Name)
 		}
 		componentNames[component.Name] = struct{}{}
-		if component.MCPCatalogID == "" {
-			return fmt.Errorf("component %q mcpCatalogID is required", component.Name)
-		}
 		if component.MCPServerCatalogEntryID == "" {
 			return fmt.Errorf("component %q mcpServerCatalogEntryID is required", component.Name)
 		}

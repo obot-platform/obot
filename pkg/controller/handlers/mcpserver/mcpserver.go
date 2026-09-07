@@ -924,6 +924,9 @@ func (h *Handler) EnsureCompositeComponents(req router.Request, _ router.Respons
 // is responsible for syncing its own status from its parent catalog entry.
 func (h *Handler) SyncOAuthCredentialStatus(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
+	if server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" {
+		return h.syncVMCPOAuthCredentialStatus(req, server)
+	}
 
 	// Only relevant for servers created from catalog entries
 	if server.Spec.MCPServerCatalogEntryName == "" {

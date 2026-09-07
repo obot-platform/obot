@@ -133,12 +133,73 @@ func TestVMCPAuthorization(t *testing.T) {
 		groups  []string
 		allowed bool
 	}{
-		{name: "matching group reads shared", method: http.MethodGet, path: "/api/vmcps/vmcp-shared", userID: "member", groups: []string{"team-a"}, allowed: true},
-		{name: "profile does not grant shared update", method: http.MethodPut, path: "/api/vmcps/vmcp-shared", userID: "member", groups: []string{"team-a"}, allowed: false},
-		{name: "nonmatching user cannot read shared", method: http.MethodGet, path: "/api/vmcps/vmcp-shared", userID: "outsider", allowed: false},
-		{name: "owner manages personal", method: http.MethodPut, path: "/api/vmcps/vmcp-personal", userID: "owner", allowed: true},
-		{name: "personal wildcard cannot grant another user", method: http.MethodGet, path: "/api/vmcps/vmcp-personal", userID: "outsider", allowed: false},
-		{name: "administrator manages shared", method: http.MethodDelete, path: "/api/vmcps/vmcp-shared", userID: "admin", groups: []string{types.GroupAdmin}, allowed: true},
+		{
+			name:    "administrator upgrades shared",
+			method:  http.MethodPost,
+			path:    "/api/vmcps/vmcp-shared/trigger-update",
+			userID:  "admin",
+			groups:  []string{types.GroupAdmin},
+			allowed: true,
+		},
+		{
+			name:   "profile cannot upgrade shared",
+			method: http.MethodPost,
+			path:   "/api/vmcps/vmcp-shared/trigger-update",
+			userID: "member",
+			groups: []string{"team-a", types.GroupPowerUserPlus},
+		},
+		{
+			name:    "owner upgrades personal",
+			method:  http.MethodPost,
+			path:    "/api/vmcps/vmcp-personal/trigger-update",
+			userID:  "owner",
+			allowed: true,
+		},
+		{
+			name:    "matching group reads shared",
+			method:  http.MethodGet,
+			path:    "/api/vmcps/vmcp-shared",
+			userID:  "member",
+			groups:  []string{"team-a"},
+			allowed: true,
+		},
+		{
+			name:    "profile does not grant shared update",
+			method:  http.MethodPut,
+			path:    "/api/vmcps/vmcp-shared",
+			userID:  "member",
+			groups:  []string{"team-a"},
+			allowed: false,
+		},
+		{
+			name:    "nonmatching user cannot read shared",
+			method:  http.MethodGet,
+			path:    "/api/vmcps/vmcp-shared",
+			userID:  "outsider",
+			allowed: false,
+		},
+		{
+			name:    "owner manages personal",
+			method:  http.MethodPut,
+			path:    "/api/vmcps/vmcp-personal",
+			userID:  "owner",
+			allowed: true,
+		},
+		{
+			name:    "personal wildcard cannot grant another user",
+			method:  http.MethodGet,
+			path:    "/api/vmcps/vmcp-personal",
+			userID:  "outsider",
+			allowed: false,
+		},
+		{
+			name:    "administrator manages shared",
+			method:  http.MethodDelete,
+			path:    "/api/vmcps/vmcp-shared",
+			userID:  "admin",
+			groups:  []string{types.GroupAdmin},
+			allowed: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -343,13 +404,40 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 	authorizer := newVMCPTestAuthorizer(shared, allowedInstance, revokedInstance)
 
 	for _, tt := range []struct {
-		name, method, instanceID, userID string
-		allowed                          bool
+		name       string
+		method     string
+		instanceID string
+		userID     string
+		allowed    bool
 	}{
-		{name: "owner with current profile access", method: http.MethodGet, instanceID: allowedInstance.Name, userID: "allowed", allowed: true},
-		{name: "owner configures with current profile access", method: http.MethodPost, instanceID: allowedInstance.Name, userID: "allowed", allowed: true},
-		{name: "owner whose profile access was removed", method: http.MethodGet, instanceID: revokedInstance.Name, userID: "revoked", allowed: false},
-		{name: "different user", method: http.MethodGet, instanceID: allowedInstance.Name, userID: "other", allowed: false},
+		{
+			name:       "owner with current profile access",
+			method:     http.MethodGet,
+			instanceID: allowedInstance.Name,
+			userID:     "allowed",
+			allowed:    true,
+		},
+		{
+			name:       "owner configures with current profile access",
+			method:     http.MethodPost,
+			instanceID: allowedInstance.Name,
+			userID:     "allowed",
+			allowed:    true,
+		},
+		{
+			name:       "owner whose profile access was removed",
+			method:     http.MethodGet,
+			instanceID: revokedInstance.Name,
+			userID:     "revoked",
+			allowed:    false,
+		},
+		{
+			name:       "different user",
+			method:     http.MethodGet,
+			instanceID: allowedInstance.Name,
+			userID:     "other",
+			allowed:    false,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			path := "/api/vmcp-instances/" + tt.instanceID

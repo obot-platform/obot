@@ -4,10 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	sservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -20,6 +25,33 @@ type staticOAuthTokenStorage struct {
 
 type staticOAuthGlobalTokenStore struct {
 	storage mcp.TokenStorage
+}
+
+func TestStaticOAuthLookupUsesCurrentReferencedCredential(t *testing.T) {
+	services, err := sservices.New(sservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	db, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate())
+	gw := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { require.NoError(t, gw.Close()) })
+	ref := system.MCPOAuthCredentialName("source")
+	for _, secret := range []string{"first-secret", "rotated-secret"} {
+		require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
+			Context: ref,
+			Name:    system.StaticOAuthCredentialName,
+			Secrets: map[string]string{"CLIENT_ID": "client", "CLIENT_SECRET": secret},
+		}))
+		for _, handler := range []mcpOAuthHandler{
+			{gatewayClient: gw, credentialContext: ref},
+			{gatewayClient: gw, catalogEntryName: "source"},
+		} {
+			id, got, err := handler.Lookup(t.Context())
+			require.NoError(t, err)
+			require.Equal(t, "client", id)
+			require.Equal(t, secret, got)
+		}
+	}
 }
 
 func TestNewMCPOAuthHandlerFactoryConfiguresCIMD(t *testing.T) {

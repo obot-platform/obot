@@ -97,7 +97,8 @@ type MCPServerStatus struct {
 	ObservedCompositeManifestHash string `json:"observedCompositeManifestHash,omitempty"`
 	// OAuthCredentialConfigured indicates whether OAuth credentials have been configured
 	// for this server's catalog entry. Only relevant for remote servers that require static OAuth.
-	OAuthCredentialConfigured bool `json:"oauthCredentialConfigured,omitempty"`
+	OAuthCredentialConfigured bool   `json:"oauthCredentialConfigured,omitempty"`
+	OAuthCredentialCheckHash  string `json:"oauthCredentialCheckHash,omitempty"`
 	// OAuthMetadata contains discovered OAuth metadata for remote MCP servers.
 	OAuthMetadata *OAuthMetadata `json:"oauthMetadata,omitempty"`
 	// UserHasAuthenticated indicates whether the user has authenticated with the third-party OAuth provider.

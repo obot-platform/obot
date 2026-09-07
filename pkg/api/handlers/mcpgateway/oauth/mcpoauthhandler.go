@@ -14,6 +14,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"golang.org/x/oauth2"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -43,7 +44,8 @@ type mcpOAuthHandler struct {
 	urlChan            chan string
 
 	// catalogEntryName is the name of the catalog entry to fetch static OAuth credentials for.
-	catalogEntryName string
+	catalogEntryName  string
+	credentialContext string
 }
 
 func NewMCPOAuthHandlerFactory(baseURL string, sessionManager *mcp.SessionManager, client kclient.Client, gatewayClient *client.Client, globalTokenStore mcp.GlobalTokenStore, secretBindingAllowedLabel string, forceDynamicClient bool) *MCPOAuthHandlerFactory {
@@ -115,6 +117,13 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 
 	// Remote server, check for OAuth directly
 	oauthHandler := f.newMCPOAuthHandler(req.GatewayClient, userID, mcpID, mcpServerConfig.URL, oauthAppAuthRequestID, mcpServerConfig.MCPCatalogEntryName)
+	if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
+		credentialContext, _, err := vmcpconfig.ServerOAuthCredentialReference(req.Context(), f.client, mcpServer)
+		if err != nil {
+			return "", fmt.Errorf("resolve VMCP OAuth credential: %w", err)
+		}
+		oauthHandler.credentialContext = credentialContext
+	}
 	staticOAuthPending, err := f.staticOAuthPending(req.Context(), mcpServer, oauthHandler)
 	if err != nil {
 		return "", err
@@ -324,8 +333,12 @@ func (m *mcpOAuthHandler) NewState(ctx context.Context, conf *oauth2.Config, res
 
 func (m *mcpOAuthHandler) Lookup(ctx context.Context) (string, string, error) {
 	// If the server was created from a catalog entry, look up OAuth credentials by catalog entry name
-	if m.catalogEntryName != "" {
-		cred, err := m.gatewayClient.RevealCredential(ctx, []string{system.MCPOAuthCredentialName(m.catalogEntryName)}, system.StaticOAuthCredentialName)
+	credentialContext := m.credentialContext
+	if credentialContext == "" && m.catalogEntryName != "" {
+		credentialContext = system.MCPOAuthCredentialName(m.catalogEntryName)
+	}
+	if credentialContext != "" {
+		cred, err := m.gatewayClient.RevealCredential(ctx, []string{credentialContext}, system.StaticOAuthCredentialName)
 		if err == nil {
 			clientID := cred.Secrets["CLIENT_ID"]
 			clientSecret := cred.Secrets["CLIENT_SECRET"]

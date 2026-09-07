@@ -8,6 +8,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// VMCPSnapshotDigestAnnotation records the snapshot applied to a component server.
+	VMCPSnapshotDigestAnnotation = "obot.ai/vmcp-snapshot-digest"
+	// OAuthCredentialRevisionAnnotation persists after reconciliation so every consumer observes writes.
+	OAuthCredentialRevisionAnnotation = "obot.ai/oauth-credential-revision"
+)
+
 var (
 	_ fields.Fields = (*VMCP)(nil)
 )
@@ -35,11 +42,15 @@ type VMCPStatus struct {
 }
 
 type VMCPComponentStatus struct {
-	Name          string `json:"name"`
-	Ready         bool   `json:"ready,omitempty"`
-	Error         string `json:"error,omitempty"`
-	SourceMissing bool   `json:"sourceMissing,omitempty"`
-	NeedsUpdate   bool   `json:"needsUpdate,omitempty"`
+	ConfigurationCheckHash    string `json:"configurationCheckHash,omitempty"`
+	ConfigurationError        string `json:"configurationError,omitempty"`
+	OAuthCredentialCheckHash  string `json:"oauthCredentialCheckHash,omitempty"`
+	OAuthCredentialConfigured bool   `json:"oauthCredentialConfigured,omitempty"`
+	Name                      string `json:"name"`
+	Ready                     bool   `json:"ready,omitempty"`
+	Error                     string `json:"error,omitempty"`
+	SourceMissing             bool   `json:"sourceMissing,omitempty"`
+	NeedsUpdate               bool   `json:"needsUpdate,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

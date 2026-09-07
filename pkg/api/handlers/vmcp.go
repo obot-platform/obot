@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -12,12 +13,15 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-type VMCPHandler struct{}
+type VMCPHandler struct {
+	acrHelper *accesscontrolrule.Helper
+}
 
-func NewVMCPHandler() *VMCPHandler {
-	return nil
+func NewVMCPHandler(acrHelper *accesscontrolrule.Helper) *VMCPHandler {
+	return &VMCPHandler{acrHelper: acrHelper}
 }
 
 func (*VMCPHandler) List(req api.Context) error {
@@ -43,13 +47,20 @@ func (*VMCPHandler) Get(req api.Context) error {
 	return req.Write(convertVMCP(vmcp))
 }
 
-func (*VMCPHandler) Create(req api.Context) error {
+func (h *VMCPHandler) Create(req api.Context) error {
 	var manifest types.VMCPManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 	manifest.Default()
 	if err := authz.CheckVMCPForceSingleUser(req.User, false, manifest.ForceSingleUser); err != nil {
+		return err
+	}
+	var userID string
+	if !req.UserIsAdmin() {
+		userID = req.User.GetUID()
+	}
+	if err := h.loadComponentSnapshots(req, &manifest, userID, nil); err != nil {
 		return err
 	}
 	if err := manifest.Validate(); err != nil {
@@ -59,10 +70,7 @@ func (*VMCPHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest)
-	var userID string
-	if !req.UserIsAdmin() {
-		userID = req.User.GetUID()
-	}
+
 	vmcp := v1.VMCP{
 		Finalizers:   []string{v1.VMCPFinalizer},
 		GenerateName: system.VMCPPrefix,
@@ -87,7 +95,7 @@ func (*VMCPHandler) Create(req api.Context) error {
 	return req.WriteCreated(convertVMCP(vmcp))
 }
 
-func (*VMCPHandler) Update(req api.Context) error {
+func (h *VMCPHandler) Update(req api.Context) error {
 	var manifest types.VMCPManifest
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
@@ -100,10 +108,14 @@ func (*VMCPHandler) Update(req api.Context) error {
 	if err := authz.CheckVMCPForceSingleUser(req.User, vmcp.Spec.Manifest.ForceSingleUser, manifest.ForceSingleUser); err != nil {
 		return err
 	}
-	if err := manifest.Validate(); err != nil {
+	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
-	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
+	vmcpconfig.PruneRemovedComponentProfiles(vmcp.Spec.Manifest.Components, &manifest)
+	if err := h.loadComponentSnapshots(req, &manifest, vmcp.Spec.UserID, vmcp.Spec.Manifest.Components); err != nil {
+		return err
+	}
+	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest)
@@ -122,6 +134,77 @@ func (*VMCPHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to update VMCP: %w", err)
 	}
 	return req.Write(convertVMCP(vmcp))
+}
+
+// TriggerUpdate adopts current catalog snapshots in one resource update. It does
+// not change policies or credentials; ordinary edits never refresh snapshots.
+func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return err
+	}
+	if err := h.loadComponentSnapshots(req, &vmcp.Spec.Manifest, vmcp.Spec.UserID, nil); err != nil {
+		return err
+	}
+	if err := vmcp.Spec.Manifest.Validate(); err != nil {
+		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
+	}
+	for _, component := range vmcp.Spec.Manifest.Components {
+		if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
+			return types.NewErrBadRequest("invalid component %q: %v", component.Name, err)
+		}
+	}
+	return req.Update(&vmcp)
+}
+
+func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent) error {
+	for i := range manifest.Components {
+		component := &manifest.Components[i]
+		if component.MCPServerCatalogEntryID == "" {
+			return types.NewErrBadRequest("component mcpServerCatalogEntryID is required")
+		}
+		var previous *types.VMCPComponent
+		for j := range existing {
+			if existing[j].ID == component.ID && existing[j].MCPServerCatalogEntryID == component.MCPServerCatalogEntryID {
+				previous = &existing[j]
+				break
+			}
+		}
+		var entry v1.MCPServerCatalogEntry
+		err := req.Get(&entry, component.MCPServerCatalogEntryID)
+		if err != nil && !(previous != nil && apierrors.IsNotFound(err)) {
+			return fmt.Errorf("get component catalog entry %q: %w", component.MCPServerCatalogEntryID, err)
+		}
+		if err == nil {
+			if err := authz.CheckVMCPComponentAccess(req.Context(), req.User, ownerID, &entry, h.acrHelper, req.GatewayClient.UserInfoByID); err != nil {
+				return err
+			}
+		}
+		if previous != nil {
+			component.MCPCatalogID = previous.MCPCatalogID
+			component.CatalogEntry = previous.CatalogEntry
+			component.SourceDigest = previous.SourceDigest
+			component.OAuthCredentialID = previous.OAuthCredentialID
+			if component.Name == "" {
+				component.Name = previous.Name
+			}
+			continue
+		}
+		component.MCPCatalogID = entry.Spec.MCPCatalogName
+		component.CatalogEntry = types.MCPServerCatalogEntrySnapshot{
+			Manifest:         entry.Spec.Manifest,
+			UnsupportedTools: entry.Spec.UnsupportedTools,
+		}
+		component.SourceDigest = utils.Digest(component.CatalogEntry)
+		component.OAuthCredentialID = vmcpconfig.StaticOAuthCredentialReference(entry.Spec.Manifest, entry.Name)
+		if component.Name == "" {
+			component.Name = entry.Spec.Manifest.Name
+			if component.Name == "" {
+				component.Name = entry.Name
+			}
+		}
+	}
+	return nil
 }
 
 func (*VMCPHandler) Delete(req api.Context) error {

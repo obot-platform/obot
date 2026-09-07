@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -19,7 +21,9 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
+	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	clientfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -78,9 +82,9 @@ func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
 			request.SetPathValue("vmcp_id", vmcp.Name)
 			ctx := api.Context{Request: request, Storage: storage, User: &user.DefaultInfo{UID: "1", Groups: []string{types.GroupPowerUserPlus}}}
 			if tc.update {
-				err = NewVMCPHandler().Update(ctx)
+				err = NewVMCPHandler(nil).Update(ctx)
 			} else {
-				err = NewVMCPHandler().Create(ctx)
+				err = NewVMCPHandler(nil).Create(ctx)
 			}
 			if err == nil || !strings.Contains(err.Error(), "only administrators") {
 				t.Fatalf("expected authorization denial before any configuration writes, got %v", err)
@@ -100,9 +104,9 @@ func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
 }
 
 func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
-	storage := newVMCPTestStorage()
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
-	handler := NewVMCPHandler()
+	handler := vmcpHandlerForTest(t, storage)
 	manifest := testVMCPManifest()
 	manifest.Profiles = nil
 	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN"}}
@@ -129,7 +133,7 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 }
 
 func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
-	storage := newVMCPTestStorage()
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
 	manifest := testVMCPManifest()
 	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
@@ -138,7 +142,7 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 		{Key: "USER_HEADER", Policy: types.VMCPConfigurationPolicyUserAllowed},
 	}
 
-	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(), manifest, &user.DefaultInfo{
+	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil), manifest, &user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
 	})
 	for _, policy := range created.Components[0].Configuration {
@@ -214,7 +218,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	}
 	storage := newVMCPTestStorage(visible, hiddenShared, hiddenPersonal)
 	recorder := httptest.NewRecorder()
-	err := NewVMCPHandler().List(api.Context{
+	err := NewVMCPHandler(nil).List(api.Context{
 		ResponseWriter: recorder,
 		Request:        httptest.NewRequest(http.MethodGet, "/api/vmcps", nil),
 		Storage:        storage,
@@ -527,5 +531,324 @@ func testVMCPManifest() types.VMCPManifest {
 			MCPServerCatalogEntryID: "entry",
 		}},
 		Profiles: []types.VMCPProfile{},
+	}
+}
+
+func vmcpCatalogEntryForTest(id string) *v1.MCPServerCatalogEntry {
+	return &v1.MCPServerCatalogEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: system.DefaultNamespace},
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName:   "catalog",
+			Manifest:         types.MCPServerCatalogEntryManifest{Name: "Stored " + id, Runtime: types.RuntimeRemote},
+			UnsupportedTools: []string{"unsupported"},
+		},
+	}
+}
+
+func vmcpHandlerForTest(t *testing.T, storage kclient.Client) *VMCPHandler {
+	t.Helper()
+	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
+		"selectors":           func(any) ([]string, error) { return []string{"*"}, nil },
+		"catalog-entry-names": func(any) ([]string, error) { return nil, nil },
+	})
+	if err := indexer.Add(&v1.AccessControlRule{
+		ObjectMeta: metav1.ObjectMeta{Name: "allow", Namespace: system.DefaultNamespace},
+		Spec: v1.AccessControlRuleSpec{
+			MCPCatalogID: "catalog",
+			Manifest: types.AccessControlRuleManifest{
+				Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}},
+			},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return NewVMCPHandler(accesscontrolrule.NewAccessControlRuleHelper(indexer, storage))
+}
+
+func TestVMCPComponentSnapshots(t *testing.T) {
+	entry := vmcpCatalogEntryForTest("entry")
+	entry.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{StaticOAuthRequired: true, FixedURL: "https://example.com/mcp"}
+	storage := newVMCPTestStorage(entry)
+	handler := vmcpHandlerForTest(t, storage)
+	gatewayClient := newHandlerTestGateway(t)
+	u := &user.DefaultInfo{UID: "user-1"}
+	manifest := testVMCPManifest()
+	manifest.Components[0].MCPCatalogID = "forged-catalog"
+	manifest.Components[0].CatalogEntry.Manifest.Name = "forged-snapshot"
+	manifest.Components[0].SourceDigest = "forged-digest"
+	manifest.Components[0].OAuthCredentialID = "forged-credential"
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, u)
+	component := created.Components[0]
+	if component.OAuthCredentialID != system.MCPOAuthCredentialName(entry.Name) {
+		t.Fatalf("incorrect OAuth reference: %q", component.OAuthCredentialID)
+	}
+	if component.MCPCatalogID != "catalog" || component.CatalogEntry.Manifest.Name != entry.Spec.Manifest.Name ||
+		component.SourceDigest != utils.Digest(component.CatalogEntry) || len(component.CatalogEntry.UnsupportedTools) != 1 {
+		t.Fatalf("snapshot was not loaded from storage: %#v", component)
+	}
+
+	entry.Spec.Manifest.Name = "Updated source"
+	entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired = false
+	if err := storage.Update(t.Context(), entry); err != nil {
+		t.Fatal(err)
+	}
+	// An update needs only the entry ID and the stable component identity, not a snapshot or catalog ID.
+	manifest.Components[0] = types.VMCPComponent{ID: component.ID, MCPServerCatalogEntryID: entry.Name}
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+	request.SetPathValue("vmcp_id", created.ID)
+	if err := handler.Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User:           u,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var stored v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &stored); err != nil {
+		t.Fatal(err)
+	}
+	updated := stored.Spec.Manifest.Components[0]
+	if updated.SourceDigest != component.SourceDigest || updated.CatalogEntry.Manifest.Name != component.CatalogEntry.Manifest.Name || updated.OAuthCredentialID != component.OAuthCredentialID {
+		t.Fatalf("ordinary update refreshed the snapshot: %#v", updated)
+	}
+	request = httptest.NewRequest(http.MethodPost, "/api/vmcps/"+created.ID+"/trigger-update", nil)
+	request.SetPathValue("vmcp_id", created.ID)
+	if err := handler.TriggerUpdate(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		User:           u,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(&stored), &stored); err != nil {
+		t.Fatal(err)
+	}
+	updated = stored.Spec.Manifest.Components[0]
+	if updated.OAuthCredentialID != "" {
+		t.Fatal("non-static component retained an OAuth reference")
+	}
+	if updated.CatalogEntry.Manifest.Name != "Updated source" || updated.ID != component.ID || updated.SourceDigest == component.SourceDigest {
+		t.Fatalf("update did not resolve the current snapshot: %#v", updated)
+	}
+	if err := storage.Delete(t.Context(), entry); err != nil {
+		t.Fatal(err)
+	}
+	// Deleted sources remain editable, but cannot be upgraded.
+	ctx := api.Context{ResponseWriter: httptest.NewRecorder(), Request: request, Storage: storage, User: u, GatewayClient: gatewayClient}
+	if err := handler.TriggerUpdate(ctx); err == nil {
+		t.Fatal("upgrade with missing source succeeded")
+	}
+	request = httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+	request.SetPathValue("vmcp_id", created.ID)
+	ctx.Request = request
+	if err := handler.Update(ctx); err != nil {
+		t.Fatalf("edit with missing source failed: %v", err)
+	}
+}
+
+func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+	handler := vmcpHandlerForTest(t, storage)
+	gatewayClient := newHandlerTestGateway(t)
+	u := &user.DefaultInfo{UID: "user-1"}
+	manifest := testVMCPManifest()
+	second := manifest.Components[0]
+	second.Name = "second"
+	manifest.Components = append(manifest.Components, second)
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, u)
+	manifest = created.VMCPManifest
+	removedID, keptID := manifest.Components[0].ID, manifest.Components[1].ID
+	manifest.Components = manifest.Components[1:]
+	manifest.Profiles = []types.VMCPProfile{
+		{Name: "explicit", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, AllowedTools: types.VMCPToolSet{removedID: {"echo"}, keptID: {"*"}}},
+		{Name: "all", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, AllowAllTools: true, AllowedTools: types.VMCPToolSet{removedID: {"*"}}},
+	}
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+	request.SetPathValue("vmcp_id", created.ID)
+	if err := handler.Update(api.Context{ResponseWriter: httptest.NewRecorder(), Request: request, Storage: storage, GatewayClient: gatewayClient, User: u}); err != nil {
+		t.Fatal(err)
+	}
+	var stored v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &stored); err != nil {
+		t.Fatal(err)
+	}
+	for i := range manifest.Profiles {
+		delete(manifest.Profiles[i].AllowedTools, removedID)
+		if len(manifest.Profiles[i].AllowedTools) == 0 {
+			manifest.Profiles[i].AllowedTools = nil // Empty grants are omitted in storage JSON.
+		}
+	}
+	if !reflect.DeepEqual(stored.Spec.Manifest.Profiles, manifest.Profiles) {
+		t.Fatalf("profiles = %#v, want %#v", stored.Spec.Manifest.Profiles, manifest.Profiles)
+	}
+}
+
+func TestVMCPTriggerUpdateValidatesAllComponentsBeforeSaving(t *testing.T) {
+	for _, missing := range []bool{false, true} {
+		t.Run(fmt.Sprintf("missing=%t", missing), func(t *testing.T) {
+			first, second := vmcpCatalogEntryForTest("entry"), vmcpCatalogEntryForTest("second")
+			first.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
+			second.Spec.Manifest.RemoteConfig = &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"}
+			storage := newVMCPTestStorage(first, second)
+			handler := vmcpHandlerForTest(t, storage)
+			u := &user.DefaultInfo{UID: "user-1"}
+			manifest := testVMCPManifest()
+			manifest.Components = append(manifest.Components, types.VMCPComponent{Name: "second", MCPServerCatalogEntryID: second.Name})
+			created := callVMCPCreate(t, storage, newHandlerTestGateway(t), handler, manifest, u)
+			first.Spec.Manifest.Name = "new snapshot"
+			if err := storage.Update(t.Context(), first); err != nil {
+				t.Fatal(err)
+			}
+			if missing {
+				if err := storage.Delete(t.Context(), second); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				second.Spec.Manifest.Runtime = types.RuntimeNPX
+				if err := storage.Update(t.Context(), second); err != nil {
+					t.Fatal(err)
+				}
+			}
+			request := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+created.ID+"/trigger-update", nil)
+			request.SetPathValue("vmcp_id", created.ID)
+			if err := handler.TriggerUpdate(api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        request,
+				Storage:        storage,
+				User:           u,
+			}); err == nil {
+				t.Fatal("invalid upgrade succeeded")
+			}
+			var stored v1.VMCP
+			if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}, &stored); err != nil {
+				t.Fatal(err)
+			}
+			if utils.Digest(stored.Spec.Manifest) != utils.Digest(created.VMCPManifest) {
+				t.Fatal("failed upgrade changed stored snapshots or policy")
+			}
+		})
+	}
+}
+
+func TestVMCPComponentAccess(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		personal  bool
+		catalog   string
+		workspace bool
+		missing   bool
+		allowed   bool
+	}{
+		{
+			name:     "accessible catalog",
+			personal: true,
+			catalog:  "catalog",
+			allowed:  true,
+		},
+		{
+			name:     "denied second component",
+			personal: true,
+			catalog:  "private",
+		},
+		{
+			name:    "shared does not require catalog grant",
+			catalog: "private",
+			allowed: true,
+		},
+		{
+			name:      "own workspace",
+			personal:  true,
+			workspace: true,
+			allowed:   true,
+		},
+		{
+			name:     "missing source",
+			personal: true,
+			missing:  true,
+		},
+	} {
+		for _, update := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/update=%t", tc.name, update), func(t *testing.T) {
+				first, second := vmcpCatalogEntryForTest("entry"), vmcpCatalogEntryForTest("second")
+				second.Spec.MCPCatalogName = tc.catalog
+				workspace := &v1.PowerUserWorkspace{
+					ObjectMeta: metav1.ObjectMeta{Name: "workspace", Namespace: system.DefaultNamespace},
+					Spec:       v1.PowerUserWorkspaceSpec{UserID: "user-1"},
+				}
+				if tc.workspace {
+					second.Spec.PowerUserWorkspaceID = workspace.Name
+				}
+				storage := newVMCPTestStorage(first, second, workspace)
+				if tc.missing {
+					if err := storage.Delete(t.Context(), second); err != nil {
+						t.Fatal(err)
+					}
+				}
+				handler := vmcpHandlerForTest(t, storage)
+				manifest := testVMCPManifest()
+				manifest.Components = append(manifest.Components, types.VMCPComponent{
+					MCPServerCatalogEntryID: second.Name,
+					MCPCatalogID:            "catalog", // Must not grant access to an entry in a different scope.
+				})
+				u := &user.DefaultInfo{UID: "user-1"}
+				if !tc.personal {
+					u.Groups = []string{types.GroupAdmin}
+				}
+				body, err := json.Marshal(manifest)
+				if err != nil {
+					t.Fatal(err)
+				}
+				ctx := api.Context{
+					ResponseWriter: httptest.NewRecorder(),
+					Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
+					Storage:        storage,
+					GatewayClient:  newHandlerTestGateway(t),
+					User:           u,
+				}
+				if update {
+					vmcp := &v1.VMCP{Name: "vmcp-existing", Namespace: system.DefaultNamespace}
+					if tc.personal {
+						vmcp.Spec.UserID = u.UID
+					}
+					if err := storage.Create(t.Context(), vmcp); err != nil {
+						t.Fatal(err)
+					}
+					ctx.Request.SetPathValue("vmcp_id", vmcp.Name)
+					err = handler.Update(ctx)
+				} else {
+					err = handler.Create(ctx)
+				}
+				if (err == nil) != tc.allowed {
+					t.Fatalf("error = %v, want allowed=%t", err, tc.allowed)
+				}
+				if !tc.allowed {
+					if !tc.missing && !strings.Contains(err.Error(), "access denied") {
+						t.Fatalf("expected access denial, got %v", err)
+					}
+					var list v1.VMCPList
+					if err := storage.List(t.Context(), &list); err != nil {
+						t.Fatal(err)
+					}
+					if update {
+						if len(list.Items) != 1 || len(list.Items[0].Spec.Manifest.Components) != 0 {
+							t.Fatal("rejected update changed the VMCP")
+						}
+					} else if len(list.Items) != 0 {
+						t.Fatal("rejected create persisted a VMCP")
+					}
+				}
+			})
+		}
 	}
 }

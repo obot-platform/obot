@@ -3,6 +3,7 @@ package mcpservercatalogentry
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,12 +13,48 @@ import (
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestStaticOAuthCredentialsRetainedForVMCPSnapshots(t *testing.T) {
+	for _, explicit := range []bool{true, false} {
+		t.Run(fmt.Sprint("explicit reference=", explicit), func(t *testing.T) {
+			entry := remoteEntry(true)
+			entry.Status.OAuthCredentialConfigured = true
+			component := types.VMCPComponent{
+				MCPServerCatalogEntryID: entry.Name,
+				CatalogEntry:            types.MCPServerCatalogEntrySnapshot{Manifest: entry.Spec.Manifest},
+			}
+			if explicit {
+				component.OAuthCredentialID = system.MCPOAuthCredentialName(entry.Name)
+			}
+			vmcp := &v1.VMCP{
+				Name:      "vmcp1retained",
+				Namespace: entry.Namespace,
+				Spec:      v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}},
+			}
+			storage := newFakeClient(entry, vmcp)
+			creds := &fakeCredentialClient{exists: true}
+			req := router.Request{Ctx: t.Context(), Client: storage, Object: entry}
+			require.NoError(t, removeOAuthCredentials(req, creds))
+			assert.Zero(t, creds.deletes)
+			// Editing the source away from static OAuth also must not revoke a snapshot's credential.
+			entry.Spec.Manifest.RemoteConfig.StaticOAuthRequired = false
+			require.NoError(t, storage.Update(t.Context(), entry))
+			require.NoError(t, reconcileOAuthCredential(req, creds))
+			assert.Zero(t, creds.deletes)
+			assert.Zero(t, creds.reveals)
+			require.NoError(t, storage.Delete(t.Context(), vmcp))
+			require.NoError(t, removeOAuthCredentials(req, creds))
+			assert.Equal(t, 1, creds.deletes)
+		})
+	}
+}
 
 // fakeCredentialClient counts the queries a reconcile issues, so that "this entry costs nothing
 // to reconcile" is an assertion rather than something inferred from the absence of a panic.

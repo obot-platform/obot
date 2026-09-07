@@ -15,6 +15,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -279,9 +280,20 @@ func reconcileOAuthCredential(req router.Request, creds credentialClient) error 
 	// Set by the API after it writes or deletes a credential.
 	_, recheck := entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation]
 
-	configured, err := syncOAuthCredential(req.Ctx, creds, entry, recheck)
-	if err != nil {
-		return err
+	var configured, retained bool
+	if !requiresStaticOAuth(entry) && (entry.Status.OAuthCredentialConfigured || recheck) {
+		var err error
+		retained, err = oauthCredentialReferencedByVMCP(req, entry)
+		if err != nil {
+			return err
+		}
+	}
+	if !retained {
+		var err error
+		configured, err = syncOAuthCredential(req.Ctx, creds, entry, recheck)
+		if err != nil {
+			return err
+		}
 	}
 
 	if entry.Status.OAuthCredentialConfigured != configured {
@@ -362,6 +374,11 @@ func removeOAuthCredentials(req router.Request, creds credentialClient) error {
 
 	// Build the credential name for this entry
 	credName := system.MCPOAuthCredentialName(entry.Name)
+	if retained, err := oauthCredentialReferencedByVMCP(req, entry); err != nil {
+		return err
+	} else if retained {
+		return nil
+	}
 
 	deleted, err := creds.DeleteCredential(req.Ctx, credName, system.StaticOAuthCredentialName)
 	if err != nil {
@@ -372,4 +389,20 @@ func removeOAuthCredentials(req router.Request, creds credentialClient) error {
 	}
 
 	return nil
+}
+
+func oauthCredentialReferencedByVMCP(req router.Request, entry *v1.MCPServerCatalogEntry) (bool, error) {
+	var vmcps v1.VMCPList
+	if err := req.List(&vmcps, &kclient.ListOptions{Namespace: entry.Namespace}); err != nil {
+		return false, err
+	}
+	ref := system.MCPOAuthCredentialName(entry.Name)
+	for _, vmcp := range vmcps.Items {
+		for _, component := range vmcp.Spec.Manifest.Components {
+			if vmcpconfig.ComponentOAuthCredentialReference(component) == ref {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
 }
