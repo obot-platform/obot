@@ -175,11 +175,15 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 		if id == "" {
 			id = entry.Name
 		}
+		deploymentCount := deploymentCounts[entry.Name]
+		userCount := int64(entry.Status.UserCount)
+		if deploymentCount == 0 && userCount == 0 {
+			continue
+		}
 		builtIns = append(builtIns, clienttypes.ProductTelemetryBuiltInMCPServer{
 			ID:              id,
-			Name:            entry.Spec.Manifest.Name,
-			DeploymentCount: deploymentCounts[entry.Name],
-			UserCount:       int64(entry.Status.UserCount),
+			DeploymentCount: deploymentCount,
+			UserCount:       userCount,
 		})
 	}
 

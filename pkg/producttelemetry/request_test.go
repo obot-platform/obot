@@ -142,6 +142,13 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 		},
 		Status: storagev1.MCPServerCatalogEntryStatus{UserCount: 7},
 	}
+	unusedBuiltInEntry := &storagev1.MCPServerCatalogEntry{
+		Name: "default-unused", Namespace: system.DefaultNamespace,
+		Spec: storagev1.MCPServerCatalogEntrySpec{
+			SourceURL: "/built-ins",
+			Manifest:  clienttypes.MCPServerCatalogEntryManifest{EntryKey: "unused", Name: "Unused"},
+		},
+	}
 	customEntry := &storagev1.MCPServerCatalogEntry{
 		Name: "custom", Namespace: system.DefaultNamespace,
 		Spec: storagev1.MCPServerCatalogEntrySpec{
@@ -166,7 +173,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	skill1 := &storagev1.Skill{Name: "skill-1", Namespace: system.DefaultNamespace}
 	skill2 := &storagev1.Skill{Name: "skill-2", Namespace: system.DefaultNamespace}
 	storageClient := testStorageClient(
-		builtInEntry, customEntry, builtInServer, customServer, templateServer, authProvider, skill1, skill2,
+		builtInEntry, unusedBuiltInEntry, customEntry, builtInServer, customServer, templateServer, authProvider, skill1, skill2,
 	)
 
 	before := time.Now().UTC()
@@ -205,7 +212,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	if metrics.BuiltInMCPServers == nil || len(*metrics.BuiltInMCPServers) != 1 {
 		t.Fatalf("built-in MCP servers = %#v, want one", metrics.BuiltInMCPServers)
 	}
-	if got := (*metrics.BuiltInMCPServers)[0]; got.ID != "github" || got.Name != "GitHub" || got.DeploymentCount != 1 || got.UserCount != 7 {
+	if got := (*metrics.BuiltInMCPServers)[0]; got.ID != "github" || got.DeploymentCount != 1 || got.UserCount != 7 {
 		t.Fatalf("built-in MCP server = %#v", got)
 	}
 
