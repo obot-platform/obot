@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 	"uuid"
 
@@ -16,6 +17,10 @@ import (
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/pkg/version"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	builtInMCPCatalogSourceURL = "github.com/obot-platform/mcp-catalog"
 )
 
 type requestGatewayClient interface {
@@ -34,7 +39,7 @@ type licenseEntitlementProvider interface {
 
 // buildRequest constructs a telemetry payload, failing when required installation metadata cannot be loaded.
 // Usage metrics are collected on a best-effort basis.
-func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, storageClient kclient.Reader, licenseProvider licenseEntitlementProvider, defaultMCPCatalogPath, engine string) (clienttypes.ProductTelemetryRequest, error) {
+func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, storageClient kclient.Reader, licenseProvider licenseEntitlementProvider, engine string) (clienttypes.ProductTelemetryRequest, error) {
 	installationID, err := upgrade.GetInstallationID(ctx, gatewayClient)
 	if err != nil {
 		return clienttypes.ProductTelemetryRequest{}, fmt.Errorf("get installation ID: %w", err)
@@ -53,7 +58,7 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 
 	reportedAt := time.Now().UTC()
 	dayEnd := reportedAt.Truncate(24 * time.Hour)
-	metrics := collectMetrics(ctx, gatewayClient, storageClient, defaultMCPCatalogPath, dayEnd.Add(-24*time.Hour), dayEnd)
+	metrics := collectMetrics(ctx, gatewayClient, storageClient, dayEnd.Add(-24*time.Hour), dayEnd)
 
 	return clienttypes.ProductTelemetryRequest{
 		InstallationID:   installationID,
@@ -67,7 +72,7 @@ func buildRequest(ctx context.Context, gatewayClient requestGatewayClient, stora
 }
 
 // collectMetrics gathers usage and inventory metrics, leaving fields nil when their source is unavailable.
-func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, storageClient kclient.Reader, defaultMCPCatalogPath string, dayStart, dayEnd time.Time) clienttypes.ProductTelemetryMetrics {
+func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, storageClient kclient.Reader, dayStart, dayEnd time.Time) clienttypes.ProductTelemetryMetrics {
 	var metrics clienttypes.ProductTelemetryMetrics
 
 	if count, err := gatewayClient.UserCount(ctx); err != nil {
@@ -123,7 +128,7 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 		}
 		metrics.DeployedMCPServers = &count
 
-		builtIns, customCount, err := collectMCPEntryMetrics(ctx, storageClient, defaultMCPCatalogPath, deploymentCounts)
+		builtIns, customCount, err := collectMCPEntryMetrics(ctx, storageClient, deploymentCounts)
 		if err != nil {
 			logMetricError("MCP server catalog entries", err)
 		} else {
@@ -157,7 +162,7 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 }
 
 // collectMCPEntryMetrics returns built-in catalog usage and the number of custom catalog entries.
-func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, defaultMCPCatalogPath string, deploymentCounts map[string]int64) ([]clienttypes.ProductTelemetryBuiltInMCPServer, int64, error) {
+func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, deploymentCounts map[string]int64) ([]clienttypes.ProductTelemetryBuiltInMCPServer, int64, error) {
 	var entries storagev1.MCPServerCatalogEntryList
 	if err := storageClient.List(ctx, &entries, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return nil, 0, err
@@ -166,7 +171,7 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 	builtIns := make([]clienttypes.ProductTelemetryBuiltInMCPServer, 0)
 	var customCount int64
 	for _, entry := range entries.Items {
-		if defaultMCPCatalogPath == "" || entry.Spec.SourceURL != defaultMCPCatalogPath {
+		if strings.TrimPrefix(entry.Spec.SourceURL, "https://") != builtInMCPCatalogSourceURL {
 			customCount++
 			continue
 		}

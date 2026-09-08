@@ -56,7 +56,7 @@ func TestNextDailyReportTime(t *testing.T) {
 }
 
 func TestNewPublisherNormalizesEngine(t *testing.T) {
-	publisher := newPublisher(nil, nil, nil, nil, "", "k8s", nil)
+	publisher := newPublisher(nil, nil, nil, nil, "k8s", nil)
 	if publisher.engine != mcp.RuntimeBackendKubernetes {
 		t.Fatalf("engine = %q, want %q", publisher.engine, mcp.RuntimeBackendKubernetes)
 	}
@@ -75,7 +75,6 @@ func TestPublisherReadsConsentBeforeEveryRun(t *testing.T) {
 		gatewayClient,
 		testStorageClient(),
 		testEntitlements(),
-		"",
 		"docker",
 		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
 			sendCalls++
@@ -98,7 +97,6 @@ func TestPublisherForceEnabledSendsReport(t *testing.T) {
 		newRequestGateway(),
 		testStorageClient(),
 		testEntitlements(),
-		"",
 		"docker",
 		reportSenderFunc(func(_ context.Context, report clienttypes.ProductTelemetryRequest) error {
 			got = report
@@ -162,7 +160,7 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 				sends++
 				return testCase.sender.Send(ctx, report)
 			})
-			publisher := newPublisher(testCase.consent, testCase.gatewayClient, testStorageClient(), testEntitlements(), "", "docker", sender)
+			publisher := newPublisher(testCase.consent, testCase.gatewayClient, testStorageClient(), testEntitlements(), "docker", sender)
 			publisher.runOnce(t.Context())
 			if sends != testCase.wantSends {
 				t.Fatalf("sender calls = %d, want %d", sends, testCase.wantSends)
@@ -186,7 +184,7 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 		t.Fatalf("enable consent: %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
-	publisher := NewPublisher(ctx, consent, gatewayClient, testStorageClient(), testEntitlements(), "", "docker")
+	publisher := NewPublisher(ctx, consent, gatewayClient, testStorageClient(), testEntitlements(), "docker")
 
 	select {
 	case <-started:

@@ -137,7 +137,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	builtInEntry := &storagev1.MCPServerCatalogEntry{
 		Name: "default-github", Namespace: system.DefaultNamespace,
 		Spec: storagev1.MCPServerCatalogEntrySpec{
-			SourceURL: "/built-ins",
+			SourceURL: "https://" + builtInMCPCatalogSourceURL,
 			Manifest:  clienttypes.MCPServerCatalogEntryManifest{EntryKey: "github", Name: "GitHub"},
 		},
 		Status: storagev1.MCPServerCatalogEntryStatus{UserCount: 7},
@@ -145,7 +145,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	unusedBuiltInEntry := &storagev1.MCPServerCatalogEntry{
 		Name: "default-unused", Namespace: system.DefaultNamespace,
 		Spec: storagev1.MCPServerCatalogEntrySpec{
-			SourceURL: "/built-ins",
+			SourceURL: builtInMCPCatalogSourceURL,
 			Manifest:  clienttypes.MCPServerCatalogEntryManifest{EntryKey: "unused", Name: "Unused"},
 		},
 	}
@@ -177,7 +177,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 	)
 
 	before := time.Now().UTC()
-	report, err := buildRequest(t.Context(), gateway, storageClient, testEntitlements(license.CommunityEntitlement), "/built-ins", "kubernetes")
+	report, err := buildRequest(t.Context(), gateway, storageClient, testEntitlements(license.CommunityEntitlement), "kubernetes")
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
@@ -225,7 +225,7 @@ func TestBuildRequestPopulatesAllFields(t *testing.T) {
 func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	gateway := newRequestGateway()
 	gateway.metricErr = errors.New("metrics unavailable")
-	report, err := buildRequest(t.Context(), gateway, errorStorageReader{err: errors.New("storage unavailable")}, testEntitlements(), "", "docker")
+	report, err := buildRequest(t.Context(), gateway, errorStorageReader{err: errors.New("storage unavailable")}, testEntitlements(), "docker")
 	if err != nil {
 		t.Fatalf("buildRequest() error = %v", err)
 	}
@@ -243,7 +243,7 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	zeroGateway.llmAuditLogs = 0
 	zeroGateway.deviceScans = 0
 	zeroGateway.enforcements = 0
-	report, err = buildRequest(t.Context(), zeroGateway, testStorageClient(), testEntitlements(), "", "docker")
+	report, err = buildRequest(t.Context(), zeroGateway, testStorageClient(), testEntitlements(), "docker")
 	if err != nil {
 		t.Fatalf("buildRequest() measured zero error = %v", err)
 	}
@@ -272,7 +272,6 @@ func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
 		entitlementProviderFunc(func(context.Context) ([]string, error) {
 			return nil, errors.New("license unavailable")
 		}),
-		"",
 		"docker",
 	)
 	if err == nil || !strings.Contains(err.Error(), "get product telemetry distribution") {
@@ -294,7 +293,7 @@ func TestBuildRequestIdentityFailures(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			gateway := newRequestGateway()
 			gateway.propertyErrors = map[string]error{testCase.key: errors.New("database unavailable")}
-			_, err := buildRequest(t.Context(), gateway, testStorageClient(), testEntitlements(), "", "docker")
+			_, err := buildRequest(t.Context(), gateway, testStorageClient(), testEntitlements(), "docker")
 			if err == nil || !strings.Contains(err.Error(), testCase.wantErr) {
 				t.Fatalf("buildRequest() error = %v, want %q", err, testCase.wantErr)
 			}
