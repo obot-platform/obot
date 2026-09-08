@@ -301,6 +301,37 @@ func TestBuildRequestIdentityFailures(t *testing.T) {
 	}
 }
 
+func TestCollectMCPEntryMetricsNormalizesBuiltInSourceURL(t *testing.T) {
+	sourceURLs := []string{
+		builtInMCPCatalogSourceURL,
+		"https://" + builtInMCPCatalogSourceURL,
+		"http://" + builtInMCPCatalogSourceURL + "/",
+		"https://" + builtInMCPCatalogSourceURL + ".git",
+		"http://" + builtInMCPCatalogSourceURL + ".git/",
+	}
+
+	for _, sourceURL := range sourceURLs {
+		t.Run(sourceURL, func(t *testing.T) {
+			entry := &storagev1.MCPServerCatalogEntry{
+				Name: "default-test", Namespace: system.DefaultNamespace,
+				Spec: storagev1.MCPServerCatalogEntrySpec{
+					SourceURL: sourceURL,
+					Manifest:  clienttypes.MCPServerCatalogEntryManifest{EntryKey: "test"},
+				},
+				Status: storagev1.MCPServerCatalogEntryStatus{UserCount: 1},
+			}
+
+			builtIns, customCount, err := collectMCPEntryMetrics(t.Context(), testStorageClient(entry), nil)
+			if err != nil {
+				t.Fatalf("collectMCPEntryMetrics() error = %v", err)
+			}
+			if len(builtIns) != 1 || builtIns[0].ID != "test" || customCount != 0 {
+				t.Fatalf("built-ins = %#v, custom count = %d", builtIns, customCount)
+			}
+		})
+	}
+}
+
 func assertInt64(t *testing.T, name string, got *int64, want int64) {
 	t.Helper()
 	if got == nil || *got != want {

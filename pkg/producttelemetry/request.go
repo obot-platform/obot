@@ -12,6 +12,7 @@ import (
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/license"
+	"github.com/obot-platform/obot/pkg/mcp"
 	storagev1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/upgrade"
@@ -171,7 +172,7 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 	builtIns := make([]clienttypes.ProductTelemetryBuiltInMCPServer, 0)
 	var customCount int64
 	for _, entry := range entries.Items {
-		if strings.TrimPrefix(entry.Spec.SourceURL, "https://") != builtInMCPCatalogSourceURL {
+		if strings.TrimSuffix(mcp.SourceIDForURL(entry.Spec.SourceURL), ".git") != builtInMCPCatalogSourceURL {
 			customCount++
 			continue
 		}
