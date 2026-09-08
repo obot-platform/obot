@@ -33,7 +33,6 @@
 	import McpSelectServerDeployment from './McpSelectServerDeployment.svelte';
 	import StaticOAuthConfigureModal from './StaticOAuthConfigureModal.svelte';
 	import DebugOauthDialog from './oauth/DebugOauthDialog.svelte';
-	import McpTesterAction from './tester/McpTesterAction.svelte';
 	import {
 		KeyRound,
 		PencilLine,
@@ -49,7 +48,6 @@
 
 	type ServerSelectMode =
 		| 'connect'
-		| 'test'
 		| 'rename'
 		| 'edit'
 		| 'disconnect'
@@ -123,10 +121,6 @@
 	let restartableConfiguredServers = $derived(
 		configuredServers.filter((server) => supportsMCPBackendDetails(server))
 	);
-	let testableConfiguredServers = $derived(
-		configuredServers.filter((server) => server.canConnect !== false && !server.compositeName)
-	);
-
 	// Connecting from a multi-user catalog entry row always starts a new shared server deployment.
 	let isMultiUserCatalogEntryRow = $derived(isMultiUserCatalogEntry(entry) && !server);
 	let requiresUpdate = $derived(server && requiresUserUpdate(server));
@@ -325,37 +319,12 @@
 		selectServerDialog?.open(servers);
 	}
 
-	function testCatalogEntry() {
-		if (!entry) return;
-		if (testableConfiguredServers.length === 1) {
-			goto(`/mcp-servers/test/${encodeURIComponent(testableConfiguredServers[0].id)}`);
-			return;
-		}
-		if (testableConfiguredServers.length > 1) {
-			handleShowSelectServerDialog('test', testableConfiguredServers);
-			return;
-		}
-		connectToServerDialog?.setupNewInstance(entry, ({ server: createdServer }) => {
-			if (createdServer) {
-				goto(`/mcp-servers/test/${encodeURIComponent(createdServer.id)}`);
-			}
-		});
-	}
-
 	async function reauthenticateServer(item: MCPCatalogServer) {
 		await UserService.clearMcpServerOAuth(item.id);
 		await connectToServerDialog?.authenticate(item, entry);
 		refresh();
 	}
 </script>
-
-<McpTesterAction
-	{server}
-	{entry}
-	forceVisible={showConnectButton}
-	disabled={showConnectButton && connectionDisabled}
-	ontest={!server && entry ? testCatalogEntry : undefined}
-/>
 
 <!-- Use class:hidden to avoid Svelte 5 production build with conditional DOM cleanup -->
 <div class="contents" class:hidden={belongsToComposite || hideActions}>
@@ -477,10 +446,6 @@
 					await restartServer(d);
 					await mcpServersAndEntries.refreshAll();
 				}
-				break;
-			}
-			case 'test': {
-				goto(`/mcp-servers/test/${encodeURIComponent(d.id)}`);
 				break;
 			}
 			case 'disconnect': {
