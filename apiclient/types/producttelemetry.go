@@ -52,7 +52,6 @@ type ProductTelemetryMetrics struct {
 // +k8s:openapi-gen=false
 type ProductTelemetryBuiltInMCPServer struct {
 	ID              string `json:"id"`
-	Name            string `json:"name"`
-	DeploymentCount int64  `json:"deploymentCount"`
-	UserCount       int64  `json:"userCount"`
+	DeploymentCount int64  `json:"deployments"`
+	UserCount       int64  `json:"users"`
 }
