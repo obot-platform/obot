@@ -52,8 +52,6 @@ type Client struct {
 	deviceCreationLock      sync.Mutex
 	auditLogCleanupInterval time.Duration
 	auditLogDeleteBatchSize int
-	oktaGroupMigrationMu    sync.Mutex
-	oktaGroupMigrationDone  bool
 	mcpOAuthTokenTrigger    func(context.Context, string) error
 }
 

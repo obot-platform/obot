@@ -601,21 +601,6 @@ func (in OAuthTokenStatus) OpenAPIModelName() string {
 }
 
 // OpenAPIModelName returns the OpenAPI model name for this type.
-func (in OktaGroupMigration) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.OktaGroupMigration"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in OktaGroupMigrationList) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.OktaGroupMigrationList"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
-func (in OktaGroupMigrationSpec) OpenAPIModelName() string {
-	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.OktaGroupMigrationSpec"
-}
-
-// OpenAPIModelName returns the OpenAPI model name for this type.
 func (in PodSecurityAdmissionSettings) OpenAPIModelName() string {
 	return "com.github.obot-platform.obot.pkg.storage.apis.obot.obot.ai.v1.PodSecurityAdmissionSettings"
 }

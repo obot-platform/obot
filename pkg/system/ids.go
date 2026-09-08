@@ -45,7 +45,6 @@ const (
 	MessagePolicyPrefix           = "mp1"
 	NanobotAgentPrefix            = "nba1"
 	PublishedArtifactPrefix       = "pa1"
-	OktaGroupMigrationPrefix      = "ogm1"
 
 	ObotMCPServerName      = SystemMCPServerPrefix + "obot-mcp-server"
 	ProviderChangeAuthName = ProviderChangePrefix + "auth"
