@@ -39,7 +39,7 @@
 	import TunnelsView from './TunnelsView.svelte';
 	import { getCreatedEntryUrl } from './utils';
 	import { Plus, RefreshCcw, Server, Settings } from '@lucide/svelte';
-	import { onDestroy, onMount, untrack } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
 	const viewValues = [
@@ -65,7 +65,7 @@
 	let sourceDialog = $state<ReturnType<typeof McpServerGitSync>>();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let filtersTab = $state<ReturnType<typeof FiltersView>>();
-	let gitCredentials = $state(untrack(() => data.gitCredentials));
+	let gitCredentials = $derived(data.gitCredentials);
 	let filtersLoading = $state(false);
 	let syncing = $state(false);
 	let syncInterval = $state<ReturnType<typeof setInterval>>();
