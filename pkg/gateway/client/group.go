@@ -621,14 +621,6 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
 	)
 
-	// Run one-time Okta group ID migration if this is an Okta auth provider.
-	// This manages its own transactions internally and makes its own HTTP calls.
-	if providerURL != "" && identity.AuthProviderName == "okta-auth-provider" {
-		if err := c.runOktaGroupIDMigrationOnce(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName); err != nil {
-			slog.Warn("Okta group ID migration failed (will retry)", "error", err)
-		}
-	}
-
 	if nextGroupCheck.After(now) || providerURL == "" {
 		// Throttled (or no provider URL): just read the cached groups from the database.
 		groups, err := c.listUserGroups(ctx, c.db.WithContext(ctx), identity)

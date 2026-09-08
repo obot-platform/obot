@@ -133,8 +133,6 @@ func AddToSchemeWithGV(scheme *runtime.Scheme, schemeGroupVersion schema.GroupVe
 		&ProjectV2List{},
 		&PublishedArtifact{},
 		&PublishedArtifactList{},
-		&OktaGroupMigration{},
-		&OktaGroupMigrationList{},
 		&AuthProvider{},
 		&AuthProviderList{},
 		&ModelProvider{},
