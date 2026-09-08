@@ -164,9 +164,18 @@
 	// intentionally does not force a default so "no Source filter" means "all sources I can see".
 	const selectedEventTypes = $derived(page.url.searchParams.get('event_type') ?? '');
 
-	// In a server-scoped embedded view the MCP server is fixed, so the MCP Server filter is redundant.
+	// Server scoping comes from props (embedded views) or from the URL on the standalone page
+	// (e.g. /audit-logs?mcp_id=...). Either way the MCP server is fixed, so the MCP Server filter is
+	// redundant and the source has to be pinned to MCP: mcp_* are source-specific filters and the
+	// backend rejects them unless a single source is selected.
 	const isServerScoped = $derived(
-		Boolean(mcpId || mcpServerDisplayName || mcpServerCatalogEntryName)
+		Boolean(
+			mcpId ||
+			mcpServerDisplayName ||
+			mcpServerCatalogEntryName ||
+			page.url.searchParams.get('mcp_id') ||
+			page.url.searchParams.get('mcp_server_display_name')
+		)
 	);
 	const isApiKeyScoped = $derived(Boolean(apiKeyId));
 
@@ -182,11 +191,14 @@
 		);
 	}
 
-	// supportedFilters also carries the time-range params so they are read from the URL; the drawer
-	// itself only renders unifiedFilters (time is handled by the calendar).
+	// supportedFilters also carries the time-range params and the server-scoping params used by deep
+	// links (e.g. /audit-logs?mcp_id=...) so they are read from the URL; the drawer itself only
+	// renders unifiedFilters (time is handled by the calendar, server scoping shows up as a pill).
 	const supportedFilters: SupportedFilter[] = [
 		...unifiedFilters,
 		'api_key_id',
+		'mcp_id',
+		'mcp_server_display_name',
 		'start_time',
 		'end_time'
 	];
@@ -449,6 +461,8 @@
 		if (_key === 'actor') return 'Actor';
 		if (_key === 'operation') return 'Operation';
 		if (_key === 'mcp_server') return 'Identifier – MCP Server';
+		if (_key === 'mcp_id') return 'Server ID';
+		if (_key === 'mcp_server_display_name') return 'Server';
 		if (_key === 'tool') return 'Identifier – Tool';
 		if (_key === 'outcome') return 'Status';
 		if (_key === 'client') return 'Client';
