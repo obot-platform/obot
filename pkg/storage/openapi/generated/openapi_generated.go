@@ -439,9 +439,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		v1.OAuthTokenList{}.OpenAPIModelName():                                                    schema_storage_apis_obotobotai_v1_OAuthTokenList(ref),
 		v1.OAuthTokenSpec{}.OpenAPIModelName():                                                    schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref),
 		v1.OAuthTokenStatus{}.OpenAPIModelName():                                                  schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref),
-		v1.OktaGroupMigration{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref),
-		v1.OktaGroupMigrationList{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref),
-		v1.OktaGroupMigrationSpec{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref),
 		v1.PodSecurityAdmissionSettings{}.OpenAPIModelName():                                      schema_storage_apis_obotobotai_v1_PodSecurityAdmissionSettings(ref),
 		v1.PowerUserWorkspace{}.OpenAPIModelName():                                                schema_storage_apis_obotobotai_v1_PowerUserWorkspace(ref),
 		v1.PowerUserWorkspaceList{}.OpenAPIModelName():                                            schema_storage_apis_obotobotai_v1_PowerUserWorkspaceList(ref),
@@ -21155,126 +21152,6 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenStatus(ref common.ReferenceCall
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
-			},
-		},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_OktaGroupMigration(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ObjectMeta{}.OpenAPIModelName()),
-						},
-					},
-					"spec": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.OktaGroupMigrationSpec{}.OpenAPIModelName()),
-						},
-					},
-					"status": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.EmptyStatus{}.OpenAPIModelName()),
-						},
-					},
-				},
-			},
-		},
-		Dependencies: []string{
-			v1.EmptyStatus{}.OpenAPIModelName(), v1.OktaGroupMigrationSpec{}.OpenAPIModelName(), metav1.ObjectMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_OktaGroupMigrationList(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"metadata": {
-						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(metav1.ListMeta{}.OpenAPIModelName()),
-						},
-					},
-					"items": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref(v1.OktaGroupMigration{}.OpenAPIModelName()),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"items"},
-			},
-		},
-		Dependencies: []string{
-			v1.OktaGroupMigration{}.OpenAPIModelName(), metav1.ListMeta{}.OpenAPIModelName()},
-	}
-}
-
-func schema_storage_apis_obotobotai_v1_OktaGroupMigrationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"idMapping": {
-						SchemaProps: spec.SchemaProps{
-							Description: "IDMapping maps old group IDs to new group IDs.",
-							Type:        []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type:   []string{"string"},
-										Format: "",
-									},
-								},
-							},
-						},
-					},
-				},
 			},
 		},
 	}
