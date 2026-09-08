@@ -85,31 +85,36 @@ service:
 ingress:
   enabled: true
   hosts:
-    - host: <your hostname>
+    - <your hostname>
 
 serviceAccount:
   # This is important for configuring Google Workload Identity, which we use for Google Cloud KMS access
   create: true
   name: "<name of the service account to be created and used by obot>"
 
+# Sensitive values belong under secret; the chart rejects them under config.
+secret:
+  # database configuration for external db
+  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
+
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
+
+  # Optionally configure model providers
+  OPENAI_API_KEY: "<your openai api key>"
+
+# Non-sensitive configuration
 config:
   # configures encryption with Google Cloud KMS. optional, but recommended for production
   OBOT_SERVER_ENCRYPTION_PROVIDER: "GCP"
   OBOT_GCP_KMS_KEY_URI: "projects/<your project>/locations/<your location>/keyRings/<your key ring>/cryptoKeys/<your key>"
 
-  # database configuration for external db
-  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
-
   # Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: true
-  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
 
   # Optionally Preseed admin and owner users
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
-
-  # Optionally configure model providers
-  OPENAI_API_KEY: "<your openai api key>"
 
 mcpServerDefaults:
   storageClassName: hyperdisk # replace with the name of your StorageClass

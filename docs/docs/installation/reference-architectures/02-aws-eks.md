@@ -73,7 +73,7 @@ ingress:
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
   hosts:
-    - host: <your hostname>
+    - <your hostname>
 
 serviceAccount:
   # This is important for configuring IAM roles for service accounts (IRSA), which we use for AWS KMS access
@@ -82,25 +82,30 @@ serviceAccount:
   annotations:
     eks.amazonaws.com/role-arn: "<arn of the IAM role to be assumed by obot>"
 
+# Sensitive values belong under secret; the chart rejects them under config.
+secret:
+  # database configuration for external db
+  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
+
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
+
+  # Optionally configure model providers
+  OPENAI_API_KEY: "<your openai api key>"
+
+# Non-sensitive configuration
 config:
   # configures encryption with AWS KMS. optional, but recommended for production
   OBOT_SERVER_ENCRYPTION_PROVIDER: "aws"
   OBOT_AWS_KMS_KEY_ARN: "arn:aws:kms:<region>:<account-id>:key/<key-id>"
 
-  # database configuration for external db
-  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
-
   # Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: true
-  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
 
   # Optionally Preseed admin and owner users
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
 
-  # Optionally configure model providers
-  OPENAI_API_KEY: "<your openai api key>"
-  
 mcpServerDefaults:
   storageClassName: ebs # replace with the name of your StorageClass
   nanobotWorkspaceSize: 1Gi # Some disk types have a minimum size, read the documentation for the storage type you select.

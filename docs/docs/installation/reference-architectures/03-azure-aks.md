@@ -94,7 +94,7 @@ ingress:
   annotations:
     appgw.ingress.kubernetes.io/backend-path-prefix: "/"
   hosts:
-    - host: <your hostname>
+    - <your hostname>
 
 serviceAccount:
   # This is important for configuring Azure Workload Identity, which we use for Azure Key Vault access
@@ -103,6 +103,18 @@ serviceAccount:
   annotations:
     azure.workload.identity/client-id: "<client id of the managed identity>"
 
+# Sensitive values belong under secret; the chart rejects them under config.
+secret:
+  # database configuration for external db
+  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
+
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
+
+  # Optionally configure model providers
+  OPENAI_API_KEY: "<your openai api key>"
+
+# Non-sensitive configuration
 config:
   # configures encryption with Azure Key Vault. optional, but recommended for production
   OBOT_SERVER_ENCRYPTION_PROVIDER: "azure"
@@ -110,19 +122,12 @@ config:
   OBOT_AZURE_KEY_NAME: "<your-key-name>"
   OBOT_AZURE_KEY_VERSION: "<your-key-version>"
 
-  # database configuration for external db
-  OBOT_SERVER_DSN: "postgresql://<db user>:<db password>@<db host>:<db port>/<db name>?sslmode=<ssl mode>"
-
   # Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: true
-  OBOT_BOOTSTRAP_TOKEN: "<bootstrap password>"
 
   # Optionally Preseed admin and owner users
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "<comma separated list of admin emails>"
   OBOT_SERVER_AUTH_OWNER_EMAILS: "<comma separated list of owner emails>"
-
-  # Optionally configure model providers
-  OPENAI_API_KEY: "<your openai api key>"
 
 mcpServerDefaults:
   storageClassName: azure-disk # replace with the name of your StorageClass

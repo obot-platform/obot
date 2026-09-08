@@ -33,14 +33,15 @@ config:
   # Required: Enable authentication
   OBOT_SERVER_ENABLE_AUTHENTICATION: "true"
 
-  # Required: Set a bootstrap token for initial login
-  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
-
   # Required: Set the owner email (can also be configured in the UI later)
   OBOT_SERVER_AUTH_OWNER_EMAILS: "owner@company.com"
 
   # Optional: Set additional admin emails
   OBOT_SERVER_AUTH_ADMIN_EMAILS: "admin1@company.com,admin2@company.com"
+
+secret:
+  # Optional: generated automatically when omitted from the chart-managed Secret
+  OBOT_BOOTSTRAP_TOKEN: "your-secret-token"
 ```
 
   </TabItem>
