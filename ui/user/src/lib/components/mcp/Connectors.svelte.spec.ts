@@ -106,7 +106,7 @@ describe('MCP Servers ConnectorsView', () => {
 	});
 
 	it('does not show Test on the MCP Servers list', async () => {
-		render(ConnectorsView, { query: 'Deprecated' });
+		render(Connectors, { query: 'Deprecated' });
 
 		await expect.element(page.getByText('Test', { exact: true })).not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
