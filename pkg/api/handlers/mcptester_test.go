@@ -293,7 +293,7 @@ func TestMCPTesterChatPropagatesCancellationToProxy(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	assertMCPTesterError(t, recorder, httpStatusClientClosed, types.MCPTesterErrorCancelled)
+	assertMCPTesterError(t, recorder, http.StatusRequestTimeout, types.MCPTesterErrorCancelled)
 }
 
 func runMCPTesterChat(t *testing.T, handler *MCPTesterHandler, userID, body string) *httptest.ResponseRecorder {

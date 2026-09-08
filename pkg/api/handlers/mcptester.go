@@ -21,10 +21,7 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	mcpTesterProviderErrorLimit = 64 * 1024
-	httpStatusClientClosed      = 499
-)
+const mcpTesterProviderErrorLimit = 64 * 1024
 
 type mcpTesterServerActionResolver interface {
 	ServerForActionWithConnectID(context.Context, string, string) (string, v1.MCPServer, mcp.ServerConfig, error)
@@ -103,7 +100,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 	response, err := h.httpClient.Do(proxyRequest)
 	if err != nil {
 		if req.Context().Err() != nil || errors.Is(err, context.Canceled) {
-			return writeMCPTesterError(req, httpStatusClientClosed, types.MCPTesterErrorCancelled, "request cancelled", false)
+			return writeMCPTesterError(req, http.StatusRequestTimeout, types.MCPTesterErrorCancelled, "request cancelled", false)
 		}
 		return writeMCPTesterError(req, http.StatusBadGateway, types.MCPTesterErrorProvider, "failed to contact the model provider", true)
 	}
