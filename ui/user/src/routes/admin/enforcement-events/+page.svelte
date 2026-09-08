@@ -7,12 +7,11 @@
 </script>
 
 <svelte:head>
-	<title>Obot | Enforcement Decisions</title>
+	<title>Obot | Enforcement Events</title>
 </svelte:head>
 
 <Layout
-	title="Enforcement Decisions"
-	subtitle="Device Management"
+	title="Enforcement Events"
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
 		component: VirtualPageRoot as unknown as Component,

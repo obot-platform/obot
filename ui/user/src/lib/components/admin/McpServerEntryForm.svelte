@@ -563,7 +563,7 @@
 		if (onCancel) {
 			onCancel();
 		} else {
-			goto('/mcp-servers');
+			goto('/mcp-servers?view=entries');
 		}
 	}
 
@@ -882,7 +882,7 @@
 					let url: string;
 					if (entity === 'workspace') {
 						url = !profile.current.hasAdminAccess?.()
-							? `/mcp-access-policies/${d.id}`
+							? `/mcp-servers/access-policies/${d.id}`
 							: `/mcp-servers/access-policies/w/${id}/r/${d.id}`;
 					} else {
 						url = `/mcp-servers/access-policies/${d.id}`;

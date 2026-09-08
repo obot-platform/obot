@@ -3,10 +3,25 @@ import {
 	MCP_CONNECTORS_NAV_SOURCE,
 	MCP_NAV_SOURCE_PARAM
 } from '$lib/constants';
-import { AdminService, UserService, type Fetcher, type Profile } from '$lib/services';
+import {
+	AdminService,
+	UserService,
+	type Fetcher,
+	type LaunchServerType,
+	type Profile
+} from '$lib/services';
 
 export function isConnectorsNavigation(url: URL) {
 	return url.searchParams.get(MCP_NAV_SOURCE_PARAM) === MCP_CONNECTORS_NAV_SOURCE;
+}
+
+export function getCreatedEntryUrl(id: string, type?: LaunchServerType, message?: string) {
+	if (type === 'multi') {
+		return `/mcp-servers/s/${id}`;
+	}
+
+	const prompt = message === 'requires-oauth-config' ? 'configure-oauth' : 'launch';
+	return `/mcp-servers/c/${id}?${prompt}=true`;
 }
 
 function useAdminEndpoints(url: URL, profile: Profile) {

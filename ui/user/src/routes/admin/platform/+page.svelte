@@ -27,6 +27,7 @@
 	);
 	let imagePullSecrets = $state<ImagePullSecret[]>(untrack(() => data.imagePullSecrets ?? []));
 	let registryView = $state<ReturnType<typeof RegistryConnectionsView>>();
+	let gitCredentialsView = $state<ReturnType<typeof GitCredentialsView>>();
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	let creatingRegistryConnection = $derived(
 		page.url.searchParams.get('view') === 'registry-connections' &&
@@ -104,6 +105,14 @@
 			<Plus class="size-4" />
 			Create New Secret
 		</button>
+	{:else if view === 'git-credentials' && !isAdminReadonly}
+		<button
+			class="btn btn-primary flex items-center gap-2 text-sm"
+			onclick={() => gitCredentialsView?.openCreate()}
+		>
+			<Plus class="size-4" />
+			Create Git Credential
+		</button>
 	{/if}
 {/snippet}
 
@@ -128,5 +137,5 @@
 {/snippet}
 
 {#snippet gitCredentials()}
-	<GitCredentialsView gitCredentials={data.gitCredentials} />
+	<GitCredentialsView bind:this={gitCredentialsView} gitCredentials={data.gitCredentials} />
 {/snippet}

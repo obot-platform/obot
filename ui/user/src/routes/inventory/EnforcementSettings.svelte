@@ -68,7 +68,7 @@
 	let rulesOpen = $state(untrack(() => givenConfiguration.enforcementEnabled ?? false));
 
 	// A fresh configuration can arrive while this form is mounted — saving here, or
-	// an allowlist entry added from the enforcement decisions page, both rewrite the
+	// an allowlist entry added from the enforcement events page, both rewrite the
 	// same policy. Adopt it into the form too, or the table keeps rendering the
 	// allowlist as it stood at mount and the untouched form looks dirty against the
 	// new baseline. Unsaved edits win: they are never overwritten underneath the

@@ -1,5 +1,10 @@
 import type { Fetcher, Profile } from '$lib/services';
-import { getMCPCatalogEntry, getMCPCatalogServer, getSingleOrRemoteMcpServer } from './utils';
+import {
+	getCreatedEntryUrl,
+	getMCPCatalogEntry,
+	getMCPCatalogServer,
+	getSingleOrRemoteMcpServer
+} from './utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const adminService = {
@@ -111,6 +116,25 @@ describe('mcp-servers route loaders', () => {
 				'server-1',
 				{ fetch }
 			);
+		});
+	});
+
+	describe('navigating to a newly created entry', () => {
+		it('prompts the first deployment for catalog entries', () => {
+			expect(getCreatedEntryUrl('entry-1', 'hosted', 'Catalog entry updated successfully!')).toBe(
+				'/mcp-servers/c/entry-1?launch=true'
+			);
+			expect(getCreatedEntryUrl('entry-1', 'composite')).toBe('/mcp-servers/c/entry-1?launch=true');
+		});
+
+		it('prompts the OAuth setup a remote entry still needs', () => {
+			expect(getCreatedEntryUrl('entry-1', 'remote', 'requires-oauth-config')).toBe(
+				'/mcp-servers/c/entry-1?configure-oauth=true'
+			);
+		});
+
+		it('sends multi-user servers to the server route without a prompt', () => {
+			expect(getCreatedEntryUrl('server-1', 'multi')).toBe('/mcp-servers/s/server-1');
 		});
 	});
 

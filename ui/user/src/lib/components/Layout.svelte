@@ -299,14 +299,14 @@
 					label: 'Usage',
 					href: '/usage'
 				},
-				{
-					id: 'inventory',
-					label: 'Inventory',
-					href: '/inventory',
-					beta: true
-				},
 				...(profile.current.hasAdminAccess?.()
 					? [
+							{
+								id: 'inventory',
+								label: 'Inventory',
+								href: '/inventory',
+								beta: true
+							},
 							{
 								id: 'enforcement-events',
 								label: 'Enforcement Events',

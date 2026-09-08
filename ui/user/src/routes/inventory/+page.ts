@@ -9,6 +9,7 @@ import type {
 } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { DEFAULT_WINDOW_MS } from './constants';
+import { redirect } from '@sveltejs/kit';
 
 const views = new Set([
 	'overview',
@@ -39,15 +40,8 @@ export const load: PageLoad = async ({ url, fetch, parent, depends }) => {
 	let assetLoadError: string | undefined;
 
 	if (!profile.hasAdminAccess?.()) {
-		return {
-			stats,
-			range: { start, end },
-			configuration,
-			enrollmentKeys,
-			assetSource,
-			assets,
-			assetLoadError
-		};
+		// scans for individual users currently not supported, do temporary redirect to homepage
+		throw redirect(303, '/');
 	}
 
 	async function loadConfigurations() {

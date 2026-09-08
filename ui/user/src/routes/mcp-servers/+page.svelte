@@ -37,6 +37,7 @@
 	import McpPoliciesView from './McpPoliciesView.svelte';
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import TunnelsView from './TunnelsView.svelte';
+	import { getCreatedEntryUrl } from './utils';
 	import { Plus, RefreshCcw, Server, Settings } from '@lucide/svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
@@ -206,6 +207,10 @@
 		goto(`${page.url.pathname}?view=${view}&new=${value}`);
 	}
 
+	function handleEntryCreated(id: string, _isMultiUserEntry: boolean, message?: string) {
+		goto(getCreatedEntryUrl(id, newServerType, message), { replaceState: true });
+	}
+
 	onDestroy(() => {
 		if (syncInterval) {
 			clearInterval(syncInterval);
@@ -225,6 +230,7 @@
 				id={hasAdminAccess ? defaultCatalogId : (workspaceId ?? '')}
 				type={newServerType}
 				onCancel={closeCreateScreen}
+				onSubmit={handleEntryCreated}
 				excludeViews={['overview']}
 			/>
 		{:else if selectedView === 'filters'}

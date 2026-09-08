@@ -242,7 +242,7 @@ export const steps: GuideStep[] = [
 									id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.enforcementDecisionsLink
 								},
 								side: 'right',
-								title: 'Enforcement Decisions',
+								title: 'Enforcement Events',
 								description:
 									'When enforcement is enabled and tool calls are made, any actions Obot Sentry takes against them will be recorded and viewable here.'
 							},

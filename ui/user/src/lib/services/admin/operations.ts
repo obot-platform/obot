@@ -2594,7 +2594,7 @@ export async function updateMDMConfigurationEnforcement(
 	return (await doPut(`/mdm/configurations/${id}/enforcement`, input, opts)) as MDMConfiguration;
 }
 
-// Enforcement decisions
+// Enforcement events
 
 export async function listEnforcementDecisions(
 	filters?: EnforcementDecisionURLFilters,

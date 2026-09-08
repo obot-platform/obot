@@ -41,7 +41,7 @@
 	} from '$lib/services/user/mcpTunnel';
 	import { mcpServersAndEntries, mcpTunnelConnections, profile } from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
-	import { replaceState } from '$lib/url';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import {
 		Captions,
@@ -257,14 +257,8 @@
 		mcpServersAndEntries.refreshAll();
 	}
 
-	const updateQuery = (value: string) => {
-		if (value) {
-			page.url.searchParams.set('query', value);
-		} else {
-			page.url.searchParams.delete('query');
-		}
-
-		replaceState(page.url, { query: value });
+	const updateSearchQuery = (value: string) => {
+		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
 </script>
 
@@ -297,7 +291,7 @@
 				<Search
 					value={query}
 					class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
-					onChange={updateQuery}
+					onChange={updateSearchQuery}
 					placeholder="Search MCP servers..."
 				/>
 			</div>

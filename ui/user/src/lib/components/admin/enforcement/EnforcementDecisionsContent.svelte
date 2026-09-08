@@ -191,8 +191,8 @@
 			})
 			.catch((err) => {
 				if (isAbortError(err) || controller.signal.aborted) return;
-				console.error('Failed to fetch enforcement decisions:', err);
-				fetchError = err instanceof Error ? err.message : 'Failed to load enforcement decisions';
+				console.error('Failed to fetch enforcement events:', err);
+				fetchError = err instanceof Error ? err.message : 'Failed to load enforcement events';
 			})
 			.finally(() => {
 				if (controller.signal.aborted) return;
@@ -415,7 +415,7 @@
 	<div class="notification-error flex w-full items-center gap-3 p-4">
 		<CircleAlert class="size-5 shrink-0" />
 		<div class="flex flex-col gap-1">
-			<p class="text-sm font-semibold">Unable to load enforcement decisions</p>
+			<p class="text-sm font-semibold">Unable to load enforcement events</p>
 			<p class="text-sm font-light">{fetchError}</p>
 		</div>
 	</div>
@@ -431,7 +431,7 @@
 {:else}
 	<div class="flex w-full flex-col items-center justify-center gap-4 px-6 py-16 text-center">
 		<ShieldCheck class="text-muted-content size-20 opacity-50" />
-		<h4 class="text-muted-content text-lg font-semibold">No enforcement decisions</h4>
+		<h4 class="text-muted-content text-lg font-semibold">No enforcement events</h4>
 		<p class="text-muted-content max-w-md text-sm font-light">
 			Nothing has been recorded for this range. Decisions are only logged while enforcement is
 			enabled for the fleet.
