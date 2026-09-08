@@ -212,3 +212,76 @@ func TestEnsureInitialOwnerSkipsCompletedAccountOutsideConfiguredDomains(t *test
 		t.Fatalf("existing account was rearmed or reset: %+v", got)
 	}
 }
+
+func TestChangePasswordRejectsReusingCurrentPassword(t *testing.T) {
+	provider, gatewayClient := newUsersTestProvider(t)
+	const initialPassword = "initial-assigned-password"
+	passwordHash, err := HashPassword(initialPassword)
+	if err != nil {
+		t.Fatalf("hashing initial password: %v", err)
+	}
+	user, err := gatewayClient.CreateLocalAuthUser(t.Context(), "user@example.com", passwordHash, true)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+	sessionID := hash.String("change-password-session")
+	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("creating session: %v", err)
+	}
+
+	err = provider.ChangePassword(t.Context(), user.ID, initialPassword, sessionID)
+	if _, ok := errors.AsType[InvalidUserError](err); !ok {
+		t.Fatalf("changing to the current password: got %v, want InvalidUserError", err)
+	}
+	got, err := gatewayClient.LocalAuthUserByID(t.Context(), user.ID)
+	if err != nil {
+		t.Fatalf("reloading user: %v", err)
+	}
+	if !got.RequirePasswordChange {
+		t.Fatal("password change requirement was cleared even though the password was reused")
+	}
+	if got.PasswordHash != passwordHash {
+		t.Fatal("password hash was replaced even though the password was reused")
+	}
+
+	if err := provider.ChangePassword(t.Context(), user.ID, "a-genuinely-new-password", sessionID); err != nil {
+		t.Fatalf("changing to a new password: %v", err)
+	}
+	got, err = gatewayClient.LocalAuthUserByID(t.Context(), user.ID)
+	if err != nil {
+		t.Fatalf("reloading user after change: %v", err)
+	}
+	if got.RequirePasswordChange {
+		t.Fatal("password change requirement was not cleared after choosing a new password")
+	}
+	if err := VerifyPassword(got.PasswordHash, "a-genuinely-new-password"); err != nil {
+		t.Fatalf("verifying new password: %v", err)
+	}
+}
+
+func TestChangePasswordReturnsMalformedHashErrors(t *testing.T) {
+	provider, gatewayClient := newUsersTestProvider(t)
+	user, err := gatewayClient.CreateLocalAuthUser(t.Context(), "user@example.com", "not-a-phc-hash", true)
+	if err != nil {
+		t.Fatalf("creating user: %v", err)
+	}
+	sessionID := hash.String("change-password-session")
+	if err := gatewayClient.CreateLocalAuthSession(t.Context(), sessionID, user.ID, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("creating session: %v", err)
+	}
+
+	err = provider.ChangePassword(t.Context(), user.ID, "a-genuinely-new-password", sessionID)
+	if !errors.Is(err, errInvalidHash) {
+		t.Fatalf("changing password with a malformed stored hash: got %v, want errInvalidHash", err)
+	}
+	if _, ok := errors.AsType[InvalidUserError](err); ok {
+		t.Fatal("malformed stored hash was reported as a user error")
+	}
+	got, err := gatewayClient.LocalAuthUserByID(t.Context(), user.ID)
+	if err != nil {
+		t.Fatalf("reloading user: %v", err)
+	}
+	if !got.RequirePasswordChange || got.PasswordHash != "not-a-phc-hash" {
+		t.Fatalf("user was modified despite the verification error: %+v", got)
+	}
+}

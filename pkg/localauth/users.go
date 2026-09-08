@@ -96,11 +96,21 @@ func (p *Provider) SetPassword(ctx context.Context, id uint, password string, re
 // ChangePassword lets an authenticated local user choose their own password. The current session
 // is preserved, every other session is invalidated, and the login restriction is cleared.
 func (p *Provider) ChangePassword(ctx context.Context, id uint, password, currentSessionID string) error {
+	// Ensure the new password is different from the current one
+	user, err := p.gatewayClient.LocalAuthUserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := VerifyPassword(user.PasswordHash, password); err == nil {
+		return InvalidUserError{message: "the new password must be different from your current password"}
+	} else if !errors.Is(err, ErrInvalidPassword) {
+		return fmt.Errorf("failed to verify current password: %w", err)
+	}
+
 	passwordHash, err := hashUserPassword(password)
 	if err != nil {
 		return err
 	}
-
 	if err := p.gatewayClient.CompleteLocalAuthUserPasswordChange(ctx, id, passwordHash, currentSessionID); err != nil {
 		return err
 	}
