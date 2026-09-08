@@ -10,7 +10,12 @@ builds:
     goarch:
       - amd64
       - arm64
+    flags:
+      - -trimpath
+    tags:
+      - kustomize_disable_go_plugin_support
     ldflags:
+      - -s -w
       - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
     hooks:
       post:
@@ -26,7 +31,12 @@ builds:
     goarch:
       - amd64
       - arm64
+    flags:
+      - -trimpath
+    tags:
+      - kustomize_disable_go_plugin_support
     ldflags:
+      - -s -w
       - -X "github.com/obot-platform/obot/pkg/version.Tag=v{{ .Version }}"
 
 archives:
