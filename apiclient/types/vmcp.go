@@ -17,6 +17,7 @@ const (
 type VMCP struct {
 	Metadata                `json:",inline"`
 	VMCPManifest            `json:",inline"`
+	LegacySlug              string     `json:"legacySlug,omitempty"`
 	UserID                  string     `json:"userID,omitempty"`
 	StaticConfigurationHash string     `json:"staticConfigurationHash,omitempty"`
 	Status                  VMCPStatus `json:"status,omitempty"`
@@ -179,6 +180,7 @@ type VMCPComponentStatus struct {
 type VMCPList List[VMCP]
 
 type VMCPInstance struct {
+	LegacySlug           string `json:"legacySlug,omitempty"`
 	Metadata             `json:",inline"`
 	VMCPInstanceManifest `json:",inline"`
 	UserID               string             `json:"userID"`

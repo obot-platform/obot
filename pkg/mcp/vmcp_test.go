@@ -15,11 +15,26 @@ import (
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
 	"k8s.io/apimachinery/pkg/api/meta"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+const (
+	vmcpTestListenPort = 18080
+)
+
+type vmcpWatchSignalingStorage struct {
+	storage.Client
+	once     sync.Once
+	watching chan struct{}
+}
+
+// vmcpInitialEventsStorage supplies the watch-list behavior that the Kubernetes
+// API server provides but controller-runtime's fake watch does not emulate.
+type vmcpInitialEventsStorage struct {
+	storage.Client
+}
 
 func TestRestrictComponentTools(t *testing.T) {
 	renamed := types.ToolOverride{
@@ -111,10 +126,8 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	otherInstanceID := "vmcpi1-other-user-instance"
 
 	vmcp := &v1.VMCP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmcpID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      vmcpID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName:     "Shared VMCP",
@@ -166,10 +179,8 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		},
 	}
 	instance := &v1.VMCPInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instanceID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      instanceID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID:       vmcpID,
@@ -179,20 +190,16 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		},
 	}
 	otherUserInstance := &v1.VMCPInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      otherInstanceID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      otherInstanceID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{VMCPID: vmcpID},
 			UserID:   "user-2",
 		},
 	}
 	otherVMCPInstance := &v1.VMCPInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "vmcpi1-other-vmcp-instance",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "vmcpi1-other-vmcp-instance",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1other"},
 			UserID:   userID,
@@ -347,23 +354,44 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	}
 }
 
+func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1empty",
+		Namespace: system.DefaultNamespace,
+	}
+	storage := newVMCPTestStorage(vmcp)
+	manager := &SessionManager{storageClient: storage}
+	if _, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, "user"); err == nil || !strings.Contains(err.Error(), "without components") {
+		t.Fatalf("expected empty VMCP connection error, got %v", err)
+	}
+	var instances v1.VMCPInstanceList
+	if err := storage.List(t.Context(), &instances); err != nil {
+		t.Fatal(err)
+	}
+	if len(instances.Items) != 0 {
+		t.Fatal("rejected connection created an instance")
+	}
+}
+
 func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	const (
 		vmcpID = "vmcp1personal"
 		userID = "user-without-instance"
 	)
 	vmcp := &v1.VMCP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmcpID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      vmcpID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName: "Personal VMCP",
+				Components:  []types.VMCPComponent{{ID: "component"}},
 			},
 		},
 	}
-	storageClient := newVMCPTestStorage(vmcp)
+	storageClient := newVMCPTestStorage(vmcp, &v1.MCPServer{
+		Name: "ms1shared", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerSpec{VMCPID: vmcpID, VMCPComponentID: "component"},
+	})
 	manager := &SessionManager{
 		storageClient:  storageClient,
 		httpListenPort: vmcpTestListenPort,
@@ -413,10 +441,8 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 	)
 	instanceID := "vmcpi1-not-ready-instance"
 	vmcp := &v1.VMCP{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmcpID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      vmcpID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
 				DisplayName:     "Not Ready VMCP",
@@ -435,10 +461,8 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 		},
 	}
 	instance := &v1.VMCPInstance{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instanceID,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      instanceID,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID: vmcpID,
@@ -490,13 +514,7 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 	}
 }
 
-type vmcpWatchSignalingStorage struct {
-	storage.Client
-	once     sync.Once
-	watching chan struct{}
-}
-
-func (s *vmcpWatchSignalingStorage) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+func (s *vmcpWatchSignalingStorage) Watch(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) (watch.Interface, error) {
 	watcher, err := s.Client.Watch(ctx, list, opts...)
 	if err == nil {
 		s.once.Do(func() {
@@ -508,10 +526,8 @@ func (s *vmcpWatchSignalingStorage) Watch(ctx context.Context, list client.Objec
 
 func vmcpComponentServer(name, instanceID, userID, componentID, displayName, url string) *v1.MCPServer {
 	return &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      name,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{
 				Name:    displayName,
@@ -527,42 +543,38 @@ func vmcpComponentServer(name, instanceID, userID, componentID, displayName, url
 	}
 }
 
-func newVMCPTestStorage(objects ...client.Object) storage.Client {
+func newVMCPTestStorage(objects ...kclient.Object) storage.Client {
 	return &vmcpInitialEventsStorage{Client: fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
-		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj client.Object) []string {
+		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
+		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.MCPServer).Spec.VMCPID}
 		}).
-		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj client.Object) []string {
+		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.VMCPInstance).Spec.UserID}
 		}).
-		WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj client.Object) []string {
+		WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
 		}).
-		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj client.Object) []string {
+		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.MCPServer).Spec.VMCPInstanceID}
 		}).
 		WithObjects(objects...).
 		Build()}
 }
 
-// vmcpInitialEventsStorage supplies the watch-list behavior that the Kubernetes
-// API server provides but controller-runtime's fake watch does not emulate.
-type vmcpInitialEventsStorage struct {
-	storage.Client
-}
-
-func (s *vmcpInitialEventsStorage) Watch(ctx context.Context, list client.ObjectList, opts ...client.ListOption) (watch.Interface, error) {
+func (s *vmcpInitialEventsStorage) Watch(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) (watch.Interface, error) {
 	upstream, err := s.Client.Watch(ctx, list, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	initialList := list.DeepCopyObject().(client.ObjectList)
-	listOptions := &client.ListOptions{}
+	initialList := list.DeepCopyObject().(kclient.ObjectList)
+	listOptions := &kclient.ListOptions{}
 	listOptions.ApplyOptions(opts)
 	listOptions.Raw = nil
-	if err := s.Client.List(ctx, initialList, listOptions); err != nil {
+	if err := s.List(ctx, initialList, listOptions); err != nil {
 		upstream.Stop()
 		return nil, err
 	}
@@ -602,8 +614,6 @@ func (s *vmcpInitialEventsStorage) Watch(ctx context.Context, list client.Object
 	}()
 	return proxy, nil
 }
-
-const vmcpTestListenPort = 18080
 
 func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1multi", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{

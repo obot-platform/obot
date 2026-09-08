@@ -9,11 +9,11 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -23,10 +23,10 @@ import (
 func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 	vmcp := req.Object.(*v1.VMCP)
 
-	credential, err := h.revealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.ConfigurationCredentialName())
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
-		return err
-	}
+	var (
+		credential gatewaytypes.Credential
+		revealed   bool
+	)
 	shared := vmcpconfig.IsMultiUser(vmcp.Spec.Manifest)
 	var servers v1.MCPServerList
 	if shared {
@@ -44,22 +44,40 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 				break
 			}
 		}
-		status.Ready, status.Error = true, ""
-		if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
-			status.Error = fmt.Sprintf("invalid component definition: %v", err)
-		} else if missing := vmcpconfig.MissingRequiredConfiguration(component, credential.Secrets, false); len(missing) > 0 {
-			status.Error = "missing required administrator configuration: " + strings.Join(missing, ", ")
+		checkHash := utils.Digest([]any{component, vmcp.Spec.StaticConfigurationHash})
+		if status.ConfigurationCheckHash != checkHash {
+			if !revealed {
+				var err error
+				credential, err = h.revealCredential(req.Ctx, []string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)}, vmcpconfig.ConfigurationCredentialName())
+				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+					return err
+				}
+				revealed = true
+			}
+			status.ConfigurationError = ""
+			if _, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true); err != nil {
+				status.ConfigurationError = fmt.Sprintf("invalid component definition: %v", err)
+			} else if missing := vmcpconfig.MissingRequiredConfiguration(component, credential.Secrets, false); len(missing) > 0 {
+				status.ConfigurationError = "missing required administrator configuration: " + strings.Join(missing, ", ")
+			}
+			status.ConfigurationCheckHash = checkHash
 		}
+		status.Ready, status.Error = true, status.ConfigurationError
 		if ref := vmcpconfig.ComponentOAuthCredentialReference(component); status.Error == "" && ref != "" {
-			// Watch source credential changes, while retaining support for deleted sources.
-			var entry v1.MCPServerCatalogEntry
-			if err := req.Get(&entry, vmcp.Namespace, component.MCPServerCatalogEntryID); err != nil && !apierrors.IsNotFound(err) {
+			checkHash, err := vmcpconfig.OAuthCredentialCheckHash(req, vmcp.Namespace, ref, component.MCPServerCatalogEntryID)
+			if err != nil {
 				return err
 			}
-			if _, err := h.revealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName); errors.As(err, &gateway.CredentialNotFoundError{}) {
+			if status.OAuthCredentialCheckHash != checkHash {
+				_, err := h.revealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
+				if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+					return err
+				}
+				status.OAuthCredentialConfigured = err == nil
+				status.OAuthCredentialCheckHash = checkHash
+			}
+			if !status.OAuthCredentialConfigured {
 				status.Error = "static OAuth credentials are not configured"
-			} else if err != nil {
-				return err
 			}
 		}
 		if status.Error == "" && shared {

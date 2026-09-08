@@ -6,12 +6,32 @@ import (
 	"uuid"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
+	"github.com/obot-platform/obot/pkg/utils"
 )
 
 const (
 	configurationCredentialName = "configuration"
 	configurationKeyPrefix      = "vmcp.v1."
 )
+
+// SetStaticConfigurationHashes records both the deployment-wide synchronization
+// hash and the component hashes used to retain unrelated migrated overrides.
+func SetStaticConfigurationHashes(vmcp *v1.VMCP, configuration map[string]string) {
+	vmcp.Spec.StaticConfigurationHash = utils.Digest(configuration)
+	vmcp.Spec.ComponentStaticConfigurationHashes = make(map[string]string, len(vmcp.Spec.Manifest.Components))
+	for _, component := range vmcp.Spec.Manifest.Components {
+		values := map[string]string{}
+		for _, policy := range component.Configuration {
+			if policy.Policy == types.VMCPConfigurationPolicyFixed {
+				if value, ok := configuration[ConfigurationKey(component.ID, policy.Key)]; ok {
+					values[policy.Key] = value
+				}
+			}
+		}
+		vmcp.Spec.ComponentStaticConfigurationHashes[component.ID] = utils.Digest(values)
+	}
+}
 
 // ConfigurationCredentialName is the name used for VMCP configuration credentials.
 func ConfigurationCredentialName() string {

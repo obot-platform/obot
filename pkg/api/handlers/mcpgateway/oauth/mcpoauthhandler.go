@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strings"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -93,11 +94,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			if u != "" {
 				// At least one component requires OAuth.
 				slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID, "componentMCPID", componentServer.Name)
-				if oauthAppAuthRequestID != "" {
-					return fmt.Sprintf("%s/auth/mcp/composite/%s?oauth_auth_request=%s", f.baseURL, mcpID, oauthAppAuthRequestID), nil
-				}
-
-				return fmt.Sprintf("%s/auth/mcp/composite/%s", f.baseURL, mcpID), nil
+				return compositeConsentURL(f.baseURL, mcpID, mcpServer.Spec.VMCPID, oauthAppAuthRequestID), nil
 			}
 		}
 
@@ -105,7 +102,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		slog.Info("Aggregate MCP server passed OAuth check with no pending component authentication", "mcpID", mcpID)
 		return "", nil
 	} else if mcpServerConfig.Runtime != types.RuntimeRemote {
-		// Not a remote or composite server, no OAuth required
+		// Not a remote or vMCP server, no OAuth required
 		return "", nil
 	}
 
@@ -165,6 +162,23 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		slog.Info("Remote MCP server requires OAuth authentication", "mcpID", mcpID)
 		return u, nil
 	}
+}
+
+func compositeConsentURL(baseURL, connectID, vmcpID, authRequestID string) string {
+	query := url.Values{}
+	if authRequestID != "" {
+		query.Set("oauth_auth_request", authRequestID)
+	}
+	// The UI loads metadata by canonical ID, but authenticates the original
+	// connection so migrated users with multiple instances keep their selection.
+	if vmcpID != "" && vmcpID != connectID {
+		query.Set("vmcp_id", vmcpID)
+	}
+	result := fmt.Sprintf("%s/auth/mcp/composite/%s", baseURL, connectID)
+	if len(query) > 0 {
+		result += "?" + query.Encode()
+	}
+	return result
 }
 
 func (f *MCPOAuthHandlerFactory) componentServersForAuth(req api.Context, mcpServer v1.MCPServer, mcpServerConfig mcp.ServerConfig) ([]v1.MCPServer, error) {

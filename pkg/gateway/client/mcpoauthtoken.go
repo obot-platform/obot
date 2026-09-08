@@ -13,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"golang.org/x/oauth2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 )
@@ -90,6 +91,32 @@ func (c *Client) ReplaceMCPOAuthToken(ctx context.Context, userID, mcpID, url, o
 		return err
 	}
 	return c.triggerMCPOAuthTokenChange(ctx, mcpID)
+}
+
+// CopyMCPOAuthTokens preserves a migrated connection's upstream authorization.
+// Existing destination tokens take precedence, including tokens refreshed after
+// a partially completed migration.
+func (c *Client) CopyMCPOAuthTokens(ctx context.Context, userID, sourceID, targetID string) error {
+	var tokens []types.MCPOAuthToken
+	if err := c.db.WithContext(ctx).Where("mcp_id = ? AND user_id = ?", sourceID, userID).Find(&tokens).Error; err != nil {
+		return err
+	}
+	if len(tokens) == 0 || sourceID == targetID {
+		return nil
+	}
+	for i := range tokens {
+		if err := c.decryptMCPOAuthToken(ctx, &tokens[i]); err != nil {
+			return fmt.Errorf("failed to decrypt source MCP OAuth token: %w", err)
+		}
+		tokens[i].MCPID = targetID
+		if err := c.encryptMCPOAuthToken(ctx, &tokens[i]); err != nil {
+			return fmt.Errorf("failed to encrypt destination MCP OAuth token: %w", err)
+		}
+	}
+	if err := c.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(&tokens).Error; err != nil {
+		return err
+	}
+	return c.triggerMCPOAuthTokenChange(ctx, targetID)
 }
 
 func (c *Client) DeleteMCPOAuthTokenForURL(ctx context.Context, userID, mcpID, mcpURL string) error {

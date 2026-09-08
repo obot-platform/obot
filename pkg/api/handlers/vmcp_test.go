@@ -21,7 +21,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,7 +29,10 @@ import (
 
 type vmcpTestStorage struct {
 	kclient.WithWatch
-	next int
+	next      int
+	onCreate  func(kclient.Object)
+	onUpdate  func(kclient.Object)
+	updateErr error
 }
 
 func (s *vmcpTestStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
@@ -38,15 +40,29 @@ func (s *vmcpTestStorage) Create(ctx context.Context, obj kclient.Object, opts .
 		s.next++
 		obj.SetName(fmt.Sprintf("%stest-%d", obj.GetGenerateName(), s.next))
 	}
+	if s.onCreate != nil {
+		s.onCreate(obj)
+	}
 	return s.WithWatch.Create(ctx, obj, opts...)
+}
+
+func (s *vmcpTestStorage) Update(ctx context.Context, obj kclient.Object, opts ...kclient.UpdateOption) error {
+	if s.onUpdate != nil {
+		s.onUpdate(obj)
+	}
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	return s.WithWatch.Update(ctx, obj, opts...)
 }
 
 func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
 	for _, tc := range []struct {
-		name    string
-		update  bool
-		current bool
-		desired bool
+		name       string
+		update     bool
+		current    bool
+		desired    bool
+		legacySlug string
 	}{
 		{
 			name:    "create with override",
@@ -62,12 +78,19 @@ func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
 			update:  true,
 			current: true,
 		},
+		{
+			name:       "disable legacy override",
+			update:     true,
+			current:    true,
+			legacySlug: "legacy-composite",
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			storage := newVMCPTestStorage()
 			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{
-				UserID:   "1",
-				Manifest: types.VMCPManifest{ForceSingleUser: tc.current},
+				UserID:     "1",
+				LegacySlug: tc.legacySlug,
+				Manifest:   types.VMCPManifest{ForceSingleUser: tc.current},
 			}}
 			if tc.update {
 				if err := storage.Create(t.Context(), vmcp); err != nil {
@@ -103,6 +126,43 @@ func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
 	}
 }
 
+func TestMigratedVMCPAllowsAdminToDisableForceSingleUser(t *testing.T) {
+	storage := newVMCPTestStorage()
+	vmcp := &v1.VMCP{
+		Name:      "vmcp1migrated",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			LegacySlug: "legacy-composite",
+			Manifest:   types.VMCPManifest{ForceSingleUser: true},
+		},
+	}
+	if err := storage.Create(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(`{"displayName":"Migrated vMCP","forceSingleUser":false}`))
+	request.SetPathValue("vmcp_id", vmcp.Name)
+	err := NewVMCPHandler(nil).Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		GatewayClient:  newHandlerTestGateway(t),
+		Request:        request,
+		Storage:        storage,
+		User:           &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+	})
+	if err != nil {
+		t.Fatalf("administrator could not disable forceSingleUser: %v", err)
+	}
+	var persisted v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted.Spec.Manifest.ForceSingleUser {
+		t.Fatal("administrator update did not disable forceSingleUser")
+	}
+	if persisted.Spec.LegacySlug != vmcp.Spec.LegacySlug {
+		t.Fatal("update changed the legacy connection ID")
+	}
+}
+
 func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
@@ -135,6 +195,33 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
+	storage.onCreate = func(obj kclient.Object) {
+		if hash := obj.(*v1.VMCP).Spec.StaticConfigurationHash; hash != "" {
+			t.Fatalf("static configuration hash was published before storing the credential: %q", hash)
+		}
+	}
+	published := false
+	storage.onUpdate = func(obj kclient.Object) {
+		vmcp := obj.(*v1.VMCP)
+		if vmcp.Spec.StaticConfigurationHash == "" {
+			t.Fatal("static configuration hash was not published")
+		}
+		componentID := vmcp.Spec.Manifest.Components[0].ID
+		if got := vmcp.Spec.ComponentStaticConfigurationHashes[componentID]; got != utils.Digest(map[string]string{"TOKEN": "secret-token", "REGION": "us-east-1"}) {
+			t.Fatalf("unexpected component static configuration hash: %q", got)
+		}
+		credential, err := gatewayClient.RevealCredential(t.Context(),
+			[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
+			vmcpconfig.ConfigurationCredentialName(),
+		)
+		if err != nil {
+			t.Fatalf("static configuration credential was not stored before publishing its hash: %v", err)
+		}
+		if got := credential.Secrets[vmcpconfig.ConfigurationKey(vmcp.Spec.Manifest.Components[0].ID, "TOKEN")]; got != "secret-token" {
+			t.Fatalf("static configuration credential TOKEN = %q, want secret-token", got)
+		}
+		published = true
+	}
 	manifest := testVMCPManifest()
 	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
 		{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed, Value: "secret-token"},
@@ -145,6 +232,9 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	created := callVMCPCreate(t, storage, gatewayClient, NewVMCPHandler(nil), manifest, &user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
 	})
+	if !published {
+		t.Fatal("static configuration hash was not published")
+	}
 	for _, policy := range created.Components[0].Configuration {
 		if policy.Value != "" {
 			t.Fatalf("configuration %q value was returned from the VMCP", policy.Key)
@@ -175,6 +265,159 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	}
 	if stored.Spec.Manifest.Components[0].Configuration[0].Value != "" {
 		t.Fatal("static configuration was persisted in the VMCP manifest")
+	}
+}
+
+func TestVMCPHandlerUpdateReplacesStaticConfiguration(t *testing.T) {
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+	gatewayClient := newHandlerTestGateway(t)
+	handler := NewVMCPHandler(nil)
+	admin := &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}}
+	manifest := testVMCPManifest()
+	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
+		{
+			Key:    "TOKEN",
+			Policy: types.VMCPConfigurationPolicyFixed,
+			Value:  "old-token",
+		},
+		{
+			Key:    "REGION",
+			Policy: types.VMCPConfigurationPolicyFixed,
+			Value:  "old-region",
+		},
+	}
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
+	for _, token := range []string{"new-token", ""} {
+		var stored v1.VMCP
+		key := kclient.ObjectKey{Name: created.ID, Namespace: system.DefaultNamespace}
+		if err := storage.Get(t.Context(), key, &stored); err != nil {
+			t.Fatal(err)
+		}
+		manifest := stored.Spec.Manifest
+		manifest.Components[0].Configuration[0].Value = token
+		body, err := json.Marshal(manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+		request.SetPathValue("vmcp_id", created.ID)
+		if err := handler.Update(api.Context{
+			Request:        request,
+			ResponseWriter: httptest.NewRecorder(),
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+			User:           admin,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		credential, err := gatewayClient.RevealCredential(t.Context(),
+			[]string{vmcpconfig.StaticConfigurationCredentialContext(created.ID)},
+			vmcpconfig.ConfigurationCredentialName(),
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want := map[string]string{}
+		if token != "" {
+			want[vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "TOKEN")] = token
+		}
+		if !reflect.DeepEqual(credential.Secrets, want) {
+			t.Fatalf("static configuration = %v, want %v", credential.Secrets, want)
+		}
+		if err := storage.Get(t.Context(), key, &stored); err != nil {
+			t.Fatal(err)
+		}
+		if stored.Spec.StaticConfigurationHash != utils.Digest(want) {
+			t.Fatal("static configuration hash does not reflect replacement values")
+		}
+	}
+}
+
+func TestVMCPHandlerCreateDefersCleanupWhenPublishingStaticConfigurationFails(t *testing.T) {
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+	storage.updateErr = fmt.Errorf("update failed")
+	gatewayClient := newHandlerTestGateway(t)
+	manifest := testVMCPManifest()
+	manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{
+		Key:    "TOKEN",
+		Policy: types.VMCPConfigurationPolicyFixed,
+		Value:  "secret-token",
+	}}
+	body, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = NewVMCPHandler(nil).Create(api.Context{
+		Request:       httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
+		Storage:       storage,
+		GatewayClient: gatewayClient,
+		User:          &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "failed to publish VMCP static configuration") {
+		t.Fatalf("Create() error = %v, want static configuration publication error", err)
+	}
+	var vmcps v1.VMCPList
+	if err := storage.List(t.Context(), &vmcps); err != nil {
+		t.Fatal(err)
+	}
+	if len(vmcps.Items) != 1 || vmcps.Items[0].DeletionTimestamp.IsZero() {
+		t.Fatalf("failed creation was not marked for finalization: %#v", vmcps.Items)
+	}
+	if !slices.Equal(vmcps.Items[0].Finalizers, []string{v1.VMCPFinalizer}) {
+		t.Fatalf("missing credential cleanup finalizer: %v", vmcps.Items[0].Finalizers)
+	}
+	credential, err := gatewayClient.RevealCredential(t.Context(),
+		[]string{vmcpconfig.StaticConfigurationCredentialContext(system.VMCPPrefix + "test-1")},
+		vmcpconfig.ConfigurationCredentialName(),
+	)
+	if err != nil || len(credential.Secrets) != 1 {
+		t.Fatalf("credential should remain for controller cleanup: %v", err)
+	}
+}
+
+func TestVMCPDeletesDeferCredentialCleanup(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		object  kclient.Object
+		pathKey string
+		delete  func(api.Context) error
+	}{
+		{
+			name: "vMCP",
+			object: &v1.VMCP{
+				Name:       "vmcp",
+				Namespace:  system.DefaultNamespace,
+				Finalizers: []string{v1.VMCPFinalizer},
+			},
+			pathKey: "vmcp_id",
+			delete:  NewVMCPHandler(nil).Delete,
+		},
+		{
+			name: "vMCP instance",
+			object: &v1.VMCPInstance{
+				Name:       "instance",
+				Namespace:  system.DefaultNamespace,
+				Finalizers: []string{v1.VMCPInstanceFinalizer},
+			},
+			pathKey: "vmcp_instance_id",
+			delete:  NewVMCPInstanceHandler().Delete,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			storage := newVMCPTestStorage(tc.object)
+			request := httptest.NewRequest(http.MethodDelete, "/", nil)
+			request.SetPathValue(tc.pathKey, tc.object.GetName())
+			// No gateway client: deletion must only mark the resource for finalization.
+			if err := tc.delete(api.Context{Request: request, Storage: storage}); err != nil {
+				t.Fatal(err)
+			}
+			if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(tc.object), tc.object); err != nil {
+				t.Fatal(err)
+			}
+			if tc.object.GetDeletionTimestamp().IsZero() || len(tc.object.GetFinalizers()) == 0 {
+				t.Fatal("resource was not retained for credential finalization")
+			}
+		})
 	}
 }
 
@@ -536,7 +779,7 @@ func testVMCPManifest() types.VMCPManifest {
 
 func vmcpCatalogEntryForTest(id string) *v1.MCPServerCatalogEntry {
 	return &v1.MCPServerCatalogEntry{
-		ObjectMeta: metav1.ObjectMeta{Name: id, Namespace: system.DefaultNamespace},
+		Name: id, Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerCatalogEntrySpec{
 			MCPCatalogName:   "catalog",
 			Manifest:         types.MCPServerCatalogEntryManifest{Name: "Stored " + id, Runtime: types.RuntimeRemote},
@@ -552,7 +795,7 @@ func vmcpHandlerForTest(t *testing.T, storage kclient.Client) *VMCPHandler {
 		"catalog-entry-names": func(any) ([]string, error) { return nil, nil },
 	})
 	if err := indexer.Add(&v1.AccessControlRule{
-		ObjectMeta: metav1.ObjectMeta{Name: "allow", Namespace: system.DefaultNamespace},
+		Name: "allow", Namespace: system.DefaultNamespace,
 		Spec: v1.AccessControlRuleSpec{
 			MCPCatalogID: "catalog",
 			Manifest: types.AccessControlRuleManifest{
@@ -783,8 +1026,8 @@ func TestVMCPComponentAccess(t *testing.T) {
 				first, second := vmcpCatalogEntryForTest("entry"), vmcpCatalogEntryForTest("second")
 				second.Spec.MCPCatalogName = tc.catalog
 				workspace := &v1.PowerUserWorkspace{
-					ObjectMeta: metav1.ObjectMeta{Name: "workspace", Namespace: system.DefaultNamespace},
-					Spec:       v1.PowerUserWorkspaceSpec{UserID: "user-1"},
+					Name: "workspace", Namespace: system.DefaultNamespace,
+					Spec: v1.PowerUserWorkspaceSpec{UserID: "user-1"},
 				}
 				if tc.workspace {
 					second.Spec.PowerUserWorkspaceID = workspace.Name
@@ -824,7 +1067,7 @@ func TestVMCPComponentAccess(t *testing.T) {
 					if err := storage.Create(t.Context(), vmcp); err != nil {
 						t.Fatal(err)
 					}
-					ctx.Request.SetPathValue("vmcp_id", vmcp.Name)
+					ctx.SetPathValue("vmcp_id", vmcp.Name)
 					err = handler.Update(ctx)
 				} else {
 					err = handler.Create(ctx)

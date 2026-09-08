@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	"github.com/obot-platform/obot/pkg/system"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	fakeclient "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -32,9 +33,9 @@ func agentUser(grants ...string) User {
 // was configured with.
 func TestHostedAgentReachesItsGrantedServer(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{Name: "ms1github", Namespace: "obot"},
+		&v1.MCPServer{Name: "ms1github", Namespace: system.DefaultNamespace},
 	).Build()
-	authorizer := &Authorizer{uncached: client}
+	authorizer := &Authorizer{cache: client, uncached: client}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp-connect/ms1github", nil)
 	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1github"}, agentUser("ms1github"))
@@ -49,12 +50,15 @@ func TestHostedAgentReachesItsGrantedServer(t *testing.T) {
 // The grant list is the whole authority, so a server absent from it is denied.
 func TestHostedAgentCannotReachAnUngrantedServer(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{Name: "ms1secret", Namespace: "obot"},
+		&v1.MCPServer{Name: "ms1secret", Namespace: system.DefaultNamespace},
 	).Build()
-	authorizer := &Authorizer{uncached: client}
+	authorizer := &Authorizer{cache: client, uncached: client}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp-connect/ms1secret", nil)
-	ok, _ := authorizer.checkMCPID(req, &Resources{MCPID: "ms1secret"}, agentUser("ms1github"))
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1secret"}, agentUser("ms1github"))
+	if err != nil {
+		t.Fatalf("checkMCPID: %v", err)
+	}
 	if ok {
 		t.Fatal("an agent reached a server it was never granted")
 	}
@@ -64,13 +68,24 @@ func TestHostedAgentCannotReachAnUngrantedServer(t *testing.T) {
 // empty list is how a caller with no grants ends up with every grant.
 func TestHostedAgentWithNoGrantsReachesNothing(t *testing.T) {
 	client := fakeclient.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(
-		&v1.MCPServer{Name: "ms1github", Namespace: "obot"},
+		&v1.MCPServer{Name: "ms1github", Namespace: system.DefaultNamespace},
 	).Build()
-	authorizer := &Authorizer{uncached: client}
+	authorizer := &Authorizer{cache: client, uncached: client}
 
 	req := httptest.NewRequest(http.MethodPost, "/mcp-connect/ms1github", nil)
-	ok, _ := authorizer.checkMCPID(req, &Resources{MCPID: "ms1github"}, agentUser())
+	ok, err := authorizer.checkMCPID(req, &Resources{MCPID: "ms1github"}, agentUser())
+	if err != nil {
+		t.Fatalf("checkMCPID: %v", err)
+	}
 	if ok {
 		t.Fatal("an agent with no granted servers reached one")
+	}
+}
+
+// The agent path must not weaken the user path: a real user is still checked
+// against catalogs, ownership and access rules.
+func TestOrdinaryUserStillGoesThroughAccessChecks(t *testing.T) {
+	if principal.IsHostedAgent(&kuser.DefaultInfo{Groups: []string{types2.GroupAuthenticated}}) {
+		t.Fatal("an ordinary user must not be treated as a hosted agent")
 	}
 }

@@ -83,18 +83,12 @@ func (*VMCPInstanceHandler) Create(req api.Context) error {
 		return err
 	}
 
-	var existing v1.VMCPInstanceList
-	if err := req.List(&existing, kclient.MatchingFields{
-		"spec.userID":          req.User.GetUID(),
-		"spec.manifest.vmcpID": manifest.VMCPID,
-	}); err != nil {
+	existing, err := vmcpconfig.FindInstance(req.Context(), req.Storage, req.Namespace(), manifest.VMCPID, req.User.GetUID())
+	if err != nil {
 		return fmt.Errorf("failed to find existing VMCP instance: %w", err)
 	}
-	if len(existing.Items) > 1 {
-		return fmt.Errorf("found multiple VMCP instances for VMCP %q and user %q", manifest.VMCPID, req.User.GetUID())
-	}
-	if len(existing.Items) == 1 {
-		return req.WriteCreated(convertVMCPInstance(existing.Items[0]))
+	if existing != nil {
+		return req.WriteCreated(convertVMCPInstance(*existing))
 	}
 
 	instance := v1.VMCPInstance{
@@ -177,7 +171,9 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 	if err := req.Read(&configuration); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP instance configuration: %v", err)
 	}
-	secrets, err := vmcpconfig.ValidateAndEncodeUserConfiguration(vmcp.Spec.Manifest, configuration)
+	effective := vmcp.Spec.Manifest
+	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	secrets, err := vmcpconfig.ValidateAndEncodeUserConfiguration(effective, configuration)
 	if err != nil {
 		return types.NewErrBadRequest("invalid VMCP instance configuration: %v", err)
 	}
@@ -200,6 +196,7 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 
 func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {
 	return types.VMCPInstance{
+		LegacySlug:           instance.Spec.LegacySlug,
 		Metadata:             MetadataFrom(&instance),
 		VMCPInstanceManifest: instance.Spec.Manifest,
 		UserID:               instance.Spec.UserID,

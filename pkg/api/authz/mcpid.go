@@ -7,10 +7,12 @@ import (
 	"strings"
 
 	"github.com/obot-platform/nah/pkg/router"
+	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/principal"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -42,6 +44,23 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 // /mcp-connect must call this rather than relying on management visibility.
 func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
 	if principal.IsHostedAgent(user) {
+		serverID := mcpID
+		if system.IsMCPServerInstanceID(serverID) {
+			var instance v1.MCPServerInstance
+			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &instance); err != nil {
+				return false, err
+			}
+			serverID = instance.Spec.MCPServerName
+		}
+		if system.IsMCPServerID(serverID) {
+			var server v1.MCPServer
+			if err := client.Get(ctx, router.Key(system.DefaultNamespace, serverID), &server); err != nil {
+				return false, err
+			}
+			if server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" {
+				return false, nil
+			}
+		}
 		return MCPIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), mcpID)
 	}
 
@@ -58,6 +77,11 @@ func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *
 }
 
 func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
+	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, user.GetUID()); err != nil {
+		return false, err
+	} else if vmcp != nil {
+		return UserCanConnectVMCP(user, vmcp), nil
+	}
 	switch {
 	case system.IsMCPServerInstanceID(mcpID):
 		var mcpServerInstance v1.MCPServerInstance
@@ -65,7 +89,14 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			return false, err
 		}
 
-		return mcpServerInstance.Spec.UserID == user.GetUID(), nil
+		if mcpServerInstance.Spec.UserID != user.GetUID() {
+			return false, nil
+		}
+		var server v1.MCPServer
+		if err := client.Get(ctx, router.Key(mcpServerInstance.Namespace, mcpServerInstance.Spec.MCPServerName), &server); err != nil {
+			return false, err
+		}
+		return server.Spec.VMCPID == "" && server.Spec.VMCPInstanceID == "", nil
 
 	case system.IsMCPServerID(mcpID):
 		var mcpServer v1.MCPServer
@@ -74,6 +105,14 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		}
 
 		vmcpID := mcpServer.Spec.VMCPID
+		if vmcpID != "" || mcpServer.Spec.VMCPInstanceID != "" {
+			// Only the signed aggregate loopback token may reach component servers.
+			// External clients must pass through the aggregate's tool filtering.
+			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) ||
+				!slices.Contains(user.GetExtra()["authorized_mcp_ids"], mcpID) {
+				return false, nil
+			}
+		}
 		if mcpServer.Spec.VMCPInstanceID != "" {
 			var instance v1.VMCPInstance
 			if err := client.Get(ctx, router.Key(mcpServer.Namespace, mcpServer.Spec.VMCPInstanceID), &instance); err != nil {
@@ -89,7 +128,9 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 			if err := client.Get(ctx, router.Key(mcpServer.Namespace, vmcpID), &vmcp); err != nil {
 				return false, err
 			}
-			return UserCanConnectVMCP(user, &vmcp), nil
+			return UserCanConnectVMCP(user, &vmcp) && slices.ContainsFunc(vmcp.Spec.Manifest.Components, func(component types.VMCPComponent) bool {
+				return component.ID == mcpServer.Spec.VMCPComponentID
+			}), nil
 		}
 		if mcpServer.Spec.IsCatalogServer() {
 			return acrHelper.UserHasAccessToMCPServerInCatalog(user, mcpID, mcpServer.Spec.MCPCatalogID)
@@ -136,6 +177,20 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 	if slices.Contains(authorizedMCPServers, "*") || slices.Contains(authorizedMCPServers, mcpID) {
 		return true, nil
 	}
+	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, userID); err != nil {
+		return false, err
+	} else if vmcp != nil {
+		if vmcpScopeMatches(authorizedMCPServers, vmcp, instance) {
+			return true, nil
+		}
+		if instance == nil {
+			instance, err = vmcpaccess.FindInstance(ctx, client, vmcp.Namespace, vmcp.Name, userID)
+			if err != nil {
+				return false, err
+			}
+		}
+		return vmcpScopeMatches(authorizedMCPServers, vmcp, instance), nil
+	}
 
 	switch {
 	case system.IsMCPServerInstanceID(mcpID):
@@ -162,7 +217,14 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 			if err := client.Get(ctx, kclient.ObjectKey{Namespace: mcpServer.Namespace, Name: mcpServer.Spec.VMCPInstanceID}, &instance); err != nil {
 				return false, err
 			}
-			return instance.Spec.UserID == userID && mcpServer.Spec.UserID == userID && slices.Contains(authorizedMCPServers, instance.Spec.Manifest.VMCPID), nil
+			if instance.Spec.UserID != userID || mcpServer.Spec.UserID != userID {
+				return false, nil
+			}
+			var vmcp v1.VMCP
+			if err := client.Get(ctx, kclient.ObjectKey{Namespace: instance.Namespace, Name: instance.Spec.Manifest.VMCPID}, &vmcp); err != nil {
+				return false, err
+			}
+			return vmcpScopeMatches(authorizedMCPServers, &vmcp, &instance), nil
 		}
 		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
 			mcpServer.Spec.VMCPID != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.VMCPID) ||
@@ -192,4 +254,11 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 
 		return false, nil
 	}
+}
+
+func vmcpScopeMatches(scopes []string, vmcp *v1.VMCP, instance *v1.VMCPInstance) bool {
+	if slices.Contains(scopes, vmcp.Name) || vmcp.Spec.LegacySlug != "" && slices.Contains(scopes, vmcp.Spec.LegacySlug) {
+		return true
+	}
+	return instance != nil && (slices.Contains(scopes, instance.Name) || instance.Spec.LegacySlug != "" && slices.Contains(scopes, instance.Spec.LegacySlug))
 }

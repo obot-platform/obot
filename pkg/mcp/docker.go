@@ -243,7 +243,7 @@ func (d *dockerBackend) ensureServerDeployment(ctx context.Context, server Serve
 		server.Webhooks[i] = webhook
 	}
 
-	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
+	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeVMCP {
 		return server, nil
 	}
 

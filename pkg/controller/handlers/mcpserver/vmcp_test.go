@@ -12,11 +12,53 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func TestMigratedConfigurationAndFixedValueRotation(t *testing.T) {
+	component := types.VMCPComponent{ID: "one", Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}}}
+	vmcp := &v1.VMCP{Name: "vmcp1migration", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                           types.VMCPManifest{ForceSingleUser: true, Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash:            "original",
+		ComponentStaticConfigurationHashes: map[string]string{component.ID: "original"},
+	}}
+	legacy := *component.DeepCopy()
+	legacy.SourceDigest = utils.Digest([]any{component, vmcp.Spec.ComponentStaticConfigurationHashes[component.ID]})
+	legacy.Configuration[0].Policy = types.VMCPConfigurationPolicyUserAllowed
+	instance := &v1.VMCPInstance{Name: "vmcpi1migration", Namespace: vmcp.Namespace, Spec: v1.VMCPInstanceSpec{
+		UserID: "user", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}, LegacyComponents: []types.VMCPComponent{legacy},
+	}, Status: v1.VMCPInstanceStatus{UserConfigurationHash: "user-hash"}}
+	server := &v1.MCPServer{Name: "ms1migration", Namespace: vmcp.Namespace, Spec: v1.MCPServerSpec{
+		UserID: "user", VMCPInstanceID: instance.Name, VMCPComponentID: component.ID,
+	}}
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, instance, server).WithStatusSubresource(server).Build()
+	gw := newTestGatewayClient(t)
+	key := vmcpconfig.ConfigurationKey(component.ID, "TOKEN")
+	require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name), Name: vmcpconfig.ConfigurationCredentialName(), Secrets: map[string]string{key: "admin"},
+	}))
+	require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name), Name: vmcpconfig.ConfigurationCredentialName(), Secrets: map[string]string{key: "legacy-override"},
+	}))
+	handler := &Handler{gatewayClient: gw}
+	req := router.Request{Ctx: t.Context(), Client: storage, Object: server}
+	require.NoError(t, handler.SyncVMCPConfiguration(req, nil))
+	credential, err := gw.RevealCredential(t.Context(), []string{"user-" + server.Name}, server.Name)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-override", credential.Secrets["TOKEN"])
+	vmcp.Spec.StaticConfigurationHash = "rotated"
+	vmcp.Spec.ComponentStaticConfigurationHashes[component.ID] = "rotated"
+	require.NoError(t, storage.Update(t.Context(), vmcp))
+	require.NoError(t, handler.SyncVMCPConfiguration(req, nil))
+	credential, err = gw.RevealCredential(t.Context(), []string{"user-" + server.Name}, server.Name)
+	require.NoError(t, err)
+	require.Equal(t, "admin", credential.Secrets["TOKEN"], "fixed configuration must retire the legacy override")
+}
 
 func TestVMCPOAuthCredentialStatusWithoutCatalogSource(t *testing.T) {
 	ref := system.MCPOAuthCredentialName("deleted-source")
@@ -27,7 +69,11 @@ func TestVMCPOAuthCredentialStatusWithoutCatalogSource(t *testing.T) {
 	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp, server).WithStatusSubresource(server).Build()
 	gw := newTestGatewayClient(t)
 	handler := &Handler{gatewayClient: gw}
-	for _, configured := range []bool{false, true, false} {
+	for i, configured := range []bool{false, true, false} {
+		// Changing the retained reference must invalidate the previous result.
+		ref = system.MCPOAuthCredentialName(fmt.Sprintf("deleted-source-%d", i))
+		vmcp.Spec.Manifest.Components[0].OAuthCredentialID = ref
+		require.NoError(t, storage.Update(t.Context(), vmcp))
 		if configured {
 			if err := gw.UpsertCredential(t.Context(), gatewaytypes.Credential{Context: ref, Name: system.StaticOAuthCredentialName, Secrets: map[string]string{"CLIENT_ID": "client"}}); err != nil {
 				t.Fatal(err)
@@ -43,7 +89,36 @@ func TestVMCPOAuthCredentialStatusWithoutCatalogSource(t *testing.T) {
 		if server.Status.OAuthCredentialConfigured != configured {
 			t.Fatalf("configured = %v, want %v", server.Status.OAuthCredentialConfigured, configured)
 		}
+		// An unchanged result, including not-found, must not access the gateway.
+		require.NoError(t, (&Handler{}).SyncOAuthCredentialStatus(router.Request{Ctx: t.Context(), Client: storage, Object: server}, nil))
 	}
+}
+
+func TestVMCPOAuthCredentialStatusRechecksSourceRevision(t *testing.T) {
+	entry := &v1.MCPServerCatalogEntry{Name: "source", Namespace: "default", Annotations: map[string]string{v1.OAuthCredentialRevisionAnnotation: "one"}}
+	ref := system.MCPOAuthCredentialName(entry.Name)
+	vmcp := &v1.VMCP{Name: "vmcp1oauth", Namespace: entry.Namespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "one", MCPServerCatalogEntryID: entry.Name, OAuthCredentialID: ref}},
+	}}}
+	server := &v1.MCPServer{Name: "ms1oauth", Namespace: entry.Namespace, Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: "one"}}
+	storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(entry, vmcp, server).WithStatusSubresource(server).Build()
+	gw := newTestGatewayClient(t)
+	handler := &Handler{gatewayClient: gw}
+	req := router.Request{Ctx: t.Context(), Client: storage, Object: server}
+	require.NoError(t, handler.SyncOAuthCredentialStatus(req, nil))
+	require.False(t, server.Status.OAuthCredentialConfigured)
+	require.NoError(t, gw.UpsertCredential(t.Context(), gatewaytypes.Credential{Context: ref, Name: system.StaticOAuthCredentialName, Secrets: map[string]string{"CLIENT_ID": "client"}}))
+	entry.Annotations[v1.OAuthCredentialRevisionAnnotation] = "two"
+	require.NoError(t, storage.Update(t.Context(), entry))
+	require.NoError(t, handler.SyncOAuthCredentialStatus(req, nil))
+	require.True(t, server.Status.OAuthCredentialConfigured)
+	require.NoError(t, (&Handler{}).SyncOAuthCredentialStatus(req, nil))
+	_, err := gw.DeleteCredential(t.Context(), ref, system.StaticOAuthCredentialName)
+	require.NoError(t, err)
+	entry.Annotations[v1.OAuthCredentialRevisionAnnotation] = "three"
+	require.NoError(t, storage.Update(t.Context(), entry))
+	require.NoError(t, handler.SyncOAuthCredentialStatus(req, nil))
+	require.False(t, server.Status.OAuthCredentialConfigured)
 }
 
 func TestSyncVMCPConfigurationCopiesComponentConfiguration(t *testing.T) {

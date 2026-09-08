@@ -9,6 +9,7 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/controller/data"
 	"github.com/obot-platform/obot/pkg/controller/handlers/adminworkspace"
+	"github.com/obot-platform/obot/pkg/controller/handlers/compositemigration"
 	"github.com/obot-platform/obot/pkg/controller/handlers/deployment"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mcpcatalog"
 	"github.com/obot-platform/obot/pkg/controller/handlers/mdmassetsource"
@@ -122,6 +123,10 @@ func (c *Controller) PreStart(ctx context.Context) error {
 
 	if err := c.ensureAuthProvidersAndModelProviders(ctx); err != nil {
 		return fmt.Errorf("failed to ensure auth providers and model providers: %w", err)
+	}
+
+	if err := compositemigration.New(c.services.GatewayClient).MigrateAll(ctx, c.services.StorageClient); err != nil {
+		return fmt.Errorf("failed to migrate composite MCP servers: %w", err)
 	}
 
 	return nil

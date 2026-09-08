@@ -24,13 +24,13 @@ func TestVMCPAPIKeyScopes(t *testing.T) {
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
 	shared := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name}}
 	dedicated := &v1.MCPServer{Name: "ms1dedicated", Namespace: "default", Spec: v1.MCPServerSpec{VMCPInstanceID: instance.Name, UserID: "7"}}
-	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp, instance, shared, dedicated).Build()
+	storage := newMCPIDIsAuthorizedTestStorage(vmcp, instance, shared, dedicated)
 	for _, id := range []string{vmcp.Name, shared.Name, dedicated.Name} {
 		for _, scope := range []string{vmcp.Name, "*", "vmcp1other"} {
 			u := &user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {scope}}}
 			authorizer := &Authorizer{cache: storage, uncached: storage}
 			ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(u))
-			if err != nil || ok != (scope != "vmcp1other") {
+			if err != nil || ok != (id == vmcp.Name && scope != "vmcp1other") {
 				t.Fatalf("id=%s scope=%s: allowed=%v error=%v", id, scope, ok, err)
 			}
 		}
@@ -47,6 +47,77 @@ func TestVMCPAPIKeyScopes(t *testing.T) {
 		ok, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+id, nil), &Resources{MCPID: id}, newUser(&user.DefaultInfo{UID: "7", Extra: map[string][]string{"authorized_mcp_ids": {vmcp.Name}}}))
 		if err != nil || ok {
 			t.Fatalf("revoked profile still authorized for %s: %v, %v", id, ok, err)
+		}
+	}
+}
+
+func TestVMCPComponentsRequireInternalForwarding(t *testing.T) {
+	vmcp := &v1.VMCP{Name: "vmcp1restricted", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+		Components: []types.VMCPComponent{{ID: "component"}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowedTools: types.VMCPToolSet{"component": {"echo"}}}},
+	}}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1restricted", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
+	shared := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: "component"}}
+	dedicated := &v1.MCPServer{Name: "ms1dedicated", Namespace: "default", Spec: v1.MCPServerSpec{VMCPInstanceID: instance.Name, UserID: "7", VMCPComponentID: "component"}}
+	storage := newMCPIDIsAuthorizedTestStorage(vmcp, instance, shared, dedicated)
+	authorizer := &Authorizer{cache: storage, uncached: storage}
+	for _, server := range []*v1.MCPServer{shared, dedicated} {
+		alias := &v1.MCPServerInstance{Name: "msi1" + server.Name, Namespace: "default", Spec: v1.MCPServerInstanceSpec{MCPServerName: server.Name, UserID: "7"}}
+		if err := storage.Create(t.Context(), alias); err != nil {
+			t.Fatal(err)
+		}
+		for _, caller := range []User{newUser(&user.DefaultInfo{UID: "7"}), agentUser(alias.Name)} {
+			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+alias.Name, nil), &Resources{MCPID: alias.Name}, caller)
+			if err != nil || allowed {
+				t.Fatalf("legacy instance bypassed aggregate: allowed=%v error=%v", allowed, err)
+			}
+		}
+		for _, scope := range []string{server.Name, vmcp.Name, "*"} {
+			allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+server.Name, nil), &Resources{MCPID: server.Name}, agentUser(scope))
+			if err != nil || allowed {
+				t.Fatalf("hosted agent bypassed aggregate: allowed=%v error=%v", allowed, err)
+			}
+		}
+		for _, tc := range []struct {
+			name    string
+			groups  []string
+			scopes  []string
+			allowed bool
+		}{
+			{
+				name: "ordinary user",
+			},
+			{
+				name:   "vmcp key",
+				scopes: []string{vmcp.Name},
+			},
+			{
+				name:   "component key",
+				scopes: []string{server.Name},
+			},
+			{
+				name:   "wildcard key",
+				scopes: []string{"*"},
+			},
+			{
+				name:   "internal wrong scope",
+				groups: []string{types.GroupCompositeMCP},
+				scopes: []string{vmcp.Name},
+			},
+			{
+				name:    "internal forwarding",
+				groups:  []string{types.GroupCompositeMCP},
+				scopes:  []string{server.Name},
+				allowed: true,
+			},
+		} {
+			t.Run(server.Name+"/"+tc.name, func(t *testing.T) {
+				u := &user.DefaultInfo{UID: "7", Groups: tc.groups, Extra: map[string][]string{"authorized_mcp_ids": tc.scopes}}
+				allowed, err := authorizer.checkMCPID(httptest.NewRequest(http.MethodPost, "/mcp-connect/"+server.Name, nil), &Resources{MCPID: server.Name}, newUser(u))
+				if err != nil || allowed != tc.allowed {
+					t.Fatalf("allowed=%v error=%v", allowed, err)
+				}
+			})
 		}
 	}
 }
@@ -83,9 +154,10 @@ func TestCheckMCPIDChecksMCPServerInstanceOwner(t *testing.T) {
 		Name:      "msi1test",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerInstanceSpec{
-			UserID: "user-uid",
+			UserID:        "user-uid",
+			MCPServerName: "ms1test",
 		},
-	}).Build()
+	}, &v1.MCPServer{Name: "ms1test", Namespace: system.DefaultNamespace}).Build()
 	authorizer := &Authorizer{cache: storage, uncached: storage}
 	req := httptest.NewRequest(http.MethodGet, "/mcp-connect/msi1test", nil)
 
@@ -592,14 +664,16 @@ func TestMCPConnectSubtreeAuthorization(t *testing.T) {
 			Name:      "msi1test",
 			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
-				UserID: "user-uid",
+				UserID:        "user-uid",
+				MCPServerName: "ms1test",
 			},
 		},
 		&v1.MCPServerInstance{
 			Name:      "msi1keytest",
 			Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerInstanceSpec{
-				UserID: "key-user-uid",
+				UserID:        "key-user-uid",
+				MCPServerName: "ms1keytest",
 			},
 		},
 	).Build()
@@ -814,6 +888,10 @@ func TestMCPTesterChatAuthorizationUsesConnectionPermission(t *testing.T) {
 func newMCPIDIsAuthorizedTestStorage(objects ...kclient.Object) kclient.Client {
 	return clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
+		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
+		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.UserID} }).
+		WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID} }).
 		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
 			server := obj.(*v1.MCPServer)
 			if server.Spec.MCPServerCatalogEntryName == "" {

@@ -6,10 +6,7 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type pendingComponentAuth struct {
@@ -34,29 +31,8 @@ func (h *handler) checkCompositeAuth(req api.Context) error {
 		compositeMCPID     = req.PathValue("mcp_id")
 		oauthAuthRequestID = req.URL.Query().Get("oauth_auth_request")
 	)
-	var (
-		compositeServer v1.MCPServer
-		compositeConfig mcp.ServerConfig
-	)
-	if system.IsVMCPID(compositeMCPID) {
-		var err error
-		compositeConfig, err = h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), compositeMCPID, req.User.GetUID())
-		if err != nil {
-			return fmt.Errorf("failed to get vMCP config: %w", err)
-		}
-		compositeServer = v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      compositeMCPID,
-				Namespace: compositeConfig.MCPServerNamespace,
-			},
-			Spec: v1.MCPServerSpec{
-				Manifest: types.MCPServerManifest{
-					Name:    compositeConfig.MCPServerDisplayName,
-					Runtime: types.RuntimeVMCP,
-				},
-			},
-		}
-	} else if err := req.Get(&compositeServer, compositeMCPID); err != nil {
+	_, compositeServer, compositeConfig, err := h.oauthChecker.mcpSessionManager.ServerForActionWithConnectID(req.Context(), compositeMCPID, req.User.GetUID())
+	if err != nil {
 		return fmt.Errorf("failed to get composite server: %w", err)
 	}
 

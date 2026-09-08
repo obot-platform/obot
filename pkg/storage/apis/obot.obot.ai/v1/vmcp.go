@@ -30,10 +30,13 @@ type VMCP struct {
 }
 
 type VMCPSpec struct {
-	Manifest types.VMCPManifest `json:"manifest"`
+	LegacySlug string             `json:"legacySlug,omitempty"`
+	Manifest   types.VMCPManifest `json:"manifest"`
 	// UserID is set for a personal VMCP and empty for an administrator-created shared VMCP.
 	UserID                  string `json:"userID,omitempty"`
 	StaticConfigurationHash string `json:"staticConfigurationHash,omitempty"`
+	// ComponentStaticConfigurationHashes retire migrated overrides only for the changed component.
+	ComponentStaticConfigurationHashes map[string]string `json:"componentStaticConfigurationHashes,omitempty"`
 }
 
 type VMCPStatus struct {
@@ -67,14 +70,19 @@ func (in *VMCP) Has(field string) bool {
 }
 
 func (in *VMCP) Get(field string) string {
-	if field == "spec.userID" {
-		return in.Spec.UserID
+	if in != nil {
+		switch field {
+		case "spec.legacySlug":
+			return in.Spec.LegacySlug
+		case "spec.userID":
+			return in.Spec.UserID
+		}
 	}
 	return ""
 }
 
 func (*VMCP) FieldNames() []string {
-	return []string{"spec.userID"}
+	return []string{"spec.userID", "spec.legacySlug"}
 }
 
 func (in *VMCP) IsPersonal() bool {

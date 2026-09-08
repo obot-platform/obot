@@ -54,6 +54,7 @@ func TestDoRefreshTokenRotatesTokenAndPreservesScope(t *testing.T) {
 
 	storage := clientfake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
+		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
 		WithObjects(&v1.SystemMCPServer{
 			Namespace: system.DefaultNamespace,
 			Name:      mcpID,

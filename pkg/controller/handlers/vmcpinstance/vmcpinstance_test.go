@@ -340,7 +340,8 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 			UserID: "user-1",
 		},
 	}
-	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp).Build()
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).Build()
 	req := router.Request{
 		Ctx:    t.Context(),
 		Client: client,
@@ -393,6 +394,20 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 	containerServer := serversByComponent["component-two"]
 	if containerServer.Spec.Manifest.ContainerizedConfig == nil || containerServer.Spec.Manifest.ContainerizedConfig.Image != "example.test/component:latest" {
 		t.Fatalf("container server was not created from cached catalog configuration: %#v", containerServer.Spec.Manifest)
+	}
+
+	vmcp.Spec.Manifest.Components = vmcp.Spec.Manifest.Components[1:]
+	if err := client.Update(t.Context(), vmcp); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.List(t.Context(), &servers, kclient.InNamespace("default")); err != nil {
+		t.Fatal(err)
+	}
+	if len(servers.Items) != 1 || servers.Items[0].Spec.VMCPComponentID != "component-two" {
+		t.Fatalf("servers after component removal = %#v", servers.Items)
 	}
 }
 

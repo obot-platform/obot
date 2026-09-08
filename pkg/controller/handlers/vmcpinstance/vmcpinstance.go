@@ -87,7 +87,9 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 	}
 
 	configuration := map[string]string{}
-	checkHash := utils.Digest([]any{vmcp.Spec.Manifest.Components, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]})
+	effective := vmcp.Spec.Manifest
+	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, *instance)
+	checkHash := utils.Digest([]any{effective.Components, instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]})
 	if instance.Status.ConfigurationCheckHash == checkHash {
 		return nil
 	}
@@ -96,13 +98,13 @@ func (h *Handler) SyncUserConfigurationHash(req router.Request, _ router.Respons
 		vmcpconfig.ConfigurationCredentialName(),
 	)
 	if err == nil {
-		configuration = userAllowedConfiguration(vmcp.Spec.Manifest, credential.Secrets)
+		configuration = userAllowedConfiguration(effective, credential.Secrets)
 	} else if !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("reveal configuration credential for VMCP instance %q: %w", instance.Name, err)
 	}
 
 	var missing []string
-	for _, component := range vmcp.Spec.Manifest.Components {
+	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
 		missing = append(missing, vmcpconfig.MissingRequiredConfiguration(component, configuration, true)...)
 	}
 	slices.Sort(missing)
@@ -157,12 +159,28 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 		}
 		return nil
 	}
-	for _, component := range vmcp.Spec.Manifest.Components {
+	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
 		server, err := mcpServerForComponent(instance, component)
 		if err != nil {
 			return fmt.Errorf("build MCPServer for VMCP component %q: %w", component.Name, err)
 		}
 		servers = append(servers, server)
+	}
+	desired := make(map[string]struct{}, len(servers))
+	for _, server := range servers {
+		desired[server.Spec.VMCPComponentID] = struct{}{}
+	}
+	var existingServers v1.MCPServerList
+	if err := req.List(&existingServers, &kclient.ListOptions{Namespace: instance.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.vmcpInstanceID", instance.Name)}); err != nil {
+		return err
+	}
+	for i := range existingServers.Items {
+		if _, ok := desired[existingServers.Items[i].Spec.VMCPComponentID]; ok {
+			continue
+		}
+		if err := req.Client.Delete(req.Ctx, &existingServers.Items[i]); kclient.IgnoreNotFound(err) != nil {
+			return err
+		}
 	}
 
 	for index := range servers {

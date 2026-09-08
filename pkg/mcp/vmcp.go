@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"strconv"
+
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -11,10 +15,7 @@ import (
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/obot-platform/obot/pkg/wait"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
-	"maps"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"slices"
-	"strconv"
 )
 
 // ServerConfigForVMCP resolves the component servers for a VMCP instance into
@@ -22,31 +23,27 @@ import (
 // the MCPServers created by the VMCPInstance controller; the VMCP itself never
 // gets launched as a runtime.
 func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userID string) (ServerConfig, error) {
-	var vmcp v1.VMCP
-	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{
-		Namespace: system.DefaultNamespace,
-		Name:      vmcpID,
-	}, &vmcp); err != nil {
-		return ServerConfig{}, fmt.Errorf("get VMCP %q: %w", vmcpID, err)
+	vmcp, resolvedInstance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, vmcpID, userID)
+	if err != nil {
+		return ServerConfig{}, err
 	}
-
-	var instances v1.VMCPInstanceList
-	if err := sm.storageClient.List(ctx, &instances,
-		kclient.InNamespace(vmcp.Namespace),
-		kclient.MatchingFields{
-			"spec.userID":          userID,
-			"spec.manifest.vmcpID": vmcpID,
-		},
-	); err != nil {
-		return ServerConfig{}, fmt.Errorf("list VMCP instances for VMCP %q and user %q: %w", vmcpID, userID, err)
+	if vmcp == nil {
+		return ServerConfig{}, fmt.Errorf("unknown VMCP %q", vmcpID)
 	}
-	if len(instances.Items) > 1 {
-		return ServerConfig{}, fmt.Errorf("found multiple VMCP instances for VMCP %q and user %q", vmcpID, userID)
+	if len(vmcp.Spec.Manifest.Components) == 0 {
+		return ServerConfig{}, types.NewErrBadRequest("cannot connect to a VMCP without components")
+	}
+	vmcpID = vmcp.Name
+	if resolvedInstance == nil {
+		resolvedInstance, err = vmcpaccess.FindInstance(ctx, sm.storageClient, vmcp.Namespace, vmcp.Name, userID)
+		if err != nil {
+			return ServerConfig{}, err
+		}
 	}
 
 	var instance v1.VMCPInstance
-	if len(instances.Items) == 1 {
-		instance = instances.Items[0]
+	if resolvedInstance != nil {
+		instance = *resolvedInstance
 	} else {
 		instance = v1.VMCPInstance{
 			Finalizers:   []string{v1.VMCPInstanceFinalizer},
@@ -66,8 +63,9 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 		return ServerConfig{}, fmt.Errorf("VMCP instance %q does not belong to VMCP %q and user %q", instance.Name, vmcpID, userID)
 	}
 
-	expectedComponents := make(map[string]types.VMCPComponent, len(vmcp.Spec.Manifest.Components))
-	for _, component := range vmcp.Spec.Manifest.Components {
+	configuredComponents := vmcpaccess.ComponentsForInstance(*vmcp, instance)
+	expectedComponents := make(map[string]types.VMCPComponent, len(configuredComponents))
+	for _, component := range configuredComponents {
 		expectedComponents[component.ID] = component
 	}
 
@@ -94,8 +92,8 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 		}
 	}
 
-	components := make([]ComponentServer, 0, len(vmcp.Spec.Manifest.Components))
-	for _, component := range vmcp.Spec.Manifest.Components {
+	components := make([]ComponentServer, 0, len(configuredComponents))
+	for _, component := range configuredComponents {
 		server := serversByComponent[component.ID]
 		components = append(components, ComponentServer{
 			Name:        server.Name,
@@ -130,20 +128,26 @@ func (sm *SessionManager) ServerConfigForVMCP(ctx context.Context, vmcpID, userI
 		allowedTools = []types.VMCPToolReference{}
 	}
 	for i := range components {
-		if err := restrictComponentTools(&components[i], allowedTools, vmcp.Spec.Manifest.Components[i].ID); err != nil {
+		if err := restrictComponentTools(&components[i], allowedTools, configuredComponents[i].ID); err != nil {
 			return ServerConfig{}, err
 		}
 	}
+	// Keep a migrated connection's identity through the gateway loopback. Using
+	// only the vMCP ID there would select the oldest connection a second time.
+	connectID := vmcpID
+	if instance.Spec.LegacySlug != "" {
+		connectID = instance.Name
+	}
 	return ServerConfig{
 		Runtime:              types.RuntimeVMCP,
-		MCPServerName:        vmcpID,
+		MCPServerName:        connectID,
 		MCPServerDisplayName: vmcp.Spec.Manifest.DisplayName,
 		UserID:               userID,
 		OwnerUserID:          vmcp.Spec.UserID,
 		MCPServerNamespace:   vmcp.Namespace,
 		Components:           components,
 		AuditLogMetadata: map[string]string{
-			"mcpID":                vmcpID,
+			"mcpID":                connectID,
 			"mcpServerDisplayName": vmcp.Spec.Manifest.DisplayName,
 			"userID":               userID,
 		},

@@ -76,9 +76,8 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		GenerateName: system.VMCPPrefix,
 		Namespace:    req.Namespace(),
 		Spec: v1.VMCPSpec{
-			Manifest:                manifest,
-			UserID:                  userID,
-			StaticConfigurationHash: utils.Digest(staticConfiguration),
+			Manifest: manifest,
+			UserID:   userID,
 		},
 	}
 	if err := req.Create(&vmcp); err != nil {
@@ -91,6 +90,11 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	}); err != nil {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to store VMCP static configuration: %w", err), cleanupErr)
+	}
+	vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
+	if err := req.Update(&vmcp); err != nil {
+		cleanupErr := req.Delete(&vmcp)
+		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
 	return req.WriteCreated(convertVMCP(vmcp))
 }
@@ -129,7 +133,7 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return fmt.Errorf("failed to store VMCP static configuration: %w", err)
 	}
 	vmcp.Spec.Manifest = manifest
-	vmcp.Spec.StaticConfigurationHash = utils.Digest(staticConfiguration)
+	vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
 	if err := req.Update(&vmcp); err != nil {
 		return fmt.Errorf("failed to update VMCP: %w", err)
 	}
@@ -172,7 +176,7 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 		}
 		var entry v1.MCPServerCatalogEntry
 		err := req.Get(&entry, component.MCPServerCatalogEntryID)
-		if err != nil && !(previous != nil && apierrors.IsNotFound(err)) {
+		if err != nil && (previous == nil || !apierrors.IsNotFound(err)) {
 			return fmt.Errorf("get component catalog entry %q: %w", component.MCPServerCatalogEntryID, err)
 		}
 		if err == nil {
@@ -227,6 +231,7 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 		})
 	}
 	return types.VMCP{
+		LegacySlug:              vmcp.Spec.LegacySlug,
 		Metadata:                MetadataFrom(&vmcp),
 		VMCPManifest:            vmcp.Spec.Manifest,
 		UserID:                  vmcp.Spec.UserID,

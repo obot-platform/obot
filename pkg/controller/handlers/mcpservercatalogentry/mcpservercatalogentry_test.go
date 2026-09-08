@@ -405,6 +405,7 @@ func TestReconcileOAuthCredential(t *testing.T) {
 			assert.Equal(t, tt.wantDeletes, creds.deletes, "credential deletes")
 			assert.Equal(t, tt.wantConfigured, stored.Status.OAuthCredentialConfigured)
 			if hadAnnotation {
+				assert.NotEmpty(t, stored.Annotations[v1.OAuthCredentialRevisionAnnotation], "dependent vMCPs must observe the completed recheck")
 				assert.NotContains(t, stored.Annotations, v1.MCPServerCatalogEntrySyncAnnotation,
 					"a completed recheck should clear the annotation")
 			}
@@ -442,6 +443,7 @@ func TestReconcileOAuthCredentialKeepsSyncAnnotationWhenRecheckFails(t *testing.
 	require.ErrorContains(t, err, "connection refused")
 	assert.Contains(t, stored.Annotations, v1.MCPServerCatalogEntrySyncAnnotation,
 		"annotation must survive a failed recheck so the next pass retries it")
+	assert.Empty(t, stored.Annotations[v1.OAuthCredentialRevisionAnnotation])
 }
 
 // The sync annotation is the only sign a credential exists on an entry the controller has not

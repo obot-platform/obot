@@ -54,7 +54,9 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 		return nil
 	}
 
-	component, ok := vmcpComponent(vmcp.Spec.Manifest, server.Spec.VMCPComponentID)
+	effective := vmcp.Spec.Manifest
+	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	component, ok := vmcpComponent(effective, server.Spec.VMCPComponentID)
 	if !ok {
 		return fmt.Errorf("VMCP %q does not contain component %q", vmcp.Name, server.Spec.VMCPComponentID)
 	}
@@ -141,25 +143,22 @@ func (h *Handler) syncVMCPOAuthCredentialStatus(req router.Request, server *v1.M
 	if err != nil {
 		return err
 	}
+	checkHash, err := vmcpconfig.OAuthCredentialCheckHash(req, server.Namespace, ref, sourceID)
+	if err != nil {
+		return err
+	}
+	if server.Status.OAuthCredentialCheckHash == checkHash {
+		return nil
+	}
 	var configured bool
 	if ref != "" {
-		// Watch credential configuration/rotation events on the source, but a
-		// missing source must not prevent resolving its retained credential.
-		if sourceID != "" {
-			var entry v1.MCPServerCatalogEntry
-			if err := req.Get(&entry, server.Namespace, sourceID); err != nil && !apierrors.IsNotFound(err) {
-				return err
-			}
-		}
 		_, err := h.gatewayClient.RevealCredential(req.Ctx, []string{ref}, system.StaticOAuthCredentialName)
 		if err != nil && !errors.As(err, &client.CredentialNotFoundError{}) {
 			return err
 		}
 		configured = err == nil
 	}
-	if server.Status.OAuthCredentialConfigured == configured {
-		return nil
-	}
+	server.Status.OAuthCredentialCheckHash = checkHash
 	server.Status.OAuthCredentialConfigured = configured
 	return req.Client.Status().Update(req.Ctx, server)
 }

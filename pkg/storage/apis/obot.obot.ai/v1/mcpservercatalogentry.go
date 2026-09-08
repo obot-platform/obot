@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"slices"
 
 	"github.com/obot-platform/nah/pkg/fields"
@@ -24,12 +25,15 @@ type MCPServerCatalogEntry struct {
 }
 
 type MCPServerCatalogEntrySpec struct {
-	Manifest         types.MCPServerCatalogEntryManifest `json:"manifest"`
-	UnsupportedTools []string                            `json:"unsupportedTools,omitempty"`
-	MCPCatalogName   string                              `json:"mcpCatalogName,omitempty"`
-	Editable         bool                                `json:"editable,omitempty"`
-	Detached         bool                                `json:"detached"`
-	SourceURL        string                              `json:"sourceURL,omitempty"`
+	// Deprecated: preserve the pre-v2 manifest until the composite migration has completed.
+	// It is deliberately not part of the public catalog schema.
+	LegacyCompositeManifest json.RawMessage                     `json:"-"`
+	Manifest                types.MCPServerCatalogEntryManifest `json:"manifest"`
+	UnsupportedTools        []string                            `json:"unsupportedTools,omitempty"`
+	MCPCatalogName          string                              `json:"mcpCatalogName,omitempty"`
+	Editable                bool                                `json:"editable,omitempty"`
+	Detached                bool                                `json:"detached"`
+	SourceURL               string                              `json:"sourceURL,omitempty"`
 	// PowerUserWorkspaceID contains the name of the PowerUserWorkspace that owns this catalog entry, if there is one.
 	PowerUserWorkspaceID string `json:"powerUserWorkspaceID,omitempty"`
 }
@@ -58,6 +62,35 @@ type MCPServerCatalogEntryList struct {
 	metav1.ListMeta `json:"metadata"`
 
 	Items []MCPServerCatalogEntry `json:"items"`
+}
+
+func (s *MCPServerCatalogEntrySpec) UnmarshalJSON(data []byte) error {
+	type spec MCPServerCatalogEntrySpec
+	if err := json.Unmarshal(data, (*spec)(s)); err != nil {
+		return err
+	}
+	s.LegacyCompositeManifest = nil
+	if s.Manifest.Runtime == types.RuntimeComposite {
+		var raw struct {
+			Manifest json.RawMessage `json:"manifest"`
+		}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return err
+		}
+		s.LegacyCompositeManifest = raw.Manifest
+	}
+	return nil
+}
+
+func (s MCPServerCatalogEntrySpec) MarshalJSON() ([]byte, error) {
+	type spec MCPServerCatalogEntrySpec
+	if len(s.LegacyCompositeManifest) == 0 {
+		return json.Marshal(spec(s))
+	}
+	return json.Marshal(struct {
+		spec
+		Manifest json.RawMessage `json:"manifest"`
+	}{spec: spec(s), Manifest: s.LegacyCompositeManifest})
 }
 
 func (in *MCPServerCatalogEntry) GetColumns() [][]string {

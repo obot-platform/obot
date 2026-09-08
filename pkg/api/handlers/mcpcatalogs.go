@@ -1377,10 +1377,6 @@ func normalizeMCPCatalogEntryName(name string) string {
 	return name
 }
 
-func (h *MCPCatalogHandler) RefreshCompositeComponents(_ api.Context) error {
-	return types.NewErrBadRequest("composite catalog entries are no longer supported")
-}
-
 // entryRequiresStaticOAuthCreds checks if a catalog entry requires OAuth credentials
 // that haven't been configured yet. Returns true if the entry should be hidden from non-admin users.
 func entryRequiresStaticOAuthCreds(entry v1.MCPServerCatalogEntry) bool {
@@ -1557,6 +1553,16 @@ func (h *MCPCatalogHandler) DeleteOAuthCredentials(req api.Context) error {
 	deleted, err := req.GatewayClient.DeleteCredential(req.Context(), credName, system.StaticOAuthCredentialName)
 	if err != nil {
 		return err
+	}
+
+	// Publish the completed deletion even if reconciliation consumed the initial
+	// sync request while the credential was still present.
+	before := entry.DeepCopy()
+	entry.Annotations[v1.MCPServerCatalogEntrySyncAnnotation] = "true"
+	// Include the sync annotation in the patch even when it was already set locally.
+	delete(before.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
+	if err := req.Storage.Patch(req.Context(), entry, kclient.MergeFrom(before)); err != nil {
+		return fmt.Errorf("failed to trigger reconciliation after credential deletion: %w", err)
 	}
 
 	// Best-effort cleanup of per-user OAuth tokens associated with this catalog entry.

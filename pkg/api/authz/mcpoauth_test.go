@@ -18,9 +18,10 @@ func TestMCPGroupAllowsMCPAndAnyGroupRoutes(t *testing.T) {
 		Name:      "msi1test",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerInstanceSpec{
-			UserID: "mcpoauth-user-uid",
+			UserID:        "mcpoauth-user-uid",
+			MCPServerName: "ms1test",
 		},
-	}).Build()
+	}, &v1.MCPServer{Name: "ms1test", Namespace: system.DefaultNamespace}).Build()
 	authorizer := NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
 	mcpUser := &user.DefaultInfo{
 		Name:   "mcp-user",

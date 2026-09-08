@@ -156,8 +156,8 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		server.Webhooks[i] = webhook
 	}
 
-	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeComposite {
-		// Remove any existing deployment for remote and composite servers
+	if server.Runtime == types.RuntimeRemote || server.Runtime == types.RuntimeVMCP {
+		// Remove any existing deployment for remote and vMCP servers
 		return server, k.deployServerObjects(ctx, server, nil)
 	}
 

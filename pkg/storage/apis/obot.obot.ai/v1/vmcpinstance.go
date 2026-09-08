@@ -8,7 +8,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const VMCPInstanceConfigurationSyncAnnotation = "obot.ai/vmcp-instance-configuration-hash"
+const (
+	VMCPInstanceConfigurationSyncAnnotation = "obot.ai/vmcp-instance-configuration-hash"
+)
 
 var (
 	_ fields.Fields = (*VMCPInstance)(nil)
@@ -26,8 +28,15 @@ type VMCPInstance struct {
 }
 
 type VMCPInstanceSpec struct {
-	Manifest types.VMCPInstanceManifest `json:"manifest"`
-	UserID   string                     `json:"userID"`
+	LegacySlug string `json:"legacySlug,omitempty"`
+	// LegacyCreatedAt preserves canonical connection ordering after migration.
+	LegacyCreatedAt *metav1.Time `json:"legacyCreatedAt,omitempty"`
+	// LegacyComponents preserve per-connection snapshots and tool choices during migration.
+	// They are not writable through the instance API.
+	LegacyComponents         []types.VMCPComponent      `json:"legacyComponents,omitempty"`
+	LegacyDisabledComponents []string                   `json:"legacyDisabledComponents,omitempty"`
+	Manifest                 types.VMCPInstanceManifest `json:"manifest"`
+	UserID                   string                     `json:"userID"`
 }
 
 type VMCPInstanceStatus struct {
@@ -52,6 +61,8 @@ func (in *VMCPInstance) Has(field string) bool {
 
 func (in *VMCPInstance) Get(field string) string {
 	switch field {
+	case "spec.legacySlug":
+		return in.Spec.LegacySlug
 	case "spec.userID":
 		return in.Spec.UserID
 	case "spec.manifest.vmcpID":
@@ -61,7 +72,7 @@ func (in *VMCPInstance) Get(field string) string {
 }
 
 func (*VMCPInstance) FieldNames() []string {
-	return []string{"spec.userID", "spec.manifest.vmcpID"}
+	return []string{"spec.userID", "spec.manifest.vmcpID", "spec.legacySlug"}
 }
 
 func (in *VMCPInstance) DeleteRefs() []Ref {

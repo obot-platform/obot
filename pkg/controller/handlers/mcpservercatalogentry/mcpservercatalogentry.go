@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"uuid"
 
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
@@ -179,7 +180,9 @@ func reconcileOAuthCredential(req router.Request, creds credentialClient) error 
 		return nil
 	}
 
-	// Cleared last, so a failure above leaves the recheck pending.
+	// Publish a durable revision for dependent vMCPs before clearing the recheck.
+	// Both changes are saved together, so a failure leaves the recheck pending.
+	entry.Annotations[v1.OAuthCredentialRevisionAnnotation] = uuid.New().String()
 	delete(entry.Annotations, v1.MCPServerCatalogEntrySyncAnnotation)
 	if err := req.Client.Update(req.Ctx, entry); err != nil {
 		return fmt.Errorf("failed to clear sync annotation: %w", err)

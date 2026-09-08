@@ -15,6 +15,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
+	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -37,14 +38,9 @@ type missingCatalogEntryAdminConfig struct {
 // IDAndAudienceFromConnectURL returns the MCP server or instance name and audience based on the provided connect URL.
 // The connect URL could have a vMCP ID, MCP server ID, server instance ID, or MCP catalog entry ID.
 func (sm *SessionManager) IDAndAudienceFromConnectURL(ctx context.Context, id, userID string) (string, string, error) {
-	if system.IsVMCPID(id) {
-		var vmcp v1.VMCP
-		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{
-			Namespace: system.DefaultNamespace,
-			Name:      id,
-		}, &vmcp); err != nil {
-			return "", "", err
-		}
+	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
+		return "", "", err
+	} else if vmcp != nil {
 		return id, id, nil
 	}
 
@@ -73,23 +69,24 @@ func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx con
 }
 
 func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, userID string, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
-	if system.IsVMCPID(id) {
+	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
+		return "", v1.MCPServer{}, ServerConfig{}, nil, err
+	} else if vmcp != nil {
 		config, err := sm.ServerConfigForVMCP(ctx, id, userID)
 		if err != nil {
 			return "", v1.MCPServer{}, ServerConfig{}, nil, err
 		}
 
 		return id, v1.MCPServer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      id,
-				Namespace: config.MCPServerNamespace,
-			},
+			Name:      id,
+			Namespace: config.MCPServerNamespace,
 			Spec: v1.MCPServerSpec{
 				Manifest: types.MCPServerManifest{
 					Name:    config.MCPServerDisplayName,
 					Runtime: types.RuntimeVMCP,
 				},
 				UserID: config.OwnerUserID,
+				VMCPID: vmcp.Name,
 			},
 		}, config, nil, nil
 	}
@@ -112,7 +109,9 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, 
 }
 
 func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string) (v1.MCPServer, ServerConfig, error) {
-	if system.IsVMCPID(id) {
+	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
+		return v1.MCPServer{}, ServerConfig{}, err
+	} else if vmcp != nil {
 		_, server, serverConfig, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
 		return server, serverConfig, err
 	}

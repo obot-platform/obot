@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"net"
@@ -16,24 +15,11 @@ import (
 )
 
 const (
-	// maxToolNameLength is the max length of an MCP server tool.
-	// It's used to validate effective tool names after tool overrides and prefixes are applied.
-	maxToolNameLength = 128
-
-	// maxToolPrefixLength is the max length of a composite component tool prefix.
-	maxToolPrefixLength = 64
-
 	// maxShortDescriptionLength is the max length of a catalog entry shortDescription.
 	maxShortDescriptionLength = 160
 )
 
 var (
-	// toolNameRegex matches the character set allowed for composite
-	// component tools: ASCII letters, digits, underscore, hyphen, dot,
-	// and forward slash. Note that '.' and '/' produce a soft warning downstream
-	// (some MCP clients reject them) but are permitted here so admins who know
-	// their clients can use them.
-	toolNameRegex = regexp.MustCompile(`^[A-Za-z0-9._/-]*$`)
 	hostnameRegex = regexp.MustCompile(`^(?:\*\.)?[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$`)
 	// envVarRefRegex matches ${VAR} references inside command/args/URL templates.
 	envVarRefRegex = regexp.MustCompile(`\${([^}]+)}`)
@@ -70,9 +56,6 @@ type RemoteValidator struct {
 	AllowMissingURL              bool
 	RemoteMCPURLValidationConfig RemoteMCPURLValidationConfig
 }
-
-// CompositeValidator implements RuntimeValidator for composite runtime
-type CompositeValidator struct{}
 
 func validateEgressDomains(runtime types.Runtime, domains []string, denyAllEgress *bool) error {
 	if denyAllEgress != nil && *denyAllEgress && len(domains) > 0 {
@@ -699,173 +682,6 @@ func (v RemoteValidator) validateRemoteMCPURL(ctx context.Context, field, rawURL
 	return nil
 }
 
-func (v CompositeValidator) ValidateConfig(_ context.Context, manifest types.MCPServerManifest) error {
-	if manifest.Runtime != types.RuntimeComposite {
-		return types.RuntimeValidationError{
-			Runtime: manifest.Runtime,
-			Field:   "runtime",
-			Message: "expected composite runtime",
-		}
-	}
-
-	if manifest.CompositeConfig == nil {
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeComposite,
-			Field:   "compositeConfig",
-			Message: "composite configuration is required",
-		}
-	}
-
-	numComponents := len(manifest.CompositeConfig.ComponentServers)
-	if numComponents < 1 {
-		return types.RuntimeValidationError{
-			Runtime: types.RuntimeComposite,
-			Field:   "compositeConfig.componentServers",
-			Message: "must contain at least one component server",
-		}
-	}
-
-	var (
-		componentServerIDs = make(map[string]struct{}, numComponents)
-		toolPrefixes       = make(map[string]struct{}, numComponents)
-		effectiveToolNames = make(map[string]struct{})
-	)
-	for i, component := range manifest.CompositeConfig.ComponentServers {
-		// Ensure exactly one of CatalogEntryID or MCPServerID is set
-		hasCatalogEntry, hasServerID := component.CatalogEntryID != "", component.MCPServerID != ""
-		if (!hasCatalogEntry && !hasServerID) || (hasCatalogEntry && hasServerID) {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-				Message: "must have one of catalogEntryID or mcpServerID set",
-			}
-		}
-
-		// Prevent composite MCP servers from being nested
-		if component.Manifest.Runtime == types.RuntimeComposite {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d].manifest.runtime", i),
-				Message: "runtime cannot be composite",
-			}
-		}
-
-		// Validate the tool prefix
-		prefix := component.ToolPrefix
-		if prefix != "" {
-			// Prevent duplicates
-			if _, ok := toolPrefixes[prefix]; ok {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
-					Message: fmt.Sprintf("duplicate toolPrefix: %s", prefix),
-				}
-			}
-			toolPrefixes[prefix] = struct{}{}
-
-			// Ensure the prefix is valid separately
-			if !toolNameRegex.MatchString(prefix) {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
-					Message: "toolPrefix must match " + toolNameRegex.String(),
-				}
-			}
-			if len(prefix) > maxToolPrefixLength {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolPrefix", i),
-					Message: fmt.Sprintf("toolPrefix must be at most %d characters", maxToolPrefixLength),
-				}
-			}
-		}
-
-		// Validate tool overrides
-		for j, override := range component.ToolOverrides {
-			if override.Name == "" {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d].name", i, j),
-					Message: "original tool name is required",
-				}
-			}
-
-			// For disabled tools, we don't care about validating the effective tool names
-			if !override.Enabled {
-				continue
-			}
-
-			// Compute the effective tool name
-			effectiveToolName := prefix + cmp.Or(override.OverrideName, override.Name)
-
-			// Validate length
-			if len(effectiveToolName) > maxToolNameLength {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
-					Message: fmt.Sprintf("effective tool name must be at most %d characters: %q", maxToolNameLength, effectiveToolName),
-				}
-			}
-
-			// Validate character set
-			if !toolNameRegex.MatchString(effectiveToolName) {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
-					Message: "effective tool name must match " + toolNameRegex.String(),
-				}
-			}
-
-			// Prevent effective duplicates (across entire composite)
-			if _, ok := effectiveToolNames[effectiveToolName]; ok {
-				return types.RuntimeValidationError{
-					Runtime: types.RuntimeComposite,
-					Field:   fmt.Sprintf("compositeConfig.componentServers[%d].toolOverrides[%d]", i, j),
-					Message: fmt.Sprintf("duplicate tool name: %s", effectiveToolName),
-				}
-			}
-			effectiveToolNames[effectiveToolName] = struct{}{}
-		}
-
-		// Prevent duplicate component servers
-		componentID := component.ComponentID()
-		if _, ok := componentServerIDs[componentID]; ok {
-			return types.RuntimeValidationError{
-				Runtime: types.RuntimeComposite,
-				Field:   fmt.Sprintf("compositeConfig.componentServers[%d]", i),
-				Message: fmt.Sprintf("duplicate component server: %s", componentID),
-			}
-		}
-		componentServerIDs[componentID] = struct{}{}
-	}
-
-	return nil
-}
-
-func (v CompositeValidator) ValidateCatalogConfig(_ context.Context, manifest types.MCPServerCatalogEntryManifest) error {
-	return types.RuntimeValidationError{
-		Runtime: manifest.Runtime,
-		Field:   "runtime",
-		Message: "composite runtime is not supported for catalog entries",
-	}
-}
-
-func (v CompositeValidator) ValidateSystemConfig(_ context.Context, manifest types.SystemMCPServerManifest) error {
-	if manifest.Runtime != types.RuntimeComposite {
-		return types.RuntimeValidationError{
-			Runtime: manifest.Runtime,
-			Field:   "runtime",
-			Message: "expected composite runtime",
-		}
-	}
-
-	return types.RuntimeValidationError{
-		Runtime: types.RuntimeComposite,
-		Field:   "runtime",
-		Message: "composite runtime is not supported for system servers",
-	}
-}
-
 // getRuntimeValidators returns a map of all available runtime validators
 func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 	return RuntimeValidators{
@@ -876,7 +692,6 @@ func getRuntimeValidators(options ValidationOptions) RuntimeValidators {
 			RemoteMCPURLValidationConfig: options.RemoteMCPURLValidationConfig,
 			AllowMissingURL:              options.AllowMissingURL,
 		},
-		types.RuntimeComposite: CompositeValidator{},
 	}
 }
 
@@ -958,21 +773,6 @@ func validateMCPResourceMaximums(resources *types.MCPResourceRequirements, maxim
 	return maximums.Validate(*coreResources)
 }
 
-// validateCompositeServerResourceMaximums validates the resource maximums for a composite server.
-// No-op if the server is not a composite server.
-func validateCompositeServerResourceMaximums(manifest types.MCPServerManifest, maximums ResourceMaximums) error {
-	if maximums.Empty() || manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	for _, component := range manifest.CompositeConfig.ComponentServers {
-		if err := validateMCPResourceMaximums(component.Manifest.Resources, maximums); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifest, isMultiUser bool, options ValidationOptions) error {
 	if err := validateServerConfigurationOptions(manifest); err != nil {
 		return err
@@ -997,10 +797,6 @@ func ValidateServerManifest(ctx context.Context, manifest types.MCPServerManifes
 		}
 	}
 	if err := validateRuntimeStartupTimeout(manifest.Runtime, manifest.RuntimeStartupTimeoutSeconds()); err != nil {
-		return err
-	}
-
-	if err := validateCompositeServerResourceMaximums(manifest, options.ResourceMaximums); err != nil {
 		return err
 	}
 

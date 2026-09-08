@@ -10,7 +10,6 @@ import (
 	"time"
 
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 )
 
 // StreamLogsOptions configures SSE log streaming behavior.
@@ -149,42 +148,4 @@ func DeleteCredentialIfExists(ctx context.Context, gatewayClient *gateway.Client
 		return fmt.Errorf("failed to remove existing credential: %w", err)
 	}
 	return nil
-}
-
-// EnsureCredential will ensure a given credential exists and it's env field is up to date.
-// Returns true if a credential was created or modified to match.
-func ensureCredential(ctx context.Context, gatewayClient *gateway.Client, cred gatewaytypes.Credential) (bool, error) {
-	credCtx := []string{cred.Context}
-	existing, err := gatewayClient.RevealCredential(ctx, credCtx, cred.Name)
-	if err != nil {
-		if !errors.As(err, &gateway.CredentialNotFoundError{}) {
-			return false, fmt.Errorf("failed to find credential: %w", err)
-		}
-
-		// Create new credential
-		if err := gatewayClient.UpsertCredential(ctx, cred); err != nil {
-			return false, fmt.Errorf("failed to create credential: %w", err)
-		}
-		return true, nil
-	}
-
-	// Existing credential, check if it needs an update
-	var modified bool
-	for key, env := range cred.Secrets {
-		existingEnv, ok := existing.Secrets[key]
-		if !ok || existingEnv != env {
-			modified = true
-			break
-		}
-	}
-	if !modified && len(cred.Secrets) == len(existing.Secrets) {
-		// No update needed
-		return false, nil
-	}
-
-	if err := gatewayClient.UpsertCredential(ctx, cred); err != nil {
-		return false, fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	return true, nil
 }

@@ -18791,6 +18791,12 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"legacySlug": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -19042,6 +19048,12 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstance(ref common.Reference
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"legacySlug": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"id": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -23456,8 +23468,7 @@ func schema_storage_apis_obotobotai_v1_MCPServerCatalogEntry(ref common.Referenc
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Default: map[string]interface{}{},
-							Ref:     ref(v1.MCPServerCatalogEntrySpec{}.OpenAPIModelName()),
+							Ref: ref(v1.MCPServerCatalogEntrySpec{}.OpenAPIModelName()),
 						},
 					},
 					"status": {
@@ -29456,6 +29467,44 @@ func schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref common.ReferenceCall
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"legacySlug": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
+					"legacyCreatedAt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LegacyCreatedAt preserves canonical connection ordering after migration.",
+							Ref:         ref(metav1.Time{}.OpenAPIModelName()),
+						},
+					},
+					"legacyComponents": {
+						SchemaProps: spec.SchemaProps{
+							Description: "LegacyComponents preserve per-connection snapshots and tool choices during migration. They are not writable through the instance API.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponent"),
+									},
+								},
+							},
+						},
+					},
+					"legacyDisabledComponents": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -29474,7 +29523,7 @@ func schema_storage_apis_obotobotai_v1_VMCPInstanceSpec(ref common.ReferenceCall
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest"},
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponent", "github.com/obot-platform/obot/apiclient/types.VMCPInstanceManifest", metav1.Time{}.OpenAPIModelName()},
 	}
 }
 
@@ -29574,6 +29623,12 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"legacySlug": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"manifest": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
@@ -29591,6 +29646,21 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
 							Format: "",
+						},
+					},
+					"componentStaticConfigurationHashes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ComponentStaticConfigurationHashes retire migrated overrides only for the changed component.",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
 						},
 					},
 				},

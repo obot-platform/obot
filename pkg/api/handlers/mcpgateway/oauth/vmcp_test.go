@@ -26,13 +26,23 @@ const (
 	vmcpOAuthComponent = "ms1-vmcp-oauth-component"
 )
 
+type vmcpOAuthFixture struct {
+	storage         kclient.WithWatch
+	factory         *MCPOAuthHandlerFactory
+	aggregateServer v1.MCPServer
+	aggregateConfig mcp.ServerConfig
+}
+
+func TestMigratedCompositeConsentURL(t *testing.T) {
+	got := compositeConsentURL("https://obot.example.com", "ms1legacy", "vmcp1migrated", "oar1request")
+	require.Equal(t, "https://obot.example.com/auth/mcp/composite/ms1legacy?oauth_auth_request=oar1request&vmcp_id=vmcp1migrated", got)
+}
+
 func TestVMCPComponentServersForAuthUsesConfiguredComponents(t *testing.T) {
 	fixture := newVMCPOAuthFixture(t)
 	unrelatedServer := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "ms2-unrelated-component",
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      "ms2-unrelated-component",
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{
 				Name:    "Unrelated component",
@@ -73,21 +83,12 @@ func TestCheckForMCPAuthVMCPWithNoRemoteComponentsReturnsEmpty(t *testing.T) {
 	require.Empty(t, authURL)
 }
 
-type vmcpOAuthFixture struct {
-	storage         kclient.WithWatch
-	factory         *MCPOAuthHandlerFactory
-	aggregateServer v1.MCPServer
-	aggregateConfig mcp.ServerConfig
-}
-
 func newVMCPOAuthFixture(t *testing.T) vmcpOAuthFixture {
 	t.Helper()
 
 	componentServer := &v1.MCPServer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      vmcpOAuthComponent,
-			Namespace: system.DefaultNamespace,
-		},
+		Name:      vmcpOAuthComponent,
+		Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{
 			Manifest: types.MCPServerManifest{
 				Name:    "Component",

@@ -4,11 +4,26 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// OAuthCredentialCheckHash watches the source and identifies the credential version
+// to check. The revision survives the catalog controller clearing its sync annotation.
+func OAuthCredentialCheckHash(req router.Request, namespace, reference, sourceID string) (string, error) {
+	var entry v1.MCPServerCatalogEntry
+	if reference != "" && sourceID != "" {
+		if err := req.Get(&entry, namespace, sourceID); err != nil && !apierrors.IsNotFound(err) {
+			return "", err
+		}
+	}
+	return utils.Digest([]any{reference, sourceID, entry.Name, entry.UID, entry.Annotations[v1.OAuthCredentialRevisionAnnotation]}), nil
+}
 
 // StaticOAuthCredentialReference returns the catalog-owned credential context.
 // The credential name within that context is always StaticOAuthCredentialName.
