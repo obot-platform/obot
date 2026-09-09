@@ -6,26 +6,16 @@ import (
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/system"
 )
 
 func (c *Client) ActiveUserCountByDate(ctx context.Context, start, end time.Time) (int64, error) {
-	var activeUserIDs []string
-	if err := c.db.WithContext(ctx).
-		Model(new(types.APIActivity)).
-		Distinct("user_id").
-		Where("date >= ? AND date < ?", start.UTC(), end.UTC()).
-		Where("user_id != ?", system.BootstrapName).
-		Where("user_id != ?", "anonymous").
-		Where("user_id != ?", "").
-		Pluck("user_id", &activeUserIDs).Error; err != nil {
-		return 0, err
-	}
-
 	var count int64
 	err := c.db.WithContext(ctx).
 		Model(new(types.User)).
-		Where("id IN (?) AND NOT internal AND deleted_at IS NULL", activeUserIDs).
+		Joins("JOIN api_activities ON api_activities.user_id = CAST(users.id AS TEXT)").
+		Where("api_activities.date >= ? AND api_activities.date < ?", start.UTC(), end.UTC()).
+		Where("NOT users.internal AND users.deleted_at IS NULL").
+		Distinct("users.id").
 		Count(&count).Error
 	return count, err
 }

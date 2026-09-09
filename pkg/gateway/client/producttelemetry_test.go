@@ -20,19 +20,23 @@ func TestProductTelemetryDailyCounts(t *testing.T) {
 	c := newTestClient(t)
 	start := time.Date(2026, time.September, 2, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
+	deletedAt := start
 
 	users := []types.User{
 		{Username: "active", HashedUsername: "active"},
 		{Username: "internal", HashedUsername: "internal", Internal: true},
 		{Username: "outside", HashedUsername: "outside"},
+		{Username: "deleted", HashedUsername: "deleted", DeletedAt: &deletedAt},
 	}
 	if err := c.db.WithContext(t.Context()).Create(&users).Error; err != nil {
 		t.Fatalf("create users: %v", err)
 	}
 	activities := []types.APIActivity{
 		{UserID: fmt.Sprint(users[0].ID), Date: start},
+		{UserID: fmt.Sprint(users[0].ID), Date: start.Add(time.Hour)},
 		{UserID: fmt.Sprint(users[1].ID), Date: start},
 		{UserID: fmt.Sprint(users[2].ID), Date: end},
+		{UserID: fmt.Sprint(users[3].ID), Date: start},
 		{UserID: "anonymous", Date: start},
 	}
 	if err := c.db.WithContext(t.Context()).Create(&activities).Error; err != nil {
