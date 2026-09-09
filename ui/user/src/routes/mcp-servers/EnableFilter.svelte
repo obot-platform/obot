@@ -14,7 +14,11 @@
 		type SystemMCPServerCatalogEntry
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
-	import { convertEnvHeadersToRecord, hasEditableConfiguration } from '$lib/services/user/mcp';
+	import {
+		convertEnvHeadersToRecord,
+		hasEditableConfiguration,
+		isCatalogStaticField
+	} from '$lib/services/user/mcp';
 
 	interface Props {
 		configuredFilterServers: SystemMCPServer[];
@@ -53,12 +57,13 @@
 			name: '',
 			envs: item.manifest?.env?.map((env) => ({
 				...env,
-				value: ''
+				value: '',
+				isStatic: isCatalogStaticField(env)
 			})),
 			headers: item.manifest?.remoteConfig?.headers?.map((header) => ({
 				...header,
 				value: '',
-				isStatic: header.value !== ''
+				isStatic: isCatalogStaticField(header)
 			})),
 			...(item.manifest?.remoteConfig?.hostname
 				? { hostname: item.manifest.remoteConfig?.hostname, url: '' }

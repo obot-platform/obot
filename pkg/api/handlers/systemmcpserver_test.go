@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/stretchr/testify/assert"
 )
@@ -59,4 +60,27 @@ func TestConvertSystemMCPServerConfigurationStatus(t *testing.T) {
 			assert.Equal(t, tt.missingHeaders, converted.MissingRequiredHeaders)
 		})
 	}
+}
+
+func TestConvertSystemMCPServerEncryptedStaticConfiguration(t *testing.T) {
+	server := v1.SystemMCPServer{
+		Spec: v1.SystemMCPServerSpec{
+			Manifest: types.SystemMCPServerManifest{
+				Env: []types.MCPEnv{{
+					Key:       "TOKEN",
+					Value:     "secret-token",
+					Required:  true,
+					Sensitive: true,
+				}},
+			},
+		},
+	}
+	staticSecrets := mcp.ExtractStaticSystemServerConfiguration(&server.Spec.Manifest, nil, true)
+
+	converted := convertSystemMCPServer(server, staticSecrets)
+
+	assert.True(t, converted.Configured)
+	assert.Empty(t, converted.MissingRequiredEnvVars)
+	assert.True(t, converted.SystemMCPServerManifest.Env[0].ValueConfigured)
+	assert.Empty(t, converted.SystemMCPServerManifest.Env[0].Value)
 }

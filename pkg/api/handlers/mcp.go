@@ -183,7 +183,11 @@ func (m *MCPHandler) GetEntryFromAllSources(req api.Context) error {
 		return types.NewErrNotFound("MCP catalog entry not found")
 	}
 
-	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL))
+	secrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal static configuration: %w", err)
+	}
+	return req.Write(ConvertMCPServerCatalogEntryWithWorkspace(entry, entry.Spec.PowerUserWorkspaceID, "", m.serverURL, secrets))
 }
 
 func (m *MCPHandler) ListEntriesFromAllSources(req api.Context) error {
@@ -250,13 +254,14 @@ func HideMultiUserCatalogEntry(req api.Context, entry v1.MCPServerCatalogEntry) 
 	return !req.UserIsPowerUserPlus() && !entry.Spec.Manifest.ServerUserType.IsSingleUser()
 }
 
-func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry, serverURL string) types.MCPServerCatalogEntry {
-	return ConvertMCPServerCatalogEntryWithWorkspace(entry, "", "", serverURL)
+func ConvertMCPServerCatalogEntry(entry v1.MCPServerCatalogEntry, serverURL string, credentialSecrets map[string]string) types.MCPServerCatalogEntry {
+	return ConvertMCPServerCatalogEntryWithWorkspace(entry, "", "", serverURL, credentialSecrets)
 }
 
-func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID, serverURL string) types.MCPServerCatalogEntry {
+func ConvertMCPServerCatalogEntryWithWorkspace(entry v1.MCPServerCatalogEntry, powerUserWorkspaceID, powerUserID, serverURL string, credentialSecrets map[string]string) types.MCPServerCatalogEntry {
 	// Add extracted env vars directly to the entry
-	addExtractedEnvVarsToCatalogEntry(&entry)
+	mcp.AddExtractedEnvVarsToCatalogEntry(&entry)
+	mcp.RedactStaticCatalogConfiguration(&entry.Spec.Manifest, credentialSecrets)
 
 	return types.MCPServerCatalogEntry{
 		Metadata:                  MetadataFrom(&entry),
@@ -280,7 +285,7 @@ func convertMCPServerCatalogEntryForList(entry v1.MCPServerCatalogEntry, powerUs
 	if minimal {
 		minimizeMCPServerCatalogEntryManifest(&entry.Spec.Manifest)
 	}
-	return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, powerUserID, serverURL)
+	return ConvertMCPServerCatalogEntryWithWorkspace(entry, powerUserWorkspaceID, powerUserID, serverURL, nil)
 }
 
 func minimizeMCPServerCatalogEntryManifest(manifest *types.MCPServerCatalogEntryManifest) {
@@ -330,18 +335,8 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	}
 
 	credCtxs := make([]string, 0, len(servers.Items))
-	if catalogID != "" {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalogID, server.Name))
-		}
-	} else if workspaceID != "" {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", workspaceID, server.Name))
-		}
-	} else {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name))
-		}
+	for _, server := range servers.Items {
+		credCtxs = append(credCtxs, mcpServerCredentialContext(server))
 	}
 
 	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
@@ -451,20 +446,11 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	var credCtxs []string
-	if catalogID != "" {
-		credCtxs = []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}
-	} else if workspaceID != "" {
-		credCtxs = []string{fmt.Sprintf("%s-%s", workspaceID, server.Name)}
-	} else {
-		credCtxs = []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	credEnv, err := mcp.RuntimeCredentialSecrets(req.Context(), req.GatewayClient, mcpServerCredentialContext(server), server.Name)
+	if err != nil {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, m.secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -1062,7 +1048,7 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 		if err := req.Get(&entry, id); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
 		}
-		addExtractedEnvVarsToCatalogEntry(&entry)
+		mcp.AddExtractedEnvVarsToCatalogEntry(&entry)
 
 		// List the MCP servers for the user and take the first one.
 		var servers v1.MCPServerList
@@ -1624,10 +1610,19 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 
 	var gitManagedEntry bool
 	var sourceCatalogEntryManifest *types.MCPServerCatalogEntryManifest
+	var catalogStaticSecrets map[string]string
 	if input.CatalogEntryID != "" {
 		var catalogEntry v1.MCPServerCatalogEntry
 		if err := req.Get(&catalogEntry, input.CatalogEntryID); err != nil {
 			return err
+		}
+		if mcp.CatalogHasSensitiveStaticConfiguration(&catalogEntry.Spec.Manifest) {
+			var err error
+			catalogStaticSecrets, err = mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(catalogEntry.Name), catalogEntry.Name)
+			if err != nil {
+				return fmt.Errorf("failed to reveal catalog static configuration: %w", err)
+			}
+			catalogEntry.Spec.Manifest = mcp.HydrateStaticCatalogConfiguration(catalogEntry.Spec.Manifest, catalogStaticSecrets)
 		}
 		sourceCatalogEntryManifest = catalogEntry.Spec.Manifest.DeepCopy()
 
@@ -1728,26 +1723,28 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 	if err := mcp.ValidateTemplateReferences(server.Spec.Manifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
+	serverStaticSecrets := mcp.ExtractStaticServerConfiguration(&server.Spec.Manifest, nil, true)
 	if err := req.Create(&server); err != nil {
 		return err
+	}
+	serverCredentialContext := mcpServerCredentialContext(server)
+	if len(serverStaticSecrets) > 0 {
+		if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverCredentialContext, server.Name, serverStaticSecrets); err != nil {
+			_ = req.Delete(&server)
+			return fmt.Errorf("failed to store static configuration: %w", err)
+		}
 	}
 
 	var (
 		cred gatewaytypes.Credential
 		err  error
 	)
-	if catalogID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
-	} else if workspaceID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", workspaceID, server.Name)}, server.Name)
-	} else {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
-	}
+	cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{serverCredentialContext}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, m.secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, mcp.MergeRuntimeConfiguration(cred.Secrets, serverStaticSecrets), m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -1792,15 +1789,14 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 
 	// Shutdown any server that is using the default credentials.
 	var cred gatewaytypes.Credential
-	if catalogID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
-	} else if workspaceID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", workspaceID, existing.Name)}, existing.Name)
-	} else {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), existing.Name)}, existing.Name)
-	}
+	credentialContext := mcpServerCredentialContext(existing)
+	cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, existing.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
+	}
+	existingStaticSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, credentialContext, existing.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal static configuration: %w", err)
 	}
 
 	if err := validateServerManifestWithResourceMaximums(req, updated, !existing.Spec.IsSingleUser(), m.mcpSessionManager); err != nil {
@@ -1839,6 +1835,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	if err := mcp.ValidateTemplateReferences(updated); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
+	updatedSecrets := mcp.ExtractStaticServerConfiguration(&updated, existingStaticSecrets, true)
 	if adminManagedSecretBindings && !existing.Spec.IsSingleUser() {
 		updatedServer := existing
 		updatedServer.Spec.Manifest = updated
@@ -1851,6 +1848,9 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	// Shutdown the server only after the candidate configuration is known to be valid.
 	if err := m.removeMCPServer(req.Context(), existing); err != nil {
 		return err
+	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, credentialContext, existing.Name, updatedSecrets); err != nil {
+		return fmt.Errorf("failed to store static configuration: %w", err)
 	}
 
 	// Use retry.RetryOnConflict because controllers (e.g. DetectK8sSettingsDrift,
@@ -1871,6 +1871,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		addExtractedEnvVars(&existing)
 		return req.Update(&existing)
 	}); err != nil {
+		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, credentialContext, existing.Name, existingStaticSecrets)
 		return err
 	}
 
@@ -1879,7 +1880,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, existing.Spec.Manifest.Env, existing.Spec.Manifest.RemoteConfig, cred.Secrets, m.secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, existing.Spec.Manifest.Env, existing.Spec.Manifest.RemoteConfig, mcp.MergeRuntimeConfiguration(cred.Secrets, updatedSecrets), m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -2013,27 +2014,14 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServerCredentialContext(mcpServer)
 
-	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credCtx}); err != nil {
+	if err := m.removeMCPServer(req.Context(), mcpServer); err != nil {
 		return err
 	}
 
 	sanitizeConfig(envVars, mcpServer.Spec.Manifest)
-
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: credCtx,
-		Name:    mcpServer.Name,
-		Secrets: envVars,
-	}); err != nil {
+	if err := storeCredentialSecrets(req.Context(), req.GatewayClient, credCtx, mcpServer.Name, envVars); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 	if err := m.triggerMCPServerControllers(req.Context(), mcpServer.Name); err != nil {
@@ -2045,7 +2033,11 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, envVars, m.secretBindingAllowedLabel)
+	staticSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, credCtx, mcpServer.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal static configuration: %w", err)
+	}
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, mcpServer.Spec.Manifest.Env, mcpServer.Spec.Manifest.RemoteConfig, mcp.MergeRuntimeConfiguration(envVars, staticSecrets), m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -2408,14 +2400,7 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServerCredentialContext(mcpServer)
 
 	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credCtx}); err != nil {
 		return err
@@ -2503,14 +2488,7 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 		return m.revealCompositeServer(req, mcpServer)
 	}
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServerCredentialContext(mcpServer)
 
 	// Non-composite: return flat env
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
@@ -2733,99 +2711,21 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 	}
 }
 
-// addExtractedEnvVarsToCatalogEntry extracts and adds environment variables to the catalog entry manifest
-func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
-	addExtractedEnvVarsToCatalogEntryManifest(&entry.Spec.Manifest)
-}
-
-func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogEntryManifest) {
-	if manifest == nil {
-		return
-	}
-	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
-		for i := range manifest.CompositeConfig.ComponentServers {
-			addExtractedEnvVarsToCatalogEntryManifest(&manifest.CompositeConfig.ComponentServers[i].Manifest)
-		}
-		return
-	}
-
-	// Keep track of existing env vars in the manifest to avoid duplicates
-	existing := make(map[string]struct{})
-	for _, env := range manifest.Env {
-		existing[env.Key] = struct{}{}
-	}
-
-	// Extract variables based on runtime type
-	var toExtract []string
-
-	switch manifest.Runtime {
-	case types.RuntimeUVX:
-		if manifest.UVXConfig != nil {
-			toExtract = append(toExtract, manifest.UVXConfig.Command)
-			if len(manifest.UVXConfig.Args) > 0 {
-				toExtract = append(toExtract, manifest.UVXConfig.Args...)
-			}
-		}
-	case types.RuntimeNPX:
-		if manifest.NPXConfig != nil && len(manifest.NPXConfig.Args) > 0 {
-			toExtract = append(toExtract, manifest.NPXConfig.Args...)
-		}
-	case types.RuntimeContainerized:
-		if manifest.ContainerizedConfig != nil {
-			toExtract = append(toExtract, manifest.ContainerizedConfig.Command)
-			if len(manifest.ContainerizedConfig.Args) > 0 {
-				toExtract = append(toExtract, manifest.ContainerizedConfig.Args...)
-			}
-		}
-	case types.RuntimeRemote:
-		if manifest.RemoteConfig != nil {
-			// Add the existing headers to the existing map.
-			for _, header := range manifest.RemoteConfig.Headers {
-				existing[header.Key] = struct{}{}
-			}
-
-			toExtract = append(toExtract, manifest.RemoteConfig.URLTemplate)
-		}
-	}
-
-	for _, v := range toExtract {
-		for _, env := range extractEnvVars(v) {
-			if _, exists := existing[env]; !exists {
-				if manifest.Runtime != types.RuntimeRemote {
-					manifest.Env = append(manifest.Env, types.MCPEnv{
-						Name:        env,
-						Key:         env,
-						Description: "Automatically detected variable",
-						Sensitive:   true,
-						Required:    true,
-					})
-				} else if manifest.RemoteConfig != nil {
-					manifest.RemoteConfig.Headers = append(manifest.RemoteConfig.Headers, types.MCPHeader{
-						Name:        env,
-						Key:         env,
-						Description: "Automatically detected variable",
-						Sensitive:   false,
-						Required:    true,
-					})
-				}
-			}
-		}
-	}
-}
-
 func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL, slug string, components ...types.MCPServer) types.MCPServer {
 	var missingEnvVars, missingHeaders []string
+	manifest := server.Spec.Manifest
+	mcp.RedactStaticServerConfiguration(&manifest, credEnv)
 
 	// Check for missing required env vars. credEnv is expected to be the
 	// merged map from mcp.MergeBoundCreds, so bound entries that resolved
 	// are present here under their env.Key the same way user-supplied
 	// values are.
-	for _, env := range server.Spec.Manifest.Env {
+	for _, env := range manifest.Env {
 		if !env.Required && len(env.Options) == 0 {
 			continue
 		}
 		configuredValue := credEnv[env.Key]
-		missingRequired := env.Required && env.Value == "" && configuredValue == ""
+		missingRequired := env.Required && env.Value == "" && !env.ValueConfigured && configuredValue == ""
 		invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)
 		if missingRequired || invalidSelection {
 			missingEnvVars = append(missingEnvVars, env.Key)
@@ -2834,13 +2734,13 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 
 	// Check for missing required headers (only for remote runtime).
 	// Bound headers resolved via MergeBoundCreds are keyed by header.Key.
-	if server.Spec.Manifest.Runtime == types.RuntimeRemote && server.Spec.Manifest.RemoteConfig != nil {
-		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
+	if manifest.Runtime == types.RuntimeRemote && manifest.RemoteConfig != nil {
+		for _, header := range manifest.RemoteConfig.Headers {
 			if !header.Required && len(header.Options) == 0 {
 				continue
 			}
 			configuredValue := credEnv[header.Key]
-			missingRequired := header.Required && header.Value == "" && configuredValue == ""
+			missingRequired := header.Required && header.Value == "" && !header.ValueConfigured && configuredValue == ""
 			invalidSelection := configuredValue != "" && !mcp.ConfigurationOptionValueValid(header, credEnv)
 			if missingRequired || invalidSelection {
 				missingHeaders = append(missingHeaders, header.Key)
@@ -2886,7 +2786,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		MissingOAuthCredentials:     missingOAuth,
 		UserID:                      server.Spec.UserID,
 		Configured:                  len(missingEnvVars) == 0 && len(missingHeaders) == 0 && !server.Spec.NeedsURL && !missingOAuth,
-		MCPServerManifest:           server.Spec.Manifest,
+		MCPServerManifest:           manifest,
 		CatalogEntryID:              server.Spec.MCPServerCatalogEntryName,
 		PowerUserWorkspaceID:        server.Spec.PowerUserWorkspaceID,
 		MCPCatalogID:                server.Spec.MCPCatalogID,
@@ -2989,24 +2889,14 @@ func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindi
 }
 
 func credentialEnvForMCPServer(req api.Context, server v1.MCPServer, secretBindingAllowedLabel string) (map[string]string, error) {
-	var credCtxs []string
-	switch {
-	case server.Spec.MCPCatalogID != "":
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-	case server.Spec.PowerUserWorkspaceID != "":
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-	default:
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-	}
-
 	addExtractedEnvVars(&server)
 
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	credEnv, err := mcp.RuntimeCredentialSecrets(req.Context(), req.GatewayClient, mcpServerCredentialContext(server), server.Name)
+	if err != nil {
 		return nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, secretBindingAllowedLabel)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -3121,13 +3011,13 @@ func resolveCompositeComponents(req api.Context, composite v1.MCPServer, secretB
 	}
 
 	for _, component := range componentServers.Items {
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", component.Spec.UserID, component.Name)}, component.Name)
-		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+		credEnv, err := mcp.RuntimeCredentialSecrets(req.Context(), req.GatewayClient, fmt.Sprintf("%s-%s", component.Spec.UserID, component.Name), component.Name)
+		if err != nil {
 			return nil, fmt.Errorf("failed to reveal credential for component %s: %w", component.Name, err)
 		}
 
 		addExtractedEnvVars(&component)
-		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, component.Spec.Manifest.Env, component.Spec.Manifest.RemoteConfig, cred.Secrets, secretBindingAllowedLabel)
+		mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, component.Spec.Manifest.Env, component.Spec.Manifest.RemoteConfig, credEnv, secretBindingAllowedLabel)
 		if err != nil {
 			return nil, fmt.Errorf("failed to resolve secret bindings for component %s: %w", component.Name, err)
 		}
@@ -3191,10 +3081,8 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 
 	var credCtxs []string
 	for _, server := range allowedServers {
-		if server.Spec.IsCatalogServer() {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+		if credCtx := catalogOrPowerUserWorkspaceServerCredentialContext(server); credCtx != "" {
+			credCtxs = append(credCtxs, credCtx)
 		}
 	}
 
@@ -3279,16 +3167,8 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	// Get credential context based on server scoping
-	var credCtxs []string
-	if server.Spec.IsCatalogServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.IsPowerUserWorkspaceServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	credEnv, err := mcp.RuntimeCredentialSecrets(req.Context(), req.GatewayClient, catalogOrPowerUserWorkspaceServerCredentialContext(server), server.Name)
+	if err != nil {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
@@ -3306,7 +3186,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 		// Don't fail if catalog entry is missing, just continue without preview
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, m.secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -3649,22 +3529,12 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 		}
 	}
 
-	// Get credential for server
-	var credCtxs []string
-	if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	credEnv, err := mcp.RuntimeCredentialSecrets(req.Context(), req.GatewayClient, mcpServerCredentialContext(server), server.Name)
+	if err != nil {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, m.secretBindingAllowedLabel)
+	mergedEnv, err := mcp.MergeBoundCreds(req.Context(), req.LocalK8sClient, req.ObotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, m.secretBindingAllowedLabel)
 	if err != nil {
 		return fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -4018,6 +3888,11 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if err := req.Get(&entry, server.Spec.MCPServerCatalogEntryName); err != nil {
 		return err
 	}
+	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal catalog static configuration: %w", err)
+	}
+	entry.Spec.Manifest = mcp.HydrateStaticCatalogConfiguration(entry.Spec.Manifest, entrySecrets)
 
 	if !req.UserIsAdmin() && server.Spec.IsSingleUser() {
 		// Allow users to upgrade their own single-user servers.
@@ -4046,10 +3921,22 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 	if err := m.prepareCatalogServerUpdate(req, candidate, entry, configured); err != nil {
 		return err
 	}
+	serverContext := mcpServerCredentialContext(server)
+	existingServerSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name)
+	if err != nil {
+		return err
+	}
+	updatedServerSecrets := mcp.ExtractStaticServerConfiguration(&candidate.Spec.Manifest, existingServerSecrets, false)
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name, updatedServerSecrets); err != nil {
+		return fmt.Errorf("failed to update server static configuration: %w", err)
+	}
+	rollbackServerSecrets := func(cause error) error {
+		return errors.Join(cause, mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, serverContext, server.Name, existingServerSecrets))
+	}
 
 	// Shutdown the server, even if there is no credential
 	if err := m.removeMCPServer(req.Context(), server); err != nil {
-		return err
+		return rollbackServerSecrets(err)
 	}
 
 	// Use RetryOnConflict because catalog-entry updates cause controller-side
@@ -4069,9 +3956,10 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 		if err := m.prepareCatalogServerUpdate(req, &latest, entry, configured); err != nil {
 			return err
 		}
+		mcp.ExtractStaticServerConfiguration(&latest.Spec.Manifest, updatedServerSecrets, false)
 		return req.Update(&latest)
 	}); err != nil {
-		return err
+		return rollbackServerSecrets(err)
 	}
 
 	return nil
@@ -4195,12 +4083,23 @@ func (m *MCPHandler) triggerCompositeUpdate(req api.Context, compositeServer v1.
 	if err := obottunnel.ValidateServerTunnelReferences(req.Context(), req.Storage, updatedManifest); err != nil {
 		return types.NewErrBadRequest("validation failed: %v", err)
 	}
-
-	// Ensure the composite server's manifest is updated
-	compositeServer, err = m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, updatedManifest)
+	compositeContext := mcpServerCredentialContext(compositeServer)
+	existingSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, compositeContext, compositeServer.Name)
 	if err != nil {
 		return err
 	}
+	updatedSecrets := mcp.ExtractStaticServerConfiguration(&updatedManifest, existingSecrets, false)
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, compositeContext, compositeServer.Name, updatedSecrets); err != nil {
+		return fmt.Errorf("failed to update composite static configuration: %w", err)
+	}
+
+	// Ensure the composite server's manifest is updated
+	updatedServer, err := m.updateCompositeManifest(req, compositeServer.Name, oldManifestHash, updatedManifest)
+	if err != nil {
+		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, compositeContext, compositeServer.Name, existingSecrets)
+		return err
+	}
+	compositeServer = updatedServer
 
 	// Wait for the composite server to apply the changes to all component servers
 	if _, err := waitForCompositeReady(req, compositeServer, 30*time.Second); err != nil {
@@ -4330,4 +4229,24 @@ func (m *MCPHandler) ListServerInstances(req api.Context) error {
 	return req.Write(types.MCPServerInstanceList{
 		Items: convertedInstances,
 	})
+}
+
+func mcpServerCredentialContext(server v1.MCPServer) string {
+	credCtx := catalogOrPowerUserWorkspaceServerCredentialContext(server)
+	if credCtx != "" {
+		return credCtx
+	}
+	return fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
+}
+
+func catalogOrPowerUserWorkspaceServerCredentialContext(server v1.MCPServer) string {
+	var scope string
+	if server.Spec.IsCatalogServer() {
+		scope = server.Spec.MCPCatalogID
+	} else if server.Spec.IsPowerUserWorkspaceServer() {
+		scope = server.Spec.PowerUserWorkspaceID
+	} else {
+		return ""
+	}
+	return fmt.Sprintf("%s-%s", scope, server.Name)
 }

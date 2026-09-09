@@ -17,6 +17,7 @@
 		getMCPDisplayName,
 		getSecretBindingEngineError,
 		hasSecretBinding,
+		isCatalogStaticField,
 		isDeprecatedMCPServer,
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
@@ -78,21 +79,16 @@
 		return a.name === b.name && a.key === b.key;
 	}
 
-	function templateBindingByKey(fields?: MCPSubField[]) {
-		return new Map(
-			(fields ?? [])
-				.filter((field) => hasSecretBinding(field))
-				.map((field) => [field.key, field.secretBinding])
-		);
+	function templateFieldByKey(fields?: MCPSubField[]) {
+		return new Map((fields ?? []).map((field) => [field.key, field]));
 	}
 
-	function markPinnedSecretBinding(
-		field: MCPSubField,
-		templateBindings: Map<string, MCPSubField['secretBinding']>
-	) {
+	function markCatalogManagedField(field: MCPSubField, templateFields: Map<string, MCPSubField>) {
+		const templateField = templateFields.get(field.key);
 		return {
 			...field,
-			secretBindingReadonly: sameSecretBinding(field.secretBinding, templateBindings.get(field.key))
+			secretBindingReadonly: sameSecretBinding(field.secretBinding, templateField?.secretBinding),
+			isStatic: isCatalogStaticField(templateField)
 		};
 	}
 
@@ -174,18 +170,17 @@
 			}
 			values = {};
 		}
-		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
-		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
+		const templateEnvFields = templateFieldByKey(entry?.manifest.env);
+		const templateHeaderFields = templateFieldByKey(entry?.manifest.remoteConfig?.headers);
 		configureForm = {
 			name: server.alias || '',
 			envs: server.manifest.env?.map((env) => ({
-				...markPinnedSecretBinding(env, templateEnvBindings),
+				...markCatalogManagedField(env, templateEnvFields),
 				value: values[env.key] ?? ''
 			})),
 			headers: server.manifest.remoteConfig?.headers?.map((header) => ({
-				...markPinnedSecretBinding(header, templateHeaderBindings),
-				value: values[header.key] ?? '',
-				isStatic: header.value !== ''
+				...markCatalogManagedField(header, templateHeaderFields),
+				value: values[header.key] ?? ''
 			})),
 			url: server.manifest.remoteConfig?.url,
 			hostname: entry?.manifest.remoteConfig?.hostname
@@ -240,17 +235,16 @@
 			values = {};
 		}
 
-		const templateEnvBindings = templateBindingByKey(entry?.manifest.env);
-		const templateHeaderBindings = templateBindingByKey(entry?.manifest.remoteConfig?.headers);
+		const templateEnvFields = templateFieldByKey(entry?.manifest.env);
+		const templateHeaderFields = templateFieldByKey(entry?.manifest.remoteConfig?.headers);
 		const form: LaunchFormData = {
 			envs: updatedServer.manifest.env?.map((env) => ({
-				...markPinnedSecretBinding(env, templateEnvBindings),
+				...markCatalogManagedField(env, templateEnvFields),
 				value: values[env.key] ?? ''
 			})),
 			headers: updatedServer.manifest.remoteConfig?.headers?.map((header) => ({
-				...markPinnedSecretBinding(header, templateHeaderBindings),
-				value: values[header.key] ?? '',
-				isStatic: header.value !== ''
+				...markCatalogManagedField(header, templateHeaderFields),
+				value: values[header.key] ?? ''
 			}))
 		};
 

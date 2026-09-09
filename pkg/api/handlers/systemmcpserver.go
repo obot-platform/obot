@@ -14,7 +14,6 @@ import (
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/controller/handlers/systemmcpserver"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -87,12 +86,19 @@ func (h *SystemMCPServerHandler) Create(req api.Context) error {
 			Manifest: manifest,
 		},
 	}
+	credentialSecrets := mcp.ExtractStaticSystemServerConfiguration(&systemServer.Spec.Manifest, nil, true)
 
 	if err := req.Create(&systemServer); err != nil {
 		return fmt.Errorf("failed to create system MCP server: %w", err)
 	}
+	if len(credentialSecrets) > 0 {
+		if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, systemServer.Name, systemServer.Name, credentialSecrets); err != nil {
+			_ = req.Delete(&systemServer)
+			return fmt.Errorf("failed to store static configuration: %w", err)
+		}
+	}
 
-	return req.Write(convertSystemMCPServer(systemServer, nil)) // no credentials to check for a brand new server
+	return req.Write(convertSystemMCPServer(systemServer, credentialSecrets))
 }
 
 // Update updates an existing system MCP server
@@ -111,9 +117,18 @@ func (h *SystemMCPServerHandler) Update(req api.Context) error {
 		return err
 	}
 
+	existingSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, systemServer.Name, systemServer.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal static configuration: %w", err)
+	}
+	credentialSecrets := mcp.ExtractStaticSystemServerConfiguration(&manifest, existingSecrets, true)
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, systemServer.Name, systemServer.Name, credentialSecrets); err != nil {
+		return fmt.Errorf("failed to store static configuration: %w", err)
+	}
 	systemServer.Spec.Manifest = manifest
 
 	if err := req.Update(&systemServer); err != nil {
+		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, systemServer.Name, systemServer.Name, existingSecrets)
 		return fmt.Errorf("failed to update system MCP server: %w", err)
 	}
 
@@ -171,16 +186,7 @@ func (h *SystemMCPServerHandler) Configure(req api.Context) error {
 
 	credCtx := systemServer.Name
 
-	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
-	if err := DeleteCredentialIfExists(req.Context(), req.GatewayClient, []string{credCtx}, systemServer.Name); err != nil {
-		return err
-	}
-
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: credCtx,
-		Name:    systemServer.Name,
-		Secrets: envVars,
-	}); err != nil {
+	if err := storeCredentialSecrets(req.Context(), req.GatewayClient, credCtx, systemServer.Name, envVars); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
@@ -506,9 +512,11 @@ func checkEnabledAndConfigured(ctx context.Context, gatewayClient *gateway.Clien
 }
 
 func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string) types.SystemMCPServer {
+	manifest := server.Spec.Manifest
+	mcp.RedactStaticSystemServerConfiguration(&manifest, credEnv)
 	result := types.SystemMCPServer{
 		Metadata:                    MetadataFrom(&server),
-		SystemMCPServerManifest:     server.Spec.Manifest,
+		SystemMCPServerManifest:     manifest,
 		DeploymentStatus:            server.Status.DeploymentStatus,
 		DeploymentAvailableReplicas: server.Status.DeploymentAvailableReplicas,
 		DeploymentReadyReplicas:     server.Status.DeploymentReadyReplicas,
@@ -526,14 +534,14 @@ func convertSystemMCPServer(server v1.SystemMCPServer, credEnv map[string]string
 		})
 	}
 
-	for _, env := range server.Spec.Manifest.Env {
-		if (env.Required && env.Value == "" && credEnv[env.Key] == "") || (credEnv[env.Key] != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)) {
+	for _, env := range manifest.Env {
+		if (env.Required && env.Value == "" && !env.ValueConfigured && credEnv[env.Key] == "") || (credEnv[env.Key] != "" && !mcp.ConfigurationOptionValueValid(env.MCPHeader, credEnv)) {
 			result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 		}
 	}
-	if server.Spec.Manifest.RemoteConfig != nil {
-		for _, header := range server.Spec.Manifest.RemoteConfig.Headers {
-			if (header.Required && header.Value == "" && credEnv[header.Key] == "") || (credEnv[header.Key] != "" && !mcp.ConfigurationOptionValueValid(header, credEnv)) {
+	if manifest.RemoteConfig != nil {
+		for _, header := range manifest.RemoteConfig.Headers {
+			if (header.Required && header.Value == "" && !header.ValueConfigured && credEnv[header.Key] == "") || (credEnv[header.Key] != "" && !mcp.ConfigurationOptionValueValid(header, credEnv)) {
 				result.MissingRequiredHeaders = append(result.MissingRequiredHeaders, header.Key)
 			}
 		}

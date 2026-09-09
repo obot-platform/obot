@@ -83,6 +83,10 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		// Don't save the secrets in the database.
 		manifest.Secret = ""
 	}
+	var staticCred map[string]string
+	if manifest.SystemMCPServerManifest != nil {
+		staticCred = mcp.ExtractStaticSystemServerConfiguration(manifest.SystemMCPServerManifest, nil, true)
+	}
 
 	webhookValidation := v1.MCPWebhookValidation{
 		GenerateName: system.MCPWebhookValidationPrefix,
@@ -104,8 +108,18 @@ func (m *MCPWebhookValidationHandler) Create(req api.Context) error {
 		_ = req.Delete(&webhookValidation)
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, staticCred); err != nil {
+		errs := []error{fmt.Errorf("failed to create static configuration credential: %w", err)}
+		if _, cleanupErr := req.GatewayClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, webhookValidation.Name); cleanupErr != nil {
+			errs = append(errs, fmt.Errorf("failed to clean up webhook credential: %w", cleanupErr))
+		}
+		if cleanupErr := req.Delete(&webhookValidation); cleanupErr != nil {
+			errs = append(errs, fmt.Errorf("failed to clean up mcp webhook validation: %w", cleanupErr))
+		}
+		return errors.Join(errs...)
+	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, nil))
+	return req.Write(convertMCPWebhookValidation(webhookValidation, mcp.MergeRuntimeConfiguration(secretCred, staticCred)))
 }
 
 func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
@@ -135,6 +149,27 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 		// Don't save the secrets in the database.
 		manifest.Secret = ""
 	}
+	existingSecrets, err := revealCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal credential: %w", err)
+	}
+	if secretCred == nil {
+		secretCred = existingSecrets
+	} else {
+		for key, value := range existingSecrets {
+			if _, ok := secretCred[key]; !ok {
+				secretCred[key] = value
+			}
+		}
+	}
+	existingStaticSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name)
+	if err != nil {
+		return fmt.Errorf("failed to reveal static configuration: %w", err)
+	}
+	var staticCred map[string]string
+	if manifest.SystemMCPServerManifest != nil {
+		staticCred = mcp.ExtractStaticSystemServerConfiguration(manifest.SystemMCPServerManifest, existingStaticSecrets, true)
+	}
 
 	webhookValidation.Spec.Manifest = manifest
 
@@ -154,12 +189,16 @@ func (m *MCPWebhookValidationHandler) Update(req api.Context) error {
 
 		secretCred = cred.Secrets
 	}
+	if err := mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, staticCred); err != nil {
+		return fmt.Errorf("failed to store static configuration: %w", err)
+	}
 
 	if err := req.Update(&webhookValidation); err != nil {
+		_ = mcp.StoreStaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, existingStaticSecrets)
 		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, secretCred))
+	return req.Write(convertMCPWebhookValidation(webhookValidation, mcp.MergeRuntimeConfiguration(secretCred, staticCred)))
 }
 
 func (m *MCPWebhookValidationHandler) Delete(req api.Context) error {
@@ -170,6 +209,9 @@ func (m *MCPWebhookValidationHandler) Delete(req api.Context) error {
 
 	if _, err := req.GatewayClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, webhookValidation.Name); err != nil {
 		return fmt.Errorf("failed to delete credential: %w", err)
+	}
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(), system.MCPWebhookValidationCredentialContext, mcp.StaticConfigurationCredentialName(webhookValidation.Name)); err != nil {
+		return fmt.Errorf("failed to delete static configuration credential: %w", err)
 	}
 
 	if err := req.Delete(&webhookValidation); err != nil {
@@ -202,11 +244,7 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 		}
 	}
 
-	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
-		Context: system.MCPWebhookValidationCredentialContext,
-		Name:    webhookValidation.Name,
-		Secrets: envVars,
-	}); err != nil {
+	if err := storeCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name, envVars); err != nil {
 		return fmt.Errorf("failed to create credential: %w", err)
 	}
 
@@ -220,7 +258,11 @@ func (m *MCPWebhookValidationHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to update mcp webhook validation: %w", err)
 	}
 
-	return req.Write(convertMCPWebhookValidation(webhookValidation, envVars))
+	staticSecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name)
+	if err != nil {
+		return err
+	}
+	return req.Write(convertMCPWebhookValidation(webhookValidation, mcp.MergeRuntimeConfiguration(envVars, staticSecrets)))
 }
 
 func (m *MCPWebhookValidationHandler) Deconfigure(req api.Context) error {
@@ -261,17 +303,21 @@ func (m *MCPWebhookValidationHandler) Reveal(req api.Context) error {
 }
 
 func convertMCPWebhookValidation(validation v1.MCPWebhookValidation, credEnv map[string]string) types.MCPWebhookValidation {
+	manifestCopy := validation.Spec.Manifest
+	if manifestCopy.SystemMCPServerManifest != nil {
+		mcp.RedactStaticSystemServerConfiguration(manifestCopy.SystemMCPServerManifest, credEnv)
+	}
 	result := types.MCPWebhookValidation{
 		Metadata:                     MetadataFrom(&validation),
-		MCPWebhookValidationManifest: validation.Spec.Manifest,
+		MCPWebhookValidationManifest: manifestCopy,
 		HasSecret:                    credEnv["secret"] != "" || credEnv["WEBHOOK_SECRET"] != "",
 		Configured:                   validation.Status.Configured,
 	}
 
-	if manifest := validation.Spec.Manifest.SystemMCPServerManifest; manifest != nil {
+	if manifest := manifestCopy.SystemMCPServerManifest; manifest != nil {
 		result.Configured = true
 		for _, env := range manifest.Env {
-			if env.Required && env.Value == "" && credEnv[env.Key] == "" {
+			if env.Required && env.Value == "" && !env.ValueConfigured && credEnv[env.Key] == "" {
 				result.MissingRequiredEnvVars = append(result.MissingRequiredEnvVars, env.Key)
 				result.Configured = false
 			}
@@ -289,7 +335,11 @@ func getCredentialsForWebhookValidation(ctx context.Context, gatewayClient *gate
 		return nil, err
 	}
 
-	return cred.Secrets, nil
+	static, err := mcp.StaticCredentialSecrets(ctx, gatewayClient, system.MCPWebhookValidationCredentialContext, webhookValidation.Name)
+	if err != nil {
+		return nil, err
+	}
+	return mcp.MergeRuntimeConfiguration(cred.Secrets, static), nil
 }
 
 func (m *MCPWebhookValidationHandler) getSystemServerForWebhookValidation(req api.Context) (v1.SystemMCPServer, error) {
@@ -456,6 +506,11 @@ func (m *MCPWebhookValidationHandler) resolveManifestFromCatalogEntry(req api.Co
 	if err := req.Get(&entry, manifest.SystemMCPServerCatalogEntryID); err != nil {
 		return err
 	}
+	entrySecrets, err := mcp.StaticCredentialSecrets(req.Context(), req.GatewayClient, mcp.SystemCatalogEntryStaticCredentialContext(entry.Name), entry.Name)
+	if err != nil {
+		return err
+	}
+	entry.Spec.Manifest = mcp.HydrateStaticSystemCatalogConfiguration(entry.Spec.Manifest, entrySecrets)
 
 	if entry.Spec.Manifest.SystemMCPServerType != types.SystemMCPServerTypeFilter {
 		return types.NewErrBadRequest("system MCP server catalog entry %q must have systemMCPServerType %q", manifest.SystemMCPServerCatalogEntryID, types.SystemMCPServerTypeFilter)

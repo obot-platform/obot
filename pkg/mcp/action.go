@@ -146,7 +146,17 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: id}, &entry); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, types.NewErrNotFound("catalog entry %s not found", id)
 		}
-		addExtractedEnvVarsToCatalogEntry(&entry)
+		AddExtractedEnvVarsToCatalogEntry(&entry)
+
+		var catalogStaticSecrets map[string]string
+		if CatalogHasSensitiveStaticConfiguration(&entry.Spec.Manifest) {
+			var err error
+			catalogStaticSecrets, err = StaticCredentialSecrets(ctx, sm.gatewayClient, CatalogEntryStaticCredentialContext(entry.Name), entry.Name)
+			if err != nil {
+				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to reveal static configuration for catalog entry %s: %w", id, err)
+			}
+			entry.Spec.Manifest = HydrateStaticCatalogConfiguration(entry.Spec.Manifest, catalogStaticSecrets)
+		}
 
 		var servers v1.MCPServerList
 		if err := sm.storageClient.List(ctx, &servers,
@@ -197,8 +207,15 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 					NeedsURL:                  allowMissingURL && (manifest.RemoteConfig == nil || manifest.RemoteConfig.URL == ""),
 				},
 			}
+			serverStaticSecrets := ExtractStaticServerConfiguration(&server.Spec.Manifest, nil, true)
 			if err := sm.storageClient.Create(ctx, &server); err != nil {
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
+			}
+			if len(serverStaticSecrets) > 0 {
+				if err := StoreStaticCredentialSecrets(ctx, sm.gatewayClient, serverCredentialContext(serverScope(server), server.Name), server.Name, serverStaticSecrets); err != nil {
+					_ = sm.storageClient.Delete(ctx, &server)
+					return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to store static configuration for MCP server %s: %w", server.Name, err)
+				}
 			}
 
 			if server.Spec.Manifest.Runtime == types.RuntimeComposite &&
@@ -255,8 +272,8 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		scope = instance.Spec.UserID
 	}
 
-	cred, err := sm.gatewayClient.RevealCredential(ctx, []string{credCtx}, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	credEnv, err := sm.runtimeCredentials(ctx, credCtx, server.Name)
+	if err != nil {
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
@@ -265,7 +282,7 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 		return server, ServerConfig{}, nil, err
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -307,29 +324,15 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
 
-	var (
-		credCtxs []string
-		scope    string
-	)
-	if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		scope = server.Spec.MCPCatalogID
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-		scope = server.Spec.PowerUserWorkspaceID
-	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-		scope = server.Spec.UserID
-	}
-
 	addExtractedEnvVars(&server)
 
-	cred, err := sm.gatewayClient.RevealCredential(ctx, credCtxs, server.Name)
-	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
+	scope := serverScope(server)
+	credEnv, err := sm.runtimeCredentials(ctx, serverCredentialContext(scope, server.Name), server.Name)
+	if err != nil {
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
 
-	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, cred.Secrets, sm.secretBindingAllowedLabel)
+	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Env, server.Spec.Manifest.RemoteConfig, credEnv, sm.secretBindingAllowedLabel)
 	if err != nil {
 		return ServerConfig{}, nil, fmt.Errorf("failed to resolve secret bindings: %w", err)
 	}
@@ -386,6 +389,24 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 
 	sm.updateLastRequestTime(ctx, &server)
 	return serverConfig, nil, nil
+}
+
+func (sm *SessionManager) runtimeCredentials(ctx context.Context, credentialContext, serverName string) (map[string]string, error) {
+	return RuntimeCredentialSecrets(ctx, sm.gatewayClient, credentialContext, serverName)
+}
+
+func serverScope(server v1.MCPServer) string {
+	if server.Spec.MCPCatalogID != "" {
+		return server.Spec.MCPCatalogID
+	}
+	if server.Spec.PowerUserWorkspaceID != "" {
+		return server.Spec.PowerUserWorkspaceID
+	}
+	return server.Spec.UserID
+}
+
+func serverCredentialContext(scope, serverName string) string {
+	return fmt.Sprintf("%s-%s", scope, serverName)
 }
 
 func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]Webhook, error) {
@@ -896,17 +917,19 @@ func addExtractedEnvVars(server *v1.MCPServer) {
 	}
 }
 
-func addExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
-	addExtractedEnvVarsToCatalogEntryManifest(&entry.Spec.Manifest)
+// AddExtractedEnvVarsToCatalogEntry adds configuration fields referenced by a catalog manifest's runtime configuration.
+func AddExtractedEnvVarsToCatalogEntry(entry *v1.MCPServerCatalogEntry) {
+	AddExtractedEnvVarsToCatalogEntryManifest(&entry.Spec.Manifest)
 }
 
-func addExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogEntryManifest) {
+// AddExtractedEnvVarsToCatalogEntryManifest adds configuration fields referenced by a catalog manifest's runtime configuration.
+func AddExtractedEnvVarsToCatalogEntryManifest(manifest *types.MCPServerCatalogEntryManifest) {
 	if manifest == nil {
 		return
 	}
 	if manifest.Runtime == types.RuntimeComposite && manifest.CompositeConfig != nil {
 		for i := range manifest.CompositeConfig.ComponentServers {
-			addExtractedEnvVarsToCatalogEntryManifest(&manifest.CompositeConfig.ComponentServers[i].Manifest)
+			AddExtractedEnvVarsToCatalogEntryManifest(&manifest.CompositeConfig.ComponentServers[i].Manifest)
 		}
 		return
 	}

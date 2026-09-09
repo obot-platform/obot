@@ -3,10 +3,14 @@ package mcp
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
+	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -25,7 +29,7 @@ func TestAddExtractedEnvVarsToCatalogEntryManifestPreservesRemoteHeaders(t *test
 		},
 	}
 
-	addExtractedEnvVarsToCatalogEntryManifest(manifest)
+	AddExtractedEnvVarsToCatalogEntryManifest(manifest)
 
 	require.Empty(t, manifest.Env)
 	require.ElementsMatch(t, []types.MCPHeader{
@@ -82,6 +86,84 @@ func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *te
 	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
 	require.Equal(t, "api.example.com", server.Spec.Manifest.RemoteConfig.Hostname)
 	require.Empty(t, server.Spec.Manifest.RemoteConfig.URL)
+}
+
+func TestServerOrInstanceFromConnectURLCopiesStaticCatalogConfiguration(t *testing.T) {
+	const (
+		entryID     = "catalog-entry"
+		catalogID   = "default"
+		userID      = "user-1"
+		staticKey   = "SECRET_KEY"
+		staticValue = "catalog-secret"
+	)
+
+	entry := &v1.MCPServerCatalogEntry{
+		Name:      entryID,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{
+			MCPCatalogName: catalogID,
+			Manifest: types.MCPServerCatalogEntryManifest{
+				ServerUserType: types.ServerUserTypeSingleUser,
+				Runtime:        types.RuntimeNPX,
+				NPXConfig:      &types.NPXRuntimeConfig{Package: "example"},
+				Env: []types.MCPEnv{{
+					Name:            "Static Secret",
+					Key:             staticKey,
+					Sensitive:       true,
+					ValueConfigured: true,
+				}},
+			},
+		},
+	}
+
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(entry).
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.UserID}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
+			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		Build()
+	gatewayClient := newActionTestGatewayClient(t)
+	require.NoError(t, StoreStaticCredentialSecrets(
+		t.Context(), gatewayClient, CatalogEntryStaticCredentialContext(entryID), entryID,
+		map[string]string{staticKey: staticValue},
+	))
+
+	manager := SessionManager{storageClient: storageClient, gatewayClient: gatewayClient}
+	server, instance, err := manager.serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
+	require.NoError(t, err)
+	require.Empty(t, instance.Name)
+	require.True(t, server.Spec.IsSingleUser())
+	require.Empty(t, server.Spec.MCPCatalogID)
+	require.Empty(t, server.Spec.PowerUserWorkspaceID)
+	require.Empty(t, server.Spec.Manifest.Env[0].Value)
+	require.True(t, server.Spec.Manifest.Env[0].ValueConfigured)
+
+	credentialContext := serverCredentialContext(serverScope(server), server.Name)
+	staticSecrets, err := StaticCredentialSecrets(t.Context(), gatewayClient, credentialContext, server.Name)
+	require.NoError(t, err)
+	require.Equal(t, staticValue, staticSecrets[staticKey])
+}
+
+func newActionTestGatewayClient(t *testing.T) *gatewayclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	client := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }
 
 func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *testing.T) {

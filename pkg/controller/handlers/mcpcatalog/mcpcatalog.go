@@ -164,7 +164,6 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	for sourceURL, errMsg := range compositeRefErrors {
 		addSyncError(mcpCatalog.Status.SyncErrors, sourceURL, errMsg)
 	}
-
 	mcpCatalog.Status.LastSyncTime = metav1.Now()
 	if err := req.Client.Status().Update(req.Ctx, mcpCatalog); err != nil {
 		return fmt.Errorf("failed to update catalog status: %w", err)
@@ -193,14 +192,16 @@ func (h *Handler) Sync(req router.Request, resp router.Response) error {
 	// Missing entries cannot be reconciled safely from a partial desired set.
 	if len(mcpCatalog.Status.SyncErrors) > 0 {
 		slog.Info("Applying MCP catalog entries without reconciling missing entries due to source errors", "catalog", mcpCatalog.Name, "entries", len(toAdd), "sourceErrors", len(mcpCatalog.Status.SyncErrors))
-		return app.Apply(req.Ctx, mcpCatalog, toAdd...)
+	} else {
+		if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
+			return err
+		}
+		slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
 	}
 
-	if err := reconcileRemovedEntries(req.Ctx, req.Client, mcpCatalog, toAdd); err != nil {
-		return err
+	if err := h.credentializeCatalogObjects(req.Ctx, toAdd); err != nil {
+		return fmt.Errorf("failed to credentialize synced catalog configuration: %w", err)
 	}
-
-	slog.Info("Applying MCP catalog entries without prune", "catalog", mcpCatalog.Name, "entries", len(toAdd))
 	return app.Apply(req.Ctx, mcpCatalog, toAdd...)
 }
 
@@ -410,6 +411,20 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 					errs = append(errs, fmt.Errorf("multi-user server %q not found in catalog %q", component.MCPServerID, catalogName))
 					continue
 				}
+				if mcp.ServerHasSensitiveStaticConfiguration(&server.Spec.Manifest) {
+					credentialContext := server.Spec.UserID
+					if server.Spec.MCPCatalogID != "" {
+						credentialContext = server.Spec.MCPCatalogID
+					} else if server.Spec.PowerUserWorkspaceID != "" {
+						credentialContext = server.Spec.PowerUserWorkspaceID
+					}
+					credential, err := h.gatewayClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", credentialContext, server.Name)}, mcp.StaticConfigurationCredentialName(server.Name))
+					if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+						errs = append(errs, err)
+						continue
+					}
+					server.Spec.Manifest = mcp.HydrateStaticServerConfiguration(server.Spec.Manifest, credential.Secrets)
+				}
 
 				component.Manifest = server.Spec.Manifest.ConvertToCatalogEntry()
 				changed = true
@@ -443,9 +458,17 @@ func (h *Handler) resolveCompositeSourceRefs(ctx context.Context, c kclient.Clie
 			if target == nil {
 				continue
 			}
+			if mcp.CatalogHasSensitiveStaticConfiguration(&target.Spec.Manifest) {
+				credential, err := h.gatewayClient.RevealCredential(ctx, []string{mcp.CatalogEntryStaticCredentialContext(target.Name)}, mcp.StaticConfigurationCredentialName(target.Name))
+				if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+					errs = append(errs, err)
+					continue
+				}
+				target.Spec.Manifest = mcp.HydrateStaticCatalogConfiguration(target.Spec.Manifest, credential.Secrets)
+			}
 
 			component.CatalogEntryID = target.Name
-			component.Manifest = target.Spec.Manifest
+			component.Manifest = *target.Spec.Manifest.DeepCopy()
 			changed = true
 		}
 
@@ -563,7 +586,6 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 
 		toAdd = append(toAdd, objs...)
 	}
-
 	systemCatalog.Status.LastSyncTime = metav1.Now()
 	if err := req.Client.Status().Update(req.Ctx, systemCatalog); err != nil {
 		return fmt.Errorf("failed to update system catalog status: %w", err)
@@ -590,7 +612,60 @@ func (h *Handler) SyncSystem(req router.Request, resp router.Response) error {
 		app = app.WithPruneTypes(&v1.SystemMCPServerCatalogEntry{})
 	}
 
+	if err := h.credentializeCatalogObjects(req.Ctx, toAdd); err != nil {
+		return fmt.Errorf("failed to credentialize synced catalog configuration: %w", err)
+	}
 	return app.Apply(req.Ctx, systemCatalog, toAdd...)
+}
+
+// credentializeCatalogObjects extracts sensitive static configuration from catalog manifests
+// into encrypted credentials before the objects are persisted. If credentialization fails,
+// credentials changed earlier in the batch are restored; object application is handled separately.
+func (h *Handler) credentializeCatalogObjects(ctx context.Context, objects []kclient.Object) error {
+	type previousCredential struct {
+		context, resourceName string
+		secrets               map[string]string
+	}
+	var previous []previousCredential
+	rollback := func() error {
+		var errs []error
+		for _, credential := range slices.Backward(previous) {
+			if err := mcp.StoreStaticCredentialSecrets(ctx, h.gatewayClient, credential.context, credential.resourceName, credential.secrets); err != nil {
+				errs = append(errs, err)
+			}
+		}
+		return errors.Join(errs...)
+	}
+
+	for _, object := range objects {
+		var extract func(map[string]string) map[string]string
+		var credentialContext string
+		switch entry := object.(type) {
+		case *v1.MCPServerCatalogEntry:
+			credentialContext = mcp.CatalogEntryStaticCredentialContext(entry.Name)
+			extract = func(existing map[string]string) map[string]string {
+				return mcp.ExtractStaticCatalogConfiguration(&entry.Spec.Manifest, existing, false)
+			}
+		case *v1.SystemMCPServerCatalogEntry:
+			credentialContext = mcp.SystemCatalogEntryStaticCredentialContext(entry.Name)
+			extract = func(existing map[string]string) map[string]string {
+				return mcp.ExtractStaticSystemCatalogConfiguration(&entry.Spec.Manifest, existing, false)
+			}
+		default:
+			continue
+		}
+		existing, err := mcp.StaticCredentialSecrets(ctx, h.gatewayClient, credentialContext, object.GetName())
+		if err != nil {
+			return errors.Join(err, rollback())
+		}
+
+		secrets := extract(existing)
+		if err := mcp.StoreStaticCredentialSecrets(ctx, h.gatewayClient, credentialContext, object.GetName(), secrets); err != nil {
+			return errors.Join(err, rollback())
+		}
+		previous = append(previous, previousCredential{context: credentialContext, resourceName: object.GetName(), secrets: existing})
+	}
+	return nil
 }
 
 func (h *Handler) readSystemMCPCatalog(ctx context.Context, catalogName, sourceURL, token string) ([]kclient.Object, error) {

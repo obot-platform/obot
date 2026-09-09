@@ -71,6 +71,24 @@ describe('CustomConfigurationFieldset.svelte', () => {
 			.not.toHaveAttribute('aria-invalid', 'true');
 	});
 
+	it.each([false, true])(
+		'shows an encrypted static value as configured when file is %s',
+		async (file) => {
+			await renderFieldset({
+				data: field({ key: 'API_KEY', sensitive: true, valueConfigured: true, file }),
+				showRequired: true
+			});
+
+			await expect.element(page.getByCSS('#env-value-type-test')).toHaveTextContent('Static');
+			await expect
+				.element(page.getByLabelText('Static Value'))
+				.toHaveAttribute('placeholder', 'Configured; enter a new value to replace');
+			await expect
+				.element(page.getByLabelText('Static Value'))
+				.not.toHaveAttribute('aria-invalid', 'true');
+		}
+	);
+
 	it('marks an empty static Value invalid only after validation', async () => {
 		await renderFieldset({ showRequired: true });
 
@@ -88,6 +106,7 @@ describe('CustomConfigurationFieldset.svelte', () => {
 	it('clears a secret binding when switching to options', async () => {
 		const data: MCPSubField & { secretBindingSource?: string } = field({
 			key: 'API_KEY',
+			valueConfigured: true,
 			secretBinding: { name: 'api-credentials', key: 'api-key' }
 		});
 		data.secretBindingSource = 'secret';
@@ -98,6 +117,7 @@ describe('CustomConfigurationFieldset.svelte', () => {
 
 		expect(data.secretBinding).toBeUndefined();
 		expect(data.secretBindingSource).toBe('value');
+		expect(data.valueConfigured).toBe(false);
 		expect(data.options).toEqual([{ name: '', value: '', description: '' }]);
 	});
 

@@ -9,9 +9,12 @@ import (
 	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	gclient "github.com/obot-platform/obot/pkg/gateway/client"
+	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	storagescheme "github.com/obot-platform/obot/pkg/storage/scheme"
+	storageservices "github.com/obot-platform/obot/pkg/storage/services"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,8 +30,9 @@ type fakeCredentialClient struct {
 	revealErr error
 	deleteErr error
 
-	reveals int
-	deletes int
+	reveals      int
+	deletes      int
+	oauthDeletes int
 }
 
 func TestDetectCompositeDriftMarksEntryNeedingUpdateWhenMultiUserComponentDrifts(t *testing.T) {
@@ -209,7 +213,7 @@ func TestDetectCompositeDriftIgnoresAdminAddedSecretBindings(t *testing.T) {
 			SecretBinding: binding}},
 	})
 	client := newFakeClient(compositeEntry, sharedServer)
-	err := (&Handler{}).DetectCompositeDrift(router.Request{
+	err := (&Handler{gatewayClient: newTestGatewayClient(t)}).DetectCompositeDrift(router.Request{
 		Client:    client,
 		Ctx:       t.Context(),
 		Object:    compositeEntry,
@@ -456,8 +460,11 @@ func (f *fakeCredentialClient) RevealCredential(_ context.Context, contexts []st
 	return gatewaytypes.Credential{Context: contexts[0], Name: name}, nil
 }
 
-func (f *fakeCredentialClient) DeleteCredential(_ context.Context, _, _ string) (bool, error) {
+func (f *fakeCredentialClient) DeleteCredential(_ context.Context, _, name string) (bool, error) {
 	f.deletes++
+	if name == system.StaticOAuthCredentialName {
+		f.oauthDeletes++
+	}
 	if f.deleteErr != nil {
 		return false, f.deleteErr
 	}
@@ -721,7 +728,19 @@ func TestRemoveOAuthCredentialsOnDeletedEntry(t *testing.T) {
 			}, creds)
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantDeletes, creds.deletes)
+			assert.Equal(t, tt.wantDeletes, creds.oauthDeletes)
 		})
 	}
+}
+
+func newTestGatewayClient(t *testing.T) *gclient.Client {
+	t.Helper()
+	storageServices, err := storageservices.New(storageservices.Config{DSN: "sqlite://:memory:"})
+	require.NoError(t, err)
+	database, err := gatewaydb.New(storageServices.DB.DB, storageServices.DB.SQLDB, true)
+	require.NoError(t, err)
+	require.NoError(t, database.AutoMigrate())
+	client := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 90, 90, 90, true)
+	t.Cleanup(func() { _ = client.Close() })
+	return client
 }

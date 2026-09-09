@@ -109,8 +109,12 @@ export function hasSecretBinding(field?: Partial<MCPSubField> | null): boolean {
 	return Boolean(field?.secretBinding?.name && field?.secretBinding?.key);
 }
 
+export function isCatalogStaticField(field?: Partial<MCPSubField> | null): boolean {
+	return Boolean(field?.value || field?.valueConfigured);
+}
+
 function hasEditableFields(fields?: MCPSubField[]) {
-	return (fields ?? []).some((field) => !hasSecretBinding(field));
+	return (fields ?? []).some((field) => !hasSecretBinding(field) && !isCatalogStaticField(field));
 }
 
 function hasEditableURL(remoteConfig?: { fixedURL?: string; hostname?: string } | null) {
@@ -126,10 +130,7 @@ export function hasEditableConfiguration(
 		const componentServers = item.manifest.compositeConfig?.componentServers || [];
 		return componentServers.some((component) => {
 			const hasEnvs = hasEditableFields(component.manifest?.env);
-			const hasHeaders =
-				(component?.manifest?.remoteConfig?.headers?.filter?.(
-					(header) => !header.value && !hasSecretBinding(header)
-				)?.length ?? 0) > 0;
+			const hasHeaders = hasEditableFields(component?.manifest?.remoteConfig?.headers);
 			const hasUrlToFill = hasEditableURL(component.manifest?.remoteConfig);
 			return hasEnvs || hasHeaders || hasUrlToFill;
 		});
@@ -137,10 +138,7 @@ export function hasEditableConfiguration(
 
 	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
 	const hasEnvsToFill = hasEditableFields(item.manifest?.env);
-	const hasHeadersToFill =
-		(item?.manifest?.remoteConfig?.headers?.filter?.(
-			(header) => !header.value && !hasSecretBinding(header)
-		)?.length ?? 0) > 0;
+	const hasHeadersToFill = hasEditableFields(item?.manifest?.remoteConfig?.headers);
 
 	return hasUrlToFill || hasEnvsToFill || hasHeadersToFill;
 }
@@ -580,7 +578,7 @@ export async function convertCompositeInfoToLaunchFormData(
 						...(e as unknown as Record<string, unknown>),
 						key: e.key,
 						value: init?.config?.[e.key] ?? e.value ?? '',
-						isStatic: !init?.config?.[e.key] && Boolean(e.value)
+						isStatic: !init?.config?.[e.key] && isCatalogStaticField(e)
 					})),
 			headers: isMultiUser
 				? (m.multiUserConfig?.userDefinedHeaders ?? []).map((h) => ({
@@ -593,7 +591,7 @@ export async function convertCompositeInfoToLaunchFormData(
 						...(h as unknown as Record<string, unknown>),
 						key: h.key,
 						value: init?.config?.[h.key] ?? h.value ?? '',
-						isStatic: !init?.config?.[h.key] && Boolean(h.value)
+						isStatic: !init?.config?.[h.key] && isCatalogStaticField(h)
 					}))
 		};
 	}
