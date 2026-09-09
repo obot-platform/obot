@@ -26,6 +26,22 @@ func TestMigrationNamePreservesUUID(t *testing.T) {
 	require.Equal(t, "vmcp150241b93-4d53-5183-abcc-f9645245cdd7", migrationName("vmcp1", "default", "catalog"))
 }
 
+func TestBuildVMCPSkipsMCPServerCatalogEntryID(t *testing.T) {
+	entry := migrationEntry(t)
+	var legacy legacyManifest
+	require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Exercise the legacy migration input.
+	legacy.CompositeConfig.ComponentServers[0].CatalogEntryID = system.MCPServerPrefix + "invalid"
+
+	target, _, err := (&Handler{}).buildVMCP(router.Request{
+		Ctx:    t.Context(),
+		Client: migrationClient(),
+	}, entry, legacy)
+	require.NoError(t, err)
+	require.Len(t, target.Spec.Manifest.Components, 1)
+	require.Equal(t, "remote", target.Spec.Manifest.Components[0].ID)
+	require.Equal(t, "remote", target.Spec.Manifest.Components[0].MCPServerCatalogEntryID)
+}
+
 func TestMigrateAll(t *testing.T) {
 	entry := migrationEntry(t)
 	parent := migrationParent(t, "connection")

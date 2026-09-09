@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"slices"
 	"uuid"
@@ -204,6 +205,13 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 	for _, old := range legacy.CompositeConfig.ComponentServers {
 		manifest := old.Manifest.flattened()
 		id, catalogID := old.CatalogEntryID, entry.Spec.MCPCatalogName
+
+		// We have seen instances where this is an MCPServer ID, which is wrong. Skip such things.
+		if system.IsMCPServerID(id) {
+			slog.WarnContext(req.Ctx, "catalog entry ID is actually an MCP server ID, skipping component", "id", id, "entry_name", entry.Name)
+			continue
+		}
+
 		values := map[string]string{}
 		var shared *v1.MCPServer
 		if old.MCPServerID != "" {
@@ -327,6 +335,11 @@ func (h *Handler) migrateInstance(req router.Request, target v1.VMCP, parent *v1
 	configuration := map[string]string{}
 	for _, old := range parent.Spec.Manifest.CompositeConfig.ComponentServers {
 		id := old.CatalogEntryID
+		if system.IsMCPServerID(id) {
+			slog.WarnContext(req.Ctx, "invalid catalog entry ID", "id", id, "parent", parent.Name)
+			continue
+		}
+
 		if old.MCPServerID != "" {
 			id = old.MCPServerID
 		}
