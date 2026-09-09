@@ -185,18 +185,17 @@
 		}
 	});
 
-	// Returning from the verification lands here with nothing in the URL to say so, and the switch
-	// is then one click from done. Only the owner can finish it, so nobody else is interrupted by a
-	// dialog they cannot act on. Guarded so closing it is respected for the rest of the page's life.
-	let autoOpenedVerifiedSwitch = $state(false);
+	// Reopens the switch dialog for a staged provider without waiting for a click, so an owner who
+	// left mid-switch or is returning from the verification sign-in lands back in it. Owners only,
+	// since the switch routes are owner-only. Guarded so closing it sticks for the rest of the page's
+	// life.
+	let autoOpenedStagedSwitch = $state(false);
 	$effect(() => {
-		if (autoOpenedVerifiedSwitch || !isOwner || isBootstrapUser || localAuthConfigureOpen) return;
+		if (autoOpenedStagedSwitch || !isOwner || isBootstrapUser || localAuthConfigureOpen) return;
+		if (!stagedProvider) return;
 
-		const verified = authProviders.find((provider) => provider.staged && provider.verifiedEmail);
-		if (!verified) return;
-
-		autoOpenedVerifiedSwitch = true;
-		handleClickConfigure(verified);
+		autoOpenedStagedSwitch = true;
+		handleClickConfigure(stagedProvider);
 	});
 
 	function getDocumentationUrl(authProviderId?: string) {
@@ -333,7 +332,7 @@
 		}
 	}
 
-	async function handleDiscardStagedProvider() {
+	async function handleUnstageProvider() {
 		if (!stagedProvider) return;
 		switching = true;
 		switchError = undefined;
@@ -587,13 +586,7 @@
 
 {#snippet switchFooter(submit: () => void)}
 	{#if switchStep !== 'configure'}
-		<button
-			class="btn btn-link text-muted-content px-0"
-			disabled={switching}
-			onclick={handleDiscardStagedProvider}
-		>
-			Discard switch
-		</button>
+		<button class="btn" disabled={switching} onclick={handleUnstageProvider}> Unstage </button>
 	{/if}
 	<div class="grow"></div>
 	{#if switchStep === 'configure'}

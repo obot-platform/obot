@@ -283,12 +283,6 @@ describe('Identity & Access Page', () => {
 			const renderAsOwner = (authProviders: AuthProvider[]) =>
 				renderIdentityAccessPage({ authProviders, groups: [Group.ADMIN, Group.OWNER] });
 
-			// The switch lives in the provider's own dialog now, so every case below opens it the way an
-			// owner would: from the card of the provider being switched to.
-			async function openSwitchDialog(name: string) {
-				await providerCard(name).getByRole('button').last().click();
-			}
-
 			// Deconfiguring the provider serving logins is refused by the server, since it would leave
 			// nobody able to sign in, so the card must not offer it either.
 			it('does not offer to deconfigure the provider that is serving logins', async () => {
@@ -316,11 +310,12 @@ describe('Identity & Access Page', () => {
 			it('asks for a sign-in before offering to complete the switch', async () => {
 				await renderAsOwner([localConfigured, stagedGoogle]);
 
-				await openSwitchDialog('Google');
-
 				await expect.element(page.getByText(/becomes the owner of Obot/)).toBeVisible();
 				await expect
 					.element(page.getByRole('button', { name: /^Sign in with/, exact: false }))
+					.toBeVisible();
+				await expect
+					.element(page.getByRole('button', { name: 'Unstage', exact: true }))
 					.toBeVisible();
 				// Completing the switch is not reachable until a sign-in has been recorded.
 				await expect
@@ -360,23 +355,19 @@ describe('Identity & Access Page', () => {
 
 				await renderAsOwner([googleActive, stagedLocal]);
 
-				await openSwitchDialog('Local');
-
 				await expect.element(page.getByText(/becomes the owner of Obot/)).toBeVisible();
 				await expect
 					.element(page.getByRole('button', { name: /^Sign in with/, exact: false }))
 					.toBeVisible();
 			});
 
-			// A switch still waiting on its sign-in is not one click from done, so it must not take over
-			// the page for an administrator who came here to do something else.
-			it('leaves a staged switch alone until it has been verified', async () => {
+			it('reopens a staged switch', async () => {
 				await renderAsOwner([localConfigured, stagedGoogle]);
 
 				await expect
 					.element(providerCard('Google').getByText('Staged', { exact: true }))
 					.toBeVisible();
-				await expect.element(page.getByText(/becomes the owner of Obot/)).not.toBeInTheDocument();
+				await expect.element(page.getByText(/becomes the owner of Obot/)).toBeVisible();
 			});
 
 			it('does not offer an administrator the switch', async () => {
@@ -387,6 +378,7 @@ describe('Identity & Access Page', () => {
 						providerCard('Google').getByRole('button', { name: 'Resume switch', exact: true })
 					)
 					.toBeDisabled();
+				await expect.element(page.getByText(/becomes the owner of Obot/)).not.toBeInTheDocument();
 			});
 
 			it('warns that users will not transfer before completing the switch', async () => {
