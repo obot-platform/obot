@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
+	"strings"
 	"time"
 
 	clienttypes "github.com/obot-platform/obot/apiclient/types"
@@ -11,6 +13,7 @@ import (
 	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/upgrade"
+	"github.com/obot-platform/obot/pkg/version"
 )
 
 const (
@@ -46,7 +49,7 @@ func NewPublisher(ctx context.Context, consent *Consent, gatewayClient *gatewayc
 		engine,
 		NewClient(upgrade.ServerBaseURL(), nil),
 	)
-	go publisher.run(ctx)
+	publisher.start(ctx, version.Get().String(), os.Getenv("OBOT_FORCE_PRODUCT_TELEMETRY") == "true")
 	return publisher
 }
 
@@ -63,6 +66,14 @@ func newPublisher(consent consentReader, gatewayClient requestGatewayClient, sto
 		sender:          sender,
 		done:            make(chan struct{}),
 	}
+}
+
+func (p *Publisher) start(ctx context.Context, currentVersion string, force bool) {
+	if strings.HasPrefix(currentVersion, "v0.0.0") && !force {
+		close(p.done)
+		return
+	}
+	go p.run(ctx)
 }
 
 func (p *Publisher) run(ctx context.Context) {

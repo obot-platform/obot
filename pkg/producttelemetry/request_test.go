@@ -43,17 +43,17 @@ type errorStorageReader struct {
 	err error
 }
 
+type serverListErrorReader struct {
+	kclient.Reader
+	err error
+}
+
 func (e errorStorageReader) Get(context.Context, kclient.ObjectKey, kclient.Object, ...kclient.GetOption) error {
 	return e.err
 }
 
 func (e errorStorageReader) List(context.Context, kclient.ObjectList, ...kclient.ListOption) error {
 	return e.err
-}
-
-type serverListErrorReader struct {
-	kclient.Reader
-	err error
 }
 
 func (e serverListErrorReader) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {

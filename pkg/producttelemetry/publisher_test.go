@@ -169,6 +169,92 @@ func TestPublisherFailuresAreNonFatal(t *testing.T) {
 	}
 }
 
+func TestPublisherDoesNotStartForDevelopmentVersion(t *testing.T) {
+	publisher := newPublisher(
+		consentReaderFunc(func(context.Context) (*bool, error) {
+			t.Fatal("consent read for development version")
+			return nil, nil
+		}),
+		nil,
+		nil,
+		nil,
+		"docker",
+		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
+			t.Fatal("telemetry sent for development version")
+			return nil
+		}),
+	)
+
+	publisher.start(t.Context(), "v0.0.0-dev", false)
+
+	select {
+	case <-publisher.done:
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not stop")
+	}
+}
+
+func TestPublisherDevelopmentVersionCanBeForcedWithoutBypassingConsent(t *testing.T) {
+	consentRead := make(chan struct{})
+	publisher := newPublisher(
+		consentReaderFunc(func(context.Context) (*bool, error) {
+			close(consentRead)
+			return new(false), nil
+		}),
+		nil,
+		nil,
+		nil,
+		"docker",
+		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
+			t.Fatal("telemetry sent without consent")
+			return nil
+		}),
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	publisher.start(ctx, "v0.0.0-dev", true)
+
+	select {
+	case <-consentRead:
+	case <-time.After(time.Second):
+		t.Fatal("forced publisher did not read consent")
+	}
+	cancel()
+	select {
+	case <-publisher.done:
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not stop after context cancellation")
+	}
+}
+
+func TestPublisherStartsForReleaseVersion(t *testing.T) {
+	started := make(chan struct{})
+	publisher := newPublisher(
+		consentReaderFunc(func(context.Context) (*bool, error) { return new(true), nil }),
+		newRequestGateway(),
+		testStorageClient(),
+		testEntitlements(),
+		"docker",
+		reportSenderFunc(func(context.Context, clienttypes.ProductTelemetryRequest) error {
+			close(started)
+			return nil
+		}),
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	publisher.start(ctx, "v1.2.3", false)
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("release publisher did not start")
+	}
+	cancel()
+	select {
+	case <-publisher.done:
+	case <-time.After(time.Second):
+		t.Fatal("publisher did not stop after context cancellation")
+	}
+}
+
 func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 	started := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
@@ -177,6 +263,7 @@ func TestNewPublisherStartsImmediatelyAndWaitHonorsCancellation(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 	t.Setenv("OBOT_UPGRADE_SERVER_URL", server.URL)
+	t.Setenv("OBOT_FORCE_PRODUCT_TELEMETRY", "true")
 
 	gatewayClient := newConsentTestGatewayClient(t)
 	consent := NewConsent(gatewayClient, false)
