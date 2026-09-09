@@ -39,6 +39,13 @@ const (
 	// client gives up.
 	groupProviderTimeout = 30 * time.Second
 
+	// userGroupRefreshTimeout bounds a group refresh on the authentication path. It is much
+	// shorter than groupProviderTimeout because failing there is cheap: the cooldown then serves
+	// groups from the database, at most one check window old. Waiting longer mostly buys a retry
+	// that only lands if Okta's bucket happens to reset inside the timeout, and every request
+	// coalesced behind the refresh waits along with it.
+	userGroupRefreshTimeout = 10 * time.Second
+
 	// groupFailureCooldown is how long to leave the auth provider alone after a failed refresh.
 	// Only a successful refresh advances the check window, so without this a failing provider is
 	// called again by the very next request.
@@ -49,6 +56,9 @@ const (
 
 var (
 	groupProviderClient = &http.Client{Timeout: groupProviderTimeout}
+
+	// userGroupProviderClient serves the authentication path; see userGroupRefreshTimeout.
+	userGroupProviderClient = &http.Client{Timeout: userGroupRefreshTimeout}
 )
 
 // FetchUserGroupsError represents an error that occurs when fetching user groups from the auth provider.
@@ -655,7 +665,7 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 
 	// Detached from the caller: the refresh is shared, so a leader whose client disconnects must
 	// not cancel it for everyone waiting. The timeout bounds it instead.
-	refreshCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), groupProviderTimeout)
+	refreshCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), userGroupRefreshTimeout)
 	defer cancel()
 
 	v, err, _ := c.groupRefresh.Do(key, func() (any, error) {
@@ -942,7 +952,7 @@ func (*Client) fetchGroups(ctx context.Context, authProviderURL, authProviderNam
 
 	// Not http.DefaultClient, which has no timeout: ensureGroups runs this on a context detached
 	// from the calling request, so an unbounded client would let a hung provider hold it open.
-	resp, err := groupProviderClient.Do(req)
+	resp, err := userGroupProviderClient.Do(req)
 	if err != nil {
 		return nil, &FetchUserGroupsError{
 			ProviderUserID: providerUserID,
