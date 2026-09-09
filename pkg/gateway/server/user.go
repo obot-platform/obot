@@ -1,6 +1,7 @@
 package server
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,7 +18,6 @@ import (
 	"github.com/obot-platform/obot/pkg/proxy"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -56,7 +56,7 @@ func (s *Server) getCurrentUser(apiContext api.Context) error {
 	}
 
 	result := types.ConvertUserWithEffectiveRole(user, apiContext.GatewayClient.HasExplicitRole(user.Email) != types2.RoleUnknown, name, effectiveRole)
-	result.RequirePasswordChange = utils.FirstSet(apiContext.User.GetExtra()["password_change_required"]...) == "true"
+	result.RequirePasswordChange = cmp.Or(apiContext.User.GetExtra()["password_change_required"]...) == "true"
 	return apiContext.Write(result)
 }
 

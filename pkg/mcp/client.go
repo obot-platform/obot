@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 )
 
 const (
@@ -119,7 +119,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 
 		now := time.Now().Add(-time.Second)
 		jwtToken, token, err = sm.tokenService.NewToken(ctx, persistent.TokenContext{
-			Audience:   utils.FirstSet(server.Audiences...),
+			Audience:   cmp.Or(server.Audiences...),
 			ExpiresAt:  persistent.NewTime(now.Add(time.Hour + 15*time.Minute)),
 			IssuedAt:   persistent.NewTime(now),
 			UserID:     server.UserID,

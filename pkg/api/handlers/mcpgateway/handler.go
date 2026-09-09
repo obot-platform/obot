@@ -1,6 +1,7 @@
 package mcpgateway
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -25,7 +26,6 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/tunnel"
-	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/oauth2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -222,7 +222,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				ExpiresAt:        persistent.NewTime(now.Add(10 * time.Minute)),
 				UserID:           req.User.GetUID(),
 				UserName:         req.User.GetName(),
-				UserEmail:        utils.FirstSet(req.User.GetExtra()["email"]...),
+				UserEmail:        cmp.Or(req.User.GetExtra()["email"]...),
 				UserGroups:       []string{types.GroupMCP, types.GroupCompositeMCP, types.GroupAuthenticated},
 				MCPID:            serverConfig.MCPServerName,
 				AuthorizedMCPIDs: authorizedMCPIDs,

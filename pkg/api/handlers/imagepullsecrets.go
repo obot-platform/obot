@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,7 +44,7 @@ func NewImagePullSecretHandler(mcpRuntimeBackend string, staticSecrets []string,
 		mcpRuntimeBackend:  mcpRuntimeBackend,
 		staticSecrets:      staticSecrets,
 		mcpNamespace:       mcpNamespace,
-		serviceNamespace:   firstNonEmpty(serviceNamespace, mcpNamespace),
+		serviceNamespace:   cmp.Or(strings.TrimSpace(serviceNamespace), strings.TrimSpace(mcpNamespace)),
 		serviceAccountName: strings.TrimSpace(serviceAccountName),
 		runtimeClient:      runtimeClient,
 		issuerURL:          issuerURL,
@@ -433,8 +434,8 @@ func (h *ImagePullSecretHandler) convert(secret v1.ImagePullSecret) types.ImageP
 	}
 
 	if secret.Spec.ECR != nil {
-		issuerURL := firstNonEmpty(secret.Status.IssuerURL, secret.Spec.ECR.IssuerURL, h.issuerURL)
-		audience := firstNonEmpty(secret.Status.Audience, secret.Spec.ECR.Audience)
+		issuerURL := cmp.Or(strings.TrimSpace(secret.Status.IssuerURL), strings.TrimSpace(secret.Spec.ECR.IssuerURL), strings.TrimSpace(h.issuerURL))
+		audience := cmp.Or(strings.TrimSpace(secret.Status.Audience), strings.TrimSpace(secret.Spec.ECR.Audience))
 		if audience == "" {
 			audience = imagepullsecrets.DefaultECRAudience
 		}
@@ -540,15 +541,6 @@ func metav1Time(t *metav1.Time) *types.Time {
 		return nil
 	}
 	return types.NewTime(t.Time)
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func ecrTrustPolicyJSON(roleARN, issuerURL, subject, audience string) string {

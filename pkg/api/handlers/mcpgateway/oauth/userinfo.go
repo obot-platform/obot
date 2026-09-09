@@ -1,6 +1,7 @@
 package oauth
 
 import (
+	"cmp"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -8,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/obot-platform/obot/pkg/api"
-	"github.com/obot-platform/obot/pkg/utils"
 )
 
 // UserInfoResponse represents the OpenID Connect UserInfo response
@@ -29,7 +29,7 @@ type UserInfoResponse struct {
 }
 
 func (h *handler) userInfo(req api.Context) error {
-	scope := utils.FirstSet(req.User.GetExtra()["oauthScope"]...)
+	scope := cmp.Or(req.User.GetExtra()["oauthScope"]...)
 	if !slices.Contains(strings.Fields(scope), "profile") {
 		slog.Info("Denied OAuth userinfo request due to insufficient scope", "userID", req.User.GetUID())
 		return h.writeUserInfoError(req, http.StatusUnauthorized,

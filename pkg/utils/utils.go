@@ -61,14 +61,3 @@ func JSONCoerce[T any](in any, out *T) error {
 	}
 	return json.Unmarshal(data, out)
 }
-
-// FirstSet returns the first non-zero value from the input slice, or the zero value if all are zero.
-func FirstSet[T comparable](in ...T) T {
-	var zero T
-	for _, i := range in {
-		if i != zero {
-			return i
-		}
-	}
-	return zero
-}

@@ -1,6 +1,7 @@
 package imagepullsecret
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -55,7 +56,7 @@ func New(gatewayClient *gateway.Client, runtimeClient kclient.Client, mcpRuntime
 		runtimeClient:      runtimeClient,
 		mcpRuntimeBackend:  mcpRuntimeBackend,
 		mcpNamespace:       mcpNamespace,
-		serviceNamespace:   firstNonEmpty(serviceNamespace, mcpNamespace),
+		serviceNamespace:   cmp.Or(strings.TrimSpace(serviceNamespace), strings.TrimSpace(mcpNamespace)),
 		serviceAccountName: strings.TrimSpace(serviceAccountName),
 		staticSecrets:      staticSecrets,
 		issuerURL:          issuerURL,
@@ -391,7 +392,7 @@ func (h *Handler) deleteK8sSecret(ctx context.Context, secret *v1.ImagePullSecre
 }
 
 func (h *Handler) populateECRComputedStatus(secret *v1.ImagePullSecret, status *v1.ImagePullSecretStatus) {
-	status.IssuerURL = firstNonEmpty(secret.Spec.ECR.IssuerURL, h.issuerURL)
+	status.IssuerURL = cmp.Or(strings.TrimSpace(secret.Spec.ECR.IssuerURL), strings.TrimSpace(h.issuerURL))
 	status.Audience = secret.Spec.ECR.Audience
 	if status.Audience == "" {
 		status.Audience = imagepullsecrets.DefaultECRAudience
@@ -429,15 +430,6 @@ func ecrConfigHash(secret *v1.ImagePullSecret) string {
 	})
 	sum := sha256.Sum256(data)
 	return hex.EncodeToString(sum[:])
-}
-
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func managedLabels(imagePullSecretName string) map[string]string {

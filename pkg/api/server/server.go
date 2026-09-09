@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -25,7 +26,6 @@ import (
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/proxy"
 	"github.com/obot-platform/obot/pkg/storage"
-	"github.com/obot-platform/obot/pkg/utils"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -195,7 +195,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 
 		// Enforced after audit logging is installed and refreshed provider cookies are replayed, so
 		// rejected probes stay auditable and a cookie refresh is not lost to a blocked operation.
-		if utils.FirstSet(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req) {
+		if cmp.Or(user.GetExtra()["password_change_required"]...) == "true" && !passwordChangeRequestAllowed(req) {
 			if req.Pattern != "/" {
 				http.Error(rw, "password change required", http.StatusForbidden)
 			} else {

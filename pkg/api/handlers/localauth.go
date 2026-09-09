@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,7 +17,6 @@ import (
 	"github.com/obot-platform/obot/pkg/localauth"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
-	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -164,7 +164,7 @@ func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
 	if name != system.LocalAuthProvider || namespace != system.DefaultNamespace {
 		return types.NewErrBadRequest("the current user is not authenticated with the local provider")
 	}
-	if utils.FirstSet(req.User.GetExtra()["password_change_required"]...) != "true" {
+	if cmp.Or(req.User.GetExtra()["password_change_required"]...) != "true" {
 		return types.NewErrBadRequest("the current local user does not require a password change")
 	}
 
@@ -173,7 +173,7 @@ func (h *LocalAuthHandler) ChangePassword(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	email := utils.FirstSet(req.User.GetExtra()["email"]...)
+	email := cmp.Or(req.User.GetExtra()["email"]...)
 	localUser, err := req.GatewayClient.LocalAuthUserByEmail(req.Context(), email)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return types.NewErrNotFound("local auth user not found")

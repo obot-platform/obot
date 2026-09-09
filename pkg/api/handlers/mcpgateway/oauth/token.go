@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"bytes"
+	"cmp"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -20,7 +21,6 @@ import (
 	"github.com/obot-platform/obot/pkg/jwt/persistent"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/selectors"
-	"github.com/obot-platform/obot/pkg/utils"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -287,7 +287,7 @@ func (h *handler) doRefreshToken(req api.Context, oauthClient v1.OAuthClient, re
 		ExpiresAt:             persistent.NewTime(now.Add(tokenExpiration)),
 		UserID:                user.GetUID(),
 		UserName:              user.GetName(),
-		UserEmail:             utils.FirstSet(user.GetExtra()["email"]...),
+		UserEmail:             cmp.Or(user.GetExtra()["email"]...),
 		UserGroups:            []string{types.GroupMCP, types.GroupAuthenticated},
 		AuthProviderName:      oauthToken.Spec.AuthProviderName,
 		AuthProviderNamespace: oauthToken.Spec.AuthProviderNamespace,

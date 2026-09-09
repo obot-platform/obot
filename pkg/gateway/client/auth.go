@@ -1,13 +1,13 @@
 package client
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/utils"
 	"k8s.io/apiserver/pkg/authentication/authenticator"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -50,9 +50,9 @@ func (u UserDecorator) AuthenticateRequest(req *http.Request) (*authenticator.Re
 		gatewayUser  *types.User
 		authGroupIDs []string
 	)
-	if authProviderNamespace, authProviderName := utils.FirstSet(resp.User.GetExtra()["auth_provider_namespace"]...), utils.FirstSet(resp.User.GetExtra()["auth_provider_name"]...); authProviderNamespace != "" && authProviderName != "" {
+	if authProviderNamespace, authProviderName := cmp.Or(resp.User.GetExtra()["auth_provider_namespace"]...), cmp.Or(resp.User.GetExtra()["auth_provider_name"]...); authProviderNamespace != "" && authProviderName != "" {
 		identity := &types.Identity{
-			Email:                 utils.FirstSet(resp.User.GetExtra()["email"]...),
+			Email:                 cmp.Or(resp.User.GetExtra()["email"]...),
 			AuthProviderName:      authProviderName,
 			AuthProviderNamespace: authProviderNamespace,
 			ProviderUsername:      resp.User.GetName(),

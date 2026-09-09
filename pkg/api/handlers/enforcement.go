@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"net/url"
@@ -15,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/enforcement"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gtypes "github.com/obot-platform/obot/pkg/gateway/types"
-	"github.com/obot-platform/obot/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -64,12 +64,12 @@ func (h *EnforcementHandler) Decide(req api.Context) error {
 	}
 
 	extra := req.User.GetExtra()
-	deviceID := utils.FirstSet(extra["device_id"]...)
+	deviceID := cmp.Or(extra["device_id"]...)
 
 	// Resolve the fleet configuration strictly from the authenticated identity.
 	// A caller that is not an enrolled device has no fleet to enforce against:
 	// deny without recording, so only devices can write decision rows.
-	configID, ok := parseConfigurationID(utils.FirstSet(extra["mdm_configuration_id"]...))
+	configID, ok := parseConfigurationID(cmp.Or(extra["mdm_configuration_id"]...))
 	if deviceID == "" || !ok {
 		return respondDecision(req, enforcement.Decision{
 			Allow:  false,
