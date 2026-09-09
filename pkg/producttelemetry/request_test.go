@@ -51,6 +51,18 @@ func (e errorStorageReader) List(context.Context, kclient.ObjectList, ...kclient
 	return e.err
 }
 
+type serverListErrorReader struct {
+	kclient.Reader
+	err error
+}
+
+func (e serverListErrorReader) List(ctx context.Context, list kclient.ObjectList, opts ...kclient.ListOption) error {
+	if _, ok := list.(*storagev1.MCPServerList); ok {
+		return e.err
+	}
+	return e.Reader.List(ctx, list, opts...)
+}
+
 func newRequestGateway() *requestGateway {
 	return &requestGateway{
 		properties: map[string]string{
@@ -264,6 +276,30 @@ func TestBuildRequestPreservesUnavailableMetrics(t *testing.T) {
 	}
 }
 
+func TestBuildRequestCollectsCustomMCPEntriesWhenServerListIsUnavailable(t *testing.T) {
+	customEntry := &storagev1.MCPServerCatalogEntry{
+		Name: "custom", Namespace: system.DefaultNamespace,
+		Spec: storagev1.MCPServerCatalogEntrySpec{SourceURL: "github.com/example/custom"},
+	}
+	storageClient := serverListErrorReader{
+		Reader: testStorageClient(customEntry),
+		err:    errors.New("MCP servers unavailable"),
+	}
+
+	report, err := buildRequest(t.Context(), newRequestGateway(), storageClient, testEntitlements(), "docker")
+	if err != nil {
+		t.Fatalf("buildRequest() error = %v", err)
+	}
+
+	assertInt64(t, "custom MCP entries", report.Metrics.CustomMCPServerEntryCount, 1)
+	if report.Metrics.DeployedMCPServers != nil {
+		t.Fatalf("deployed MCP servers = %v, want unavailable", report.Metrics.DeployedMCPServers)
+	}
+	if report.Metrics.BuiltInMCPServers != nil {
+		t.Fatalf("built-in MCP servers = %#v, want unavailable", report.Metrics.BuiltInMCPServers)
+	}
+}
+
 func TestBuildRequestRejectsUnavailableDistribution(t *testing.T) {
 	_, err := buildRequest(
 		t.Context(),
@@ -321,7 +357,7 @@ func TestCollectMCPEntryMetricsNormalizesBuiltInSourceURL(t *testing.T) {
 				Status: storagev1.MCPServerCatalogEntryStatus{UserCount: 1},
 			}
 
-			builtIns, customCount, err := collectMCPEntryMetrics(t.Context(), testStorageClient(entry), nil)
+			builtIns, customCount, err := collectMCPEntryMetrics(t.Context(), testStorageClient(entry), map[string]int64{})
 			if err != nil {
 				t.Fatalf("collectMCPEntryMetrics() error = %v", err)
 			}

@@ -112,11 +112,12 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 		metrics.SentryEnforcementEventCount = &count
 	}
 
+	var deploymentCounts map[string]int64
 	var servers storagev1.MCPServerList
 	if err := storageClient.List(ctx, &servers, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		logMetricError("deployed MCP servers", err)
 	} else {
-		deploymentCounts := make(map[string]int64)
+		deploymentCounts = make(map[string]int64)
 		var count int64
 		for _, server := range servers.Items {
 			if !server.DeletionTimestamp.IsZero() || server.Spec.Template {
@@ -128,13 +129,15 @@ func collectMetrics(ctx context.Context, gatewayClient requestGatewayClient, sto
 			}
 		}
 		metrics.DeployedMCPServers = &count
+	}
 
-		builtIns, customCount, err := collectMCPEntryMetrics(ctx, storageClient, deploymentCounts)
-		if err != nil {
-			logMetricError("MCP server catalog entries", err)
-		} else {
+	builtIns, customCount, err := collectMCPEntryMetrics(ctx, storageClient, deploymentCounts)
+	if err != nil {
+		logMetricError("MCP server catalog entries", err)
+	} else {
+		metrics.CustomMCPServerEntryCount = &customCount
+		if deploymentCounts != nil {
 			metrics.BuiltInMCPServers = &builtIns
-			metrics.CustomMCPServerEntryCount = &customCount
 		}
 	}
 
@@ -174,6 +177,9 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 	for _, entry := range entries.Items {
 		if strings.TrimSuffix(mcp.SourceIDForURL(entry.Spec.SourceURL), ".git") != builtInMCPCatalogSourceURL {
 			customCount++
+			continue
+		}
+		if deploymentCounts == nil {
 			continue
 		}
 
