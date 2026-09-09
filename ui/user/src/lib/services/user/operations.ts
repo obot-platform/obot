@@ -66,8 +66,7 @@ import {
 type ItemsResponse<T> = { items: T[] | null };
 
 export async function activateInitialLocalAuthOwner(setupToken: string): Promise<void> {
-	// The activation page renders setup-link failures inline, and is an anonymous-safe route, so
-	// errors are kept off the global toast store and a 401 stays on-page.
+	// The activation page renders setup-link failures inline, so they stay off the global toast store.
 	await doPost('/local-auth/activate', { setupToken }, { dontLogErrors: true });
 }
 

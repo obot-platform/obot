@@ -47,7 +47,11 @@ export const load: LayoutLoad = async ({ fetch, url }) => {
 					username: ''
 				};
 
-	if (profile.requirePasswordChange && url.pathname !== '/change-password') {
+	if (
+		profile.requirePasswordChange &&
+		url.pathname !== '/change-password' &&
+		url.pathname !== '/activate'
+	) {
 		throw redirect(303, `/change-password?rd=${encodeURIComponent(url.pathname + url.search)}`);
 	}
 

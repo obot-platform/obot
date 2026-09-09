@@ -58,6 +58,7 @@
 					{#each authProviders as provider (provider.id)}
 						<button
 							class="btn btn-secondary w-full"
+							disabled={provider.requiresActivation}
 							onclick={() => {
 								localStorage.setItem('preAuthRedirect', window.location.href);
 								window.location.href = `/oauth2/start?rd=${encodeURIComponent(
@@ -75,6 +76,12 @@
 							{/if}
 						</button>
 					{/each}
+					{#if authProviders.some((provider) => provider.requiresActivation)}
+						<p class="text-muted-content text-center text-sm font-light">
+							Obot requires activation. Open the setup link from your provisioning email to
+							continue.
+						</p>
+					{/if}
 					{#if authProviders.length === 0}
 						<p>
 							No auth providers configured. Please configure at least one auth provider in the admin

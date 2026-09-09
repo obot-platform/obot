@@ -266,6 +266,8 @@ export interface AuthProvider extends BaseProvider {
 	// The address that signed in through this staged provider to prove it works, and the address
 	// that will hold Owner once the switch completes. Absent until a verification succeeds.
 	verifiedEmail?: string;
+	// A provisioned initial owner has not opened their setup link yet, so nobody can sign in.
+	requiresActivation?: boolean;
 }
 
 // A user of the built-in local auth provider. Passwords are never returned by the API.

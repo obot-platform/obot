@@ -5,15 +5,20 @@
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { CircleAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	let error = $state<string>();
+	let requiresActivation = $state(false);
 
-	onMount(async () => {
+	async function activate() {
+		error = undefined;
+		requiresActivation = false;
+		const fragment = window.location.hash.slice(1);
 		// Not URLSearchParams: form decoding turns a literal '+' into a space, which silently
 		// corrupts an operator-supplied token generated with a standard Base64 alphabet.
-		const token = /(?:^|&)token=([^&]*)/.exec(window.location.hash.slice(1))?.[1];
+		const token = /(?:^|&)token=([^&]*)/.exec(fragment)?.[1];
 		let setupToken: string | undefined;
 		try {
 			setupToken = token ? decodeURIComponent(token) : undefined;
@@ -26,6 +31,14 @@
 		// are not sent in HTTP requests in the first place.
 		window.history.replaceState(null, '', window.location.pathname + window.location.search);
 
+		if (!fragment) {
+			if (profile.current.requirePasswordChange) {
+				await goto(resolve('/change-password'), { invalidateAll: true });
+				return;
+			}
+			requiresActivation = true;
+			return;
+		}
 		if (!setupToken) {
 			error = 'This setup link is incomplete.';
 			return;
@@ -33,10 +46,19 @@
 
 		try {
 			await UserService.activateInitialLocalAuthOwner(setupToken);
-			await goto(resolve('/change-password'), { invalidateAll: true });
+			await goto(resolve(`/change-password?rd=${encodeURIComponent('/admin/auth-providers')}`), {
+				invalidateAll: true
+			});
 		} catch (err) {
 			error = err instanceof Error ? parseErrorContent(err).message : 'The setup link is invalid.';
 		}
+	}
+
+	onMount(() => {
+		activate();
+		// Changing only the fragment is a same-document navigation, so nothing remounts.
+		window.addEventListener('hashchange', activate);
+		return () => window.removeEventListener('hashchange', activate);
 	});
 </script>
 
@@ -59,6 +81,10 @@
 			</div>
 			<p class="text-muted-content text-center text-sm font-light">
 				Ask the person who provisioned this environment to reissue the owner setup link.
+			</p>
+		{:else if requiresActivation}
+			<p class="text-muted-content text-center text-sm font-light">
+				Obot requires activation. Open the setup link from your provisioning email to continue.
 			</p>
 		{:else}
 			<Loading class="size-6" />

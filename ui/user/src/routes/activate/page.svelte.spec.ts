@@ -1,3 +1,5 @@
+import { profile } from '$lib/stores';
+import { createMockProfile } from '../../tests/helpers/pageData';
 import { worker } from '../../tests/mocks/worker';
 import ActivatePage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
@@ -9,10 +11,10 @@ const setupToken = 'a-high-entropy-owner-setup-token-value';
 
 // On success the page leaves for /change-password. A real navigation would tear down the test
 // browser, so capture the call and keep the rest of the module intact.
-const goto = vi.fn(async () => {});
+const goto = vi.fn(async (_url: string) => {});
 vi.mock('$app/navigation', async (importOriginal) => ({
 	...(await importOriginal<typeof import('$app/navigation')>()),
-	goto: () => goto()
+	goto: (url: string) => goto(url)
 }));
 
 function setFragment(fragment: string) {
@@ -32,6 +34,7 @@ function mockActivate(respond: () => Response) {
 afterEach(() => {
 	goto.mockClear();
 	setFragment('');
+	profile.initialize();
 });
 
 describe('owner activation page', () => {
@@ -96,12 +99,12 @@ describe('owner activation page', () => {
 	});
 
 	it('shows a rejected link inline instead of redirecting away', async () => {
-		mockActivate(() => new HttpResponse('invalid or expired setup link', { status: 401 }));
+		mockActivate(() => new HttpResponse('invalid or expired setup link', { status: 403 }));
 		setFragment(`#token=${setupToken}`);
 
 		render(ActivatePage);
 
-		// A 401 here must not trigger the app's usual bounce to the provider list, which would
+		// A rejected link must not trigger the app's usual bounce to the provider list, which would
 		// discard the token the user still needs.
 		await expect
 			.element(
@@ -110,6 +113,60 @@ describe('owner activation page', () => {
 				)
 			)
 			.toBeVisible();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('continues to the auth providers view once the password is set', async () => {
+		mockActivate(() => HttpResponse.json({ activated: true }));
+		setFragment(`#token=${setupToken}`);
+
+		render(ActivatePage);
+
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fadmin%2Fauth-providers')
+		);
+	});
+
+	it('explains that activation is required when opened without a link', async () => {
+		const { activate } = mockActivate(() => HttpResponse.json({ activated: true }));
+
+		render(ActivatePage);
+
+		await expect.element(page.getByText(/Obot requires activation/)).toBeVisible();
+		expect(activate).not.toHaveBeenCalled();
+		expect(goto).not.toHaveBeenCalled();
+	});
+
+	it('sends a setup session without a link on to the password page', async () => {
+		profile.initialize({ ...createMockProfile(), requirePasswordChange: true });
+		const { activate } = mockActivate(() => HttpResponse.json({ activated: true }));
+
+		render(ActivatePage);
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/change-password'));
+		expect(activate).not.toHaveBeenCalled();
+	});
+
+	it('exchanges a reopened link even when a setup session already exists', async () => {
+		profile.initialize({ ...createMockProfile(), requirePasswordChange: true });
+		const { sentBody } = mockActivate(() => HttpResponse.json({ activated: true }));
+		setFragment(`#token=${setupToken}`);
+
+		render(ActivatePage);
+
+		await vi.waitFor(() => expect(sentBody()).toEqual({ setupToken }));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledTimes(1));
+	});
+
+	it('rejects a bad link inline even when a setup session exists', async () => {
+		profile.initialize({ ...createMockProfile(), requirePasswordChange: true });
+		mockActivate(() => new HttpResponse('invalid or expired setup link', { status: 403 }));
+		setFragment(`#token=${setupToken}`);
+
+		render(ActivatePage);
+
+		await expect.element(page.getByText('invalid or expired setup link')).toBeVisible();
+		expect(profile.current.expired).not.toBe(true);
 		expect(goto).not.toHaveBeenCalled();
 	});
 });
