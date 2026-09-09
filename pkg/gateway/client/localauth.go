@@ -130,6 +130,16 @@ func (c *Client) ActivateLocalAuthUser(ctx context.Context, setupTokenHash, sess
 	return &user, nil
 }
 
+// LocalAuthRequiresActivation reports whether an initial owner still has to activate their setup link.
+// Expiry is intentionally ignored so an expired link still reaches the activation page.
+func (c *Client) LocalAuthRequiresActivation(ctx context.Context) (bool, error) {
+	var ids []uint
+	err := c.db.WithContext(ctx).Model(new(types.LocalAuthUser)).
+		Where("setup_token_hash != '' AND require_password_change = ?", true).
+		Limit(1).Pluck("id", &ids).Error
+	return len(ids) > 0, err
+}
+
 // RefreshLocalAuthUserSetupToken rotates a still-pending setup token and invalidates the sessions
 // created with the old one. Completed accounts cannot be rearmed.
 func (c *Client) RefreshLocalAuthUserSetupToken(ctx context.Context, id uint, setupTokenHash string, setupTokenExpiresAt time.Time) error {

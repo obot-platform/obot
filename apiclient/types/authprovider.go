@@ -22,6 +22,9 @@ type AuthProviderStatus struct {
 	// settings work, and that will hold Owner once the switch completes. It is set only while the
 	// provider is staged.
 	VerifiedEmail string `json:"verifiedEmail,omitempty"`
+	// RequiresActivation means a provisioned initial owner has not yet opened their setup link and
+	// set a password, so nobody can sign in through this provider yet.
+	RequiresActivation bool `json:"requiresActivation,omitempty"`
 }
 
 type AuthProviderList List[AuthProvider]

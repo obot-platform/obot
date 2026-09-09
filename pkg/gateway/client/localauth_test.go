@@ -45,6 +45,43 @@ func TestInitialLocalAuthSetupCanResumeUntilPasswordIsSet(t *testing.T) {
 	}
 }
 
+func TestLocalAuthRequiresActivationFollowsOwnerSetup(t *testing.T) {
+	c := newTestClient(t)
+	assertRequiresActivation := func(want bool, when string) {
+		t.Helper()
+		if got, err := c.LocalAuthRequiresActivation(t.Context()); err != nil || got != want {
+			t.Fatalf("requires activation %s = %v, %v; want %v", when, got, err, want)
+		}
+	}
+
+	if _, err := c.CreateLocalAuthUser(t.Context(), "staff@example.com", "initial-password-hash", true); err != nil {
+		t.Fatalf("creating administrator-created user: %v", err)
+	}
+	assertRequiresActivation(false, "with only an administrator-created user")
+
+	// Expiry is enforced by activation, not here, so an expired link still requires activation.
+	setupTokenHash := hash.String("a-high-entropy-owner-setup-token-value")
+	owner, err := c.CreateInitialLocalAuthUser(t.Context(), "owner@example.com", "disabled-password-hash", setupTokenHash, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatalf("creating initial owner: %v", err)
+	}
+	assertRequiresActivation(true, "with an expired owner setup link")
+
+	if err := c.RefreshLocalAuthUserSetupToken(t.Context(), owner.ID, setupTokenHash, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("extending setup token: %v", err)
+	}
+	sessionID := hash.String("setup-session")
+	if _, err := c.ActivateLocalAuthUser(t.Context(), setupTokenHash, sessionID, time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("activating setup session: %v", err)
+	}
+	assertRequiresActivation(true, "after activation but before the password is set")
+
+	if err := c.CompleteLocalAuthUserPasswordChange(t.Context(), owner.ID, "chosen-password-hash", sessionID); err != nil {
+		t.Fatalf("completing password setup: %v", err)
+	}
+	assertRequiresActivation(false, "after password completion")
+}
+
 func TestRefreshLocalAuthSetupTokenRevokesSetupSessions(t *testing.T) {
 	c := newTestClient(t)
 	oldHash := hash.String("old-high-entropy-owner-setup-token")

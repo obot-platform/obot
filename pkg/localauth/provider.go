@@ -37,7 +37,8 @@ const (
 
 	// LoginPath is the UI route that renders the login form.
 	LoginPath = "/login/local"
-	// ChangePasswordPath is the only application page a restricted local-auth session may use.
+	// ChangePasswordPath is the page a restricted local-auth session is sent to; it may otherwise
+	// only use the activation page.
 	ChangePasswordPath = "/change-password"
 
 	sessionDuration = 7 * 24 * time.Hour

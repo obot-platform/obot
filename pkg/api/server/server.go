@@ -269,7 +269,7 @@ func (s *Server) Wrap(f api.HandlerFunc) http.HandlerFunc {
 }
 
 func passwordChangeRequestAllowed(req *http.Request) bool {
-	if isStaticAssetPath(req.URL.Path) || req.URL.Path == "/change-password" || strings.HasPrefix(req.URL.Path, "/change-password/") || req.URL.Path == "/oauth2/sign_out" {
+	if isStaticAssetPath(req.URL.Path) || req.URL.Path == "/change-password" || strings.HasPrefix(req.URL.Path, "/change-password/") || req.URL.Path == "/activate" || strings.HasPrefix(req.URL.Path, "/activate/") || req.URL.Path == "/oauth2/sign_out" {
 		return true
 	}
 	return (req.Method == http.MethodGet && slices.Contains([]string{
@@ -278,7 +278,10 @@ func passwordChangeRequestAllowed(req *http.Request) bool {
 		"/api/license",
 		"/api/app-preferences",
 	}, req.URL.Path)) ||
-		(req.Method == http.MethodPost && req.URL.Path == "/api/local-auth/change-password")
+		(req.Method == http.MethodPost && slices.Contains([]string{
+			"/api/local-auth/activate",
+			"/api/local-auth/change-password",
+		}, req.URL.Path))
 }
 
 func (w *headersResponseWriter) Unwrap() http.ResponseWriter {

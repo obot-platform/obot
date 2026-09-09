@@ -52,8 +52,20 @@ func (ap *AuthProviderHandler) ByID(req api.Context) error {
 	if err != nil {
 		return err
 	}
+	if err := setRequiresActivation(req, authProvider, authProviderStatus); err != nil {
+		return err
+	}
 
 	return req.Write(ap.convertAuthProvider(authProvider, *authProviderStatus))
+}
+
+func setRequiresActivation(req api.Context, authProvider v1.AuthProvider, status *types.AuthProviderStatus) error {
+	if authProvider.Name != system.LocalAuthProvider || !status.Configured {
+		return nil
+	}
+	requiresActivation, err := req.GatewayClient.LocalAuthRequiresActivation(req.Context())
+	status.RequiresActivation = requiresActivation
+	return err
 }
 
 func (ap *AuthProviderHandler) List(req api.Context) error {
@@ -88,6 +100,9 @@ func (ap *AuthProviderHandler) List(req api.Context) error {
 		authProviderStatus.Staged = staged != "" && a.Name == staged
 		if authProviderStatus.Staged {
 			authProviderStatus.VerifiedEmail = verifiedEmail
+		}
+		if err := setRequiresActivation(req, a, authProviderStatus); err != nil {
+			return err
 		}
 
 		resp = append(resp, ap.convertAuthProvider(a, *authProviderStatus))

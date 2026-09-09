@@ -2816,6 +2816,13 @@ func schema_obot_platform_obot_apiclient_types_AuthProviderStatus(ref common.Ref
 							Format:      "",
 						},
 					},
+					"requiresActivation": {
+						SchemaProps: spec.SchemaProps{
+							Description: "RequiresActivation means a provisioned initial owner has not yet opened their setup link and set a password, so nobody can sign in through this provider yet.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"CommonProviderStatus"},
 			},

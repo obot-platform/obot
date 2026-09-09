@@ -62,10 +62,30 @@ func TestPasswordChangeRequestAllowed(t *testing.T) {
 			path:   "/api/local-auth/change-password",
 			want:   true,
 		},
+		{
+			method: http.MethodGet,
+			path:   "/activate",
+			want:   true,
+		},
+		{
+			method: http.MethodGet,
+			path:   "/activate/__data.json",
+			want:   true,
+		},
+		{
+			method: http.MethodPost,
+			path:   "/api/local-auth/activate",
+			want:   true,
+		},
 
 		{
 			method: http.MethodGet,
 			path:   "/admin/dashboard",
+			want:   false,
+		},
+		{
+			method: http.MethodGet,
+			path:   "/activated",
 			want:   false,
 		},
 		{

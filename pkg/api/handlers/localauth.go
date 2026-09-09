@@ -147,7 +147,7 @@ func (h *LocalAuthHandler) Activate(req api.Context) error {
 		} else {
 			slog.Warn("Failed to activate initial local auth owner", "error", err)
 		}
-		return types.NewErrHTTP(http.StatusUnauthorized, "invalid or expired setup link")
+		return types.NewErrHTTP(http.StatusForbidden, "invalid or expired setup link")
 	}
 
 	h.provider.SetSessionCookie(req.ResponseWriter, token, expiresAt)
