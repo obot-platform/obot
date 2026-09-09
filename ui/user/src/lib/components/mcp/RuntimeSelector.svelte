@@ -18,10 +18,6 @@
 			return [{ id: 'remote', label: 'Remote' }];
 		}
 
-		if (serverType === 'composite') {
-			return [{ id: 'composite', label: 'Composite' }];
-		}
-
 		return [
 			{ id: 'npx', label: 'NPX' },
 			{ id: 'uvx', label: 'UVX' },
@@ -35,11 +31,6 @@
 			runtime = 'remote';
 			onRuntimeChange?.('remote');
 		}
-
-		if (serverType === 'composite' && runtime !== 'composite') {
-			runtime = 'composite';
-			onRuntimeChange?.('composite');
-		}
 	});
 
 	// Validate runtime selection
@@ -48,11 +39,6 @@
 			// Default to npx if remote is selected for non-remote server
 			runtime = 'npx';
 			onRuntimeChange?.('npx');
-		}
-
-		if (serverType !== 'composite' && runtime === 'composite') {
-			runtime = 'composite';
-			onRuntimeChange?.('composite');
 		}
 	});
 
@@ -64,10 +50,7 @@
 </script>
 
 <div
-	class={twMerge(
-		'paper p-4',
-		serverType === 'remote' || serverType === 'composite' ? 'hidden' : ''
-	)}
+	class={twMerge('paper p-4', serverType === 'remote' ? 'hidden' : '')}
 	aria-labelledby={`${CATALOG_SERVER_FIELD_IDS.runtime}-heading`}
 	id={CATALOG_SERVER_FIELD_IDS.runtime}
 >

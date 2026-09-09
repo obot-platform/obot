@@ -11,8 +11,6 @@
 	} from '$lib/services';
 	import type { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
-		convertCompositeInfoToLaunchFormData,
-		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getMCPDisplayName,
 		getManifestConfiguration,
@@ -22,10 +20,7 @@
 		isKubernetesRuntimeBackend
 	} from '$lib/services/user/mcp';
 	import { errors, version } from '$lib/stores';
-	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
-		type LaunchFormData
-	} from './CatalogConfigureForm.svelte';
+	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import CatalogEditAliasForm from './CatalogEditAliasForm.svelte';
 	import { CircleAlert } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
@@ -37,7 +32,7 @@
 	let { onUpdateConfigure }: Props = $props();
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureForm = $state<LaunchFormData>();
 	let editAliasDialog = $state<ReturnType<typeof CatalogEditAliasForm>>();
 
 	let entry = $state<MCPCatalogEntry>();
@@ -139,11 +134,6 @@
 			? undefined
 			: getSecretBindingEngineError(initServer.manifest);
 
-		if (entry?.manifest.runtime === 'composite') {
-			configureForm = await convertCompositeInfoToLaunchFormData(server);
-			configDialog?.open();
-			return;
-		}
 		if (
 			isKubernetesRuntimeBackend(version.current.engine) &&
 			initServer.mcpCatalogID &&
@@ -436,16 +426,6 @@
 		server = await configureSharedServer(server, envs);
 	}
 
-	async function updateExistingComposite(lf: CompositeLaunchFormData) {
-		if (!server) return;
-		// Composite flow using CatalogConfigureForm data
-		if ('componentConfigs' in lf) {
-			const payload = convertCompositeLaunchFormDataToPayload(lf);
-			await UserService.configureCompositeMcpServer(server.id, payload);
-		}
-		await updateServerAlias(lf.name?.trim() ?? '');
-	}
-
 	async function handleConfigureForm() {
 		if (!server) return;
 		if (!configureForm) return;
@@ -456,12 +436,8 @@
 			if (mode === 'catalog-update') {
 				const lf = configureForm as LaunchFormData;
 				await configureUpdatedCatalogServer(lf);
-			} else if (entry?.manifest.runtime === 'composite') {
-				const lf = configureForm as CompositeLaunchFormData;
-				await updateExistingComposite(lf);
 			} else {
-				const lf = configureForm as LaunchFormData;
-				await updateExistingRemoteOrSingleUser(lf);
+				await updateExistingRemoteOrSingleUser(configureForm);
 			}
 			launchProgress = 100;
 			clearTimeout(timeout1);

@@ -5,17 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-function createLegacyServerResponse(id: string) {
-	return {
-		id,
-		alias: 'Composite MCP',
-		manifest: {
-			name: 'Composite MCP',
-			compositeConfig: { componentServers: [] }
-		}
-	};
-}
-
 function createVMCPResponse(id: string) {
 	return {
 		id,
@@ -36,16 +25,10 @@ function createVMCPResponse(id: string) {
 }
 
 function mockConsentApis(pending: Array<Record<string, string>> = []) {
-	const legacyMcpServerGet = vi.fn();
 	const vmcpGet = vi.fn();
 	const oauthPendingGet = vi.fn();
 
 	worker.use(
-		http.get('/api/mcp-servers/:id', ({ params }) => {
-			const id = String(params.id);
-			legacyMcpServerGet(id);
-			return HttpResponse.json(createLegacyServerResponse(id));
-		}),
 		http.get('/api/vmcps/:id', ({ params }) => {
 			const id = String(params.id);
 			vmcpGet(id);
@@ -57,22 +40,22 @@ function mockConsentApis(pending: Array<Record<string, string>> = []) {
 		})
 	);
 
-	return { legacyMcpServerGet, oauthPendingGet, vmcpGet };
+	return { oauthPendingGet, vmcpGet };
 }
 
 describe('McpCompositeOauth', () => {
 	it('loads migrated metadata by canonical ID while authenticating the legacy connection', async () => {
-		const { legacyMcpServerGet, oauthPendingGet, vmcpGet } = mockConsentApis();
+		const { oauthPendingGet, vmcpGet } = mockConsentApis();
 		render(McpCompositeOauth, { compositeMcpId: 'ms1legacy', vmcpId: 'vmcp1migrated' });
 		await expect.element(page.getByRole('heading', { name: 'Virtual MCP' })).toBeVisible();
+		await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
 		await vi.waitFor(() => expect(oauthPendingGet).toHaveBeenCalledWith('ms1legacy'));
 		expect(vmcpGet).toHaveBeenCalledWith('vmcp1migrated');
-		expect(legacyMcpServerGet).not.toHaveBeenCalled();
 	});
 	it('loads vMCP metadata from the vMCP endpoint for vmcp1 IDs', async () => {
 		const id = 'vmcp1-consent-test';
 		const icon = 'https://example.com/named-vmcp-component.svg';
-		const { legacyMcpServerGet, oauthPendingGet, vmcpGet } = mockConsentApis([
+		const { oauthPendingGet, vmcpGet } = mockConsentApis([
 			{
 				mcpServerID: 'vmcp-component-server',
 				catalogEntryID: 'vmcp-component-entry',
@@ -89,14 +72,13 @@ describe('McpCompositeOauth', () => {
 			.element(page.getByRole('img', { name: 'icon', exact: true }))
 			.toHaveAttribute('src', icon);
 		await vi.waitFor(() => expect(vmcpGet).toHaveBeenCalledWith(id));
-		expect(legacyMcpServerGet).not.toHaveBeenCalled();
 		expect(oauthPendingGet).toHaveBeenCalledWith(id);
 	});
 
 	it('falls back to the pending MCP server ID when its name is not set', async () => {
 		const id = 'vmcp1-consent-fallback';
 		const mcpServerID = 'component-server-without-name';
-		const { legacyMcpServerGet, oauthPendingGet, vmcpGet } = mockConsentApis([
+		const { oauthPendingGet, vmcpGet } = mockConsentApis([
 			{
 				mcpServerID,
 				catalogEntryID: 'unknown-component-entry',
@@ -111,19 +93,6 @@ describe('McpCompositeOauth', () => {
 			.element(page.getByRole('img', { name: 'icon', exact: true }))
 			.not.toBeInTheDocument();
 		await vi.waitFor(() => expect(vmcpGet).toHaveBeenCalledWith(id));
-		expect(legacyMcpServerGet).not.toHaveBeenCalled();
-		expect(oauthPendingGet).toHaveBeenCalledWith(id);
-	});
-
-	it('continues loading legacy MCP metadata for non-vMCP IDs', async () => {
-		const id = 'composite-consent-test';
-		const { legacyMcpServerGet, oauthPendingGet, vmcpGet } = mockConsentApis();
-
-		render(McpCompositeOauth, { compositeMcpId: id });
-
-		await expect.element(page.getByText('All services authenticated successfully!')).toBeVisible();
-		await vi.waitFor(() => expect(legacyMcpServerGet).toHaveBeenCalledWith(id));
-		expect(vmcpGet).not.toHaveBeenCalled();
 		expect(oauthPendingGet).toHaveBeenCalledWith(id);
 	});
 });

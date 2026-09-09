@@ -5,11 +5,6 @@ import type { MCPServer } from '$lib/services/user/types';
 type ManifestDiff = MCPCatalogEntryServerManifest | MCPServer;
 type DiffManifest = ManifestDiff & {
 	config?: DiffField[];
-	compositeConfig?: {
-		componentServers?: {
-			manifest?: DiffManifest;
-		}[];
-	};
 };
 
 /**
@@ -24,11 +19,6 @@ type DiffManifest = ManifestDiff & {
  * - `remoteConfig.url`: runtime-only field derived from catalog's `fixedURL`
  * - `remoteConfig.isTemplate`: runtime-only field not present on catalog manifests
  * - `secretBinding.adminAdded`: runtime-only ownership metadata
- *
- * For composite manifests, the same fields are stripped from each component's
- * nested manifest at `compositeConfig.componentServers[].manifest`. Nested
- * composites are not possible — the backend rejects them — so a single pass over
- * the component list is sufficient.
  */
 export function stripManifestMetadata<T>(
 	manifest: T,
@@ -39,24 +29,15 @@ export function stripManifestMetadata<T>(
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const clone: any = JSON.parse(JSON.stringify(manifest));
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const stripFields = (m: any) => {
-		if (!m || typeof m !== 'object') return;
-		delete m.entryKey;
-		delete m.repoURL;
-		delete m.upgradeNote;
-		if (m.remoteConfig) {
-			delete m.remoteConfig.fixedURL;
-			delete m.remoteConfig.url;
-			delete m.remoteConfig.isTemplate;
-		}
-		if (!options?.keepSecretBindingMetadata) stripSecretBindingMetadata(m);
-	};
-
-	stripFields(clone);
-	for (const component of clone.compositeConfig?.componentServers ?? []) {
-		stripFields(component?.manifest);
+	delete clone.entryKey;
+	delete clone.repoURL;
+	delete clone.upgradeNote;
+	if (clone.remoteConfig) {
+		delete clone.remoteConfig.fixedURL;
+		delete clone.remoteConfig.url;
+		delete clone.remoteConfig.isTemplate;
 	}
+	if (!options?.keepSecretBindingMetadata) stripSecretBindingMetadata(clone);
 
 	return clone as T;
 }
@@ -74,22 +55,12 @@ export function normalizeManifestsForDiff<Current, Next>(
 
 	// stripManifestMetadata returns undefined for an undefined manifest. Bail out before
 	// dereferencing so callers fall through to their "unable to compare" fallback UI
-	// instead of throwing on current.compositeConfig.
+	// instead of throwing on current.config.
 	if (!current || !next) {
 		return [current as Current, next as Next];
 	}
 
-	const normalize = (currentShape?: DiffManifest, nextShape?: DiffManifest) => {
-		if (!currentShape || !nextShape) return;
-		normalizeFieldList(currentShape.config, nextShape.config);
-	};
-
-	normalize(current, next);
-	for (let i = 0; i < (current.compositeConfig?.componentServers ?? []).length; i++) {
-		const currentComponent = current.compositeConfig?.componentServers?.[i];
-		const nextComponent = next.compositeConfig?.componentServers?.[i];
-		normalize(currentComponent?.manifest, nextComponent?.manifest);
-	}
+	normalizeFieldList(current.config, next.config);
 
 	stripSecretBindingMetadata(current);
 	stripSecretBindingMetadata(next);
@@ -150,15 +121,8 @@ function normalizeAdminAddedFieldBindings(
 function stripSecretBindingMetadata(manifest?: DiffManifest) {
 	if (!manifest || typeof manifest !== 'object') return;
 
-	const stripFields = (m?: DiffManifest) => {
-		for (const field of m?.config ?? []) {
-			if (field.secretBinding) delete field.secretBinding.adminAdded;
-		}
-	};
-
-	stripFields(manifest);
-	for (const component of manifest.compositeConfig?.componentServers ?? []) {
-		stripFields(component?.manifest);
+	for (const field of manifest.config ?? []) {
+		if (field.secretBinding) delete field.secretBinding.adminAdded;
 	}
 }
 

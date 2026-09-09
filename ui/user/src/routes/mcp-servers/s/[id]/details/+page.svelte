@@ -53,7 +53,6 @@
 						})}
 						readonly={profile.current.isAdminReadonly?.()}
 						server={mcpServer}
-						compositeParentName={mcpServer.compositeName}
 						k8sOverrides={{
 							title: mcpServer.manifest.name
 						}}

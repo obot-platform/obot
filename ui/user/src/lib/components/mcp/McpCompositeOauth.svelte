@@ -1,13 +1,8 @@
 <script lang="ts">
 	import { parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
-	import {
-		UserService,
-		type MCPCatalogServer,
-		type PendingCompositeAuth,
-		type VMCP
-	} from '$lib/services';
-	import { getMCPDisplayName, isDeprecatedMCPServer } from '$lib/services/user/mcp';
+	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
+	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -21,47 +16,20 @@
 
 	let { compositeMcpId, vmcpId, oauthAuthRequestId, onComplete }: Props = $props();
 
-	type PendingItem = PendingCompositeAuth & {
-		loading?: boolean;
-	};
-
-	type OAuthParent = MCPCatalogServer | VMCP;
-	type ComponentSource = {
-		id?: string;
-		manifest?: { name?: string; icon?: string; metadata?: { deprecated?: string } };
-		disabled?: boolean;
-	};
-
+	type OAuthParent = VMCP;
 	const metadataId = $derived(vmcpId || compositeMcpId);
-	const isVMCP = $derived(metadataId.startsWith('vmcp1'));
-
 	let compositeServer = $state<OAuthParent>();
 	let componentInfos = $state<
 		Record<string, { name?: string; icon?: string; deprecated?: boolean }>
 	>({});
-	let pending = $state<PendingItem[]>([]);
+	let pending = $state<PendingCompositeAuth[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
 
 	const allAuthenticated = $derived(pending.length === 0);
-	const componentSources = $derived(getComponentSources(compositeServer));
-	const enabledCount = $derived(
-		componentSources.filter((component) => isVMCP || component.disabled !== true).length
-	);
-	const parentIcon = $derived(
-		isVMCP && compositeServer && 'components' in compositeServer
-			? compositeServer.icon
-			: !isVMCP && compositeServer && 'manifest' in compositeServer
-				? compositeServer.manifest.icon
-				: undefined
-	);
+	const parentIcon = $derived(compositeServer ? compositeServer.icon : undefined);
 	const parentDisplayName = $derived(
-		isVMCP && compositeServer && 'displayName' in compositeServer
-			? compositeServer.displayName
-			: getMCPDisplayName(
-					!isVMCP && compositeServer && 'manifest' in compositeServer ? compositeServer : undefined,
-					'MCP Server Authentication'
-				)
+		compositeServer ? compositeServer.displayName : 'MCP Server Authentication'
 	);
 
 	// trigger onComplete when done
@@ -71,31 +39,22 @@
 		}
 	});
 
-	function getComponentSources(parent?: OAuthParent): ComponentSource[] {
+	function getComponentSources(parent?: OAuthParent) {
 		if (!parent) return [];
-		if ('components' in parent) {
-			return parent.components.map((component) => ({
-				id: component.mcpServerCatalogEntryID || component.id,
-				manifest: component.catalogEntry.manifest
-			}));
-		}
-		return (parent.manifest?.compositeConfig?.componentServers || []).map((component) => ({
-			id: component.catalogEntryID,
-			manifest: component.manifest,
-			disabled: component.disabled
+		return parent.components.map((component) => ({
+			id: component.mcpServerCatalogEntryID || component.id,
+			manifest: component.catalogEntry.manifest
 		}));
 	}
 
 	async function fetchParentAndMeta() {
 		try {
 			const parent = await UserService.getMCPServerOrVMCP(metadataId);
+			if (!('components' in parent)) return;
 			compositeServer = parent;
 
 			componentInfos = getComponentSources(parent).reduce(
-				(
-					acc: Record<string, { name?: string; icon?: string; deprecated?: boolean }>,
-					c: ComponentSource
-				) => {
+				(acc: Record<string, { name?: string; icon?: string; deprecated?: boolean }>, c) => {
 					const id = c.id;
 					if (!id) return acc;
 					acc[id] = {
@@ -119,43 +78,12 @@
 			const data = await UserService.checkCompositeOAuth(compositeMcpId, {
 				oauthAuthRequestID: oauthAuthRequestId
 			});
-			pending = data.map((d) => ({ ...d }));
+			pending = data;
 		} catch (_err) {
 			const { message } = parseErrorContent(_err);
 			error = message;
 		} finally {
 			loading = false;
-		}
-	}
-
-	function setItemLoading(id: string, value: boolean) {
-		pending = pending.map((p) => (p.mcpServerID === id ? { ...p, loading: value } : p));
-	}
-
-	async function skip(id: string) {
-		if (isVMCP) return;
-		setItemLoading(id, true);
-		try {
-			const item = pending.find((p) => p.mcpServerID === id);
-			if (!item || !item.catalogEntryID) return;
-
-			// Prevent disabling the last enabled component (no banner; button is hidden/disabled)
-			if (enabledCount <= 1) return;
-
-			// Use configure endpoint to set disabled=true for this component
-			const payload: Record<string, { config: Record<string, string>; disabled: boolean }> = {
-				[item.catalogEntryID]: { config: {}, disabled: true }
-			};
-			await UserService.configureCompositeMcpServer(compositeMcpId, payload);
-
-			// Re-check pending from server; item should disappear
-			await fetchParentAndMeta();
-			await fetchPending();
-		} catch (err) {
-			const { message } = parseErrorContent(err);
-			error = message;
-		} finally {
-			setItemLoading(id, false);
 		}
 	}
 
@@ -190,8 +118,8 @@
 
 		{#if !allAuthenticated}
 			<p class="mb-6 text-sm">
-				This composite MCP server requires authentication with multiple services. Please
-				authenticate with each service below.
+				This vMCP requires authentication with multiple services. Please authenticate with each
+				service below.
 			</p>
 		{/if}
 
@@ -235,19 +163,6 @@
 							<a href={item.authURL} rel="external" target="_blank" class="btn btn-primary"
 								>Authenticate</a
 							>
-							{#if !isVMCP && enabledCount > 1}
-								<button
-									class="btn btn-text"
-									disabled={item.loading}
-									onclick={() => skip(item.mcpServerID)}
-								>
-									{#if item.loading}
-										<Loading class="size-4" />
-									{:else}
-										Skip
-									{/if}
-								</button>
-							{/if}
 						</div>
 					</div>
 				{/each}

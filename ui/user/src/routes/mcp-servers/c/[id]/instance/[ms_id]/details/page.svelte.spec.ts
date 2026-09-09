@@ -108,39 +108,4 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 			.element(page.getByRole('heading', { name: 'Deployment Logs', exact: true }))
 			.not.toBeInTheDocument();
 	});
-
-	it('composite server shows Connected Users table and MCP Servers links to children', async () => {
-		worker.use(
-			http.get(`/api/mcp-catalogs/${DEFAULT_MCP_CATALOG_ID}/entries/all-servers`, () =>
-				HttpResponse.json({ items: [fixtures.serverCompositeChild] })
-			),
-			http.get('/api/workspaces/all-entries/all-servers', () => HttpResponse.json({ items: [] }))
-		);
-		await renderInstanceDetailsPage(fixtures.entryComposite, fixtures.serverComposite);
-
-		await expect
-			.element(page.getByRole('heading', { name: 'MCP Servers', exact: true }))
-			.toBeVisible();
-		await expect
-			.element(page.getByText('Composite Child Entry', { exact: true }).first())
-			.toBeVisible();
-		await expect
-			.element(page.getByText(`(${fixtures.serverCompositeChild.id})`, { exact: true }))
-			.toBeVisible();
-
-		await expect
-			.element(page.getByRole('heading', { name: 'Connected Users', exact: true }))
-			.toBeVisible();
-		await expect
-			.element(page.getByText(fixtures.associatedUser.email, { exact: true }).first())
-			.toBeVisible();
-
-		await expect.element(page.getByText('Deployment', { exact: true })).not.toBeInTheDocument();
-		await expect
-			.element(page.getByRole('heading', { name: 'Associated User', exact: true }))
-			.not.toBeInTheDocument();
-		await expect
-			.element(page.getByRole('heading', { name: 'OAuth Metadata', exact: true }))
-			.not.toBeInTheDocument();
-	});
 });

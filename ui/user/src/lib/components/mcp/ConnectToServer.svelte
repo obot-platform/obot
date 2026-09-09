@@ -13,7 +13,6 @@
 	} from '$lib/services';
 	import { EventStreamService } from '$lib/services/admin/eventstream.svelte';
 	import {
-		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		getSecretBindingEngineError,
 		isMultiUserServer,
@@ -33,10 +32,7 @@
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import SelectMcpAccessControlRules from '../admin/SelectMcpAccessControlRules.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
-	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
-		type LaunchFormData
-	} from './CatalogConfigureForm.svelte';
+	import CatalogConfigureForm, { type LaunchFormData } from './CatalogConfigureForm.svelte';
 	import HowToConnect from './HowToConnect.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server, X, CircleAlert } from '@lucide/svelte';
@@ -136,7 +132,7 @@
 
 	let connectDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureForm = $state<LaunchFormData>();
 	let configureFormTitle = $state<string>();
 	let configureInstance = $state(false);
 	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
@@ -376,11 +372,6 @@
 		return false;
 	}
 
-	function initCompositeForm(item: MCPCatalogEntry) {
-		initConfigureForm(item);
-		configDialog?.open();
-	}
-
 	function listLaunchLogs(mcpServerId: string) {
 		launchLogsEventStream = new EventStreamService<string>();
 		launchLogsEventStream.connect(`/api/mcp-servers/${mcpServerId}/logs`, {
@@ -419,16 +410,6 @@
 	}
 
 	function missingSecretBindingConfigMessage(mcpServer: MCPCatalogServer) {
-		if (mcpServer.manifest.runtime === 'composite') {
-			const missing = [
-				...(mcpServer.missingRequiredEnvVars ?? []),
-				...(mcpServer.missingRequiredHeader ?? [])
-			];
-			return missing.length > 0
-				? `Missing Kubernetes Secret required by this MCP server: ${missing.join(', ')}`
-				: undefined;
-		}
-
 		const missingEnvKeys = new Set(mcpServer.missingRequiredEnvVars ?? []);
 		const missingHeaderKeys = new Set(mcpServer.missingRequiredHeader ?? []);
 		const missing = [
@@ -516,16 +497,8 @@
 
 		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
 		try {
-			let configuredResponse: MCPCatalogServer;
-			if (entry.manifest?.runtime === 'composite') {
-				const payload = convertCompositeLaunchFormDataToPayload(
-					configureForm as CompositeLaunchFormData
-				);
-				configuredResponse = await UserService.configureCompositeMcpServer(server.id, payload);
-			} else {
-				await updateExistingRemoteOrSingleUser(configureForm as LaunchFormData);
-				configuredResponse = server;
-			}
+			await updateExistingRemoteOrSingleUser(configureForm);
+			const configuredResponse = server;
 			await validateConfiguredServerAndConnect(configuredResponse);
 		} catch (err) {
 			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
@@ -586,95 +559,6 @@
 				clearTimeout(timeout2);
 				clearTimeout(timeout3);
 			}
-		}
-	}
-
-	async function handleLaunchCompositeServer() {
-		if (!entry) return;
-
-		// If no configureForm yet, initialize the composite form so user can enable/disable components.
-		if (!configureForm || !('componentConfigs' in configureForm)) {
-			initCompositeForm(entry);
-			return;
-		}
-
-		if (!entry.manifest) {
-			console.error('No server manifest found');
-			return;
-		}
-
-		if (launchLogsEventStream) {
-			// reset launch logs
-			launchLogsEventStream.disconnect();
-			launchLogsEventStream = undefined;
-			launchLogs = [];
-		}
-
-		launchError = undefined;
-		launchProgress = 0;
-		launchState = 'launching';
-
-		let timeout1 = setTimeout(() => {
-			launchProgress = 10;
-		}, 100);
-
-		let timeout2 = setTimeout(() => {
-			launchProgress = 30;
-		}, 3000);
-
-		let timeout3 = setTimeout(() => {
-			launchProgress = 80;
-		}, 10000);
-
-		try {
-			const aliasToUse =
-				(configureForm as { name?: string } | undefined)?.name ||
-				getUniqueAlias(entry.manifest.name || '');
-			const componentServersForCreate: Array<{
-				catalogEntryID: string;
-				manifest: Record<string, unknown>;
-				disabled?: boolean;
-			}> = [];
-			const payload: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			> = {};
-			for (const [id, comp] of Object.entries(configureForm.componentConfigs)) {
-				const url = comp.url?.trim();
-				componentServersForCreate.push({
-					catalogEntryID: id,
-					manifest: url
-						? { remoteConfig: { url: url.startsWith('http') ? url : `https://${url}` } }
-						: {},
-					disabled: comp.disabled ?? false
-				});
-				const config: Record<string, string> = {};
-				for (const f of [
-					...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
-					...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
-				]) {
-					if (f.value) config[f.key] = f.value;
-				}
-				payload[id] = { config, url, disabled: comp.disabled ?? false };
-			}
-
-			const created = await UserService.createCompositeMcpServer({
-				catalogEntryID: entry.id,
-				alias: aliasToUse,
-				manifest: {
-					compositeConfig: { componentServers: componentServersForCreate }
-				}
-			});
-			server = created;
-
-			const configured = await UserService.configureCompositeMcpServer(created.id, payload);
-			await validateConfiguredServerAndConnect(configured);
-		} catch (err) {
-			launchError = err instanceof Error ? err.message : 'An unknown error occurred';
-		} finally {
-			clearTimeout(timeout1);
-			clearTimeout(timeout2);
-			clearTimeout(timeout3);
 		}
 	}
 
@@ -809,8 +693,6 @@
 		try {
 			if (entry && isMultiUserCatalogEntry(entry) && !server) {
 				await handleLaunchMultiUserCatalogEntry();
-			} else if (entry && entry.manifest?.runtime === 'composite') {
-				await handleLaunchCompositeServer();
 			} else if (isMultiUserServer(server)) {
 				// Deployed multi-user servers (including catalog entry deployments) always
 				// create an MCPServerInstance, regardless of whether entry is also set.
@@ -871,15 +753,6 @@
 		server = await UserService.getSingleOrRemoteMcpServer(server.id);
 	}
 
-	async function updateExistingComposite(lf: CompositeLaunchFormData) {
-		if (!server) return;
-		// Composite flow using CatalogConfigureForm data
-		if ('componentConfigs' in lf) {
-			const payload = convertCompositeLaunchFormDataToPayload(lf);
-			await UserService.configureCompositeMcpServer(server.id, payload);
-		}
-	}
-
 	async function handleConfigureForm() {
 		if (!configureForm) return;
 		if (isMultiUserServer(server) && hasMultiUserInstanceConfiguration(server)) {
@@ -920,13 +793,7 @@
 				saving = true;
 				const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress(true);
 				// updating existing
-				if (entry?.id === 'composite') {
-					const lf = configureForm as CompositeLaunchFormData;
-					await updateExistingComposite(lf);
-				} else {
-					const lf = configureForm as LaunchFormData;
-					await updateExistingRemoteOrSingleUser(lf);
-				}
+				await updateExistingRemoteOrSingleUser(configureForm);
 				launchProgress = 100;
 				clearTimeout(timeout1);
 				clearTimeout(timeout2);
@@ -950,21 +817,13 @@
 	async function initCatalogEntry() {
 		if (!entry) return;
 		error = secretBindingEngineError;
-		if (secretBindingEngineError && entry.manifest?.runtime === 'composite') {
-			await loadSecretBindingTargets();
-			initCompositeForm(entry);
-			return;
-		}
 		if (secretBindingEngineError) {
 			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();
 			return;
 		}
-		if (hasEditableConfiguration(entry) && entry.manifest?.runtime === 'composite') {
-			await loadSecretBindingTargets();
-			initCompositeForm(entry);
-		} else if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
+		if (hasEditableConfiguration(entry) || isMultiUserCatalogEntry(entry)) {
 			await loadSecretBindingTargets();
 			initConfigureForm(entry);
 			configDialog?.open();

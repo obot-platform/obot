@@ -391,7 +391,6 @@ export const CATALOG_SERVER_FIELD_IDS = {
 	cancelBtn: 'catalog-server-form-cancel',
 	removeConfigurationBtn: 'catalog-server-remove-configuration-btn',
 	compositeEntryChoice: 'catalog-server-composite-entry-choice',
-	compositeConfigureEntryToolsDialog: 'catalog-server-composite-entry-configure-tools',
 	compositeEntrySearchMcpServersDialog: 'search-mcp-servers-dialog',
 	compositeEntrySearchMcpServersConfirmBtn: 'search-mcp-servers-confirm-btn',
 	compositeEntrySearchMcpServersCancelBtn: 'search-mcp-servers-cancel-btn',

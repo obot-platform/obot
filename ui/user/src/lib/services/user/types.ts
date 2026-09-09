@@ -532,6 +532,7 @@ export interface MCPCatalogServer {
 	lastUpdated?: string;
 	powerUserWorkspaceID?: string;
 	deploymentStatus?: string;
+	// Retained while legacy composite child deployments can still be migrated.
 	compositeName?: string;
 	template?: boolean;
 	canConnect?: boolean;
@@ -668,7 +669,7 @@ export interface VMCPInstanceList {
 
 // MCP runtime
 
-export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'composite' | 'vmcp';
+export type Runtime = 'npx' | 'uvx' | 'containerized' | 'remote' | 'vmcp';
 export interface MCPConfigurationOption {
 	name: string;
 	value: string;
@@ -749,17 +750,6 @@ export type ResourceRuntimeConfig = MCPResourceRequirements;
 export interface MultiUserConfig {
 	userDefinedHeaders?: MCPSubField[];
 }
-export interface CompositeRuntimeConfig {
-	componentServers: ComponentServer[];
-}
-export interface ComponentServer {
-	catalogEntryID?: string;
-	mcpServerID?: string;
-	manifest?: MCPServer;
-	toolOverrides?: ToolOverride[];
-	toolPrefix?: string;
-	disabled?: boolean;
-}
 export interface ToolOverride {
 	name: string;
 	/**
@@ -768,10 +758,7 @@ export interface ToolOverride {
 	 * still the source of truth unless an overrideDescription is provided.
 	 */
 	description?: string;
-	/**
-	 * Name exposed by the composite server. An empty or undefined value means
-	 * the original tool name should be used.
-	 */
+	/** Name exposed by the virtual MCP. */
 	overrideName?: string;
 	/**
 	 * Optional description override. When empty or undefined, the live description
@@ -779,7 +766,7 @@ export interface ToolOverride {
 	 */
 	overrideDescription?: string;
 	/**
-	 * Whether this tool is included in the composite server's allowlist.
+	 * Whether this tool is included in the virtual MCP's allowlist.
 	 */
 	enabled?: boolean;
 }
@@ -803,7 +790,6 @@ export interface MCPServer {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteRuntimeConfig;
-	compositeConfig?: CompositeRuntimeConfig;
 	resources?: MCPResourceRequirements;
 }
 export interface MCPServerTool {
@@ -1063,4 +1049,4 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
-export type LaunchServerType = 'hosted' | 'multi' | 'remote' | 'composite';
+export type LaunchServerType = 'hosted' | 'multi' | 'remote';

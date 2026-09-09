@@ -9,7 +9,6 @@
 		type MCPCatalogServer,
 		UserService,
 		Group,
-		MCPCompositeDeletionDependencyError,
 		type LaunchServerType,
 		type MCPServerOAuthCredentialStatus,
 		type AccessControlRule,
@@ -35,12 +34,7 @@
 	import OverflowContainer from '../OverflowContainer.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Select from '../Select.svelte';
-	import CatalogConfigureForm, {
-		type LaunchFormData,
-		type CompositeLaunchFormData,
-		type ComponentLaunchFormData
-	} from '../mcp/CatalogConfigureForm.svelte';
-	import McpMultiDeleteBlockedDialog from '../mcp/McpMultiDeleteBlockedDialog.svelte';
+	import CatalogConfigureForm, { type LaunchFormData } from '../mcp/CatalogConfigureForm.svelte';
 	import McpServerDetails from '../mcp/McpServerDetails.svelte';
 	import McpServerInfo from '../mcp/McpServerInfo.svelte';
 	import McpServerTools from '../mcp/McpServerTools.svelte';
@@ -142,7 +136,6 @@
 	let source = $derived(entry ? getSource(entry, usersMap) : undefined);
 
 	let deleteServer = $state(false);
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 	let deleteResourceFromRule = $state<{
 		rule: AccessControlRule;
 		resourceId: string;
@@ -161,14 +154,12 @@
 
 	let oauthDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let oauthURL = $state<string>();
-	let oauthURLs = $state<Record<string, string>>();
-	let authenticatedComponents = $state<Set<string>>(new Set());
 
 	let staticOauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let staticOauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
-	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureForm = $state<LaunchFormData>();
 	let saving = $state(false);
 	let error = $state<string>();
 	let showButtonInlineError = $state(false);
@@ -368,13 +359,6 @@
 		}
 	});
 
-	// Auto-close OAuth dialog when all components are authenticated
-	$effect(() => {
-		if (oauthURLs !== undefined && Object.keys(oauthURLs).length === 0) {
-			oauthDialog?.close();
-		}
-	});
-
 	onMount(() => {
 		UserService.listUsersIncludeDeleted().then((data) => {
 			users = data;
@@ -435,38 +419,11 @@
 	}
 
 	function compileTemporaryInstanceBody() {
-		function isCompositeForm(
-			f: LaunchFormData | CompositeLaunchFormData | undefined
-		): f is CompositeLaunchFormData {
-			return Boolean(f && typeof f === 'object' && 'componentConfigs' in f);
-		}
-
-		if (isCompositeForm(configureForm)) {
-			const body: {
-				componentConfigs: Record<
-					string,
-					{ config: Record<string, string>; url: string; disabled: boolean }
-				>;
-			} = { componentConfigs: {} };
-			const composite = configureForm;
-			for (const [compId, comp] of Object.entries(composite.componentConfigs)) {
-				const cfg: Record<string, string> = {};
-				for (const f of comp.envs || []) if (f.value) cfg[f.key] = f.value;
-				for (const f of comp.headers || []) if (f.value) cfg[f.key] = f.value;
-				body.componentConfigs[compId] = {
-					config: cfg,
-					url: comp.url || '',
-					disabled: !!comp.disabled
-				};
-			}
-			return body;
-		}
 		return {
-			url: (configureForm as LaunchFormData)?.url,
-			config: [
-				...((configureForm as LaunchFormData)?.headers ?? []),
-				...((configureForm as LaunchFormData)?.envs ?? [])
-			].reduce<Record<string, string>>((acc, curr) => {
+			url: configureForm?.url,
+			config: [...(configureForm?.headers ?? []), ...(configureForm?.envs ?? [])].reduce<
+				Record<string, string>
+			>((acc, curr) => {
 				acc[curr.key] = curr.value;
 				return acc;
 			}, {})
@@ -477,50 +434,19 @@
 		if (!entry || !id) return;
 		if (document.visibilityState !== 'visible') return;
 
-		// Composite OAuth case: check if all components have been clicked
-		if (oauthURLs && Object.keys(oauthURLs).length > 0) {
-			const pendingComponents = Object.keys(oauthURLs).filter(
-				(componentId) => !authenticatedComponents.has(componentId)
-			);
-
-			// If there are still components that haven't been clicked, keep waiting
-			if (pendingComponents.length > 0) {
-				return;
-			}
-
-			// All components have been clicked; stop listening and regenerate tool previews
-			document.removeEventListener('visibilitychange', handleVisibilityChange);
-			handleLaunchTemporaryInstance();
-			return;
-		}
-
-		// Single-server OAuth (string oauthURL) or non-composite case
 		document.removeEventListener('visibilitychange', handleVisibilityChange);
 		handleLaunchTemporaryInstance();
 	}
 
-	function handleTemporaryInstanceOauth(oauthUrlToUse: string | Record<string, string>) {
+	function handleTemporaryInstanceOauth(oauthUrlToUse: string) {
 		if (!oauthUrlToUse) return;
 
-		// Check if it's a single OAuth URL (string) or multiple (map)
-		if (typeof oauthUrlToUse === 'string') {
-			oauthURL = oauthUrlToUse;
-			oauthURLs = undefined;
-		} else {
-			// It's a map of component IDs to OAuth URLs
-			oauthURLs = oauthUrlToUse;
-			oauthURL = undefined;
-		}
+		oauthURL = oauthUrlToUse;
 
 		oauthDialog?.open();
 
 		// add visibility change listener
 		document.addEventListener('visibilitychange', handleVisibilityChange);
-	}
-
-	function markComponentAuthenticated(componentId: string) {
-		// Create new Set to trigger reactivity in Svelte 5
-		authenticatedComponents = new Set([...authenticatedComponents, componentId]);
 	}
 
 	async function handleLaunchTemporaryInstance(showInlineError = false) {
@@ -554,7 +480,6 @@
 
 			if (result && entry) {
 				previewToolsOverride = result.manifest?.toolPreview;
-				oauthURLs = undefined;
 				oauthURL = undefined;
 				oauthDialog?.close();
 				configDialog?.close();
@@ -574,7 +499,7 @@
 								entryID,
 								body as unknown as { config?: Record<string, string>; url?: string }
 							);
-				if (oauthResponse) {
+				if (typeof oauthResponse === 'string') {
 					configDialog?.close();
 					handleTemporaryInstanceOauth(oauthResponse);
 				}
@@ -589,51 +514,6 @@
 
 	function handleInitTemporaryInstance() {
 		if (!entry) return;
-
-		if (!('isCatalogEntry' in entry) && entry.manifest?.runtime === 'composite') {
-			const comps = entry.manifest?.compositeConfig?.componentServers || [];
-			const componentConfigs: Record<string, ComponentLaunchFormData> = {};
-			for (const c of comps) {
-				// Use catalogEntryID when present (catalog-based component), otherwise fall
-				// back to mcpServerID (multi-user server component). Skip only if we have
-				// neither identifier.
-				const id = c.catalogEntryID || c.mcpServerID;
-				if (!id) continue;
-
-				const rc = c.manifest?.remoteConfig as Record<string, unknown> | undefined;
-				const hasHostname = Boolean(rc && 'hostname' in rc && rc.hostname);
-				const isMultiUser = Boolean(c.mcpServerID && !c.catalogEntryID);
-				componentConfigs[id] = isMultiUser
-					? {
-							// Multi-user server components are configured at the org/admin level;
-							// for composite previews we only expose the enable/disable toggle.
-							name: c.manifest?.name || id,
-							icon: c.manifest?.icon,
-							disabled: false,
-							isMultiUser: true
-						}
-					: {
-							envs: getManifestConfiguration(c.manifest).env.map((e) => ({ ...e, value: '' })),
-							headers: getManifestConfiguration(c.manifest).headers.map((h) => ({
-								...h,
-								value: ''
-							})),
-							...(hasHostname
-								? { hostname: (rc as Record<string, unknown>).hostname as string, url: '' }
-								: {}),
-							name: c.manifest?.name || id,
-							icon: c.manifest?.icon,
-							disabled: false
-						};
-			}
-			configureForm = { componentConfigs } as CompositeLaunchFormData;
-
-			// Always open the composite configuration dialog so the user can
-			// enable/disable individual components before generating previews,
-			// even if no component has required config fields.
-			configDialog?.open();
-			return;
-		}
 
 		const hostname =
 			entry?.manifest?.remoteConfig &&
@@ -1282,7 +1162,7 @@
 			<McpServerTools
 				{entry}
 				server={server ?? deploymentToDisplayTools}
-				showToolNameIssues={entry.manifest?.runtime === 'composite'}
+				showToolNameIssues={false}
 				previewOverride={previewToolsOverride}
 			>
 				{#snippet noToolsContent()}
@@ -1368,15 +1248,7 @@
 			const deleteServerFn = workspaceID
 				? UserService.deleteWorkspaceMCPCatalogServer
 				: AdminService.deleteMCPCatalogServer;
-			try {
-				await deleteServerFn(workspaceID || id, entry.id);
-			} catch (error) {
-				if (error instanceof MCPCompositeDeletionDependencyError) {
-					deleteConflictError = error;
-					return;
-				}
-				throw error;
-			}
+			await deleteServerFn(workspaceID || id, entry.id);
 			goto(url);
 		} else {
 			const deleteCatalogEntryFn =
@@ -1388,14 +1260,6 @@
 		}
 	}}
 	oncancel={() => (deleteServer = false)}
-/>
-
-<McpMultiDeleteBlockedDialog
-	show={!!deleteConflictError}
-	error={deleteConflictError}
-	onClose={() => {
-		deleteConflictError = undefined;
-	}}
 />
 
 <Confirm
@@ -1465,43 +1329,6 @@
 		<a href={oauthURL} rel="external" target="_blank" class="btn btn-primary text-center"
 			>Authenticate</a
 		>
-	{:else if oauthURLs && Object.keys(oauthURLs).length > 0}
-		<!-- Composite server OAuth - multiple components -->
-		<div class="flex flex-col gap-3">
-			<p class="text-muted-content text-sm">
-				Multiple components require authentication. Please authenticate each component below:
-			</p>
-			{#each Object.entries(oauthURLs).filter(([id]) => !authenticatedComponents.has(id)) as [componentId, url] (componentId)}
-				{@const component =
-					entry && !('isCatalogEntry' in entry)
-						? entry.manifest?.compositeConfig?.componentServers?.find(
-								(c) => c.catalogEntryID === componentId || c.mcpServerID === componentId
-							)
-						: undefined}
-				{@const componentName = component?.manifest?.name || componentId}
-				<div class="flex items-center justify-between gap-2 rounded border border-base-400 p-3">
-					<div class="flex items-center gap-2">
-						{#if component?.manifest?.icon}
-							<img src={component.manifest.icon} alt={componentName} class="size-6 shrink-0" />
-						{/if}
-						<span class="text-sm font-medium">{componentName}</span>
-					</div>
-					<button
-						type="button"
-						class="btn btn-primary text-sm"
-						onclick={() => {
-							markComponentAuthenticated(componentId);
-							const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
-							if (newWindow) {
-								newWindow.opener = null;
-							}
-						}}
-					>
-						Authenticate
-					</button>
-				</div>
-			{/each}
-		</div>
 	{/if}
 </ResponsiveDialog>
 

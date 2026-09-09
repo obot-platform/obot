@@ -1,8 +1,7 @@
 <script lang="ts">
 	import Layout from '$lib/components/Layout.svelte';
-	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerDetails from '$lib/components/mcp/McpServerDetails.svelte';
-	import { DEFAULT_MCP_CATALOG_ID, PAGE_TRANSITION_DURATION } from '$lib/constants';
+	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
 	import { UserService, type MCPCatalogServer, type OrgUser } from '$lib/services/index.js';
 	import { getMCPDisplayName } from '$lib/services/user/mcp.js';
 	import { profile } from '$lib/stores/index.js';
@@ -16,7 +15,6 @@
 	// Make these reactive to data changes when navigating
 	let catalogEntry = $derived(data.catalogEntry);
 	let mcpServerId = $derived(data.mcpServerId);
-	let compositeParentName = $state<string | undefined>();
 	let mcpServer = $state<MCPCatalogServer>();
 	let catalogEntryName = $derived(catalogEntry?.manifest?.name ?? 'Unknown');
 
@@ -24,7 +22,6 @@
 		mcpServer = await UserService.getSingleOrRemoteMcpServer(mcpServerId);
 		const isSameUser =
 			connectedUsers.length === 1 ? connectedUsers[0].id === mcpServer.userID : false;
-		compositeParentName = mcpServer.compositeName;
 
 		if (mcpServer.userID && !isSameUser) {
 			const user = await UserService.getUser(mcpServer.userID);
@@ -44,24 +41,13 @@
 <Layout {title} showBackButton>
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		{#if mcpServerId}
-			{#if mcpServer?.manifest.runtime === 'composite'}
-				<McpServerCompositeInfo
-					{mcpServerId}
-					{mcpServer}
-					name={title}
-					{connectedUsers}
-					entity="catalog"
-					entityId={DEFAULT_MCP_CATALOG_ID}
-					{catalogEntry}
-				/>
-			{:else if mcpServer && mcpServerId}
+			{#if mcpServer && mcpServerId}
 				<McpServerDetails
 					serverId={mcpServerId}
 					{connectedUsers}
 					readonly={profile.current.isAdminReadonly?.()}
 					{catalogEntry}
 					server={mcpServer}
-					{compositeParentName}
 					k8sOverrides={{
 						title
 					}}

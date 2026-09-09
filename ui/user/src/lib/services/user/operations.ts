@@ -1,6 +1,5 @@
 import { BOOTSTRAP_USER_ID } from '$lib/constants';
 import { HttpError } from '$lib/errors';
-import { mcpServerDeleteResponseHandler } from '$lib/services/admin/operations';
 import { Group } from '$lib/services/admin/types';
 import { buildQueryString } from '$lib/url';
 import type {
@@ -536,28 +535,6 @@ export async function createSingleOrRemoteMcpServer(server: {
 	return response;
 }
 
-export async function createCompositeMcpServer(server: {
-	catalogEntryID?: string;
-	manifest?: {
-		compositeConfig?: {
-			componentServers: Array<{
-				catalogEntryID?: string;
-				mcpServerID?: string;
-				manifest?: {
-					remoteConfig?: {
-						url?: string;
-					};
-				};
-				disabled?: boolean;
-			}>;
-		};
-	};
-	alias?: string;
-}): Promise<MCPCatalogServer> {
-	const response = (await doPost('/mcp-servers', server)) as MCPCatalogServer;
-	return response;
-}
-
 export async function updateSingleOrRemoteMcpServerAlias(id: string, alias: string): Promise<void> {
 	await doPut(`/mcp-servers/${id}/alias`, { alias });
 }
@@ -566,7 +543,6 @@ export async function updateRemoteMcpServerUrl(id: string, url: string): Promise
 	await doPost(`/mcp-servers/${id}/update-url`, { url });
 }
 
-// Update any MCP server manifest (used for composite skips)
 export async function updateMcpServerManifest(
 	id: string,
 	manifest: MCPCatalogServerManifest
@@ -587,25 +563,8 @@ export async function configureSingleOrRemoteMcpServer(
 	return response;
 }
 
-export async function configureCompositeMcpServer(
-	id: string,
-	componentConfigs: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	>
-): Promise<MCPCatalogServer> {
-	const response = (await doPost(`/mcp-servers/${id}/configure`, {
-		componentConfigs
-	})) as MCPCatalogServer;
-	return response;
-}
-
 export async function deconfigureSingleOrRemoteMcpServer(id: string): Promise<void> {
 	await doPost(`/mcp-servers/${id}/deconfigure`, {});
-}
-
-export async function deconfigureCompositeMcpServer(id: string): Promise<void> {
-	return deconfigureSingleOrRemoteMcpServer(id);
 }
 
 export async function revealSingleOrRemoteMcpServer(
@@ -613,23 +572,6 @@ export async function revealSingleOrRemoteMcpServer(
 	opts?: { dontLogErrors?: boolean }
 ): Promise<Record<string, string>> {
 	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<Record<string, string>>;
-}
-
-export async function revealCompositeMcpServer(
-	id: string,
-	opts?: { dontLogErrors?: boolean }
-): Promise<{
-	componentConfigs: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	>;
-}> {
-	return doPost(`/mcp-servers/${id}/reveal`, {}, opts) as Promise<{
-		componentConfigs: Record<
-			string,
-			{ config: Record<string, string>; url?: string; disabled?: boolean }
-		>;
-	}>;
 }
 
 export async function clearMcpServerOAuth(
@@ -1376,9 +1318,7 @@ export async function deleteWorkspaceMCPCatalogServer(
 	workspaceID: string,
 	serverID: string
 ): Promise<void> {
-	await doDelete(`/workspaces/${workspaceID}/servers/${serverID}`, {
-		responseHandler: mcpServerDeleteResponseHandler
-	});
+	await doDelete(`/workspaces/${workspaceID}/servers/${serverID}`, {});
 }
 
 export async function configureWorkspaceMCPCatalogServer(

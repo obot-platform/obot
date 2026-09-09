@@ -8,8 +8,6 @@ import {
 	type UVXRuntimeConfig,
 	type NPXRuntimeConfig,
 	type ContainerizedRuntimeConfig,
-	type CompositeRuntimeConfig,
-	type ToolOverride,
 	type Schedule,
 	ModelAlias,
 	type AccessControlRuleSubject,
@@ -722,16 +720,6 @@ export type MCPConfig = Omit<
 	MCPCatalogEntryFieldManifest,
 	'file' | 'dynamicFile' | 'interpolated'
 > & { usage: MCPConfigUsage; userAllowed?: boolean };
-export interface CompositeCatalogConfig {
-	componentServers: CatalogComponentServer[];
-}
-export interface CatalogComponentServer {
-	catalogEntryID?: string;
-	mcpServerID?: string;
-	manifest?: MCPCatalogEntryServerManifest;
-	toolOverrides?: ToolOverride[];
-	toolPrefix?: string;
-}
 export interface MCPCatalogEntryServerManifest {
 	entryKey?: string;
 	upgradeNote?: string;
@@ -754,7 +742,6 @@ export interface MCPCatalogEntryServerManifest {
 	npxConfig?: NPXRuntimeConfig;
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: RemoteCatalogConfigAdmin;
-	compositeConfig?: CompositeCatalogConfig;
 	resources?: MCPResourceRequirements;
 }
 export interface MCPCatalogEntry {
@@ -779,14 +766,6 @@ export interface MCPCatalogEntry {
 	userID?: string;
 }
 
-// Matches the backend compositeDeletionDependency struct used when preventing
-// deletion of multi-user MCP servers that are still referenced by composites.
-export interface MCPCompositeDeletionDependency {
-	name: string;
-	icon: string;
-	mcpServerID?: string;
-	catalogEntryID: string;
-}
 export type MCPCatalogEntryFormData = Omit<MCPCatalogEntryServerManifest, 'metadata'> & {
 	categories: string[];
 	url?: string;
@@ -814,8 +793,6 @@ export interface RuntimeFormData {
 	containerizedConfig?: ContainerizedRuntimeConfig;
 	remoteConfig?: LegacyRemoteCatalogConfigAdmin; // Form state; flattened when saving catalog entries
 	remoteServerConfig?: RemoteRuntimeConfigAdmin; // For servers
-	compositeConfig?: CompositeCatalogConfig; // For catalog entries
-	compositeServerConfig?: CompositeRuntimeConfig; // For servers
 	multiUserConfig?: MultiUserConfig; // Form state; flattened into config when saving servers
 	resources?: MCPResourceRequirements;
 
@@ -824,7 +801,6 @@ export interface RuntimeFormData {
 export interface MCPCatalogServerManifest {
 	catalogEntryID?: string;
 	manifest: Omit<MCPCatalogEntryServerManifest, 'remoteConfig'> & {
-		compositeConfig?: CompositeRuntimeConfig;
 		remoteConfig?: Omit<RemoteRuntimeConfigAdmin, 'headers'>;
 	};
 }
@@ -847,16 +823,6 @@ export type CompositeServerToolRow = {
 	overrideDescription?: string;
 	enabled: boolean;
 };
-export class MCPCompositeDeletionDependencyError extends Error {
-	constructor(
-		message: string,
-		public dependencies: MCPCompositeDeletionDependency[]
-	) {
-		super(message);
-		this.name = 'MCPDeleteConflictError';
-		this.dependencies = dependencies;
-	}
-}
 
 // MCP filters
 

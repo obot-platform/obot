@@ -221,9 +221,7 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined,
-				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				remoteServerConfig: undefined
 			};
 
 			// Initialize the appropriate runtime config based on the runtime type
@@ -298,9 +296,7 @@
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
-				remoteServerConfig: undefined,
-				compositeConfig: undefined,
-				compositeServerConfig: undefined
+				remoteServerConfig: undefined
 			};
 		}
 		runtimeFormData.runtime = newRuntime;
@@ -331,9 +327,6 @@
 				break;
 			case 'remote':
 				runtimeFormData.remoteServerConfig = { url: '', headers: [] };
-				break;
-			case 'composite':
-				runtimeFormData.compositeConfig = { componentServers: [] };
 				break;
 		}
 	}

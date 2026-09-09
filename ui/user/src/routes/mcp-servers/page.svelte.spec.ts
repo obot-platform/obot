@@ -195,20 +195,6 @@ describe('MCP Servers Page', () => {
 				});
 			});
 
-			it('composite parent omits edit configuration and restart', async () => {
-				await expectMenuActions(fixtures.serverComposite.manifest.name!, {
-					links: ['View Catalog Entry'],
-					present: ['View Audit Logs', 'Delete Server'],
-					absent: [
-						'Edit Configuration',
-						'Restart Server',
-						'Update Server',
-						'View Diff',
-						'Update Scheduling Config'
-					]
-				});
-			});
-
 			it('server without catalogEntryID shows View Server instead of View Catalog Entry', async () => {
 				await expectMenuActions(fixtures.serverNoCatalogEntry.manifest.name!, {
 					links: ['View Server'],
@@ -216,45 +202,12 @@ describe('MCP Servers Page', () => {
 					absent: ['View Catalog Entry', 'Update Server', 'View Diff', 'Update Scheduling Config']
 				});
 			});
-
-			it('composite child shows parent audit logs and keeps restart', async () => {
-				await openRowActions(fixtures.serverCompositeChild.manifest.name!);
-
-				await expect
-					.element(page.getByRole('link', { name: 'View Catalog Entry', exact: true }))
-					.toBeVisible();
-				await expect
-					.element(page.getByRole('button', { name: 'Restart Server', exact: true }))
-					.toBeVisible();
-				await expect
-					.element(page.getByRole('button', { name: 'Edit Configuration', exact: true }))
-					.not.toBeInTheDocument();
-				await expect
-					.element(page.getByRole('button', { name: /View Parent Server\s*Audit Logs/ }))
-					.toBeVisible();
-				await expect
-					.element(page.getByRole('button', { name: 'Delete Server', exact: true }))
-					.toBeVisible();
-
-				await expect
-					.element(page.getByRole('button', { name: 'Update Server', exact: true }))
-					.not.toBeInTheDocument();
-				await expect
-					.element(page.getByRole('button', { name: 'View Diff', exact: true }))
-					.not.toBeInTheDocument();
-				await expect
-					.element(page.getByRole('button', { name: 'Update Scheduling Config', exact: true }))
-					.not.toBeInTheDocument();
-				await expect
-					.element(page.getByRole('button', { name: 'View Audit Logs', exact: true }))
-					.not.toBeInTheDocument();
-			});
 		});
 
 		describe('multi-select action pills', () => {
 			it('deduplicates catalog upgrade notes and omits empty notes in bulk confirmation', async () => {
 				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
-				const actionsBar = page.getByText(/of 9 selected/).locator('..');
+				const actionsBar = page.getByText(/of 7 selected/).locator('..');
 
 				await actionsBar.getByRole('button', { name: /^Upgrade/ }).click();
 
@@ -270,13 +223,13 @@ describe('MCP Servers Page', () => {
 			it('shows restart, upgrade, k8s upgrade, and delete counts for selected rows', async () => {
 				await page.getByRole('columnheader').first().getByRole('button').click({ force: true });
 
-				await expect.element(page.getByText(/of 9 selected/)).toBeVisible();
+				await expect.element(page.getByText(/of 7 selected/)).toBeVisible();
 
-				const actionsBar = page.getByText(/of 9 selected/).locator('..');
+				const actionsBar = page.getByText(/of 7 selected/).locator('..');
 
 				await expect
 					.element(
-						actionsBar.getByRole('button', { name: /^Restart/ }).getByText('7', { exact: true })
+						actionsBar.getByRole('button', { name: /^Restart/ }).getByText('6', { exact: true })
 					)
 					.toBeVisible();
 
@@ -296,7 +249,7 @@ describe('MCP Servers Page', () => {
 
 				await expect
 					.element(
-						actionsBar.getByRole('button', { name: /^Delete/ }).getByText('8', { exact: true })
+						actionsBar.getByRole('button', { name: /^Delete/ }).getByText('7', { exact: true })
 					)
 					.toBeVisible();
 			});

@@ -239,8 +239,8 @@ describe('getMCPTesterServer', () => {
 	it('returns an explicitly connectable deployment from user-scoped listings', async () => {
 		const deployment = server('shared-server', {
 			manifest: {
-				name: 'Composite gateway',
-				runtime: 'composite'
+				name: 'Remote server',
+				runtime: 'remote'
 			}
 		});
 		const fetcher = listFetcher([], [deployment]);

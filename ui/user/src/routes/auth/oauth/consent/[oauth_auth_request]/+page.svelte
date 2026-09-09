@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import CatalogConfigureForm, {
-		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
@@ -10,8 +9,6 @@
 	import { UserService, type OAuthConsent } from '$lib/services';
 	import { getManifestConfiguration } from '$lib/services/user/mcp';
 	import {
-		convertCompositeInfoToLaunchFormData,
-		convertCompositeLaunchFormDataToPayload,
 		convertEnvHeadersToRecord,
 		hasEditableConfiguration,
 		hasSecretBinding,
@@ -29,18 +26,14 @@
 
 	let { data }: Props = $props();
 	let currentConsent = $state(untrack(() => data.consent));
-	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
+	let configureForm = $state<LaunchFormData>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configError = $state('');
 	let loadingConfig = $state(false);
 	let savingConfig = $state(false);
-	let hasConfiguredComposite = $state(false);
 
 	const consent = $derived(currentConsent);
-	const isCompositeMCPServer = $derived(consent.mcpServer?.manifest.runtime === 'composite');
-	const requiresMCPConfiguration = $derived(
-		consent.mcpConfigRequired || (isCompositeMCPServer && !hasConfiguredComposite)
-	);
+	const requiresMCPConfiguration = $derived(consent.mcpConfigRequired);
 	const scopes = $derived(consent.scope?.split(' ').filter(Boolean) ?? []);
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
 	const deprecated = $derived(isDeprecatedMCPServer(consent.mcpServer));
@@ -169,11 +162,6 @@
 						}))
 				};
 			} else if (nextConsent.mcpServer?.id) {
-				if (nextConsent.mcpServer.manifest.runtime === 'composite') {
-					configureForm = await convertCompositeInfoToLaunchFormData(nextConsent.mcpServer);
-					return;
-				}
-
 				values = await revealExistingConfiguration(() =>
 					UserService.revealSingleOrRemoteMcpServer(nextConsent.mcpServer!.id, {
 						dontLogErrors: true
@@ -233,23 +221,14 @@
 		savingConfig = true;
 		try {
 			if (consent.mcpServerInstance?.id) {
-				if (isCompositeForm(configureForm)) {
-					throw new Error('Unexpected composite configuration for MCP server instance');
-				}
 				const payload = convertEnvHeadersToRecord(undefined, configureForm.headers);
 				await UserService.configureMcpServerInstance(consent.mcpServerInstance.id, payload);
 			} else if (consent.mcpServer?.id) {
-				if (isCompositeForm(configureForm)) {
-					const payload = convertCompositeLaunchFormDataToPayload(configureForm);
-					await UserService.configureCompositeMcpServer(consent.mcpServer.id, payload);
-					hasConfiguredComposite = true;
-				} else {
-					const payload = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
-					if (configureForm.hostname && configureForm.url) {
-						payload.__url = configureForm.url.trim();
-					}
-					await UserService.configureSingleOrRemoteMcpServer(consent.mcpServer.id, payload);
+				const payload = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
+				if (configureForm.hostname && configureForm.url) {
+					payload.__url = configureForm.url.trim();
 				}
+				await UserService.configureSingleOrRemoteMcpServer(consent.mcpServer.id, payload);
 			} else {
 				throw new Error('Missing MCP server configuration target');
 			}
@@ -268,12 +247,6 @@
 		} finally {
 			savingConfig = false;
 		}
-	}
-
-	function isCompositeForm(
-		form: LaunchFormData | CompositeLaunchFormData
-	): form is CompositeLaunchFormData {
-		return 'componentConfigs' in form;
 	}
 
 	function clientCredentialSourceLabelFor(source: OAuthConsent['clientCredentialSource']) {
@@ -310,13 +283,8 @@
 				<div class="notification-info flex items-center gap-3 p-3">
 					<SettingsIcon class="size-5 shrink-0" />
 					<p class="min-w-0 text-sm">
-						{#if isCompositeMCPServer && !hasConfiguredComposite}
-							Configure <b class="font-semibold">{consent.mcpServerName || 'this MCP server'}</b> to choose
-							which composite servers to use before continuing.
-						{:else}
-							<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required
-							configuration before Obot can finish authorizing this connection.
-						{/if}
+						<b class="font-semibold">{consent.mcpServerName || 'This MCP server'}</b> needs required configuration
+						before Obot can finish authorizing this connection.
 					</p>
 				</div>
 

@@ -45,11 +45,8 @@ export function deploymentStatusSortKey(status: string): number {
 	return i >= 0 ? i : DEPLOYMENT_STATUS_ORDER.length;
 }
 
-export function catalogServerEntryKind(
-	server: MCPCatalogServer
-): 'multi' | 'single' | 'remote' | 'composite' {
+export function catalogServerEntryKind(server: MCPCatalogServer): 'multi' | 'single' | 'remote' {
 	if (!server.catalogEntryID) return 'multi';
-	if (server.manifest.runtime === 'composite') return 'composite';
 	if (server.manifest.runtime === 'remote') return 'remote';
 	return server.serverUserType === 'singleUser' ? 'single' : 'multi';
 }
@@ -134,8 +131,7 @@ export function compileServerAndEntries(
 
 	const entryTypes = data.reduce(
 		(acc, server) => {
-			if (server.manifest.runtime === 'composite') acc.composite++;
-			else if (server.manifest.runtime === 'remote') acc.remote++;
+			if (server.manifest.runtime === 'remote') acc.remote++;
 			else if (server.serverUserType === 'singleUser') acc.single++;
 			else if (server.serverUserType === 'multiUser') acc.multi++;
 			return acc;
@@ -144,8 +140,7 @@ export function compileServerAndEntries(
 			single: 0,
 			multi: 0,
 			local: 0,
-			remote: 0,
-			composite: 0
+			remote: 0
 		}
 	);
 

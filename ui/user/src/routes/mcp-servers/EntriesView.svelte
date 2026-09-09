@@ -9,7 +9,6 @@
 	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
-	import McpMultiDeleteBlockedDialog from '$lib/components/mcp/McpMultiDeleteBlockedDialog.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
@@ -20,7 +19,6 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		MCPCompositeDeletionDependencyError,
 		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
@@ -101,7 +99,6 @@
 	let selected = $state<Record<string, Item>>({});
 	let confirmBulkDelete = $state(false);
 	let loadingBulkDelete = $state(false);
-	let deleteConflictError = $state<MCPCompositeDeletionDependencyError | undefined>();
 
 	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
 	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
@@ -559,19 +556,10 @@
 			return;
 		}
 
-		try {
-			await deleteServerDeployment(deletingServer);
+		await deleteServerDeployment(deletingServer);
 
-			await fetch();
-			deletingServer = undefined;
-		} catch (error) {
-			if (error instanceof MCPCompositeDeletionDependencyError) {
-				deleteConflictError = error;
-				return;
-			}
-
-			throw error;
-		}
+		await fetch();
+		deletingServer = undefined;
 	}}
 	oncancel={() => (deletingServer = undefined)}
 	entity="server"
@@ -605,14 +593,6 @@
 	loading={loadingBulkDelete}
 	entity="entry"
 	entityPlural="entries"
-/>
-
-<McpMultiDeleteBlockedDialog
-	show={!!deleteConflictError}
-	error={deleteConflictError}
-	onClose={() => {
-		deleteConflictError = undefined;
-	}}
 />
 
 <ConnectToServer

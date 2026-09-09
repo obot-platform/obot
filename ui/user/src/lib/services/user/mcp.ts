@@ -1,4 +1,3 @@
-import type { CompositeLaunchFormData } from '$lib/components/mcp/CatalogConfigureForm.svelte';
 import { encodeUtf8ToBase64 } from '$lib/format';
 import { mcpServersAndEntries, profile } from '$lib/stores';
 import { getUserDisplayName } from '$lib/utils';
@@ -42,7 +41,7 @@ export function getMCPDisplayName(
 
 export function supportsMCPBackendDetails(item?: { manifest?: { runtime?: string } }): boolean {
 	const runtime = item?.manifest?.runtime;
-	return runtime !== 'remote' && runtime !== 'composite';
+	return runtime !== 'remote';
 }
 
 export function isValidMcpConfig(mcpConfig: MCPServerInfo): boolean {
@@ -144,20 +143,6 @@ export function hasEditableConfiguration(
 	item: MCPCatalogEntry | MCPCatalogServer | SystemMCPServerCatalogEntry
 ) {
 	if (!item.manifest) return false;
-	// For composite servers, check if any component has editable configuration
-	if ('compositeConfig' in item.manifest && item.manifest.runtime === 'composite') {
-		const componentServers = item.manifest.compositeConfig?.componentServers || [];
-		return componentServers.some((component) => {
-			const fields = getManifestConfiguration(component.manifest);
-			const hasEnvs = hasEditableFields(fields.env);
-			const hasHeaders =
-				(fields.headers.filter((header) => !header.value && !hasSecretBinding(header))?.length ??
-					0) > 0;
-			const hasUrlToFill = hasEditableURL(component.manifest?.remoteConfig);
-			return hasEnvs || hasHeaders || hasUrlToFill;
-		});
-	}
-
 	const hasUrlToFill = hasEditableURL(item.manifest?.remoteConfig);
 	const fields = getManifestConfiguration(item.manifest);
 	const hasEnvsToFill = hasEditableFields(fields.env);
@@ -176,21 +161,11 @@ type SecretBindingManifest = {
 		urlTemplate?: string;
 	};
 	runtime?: string;
-	compositeConfig?: {
-		componentServers?: {
-			manifest?: SecretBindingManifest;
-		}[];
-	};
 };
 
 export function manifestHasSecretBindings(manifest?: SecretBindingManifest | null): boolean {
 	if (!manifest) return false;
 	if ((manifest.config ?? []).some(hasSecretBinding)) return true;
-	if (manifest.runtime === 'composite') {
-		return (manifest.compositeConfig?.componentServers ?? []).some((component) =>
-			manifestHasSecretBindings(component.manifest)
-		);
-	}
 	return false;
 }
 
@@ -212,12 +187,6 @@ export function hasMissingSecretBindingConfig(
 	) {
 		return true;
 	}
-	// Composite server responses aggregate only secret-bound missing config from
-	// their components. Avoid matching keys across component manifests here: the
-	// parent arrays already carry the filtered missing-secret state.
-	if (manifest.runtime === 'composite')
-		return missingEnvKeys.size > 0 || missingHeaderKeys.size > 0;
-
 	return false;
 }
 
@@ -481,7 +450,6 @@ export function getServerTypeLabel(server?: MCPCatalogServer | MCPCatalogEntry) 
 
 	const runtime = server.manifest.runtime;
 	if (runtime === 'remote') return 'Remote';
-	if (runtime === 'composite') return 'Composite';
 
 	return 'Hosted';
 }
@@ -503,116 +471,7 @@ export function getServerTypeLabelByType(type?: string) {
 			? 'Deployment'
 			: type === 'remote'
 				? 'Remote'
-				: 'Composite';
-}
-
-export function convertCompositeLaunchFormDataToPayload(lf: CompositeLaunchFormData) {
-	const payload: Record<
-		string,
-		{ config: Record<string, string>; url?: string; disabled?: boolean }
-	> = {};
-	for (const [id, comp] of Object.entries(lf.componentConfigs)) {
-		const config: Record<string, string> = {};
-		for (const f of [
-			...(comp.envs ?? ([] as Array<{ key: string; value: string }>)),
-			...(comp.headers ?? ([] as Array<{ key: string; value: string }>))
-		]) {
-			if (!hasSecretBinding(f) && !('isStatic' in f && f.isStatic) && f.value) {
-				config[f.key] = f.value;
-			}
-		}
-		payload[id] = {
-			config,
-			url: comp.url?.trim() || undefined,
-			disabled: comp.disabled ?? false
-		};
-	}
-	return payload;
-}
-
-export async function convertCompositeInfoToLaunchFormData(
-	server: MCPCatalogServer,
-	_parent?: MCPCatalogEntry
-) {
-	let initial: Record<string, { config: Record<string, string>; url?: string; disabled?: boolean }>;
-	try {
-		const revealed = await UserService.revealCompositeMcpServer(server.id, {
-			dontLogErrors: true
-		});
-		const rc = revealed as unknown as {
-			componentConfigs?: Record<
-				string,
-				{ config: Record<string, string>; url?: string; disabled?: boolean }
-			>;
-		};
-		initial = rc.componentConfigs ?? {};
-	} catch (_error) {
-		initial = {} as Record<
-			string,
-			{ config: Record<string, string>; url?: string; disabled?: boolean }
-		>;
-	}
-	const components = server?.manifest?.compositeConfig?.componentServers ?? [];
-	const componentConfigs: Record<
-		string,
-		{
-			name?: string;
-			icon?: string;
-			deprecated?: boolean;
-			hostname?: string;
-			url?: string;
-			disabled?: boolean;
-			isMultiUser?: boolean;
-			envs?: Array<Record<string, unknown> & { key: string; value: string }>;
-			headers?: Array<Record<string, unknown> & { key: string; value: string }>;
-		}
-	> = {};
-	for (const c of components) {
-		const id = c.catalogEntryID || c.mcpServerID;
-		if (!c.manifest || !id) continue;
-		const m = c.manifest;
-		const init = initial?.[id];
-		// Treat components that reference an MCP server ID (and not a catalog
-		// entry) as multi-user. Their composite component instance can collect
-		// per-user headers from the server's multi-user configuration.
-		const isMultiUser = !!c.mcpServerID && !c.catalogEntryID;
-		componentConfigs[id] = {
-			name: m.name,
-			icon: m.icon,
-			deprecated: isDeprecatedMCPServer({ manifest: m }),
-			hostname:
-				isMultiUser || !(m.remoteConfig && 'hostname' in m.remoteConfig)
-					? ''
-					: m.remoteConfig.hostname,
-			url: isMultiUser ? undefined : (init?.url ?? m.remoteConfig?.fixedURL ?? ''),
-			disabled: init?.disabled ?? false,
-			isMultiUser,
-			envs: isMultiUser
-				? []
-				: getManifestConfiguration(m).env.map((e) => ({
-						...(e as unknown as Record<string, unknown>),
-						key: e.key,
-						value: init?.config?.[e.key] ?? e.value ?? '',
-						isStatic: !init?.config?.[e.key] && Boolean(e.value)
-					})),
-			headers: isMultiUser
-				? (m.config ?? [])
-						.filter((field) => field.usage === 'header' && field.userAllowed)
-						.map((h) => ({
-							...(h as unknown as Record<string, unknown>),
-							key: h.key,
-							value: init?.config?.[h.key] ?? '',
-							isStatic: false
-						}))
-				: getManifestConfiguration(m).headers.map((h) => ({
-						...(h as unknown as Record<string, unknown>),
-						key: h.key,
-						value: init?.config?.[h.key] ?? h.value ?? '',
-						isStatic: !init?.config?.[h.key] && Boolean(h.value)
-					}))
-		};
-	}
-	return { componentConfigs } as CompositeLaunchFormData;
+				: '';
 }
 
 export function getServerUrl(d: MCPCatalogServer, prefixPath?: string) {
@@ -737,7 +596,7 @@ function hasDuplicateConfigurationOptionValues(
 }
 
 function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['env']) {
-	if (!envs || type === 'composite') return true;
+	if (!envs) return true;
 
 	if (type === 'remote') {
 		return envs.every(
@@ -754,7 +613,7 @@ function validateEnvs(type: LaunchServerType | 'filter', envs: MCPServerInfo['en
 }
 
 function validateHeaders(type: LaunchServerType | 'filter', headers: MCPServerInfo['headers']) {
-	if (!headers || type === 'composite') return true;
+	if (!headers) return true;
 
 	return headers.every((header) => {
 		if (!header.key.trim()) return false;
@@ -794,7 +653,7 @@ export const validateRuntimeForm = (
 	if (!validateEnvs(type, formData.env)) {
 		missingFields.env = true;
 	}
-	if (type !== 'composite' && hasDuplicateConfigurationOptionValues(formData.env)) {
+	if (hasDuplicateConfigurationOptionValues(formData.env)) {
 		invalid.env = true;
 	}
 

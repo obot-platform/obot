@@ -417,7 +417,7 @@ export const getServerK8sSettingsResponse = {
 } satisfies ServerK8sSettings;
 
 /**
- * Fixtures for mcp-catalog server details page specs (admin viewing hosted / remote / composite).
+ * Fixtures for mcp-catalog server details page specs.
  */
 export function createMcpServerDetailsFixtures() {
 	const associatedUser = listUsersResponse[0]!;
@@ -431,16 +431,6 @@ export function createMcpServerDetailsFixtures() {
 		id: 'entry-details-remote',
 		name: 'Remote Entry',
 		runtime: 'remote'
-	});
-	const entryCompositeChild = createMCPCatalogEntry({
-		id: 'entry-details-composite-child',
-		name: 'Composite Child Entry',
-		runtime: 'npx'
-	});
-	const entryComposite = createMCPCatalogEntry({
-		id: 'entry-details-composite',
-		name: 'Composite Entry',
-		runtime: 'composite'
 	});
 	const entryMulti = createMCPCatalogEntry({
 		id: 'entry-details-multi',
@@ -470,41 +460,6 @@ export function createMcpServerDetailsFixtures() {
 			clientIdMetadataDocumentSupported: false
 		}
 	});
-	const serverComposite = createMCPCatalogServer({
-		id: 'server-details-composite',
-		name: 'Composite Server',
-		runtime: 'composite',
-		serverUserType: 'singleUser',
-		catalogEntryID: entryComposite.id,
-		userID: associatedUser.id,
-		manifest: {
-			name: 'Composite Server',
-			runtime: 'composite',
-			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: entryCompositeChild.id,
-						manifest: {
-							name: 'Composite Child Entry',
-							runtime: 'npx',
-							icon: '',
-							shortDescription: '',
-							description: ''
-						}
-					}
-				]
-			}
-		}
-	});
-	const serverCompositeChild = createMCPCatalogServer({
-		id: 'server-details-composite-child',
-		name: 'Composite Child Entry',
-		runtime: 'npx',
-		serverUserType: 'singleUser',
-		catalogEntryID: entryCompositeChild.id,
-		compositeName: serverComposite.id,
-		userID: associatedUser.id
-	});
 	const serverMulti = createMCPCatalogServer({
 		id: 'server-details-multi',
 		name: 'Hosted Multi User Server',
@@ -527,13 +482,9 @@ export function createMcpServerDetailsFixtures() {
 		associatedUser,
 		entrySingle,
 		entryRemote,
-		entryComposite,
-		entryCompositeChild,
 		entryMulti,
 		serverSingle,
 		serverRemote,
-		serverComposite,
-		serverCompositeChild,
 		serverMulti,
 		multiUserInstance
 	};
@@ -604,21 +555,6 @@ export function createDeploymentsPageFixtures() {
 		name: 'Entry Remote',
 		runtime: 'remote'
 	});
-	const entryComposite = createMCPCatalogEntry({
-		id: 'entry-composite',
-		name: 'Entry Composite',
-		runtime: 'composite'
-	});
-	const entryCompositeChild = createMCPCatalogEntry({
-		id: 'entry-composite-child',
-		name: 'Entry Composite Child',
-		runtime: 'npx',
-		env: [editableEnvField]
-	});
-
-	const compositeServerId = 'server-composite';
-	const compositeChildId = 'server-composite-child';
-
 	const serverSingleNeedsUpdate = createMCPCatalogServer({
 		id: 'server-single-needs-update',
 		name: 'Npx Single Needs Update',
@@ -679,27 +615,6 @@ export function createDeploymentsPageFixtures() {
 		created: '2026-01-04T00:00:00.000Z',
 		userID
 	});
-	const serverComposite = createMCPCatalogServer({
-		id: compositeServerId,
-		name: 'Composite Parent',
-		runtime: 'composite',
-		serverUserType: 'singleUser',
-		catalogEntryID: entryComposite.id,
-		manifest: {
-			name: 'Composite Parent',
-			runtime: 'composite',
-			compositeConfig: {
-				componentServers: [
-					{
-						catalogEntryID: entryCompositeChild.id,
-						mcpServerID: compositeChildId
-					}
-				]
-			}
-		},
-		created: '2026-01-03T00:00:00.000Z',
-		userID
-	});
 	const serverNoCatalogEntry = createMCPCatalogServer({
 		id: 'server-no-catalog',
 		name: 'Orphan Hosted',
@@ -710,25 +625,13 @@ export function createDeploymentsPageFixtures() {
 		created: '2026-01-02T00:00:00.000Z',
 		userID
 	});
-	const serverCompositeChild = createMCPCatalogServer({
-		id: compositeChildId,
-		name: 'Composite Component',
-		runtime: 'npx',
-		serverUserType: 'singleUser',
-		catalogEntryID: entryCompositeChild.id,
-		compositeName: compositeServerId,
-		created: '2026-01-01T00:00:00.000Z',
-		userID
-	});
 
 	const entries = [
 		entrySingleUpdate,
 		entryEmptyUpgradeNote,
 		entrySingleK8s,
 		entryMulti,
-		entryRemote,
-		entryComposite,
-		entryCompositeChild
+		entryRemote
 	];
 	const servers = [
 		serverSingleNeedsUpdate,
@@ -737,9 +640,7 @@ export function createDeploymentsPageFixtures() {
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,
-		serverComposite,
-		serverNoCatalogEntry,
-		serverCompositeChild
+		serverNoCatalogEntry
 	];
 
 	return {
@@ -751,8 +652,6 @@ export function createDeploymentsPageFixtures() {
 		serverSingleNeedsK8s,
 		serverMulti,
 		serverRemote,
-		serverComposite,
-		serverNoCatalogEntry,
-		serverCompositeChild
+		serverNoCatalogEntry
 	};
 }

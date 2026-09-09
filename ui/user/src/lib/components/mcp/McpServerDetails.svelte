@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import McpServerCompositeInfo from '$lib/components/admin/McpServerCompositeInfo.svelte';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
@@ -20,7 +19,6 @@
 		server?: MCPCatalogServer;
 		serverId?: string;
 		connectedUsers?: (OrgUser & { mcpInstanceId?: string; mcpInstanceConfigured?: boolean })[];
-		compositeParentName?: string;
 		k8sOverrides?: {
 			title?: string;
 			classes?: {
@@ -37,7 +35,6 @@
 		server,
 		serverId,
 		connectedUsers,
-		compositeParentName,
 		k8sOverrides,
 		readonly
 	}: Props = $props();
@@ -66,7 +63,7 @@
 
 		if (!id) return null;
 
-		if (compositeParentName || entity === 'agent') return null;
+		if (entity === 'agent') return null;
 
 		const prefix = '/mcp-servers';
 		if (hasAdminAccess) {
@@ -90,24 +87,13 @@
 		{#if tunnelDisconnected}
 			<McpTunnelDisconnectedStatus detailed />
 		{/if}
-		{#if server?.manifest.runtime === 'composite'}
-			<McpServerCompositeInfo
-				{mcpServerId}
-				mcpServer={server}
-				name={title}
-				entity="catalog"
-				entityId={DEFAULT_MCP_CATALOG_ID}
-				{catalogEntry}
-				connectedUsers={[]}
-			/>
-		{:else if supportsDetails && mcpServerId}
+		{#if supportsDetails && mcpServerId}
 			<McpServerK8sInfo
 				{mcpServerId}
 				name={title}
 				{readonly}
 				{catalogEntry}
 				mcpServer={server}
-				compositeParentName={server?.compositeName}
 				hideTitle
 				{entity}
 				id={entityId}

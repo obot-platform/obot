@@ -186,15 +186,12 @@
 				serverUserType: isHostedType && entity === 'catalog' ? 'multiUser' : 'singleUser',
 				runtime: 'npx' as Runtime,
 				config: type !== 'multi' ? [] : undefined,
-				resources:
-					type !== 'remote' && type !== 'composite' ? defaultResourceRuntimeConfig() : undefined,
+				resources: type !== 'remote' ? defaultResourceRuntimeConfig() : undefined,
 				npxConfig: defaultNpxConfig(),
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
-				compositeConfig: undefined,
-				compositeServerConfig: undefined,
 				multiUserConfig: isHostedType ? { userDefinedHeaders: [] } : undefined
 			};
 		}
@@ -220,8 +217,6 @@
 				containerizedConfig: undefined,
 				remoteConfig: undefined,
 				remoteServerConfig: undefined,
-				compositeConfig: undefined,
-				compositeServerConfig: undefined,
 				multiUserConfig: {
 					userDefinedHeaders: (manifest.config ?? []).filter(
 						(field) => field.usage === 'header' && field.userAllowed
@@ -273,10 +268,7 @@
 				description: manifest.description ?? '',
 				serverUserType: 'multiUser',
 				runtime: manifest.runtime,
-				resources:
-					manifest.runtime !== 'composite'
-						? normalizeResourceRuntimeConfig(manifest.resources)
-						: undefined,
+				resources: normalizeResourceRuntimeConfig(manifest.resources),
 				npxConfig: undefined,
 				uvxConfig: undefined,
 				containerizedConfig: undefined,
@@ -362,7 +354,7 @@
 		formData.remoteConfig = undefined;
 		formData.remoteServerConfig = undefined;
 
-		if (newRuntime === 'remote' || newRuntime === 'composite') {
+		if (newRuntime === 'remote') {
 			formData.resources = undefined;
 		} else if (!formData.resources) {
 			formData.resources = defaultResourceRuntimeConfig();
@@ -454,9 +446,7 @@
 				: {};
 
 		const resources =
-			baseData.runtime !== 'remote' && baseData.runtime !== 'composite'
-				? sanitizeResourceRuntimeConfig(baseData.resources)
-				: undefined;
+			baseData.runtime !== 'remote' ? sanitizeResourceRuntimeConfig(baseData.resources) : undefined;
 
 		// Build base manifest structure
 		const manifest: MCPCatalogEntryServerManifest = {
@@ -603,7 +593,7 @@
 	}
 
 	async function handleSubmit() {
-		if (!id || type === 'composite' || formData.runtime === 'composite') return;
+		if (!id) return;
 
 		// reset
 		showRequired = {};
@@ -918,7 +908,7 @@
 		{/if}
 	</div>
 
-	{#if version.current.engine === 'kubernetes' && !['remote', 'composite'].includes(formData.runtime) && formData.resources}
+	{#if version.current.engine === 'kubernetes' && formData.runtime !== 'remote' && formData.resources}
 		<ResourceRuntimeForm
 			bind:config={formData.resources}
 			{readonly}
@@ -926,7 +916,7 @@
 		/>
 	{/if}
 
-	{#if type !== 'multi' && formData.runtime !== 'composite'}
+	{#if type !== 'multi'}
 		<CatalogConfigurationForm
 			bind:config={formData.config}
 			{readonly}
@@ -934,7 +924,7 @@
 			showRequired={showRequired.env}
 			showInvalid={showInvalid.env}
 		/>
-	{:else if !['remote', 'composite'].includes(formData.runtime)}
+	{:else if formData.runtime !== 'remote'}
 		<CustomConfigurationForm
 			bind:config={formData.env}
 			{readonly}

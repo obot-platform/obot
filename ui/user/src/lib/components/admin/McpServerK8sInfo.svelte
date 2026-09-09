@@ -36,7 +36,6 @@
 		catalogEntry?: MCPCatalogEntry;
 		mcpServer?: MCPCatalogServer;
 		readonly?: boolean;
-		compositeParentName?: string;
 		hideTitle?: boolean;
 	}
 
@@ -400,8 +399,6 @@
 	const missingSecretBindings = $derived(getMissingSecretBindings());
 
 	const hasNonSecretMissingConfig = $derived.by(() => {
-		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
-		if (manifest?.runtime === 'composite') return false; // backend only propagates secret-bound missing for composites
 		const missingEnvKeys = new Set(mcpServer?.missingRequiredEnvVars ?? []);
 		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
 		return missingEnvKeys.size + missingHeaderKeys.size > missingSecretBindings.length;
@@ -412,13 +409,6 @@
 		const missingHeaderKeys = new Set(mcpServer?.missingRequiredHeader ?? []);
 		const manifest = mcpServer?.manifest ?? catalogEntry?.manifest;
 		const results: MissingSecretBinding[] = [];
-
-		if (manifest?.runtime === 'composite') {
-			return [
-				...Array.from(missingEnvKeys).map((key) => ({ label: key })),
-				...Array.from(missingHeaderKeys).map((key) => ({ label: key }))
-			];
-		}
 
 		const { env: envFields, headers: headerFields } = getManifestConfiguration(manifest);
 		for (const env of envFields) {

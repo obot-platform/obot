@@ -111,10 +111,6 @@ function baseServerManifest(
 			url: 'https://example.com/mcp'
 		};
 	}
-	if (runtime === 'composite' && !manifest.compositeConfig) {
-		manifest.compositeConfig = { componentServers: [] };
-	}
-
 	return manifest;
 }
 

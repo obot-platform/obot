@@ -10,14 +10,13 @@ export const DEPLOYMENT_STATUS_ORDER = [
 ] as const;
 
 export const ENTRY_TYPE_GRAPH_META: {
-	key: 'single' | 'multi' | 'local' | 'remote' | 'composite';
+	key: 'single' | 'multi' | 'local' | 'remote';
 	label: string;
 	baseColor: string;
 }[] = [
 	{ key: 'single', label: 'Hosted (Single-tenant)', baseColor: '#fee090' },
 	{ key: 'multi', label: 'Hosted (Multi-tenant)', baseColor: '#f46d43' },
-	{ key: 'remote', label: 'Remote', baseColor: '#4575b4' },
-	{ key: 'composite', label: 'Composite', baseColor: '#BFB4ACFF' }
+	{ key: 'remote', label: 'Remote', baseColor: '#4575b4' }
 ];
 
 export const entryTypeDonutLegend: DonutLegendItem[] = ENTRY_TYPE_GRAPH_META.map(

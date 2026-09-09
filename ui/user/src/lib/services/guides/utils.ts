@@ -8,7 +8,6 @@ import {
 	McpConnectGuide,
 	McpCustomHostedGuide,
 	McpCustomRemoteGuide,
-	McpCustomCompositeGuide,
 	McpAccessPolicyCreateGuide,
 	DevicesInstallSentryGuide,
 	McpFiltersGuide
@@ -37,15 +36,6 @@ export function generateLessonItems() {
 					description: McpCustomRemoteGuide.description,
 					guide: McpCustomRemoteGuide
 				},
-				...(profile.current.isAdmin?.()
-					? [
-							{
-								label: McpCustomCompositeGuide.title,
-								description: McpCustomCompositeGuide.description,
-								guide: McpCustomCompositeGuide
-							}
-						]
-					: []),
 				...(isAtLeastPowerUserPlus
 					? [
 							{
