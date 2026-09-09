@@ -164,7 +164,7 @@
 					id="agent-auth-scope-description"
 					type="text"
 					bind:value={description}
-					placeholder="What is this auth scope for?"
+					placeholder="What is this agent identity for?"
 					class="text-input-filled"
 				/>
 			</div>

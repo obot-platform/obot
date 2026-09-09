@@ -126,7 +126,7 @@
 							<p class="whitespace-pre-line text-left text-sm font-light">
 								{AUTH_SCOPE_DESCRIPTION}
 								<button class="text-link inline" onclick={showCreateForm}
-									>Create your first auth scope</button
+									>Create your first agent identity</button
 								>
 							</p>
 						</div>
