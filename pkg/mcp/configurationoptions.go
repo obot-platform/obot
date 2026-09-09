@@ -23,13 +23,6 @@ func validateServerConfigurationOptions(manifest types.MCPServerManifest) error 
 	if err := validateConfigurationOptions(manifest.Config, ""); err != nil {
 		return err
 	}
-	if manifest.CompositeConfig != nil {
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := validateServerConfigurationOptions(component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d].manifest: %w", i, err)
-			}
-		}
-	}
 	return nil
 }
 
@@ -121,17 +114,7 @@ func ConfigurationOptionValueValid(field types.MCPHeader, values map[string]stri
 
 // ManifestHasConfigurationOptions reports whether a server manifest defines catalog-owned options.
 func ManifestHasConfigurationOptions(manifest types.MCPServerManifest) bool {
-	if fieldsHaveConfigurationOptions(manifest.Config) {
-		return true
-	}
-	if manifest.CompositeConfig != nil {
-		for _, component := range manifest.CompositeConfig.ComponentServers {
-			if ManifestHasConfigurationOptions(component.Manifest) {
-				return true
-			}
-		}
-	}
-	return false
+	return fieldsHaveConfigurationOptions(manifest.Config)
 }
 
 func fieldsHaveConfigurationOptions(config []types.MCPConfig) bool {

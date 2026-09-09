@@ -54,10 +54,6 @@ func TestRequiresStaticOAuth(t *testing.T) {
 	server.Status.UserHasAuthenticated = false
 	server.Spec.Manifest.RemoteConfig.StaticOAuthRequired = false
 	require.False(t, RequiresStaticOAuth(server))
-
-	server.Spec.Manifest.Runtime = types.RuntimeComposite
-	server.Spec.Manifest.RemoteConfig.StaticOAuthRequired = true
-	require.False(t, RequiresStaticOAuth(server))
 }
 
 func TestServerConfigHeadersCanonicalizesNames(t *testing.T) {

@@ -16,7 +16,6 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpaccess "github.com/obot-platform/obot/pkg/vmcp"
-	"github.com/obot-platform/obot/pkg/wait"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -237,15 +236,6 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 				return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to create MCP server for catalog entry %s: %w", id, err)
 			}
 
-			if server.Spec.Manifest.Runtime == types.RuntimeComposite &&
-				server.Spec.Manifest.CompositeConfig != nil &&
-				len(server.Spec.Manifest.CompositeConfig.ComponentServers) > 0 {
-				server, err = sm.waitForCompositeReady(ctx, server, 30*time.Second)
-				if err != nil {
-					return v1.MCPServer{}, v1.MCPServerInstance{}, fmt.Errorf("failed to wait for composite server to be ready: %w", err)
-				}
-			}
-
 			servers.Items = append(servers.Items, server)
 		}
 
@@ -384,36 +374,7 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, err
 	}
 
-	var (
-		serverConfig  ServerConfig
-		missingConfig []string
-	)
-	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		var componentServers v1.MCPServerList
-		if err = sm.storageClient.List(ctx, &componentServers,
-			kclient.InNamespace(server.Namespace),
-			kclient.MatchingFields{"spec.compositeName": server.Name},
-		); err != nil {
-			return ServerConfig{}, nil, fmt.Errorf("failed to list component servers: %w", err)
-		}
-
-		var componentInstances v1.MCPServerInstanceList
-		if err = sm.storageClient.List(ctx, &componentInstances,
-			kclient.InNamespace(server.Namespace),
-			kclient.MatchingFields{"spec.compositeName": server.Name},
-		); err != nil {
-			return ServerConfig{}, nil, fmt.Errorf("failed to list component servers instances: %w", err)
-		}
-
-		serverConfig, missingConfig, err = CompositeServerToServerConfig(server, componentServers.Items, componentInstances.Items, server.ValidConnectURLs(sm.baseURL), sm.httpListenPort, userID, scope, catalogName, mergedEnv)
-		componentMissingConfig, componentErr := sm.compositeComponentsMissingConfig(ctx, userID, componentServers.Items, componentInstances.Items)
-		if componentErr != nil {
-			return ServerConfig{}, nil, componentErr
-		}
-		missingConfig = append(missingConfig, componentMissingConfig...)
-	} else {
-		serverConfig, missingConfig, err = ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
-	}
+	serverConfig, missingConfig, err := ServerToServerConfig(server, server.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	if err != nil {
 		return ServerConfig{}, nil, err
 	}
@@ -454,31 +415,6 @@ func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]
 	})
 
 	return webhooks, nil
-}
-
-func (sm *SessionManager) compositeComponentsMissingConfig(ctx context.Context, userID string, componentServers []v1.MCPServer, componentInstances []v1.MCPServerInstance) ([]string, error) {
-	var missingConfig []string
-	for _, component := range componentServers {
-		_, componentMissingConfig, err := sm.serverConfigForAction(ctx, component, userID, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
-		}
-		for _, missing := range componentMissingConfig {
-			missingConfig = append(missingConfig, fmt.Sprintf("%s: %s", component.Spec.MCPServerCatalogEntryName, missing))
-		}
-	}
-
-	for _, instance := range componentInstances {
-		_, _, instanceMissingConfig, err := sm.serverFromMCPServerInstance(ctx, instance, userID, true)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get config for component server instance %s: %w", instance.Name, err)
-		}
-		for _, missing := range instanceMissingConfig {
-			missingConfig = append(missingConfig, fmt.Sprintf("%s: %s", instance.Spec.MCPServerName, missing))
-		}
-	}
-
-	return missingConfig, nil
 }
 
 func (sm *SessionManager) catalogNameForServer(ctx context.Context, server v1.MCPServer, failOnEntryMissing bool) (string, error) {
@@ -737,27 +673,6 @@ func mergeMCPServerManifests(existing, override types.MCPServerManifest) types.M
 	}
 
 	return existing
-}
-
-func (sm *SessionManager) waitForCompositeReady(ctx context.Context, compositeServer v1.MCPServer, timeout time.Duration) (v1.MCPServer, error) {
-	latest, err := wait.For(
-		ctx,
-		sm.storageClient,
-		&compositeServer,
-		func(cs *v1.MCPServer) (bool, error) {
-			return cs.Spec.Manifest.CompositeConfig != nil &&
-				len(cs.Spec.Manifest.CompositeConfig.ComponentServers) > 0 &&
-				utils.Digest(cs.Spec.Manifest) == cs.Status.ObservedCompositeManifestHash, nil
-		},
-		wait.Option{
-			Timeout: timeout,
-		},
-	)
-	if err != nil {
-		return compositeServer, err
-	}
-
-	return *latest, nil
 }
 
 func extractEnvVars(text string) []string {

@@ -235,7 +235,7 @@ func (h *SystemMCPServerHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support restart", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
@@ -347,7 +347,7 @@ func (h *SystemMCPServerHandler) Logs(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support logs retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
@@ -434,7 +434,7 @@ func (h *SystemMCPServerHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("system MCP server %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 

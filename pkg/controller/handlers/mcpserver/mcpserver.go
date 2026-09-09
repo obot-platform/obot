@@ -293,8 +293,7 @@ func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client,
 }
 
 // configurationHasDrifted compares only the fields common to MCPServerManifest and
-// MCPServerCatalogEntryManifest. It is also used for nested composite components,
-// which do not have their own MCPServer object or credential context.
+// MCPServerCatalogEntryManifest.
 func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManifest types.MCPServerCatalogEntryManifest, defaultDenyAllEgress bool) (bool, error) {
 	// Check if runtime types differ
 	if serverManifest.Runtime != entryManifest.Runtime {
@@ -312,8 +311,6 @@ func configurationHasDrifted(serverManifest types.MCPServerManifest, entryManife
 		drifted = containerizedConfigHasDrifted(serverManifest.ContainerizedConfig, entryManifest.ContainerizedConfig, defaultDenyAllEgress)
 	case types.RuntimeRemote:
 		drifted = remoteConfigHasDrifted(serverManifest.RemoteConfig, entryManifest.RemoteConfig)
-	case types.RuntimeComposite:
-		return true, nil
 	default:
 		return false, fmt.Errorf("unknown runtime type: %s", serverManifest.Runtime)
 	}
@@ -584,42 +581,6 @@ func (h *Handler) MigrateSharedWithinMCPCatalogName(req router.Request, _ router
 	return nil
 }
 
-// CleanupNestedCompositeServers removes component servers with composite runtimes from composite MCP servers.
-// This handler cleans up servers that were created before API validation to prevent nested composite servers.
-func (h *Handler) CleanupNestedCompositeServers(req router.Request, _ router.Response) error {
-	var (
-		server   = req.Object.(*v1.MCPServer)
-		manifest = server.Spec.Manifest
-	)
-
-	if manifest.Runtime != types.RuntimeComposite ||
-		manifest.CompositeConfig == nil {
-		return nil
-	}
-
-	// Delete component servers with composite runtimes
-	if server.Spec.CompositeName != "" {
-		slog.Info("Deleting nested composite component server", "server", server.Name, "parentComposite", server.Spec.CompositeName)
-		return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, server))
-	}
-	// Remove all composite components from the server's manifest
-	var (
-		components    = manifest.CompositeConfig.ComponentServers
-		numComponents = len(components)
-	)
-	components = slices.DeleteFunc(components, func(component types.ComponentServer) bool {
-		return component.Manifest.Runtime == types.RuntimeComposite
-	})
-
-	if numComponents == len(components) {
-		return nil
-	}
-
-	server.Spec.Manifest.CompositeConfig.ComponentServers = components
-	slog.Info("Pruned nested composite components from MCP server manifest", "server", server.Name, "removedComponents", numComponents-len(components))
-	return kclient.IgnoreNotFound(req.Client.Update(req.Ctx, server))
-}
-
 // SyncOAuthCredentialStatus syncs the OAuthCredentialConfigured status from the catalog entry.
 // This replaces the push-based propagation logic with a pull-based approach where each MCP server
 // is responsible for syncing its own status from its parent catalog entry.
@@ -838,7 +799,7 @@ func (h *Handler) ShutdownIdleServers(req router.Request, resp router.Response) 
 // SetNonDeployServerStatus sets the deployment status for servers that don't have a corresponding deployment.
 func (h *Handler) SetNonDeployServerStatus(req router.Request, _ router.Response) error {
 	mcpServer := req.Object.(*v1.MCPServer)
-	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote || mcpServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if mcpServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		mcpServer.Status.DeploymentStatus = "Available"
 		mcpServer.Status.DeploymentAvailableReplicas = nil
 		mcpServer.Status.DeploymentReadyReplicas = nil

@@ -216,7 +216,7 @@ func (d *dockerBackend) cleanupDeprecatedContainers(ctx context.Context) error {
 // deployServer will deploy the underlying container for the server.
 // This is only to give users the opportunity to view logs and debug the server they are trying to deploy.
 func (d *dockerBackend) deployServer(ctx context.Context, server ServerConfig) error {
-	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeComposite {
+	if server.Runtime == otypes.RuntimeRemote || server.Runtime == otypes.RuntimeVMCP {
 		return nil
 	}
 

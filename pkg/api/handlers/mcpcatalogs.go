@@ -562,14 +562,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		var components []types.MCPServer
-		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
-			if err != nil {
-				return err
-			}
-		}
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -695,14 +688,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		var components []types.MCPServer
-		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
-			if err != nil {
-				return err
-			}
-		}
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -773,14 +759,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			return fmt.Errorf("failed to generate slug: %w", err)
 		}
 
-		var components []types.MCPServer
-		if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-			components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
-			if err != nil {
-				return fmt.Errorf("failed to resolve composite components: %w", err)
-			}
-		}
-		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug, components...))
+		items = append(items, ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
 	}
 
 	return req.Write(types.MCPServerList{Items: items})
@@ -842,15 +821,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to generate slug: %w", err)
 	}
 
-	var components []types.MCPServer
-	if server.Spec.Manifest.Runtime == types.RuntimeComposite {
-		components, err = resolveCompositeComponents(req, server, h.secretBindingAllowedLabel)
-		if err != nil {
-			slog.Warn("failed to resolve composite components for catalog server", "serverName", server.Name, "error", err)
-			return err
-		}
-	}
-	return req.Write(ConvertMCPServer(server, mergedEnv, h.serverURL, slug, components...))
+	return req.Write(ConvertMCPServer(server, mergedEnv, h.serverURL, slug))
 }
 
 // GenerateToolPreviews launches a temporary instance of an MCP server from a catalog entry
@@ -861,7 +832,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviews(req api.Context) error {
 		workspaceID = req.PathValue("workspace_id")
 		entryName   = req.PathValue("entry_id")
 		// "dryRun" lets us get the previews for an MCP server without updating its CatalogEntry.
-		// This is used when we populate the tools for individual MCP servers when creating a composite CatalogEntry
+		// This is used when we populate the tools for individual MCP servers when configuring a vMCP
 		// (configuring tool overrides).
 		dryRun = req.Request.URL.Query().Get("dryRun") == "true"
 	)
@@ -979,7 +950,7 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 		workspaceID = req.PathValue("workspace_id")
 		entryName   = req.PathValue("entry_id")
 		// "dryRun" lets us get the previews for an MCP server without updating its CatalogEntry.
-		// This is used when we populate the tools for individual MCP servers when creating a composite CatalogEntry
+		// This is used when we populate the tools for individual MCP servers when configuring a vMCP
 		// (configuring tool overrides).
 		dryRun = req.Request.URL.Query().Get("dryRun") == "true"
 	)
@@ -1047,13 +1018,6 @@ func (h *MCPCatalogHandler) GenerateToolPreviewsOAuthURL(req api.Context) error 
 	}
 
 	return req.Write(map[string]string{"oauthURL": oauthURL})
-}
-
-func (h *MCPCatalogHandler) GenerateComponentToolPreviews(_ api.Context) error {
-	return types.NewErrBadRequest("composite catalog entries are no longer supported")
-}
-func (h *MCPCatalogHandler) GenerateComponentToolPreviewsOAuthURL(_ api.Context) error {
-	return types.NewErrBadRequest("composite catalog entries are no longer supported")
 }
 
 // GenerateVMCPComponentToolPreviews generates tool previews for a vMCP

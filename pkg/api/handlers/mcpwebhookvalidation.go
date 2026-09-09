@@ -317,7 +317,7 @@ func (m *MCPWebhookValidationHandler) Restart(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support restart", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
@@ -383,7 +383,7 @@ func (m *MCPWebhookValidationHandler) Logs(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support log retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 
@@ -417,7 +417,7 @@ func (m *MCPWebhookValidationHandler) GetDetails(req api.Context) error {
 		return err
 	}
 
-	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote || systemServer.Spec.Manifest.Runtime == types.RuntimeComposite {
+	if systemServer.Spec.Manifest.Runtime == types.RuntimeRemote {
 		return types.NewErrBadRequest("webhook validation %s has runtime %s, which does not support details retrieval", systemServer.Name, systemServer.Spec.Manifest.Runtime)
 	}
 

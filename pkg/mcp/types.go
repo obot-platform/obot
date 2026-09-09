@@ -55,7 +55,7 @@ type ServerConfig struct {
 	ContainerPath  string `json:"containerPath"`
 	HealthzPath    string `json:"healthzPath,omitempty"`
 
-	// Composite configuration.
+	// vMCP configuration.
 	Components []ComponentServer `json:"components"`
 
 	Scope                string `json:"scope"`
@@ -261,94 +261,6 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	return missingRequiredNames, nil
 }
 
-func CompositeServerToServerConfig(mcpServer v1.MCPServer, components []v1.MCPServer, instances []v1.MCPServerInstance, audiences []string, httpListenPort int, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
-	config, missing, err := ServerToServerConfig(mcpServer, audiences, userID, scope, mcpCatalogName, credEnv)
-	if err != nil {
-		return config, missing, err
-	}
-
-	config.URL = system.MCPConnectCompositeURL(config.MCPServerName, httpListenPort)
-
-	overrides := make(map[string]types.ComponentServer, len(mcpServer.Spec.Manifest.CompositeConfig.ComponentServers))
-	for _, component := range mcpServer.Spec.Manifest.CompositeConfig.ComponentServers {
-		if component.CatalogEntryID != "" {
-			overrides[component.CatalogEntryID] = component
-		} else if component.MCPServerID != "" {
-			overrides[component.MCPServerID] = component
-		}
-	}
-
-	config.Components = make([]ComponentServer, 0, len(components)+len(instances))
-	for _, component := range components {
-		name := component.Spec.Manifest.Name
-		if name == "" {
-			name = component.Name
-		}
-
-		override := overrides[component.Spec.MCPServerCatalogEntryName]
-		if override.Disabled {
-			continue
-		}
-
-		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
-		for _, tool := range override.ToolOverrides {
-			tools = append(tools, types.ToolOverride{
-				Name:                tool.Name,
-				OverrideName:        tool.OverrideName,
-				Description:         tool.Description,
-				OverrideDescription: tool.OverrideDescription,
-				Enabled:             tool.Enabled,
-			})
-		}
-
-		config.Components = append(config.Components, ComponentServer{
-			Name:        component.Name,
-			DisplayName: name,
-			URL:         system.LocalMCPConnectURL(component.Name, httpListenPort),
-			Tools:       tools,
-			ToolPrefix:  override.ToolPrefix,
-		})
-	}
-
-	for _, instance := range instances {
-		override := overrides[instance.Spec.MCPServerName]
-		if override.Disabled {
-			continue
-		}
-
-		tools := make([]types.ToolOverride, 0, len(override.ToolOverrides))
-		for _, tool := range override.ToolOverrides {
-			tools = append(tools, types.ToolOverride{
-				Name:                tool.Name,
-				OverrideName:        tool.OverrideName,
-				Description:         tool.Description,
-				OverrideDescription: tool.OverrideDescription,
-				Enabled:             tool.Enabled,
-			})
-		}
-
-		config.Components = append(config.Components, ComponentServer{
-			Name:        instance.Name,
-			DisplayName: instance.Name,
-			URL:         system.LocalMCPConnectURL(instance.Name, httpListenPort),
-			Tools:       tools,
-			ToolPrefix:  override.ToolPrefix,
-		})
-	}
-
-	slices.SortFunc(config.Components, func(a, b ComponentServer) int {
-		if a.DisplayName < b.DisplayName {
-			return -1
-		}
-		if a.DisplayName > b.DisplayName {
-			return 1
-		}
-		return 0
-	})
-
-	return config, missing, err
-}
-
 func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, scope, mcpCatalogName string, credEnv map[string]string) (ServerConfig, []string, error) {
 	fixedConfig := slices.DeleteFunc(slices.Clone(mcpServer.Spec.Manifest.Config), func(config types.MCPConfig) bool {
 		return config.UserAllowed
@@ -466,8 +378,6 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		if err != nil {
 			return serverConfig, missingRequiredNames, err
 		}
-	case types.RuntimeComposite:
-		return serverConfig, missingRequiredNames, nil
 	default:
 		return serverConfig, missingRequiredNames, fmt.Errorf("unknown runtime %s", mcpServer.Spec.Manifest.Runtime)
 	}

@@ -8,7 +8,20 @@ import (
 	"time"
 
 	"github.com/moby/moby/api/types/container"
+	"github.com/obot-platform/obot/apiclient/types"
 )
+
+func TestDockerDeployServerSkipsRemoteAndVMCP(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeVMCP} {
+		t.Run(string(runtime), func(t *testing.T) {
+			// These runtimes must not use a Docker client or deploy a container.
+			backend := &dockerBackend{}
+			if err := backend.deployServer(t.Context(), ServerConfig{Runtime: runtime}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
 func TestDockerTransformObotHostnameAlwaysRewritesHost(t *testing.T) {
 	d := &dockerBackend{hostBaseURLWithPort: "http://172.17.0.1:8080"}

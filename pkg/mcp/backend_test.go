@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"testing"
 	"time"
 
@@ -46,55 +45,6 @@ func TestConstructMCPServerMMMCPYAML(t *testing.T) {
 	}
 	if server.Env["TOKEN"] != "${LITERAL_TOKEN}" {
 		t.Fatalf("TOKEN = %q, want literal interpolation syntax preserved", server.Env["TOKEN"])
-	}
-}
-
-func TestMMMCPConfigPreservesCompositeSettings(t *testing.T) {
-	config := MMMCPConfig(ServerConfig{
-		Runtime:                types.RuntimeComposite,
-		MCPServerName:          "composite-server",
-		MCPServerDisplayName:   "Composite Server",
-		PassthroughHeaderNames: []string{"X-Tenant"},
-		Components: []ComponentServer{
-			{
-				DisplayName: "search",
-				URL:         "http://127.0.0.1:8080/mcp-connect/component",
-				ToolPrefix:  "custom",
-				Tools: []types.ToolOverride{
-					{
-						Name:                "enabled",
-						OverrideName:        "renamed",
-						Description:         "original description",
-						OverrideDescription: "replacement description",
-						Enabled:             true,
-					},
-					{Name: "disabled", Enabled: false},
-				},
-			},
-		},
-	}, nil)
-
-	if config.Name != "Composite Server" || config.Version != version.Get().String() {
-		t.Fatalf("server identity = %q/%q, want %q/%q", config.Name, config.Version, "Composite Server", version.Get().String())
-	}
-	if len(config.Servers) != 1 {
-		t.Fatalf("got %d component servers, want 1", len(config.Servers))
-	}
-	server := config.Servers[0]
-	if server.Name != "search" || server.URL != "http://127.0.0.1:8080/mcp-connect/component" || server.Prefix != "custom" {
-		t.Fatalf("unexpected component server: %#v", server)
-	}
-	if !slices.Equal(server.PassthroughHeaders, []string{"Authorization", "X-Tenant"}) {
-		t.Fatalf("passthrough headers = %v", server.PassthroughHeaders)
-	}
-	if len(server.Tools) != 2 {
-		t.Fatalf("tool overrides = %#v", server.Tools)
-	}
-	if tool := server.Tools[0]; tool.Name != "enabled" || tool.OverrideName != "renamed" || tool.Description != "original description" || tool.OverrideDescription != "replacement description" || !tool.Enabled {
-		t.Fatalf("unexpected enabled tool override: %#v", tool)
-	}
-	if tool := server.Tools[1]; tool.Name != "disabled" || tool.Enabled {
-		t.Fatalf("unexpected disabled tool override: %#v", tool)
 	}
 }
 

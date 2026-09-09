@@ -36,7 +36,7 @@ func ValidateCatalogEntryTunnelReferences(ctx context.Context, client kclient.Cl
 }
 
 // ValidateServerTunnelReferences verifies every tunnel reference in a runtime
-// server manifest, including remote components embedded in a composite.
+// server manifest.
 func ValidateServerTunnelReferences(ctx context.Context, client kclient.Client, manifest types.MCPServerManifest) error {
 	switch manifest.Runtime {
 	case types.RuntimeRemote:
@@ -55,15 +55,6 @@ func ValidateServerTunnelReferences(ctx context.Context, client kclient.Client, 
 			return fmt.Errorf("remoteConfig.tunnelName requires a URL or hostname")
 		}
 		return ValidateReference(ctx, client, manifest.RemoteConfig.TunnelName, target)
-	case types.RuntimeComposite:
-		if manifest.CompositeConfig == nil {
-			return nil
-		}
-		for i, component := range manifest.CompositeConfig.ComponentServers {
-			if err := ValidateServerTunnelReferences(ctx, client, component.Manifest); err != nil {
-				return fmt.Errorf("compositeConfig.componentServers[%d]: %w", i, err)
-			}
-		}
 	}
 	return nil
 }

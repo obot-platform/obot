@@ -62,11 +62,9 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.AzureConfig":                               schema_obot_platform_obot_apiclient_types_AzureConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.BannerNotification":                        schema_obot_platform_obot_apiclient_types_BannerNotification(ref),
 		"github.com/obot-platform/obot/apiclient/types.BasicImagePullSecretConfig":                schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref),
-		"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer":                    schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderMetadata":                    schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref),
 		"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus":                      schema_obot_platform_obot_apiclient_types_CommonProviderStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.ComponentServer":                           schema_obot_platform_obot_apiclient_types_ComponentServer(ref),
-		"github.com/obot-platform/obot/apiclient/types.CompositeCatalogConfig":                    schema_obot_platform_obot_apiclient_types_CompositeCatalogConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CompositeRuntimeConfig":                    schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.ContainerizedRuntimeConfig":                schema_obot_platform_obot_apiclient_types_ContainerizedRuntimeConfig(ref),
 		"github.com/obot-platform/obot/apiclient/types.CustomS3Config":                            schema_obot_platform_obot_apiclient_types_CustomS3Config(ref),
@@ -2968,62 +2966,6 @@ func schema_obot_platform_obot_apiclient_types_BasicImagePullSecretConfig(ref co
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_CatalogComponentServer(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"catalogEntryID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "CatalogEntryID if set, reference the catalog entry the component server is sourced from",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"mcpServerID": {
-						SchemaProps: spec.SchemaProps{
-							Description: "MCPServerID if set, reference the multi-user MCP server the component server proxies to",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"manifest": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Manifest is the catalog entry manifest of the component server",
-							Default:     map[string]interface{}{},
-							Ref:         ref("github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest"),
-						},
-					},
-					"toolOverrides": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ToolOverrides restrict the tools exposed by the component server",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.ToolOverride"),
-									},
-								},
-							},
-						},
-					},
-					"toolPrefix": {
-						SchemaProps: spec.SchemaProps{
-							Description: "ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-				Required: []string{"manifest"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.MCPServerCatalogEntryManifest", "github.com/obot-platform/obot/apiclient/types.ToolOverride"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_CommonProviderMetadata(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -3235,39 +3177,12 @@ func schema_obot_platform_obot_apiclient_types_ComponentServer(ref common.Refere
 	}
 }
 
-func schema_obot_platform_obot_apiclient_types_CompositeCatalogConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "CompositeCatalogConfig represents configuration for composite servers in catalog entries.",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"componentServers": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/obot-platform/obot/apiclient/types.CatalogComponentServer"),
-									},
-								},
-							},
-						},
-					},
-				},
-				Required: []string{"componentServers"},
-			},
-		},
-		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.CatalogComponentServer"},
-	}
-}
-
 func schema_obot_platform_obot_apiclient_types_CompositeRuntimeConfig(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
+				Description: "CompositeRuntimeConfig is retained only to migrate stored composite servers to vMCP.",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"componentServers": {
 						SchemaProps: spec.SchemaProps{

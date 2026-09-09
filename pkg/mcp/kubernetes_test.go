@@ -86,26 +86,6 @@ func TestComputeK8sSettingsHashUsesServerSpecificResources(t *testing.T) {
 		t.Fatalf("remote server hash = %s, want %s", got, remoteBaseHash)
 	}
 
-	compositeBaseHash := ComputeK8sSettingsHash(
-		baseSettings,
-		nil,
-		types.RuntimeComposite,
-		false,
-		nil,
-	)
-	if got := ComputeK8sSettingsHash(
-		resourceSettings,
-		nil,
-		types.RuntimeComposite,
-		false,
-		nil,
-	); got != compositeBaseHash {
-		t.Fatalf("composite server hash = %s, want %s", got, compositeBaseHash)
-	}
-	if compositeBaseHash != remoteBaseHash {
-		t.Fatalf("composite base hash = %s, want remote base hash %s", compositeBaseHash, remoteBaseHash)
-	}
-
 	agentBaseHash := ComputeK8sSettingsHash(
 		baseSettings,
 		nil,
@@ -483,8 +463,8 @@ func TestK8sObjects_DoesNotCreateShimContainer(t *testing.T) {
 	}
 }
 
-func TestK8sObjects_RemoteAndCompositeCreateNoObjects(t *testing.T) {
-	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeComposite} {
+func TestK8sObjects_RemoteAndVMCPCreateNoObjects(t *testing.T) {
+	for _, runtime := range []types.Runtime{types.RuntimeRemote, types.RuntimeVMCP} {
 		t.Run(string(runtime), func(t *testing.T) {
 			k := newTestKubernetesBackend(t)
 

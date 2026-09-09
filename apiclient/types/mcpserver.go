@@ -13,8 +13,10 @@ const (
 	RuntimeNPX           Runtime = "npx"
 	RuntimeContainerized Runtime = "containerized"
 	RuntimeRemote        Runtime = "remote"
-	RuntimeComposite     Runtime = "composite"
 	RuntimeVMCP          Runtime = "vmcp"
+
+	// RuntimeComposite is retained only to identify legacy resources during migration.
+	RuntimeComposite Runtime = "composite"
 
 	// defaultStartupTimeoutSeconds is the default value used when (UVX|NPX|Containerized)RuntimeConfig.StartupTimeout is not set
 	defaultStartupTimeoutSeconds = 60
@@ -89,24 +91,7 @@ type MultiUserConfig struct {
 	UserDefinedHeaders []MCPHeader `json:"userDefinedHeaders,omitempty"`
 }
 
-// CompositeCatalogConfig represents configuration for composite servers in catalog entries.
-type CompositeCatalogConfig struct {
-	ComponentServers []CatalogComponentServer `json:"componentServers"`
-}
-
-type CatalogComponentServer struct {
-	// CatalogEntryID if set, reference the catalog entry the component server is sourced from
-	CatalogEntryID string `json:"catalogEntryID,omitempty"`
-	// MCPServerID if set, reference the multi-user MCP server the component server proxies to
-	MCPServerID string `json:"mcpServerID,omitempty"`
-	// Manifest is the catalog entry manifest of the component server
-	Manifest MCPServerCatalogEntryManifest `json:"manifest,omitzero"`
-	// ToolOverrides restrict the tools exposed by the component server
-	ToolOverrides []ToolOverride `json:"toolOverrides,omitempty"`
-	// ToolPrefix is an optional prefix applied to the final name of each tool exposed by the component server
-	ToolPrefix string `json:"toolPrefix,omitempty"`
-}
-
+// CompositeRuntimeConfig is retained only to migrate stored composite servers to vMCP.
 type CompositeRuntimeConfig struct {
 	ComponentServers []ComponentServer `json:"componentServers"`
 }
@@ -571,26 +556,6 @@ type MCPServerOAuthCredentialStatus struct {
 // IsSingleUser returns true if the type represents a single-user server.
 func (t ServerUserType) IsSingleUser() bool {
 	return t == ServerUserTypeSingleUser
-}
-
-// ComponentID returns the ID of the component server.
-// It's used to uniquely identify a component server in a composite server.
-func (c CatalogComponentServer) ComponentID() string {
-	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID
-	}
-
-	return c.MCPServerID
-}
-
-// ComponentID returns the ID of the component server.
-// It's used to uniquely identify a component server in a composite server.
-func (c ComponentServer) ComponentID() string {
-	if c.CatalogEntryID != "" {
-		return c.CatalogEntryID
-	}
-
-	return c.MCPServerID
 }
 
 // IsSingleUser returns true if this is a single-user MCP server.

@@ -62,8 +62,6 @@ Multi-user catalog entries are configured with `serverUserType: multiUser`. Admi
 
 Catalog entry updates are tracked against deployed servers. When a catalog entry changes, affected deployments show an update action and a diff of the current deployed manifest versus the updated catalog entry. Applying the update refreshes the shared deployment from the catalog entry. Users may need to reconfigure their own instance if the update introduces new required per-user configuration.
 
-Multi-user catalog entries do not support the composite runtime. To build a composite server that includes a multi-user server, deploy the multi-user catalog entry first and then add that deployed server as a component of the composite server.
-
 ### Remote server
 
 MCP Servers that are HTTP Streaming compatible should be configured this way. These servers can be provided by trusted 3rd party vendors. Remote servers also work for MCP servers deployed through existing CI/CD pipeline within the organization.
@@ -79,19 +77,6 @@ Remote MCP servers that conform to the MCP spec authentication schema will work 
 **Configuration**: Specify the remote URL endpoint. Additional options include connection restrictions for unconventional configurations, custom HTTP headers, and configuration values to send to the remote server.
 
 If Obot cannot directly reach a remote server, use an [MCP Tunnel](./mcp-tunnels.md) to route requests through a machine on the server's network. Keep the remote server's real HTTP or HTTPS URL and select the tunnel separately in **Advanced Configuration**.
-
-### Composite server
-
-Composite servers let administrators combine one or more single-user, multi-user, and remote servers into a single virtual MCP server. It also allows admins to control the names, descriptions, and availability of the tool set exposed to end-users.
-
-This type is useful when:
-
-- You want a single connection endpoint that aggregates tools from multiple servers
-- You need fine-grained tool RBAC without exposing entire servers
-- You want to fine-tune exposed tool names and descriptions
-- You want to create tool sets tailored to specific user groups and use cases
-
-**Configuration**: Inherited from component servers. Users are prompted for configuration for each component and can disable individual components. Remote components requiring OAuth prompt for authentication, and skipping OAuth automatically disables that component.
 
 ## Adding a server
 

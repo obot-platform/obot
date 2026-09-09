@@ -75,14 +75,14 @@ Each MCP server is defined in its own YAML file with the following structure:
 ### Basic Information
 
 ```yaml
-entryKey: server-name # optional key for referencing in composite servers
+entryKey: server-name # optional stable key within this source
 name: Server Name
 description: |
   Detailed description of the server's capabilities and features.
   Supports multi-line markdown formatting.
 ```
 
-The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source, DNS-friendly, and cannot contain `::`. This is used when [composite MCP servers](#composite-mcp-servers) need to reference entries without knowing Obot's generated internal catalog entry ID.
+The optional `entryKey` field defines a stable key for this catalog entry. It must be unique within its source, DNS-friendly, and cannot contain `::`.
 
 ### Tool Previews
 
@@ -177,83 +177,11 @@ The `serverUserType` field specifies how users interact with the catalog entry:
 
 Catalog entries should set this field explicitly. For compatibility with existing catalogs, some import paths normalize an omitted value to `singleUser` before validation. Any persisted value other than `singleUser` or `multiUser` is rejected at validation time.
 
-Multi-user catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes. They do not support the `composite` runtime.
+Catalog templates support the `npx`, `uvx`, `containerized`, and `remote` runtimes.
 
-### Composite MCP servers
+### Composite runtime removal
 
-Composite MCP servers combine tools from other catalog entries. In GitOps, composite entries can reference component entries in three ways:
-
-- Use a normal internal `catalogEntryID`, such as `default-gmail-8a99d8be`
-- Use a same-source portable key with `{entryKey}`. The target entry must define `entryKey` and must be in the same source.
-- Use a cross-source portable key with `{sourceID}::{entryKey}`. Obot uses the configured source URL without the `https://` prefix as `sourceID`. For example, `https://github.com/company/mcp-catalog` is referenced as `github.com/company/mcp-catalog`. The target entry must define `entryKey`.
-
-Portable references are useful when the target entry is in the same Git catalog sync and does not have an internal generated ID yet, or when you want to use a purely-gitops workflow.
-
-```yaml
-name: Gmail Composite
-runtime: composite
-compositeConfig:
-  componentServers:
-    - catalogEntryID: gmail
-    - catalogEntryID: github.com/company/mcp-catalog::gmail
-```
-
-During sync, Obot resolves portable keys to internal generated catalog entry IDs and stores the internal IDs. If `catalogEntryID` does not contain `::` and does not match an `entryKey` in the same source, Obot treats it as an internal catalog entry ID and leaves it unchanged.
-
-#### Composite configuration fields
-
-| Field | Required | Description |
-|---|---:|---|
-| `compositeConfig.componentServers` | Yes | List of component servers included in the composite server. |
-| `componentServers[].catalogEntryID` | Yes, unless `mcpServerID` is set | Catalog entry reference. This can be an internal catalog entry ID, same-source `entryKey`, or cross-source `{sourceID}::{entryKey}`. |
-| `componentServers[].mcpServerID` | Yes, unless `catalogEntryID` is set | Existing deployed MCP server to include as a component. Use this when a composite should include a multi-user server that has already been deployed. |
-| `componentServers[].toolPrefix` | No | Prefix added to every exposed tool from this component after any `overrideName` is applied. For example, `configured_` turns `echo` into `configured_echo`. |
-| `componentServers[].toolOverrides` | No | Tool allowlist and customization list. If omitted, all tools from the component are exposed. If present, only tools listed with `enabled: true` are exposed; tools not listed are hidden. |
-| `componentServers[].toolOverrides[].name` | Yes | Original tool name returned by the component server. |
-| `componentServers[].toolOverrides[].enabled` | No | Whether this tool is exposed by the composite server. Defaults to `false`, so set `enabled: true` for every tool you want to expose. |
-| `componentServers[].toolOverrides[].overrideName` | No | Replacement tool name before `toolPrefix` is applied. If omitted, the original `name` is used. |
-| `componentServers[].toolOverrides[].overrideDescription` | No | Replacement tool description. Use this for custom tool text in Git-managed catalogs. |
-| `componentServers[].toolOverrides[].description` | No | Reserved for Obot's live/source tool metadata and rejected in Git-synced tool overrides. Use `overrideDescription` instead. |
-
-To get `mcpServerID` for an existing deployed multi-tenant server, open the server in Obot, choose **Connect URL**, and copy the path segment after `/mcp-connect/`. For example, if the connect URL is `https://obot.example.com/mcp-connect/ms1qc7nz`, use `ms1qc7nz` as `mcpServerID`.
-
-When `toolOverrides` is present, it acts as an allowlist. This means adding a tool to the list without `enabled: true` disables that tool, and also hides any other component tools that are not listed. To disable only a few tools, list those disabled tools and also list every tool you still want exposed with `enabled: true`. To rename or redescribe a tool while keeping it available, include `enabled: true`.
-
-This does not expose `web_search_exa`:
-
-```yaml
-name: Research Search Composite
-runtime: composite
-compositeConfig:
-  componentServers:
-    - catalogEntryID: github.com/obot-platform/mcp-catalog::obot-exa-search
-      toolOverrides:
-        - name: web_search_exa
-```
-
-Because `enabled` defaults to `false`, that component exposes no tools. Set `enabled: true` for each tool that should be available:
-
-```yaml
-name: Research Search Composite
-runtime: composite
-compositeConfig:
-  componentServers:
-    - catalogEntryID: github.com/obot-platform/mcp-catalog::obot-exa-search
-      toolPrefix: research_
-      toolOverrides:
-        - name: web_search_exa
-          enabled: true
-          overrideName: web_search
-          overrideDescription: Search the web for current research and source material.
-        - name: company_research_exa
-          enabled: true
-          overrideName: company_research
-          overrideDescription: Find company information and market context.
-        - name: crawling_exa
-          enabled: false
-```
-
-This example exposes `research_web_search` and `research_company_research`, and hides `crawling_exa`. Because `toolOverrides` is an allowlist, any other tools from the Exa component are also hidden unless they are listed with `enabled: true`.
+Catalog entries with `runtime: composite` are no longer supported, including entries imported through GitOps. Remove composite definitions from catalog sources.
 
 #### Multi-user template with shared configuration
 

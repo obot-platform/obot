@@ -8,7 +8,6 @@ import (
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	"github.com/obot-platform/obot/pkg/system"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
@@ -445,104 +444,6 @@ func TestServerToServerConfig_MultiUserPassthroughHeaders(t *testing.T) {
 				t.Fatalf("expected passthrough header names %v, got %v", tt.expected, config.PassthroughHeaderNames)
 			}
 		})
-	}
-}
-
-func TestCompositeServerToServerConfig_OmittedToolOverridesRemainNil(t *testing.T) {
-	baseURL := "http://localhost:8080"
-	mcpServer := v1.MCPServer{
-		Spec: v1.MCPServerSpec{
-			Manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{
-					{CatalogEntryID: "search"},
-				}},
-			},
-		},
-
-		Name: "composite"}
-	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"},
-		Name: "search-server"}
-
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(missing) > 0 {
-		t.Fatalf("expected no missing config, got %v", missing)
-	}
-	if len(config.Components) != 1 {
-		t.Fatalf("expected one component, got %d", len(config.Components))
-	}
-	if len(config.Components[0].Tools) != 0 {
-		t.Fatalf("expected omitted tool overrides to have empty tools, got %#v", config.Components[0].Tools)
-	}
-}
-
-func TestCompositeServerToServerConfig_PreservesDisabledToolOverrides(t *testing.T) {
-	baseURL := "http://localhost:8080"
-	mcpServer := v1.MCPServer{
-		Spec: v1.MCPServerSpec{
-			Manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{
-					{CatalogEntryID: "search", ToolOverrides: []types.ToolOverride{
-						{Name: "search", Enabled: false},
-					}},
-				}},
-			},
-		},
-
-		Name: "composite"}
-	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"},
-		Name: "search-server"}
-
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(missing) > 0 {
-		t.Fatalf("expected no missing config, got %v", missing)
-	}
-	if len(config.Components) != 1 {
-		t.Fatalf("expected one component, got %d", len(config.Components))
-	}
-	if len(config.Components[0].Tools) != 1 {
-		t.Fatalf("expected disabled tool override to be preserved, got %#v", config.Components[0].Tools)
-	}
-	if tool := config.Components[0].Tools[0]; tool.Name != "search" || tool.Enabled {
-		t.Fatalf("unexpected disabled tool override: %#v", tool)
-	}
-}
-
-func TestCompositeServerToServerConfig_ConnectCompositeURL(t *testing.T) {
-	baseURL := "http://localhost:8080"
-	mcpServer := v1.MCPServer{
-		Spec: v1.MCPServerSpec{
-			Manifest: types.MCPServerManifest{
-				Runtime: types.RuntimeComposite,
-				CompositeConfig: &types.CompositeRuntimeConfig{ComponentServers: []types.ComponentServer{
-					{CatalogEntryID: "search"},
-				}},
-			},
-		},
-
-		Name: "composite"}
-	component := v1.MCPServer{Spec: v1.MCPServerSpec{MCPServerCatalogEntryName: "search"},
-		Name: "search-server"}
-
-	config, missing, err := CompositeServerToServerConfig(mcpServer, []v1.MCPServer{component}, nil, mcpServer.ValidConnectURLs(baseURL), 8080, "test-user-id", "test-scope", "test-catalog", nil)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(missing) > 0 {
-		t.Fatalf("expected no missing config, got %v", missing)
-	}
-	if len(config.Components) != 1 {
-		t.Fatalf("expected one component, got %d", len(config.Components))
-	}
-	if config.URL != system.MCPConnectCompositeURL(mcpServer.Name, 8080) {
-		t.Fatalf("expected URL %s, got %s", system.MCPConnectCompositeURL(mcpServer.Name, 8080), config.URL)
 	}
 }
 
