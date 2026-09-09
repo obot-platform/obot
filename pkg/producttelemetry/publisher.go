@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math/rand/v2"
 	"os"
 	"strings"
 	"time"
@@ -17,7 +18,7 @@ import (
 )
 
 const (
-	dailyReportOffset = 5 * time.Minute
+	dailyReportWindow = 10 * time.Minute
 )
 
 type consentReader interface {
@@ -28,7 +29,7 @@ type reportSender interface {
 	Send(context.Context, clienttypes.ProductTelemetryRequest) error
 }
 
-// Publisher collects and sends product telemetry at startup and at a fixed daily UTC time.
+// Publisher collects and sends product telemetry at startup and at a jittered daily UTC time.
 type Publisher struct {
 	consent         consentReader
 	gatewayClient   requestGatewayClient
@@ -81,9 +82,8 @@ func (p *Publisher) run(ctx context.Context) {
 	p.runOnce(ctx)
 
 	for {
-		now := time.Now()
-		delay := nextDailyReportTime(now).Sub(now)
-		if err := wait(ctx, delay); err != nil {
+		next := nextDailyReportTime(time.Now())
+		if err := wait(ctx, time.Until(next)); err != nil {
 			return
 		}
 		p.runOnce(ctx)
@@ -111,12 +111,10 @@ func (p *Publisher) runOnce(ctx context.Context) {
 }
 
 func nextDailyReportTime(now time.Time) time.Time {
-	now = now.UTC()
-	next := now.Truncate(24 * time.Hour).Add(dailyReportOffset)
-	if !next.After(now) {
-		next = next.Add(24 * time.Hour)
-	}
-	return next
+	// Spread reports across the daily window so Obot instances do not all publish
+	// simultaneously at midnight UTC.
+	offset := time.Duration(rand.Int64N(int64(dailyReportWindow) + 1))
+	return now.UTC().Truncate(24 * time.Hour).Add(24*time.Hour + offset)
 }
 
 func wait(ctx context.Context, delay time.Duration) error {

@@ -27,29 +27,27 @@ func TestNextDailyReportTime(t *testing.T) {
 	tests := []struct {
 		name string
 		now  time.Time
-		want time.Time
 	}{
 		{
-			name: "before daily time uses today",
+			name: "local time uses next UTC day",
 			now:  time.Date(2026, time.September, 2, 17, 4, 0, 0, time.FixedZone("local", -7*60*60)),
-			want: time.Date(2026, time.September, 3, 0, 5, 0, 0, time.UTC),
 		},
 		{
-			name: "exact daily time uses tomorrow",
-			now:  time.Date(2026, time.September, 3, 0, 5, 0, 0, time.UTC),
-			want: time.Date(2026, time.September, 4, 0, 5, 0, 0, time.UTC),
+			name: "before midnight uses next UTC day",
+			now:  time.Date(2026, time.September, 2, 23, 59, 0, 0, time.UTC),
 		},
 		{
-			name: "after daily time uses tomorrow",
+			name: "after midnight uses following UTC day",
 			now:  time.Date(2026, time.September, 3, 18, 0, 0, 0, time.UTC),
-			want: time.Date(2026, time.September, 4, 0, 5, 0, 0, time.UTC),
 		},
 	}
 
 	for _, testCase := range tests {
 		t.Run(testCase.name, func(t *testing.T) {
-			if got := nextDailyReportTime(testCase.now); !got.Equal(testCase.want) {
-				t.Fatalf("nextDailyReportTime(%v) = %v, want %v", testCase.now, got, testCase.want)
+			start := testCase.now.UTC().Truncate(24 * time.Hour).Add(24 * time.Hour)
+			end := start.Add(dailyReportWindow)
+			if got := nextDailyReportTime(testCase.now); got.Before(start) || got.After(end) {
+				t.Fatalf("nextDailyReportTime(%v) = %v, want between %v and %v", testCase.now, got, start, end)
 			}
 		})
 	}
