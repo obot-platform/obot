@@ -284,13 +284,15 @@
 						}}
 					>
 						<span class="flex items-center gap-2">
-							<BotMessageSquare class="size-4" /> Launch Agent
+							<BotMessageSquare class="size-4" /> Launch Obot Chat
+							<span class="badge badge-warning badge-xs">Deprecated</span>
 						</span>
 					</button>
 				{:else}
 					<div class="dropdown-link cursor-default hover:bg-transparent dark:hover:bg-transparent">
 						<span class="flex items-center gap-2 opacity-50">
-							<BotMessageSquare class="size-4" /> Launch Agent
+							<BotMessageSquare class="size-4" /> Launch Obot Chat
+							<span class="badge badge-warning badge-xs">Deprecated</span>
 						</span>
 						<InfoTooltip
 							text={profile.current.isAdmin?.()

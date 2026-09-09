@@ -147,14 +147,6 @@ describe('Layout.svelte', () => {
 				await expectSharedNavigation();
 				await expectAdminOnlyNavigation();
 			});
-
-			describe('when agents are enabled', () => {
-				it('shows Launch Agent', async () => {
-					await renderLayout([Group.ADMIN], { agentsEnabled: true });
-
-					await expect.element(page.getByCSS('#launch-agent-chat')).toBeVisible();
-				});
-			});
 		});
 
 		describe('when the user is a power user', () => {

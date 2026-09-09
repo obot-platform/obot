@@ -23,7 +23,7 @@
 	import SkillsPoliciesView from './SkillsPoliciesView.svelte';
 	import SkillsView from './SkillsView.svelte';
 	import SourcesView from './SourcesView.svelte';
-	import { Info, Plus, Settings, TriangleAlert, X } from '@lucide/svelte';
+	import { Info, Plus, TriangleAlert, X } from '@lucide/svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { fly, slide } from 'svelte/transition';
@@ -331,12 +331,6 @@
 				<Plus class="size-4" /> Add Access Policy
 			</button>
 		{:else if !isAdminReadonly && (view === 'skills' || view === 'sources')}
-			<a
-				class="btn btn-secondary flex items-center gap-1 text-sm"
-				href={resolve('/admin/platform?view=git-credentials')}
-			>
-				<Settings class="size-4" /> Manage Credentials
-			</a>
 			<button class="btn btn-primary flex items-center gap-1 text-sm" onclick={openAddSource}>
 				<Plus class="size-4" /> Add Source URL
 			</button>
@@ -544,6 +538,14 @@
 								}
 							}}
 						/>
+						<p class="text-xs text-muted-content">
+							Need to add or modify a credential? <a
+								class="text-blue-500 hover:underline"
+								href={resolve('/admin/platform?view=git-credentials')}
+							>
+								Manage Credentials
+							</a>
+						</p>
 					</div>
 					{#if editingSource.credentialType === 'shared'}
 						<div class="flex flex-col gap-1">

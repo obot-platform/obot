@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -274,6 +275,12 @@
 						}
 					}}
 				/>
+				<p class="text-xs text-muted-content font-light">
+					Need to add or modify a credential? <a
+						class="text-blue-500 hover:underline"
+						href={resolve('/admin/platform?view=git-credentials')}>Manage Credentials</a
+					>
+				</p>
 			</div>
 
 			{#if editingSource.credentialType === 'shared'}

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Layout from '$lib/components/Layout.svelte';
@@ -38,7 +37,7 @@
 	import SourceUrlsView from './SourceUrlsView.svelte';
 	import TunnelsView from './TunnelsView.svelte';
 	import { getCreatedEntryUrl } from './utils';
-	import { Plus, RefreshCcw, Server, Settings } from '@lucide/svelte';
+	import { Plus, RefreshCcw, Server } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 
 	const defaultCatalogId = DEFAULT_MCP_CATALOG_ID;
@@ -269,12 +268,6 @@
 				Sync
 			{/if}
 		</button>
-		<a
-			class="btn btn-secondary flex items-center gap-1 text-sm"
-			href={resolve('/admin/platform?view=git-credentials')}
-		>
-			<Settings class="size-4" /> Manage Credentials
-		</a>
 		<button
 			id="add-catalog-source-button"
 			class="btn btn-primary btn-block w-full text-sm md:w-52"

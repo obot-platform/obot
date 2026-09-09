@@ -54,12 +54,7 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import Navbar from '$lib/components/Navbar.svelte';
-	import {
-		ADMIN_AGENT_DISABLED_MESSAGE,
-		COMMUNITY_ENTITLEMENT,
-		ENTERPRISE_ENTITLEMENT,
-		USER_AGENT_DISABLED_MESSAGE
-	} from '$lib/constants';
+	import { COMMUNITY_ENTITLEMENT, ENTERPRISE_ENTITLEMENT } from '$lib/constants';
 	import {
 		initLayout as defaultInitLayout,
 		getLayout as defaultGetLayout,
@@ -67,7 +62,6 @@
 	} from '$lib/context/layout.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
-		defaultModelAliases,
 		license as licenseStore,
 		profile,
 		responsive,
@@ -75,7 +69,7 @@
 		appNotification as appNotificationStore
 	} from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
-	import { isAgentEnabled, validateVersionUserLimit } from '$lib/utils';
+	import { validateVersionUserLimit } from '$lib/utils';
 	import AppNotificationBanner from './AppNotificationBanner.svelte';
 	import DotDotDot from './DotDotDot.svelte';
 	import InfoTooltip from './InfoTooltip.svelte';
@@ -102,9 +96,7 @@
 		Logs,
 		Settings2,
 		MessageSquareText,
-		ChevronRight,
-		BotMessageSquare,
-		LockOpen
+		ChevronRight
 	} from '@lucide/svelte';
 	import { tick, untrack } from 'svelte';
 	import { fade, slide, type TransitionConfig } from 'svelte/transition';
@@ -221,15 +213,7 @@
 		}
 	}
 
-	// Whether the Obot Agent feature is enabled server-side. When false, agent entry
-	// points are removed entirely (not just disabled). When the feature is enabled but
-	// models aren't configured, agentLinkEnabled is false so links show as disabled.
-	let agentsFeatureEnabled = $derived(version.current.agentsEnabled !== false);
 	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
-	let agentLinkEnabled = $derived(
-		isAgentEnabled(defaultModelAliases.current) && agentsFeatureEnabled
-	);
-
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
 
 	let hasLicenseEntitlementViolations = $derived(
@@ -270,17 +254,7 @@
 					id: 'models',
 					label: 'Models',
 					href: '/models'
-				},
-				...(profile.current.hasAdminAccess?.() && agentsFeatureEnabled
-					? [
-							{
-								id: 'obot-agents',
-								label: 'Agents',
-								href: '/admin/agents',
-								disabled: isBootStrapUser || !agentLinkEnabled
-							}
-						]
-					: [])
+				}
 			]
 		},
 		{
@@ -340,20 +314,6 @@
 						label: 'Platform',
 						icon: Settings2,
 						href: '/admin/platform'
-					}
-				]
-			: []),
-		...(agentsFeatureEnabled
-			? [
-					{
-						id: 'launch-agent-chat',
-						href: '/agent',
-						icon: BotMessageSquare,
-						disabled: isBootStrapUser || !agentLinkEnabled,
-						label: 'Launch Agent',
-						collapsible: false,
-						noteIcon: !agentLinkEnabled ? LockOpen : undefined,
-						note: !agentLinkEnabled ? renderAgentDisabledNote : undefined
 					}
 				]
 			: [])
@@ -766,14 +726,6 @@
 				{/if}
 			</h1>
 		</div>
-	{/if}
-{/snippet}
-
-{#snippet renderAgentDisabledNote()}
-	{#if !agentLinkEnabled}
-		<p class="mt-1 text-sm">
-			{profile.current.isAdmin?.() ? ADMIN_AGENT_DISABLED_MESSAGE : USER_AGENT_DISABLED_MESSAGE}
-		</p>
 	{/if}
 {/snippet}
 
