@@ -48,7 +48,7 @@
 
 		<div class="divider my-0"></div>
 
-		<fieldset class="flex flex-col gap-3">
+		<fieldset class="flex flex-col gap-3" disabled={saving}>
 			<legend class="mb-2 text-sm font-medium">Share product usage data</legend>
 			<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-base-300 p-3">
 				<input

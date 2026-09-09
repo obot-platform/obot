@@ -109,6 +109,38 @@ describe('Product Analytics settings view', () => {
 		successNotification.mockRestore();
 	});
 
+	it('disables both choices while saving', async () => {
+		let finishRequest: (() => void) | undefined;
+		const requestPending = new Promise<void>((resolve) => {
+			finishRequest = resolve;
+		});
+		worker.use(
+			http.put('/api/product-telemetry-consent', async () => {
+				await requestPending;
+				return HttpResponse.json({ consent: true });
+			})
+		);
+
+		await renderView(false);
+		const enabled = page.getByRole('radio', {
+			name: 'Enable product analytics',
+			exact: true
+		});
+		const disabled = page.getByRole('radio', {
+			name: 'Disable product analytics',
+			exact: true
+		});
+		await enabled.click();
+		await page.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await expect.element(enabled).toBeDisabled();
+		await expect.element(disabled).toBeDisabled();
+
+		finishRequest?.();
+		await expect.element(enabled).toBeEnabled();
+		await expect.element(disabled).toBeEnabled();
+	});
+
 	it('retains the unsaved choice when saving fails', async () => {
 		worker.use(
 			http.put('/api/product-telemetry-consent', () =>
