@@ -45,7 +45,7 @@ require (
 	github.com/obot-platform/chat-completion-client v0.0.0-20260529163740-88dd50945c18
 	github.com/obot-platform/cmd v0.0.0-20260707150346-5103d461ab67
 	github.com/obot-platform/kinm v0.0.0-20260903173654-2231aa14b6a7
-	github.com/obot-platform/mmmcp v0.1.3-0.20260908233918-ee6191f923d0
+	github.com/obot-platform/mmmcp v0.1.3-0.20260910034443-4906ff9ff84b
 	github.com/obot-platform/nah v0.0.0-20260903153505-fafe94344bbd
 	github.com/obot-platform/obot/apiclient v0.0.0-20250813183905-ade719c1e8bf
 	github.com/obot-platform/obot/logger v0.0.0-20241217130503-4004a5c69f32

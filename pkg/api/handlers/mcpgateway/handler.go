@@ -332,6 +332,7 @@ func (h *Handler) Proxy(req api.Context) error {
 	}
 
 	ctx := mmmcp.ContextWithConfig(req.Context(), mcp.MMMCPConfig(serverConfig, nil))
+	ctx = mmmcp.ContextWithConfigID(ctx, fmt.Sprintf("%s++%s", serverConfig.MCPServerName, serverConfig.UserID))
 	h.composite.HTTPHandler().ServeHTTP(req.ResponseWriter, req.WithContext(ctx))
 	return nil
 }
