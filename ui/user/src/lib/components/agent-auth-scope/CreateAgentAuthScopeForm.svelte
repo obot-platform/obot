@@ -191,7 +191,7 @@
 			{/if}
 		</p>
 		<p class="input-description">
-			Select which MCP servers this agent identity can access. To create a capability-only scope,
+			Select which MCP servers this agent identity can access. To create a capability-only identity,
 			leave this empty and enable a capability below.
 			{#if selectedServerIds.size > 0}
 				<span class="italic">
