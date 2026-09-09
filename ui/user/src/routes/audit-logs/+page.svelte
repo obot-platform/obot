@@ -34,7 +34,7 @@
 	views={profile.current.hasAdminAccess?.()
 		? [
 				{ label: 'MCP', value: 'mcp', content: mcp },
-				{ label: 'LLM', value: 'llm', content: llm }
+				{ label: 'Model', value: 'llm', content: llm }
 			]
 		: [{ label: 'MCP', value: 'mcp', content: mcp }]}
 />

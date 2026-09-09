@@ -124,9 +124,9 @@
 		...(hasAdminAccess
 			? [
 					{ label: 'Sources', value: 'sources', content: sources },
+					{ label: 'Deployments', value: 'deployments', content: deployments },
 					{ label: 'Filters', value: 'filters', content: filters },
-					{ label: 'Tunnels', value: 'tunnels', content: tunnels },
-					{ label: 'Deployments', value: 'deployments', content: deployments }
+					{ label: 'Tunnels', value: 'tunnels', content: tunnels }
 				]
 			: []),
 		...(isPowerUserPlus || hasAdminAccess

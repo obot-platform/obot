@@ -120,7 +120,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('Agent Auth Scope API key load', () => {
+describe('Agent Identity API key load', () => {
 	it('redirects users without admin access', async () => {
 		const getApiKey = vi.spyOn(ApiKeysService, 'getApiKey');
 		const getAnyApiKey = vi.spyOn(ApiKeysService, 'getAnyApiKey');
@@ -152,7 +152,7 @@ describe('Agent Auth Scope API key load', () => {
 	});
 });
 
-describe('Agent Auth Scope API key usage page', () => {
+describe('Agent Identity API key usage page', () => {
 	it('shows token usage totals for this API key and MCP log tab', async () => {
 		const { requests } = await renderApiKeyPage();
 

@@ -8,7 +8,7 @@
 
 	let { data } = $props();
 	const { apiKey, isAdmin } = $derived(data);
-	let title = $derived(apiKey?.name || 'Agent Auth Scope');
+	let title = $derived(apiKey?.name || 'Agent Identity');
 	const duration = PAGE_TRANSITION_DURATION;
 </script>
 

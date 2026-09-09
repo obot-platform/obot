@@ -28,7 +28,7 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-describe('Agent Auth Scope detail load', () => {
+describe('Agent Identity detail load', () => {
 	it('gets the current-user scope for users without admin access', async () => {
 		const getApiKey = vi.spyOn(ApiKeysService, 'getApiKey').mockResolvedValue(apiKey);
 		const getAnyApiKey = vi.spyOn(ApiKeysService, 'getAnyApiKey');

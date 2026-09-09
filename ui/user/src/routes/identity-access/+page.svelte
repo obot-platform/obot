@@ -53,7 +53,7 @@
 			onclick={() => agentsView?.showCreateForm()}
 		>
 			<Plus class="size-4" />
-			Create Agent Auth Scope
+			Create Agent Identity
 		</button>
 	{/if}
 {/snippet}

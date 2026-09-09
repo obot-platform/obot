@@ -8,7 +8,7 @@
 	let views = $derived.by(() => {
 		const items: TabView[] = [{ label: 'MCP', value: 'mcp', content: mcp }];
 		if (hasAdminAccess) {
-			items.push({ label: 'LLM', value: 'llm', content: llm });
+			items.push({ label: 'Model', value: 'llm', content: llm });
 		}
 		return items;
 	});

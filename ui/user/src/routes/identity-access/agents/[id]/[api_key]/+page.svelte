@@ -193,7 +193,7 @@
 </script>
 
 <Layout
-	title={`${apiKey?.name || 'Agent Auth Scope'} | ${apiKeyId}`}
+	title={`${apiKey?.name || 'Agent Identity'} | ${apiKeyId}`}
 	showBackButton
 	classes={{ childrenContainer: 'max-w-none', container: 'pb-0' }}
 	main={{
@@ -315,7 +315,7 @@
 {/snippet}
 
 <svelte:head>
-	<title>Obot | {apiKey?.name || 'Agent Auth Scope'} | {apiKeyId}</title>
+	<title>Obot | {apiKey?.name || 'Agent Identity'} | {apiKeyId}</title>
 </svelte:head>
 
 <style lang="postcss">

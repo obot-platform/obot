@@ -97,7 +97,7 @@
 	);
 
 	const duration = PAGE_TRANSITION_DURATION;
-	const title = $derived(agentAuthScope?.name || 'Agent Auth Scope');
+	const title = $derived(agentAuthScope?.name || 'Agent Identity');
 </script>
 
 {#if agentAuthScope}

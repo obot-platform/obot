@@ -151,7 +151,7 @@ describe('Identity & Access Page', () => {
 				.element(page.getByRole('button', { name: 'Auth Providers', exact: true }))
 				.not.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Create Agent Auth Scope', exact: true }))
+				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
 				.toBeVisible();
 			await expect.element(page.getByText(apiKey.name, { exact: true })).toBeVisible();
 		});
@@ -164,7 +164,7 @@ describe('Identity & Access Page', () => {
 			});
 
 			await expect
-				.element(page.getByRole('button', { name: 'Create Agent Auth Scope', exact: true }))
+				.element(page.getByRole('button', { name: 'Create Agent Identity', exact: true }))
 				.not.toBeInTheDocument();
 		});
 	});

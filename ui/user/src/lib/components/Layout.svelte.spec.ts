@@ -24,7 +24,6 @@ const sharedLinks = [
 	'/models',
 	'/audit-logs',
 	'/usage',
-	'/inventory',
 	'/identity-access'
 ];
 
