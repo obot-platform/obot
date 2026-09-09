@@ -264,8 +264,8 @@ func convertSkillRepository(repo v1.SkillRepository, tokenEnv map[string]string)
 		RepoURL:         repo.Spec.RepoURL,
 		Ref:             repo.Spec.Ref,
 		GitCredentialID: repo.Spec.GitCredentialID,
-	}
-	manifest.SourceURLCredentials = maskCatalogCredentials([]string{repo.Spec.RepoURL}, tokenEnv)
+
+		SourceURLCredentials: maskCatalogCredentials([]string{repo.Spec.RepoURL}, tokenEnv)}
 	return types.SkillRepository{
 		Metadata:                MetadataFrom(&repo),
 		SkillRepositoryManifest: manifest,

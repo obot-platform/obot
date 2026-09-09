@@ -3198,9 +3198,8 @@ func TestValidateCatalogEntryManifest_ShortDescriptionMaxLength(t *testing.T) {
 		NPXConfig: &types.NPXRuntimeConfig{
 			Package: "test-server",
 		},
-	}
 
-	base.ShortDescription = strings.Repeat("a", maxShortDescriptionLength)
+		ShortDescription: strings.Repeat("a", maxShortDescriptionLength)}
 	require.NoError(t, ValidateCatalogEntryManifest(t.Context(), base, false, ValidationOptions{}))
 
 	base.ShortDescription = strings.Repeat("a", maxShortDescriptionLength+1)
