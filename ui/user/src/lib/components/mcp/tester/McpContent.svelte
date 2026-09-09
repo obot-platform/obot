@@ -136,14 +136,12 @@
 {:else if type === 'resource_link' && typeof item?.uri === 'string'}
 	<div class={BOX}>
 		{#if externalURL}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- validated external resource URL -->
 			<a
 				class="link link-primary break-all"
 				href={externalURL}
 				target="_blank"
-				rel="noopener noreferrer">{typeof item.name === 'string' ? item.name : item.uri}</a
+				rel="external noopener noreferrer">{typeof item.name === 'string' ? item.name : item.uri}</a
 			>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{:else}
 			<p class="break-all text-sm">{typeof item.name === 'string' ? item.name : item.uri}</p>
 			<p class="mt-1 text-xs text-muted-content break-all">{item.uri}</p>

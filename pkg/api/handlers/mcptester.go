@@ -21,7 +21,9 @@ import (
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const mcpTesterProviderErrorLimit = 64 * 1024
+const (
+	mcpTesterProviderErrorLimit = 64 * 1024
+)
 
 type mcpTesterServerActionResolver interface {
 	ServerForActionWithConnectID(context.Context, string, string) (string, v1.MCPServer, mcp.ServerConfig, error)

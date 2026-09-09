@@ -58,14 +58,18 @@ const store = $state<{
 });
 
 function filterOutDuplicateAndDeleted(servers: MCPCatalogServer[]) {
-	const live = servers.filter((server) => !server.deleted);
-	return live
-		.filter((server, index) => index === live.findIndex((other) => other.id === server.id))
-		.map((server) =>
-			!server.canConnect && live.some((other) => other.id === server.id && other.canConnect)
-				? { ...server, canConnect: true }
-				: server
-		);
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- local synchronous deduplication does not need reactive state
+	const byId = new Map<string, MCPCatalogServer>();
+	for (const server of servers) {
+		if (server.deleted) continue;
+		const existing = byId.get(server.id);
+		if (!existing) {
+			byId.set(server.id, server);
+		} else if (!existing.canConnect && server.canConnect) {
+			byId.set(server.id, { ...existing, canConnect: true });
+		}
+	}
+	return [...byId.values()];
 }
 
 function setCanConnectAndFilterDeleted(

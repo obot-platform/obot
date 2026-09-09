@@ -2,6 +2,7 @@ package mcptester
 
 import (
 	"bufio"
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -154,8 +155,8 @@ func (n *streamNormalizer) consumeResponses(data []byte) error {
 	case "response.output_item.added", "response.output_item.done":
 		if event.Item.Type == "function_call" {
 			call := n.call(event.OutputIndex)
-			call.id = firstNonEmpty(event.Item.CallID, event.Item.ID, call.id)
-			call.name = firstNonEmpty(event.Item.Name, call.name)
+			call.id = cmp.Or(event.Item.CallID, event.Item.ID, call.id)
+			call.name = cmp.Or(event.Item.Name, call.name)
 			n.itemIndex[event.Item.ID] = event.OutputIndex
 			n.itemIndex[event.Item.CallID] = event.OutputIndex
 			if event.Type == "response.output_item.done" && event.Item.Arguments != "" {
@@ -174,7 +175,7 @@ func (n *streamNormalizer) consumeResponses(data []byte) error {
 	case "response.incomplete":
 		return n.finish(types.MCPTesterCompletionReasonMaxTokens)
 	case "response.failed", "error":
-		message := firstNonEmpty(event.Error.Message, "model provider returned an error")
+		message := cmp.Or(event.Error.Message, "model provider returned an error")
 		return n.fail(types.MCPTesterErrorProvider, message, true)
 	case "":
 		return n.fail(types.MCPTesterErrorUnsupportedResponse, "model returned a Responses event without a type", false)
@@ -210,7 +211,7 @@ func (n *streamNormalizer) consumeChatCompletions(data []byte) error {
 		return n.fail(types.MCPTesterErrorProvider, event.Error.Message, true)
 	}
 	for _, choice := range event.Choices {
-		if text := firstNonEmpty(choice.Delta.Content, choice.Delta.Refusal); text != "" {
+		if text := cmp.Or(choice.Delta.Content, choice.Delta.Refusal); text != "" {
 			if err := n.start(); err != nil {
 				return err
 			}
@@ -223,8 +224,8 @@ func (n *streamNormalizer) consumeChatCompletions(data []byte) error {
 		}
 		for _, delta := range choice.Delta.ToolCalls {
 			call := n.call(delta.Index)
-			call.id = firstNonEmpty(delta.ID, call.id)
-			call.name = firstNonEmpty(delta.Function.Name, call.name)
+			call.id = cmp.Or(delta.ID, call.id)
+			call.name = cmp.Or(delta.Function.Name, call.name)
 			call.arguments.WriteString(delta.Function.Arguments)
 		}
 		switch choice.FinishReason {
@@ -306,7 +307,7 @@ func (n *streamNormalizer) consumeAnthropic(data []byte) error {
 	case "message_stop":
 		return n.finish(types.MCPTesterCompletionReasonStop)
 	case "error":
-		return n.fail(types.MCPTesterErrorProvider, firstNonEmpty(event.Error.Message, "model provider returned an error"), true)
+		return n.fail(types.MCPTesterErrorProvider, cmp.Or(event.Error.Message, "model provider returned an error"), true)
 	case "":
 		return n.fail(types.MCPTesterErrorUnsupportedResponse, "model returned an Anthropic event without a type", false)
 	}
@@ -414,14 +415,4 @@ func (n *streamNormalizer) checkContext(ctx context.Context) error {
 		return nil
 	}
 	return n.fail(types.MCPTesterErrorCancelled, "request cancelled", false)
-}
-
-// TODO(g-linville): see if there is an existing function for this
-func firstNonEmpty(values ...string) string {
-	for _, value := range values {
-		if value != "" {
-			return value
-		}
-	}
-	return ""
 }

@@ -81,7 +81,7 @@ describe('McpContent', () => {
 		});
 		const safe = page.getByRole('link', { name: 'Safe' });
 		await expect.element(safe).toHaveAttribute('href', 'https://example.com/resource');
-		await expect.element(safe).toHaveAttribute('rel', 'noopener noreferrer');
+		await expect.element(safe).toHaveAttribute('rel', 'external noopener noreferrer');
 		await expect.element(safe).toHaveAttribute('target', '_blank');
 	});
 });

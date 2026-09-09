@@ -38,8 +38,6 @@
 		const content = textareaElement.scrollHeight + borders;
 		const height = Math.min(Math.max(content, MIN_HEIGHT), MAX_HEIGHT);
 		textareaElement.style.height = `${height}px`;
-		// Only show the scrollbar once the draft actually outgrows the max height.
-		textareaElement.style.overflowY = content > MAX_HEIGHT ? 'auto' : 'hidden';
 	}
 
 	function send(): void {
@@ -76,7 +74,7 @@
 			<span class="sr-only">Message</span>
 			<textarea
 				id="mcp-tester-chat-message"
-				class="text-input-filled default-scrollbar-thin block w-full resize-none leading-6"
+				class="text-input-filled default-scrollbar-thin block w-full resize-none overflow-y-auto leading-6"
 				style="height: {MIN_HEIGHT}px; max-height: {MAX_HEIGHT}px;"
 				rows="1"
 				placeholder="Test this MCP server…"

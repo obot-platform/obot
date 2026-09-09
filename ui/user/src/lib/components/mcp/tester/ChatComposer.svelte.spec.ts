@@ -66,17 +66,15 @@ describe('ChatComposer', () => {
 		// A one-line draft must not overflow, or the box shows a scrollbar that
 		// scrolls by a couple of pixels.
 		expect(messageBox().scrollHeight).toBeLessThanOrEqual(messageBox().clientHeight);
-		expect(messageBox().style.overflowY).toBe('hidden');
 
 		await textarea.fill('one\ntwo\nthree');
 		const grown = messageBox().getBoundingClientRect().height;
 		expect(grown).toBeGreaterThan(singleLine);
 		expect(grown).toBeLessThanOrEqual(128);
-		expect(messageBox().style.overflowY).toBe('hidden');
+		expect(messageBox().scrollHeight).toBeLessThanOrEqual(messageBox().clientHeight);
 
 		await textarea.fill(Array.from({ length: 20 }, (_, index) => `line ${index}`).join('\n'));
 		expect(messageBox().style.height).toBe('128px');
-		expect(messageBox().style.overflowY).toBe('auto');
 		expect(messageBox().scrollHeight).toBeGreaterThan(messageBox().clientHeight);
 
 		session.close();

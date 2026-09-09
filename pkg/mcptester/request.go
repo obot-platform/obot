@@ -217,10 +217,6 @@ func toolResultText(result types.MCPTesterToolResult) string {
 	return string(body)
 }
 
-func toolArguments(arguments json.RawMessage) string {
-	return string(arguments)
-}
-
 func schemaValue(schema json.RawMessage) any {
 	var result any
 	_ = json.Unmarshal(schema, &result)
@@ -250,7 +246,7 @@ func buildResponsesRequest(request types.MCPTesterChatRequest, modelID, systemIn
 					"type":      "function_call",
 					"call_id":   call.ID,
 					"name":      call.Name,
-					"arguments": toolArguments(call.Arguments),
+					"arguments": string(call.Arguments),
 				})
 			}
 		case types.MCPTesterChatRoleTool:
@@ -312,7 +308,7 @@ func buildChatCompletionsRequest(request types.MCPTesterChatRequest, modelID, sy
 						"type": "function",
 						"function": map[string]any{
 							"name":      call.Name,
-							"arguments": toolArguments(call.Arguments),
+							"arguments": string(call.Arguments),
 						},
 					})
 				}
