@@ -260,12 +260,12 @@ func revealRepositoryTokens(req api.Context, repoName string) (map[string]string
 
 func convertSkillRepository(repo v1.SkillRepository, tokenEnv map[string]string) types.SkillRepository {
 	manifest := types.SkillRepositoryManifest{
-		DisplayName:     repo.Spec.DisplayName,
-		RepoURL:         repo.Spec.RepoURL,
-		Ref:             repo.Spec.Ref,
-		GitCredentialID: repo.Spec.GitCredentialID,
-
-		SourceURLCredentials: maskCatalogCredentials([]string{repo.Spec.RepoURL}, tokenEnv)}
+		DisplayName:          repo.Spec.DisplayName,
+		RepoURL:              repo.Spec.RepoURL,
+		Ref:                  repo.Spec.Ref,
+		GitCredentialID:      repo.Spec.GitCredentialID,
+		SourceURLCredentials: maskCatalogCredentials([]string{repo.Spec.RepoURL}, tokenEnv),
+	}
 	return types.SkillRepository{
 		Metadata:                MetadataFrom(&repo),
 		SkillRepositoryManifest: manifest,
