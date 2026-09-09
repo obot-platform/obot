@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { profile } from '$lib/stores';
-	import { clearProductAnalyticsPromptDismissal } from '$lib/stores/productTelemetryConsent.svelte';
+	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 
 	let dialog: HTMLDialogElement;
 
 	$effect(() => {
 		if (profile.current.loaded === true && profile.current.expired === true) {
-			clearProductAnalyticsPromptDismissal();
+			clearProductAnalyticsConsentDeferral();
 			dialog.showModal();
 		}
 	});

@@ -2,17 +2,23 @@
 	import { page } from '$app/state';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { AdminService, Group } from '$lib/services';
-	import { profile, version } from '$lib/stores';
+	import { productTelemetryConsent, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
+	import {
+		deferProductAnalyticsConsent,
+		isProductAnalyticsConsentDeferred
+	} from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
-	import type { Snippet } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
+	let shareProductUsage = $state(true);
+	let productAnalyticsDeferred = $state(true);
 
 	const authProviderPath = '/identity-access';
 	const modelProviderPath = '/models?view=model-providers';
@@ -28,7 +34,22 @@
 	const isOnAuthProvidersPage = $derived(
 		page.url.pathname === authProviderPath && view === 'auth-providers'
 	);
+	const isOnProductAnalyticsSettings = $derived(
+		page.url.pathname === '/admin/product-analytics' ||
+			(page.url.pathname === '/admin/platform' && view === 'product-analytics')
+	);
 	const isBootstrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
+	const needsProductAnalyticsConsent = $derived(
+		profile.current.groups.includes(Group.ADMIN) &&
+			productTelemetryConsent.available === true &&
+			productTelemetryConsent.consent === undefined &&
+			!isOnProductAnalyticsSettings &&
+			!productAnalyticsDeferred
+	);
+
+	onMount(() => {
+		productAnalyticsDeferred = isProductAnalyticsConsentDeferred();
+	});
 
 	$effect(() => {
 		if (profile.current.loaded && !profile.current.unauthorized && storeData.lastFetched) {
@@ -44,11 +65,13 @@
 			}
 
 			const isOwner = profile.current.groups.includes(Group.OWNER);
-			if (
+			const needsSetup =
 				!firstTimeViewed &&
 				(isBootstrapUser || isOwner) &&
-				(!isAuthProviderConfigured || requiresModelProviderConfiguration || !storeData.eulaAccepted)
-			) {
+				(!isAuthProviderConfigured ||
+					requiresModelProviderConfiguration ||
+					!storeData.eulaAccepted);
+			if (needsSetup || needsProductAnalyticsConsent) {
 				dialog?.open();
 			}
 		}
@@ -56,12 +79,51 @@
 
 	async function handleAcceptEula() {
 		if (storeData.eulaAccepted) return;
-		loading = true;
 		const response = await AdminService.acceptEula();
 		adminConfigStore.updateEula(response.accepted);
+	}
 
-		localStorage.setItem('seenSplashDialog', new Date().toISOString());
-		loading = false;
+	async function handleProductAnalyticsConsent() {
+		if (!needsProductAnalyticsConsent) return;
+
+		try {
+			const response = await AdminService.updateProductTelemetryConsent(shareProductUsage);
+			productTelemetryConsent.setConsent(response.consent ?? shareProductUsage);
+		} catch (_err) {
+			// The shared HTTP client surfaces the standard error notification. Do not block onboarding
+			// for an optional analytics preference; ask again after the next session begins.
+			deferProductAnalyticsConsent();
+			productAnalyticsDeferred = true;
+		}
+	}
+
+	async function handleContinue() {
+		loading = true;
+		try {
+			await handleProductAnalyticsConsent();
+			await handleAcceptEula();
+			localStorage.setItem('seenSplashDialog', new Date().toISOString());
+
+			if (isBootstrapUser) {
+				if (isOnAuthProvidersPage) {
+					dialog?.close();
+					setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
+					return;
+				}
+
+				if (!isAuthProviderConfigured) {
+					goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
+				} else if (requiresModelProviderConfiguration) {
+					goto(modelProviderPath);
+				}
+			} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
+				goto(modelProviderPath);
+			}
+
+			dialog?.close();
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -93,6 +155,27 @@
 			</ul>
 		{/if}
 
+		{#if needsProductAnalyticsConsent}
+			<div class="flex items-start gap-2 pt-4 text-sm">
+				<input
+					id="share-product-usage"
+					type="checkbox"
+					class="checkbox checkbox-sm mt-0.5 shrink-0"
+					bind:checked={shareProductUsage}
+					disabled={loading}
+				/>
+				<span>
+					<label for="share-product-usage">Share product usage data to help improve Obot.</label>
+					<a
+						href="https://docs.obot.ai/configuration/product-analytics"
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="text-link">Learn more</a
+					>
+				</span>
+			</div>
+		{/if}
+
 		<p class="pt-4">
 			By continuing, you agree to Obot's <a
 				href="https://obot.ai/eul"
@@ -107,23 +190,7 @@
 		<button
 			class="btn btn-primary mt-8 flex justify-center text-center"
 			disabled={loading}
-			onclick={async () => {
-				handleAcceptEula();
-				localStorage.setItem('seenSplashDialog', new Date().toISOString());
-
-				if (isOnAuthProvidersPage) {
-					dialog?.close();
-					setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
-					return;
-				}
-
-				if (!isAuthProviderConfigured) {
-					goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
-				} else if (requiresModelProviderConfiguration) {
-					goto(modelProviderPath);
-				}
-				dialog?.close();
-			}}
+			onclick={handleContinue}
 		>
 			{#if loading}
 				<Loading class="size-4" />
@@ -134,16 +201,14 @@
 	{:else}
 		<button
 			class="btn btn-primary mt-8 flex justify-center text-center"
-			onclick={() => {
-				handleAcceptEula();
-				localStorage.setItem('seenSplashDialog', new Date().toISOString());
-				if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
-					goto(modelProviderPath);
-				}
-				dialog?.close();
-			}}
+			disabled={loading}
+			onclick={handleContinue}
 		>
-			Continue
+			{#if loading}
+				<Loading class="size-4" />
+			{:else}
+				Continue
+			{/if}
 		</button>
 	{/if}
 </ResponsiveDialog>

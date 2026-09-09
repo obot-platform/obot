@@ -22,7 +22,7 @@
 		userDeviceSettings
 	} from '$lib/stores';
 	import { version } from '$lib/stores';
-	import { clearProductAnalyticsPromptDismissal } from '$lib/stores/productTelemetryConsent.svelte';
+	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto } from '$lib/url';
 	import { getUserRoleLabel, isAgentEnabled } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
@@ -118,7 +118,7 @@
 	async function handleBootstrapLogout() {
 		try {
 			localStorage.removeItem('seenSplashDialog');
-			clearProductAnalyticsPromptDismissal();
+			clearProductAnalyticsConsentDeferral();
 			await AdminService.bootstrapLogout();
 			window.location.href = `/oauth2/sign_out?rd=${profile.current.isBootstrapUser?.() ? '/admin' : '/'}`;
 		} catch (err) {
@@ -129,7 +129,7 @@
 	async function handleLogout() {
 		try {
 			localStorage.removeItem('seenSplashDialog');
-			clearProductAnalyticsPromptDismissal();
+			clearProductAnalyticsConsentDeferral();
 			window.location.href = '/oauth2/sign_out?rd=/';
 		} catch (err) {
 			console.error(err);

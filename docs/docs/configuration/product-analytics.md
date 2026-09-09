@@ -13,10 +13,13 @@ authentication-provider settings beyond its type, or audit-log content in produc
 
 ## Consent
 
-An Owner or Admin is prompted to choose whether to share product analytics when an installation has
-no recorded decision. Closing or dismissing the prompt does not grant or deny consent. The prompt
-stays dismissed for the rest of that login session and appears again during a later login session if
-no decision has been recorded.
+When an installation has no recorded decision, the **Welcome to Obot** dialog shows Owners and
+Admins a checked checkbox for sharing product usage data. Continuing with the checkbox checked opts
+the installation in; clearing it before continuing opts the installation out.
+
+If Obot cannot save the choice, onboarding continues and consent remains undecided. The checkbox is
+not shown again during that login session, but it appears during a later login so an administrator
+can retry.
 
 Until an Owner or Admin explicitly opts in, Obot does not send a product-telemetry request. An
 installation that opts out also sends no product-telemetry request.

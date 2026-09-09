@@ -2,7 +2,6 @@
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import Notifications from '$lib/components/Notifications.svelte';
-	import ProductAnalyticsConsentDialog from '$lib/components/ProductAnalyticsConsentDialog.svelte';
 	import ReLoginDialog from '$lib/components/ReLoginDialog.svelte';
 	import SuccessNotifications from '$lib/components/SuccessNotifications.svelte';
 	import {
@@ -19,7 +18,7 @@
 		appNotification,
 		productTelemetryConsent
 	} from '$lib/stores';
-	import { clearProductAnalyticsPromptDismissal } from '$lib/stores/productTelemetryConsent.svelte';
+	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import '../app.css';
 	import type { PageData } from './$types';
 	import { apply, isSupported } from '@oddbird/popover-polyfill/fn';
@@ -50,7 +49,7 @@
 		if (data.profile) {
 			profile.initialize(data.profile);
 			if (data.profile.unauthorized) {
-				clearProductAnalyticsPromptDismissal();
+				clearProductAnalyticsConsentDeferral();
 			}
 		}
 
@@ -163,4 +162,3 @@
 <Notifications />
 <SuccessNotifications />
 <ReLoginDialog />
-<ProductAnalyticsConsentDialog />

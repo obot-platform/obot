@@ -6,7 +6,7 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { reloadPage } from '$lib/navigation';
 	import { AdminService, UserService, type BootstrapStatus, type TempUser } from '$lib/services';
-	import { clearProductAnalyticsPromptDismissal } from '$lib/stores/productTelemetryConsent.svelte';
+	import { clearProductAnalyticsConsentDeferral } from '$lib/stores/productTelemetryConsent.svelte';
 	import { goto } from '$lib/url';
 	import { CircleAlert, Handshake, ShieldAlert } from '@lucide/svelte';
 	import { onMount } from 'svelte';
@@ -97,7 +97,7 @@
 							await AdminService.bootstrapLogout();
 							// make sure to clear seenSplashDialog so splash will show for logged in owner if needed
 							localStorage.removeItem('seenSplashDialog');
-							clearProductAnalyticsPromptDismissal();
+							clearProductAnalyticsConsentDeferral();
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
 					>
@@ -207,7 +207,7 @@
 
 			<a
 				href={resolve('/oauth2/sign_out?rd=/admin')}
-				onclick={clearProductAnalyticsPromptDismissal}
+				onclick={clearProductAnalyticsConsentDeferral}
 				class="bg-base-200 hover:bg-base-300 dark:bg-base-200 dark:hover:bg-base-300 flex w-full items-center justify-center gap-1.5 rounded-full p-2 px-8 text-lg font-semibold"
 			>
 				<p class="text-center text-sm font-medium">Sign Out</p>

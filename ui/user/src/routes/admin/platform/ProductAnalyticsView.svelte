@@ -11,13 +11,6 @@
 	let selectedConsent = $state<boolean | undefined>(initialConsent);
 	let saving = $state(false);
 
-	let status = $derived(
-		persistedConsent === true
-			? 'Enabled'
-			: persistedConsent === false
-				? 'Disabled'
-				: 'No decision recorded'
-	);
 	let canSave = $derived(selectedConsent !== undefined && selectedConsent !== persistedConsent);
 
 	async function handleSave() {
@@ -43,32 +36,20 @@
 	<div class="paper gap-5">
 		<div class="flex flex-col gap-2 text-sm font-light">
 			<p>
-				Share aggregate product-usage information to help us understand how Obot is used and
-				prioritize improvements.
-			</p>
-			<p>
-				Obot does not collect prompts, messages, credentials, URLs, custom MCP server configuration
-				details, authentication-provider settings beyond its type, or audit-log content as part of
-				product analytics.
-			</p>
-		</div>
-
-		<div class="divider my-0"></div>
-
-		<div>
-			<p class="text-sm font-medium">Current status</p>
-			<p
-				class="mt-1 text-sm font-light text-muted-content"
-				aria-label="Current product analytics status"
-			>
-				{status}
+				Share product usage data to help improve Obot.
+				<a
+					class="text-link"
+					href="https://docs.obot.ai/configuration/product-analytics"
+					target="_blank"
+					rel="external noopener noreferrer">Learn more</a
+				>
 			</p>
 		</div>
 
 		<div class="divider my-0"></div>
 
 		<fieldset class="flex flex-col gap-3">
-			<legend class="mb-2 text-sm font-medium">Share product analytics</legend>
+			<legend class="mb-2 text-sm font-medium">Share product usage data</legend>
 			<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-base-300 p-3">
 				<input
 					type="radio"
@@ -81,7 +62,7 @@
 				<span>
 					<span class="block text-sm font-medium">Enabled</span>
 					<span class="block text-xs font-light text-muted-content">
-						Share aggregate product-usage metrics to help improve Obot.
+						Send product usage data to help improve Obot.
 					</span>
 				</span>
 			</label>
@@ -97,7 +78,7 @@
 				<span>
 					<span class="block text-sm font-medium">Disabled</span>
 					<span class="block text-xs font-light text-muted-content">
-						Do not send product-usage analytics reports.
+						Do not share product usage data.
 					</span>
 				</span>
 			</label>
@@ -105,14 +86,13 @@
 
 		<p class="text-xs font-light text-muted-content">
 			Software update checks are separate and may send the installation ID and current version even
-			when product analytics is disabled. See the
+			when product analytics is disabled.
 			<a
 				class="text-link"
-				href="https://docs.obot.ai/configuration/product-analytics"
+				href="https://docs.obot.ai/configuration/product-analytics#upgrade-checks-are-separate"
 				target="_blank"
-				rel="external">Product Analytics documentation</a
-			>
-			for details.
+				rel="external noopener noreferrer">Learn more about update checks</a
+			>.
 		</p>
 	</div>
 

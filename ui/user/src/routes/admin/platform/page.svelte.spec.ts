@@ -29,7 +29,7 @@ async function renderPlatformPage({
 	imagePullSecrets = [],
 	groups = [Group.ADMIN],
 	productAnalyticsAvailable = true,
-	productAnalyticsConsent = { consent: undefined }
+	productAnalyticsConsent = { consent: false }
 }: {
 	license?: License;
 	versionOverrides?: Partial<Version>;
@@ -90,7 +90,7 @@ describe('Platform Page', () => {
 				.element(page.getByRole('button', { name: 'Product Analytics', exact: true }))
 				.toBeVisible();
 			await expect
-				.element(page.getByText(/Share aggregate product-usage information/))
+				.element(page.getByText(/Share product usage data to help improve Obot\./))
 				.toBeVisible();
 		});
 

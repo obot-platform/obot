@@ -1,6 +1,6 @@
 import type { ProductTelemetryConsent } from '$lib/services';
 
-export const PRODUCT_ANALYTICS_DISMISSED_KEY = '@obot/product-analytics-consent-dismissed';
+export const PRODUCT_ANALYTICS_DEFERRED_KEY = '@obot/product-analytics-consent-deferred';
 
 const store = $state<{
 	available: boolean | undefined;
@@ -24,22 +24,22 @@ function setConsent(consent: boolean) {
 	store.consent = consent;
 }
 
-export function dismissProductAnalyticsPrompt() {
+export function deferProductAnalyticsConsent() {
 	if (typeof sessionStorage !== 'undefined') {
-		sessionStorage.setItem(PRODUCT_ANALYTICS_DISMISSED_KEY, 'true');
+		sessionStorage.setItem(PRODUCT_ANALYTICS_DEFERRED_KEY, 'true');
 	}
 }
 
-export function clearProductAnalyticsPromptDismissal() {
+export function clearProductAnalyticsConsentDeferral() {
 	if (typeof sessionStorage !== 'undefined') {
-		sessionStorage.removeItem(PRODUCT_ANALYTICS_DISMISSED_KEY);
+		sessionStorage.removeItem(PRODUCT_ANALYTICS_DEFERRED_KEY);
 	}
 }
 
-export function isProductAnalyticsPromptDismissed() {
+export function isProductAnalyticsConsentDeferred() {
 	return (
 		typeof sessionStorage !== 'undefined' &&
-		sessionStorage.getItem(PRODUCT_ANALYTICS_DISMISSED_KEY) === 'true'
+		sessionStorage.getItem(PRODUCT_ANALYTICS_DEFERRED_KEY) === 'true'
 	);
 }
 
