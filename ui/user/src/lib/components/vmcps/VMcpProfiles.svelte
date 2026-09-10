@@ -590,7 +590,7 @@
 				</IconButton>
 				<div class="min-w-0 grow">
 					<h2 class="text-md font-semibold">{editingId ? 'Edit profile' : 'Create profile'}</h2>
-					<p class="text-muted-content text-xs">
+					<p class="text-muted-content text-sm">
 						Set up a profile to define what tools a set of groups or users can have available to
 						them.
 					</p>
@@ -614,7 +614,7 @@
 
 			<section>
 				<label class="flex flex-col gap-0.5" for="profile-name">
-					<span class={twMerge('text-xs font-light', nameError && 'text-error')}>Name</span>
+					<span class={twMerge('font-light text-sm', nameError && 'text-error')}>Name</span>
 					<input
 						id="profile-name"
 						class={twMerge(
@@ -633,9 +633,8 @@
 			<section>
 				<div class="divider text-sm font-semibold my-3">MCP Servers</div>
 				<div class="mb-4">
-					<p class="text-muted-content text-xs font-light">
-						By default, all MCP servers have tools enabled by default. Modify the tools available
-						for this profile below.
+					<p class="text-muted-content text-sm font-light">
+						Further modify the tools available for each MCP server in this profile below.
 					</p>
 				</div>
 				{#if componentServers.length === 0}
@@ -656,7 +655,7 @@
 											<Server class="size-5" />
 										</div>
 									{/if}
-									<span class="grow font-medium text-xs">{componentName(component)}</span>
+									<span class="grow font-medium text-sm">{componentName(component)}</span>
 									{#if resource}
 										{#if resource.toolOverrides.length > 0}
 											<span class="text-muted-content text-xs">
@@ -710,7 +709,7 @@
 			<section>
 				<div class="divider text-sm font-semibold my-3">Identities</div>
 				<div class="mb-4">
-					<p class="text-muted-content text-xs font-light">
+					<p class="text-muted-content text-sm font-light">
 						Assign identities to this profile. They will inherit the tools assigned to the profile.
 					</p>
 				</div>
@@ -722,8 +721,8 @@
 					searchInDropdown
 					placeholder="Search identities..."
 					searchPlaceholder="Search users or groups..."
-					class="text-xs bg-base-200 shadow-inner!"
-					classes={{ root: 'w-full', option: 'text-xs' }}
+					class="bg-base-200 shadow-inner!"
+					classes={{ root: 'w-full' }}
 					invalid={subjectsError}
 					onSelect={(option) => addSubject(option.subject)}
 				/>
@@ -761,7 +760,7 @@
 										</div>
 									{/if}
 									<div class="flex flex-col">
-										<span class="text-xs font-light">{display.name}</span>
+										<span class="text-sm font-light">{display.name}</span>
 										<span class="text-muted-content text-xs">
 											{display.group
 												? 'Group'

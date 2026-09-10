@@ -5,6 +5,7 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 	import { RefreshCcw, Server, Trash2 } from '@lucide/svelte';
@@ -145,9 +146,9 @@
 	onClose={() => handleDialogClose('actions')}
 >
 	{#snippet titleContent()}
-		<div class="flex items-center gap-2 text-base font-semibold">
+		<div class="flex items-center gap-2 font-semibold">
 			{#if flow.configuringEntry?.manifest.icon}
-				<img src={flow.configuringEntry.manifest.icon} alt="" class="size-6 icon" />
+				<McpServerIcon icon={flow.configuringEntry.manifest.icon} />
 			{:else}
 				<div class="icon">
 					<Server class="size-6" />
@@ -156,7 +157,8 @@
 			{flow.configuringEntry?.manifest.name}
 		</div>
 	{/snippet}
-	<div class="flex flex-col gap-2">
+	<div class="flex flex-col gap-2 md:px-0 px-4">
+		<p class="text-sm text-center mb-3 md:mt-0 mt-4">What would you like to do?</p>
 		<div
 			class="w-full"
 			use:tooltip={toolsLockedByUserSupplied
@@ -167,7 +169,7 @@
 				: undefined}
 		>
 			<button
-				class="btn btn-primary w-full"
+				class="btn btn-secondary w-full"
 				disabled={toolsLockedByUserSupplied}
 				onclick={flow.modifyToolsFromActions}
 			>
@@ -176,10 +178,10 @@
 		</div>
 		{#if flow.hasConfigurableFields}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
-				Modify Configuration
+				Edit Configuration
 			</button>
 		{/if}
-		<button class="btn btn-error" onclick={flow.promptRemove}
+		<button class="btn btn-secondary hover:btn-error" onclick={flow.promptRemove}
 			>Remove {flow.configuringEntry?.manifest.name ?? 'this server'}</button
 		>
 	</div>

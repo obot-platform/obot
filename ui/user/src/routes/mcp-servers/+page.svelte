@@ -29,7 +29,6 @@
 		setFilterUrlParams,
 		setSortUrlParams
 	} from '$lib/url';
-	import ConnectorsView from './ConnectorsView.svelte';
 	import DeploymentsView from './DeploymentsView.svelte';
 	import EntriesView from './EntriesView.svelte';
 	import FiltersView from './FiltersView.svelte';
@@ -116,7 +115,6 @@
 		}
 	});
 	let views = $derived([
-		{ label: 'Servers', value: 'servers', content: servers },
 		...(hasAdminAccess || isPowerUser
 			? [{ label: 'Entries', value: 'entries', content: entries }]
 			: []),
@@ -342,10 +340,6 @@
 	>
 		{#snippet noDataContent()}{@render displayNoData()}{/snippet}
 	</EntriesView>
-{/snippet}
-
-{#snippet servers()}
-	<ConnectorsView {workspaceId} />
 {/snippet}
 
 {#snippet sources()}

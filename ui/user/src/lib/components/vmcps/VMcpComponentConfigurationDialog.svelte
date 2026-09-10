@@ -274,7 +274,7 @@
 	{#if error}
 		<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
 	{/if}
-	<div class="flex max-h-[60dvh] flex-col gap-6 overflow-y-auto pr-1">
+	<div class="flex max-h-[60dvh] flex-col gap-3 overflow-y-auto pr-1">
 		{@render fieldGroup(envDrafts)}
 		{@render fieldGroup(headerDrafts)}
 		{@render fieldGroup(fileDrafts)}
