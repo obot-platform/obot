@@ -147,8 +147,8 @@ func BuildFallbackRequest(request types.MCPTesterChatRequest, instruction string
 }
 
 // NewFallbackRequest deliberately has no inbound-header argument. Only the
-// installation credential and sanitized server descriptor leave Obot.
-func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string, descriptor Descriptor) (*http.Request, error) {
+// installation license and machine fingerprint authenticate the request.
+func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string) (*http.Request, error) {
 	if endpoint == nil || len(body) > FallbackMaxBodyBytes {
 		return nil, errors.New("invalid model proxy request")
 	}
@@ -167,7 +167,6 @@ func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, lic
 	req.Header.Set("User-Agent", types.MCPTesterClientName)
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(licenseKey))
 	req.Header.Set("X-Obot-Machine-Fingerprint", strings.TrimSpace(fingerprint))
-	req.Header.Set(descriptor.Header, descriptor.Value)
 
 	// No replay body: generation attempts must not be automatically retried.
 	req.GetBody = nil

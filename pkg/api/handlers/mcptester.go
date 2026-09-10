@@ -77,7 +77,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "you do not have permission to connect to this MCP server", false)
 	}
 
-	_, server, serverConfig, err := h.serverResolver.ServerForActionWithConnectID(req.Context(), mcpServerID, principal.ResourceOwnerID(req.User))
+	_, server, _, err := h.serverResolver.ServerForActionWithConnectID(req.Context(), mcpServerID, principal.ResourceOwnerID(req.User))
 	if err != nil {
 		return writeMCPTesterError(req, http.StatusForbidden, types.MCPTesterErrorAccessDenied, "the MCP server is not available to this user", false)
 	}
@@ -127,7 +127,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 		ctx, cancel = context.WithTimeout(ctx, mcptester.FallbackTimeout)
 		defer cancel()
 
-		proxyRequest, body, err = h.fallbackRequest(ctx, chatRequest, server, serverConfig)
+		proxyRequest, body, err = h.fallbackRequest(ctx, chatRequest, server)
 		if err != nil {
 			status, code, message, retryable := http.StatusServiceUnavailable, types.MCPTesterErrorProvider, "The installation license could not be read. Try again later.", true
 			if errors.Is(err, errMCPTesterLicenseRequired) {
