@@ -30,7 +30,8 @@ import type {
 	AccessControlRuleManifest,
 	K8sServerDetail,
 	MCPAllowedSecretBindingTarget,
-	MCPSubField
+	MCPSubField,
+	VMCP
 } from '../user/types';
 import type {
 	MCPCatalog,
@@ -2755,4 +2756,11 @@ export async function downloadMDMConfig(
 		parseContentDispositionFilename(resp.headers.get('content-disposition')) ??
 		`obot-sentry-config-${configurationId}.zip`;
 	return { blob, filename };
+}
+
+// vMCPs
+
+export async function listAllVMCPs(opts?: { fetch?: Fetcher }): Promise<VMCP[]> {
+	const response = (await doGet('/vmcps?all=true', opts)) as ItemsResponse<VMCP>;
+	return response.items ?? [];
 }

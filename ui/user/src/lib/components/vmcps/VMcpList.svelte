@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
-	import type { VMCP } from '$lib/services';
+	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -19,9 +21,11 @@
 		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
 		noDataContent?: Snippet;
+		usersMap: Map<string, OrgUser>;
 	}
 
-	let { items, components, onSelect, onConnect, onDelete, noDataContent }: Props = $props();
+	let { items, components, onSelect, onConnect, onDelete, noDataContent, usersMap }: Props =
+		$props();
 
 	let cards = $derived(items.map(toCard));
 	let overflowHiddenById = $state<Record<string, number>>({});
@@ -35,29 +39,10 @@
 			name: item.displayName || 'Untitled vMCP',
 			connected: false,
 			componentServers,
-			tools: toolCounts(componentServers),
+			tools: getToolCounts(componentServers),
 			descriptionHTML: toInlineHTMLFromMarkdown(item.description ?? ''),
 			data: item
 		};
-	}
-
-	/** Servers without tool overrides only report a preview, so those totals are approximate. */
-	function toolCounts(componentServers: VMcpComponentView[]) {
-		let enabled = 0;
-		let total = 0;
-		let approximate = false;
-		for (const component of componentServers) {
-			if (component.toolOverrides) {
-				enabled += component.toolOverrides.filter((tool) => tool.enabled === true).length;
-				total += component.toolOverrides.length;
-				continue;
-			}
-			approximate = true;
-			const previewCount = component.toolPreview?.length ?? 0;
-			enabled += previewCount;
-			total += previewCount;
-		}
-		return { enabled, total, approximate };
 	}
 
 	function cardDelay(index: number) {
@@ -172,6 +157,7 @@
 </div>
 
 {#snippet vmcpCard(card: VMcpListCard, index: number)}
+	{@const isOwner = card.data.userID === profile.current.id}
 	<VMcpCard
 		id={card.id}
 		name={card.name}
@@ -185,6 +171,9 @@
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
 		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+		{isOwner}
+		owner={card.data.userID ? getUserDisplayName(usersMap, card.data.userID) : undefined}
+		tools={card.tools}
 	>
 		{#snippet icon()}
 			<VMcpIcon components={card.componentServers} />

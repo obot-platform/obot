@@ -14,7 +14,6 @@
 	import {
 		buildMcpServerFilterOptions,
 		filterMcpServersByCategories,
-		isWorkspaceOwned,
 		matchesQuery,
 		MCP_SERVER_SORT_OPTIONS,
 		sortMcpServers,
@@ -37,7 +36,6 @@
 		drag: EntryDrag;
 		query?: string;
 		onSearch: (value: string) => void;
-		showAllConnectors?: boolean;
 		canCreateEntry?: boolean;
 	}
 
@@ -47,7 +45,6 @@
 		drag,
 		query = '',
 		onSearch,
-		showAllConnectors = false,
 		canCreateEntry = false
 	}: Props = $props();
 
@@ -61,8 +58,7 @@
 		mcpServersAndEntries.current.entries.filter(
 			(entry) =>
 				entry.manifest.runtime !== 'vmcp' &&
-				(settings.showDeprecatedServers || !isDeprecatedMCPServer(entry)) &&
-				(showAllConnectors || !isWorkspaceOwned(entry))
+				(settings.showDeprecatedServers || !isDeprecatedMCPServer(entry))
 		)
 	);
 	let filterOptions = $derived(buildMcpServerFilterOptions(eligibleEntries));

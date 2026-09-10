@@ -35,7 +35,6 @@ export type VMcpConnectOptions = {
 export type VMcpFilterOption = { id: string; label: string; disabled?: boolean };
 
 export type VMcpFilters = {
-	names?: string;
-	owners?: string;
+	query?: string;
 	components?: string;
 };

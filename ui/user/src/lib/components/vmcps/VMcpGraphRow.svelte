@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { VMCP } from '$lib/services';
+	import type { OrgUser, VMCP } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
 	import {
 		VMCP_COMPONENT_HEIGHT,
@@ -12,7 +12,8 @@
 		VMcpComponentView,
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
-	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { getUserDisplayName } from '$lib/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -29,30 +30,36 @@
 		vmcp: VMCP;
 		components: VMcpComponentView[];
 		expanded: boolean;
+		canEdit?: boolean;
+		isOwner?: boolean;
 		context: RowContext;
 		drag: EntryDrag;
 		onToggleExpand: () => void;
-		onEdit: () => void;
+		onEdit?: () => void;
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
-		onModifyComponent: (component: VMcpComponentView) => void;
+		onModifyComponent?: (component: VMcpComponentView) => void;
+		usersMap: Map<string, OrgUser>;
 	}
 
 	let {
 		vmcp,
 		components,
 		expanded,
+		canEdit = true,
+		isOwner = false,
 		context,
 		drag,
 		onToggleExpand,
 		onEdit,
 		onConnect,
 		onDelete,
-		onModifyComponent
+		onModifyComponent,
+		usersMap
 	}: Props = $props();
 
-	// const roughEstimationText =
-	// 	'This is a rough approximation of the number of tools available. The exact number may vary.';
+	let owner = $derived(vmcp.userID ? getUserDisplayName(usersMap, vmcp.userID) : undefined);
+	let tools = $derived(getToolCounts(components));
 
 	let componentRange = $derived.by(() => {
 		if (!expanded) return { start: 0, end: 0 };
@@ -199,7 +206,9 @@
 			'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
 			linked
 				? 'vmcp-drop-target border-primary text-primary'
-				: 'p-0.5 hover:aura text-transparent hover:text-primary hover:-translate-y-0.5'
+				: canEdit
+					? 'p-0.5 hover:aura text-transparent hover:text-primary hover:-translate-y-0.5'
+					: 'p-0.5'
 		)}
 		in:fade={{ duration: 150 }}
 	>
@@ -208,11 +217,17 @@
 			{name}
 			descriptionHTML={vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined}
 			connectURL={vmcpConnectURL(vmcp)}
-			selectAriaLabel={`Edit ${name}`}
-			onSelect={onEdit}
+			selectAriaLabel={canEdit ? `Edit ${name}` : name}
+			onSelect={canEdit ? onEdit : undefined}
 			{onConnect}
-			{onDelete}
-			class="bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative cursor-pointer gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200"
+			onDelete={canEdit ? onDelete : undefined}
+			{isOwner}
+			class={twMerge(
+				'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
+				canEdit && 'cursor-pointer'
+			)}
+			{owner}
+			{tools}
 		>
 			{#snippet icon()}
 				{#if vmcp.components.length > 0}
@@ -245,39 +260,54 @@
 		in:fade={{ delay: CREATE_WIRE_DURATION_MS, duration: 200 }}
 	>
 		<p class="text-muted-content text-xs italic">
-			No servers yet. Drag one in from the MCP Servers panel.
+			{canEdit ? 'No servers yet. Drag one in from the MCP Servers panel.' : 'No servers yet.'}
 		</p>
 	</div>
 {/snippet}
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
-	<div class="aura text-transparent hover:text-primary hover:-translate-y-0.5">
-		<button
-			use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
-			class={twMerge(
-				'text-base-content bg-base-100 dark:bg-base-300 dark:border-base-400 relative z-10 flex w-[min(20rem,calc(100vw-3rem))] flex-col rounded-lg border border-transparent p-2 shadow-md md:w-81 text-left items-start'
-			)}
-			aria-label={component.name}
-			in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
-			onclick={() => onModifyComponent(component)}
-		>
-			<div class="mb-3 flex items-start gap-2">
-				<div class="flex items-center gap-2">
-					<McpServerIcon icon={component.icon} />
-					<div class="min-w-0 grow">
-						<p class="truncate text-sm font-semibold">{component.name}</p>
-						<p class="text-muted-content line-clamp-2 text-xs">
-							{component.description || 'No description'}
-						</p>
-					</div>
-				</div>
+	<div
+		class={twMerge(canEdit && 'aura text-transparent hover:text-primary hover:-translate-y-0.5')}
+	>
+		{#if canEdit}
+			<button
+				use:drag.componentTarget={{ vmcpId: vmcp.id, key: component.key }}
+				class={twMerge(
+					'text-base-content bg-base-100 dark:bg-base-300 dark:border-base-400 relative z-10 flex w-[min(20rem,calc(100vw-3rem))] flex-col rounded-lg border border-transparent p-2 shadow-md md:w-81 text-left items-start'
+				)}
+				aria-label={component.name}
+				in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
+				onclick={() => onModifyComponent?.(component)}
+			>
+				{@render componentContent(component)}
+			</button>
+		{:else}
+			<div
+				class="text-base-content bg-base-100 dark:bg-base-300 dark:border-base-400 relative z-10 flex w-[min(20rem,calc(100vw-3rem))] flex-col rounded-lg border border-transparent p-2 shadow-md md:w-81 text-left items-start"
+				in:fade={{ delay: chainDelay(index) + CREATE_WIRE_DURATION_MS, duration: 200 }}
+			>
+				{@render componentContent(component)}
 			</div>
-			{@render tools(component)}
-		</button>
+		{/if}
 	</div>
 {/snippet}
 
-{#snippet tools(component: VMcpComponentView)}
+{#snippet componentContent(component: VMcpComponentView)}
+	<div class="mb-3 flex items-start gap-2">
+		<div class="flex items-center gap-2">
+			<McpServerIcon icon={component.icon} />
+			<div class="min-w-0 grow">
+				<p class="truncate text-sm font-semibold">{component.name}</p>
+				<p class="text-muted-content line-clamp-2 text-xs">
+					{component.description || 'No description'}
+				</p>
+			</div>
+		</div>
+	</div>
+	{@render componentTools(component)}
+{/snippet}
+
+{#snippet componentTools(component: VMcpComponentView)}
 	{@const withToolOverrides = component.toolOverrides}
 	<div class="divider my-0 text-xs font-medium text-muted-content mb-2">Tools</div>
 	{#if withToolOverrides && withToolOverrides.length > 0}

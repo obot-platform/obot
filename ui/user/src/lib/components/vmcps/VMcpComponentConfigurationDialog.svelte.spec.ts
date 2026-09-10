@@ -1,15 +1,10 @@
 import type { MCPCatalogEntry, MCPConfig } from '$lib/services';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
-import { getVersionResponse } from '../../../tests/mocks/data';
-import { worker } from '../../../tests/mocks/worker';
 import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
-import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
-
-const secretTargets = [{ name: 'api-credentials', keys: ['api-key', 'token'] }];
 
 function field(overrides: Partial<MCPConfig> & Pick<MCPConfig, 'key' | 'name'>): MCPConfig {
 	return {
@@ -53,15 +48,6 @@ function configurableEntry(
 			]
 		}
 	});
-}
-
-async function prepareKubernetesPage() {
-	await preparePageData({
-		version: { ...getVersionResponse, engine: 'kubernetes' }
-	});
-	worker.use(
-		http.get('/api/mcp-server-binding-secrets', () => HttpResponse.json({ items: secretTargets }))
-	);
 }
 
 describe('VMcpComponentConfigurationDialog.svelte', () => {
@@ -124,89 +110,5 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			.element(page.getByRole('combobox', { name: 'Org header policy' }))
 			.toHaveValue('prohibited');
 		await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible();
-	});
-
-	it('shows a pinned catalog secret and submits without a typed value', async () => {
-		await preparePageData();
-		const onNext = vi.fn();
-		const result = await render(VMcpComponentConfigurationDialog, { onNext });
-		result.component.open(
-			configurableEntry({
-				config: [
-					field({
-						key: 'API_TOKEN',
-						name: 'API token',
-						required: true,
-						sensitive: true,
-						secretBinding: { name: 'catalog-secret', key: 'token' }
-					})
-				]
-			})
-		);
-
-		await expect.element(page.getByText('Kubernetes Secret')).toBeVisible();
-		await expect.element(page.getByText('catalog-secret / token')).toBeVisible();
-		await expect.element(page.getByText('Value Source')).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Next' }).click();
-
-		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
-		expect(onNext).toHaveBeenCalledWith([
-			{ key: 'API_TOKEN', policy: 'fixed', secretBinding: { name: 'catalog-secret', key: 'token' } }
-		]);
-	});
-
-	it('offers secret bindings for env and header fields on hosted runtimes', async () => {
-		await prepareKubernetesPage();
-		const onNext = vi.fn();
-		const result = await render(VMcpComponentConfigurationDialog, { onNext });
-		result.component.open(configurableEntry({ runtime: 'npx' }));
-
-		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
-		await expect.element(page.getByCSS('#secret-binding-source-X-Org')).toBeVisible();
-
-		await page.getByCSS('#secret-binding-source-API_TOKEN').click();
-		await page.getByRole('button', { name: 'Kubernetes Secret', exact: true }).click();
-		await page.getByRole('combobox', { name: 'Region policy' }).selectOptions('User-Supplied');
-		await page.getByRole('combobox', { name: 'Org header policy' }).selectOptions('Prohibited');
-		await page.getByRole('button', { name: 'Next' }).click();
-
-		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
-		expect(onNext).toHaveBeenCalledWith([
-			{
-				key: 'API_TOKEN',
-				policy: 'fixed',
-				secretBinding: { name: 'api-credentials', key: 'api-key' }
-			},
-			{ key: 'REGION', policy: 'userAllowed' },
-			{ key: 'X-Org', policy: 'prohibited' }
-		]);
-	});
-
-	it('disables env secret bindings for remote catalog entries', async () => {
-		await prepareKubernetesPage();
-		const result = await render(VMcpComponentConfigurationDialog);
-		result.component.open(
-			configurableEntry({
-				runtime: 'remote',
-				config: [
-					field({
-						key: 'API_TOKEN',
-						name: 'API token',
-						required: true,
-						sensitive: true
-					}),
-					field({
-						key: 'Authorization',
-						name: 'Authorization',
-						required: true,
-						sensitive: true,
-						usage: 'header'
-					})
-				]
-			})
-		);
-
-		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).not.toBeInTheDocument();
-		await expect.element(page.getByCSS('#secret-binding-source-Authorization')).toBeVisible();
 	});
 });

@@ -2,16 +2,11 @@ import { AdminService, UserService } from '$lib/services';
 import type { VMCP } from '$lib/services';
 import type { GitCredential, VMcpRepository } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 
 const views = new Set(['vmcps', 'sources']);
 
-export const load: PageLoad = async ({ fetch, parent, url }) => {
+export const load: PageLoad = async ({ fetch, url, parent }) => {
 	const { profile } = await parent();
-	if (!profile.isAdmin?.()) {
-		throw redirect(307, '/');
-	}
-
 	const requestedView = url.searchParams.get('view');
 	const view = requestedView && views.has(requestedView) ? requestedView : 'vmcps';
 
@@ -21,7 +16,9 @@ export const load: PageLoad = async ({ fetch, parent, url }) => {
 
 	if (view === 'vmcps') {
 		try {
-			vmcps = await UserService.listVMCPs({ fetch });
+			vmcps = profile.hasAdminAccess?.()
+				? await AdminService.listAllVMCPs({ fetch })
+				: await UserService.listVMCPs({ fetch });
 		} catch {
 			vmcps = [];
 		}

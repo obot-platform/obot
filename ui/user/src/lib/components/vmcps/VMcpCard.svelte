@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import type { getToolCounts } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { isInteractiveChildEvent } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
+	import InfoTooltip from '../InfoTooltip.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
 	import { ExternalLink, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -24,6 +27,9 @@
 		class?: string;
 		selectAriaLabel: string;
 		enterDelay?: number;
+		isOwner?: boolean;
+		owner?: string;
+		tools?: ReturnType<typeof getToolCounts>;
 	}
 
 	let {
@@ -40,8 +46,14 @@
 		children,
 		class: clazz,
 		selectAriaLabel,
-		enterDelay
+		enterDelay,
+		isOwner,
+		owner,
+		tools
 	}: Props = $props();
+
+	const roughEstimationText =
+		'This is a rough approximation of the number of tools available. The exact number may vary.';
 </script>
 
 <div
@@ -114,17 +126,19 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
-				<button
-					class="menu-button-destructive"
-					onclick={(e) => {
-						e.stopPropagation();
-						onDelete?.();
-						toggle(false);
-					}}
-				>
-					<Trash2 class="size-4" />
-					Delete
-				</button>
+				{#if profile.current.isAdmin?.() || isOwner}
+					<button
+						class="menu-button-destructive"
+						onclick={(e) => {
+							e.stopPropagation();
+							onDelete?.();
+							toggle(false);
+						}}
+					>
+						<Trash2 class="size-4" />
+						Delete
+					</button>
+				{/if}
 			{/snippet}
 		</DotDotDot>
 	</div>
@@ -134,4 +148,26 @@
 	{/if}
 
 	<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
+
+	{#if tools || owner}
+		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
+			<p class="text-muted-content text-xs font-light">
+				{#if owner && !isOwner}
+					{owner}
+				{/if}
+			</p>
+			{#if tools}
+				<p class="text-muted-content text-xs font-light items-center flex gap-1">
+					{#if tools.total === 0}
+						All tools enabled
+					{:else}
+						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
+						{#if tools.approximate}
+							<InfoTooltip text={roughEstimationText} placement="bottom-end" />
+						{/if}
+					{/if}
+				</p>
+			{/if}
+		</div>
+	{/if}
 </div>

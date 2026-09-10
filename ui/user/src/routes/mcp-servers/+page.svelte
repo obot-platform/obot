@@ -271,7 +271,7 @@
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			onclick={() => sourceDialog?.open()}
 		>
-			<Plus class="size-4" /> Add Catalog Source
+			<Plus class="size-4" /> Add Source URL
 		</button>
 	{:else if view === 'filters' && !isAdminReadonly}
 		{#if filtersLoading}

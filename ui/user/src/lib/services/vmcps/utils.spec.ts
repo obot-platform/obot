@@ -3,7 +3,6 @@ import { SHORT_DESCRIPTION_MAX_LENGTH } from './constants';
 import type { RectLike } from './types';
 import {
 	appendComponentLabel,
-	applyComponentConfiguration,
 	borderAnchor,
 	buildMcpServerFilterOptions,
 	buildVMcpComponentFilterOptions,
@@ -30,44 +29,6 @@ function pointsOf(path: string) {
 		return { x, y };
 	});
 }
-
-describe('applyComponentConfiguration', () => {
-	it('stores fixed secret bindings on the catalog snapshot and strips them from policy', () => {
-		const entry = createMCPCatalogEntry({
-			id: 'entry-1',
-			name: 'Slack',
-			manifest: {
-				config: [
-					{
-						key: 'API_TOKEN',
-						name: 'API token',
-						description: 'Token',
-						required: true,
-						sensitive: true,
-						value: '',
-						usage: 'env'
-					}
-				]
-			}
-		});
-		const component = {
-			name: entry.manifest.name ?? entry.id,
-			mcpCatalogID: 'default',
-			mcpServerCatalogEntryID: entry.id,
-			catalogEntry: { manifest: entry.manifest }
-		};
-
-		const next = applyComponentConfiguration(component, [
-			{ key: 'API_TOKEN', policy: 'fixed', secretBinding: { name: 'creds', key: 'token' } }
-		]);
-
-		expect(next.configuration).toEqual([{ key: 'API_TOKEN', policy: 'fixed' }]);
-		expect(next.catalogEntry.manifest.config?.[0].secretBinding).toEqual({
-			name: 'creds',
-			key: 'token'
-		});
-	});
-});
 
 describe('catalogConfigurationFields', () => {
 	it('returns the catalog config list', () => {

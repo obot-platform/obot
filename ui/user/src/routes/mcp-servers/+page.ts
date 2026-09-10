@@ -12,6 +12,7 @@ import {
 	type TunnelConnection
 } from '$lib/services';
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 const views = new Set([
 	'servers',
@@ -36,6 +37,10 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	let mcpTunnels: MCPTunnel[] = [];
 	let tunnelConnections: TunnelConnection[] | undefined;
 	let accessControlRules: AccessControlRule[] = [];
+
+	if (!isPowerUserOrAdmin) {
+		throw redirect(307, '/vmcps'); // redirect basic user to vmcps
+	}
 
 	if (profile.hasAdminAccess?.()) {
 		switch (view) {

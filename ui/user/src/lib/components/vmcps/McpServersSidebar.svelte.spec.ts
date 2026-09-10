@@ -40,7 +40,6 @@ async function renderSidebar(
 		drag: EntryDrag;
 		entries: ReturnType<typeof createMCPCatalogEntry>[];
 		canCreateEntry: boolean;
-		showAllConnectors: boolean;
 		query: string;
 		onSearch: (value: string) => void;
 	}> = {}
@@ -94,21 +93,6 @@ describe('McpServersSidebar.svelte', () => {
 		await page.getByPlaceholder('Search MCP servers...').fill('git');
 
 		await vi.waitFor(() => expect(onSearch).toHaveBeenCalledWith('git'));
-	});
-
-	it('hides workspace-owned servers unless the page allows them', async () => {
-		const workspaceEntry = createMCPCatalogEntry({
-			id: 'entry-workspace',
-			name: 'Workspace Slack',
-			powerUserWorkspaceID: 'ws-1'
-		});
-		await renderSidebar({ entries: [github, workspaceEntry] });
-
-		await expect.element(card('Workspace Slack')).not.toBeInTheDocument();
-
-		await renderSidebar({ entries: [github, workspaceEntry], showAllConnectors: true });
-
-		await expect.element(card('Workspace Slack')).toBeVisible();
 	});
 
 	it('says so when nothing is left to show', async () => {

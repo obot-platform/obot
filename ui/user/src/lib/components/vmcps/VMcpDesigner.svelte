@@ -24,6 +24,7 @@
 		Group,
 		UserService,
 		type MCPCatalogEntry,
+		type OrgUser,
 		type VMCP,
 		type VMCPComponent,
 		type VMCPConfigurationPolicy
@@ -33,7 +34,6 @@
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
 		appendComponentLabel,
-		applyComponentConfiguration,
 		catalogConfigurationFields,
 		catalogEntryToVMCPComponent,
 		resolveVMcpComponents,
@@ -43,7 +43,7 @@
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Trash2 } from '@lucide/svelte';
-	import { untrack } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -53,7 +53,7 @@
 
 	let { vmcp, onBack }: Props = $props();
 
-	let viewType = $derived(
+	let requestedView = $derived(
 		(page.url.searchParams.get('view') as 'graph' | 'profiles' | undefined) ?? 'graph'
 	);
 	let showRightPanel = $state(true);
@@ -80,9 +80,21 @@
 	let canCreateCatalogEntry = $derived(
 		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
 	);
+	let isOwner = $derived(profile.current.id === selectedVMcp?.userID);
+	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
+	let canShare = $derived(profile.current.isAdmin?.());
+	let users = $state<OrgUser[]>([]);
+	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
+	let viewType = $derived(canEdit ? requestedView : 'graph');
 
 	$effect(() => {
 		selectedVMcp = vmcp;
+	});
+
+	onMount(() => {
+		UserService.listUsersIncludeDeleted().then((response) => {
+			users = response;
+		});
 	});
 
 	toolFlow.setOnVMcpChanged((updated) => {
@@ -131,6 +143,7 @@
 	}
 
 	function startCatalogEntryCreation(target?: { vmcp?: VMCP }) {
+		if (!canEdit) return;
 		pendingEntryDrop = target;
 		catalogEntryDialog?.start(target ? { closeAfterCreate: true } : undefined);
 	}
@@ -149,6 +162,7 @@
 	}
 
 	function handleDroppedOnCreate(entry: MCPCatalogEntry) {
+		if (!canEdit) return;
 		createEditVMcp?.openCreate([catalogEntryToVMCPComponent(entry)]);
 	}
 
@@ -194,6 +208,7 @@
 	}
 
 	async function handleDropped(entry: MCPCatalogEntry, target: VMCP) {
+		if (!canEdit) return;
 		const component = catalogEntryToVMCPComponent(entry);
 
 		try {
@@ -223,11 +238,10 @@
 		const pending = pendingComponentDrop;
 		if (!pending) return;
 		try {
-			await addComponentToVMcp(
-				pending.target,
-				pending.entry,
-				applyComponentConfiguration(pending.component, configuration)
-			);
+			await addComponentToVMcp(pending.target, pending.entry, {
+				...pending.component,
+				configuration
+			});
 			pendingComponentDrop = undefined;
 		} catch {
 			errors.append('Failed to add MCP server to vMCP.');
@@ -274,7 +288,9 @@
 	<div
 		class="@container dark:from-base-300 to-base-200 relative h-full min-h-0 w-full overflow-y-auto default-scrollbar-thin bg-radial-[at_50%_50%] from-gray-50 dark:to-black"
 	>
-		{@render toggleSubview()}
+		{#if canShare}
+			{@render toggleSubview()}
+		{/if}
 		{#if viewType === 'profiles'}
 			<VMcpProfiles
 				vmcp={selectedVMcp}
@@ -296,35 +312,49 @@
 						vmcp={item}
 						components={vmcpComponents(item)}
 						{expanded}
+						{canEdit}
+						{isOwner}
 						context={ctx}
 						drag={entryDrag}
 						onToggleExpand={() => (expanded = !expanded)}
-						onEdit={() => createEditVMcp?.openEdit(item)}
+						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
-						onDelete={() => createEditVMcp?.openDelete(item)}
-						onModifyComponent={(component) => toolFlow.openComponent(component, item)}
+						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
+						onModifyComponent={canEdit
+							? (component) => toolFlow.openComponent(component, item)
+							: undefined}
+						{usersMap}
 					/>
 				{/snippet}
 				{#snippet empty()}
 					<CreateVMcpButton drag={entryDrag} onCreate={() => createEditVMcp?.openCreate()} />
 				{/snippet}
 				{#snippet actions()}
-					{#if selectedVMcp}
-						<IconButton
-							class="btn-sm"
-							variant="danger"
-							tooltip={{ text: 'Delete vMCP', placement: 'bottom' }}
-							onclick={() => {
-								if (!selectedVMcp) return;
-								createEditVMcp?.openDelete(selectedVMcp);
-							}}
+					{#if selectedVMcp && canEdit}
+						<div
+							class="bg-base-100/80 dark:bg-base-300/80 flex gap-1 rounded-md border border-transparent p-1 shadow-sm"
+							data-vmcp-ui
+							role="toolbar"
+							tabindex="-1"
+							aria-label="vMCP actions"
+							onpointerdown={(event) => event.stopPropagation()}
 						>
-							<Trash2 class="size-4" />
-						</IconButton>
+							<IconButton
+								class="btn-sm"
+								variant="danger"
+								tooltip={{ text: 'Delete vMCP', placement: 'bottom' }}
+								onclick={() => {
+									if (!selectedVMcp) return;
+									createEditVMcp?.openDelete(selectedVMcp);
+								}}
+							>
+								<Trash2 class="size-4" />
+							</IconButton>
+						</div>
 					{/if}
 				{/snippet}
 			</VMcpGraph>
-			{#if showRightPanel}
+			{#if showRightPanel && canEdit}
 				<VMcpDragHint
 					dragActive={entryDrag.active}
 					class="absolute top-1/2 right-4 z-20 hidden -translate-y-1/2 @2xl:block"
@@ -333,7 +363,7 @@
 		{/if}
 	</div>
 	{#snippet rightSidebar()}
-		{#if viewType === 'graph'}
+		{#if canEdit && viewType === 'graph'}
 			<McpServersSidebar
 				bind:panelEl={rightPanelEl}
 				bind:open={showRightPanel}

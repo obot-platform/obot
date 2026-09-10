@@ -3,25 +3,19 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
-	import SecretBindingPicker from '$lib/components/mcp/SecretBindingPicker.svelte';
 	import {
 		configurationSelectOptions,
 		isMissingRequiredConfigurationField,
 		selectedConfigurationOption
 	} from '$lib/components/mcp/configurationOptions';
 	import Loading from '$lib/icons/Loading.svelte';
-	import {
-		AdminService,
-		type MCPAllowedSecretBindingTarget,
-		type MCPCatalogEntry,
-		type MCPConfig,
-		type MCPSubField,
-		type VMCPConfigurationPolicy,
-		type VMCPConfigurationPolicyType
+	import type {
+		MCPCatalogEntry,
+		MCPConfig,
+		VMCPConfigurationPolicy,
+		VMCPConfigurationPolicyType
 	} from '$lib/services';
-	import { hasSecretBinding, isKubernetesRuntimeBackend } from '$lib/services/user/mcp';
 	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
-	import { errors, version } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -32,14 +26,8 @@
 
 	let { onNext, onClose }: Props = $props();
 
-	type PolicyField = MCPSubField &
-		MCPConfig & {
-			secretBindingSource?: string;
-			secretBindingReadonly?: boolean;
-		};
-
 	interface PolicyDraft {
-		field: PolicyField;
+		field: MCPConfig;
 		policy?: VMCPConfigurationPolicyType;
 		value: string;
 	}
@@ -58,14 +46,8 @@
 	let saving = $state(false);
 	let submitLabel = $state('Next');
 	let failureMessage = $state('Failed to add MCP server to vMCP.');
-	let secretBindingTargets = $state<MCPAllowedSecretBindingTarget[]>([]);
-	let secretBindingTargetsLoaded = $state(false);
-	let loadingSecretBindingTargets = $state(false);
 
 	let displayName = $derived(entry?.manifest.name || entry?.id || 'MCP server');
-	let canBindSecrets = $derived(isKubernetesRuntimeBackend(version.current.engine));
-	let disableEnvSecretBindings = $derived(entry?.manifest.runtime === 'remote');
-	let editableSecretBindingTargets = $derived(canBindSecrets ? secretBindingTargets : undefined);
 	let envDrafts = $derived(
 		drafts.filter((draft) => draft.field.usage !== 'header' && !isFileField(draft.field))
 	);
@@ -87,11 +69,7 @@
 		drafts = catalogConfigurationFields(target).map((field) => {
 			const policy = existing.get(field.key);
 			return {
-				field: {
-					...field,
-					secretBinding: policy?.secretBinding ?? field.secretBinding,
-					secretBindingReadonly: hasSecretBinding(field)
-				},
+				field,
 				policy: policy?.policy ?? 'fixed',
 				value: policy?.value ?? field.value ?? ''
 			};
@@ -101,7 +79,6 @@
 		highlighted = [];
 		error = undefined;
 		saving = false;
-		void loadSecretBindingTargets();
 		dialog?.open();
 	}
 
@@ -117,38 +94,6 @@
 		return field.name || field.key;
 	}
 
-	function isPinnedSecretBinding(field?: PolicyField) {
-		return Boolean(field?.secretBindingReadonly);
-	}
-
-	function usesSecretBindingSource(field?: PolicyField) {
-		return Boolean(field?.secretBinding) || field?.secretBindingSource === 'secret';
-	}
-
-	function canShowSecretBindingPicker(field: PolicyField) {
-		if (!editableSecretBindingTargets || version.current.hideK8sDetails) return false;
-		if (disableEnvSecretBindings && field.usage !== 'header') return false;
-		return true;
-	}
-
-	async function loadSecretBindingTargets() {
-		if (!canBindSecrets || loadingSecretBindingTargets || secretBindingTargetsLoaded) {
-			return;
-		}
-		loadingSecretBindingTargets = true;
-		try {
-			secretBindingTargets = await AdminService.listMCPSecretBindingTargets({
-				dontLogErrors: true
-			});
-		} catch (err) {
-			errors.append(`Failed to load Kubernetes Secrets for binding: ${err}`);
-			secretBindingTargets = [];
-		} finally {
-			secretBindingTargetsLoaded = true;
-			loadingSecretBindingTargets = false;
-		}
-	}
-
 	function setPolicy(index: number, policy: VMCPConfigurationPolicyType) {
 		drafts[index].policy = policy;
 		error = undefined;
@@ -159,11 +104,7 @@
 		return drafts.map((draft) => ({
 			key: draft.field.key,
 			policy: draft.policy,
-			...(draft.policy === 'fixed' && hasSecretBinding(draft.field)
-				? { secretBinding: draft.field.secretBinding }
-				: draft.policy === 'fixed'
-					? { value: draft.value }
-					: {})
+			...(draft.policy === 'fixed' ? { value: draft.value } : {})
 		}));
 	}
 
@@ -172,11 +113,6 @@
 		const missingFixed: string[] = [];
 		for (const draft of drafts) {
 			if (draft.policy !== 'fixed') continue;
-			if (hasSecretBinding(draft.field)) continue;
-			if (usesSecretBindingSource(draft.field)) {
-				missingFixed.push(draft.field.key);
-				continue;
-			}
 			if (isMissingRequiredConfigurationField({ ...draft.field, value: draft.value }, true)) {
 				missingFixed.push(draft.field.key);
 			}
@@ -213,8 +149,6 @@
 		drafts = [];
 		error = undefined;
 		highlighted = [];
-		secretBindingTargets = [];
-		secretBindingTargetsLoaded = false;
 		onClose?.();
 	}
 </script>
@@ -248,26 +182,7 @@
 			</select>
 		</div>
 		{#if draft.policy === 'fixed'}
-			{#if isPinnedSecretBinding(draft.field)}
-				<div
-					class="bg-base-200 dark:bg-base-300 border-base-300 dark:border-base-400 flex flex-col gap-1 rounded-lg border p-3 text-sm shadow-inner"
-				>
-					<span class="text-muted-content text-xs font-light">Kubernetes Secret</span>
-					<span class="font-mono"
-						>{draft.field.secretBinding?.name} / {draft.field.secretBinding?.key}</span
-					>
-				</div>
-			{:else if canShowSecretBindingPicker(draft.field)}
-				<SecretBindingPicker
-					bind:field={drafts[index].field}
-					targets={editableSecretBindingTargets ?? []}
-					readonly={saving}
-					showRequired={highlightRequired}
-				/>
-			{/if}
-			{#if usesSecretBindingSource(draft.field)}
-				<!-- Secret-bound value is selected above. -->
-			{:else if draft.field.options?.length}
+			{#if draft.field.options?.length}
 				<Select
 					id={`fixed-${draft.field.key}`}
 					class="bg-base-200 border-base-300 dark:border-base-400 border"

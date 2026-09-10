@@ -15,7 +15,7 @@
 	interface Props {
 		showMyVMcpsOnly?: boolean;
 		sortBy?: VMcpSortBy;
-		ownerFilterBy?: string;
+		query?: string;
 		componentFilterBy?: string;
 		componentFilterOptions?: VMcpFilterOption[];
 	}
@@ -24,7 +24,7 @@
 		showMyVMcpsOnly = $bindable(false),
 		sortBy = $bindable('name'),
 		componentFilterBy = $bindable(''),
-		ownerFilterBy = $bindable(''),
+		query = $bindable(''),
 		componentFilterOptions = []
 	}: Props = $props();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -57,9 +57,9 @@
 <div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1 flex flex-col gap-2">
 	<div class="flex items-center gap-2">
 		<Search
-			value={ownerFilterBy}
-			onChange={(value) => (ownerFilterBy = value)}
-			placeholder="Search by user..."
+			value={query}
+			onChange={(value) => (query = value)}
+			placeholder="Search vMCPs..."
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 		/>
 		<button class="btn btn-neutral h-12.5" id={BUTTON_ID} onclick={() => dialog?.open()}>

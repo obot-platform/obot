@@ -6,7 +6,6 @@ import type {
 	OrgUser,
 	VMCP,
 	VMCPComponent,
-	VMCPConfigurationPolicy,
 	VMCPManifest
 } from '$lib/services';
 import { AiClient } from '../user/constants';
@@ -97,39 +96,6 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 	};
 }
 
-export function applyComponentConfiguration(
-	component: VMCPComponent,
-	configuration: VMCPConfigurationPolicy[]
-): VMCPComponent {
-	const policies = configuration.map(({ secretBinding: _secretBinding, ...policy }) => policy);
-	const bindings = new Map(
-		configuration.flatMap((policy) =>
-			policy.policy === 'fixed' && policy.secretBinding
-				? [[policy.key, policy.secretBinding] as const]
-				: []
-		)
-	);
-	const config = (component.catalogEntry?.manifest.config ?? []).map((field) => {
-		const binding = bindings.get(field.key);
-		if (!binding) return field;
-		return { ...field, value: '', secretBinding: binding };
-	});
-
-	return {
-		...component,
-		configuration: policies,
-		catalogEntry: component.catalogEntry
-			? {
-					...component.catalogEntry,
-					manifest: {
-						...component.catalogEntry.manifest,
-						...(component.catalogEntry.manifest.config?.length ? { config } : {})
-					}
-				}
-			: component.catalogEntry
-	};
-}
-
 export function catalogConfigurationFields(entry: MCPCatalogEntry): MCPConfig[] {
 	if (entry.manifest.config?.length) {
 		return entry.manifest.config;
@@ -188,39 +154,34 @@ function sortFilterOptions(options: VMcpFilterOption[]) {
 	return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
-function matchesOwnerFilter(vmcp: VMCP, ownerString: string, owners: Map<string, OrgUser>) {
-	const query = ownerString.trim().toLowerCase();
-	if (!query) return false;
-	const hasMatch = (user: OrgUser) =>
-		user.username.toLowerCase().includes(query) ||
-		user.email.toLowerCase().includes(query) ||
-		Boolean(user.displayName?.toLowerCase().includes(query));
+function matchesOwnerQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
 	const owner = vmcp.userID && owners.get(vmcp.userID);
-	return Boolean(owner && hasMatch(owner));
-}
-
-function selectedVMcpFilterIds(filters: VMcpFilters) {
-	return {
-		nameIds: parseSelectedFilterIds(filters.names ?? ''),
-		ownerString: (filters.owners ?? '').trim(),
-		componentIds: parseSelectedFilterIds(filters.components ?? '')
-	};
-}
-
-/** True when no filters are selected, or when the vMCP matches any selected filter (OR). */
-export function matchesVMcpFilters(vmcp: VMCP, filters: VMcpFilters, owners: Map<string, OrgUser>) {
-	const { nameIds, ownerString, componentIds } = selectedVMcpFilterIds(filters);
-	if (nameIds.length === 0 && !ownerString && componentIds.length === 0) return true;
+	if (!owner) return false;
 	return (
-		nameIds.includes(vmcp.id) ||
-		matchesOwnerFilter(vmcp, ownerString, owners) ||
-		componentIds.some((id) => componentServerIds(vmcp).includes(id))
+		owner.username.toLowerCase().includes(query) ||
+		owner.email.toLowerCase().includes(query) ||
+		Boolean(owner.displayName?.toLowerCase().includes(query))
 	);
 }
 
+function matchesVMcpQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
+	if (!query) return true;
+	return matchesQuery(vmcp, query) || matchesOwnerQuery(vmcp, query.toLowerCase(), owners);
+}
+
+export function matchesVMcpFilters(vmcp: VMCP, filters: VMcpFilters, owners: Map<string, OrgUser>) {
+	const query = (filters.query ?? '').trim();
+	const componentIds = parseSelectedFilterIds(filters.components ?? '');
+	if (!query && componentIds.length === 0) return true;
+	const matchesComponents =
+		componentIds.length === 0 || componentIds.some((id) => componentServerIds(vmcp).includes(id));
+	return matchesVMcpQuery(vmcp, query, owners) && matchesComponents;
+}
+
 export function filterVMcps(vmcps: VMCP[], filters: VMcpFilters, owners: Map<string, OrgUser>) {
-	const { nameIds, ownerString, componentIds } = selectedVMcpFilterIds(filters);
-	if (nameIds.length === 0 && !ownerString && componentIds.length === 0) return vmcps;
+	const query = (filters.query ?? '').trim();
+	const componentIds = parseSelectedFilterIds(filters.components ?? '');
+	if (!query && componentIds.length === 0) return vmcps;
 	return vmcps.filter((vmcp) => matchesVMcpFilters(vmcp, filters, owners));
 }
 
@@ -511,4 +472,23 @@ export function buildConnectAllSnippets(
 			value: JSON.stringify({ mcpServers: servers }, null, 2)
 		}
 	];
+}
+
+/** Servers without tool overrides only report a preview, so those totals are approximate. */
+export function getToolCounts(componentServers: VMcpComponentView[]) {
+	let enabled = 0;
+	let total = 0;
+	let approximate = false;
+	for (const component of componentServers) {
+		if (component.toolOverrides) {
+			enabled += component.toolOverrides.filter((tool) => tool.enabled === true).length;
+			total += component.toolOverrides.length;
+			continue;
+		}
+		approximate = true;
+		const previewCount = component.toolPreview?.length ?? 0;
+		enabled += previewCount;
+		total += previewCount;
+	}
+	return { enabled, total, approximate };
 }

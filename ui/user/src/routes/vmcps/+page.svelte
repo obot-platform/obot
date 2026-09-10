@@ -32,10 +32,15 @@
 
 	let { data } = $props();
 	let isAdminReadonly = $derived(Boolean(profile.current.isAdminReadonly?.()));
-	let views = $derived.by((): TabView[] => [
-		{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
-		{ label: 'Sources', value: 'sources', content: sourcesView }
-	]);
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
+	let views = $derived.by((): TabView[] =>
+		hasAdminAccess
+			? [
+					{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
+					{ label: 'Sources', value: 'sources', content: sourcesView }
+				]
+			: [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
+	);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
 
@@ -43,8 +48,7 @@
 	let isLoading = $state(false);
 	let showMyVMcpsOnly = $state(false);
 	let sortBy = $state<VMcpSortBy>('name');
-	let nameFilterBy = $state('');
-	let ownerFilterBy = $state('');
+	let query = $state('');
 	let componentFilterBy = $state('');
 	let vmcps = $derived(
 		showMyVMcpsOnly ? listedVMcps.filter((vmcp) => vmcp.userID === profile.current.id) : listedVMcps
@@ -75,8 +79,7 @@
 			filterVMcps(
 				vmcps,
 				{
-					names: nameFilterBy,
-					owners: ownerFilterBy,
+					query,
 					components: componentFilterBy
 				},
 				usersMap
@@ -212,7 +215,7 @@
 
 {#snippet navActions(view: string)}
 	{#if view === 'sources'}
-		{#if !isAdminReadonly}
+		{#if hasAdminAccess && !isAdminReadonly}
 			<button
 				class="btn btn-primary flex items-center gap-1 text-sm"
 				onclick={() => createEditVMcpSource?.openAdd()}
@@ -251,7 +254,7 @@
 		<VMcpListSettings
 			bind:showMyVMcpsOnly
 			bind:sortBy
-			bind:ownerFilterBy
+			bind:query
 			bind:componentFilterBy
 			{componentFilterOptions}
 		/>
@@ -261,6 +264,7 @@
 			onSelect={openVMcp}
 			onConnect={handleConnectVMcp}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
+			{usersMap}
 		>
 			{#snippet noDataContent()}
 				<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">

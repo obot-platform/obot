@@ -1,16 +1,24 @@
+import { page as appPage } from '$app/state';
 import {
 	claimToolSetupForVMcp,
 	queueToolSetupForCreatedVMcp
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-import type { MCPCatalogEntry, ToolOverride, VMCP, VMCPManifest } from '$lib/services';
+import {
+	Group,
+	type MCPCatalogEntry,
+	type ToolOverride,
+	type VMCP,
+	type VMCPManifest
+} from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
-import { preparePageData } from '../../../tests/helpers/pageData';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
+import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpDesigner from './VMcpDesigner.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
@@ -51,7 +59,11 @@ function createIssueTrackerVMcp(overrides?: ToolOverride[]) {
 	);
 }
 
-async function renderDesigner(entries: MCPCatalogEntry[], vmcp?: VMCP) {
+async function renderDesigner(
+	entries: MCPCatalogEntry[],
+	vmcp?: VMCP,
+	options?: { groups?: string[] }
+) {
 	mcpServersAndEntries.current = {
 		entries,
 		servers: [],
@@ -61,7 +73,9 @@ async function renderDesigner(entries: MCPCatalogEntry[], vmcp?: VMCP) {
 		lastFetched: null,
 		isInitialized: true
 	};
-	await preparePageData();
+	await preparePageData({
+		profile: createMockProfile(options?.groups ?? [Group.ADMIN])
+	});
 	return render(VMcpDesigner, vmcp ? { vmcp } : {});
 }
 
@@ -136,6 +150,10 @@ async function pressCard(locator: ReturnType<typeof page.getByRole>, pointerId: 
 }
 
 describe('VMcpDesigner.svelte', () => {
+	afterEach(() => {
+		appPage.url.searchParams.delete('view');
+	});
+
 	describe('component with stored tool overrides', () => {
 		it('opens the actions dialog instead of the tool editor', async () => {
 			const vmcp = createIssueTrackerVMcp(toolOverrides);
@@ -652,6 +670,20 @@ describe('VMcpDesigner.svelte', () => {
 			expect(after).toContain('scale(');
 		});
 
+		it('keeps edit controls for a non-admin owner', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.userID = getProfileResponse.id;
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Delete vMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Hide MCP Servers' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
+				.toBeVisible();
+		});
+
 		it('does not pan when dragging from a vMCP card', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			await renderDesigner([componentEntry], vmcp);
@@ -680,6 +712,64 @@ describe('VMcpDesigner.svelte', () => {
 			);
 			await tick();
 			expect(world.getAttribute('style')).toBe(before);
+		});
+	});
+
+	describe('when the viewer is not an admin or owner', () => {
+		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+
+		function sharedVMcp(overrides?: ToolOverride[]) {
+			const vmcp = createIssueTrackerVMcp(overrides);
+			vmcp.userID = 'someone-else';
+			return vmcp;
+		}
+
+		it('hides delete, profile tabs, and the MCP Servers sidebar', async () => {
+			await renderDesigner([componentEntry, slack], sharedVMcp(), { groups: [Group.USER] });
+
+			await expect
+				.element(page.getByRole('button', { name: 'Delete vMCP' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByPlaceholder('Search MCP servers...')).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeVisible();
+		});
+
+		it('does not open edit or component actions, and omits delete from the card menu', async () => {
+			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
+
+			await page.getByRole('button', { name: 'Issue Tracker vMCP', exact: true }).click();
+			await expect.element(page.getByText('Edit vMCP')).not.toBeInTheDocument();
+
+			await expect.element(componentBlock()).not.toBeInTheDocument();
+			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect.element(page.getByRole('link', { name: 'View Audit Logs' })).toBeVisible();
+			await expect.element(page.getByRole('link', { name: 'View Usage' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('stays on the graph when the URL asks for profiles', async () => {
+			appPage.url.searchParams.set('view', 'profiles');
+			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
+
+			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
 		});
 	});
 

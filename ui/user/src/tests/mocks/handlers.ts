@@ -47,7 +47,6 @@ export const handlers = [
 	http.get('/api/mcp-catalogs/default/servers', () =>
 		HttpResponse.json({ items: data.listMCPCatalogServersResponse })
 	),
-	http.get('/api/mcp-server-binding-secrets', () => HttpResponse.json({ items: [] })),
 	http.get('/api/mcp-server-instances', () =>
 		HttpResponse.json({ items: data.listMcpServerInstancesResponse })
 	),

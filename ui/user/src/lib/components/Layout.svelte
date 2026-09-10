@@ -61,6 +61,7 @@
 		type Layout as LayoutState
 	} from '$lib/context/layout.svelte';
 	import { localState } from '$lib/runes/localState.svelte';
+	import { Group } from '$lib/services';
 	import {
 		license as licenseStore,
 		profile,
@@ -215,6 +216,7 @@
 
 	let hostedAgentsFeatureEnabled = $derived(version.current.hostedAgentsEnabled === true);
 	let isBootStrapUser = $derived(profile.current.isBootstrapUser?.() ?? false);
+	let isAtLeastPoweruser = $derived(profile.current.groups.includes(Group.POWERUSER));
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations?.length ?? 0) > 0
@@ -240,11 +242,15 @@
 					label: 'vMCPs',
 					href: '/vmcps'
 				},
-				{
-					id: 'mcp-servers',
-					label: 'MCP Servers',
-					href: '/mcp-servers'
-				},
+				...(isAtLeastPoweruser
+					? [
+							{
+								id: 'mcp-servers',
+								label: 'MCP Servers',
+								href: '/mcp-servers'
+							}
+						]
+					: []),
 				{
 					id: 'skills',
 					label: 'Skills',

@@ -8,12 +8,7 @@ import {
 	type VMCPConfigurationPolicy
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
-import {
-	applyComponentConfiguration,
-	catalogConfigurationFields,
-	vmcpComponentId,
-	vmcpManifest
-} from '$lib/services/vmcps/utils';
+import { catalogConfigurationFields, vmcpComponentId, vmcpManifest } from '$lib/services/vmcps/utils';
 import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
@@ -316,12 +311,7 @@ export function createVMcpToolFlow() {
 			}
 			const nextComponents = components.map((candidate, componentIndex) =>
 				componentIndex === index
-					? {
-							...applyComponentConfiguration(
-								{ ...candidate, ...component, id: candidate.id ?? component.id },
-								configuration
-							)
-						}
+					? { ...candidate, ...component, configuration, id: candidate.id ?? component.id }
 					: candidate
 			);
 			const updated = await UserService.updateVMCP(latest.id, {
