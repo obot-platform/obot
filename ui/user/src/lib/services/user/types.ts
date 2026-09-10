@@ -1019,6 +1019,8 @@ export interface ToolReferenceList {
 // Version
 
 export interface Version {
+	hasModelProvider?: boolean;
+	hasValidLicense?: boolean;
 	latestVersion?: string;
 	sessionStore?: string;
 	obot?: string;

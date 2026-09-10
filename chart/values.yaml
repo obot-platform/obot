@@ -125,6 +125,8 @@ secret:
 
 # config - Non-sensitive configuration variables for the Obot deployment. These values are converted to a ConfigMap and used via envFrom.
 config:
+  # config.OBOT_SERVER_MODEL_PROXY_URL -- MCP Tester fallback when no model provider is configured. Set to an empty string to disable; omission uses the hosted service.
+  OBOT_SERVER_MODEL_PROXY_URL: "https://model-service.obot.ai"
   # config.AWS_REGION -- An AWS region, used to access AWS KMS
   AWS_REGION: ""
   # config.OBOT_GCP_KMS_KEY_URI -- The URI of a Google Cloud KMS key, used for encryption

@@ -95,6 +95,8 @@ const (
 type MCPTesterErrorCode string
 
 const (
+	MCPTesterErrorLicenseRequired     MCPTesterErrorCode = "license_required"
+	MCPTesterErrorQuotaExceeded       MCPTesterErrorCode = "quota_exceeded"
 	MCPTesterErrorAccessDenied        MCPTesterErrorCode = "access_denied"
 	MCPTesterErrorInvalidRequest      MCPTesterErrorCode = "invalid_request"
 	MCPTesterErrorModelUnavailable    MCPTesterErrorCode = "model_unavailable"
