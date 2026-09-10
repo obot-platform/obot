@@ -319,6 +319,9 @@ func (c *Controller) PostStart(ctx context.Context, client kclient.Client) {
 	if err := c.mcpCatalogHandler.SetUpDefaultSystemMCPCatalog(ctx, client); err != nil {
 		panic(fmt.Errorf("failed to set up default system mcp catalog: %w", err))
 	}
+	if err := c.mcpCatalogHandler.SetUpDefaultVMCPCatalog(ctx, client, c.services.DefaultVMCPCatalogPaths); err != nil {
+		panic(fmt.Errorf("failed to set up default vmcp catalog: %w", err))
+	}
 
 	if err := c.reconcileNetworkPolicyProvider(ctx); err != nil {
 		panic(fmt.Errorf("failed to ensure network policy provider: %w", err))

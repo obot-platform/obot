@@ -15,13 +15,17 @@ const (
 
 // VMCP is a stable, optionally multi-component MCP endpoint definition.
 type VMCP struct {
+	VMCPCatalogName         string `json:"vmcpCatalogName,omitempty"`
+	SourceURL               string `json:"sourceURL,omitempty"`
+	Detached                bool   `json:"detached,omitempty"`
+	Editable                bool   `json:"editable"`
 	Metadata                `json:",inline"`
 	VMCPManifest            `json:",inline"`
 	LegacySlug              string     `json:"legacySlug,omitempty"`
 	UserID                  string     `json:"userID,omitempty"`
 	CreatorUserID           string     `json:"creatorUserID,omitempty"`
 	StaticConfigurationHash string     `json:"staticConfigurationHash,omitempty"`
-	Status                  VMCPStatus `json:"status,omitempty"`
+	Status                  VMCPStatus `json:"status,omitzero"`
 }
 
 // VMCPManifest contains the user-managed portion of a VMCP.
@@ -83,7 +87,7 @@ type VMCPConfigurationPolicyType string
 type VMCPProfile struct {
 	Name        string                 `json:"name"`
 	Subjects    []Subject              `json:"subjects"`
-	Permissions VMCPProfilePermissions `json:"vmcpPermissions,omitempty"`
+	Permissions VMCPProfilePermissions `json:"vmcpPermissions,omitzero"`
 }
 
 type VMCPProfilePermissions struct {
@@ -252,6 +256,16 @@ func (m *VMCPManifest) DefaultConfigurationPolicies() {
 }
 
 func (m VMCPManifest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateForSync permits tool names that are not currently enabled or present
+// upstream. Component references and the rest of the definition remain strict.
+func (m VMCPManifest) ValidateForSync() error {
+	return m.validate(true)
+}
+
+func (m VMCPManifest) validate(allowUnknownTools bool) error {
 	if m.DisplayName == "" {
 		return fmt.Errorf("displayName is required")
 	}
@@ -308,7 +322,18 @@ func (m VMCPManifest) Validate() error {
 
 	profileNames := make(map[string]struct{}, len(m.Profiles))
 	for _, profile := range m.Profiles {
-		if err := m.ValidateComponents(profile.Permissions.AllowedComponents); err != nil {
+		if allowUnknownTools {
+			for componentID, component := range profile.Permissions.AllowedComponents {
+				if _, ok := componentIDs[componentID]; !ok {
+					return fmt.Errorf("profile %q: unknown tool component %q", profile.Name, componentID)
+				}
+				for _, name := range component.AllowedTools {
+					if err := (VMCPToolReference{ComponentID: componentID, Name: name}).Validate(); err != nil {
+						return fmt.Errorf("profile %q: %w", profile.Name, err)
+					}
+				}
+			}
+		} else if err := m.ValidateComponents(profile.Permissions.AllowedComponents); err != nil {
 			return fmt.Errorf("profile %q: %w", profile.Name, err)
 		}
 		if profile.Name == "" {

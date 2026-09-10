@@ -13,6 +13,7 @@ type GitCredentialUses struct {
 	SkillRepositories []GitCredentialUse `json:"skillRepositories"`
 	MCPCatalogs       []GitCredentialUse `json:"mcpCatalogs"`
 	SystemMCPCatalogs []GitCredentialUse `json:"systemMcpCatalogs"`
+	VMCPCatalogs      []GitCredentialUse `json:"vmcpCatalogs"`
 }
 
 type GitCredentialUse struct {

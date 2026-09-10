@@ -43,18 +43,19 @@ func TestConvertGitCredentialDoesNotExposeToken(t *testing.T) {
 		SkillRepositories: []types.GitCredentialUse{{ID: "skills", DisplayName: "Team Skills"}},
 		MCPCatalogs:       []types.GitCredentialUse{},
 		SystemMCPCatalogs: []types.GitCredentialUse{},
+		VMCPCatalogs:      []types.GitCredentialUse{},
 	}, converted.Uses)
 
 	response, err := json.Marshal(converted)
 	require.NoError(t, err)
 	assert.NotContains(t, string(response), `"token":`)
-	assert.Contains(t, string(response), `"uses":{"skillRepositories":[{"id":"skills","displayName":"Team Skills"}],"mcpCatalogs":[],"systemMcpCatalogs":[]}`)
+	assert.Contains(t, string(response), `"uses":{"skillRepositories":[{"id":"skills","displayName":"Team Skills"}],"mcpCatalogs":[],"systemMcpCatalogs":[],"vmcpCatalogs":[]}`)
 	assert.NotContains(t, string(response), `"inUse"`)
 
 	converted = convertGitCredential(v1.GitCredential{}, false)
 	response, err = json.Marshal(converted)
 	require.NoError(t, err)
-	assert.Contains(t, string(response), `"uses":{"skillRepositories":[],"mcpCatalogs":[],"systemMcpCatalogs":[]}`)
+	assert.Contains(t, string(response), `"uses":{"skillRepositories":[],"mcpCatalogs":[],"systemMcpCatalogs":[],"vmcpCatalogs":[]}`)
 }
 
 func TestReadGitCredentialManifestTrimsToken(t *testing.T) {
@@ -93,6 +94,12 @@ func TestGitCredentialReferences(t *testing.T) {
 				"https://github.com/org/system-other":   "gc1-test",
 			}},
 		},
+		&v1.VMCPCatalog{
+			Name: "vmcp-catalog", Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPCatalogSpec{SourceURLGitCredentialIDs: map[string]string{
+				"https://github.com/org/vmcps": "gc1-test",
+			}},
+		},
 	)
 	req := httptest.NewRequest(http.MethodDelete, "/api/git-credentials/gc1-test", nil)
 	references, err := gitCredentialReferences(api.Context{Request: req, Storage: storage}, "gc1-test")
@@ -106,6 +113,9 @@ func TestGitCredentialReferences(t *testing.T) {
 		SystemMCPCatalogs: []v1.GitCredentialReference{
 			{ID: "system-catalog", DisplayName: "https://github.com/org/system-catalog"},
 			{ID: "system-catalog", DisplayName: "https://github.com/org/system-other"},
+		},
+		VMCPCatalogs: []v1.GitCredentialReference{
+			{ID: "vmcp-catalog", DisplayName: "https://github.com/org/vmcps"},
 		},
 	}, references)
 }

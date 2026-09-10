@@ -124,6 +124,7 @@ type Config struct {
 
 	DefaultMCPCatalogPath                string `usage:"The path to the default MCP catalog (accessible to all users)" default:""`
 	DefaultSystemMCPCatalogPath          string `usage:"The path to the default System MCP catalog" default:""`
+	DefaultVMCPCatalogPaths              string `usage:"Comma-delimited Git URLs or local paths for the default vMCP catalog; only used when the catalog does not exist"`
 	MDMAssetSource                       string `usage:"The source for MDM assets (a local directory, a tar archive path, or an HTTP(S) tarball URL)" default:"https://github.com/obot-platform/obot-sentry/releases/download/v0.1.7/mdm-assets.tar.gz" env:"OBOT_SERVER_MDM_ASSET_SOURCE"`
 	DefaultSkillRepoURL                  string `usage:"The default skill repository URL (must be HTTPS GitHub URL)" default:"https://github.com/obot-platform/skills" env:"OBOT_DEFAULT_SKILL_REPO_URL"`
 	DefaultSkillRepoRef                  string `usage:"The ref (branch/tag) for the default skill repository" default:"" env:"OBOT_DEFAULT_SKILL_REPO_REF"`
@@ -216,6 +217,7 @@ type Services struct {
 	AuthEnabled                   bool
 	DefaultMCPCatalogPath         string
 	DefaultSystemMCPCatalogPath   string
+	DefaultVMCPCatalogPaths       string
 	MDMAssetSource                string
 	DefaultSkillRepoURL           string
 	DefaultSkillRepoRef           string
@@ -1390,6 +1392,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		DefaultMCPCatalogPath:          config.DefaultMCPCatalogPath,
 		MDMAssetSource:                 config.MDMAssetSource,
 		DefaultSystemMCPCatalogPath:    config.DefaultSystemMCPCatalogPath,
+		DefaultVMCPCatalogPaths:        config.DefaultVMCPCatalogPaths,
 		DefaultSkillRepoURL:            config.DefaultSkillRepoURL,
 		DefaultSkillRepoRef:            config.DefaultSkillRepoRef,
 		DefaultHostedAgentsCatalogURL:  config.DefaultHostedAgentsCatalogURL,

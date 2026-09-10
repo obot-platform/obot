@@ -27,6 +27,7 @@ type GitCredentialReferences struct {
 	SkillRepositories []GitCredentialReference `json:"skillRepositories,omitempty"`
 	MCPCatalogs       []GitCredentialReference `json:"mcpCatalogs,omitempty"`
 	SystemMCPCatalogs []GitCredentialReference `json:"systemMcpCatalogs,omitempty"`
+	VMCPCatalogs      []GitCredentialReference `json:"vmcpCatalogs,omitempty"`
 }
 
 type GitCredentialReference struct {
@@ -44,7 +45,7 @@ type GitCredentialList struct {
 }
 
 func (r GitCredentialReferences) Len() int {
-	return len(r.SkillRepositories) + len(r.MCPCatalogs) + len(r.SystemMCPCatalogs)
+	return len(r.SkillRepositories) + len(r.MCPCatalogs) + len(r.SystemMCPCatalogs) + len(r.VMCPCatalogs)
 }
 
 func (in *GitCredential) GetColumns() [][]string {

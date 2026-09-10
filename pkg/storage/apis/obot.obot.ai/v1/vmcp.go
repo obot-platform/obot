@@ -30,8 +30,12 @@ type VMCP struct {
 }
 
 type VMCPSpec struct {
-	LegacySlug string             `json:"legacySlug,omitempty"`
-	Manifest   types.VMCPManifest `json:"manifest"`
+	VMCPCatalogName string             `json:"vmcpCatalogName,omitempty"`
+	SourceURL       string             `json:"sourceURL,omitempty"`
+	SourceDigest    string             `json:"sourceDigest,omitempty"`
+	Detached        bool               `json:"detached,omitempty"`
+	LegacySlug      string             `json:"legacySlug,omitempty"`
+	Manifest        types.VMCPManifest `json:"manifest"`
 	// UserID is set for a personal VMCP and empty for an administrator-created shared VMCP.
 	UserID string `json:"userID,omitempty"`
 	// CreatorUserID is the user ID of the user who created the VMCP. It is used to determine which admin created a server.
@@ -89,4 +93,8 @@ func (*VMCP) FieldNames() []string {
 
 func (in *VMCP) IsPersonal() bool {
 	return in.Spec.UserID != ""
+}
+
+func (in *VMCP) IsGitManaged() bool {
+	return in.Spec.SourceURL != "" && !in.Spec.Detached
 }

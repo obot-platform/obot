@@ -282,6 +282,10 @@ func TestVMCPProfileComponentPermissions(t *testing.T) {
 			if err := decoded.Validate(); (err != nil) != tc.wantError {
 				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
 			}
+			wantSyncError := tc.componentID != "component"
+			if err := decoded.ValidateForSync(); (err != nil) != wantSyncError {
+				t.Fatalf("ValidateForSync() = %v, want error %v", err, wantSyncError)
+			}
 		})
 	}
 }
