@@ -36,13 +36,17 @@ func (a *Authorizer) checkMCPID(req *http.Request, resources *Resources, user Us
 	// servers on the template were granted by the administrator who published
 	// it, and servers on the instance were checked against the owner when they
 	// were attached.
-	return UserCanConnectToMCP(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID)
+	return userCanConnectToMCP(req.Context(), a.uncached, a.acrHelper, user.Info, resources.MCPID, resources)
 }
 
 // UserCanConnectToMCP applies the same current-user authorization used by the
 // MCP gateway. API handlers that act on an MCP deployment without traversing
 // /mcp-connect must call this rather than relying on management visibility.
 func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
+	return userCanConnectToMCP(ctx, client, acrHelper, user, mcpID, nil)
+}
+
+func userCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string, resources *Resources) (bool, error) {
 	if principal.IsHostedAgent(user) {
 		serverID := mcpID
 		if system.IsMCPServerInstanceID(serverID) {
@@ -61,26 +65,43 @@ func UserCanConnectToMCP(ctx context.Context, client kclient.Client, acrHelper *
 				return false, nil
 			}
 		}
-		return MCPIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), mcpID)
+		return mcpIDIsAuthorized(ctx, client, user.GetExtra()["authorized_mcp_ids"], user.GetUID(), mcpID, resources)
 	}
 
-	authorized, err := CheckMCPIDAccess(ctx, client, acrHelper, user, mcpID)
+	authorized, err := checkMCPIDAccess(ctx, client, acrHelper, user, mcpID, resources)
 	if err != nil || !authorized {
 		return false, err
 	}
 
 	if authorizedMCPIDs := user.GetExtra()["authorized_mcp_ids"]; len(authorizedMCPIDs) > 0 {
-		return MCPIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), mcpID)
+		return mcpIDIsAuthorized(ctx, client, authorizedMCPIDs, user.GetUID(), mcpID, resources)
 	}
 
 	return true, nil
 }
 
 func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string) (bool, error) {
-	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, user.GetUID()); err != nil {
+	return checkMCPIDAccess(ctx, client, acrHelper, user, mcpID, nil)
+}
+
+func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *accesscontrolrule.Helper, user kuser.Info, mcpID string, resources *Resources) (bool, error) {
+	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, user.GetUID()); err != nil {
 		return false, err
 	} else if vmcp != nil {
-		return UserCanConnectVMCP(user, vmcp), nil
+		if !UserCanConnectVMCP(user, vmcp) {
+			return false, nil
+		}
+		if resources != nil {
+			if instance == nil && resources.VMCPComponentMCPID != "" {
+				instance, err = vmcpaccess.FindInstance(ctx, client, vmcp.Namespace, vmcp.Name, user.GetUID())
+				if err != nil || instance == nil {
+					return false, err
+				}
+			}
+			resources.Authorizated.VMCP = vmcp
+			resources.Authorizated.VMCPInstance = instance
+		}
+		return true, nil
 	}
 	switch {
 	case system.IsMCPServerInstanceID(mcpID):
@@ -172,15 +193,34 @@ func CheckMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 }
 
 func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCPServers []string, userID, mcpID string) (bool, error) {
+	return mcpIDIsAuthorized(ctx, client, authorizedMCPServers, userID, mcpID, nil)
+}
+
+func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCPServers []string, userID, mcpID string, resources *Resources) (bool, error) {
 	// Check if this server is in the key's allowed list.
 	// "*" is a special wildcard that grants access to all servers the user can access.
 	if slices.Contains(authorizedMCPServers, "*") || slices.Contains(authorizedMCPServers, mcpID) {
 		return true, nil
 	}
-	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, client, mcpID, userID); err != nil {
-		return false, err
-	} else if vmcp != nil {
+	var (
+		vmcp     *v1.VMCP
+		instance *v1.VMCPInstance
+		err      error
+	)
+	if resources != nil && resources.Authorizated.VMCP != nil {
+		vmcp, instance = resources.Authorizated.VMCP, resources.Authorizated.VMCPInstance
+	} else {
+		vmcp, instance, err = vmcpaccess.ResolveConnectID(ctx, client, mcpID, userID)
+		if err != nil {
+			return false, err
+		}
+	}
+	if vmcp != nil {
 		if vmcpScopeMatches(authorizedMCPServers, vmcp, instance) {
+			if resources != nil {
+				resources.Authorizated.VMCP = vmcp
+				resources.Authorizated.VMCPInstance = instance
+			}
 			return true, nil
 		}
 		if instance == nil {
@@ -189,7 +229,12 @@ func MCPIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 				return false, err
 			}
 		}
-		return vmcpScopeMatches(authorizedMCPServers, vmcp, instance), nil
+		authorized := vmcpScopeMatches(authorizedMCPServers, vmcp, instance)
+		if authorized && resources != nil {
+			resources.Authorizated.VMCP = vmcp
+			resources.Authorizated.VMCPInstance = instance
+		}
+		return authorized, nil
 	}
 
 	switch {

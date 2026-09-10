@@ -18,6 +18,9 @@ import (
 	"github.com/obot-platform/obot/pkg/api/handlers"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
+	"github.com/obot-platform/obot/pkg/utils"
+	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"github.com/obot-platform/obot/pkg/wait"
 	"gorm.io/gorm"
 )
 
@@ -42,6 +45,8 @@ type oauthError struct {
 }
 
 type oauthConsentData struct {
+	VMCPInstanceID            string                   `json:"vmcpInstanceID,omitempty"`
+	VMCPComponents            []types.VMCPComponent    `json:"vmcpComponents,omitempty"`
 	AuthRequestID             string                   `json:"authRequestID"`
 	ContinueURL               string                   `json:"continueURL"`
 	CancelURL                 string                   `json:"cancelURL"`
@@ -301,7 +306,27 @@ func (h *handler) callback(req api.Context) error {
 }
 
 func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.OAuthAuthRequest) error {
-	if oauthAppAuthRequest.Spec.ConsentPrepared && !oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
+	vmcp, instance, err := vmcpConsentTarget(req, oauthAppAuthRequest.Spec.MCPID)
+	if err != nil {
+		return err
+	}
+	if vmcp != nil {
+		missing, err := vmcpConsentMissingConfiguration(req, *vmcp, *instance)
+		if err != nil {
+			return err
+		}
+		if len(missing) > 0 {
+			oauthAppAuthRequest.Spec.ConsentPrepared = true
+			oauthAppAuthRequest.Spec.ConsentMCPConfigRequired = true
+			oauthAppAuthRequest.Spec.ConsentMCPAuthRequired = false
+			oauthAppAuthRequest.Spec.ConsentMCPAuthURL = ""
+			oauthAppAuthRequest.Spec.UserHasSecondLevelOAuthed = false
+			oauthAppAuthRequest.Spec.ConsentMCPServerName = vmcp.Spec.Manifest.DisplayName
+			oauthAppAuthRequest.Spec.ConsentMCPServerURL = ""
+			return req.Update(oauthAppAuthRequest)
+		}
+	}
+	if vmcp == nil && oauthAppAuthRequest.Spec.ConsentPrepared && !oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 		return nil
 	}
 
@@ -322,6 +347,30 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 		return req.Update(oauthAppAuthRequest)
 	}
 
+	// Single-user components receive configuration asynchronously. Do not probe
+	// OAuth with credentials from before the user's save.
+	if vmcp != nil && !vmcpconfig.IsMultiUser(vmcp.Spec.Manifest) {
+		if syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]; syncHash != "" {
+			checkHash := utils.Digest([]any{vmcpconfig.ComponentsForInstance(*vmcp, *instance), syncHash})
+			instance, err = wait.For(req.Context(), req.Storage, instance, func(current *v1.VMCPInstance) (bool, error) {
+				return current.Status.ConfigurationCheckHash == checkHash, nil
+			})
+			if err != nil {
+				return fmt.Errorf("wait for VMCP instance configuration: %w", err)
+			}
+			for _, component := range mcpServerConfig.Components {
+				_, err := wait.For(req.Context(), req.Storage, &v1.MCPServer{
+					Name:      component.Name,
+					Namespace: vmcp.Namespace,
+				}, func(server *v1.MCPServer) (bool, error) {
+					return server.Status.VMCPUserConfigurationHash == instance.Status.UserConfigurationHash, nil
+				})
+				if err != nil {
+					return fmt.Errorf("wait for VMCP component configuration: %w", err)
+				}
+			}
+		}
+	}
 	u, err := h.oauthChecker.CheckForMCPAuth(req, mcpServer, mcpServerConfig, req.User.GetUID(), mcpID, oauthAppAuthRequest.Name)
 	if err != nil {
 		return err
@@ -351,11 +400,9 @@ func (h *handler) consent(req api.Context) error {
 		return nil
 	}
 
-	if !oauthAppAuthRequest.Spec.ConsentPrepared || oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
-		if err := h.prepareOAuthConsent(req, &oauthAppAuthRequest); err != nil {
-			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
-			return nil
-		}
+	if err := h.prepareOAuthConsent(req, &oauthAppAuthRequest); err != nil {
+		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
+		return nil
 	}
 
 	if !oauthAppAuthRequest.Spec.ConsentPrepared {
@@ -376,6 +423,16 @@ func (h *handler) consent(req api.Context) error {
 	}
 
 	continueURL, cancelURL := oauthConsentURLs(oauthAppAuthRequest)
+	vmcp, instance, err := vmcpConsentTarget(req, oauthAppAuthRequest.Spec.MCPID)
+	if err != nil {
+		return err
+	}
+	if vmcp != nil {
+		data := oauthConsentPageData(oauthAppAuthRequest, oauthClient, continueURL, cancelURL, nil, nil)
+		data.VMCPInstanceID = instance.Name
+		data.VMCPComponents = vmcpconfig.ComponentsForInstance(*vmcp, *instance)
+		return req.Write(data)
+	}
 	var (
 		mcpServer         *types.MCPServer
 		mcpServerInstance *types.MCPServerInstance
@@ -403,6 +460,9 @@ func (h *handler) approveConsent(req api.Context) error {
 		return err
 	}
 
+	if err := h.prepareOAuthConsent(req, &oauthAppAuthRequest); err != nil {
+		return err
+	}
 	oauthAppAuthRequest.Spec.ConsentApproved = true
 	if oauthAppAuthRequest.Spec.ConsentMCPConfigRequired {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrInvalidRequest, "MCP server configuration is required before consent can be approved", oauthAppAuthRequest.Spec.State))

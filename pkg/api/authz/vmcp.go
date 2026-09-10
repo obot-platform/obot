@@ -152,3 +152,26 @@ func (a *Authorizer) checkVMCPInstance(req *http.Request, resources *Resources, 
 	resources.Authorizated.VMCPInstance = &instance
 	return true, nil
 }
+
+func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources, u User) (bool, error) {
+	if resources.VMCPComponentMCPID == "" {
+		return true, nil
+	}
+
+	vmcp, instance := resources.Authorizated.VMCP, resources.Authorizated.VMCPInstance
+	if vmcp == nil || instance == nil {
+		return false, nil
+	}
+
+	var component v1.MCPServer
+	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.VMCPComponentMCPID), &component); err != nil {
+		return false, err
+	}
+	belongs := component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == u.GetUID()
+	if vmcpaccess.IsMultiUser(vmcp.Spec.Manifest) {
+		belongs = component.Spec.VMCPID == vmcp.Name && component.Spec.VMCPInstanceID == ""
+	}
+	return belongs && slices.ContainsFunc(vmcpaccess.ComponentsForInstance(*vmcp, *instance), func(candidate types.VMCPComponent) bool {
+		return candidate.ID == component.Spec.VMCPComponentID
+	}), nil
+}

@@ -82,7 +82,8 @@ func SetupHandlers(oauthChecker *MCPOAuthHandlerFactory, tokenStore mcp.GlobalTo
 	mux.HandleFunc("POST /oauth/replace-jwks", h.tokenService.ReplaceJWK)
 	mux.HandleFunc("GET "+system.OAuthClientIDMetadataPath, h.obotClientIDMetadata)
 
-	mux.HandleFunc("GET /api/oauth/composite/{mcp_id}", h.checkCompositeAuth)
+	mux.HandleFunc("GET /api/oauth/vmcp/{mcp_id}", h.checkVMCPAuth)
+	mux.HandleFunc("GET /api/oauth/vmcp/{mcp_id}/components/{component_mcp_id}", h.checkVMCPComponentAuth)
 
 	mux.HandleFunc("GET /oauth/userinfo", h.userInfo)
 }

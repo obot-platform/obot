@@ -244,6 +244,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("PUT /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Update)
 	mux.HandleFunc("DELETE /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Delete)
 	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/configure", vmcpInstances.Configure)
+	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/reveal", vmcpInstances.Reveal)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

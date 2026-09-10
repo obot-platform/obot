@@ -61,6 +61,7 @@ import {
 	type K8sServerDetail,
 	type MCPSubField,
 	type VMCP,
+	type VMCPComponent,
 	type VMCPInstance,
 	type VMCPManifest,
 	type VMCPConfiguration
@@ -96,7 +97,7 @@ export async function getVMCP(id: string, opts?: { fetch?: Fetcher }): Promise<V
 
 export async function getMCPServerOrVMCP(
 	id: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
 ): Promise<MCPCatalogServer | VMCP> {
 	const path = id.startsWith('vmcp1') ? `/vmcps/${id}` : `/mcp-servers/${id}`;
 	return (await doGet(path, opts)) as MCPCatalogServer | VMCP;
@@ -174,6 +175,13 @@ export async function configureVMCPInstance(
 	configuration: VMCPConfiguration
 ): Promise<VMCPInstance> {
 	return (await doPost(`/vmcp-instances/${id}/configure`, configuration)) as VMCPInstance;
+}
+
+export async function revealVMCPInstance(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<VMCPConfiguration> {
+	return (await doPost(`/vmcp-instances/${id}/reveal`, {}, opts)) as VMCPConfiguration;
 }
 
 export async function deleteVMCPInstance(id: string): Promise<void> {
@@ -1150,19 +1158,25 @@ export async function checkCompositeOAuth(
 	compositeMcpId: string,
 	opts?: { oauthAuthRequestID?: string; signal?: AbortSignal }
 ): Promise<PendingCompositeAuth[]> {
-	let url = `/oauth/composite/${compositeMcpId}`;
+	let url = `/oauth/vmcp/${compositeMcpId}`;
 	if (opts?.oauthAuthRequestID) {
 		url += `?oauth_auth_request=${opts.oauthAuthRequestID}`;
 	}
 	const response = await doGet(url, { signal: opts?.signal, dontLogErrors: true });
 
-	// If the server returns a redirect_uri, perform client-side redirect
-	if (response && typeof response === 'object' && 'redirect_uri' in response) {
-		window.location.href = (response as { redirect_uri: string }).redirect_uri;
-		return [];
-	}
-
 	return Array.isArray(response) ? response : [];
+}
+
+export async function checkCompositeOAuthComponent(
+	compositeMcpId: string,
+	componentMcpId: string,
+	opts?: { oauthAuthRequestID?: string; signal?: AbortSignal }
+): Promise<{ authURL?: string }> {
+	let url = `/oauth/vmcp/${encodeURIComponent(compositeMcpId)}/components/${encodeURIComponent(componentMcpId)}`;
+	if (opts?.oauthAuthRequestID) {
+		url += `?oauth_auth_request=${encodeURIComponent(opts.oauthAuthRequestID)}`;
+	}
+	return (await doGet(url, { signal: opts?.signal, dontLogErrors: true })) as { authURL?: string };
 }
 
 export type OAuthConsent = {
@@ -1182,6 +1196,8 @@ export type OAuthConsent = {
 	mcpConfigRequired: boolean;
 	mcpServer?: MCPCatalogServer;
 	mcpServerInstance?: MCPServerInstance;
+	vmcpInstanceID?: string;
+	vmcpComponents?: VMCPComponent[];
 	mcpAuthRequired: boolean;
 	userHasSecondLevelOAuthed: boolean;
 	mcpServerName?: string;

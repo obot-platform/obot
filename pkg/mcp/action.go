@@ -387,7 +387,12 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		if allowMissingConfig {
 			return serverConfig, missingConfig, nil
 		}
-		return ServerConfig{}, missingConfig, types.NewErrBadRequest("missing required config: %s", strings.Join(missingConfig, ", "))
+
+		serverName := server.Spec.Manifest.Name
+		if serverName == "" {
+			serverName = server.Name
+		}
+		return ServerConfig{}, missingConfig, types.NewErrBadRequest("missing required config for server %q: %s", serverName, strings.Join(missingConfig, ", "))
 	}
 
 	sm.updateLastRequestTime(ctx, &server)

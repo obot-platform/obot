@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
@@ -73,29 +74,77 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			return "", err
 		}
 
+		// Gate the number of parallel calls.
+		limit := make(chan struct{}, 5)
+		defer close(limit)
+		// Prime the channel here so we can drain at the end
+		for range cap(limit) {
+			limit <- struct{}{}
+		}
+
+		var (
+			needsOAuth bool
+			checkErr   error
+			lock       sync.RWMutex
+		)
 		for _, componentServer := range componentServers {
 			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
 
-			_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), componentServer.Name, req.User.GetUID())
-			if err != nil {
-				continue
+			lock.RLock()
+			if needsOAuth || checkErr != nil {
+				lock.RUnlock()
+				break
 			}
+			lock.RUnlock()
 
-			u, err := f.CheckForMCPAuth(req, componentServer, componentConfig, userID, componentServer.Name, oauthAppAuthRequestID)
-			if err != nil {
-				if req.Context().Err() != nil {
-					return "", fmt.Errorf("failed to check component server OAuth: %w", req.Context().Err())
+			<-limit
+
+			go func() {
+				defer func() {
+					limit <- struct{}{}
+				}()
+
+				_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), componentServer.Name, req.User.GetUID())
+				if err != nil {
+					return
 				}
-				return "", fmt.Errorf("failed to check component server %s OAuth: %w", componentServer.Name, err)
-			}
 
-			if u != "" {
-				// At least one component requires OAuth.
-				slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID, "componentMCPID", componentServer.Name)
-				return compositeConsentURL(f.baseURL, mcpID, mcpServer.Spec.VMCPID, oauthAppAuthRequestID), nil
-			}
+				u, err := f.CheckForMCPAuth(req, componentServer, componentConfig, userID, componentServer.Name, oauthAppAuthRequestID)
+				if err != nil {
+					lock.Lock()
+					defer lock.Unlock()
+
+					if req.Context().Err() != nil {
+						checkErr = fmt.Errorf("failed to check component server OAuth: %w", req.Context().Err())
+					} else {
+						checkErr = fmt.Errorf("failed to check component server %s OAuth: %w", componentServer.Name, err)
+					}
+					return
+				}
+
+				if u != "" {
+					lock.Lock()
+					defer lock.Unlock()
+					needsOAuth = true
+				}
+			}()
+		}
+
+		// Wait for everything to finish
+		for range cap(limit) {
+			<-limit
+		}
+
+		if checkErr != nil {
+			return "", checkErr
+		}
+
+		if needsOAuth {
+			// At least one component requires OAuth.
+			slog.Info("Aggregate MCP server requires component OAuth authentication", "mcpID", mcpID)
+			return compositeConsentURL(f.baseURL, mcpID, mcpServer.Spec.VMCPID, oauthAppAuthRequestID), nil
 		}
 
 		// No component requires OAuth

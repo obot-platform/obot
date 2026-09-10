@@ -130,6 +130,13 @@ func ExtractStaticConfiguration(manifest *types.VMCPManifest) map[string]string 
 func ValidateAndEncodeUserConfiguration(manifest types.VMCPManifest, configuration types.VMCPConfiguration) (map[string]string, error) {
 	components := make(map[string]map[string]types.VMCPConfigurationPolicyType, len(manifest.Components))
 	for _, component := range manifest.Components {
+		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.FixedURL == "" && remote.Hostname != "" {
+			if userURL := strings.TrimSpace(configuration.Components[component.ID]["__url"]); userURL != "" {
+				if err := types.ValidateURLHostname(userURL, remote.Hostname); err != nil {
+					return nil, fmt.Errorf("invalid URL for component %q: %w", component.ID, err)
+				}
+			}
+		}
 		policies := make(map[string]types.VMCPConfigurationPolicyType, len(component.Configuration))
 		for _, policy := range component.Configuration {
 			policies[policy.Key] = policy.Policy

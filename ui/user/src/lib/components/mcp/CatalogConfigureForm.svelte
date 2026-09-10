@@ -73,6 +73,7 @@
 		secretBindingTargets?: MCPAllowedSecretBindingTarget[];
 		disableEnvSecretBindings?: boolean;
 		deprecated?: boolean;
+		showComponentToggle?: boolean;
 	}
 	let {
 		form = $bindable(),
@@ -95,6 +96,7 @@
 		secretBindingTargets,
 		disableEnvSecretBindings,
 		deprecated,
+		showComponentToggle = true,
 		animate = 'slide'
 	}: Props = $props();
 	let configDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -480,13 +482,15 @@
 								{/if}
 								<div class="grow font-medium">{comp.name || compId}</div>
 								<McpDeprecatedNotice deprecated={comp.deprecated} child />
-								<Toggle
-									checked={!form.componentConfigs[compId].disabled}
-									onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
-									label="Enable"
-									labelInline
-									classes={{ label: 'text-sm gap-2' }}
-								/>
+								{#if showComponentToggle}
+									<Toggle
+										checked={!form.componentConfigs[compId].disabled}
+										onChange={(checked) => (form.componentConfigs[compId].disabled = !checked)}
+										label="Enable"
+										labelInline
+										classes={{ label: 'text-sm gap-2' }}
+									/>
+								{/if}
 							</div>
 							{#if componentHasConfig(comp)}
 								{@const headers = getNonStaticServerFields(comp.headers)}

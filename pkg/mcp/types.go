@@ -234,6 +234,16 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	serverConfig.Headers = make([]string, 0, len(config))
 
 	var missingRequiredNames []string
+	if remoteConfig.Hostname != "" {
+		if userURL := credEnv["__url"]; userURL != "" {
+			serverConfig.URL = userURL
+		}
+		if serverConfig.URL == "" {
+			missingRequiredNames = append(missingRequiredNames, "__url")
+		} else if err := types.ValidateURLHostname(serverConfig.URL, remoteConfig.Hostname); err != nil {
+			return nil, err
+		}
+	}
 	for _, header := range config {
 		if header.Usage != types.Header || header.UserAllowed {
 			continue

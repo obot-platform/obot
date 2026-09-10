@@ -689,6 +689,91 @@ func TestVMCPActionsDoNotUseMCPServerRoutes(t *testing.T) {
 	}
 }
 
+func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
+	newAuthorizer := func(objects ...kclient.Object) *Authorizer {
+		storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(objects...).
+			WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj kclient.Object) []string {
+				return []string{obj.(*v1.VMCPInstance).Spec.UserID}
+			}).
+			WithIndex(&v1.VMCPInstance{}, "spec.manifest.vmcpID", func(obj kclient.Object) []string {
+				return []string{obj.(*v1.VMCPInstance).Spec.Manifest.VMCPID}
+			}).Build()
+		return NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)
+	}
+	newObjects := func(singleUser bool) (*v1.VMCP, *v1.VMCPInstance, *v1.MCPServer) {
+		vmcp := &v1.VMCP{
+			ObjectMeta: objectMetaForAuthzTest("vmcp1oauth"),
+			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+				ForceSingleUser: singleUser,
+				Components:      []types.VMCPComponent{{ID: "component"}},
+				Profiles: []types.VMCPProfile{{
+					Subjects:      []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
+					AllowAllTools: true,
+				}},
+			}},
+		}
+		instance := &v1.VMCPInstance{
+			ObjectMeta: objectMetaForAuthzTest("vmcpi1oauth"),
+			Spec: v1.VMCPInstanceSpec{
+				UserID: "consumer",
+				Manifest: types.VMCPInstanceManifest{
+					VMCPID: vmcp.Name,
+				},
+			},
+		}
+		component := &v1.MCPServer{
+			ObjectMeta: objectMetaForAuthzTest("ms1component"),
+			Spec: v1.MCPServerSpec{
+				VMCPID:          vmcp.Name,
+				VMCPComponentID: "component",
+			},
+		}
+		if singleUser {
+			component.Spec.UserID = "consumer"
+			component.Spec.VMCPID = ""
+			component.Spec.VMCPInstanceID = instance.Name
+		}
+		return vmcp, instance, component
+	}
+	authorized := func(authorizer *Authorizer, parentID, componentID string) bool {
+		path := "/api/oauth/vmcp/" + parentID + "/components/" + componentID
+		return authorizer.Authorize(httptest.NewRequest(http.MethodGet, path, nil), &user.DefaultInfo{
+			Name:   "consumer",
+			UID:    "consumer",
+			Groups: []string{types.GroupAPI},
+		})
+	}
+
+	for _, singleUser := range []bool{false, true} {
+		vmcp, instance, component := newObjects(singleUser)
+		parentID := vmcp.Name
+		if singleUser {
+			parentID = instance.Name
+		}
+		if !authorized(newAuthorizer(vmcp, instance, component), parentID, component.Name) {
+			t.Fatalf("valid component denied for singleUser=%v", singleUser)
+		}
+	}
+
+	vmcp, instance, component := newObjects(true)
+	component.Spec.VMCPInstanceID = "vmcpi1other"
+	if authorized(newAuthorizer(vmcp, instance, component), instance.Name, component.Name) {
+		t.Fatal("component from another vMCP connection was authorized")
+	}
+
+	vmcp, instance, component = newObjects(false)
+	component.Spec.VMCPID = "vmcp1other"
+	if authorized(newAuthorizer(vmcp, instance, component), vmcp.Name, component.Name) {
+		t.Fatal("component from another shared vMCP was authorized")
+	}
+
+	vmcp, instance, component = newObjects(true)
+	instance.Spec.LegacyDisabledComponents = []string{"component"}
+	if authorized(newAuthorizer(vmcp, instance, component), instance.Name, component.Name) {
+		t.Fatal("disabled component was authorized")
+	}
+}
+
 func newVMCPTestAuthorizer(objects ...kclient.Object) *Authorizer {
 	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(objects...).Build()
 	return NewAuthorizer(nil, storage, storage, false, nil, nil, nil, false)

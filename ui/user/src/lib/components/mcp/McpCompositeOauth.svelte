@@ -1,11 +1,12 @@
 <script lang="ts">
-	import { parseErrorContent } from '$lib/errors';
+	import { isAbortError, parseErrorContent } from '$lib/errors';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type PendingCompositeAuth, type VMCP } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 
 	interface Props {
 		compositeMcpId: string;
@@ -25,17 +26,27 @@
 	let pending = $state<PendingCompositeAuth[]>([]);
 	let loading = $state(true);
 	let error = $state<string>('');
+	const attempted = new SvelteSet<string>();
+	const checking = new SvelteSet<string>();
+	let rowErrors = $state<Record<string, string>>({});
+	let completed = false;
+	let abortController: AbortController | undefined;
 
 	const allAuthenticated = $derived(pending.length === 0);
+	const success = $derived(allAuthenticated && !loading && !error && checking.size === 0);
 	const parentIcon = $derived(compositeServer ? compositeServer.icon : undefined);
 	const parentDisplayName = $derived(
 		compositeServer ? compositeServer.displayName : 'MCP Server Authentication'
 	);
 
-	// trigger onComplete when done
+	// Complete only after every pending or in-flight authentication check succeeds.
 	$effect(() => {
-		if (onComplete && allAuthenticated && !loading && !error) {
-			onComplete();
+		if (completed || !success) return;
+		completed = true;
+		if (oauthAuthRequestId) {
+			window.location.href = `/auth/oauth/complete/${encodeURIComponent(oauthAuthRequestId)}`;
+		} else {
+			onComplete?.();
 		}
 	});
 
@@ -47,9 +58,10 @@
 		}));
 	}
 
-	async function fetchParentAndMeta() {
+	async function fetchParentAndMeta(signal?: AbortSignal) {
 		try {
-			const parent = await UserService.getMCPServerOrVMCP(metadataId);
+			const parent = await UserService.getMCPServerOrVMCP(metadataId, { signal });
+			if (signal?.aborted) return;
 			if (!('components' in parent)) return;
 			compositeServer = parent;
 
@@ -66,38 +78,84 @@
 				},
 				{}
 			);
-		} catch (_err) {
+		} catch (err) {
+			if (signal?.aborted || isAbortError(err)) return;
 			// ignore; UI will fallback to IDs
 		}
 	}
 
-	async function fetchPending() {
+	async function fetchPending(signal?: AbortSignal) {
 		loading = true;
 		error = '';
 		try {
 			const data = await UserService.checkCompositeOAuth(compositeMcpId, {
-				oauthAuthRequestID: oauthAuthRequestId
+				oauthAuthRequestID: oauthAuthRequestId,
+				signal
 			});
+			if (signal?.aborted) return;
 			pending = data;
-		} catch (_err) {
-			const { message } = parseErrorContent(_err);
+		} catch (err) {
+			if (signal?.aborted || isAbortError(err)) return;
+			const { message } = parseErrorContent(err);
 			error = message;
 		} finally {
-			loading = false;
+			if (!signal?.aborted) loading = false;
 		}
+	}
+
+	async function checkComponent(item: PendingCompositeAuth) {
+		const id = item.mcpServerID;
+		if (checking.has(id)) return;
+		checking.add(id);
+		delete rowErrors[id];
+		rowErrors = { ...rowErrors };
+		try {
+			const result = await UserService.checkCompositeOAuthComponent(compositeMcpId, id, {
+				oauthAuthRequestID: oauthAuthRequestId,
+				signal: abortController?.signal
+			});
+			if (abortController?.signal.aborted) return;
+			if (!result.authURL) {
+				pending = pending.filter((candidate) => candidate.mcpServerID !== id);
+			} else {
+				pending = pending.map((candidate) =>
+					candidate.mcpServerID === id ? { ...candidate, authURL: result.authURL! } : candidate
+				);
+			}
+		} catch (err) {
+			if (abortController?.signal.aborted || isAbortError(err)) return;
+			const { message } = parseErrorContent(err);
+			rowErrors = { ...rowErrors, [id]: message };
+		} finally {
+			checking.delete(id);
+		}
+	}
+
+	function recordAttempt(item: PendingCompositeAuth) {
+		attempted.add(item.mcpServerID);
 	}
 
 	function handleVisibilityChange() {
 		if (document.visibilityState === 'visible') {
-			fetchPending();
+			if (error) {
+				void fetchPending(abortController?.signal);
+				return;
+			}
+			for (const item of pending) {
+				if (attempted.has(item.mcpServerID)) void checkComponent(item);
+			}
 		}
 	}
 
 	onMount(() => {
-		fetchParentAndMeta();
-		fetchPending();
+		abortController = new AbortController();
+		void fetchParentAndMeta(abortController.signal);
+		void fetchPending(abortController.signal);
 		document.addEventListener('visibilitychange', handleVisibilityChange);
-		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+		return () => {
+			abortController?.abort();
+			document.removeEventListener('visibilitychange', handleVisibilityChange);
+		};
 	});
 </script>
 
@@ -159,17 +217,37 @@
 							/>
 						</div>
 						<div class="flex items-center gap-2">
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
-							<a href={item.authURL} rel="external" target="_blank" class="btn btn-primary"
-								>Authenticate</a
-							>
+							{#if checking.has(item.mcpServerID)}
+								<span class="flex items-center gap-2 text-sm" role="status">
+									<Loading class="size-4" /> Checking for valid authentication…
+								</span>
+							{:else}
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
+								<a
+									href={item.authURL}
+									rel="external"
+									target="_blank"
+									class="btn btn-primary"
+									onclick={() => recordAttempt(item)}>Authenticate</a
+								>
+								{#if rowErrors[item.mcpServerID]}
+									<button
+										class="btn btn-secondary"
+										type="button"
+										onclick={() => void checkComponent(item)}>Retry</button
+									>
+								{/if}
+							{/if}
 						</div>
 					</div>
+					{#if rowErrors[item.mcpServerID]}
+						<p class="text-error mt-2 text-sm">{rowErrors[item.mcpServerID]}</p>
+					{/if}
 				{/each}
 			</div>
 		{/if}
 
-		{#if allAuthenticated}
+		{#if success}
 			<div class="notification-info mt-6 flex justify-center">
 				<div class="flex flex-col items-center gap-2">
 					<p class="text-center font-semibold">All services authenticated successfully!</p>

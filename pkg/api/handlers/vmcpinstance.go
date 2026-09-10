@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -192,6 +194,46 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to trigger VMCP instance configuration reconciliation: %w", err)
 	}
 	return req.Write(convertVMCPInstance(instance))
+}
+
+func (*VMCPInstanceHandler) Reveal(req api.Context) error {
+	var instance v1.VMCPInstance
+	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP instance: %w", err)
+	}
+
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, instance.Spec.Manifest.VMCPID); err != nil {
+		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	credential, err := req.GatewayClient.RevealCredential(req.Context(),
+		[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
+		vmcpconfig.ConfigurationCredentialName(),
+	)
+	if err != nil {
+		if _, ok := errors.AsType[gateway.CredentialNotFoundError](err); !ok {
+			return fmt.Errorf("failed to reveal VMCP instance configuration: %w", err)
+		}
+	}
+
+	configuration := types.VMCPConfiguration{Components: map[string]map[string]string{}}
+	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, instance) {
+		for _, policy := range component.Configuration {
+			if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
+				continue
+			}
+			value, ok := credential.Secrets[vmcpconfig.ConfigurationKey(component.ID, policy.Key)]
+			if !ok {
+				continue
+			}
+			if configuration.Components[component.ID] == nil {
+				configuration.Components[component.ID] = map[string]string{}
+			}
+			configuration.Components[component.ID][policy.Key] = value
+		}
+	}
+	return req.Write(configuration)
 }
 
 func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {

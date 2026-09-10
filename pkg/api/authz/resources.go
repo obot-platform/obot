@@ -37,7 +37,8 @@ var (
 			"POST   /oauth/consent/{oauth_auth_request}/approve",
 			"POST   /oauth/consent/{oauth_auth_request}/cancel",
 			"GET    /oauth/complete/{oauth_auth_request}",
-			"GET    /api/oauth/composite/{mcp_id}",
+			"GET    /api/oauth/vmcp/{mcp_id}",
+			"GET    /api/oauth/vmcp/{mcp_id}/components/{component_mcp_id}",
 			"GET    /api/mcp-stats/{mcp_id}",
 			"GET    /api/mcp-audit-logs/{mcp_id}",
 			"GET    /api/mcp-server-instances",
@@ -71,6 +72,7 @@ var (
 			"PUT    /api/vmcp-instances/{vmcp_instance_id}",
 			"DELETE /api/vmcp-instances/{vmcp_instance_id}",
 			"POST   /api/vmcp-instances/{vmcp_instance_id}/configure",
+			"POST   /api/vmcp-instances/{vmcp_instance_id}/reveal",
 			"GET    /api/mcp-servers",
 			"GET    /api/mcp-servers/{mcpserver_id}",
 			"POST   /api/mcp-servers/{mcpserver_id}/launch",
@@ -202,6 +204,7 @@ type Resources struct {
 	MCPServerID             string
 	MCPServerInstanceID     string
 	MCPServerCatalogEntryID string
+	VMCPComponentMCPID      string
 	VMCPID                  string
 	VMCPInstanceID          string
 	// MCPID can be the ID of an MCPServer, an MCPServerInstance, or MCPServerCatalogEntry. It is used for interaction with the MCP gateway.
@@ -239,6 +242,7 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 		MCPServerID:             vars("mcpserver_id"),
 		MCPServerInstanceID:     vars("mcp_server_instance_id"),
 		MCPServerCatalogEntryID: vars("entry_id"),
+		VMCPComponentMCPID:      vars("component_mcp_id"),
 		VMCPID:                  vars("vmcp_id"),
 		VMCPInstanceID:          vars("vmcp_instance_id"),
 		MCPID:                   vars("mcp_id"), // this can be a server ID, server instance ID, catalog entry ID, or vMCP ID
@@ -283,6 +287,10 @@ func (a *Authorizer) evaluateResources(req *http.Request, vars GetVar, user User
 	}
 
 	if ok, err := a.checkMCPID(req, &resources, user); !ok || err != nil {
+		return false, err
+	}
+
+	if ok, err := a.checkVMCPComponent(req, &resources, user); !ok || err != nil {
 		return false, err
 	}
 

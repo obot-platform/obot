@@ -145,7 +145,7 @@ func newVMCPOAuthFixture(t *testing.T) vmcpOAuthFixture {
 }
 
 func (f vmcpOAuthFixture) request(ctx context.Context) api.Context {
-	request := httptest.NewRequest(http.MethodGet, "/api/oauth/composite/"+vmcpOAuthID, nil).WithContext(ctx)
+	request := httptest.NewRequest(http.MethodGet, "/api/oauth/vmcp/"+vmcpOAuthID, nil).WithContext(ctx)
 	request.SetPathValue("mcp_id", vmcpOAuthID)
 	return api.Context{
 		Request:        request,

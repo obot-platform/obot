@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import CatalogConfigureForm, {
+		type CompositeLaunchFormData,
 		type LaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
@@ -26,7 +27,7 @@
 
 	let { data }: Props = $props();
 	let currentConsent = $state(untrack(() => data.consent));
-	let configureForm = $state<LaunchFormData>();
+	let configureForm = $state<LaunchFormData | CompositeLaunchFormData>();
 	let configDialog = $state<ReturnType<typeof CatalogConfigureForm>>();
 	let configError = $state('');
 	let loadingConfig = $state(false);
@@ -38,6 +39,9 @@
 	const showMCPAuthNotice = $derived(consent.mcpAuthRequired || consent.userHasSecondLevelOAuthed);
 	const deprecated = $derived(isDeprecatedMCPServer(consent.mcpServer));
 	const hasConfigurableMCPConfiguration = $derived.by(() => {
+		if (consent.vmcpInstanceID) {
+			return consent.vmcpComponents?.some(hasEditableVMCPConfiguration);
+		}
 		if (consent.mcpServer) {
 			return hasEditableConfiguration(consent.mcpServer);
 		}
@@ -136,7 +140,7 @@
 	});
 
 	onMount(() => {
-		if (requiresMCPConfiguration) {
+		if (requiresMCPConfiguration || hasConfigurableMCPConfiguration) {
 			void loadMCPConfiguration(currentConsent);
 		}
 	});
@@ -146,7 +150,55 @@
 		configError = '';
 		try {
 			let values: Record<string, string> = {};
-			if (nextConsent.mcpServerInstance?.id) {
+			if (nextConsent.vmcpInstanceID && nextConsent.vmcpComponents) {
+				const configuration = await UserService.revealVMCPInstance(nextConsent.vmcpInstanceID, {
+					dontLogErrors: true
+				});
+				configureForm = {
+					componentConfigs: Object.fromEntries(
+						nextConsent.vmcpComponents.map((component) => {
+							const componentID = component.id ?? component.mcpServerCatalogEntryID;
+							const editableKeys = new Set(
+								component.configuration
+									?.filter((field) => field.policy === 'userAllowed')
+									.map((field) => field.key)
+							);
+							const manifestConfiguration = getManifestConfiguration(
+								component.catalogEntry.manifest
+							);
+							return [
+								componentID,
+								{
+									name: component.name,
+									envs: manifestConfiguration.env
+										.filter(
+											(field) =>
+												editableKeys.has(field.key) && !field.value && !hasSecretBinding(field)
+										)
+										.map((field) => ({
+											...field,
+											value: configuration.components[componentID]?.[field.key] ?? '',
+											isStatic: false
+										})),
+									headers: (component.catalogEntry.manifest.config ?? [])
+										.filter(
+											(field) =>
+												field.usage === 'header' &&
+												editableKeys.has(field.key) &&
+												!field.value &&
+												!hasSecretBinding(field)
+										)
+										.map(({ usage: _usage, ...field }) => ({
+											...field,
+											value: configuration.components[componentID]?.[field.key] ?? '',
+											isStatic: false
+										}))
+								}
+							];
+						})
+					)
+				};
+			} else if (nextConsent.mcpServerInstance?.id) {
 				values = await revealExistingConfiguration(() =>
 					UserService.revealMcpServerInstance(nextConsent.mcpServerInstance!.id, {
 						dontLogErrors: true
@@ -214,16 +266,40 @@
 		}
 	}
 
+	function hasEditableVMCPConfiguration(
+		component: NonNullable<OAuthConsent['vmcpComponents']>[number]
+	) {
+		const editableKeys = new Set(
+			component.configuration
+				?.filter((field) => field.policy === 'userAllowed')
+				.map((field) => field.key)
+		);
+		const manifest = component.catalogEntry.manifest;
+		return [
+			...getManifestConfiguration(manifest).env,
+			...(manifest.config ?? []).filter((field) => field.usage === 'header')
+		].some((field) => editableKeys.has(field.key) && !field.value && !hasSecretBinding(field));
+	}
+
 	async function saveMCPConfiguration() {
 		if (!configureForm) return;
 
 		configError = '';
 		savingConfig = true;
 		try {
-			if (consent.mcpServerInstance?.id) {
+			if (consent.vmcpInstanceID && 'componentConfigs' in configureForm) {
+				await UserService.configureVMCPInstance(consent.vmcpInstanceID, {
+					components: Object.fromEntries(
+						Object.entries(configureForm.componentConfigs).map(([componentID, component]) => [
+							componentID,
+							convertEnvHeadersToRecord(component.envs, component.headers)
+						])
+					)
+				});
+			} else if (consent.mcpServerInstance?.id && !('componentConfigs' in configureForm)) {
 				const payload = convertEnvHeadersToRecord(undefined, configureForm.headers);
 				await UserService.configureMcpServerInstance(consent.mcpServerInstance.id, payload);
-			} else if (consent.mcpServer?.id) {
+			} else if (consent.mcpServer?.id && !('componentConfigs' in configureForm)) {
 				const payload = convertEnvHeadersToRecord(configureForm.envs, configureForm.headers);
 				if (configureForm.hostname && configureForm.url) {
 					payload.__url = configureForm.url.trim();
@@ -407,7 +483,13 @@
 				</button>
 			{:else}
 				<form method="POST" action={resolve(consent.continueURL as `/${string}`)}>
-					<button class="btn btn-primary w-full" type="submit">Continue</button>
+					<button
+						class="btn btn-primary w-full"
+						type="submit"
+						disabled={loadingConfig || savingConfig}
+					>
+						Continue
+					</button>
 				</form>
 			{/if}
 		</footer>
@@ -423,6 +505,7 @@
 	loading={savingConfig}
 	error={configError}
 	{deprecated}
+	showComponentToggle={false}
 	cancelText="Close"
 	submitText="Save"
 	configurationTitle="MCP Server Configuration"

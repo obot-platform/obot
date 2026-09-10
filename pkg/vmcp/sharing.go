@@ -10,6 +10,9 @@ func IsMultiUser(manifest types.VMCPManifest) bool {
 		return false
 	}
 	for _, component := range manifest.Components {
+		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.FixedURL == "" && remote.Hostname != "" {
+			return false
+		}
 		for _, policy := range component.Configuration {
 			if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
 				continue
