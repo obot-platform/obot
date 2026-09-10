@@ -3,7 +3,7 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-This guide covers the step-by-step process to enable and configure authentication in Obot. Authentication must be setup to use one of the external providers in order to function properly. The bootstrap user is not implemented to operate as a regular user.
+This guide covers the step-by-step process to enable and configure authentication in Obot. Configure either the built-in Local provider or an external identity provider to enable user login. The bootstrap user is not implemented to operate as a regular user.
 
 :::note
 If any MCP servers were created with authentication disabled, they will be deleted when authentication is enabled.
@@ -64,7 +64,7 @@ Start (or restart) your Obot deployment with the new environment variables. Navi
 ## Step 3: Configure Authentication Provider
 
 1. Go to **Auth Providers** under the **User Management** section in the left navigation
-2. Click **Configure** on your desired provider (GitHub, Google, Entra, Okta)
+2. Click **Configure** on your desired provider. Local, GitHub, and Google are available without registration; Entra, Okta, JumpCloud, and Auth0 require Community registration or an Enterprise license.
 3. Follow the provider-specific configuration steps
 
 For detailed provider configuration, see the [Auth Providers](../configuration/auth-providers.md) documentation.

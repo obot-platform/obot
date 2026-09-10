@@ -129,7 +129,7 @@ obot setup status --json
 
 ### `auth_unavailable`
 
-The Obot server did not report exactly one usable configured authentication provider. Configure an auth provider first, or use an interactive setup flow if multiple providers are configured and you need to choose one.
+The Obot server did not report exactly one usable configured authentication provider. Configure an auth provider first.
 
 ### `server_unreachable`
 

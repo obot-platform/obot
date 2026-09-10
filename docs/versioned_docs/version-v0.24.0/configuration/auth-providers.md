@@ -2,7 +2,6 @@
 
 Authentication providers allow your Obot installation to authenticate users with the identity provider of your choice.
 Administrators must configure at least one authentication provider before users can log in.
-Multiple providers can be configured and available for login at the same time.
 
 :::note
 In order for authentication to be enabled, the Obot server must be run with the environment variable set:

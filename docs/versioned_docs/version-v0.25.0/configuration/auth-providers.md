@@ -1,8 +1,7 @@
 # Auth Providers
 
 Authentication providers allow your Obot installation to authenticate users with the identity provider of your choice.
-Administrators must configure at least one authentication provider before users can log in.
-Multiple providers can be configured and available for login at the same time.
+Administrators must configure an authentication provider before users can log in. Only one authentication provider can be configured at a time.
 
 :::note
 In order for authentication to be enabled, the Obot server must be run with the environment variable set:
@@ -63,6 +62,13 @@ You can:
 
 ## Available Auth Providers
 
+| Providers | Availability |
+|-----------|--------------|
+| Local, GitHub, Google | Included in the default Obot edition without registration |
+| Entra, Okta, JumpCloud, Auth0 | Require free Community registration or an Enterprise license |
+
+To register for Community or configure an Enterprise license, use the **License** page in the admin UI. See [Obot Editions](../enterprise/overview.md).
+
 Obot supports the built-in [Local](#local) provider, as well as the following providers that authenticate against an external identity provider using OAuth2. For the OAuth2 providers, you will need to follow the instructions in the auth provider for setting up a new app before getting started. You can get the callback URL from the Obot Admin -> Auth Providers -> \<Auth Provider> -> Configure page. The configuration form will also have fields for the data required.
 
 ### Local
@@ -95,7 +101,7 @@ Follow the instructions [here](https://developers.google.com/identity/protocols/
 
 You can view the source code for Google provider in this [repo](https://github.com/obot-platform/tools).
 
-### Entra (Enterprise Only)
+### Entra
 
 Within the [Microsoft Entra admin center](https://entra.microsoft.com), go to App registrations and click New registration.
 
@@ -159,7 +165,7 @@ You can restrict login access to specific Entra users and groups by taking the f
 
 For more details, [see Entra's docs](https://learn.microsoft.com/en-us/entra/identity-platform/howto-restrict-your-app-to-a-set-of-users).
 
-### Okta (Enterprise Only)
+### Okta
 
 :::note
 Only the org-level authorization server is supported (no custom authorization servers).
@@ -191,7 +197,7 @@ You can restrict login access to specific Okta users and groups by taking the fo
 4. Select `Assign` on groups you want to allow Obot access to
 5. Once you've made your selections, click `Done`
 
-### JumpCloud (Enterprise Only)
+### JumpCloud
 
 Create a **Custom OIDC App** in the [JumpCloud Admin Portal](https://console.jumpcloud.com/). When configuring the app:
 
@@ -242,7 +248,7 @@ You can now return to Obot and finish configuring JumpCloud. Use the table below
 The JumpCloud user must resolve to an active, non-suspended JumpCloud system user. Suspended or inactive users will be blocked from logging in.
 :::
 
-### Auth0 (Enterprise Only)
+### Auth0
 
 Create a **Regular Web Application** in the [Auth0 Dashboard](https://manage.auth0.com) by navigating to Applications > Applications > Create Application.
 
@@ -356,7 +362,7 @@ Ensure the following environment variable is set in your Obot installation:
 
 ![screenshot of setup entra](/img/setup_entra.png)
 
-4. Follow the documentation to create and configure the Entra application from [Entra Instructions](#entra-enterprise-only).
+4. Follow the documentation to create and configure the Entra application from [Entra Instructions](#entra).
 5. Enter the required details:
 - Client ID
 - Client Secret

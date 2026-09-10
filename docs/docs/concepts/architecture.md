@@ -42,4 +42,4 @@ Obot uses cloud KMS systems to encrypt data at rest. See [Encryption Providers](
 
 ## LLMs
 
-Obot operates with a bring-your-own-model philosophy. Multiple providers can be configured to meet organizational requirements. See [Model Providers](../configuration/model-providers.md) for details.
+Obot supports multiple model providers, available without Community registration or an Enterprise license. Configure upstream credentials and models for your organization. See [Model Providers](../configuration/model-providers.md).

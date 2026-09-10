@@ -249,7 +249,7 @@ The Azure models endpoint uses Azure's OpenAI-compatible Models API and returns 
 An administrator configures one of these providers under **Model Providers**:
 
 - **Azure** requires the Azure resource endpoint (for example, `https://my-resource.services.ai.azure.com`) and an API key.
-- **Azure Entra** requires the Azure resource endpoint plus tenant ID, client ID, and client secret for a service principal. Obot requests tokens for the `https://ai.azure.com/.default` scope. Assign the service principal **Cognitive Services User** or **Foundry User** (formerly Azure AI User) on the specific Foundry resource. **Cognitive Services OpenAI User** may allow OpenAI requests but does not provide all permissions needed for Anthropic requests. See [Azure provider configuration](../configuration/model-providers.md#azure-enterprise-only) for portal instructions and official references.
+- **Azure Entra** requires the Azure resource endpoint plus tenant ID, client ID, and client secret for a service principal. Obot requests tokens for the `https://ai.azure.com/.default` scope. Assign the service principal **Cognitive Services User** or **Foundry User** (formerly Azure AI User) on the specific Foundry resource. **Cognitive Services OpenAI User** may allow OpenAI requests but does not provide all permissions needed for Anthropic requests. See [Azure provider configuration](../configuration/model-providers.md#azure) for portal instructions and official references.
 
 Configure each model's target model as its Azure deployment name. The provider's model metadata must expose either `AnthropicMessages` or `OpenAIResponses` as the dialect. The Models page groups models by that dialect, even if deployment names are arbitrary or misleading.
 
