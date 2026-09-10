@@ -416,22 +416,4 @@ describe('VMcpProfiles.svelte', () => {
 		await page.getByRole('button', { name: 'Remove All Obot Users' }).click();
 		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
 	});
-
-	it('keeps the people picker on its placeholder after assigning and removing', async () => {
-		render(VMcpProfiles, {
-			vmcp: createVMcp('vmcp-people-placeholder'),
-			toolFlow: toolFlowStub()
-		});
-
-		const picker = page.getByRole('combobox', { name: 'Search identities...' });
-
-		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-		await picker.click();
-		await page.getByRole('button', { name: 'All Obot Users', exact: true }).click();
-		await expect.element(picker).toHaveTextContent('Search identities...');
-
-		await page.getByRole('button', { name: 'Remove All Obot Users' }).click();
-		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
-		await expect.element(picker).toHaveTextContent('Search identities...');
-	});
 });

@@ -6,7 +6,13 @@ import {
 import { Group } from '$lib/services';
 import type { License } from '$lib/services/admin/types';
 import type { Profile, Version } from '$lib/services/user/types';
-import { defaultModelAliases, license as licenseStore, profile, version } from '$lib/stores';
+import {
+	defaultModelAliases,
+	license as licenseStore,
+	profile,
+	userDeviceSettings,
+	version
+} from '$lib/stores';
 import { getLicenseResponse, getProfileResponse, getVersionResponse } from '../../tests/mocks/data';
 import Layout from './Layout.svelte';
 import { createRawSnippet, tick } from 'svelte';
@@ -18,8 +24,7 @@ const children = createRawSnippet(() => ({ render: () => '<div></div>' }));
 
 const sharedLinks = [
 	'/dashboard',
-	//'/vmcps',
-	'/mcp-servers',
+	'/vmcps',
 	'/skills',
 	'/models',
 	'/audit-logs',
@@ -49,6 +54,7 @@ async function renderLayout(
 	licenseOverrides: Partial<License> = {},
 	profileOverrides: Partial<Profile> = {}
 ) {
+	userDeviceSettings.setShowAllGuides(false);
 	profile.initialize({
 		...createProfile(groups),
 		...profileOverrides
@@ -96,7 +102,7 @@ async function expectNoLink(href: string) {
 }
 
 async function expectSharedNavigation() {
-	// await expandSection('ai-resources', '/vmcps');
+	await expandSection('ai-resources', '/vmcps');
 	await expandSection('operations', '/audit-logs');
 
 	for (const href of sharedLinks) {
@@ -154,6 +160,7 @@ describe('Layout.svelte', () => {
 			it('does not show administrator-only navigation', async () => {
 				await renderLayout([Group.POWERUSER]);
 				await expectSharedNavigation();
+				await expectLink('/mcp-servers');
 				await expectNoAdminOnlyNavigation();
 			});
 		});
@@ -162,15 +169,16 @@ describe('Layout.svelte', () => {
 			it('does not show administrator-only navigation', async () => {
 				await renderLayout([Group.POWERUSER, Group.POWERUSER_PLUS]);
 				await expectSharedNavigation();
+				await expectLink('/mcp-servers');
 				await expectNoAdminOnlyNavigation();
 			});
 		});
 
 		describe('when the user is a basic user', () => {
-			it('shows MCP Servers and does not show administrator-only navigation', async () => {
+			it('hides MCP Servers and does not show administrator-only navigation', async () => {
 				await renderLayout([Group.USER]);
 				await expectSharedNavigation();
-				await expectLink('/mcp-servers');
+				await expectNoLink('/mcp-servers');
 				await expectNoAdminOnlyNavigation();
 			});
 		});

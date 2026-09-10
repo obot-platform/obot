@@ -8,7 +8,11 @@ import {
 	type VMCPConfigurationPolicy
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
-import { catalogConfigurationFields, vmcpComponentId, vmcpManifest } from '$lib/services/vmcps/utils';
+import {
+	catalogConfigurationFields,
+	vmcpComponentId,
+	vmcpManifest
+} from '$lib/services/vmcps/utils';
 import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
 

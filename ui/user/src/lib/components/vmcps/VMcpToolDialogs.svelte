@@ -178,7 +178,7 @@
 		</div>
 		{#if flow.hasConfigurableFields}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
-				Edit Configuration
+				Change Configuration
 			</button>
 		{/if}
 		<button class="btn btn-secondary hover:btn-error" onclick={flow.promptRemove}

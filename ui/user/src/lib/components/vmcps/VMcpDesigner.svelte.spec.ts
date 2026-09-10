@@ -238,7 +238,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('button', { name: 'Remove GitHub' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeEnabled();
 			await expect
-				.element(page.getByRole('button', { name: 'Edit Configuration' }))
+				.element(page.getByRole('button', { name: 'Change Configuration' }))
 				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Get Started', exact: true }))
@@ -307,7 +307,7 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([entry], vmcp);
 
 			await componentBlock().click();
-			await page.getByRole('button', { name: 'Edit Configuration' }).click();
+			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await expect
 				.element(page.getByRole('combobox', { name: 'API token policy' }))
 				.toHaveValue('userAllowed');
@@ -315,7 +315,7 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Cancel' }).click();
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
 
-			await page.getByRole('button', { name: 'Edit Configuration' }).click();
+			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Fixed');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
 			await page.getByRole('button', { name: 'Save' }).click();
@@ -675,8 +675,8 @@ describe('VMcpDesigner.svelte', () => {
 			vmcp.userID = getProfileResponse.id;
 			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
 
-			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: 'Delete vMCP' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Hide MCP Servers' })).toBeVisible();
 			await expect
@@ -744,7 +744,11 @@ describe('VMcpDesigner.svelte', () => {
 		it('does not open edit or component actions, and omits delete from the card menu', async () => {
 			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
 
-			await page.getByRole('button', { name: 'Issue Tracker vMCP', exact: true }).click();
+			// Click the card title, not the card center — that hits Connect.
+			await page
+				.getByRole('button', { name: 'Issue Tracker vMCP', exact: true })
+				.getByText('Issue Tracker vMCP', { exact: true })
+				.click();
 			await expect.element(page.getByText('Edit vMCP')).not.toBeInTheDocument();
 
 			await expect.element(componentBlock()).not.toBeInTheDocument();
