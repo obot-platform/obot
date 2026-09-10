@@ -92,8 +92,7 @@ func vmcpComponentVMCP(singleUser bool) *v1.VMCP {
 		Name:      "vmcp1shared",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-			ForceSingleUser: singleUser,
-			Components:      []types.VMCPComponent{{ID: "component"}},
+			Components: []types.VMCPComponent{{ID: "component", ForceSingleUser: singleUser}},
 		}},
 	}
 }

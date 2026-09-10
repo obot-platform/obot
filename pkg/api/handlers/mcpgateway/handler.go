@@ -221,7 +221,7 @@ func (h *Handler) Proxy(req api.Context) error {
 
 			authorizedMCPIDs := make([]string, 0, len(serverConfig.Components))
 			for _, component := range serverConfig.Components {
-				authorizedMCPIDs = append(authorizedMCPIDs, component.Name)
+				authorizedMCPIDs = append(authorizedMCPIDs, component.ConnectID())
 			}
 
 			// In order for the loopback to work, we need to authenticate as a composite MCP server.
@@ -254,7 +254,7 @@ func (h *Handler) Proxy(req api.Context) error {
 				return fmt.Errorf("failed to generate token: %w", err)
 			}
 		} else {
-			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, serverConfig.MCPServerName, serverConfig.URL).TokenSource(h.ctx)
+			tokenSource, err = h.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL).TokenSource(h.ctx)
 			if err != nil {
 				return fmt.Errorf("failed to get token source: %w", err)
 			}
@@ -389,7 +389,7 @@ func (h *Handler) ensureServerIsDeployed(req api.Context) (mcp.ServerConfig, err
 	if system.IsSystemMCPServerID(mcpID) {
 		return h.ensureSystemServerIsDeployed(req, mcpID)
 	}
-	if system.IsVMCPID(mcpID) {
+	if system.IsVMCPID(mcpID) || system.IsVMCPInstanceID(mcpID) {
 		return h.mcpSessionManager.ServerConfigForVMCP(req.Context(), mcpID, principal.ResourceOwnerID(req.User))
 	}
 

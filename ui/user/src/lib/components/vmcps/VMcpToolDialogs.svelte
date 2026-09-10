@@ -42,6 +42,7 @@
 		if (dialog === 'configure' && flow.configuringEntry) {
 			configurationDialog?.open(flow.configuringEntry, {
 				configuration: flow.configuringComponent?.configuration,
+				forceSingleUser: flow.configuringComponent?.forceSingleUser,
 				submitLabel: flow.postCreateConfiguration ? 'Next' : 'Save',
 				errorMessage: 'Failed to update configuration.'
 			});
@@ -210,7 +211,7 @@
 				Modify Tools
 			</button>
 		</div>
-		{#if flow.hasConfigurableFields}
+		{#if flow.canConfigureComponent}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				Change Configuration
 			</button>

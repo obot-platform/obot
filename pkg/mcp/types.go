@@ -63,6 +63,7 @@ type ServerConfig struct {
 	OwnerUserID          string `json:"ownerUserID"`
 	MCPServerNamespace   string `json:"mcpServerNamespace"`
 	MCPServerName        string `json:"mcpServerName"`
+	MCPServerInstanceID  string `json:"mcpServerInstanceID,omitempty"`
 	MCPCatalogName       string `json:"mcpCatalogName"`
 	MCPCatalogEntryName  string `json:"mcpCatalogEntryName"`
 	MCPServerDisplayName string `json:"mcpServerDisplayName"`
@@ -86,12 +87,21 @@ type File struct {
 }
 
 type ComponentServer struct {
-	DisableTools bool                 `json:"disableTools,omitempty"`
-	Name         string               `json:"name"`
-	DisplayName  string               `json:"displayName"`
-	URL          string               `json:"url"`
-	Tools        []types.ToolOverride `json:"tools"`
-	ToolPrefix   string               `json:"toolPrefix"`
+	MCPServerInstanceID string               `json:"mcpServerInstanceID,omitempty"`
+	DisableTools        bool                 `json:"disableTools,omitempty"`
+	Name                string               `json:"name"`
+	DisplayName         string               `json:"displayName"`
+	URL                 string               `json:"url"`
+	Tools               []types.ToolOverride `json:"tools"`
+	ToolPrefix          string               `json:"toolPrefix"`
+}
+
+// ConnectID identifies the connection while Name identifies its backing server.
+func (c ComponentServer) ConnectID() string {
+	if c.MCPServerInstanceID != "" {
+		return c.MCPServerInstanceID
+	}
+	return c.Name
 }
 
 func (s ServerConfig) IsAgentServer() bool {

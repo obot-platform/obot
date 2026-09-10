@@ -42,21 +42,6 @@ func TestEmptyVMCPIsReadableButNotConnectable(t *testing.T) {
 	}
 }
 
-func TestCheckVMCPForceSingleUser(t *testing.T) {
-	for _, role := range []types.Role{types.RoleBasic, types.RolePowerUserPlus, types.RoleAdmin, types.RoleOwner} {
-		for _, current := range []bool{false, true} {
-			for _, desired := range []bool{false, true} {
-				u := &user.DefaultInfo{Groups: role.Groups()}
-				err := CheckVMCPForceSingleUser(u, current, desired)
-				allowed := current == desired || role == types.RoleAdmin || role == types.RoleOwner
-				if (err == nil) != allowed {
-					t.Fatalf("role=%v current=%v desired=%v: %v", role, current, desired, err)
-				}
-			}
-		}
-	}
-}
-
 func TestValidateComponentWildcardSelection(t *testing.T) {
 	u := &user.DefaultInfo{UID: "1"}
 	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
@@ -744,8 +729,7 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 		vmcp := &v1.VMCP{
 			ObjectMeta: objectMetaForAuthzTest("vmcp1oauth"),
 			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-				ForceSingleUser: singleUser,
-				Components:      []types.VMCPComponent{{ID: "component"}},
+				Components: []types.VMCPComponent{{ID: "component", ForceSingleUser: singleUser}},
 				Profiles: []types.VMCPProfile{{
 					Subjects:      []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
 					AllowAllTools: true,
@@ -786,6 +770,10 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 
 	for _, singleUser := range []bool{false, true} {
 		vmcp, instance, component := newObjects(singleUser)
+		vmcp.Spec.Manifest.Components = append(vmcp.Spec.Manifest.Components, types.VMCPComponent{
+			ID:              "other",
+			ForceSingleUser: !singleUser,
+		})
 		parentID := vmcp.Name
 		if singleUser {
 			parentID = instance.Name

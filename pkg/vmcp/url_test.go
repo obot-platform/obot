@@ -18,7 +18,7 @@ func TestInstanceUserURLConfiguration(t *testing.T) {
 			}},
 		}},
 	}}}
-	require.False(t, IsMultiUser(parent.Spec.Manifest))
+	require.False(t, IsMultiUser(parent.Spec.Manifest.Components[0]))
 	components := ComponentsForInstance(parent, v1.VMCPInstance{})
 	require.Empty(t, parent.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config)
 	require.Equal(t, []string{ConfigurationKey("github", "__url")}, MissingRequiredConfiguration(components[0], nil, true))

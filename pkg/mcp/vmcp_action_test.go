@@ -22,12 +22,12 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName:     "Action VMCP",
-				ForceSingleUser: true,
+				DisplayName: "Action VMCP",
 				Components: []types.VMCPComponent{
 					{
-						ID:   componentID,
-						Name: "component",
+						ID:              componentID,
+						Name:            "component",
+						ForceSingleUser: true,
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
 								Name:    "Component",
@@ -77,7 +77,7 @@ func TestServerForActionWithConnectIDResolvesVMCPWithoutWrapper(t *testing.T) {
 	require.Equal(t, vmcpID, gotID)
 	require.Equal(t, vmcpID, gotServer.Name)
 	require.Equal(t, types.RuntimeVMCP, gotConfig.Runtime)
-	require.Equal(t, vmcpID, gotConfig.MCPServerName)
+	require.Equal(t, instanceID, gotConfig.MCPServerName)
 	require.Equal(t, vmcp.Spec.Manifest.DisplayName, gotConfig.MCPServerDisplayName)
 	require.Len(t, gotConfig.Components, 1)
 	require.Equal(t, componentServer.Name, gotConfig.Components[0].Name)

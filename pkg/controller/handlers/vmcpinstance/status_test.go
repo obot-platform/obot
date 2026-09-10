@@ -51,7 +51,7 @@ func TestInstanceConfigurationStatus(t *testing.T) {
 	if !instance.Status.Configured || len(instance.Status.MissingRequiredConfiguration) != 0 {
 		t.Fatalf("stale missing configuration: %+v", instance.Status)
 	}
-	vmcp.Spec.Manifest.ForceSingleUser = true
+	vmcp.Spec.Manifest.Components[0].ForceSingleUser = true
 	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[0].Required = true
 	if err := client.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)

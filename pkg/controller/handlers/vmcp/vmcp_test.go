@@ -18,16 +18,25 @@ func TestSharingTransitions(t *testing.T) {
 		UserID:        "vmcp-owner",
 		CreatorUserID: "vmcp-creator",
 		Manifest: types.VMCPManifest{
-			Components: []types.VMCPComponent{{
-				ID:                      "one",
-				MCPCatalogID:            "catalog-one",
-				MCPServerCatalogEntryID: "entry-one",
-				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-					Name: "cached", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-				}},
-			}},
-		},
-	}}
+			Components: []types.VMCPComponent{
+				{
+					ID:                      "one",
+					MCPCatalogID:            "catalog-one",
+					MCPServerCatalogEntryID: "entry-one",
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+						Name: "cached", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+					}},
+				},
+				{
+					ID:                      "always-shared",
+					MCPCatalogID:            "catalog-one",
+					MCPServerCatalogEntryID: "entry-two",
+					CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+						Name: "always-shared", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+					}},
+				},
+			},
+		}}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).Build()
@@ -84,8 +93,8 @@ func TestSharingTransitions(t *testing.T) {
 	} {
 		t.Log(tc.name)
 		shared := tc.shared
-		vmcp.Spec.Manifest.ForceSingleUser = tc.forceSingleUser
 		component := &vmcp.Spec.Manifest.Components[0]
+		component.ForceSingleUser = tc.forceSingleUser
 		if tc.policy != "" {
 			component.Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: tc.policy}}
 			component.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: tc.usage}}
@@ -107,21 +116,26 @@ func TestSharingTransitions(t *testing.T) {
 		if err := client.List(t.Context(), &servers); err != nil {
 			t.Fatal(err)
 		}
-		want := 2
+		want := 3
 		if shared {
-			want = 1
+			want = 2
 		}
 		if len(servers.Items) != want {
 			t.Fatalf("shared=%v: got %d servers, want %d", shared, len(servers.Items), want)
 		}
 		for _, server := range servers.Items {
-			if (server.Spec.VMCPID == vmcp.Name) != shared || server.Spec.IsSingleUser() == shared {
+			wantShared := shared || server.Spec.VMCPComponentID == "always-shared"
+			if (server.Spec.VMCPID == vmcp.Name) != wantShared || server.Spec.IsSingleUser() == wantShared {
 				t.Fatalf("wrong ownership: %#v", server.Spec)
 			}
 			if server.Spec.Manifest.RemoteConfig.URL != "https://example.com/mcp" {
 				t.Fatal("snapshot not copied")
 			}
-			if server.Spec.VMCPID == vmcp.Name && (server.Spec.UserID != vmcp.Spec.CreatorUserID || server.Spec.MCPCatalogID != "catalog-one" || server.Spec.MCPServerCatalogEntryName != "entry-one") {
+			wantEntry := "entry-one"
+			if server.Spec.VMCPComponentID == "always-shared" {
+				wantEntry = "entry-two"
+			}
+			if server.Spec.VMCPID == vmcp.Name && (server.Spec.UserID != vmcp.Spec.CreatorUserID || server.Spec.MCPCatalogID != "catalog-one" || server.Spec.MCPServerCatalogEntryName != wantEntry) {
 				t.Fatalf("server linkage = %#v", server.Spec)
 			}
 		}
@@ -142,7 +156,7 @@ func TestSharingTransitions(t *testing.T) {
 			if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(&old), &updated); err != nil {
 				t.Fatal(err)
 			}
-			if updated.Spec.Manifest.Name != vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Name {
+			if old.Spec.VMCPComponentID == component.ID && updated.Spec.Manifest.Name != component.CatalogEntry.Manifest.Name {
 				t.Fatal("existing component server did not adopt updated snapshot")
 			}
 		}

@@ -489,8 +489,8 @@ func (m *MCPHandler) LaunchServer(req api.Context) error {
 			return err
 		}
 
-		for _, component := range componentServers {
-			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+		for i, component := range componentServers {
+			_, config, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to get config for component server %s: %w", component.Name, err)
 			}
@@ -565,7 +565,7 @@ func (m *MCPHandler) CheckOAuth(req api.Context) error {
 			if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
-			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+			_, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to load vMCP component server %s: %w", component.Name, err)
 			}
@@ -2419,13 +2419,13 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 			return err
 		}
 
-		for _, component := range componentServers {
+		for i, component := range componentServers {
 			if component.Spec.Manifest.Runtime != types.RuntimeRemote ||
 				component.Spec.Manifest.RemoteConfig == nil {
 				continue
 			}
 
-			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+			componentServer, componentConfig, err := m.mcpSessionManager.ServerForAction(req.Context(), serverConfig.Components[i].ConnectID(), req.User.GetUID())
 			if err != nil {
 				return fmt.Errorf("failed to get config for vMCP component server %s: %w", component.Name, err)
 			}
@@ -2437,7 +2437,7 @@ func (m *MCPHandler) ClearOAuthCredentials(req api.Context) error {
 				componentURL = component.Spec.Manifest.RemoteConfig.URL
 			}
 
-			if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), componentServer.Name, componentURL); err != nil {
+			if err := req.GatewayClient.DeleteMCPOAuthTokenForURL(req.Context(), req.User.GetUID(), serverConfig.Components[i].ConnectID(), componentURL); err != nil {
 				return fmt.Errorf("failed to delete OAuth credentials: %v", err)
 			}
 

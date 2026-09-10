@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -505,7 +506,7 @@ func (sm *SessionManager) GenerateToolPreviews(ctx context.Context, tempMCPServe
 	// Create MCP client and list tools
 	client, err := sm.clientForServerWithOptions(ctx, "default", serverConfig, ClientOption{
 		ClientName:   "Obot Tool Preview",
-		TokenStorage: sm.globalTokenStore.ForUserAndMCP(serverConfig.UserID, serverConfig.MCPServerName, serverConfig.URL),
+		TokenStorage: sm.globalTokenStore.ForUserAndMCP(serverConfig.UserID, cmp.Or(serverConfig.MCPServerInstanceID, serverConfig.MCPServerName), serverConfig.URL),
 	})
 	if err != nil {
 		return nil, err

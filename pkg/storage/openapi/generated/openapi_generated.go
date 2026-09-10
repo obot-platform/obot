@@ -18707,12 +18707,6 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							},
 						},
 					},
-					"forceSingleUser": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
 					"legacySlug": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},
@@ -18803,6 +18797,12 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 									},
 								},
 							},
+						},
+					},
+					"forceSingleUser": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
 						},
 					},
 					"oauthCredentialID": {
@@ -19258,12 +19258,6 @@ func schema_obot_platform_obot_apiclient_types_VMCPManifest(ref common.Reference
 									},
 								},
 							},
-						},
-					},
-					"forceSingleUser": {
-						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
 						},
 					},
 				},
@@ -23669,6 +23663,19 @@ func schema_storage_apis_obotobotai_v1_MCPServerInstanceSpec(ref common.Referenc
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"vmcpInstanceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPInstanceID identifies the vMCP connection that owns this component connection.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"vmcpComponentID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"userID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "UserID is the user that owns this MCP server instance.",

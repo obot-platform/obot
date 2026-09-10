@@ -74,7 +74,6 @@ export function createVMCP(
 				allowAllTools: true
 			}
 		],
-		forceSingleUser: false,
 		userID: '',
 		status: {
 			ready: true,

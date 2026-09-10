@@ -25,12 +25,11 @@ type VMCP struct {
 
 // VMCPManifest contains the user-managed portion of a VMCP.
 type VMCPManifest struct {
-	DisplayName     string          `json:"displayName"`
-	Description     string          `json:"description,omitempty"`
-	Icon            string          `json:"icon,omitempty"`
-	Components      []VMCPComponent `json:"components"`
-	Profiles        []VMCPProfile   `json:"profiles,omitempty"`
-	ForceSingleUser bool            `json:"forceSingleUser,omitempty"`
+	DisplayName string          `json:"displayName"`
+	Description string          `json:"description,omitempty"`
+	Icon        string          `json:"icon,omitempty"`
+	Components  []VMCPComponent `json:"components"`
+	Profiles    []VMCPProfile   `json:"profiles,omitempty"`
 }
 
 // VMCPComponent is a snapshot of one catalog entry and the policy applied to it.
@@ -45,6 +44,7 @@ type VMCPComponent struct {
 	CatalogEntry            MCPServerCatalogEntrySnapshot `json:"catalogEntry"`
 	SourceDigest            string                        `json:"sourceDigest,omitempty"`
 	Configuration           []VMCPConfigurationPolicy     `json:"configuration,omitempty"`
+	ForceSingleUser         bool                          `json:"forceSingleUser,omitempty"`
 	OAuthCredentialID       string                        `json:"oauthCredentialID,omitempty"`
 	AllowedTools            []string                      `json:"allowedTools,omitempty"`
 	ToolPrefix              string                        `json:"toolPrefix,omitempty"`

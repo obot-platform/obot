@@ -29,7 +29,13 @@ func TestSyncReadiness(t *testing.T) {
 			Config:       []types.MCPConfig{{Key: "TOKEN", Required: true, Usage: types.Header}},
 		}},
 	}
-	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component}}, StaticConfigurationHash: "hash"}}
+	singleComponent := component
+	singleComponent.ID = "two"
+	singleComponent.Name = "single-component"
+	singleComponent.Configuration = nil
+	singleComponent.CatalogEntry.Manifest.Config = nil
+	singleComponent.ForceSingleUser = true
+	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Components: []types.VMCPComponent{component, singleComponent}}, StaticConfigurationHash: "hash"}}
 	vmcp.Status.Components = []v1.VMCPComponentStatus{{Name: component.Name, SourceMissing: true, NeedsUpdate: true}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithStatusSubresource(vmcp).
 		WithObjects(vmcp).WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPID} }).Build()
@@ -92,7 +98,7 @@ func TestSyncReadiness(t *testing.T) {
 	if reveals != 2 {
 		t.Fatalf("deployment updates caused extra reveals: %d", reveals)
 	}
-	vmcp.Spec.Manifest.ForceSingleUser = true
+	vmcp.Spec.Manifest.Components[0].ForceSingleUser = true
 	vmcp.Spec.Manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyUserAllowed
 	delete(values, vmcpconfig.ConfigurationKey(component.ID, "TOKEN"))
 	if err := client.Update(t.Context(), vmcp); err != nil {

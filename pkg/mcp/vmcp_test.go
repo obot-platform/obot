@@ -130,8 +130,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName:     "Shared VMCP",
-				ForceSingleUser: true,
+				DisplayName: "Shared VMCP",
 				Profiles: []types.VMCPProfile{
 					{
 						Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
@@ -144,8 +143,9 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 				},
 				Components: []types.VMCPComponent{
 					{
-						ID:   "search-component",
-						Name: "search",
+						ID:              "search-component",
+						Name:            "search",
+						ForceSingleUser: true,
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
 								Name:    "Cached Search",
@@ -216,12 +216,17 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	)
 	filesServer := vmcpComponentServer(
 		"files-server",
-		instanceID,
-		userID,
+		"",
+		"",
 		"files-component",
 		"Files service",
 		"https://files.example.test/mcp",
 	)
+	filesServer.Spec.VMCPID = vmcpID
+	filesConnection := &v1.MCPServerInstance{
+		Name: "msi1files", Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerInstanceSpec{UserID: userID, VMCPInstanceID: instanceID, VMCPComponentID: "files-component", MCPServerName: filesServer.Name},
+	}
 	otherUserServer := vmcpComponentServer(
 		"aaa-search-server-other-user",
 		otherInstanceID,
@@ -231,7 +236,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		"https://wrong-user.example.test/mcp",
 	)
 
-	storageClient := newVMCPTestStorage(vmcp, instance, otherUserInstance, otherVMCPInstance, searchServer, filesServer, otherUserServer)
+	storageClient := newVMCPTestStorage(vmcp, instance, otherUserInstance, otherVMCPInstance, searchServer, filesServer, otherUserServer, filesConnection)
 	manager := &SessionManager{
 		storageClient:  storageClient,
 		httpListenPort: vmcpTestListenPort,
@@ -244,13 +249,13 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if serverConfig.Runtime != types.RuntimeVMCP {
 		t.Fatalf("vMCP runtime = %q, want %q", serverConfig.Runtime, types.RuntimeVMCP)
 	}
-	if serverConfig.MCPServerName != vmcpID {
+	if serverConfig.MCPServerName != instanceID {
 		t.Fatalf("vMCP MCP server name = %q, want %q", serverConfig.MCPServerName, vmcpID)
 	}
 	if serverConfig.MCPServerDisplayName != vmcp.Spec.Manifest.DisplayName {
 		t.Fatalf("vMCP display name = %q, want %q", serverConfig.MCPServerDisplayName, vmcp.Spec.Manifest.DisplayName)
 	}
-	if serverConfig.AuditLogMetadata["mcpID"] != vmcpID || serverConfig.AuditLogMetadata["mcpServerDisplayName"] != vmcp.Spec.Manifest.DisplayName || serverConfig.AuditLogMetadata["userID"] != userID {
+	if serverConfig.AuditLogMetadata["mcpID"] != instanceID || serverConfig.AuditLogMetadata["mcpServerDisplayName"] != vmcp.Spec.Manifest.DisplayName || serverConfig.AuditLogMetadata["userID"] != userID {
 		t.Fatalf("missing vMCP audit attribution: %#v", serverConfig.AuditLogMetadata)
 	}
 	if len(serverConfig.Components) != 2 {
@@ -292,7 +297,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if !ok {
 		t.Fatalf("vMCP config omitted component %q: %#v", filesServer.Name, serverConfig.Components)
 	}
-	wantFilesURL := system.LocalMCPConnectURL(filesServer.Name, vmcpTestListenPort)
+	wantFilesURL := system.LocalMCPConnectURL(filesConnection.Name, vmcpTestListenPort)
 	if filesComponent.DisplayName != "files" || filesComponent.URL != wantFilesURL {
 		t.Fatalf("files component metadata = %#v, want display name and local URL", filesComponent)
 	}
@@ -392,12 +397,29 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 		Name: "ms1shared", Namespace: system.DefaultNamespace,
 		Spec: v1.MCPServerSpec{VMCPID: vmcpID, VMCPComponentID: "component"},
 	})
+	watching := make(chan struct{})
+	creation := make(chan error, 1)
+	go func() {
+		<-watching
+		var instances v1.VMCPInstanceList
+		if err := storageClient.List(t.Context(), &instances); err != nil {
+			creation <- err
+			return
+		}
+		creation <- storageClient.Create(t.Context(), &v1.MCPServerInstance{
+			Name: "msi1generated", Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerInstanceSpec{UserID: userID, VMCPInstanceID: instances.Items[0].Name, VMCPComponentID: "component", MCPServerName: "ms1shared"},
+		})
+	}()
 	manager := &SessionManager{
-		storageClient:  storageClient,
+		storageClient:  &vmcpWatchSignalingStorage{Client: storageClient, watching: watching},
 		httpListenPort: vmcpTestListenPort,
 	}
 
 	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	if createErr := <-creation; createErr != nil {
+		t.Fatal(createErr)
+	}
 	if err != nil {
 		t.Fatalf("first ServerConfigForVMCP() error = %v", err)
 	}
@@ -408,7 +430,7 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	if first.Runtime != types.RuntimeVMCP || second.Runtime != types.RuntimeVMCP {
 		t.Fatalf("vMCP runtimes = %q and %q, want %q", first.Runtime, second.Runtime, types.RuntimeVMCP)
 	}
-	if first.MCPServerName != vmcpID || first.MCPServerDisplayName != vmcp.Spec.Manifest.DisplayName {
+	if !strings.HasPrefix(first.MCPServerName, system.VMCPInstancePrefix) || first.MCPServerDisplayName != vmcp.Spec.Manifest.DisplayName {
 		t.Fatalf("first vMCP identity = %#v, want vMCP identity", first)
 	}
 	if !reflect.DeepEqual(first, second) {
@@ -445,16 +467,17 @@ func TestServerConfigForVMCPWaitsForComponentServer(t *testing.T) {
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				DisplayName:     "Not Ready VMCP",
-				ForceSingleUser: true,
+				DisplayName: "Not Ready VMCP",
 				Components: []types.VMCPComponent{
 					{
-						ID:   "first-component",
-						Name: "first",
+						ID:              "first-component",
+						Name:            "first",
+						ForceSingleUser: true,
 					},
 					{
-						ID:   "second-component",
-						Name: "second",
+						ID:              "second-component",
+						Name:            "second",
+						ForceSingleUser: true,
 					},
 				},
 			},
@@ -546,6 +569,7 @@ func vmcpComponentServer(name, instanceID, userID, componentID, displayName, url
 func newVMCPTestStorage(objects ...kclient.Object) storage.Client {
 	return &vmcpInitialEventsStorage{Client: fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string {
@@ -625,6 +649,19 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 	storage := newVMCPTestStorage(vmcp, shared, stale)
 	manager := &SessionManager{storageClient: storage}
 	for _, userID := range []string{"1", "2"} {
+		instanceID := "vmcpi1user" + userID
+		if err := storage.Create(t.Context(), &v1.VMCPInstance{
+			Name: instanceID, Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPInstanceSpec{UserID: userID, Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Create(t.Context(), &v1.MCPServerInstance{
+			Name: "msi1user" + userID, Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerInstanceSpec{UserID: userID, VMCPInstanceID: instanceID, VMCPComponentID: "one", MCPServerName: shared.Name},
+		}); err != nil {
+			t.Fatal(err)
+		}
 		cfg, err := manager.ServerConfigForVMCP(t.Context(), vmcp.Name, userID)
 		if err != nil {
 			t.Fatal(err)
@@ -632,10 +669,10 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 		if len(cfg.Components) != 1 || cfg.Components[0].Name != shared.Name {
 			t.Fatalf("user %s: wrong shared components: %#v", userID, cfg.Components)
 		}
-		if cfg.MCPServerName != vmcp.Name {
+		if cfg.MCPServerName != instanceID {
 			t.Fatalf("wrong aggregate identity: %s", cfg.MCPServerName)
 		}
-		if cfg.AuditLogMetadata["mcpID"] != vmcp.Name || cfg.AuditLogMetadata["userID"] != userID {
+		if cfg.AuditLogMetadata["mcpID"] != instanceID || cfg.AuditLogMetadata["userID"] != userID {
 			t.Fatalf("wrong shared vMCP audit attribution: %#v", cfg.AuditLogMetadata)
 		}
 	}

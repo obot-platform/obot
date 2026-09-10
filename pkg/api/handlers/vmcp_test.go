@@ -113,90 +113,65 @@ func (s *vmcpTestStorage) Update(ctx context.Context, obj kclient.Object, opts .
 	return s.WithWatch.Update(ctx, obj, opts...)
 }
 
-func TestVMCPForceSingleUserRejectsUnauthorizedWrites(t *testing.T) {
-	for _, tc := range []struct {
-		name       string
-		update     bool
-		current    bool
-		desired    bool
-		legacySlug string
-	}{
-		{
-			name:    "create with override",
-			desired: true,
-		},
-		{
-			name:    "enable override",
-			update:  true,
-			desired: true,
-		},
-		{
-			name:    "disable override",
-			update:  true,
-			current: true,
-		},
-		{
-			name:       "disable legacy override",
-			update:     true,
-			current:    true,
-			legacySlug: "legacy-composite",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			storage := newVMCPTestStorage()
-			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{
-				UserID:     "1",
-				LegacySlug: tc.legacySlug,
-				Manifest:   types.VMCPManifest{ForceSingleUser: tc.current},
-			}}
-			if tc.update {
-				if err := storage.Create(t.Context(), vmcp); err != nil {
-					t.Fatal(err)
-				}
-			}
-			body, err := json.Marshal(types.VMCPManifest{ForceSingleUser: tc.desired})
-			if err != nil {
-				t.Fatal(err)
-			}
-			request := httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body))
-			request.SetPathValue("vmcp_id", vmcp.Name)
-			ctx := api.Context{Request: request, Storage: storage, User: &user.DefaultInfo{UID: "1", Groups: []string{types.GroupPowerUserPlus}}}
-			if tc.update {
-				err = NewVMCPHandler(nil).Update(ctx)
-			} else {
-				err = NewVMCPHandler(nil).Create(ctx)
-			}
-			if err == nil || !strings.Contains(err.Error(), "only administrators") {
-				t.Fatalf("expected authorization denial before any configuration writes, got %v", err)
-			}
-			var list v1.VMCPList
-			if err := storage.List(t.Context(), &list); err != nil {
-				t.Fatal(err)
-			}
-			if !tc.update && len(list.Items) != 0 {
-				t.Fatal("rejected create persisted a VMCP")
-			}
-			if tc.update && (len(list.Items) != 1 || list.Items[0].Spec.Manifest.ForceSingleUser != tc.current) {
-				t.Fatal("rejected update changed the override")
-			}
-		})
+func TestVMCPOwnerCanChangeComponentForceSingleUser(t *testing.T) {
+	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
+	gatewayClient := newHandlerTestGateway(t)
+	handler := vmcpHandlerForTest(t, storage)
+	owner := &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}
+	manifest := testVMCPManifest()
+	manifest.Components[0].ForceSingleUser = true
+	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, owner)
+	if !created.Components[0].ForceSingleUser {
+		t.Fatal("owner could not create a single-user component")
+	}
+	key := kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: created.ID}
+	for _, forceSingleUser := range []bool{false, true} {
+		var current v1.VMCP
+		if err := storage.Get(t.Context(), key, &current); err != nil {
+			t.Fatal(err)
+		}
+		current.Spec.Manifest.Components[0].ForceSingleUser = forceSingleUser
+		body, err := json.Marshal(current.Spec.Manifest)
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+created.ID, bytes.NewReader(body))
+		request.SetPathValue("vmcp_id", created.ID)
+		if err := handler.Update(api.Context{
+			Request:        request,
+			ResponseWriter: httptest.NewRecorder(),
+			Storage:        storage,
+			GatewayClient:  gatewayClient,
+			User:           owner,
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if err := storage.Get(t.Context(), key, &current); err != nil {
+			t.Fatal(err)
+		}
+		if current.Spec.Manifest.Components[0].ForceSingleUser != forceSingleUser {
+			t.Fatalf("override was not saved as %v", forceSingleUser)
+		}
 	}
 }
 
-func TestMigratedVMCPAllowsAdminToDisableForceSingleUser(t *testing.T) {
+func TestMigratedVMCPAllowsAdminToDisableComponentForceSingleUser(t *testing.T) {
 	storage := newVMCPTestStorage()
 	vmcp := &v1.VMCP{
 		Name:      "vmcp1migrated",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
 			LegacySlug: "legacy-composite",
-			Manifest:   types.VMCPManifest{ForceSingleUser: true},
+			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{
+				ID: "one", Name: "component", MCPServerCatalogEntryID: "entry", ForceSingleUser: true,
+			}},
+			},
 		},
 	}
 	if err := storage.Create(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(`{"displayName":"Migrated vMCP","forceSingleUser":false}`))
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, strings.NewReader(`{"displayName":"Migrated vMCP","components":[{"id":"one","mcpServerCatalogEntryID":"entry","forceSingleUser":false}]}`))
 	request.SetPathValue("vmcp_id", vmcp.Name)
 	err := NewVMCPHandler(nil).Update(api.Context{
 		ResponseWriter: httptest.NewRecorder(),
@@ -212,7 +187,7 @@ func TestMigratedVMCPAllowsAdminToDisableForceSingleUser(t *testing.T) {
 	if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &persisted); err != nil {
 		t.Fatal(err)
 	}
-	if persisted.Spec.Manifest.ForceSingleUser {
+	if persisted.Spec.Manifest.Components[0].ForceSingleUser {
 		t.Fatal("administrator update did not disable forceSingleUser")
 	}
 	if persisted.Spec.LegacySlug != vmcp.Spec.LegacySlug {

@@ -25,6 +25,9 @@ type MCPServerInstance struct {
 }
 
 type MCPServerInstanceSpec struct {
+	// VMCPInstanceID identifies the vMCP connection that owns this component connection.
+	VMCPInstanceID  string `json:"vmcpInstanceID,omitempty"`
+	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
 	// UserID is the user that owns this MCP server instance.
 	UserID string `json:"userID,omitempty"`
 	// MCPServerName is the name of the MCP server this instance is associated with.
@@ -61,6 +64,8 @@ func (in *MCPServerInstance) Has(field string) (exists bool) {
 
 func (in *MCPServerInstance) Get(field string) (value string) {
 	switch field {
+	case "spec.vmcpInstanceID":
+		return in.Spec.VMCPInstanceID
 	case "spec.userID":
 		return in.Spec.UserID
 	case "spec.mcpServerName":
@@ -81,6 +86,7 @@ func (in *MCPServerInstance) Get(field string) (value string) {
 
 func (in *MCPServerInstance) FieldNames() []string {
 	return []string{
+		"spec.vmcpInstanceID",
 		"spec.userID",
 		"spec.mcpServerName",
 		"spec.mcpCatalogName",
@@ -93,6 +99,7 @@ func (in *MCPServerInstance) FieldNames() []string {
 
 func (in *MCPServerInstance) DeleteRefs() []Ref {
 	return []Ref{
+		{ObjType: &VMCPInstance{}, Name: in.Spec.VMCPInstanceID},
 		{ObjType: &MCPServer{}, Name: in.Spec.MCPServerName},
 		{ObjType: &MCPServer{}, Name: in.Spec.CompositeName},
 		{ObjType: &PowerUserWorkspace{}, Name: in.Spec.PowerUserWorkspaceID},

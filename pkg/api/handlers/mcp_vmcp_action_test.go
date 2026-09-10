@@ -8,8 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/obot-platform/nah/pkg/router"
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
+	"github.com/obot-platform/obot/pkg/controller/handlers/mcpserverinstance"
 	gatewayclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaydb "github.com/obot-platform/obot/pkg/gateway/db"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
@@ -204,11 +206,11 @@ func vmcpActionObjects(vmcpID, userID, componentID string, staticOAuth bool) (*v
 		ObjectMeta: objectMetaForVMCPActionTest(vmcpID),
 		Spec: v1.VMCPSpec{
 			Manifest: types.VMCPManifest{
-				ForceSingleUser: true,
-				DisplayName:     "Test vMCP",
+				DisplayName: "Test vMCP",
 				Components: []types.VMCPComponent{{
 					ID:                      componentID,
 					Name:                    "component-a",
+					ForceSingleUser:         true,
 					MCPCatalogID:            system.DefaultCatalog,
 					MCPServerCatalogEntryID: "entry-a",
 				}},
@@ -266,6 +268,8 @@ func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.
 
 	storageClient := &vmcpActionInitialEventsClient{WithWatch: clientfake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.userID", func(obj kclient.Object) []string {
 			return []string{obj.(*v1.VMCPInstance).Spec.UserID}
 		}).
@@ -369,45 +373,73 @@ func objectMetaForVMCPActionTest(name string) metav1.ObjectMeta {
 	return metav1.ObjectMeta{Name: name, Namespace: system.DefaultNamespace}
 }
 
-func TestSharedVMCPServerUsesOneScopeAndPerUserHeaders(t *testing.T) {
+func TestSharedVMCPConnectionsPreserveSameUserConfiguration(t *testing.T) {
 	vmcp, first, server, _ := vmcpActionObjects("vmcp1shared", "1", "one", false)
-	vmcp.Spec.Manifest.ForceSingleUser = false
-	header := types.MCPConfig{
-		Key:      "TOKEN",
-		Name:     "X-Token",
-		Required: true,
-		Usage:    types.Header,
-	}
+	vmcp.Spec.Manifest.Components[0].ForceSingleUser = false
+	header := types.MCPConfig{Key: "TOKEN", Name: "X-Token", Required: true, Usage: types.Header}
 	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{}
-	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config = []types.MCPConfig{header}
-	vmcp.Spec.Manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyUserAllowed}}
+	fixedHeader := types.MCPConfig{Key: "FIXED", Required: true, Usage: types.Header}
+	vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config = []types.MCPConfig{header, fixedHeader}
+	vmcp.Spec.Manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{
+		{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		{Key: "FIXED", Policy: types.VMCPConfigurationPolicyFixed},
+	}
 	server.Spec.VMCPInstanceID = ""
 	server.Spec.VMCPID = vmcp.Name
+	// The server owner's credential context differs from the connecting user's.
+	server.Spec.UserID = ""
 	server.Spec.Manifest.Config = []types.MCPConfig{header}
 	second := first.DeepCopy()
 	second.Name = "vmcpi1second"
-	second.Spec.UserID = "2"
 	manager, storage, credentials := newVMCPActionSessionManager(t, vmcp, first, second, server)
+	require.NoError(t, credentials.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: server.CredentialContext(""),
+		Name:    server.Name,
+		Secrets: map[string]string{"FIXED": "fixed-value"},
+	}))
+	connections := []*v1.MCPServerInstance{}
 	for _, instance := range []*v1.VMCPInstance{first, second} {
 		require.NoError(t, credentials.UpsertCredential(t.Context(), gatewaytypes.Credential{
 			Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
 			Name:    vmcpconfig.ConfigurationCredentialName(),
-			Secrets: map[string]string{vmcpconfig.ConfigurationKey("one", "TOKEN"): "token-" + instance.Spec.UserID},
+			Secrets: map[string]string{vmcpconfig.ConfigurationKey("one", "TOKEN"): "token-" + instance.Name},
 		}))
+		connection := &v1.MCPServerInstance{
+			Name: system.MCPServerInstancePrefix + instance.Name, Namespace: instance.Namespace,
+			Spec: v1.MCPServerInstanceSpec{UserID: instance.Spec.UserID, MCPServerName: server.Name, VMCPInstanceID: instance.Name, VMCPComponentID: "one"},
+		}
+		require.NoError(t, storage.Create(t.Context(), connection))
+		require.NoError(t, mcpserverinstance.New(credentials).SyncVMCPConfiguration(router.Request{Ctx: t.Context(), Client: storage, Namespace: instance.Namespace, Object: connection}, nil))
+		connections = append(connections, connection)
 	}
 	var previousScope string
-	for _, userID := range []string{"1", "2", "1"} {
-		id, resolved, cfg, err := manager.ServerForActionWithConnectID(t.Context(), server.Name, userID)
+	for _, i := range []int{0, 1, 0} {
+		instance := []*v1.VMCPInstance{first, second}[i]
+		cfg, err := manager.ServerConfigForVMCP(t.Context(), instance.Name, instance.Spec.UserID)
 		require.NoError(t, err)
-		require.Equal(t, server.Name, id)
+		require.Equal(t, instance.Name, cfg.MCPServerName)
+		require.Equal(t, connections[i].Name, cfg.Components[0].ConnectID())
+		require.Equal(t, system.LocalMCPConnectURL(connections[i].Name, 8080), mcp.MMMCPConfig(cfg, nil).Servers[0].URL)
+		id, resolved, componentConfig, err := manager.ServerForActionWithConnectID(t.Context(), connections[i].Name, instance.Spec.UserID)
+		require.NoError(t, err)
+		require.Equal(t, connections[i].Name, id)
 		require.Equal(t, server.Name, resolved.Name)
-		require.Contains(t, cfg.Headers, "TOKEN=token-"+userID)
+		require.Contains(t, componentConfig.PassthroughHeaderValues, "token-"+instance.Name)
+		require.Contains(t, componentConfig.Headers, "FIXED=fixed-value")
 		if previousScope != "" {
-			require.Equal(t, previousScope, cfg.Scope)
+			require.Equal(t, previousScope, componentConfig.Scope)
 		}
-		previousScope = cfg.Scope
+		previousScope = componentConfig.Scope
 	}
-	var legacyInstances v1.MCPServerInstanceList
-	require.NoError(t, storage.List(t.Context(), &legacyInstances))
-	require.Empty(t, legacyInstances.Items)
+	_, _, _, err := manager.ServerForActionWithConnectID(t.Context(), connections[0].Name, "other")
+	require.Error(t, err)
+
+	// Revoking the policy must remove projected secrets, including values cached in Config.
+	vmcp.Spec.Manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyFixed
+	require.NoError(t, storage.Update(t.Context(), vmcp))
+	require.NoError(t, mcpserverinstance.New(credentials).SyncVMCPConfiguration(router.Request{Ctx: t.Context(), Client: storage, Namespace: first.Namespace, Object: connections[0]}, nil))
+	projected, err := credentials.RevealCredential(t.Context(), []string{MCPServerInstanceCredentialContext(*connections[0])}, connections[0].Name)
+	require.NoError(t, err)
+	require.Empty(t, projected.Secrets)
+	require.Empty(t, connections[0].Spec.Config)
 }

@@ -278,7 +278,8 @@ func TestMigrateCompositeConnections(t *testing.T) {
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Namespace: entry.Namespace, Name: targetName}, &target))
 	require.Equal(t, entry.Name, target.Spec.LegacySlug)
 	require.Contains(t, target.Finalizers, v1.VMCPFinalizer)
-	require.True(t, target.Spec.Manifest.ForceSingleUser)
+	require.True(t, target.Spec.Manifest.Components[0].ForceSingleUser)
+	require.True(t, target.Spec.Manifest.Components[1].ForceSingleUser)
 	require.Equal(t, []types.VMCPProfile{{Name: "owners", Subjects: rule.Spec.Manifest.Subjects, AllowAllTools: true}}, target.Spec.Manifest.Profiles)
 	require.Equal(t, "dynamicFile", string(target.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[1].Usage))
 	require.Equal(t, "Bearer ", target.Spec.Manifest.Components[1].CatalogEntry.Manifest.Config[0].Prefix)
@@ -404,6 +405,7 @@ func TestMigrateSharedConfigurationAndUserHeaders(t *testing.T) {
 	require.NoError(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil))
 	var target v1.VMCP
 	require.NoError(t, client.Get(t.Context(), kclient.ObjectKey{Namespace: entry.Namespace, Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name)}, &target))
+	require.False(t, target.Spec.Manifest.Components[0].ForceSingleUser)
 	require.Equal(t, "https://example.com/mcp", target.Spec.Manifest.Components[0].CatalogEntry.Manifest.RemoteConfig.FixedURL)
 	require.Equal(t, []types.VMCPConfigurationPolicy{
 		{Key: "ADMIN_TOKEN", Policy: types.VMCPConfigurationPolicyFixed},

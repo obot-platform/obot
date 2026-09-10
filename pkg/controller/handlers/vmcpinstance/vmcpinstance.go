@@ -147,19 +147,10 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 	}
 
 	servers := make([]v1.MCPServer, 0, len(vmcp.Spec.Manifest.Components))
-	if vmcpconfig.IsMultiUser(vmcp.Spec.Manifest) {
-		var existing v1.MCPServerList
-		if err := req.List(&existing, &kclient.ListOptions{Namespace: instance.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.vmcpInstanceID", instance.Name)}); err != nil {
-			return err
-		}
-		for i := range existing.Items {
-			if err := req.Client.Delete(req.Ctx, &existing.Items[i]); kclient.IgnoreNotFound(err) != nil {
-				return err
-			}
-		}
-		return nil
-	}
 	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, *instance) {
+		if vmcpconfig.IsMultiUser(component) {
+			continue
+		}
 		server, err := mcpServerForComponent(instance, component)
 		if err != nil {
 			return fmt.Errorf("build MCPServer for VMCP component %q: %w", component.Name, err)
@@ -190,9 +181,11 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 			if existing.Spec.VMCPInstanceID != instance.Name || existing.Spec.VMCPComponentID != server.Spec.VMCPComponentID {
 				return fmt.Errorf("MCPServer %q already exists with different VMCP ownership", server.Name)
 			}
+
 			if existing.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] ||
 				existing.Spec.UserID != server.Spec.UserID ||
-				existing.Spec.MCPServerCatalogEntryName != server.Spec.MCPServerCatalogEntryName {
+				existing.Spec.MCPServerCatalogEntryName != server.Spec.MCPServerCatalogEntryName ||
+				!reflect.DeepEqual(existing.Spec.Manifest.Config, server.Spec.Manifest.Config) {
 				existing.Spec.Manifest = server.Spec.Manifest
 				existing.Spec.UnsupportedTools = server.Spec.UnsupportedTools
 				existing.Spec.UserID = server.Spec.UserID
@@ -226,7 +219,13 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 		return v1.MCPServer{}, fmt.Errorf("component ID is required")
 	}
 
-	manifest, err := types.MapCatalogEntryToServer(component.CatalogEntry.Manifest, "", true)
+	// Dedicated servers consume both fixed and user configuration from their
+	// synchronized credential, never from shared-server passthrough headers.
+	catalogManifest := component.CatalogEntry.Manifest.DeepCopy()
+	for i := range catalogManifest.Config {
+		catalogManifest.Config[i].UserAllowed = false
+	}
+	manifest, err := types.MapCatalogEntryToServer(*catalogManifest, "", true)
 	if err != nil {
 		return v1.MCPServer{}, err
 	}

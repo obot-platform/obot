@@ -117,6 +117,19 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		if err := client.Get(ctx, router.Key(mcpServerInstance.Namespace, mcpServerInstance.Spec.MCPServerName), &server); err != nil {
 			return false, err
 		}
+		if mcpServerInstance.Spec.VMCPInstanceID != "" {
+			if !slices.Contains(user.GetGroups(), types.GroupCompositeMCP) || !slices.Contains(user.GetExtra()["authorized_mcp_ids"], mcpID) {
+				return false, nil
+			}
+			if _, err := vmcpaccess.ServerInstanceComponent(ctx, client, mcpServerInstance, server); err != nil {
+				return false, err
+			}
+			var vmcp v1.VMCP
+			if err := client.Get(ctx, router.Key(server.Namespace, server.Spec.VMCPID), &vmcp); err != nil {
+				return false, err
+			}
+			return UserCanConnectVMCP(user, &vmcp), nil
+		}
 		return server.Spec.VMCPID == "" && server.Spec.VMCPInstanceID == "", nil
 
 	case system.IsMCPServerID(mcpID):
@@ -126,6 +139,10 @@ func checkMCPIDAccess(ctx context.Context, client kclient.Client, acrHelper *acc
 		}
 
 		vmcpID := mcpServer.Spec.VMCPID
+		if vmcpID != "" {
+			// Shared components must be reached through their scoped connection.
+			return false, nil
+		}
 		if vmcpID != "" || mcpServer.Spec.VMCPInstanceID != "" {
 			// Only the signed aggregate loopback token may reach component servers.
 			// External clients must pass through the aggregate's tool filtering.

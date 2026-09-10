@@ -190,6 +190,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.MigrationDeleteSingleUserInstances)
 	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.UpdateMultiUserConfig)
+	root.Type(&v1.MCPServerInstance{}).HandlerFunc(mcpserverinstance.SyncVMCPConfiguration)
 	root.Type(&v1.MCPServerInstance{}).FinalizeFunc(v1.MCPServerInstanceFinalizer, credentialCleanup.RemoveMCPInstanceCredentials)
 
 	// VMCP
@@ -203,6 +204,7 @@ func (c *Controller) setupRoutes() {
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(cleanup.Cleanup)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.ReconcileToolSelection)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServerInstances)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.SyncUserConfigurationHash)
 	root.Type(&v1.VMCPInstance{}).FinalizeFunc(v1.VMCPInstanceFinalizer, credentialCleanup.RemoveVMCPInstanceConfigurationCredentials)
 

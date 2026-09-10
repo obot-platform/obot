@@ -37,9 +37,10 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 	state := newStateManager(client)
 	h := handler{oauthChecker: &MCPOAuthHandlerFactory{stateMgr: state}}
 	for _, tt := range []struct {
-		name string
-		spec v1.MCPServerSpec
-		want string
+		name         string
+		spec         v1.MCPServerSpec
+		instanceSpec *v1.MCPServerInstanceSpec
+		want         string
 	}{
 		{
 			name: "shared vmcp",
@@ -57,6 +58,22 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 			want: "/auth/oauth/complete",
 		},
 		{
+			name:         "shared vmcp connection",
+			spec:         v1.MCPServerSpec{VMCPID: "vmcp1shared"},
+			instanceSpec: &v1.MCPServerInstanceSpec{VMCPInstanceID: "vmcpi1selected"},
+			want:         "/auth/oauth/complete",
+		},
+		{
+			name:         "legacy composite connection",
+			instanceSpec: &v1.MCPServerInstanceSpec{CompositeName: "ms1composite"},
+			want:         "/auth/oauth/complete",
+		},
+		{
+			name:         "standalone connection",
+			instanceSpec: &v1.MCPServerInstanceSpec{},
+			want:         oauthCompletionURL("oar1request"),
+		},
+		{
 			name: "standalone",
 			want: oauthCompletionURL("oar1request"),
 		},
@@ -65,7 +82,19 @@ func TestOAuthCallbackComponentCompletion(t *testing.T) {
 			server := &v1.MCPServer{Name: "ms1component", Namespace: system.DefaultNamespace, Spec: tt.spec}
 			authRequest := &v1.OAuthAuthRequest{Name: "oar1request", Namespace: system.DefaultNamespace, Spec: v1.OAuthAuthRequestSpec{RedirectURI: "https://client.example/callback"}}
 			storage := clientfake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(server, authRequest).Build()
-			require.NoError(t, state.store(t.Context(), "1", server.Name, "https://upstream.example/mcp", authRequest.Name, "state", "verifier", "", &oauth2.Config{
+			mcpID := server.Name
+			if tt.instanceSpec != nil {
+				connection := &v1.MCPServerInstance{
+					Name:      "msi1connection",
+					Namespace: system.DefaultNamespace,
+					Spec:      *tt.instanceSpec,
+				}
+				connection.Spec.MCPServerName = server.Name
+				connection.Spec.UserID = "1"
+				require.NoError(t, storage.Create(t.Context(), connection))
+				mcpID = connection.Name
+			}
+			require.NoError(t, state.store(t.Context(), "1", mcpID, "https://upstream.example/mcp", authRequest.Name, "state", "verifier", "", &oauth2.Config{
 				ClientID: "client", Endpoint: oauth2.Endpoint{TokenURL: tokenServer.URL, AuthStyle: oauth2.AuthStyleInParams},
 			}))
 			response := httptest.NewRecorder()

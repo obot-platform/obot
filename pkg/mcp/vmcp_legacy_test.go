@@ -13,9 +13,8 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1migrated", Namespace: "default", Spec: v1.VMCPSpec{
 		LegacySlug: "mcp1legacy",
 		Manifest: types.VMCPManifest{
-			ForceSingleUser: true,
-			Profiles:        []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, AllowAllTools: true}},
-			Components:      []types.VMCPComponent{{ID: "component", Name: "Tools"}},
+			Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, AllowAllTools: true}},
+			Components: []types.VMCPComponent{{ID: "component", Name: "Tools", ForceSingleUser: true}},
 		},
 	}}
 	first := &v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(1, 0)), Spec: v1.VMCPInstanceSpec{

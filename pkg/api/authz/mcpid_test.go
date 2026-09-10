@@ -108,7 +108,7 @@ func TestVMCPComponentsRequireInternalForwarding(t *testing.T) {
 				name:    "internal forwarding",
 				groups:  []string{types.GroupCompositeMCP},
 				scopes:  []string{server.Name},
-				allowed: true,
+				allowed: server.Spec.VMCPID == "",
 			},
 		} {
 			t.Run(server.Name+"/"+tc.name, func(t *testing.T) {

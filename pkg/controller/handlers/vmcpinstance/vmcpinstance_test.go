@@ -11,9 +11,11 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
+	"github.com/obot-platform/obot/pkg/mcp"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
+	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/runtime"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -350,7 +352,9 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 		Object: instance,
 	}
 
-	vmcp.Spec.Manifest.ForceSingleUser = true
+	for i := range vmcp.Spec.Manifest.Components {
+		vmcp.Spec.Manifest.Components[i].ForceSingleUser = true
+	}
 	if err := client.Update(t.Context(), vmcp); err != nil {
 		t.Fatal(err)
 	}
@@ -456,5 +460,97 @@ func TestEnsureMCPServersIgnoresMissingVMCP(t *testing.T) {
 	}, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDedicatedComponentHeadersUseCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		policy types.VMCPConfigurationPolicyType
+		value  string
+	}{
+		{
+			name:   "user allowed",
+			policy: types.VMCPConfigurationPolicyUserAllowed,
+			value:  "user-token",
+		},
+		{
+			name:   "fixed",
+			policy: types.VMCPConfigurationPolicyFixed,
+			value:  "fixed-token",
+		},
+		{
+			name:   "prohibited",
+			policy: types.VMCPConfigurationPolicyProhibited,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			component := types.VMCPComponent{
+				ID:              "one",
+				ForceSingleUser: true,
+				Configuration: []types.VMCPConfigurationPolicy{{
+					Key:    "Authorization",
+					Policy: tc.policy,
+				}},
+				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+					Runtime:      types.RuntimeRemote,
+					RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+					Config: []types.MCPConfig{{
+						Key:         "Authorization",
+						Usage:       types.Header,
+						UserAllowed: true,
+					}},
+				}},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID:   "1",
+					Manifest: types.VMCPInstanceManifest{VMCPID: "vmcp1test"},
+				},
+			}
+			server, err := mcpServerForComponent(instance, component)
+			require.NoError(t, err)
+			require.True(t, component.CatalogEntry.Manifest.Config[0].UserAllowed, "must not mutate the snapshot")
+			check := func(server v1.MCPServer) {
+				t.Helper()
+				config, missing, err := mcp.ServerToServerConfig(server, nil, "1", "", "", map[string]string{"Authorization": tc.value})
+				require.NoError(t, err)
+				require.Empty(t, missing)
+				require.Empty(t, config.PassthroughHeaderNames)
+				if tc.value == "" {
+					require.Empty(t, config.Headers)
+				} else {
+					require.Equal(t, []string{"Authorization=" + tc.value}, config.Headers)
+				}
+			}
+			check(server)
+
+			// Repair a server created before normalization even when its snapshot
+			// digest is unchanged (as it is for policy-only updates).
+			server.Spec.Manifest.Config[0].UserAllowed = true
+			parent := &v1.VMCP{
+				Name:      instance.Spec.Manifest.VMCPID,
+				Namespace: instance.Namespace,
+				Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
+					Components: []types.VMCPComponent{component},
+				}},
+			}
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(parent, &server).
+				WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string {
+					return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID}
+				}).Build()
+			req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
+			require.NoError(t, New(nil).EnsureMCPServers(req, nil))
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&server), &server))
+			check(server)
+			version := server.ResourceVersion
+			require.NoError(t, New(nil).EnsureMCPServers(req, nil))
+			require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(&server), &server))
+			require.Equal(t, version, server.ResourceVersion, "unchanged configuration must not trigger another update")
+		})
 	}
 }

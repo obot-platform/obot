@@ -60,9 +60,6 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
 
 	manifest.Default(personalServer)
-	if err := authz.CheckVMCPForceSingleUser(req.User, false, manifest.ForceSingleUser); err != nil {
-		return err
-	}
 
 	var userID string
 	if personalServer {
@@ -129,9 +126,6 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
-	}
-	if err := authz.CheckVMCPForceSingleUser(req.User, vmcp.Spec.Manifest.ForceSingleUser, manifest.ForceSingleUser); err != nil {
-		return err
 	}
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)

@@ -45,22 +45,39 @@ func (h *handler) checkVMCPComponentAuth(req api.Context) error {
 			return types.NewErrForbidden("OAuth request does not belong to this approved vMCP connection")
 		}
 	}
-	authURL, err := h.vmcpComponentAuthURL(req, component, authRequestID)
+	connectID := component.Name
+	if component.Spec.VMCPID != "" && component.Spec.Manifest.Runtime == types.RuntimeRemote {
+		config, err := h.oauthChecker.mcpSessionManager.ServerConfigForVMCP(req.Context(), req.PathValue("mcp_id"), req.User.GetUID())
+		if err != nil {
+			return err
+		}
+		connectID = ""
+		for _, configured := range config.Components {
+			if configured.Name == component.Name {
+				connectID = configured.ConnectID()
+				break
+			}
+		}
+		if connectID == "" {
+			return types.NewErrForbidden("component does not belong to this vMCP connection")
+		}
+	}
+	authURL, err := h.vmcpComponentAuthURL(req, component, connectID, authRequestID)
 	if err != nil {
 		return err
 	}
 	return req.Write(componentAuthStatus{AuthURL: authURL})
 }
 
-func (h *handler) vmcpComponentAuthURL(req api.Context, component v1.MCPServer, authRequestID string) (string, error) {
+func (h *handler) vmcpComponentAuthURL(req api.Context, component v1.MCPServer, connectID, authRequestID string) (string, error) {
 	if component.Spec.Manifest.Runtime != types.RuntimeRemote {
 		return "", nil
 	}
-	server, config, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), component.Name, req.User.GetUID())
+	server, config, err := h.oauthChecker.mcpSessionManager.ServerForAction(req.Context(), connectID, req.User.GetUID())
 	if err != nil {
 		return "", fmt.Errorf("failed to get component server config: %w", err)
 	}
-	return h.oauthChecker.CheckForMCPAuth(req, server, config, req.User.GetUID(), component.Name, authRequestID)
+	return h.oauthChecker.CheckForMCPAuth(req, server, config, req.User.GetUID(), connectID, authRequestID)
 }
 
 // checkVMCPAuth checks if the vMCP OAuth flow is complete.
@@ -104,7 +121,7 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 
 	defer close(limit)
 
-	for _, componentServer := range componentServers {
+	for i, componentServer := range componentServers {
 		if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 			continue
 		}
@@ -117,7 +134,7 @@ func (h *handler) checkVMCPAuth(req api.Context) error {
 				limit <- struct{}{}
 			}()
 
-			authURL, err := h.vmcpComponentAuthURL(req, componentServer, oauthAuthRequestID)
+			authURL, err := h.vmcpComponentAuthURL(req, componentServer, compositeConfig.Components[i].ConnectID(), oauthAuthRequestID)
 			if err != nil {
 				lock.Lock()
 				defer lock.Unlock()

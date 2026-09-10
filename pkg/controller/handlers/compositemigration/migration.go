@@ -169,9 +169,7 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 				DisplayName: entry.Spec.Manifest.Name,
 				Description: entry.Spec.Manifest.Description,
 				Icon:        entry.Spec.Manifest.Icon,
-				// Legacy connections have independent configuration and may share an owner.
-				ForceSingleUser: true,
-				Profiles:        []types.VMCPProfile{},
+				Profiles:    []types.VMCPProfile{},
 			},
 		},
 	}
@@ -245,6 +243,8 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 			Name:                    manifest.Name,
 			MCPCatalogID:            catalogID,
 			MCPServerCatalogEntryID: id,
+			// Legacy catalog-entry components had a runtime per connection.
+			ForceSingleUser: old.CatalogEntryID != "" && old.MCPServerID == "",
 			CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 				Manifest: manifest,
 			},

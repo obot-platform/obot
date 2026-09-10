@@ -75,6 +75,7 @@ func (sm *SessionManager) clientForServerWithOptions(ctx context.Context, client
 }
 
 func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, clientScope string, clientOpts ClientOption) (*Client, error) {
+	connectID := cmp.Or(server.MCPServerInstanceID, server.MCPServerName)
 	sessions, _ := sm.sessions.LoadOrStore(server.MCPServerName, &sync.Map{})
 
 	clientSessions, ok := sessions.(*sync.Map)
@@ -118,13 +119,17 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 		)
 
 		now := time.Now().Add(-time.Second)
+		groups := []string{types.GroupMCP, types.GroupAuthenticated}
+		if server.ComponentMCPServer {
+			groups = append(groups, types.GroupCompositeMCP)
+		}
 		jwtToken, token, err = sm.tokenService.NewToken(ctx, persistent.TokenContext{
 			Audience:   cmp.Or(server.Audiences...),
 			ExpiresAt:  persistent.NewTime(now.Add(time.Hour + 15*time.Minute)),
 			IssuedAt:   persistent.NewTime(now),
 			UserID:     server.UserID,
-			MCPID:      server.MCPServerName,
-			UserGroups: []string{types.GroupMCP, types.GroupAuthenticated},
+			MCPID:      connectID,
+			UserGroups: groups,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create JWT token for client: %w", err)
@@ -150,7 +155,7 @@ func (sm *SessionManager) loadSession(ctx context.Context, server ServerConfig, 
 			}
 		}
 	} else {
-		url = system.MCPConnectURL(sm.TransformObotHostname(sm.baseURL), server.MCPServerName)
+		url = system.MCPConnectURL(sm.TransformObotHostname(sm.baseURL), connectID)
 	}
 
 	c := gomcp.NewClient(&gomcp.Implementation{

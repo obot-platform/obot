@@ -68,26 +68,14 @@ func (sm *SessionManager) ServerForActionWithConnectIDAllowMissingConfig(ctx con
 }
 
 func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, userID string, allowMissingConfig bool) (string, v1.MCPServer, ServerConfig, []string, error) {
-	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
+	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
 		return "", v1.MCPServer{}, ServerConfig{}, nil, err
 	} else if vmcp != nil {
-		config, err := sm.ServerConfigForVMCP(ctx, id, userID)
+		server, config, err := sm.serverForVMCPAction(ctx, id, userID, vmcp, instance)
 		if err != nil {
 			return "", v1.MCPServer{}, ServerConfig{}, nil, err
 		}
-
-		return id, v1.MCPServer{
-			Name:      id,
-			Namespace: config.MCPServerNamespace,
-			Spec: v1.MCPServerSpec{
-				Manifest: types.MCPServerManifest{
-					Name:    config.MCPServerDisplayName,
-					Runtime: types.RuntimeVMCP,
-				},
-				UserID: config.OwnerUserID,
-				VMCPID: vmcp.Name,
-			},
-		}, config, nil, nil
+		return id, server, config, nil, nil
 	}
 
 	server, instance, err := sm.serverOrInstanceFromConnectURL(ctx, id, userID)
@@ -108,11 +96,14 @@ func (sm *SessionManager) serverForActionWithConnectID(ctx context.Context, id, 
 }
 
 func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string) (v1.MCPServer, ServerConfig, error) {
-	if vmcp, _, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
+	if system.IsMCPServerInstanceID(id) {
+		_, server, config, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
+		return server, config, err
+	}
+	if vmcp, instance, err := vmcpaccess.ResolveConnectID(ctx, sm.storageClient, id, userID); err != nil {
 		return v1.MCPServer{}, ServerConfig{}, err
 	} else if vmcp != nil {
-		_, server, serverConfig, _, err := sm.serverForActionWithConnectID(ctx, id, userID, false)
-		return server, serverConfig, err
+		return sm.serverForVMCPAction(ctx, id, userID, vmcp, instance)
 	}
 
 	var server v1.MCPServer
@@ -122,6 +113,25 @@ func (sm *SessionManager) ServerForAction(ctx context.Context, id, userID string
 
 	serverConfig, _, err := sm.serverConfigForAction(ctx, server, userID, false)
 	return server, serverConfig, err
+}
+
+func (sm *SessionManager) serverForVMCPAction(ctx context.Context, id, userID string, vmcp *v1.VMCP, instance *v1.VMCPInstance) (v1.MCPServer, ServerConfig, error) {
+	config, err := sm.serverConfigForVMCP(ctx, vmcp, instance, userID)
+	if err != nil {
+		return v1.MCPServer{}, ServerConfig{}, err
+	}
+	return v1.MCPServer{
+		Name:      id,
+		Namespace: config.MCPServerNamespace,
+		Spec: v1.MCPServerSpec{
+			Manifest: types.MCPServerManifest{
+				Name:    config.MCPServerDisplayName,
+				Runtime: types.RuntimeVMCP,
+			},
+			UserID: config.OwnerUserID,
+			VMCPID: vmcp.Name,
+		},
+	}, config, nil
 }
 
 func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id, userID string) (v1.MCPServer, v1.MCPServerInstance, error) {
@@ -258,6 +268,9 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 }
 
 func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, instance v1.MCPServerInstance, userID string, allowMissingConfig bool) (v1.MCPServer, ServerConfig, []string, error) {
+	if instance.Spec.UserID != userID {
+		return v1.MCPServer{}, ServerConfig{}, nil, types.NewErrForbidden("MCP server instance belongs to another user")
+	}
 	var server v1.MCPServer
 	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: instance.Spec.MCPServerName}, &server); err != nil {
 		return server, ServerConfig{}, nil, err
@@ -273,7 +286,15 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 	addExtractedEnvVars(&server)
 
 	var scope string
-	if server.Spec.MCPCatalogID != "" {
+	if server.Spec.VMCPID != "" {
+		component, err := vmcpaccess.ServerInstanceComponent(ctx, sm.storageClient, instance, server)
+		if err != nil {
+			return server, ServerConfig{}, nil, err
+		}
+		server.Spec.Manifest.Config = vmcpaccess.ComponentConfig(component)
+		instance.Spec.Config = server.Spec.Manifest.UserConfig()
+		scope = server.Spec.VMCPID
+	} else if server.Spec.MCPCatalogID != "" {
 		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
 		scope = server.Spec.PowerUserWorkspaceID
@@ -299,6 +320,9 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 	serverConfig, missingConfig, err := ServerToServerConfig(server, instance.ValidConnectURLs(sm.baseURL), userID, scope, catalogName, mergedEnv)
 	if err != nil {
 		return server, ServerConfig{}, nil, err
+	}
+	if instance.Spec.VMCPInstanceID != "" {
+		serverConfig.MCPServerInstanceID = instance.Name
 	}
 
 	instanceCredEnv, err := sm.serverInstanceCredEnv(ctx, instance)
@@ -349,12 +373,6 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 	cred, err := sm.gatewayClient.RevealCredential(ctx, []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
-	}
-	if server.Spec.VMCPID != "" {
-		cred.Secrets, err = sm.sharedVMCPConfiguration(ctx, server, userID, cred.Secrets)
-		if err != nil {
-			return ServerConfig{}, nil, err
-		}
 	}
 
 	mergedEnv, err := MergeBoundCreds(ctx, sm.localK8sClient, sm.obotNamespace, server.Spec.Manifest.Config, cred.Secrets, sm.secretBindingAllowedLabel)

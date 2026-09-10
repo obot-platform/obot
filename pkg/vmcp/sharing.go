@@ -5,30 +5,28 @@ import (
 )
 
 // IsMultiUser permits a shared runtime only when user inputs are headers.
-func IsMultiUser(manifest types.VMCPManifest) bool {
-	if manifest.ForceSingleUser {
+func IsMultiUser(component types.VMCPComponent) bool {
+	if component.ForceSingleUser {
 		return false
 	}
-	for _, component := range manifest.Components {
-		if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.FixedURL == "" && remote.Hostname != "" {
-			return false
+	if remote := component.CatalogEntry.Manifest.RemoteConfig; remote != nil && remote.FixedURL == "" && remote.Hostname != "" {
+		return false
+	}
+	for _, policy := range component.Configuration {
+		if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
+			continue
 		}
-		for _, policy := range component.Configuration {
-			if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
-				continue
-			}
 
-			var isHeader bool
-			for _, config := range component.CatalogEntry.Manifest.Config {
-				if config.Key == policy.Key {
-					isHeader = config.Usage == types.Header
-					break
-				}
+		var isHeader bool
+		for _, config := range component.CatalogEntry.Manifest.Config {
+			if config.Key == policy.Key {
+				isHeader = config.Usage == types.Header
+				break
 			}
-			// Unknown inputs must not share a runtime.
-			if !isHeader {
-				return false
-			}
+		}
+		// Unknown inputs must not share a runtime.
+		if !isHeader {
+			return false
 		}
 	}
 	return true

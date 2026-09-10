@@ -71,8 +71,7 @@ const manifest: VMCPManifest = {
 			subjects: [{ type: 'selector', id: '*' }],
 			allowAllTools: true
 		}
-	],
-	forceSingleUser: false
+	]
 };
 
 const vmcp: VMCP = {

@@ -580,6 +580,7 @@ export interface VMCPComponent {
 	allowedTools?: string[];
 	catalogEntry: VMCPComponentCatalogEntrySnapshot;
 	configuration?: VMCPConfigurationPolicy[];
+	forceSingleUser?: boolean;
 	id?: string;
 	mcpCatalogID: string;
 	mcpServerCatalogEntryID: string;
@@ -603,7 +604,6 @@ export interface VMCPManifest {
 	components: VMCPComponent[];
 	description?: string;
 	displayName: string;
-	forceSingleUser?: boolean;
 	icon?: string;
 	profiles?: VMCPProfile[];
 }

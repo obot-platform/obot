@@ -20,7 +20,10 @@
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		onNext?: (configuration: VMCPConfigurationPolicy[]) => void | Promise<void>;
+		onNext?: (
+			configuration: VMCPConfigurationPolicy[],
+			forceSingleUser: boolean
+		) => void | Promise<void>;
 		onClose?: () => void;
 	}
 
@@ -58,6 +61,10 @@
 	let highlighted = $state<string[]>([]);
 	let error = $state<string>();
 	let saving = $state(false);
+	let forceSingleUser = $state(false);
+	let hasUserAllowedNonHeaderConfiguration = $derived(
+		drafts.some((draft) => draft.policy === 'userAllowed' && draft.field.usage !== 'header')
+	);
 	let submitLabel = $state('Next');
 	let failureMessage = $state('Failed to add MCP server to vMCP.');
 
@@ -69,6 +76,7 @@
 		target: MCPCatalogEntry,
 		options?: {
 			configuration?: VMCPConfigurationPolicy[];
+			forceSingleUser?: boolean;
 			submitLabel?: string;
 			errorMessage?: string;
 		}
@@ -85,6 +93,7 @@
 					value: policy?.value ?? field.value ?? ''
 				};
 			});
+		forceSingleUser = !hasUserAllowedNonHeaderConfiguration && (options?.forceSingleUser ?? false);
 		submitLabel = options?.submitLabel ?? 'Next';
 		failureMessage = options?.errorMessage ?? 'Failed to add MCP server to vMCP.';
 		highlighted = [];
@@ -107,6 +116,7 @@
 
 	function setPolicy(index: number, policy: VMCPConfigurationPolicyType) {
 		drafts[index].policy = policy;
+		if (hasUserAllowedNonHeaderConfiguration) forceSingleUser = false;
 		error = undefined;
 		highlighted = highlighted.filter((key) => key !== drafts[index].field.key);
 	}
@@ -145,7 +155,10 @@
 		if (saving || !validate()) return;
 		saving = true;
 		try {
-			await onNext?.(configurationPayload());
+			await onNext?.(
+				configurationPayload(),
+				!hasUserAllowedNonHeaderConfiguration && forceSingleUser
+			);
 			dialog?.close();
 		} catch {
 			error = failureMessage;
@@ -158,6 +171,7 @@
 		if (saving) return;
 		entry = undefined;
 		drafts = [];
+		forceSingleUser = false;
 		error = undefined;
 		highlighted = [];
 		onClose?.();
@@ -261,24 +275,28 @@
 		Configure {displayName}
 	{/snippet}
 	<div class="p-4 pb-0 md:p-0">
-		<p class="text-sm font-light mb-2">
-			This MCP Server requires the following configurations to be set before it can be used. Choose
-			how each configuration value for <b class="font-semibold text-base-content">{displayName}</b>
-			is provided.
-		</p>
-		<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
-			<li>
-				<b class="font-semibold">Preconfigured</b> - Set the value now. This value will be used automatically
-				for every connection.
-			</li>
-			<li>
-				<b class="font-semibold">Provided at connection</b> - Leave the value unset. Each user will be
-				prompted to provide their own value when they connect.
-			</li>
-			<li>
-				<b class="font-semibold">Ignore</b> - Ignore this field.
-			</li>
-		</ul>
+		{#if drafts.length > 0}
+			<p class="text-sm font-light mb-2">
+				This MCP Server requires the following configurations to be set before it can be used.
+				Choose how each configuration value for <b class="font-semibold text-base-content"
+					>{displayName}</b
+				>
+				is provided.
+			</p>
+			<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
+				<li>
+					<b class="font-semibold">Preconfigured</b> - Set the value now. This value will be used automatically
+					for every connection.
+				</li>
+				<li>
+					<b class="font-semibold">Provided at connection</b> - Leave the value unset. Each user will
+					be prompted to provide their own value when they connect.
+				</li>
+				<li>
+					<b class="font-semibold">Ignore</b> - Ignore this field.
+				</li>
+			</ul>
+		{/if}
 		{#if error}
 			<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
 		{/if}
@@ -289,13 +307,29 @@
 			{#if requiredDrafts.length > 0 && optionalDrafts.length > 0}
 				<div class="divider my-1 text-xs text-muted-content">Optional</div>
 			{/if}
-			<p class="text-xs font-light text-muted-content">
-				These are additional optional fields for the MCP Server. Generally these can be ignored as
-				they are often used for advanced use cases.
-			</p>
+			{#if optionalDrafts.length > 0}
+				<p class="text-xs font-light text-muted-content">
+					These are additional optional fields for the MCP Server. Generally these can be ignored as
+					they are often used for advanced use cases.
+				</p>
+			{/if}
 			{#each optionalDrafts as draft, index (draft.field.key)}
 				{@render policyField(draft, requiredDrafts.length + index)}
 			{/each}
+			{#if !hasUserAllowedNonHeaderConfiguration}
+				<label class="flex items-center gap-2">
+					<input
+						type="checkbox"
+						class="checkbox checkbox-sm"
+						bind:checked={forceSingleUser}
+						disabled={saving}
+					/>
+					<span>Force single-user</span>
+				</label>
+				<p class="text-xs font-light text-muted-content">
+					Run a separate instance of this component for each user.
+				</p>
+			{/if}
 		</div>
 	</div>
 	<div class="flex grow"></div>

@@ -80,8 +80,7 @@ export function vmcpManifest(vmcp: VMCP): VMCPManifest {
 		description: vmcp.description,
 		icon: vmcp.icon,
 		components: vmcp.components ?? [],
-		profiles: vmcp.profiles,
-		forceSingleUser: vmcp.forceSingleUser
+		profiles: vmcp.profiles
 	};
 }
 

@@ -21,9 +21,9 @@ import (
 )
 
 func TestMigratedConfigurationAndFixedValueRotation(t *testing.T) {
-	component := types.VMCPComponent{ID: "one", Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}}}
+	component := types.VMCPComponent{ID: "one", ForceSingleUser: true, Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}}}
 	vmcp := &v1.VMCP{Name: "vmcp1migration", Namespace: "default", Spec: v1.VMCPSpec{
-		Manifest:                           types.VMCPManifest{ForceSingleUser: true, Components: []types.VMCPComponent{component}},
+		Manifest:                           types.VMCPManifest{Components: []types.VMCPComponent{component}},
 		StaticConfigurationHash:            "original",
 		ComponentStaticConfigurationHashes: map[string]string{component.ID: "original"},
 	}}
@@ -254,6 +254,9 @@ func TestSyncVMCPConfigurationSkipsMatchingHashes(t *testing.T) {
 		Namespace: "default",
 		Spec: v1.VMCPSpec{
 			StaticConfigurationHash: "static-hash",
+			Manifest: types.VMCPManifest{Components: []types.VMCPComponent{{
+				ID: "component-one", ForceSingleUser: true,
+			}}},
 		},
 	}
 	instance := &v1.VMCPInstance{
@@ -323,7 +326,10 @@ func TestSyncVMCPSharedConfiguration(t *testing.T) {
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{
 		StaticConfigurationHash: "new-hash",
-		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		Manifest: types.VMCPManifest{Components: []types.VMCPComponent{
+			component,
+			{ID: "single", ForceSingleUser: true},
+		}},
 	}}
 	server := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: component.ID}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1old", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}

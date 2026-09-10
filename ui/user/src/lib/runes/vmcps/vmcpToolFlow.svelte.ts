@@ -276,7 +276,7 @@ export function createVMcpToolFlow() {
 	}
 
 	function editConfiguration() {
-		if (!configuringEntry || catalogConfigurationFields(configuringEntry).length === 0) return;
+		if (!configuringEntry) return;
 		dialog = 'configure';
 	}
 
@@ -292,7 +292,10 @@ export function createVMcpToolFlow() {
 		close();
 	}
 
-	async function saveConfiguration(configuration: VMCPConfigurationPolicy[]) {
+	async function saveConfiguration(
+		configuration: VMCPConfigurationPolicy[],
+		forceSingleUser: boolean
+	) {
 		const component = configuringComponent;
 		if (!component) {
 			close();
@@ -315,7 +318,13 @@ export function createVMcpToolFlow() {
 			}
 			const nextComponents = components.map((candidate, componentIndex) =>
 				componentIndex === index
-					? { ...candidate, ...component, configuration, id: candidate.id ?? component.id }
+					? {
+							...candidate,
+							...component,
+							configuration,
+							forceSingleUser,
+							id: candidate.id ?? component.id
+						}
 					: candidate
 			);
 			const updated = await UserService.updateVMCP(latest.id, {
@@ -534,8 +543,8 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
-		get hasConfigurableFields() {
-			return Boolean(configuringEntry && catalogConfigurationFields(configuringEntry).length > 0);
+		get canConfigureComponent() {
+			return Boolean(configuringEntry);
 		},
 		get postCreateConfiguration() {
 			return postCreateConfiguration;

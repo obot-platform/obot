@@ -87,7 +87,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 			checkErr   error
 			lock       sync.RWMutex
 		)
-		for _, componentServer := range componentServers {
+		for i, componentServer := range componentServers {
 			if componentServer.Spec.Manifest.Runtime != types.RuntimeRemote {
 				continue
 			}
@@ -106,7 +106,7 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 					limit <- struct{}{}
 				}()
 
-				_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), componentServer.Name, req.User.GetUID())
+				_, componentConfig, err := f.mcpSessionManager.ServerForAction(req.Context(), mcpServerConfig.Components[i].ConnectID(), req.User.GetUID())
 				if err != nil {
 					return
 				}
@@ -159,6 +159,10 @@ func (f *MCPOAuthHandlerFactory) CheckForMCPAuth(req api.Context, mcpServer v1.M
 		if err := mcp.ValidateRemoteMCPURL(req.Context(), mcpServerConfig.URL, f.mcpSessionManager.RemoteMCPURLValidationConfig()); err != nil {
 			return "", err
 		}
+	}
+
+	if mcpServerConfig.MCPServerInstanceID != "" {
+		mcpID = mcpServerConfig.MCPServerInstanceID
 	}
 
 	// Remote server, check for OAuth directly

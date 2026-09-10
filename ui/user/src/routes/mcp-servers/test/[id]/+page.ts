@@ -44,7 +44,7 @@ function vmcpTesterServer(
 			icon: vmcp.icon,
 			runtime: 'vmcp'
 		},
-		serverUserType: vmcp.forceSingleUser ? 'singleUser' : 'multiUser',
+		serverUserType: 'multiUser',
 		deploymentStatus: vmcp.status?.ready ? 'Available' : 'Unavailable',
 		canConnect: true
 	};

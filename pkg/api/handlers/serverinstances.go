@@ -52,7 +52,7 @@ func (h *ServerInstancesHandler) ListServerInstances(req api.Context) error {
 	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
 		// Hide template and component instances from user list view
-		if instance.Spec.Template || instance.Spec.CompositeName != "" {
+		if instance.Spec.Template || instance.Spec.CompositeName != "" || instance.Spec.VMCPInstanceID != "" {
 			continue
 		}
 
@@ -121,7 +121,6 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 		} else if server.Spec.IsPowerUserWorkspaceServer() {
 			hasAccess, err = h.acrHelper.UserHasAccessToMCPServerInWorkspace(req.User, server.Name, server.Spec.PowerUserWorkspaceID, server.Spec.UserID)
 		}
-
 		if err != nil {
 			return err
 		}
@@ -203,6 +202,9 @@ func (h *ServerInstancesHandler) ConfigureServerInstance(req api.Context) error 
 	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
 		return err
 	}
+	if mcpServerInstance.Spec.VMCPInstanceID != "" {
+		return types.NewErrBadRequest("configure this component through its vMCP instance")
+	}
 
 	var envVars map[string]string
 	if err := req.Read(&envVars); err != nil {
@@ -245,6 +247,9 @@ func (h *ServerInstancesHandler) DeconfigureServerInstance(req api.Context) erro
 	var mcpServerInstance v1.MCPServerInstance
 	if err := req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id")); err != nil {
 		return err
+	}
+	if mcpServerInstance.Spec.VMCPInstanceID != "" {
+		return types.NewErrBadRequest("configure this component through its vMCP instance")
 	}
 
 	if _, err := req.GatewayClient.DeleteCredential(
@@ -354,7 +359,7 @@ func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) e
 	convertedInstances := make([]types.MCPServerInstance, 0, len(instances.Items))
 	for _, instance := range instances.Items {
 		// Hide component instances
-		if instance.Spec.CompositeName != "" {
+		if instance.Spec.CompositeName != "" || instance.Spec.VMCPInstanceID != "" {
 			continue
 		}
 		slug, err := SlugForMCPServerInstance(req.Context(), req.Storage, instance)
@@ -374,6 +379,9 @@ func (h *ServerInstancesHandler) ListServerInstancesForServer(req api.Context) e
 }
 
 func SlugForMCPServerInstance(ctx context.Context, client kclient.Client, instance v1.MCPServerInstance) (string, error) {
+	if instance.Spec.VMCPInstanceID != "" {
+		return instance.Name, nil
+	}
 	var instancesWithServerName v1.MCPServerInstanceList
 	if err := client.List(ctx, &instancesWithServerName, &kclient.ListOptions{
 		FieldSelector: fields.SelectorFromSet(map[string]string{

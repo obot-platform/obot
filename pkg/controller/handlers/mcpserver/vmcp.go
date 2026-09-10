@@ -43,7 +43,13 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	} else if err != nil {
 		return fmt.Errorf("get VMCP %q: %w", vmcpID, err)
 	}
-	shared := vmcpconfig.IsMultiUser(vmcp.Spec.Manifest)
+	effective := vmcp.Spec.Manifest
+	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
+	component, ok := vmcpComponent(effective, server.Spec.VMCPComponentID)
+	if !ok {
+		return fmt.Errorf("VMCP %q does not contain component %q", vmcp.Name, server.Spec.VMCPComponentID)
+	}
+	shared := vmcpconfig.IsMultiUser(*component)
 	if shared != (server.Spec.VMCPInstanceID == "") {
 		// The owning controller deletes servers from the previous sharing mode.
 		return nil
@@ -52,13 +58,6 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	if server.Status.VMCPStaticConfigurationHash == vmcp.Spec.StaticConfigurationHash &&
 		server.Status.VMCPUserConfigurationHash == instance.Status.UserConfigurationHash {
 		return nil
-	}
-
-	effective := vmcp.Spec.Manifest
-	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
-	component, ok := vmcpComponent(effective, server.Spec.VMCPComponentID)
-	if !ok {
-		return fmt.Errorf("VMCP %q does not contain component %q", vmcp.Name, server.Spec.VMCPComponentID)
 	}
 
 	staticConfiguration, err := h.revealVMCPConfiguration(

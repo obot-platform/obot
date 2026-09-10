@@ -225,13 +225,17 @@
 		}
 	}
 
-	async function handleConfigurationNext(configuration: VMCPConfigurationPolicy[]) {
+	async function handleConfigurationNext(
+		configuration: VMCPConfigurationPolicy[],
+		forceSingleUser: boolean
+	) {
 		const pending = pendingComponentDrop;
 		if (!pending) return;
 		try {
 			await addComponentToVMcp(pending.target, pending.entry, {
 				...pending.component,
-				configuration
+				configuration,
+				forceSingleUser
 			});
 			pendingComponentDrop = undefined;
 		} catch {

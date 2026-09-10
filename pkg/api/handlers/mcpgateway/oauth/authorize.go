@@ -349,7 +349,7 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 
 	// Single-user components receive configuration asynchronously. Do not probe
 	// OAuth with credentials from before the user's save.
-	if vmcp != nil && !vmcpconfig.IsMultiUser(vmcp.Spec.Manifest) {
+	if vmcp != nil {
 		if syncHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]; syncHash != "" {
 			checkHash := utils.Digest([]any{vmcpconfig.ComponentsForInstance(*vmcp, *instance), syncHash})
 			instance, err = wait.For(req.Context(), req.Storage, instance, func(current *v1.VMCPInstance) (bool, error) {
@@ -359,6 +359,9 @@ func (h *handler) prepareOAuthConsent(req api.Context, oauthAppAuthRequest *v1.O
 				return fmt.Errorf("wait for VMCP instance configuration: %w", err)
 			}
 			for _, component := range mcpServerConfig.Components {
+				if component.MCPServerInstanceID != "" {
+					continue
+				}
 				_, err := wait.For(req.Context(), req.Storage, &v1.MCPServer{
 					Name:      component.Name,
 					Namespace: vmcp.Namespace,
@@ -604,13 +607,21 @@ func (h *handler) oauthCallback(req api.Context) error {
 	}
 
 	// Check if the MCP server is a component of an aggregate; only finalize if it's not
+	var instance v1.MCPServerInstance
+	if system.IsMCPServerInstanceID(mcpServerID) {
+		if err := req.Get(&instance, mcpServerID); err != nil {
+			redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
+			return nil
+		}
+		mcpServerID = instance.Spec.MCPServerName
+	}
 	var server v1.MCPServer
 	if err := req.Get(&server, mcpServerID); err != nil {
 		redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, err.Error(), oauthAppAuthRequest.Spec.State))
 		return nil
 	}
 
-	if server.Spec.CompositeName != "" || server.Spec.VMCPInstanceID != "" || server.Spec.VMCPID != "" {
+	if instance.Spec.VMCPInstanceID != "" || instance.Spec.CompositeName != "" || server.Spec.CompositeName != "" || server.Spec.VMCPInstanceID != "" || server.Spec.VMCPID != "" {
 		// MCP server is a component of an aggregate.
 		// Redirect to OAuth completion page; the checkCompositeAuth handler will redirect back
 		// to the 1st level OAuth redirect URL when all pending 2nd level OAuth for the aggregate server's

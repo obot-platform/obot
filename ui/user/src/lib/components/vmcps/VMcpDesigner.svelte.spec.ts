@@ -242,7 +242,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeEnabled();
 			await expect
 				.element(page.getByRole('button', { name: 'Change Configuration' }))
-				.not.toBeInTheDocument();
+				.toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Get Started', exact: true }))
 				.not.toBeInTheDocument();
@@ -334,11 +334,13 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Preconfigured');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+			await page.getByRole('checkbox', { name: 'Force single-user' }).click();
 			await page.getByRole('button', { name: 'Save' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalled());
 			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
-				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
+				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }],
+				forceSingleUser: true
 			});
 		});
 

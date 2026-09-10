@@ -7,34 +7,34 @@ import (
 )
 
 func TestIsMultiUser(t *testing.T) {
-	manifest := types.VMCPManifest{Components: []types.VMCPComponent{{
+	component := types.VMCPComponent{
 		Configuration: []types.VMCPConfigurationPolicy{{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed}},
 		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
 			Config: []types.MCPConfig{{Key: "TOKEN", Usage: types.Header}},
 		}},
-	}}}
-	if !IsMultiUser(manifest) {
+	}
+	if !IsMultiUser(component) {
 		t.Fatal("fixed configuration should share")
 	}
-	manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyUserAllowed
-	if !IsMultiUser(manifest) {
+	component.Configuration[0].Policy = types.VMCPConfigurationPolicyUserAllowed
+	if !IsMultiUser(component) {
 		t.Fatal("user headers should share")
 	}
-	manifest.ForceSingleUser = true
-	if IsMultiUser(manifest) {
+	component.ForceSingleUser = true
+	if IsMultiUser(component) {
 		t.Fatal("forceSingleUser ignored")
 	}
-	manifest.ForceSingleUser = false
-	manifest.Components[0].CatalogEntry.Manifest.Config = nil
-	if IsMultiUser(manifest) {
+	component.ForceSingleUser = false
+	component.CatalogEntry.Manifest.Config = nil
+	if IsMultiUser(component) {
 		t.Fatal("unknown user input must not share")
 	}
-	manifest.Components[0].CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: types.Env}}
-	if IsMultiUser(manifest) {
+	component.CatalogEntry.Manifest.Config = []types.MCPConfig{{Key: "TOKEN", Usage: types.Env}}
+	if IsMultiUser(component) {
 		t.Fatal("user environment input must not share")
 	}
-	manifest.Components[0].Configuration[0].Policy = types.VMCPConfigurationPolicyProhibited
-	if !IsMultiUser(manifest) {
+	component.Configuration[0].Policy = types.VMCPConfigurationPolicyProhibited
+	if !IsMultiUser(component) {
 		t.Fatal("prohibited configuration should share")
 	}
 }

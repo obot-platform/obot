@@ -47,15 +47,6 @@ func IsVMCPAdministrator(u kuser.Info) bool {
 	return slices.Contains(u.GetGroups(), types.GroupAdmin)
 }
 
-// CheckVMCPForceSingleUser permits only administrators to change the override.
-// Personal owners can still edit other fields while preserving an existing value.
-func CheckVMCPForceSingleUser(u kuser.Info, current, desired bool) error {
-	if current != desired && !IsVMCPAdministrator(u) {
-		return types.NewErrForbidden("only administrators can change forceSingleUser")
-	}
-	return nil
-}
-
 // ValidateVMCPToolSelection rejects explicit selections outside the profile union.
 func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection types.VMCPToolSet) error {
 	if err := vmcp.Spec.Manifest.ValidateToolSet(selection); err != nil {
@@ -167,11 +158,13 @@ func (a *Authorizer) checkVMCPComponent(req *http.Request, resources *Resources,
 	if err := a.get(req.Context(), router.Key(system.DefaultNamespace, resources.VMCPComponentMCPID), &component); err != nil {
 		return false, err
 	}
-	belongs := component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == u.GetUID()
-	if vmcpaccess.IsMultiUser(vmcp.Spec.Manifest) {
-		belongs = component.Spec.VMCPID == vmcp.Name && component.Spec.VMCPInstanceID == ""
-	}
-	return belongs && slices.ContainsFunc(vmcpaccess.ComponentsForInstance(*vmcp, *instance), func(candidate types.VMCPComponent) bool {
-		return candidate.ID == component.Spec.VMCPComponentID
+	return slices.ContainsFunc(vmcpaccess.ComponentsForInstance(*vmcp, *instance), func(candidate types.VMCPComponent) bool {
+		if candidate.ID != component.Spec.VMCPComponentID {
+			return false
+		}
+		if vmcpaccess.IsMultiUser(candidate) {
+			return component.Spec.VMCPID == vmcp.Name && component.Spec.VMCPInstanceID == ""
+		}
+		return component.Spec.VMCPInstanceID == instance.Name && component.Spec.UserID == u.GetUID()
 	}), nil
 }

@@ -27,9 +27,8 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 		credential gatewaytypes.Credential
 		revealed   bool
 	)
-	shared := vmcpconfig.IsMultiUser(vmcp.Spec.Manifest)
 	var servers v1.MCPServerList
-	if shared {
+	if slices.ContainsFunc(vmcp.Spec.Manifest.Components, vmcpconfig.IsMultiUser) {
 		if err := req.List(&servers, &kclient.ListOptions{Namespace: vmcp.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.vmcpID", vmcp.Name)}); err != nil {
 			return err
 		}
@@ -80,7 +79,7 @@ func (h *Handler) SyncStatus(req router.Request, _ router.Response) error {
 				status.Error = "static OAuth credentials are not configured"
 			}
 		}
-		if status.Error == "" && shared {
+		if status.Error == "" && vmcpconfig.IsMultiUser(component) {
 			status.Error = "waiting for component server"
 			for _, server := range servers.Items {
 				if server.Spec.VMCPComponentID != component.ID {
