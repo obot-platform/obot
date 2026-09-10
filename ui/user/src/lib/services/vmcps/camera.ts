@@ -2,7 +2,6 @@ import {
 	MAX_ZOOM,
 	MIN_ZOOM,
 	VMCP_CARD_HEIGHT,
-	VMCP_COLLAPSED_ROW_HEIGHT,
 	VMCP_COMPONENT_HEIGHT,
 	VMCP_OVERSCAN_ROWS
 } from './constants';
@@ -126,8 +125,7 @@ export function windowRange({
 	return { start, end: Math.max(start, end) };
 }
 
-export function vmcpRowHeight(componentCount: number, expanded: boolean) {
-	if (!expanded) return VMCP_COLLAPSED_ROW_HEIGHT;
+export function vmcpRowHeight(componentCount: number) {
 	const stack = Math.max(1, componentCount) * VMCP_COMPONENT_HEIGHT;
 	return Math.max(VMCP_CARD_HEIGHT, stack);
 }

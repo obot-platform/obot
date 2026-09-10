@@ -11,7 +11,7 @@ import {
 	type VMCPManifest
 } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
-import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
+import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -342,6 +342,35 @@ describe('VMcpDesigner.svelte', () => {
 		});
 
 		it('removes the server from the vMCP without visiting the setup flow', async () => {
+			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, { toolPrefix: 'github_' }),
+						createVMCPComponent(slack)
+					]
+				},
+				[componentEntry, slack]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+
+			await renderDesigner([componentEntry, slack], vmcp);
+			await componentBlock().click();
+			await page.getByRole('button', { name: 'Remove GitHub' }).click();
+
+			await expect.element(page.getByText('Confirm Remove')).toBeVisible();
+			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0])).toEqual([
+				expect.objectContaining({ mcpServerCatalogEntryID: slack.id, name: 'Slack' })
+			]);
+		});
+
+		it('does not remove the last remaining server from the vMCP', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
@@ -353,8 +382,9 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByText('Confirm Remove')).toBeVisible();
 			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 
-			await vi.waitFor(() => expect(update).toHaveBeenCalled());
-			expect(componentsFrom(update.mock.calls[0][0])).toEqual([]);
+			await expect.element(page.getByText('Confirm Remove')).not.toBeVisible();
+			expect(update).not.toHaveBeenCalled();
+			await expect.element(componentBlock()).toBeVisible();
 		});
 	});
 
@@ -597,27 +627,9 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('graph canvas', () => {
-		it('draws the vMCP with its servers expanded', async () => {
+		it('draws the vMCP with its servers', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			await renderDesigner([componentEntry], vmcp);
-
-			await expect.element(componentBlock()).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'Hide servers in Issue Tracker vMCP' }))
-				.toHaveAttribute('aria-expanded', 'true');
-		});
-
-		it('collapses and re-expands the servers of the selected vMCP', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			await renderDesigner([componentEntry], vmcp);
-
-			await page.getByRole('button', { name: 'Hide servers in Issue Tracker vMCP' }).click();
-			await tick();
-
-			await expect.element(componentBlock()).not.toBeInTheDocument();
-
-			await page.getByRole('button', { name: 'Show 1 server in Issue Tracker vMCP' }).click();
-			await tick();
 
 			await expect.element(componentBlock()).toBeVisible();
 		});
@@ -785,6 +797,10 @@ describe('VMcpDesigner.svelte', () => {
 			return page.getByRole('button', { name: 'Back', exact: true });
 		}
 
+		function profilesBackButton() {
+			return page.getByRole('button', { name: 'Back to profiles' });
+		}
+
 		it('leaves the designer from the graph', async () => {
 			const onBack = vi.fn();
 			await renderDesigner([componentEntry], createIssueTrackerVMcp(), { onBack });
@@ -811,7 +827,7 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 			await expect.element(page.getByRole('heading', { name: 'Create profile' })).toBeVisible();
 
-			await layoutBackButton().click();
+			await profilesBackButton().click();
 			await expect
 				.element(page.getByRole('heading', { name: 'Create profile' }))
 				.not.toBeInTheDocument();
@@ -830,7 +846,7 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Edit default' }).click();
 			await expect.element(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
 
-			await layoutBackButton().click();
+			await profilesBackButton().click();
 			await expect
 				.element(page.getByRole('heading', { name: 'Edit profile' }))
 				.not.toBeInTheDocument();

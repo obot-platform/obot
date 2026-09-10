@@ -19,7 +19,7 @@ function renderGraph(item?: Item) {
 		item,
 		row,
 		empty,
-		estimateHeight: (_: Item, expanded: boolean) => (expanded ? 400 : 236)
+		estimateHeight: () => 400
 	});
 }
 

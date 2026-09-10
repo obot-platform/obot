@@ -700,6 +700,7 @@
 	{#if showBackButton}
 		<IconButton
 			class="btn btn-square btn-ghost shrink-0"
+			tooltip={{ text: 'Back' }}
 			onclick={() => {
 				if (onBackButtonClick) {
 					onBackButtonClick();

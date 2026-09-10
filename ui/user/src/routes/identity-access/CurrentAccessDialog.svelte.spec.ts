@@ -14,32 +14,32 @@ function mockAccessPolicyLists() {
 	vi.spyOn(AdminService, 'listModelAccessPolicies').mockResolvedValue([]);
 	vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([]);
 	vi.spyOn(AdminService, 'listHostedAgentAccessPolicies').mockResolvedValue([]);
+	vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([]);
 }
 
 describe('CurrentAccessDialog.svelte', () => {
-	it('shows an error when access policies fail to load', async () => {
+	it('shows an error when the current view fails to load', async () => {
 		mockAccessPolicyLists();
-		vi.spyOn(AdminService, 'listModelAccessPolicies').mockRejectedValue(
-			new Error('models unavailable')
+		vi.spyOn(AdminService, 'listAccessControlRules').mockRejectedValue(
+			new Error('mcp unavailable')
 		);
 
 		const result = await render(CurrentAccessDialog);
 		result.component.open({ kind: 'user', id: 'user-1', name: 'Ada' });
 
-		await expect.element(page.getByRole('alert')).toHaveTextContent('models unavailable');
+		await expect.element(page.getByRole('alert')).toHaveTextContent('mcp unavailable');
 		await expect
-			.element(page.getByText('No access policies currently apply to this user.'))
+			.element(page.getByText('No policies currently apply to this user.'))
 			.not.toBeInTheDocument();
 	});
 
-	it('shows the empty state when no policies apply', async () => {
+	it('shows the empty state when no policies apply to the current view', async () => {
 		mockAccessPolicyLists();
 
 		const result = await render(CurrentAccessDialog);
 		result.component.open({ kind: 'user', id: 'user-1', name: 'Ada' });
 
-		await expect
-			.element(page.getByText('No access policies currently apply to this user.'))
-			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'MCP Servers' })).toBeVisible();
+		await expect.element(page.getByText('No policies currently apply to this user.')).toBeVisible();
 	});
 });

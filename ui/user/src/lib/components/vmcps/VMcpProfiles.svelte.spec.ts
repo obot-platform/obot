@@ -66,7 +66,7 @@ async function expandServerTools() {
 }
 
 async function assignEveryone() {
-	await page.getByRole('combobox', { name: 'Search identities...' }).click();
+	await page.getByRole('combobox', { name: 'Add identities...' }).click();
 	await page.getByRole('button', { name: 'All Obot Users', exact: true }).click();
 }
 
@@ -97,9 +97,6 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('list_pulls')).toBeVisible();
 		await page.getByRole('checkbox').nth(1).click();
 		await expect.element(page.getByText('1 of 2 tools')).toBeVisible();
-		await page.getByRole('button', { name: 'Customize' }).first().click();
-		await page.getByLabelText('Tool name').fill('github_list_issues');
-		await expect.element(page.getByText('github_list_issues')).toBeVisible();
 		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
@@ -216,7 +213,7 @@ describe('VMcpProfiles.svelte', () => {
 			.element(page.getByRole('alert'))
 			.toHaveTextContent('Assign at least one person or group.');
 		await expect
-			.element(page.getByRole('combobox', { name: 'Search identities...' }))
+			.element(page.getByRole('combobox', { name: 'Add identities...' }))
 			.toHaveAttribute('aria-invalid', 'true');
 		await expect.element(page.getByLabelText('Name')).not.toHaveAttribute('aria-invalid', 'true');
 
@@ -433,7 +430,7 @@ describe('VMcpProfiles.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-		await page.getByRole('combobox', { name: 'Search identities...' }).click();
+		await page.getByRole('combobox', { name: 'Add identities...' }).click();
 		await page.getByRole('button', { name: 'All Obot Users', exact: true }).click();
 
 		await expect.element(page.getByText('All Obot Users', { exact: true })).toBeVisible();

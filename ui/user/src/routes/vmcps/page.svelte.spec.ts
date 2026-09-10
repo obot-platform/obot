@@ -113,7 +113,7 @@ describe('vMCPs Page', () => {
 				.toBeVisible();
 
 			await page.getByRole('button', { name: 'Filters' }).click();
-			await page.getByRole('checkbox', { name: 'Show only shared vMCPs' }).click();
+			await page.getByRole('checkbox', { name: 'Show shared vMCPs only' }).click();
 			await tick();
 
 			await expect
@@ -125,11 +125,16 @@ describe('vMCPs Page', () => {
 		});
 
 		it('does not offer the shared filter to users without admin access', async () => {
-			await renderPageWithEntries([componentEntry], false, [createIssueTrackerVMcp()], [Group.USER]);
+			await renderPageWithEntries(
+				[componentEntry],
+				false,
+				[createIssueTrackerVMcp()],
+				[Group.USER]
+			);
 
 			await page.getByRole('button', { name: 'Filters' }).click();
 			await expect
-				.element(page.getByRole('checkbox', { name: 'Show only shared vMCPs' }))
+				.element(page.getByRole('checkbox', { name: 'Show shared vMCPs only' }))
 				.not.toBeInTheDocument();
 		});
 	});

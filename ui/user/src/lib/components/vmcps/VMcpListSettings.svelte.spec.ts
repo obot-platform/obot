@@ -23,9 +23,9 @@ describe('VMcpListSettings.svelte', () => {
 		await openFilters();
 
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Show only shared vMCPs' }))
+			.element(page.getByRole('checkbox', { name: 'Show shared vMCPs only' }))
 			.toBeVisible();
-		await expect.element(page.getByRole('checkbox', { name: 'Show only my vMCPs' })).toBeVisible();
+		await expect.element(page.getByRole('checkbox', { name: 'Show my vMCPs only' })).toBeVisible();
 	});
 
 	it('hides the shared vMCP filter for users without admin access', async () => {
@@ -33,17 +33,17 @@ describe('VMcpListSettings.svelte', () => {
 		await openFilters();
 
 		await expect
-			.element(page.getByRole('checkbox', { name: 'Show only shared vMCPs' }))
+			.element(page.getByRole('checkbox', { name: 'Show shared vMCPs only' }))
 			.not.toBeInTheDocument();
-		await expect.element(page.getByRole('checkbox', { name: 'Show only my vMCPs' })).toBeVisible();
+		await expect.element(page.getByRole('checkbox', { name: 'Show my vMCPs only' })).toBeVisible();
 	});
 
 	it('clears the other ownership filter when one is checked', async () => {
 		await renderSettings([Group.ADMIN]);
 		await openFilters();
 
-		const shared = page.getByRole('checkbox', { name: 'Show only shared vMCPs' });
-		const mine = page.getByRole('checkbox', { name: 'Show only my vMCPs' });
+		const shared = page.getByRole('checkbox', { name: 'Show shared vMCPs only' });
+		const mine = page.getByRole('checkbox', { name: 'Show my vMCPs only' });
 
 		await shared.click();
 		await expect.element(shared).toBeChecked();

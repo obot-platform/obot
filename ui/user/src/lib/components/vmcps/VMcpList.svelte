@@ -136,6 +136,16 @@
 			}
 		};
 	}
+
+	function getNote(vmcp: VMCP) {
+		if (vmcp.userID) {
+			return `Created by ${getUserDisplayName(usersMap, vmcp.userID)}`;
+		}
+		if (hasAdminAccess) {
+			return `Shared with ${getProfilesDisplayText(vmcp.profiles)}`;
+		}
+		return undefined;
+	}
 </script>
 
 <div class="@container">
@@ -172,8 +182,7 @@
 		onDelete={() => onDelete?.(card.data)}
 		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 		{isOwner}
-		owner={card.data.userID ? getUserDisplayName(usersMap, card.data.userID) : undefined}
-		profiles={hasAdminAccess ? getProfilesDisplayText(card.data.profiles) : undefined}
+		note={getNote(card.data)}
 	>
 		{#snippet icon()}
 			<VMcpIcon components={card.componentServers} />

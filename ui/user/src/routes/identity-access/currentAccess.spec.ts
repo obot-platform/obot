@@ -1,4 +1,5 @@
 import { AdminService } from '$lib/services';
+import { createVMCP } from '../../tests/helpers/mcp';
 import {
 	collectAccessResources,
 	grantsEverything,
@@ -7,6 +8,7 @@ import {
 	loadCurrentAccess,
 	mcpAccessPolicyHref,
 	subjectsApplyTo,
+	vmcpAccessHref,
 	type AccessPolicyResource,
 	type CurrentAccessTarget,
 	type MatchedAccessPolicy
@@ -61,6 +63,12 @@ describe('mcpAccessPolicyHref', () => {
 				powerUserWorkspaceID: 'ws-1'
 			})
 		).toBe('/mcp-servers/access-policies/w/ws-1/r/rule-1');
+	});
+});
+
+describe('vmcpAccessHref', () => {
+	it('opens the vMCP on the profiles view', () => {
+		expect(vmcpAccessHref('vmcp-1')).toBe('/vmcps/vmcp-1?view=profiles');
 	});
 });
 
@@ -153,7 +161,7 @@ describe('groupMcpAccessPolicies', () => {
 });
 
 describe('loadCurrentAccess', () => {
-	it('filters each policy type and includes everyone', async () => {
+	it('loads only MCP policies for the mcp view', async () => {
 		vi.spyOn(AdminService, 'listAccessControlRules').mockResolvedValue([
 			{
 				id: 'mcp-user',
@@ -178,42 +186,23 @@ describe('loadCurrentAccess', () => {
 				subjects: [{ type: 'group', id: 'engineering' }]
 			}
 		]);
-		vi.spyOn(AdminService, 'listModelAccessPolicies').mockResolvedValue([
-			{
-				id: 'model-everyone',
-				displayName: 'Everyone Models',
-				created: '2026-01-01T00:00:00Z',
-				subjects: [{ type: 'selector', id: '*' }]
-			}
-		]);
-		vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([
-			{
-				id: 'skill-sales',
-				displayName: 'Sales Skills',
-				created: '2026-01-01T00:00:00Z',
-				subjects: [{ type: 'group', id: 'sales' }],
-				resources: []
-			}
-		]);
-		vi.spyOn(AdminService, 'listHostedAgentAccessPolicies').mockResolvedValue([
-			{
-				id: 'hosted-user',
-				displayName: 'User Hosted',
-				created: '2026-01-01T00:00:00Z',
-				subjects: [{ type: 'user', id: 'user-1' }],
-				resources: []
-			}
-		]);
+		const listModels = vi.spyOn(AdminService, 'listModelAccessPolicies');
+		const listSkills = vi.spyOn(AdminService, 'listSkillAccessPolicies');
+		const listHosted = vi.spyOn(AdminService, 'listHostedAgentAccessPolicies');
+		const listVmcps = vi.spyOn(AdminService, 'listAllVMCPs');
 
-		const sections = await loadCurrentAccess(userTarget);
+		const mcp = await loadCurrentAccess(userTarget, 'mcp');
 
-		expect(sections.mcp.map((policy) => policy.id)).toEqual(['mcp-user', 'mcp-ws']);
-		expect(sections.mcp[1]?.href).toBe('/mcp-servers/access-policies/w/ws-1/r/mcp-ws');
-		expect(sections.mcp[1]?.powerUserID).toBe('owner-1');
-		expect(sections.models.map((policy) => policy.displayName)).toEqual(['Everyone Models']);
-		expect(sections.skills).toEqual([]);
-		expect(sections.hostedAgents.map((policy) => policy.id)).toEqual(['hosted-user']);
-		expect(hasAnyCurrentAccess(sections)).toBe(true);
+		expect(mcp.map((policy) => policy.id)).toEqual(['mcp-user', 'mcp-ws']);
+		expect(mcp[1]?.href).toBe('/mcp-servers/access-policies/w/ws-1/r/mcp-ws');
+		expect(mcp[1]?.powerUserID).toBe('owner-1');
+		expect(listModels).not.toHaveBeenCalled();
+		expect(listSkills).not.toHaveBeenCalled();
+		expect(listHosted).not.toHaveBeenCalled();
+		expect(listVmcps).not.toHaveBeenCalled();
+		expect(hasAnyCurrentAccess({ mcp, models: [], skills: [], hostedAgents: [], vmcps: [] })).toBe(
+			true
+		);
 	});
 
 	it('normalizes the resources each policy grants', async () => {
@@ -236,28 +225,67 @@ describe('loadCurrentAccess', () => {
 				models: [{ id: 'model-1' }, { id: '*' }]
 			}
 		]);
-		vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([]);
-		vi.spyOn(AdminService, 'listHostedAgentAccessPolicies').mockResolvedValue([]);
 
-		const sections = await loadCurrentAccess(userTarget);
+		const mcp = await loadCurrentAccess(userTarget, 'mcp');
+		const models = await loadCurrentAccess(userTarget, 'models');
 
-		expect(sections.mcp[0]?.resources).toEqual([{ type: 'mcpServerCatalogEntry', id: 'entry-1' }]);
+		expect(mcp[0]?.resources).toEqual([{ type: 'mcpServerCatalogEntry', id: 'entry-1' }]);
 		// A model policy stores bare ids, so the wildcard becomes a selector resource.
-		expect(sections.models[0]?.resources).toEqual([
+		expect(models[0]?.resources).toEqual([
 			{ type: 'model', id: 'model-1' },
 			{ type: 'selector', id: '*' }
 		]);
 	});
 
-	it('rejects when any access policy list fails', async () => {
-		vi.spyOn(AdminService, 'listAccessControlRules').mockResolvedValue([]);
-		vi.spyOn(AdminService, 'listAllUserWorkspaceAccessControlRules').mockResolvedValue([]);
+	it('includes vMCPs whose profiles apply to the target', async () => {
+		const listMcp = vi.spyOn(AdminService, 'listAccessControlRules');
+		vi.spyOn(AdminService, 'listAllVMCPs').mockResolvedValue([
+			createVMCP({
+				id: 'vmcp-user',
+				displayName: 'User vMCP',
+				profiles: [
+					{
+						name: 'Engineering',
+						subjects: [{ type: 'group', id: 'engineering' }],
+						allowAllTools: true
+					}
+				]
+			}),
+			createVMCP({
+				id: 'vmcp-other',
+				displayName: 'Other vMCP',
+				profiles: [
+					{
+						name: 'Sales',
+						subjects: [{ type: 'group', id: 'sales' }],
+						allowAllTools: true
+					}
+				]
+			})
+		]);
+
+		const vmcps = await loadCurrentAccess(userTarget, 'vmcps');
+
+		expect(vmcps).toEqual([
+			{
+				id: 'vmcp-user:Engineering',
+				displayName: 'Engineering',
+				href: '/vmcps/vmcp-user?view=profiles',
+				reasons: ['via-group'],
+				resources: [{ type: 'vmcp', id: 'vmcp-user', name: 'User vMCP' }]
+			}
+		]);
+		expect(listMcp).not.toHaveBeenCalled();
+		expect(hasAnyCurrentAccess({ mcp: [], models: [], skills: [], hostedAgents: [], vmcps })).toBe(
+			true
+		);
+	});
+
+	it('rejects when the requested view fails', async () => {
 		vi.spyOn(AdminService, 'listModelAccessPolicies').mockRejectedValue(
 			new Error('models unavailable')
 		);
-		vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([]);
-		vi.spyOn(AdminService, 'listHostedAgentAccessPolicies').mockResolvedValue([]);
 
-		await expect(loadCurrentAccess(userTarget)).rejects.toThrow('models unavailable');
+		await expect(loadCurrentAccess(userTarget, 'models')).rejects.toThrow('models unavailable');
 	});
 });

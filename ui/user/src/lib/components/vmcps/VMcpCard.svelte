@@ -28,9 +28,8 @@
 		selectAriaLabel: string;
 		enterDelay?: number;
 		isOwner?: boolean;
-		owner?: string;
 		tools?: ReturnType<typeof getToolCounts>;
-		profiles?: string;
+		note?: string;
 	}
 
 	let {
@@ -49,15 +48,14 @@
 		selectAriaLabel,
 		enterDelay,
 		isOwner,
-		owner,
 		tools,
-		profiles
+		note
 	}: Props = $props();
 
 	const roughEstimationText =
 		'This is a rough approximation of the number of tools available. The exact number may vary.';
 
-	let hasFooterContent = $derived(profiles || (owner && !isOwner) || tools);
+	let hasFooterContent = $derived(note || tools);
 </script>
 
 <div
@@ -156,11 +154,7 @@
 	{#if hasFooterContent}
 		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
 			<p class="text-muted-content text-xs font-light min-h-4">
-				{#if owner && !isOwner}
-					Created by {owner}
-				{:else if profiles}
-					Shared with {profiles}
-				{/if}
+				{note}
 			</p>
 			{#if tools}
 				<p class="text-muted-content text-xs font-light items-center flex gap-1">

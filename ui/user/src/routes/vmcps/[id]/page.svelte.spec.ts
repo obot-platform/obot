@@ -31,8 +31,6 @@ describe('vMCP detail page', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
 			.toBeVisible();
-		await expect
-			.element(page.getByRole('button', { name: 'Hide servers in Issue Tracker vMCP' }))
-			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'GitHub', exact: true })).toBeVisible();
 	});
 });

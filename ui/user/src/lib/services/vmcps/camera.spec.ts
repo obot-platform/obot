@@ -11,7 +11,7 @@ import {
 	windowRange,
 	zoomAt
 } from '$lib/services/vmcps/camera';
-import { MAX_ZOOM, MIN_ZOOM } from './constants';
+import { MAX_ZOOM, MIN_ZOOM, VMCP_CARD_HEIGHT } from './constants';
 import { describe, expect, it } from 'vitest';
 
 describe('clampZoom', () => {
@@ -122,7 +122,8 @@ describe('windowRange', () => {
 });
 
 describe('vmcpRowHeight', () => {
-	it('uses the collapsed height until the chain is open', () => {
-		expect(vmcpRowHeight(40, false)).toBeLessThan(vmcpRowHeight(40, true));
+	it('grows with the server stack once it exceeds the card height', () => {
+		expect(vmcpRowHeight(1)).toBe(VMCP_CARD_HEIGHT);
+		expect(vmcpRowHeight(40)).toBeGreaterThan(VMCP_CARD_HEIGHT);
 	});
 });

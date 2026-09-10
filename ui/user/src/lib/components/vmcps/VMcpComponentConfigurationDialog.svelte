@@ -264,13 +264,26 @@
 		{/if}
 		Configure {displayName}
 	{/snippet}
-	<p class="text-sm font-light text-muted-content mb-4">
+	<p class="text-sm font-light mb-2">
 		Choose how each configuration value for <b class="font-semibold text-base-content"
 			>{displayName}</b
 		>
-		is provided. Fixed values are stored on the vMCP. User-supplied values are requested when someone
-		connects.
+		is provided.
 	</p>
+	<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
+		<li>
+			<b class="font-semibold">Fixed</b> stores a value on the vMCP so every connection uses it. Use this
+			when all users should share the same setting.
+		</li>
+		<li>
+			<b class="font-semibold">User-Supplied</b> asks connecting users to provide their own value. Use
+			this when each user or instance needs their own credentials or settings.
+		</li>
+		<li>
+			<b class="font-semibold">Prohibited</b> leaves the field unset so the MCP server can supply it.
+			Use this when the value should not be adjusted by the vMCP or connecting users.
+		</li>
+	</ul>
 	{#if error}
 		<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
 	{/if}

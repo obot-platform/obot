@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { OrgUser, VMCP } from '$lib/services';
+	import type { VMCP } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
 	import {
 		VMCP_COMPONENT_HEIGHT,
@@ -13,12 +13,11 @@
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
 	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
-	import { getUserDisplayName } from '$lib/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import './vmcpGraph.css';
-	import { ChevronsRight, Layers, Server } from '@lucide/svelte';
+	import { Layers } from '@lucide/svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -29,40 +28,32 @@
 	interface Props {
 		vmcp: VMCP;
 		components: VMcpComponentView[];
-		expanded: boolean;
 		canEdit?: boolean;
 		isOwner?: boolean;
 		context: RowContext;
 		drag: EntryDrag;
-		onToggleExpand: () => void;
 		onEdit?: () => void;
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		onModifyComponent?: (component: VMcpComponentView) => void;
-		usersMap: Map<string, OrgUser>;
 	}
 
 	let {
 		vmcp,
 		components,
-		expanded,
 		canEdit = true,
 		isOwner = false,
 		context,
 		drag,
-		onToggleExpand,
 		onEdit,
 		onConnect,
 		onDelete,
-		onModifyComponent,
-		usersMap
+		onModifyComponent
 	}: Props = $props();
 
-	let owner = $derived(vmcp.userID ? getUserDisplayName(usersMap, vmcp.userID) : undefined);
 	let tools = $derived(getToolCounts(components));
 
 	let componentRange = $derived.by(() => {
-		if (!expanded) return { start: 0, end: 0 };
 		if (components.length <= VMCP_COMPONENT_WINDOW_THRESHOLD) {
 			return { start: 0, end: components.length };
 		}
@@ -85,14 +76,11 @@
 	class="flex flex-col items-center md:flex-row md:items-center"
 >
 	{@render vmcpCard()}
-	{@render chainWire(!expanded || components.length !== 1)}
+	{@render chainWire(components.length !== 1)}
 	<div class="relative flex flex-col items-center md:items-stretch">
-		<div class={expanded ? 'md:absolute md:-top-9 md:left-0 md:z-20' : ''}>
-			{@render serversChip()}
-		</div>
-		{#if expanded && components.length === 0}
+		{#if components.length === 0}
 			{@render emptyComponentBlock()}
-		{:else if expanded}
+		{:else}
 			{#if componentRange.start > 0}
 				<div
 					class="shrink-0"
@@ -180,23 +168,6 @@
 	</div>
 {/snippet}
 
-{#snippet serversChip()}
-	{@const label = components.length === 1 ? 'server' : 'servers'}
-	<button
-		type="button"
-		class="bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative z-10 flex items-center gap-2 rounded-lg border border-transparent px-3 py-2 text-left shadow-md"
-		aria-expanded={expanded}
-		aria-label={expanded
-			? `Hide servers in ${vmcp.displayName || 'vMCP'}`
-			: `Show ${components.length} ${label} in ${vmcp.displayName || 'vMCP'}`}
-		onclick={onToggleExpand}
-	>
-		<Server class="text-primary size-4 shrink-0" />
-		<span class="font-mono text-xs uppercase">{components.length} {label}</span>
-		<ChevronsRight class={twMerge('size-3.5 opacity-70', expanded && 'rotate-90')} />
-	</button>
-{/snippet}
-
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
 	{@const name = vmcp.displayName || 'vMCP'}
@@ -226,7 +197,7 @@
 				'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 				canEdit && 'cursor-pointer'
 			)}
-			{owner}
+			note={vmcp.components.length > 0 ? `${vmcp.components.length} Servers` : undefined}
 			{tools}
 		>
 			{#snippet icon()}

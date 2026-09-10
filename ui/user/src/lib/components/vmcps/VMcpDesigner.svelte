@@ -24,7 +24,6 @@
 		Group,
 		UserService,
 		type MCPCatalogEntry,
-		type OrgUser,
 		type VMCP,
 		type VMCPComponent,
 		type VMCPConfigurationPolicy
@@ -43,7 +42,7 @@
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import { Trash2 } from '@lucide/svelte';
-	import { onMount, untrack } from 'svelte';
+	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -71,7 +70,6 @@
 		entry: MCPCatalogEntry;
 		component: VMCPComponent;
 	}>();
-	let expanded = $state(true);
 	const toolFlow = createVMcpToolFlow();
 	let selectedVMcp = $state<VMCP | undefined>(untrack(() => vmcp));
 
@@ -84,18 +82,10 @@
 	let isOwner = $derived(profile.current.id === selectedVMcp?.userID);
 	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
 	let canShare = $derived(profile.current.isAdmin?.());
-	let users = $state<OrgUser[]>([]);
-	let usersMap = $derived(new Map(users.map((user) => [user.id, user])));
 	let viewType = $derived(canEdit ? requestedView : 'graph');
 
 	$effect(() => {
 		selectedVMcp = vmcp;
-	});
-
-	onMount(() => {
-		UserService.listUsersIncludeDeleted().then((response) => {
-			users = response;
-		});
 	});
 
 	toolFlow.setOnVMcpChanged((updated) => {
@@ -310,27 +300,23 @@
 			<VMcpGraph
 				bind:viewportEl={graphCanvasEl}
 				item={selectedVMcp}
-				{expanded}
 				dragActive={entryDrag.active}
-				estimateHeight={(item, expanded) => vmcpRowHeight(vmcpComponents(item).length, expanded)}
+				estimateHeight={(item) => vmcpRowHeight(vmcpComponents(item).length)}
 			>
 				{#snippet row(item, ctx)}
 					<VMcpGraphRow
 						vmcp={item}
 						components={vmcpComponents(item)}
-						{expanded}
 						{canEdit}
 						{isOwner}
 						context={ctx}
 						drag={entryDrag}
-						onToggleExpand={() => (expanded = !expanded)}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
 						onModifyComponent={canEdit
 							? (component) => toolFlow.openComponent(component, item)
 							: undefined}
-						{usersMap}
 					/>
 				{/snippet}
 				{#snippet empty()}
@@ -384,12 +370,12 @@
 </Layout>
 
 {#snippet toggleSubview()}
-	<div class={twMerge('p-2 w-fit', viewType === 'graph' && 'absolute top-0 left-0')}>
-		<div class="tabs tabs-box bg-base-300 shadow-inner dark:bg-base-200">
+	<div class={twMerge('p-2 w-fit', viewType === 'graph' && 'absolute z-50 top-0 left-0')}>
+		<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
 			<button
 				class={twMerge(
 					'tab text-xs min-w-24',
-					viewType === 'graph' && 'tab-active dark:bg-base-300'
+					viewType === 'graph' && 'tab-active bg-base-300 dark:bg-base-100'
 				)}
 				onclick={() => {
 					setUrlParamAndUpdateUrl(page.url, 'view', 'graph');
@@ -398,7 +384,7 @@
 			<button
 				class={twMerge(
 					'tab text-xs min-w-24',
-					viewType === 'profiles' && 'tab-active dark:bg-base-300'
+					viewType === 'profiles' && 'tab-active bg-base-300 dark:bg-base-100'
 				)}
 				onclick={() => {
 					setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');

@@ -2,7 +2,8 @@
 	import { resolve } from '$app/paths';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import Search from '$lib/components/Search.svelte';
-	import Loading from '$lib/icons/Loading.svelte';
+	import Skeleton from '$lib/components/Skeleton.svelte';
+	import { parseErrorContent } from '$lib/errors';
 	import {
 		AdminService,
 		ModelAliasLabels,
@@ -14,7 +15,6 @@
 		type SkillRepository
 	} from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
-	import { parseErrorContent } from '$lib/errors';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
@@ -22,11 +22,11 @@
 		collectAccessResources,
 		grantsEverything,
 		groupMcpAccessPolicies,
-		hasAnyCurrentAccess,
 		loadCurrentAccess,
 		EVERYTHING_RESOURCE_ID,
 		type AccessPolicyResource,
 		type AccessResourceDescription,
+		type CurrentAccessSectionKey,
 		type CurrentAccessSections,
 		type CurrentAccessTarget,
 		type MatchedAccessPolicy,
@@ -35,7 +35,7 @@
 	import { untrack } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	type SectionKey = keyof CurrentAccessSections;
+	type SectionKey = CurrentAccessSectionKey;
 
 	interface Props {
 		target?: CurrentAccessTarget;
@@ -43,18 +43,27 @@
 
 	let { target }: Props = $props();
 
-	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let viewing = $state<CurrentAccessTarget>();
-	let loading = $state(false);
-	let loadError = $state('');
-	let sections = $state<CurrentAccessSections>({
+	const emptySections = (): CurrentAccessSections => ({
 		mcp: [],
 		models: [],
 		skills: [],
 		hostedAgents: [],
-		vmcps: [],
-		profiles: []
+		vmcps: []
 	});
+
+	const idleLoading = (): Record<SectionKey, boolean> => ({
+		mcp: false,
+		models: false,
+		skills: false,
+		hostedAgents: false,
+		vmcps: false
+	});
+
+	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let viewing = $state<CurrentAccessTarget>();
+	let sections = $state<CurrentAccessSections>(emptySections());
+	let loadingSections = $state<Record<SectionKey, boolean>>(idleLoading());
+	let sectionErrors = $state<Partial<Record<SectionKey, string>>>({});
 	let loadGeneration = 0;
 	let currentTab = $state<SectionKey>('mcp');
 	let resourceQuery = $state('');
@@ -65,56 +74,65 @@
 	let skillRepositories = $state<SkillRepository[]>([]);
 	let hostedAgents = $state<HostedAgent[]>([]);
 	let mcpOwners = $state<OrgUser[]>([]);
-	let loadingResources = $state<Record<SectionKey, boolean>>({
-		mcp: false,
-		models: false,
-		skills: false,
-		hostedAgents: false,
-		vmcps: false,
-		profiles: false
-	});
+	let loadingResources = $state<Record<SectionKey, boolean>>(idleLoading());
+	let loadedPolicySections = new SvelteSet<SectionKey>();
 	let loadedResourceSections = new SvelteSet<SectionKey>();
 
 	export function open(next?: CurrentAccessTarget) {
 		viewing = next ?? target;
+		currentTab = 'mcp';
 		dialog?.open();
 	}
 
+	function resetLoadState() {
+		loadGeneration += 1;
+		sections = emptySections();
+		loadingSections = idleLoading();
+		sectionErrors = {};
+		loadingResources = idleLoading();
+		loadedPolicySections.clear();
+		loadedResourceSections.clear();
+	}
+
 	async function onOpen() {
+		resetLoadState();
+		await loadSectionPolicies(currentTab);
+	}
+
+	function onClose() {
+		resetLoadState();
+		viewing = undefined;
+		clearResourceQuery();
+	}
+
+	async function loadSectionPolicies(section: SectionKey) {
 		const current = viewing ?? target;
-		if (!current) {
+		if (!current || loadedPolicySections.has(section)) {
 			return;
 		}
 
-		const generation = ++loadGeneration;
-		loading = true;
-		loadError = '';
-		sections = { mcp: [], models: [], skills: [], hostedAgents: [], vmcps: [], profiles: [] };
+		const generation = loadGeneration;
+		loadingSections[section] = true;
+		sectionErrors[section] = '';
 
 		try {
-			const next = await loadCurrentAccess(current);
+			const policies = await loadCurrentAccess(current, section);
 			if (generation !== loadGeneration) {
 				return;
 			}
-			sections = next;
+			sections[section] = policies;
+			loadedPolicySections.add(section);
 		} catch (error) {
 			if (generation !== loadGeneration) {
 				return;
 			}
-			loadError = parseErrorContent(error).message || 'Failed to load access policies.';
+			sectionErrors[section] =
+				parseErrorContent(error).message || 'Failed to load access policies.';
 		} finally {
 			if (generation === loadGeneration) {
-				loading = false;
+				loadingSections[section] = false;
 			}
 		}
-	}
-
-	function onClose() {
-		loadGeneration += 1;
-		loading = false;
-		loadError = '';
-		viewing = undefined;
-		clearResourceQuery();
 	}
 
 	function clearResourceQuery() {
@@ -125,12 +143,19 @@
 	$effect(() => {
 		const section = currentTab;
 		const policies = sections[section];
+		const loadingPolicies = loadingSections[section];
 		const allResourcesCovered =
 			section === 'mcp'
 				? groupMcpAccessPolicies(policies).every((group) => grantsEverything(group.policies)) &&
 					!policies.some((policy) => policy.powerUserID)
 				: grantsEverything(policies);
-		if (loading || policies.length === 0 || allResourcesCovered) {
+		if (
+			loadingPolicies ||
+			!loadedPolicySections.has(section) ||
+			policies.length === 0 ||
+			allResourcesCovered ||
+			section === 'vmcps'
+		) {
 			return;
 		}
 
@@ -227,6 +252,8 @@
 				};
 			case 'hostedAgent':
 				return { name: hostedAgentsMap.get(resource.id)?.name || resource.id };
+			case 'vmcp':
+				return { name: resource.name || resource.id };
 			default:
 				return { name: resource.id };
 		}
@@ -240,8 +267,7 @@
 		{ label: 'Models', value: 'models', noun: 'models' },
 		{ label: 'Skills', value: 'skills', noun: 'skills' },
 		{ label: 'Hosted Agents', value: 'hostedAgents', noun: 'hosted agents' },
-		{ label: 'vMCPs', value: 'vmcps', noun: 'vMCPs' },
-		{ label: 'Profiles', value: 'profiles', noun: 'profiles' }
+		{ label: 'vMCPs', value: 'vmcps', noun: 'vMCPs' }
 	] as const satisfies readonly { label: string; value: SectionKey; noun: string }[];
 
 	const currentNoun = $derived(tabs.find((tab) => tab.value === currentTab)?.noun ?? 'resources');
@@ -273,7 +299,7 @@
 
 	function mcpGroupLabel(powerUserID?: string): string {
 		if (!powerUserID) {
-			return 'Global Registry';
+			return '';
 		}
 		const owner = mcpOwnersMap.get(powerUserID);
 		return `${owner ? getUserDisplayName(mcpOwnersMap, powerUserID) : 'Unknown'}'s Registry`;
@@ -343,45 +369,40 @@
 			{/if}.
 		</p>
 
-		{#if loading}
-			<div class="flex grow items-center justify-center py-12">
-				<Loading class="size-6" />
+		<div class="flex flex-col">
+			<div class="tabs tabs-box shadow-inner">
+				{#each tabs as tab (tab.value)}
+					<button
+						class="tab {currentTab === tab.value ? 'tab-active dark:bg-base-300' : ''}"
+						onclick={() => {
+							currentTab = tab.value;
+							clearResourceQuery();
+							loadSectionPolicies(tab.value);
+						}}
+					>
+						{tab.label}
+					</button>
+				{/each}
 			</div>
-		{:else if loadError}
-			<div class="notification-error p-3 text-sm font-light" role="alert">{loadError}</div>
-		{:else if !hasAnyCurrentAccess(sections)}
-			<div
-				class="text-muted-content flex grow items-center justify-center py-12 text-center text-sm"
-			>
-				No access policies currently apply to this {subjectLabel}.
+			<div class="mt-2">
+				<Search
+					bind:this={search}
+					compact
+					value={resourceQuery}
+					placeholder="Search {currentNoun}..."
+					onChange={(value) => (resourceQuery = value)}
+				/>
 			</div>
-		{:else}
-			<div class="flex flex-col">
-				<div class="tabs tabs-box shadow-inner">
-					{#each tabs as tab (tab.value)}
-						<button
-							class="tab {currentTab === tab.value ? 'tab-active dark:bg-base-300' : ''}"
-							onclick={() => {
-								currentTab = tab.value;
-								clearResourceQuery();
-							}}
-						>
-							{tab.label}
-						</button>
-					{/each}
+			{#if loadingSections[currentTab]}
+				<Skeleton type="items" count={3} />
+			{:else if sectionErrors[currentTab]}
+				<div class="notification-error p-3 text-sm font-light" role="alert">
+					{sectionErrors[currentTab]}
 				</div>
-				<div class="mt-2">
-					<Search
-						bind:this={search}
-						compact
-						value={resourceQuery}
-						placeholder="Search {currentNoun}..."
-						onChange={(value) => (resourceQuery = value)}
-					/>
-				</div>
+			{:else}
 				{@render resourceSection()}
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </ResponsiveDialog>
 
@@ -417,9 +438,7 @@
 			</p>
 		{:else if currentTab === 'mcp'}
 			{#if loadingResources.mcp}
-				<div class="flex items-center justify-center py-12">
-					<Loading class="size-6" />
-				</div>
+				<Skeleton type="items" count={3} />
 			{:else if filteredMcpPolicyGroups.length === 0}
 				<p class="text-muted-content px-1 text-sm font-light">
 					{hasResourceQuery
@@ -428,10 +447,13 @@
 				</p>
 			{:else}
 				{#each filteredMcpPolicyGroups as group, groupIndex (group.key)}
-					<section class="flex flex-col" aria-label={mcpGroupLabel(group.powerUserID)}>
-						<h3 class="text-muted-content px-2 pt-2 text-xs font-semibold uppercase">
-							{mcpGroupLabel(group.powerUserID)}
-						</h3>
+					{@const label = mcpGroupLabel(group.powerUserID)}
+					<section class="flex flex-col" aria-label={label}>
+						{#if label}
+							<h3 class="text-muted-content px-2 pt-2 text-xs font-semibold uppercase">
+								{label}
+							</h3>
+						{/if}
 						{#if group.everything}
 							{@render resourceRow('Everything', group.everythingPolicies)}
 						{:else if group.resources.length === 0}
@@ -448,9 +470,7 @@
 				{/each}
 			{/if}
 		{:else if loadingResources[currentTab]}
-			<div class="flex items-center justify-center py-12">
-				<Loading class="size-6" />
-			</div>
+			<Skeleton type="items" count={3} />
 		{:else if currentResources.length === 0 && !currentGrantsEverything}
 			<p class="text-muted-content px-1 text-sm font-light">
 				The policies that apply to this {subjectLabel} do not grant access to any {currentNoun}.

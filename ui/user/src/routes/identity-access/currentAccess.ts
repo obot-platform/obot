@@ -1,4 +1,9 @@
-import { AdminService, type AccessControlRule, type AccessControlRuleSubject } from '$lib/services';
+import {
+	AdminService,
+	type AccessControlRule,
+	type AccessControlRuleSubject,
+	type VMCP
+} from '$lib/services';
 
 export type CurrentAccessKind = 'user' | 'group';
 
@@ -18,11 +23,13 @@ export type AccessResourceType =
 	| 'skill'
 	| 'skillRepository'
 	| 'hostedAgent'
+	| 'vmcp'
 	| 'selector';
 
 export interface AccessPolicyResource {
 	type: AccessResourceType;
 	id: string;
+	name?: string;
 }
 
 export interface MatchedAccessPolicy {
@@ -64,8 +71,9 @@ export interface CurrentAccessSections {
 	skills: MatchedAccessPolicy[];
 	hostedAgents: MatchedAccessPolicy[];
 	vmcps: MatchedAccessPolicy[];
-	profiles: MatchedAccessPolicy[];
 }
+
+export type CurrentAccessSectionKey = keyof CurrentAccessSections;
 
 export const ACCESS_MATCH_REASON_LABEL: Record<AccessMatchReason, string> = {
 	everyone: 'All Obot Users',
@@ -116,6 +124,10 @@ export function mcpAccessPolicyHref(rule: AccessControlRule): `/${string}` {
 		return `/mcp-servers/access-policies/w/${rule.powerUserWorkspaceID}/r/${rule.id}`;
 	}
 	return `/mcp-servers/access-policies/${rule.id}`;
+}
+
+export function vmcpAccessHref(id: string): `/${string}` {
+	return `/vmcps/${id}?view=profiles`;
 }
 
 function matchPolicies<
@@ -230,51 +242,82 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 	});
 }
 
-export async function loadCurrentAccess(
-	target: CurrentAccessTarget
-): Promise<CurrentAccessSections> {
-	const [mcpCatalog, mcpWorkspaces, models, skills, hostedAgents] = await Promise.all([
-		AdminService.listAccessControlRules(),
-		AdminService.listAllUserWorkspaceAccessControlRules(),
-		AdminService.listModelAccessPolicies(),
-		AdminService.listSkillAccessPolicies(),
-		AdminService.listHostedAgentAccessPolicies()
-	]);
+function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedAccessPolicy[] {
+	return vmcps
+		.flatMap((vmcp) =>
+			(vmcp.profiles ?? []).flatMap((profile) => {
+				const reasons = subjectsApplyTo(profile.subjects, target);
+				if (reasons.length === 0) {
+					return [];
+				}
+				return [
+					{
+						id: `${vmcp.id}:${profile.name}`,
+						displayName: profile.name,
+						href: vmcpAccessHref(vmcp.id),
+						reasons,
+						resources: [{ type: 'vmcp' as const, id: vmcp.id, name: vmcp.displayName }]
+					}
+				];
+			})
+		)
+		.sort((a, b) => a.displayName.localeCompare(b.displayName));
+}
 
-	return {
-		mcp: matchPolicies(
-			dedupeById([...mcpCatalog, ...mcpWorkspaces]),
-			target,
-			mcpAccessPolicyHref,
-			(policy) => policy.resources ?? [],
-			(policy) => ({ powerUserID: policy.powerUserID })
-		),
-		models: matchPolicies(
-			models,
-			target,
-			(policy) => `/models/access-policies/${policy.id}`,
-			(policy) =>
-				(policy.models ?? []).map(({ id }) => ({
-					type: id === EVERYTHING_RESOURCE_ID ? 'selector' : 'model',
-					id
-				}))
-		),
-		skills: matchPolicies(
-			skills,
-			target,
-			(policy) => `/skills/access-policies/${policy.id}`,
-			(policy) => policy.resources ?? []
-		),
-		hostedAgents: matchPolicies(
-			hostedAgents,
-			target,
-			(policy) => `/hosted-agents/access-policies/${policy.id}`,
-			(policy) => policy.resources ?? []
-		),
-		// TODO: access policies for vMCPs and profiles
-		vmcps: [],
-		profiles: []
-	};
+export async function loadCurrentAccess(
+	target: CurrentAccessTarget,
+	section: CurrentAccessSectionKey
+): Promise<MatchedAccessPolicy[]> {
+	switch (section) {
+		case 'mcp': {
+			const [mcpCatalog, mcpWorkspaces] = await Promise.all([
+				AdminService.listAccessControlRules(),
+				AdminService.listAllUserWorkspaceAccessControlRules()
+			]);
+			return matchPolicies(
+				dedupeById([...mcpCatalog, ...mcpWorkspaces]),
+				target,
+				mcpAccessPolicyHref,
+				(policy) => policy.resources ?? [],
+				(policy) => ({ powerUserID: policy.powerUserID })
+			);
+		}
+		case 'models': {
+			const models = await AdminService.listModelAccessPolicies();
+			return matchPolicies(
+				models,
+				target,
+				(policy) => `/models/access-policies/${policy.id}`,
+				(policy) =>
+					(policy.models ?? []).map(({ id }) => ({
+						type: id === EVERYTHING_RESOURCE_ID ? 'selector' : 'model',
+						id
+					}))
+			);
+		}
+		case 'skills': {
+			const skills = await AdminService.listSkillAccessPolicies();
+			return matchPolicies(
+				skills,
+				target,
+				(policy) => `/skills/access-policies/${policy.id}`,
+				(policy) => policy.resources ?? []
+			);
+		}
+		case 'hostedAgents': {
+			const hostedAgents = await AdminService.listHostedAgentAccessPolicies();
+			return matchPolicies(
+				hostedAgents,
+				target,
+				(policy) => `/hosted-agents/access-policies/${policy.id}`,
+				(policy) => policy.resources ?? []
+			);
+		}
+		case 'vmcps': {
+			const vmcps = await AdminService.listAllVMCPs();
+			return matchVmcpProfiles(vmcps, target);
+		}
+	}
 }
 
 export function hasAnyCurrentAccess(sections: CurrentAccessSections): boolean {
@@ -282,6 +325,7 @@ export function hasAnyCurrentAccess(sections: CurrentAccessSections): boolean {
 		sections.mcp.length > 0 ||
 		sections.models.length > 0 ||
 		sections.skills.length > 0 ||
-		sections.hostedAgents.length > 0
+		sections.hostedAgents.length > 0 ||
+		sections.vmcps.length > 0
 	);
 }

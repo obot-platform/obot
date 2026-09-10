@@ -16,7 +16,6 @@
 	let {
 		item,
 		actions,
-		expanded = false,
 		dragActive = false,
 		estimateHeight,
 		row,
@@ -25,9 +24,8 @@
 	}: {
 		item?: T;
 		actions?: Snippet;
-		expanded?: boolean;
 		dragActive?: boolean;
-		estimateHeight: (item: T, expanded: boolean) => number;
+		estimateHeight: (item: T) => number;
 		row: Snippet<[T, RowContext]>;
 		empty?: Snippet;
 		viewportEl?: HTMLElement;
@@ -69,9 +67,7 @@
 		});
 	}
 
-	let worldHeight = $derived(
-		item ? (measuredHeights[item.id] ?? estimateHeight(item, expanded)) : 0
-	);
+	let worldHeight = $derived(item ? (measuredHeights[item.id] ?? estimateHeight(item)) : 0);
 	let measuredWidth = $state(0);
 	let worldWidth = $derived(measuredWidth || ESTIMATED_WORLD_WIDTH);
 
