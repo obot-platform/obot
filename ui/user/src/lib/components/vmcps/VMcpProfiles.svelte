@@ -584,8 +584,8 @@
 				<div class="min-w-0 grow">
 					<h2 class="text-md font-semibold">{editingId ? 'Edit profile' : 'Create profile'}</h2>
 					<p class="text-muted-content text-sm">
-						Set up a profile to define what tools a set of groups or users can have available to
-						them.
+						A profile defines a set of tools for this vMCP that a user, agent, or group has access
+						to.
 					</p>
 				</div>
 				{#if editingId}
@@ -713,7 +713,7 @@
 				<div class="divider text-sm font-semibold my-3">Identities</div>
 				<div class="mb-4">
 					<p class="text-muted-content text-sm font-light">
-						Assign identities to this profile. They will inherit the tools assigned to the profile.
+						Grant the following users, agents, and groups access to this profile.
 					</p>
 				</div>
 				<Select
@@ -722,7 +722,7 @@
 					bind:query={subjectQuery}
 					bind:selected={subjectSelection}
 					searchInDropdown
-					placeholder="Search identities..."
+					placeholder="Add identities..."
 					searchPlaceholder="Search users or groups..."
 					class="bg-base-200 shadow-inner!"
 					classes={{ root: 'w-full' }}
