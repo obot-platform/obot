@@ -180,7 +180,6 @@ type Config struct {
 }
 
 type Services struct {
-	ModelProxyURL         *url.URL
 	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
 	StorageClient         storage.Client
 	StorageDB             *kinmdb.Factory
@@ -302,6 +301,9 @@ type Services struct {
 	// License provider
 	LicenseProvider *license.Provider
 	VersionChecker  *upgrade.VersionChecker
+
+	ModelProxyConfiguredURL string
+	ModelProxyURL           *url.URL
 }
 
 type hostedAgentPodSchedulingSettings struct {
@@ -1363,6 +1365,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		ProxyManager:                 proxyManager,
 		ProviderDispatcher:           providerDispatcher,
 		ModelProxyURL:                modelProxyURL,
+		ModelProxyConfiguredURL:      config.ModelProxyURL,
 		Otel:                         otel,
 		AuditLogger:                  auditLogger,
 		MCPSessionManager:            mcpSessionManager,

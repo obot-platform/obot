@@ -121,7 +121,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		Providers:     services.ProviderDispatcher,
 		License:       services.LicenseProvider,
 		GatewayClient: services.GatewayClient,
+		Settings:      services.GatewayClient,
 	})
+	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.LicenseProvider)
 
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
@@ -634,6 +636,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
+	mux.HandleFunc("GET /api/model-proxy", modelProxy.Get)
+	mux.HandleFunc("PUT /api/model-proxy", modelProxy.Update)
+	mux.HandleFunc("GET /api/model-proxy/usage", modelProxy.Usage)
 	mux.HandleFunc("GET /api/model-providers/{model_provider_id}", modelProviders.ByID)
 	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/configure", modelProviders.Configure)
 	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/deconfigure", modelProviders.Deconfigure)

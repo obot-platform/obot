@@ -27,6 +27,7 @@ type MCPTesterFallbackOptions struct {
 	Providers     mcptester.ProviderConfigurationResolver
 	License       mcptester.LicenseSource
 	GatewayClient *client.Client
+	Settings      mcptester.ModelProxySettingsReader
 }
 
 func (h *MCPTesterHandler) fallbackEnabled(ctx context.Context) (bool, error) {
@@ -39,7 +40,15 @@ func (h *MCPTesterHandler) fallbackEnabled(ctx context.Context) (bool, error) {
 	}
 
 	configured, err := h.fallback.Providers.HasModelProvider(ctx)
-	return !configured && err == nil, err
+	if err != nil || configured {
+		return false, err
+	}
+
+	if h.fallback.Settings == nil {
+		return false, errors.New("model proxy settings unavailable")
+	}
+
+	return h.fallback.Settings.ModelProxyEnabled(ctx)
 }
 
 func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer, config mcp.ServerConfig) (*http.Request, []byte, error) {

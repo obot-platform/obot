@@ -31,6 +31,10 @@ type LicenseSource interface {
 	MachineFingerprint() string
 }
 
+type ModelProxySettingsReader interface {
+	ModelProxyEnabled(context.Context) (bool, error)
+}
+
 // ParseModelProxyURL validates local configuration without contacting the proxy.
 // An empty value disables fallback; callers supply the default only when unset.
 func ParseModelProxyURL(value string, development bool) (*url.URL, error) {

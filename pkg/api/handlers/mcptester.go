@@ -88,7 +88,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 
 	fallback, err := h.fallbackEnabled(req.Context())
 	if err != nil {
-		return writeMCPTesterError(req, http.StatusServiceUnavailable, types.MCPTesterErrorModelUnavailable, "model provider configuration is unavailable or changing", false)
+		return writeMCPTesterError(req, http.StatusServiceUnavailable, types.MCPTesterErrorModelUnavailable, "model configuration is unavailable or changing", false)
 	}
 
 	model := mcptester.ResolvedModel{Dialect: llmtypes.DialectOpenAIResponses}
