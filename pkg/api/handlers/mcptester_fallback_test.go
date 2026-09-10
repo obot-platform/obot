@@ -347,13 +347,22 @@ func TestVersionExposesProviderAndLicenseBooleans(t *testing.T) {
 	}
 
 	providers := &fakeTesterProviders{}
+	endpoint, err := mcptester.ParseModelProxyURL(mcptester.DefaultModelProxyURL, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	handler := NewVersionHandler(VersionHandlerOptions{
 		GatewayClient:         client,
 		StorageClient:         fake.NewClientBuilder().WithScheme(scheme.Scheme).Build(),
 		LicenseProvider:       licenseProvider,
 		ProviderConfiguration: providers,
+		ModelProxyURL:         endpoint,
+		ModelProxySettings:    client,
 	})
-	t.Setenv("OBOT_SERVER_VERSIONS", "hasModelProvider=bad,hasValidLicense=bad")
+
+	t.Setenv("OBOT_SERVER_VERSIONS", "hasModelProvider=bad,hasValidLicense=bad,mcpTesterFallbackAvailable=bad")
+
 	for _, configured := range []bool{false, true} {
 		providers.configured = configured
 		response := httptest.NewRecorder()
@@ -366,14 +375,32 @@ func TestVersionExposesProviderAndLicenseBooleans(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if result["hasModelProvider"] != configured || result["hasValidLicense"] != false {
+		if result["hasModelProvider"] != configured || result["hasValidLicense"] != false || result["mcpTesterFallbackAvailable"] != false {
 			t.Fatalf("incorrect version: %v", result)
 		}
 	}
 
 	providers.err = errors.New("unreadable configuration")
-	if _, err := handler.getVersionResponse(t.Context()); err == nil {
-		t.Fatal("masked provider lookup failure")
+	result, err := handler.getVersionResponse(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result["hasModelProvider"] != nil || result["mcpTesterFallbackAvailable"] != false || result["obot"] == nil || result["hasValidLicense"] != false {
+		t.Fatalf("lost version fields or advertised fallback during provider lookup failure: %v", result)
+	}
+
+	providers.err = nil
+	providers.configured = false
+	handler.ModelProxySettings = failingModelProxySettings{}
+
+	result, err = handler.getVersionResponse(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result["hasModelProvider"] != false || result["mcpTesterFallbackAvailable"] != false || result["obot"] == nil {
+		t.Fatalf("lost version fields or advertised fallback during settings lookup failure: %v", result)
 	}
 }
 

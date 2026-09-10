@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -29,6 +30,8 @@ type UpgradeStatusReader interface {
 
 type VersionHandlerOptions struct {
 	ProviderConfiguration   mcptester.ProviderConfigurationResolver
+	ModelProxyURL           *url.URL
+	ModelProxySettings      mcptester.ModelProxySettingsReader
 	GatewayClient           *client.Client
 	StorageClient           storage.Client
 	LicenseProvider         *license.Provider
@@ -147,19 +150,24 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 		}
 	}
 
-	hasModelProvider, err := v.ProviderConfiguration.HasModelProvider(ctx)
-	if err != nil {
-		return nil, err
-	}
+	// Model configuration can be changing independently of the rest of the app.
+	// Keep the version response available, but never interpret lookup failure as
+	// permission to use the external model service.
+	availability, availabilityErr := mcptester.ResolveFallbackAvailability(ctx, v.ModelProxyURL, v.ProviderConfiguration, v.ModelProxySettings)
 
 	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Set after OBOT_SERVER_VERSIONS so these fields remain booleans.
-	values["hasModelProvider"] = hasModelProvider
+	// Set after OBOT_SERVER_VERSIONS so capability values cannot be overridden.
+	values["hasModelProvider"] = nil
+	if availability.HasModelProvider != nil {
+		values["hasModelProvider"] = *availability.HasModelProvider
+	}
+
 	values["hasValidLicense"] = hasValidLicense
+	values["mcpTesterFallbackAvailable"] = availabilityErr == nil && availability.Enabled && hasValidLicense
 
 	return values, nil
 }

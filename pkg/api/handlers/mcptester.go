@@ -157,8 +157,12 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 	response, err := outboundClient.Do(proxyRequest)
 	if err != nil {
 		outcome = err
-		if ctx.Err() != nil || errors.Is(err, context.Canceled) {
+		if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 			return writeMCPTesterError(req, http.StatusRequestTimeout, types.MCPTesterErrorCancelled, "request cancelled", false)
+		}
+
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+			return writeMCPTesterError(req, http.StatusGatewayTimeout, types.MCPTesterErrorProvider, "The model service timed out. Try again later.", true)
 		}
 
 		return writeMCPTesterError(req, http.StatusBadGateway, types.MCPTesterErrorProvider, "failed to contact the model provider", true)
@@ -188,7 +192,9 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 	streamErr := mcptester.NormalizeStream(ctx, model.Dialect, chatRequest.Tools, input, func(event types.MCPTesterStreamEvent) error {
 		if fallback && event.Error != nil {
 			outcome = errors.New("model proxy stream failed")
-			if event.Error.Code != types.MCPTesterErrorCancelled {
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				event.Error.Message = "The model service timed out. Try again later."
+			} else if event.Error.Code != types.MCPTesterErrorCancelled {
 				event.Error.Message = "The MCP Tester model service could not complete the response. Try again later."
 			}
 		}

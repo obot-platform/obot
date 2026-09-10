@@ -167,7 +167,7 @@ describe('MCP Tester page', () => {
 		await renderTester('chat', {}, undefined, {
 			models: [],
 			defaultModelAliases: [],
-			version: { hasModelProvider: false, hasValidLicense: true }
+			version: { hasModelProvider: false, hasValidLicense: true, mcpTesterFallbackAvailable: true }
 		});
 
 		await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test this server');
@@ -191,6 +191,44 @@ describe('MCP Tester page', () => {
 			.element(
 				page.getByText('Register a valid Obot license to use Chat without a model provider.')
 			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('region', { name: 'Chat composer' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('disables fallback Chat when the server reports it unavailable', async () => {
+		await renderTester('chat', {}, undefined, {
+			models: [],
+			defaultModelAliases: [],
+			version: {
+				hasModelProvider: false,
+				hasValidLicense: true,
+				mcpTesterFallbackAvailable: false
+			}
+		});
+
+		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect
+			.element(
+				page.getByText(
+					'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('region', { name: 'Chat composer' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('disables Chat during provider reconciliation even with a cached default model', async () => {
+		await renderTester('chat', {}, undefined, {
+			...chatModelData,
+			version: { hasModelProvider: null, hasValidLicense: true, mcpTesterFallbackAvailable: false }
+		});
+
+		await expect
+			.element(page.getByText('Model configuration is unavailable or changing. Try again later.'))
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('region', { name: 'Chat composer' }))
@@ -242,7 +280,11 @@ describe('MCP Tester page', () => {
 			await renderTester('chat', {}, undefined, {
 				models: [],
 				defaultModelAliases: [],
-				version: { hasModelProvider: false, hasValidLicense: true }
+				version: {
+					hasModelProvider: false,
+					hasValidLicense: true,
+					mcpTesterFallbackAvailable: true
+				}
 			});
 
 			await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test this server');
