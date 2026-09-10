@@ -121,7 +121,6 @@
 		expanded = {};
 	});
 
-	// Stored profiles carry subject IDs only, so the directory is what turns them into names.
 	$effect(() => {
 		if (!profiles.some((profile) => profile.users.some((subject) => subject.type !== 'selector')))
 			return;
@@ -205,13 +204,11 @@
 		};
 	}
 
-	/** An unrestricted server is granted as a wildcard so the profile follows its tools over time. */
 	function grantedToolNames(resource: ProfileResource) {
 		if (!resource.toolOverrides.some((tool) => tool.enabled === false)) return ['*'];
 		return resource.toolOverrides.filter((tool) => tool.enabled !== false).map((tool) => tool.name);
 	}
 
-	/** A profile can only grant tools the vMCP itself has enabled on that server. */
 	function grantableToolNames(id: string) {
 		const overrides = componentServers.find(
 			(component) => componentId(component) === id
@@ -220,7 +217,6 @@
 		return new Set(overrides.filter((tool) => tool.enabled).map((tool) => tool.name));
 	}
 
-	/** A tool the vMCP has switched off stays off here, whatever the profile asks for. */
 	function clampToComponent(tools: ToolOverride[], id: string) {
 		const grantable = grantableToolNames(id);
 		if (!grantable) return tools;
@@ -237,7 +233,6 @@
 		);
 	}
 
-	/** Tools the vMCP has switched off cannot be granted, so they stay disabled here. */
 	function disableLockedTools(resource: ProfileResource) {
 		const locked = lockedToolNames(resource);
 		if (!locked?.size) return resource.toolOverrides;
@@ -403,8 +398,6 @@
 	}
 
 	function addSubject(subject: AccessControlRuleSubject) {
-		// The picker stays a placeholder-only entry point, so the assignment list is the single
-		// source of truth for who belongs to the profile.
 		subjectSelection = undefined;
 		if (!draft) return;
 		if (draft.users.some((candidate) => candidate.id === subject.id)) return;
@@ -500,21 +493,22 @@
 		toolFlow.collectComponentTools(component, vmcp, (config) => {
 			if (!draft) return;
 			const id = componentId(component);
-			const toolOverrides = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
-			applyComponentToolOverrides(id, toolOverrides);
+			const policyToolOverrides = (config.toolOverrides ?? []).map((tool) => ({ ...tool }));
+			const componentToolOverrides = policyToolOverrides.map((tool) => ({
+				...tool,
+				enabled: true
+			}));
+			applyComponentToolOverrides(id, componentToolOverrides);
 			draft.resources = draft.resources.map((resource) =>
 				resource.id === id
 					? {
 							...resource,
-							toolOverrides: clampToComponent(
-								toolOverrides.map((tool) => ({ ...tool })),
-								id
-							)
+							toolOverrides: clampToComponent(policyToolOverrides, id)
 						}
 					: resource
 			);
 			expanded[id] = true;
-			void persistComponentTools(id, toolOverrides);
+			void persistComponentTools(id, componentToolOverrides);
 		});
 	}
 </script>
@@ -647,7 +641,7 @@
 							{@const id = componentId(component)}
 							{@const resource = resourceFor(id)}
 							<div class="border-base-300 dark:border-base-400 overflow-hidden rounded-lg border">
-								<div class="flex items-center gap-3 py-1 pl-3 pr-1">
+								{#snippet componentIdentity()}
 									{#if component.catalogEntry?.manifest?.icon}
 										<img src={component.catalogEntry.manifest.icon} alt="" class="size-5" />
 									{:else}
@@ -656,24 +650,34 @@
 										</div>
 									{/if}
 									<span class="grow font-medium text-sm">{componentName(component)}</span>
-									{#if resource}
-										{#if resource.toolOverrides.length > 0}
-											<span class="text-muted-content text-xs">
-												{enabledToolCount(resource)} of {modifiableTools(resource).length} tools
-											</span>
-											<IconButton
-												class="size-8"
-												type="button"
-												tooltip={{ text: expanded[id] ? 'Collapse' : 'Expand' }}
-												onclick={() => (expanded[id] = !expanded[id])}
-											>
-												{#if expanded[id]}
-													<ChevronUp class="size-4" />
-												{:else}
-													<ChevronDown class="size-4" />
-												{/if}
-											</IconButton>
-										{:else}
+								{/snippet}
+								{#if resource && resource.toolOverrides.length > 0}
+									<button
+										type="button"
+										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left"
+										aria-expanded={Boolean(expanded[id])}
+										aria-label={expanded[id] ? 'Collapse' : 'Expand'}
+										onclick={() => (expanded[id] = !expanded[id])}
+									>
+										{@render componentIdentity()}
+										<span class="text-muted-content text-xs">
+											{enabledToolCount(resource)} of {modifiableTools(resource).length} tools
+										</span>
+										<span
+											class="text-muted-content flex size-8 shrink-0 items-center justify-center"
+											aria-hidden="true"
+										>
+											{#if expanded[id]}
+												<ChevronUp class="size-4" />
+											{:else}
+												<ChevronDown class="size-4" />
+											{/if}
+										</span>
+									</button>
+								{:else}
+									<div class="flex items-center gap-3 py-1 pl-3 pr-1">
+										{@render componentIdentity()}
+										{#if resource}
 											<IconButton
 												class="size-8"
 												type="button"
@@ -683,8 +687,8 @@
 												<Split class="size-4" />
 											</IconButton>
 										{/if}
-									{/if}
-								</div>
+									</div>
+								{/if}
 								{#if resource && resource.toolOverrides.length > 0 && expanded[id]}
 									<div
 										in:slide={{ axis: 'y', duration: 150 }}
@@ -823,7 +827,7 @@
 		<div class="flex flex-col gap-2">
 			{#each profiles as profile (profile.id)}
 				<article
-					class="border-base-300 bg-base-100 dark:bg-base-300 hover:border-primary/40 group relative rounded-xl border p-4 shadow-sm transition"
+					class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 dark:hover:border-primary hover:border-primary group relative rounded-xl border p-4 shadow-sm transition"
 				>
 					<button
 						type="button"

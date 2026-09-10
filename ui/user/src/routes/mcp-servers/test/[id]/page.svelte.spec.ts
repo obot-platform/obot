@@ -19,10 +19,11 @@ interface MCPRequest {
 
 function mockMCPInitialization(
 	capabilities: Record<string, unknown> = {},
-	handleRequest?: (request: MCPRequest) => unknown
+	handleRequest?: (request: MCPRequest) => unknown,
+	serverID = fixtures.serverSingle.id
 ) {
 	worker.use(
-		http.post(`/mcp-connect/${fixtures.serverSingle.id}`, async ({ request }) => {
+		http.post(`/mcp-connect/${serverID}`, async ({ request }) => {
 			const body = (await request.json()) as MCPRequest;
 			if (body.method === 'initialize') {
 				return HttpResponse.json(
@@ -44,7 +45,7 @@ function mockMCPInitialization(
 			}
 			return new HttpResponse(null, { status: 202 });
 		}),
-		http.get(`/mcp-connect/${fixtures.serverSingle.id}`, () => {
+		http.get(`/mcp-connect/${serverID}`, () => {
 			return new HttpResponse(null, { status: 405 });
 		})
 	);
@@ -66,7 +67,7 @@ async function renderTester(
 	handleRequest?: (request: MCPRequest) => unknown,
 	pageOverrides: Partial<PageData> = {}
 ) {
-	mockMCPInitialization(capabilities, handleRequest);
+	mockMCPInitialization(capabilities, handleRequest, pageOverrides.server?.id);
 	if (tab) {
 		appPage.url.searchParams.set('tab', tab);
 	} else {
@@ -156,6 +157,29 @@ describe('MCP Tester page', () => {
 		await expect
 			.element(page.getByRole('link', { name: 'Tools', exact: true }))
 			.toHaveAttribute('aria-current', 'page');
+	});
+
+	it('connects a vMCP instance through its requested connect ID', async () => {
+		const connectID = 'vmcpi1-test';
+		await renderTester('tools', {}, undefined, {
+			server: {
+				...fixtures.serverSingle,
+				id: connectID,
+				catalogEntryID: '',
+				mcpCatalogID: '',
+				manifest: {
+					name: 'Virtual test server',
+					runtime: 'vmcp'
+				}
+			},
+			backTarget: '/vmcps'
+		});
+
+		await expect.element(page.getByRole('heading', { name: 'Virtual test server' })).toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Back to Virtual test server' }))
+			.toHaveAttribute('href', '/vmcps');
 	});
 
 	it('keeps the Chat composer visible while messages scroll inside the chat', async () => {

@@ -172,8 +172,12 @@ describe('VMcpProfiles.svelte', () => {
 		await page.getByRole('button', { name: 'Delete Developers' }).click();
 		await confirmProfileDelete();
 
-		await expect.element(page.getByRole('heading', { name: 'Edit profile' })).not.toBeInTheDocument();
-		await expect.element(page.getByRole('button', { name: 'Edit Developers' })).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('heading', { name: 'Edit profile' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Edit Developers' }))
+			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Edit default' })).toBeVisible();
 		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
 		expect(savedProfiles(saved, 1).map((profile) => profile.name)).toEqual(['default']);
@@ -189,7 +193,9 @@ describe('VMcpProfiles.svelte', () => {
 		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
-		await page.getByRole('button', { name: 'Edit Developers' }).click({ position: { x: 24, y: 88 } });
+		await page
+			.getByRole('button', { name: 'Edit Developers' })
+			.click({ position: { x: 24, y: 88 } });
 		await expect.element(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
 		await expect.element(page.getByLabelText('Name')).toHaveValue('Developers');
 	});
@@ -311,7 +317,10 @@ describe('VMcpProfiles.svelte', () => {
 
 	it('saves a locked component tool as disabled even when enabled is omitted', async () => {
 		const vmcp = createVMcp('vmcp-locked-omitted-enabled');
-		vmcp.components![0].toolOverrides = [{ name: 'list_issues', enabled: true }, { name: 'list_pulls' }];
+		vmcp.components![0].toolOverrides = [
+			{ name: 'list_issues', enabled: true },
+			{ name: 'list_pulls' }
+		];
 		const saved = mockVMcpSave(vmcp);
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
 
@@ -400,6 +409,20 @@ describe('VMcpProfiles.svelte', () => {
 
 		await expandServerTools();
 		await expect.element(page.getByText('list_issues')).toBeVisible();
+	});
+
+	it('toggles tools when the server row is clicked', async () => {
+		render(VMcpProfiles, {
+			vmcp: createVMcp('vmcp-row-toggle-tools'),
+			toolFlow: toolFlowStub()
+		});
+
+		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await page.getByText('2 of 2 tools').click();
+		await expect.element(page.getByText('list_issues')).toBeVisible();
+
+		await page.getByText('GitHub').click();
+		await expect.element(page.getByText('list_issues')).not.toBeInTheDocument();
 	});
 
 	it('disables a tool without removing it from the profile list', async () => {

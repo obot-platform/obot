@@ -116,7 +116,7 @@
 	});
 	let views = $derived([
 		...(hasAdminAccess || isPowerUser
-			? [{ label: 'Entries', value: 'entries', content: entries }]
+			? [{ label: 'Servers', value: 'servers', content: servers }]
 			: []),
 		...(hasAdminAccess
 			? [
@@ -324,7 +324,7 @@
 	{/if}
 {/snippet}
 
-{#snippet entries()}
+{#snippet servers()}
 	<EntriesView
 		entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
 		id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}

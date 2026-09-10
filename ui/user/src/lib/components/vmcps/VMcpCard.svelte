@@ -132,5 +132,5 @@
 		{@render children()}
 	{/if}
 
-	<VMcpCardActions {connectURL} {connectButtonId} {onConnect} />
+	<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
 </div>

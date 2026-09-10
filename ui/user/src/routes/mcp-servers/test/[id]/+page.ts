@@ -1,7 +1,10 @@
-import { handleRouteError } from '$lib/errors';
-import { UserService, type MCPCatalogServer } from '$lib/services';
+import { handleRouteError, HttpError } from '$lib/errors';
+import { UserService, type MCPCatalogServer, type VMCP, type VMCPInstance } from '$lib/services';
 import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
+
+const VMCP_PREFIX = 'vmcp1';
+const VMCP_INSTANCE_PREFIX = 'vmcpi1';
 
 function safeBackTarget(server: MCPCatalogServer): string {
 	if (server.catalogEntryID && server.serverUserType === 'singleUser') {
@@ -10,9 +13,69 @@ function safeBackTarget(server: MCPCatalogServer): string {
 	return `/mcp-servers/s/${encodeURIComponent(server.id)}`;
 }
 
+function vmcpTesterServer(
+	vmcp: VMCP,
+	connectID: string,
+	instance?: VMCPInstance
+): MCPCatalogServer {
+	const created = instance?.created ?? vmcp.created;
+	return {
+		id: connectID,
+		userID: instance?.userID ?? vmcp.userID ?? '',
+		configured: instance?.status?.configured ?? true,
+		catalogEntryID: '',
+		missingRequiredEnvVars: instance?.status?.missingRequiredConfiguration ?? [],
+		mcpCatalogID: '',
+		created,
+		updated: created,
+		type: instance?.type ?? vmcp.type ?? 'vmcp',
+		manifest: {
+			name: vmcp.displayName,
+			description: vmcp.description,
+			icon: vmcp.icon,
+			runtime: 'vmcp'
+		},
+		serverUserType: vmcp.forceSingleUser ? 'singleUser' : 'multiUser',
+		deploymentStatus: vmcp.status?.ready ? 'Available' : 'Unavailable',
+		canConnect: true
+	};
+}
+
+async function loadVMCPTesterTarget(
+	id: string,
+	fetcher: typeof fetch
+): Promise<{ server: MCPCatalogServer; backTarget: string }> {
+	let instance: VMCPInstance | undefined;
+	let vmcpID = id;
+
+	if (id.startsWith(VMCP_INSTANCE_PREFIX)) {
+		instance = await UserService.getVMCPInstance(id, { fetch: fetcher });
+		vmcpID = instance.vmcpID;
+	}
+
+	const vmcp = await UserService.getVMCP(vmcpID, { fetch: fetcher });
+	if (vmcp.components.length === 0) {
+		throw new HttpError(404, `404 /mcp-servers/test/${id}: vMCP is not connectable`);
+	}
+	if (!instance) {
+		const instances = await UserService.listVMCPInstances({ fetch: fetcher });
+		instance = instances
+			.filter((candidate) => candidate.vmcpID === vmcp.id)
+			.sort((a, b) => a.created.localeCompare(b.created))[0];
+	}
+
+	return {
+		server: vmcpTesterServer(vmcp, id, instance),
+		backTarget: '/vmcps'
+	};
+}
+
 export const load: PageLoad = async ({ params, fetch }) => {
 	const path = `/mcp-servers/test/${params.id}`;
 	try {
+		if (params.id.startsWith(VMCP_PREFIX) || params.id.startsWith(VMCP_INSTANCE_PREFIX)) {
+			return await loadVMCPTesterTarget(params.id, fetch);
+		}
 		const server = await UserService.getMCPTesterServer(params.id, { fetch });
 		return {
 			server,

@@ -1,4 +1,4 @@
-import type { MCPCatalogServer } from '$lib/services';
+import type { MCPCatalogServer, VMCP, VMCPInstance } from '$lib/services';
 import { load } from './+page';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -35,6 +35,49 @@ function routeFetcher(deployments: MCPCatalogServer[]) {
 	});
 }
 
+function vmcp(): VMCP {
+	return {
+		id: 'vmcp1-test',
+		created: '2026-02-01T00:00:00Z',
+		displayName: 'Virtual test server',
+		description: 'Aggregates test tools',
+		icon: 'https://example.com/vmcp.png',
+		components: [
+			{
+				id: 'component-1',
+				name: 'Component one',
+				mcpCatalogID: 'default',
+				mcpServerCatalogEntryID: 'entry-1',
+				catalogEntry: { manifest: { name: 'Component one', runtime: 'npx' } }
+			}
+		],
+		status: { ready: true }
+	};
+}
+
+function vmcpInstance(): VMCPInstance {
+	return {
+		id: 'vmcpi1-test',
+		created: '2026-02-02T00:00:00Z',
+		userID: 'user-1',
+		vmcpID: 'vmcp1-test',
+		status: { configured: true }
+	};
+}
+
+function vmcpRouteFetcher(target: VMCP, instances: VMCPInstance[] = []) {
+	return vi.fn<typeof fetch>(async (input) => {
+		const pathname = new URL(String(input)).pathname;
+		if (pathname === `/api/vmcps/${target.id}`) return Response.json(target);
+		if (pathname === '/api/vmcp-instances') return Response.json({ items: instances });
+		const instance = instances.find(
+			(candidate) => pathname === `/api/vmcp-instances/${candidate.id}`
+		);
+		if (instance) return Response.json(instance);
+		return new Response('unexpected request', { status: 500 });
+	});
+}
+
 describe('MCP tester route load', () => {
 	it('derives a server-owned management route for Back navigation', async () => {
 		const deployment = server();
@@ -54,6 +97,84 @@ describe('MCP tester route load', () => {
 			load({
 				params: { id: 'management-only-server' },
 				fetch: routeFetcher([])
+			} as unknown as Parameters<typeof load>[0])
+		).rejects.toMatchObject({ status: 404 });
+	});
+
+	it('loads a canonical vMCP and keeps its ID as the connection target', async () => {
+		const target = vmcp();
+		const result = await load({
+			params: { id: target.id },
+			fetch: vmcpRouteFetcher(target)
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toMatchObject({
+			server: {
+				id: target.id,
+				configured: true,
+				deploymentStatus: 'Available',
+				manifest: {
+					name: target.displayName,
+					description: target.description,
+					runtime: 'vmcp'
+				}
+			},
+			backTarget: '/vmcps'
+		});
+	});
+
+	it('loads a vMCP instance and reflects its configuration status', async () => {
+		const target = vmcp();
+		const instance = {
+			...vmcpInstance(),
+			status: {
+				configured: false,
+				missingRequiredConfiguration: ['component-1.API_KEY']
+			}
+		};
+		const result = await load({
+			params: { id: instance.id },
+			fetch: vmcpRouteFetcher(target, [instance])
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toMatchObject({
+			server: {
+				id: instance.id,
+				userID: instance.userID,
+				configured: false,
+				missingRequiredEnvVars: ['component-1.API_KEY'],
+				manifest: { name: target.displayName, runtime: 'vmcp' }
+			},
+			backTarget: '/vmcps'
+		});
+	});
+
+	it('uses the oldest existing instance status for a canonical vMCP connection', async () => {
+		const target = vmcp();
+		const newer = vmcpInstance();
+		const oldest = {
+			...vmcpInstance(),
+			id: 'vmcpi1-oldest',
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: false }
+		};
+		const result = await load({
+			params: { id: target.id },
+			fetch: vmcpRouteFetcher(target, [newer, oldest])
+		} as unknown as Parameters<typeof load>[0]);
+
+		expect(result).toMatchObject({
+			server: { id: target.id, configured: false }
+		});
+	});
+
+	it('rejects a vMCP without components as non-connectable', async () => {
+		const target = { ...vmcp(), components: [] };
+
+		await expect(
+			load({
+				params: { id: target.id },
+				fetch: vmcpRouteFetcher(target)
 			} as unknown as Parameters<typeof load>[0])
 		).rejects.toMatchObject({ status: 404 });
 	});

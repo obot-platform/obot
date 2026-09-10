@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
@@ -9,9 +10,10 @@
 		connectURL?: string;
 		connectButtonId?: string;
 		onConnect?: () => void;
+		id: string;
 	}
 
-	let { connectURL, connectButtonId, onConnect }: Props = $props();
+	let { connectURL, connectButtonId, onConnect, id }: Props = $props();
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -46,10 +48,8 @@
 			/>
 		</div>
 	</div>
-	<!-- Destination URL will be wired when vMCP chat is implemented. -->
-	<!-- svelte-ignore a11y_invalid_attribute -->
 	<a
-		href=""
+		href={resolve(`/mcp-servers/test/${id}`)}
 		use:tooltip={{ text: 'Chat' }}
 		class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
 	>
