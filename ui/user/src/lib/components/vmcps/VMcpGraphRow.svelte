@@ -207,7 +207,7 @@
 			linked
 				? 'vmcp-drop-target border-primary text-primary'
 				: canEdit
-					? 'p-0.5 hover:aura text-transparent hover:text-primary hover:-translate-y-0.5'
+					? 'p-0.5 aura text-primary hover:-translate-y-0.5'
 					: 'p-0.5'
 		)}
 		in:fade={{ duration: 150 }}
@@ -267,7 +267,10 @@
 
 {#snippet componentBlock(component: VMcpComponentView, index: number)}
 	<div
-		class={twMerge(canEdit && 'aura text-transparent hover:text-primary hover:-translate-y-0.5')}
+		class={twMerge(
+			canEdit &&
+				'hover:aura hover:aura-glow p-0.5 text-transparent hover:text-primary hover:-translate-y-0.5'
+		)}
 	>
 		{#if canEdit}
 			<button
