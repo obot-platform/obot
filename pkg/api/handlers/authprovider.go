@@ -359,7 +359,7 @@ func (ap *AuthProviderHandler) Verify(req api.Context) error {
 	if err := req.GatewayClient.CreateTokenRequest(req.Context(), &gatewaytypes.TokenRequest{
 		ID:                    tokenID,
 		Purpose:               gatewaytypes.TokenRequestPurposeAuthProviderVerify,
-		CompletionRedirectURL: "/admin/auth-providers",
+		CompletionRedirectURL: "/identity-access?view=auth-providers",
 		RequestExpiresAt:      time.Now().Add(auth.AuthProviderVerifyWindow),
 		OwnerUserID:           &ownerUserID,
 	}); err != nil {

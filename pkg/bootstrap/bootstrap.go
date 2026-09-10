@@ -241,7 +241,7 @@ func (b *Bootstrap) Login(req api.Context) error {
 		HttpOnly: true,
 		Secure:   strings.HasPrefix(b.serverURL, "https://"),
 	})
-	http.Redirect(req.ResponseWriter, req.Request, "/admin/auth-providers", http.StatusFound)
+	http.Redirect(req.ResponseWriter, req.Request, "/identity-access?view=auth-providers", http.StatusFound)
 
 	return nil
 }
