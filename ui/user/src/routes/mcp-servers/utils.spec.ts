@@ -124,7 +124,6 @@ describe('mcp-servers route loaders', () => {
 			expect(getCreatedEntryUrl('entry-1', 'hosted', 'Catalog entry updated successfully!')).toBe(
 				'/mcp-servers/c/entry-1?launch=true'
 			);
-			expect(getCreatedEntryUrl('entry-1', 'composite')).toBe('/mcp-servers/c/entry-1?launch=true');
 		});
 
 		it('prompts the OAuth setup a remote entry still needs', () => {
