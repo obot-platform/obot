@@ -1,89 +1,46 @@
 # Overview
 
-Obot supports encrypting sensitive data at rest in the database using industry-standard encryption providers. When enabled, encryption protects user data, credentials, OAuth tokens, session information, and other sensitive fields using external Key Management Services (KMS).
+Obot can encrypt selected sensitive fields in its database and credential store. **Application-level encryption is disabled by default** (`OBOT_SERVER_ENCRYPTION_PROVIDER=none`). Configure a provider to enable it. This protects the fields listed below, not entire records, database files, backups, or exported audit logs.
 
 ## Supported Encryption Providers
-
-Obot supports the following encryption providers:
 
 1. [AWS KMS](./aws-kms.md)
 2. [Azure Key Vault](./azure-key-vault.md)
 3. [Google Cloud KMS](./google-cloud-kms.md)
-4. [Custom](./custom-provider.md)
+4. [Custom](./custom-provider.md), including a local AES-GCM key
 
 ## How Encryption Works
 
-Obot uses the Kubernetes EncryptionConfiguration format to encrypt data at rest. The encryption provider:
+Obot uses the Kubernetes `EncryptionConfiguration` format. Each configured resource has a transformer that encrypts selected fields before storage and decrypts them on retrieval. Cloud KMS providers use a local provider process over a Unix socket; a custom AES-GCM configuration uses the supplied key. Encrypted field values are base64-encoded for storage.
 
-1. Receives data to encrypt via a Unix socket connection
-2. Encrypts the data using the configured KMS provider
-3. Returns the encrypted data to be stored in the database
-4. On retrieval, decrypts the data before returning it to the application
+The built-in cloud configurations include the resources below. A custom configuration must include the corresponding resource names to protect those fields.
 
-All encrypted string fields are base64-encoded after encryption for safe storage.
+## Encrypted Resources and Fields
 
-## Encrypted Resources
+These names identify encryption transformers; they do not mean every field in the resource is encrypted. IDs, timestamps, and other metadata can remain readable.
 
-When you enable an encryption provider, the following resource types are automatically encrypted:
+| Resource | Selected fields protected when configured |
+|----------|-------------------------------------------|
+| `credentials.obot.obot.ai` | Serialized credential secret values, such as API keys and upstream access tokens; credential names and context metadata are not included |
+| `users.obot.obot.ai` | `username`, `email`, `displayName`, `iconURL`, `originalEmail`, `originalUsername`; local-auth user `email` also uses this transformer |
+| `identities.obot.obot.ai` | `providerUsername`, `email`, `providerUserID`, `providerGroupLookupID`, `iconURL` |
+| `mcpoauthtokens.obot.obot.ai` | `accessToken`, `refreshToken`, `clientID`, `clientSecret` |
+| `mcpoauthpendingstates.obot.obot.ai` | `state`, `verifier`, `clientID`, `clientSecret` |
+| `mcpauditlogs.obot.obot.ai` | MCP request and response bodies and headers, including mutated requests and original responses; local-agent details listed below |
+| `llmauditlogs.obot.obot.ai` | Request and response headers and bodies, including `policyModifiedRequestBody` |
+| `policyviolations.obot.obot.ai` | `blockedContent` |
+| `properties.obot.obot.ai` | Stored property `value` |
 
-| Resource Type | Description |
-|---------------|-------------|
-| `credentials` | Credential store data |
-| `users.obot.obot.ai` | User account information |
-| `identities.obot.obot.ai` | Identity provider data |
-| `mcpoauthtokens.obot.obot.ai` | MCP OAuth tokens |
-| `mcpoauthpendingstates.obot.obot.ai` | MCP OAuth pending authorization states |
-| `mcpauditlogs.obot.obot.ai` | MCP audit log data |
-| `sessioncookies.obot.obot.ai` | Session cookie data |
+### MCP and Local-Agent Audit Details
 
-## Complete List of Encrypted Fields
+For MCP traffic, the audit transformer encrypts `requestBody`, `mutatedRequestBody`, `responseBody`, `originalResponseBody`, `requestHeaders`, and `responseHeaders`.
 
-### User Data (`users.obot.obot.ai`)
-All personal user information is encrypted:
-- `username` - User's username
-- `email` - User's email address
-- `displayName` - User's display name
-- `iconURL` - User's profile icon URL
-- `originalEmail` - Original email for a deleted user from identity provider
-- `originalUsername` - Original username for a deleted user from identity provider
+For local-agent tool calls in the same audit store, it encrypts the outcome error, hostname, local username, reported user email, working directory, Git root, Git remotes, Git branch, transcript path, request body, response body, and raw event. Other audit metadata, such as timestamps and tool names, is outside this field-level protection.
 
-### Identity Data (`identities.obot.obot.ai`)
-Identity provider information is encrypted:
-- `providerUsername` - Username from identity provider
-- `email` - Email from identity provider
-- `providerUserID` - User ID from identity provider
-- `iconURL` - Icon URL from identity provider
+### Local Passwords
 
-### MCP OAuth Tokens (`mcpoauthtokens.obot.obot.ai`)
-All OAuth-related secrets are encrypted:
-- `accessToken` - OAuth access token
-- `refreshToken` - OAuth refresh token
-- `clientID` - OAuth client ID
-- `clientSecret` - OAuth client secret
+Local-auth passwords are stored as salted Argon2id hashes regardless of whether an encryption provider is configured. The password hash is not reversibly encrypted. This differs from upstream passwords stored as credential secret values, which must be recoverable for use.
 
-### MCP OAuth Pending States (`mcpoauthpendingstates.obot.obot.ai`)
-Pending OAuth authorization state data is encrypted:
-- `state` - OAuth state parameter
-- `verifier` - PKCE verifier
-- `clientID` - OAuth client ID
-- `clientSecret` - OAuth client secret
+## Enabling Encryption on an Existing Installation
 
-### Session Cookies (`sessioncookies.obot.obot.ai`)
-Session authentication data is encrypted:
-- `cookie` - Session cookie value
-
-### MCP Audit Logs (`mcpauditlogs.obot.obot.ai`)
-Complete request/response data in audit logs is encrypted:
-- `requestBody` - HTTP request body (JSON)
-- `responseBody` - HTTP response body (JSON)
-- `requestHeaders` - HTTP request headers (JSON)
-- `responseHeaders` - HTTP response headers (JSON)
-
-### Credentials (`credentials`)
-All credential data stored via the credential store system (SQLite or PostgreSQL backend) is encrypted.
-
-The credential store is configured with the encryption provider and automatically encrypts all stored credentials, including:
-- API keys
-- Access tokens
-- Passwords
-- Any other sensitive credential or configuration data
+Enabling encryption does not automatically encrypt all existing data. Existing installations may require a separate migration to protect previously stored data.

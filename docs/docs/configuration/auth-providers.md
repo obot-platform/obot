@@ -73,6 +73,8 @@ Obot supports the built-in [Local](#local) provider, as well as the following pr
 
 ### Local
 
+Local passwords are stored as salted Argon2id hashes, independently of optional [database field encryption](./encryption-providers/overview.md#local-passwords).
+
 The Local provider authenticates users with an email address and password stored in Obot's own database. It requires no external identity provider, which makes it a good fit for evaluations, air-gapped installations, and small deployments.
 
 Passwords are hashed with [argon2id](https://en.wikipedia.org/wiki/Argon2) and are never stored, logged, or returned by the API.

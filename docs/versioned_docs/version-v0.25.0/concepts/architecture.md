@@ -43,7 +43,7 @@ Key security properties:
 
 ## Encryption
 
-Obot uses cloud KMS systems to encrypt data at rest. See [Encryption Providers](../configuration/encryption-providers/overview.md) for configuration options.
+Application-level encryption is disabled by default. When configured, an encryption provider protects selected database fields and credential values, including sensitive audit payloads; it does not encrypt entire records or automatically backfill all historical data. Local passwords are hashed independently of this setting. See [Encryption Providers](../configuration/encryption-providers/overview.md) for field coverage and existing-data considerations.
 
 ## LLMs
 

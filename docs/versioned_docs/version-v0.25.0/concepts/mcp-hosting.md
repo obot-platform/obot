@@ -42,7 +42,7 @@ For production deployments, Obot can deploy MCP servers to Kubernetes:
 
 Obot handles OAuth 2.1 flows for MCP servers that require authentication:
 
-- OAuth credentials stored securely with encryption at rest
+- OAuth credentials encrypted at rest when an [encryption provider](../configuration/encryption-providers/overview.md) is configured; encryption is disabled by default
 - Automatic token refresh
 - Per-user credential isolation
 - Supports custom OAuth configurations
