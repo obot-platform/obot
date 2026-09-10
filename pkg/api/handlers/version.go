@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/license"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcptester"
 	"github.com/obot-platform/obot/pkg/storage"
 	"github.com/obot-platform/obot/pkg/upgrade"
 	"github.com/obot-platform/obot/pkg/version"
@@ -27,6 +28,7 @@ type UpgradeStatusReader interface {
 }
 
 type VersionHandlerOptions struct {
+	ProviderConfiguration   mcptester.ProviderConfigurationResolver
 	GatewayClient           *client.Client
 	StorageClient           storage.Client
 	LicenseProvider         *license.Provider
@@ -144,6 +146,20 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 			values[strings.TrimSpace(key)] = strings.TrimSpace(value)
 		}
 	}
+
+	hasModelProvider, err := v.ProviderConfiguration.HasModelProvider(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set after OBOT_SERVER_VERSIONS so these fields remain booleans.
+	values["hasModelProvider"] = hasModelProvider
+	values["hasValidLicense"] = hasValidLicense
 
 	return values, nil
 }

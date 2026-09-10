@@ -12,7 +12,7 @@ data:
     {{- fail (printf "config.%s must be set under .Values.secret (not .Values.config)" $key) -}}
     {{- end }}
   {{- $value := index $cfg $key }}
-  {{- if (toString $value) }}
+  {{- if or (toString $value) (eq $key "OBOT_SERVER_MODEL_PROXY_URL") }}
   {{ $key }}: {{ toString $value | quote }}
   {{- end }}
   {{- end }}

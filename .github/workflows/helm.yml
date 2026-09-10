@@ -11,6 +11,7 @@ on:
     paths:
       - .github/workflows/helm.yml
       - chart/**
+      - tools/test-model-proxy-chart.sh
   pull_request:
     branches:
       - main
@@ -18,6 +19,7 @@ on:
     paths:
       - .github/workflows/helm.yml
       - chart/**
+      - tools/test-model-proxy-chart.sh
 
 jobs:
   lint:
@@ -34,6 +36,9 @@ jobs:
 
       - name: Lint Helm chart
         run: helm lint chart --set dev.useEmbeddedDb=true
+
+      - name: Verify model proxy URL configuration
+        run: bash tools/test-model-proxy-chart.sh
 
       - name: Render Helm chart
         run: helm template obot chart --namespace obot --set dev.useEmbeddedDb=true

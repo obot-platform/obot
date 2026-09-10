@@ -253,7 +253,7 @@ func shouldRedactHeader(key string) bool {
 		"anthropic-ratelimit-tokens-reset":
 		return false
 	}
-	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" {
+	if k == "authorization" || k == "cookie" || k == "set-cookie" || k == "x-api-key" || k == "x-obot-machine-fingerprint" {
 		return true
 	}
 	return strings.Contains(k, "token") || strings.Contains(k, "secret") || strings.Contains(k, "key") || strings.Contains(k, "credential")

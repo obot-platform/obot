@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/mail"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,6 +49,7 @@ import (
 	"github.com/obot-platform/obot/pkg/localauth"
 	"github.com/obot-platform/obot/pkg/logutil"
 	"github.com/obot-platform/obot/pkg/mcp"
+	"github.com/obot-platform/obot/pkg/mcptester"
 	"github.com/obot-platform/obot/pkg/messagepolicy"
 	"github.com/obot-platform/obot/pkg/modelaccesspolicy"
 	"github.com/obot-platform/obot/pkg/otel"
@@ -95,6 +97,7 @@ type (
 )
 
 type Config struct {
+	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables fallback" default:"https://model-service.obot.ai" env:"OBOT_SERVER_MODEL_PROXY_URL"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
@@ -177,6 +180,7 @@ type Config struct {
 }
 
 type Services struct {
+	ModelProxyURL         *url.URL
 	EncryptionConfig      *encryptionconfig.EncryptionConfiguration
 	StorageClient         storage.Client
 	StorageDB             *kinmdb.Factory
@@ -499,6 +503,11 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
+	modelProxyURL, err := mcptester.ParseModelProxyURL(config.ModelProxyURL, config.DevMode)
+	if err != nil {
+		return nil, err
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -1353,6 +1362,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		GatewayClient:                gatewayClient,
 		ProxyManager:                 proxyManager,
 		ProviderDispatcher:           providerDispatcher,
+		ModelProxyURL:                modelProxyURL,
 		Otel:                         otel,
 		AuditLogger:                  auditLogger,
 		MCPSessionManager:            mcpSessionManager,
