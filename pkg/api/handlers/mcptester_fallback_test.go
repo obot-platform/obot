@@ -83,7 +83,7 @@ func TestTesterFallbackRechecksProvidersAndLicense(t *testing.T) {
 	var auth []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = append(auth, r.Header.Get("Authorization"))
-		if r.URL.Path != "/v1/responses" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-Fingerprint") != "persisted-machine" || r.Header.Get("X-Obot-MCP-Command") != "npx @org/test-server@1.0" || len(r.Header.Values("X-Obot-MCP-URL")) != 0 {
+		if r.URL.Path != "/v1/responses" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-Fingerprint") != "persisted-machine" {
 			t.Errorf("unexpected outbound request: %v %v", r.URL, r.Header)
 		}
 

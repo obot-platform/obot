@@ -13,7 +13,6 @@ import (
 	"github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/gateway/client"
-	"github.com/obot-platform/obot/pkg/mcp"
 	"github.com/obot-platform/obot/pkg/mcptester"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 )
@@ -39,13 +38,8 @@ func (h *MCPTesterHandler) fallbackEnabled(ctx context.Context) (bool, error) {
 	return availability.Enabled, err
 }
 
-func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer, config mcp.ServerConfig) (*http.Request, []byte, error) {
+func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer) (*http.Request, []byte, error) {
 	body, err := mcptester.BuildFallbackRequest(request, testerSystemInstruction(server))
-	if err != nil {
-		return nil, nil, types.NewErrHTTP(http.StatusBadRequest, err.Error())
-	}
-
-	descriptor, err := mcptester.DeploymentDescriptor(server.Spec.Manifest, config)
 	if err != nil {
 		return nil, nil, types.NewErrHTTP(http.StatusBadRequest, err.Error())
 	}
@@ -63,7 +57,7 @@ func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MC
 		return nil, nil, errMCPTesterLicenseRequired
 	}
 
-	outbound, err := mcptester.NewFallbackRequest(ctx, h.fallback.URL, body, licenseKey, h.fallback.License.MachineFingerprint(), descriptor)
+	outbound, err := mcptester.NewFallbackRequest(ctx, h.fallback.URL, body, licenseKey, h.fallback.License.MachineFingerprint())
 	if err != nil {
 		return nil, nil, types.NewErrHTTP(http.StatusServiceUnavailable, "installation license or machine fingerprint is unavailable")
 	}
