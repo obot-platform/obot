@@ -1019,8 +1019,9 @@ export interface ToolReferenceList {
 // Version
 
 export interface Version {
-	hasModelProvider?: boolean;
+	hasModelProvider?: boolean | null;
 	hasValidLicense?: boolean;
+	mcpTesterFallbackAvailable?: boolean;
 	latestVersion?: string;
 	sessionStore?: string;
 	obot?: string;

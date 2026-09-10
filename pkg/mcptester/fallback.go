@@ -35,6 +35,39 @@ type ModelProxySettingsReader interface {
 	ModelProxyEnabled(context.Context) (bool, error)
 }
 
+// FallbackAvailability distinguishes confirmed provider absence from an unknown
+// configuration. Only confirmed absence can permit the external model service.
+type FallbackAvailability struct {
+	HasModelProvider *bool
+	Enabled          bool
+}
+
+func ResolveFallbackAvailability(ctx context.Context, endpoint *url.URL, providers ProviderConfigurationResolver, settings ModelProxySettingsReader) (FallbackAvailability, error) {
+	var result FallbackAvailability
+	if providers == nil {
+		return result, errors.New("model provider configuration is unavailable")
+	}
+
+	configured, err := providers.HasModelProvider(ctx)
+	if err != nil {
+		return result, err
+	}
+
+	result.HasModelProvider = &configured
+	if configured || endpoint == nil {
+		return result, nil
+	}
+
+	if settings == nil {
+		return result, errors.New("model proxy settings unavailable")
+	}
+
+	enabled, err := settings.ModelProxyEnabled(ctx)
+	result.Enabled = err == nil && enabled
+
+	return result, err
+}
+
 // ParseModelProxyURL validates local configuration without contacting the proxy.
 // An empty value disables fallback; callers supply the default only when unset.
 func ParseModelProxyURL(value string, development bool) (*url.URL, error) {

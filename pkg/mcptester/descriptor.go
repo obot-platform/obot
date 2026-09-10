@@ -79,17 +79,21 @@ func DeploymentDescriptor(manifest types.MCPServerManifest, resolved mcp.ServerC
 	}
 
 	result.Value = strings.TrimSpace(result.Value)
-	if result.Header == descriptorURLHeader || result.Header == descriptorCommandHeader && strings.Contains(result.Value, "://") {
-		parsed, err := url.Parse(result.Value)
-		if err != nil || !validServiceHost(parsed) || parsed.Scheme != "https" && parsed.Scheme != "http" {
-			return Descriptor{}, errDescriptor
-		}
 
-		// Paths may contain tokens or personal data. With no server-specific path
-		// allowlist, retain only the origin, matching model-proxy's contract.
-		result.Value = parsed.Scheme + "://" + strings.ToLower(parsed.Host)
-	} else if result.Header == descriptorCommandHeader && !packagePattern.MatchString(result.Value) || result.Header == descriptorImageHeader && !imagePattern.MatchString(result.Value) {
-		return Descriptor{}, errDescriptor
+	var err error
+	switch result.Header {
+	case descriptorURLHeader:
+		result.Value, err = sanitizeURL(result.Value)
+	case descriptorCommandHeader:
+		result.Value, err = sanitizePackageReference(result.Value)
+	case descriptorImageHeader:
+		if !imagePattern.MatchString(result.Value) {
+			err = errDescriptor
+		}
+	}
+
+	if err != nil {
+		return Descriptor{}, err
 	}
 
 	if result.Header == descriptorCommandHeader {
@@ -100,4 +104,14 @@ func DeploymentDescriptor(manifest types.MCPServerManifest, resolved mcp.ServerC
 	}
 
 	return result, nil
+}
+
+// Remote MCP URLs have no allowlisted path structure and retain only the origin.
+func sanitizeURL(value string) (string, error) {
+	parsed, err := url.Parse(value)
+	if err != nil || !validServiceHost(parsed) || parsed.Scheme != "https" && parsed.Scheme != "http" {
+		return "", errDescriptor
+	}
+
+	return parsed.Scheme + "://" + strings.ToLower(parsed.Host), nil
 }

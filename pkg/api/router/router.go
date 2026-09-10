@@ -51,6 +51,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		HideK8sDetails:          services.HideK8sDetails,
 		UpgradeStatusReader:     services.VersionChecker,
 		ProviderConfiguration:   services.ProviderDispatcher,
+		ModelProxyURL:           services.ModelProxyURL,
+		ModelProxySettings:      services.GatewayClient,
 	})
 
 	mcpGateway, err := mcpgateway.NewHandler(

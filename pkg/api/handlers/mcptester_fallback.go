@@ -35,20 +35,8 @@ func (h *MCPTesterHandler) fallbackEnabled(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	if h.fallback.Providers == nil {
-		return false, errors.New("model provider configuration is unavailable")
-	}
-
-	configured, err := h.fallback.Providers.HasModelProvider(ctx)
-	if err != nil || configured {
-		return false, err
-	}
-
-	if h.fallback.Settings == nil {
-		return false, errors.New("model proxy settings unavailable")
-	}
-
-	return h.fallback.Settings.ModelProxyEnabled(ctx)
+	availability, err := mcptester.ResolveFallbackAvailability(ctx, h.fallback.URL, h.fallback.Providers, h.fallback.Settings)
+	return availability.Enabled, err
 }
 
 func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer, config mcp.ServerConfig) (*http.Request, []byte, error) {

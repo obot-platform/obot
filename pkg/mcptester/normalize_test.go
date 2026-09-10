@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	llmtypes "github.com/obot-platform/obot/pkg/llm"
@@ -301,5 +302,24 @@ func TestNormalizeStreamPolicyDenialSuppressesToolCalls(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].Error == nil || events[0].Error.Code != types.MCPTesterErrorPolicyDenied {
 		t.Fatalf("events = %#v, want one policy denial", events)
+	}
+}
+
+func TestNormalizeStreamDeadline(t *testing.T) {
+	ctx, cancel := context.WithDeadline(t.Context(), time.Now().Add(-time.Second))
+	defer cancel()
+
+	var events []types.MCPTesterStreamEvent
+	err := NormalizeStream(ctx, llmtypes.DialectOpenAIResponses, nil, strings.NewReader(""), func(event types.MCPTesterStreamEvent) error {
+		events = append(events, event)
+
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(events) != 1 || events[0].Error == nil || events[0].Error.Code != types.MCPTesterErrorProvider || !events[0].Error.Retryable {
+		t.Fatalf("expected retryable provider timeout, got %#v", events)
 	}
 }
