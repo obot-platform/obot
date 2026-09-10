@@ -1,9 +1,5 @@
 package types
 
-import (
-	"time"
-)
-
 type ModelProxySettings struct {
 	Enabled bool   `json:"enabled"`
 	URL     string `json:"url"`
@@ -21,5 +17,5 @@ type ModelProxyTokenUsage struct {
 type ModelProxyUsage struct {
 	Input   ModelProxyTokenUsage `json:"input"`
 	Output  ModelProxyTokenUsage `json:"output"`
-	ResetAt time.Time            `json:"resetAt"`
+	ResetAt Time                 `json:"resetAt"`
 }
