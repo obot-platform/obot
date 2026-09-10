@@ -720,7 +720,6 @@
 		{/if}
 
 		<div class="my-4 flex flex-col gap-2">
-			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external temp login URL -->
 			<a class="btn btn-secondary w-full" href={setupTempLoginUrl} rel="external">
 				{#if configuringAuthProvider?.icon}
 					<img

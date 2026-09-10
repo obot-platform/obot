@@ -278,7 +278,13 @@
 		{/if}
 		<div class="flex w-full flex-col gap-2">
 			{#if oauthURL}
-				<a in:fade href={oauthURL} rel="external" target="_blank" class="btn btn-primary">
+				<a
+					in:fade
+					href={oauthURL}
+					rel="external noopener noreferrer"
+					target="_blank"
+					class="btn btn-primary"
+				>
 					Authenticate
 				</a>
 			{:else}

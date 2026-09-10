@@ -37,7 +37,7 @@
 		Leave fields blank to use the platform defaults shown in each field. See the Kubernetes <a
 			href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 			class="text-link"
-			rel="external"
+			rel="external noopener noreferrer"
 			target="_blank">resource management documentation</a
 		> for more information.
 	</p>

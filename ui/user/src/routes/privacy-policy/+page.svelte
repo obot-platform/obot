@@ -81,11 +81,16 @@
 </script>
 
 {#snippet navLinks()}
-	<a href="https://docs.obot.ai" class="btn btn-secondary" rel="external" target="_blank">Docs</a>
+	<a
+		href="https://docs.obot.ai"
+		class="btn btn-secondary"
+		rel="external noopener noreferrer"
+		target="_blank">Docs</a
+	>
 	<a
 		href="https://discord.gg/9sSf4UyAMC"
 		class="btn btn-ghost btn-square"
-		rel="external"
+		rel="external noopener noreferrer"
 		target="_blank"
 	>
 		{#if darkMode.isDark}
@@ -97,7 +102,7 @@
 	<a
 		href="https://github.com/obot-platform/obot"
 		class="btn btn-ghost btn-square"
-		rel="external"
+		rel="external noopener noreferrer"
 		target="_blank"
 	>
 		{#if darkMode.isDark}

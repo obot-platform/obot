@@ -1325,9 +1325,11 @@
 		</div>
 	{:else if oauthURL}
 		<!-- Single server OAuth -->
-		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
-		<a href={oauthURL} rel="external" target="_blank" class="btn btn-primary text-center"
-			>Authenticate</a
+		<a
+			href={oauthURL}
+			rel="external noopener noreferrer"
+			target="_blank"
+			class="btn btn-primary text-center">Authenticate</a
 		>
 	{/if}
 </ResponsiveDialog>

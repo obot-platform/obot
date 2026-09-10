@@ -496,10 +496,9 @@
 
 				<p>Click the link below to authenticate.</p>
 
-				<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 				<a
 					href={oauthURL}
-					rel="external"
+					rel="external noopener noreferrer"
 					target="_blank"
 					class="btn btn-primary text-center text-sm outline-none"
 					onclick={() => {

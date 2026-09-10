@@ -66,13 +66,13 @@
 			<a
 				class="text-link"
 				href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#affinity-v1-core"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank">Affinity object</a
 			>. See the Kubernetes
 			<a
 				href="https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity"
 				target="_blank"
-				rel="external"
+				rel="external noopener noreferrer"
 				class="text-link">affinity documentation</a
 			> for more details.
 		</p>
@@ -94,13 +94,13 @@
 			<a
 				href="https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.26/#toleration-v1-core"
 				class="text-link"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank">Toleration objects</a
 			>. See the Kubernetes
 			<a
 				href="https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/"
 				target="_blank"
-				rel="external"
+				rel="external noopener noreferrer"
 				class="text-link">taints and tolerations documentation</a
 			> for more details.
 		</p>
@@ -120,7 +120,7 @@
 			<a
 				href="https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/#requests-and-limits"
 				class="text-link"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank">resource management documentation</a
 			> for more information.
 		</p>
@@ -189,16 +189,24 @@
 			Specify a <a
 				href="https://kubernetes.io/docs/concepts/containers/runtime-class/"
 				class="text-link"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank">RuntimeClass</a
 			>
 			for {type === 'app' ? 'the application deployment' : 'MCP server pods'}. RuntimeClass allows
 			you to select a specific container runtime configuration for enhanced security isolation.
 			Container runtimes like
-			<a href="https://gvisor.dev/" class="text-link" rel="external" target="_blank">gVisor</a>
+			<a
+				href="https://gvisor.dev/"
+				class="text-link"
+				rel="external noopener noreferrer"
+				target="_blank">gVisor</a
+			>
 			or
-			<a href="https://katacontainers.io/" class="text-link" rel="external" target="_blank"
-				>Kata Containers</a
+			<a
+				href="https://katacontainers.io/"
+				class="text-link"
+				rel="external noopener noreferrer"
+				target="_blank">Kata Containers</a
 			> provide stronger isolation by adding an additional security boundary between the container and
 			the host kernel.
 		</p>

@@ -244,8 +244,11 @@
 				</button>
 			{/if}
 			{#if responsive.isMobile}
-				<a href="https://docs.obot.ai" rel="external" target="_blank" class="dropdown-link"
-					><Book class="size-4" />Docs</a
+				<a
+					href="https://docs.obot.ai"
+					rel="external noopener noreferrer"
+					target="_blank"
+					class="dropdown-link"><Book class="size-4" />Docs</a
 				>
 			{/if}
 			{#if !impersonating}
@@ -262,7 +265,12 @@
 				>
 					<Terminal class="size-4" /> Client Preference
 				</button>
-				<a class="dropdown-link" href={resolve('/install-cli')} target="_blank" rel="external">
+				<a
+					class="dropdown-link"
+					href={resolve('/install-cli')}
+					target="_blank"
+					rel="external noopener noreferrer"
+				>
 					<SquareTerminal class="size-4" /> Install Obot CLI
 				</a>
 
@@ -318,7 +326,7 @@
 						<p>
 							Upgrade Available. <br /> Check out the
 							<a
-								rel="external"
+								rel="external noopener noreferrer"
 								target="_blank"
 								class="text-link"
 								href="https://github.com/obot-platform/obot/releases/latest"
@@ -332,8 +340,7 @@
 						{#if version.current.obot}
 							{@const link = getLink('obot', version.current.obot)}
 							{#if link}
-								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external github link -->
-								<a href={link} target="_blank" rel="external">
+								<a href={link} target="_blank" rel="external noopener noreferrer">
 									{version.current.obot}
 								</a>
 							{/if}
@@ -373,8 +380,7 @@
 					<div class="flex justify-between gap-8">
 						<span class="font-semibold">{key.replace('github.com/', '')}:</span>
 						{#if link}
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external version link -->
-							<a href={link} target="_blank" rel="external">
+							<a href={link} target="_blank" rel="external noopener noreferrer">
 								{value}
 							</a>
 						{:else}

@@ -111,11 +111,10 @@
 				Authenticating...
 			</div>
 		{:else}
-			<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
 			<a
 				target="_blank"
 				href={oauthURL}
-				rel="external"
+				rel="external noopener noreferrer"
 				class="btn btn-primary text-center text-sm"
 				onclick={() => {
 					setTimeout(() => {
@@ -125,7 +124,6 @@
 			>
 				Authenticate
 			</a>
-			<!-- eslint-enable svelte/no-navigation-without-resolve -->
 		{/if}
 	</div>
 {/if}

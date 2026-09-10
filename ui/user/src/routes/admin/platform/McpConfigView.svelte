@@ -203,7 +203,7 @@
 							the Kubernetes <a
 								href="https://kubernetes.io/docs/concepts/storage/storage-classes/"
 								class="text-link"
-								rel="external"
+								rel="external noopener noreferrer"
 								target="_blank">StorageClass documentation</a
 							> for more details.
 						</p>

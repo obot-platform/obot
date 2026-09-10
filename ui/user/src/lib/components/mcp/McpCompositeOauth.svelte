@@ -222,10 +222,9 @@
 									<Loading class="size-4" /> Checking for valid authentication…
 								</span>
 							{:else}
-								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -- external OAuth URL -->
 								<a
 									href={item.authURL}
-									rel="external"
+									rel="external noopener noreferrer"
 									target="_blank"
 									class="btn btn-primary"
 									onclick={() => recordAttempt(item)}>Authenticate</a

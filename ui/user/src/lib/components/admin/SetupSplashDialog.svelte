@@ -179,7 +179,7 @@
 		<p class="pt-4">
 			By continuing, you agree to Obot's <a
 				href="https://obot.ai/eul"
-				rel="external"
+				rel="external noopener noreferrer"
 				target="_blank"
 				class="text-link">EULA</a
 			>

@@ -128,7 +128,7 @@
 								set this account as an owner instead. (See <a
 									class="text-link"
 									target="_blank"
-									rel="external"
+									rel="external noopener noreferrer"
 									href="https://docs.obot.ai/configuration/auth-providers#preconfiguring-owner--admin-users"
 									>Preconfiguring Owner & Admin Users</a
 								> for more information.)

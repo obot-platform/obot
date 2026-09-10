@@ -266,7 +266,7 @@
 				<a
 					href={authorizationURL}
 					target="_blank"
-					rel="external"
+					rel="external noopener noreferrer"
 					class="btn btn-primary text-sm text-center"
 					onclick={() => {
 						expanded.authorizationCode = true;
