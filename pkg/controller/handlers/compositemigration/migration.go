@@ -124,7 +124,7 @@ func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 	if err := req.List(&parents, &kclient.ListOptions{Namespace: entry.Namespace, FieldSelector: fields.OneTermEqualSelector("spec.mcpServerCatalogEntryName", entry.Name)}); err != nil {
 		return err
 	}
-	target, static, err := h.buildVMCP(req, entry, legacy)
+	target, static, skipped, err := h.buildVMCP(req, entry, legacy)
 	if err != nil {
 		return err
 	}
@@ -152,14 +152,14 @@ func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 		if parent.Spec.Manifest.Runtime != types.RuntimeComposite || parent.Spec.CompositeName != "" {
 			return fmt.Errorf("unexpected dependent server %q; retaining composite source", parent.Name)
 		}
-		if err := h.migrateInstance(req, target, parent); err != nil {
+		if err := h.migrateInstance(req, target, parent, skipped); err != nil {
 			return fmt.Errorf("migrate composite connection %q: %w", parent.Name, err)
 		}
 	}
 	return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, entry))
 }
 
-func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry, legacy legacyManifest) (v1.VMCP, map[string]string, error) {
+func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry, legacy legacyManifest) (v1.VMCP, map[string]string, []string, error) {
 	target := v1.VMCP{
 		Name: migrationName(system.VMCPPrefix, entry.Namespace, entry.Name), Namespace: entry.Namespace,
 		Finalizers: []string{v1.VMCPFinalizer},
@@ -180,7 +180,7 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 	}
 	var rules v1.AccessControlRuleList
 	if err := req.List(&rules, &kclient.ListOptions{Namespace: entry.Namespace}); err != nil {
-		return target, nil, err
+		return target, nil, nil, err
 	}
 	for _, rule := range rules.Items {
 		if rule.Spec.MCPCatalogID != entry.Spec.MCPCatalogName || rule.Spec.PowerUserWorkspaceID != entry.Spec.PowerUserWorkspaceID {
@@ -196,12 +196,13 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 	if entry.Spec.PowerUserWorkspaceID != "" {
 		var workspace v1.PowerUserWorkspace
 		if err := req.Get(&workspace, entry.Namespace, entry.Spec.PowerUserWorkspaceID); err != nil {
-			return target, nil, err
+			return target, nil, nil, err
 		}
 		// Preserve existing workspace sharing as explicit grants, never a wildcard.
 		target.Spec.Manifest.Profiles = append(target.Spec.Manifest.Profiles, types.VMCPProfile{Name: "owner", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: workspace.Spec.UserID}}, AllowAllTools: true})
 	}
 	static := map[string]string{}
+	var skipped []string
 	for _, old := range legacy.CompositeConfig.ComponentServers {
 		manifest := old.Manifest.flattened()
 		id, catalogID := old.CatalogEntryID, entry.Spec.MCPCatalogName
@@ -209,6 +210,7 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 		// We have seen instances where this is an MCPServer ID, which is wrong. Skip such things.
 		if system.IsMCPServerID(id) {
 			slog.WarnContext(req.Ctx, "catalog entry ID is actually an MCP server ID, skipping component", "id", id, "entry_name", entry.Name)
+			skipped = append(skipped, id)
 			continue
 		}
 
@@ -217,31 +219,48 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 		if old.MCPServerID != "" {
 			shared = &v1.MCPServer{}
 			if err := req.Get(shared, entry.Namespace, old.MCPServerID); err != nil {
-				return target, nil, err
+				return target, nil, nil, err
 			}
 			var err error
 			manifest, err = flattenServer(shared.Spec.Manifest)
 			if err != nil {
-				return target, nil, err
+				return target, nil, nil, err
 			}
 			id = old.MCPServerID
 			catalogID = shared.Spec.MCPCatalogID
 			values, err = h.read(req.Ctx, serverCredentialContext(*shared), shared.Name)
 			if err != nil {
-				return target, nil, err
+				return target, nil, nil, err
 			}
 		}
 		if id == "" || manifest.Runtime == "" || manifest.Runtime == types.RuntimeComposite {
-			return target, nil, fmt.Errorf("invalid composite component %q", id)
+			// Skip invalid manifests
+			slog.WarnContext(req.Ctx, "skipping invalid manifest", "id", id, "runtime", manifest.Runtime, "entry", entry.Name)
+			skipped = append(skipped, id)
+			continue
 		}
-		component := types.VMCPComponent{ID: id, Name: manifest.Name, MCPCatalogID: catalogID, MCPServerCatalogEntryID: id, CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: manifest}, ToolOverrides: old.ToolOverrides, ToolPrefix: old.ToolPrefix}
+
+		component := types.VMCPComponent{
+			ID:                      id,
+			Name:                    manifest.Name,
+			MCPCatalogID:            catalogID,
+			MCPServerCatalogEntryID: id,
+			CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+				Manifest: manifest,
+			},
+			ToolOverrides: old.ToolOverrides,
+			ToolPrefix:    old.ToolPrefix,
+		}
+
 		if shared != nil && shared.Spec.MCPServerCatalogEntryName != "" {
 			component.MCPServerCatalogEntryID = shared.Spec.MCPServerCatalogEntryName
 			component.CatalogEntry.UnsupportedTools = slices.Clone(shared.Spec.UnsupportedTools)
 		}
+
 		if component.Name == "" {
 			component.Name = id
 		}
+
 		for i := range component.CatalogEntry.Manifest.Config {
 			item := &component.CatalogEntry.Manifest.Config[i]
 			policy := types.VMCPConfigurationPolicyUserAllowed
@@ -273,7 +292,7 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 		target.Spec.Manifest.Components = append(target.Spec.Manifest.Components, component)
 	}
 	vmcp.SetStaticConfigurationHashes(&target, static)
-	return target, static, target.Spec.Manifest.Validate()
+	return target, static, skipped, target.Spec.Manifest.Validate()
 }
 
 func flattenServer(server types.MCPServerManifest) (types.MCPServerCatalogEntryManifest, error) {
@@ -303,7 +322,7 @@ func (h *Handler) save(ctx context.Context, scope string, values map[string]stri
 	return h.upsert(ctx, gatewaytypes.Credential{Context: scope, Name: vmcp.ConfigurationCredentialName(), Secrets: values})
 }
 
-func (h *Handler) migrateInstance(req router.Request, target v1.VMCP, parent *v1.MCPServer) error {
+func (h *Handler) migrateInstance(req router.Request, target v1.VMCP, parent *v1.MCPServer, skipped []string) error {
 	instance := v1.VMCPInstance{
 		Name:       migrationName(system.VMCPInstancePrefix, parent.Namespace, parent.Name),
 		Namespace:  parent.Namespace,
@@ -345,8 +364,13 @@ func (h *Handler) migrateInstance(req router.Request, target v1.VMCP, parent *v1
 		}
 		index := slices.IndexFunc(target.Spec.Manifest.Components, func(c types.VMCPComponent) bool { return c.ID == id })
 		if index < 0 {
+			if slices.Contains(skipped, id) {
+				slog.WarnContext(req.Ctx, "skipping invalid component", "id", id, "vmcp_id", target.Name)
+				continue
+			}
 			return fmt.Errorf("component %q no longer exists in migrated vMCP", id)
 		}
+
 		component := target.DeepCopy().Spec.Manifest.Components[index]
 		component.SourceDigest = utils.Digest([]any{component, target.Spec.ComponentStaticConfigurationHashes[component.ID]})
 		component.ToolOverrides, component.ToolPrefix = old.ToolOverrides, old.ToolPrefix

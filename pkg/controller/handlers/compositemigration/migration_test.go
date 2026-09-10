@@ -32,14 +32,60 @@ func TestBuildVMCPSkipsMCPServerCatalogEntryID(t *testing.T) {
 	require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Exercise the legacy migration input.
 	legacy.CompositeConfig.ComponentServers[0].CatalogEntryID = system.MCPServerPrefix + "invalid"
 
-	target, _, err := (&Handler{}).buildVMCP(router.Request{
+	target, _, skipped, err := (&Handler{}).buildVMCP(router.Request{
 		Ctx:    t.Context(),
 		Client: migrationClient(),
 	}, entry, legacy)
 	require.NoError(t, err)
+	require.Equal(t, []string{system.MCPServerPrefix + "invalid"}, skipped)
 	require.Len(t, target.Spec.Manifest.Components, 1)
 	require.Equal(t, "remote", target.Spec.Manifest.Components[0].ID)
 	require.Equal(t, "remote", target.Spec.Manifest.Components[0].MCPServerCatalogEntryID)
+}
+
+func TestBuildVMCPHandlesInvalidManifests(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		id      string
+		runtime types.Runtime
+		wantIDs []string
+	}{
+		{
+			name:    "missing ID",
+			runtime: types.RuntimeNPX,
+			wantIDs: []string{"remote"},
+		},
+		{
+			name:    "missing runtime is skipped",
+			id:      "local",
+			wantIDs: []string{"remote"},
+		},
+		{
+			name:    "composite runtime",
+			id:      "local",
+			runtime: types.RuntimeComposite,
+			wantIDs: []string{"remote"},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := migrationEntry(t)
+			var legacy legacyManifest
+			require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Exercise the legacy migration input.
+			legacy.CompositeConfig.ComponentServers[0].CatalogEntryID = tc.id
+			legacy.CompositeConfig.ComponentServers[0].Manifest.Runtime = tc.runtime
+
+			target, _, skipped, err := (&Handler{}).buildVMCP(router.Request{
+				Ctx:    t.Context(),
+				Client: migrationClient(),
+			}, entry, legacy)
+			require.NoError(t, err)
+			require.Equal(t, []string{tc.id}, skipped)
+			require.Len(t, target.Spec.Manifest.Components, len(tc.wantIDs))
+			for i, id := range tc.wantIDs {
+				require.Equal(t, id, target.Spec.Manifest.Components[i].ID)
+			}
+		})
+	}
 }
 
 func TestMigrateAll(t *testing.T) {
@@ -65,6 +111,46 @@ func TestMigrateAll(t *testing.T) {
 	require.False(t, entry.DeletionTimestamp.IsZero())
 	// Do not wait for finalizers: their controllers have not started yet.
 	require.NoError(t, handler.MigrateAll(t.Context(), client))
+}
+
+func TestMigrateRetainsSourceForUnknownInstanceComponent(t *testing.T) {
+	entry := migrationEntry(t)
+	parent := migrationParent(t, "connection")
+	parent.Spec.Manifest.CompositeConfig.ComponentServers[0].CatalogEntryID = "historical"
+	client := migrationClient(entry, parent)
+	handler := credentialHandler(t, nil, map[string]map[string]string{})
+
+	require.ErrorContains(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil), `component "historical" no longer exists in migrated vMCP`)
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), parent))
+	require.True(t, parent.DeletionTimestamp.IsZero())
+	require.NoError(t, client.Get(t.Context(), kclient.ObjectKeyFromObject(entry), entry))
+	require.True(t, entry.DeletionTimestamp.IsZero())
+	var instances v1.VMCPInstanceList
+	require.NoError(t, client.List(t.Context(), &instances))
+	require.Empty(t, instances.Items)
+}
+
+func TestMigrateSkipsInvalidInstanceComponents(t *testing.T) {
+	entry := migrationEntry(t)
+	var legacy legacyManifest
+	require.NoError(t, json.Unmarshal(entry.Spec.LegacyCompositeManifest, &legacy)) //nolint:staticcheck // Exercise the legacy migration input.
+	legacy.CompositeConfig.ComponentServers[0].Manifest.Runtime = ""
+	var err error
+	entry.Spec.LegacyCompositeManifest, err = json.Marshal(legacy) //nolint:staticcheck // Exercise the legacy migration input.
+	require.NoError(t, err)
+	parent := migrationParent(t, "connection")
+	client := migrationClient(entry, parent)
+	handler := credentialHandler(t, nil, map[string]map[string]string{})
+
+	require.NoError(t, handler.Migrate(router.Request{Ctx: t.Context(), Client: client, Object: entry}, nil))
+	var instances v1.VMCPInstanceList
+	require.NoError(t, client.List(t.Context(), &instances))
+	require.Len(t, instances.Items, 1)
+	instance := instances.Items[0]
+	require.Len(t, instance.Spec.LegacyComponents, 1)
+	require.Equal(t, "remote", instance.Spec.LegacyComponents[0].ID)
+	require.Equal(t, []string{"remote"}, instance.Spec.LegacyDisabledComponents)
+	require.True(t, apierrors.IsNotFound(client.Get(t.Context(), kclient.ObjectKeyFromObject(parent), &v1.MCPServer{})))
 }
 
 func TestMigrateAllFailureAndRetry(t *testing.T) {
