@@ -271,6 +271,10 @@ func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
 			}
 		}
 
+		if r.Header.Get("X-Forwarded-For") != "192.0.2.10, 2001:db8::1" || r.Header.Get("X-Real-IP") != "192.0.2.10" {
+			t.Error("IP headers were not forwarded")
+		}
+
 		w.Header().Set("X-Obot-Machine-Fingerprint", "private-fingerprint")
 		_, _ = io.WriteString(w, "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp-test\",\"status\":\"completed\",\"output\":[],\"usage\":{\"input_tokens\":42,\"output_tokens\":7}}}\n\n")
 	}))
@@ -281,7 +285,7 @@ func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(fallbackChatBody))
 	request.SetPathValue("mcp_server_id", "ms1tester")
-	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity"} {
+	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
 		request.Header.Set(key, value)
 	}
 

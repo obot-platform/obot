@@ -91,6 +91,9 @@ func TestModelProxyUsageAPI(t *testing.T) {
 	var keys []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		keys = append(keys, r.Header.Get("Authorization"))
+		if r.Header.Get("X-Forwarded-For") != "192.0.2.10, 2001:db8::1" || r.Header.Get("X-Real-IP") != "192.0.2.10" {
+			t.Error("IP headers were not forwarded")
+		}
 		if r.Method != http.MethodGet || r.URL.Path != "/prefix/v1/usage" || r.Header.Get("Cookie") != "" || r.Header.Get("X-Obot-Machine-Fingerprint") != "persisted-machine" || r.Header.Get("X-Obot-MCP-URL") != "" {
 			t.Errorf("unexpected usage request %s %s %v", r.Method, r.URL, r.Header)
 		}
@@ -116,6 +119,8 @@ func TestModelProxyUsageAPI(t *testing.T) {
 		r.Header.Set("Authorization", "Bearer private-browser-token")
 		r.Header.Set("Cookie", "private-browser-cookie")
 		r.Header.Set("X-Obot-MCP-URL", "https://private.example")
+		r.Header.Set("X-Forwarded-For", "192.0.2.10, 2001:db8::1")
+		r.Header.Set("X-Real-IP", "192.0.2.10")
 
 		return w, h.Usage(api.Context{Request: r, ResponseWriter: w})
 	}

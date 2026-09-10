@@ -38,7 +38,7 @@ func NewModelProxyUsageHTTPClient() *http.Client {
 
 // NewModelProxyUsageRequest derives the sibling endpoint from the validated
 // Responses URL without losing a deployment prefix or its escaped path.
-func NewModelProxyUsageRequest(ctx context.Context, responsesURL *url.URL, licenseKey, fingerprint string) (*http.Request, error) {
+func NewModelProxyUsageRequest(ctx context.Context, responsesURL *url.URL, licenseKey, fingerprint string, inbound http.Header) (*http.Request, error) {
 	if responsesURL == nil || !safeCredential(licenseKey) || !safeCredential(fingerprint) {
 		return nil, errors.New("installation license or machine fingerprint is unavailable")
 	}
@@ -73,6 +73,8 @@ func NewModelProxyUsageRequest(ctx context.Context, responsesURL *url.URL, licen
 	req.Header.Set("User-Agent", types.MCPTesterClientName)
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(licenseKey))
 	req.Header.Set("X-Obot-Machine-Fingerprint", strings.TrimSpace(fingerprint))
+
+	copyModelProxyIPHeaders(req.Header, inbound)
 
 	return req, nil
 }

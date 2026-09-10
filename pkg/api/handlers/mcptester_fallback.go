@@ -38,7 +38,7 @@ func (h *MCPTesterHandler) fallbackEnabled(ctx context.Context) (bool, error) {
 	return availability.Enabled, err
 }
 
-func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer) (*http.Request, []byte, error) {
+func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MCPTesterChatRequest, server v1.MCPServer, inbound http.Header) (*http.Request, []byte, error) {
 	body, err := mcptester.BuildFallbackRequest(request, testerSystemInstruction(server))
 	if err != nil {
 		return nil, nil, types.NewErrHTTP(http.StatusBadRequest, err.Error())
@@ -57,7 +57,7 @@ func (h *MCPTesterHandler) fallbackRequest(ctx context.Context, request types.MC
 		return nil, nil, errMCPTesterLicenseRequired
 	}
 
-	outbound, err := mcptester.NewFallbackRequest(ctx, h.fallback.URL, body, licenseKey, h.fallback.License.MachineFingerprint())
+	outbound, err := mcptester.NewFallbackRequest(ctx, h.fallback.URL, body, licenseKey, h.fallback.License.MachineFingerprint(), inbound)
 	if err != nil {
 		return nil, nil, types.NewErrHTTP(http.StatusServiceUnavailable, "installation license or machine fingerprint is unavailable")
 	}

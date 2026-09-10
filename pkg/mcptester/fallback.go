@@ -146,9 +146,9 @@ func BuildFallbackRequest(request types.MCPTesterChatRequest, instruction string
 	return body, nil
 }
 
-// NewFallbackRequest deliberately has no inbound-header argument. Only the
-// installation license and machine fingerprint authenticate the request.
-func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string) (*http.Request, error) {
+// NewFallbackRequest forwards only the inbound IP headers. The installation
+// license and machine fingerprint authenticate the request.
+func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string, inbound http.Header) (*http.Request, error) {
 	if endpoint == nil || len(body) > FallbackMaxBodyBytes {
 		return nil, errors.New("invalid model proxy request")
 	}
@@ -167,6 +167,8 @@ func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, lic
 	req.Header.Set("User-Agent", types.MCPTesterClientName)
 	req.Header.Set("Authorization", "Bearer "+strings.TrimSpace(licenseKey))
 	req.Header.Set("X-Obot-Machine-Fingerprint", strings.TrimSpace(fingerprint))
+
+	copyModelProxyIPHeaders(req.Header, inbound)
 
 	// No replay body: generation attempts must not be automatically retried.
 	req.GetBody = nil
@@ -196,5 +198,14 @@ func NewFallbackHTTPClient() *http.Client {
 		Transport:     transport,
 		Timeout:       FallbackTimeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+}
+
+// Preserve the existing values without appending or inferring a client address.
+func copyModelProxyIPHeaders(outbound, inbound http.Header) {
+	for _, name := range []string{"X-Forwarded-For", "X-Real-IP"} {
+		for _, value := range inbound.Values(name) {
+			outbound.Add(name, value)
+		}
 	}
 }

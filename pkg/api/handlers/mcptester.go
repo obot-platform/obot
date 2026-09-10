@@ -127,7 +127,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 		ctx, cancel = context.WithTimeout(ctx, mcptester.FallbackTimeout)
 		defer cancel()
 
-		proxyRequest, body, err = h.fallbackRequest(ctx, chatRequest, server)
+		proxyRequest, body, err = h.fallbackRequest(ctx, chatRequest, server, req.Request.Header)
 		if err != nil {
 			status, code, message, retryable := http.StatusServiceUnavailable, types.MCPTesterErrorProvider, "The installation license could not be read. Try again later.", true
 			if errors.Is(err, errMCPTesterLicenseRequired) {
