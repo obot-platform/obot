@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { UserService } from '$lib/services';
+	import { vmcpInstances } from '$lib/stores';
 	import { isInteractiveChildEvent } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
@@ -41,6 +43,23 @@
 		selectAriaLabel,
 		enterDelay
 	}: Props = $props();
+
+	let instance = $derived(vmcpInstances.current.items.find((item) => item.vmcpID === id));
+	let disconnecting = $state(false);
+
+	async function disconnectInstance(toggle: (open?: boolean) => void) {
+		if (!instance || disconnecting) {
+			return;
+		}
+		disconnecting = true;
+		try {
+			await UserService.deleteVMCPInstance(instance.id);
+			vmcpInstances.remove(instance.id);
+			toggle(false);
+		} finally {
+			disconnecting = false;
+		}
+	}
 </script>
 
 <div
@@ -113,6 +132,18 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
+				{#if instance}
+					<button
+						class="menu-button"
+						disabled={disconnecting}
+						onclick={(e) => {
+							e.stopPropagation();
+							void disconnectInstance(toggle);
+						}}
+					>
+						Disconnect
+					</button>
+				{/if}
 				<button
 					class="menu-button-destructive"
 					onclick={(e) => {

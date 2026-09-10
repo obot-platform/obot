@@ -46,6 +46,14 @@ describe('vmcpInstances', () => {
 		expect(vmcpInstances.current.items).toEqual([configured]);
 	});
 
+	it('removes an instance without another list call', () => {
+		vmcpInstances.current = { items: [instance], loading: false };
+
+		vmcpInstances.remove(instance.id);
+
+		expect(vmcpInstances.current.items).toEqual([]);
+	});
+
 	it('refreshes when watching starts', async () => {
 		vi.spyOn(UserService, 'listVMCPInstances').mockResolvedValue([instance]);
 

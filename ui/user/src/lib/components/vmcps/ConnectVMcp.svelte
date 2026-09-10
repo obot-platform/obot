@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dialogAnimation } from '$lib/actions/dialogAnimation';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import CopyField from '$lib/components/CopyField.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -6,6 +7,7 @@
 		type CompositeLaunchFormData
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
+	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import {
 		resolveVMcpComponents,
@@ -14,6 +16,10 @@
 	} from '$lib/services/vmcps/utils';
 	import { vmcpInstances } from '$lib/stores';
 	import VMcpIcon from './VMcpIcon.svelte';
+	import { CircleAlert, X } from '@lucide/svelte';
+	import { onMount } from 'svelte';
+	import { fade } from 'svelte/transition';
+	import { twMerge } from 'tailwind-merge';
 
 	let vmcp = $state<VMCP>();
 	let instance = $state<VMCPInstance>();
@@ -26,6 +32,12 @@
 	let error = $state<string>();
 	let configureOpen = $state(false);
 	let showIntroDialog = $state(false);
+	let launchError = $state<string>();
+	let launchProgress = $state<number>(0);
+	let launchState = $state<'relaunching' | 'launching' | undefined>();
+	let oauthDialog = $state<HTMLDialogElement>();
+	let oauthURL = $state<string>('');
+	let oauthVerifying = $state(false);
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -46,7 +58,13 @@
 	export function open(target: VMCP, targetInstance?: VMCPInstance) {
 		vmcp = target;
 		instance = targetInstance;
+		configureForm = undefined;
 		error = undefined;
+		launchError = undefined;
+		launchProgress = 0;
+		launchState = undefined;
+		oauthURL = '';
+		oauthVerifying = false;
 		showIntroDialog = false;
 		connectionUrlField?.clear?.();
 		howToConnect?.resetCopied?.();
@@ -55,16 +73,31 @@
 
 	function handleConfigure() {
 		showIntroDialog = false;
-		initConfigureForm();
+		ensureOauthVisibilityListener();
+		if (hasUserConfiguration) {
+			void initConfigureForm();
+		} else {
+			void launchWithoutConfiguration();
+		}
+	}
+
+	async function launchWithoutConfiguration() {
+		configureForm = undefined;
+		configureOpen = true;
+		initUpdatingOrLaunchProgress();
+		await configureDialog?.open();
+		if (launchState !== 'launching') return;
+		await saveConfiguration();
 	}
 
 	function initLaunch() {
-		connectDialog?.close();
 		showIntroDialog = true;
+		connectDialog?.close();
 	}
 
 	async function initConfigureForm() {
 		if (!vmcp) return;
+		configureOpen = true;
 		connectDialog?.close();
 		const componentConfigs: CompositeLaunchFormData['componentConfigs'] = {};
 		for (const component of vmcp.components ?? []) {
@@ -103,6 +136,10 @@
 				headers: fields.filter((field) => field.usage === 'header')
 			};
 		}
+		if (Object.keys(componentConfigs).length === 0) {
+			await launchWithoutConfiguration();
+			return;
+		}
 		configureForm = { componentConfigs };
 		error = undefined;
 		configureOpen = true;
@@ -120,31 +157,121 @@
 		return { components };
 	}
 
-	async function saveConfiguration() {
-		const target = vmcp;
-		if (!target || !configureForm || saving) return;
-		saving = true;
-		error = undefined;
-		try {
-			const targetInstance = instance ?? (await UserService.createVMCPInstance(target.id));
-			const configured = await UserService.configureVMCPInstance(
-				targetInstance.id,
-				configurationPayload(configureForm)
-			);
-			instance = {
-				...configured,
-				status: { ...configured.status, configured: true }
-			};
-			vmcpInstances.upsert(instance);
+	function initUpdatingOrLaunchProgress() {
+		launchError = undefined;
+		launchProgress = 0;
+		launchState = 'launching';
+
+		const timeout1 = setTimeout(() => {
+			launchProgress = 10;
+		}, 100);
+
+		const timeout2 = setTimeout(() => {
+			launchProgress = 30;
+		}, 3000);
+
+		const timeout3 = setTimeout(() => {
+			launchProgress = 80;
+		}, 10000);
+
+		return { timeout1, timeout2, timeout3 };
+	}
+
+	function finishLaunch() {
+		configureDialog?.close();
+		configureOpen = false;
+		connectDialog?.open();
+	}
+
+	async function getOauthURL() {
+		if (!vmcp) return '';
+		return (await UserService.getMcpServerOauthURL(vmcp.id)) || '';
+	}
+
+	async function handleOauthVisibilityChange() {
+		if (!oauthURL && !oauthVerifying) return;
+		if (document.visibilityState === 'visible') {
+			oauthURL = await getOauthURL();
+			if (!oauthURL) {
+				oauthDialog?.close();
+				finishLaunch();
+			}
+			oauthVerifying = false;
+		}
+	}
+
+	function ensureOauthVisibilityListener() {
+		document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+		document.addEventListener('visibilitychange', handleOauthVisibilityChange);
+	}
+
+	async function verifyOauthOrConnect() {
+		oauthVerifying = false;
+		oauthURL = await getOauthURL();
+		launchProgress = 100;
+		await new Promise((resolve) => setTimeout(resolve, 1000));
+		launchState = undefined;
+		launchProgress = 0;
+		if (oauthURL) {
 			configureDialog?.close();
 			configureOpen = false;
-			connectDialog?.open();
+			oauthDialog?.showModal();
+		} else {
+			finishLaunch();
+		}
+	}
+
+	function handleOauthClose() {
+		oauthDialog?.close();
+		oauthURL = '';
+		finishLaunch();
+	}
+
+	async function saveConfiguration() {
+		const target = vmcp;
+		if (!target || saving) return;
+		saving = true;
+		error = undefined;
+		const { timeout1, timeout2, timeout3 } = initUpdatingOrLaunchProgress();
+		try {
+			const targetInstance = instance ?? (await UserService.createVMCPInstance(target.id));
+			if (configureForm) {
+				const configured = await UserService.configureVMCPInstance(
+					targetInstance.id,
+					configurationPayload(configureForm)
+				);
+				instance = {
+					...configured,
+					status: { ...configured.status, configured: true }
+				};
+			} else {
+				instance = targetInstance;
+			}
+			vmcpInstances.upsert(instance);
+
+			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(target.id);
+			if (!launchResponse.success) {
+				launchError = launchResponse.message ?? 'Failed to launch this vMCP.';
+				return;
+			}
+
+			await verifyOauthOrConnect();
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Failed to configure this vMCP.';
+			launchError = err instanceof Error ? err.message : 'Failed to launch this vMCP.';
 		} finally {
+			clearTimeout(timeout1);
+			clearTimeout(timeout2);
+			clearTimeout(timeout3);
 			saving = false;
 		}
 	}
+
+	onMount(() => {
+		ensureOauthVisibilityListener();
+		return () => {
+			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
+		};
+	});
 </script>
 
 {#snippet dialogTitle()}
@@ -157,7 +284,7 @@
 	animate="slide"
 	id="connect-to-vmcp-dialog"
 	onClose={() => {
-		if (saving || configureOpen) return;
+		if (saving || configureOpen || showIntroDialog || launchState === 'launching') return;
 		vmcp = undefined;
 	}}
 >
@@ -181,8 +308,8 @@
 			url={connectURL}
 			id={generateIdFromName(displayName)}
 			{displayName}
-			onLaunch={hasUserConfiguration && !instance ? initLaunch : undefined}
-			onEdit={hasUserConfiguration && instance ? initConfigureForm : undefined}
+			onLaunch={!instance ? initLaunch : undefined}
+			onEdit={instance ? initConfigureForm : undefined}
 		/>
 	{:else}
 		<p class="text-sm text-muted-content font-light md:p-0 p-4">
@@ -196,13 +323,8 @@
 	bind:form={configureForm}
 	name={displayName}
 	onSave={saveConfiguration}
-	onClose={() => {
-		configureOpen = false;
-		error = undefined;
-		if (vmcp) connectDialog?.open();
-	}}
 	submitText={instance ? 'Update' : 'Configure'}
-	loading={saving}
+	loading={saving || launchState === 'launching'}
 	{error}
 	isNew={false}
 	showComponentToggle={false}
@@ -210,6 +332,77 @@
 >
 	{#snippet icon()}
 		<VMcpIcon components={componentViews} />
+	{/snippet}
+	{#snippet loadingContent()}
+		<div in:fade class="h-full w-full flex items-center justify-center">
+			{#if launchError}
+				<div class="flex flex-col gap-2 w-full h-full" in:fade>
+					<div class="notification-error">
+						<div class="flex items-center gap-2">
+							<CircleAlert class="size-5 text-error" />
+							<h4 class="text-md font-medium">vMCP Launch Failed</h4>
+						</div>
+
+						<div class="text-xs mt-2">
+							There was an issue launching this vMCP.
+
+							<ul class="list-disc px-4 py-1 space-y-1">
+								{#if hasUserConfiguration}
+									<li>Verify your configurations provided at launch are correct and try again.</li>
+								{/if}
+								<li>If the issue persists, please contact support.</li>
+							</ul>
+						</div>
+					</div>
+					<p class="text-sm self-start">{launchError}</p>
+					<div class="flex w-full flex-col items-center gap-2 md:flex-row mt-2">
+						{#if hasUserConfiguration}
+							<button
+								class="btn btn-primary w-full md:w-1/2 md:flex-1"
+								onclick={() => {
+									launchState = 'relaunching';
+									launchError = undefined;
+									launchProgress = 0;
+									saving = false;
+								}}
+							>
+								Update Configuration and Try Again
+							</button>
+						{/if}
+						<button
+							class="btn btn-secondary w-full md:w-1/2 md:flex-1"
+							onclick={() => {
+								launchState = undefined;
+								launchError = undefined;
+								launchProgress = 0;
+								configureDialog?.close();
+								configureOpen = false;
+								if (vmcp) connectDialog?.open();
+							}}
+						>
+							Close
+						</button>
+					</div>
+				</div>
+			{:else}
+				<div class="flex flex-col gap-1 mb-4">
+					<div class="w-full text-xl font-extralight text-center">
+						{Math.round(launchProgress ?? 0)}%
+					</div>
+
+					<div class="bg-base-400 h-3 w-full overflow-hidden rounded-full">
+						<div
+							class={twMerge('bg-primary h-full rounded-full transition-all duration-500 ease-out')}
+							style="width: {launchProgress ?? 0}%"
+						></div>
+					</div>
+
+					<div class="flex w-md flex-col justify-center gap-2 text-center">
+						<p class="text-xs font-light">Launching vMCP...</p>
+					</div>
+				</div>
+			{/if}
+		</div>
 	{/snippet}
 </CatalogConfigureForm>
 
@@ -238,3 +431,49 @@
 		</p>
 	{/snippet}
 </Confirm>
+
+<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
+	<div class="dialog-container md:w-sm">
+		<div class="flex flex-col gap-4 p-4">
+			{#if oauthURL}
+				<div class="absolute top-2 right-2">
+					<IconButton onclick={handleOauthClose}>
+						<X class="size-4" />
+					</IconButton>
+				</div>
+				<div class="flex items-center gap-2">
+					<VMcpIcon components={componentViews} />
+					<h3 class="text-lg leading-5.5 font-semibold">
+						{displayName}
+					</h3>
+				</div>
+
+				<p>
+					In order to use {displayName}, authentication with the MCP server is required.
+				</p>
+
+				<p>Click the link below to authenticate.</p>
+
+				<!-- eslint-disable svelte/no-navigation-without-resolve -- external OAuth URL -->
+				<a
+					href={oauthURL}
+					rel="external"
+					target="_blank"
+					class="btn btn-primary text-center text-sm outline-none"
+					onclick={() => {
+						oauthVerifying = true;
+					}}
+				>
+					{#if oauthVerifying}
+						Authenticating...
+					{:else}
+						Authenticate
+					{/if}
+				</a>
+			{/if}
+		</div>
+	</div>
+	<form class="dialog-backdrop">
+		<button type="button" aria-label="Close dialog" onclick={handleOauthClose}>close</button>
+	</form>
+</dialog>

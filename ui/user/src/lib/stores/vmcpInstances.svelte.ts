@@ -15,6 +15,7 @@ const store = $state<{
 	current: VMCPInstancesState;
 	refresh: () => Promise<void>;
 	upsert: (instance: VMCPInstance) => void;
+	remove: (id: string) => void;
 	startWatching: () => () => void;
 }>({
 	current: {
@@ -23,6 +24,7 @@ const store = $state<{
 	},
 	refresh,
 	upsert,
+	remove,
 	startWatching
 });
 
@@ -93,6 +95,13 @@ function upsert(instance: VMCPInstance) {
 			index >= 0
 				? [...items.slice(0, index), instance, ...items.slice(index + 1)]
 				: [...items, instance]
+	};
+}
+
+function remove(id: string) {
+	store.current = {
+		...store.current,
+		items: store.current.items.filter((item) => item.id !== id)
 	};
 }
 
