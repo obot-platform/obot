@@ -33,6 +33,9 @@ var (
 	tunnelPeerResources = newPathMatcher("GET /tunnel/peer")
 
 	adminAndOwnerRules = []string{
+		"GET /api/model-proxy",
+		"PUT /api/model-proxy",
+		"GET /api/model-proxy/usage",
 		"/api/mcp-tunnels",
 		"/api/mcp-tunnels/",
 		"/api/mcp-catalogs",

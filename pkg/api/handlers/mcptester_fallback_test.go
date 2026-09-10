@@ -69,6 +69,7 @@ func newFallbackTestHandler(t *testing.T, providers *fakeTesterProviders, licens
 		URL:       endpoint,
 		Providers: providers,
 		License:   licenseSource,
+		Settings:  newHandlerTestGateway(t),
 	})
 	handler.httpClient = &http.Client{Transport: mcpTesterRoundTripFunc(func(*http.Request) (*http.Response, error) {
 		t.Error("unexpected gateway call")
