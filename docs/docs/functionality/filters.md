@@ -8,19 +8,22 @@ Filters are a powerful mechanism for inspecting and controlling tool calls and t
 
 Filters can be implemented in two ways:
 
-- **MCP filter servers**: MCP servers that expose a filter tool. Obot deploys and calls the configured tool when matching MCP traffic is processed.
-- **HTTP webhook filters**: HTTP endpoints that receive MCP messages from the gateway.
+- **MCP filter servers**: Hosted or remote MCP servers that expose a filter tool. Hosted filters run as separate Docker containers or Kubernetes workloads. Remote filters run at an external MCP endpoint. Obot calls the configured tool when matching MCP traffic is processed.
+- **HTTP webhook filters**: HTTP endpoints that receive MCP messages and return a decision to allow or reject them.
 
 When you configure a filter, you can narrow when it runs using selectors that target particular tool calls or MCP (Model Context Protocol) tool functions.
+
+Filter implementations run outside the Obot process. Obot handles proxying, calls the filter, and enforces its response; the target MCP server does not host or enforce the filter. See the [gateway architecture](../concepts/mcp-gateway.md#gateway-architecture).
 
 ## How Filters Work
 
 1. **MCP Request Interception**: When a request is made to an MCP server, the gateway intercepts it and sends the details to your configured filter
-2. **Payload Inspection**: Your filter receives the payload and can perform any custom logic or validation
+2. **Payload Inspection**: The separate filter server or webhook receives the payload and performs its validation
 3. **Response Decision**: Your filter returns one of the following decisions:
    - Accept: Allow the tool call to proceed
    - Reject: Block execution and return an error to the user
    - Mutate: Return a modified MCP message, if mutation is allowed for the filter
+4. **Enforcement**: Obot applies the filter response before forwarding the request or returning the response to the client.
 
 ## Gateway Configuration
 
@@ -36,6 +39,8 @@ All filter types support selectors to control when your filter is triggered:
 ## MCP Filter Servers
 
 MCP filters can be deployed as MCP servers. Their deployment configuration is similar to other MCP servers in Obot: choose a runtime such as `remote`, `containerized`, `npx`, or `uvx`, then provide the runtime-specific configuration and any required environment variables.
+
+With `remote`, Obot connects to the configured endpoint and does not deploy the filter implementation. The other runtimes deploy a separate workload; a hosted filter does not run inside Obot or inside the target MCP server.
 
 The additional requirement for an MCP filter server is a filter tool name. Obot needs this value so it knows which tool to call when the filter runs.
 
@@ -64,25 +69,23 @@ The default built-in filter catalog is maintained in the [obot-platform/system-m
 
 ## HTTP-based Filters
 
-You can also use HTTP-based webhooks for filtering. In this case, the HTTP server would have to be deployed outside of Obot. You can then provide the following information to Obot:
+Deploy a webhook service that accepts MCP messages over HTTP. Configure its URL in Obot, which sends matching messages to the webhook and uses its response to allow or reject them.
+
+Provide the following information to Obot:
 
 ### Required Configuration
 
 - **Name**: A descriptive name for your filter
-- **URL**: The webhook endpoint URL where the gateway will send payloads
+- **URL**: The webhook endpoint that receives MCP messages
 - **Secret** (optional): A shared secret with the webhook receiver for payload signature verification
 
 ### Security with Secrets
 
-If you configure a secret, the gateway will sign each payload using this shared secret. This allows both sides (the gateway and your webhook service) to verify the authenticity of the communication:
-
-- The gateway signs outgoing payloads with the secret
-- Your webhook service can verify the signature to ensure the payload is legitimate
-- This prevents unauthorized or tampered requests from being processed
+Configure the same shared secret in Obot and your webhook service. When a secret is configured, webhook requests include a signature in the `X-Obot-Signature-256` header. Your service should verify this signature before processing the request.
 
 ### Webhook Receiver
 
-To implement a filter, you need to create a web service that can handle POST requests from the gateway.
+Your webhook endpoint must accept HTTP POST requests containing MCP messages.
 
 ### Payload Structure
 
@@ -124,7 +127,7 @@ PORT=8000 WEBHOOK_SECRET=somethingsecret uv run simple_webhook_example.py
 
 The filter target url will be `http://<host>:8000/webhook`
 
-The Webhook Secret will also need to be configured in the gateway.
+Set the Webhook Secret in Obot to the same value as `WEBHOOK_SECRET` in this example.
 
 ```python
 #!/usr/bin/env python3
@@ -154,7 +157,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 def validate_signature(body: bytes, signature: str, secret: str) -> bool:
     """
     Validate HMAC-SHA256 signature for webhook security.
@@ -181,9 +183,6 @@ def validate_signature(body: bytes, signature: str, secret: str) -> bool:
     # Secure comparison
     return hmac.compare_digest(signature, expected)
 
-
-
-
 class WebhookMessage(BaseModel):
     """JSON-RPC message structure for webhook payloads."""
     jsonrpc: str
@@ -193,14 +192,12 @@ class WebhookMessage(BaseModel):
     result: Optional[Dict[str, Any]] = None
     error: Optional[Dict[str, Any]] = None
 
-
 # Initialize app
 app = FastAPI(title="Simple Webhook with Filtering")
 
 # Configuration
 SECRET = os.getenv("WEBHOOK_SECRET", "test_secret")
 PORT = int(os.getenv("PORT", "8000"))
-
 
 @app.post("/webhook")
 async def webhook_endpoint(
@@ -240,7 +237,6 @@ async def webhook_endpoint(
         logger.error(f"Error processing webhook: {e}")
         raise HTTPException(status_code=400, detail=f"Invalid payload: {str(e)}")
 
-
 def check_message_for_threats(message: WebhookMessage) -> None:
     """
     Check DuckDuckGo search requests for unsafe query content.
@@ -275,7 +271,6 @@ def check_message_for_threats(message: WebhookMessage) -> None:
                 logger.info(f"✅ Safe search query: '{query}'")
     
     logger.debug(f"✅ Clean message: {message.method}")
-
 
 def is_unsafe_search_query(query: str) -> bool:
     """
@@ -316,12 +311,10 @@ def is_unsafe_search_query(query: str) -> bool:
     
     return False
 
-
 @app.get("/health")
 async def health_check():
     """Simple health check endpoint."""
     return {"status": "healthy", "filter": "ready"}
-
 
 @app.get("/")
 async def root():
@@ -335,7 +328,6 @@ async def root():
         },
         "note": "Send JSON-RPC messages to /webhook with proper signatures. Suspicious content will result in 403 responses."
     }
-
 
 def main():
     """Start the webhook server."""
@@ -356,7 +348,6 @@ def main():
         port=PORT,
         log_level="info"
     )
-
 
 if __name__ == "__main__":
     main()

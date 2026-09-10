@@ -4,52 +4,32 @@ title: MCP Gateway
 
 # MCP Gateway
 
-The MCP Gateway is a reverse-proxy passthrough that sits between MCP clients and MCP servers. It authenticates users, ensures servers are deployed, and forwards requests without modifying the MCP protocol.
+The MCP Gateway runs inside Obot and proxies traffic between MCP clients and hosted or remote MCP servers. It authenticates users, checks authorization, ensures hosted servers are running, records audit data, and invokes filters before forwarding allowed messages. Filters can reject traffic or modify it when mutation is allowed.
 
 ## Gateway Architecture
 
-The gateway is intentionally simple. It handles three things:
-
-1. **Authentication**: Validates users against the configured identity provider
-2. **Server Deployment**: Ensures the target MCP server is running (via Docker or Kubernetes)
-3. **Proxy**: Forwards requests to the MCP server and returns responses
-
 ![Gateway Architecture](/img/gateway-architecture.webp)
 
-All other functionality (authorization, audit logging, webhook filters, token exchange) is handled by the MCP Server Shim that runs alongside each MCP server.
+Obot owns proxying, authentication, authorization, auditing, and filter enforcement. Hosted server code and filter code execute in separate workloads.
 
-## The MCP Server Shim
-
-Every MCP server runs with a shim. This includes servers deployed by Obot and remote MCP servers. The shim is protocol-aware and handles:
-
-- **Authorization**: Checking access control rules
-- **Audit Logging**: Recording request/response metadata
-- **Webhook Filters**: Invoking configured filters on requests and responses
-- **Token Exchange**: Exchanging tokens for OAuth-protected servers
-
-Secrets (client credentials, token exchange secrets, audit tokens) live in the shim and are never exposed to the MCP server itself. Similarly, MCP server configuration is never exposed to the shim.
+Obot handles OAuth token exchange and refresh to access upstream MCP servers on the user's behalf. See the [authentication flow](./architecture.md#authentication-flow).
 
 ### Deployment
 
-- **Kubernetes**: All containers (MCP server, shim, webhook converters) run in a single pod and communicate over localhost
-- **Docker**: Containers communicate via `host.docker.internal` or local IP
-
-## Token Exchange
-
-For OAuth-protected MCP servers, the gateway forwards the original bearer token unchanged. The shim then performs a token exchange using the OAuth 2.0 Token Exchange standard (RFC 8693).
-
-![Token Exchange Flow](/img/token-exchange-flow.webp)
-
-This approach provides:
-
-- **Standards compliance**: Token exchange is a well-defined OAuth extension
-- **Flexibility**: Additional credentials can be passed to MCP servers without changing the gateway
+- **Kubernetes**: Hosted MCP servers and hosted filters run in separate workloads from the Obot pod and from one another.
+- **Docker**: Hosted servers and filters run in separate containers alongside Obot.
+- **Remote**: Obot connects to an externally hosted MCP endpoint.
+- **STDIO runtimes**: Hosted `npx` and `uvx` servers use a transport adapter in their workload to expose HTTP. Proxy filters run through Obot, not through that adapter.
 
 ## Filters
 
-Filters allow inspection and modification of MCP traffic. They can be implemented as MCP filter servers or as HTTP webhook filters.
+Obot selects matching filters, calls them, and enforces their accept, reject, or permitted mutation responses. Filter implementations run outside the Obot process:
 
-MCP filter servers are deployed like other MCP servers in Obot, with one additional setting: the filter configuration must identify the tool name that Obot calls for filtering. Existing HTTP webhooks are automatically converted to MCP servers that run alongside the shim.
+- **Hosted MCP filters** use `npx`, `uvx`, or `containerized` runtimes and run as separate workloads managed by Obot.
+- **Remote MCP filters** expose a filter tool at an external MCP endpoint; Obot connects to that endpoint instead of deploying the filter implementation.
+- **HTTP webhook filters** use a separately hosted MCP-to-HTTP adapter that calls the external webhook endpoint. The adapter is not a sidecar attached to each target MCP server.
+
+See [Filters](../functionality/filters.md) for selectors and contracts.
 
 ## Connecting to the Gateway
 
@@ -59,7 +39,7 @@ Obot Agent connects through the gateway automatically. Users select which MCP se
 
 ### With External Clients
 
-External MCP clients (Claude Desktop, Cursor, VS Code) can connect using the gateway endpoint:
+External MCP clients can connect using the gateway endpoint:
 
 ```
 https://your-obot-instance/mcp-connect/{server-id}

@@ -4,7 +4,7 @@ title: MCP Hosting
 
 # MCP Hosting
 
-The MCP Hosting layer runs and manages MCP servers directly within Obot. It handles deployment, lifecycle management, and runtime isolation for MCP servers.
+Obot deploys and manages hosted MCP server workloads on the underlying Kubernetes or Docker runtime.
 
 ## Runtime Types
 
@@ -17,7 +17,7 @@ The MCP Hosting layer runs and manages MCP servers directly within Obot. It hand
 - **[Single-user](../functionality/mcp-servers.md#single-user-server)**: Each user gets their own isolated instance with separate credentials
 - **[Multi-user](../functionality/mcp-servers.md#multi-user-server)**: A shared instance serves multiple users with shared or per-user credentials
 - **[Remote](../functionality/mcp-servers.md#remote-server)**: External MCP servers accessed via HTTP, not hosted by Obot
-- **[Composite](../functionality/mcp-servers.md#composite-server)**: Combines multiple servers into a single virtual server with curated tools
+- **Composite**: Combines multiple servers into a single virtual server with curated tools
 
 ## Deployment Environments
 
