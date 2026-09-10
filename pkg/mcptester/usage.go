@@ -135,6 +135,6 @@ func ReadModelProxyUsage(response *http.Response) (types.ModelProxyUsage, error)
 	return types.ModelProxyUsage{
 		Input:   types.ModelProxyTokenUsage{Used: *snapshot.Input.Used, Max: *snapshot.Input.Max},
 		Output:  types.ModelProxyTokenUsage{Used: *snapshot.Output.Used, Max: *snapshot.Output.Max},
-		ResetAt: snapshot.ResetAt.UTC(),
+		ResetAt: types.Time{Time: snapshot.ResetAt.UTC()},
 	}, nil
 }
