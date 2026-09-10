@@ -166,8 +166,11 @@ describe('CurrentAccessDialog.svelte', () => {
 			.toBeVisible();
 		await expect.element(dialog.getByText('GitHub', { exact: true })).toBeVisible();
 		await expect.element(dialog.getByText('Slack', { exact: true })).toBeVisible();
-		await expect.element(dialog.getByText(/Catalog Entry · Granted by/)).toBeVisible();
-		await expect.element(dialog.getByText(/MCP Server · Granted by/)).toBeVisible();
+		await expect.element(dialog.getByText('Granted by').first()).toBeVisible();
+		await expect
+			.element(dialog.getByText('(Assigned to this user)', { exact: true }))
+			.toBeVisible();
+		await expect.element(dialog.getByText('(Via group membership)', { exact: true })).toBeVisible();
 
 		// Each resource links back to the policies that grant it.
 		await expect
@@ -380,7 +383,10 @@ describe('CurrentAccessDialog.svelte', () => {
 
 		await expect.element(dialog.getByText('Summarize', { exact: true })).toBeVisible();
 		await expect.element(dialog.getByText('Internal Skills', { exact: true })).toBeVisible();
-		await expect.element(dialog.getByText(/Skill Repository · Granted by/)).toBeVisible();
+		await expect.element(dialog.getByText('Granted by').first()).toBeVisible();
+		await expect
+			.element(dialog.getByText('(Assigned to this user)', { exact: true }).first())
+			.toBeVisible();
 		// The wildcard belongs to a policy assigned to another group, so it does not collapse the
 		// section.
 		await expect.element(dialog.getByText('Everything', { exact: true })).not.toBeInTheDocument();

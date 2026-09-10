@@ -4,7 +4,7 @@
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
 	import { version } from '$lib/stores';
-	import { MessageCircle } from '@lucide/svelte';
+	import { TestTubeDiagonal } from '@lucide/svelte';
 
 	interface Props {
 		connectURL?: string;
@@ -50,9 +50,9 @@
 	</div>
 	<a
 		href={resolve(`/mcp-servers/test/${id}`)}
-		use:tooltip={{ text: 'Chat' }}
+		use:tooltip={{ text: 'Test vMCP' }}
 		class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
 	>
-		<MessageCircle class="size-4" />
+		<TestTubeDiagonal class="size-4" />
 	</a>
 </div>

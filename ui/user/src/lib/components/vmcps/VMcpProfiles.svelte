@@ -572,7 +572,6 @@
 	{#if draft}
 		<form
 			class="flex flex-col gap-3 border-base-300 bg-base-100 dark:bg-base-300 rounded-xl border p-5 shadow-sm"
-			in:fly|global={{ x: 48, duration: 180 }}
 			onsubmit={(event) => {
 				event.preventDefault();
 				void saveProfile();
@@ -848,7 +847,7 @@
 								class="text-muted-content size-4 opacity-0 transition-opacity group-hover:opacity-100 -translate-x-2.5"
 							/>
 						</div>
-						<div class="border-base-300 mt-4 flex justify-end border-t pt-2">
+						<div class="border-base-300 dark:border-base-400 mt-4 flex justify-end border-t pt-2">
 							<IconButton
 								variant="danger"
 								class="pointer-events-auto"

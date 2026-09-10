@@ -269,33 +269,22 @@ describe('VMcpProfiles.svelte', () => {
 		]);
 	});
 
-	it('refreshes existing tool overrides without updating the vMCP', async () => {
-		const collectComponentTools = vi.fn(
-			(_component, _vmcp, onCollected: Parameters<VMcpToolFlow['collectComponentTools']>[2]) => {
-				onCollected({
-					name: 'GitHub',
-					mcpCatalogID: 'default',
-					mcpServerCatalogEntryID: 'github',
-					catalogEntry: { manifest: { name: 'GitHub', runtime: 'remote' } },
-					toolOverrides: [
-						{ name: 'list_issues', enabled: true },
-						{ name: 'search_code', enabled: true }
-					]
-				});
-			}
-		);
+	it('does not offer refine when the server already has tools', async () => {
+		const collectComponentTools = vi.fn();
 		render(VMcpProfiles, {
 			vmcp: createVMcp('vmcp-refresh-tools'),
 			toolFlow: toolFlowStub({ collectComponentTools })
 		});
 
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-		await page.getByRole('button', { name: 'Refresh tool overrides' }).click();
-
-		expect(collectComponentTools).toHaveBeenCalledOnce();
 		await expect.element(page.getByText('2 of 2 tools')).toBeVisible();
-		await expect.element(page.getByText('search_code')).toBeVisible();
-		await expect.element(page.getByText('list_pulls')).not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Refine tools' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('button', { name: 'Refresh tool overrides' }))
+			.not.toBeInTheDocument();
+		expect(collectComponentTools).not.toHaveBeenCalled();
 	});
 
 	it('lists profile-modifiable tools above tools locked by the vMCP', async () => {
@@ -363,34 +352,6 @@ describe('VMcpProfiles.svelte', () => {
 			name: 'Support engineers',
 			allowedTools: { github: ['list_issues'] }
 		});
-	});
-
-	it('refuses tools the vMCP has disabled when overrides are refreshed', async () => {
-		const collectComponentTools = vi.fn(
-			(_component, _vmcp, onCollected: Parameters<VMcpToolFlow['collectComponentTools']>[2]) => {
-				onCollected({
-					name: 'GitHub',
-					mcpCatalogID: 'default',
-					mcpServerCatalogEntryID: 'github',
-					catalogEntry: { manifest: { name: 'GitHub', runtime: 'remote' } },
-					toolOverrides: [
-						{ name: 'list_issues', enabled: true },
-						{ name: 'list_pulls', enabled: true }
-					]
-				});
-			}
-		);
-		render(VMcpProfiles, {
-			vmcp: createVMcpWithDisabledTool('vmcp-disabled-tool-refresh'),
-			toolFlow: toolFlowStub({ collectComponentTools })
-		});
-
-		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-		await page.getByRole('button', { name: 'Refresh tool overrides' }).click();
-
-		expect(collectComponentTools).toHaveBeenCalledOnce();
-		await expect.element(page.getByText('1 of 1 tools')).toBeVisible();
-		await expect.element(page.getByRole('checkbox').nth(1)).not.toBeChecked();
 	});
 
 	it('collapses and expands the tool override list', async () => {
