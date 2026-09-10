@@ -98,7 +98,7 @@ func (h *ModelProxyHandler) Usage(req api.Context) error {
 		return types.NewErrHTTP(http.StatusServiceUnavailable, "a valid installation license is required to read model proxy usage")
 	}
 
-	outbound, err := mcptester.NewModelProxyUsageRequest(ctx, h.responsesURL, key, h.license.MachineFingerprint())
+	outbound, err := mcptester.NewModelProxyUsageRequest(ctx, h.responsesURL, key, h.license.MachineFingerprint(), req.Request.Header)
 	if err != nil {
 		return types.NewErrHTTP(http.StatusServiceUnavailable, "installation license or machine fingerprint unavailable")
 	}

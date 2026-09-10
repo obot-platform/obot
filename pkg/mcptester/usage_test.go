@@ -41,7 +41,7 @@ func TestModelProxyUsageEndpointAndRedirects(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		r, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", "machine")
+		r, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", "machine", nil)
 		if err != nil || r.URL.String() != tc.want || r.Method != http.MethodGet || r.Header.Get("Accept") != "application/json" {
 			t.Fatalf("usage request = %v, %v", r, err)
 		}
@@ -66,7 +66,7 @@ func TestModelProxyUsageEndpointAndRedirects(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	r, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", "machine")
+	r, err := NewModelProxyUsageRequest(t.Context(), endpoint, "key", "machine", nil)
 	if err != nil {
 		t.Fatal(err)
 	}

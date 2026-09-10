@@ -3,6 +3,7 @@ package mcptester
 import (
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -102,7 +103,7 @@ func TestFallbackRequestContract(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req, err := NewFallbackRequest(t.Context(), endpoint, body, "signed==.KEY", "machine-id")
+	req, err := NewFallbackRequest(t.Context(), endpoint, body, "signed==.KEY", "machine-id", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +112,7 @@ func TestFallbackRequestContract(t *testing.T) {
 		t.Fatalf("unexpected request: %#v", req)
 	}
 
-	if _, err := NewFallbackRequest(t.Context(), endpoint, body, "", "machine-id"); err == nil {
+	if _, err := NewFallbackRequest(t.Context(), endpoint, body, "", "machine-id", nil); err == nil {
 		t.Fatal("accepted empty license")
 	}
 
@@ -136,7 +137,7 @@ func TestFallbackDoesNotRedirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req, err := NewFallbackRequest(t.Context(), endpoint, []byte(`{}`), "license", "fingerprint")
+	req, err := NewFallbackRequest(t.Context(), endpoint, []byte(`{}`), "license", "fingerprint", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,5 +151,42 @@ func TestFallbackDoesNotRedirect(t *testing.T) {
 
 	if response.StatusCode != http.StatusTemporaryRedirect || calls != 0 {
 		t.Fatal("followed redirect")
+	}
+}
+
+func TestModelProxyForwardsOnlyExistingIPHeaders(t *testing.T) {
+	endpoint, err := ParseModelProxyURL(DefaultModelProxyURL, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inbound := http.Header{}
+	inbound.Add("X-Forwarded-For", "192.0.2.10, 2001:db8::1")
+	inbound.Add("X-Forwarded-For", "198.51.100.20")
+	inbound.Add("X-Real-IP", "2001:db8::2")
+	inbound.Add("X-Real-IP", "192.0.2.11")
+	inbound.Set("Authorization", "Bearer browser-secret")
+	inbound.Set("Cookie", "session=browser-secret")
+	inbound.Set("X-Unrelated", "private")
+	generation, err := NewFallbackRequest(t.Context(), endpoint, []byte(`{}`), "license", "machine", inbound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	usage, err := NewModelProxyUsageRequest(t.Context(), endpoint, "license", "machine", inbound)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, request := range []*http.Request{generation, usage} {
+		for _, name := range []string{"X-Forwarded-For", "X-Real-IP"} {
+			if !slices.Equal(request.Header.Values(name), inbound.Values(name)) {
+				t.Fatalf("%s values changed: %v", name, request.Header.Values(name))
+			}
+		}
+		if request.Header.Get("Authorization") != "Bearer license" || request.Header.Get("Cookie") != "" || request.Header.Get("X-Unrelated") != "" {
+			t.Fatal("forwarded unrelated browser headers")
+		}
+	}
+	generation.Header.Values("X-Forwarded-For")[0] = "changed"
+	if inbound.Get("X-Forwarded-For") != "192.0.2.10, 2001:db8::1" {
+		t.Fatal("outbound headers alias inbound headers")
 	}
 }
