@@ -16,7 +16,6 @@ import { redirect } from '@sveltejs/kit';
 
 const views = new Set([
 	'servers',
-	'entries',
 	'sources',
 	'deployments',
 	'filters',
@@ -83,7 +82,7 @@ export const load: PageLoad = async ({ fetch, parent, depends, url }) => {
 	}
 
 	const needsWorkspace =
-		!profile.hasAdminAccess?.() && ['entries', 'access-policies'].includes(view);
+		!profile.hasAdminAccess?.() && ['servers', 'access-policies'].includes(view);
 	if (!needsWorkspace) {
 		return {
 			workspaceId: undefined,

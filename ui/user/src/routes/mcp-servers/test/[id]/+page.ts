@@ -60,7 +60,9 @@ async function loadVMCPTesterTarget(
 	if (!instance) {
 		const instances = await UserService.listVMCPInstances({ fetch: fetcher });
 		instance = instances
-			.filter((candidate) => candidate.vmcpID === vmcp.id)
+			.filter(
+				(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
+			)
 			.sort((a, b) => a.created.localeCompare(b.created))[0];
 	}
 

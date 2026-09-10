@@ -180,7 +180,7 @@
 		onSelect={() => onSelect?.(card.data)}
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
-		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
 		{isOwner}
 		note={getNote(card.data)}
 	>
@@ -235,7 +235,7 @@
 					data-more
 					hidden={hiddenCount <= 0}
 					aria-label={hiddenCount > 0 ? `${hiddenCount} more servers` : undefined}
-					class="border-base-400 text-muted-content flex shrink-0 items-center justify-center rounded-md border border-dashed px-1.5 py-1 font-mono text-xs whitespace-nowrap"
+					class="pointer-events-auto relative z-10 border-base-400 text-muted-content flex shrink-0 items-center justify-center rounded-md border border-dashed px-1.5 py-1 font-mono text-xs whitespace-nowrap"
 					use:tooltip={hiddenCount > 0
 						? {
 								snippet: moreContent,

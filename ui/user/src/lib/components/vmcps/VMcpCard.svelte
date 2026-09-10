@@ -3,7 +3,6 @@
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import type { getToolCounts } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
-	import { isInteractiveChildEvent } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
@@ -59,27 +58,17 @@
 </script>
 
 <div
-	class={twMerge('flex flex-col', clazz)}
-	role="button"
-	tabindex="0"
-	aria-label={selectAriaLabel}
+	class={twMerge('relative flex flex-col', onSelect && 'pointer-events-none', clazz)}
 	in:fade={{ delay: enterDelay ?? 0, duration: enterDelay === undefined ? 0 : 150 }}
-	onkeydown={(e) => {
-		if (!onSelect || isInteractiveChildEvent(e)) {
-			return;
-		}
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			e.stopPropagation();
-			onSelect();
-		}
-	}}
-	onclick={(e) => {
-		if (onSelect && !isInteractiveChildEvent(e)) {
-			onSelect();
-		}
-	}}
 >
+	{#if onSelect}
+		<button
+			type="button"
+			class="pointer-events-auto absolute inset-0 z-0 rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+			aria-label={selectAriaLabel}
+			onclick={onSelect}
+		></button>
+	{/if}
 	<div class="flex items-start gap-2">
 		{@render icon()}
 		<div class="min-w-0 grow">
@@ -99,7 +88,7 @@
 		</div>
 		<DotDotDot
 			placement="bottom-start"
-			class="relative z-10 size-9 shrink-0"
+			class="pointer-events-auto relative z-10 size-9 shrink-0"
 			classes={{ menu: 'min-w-48' }}
 			ariaLabel={`Actions for ${name}`}
 		>
@@ -149,7 +138,9 @@
 		{@render children()}
 	{/if}
 
-	<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
+	<div class="pointer-events-auto relative z-10">
+		<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
+	</div>
 
 	{#if hasFooterContent}
 		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
@@ -163,7 +154,11 @@
 					{:else}
 						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
 						{#if tools.approximate}
-							<InfoTooltip text={roughEstimationText} placement="bottom-end" />
+							<InfoTooltip
+								class="pointer-events-auto relative z-10"
+								text={roughEstimationText}
+								placement="bottom-end"
+							/>
 						{/if}
 					{/if}
 				</p>

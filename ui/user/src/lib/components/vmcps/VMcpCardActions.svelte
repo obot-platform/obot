@@ -19,9 +19,12 @@
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
 	);
-	let hasInstance = $derived(
+	let hasConfiguredInstance = $derived(
 		vmcpInstances.current.items.some(
-			(candidate) => candidate.vmcpID === id && candidate.userID === profile.current.id
+			(candidate) =>
+				candidate.vmcpID === id &&
+				candidate.userID === profile.current.id &&
+				candidate.status?.configured === true
 		)
 	);
 
@@ -30,7 +33,7 @@
 	}
 
 	function handleTest() {
-		if (hasInstance) {
+		if (hasConfiguredInstance) {
 			goToTester();
 			return;
 		}

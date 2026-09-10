@@ -759,9 +759,9 @@ describe('VMcpDesigner.svelte', () => {
 		it('does not open edit or component actions, and omits delete from the card menu', async () => {
 			await renderDesigner([componentEntry], sharedVMcp(), { groups: [Group.USER] });
 
-			// Click the card title, not the card center — that hits Connect.
+			// Viewers cannot select the card, so the title is not a button.
 			await page
-				.getByRole('button', { name: 'Issue Tracker vMCP', exact: true })
+				.getByCSS('[data-vmcp-canvas]')
 				.getByText('Issue Tracker vMCP', { exact: true })
 				.click();
 			await expect.element(page.getByText('Edit vMCP')).not.toBeInTheDocument();
