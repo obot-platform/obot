@@ -319,7 +319,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
 
 			await page.getByRole('button', { name: 'Change Configuration' }).click();
-			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Fixed');
+			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Preconfigured');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
 			await page.getByRole('button', { name: 'Save' }).click();
 
@@ -473,7 +473,9 @@ describe('VMcpDesigner.svelte', () => {
 				.toBeVisible();
 			expect(update).not.toHaveBeenCalled();
 
-			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
+			await page
+				.getByRole('combobox', { name: 'API token policy' })
+				.selectOptions('Provided at connection');
 			await page.getByRole('button', { name: 'Next' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalled());
@@ -891,7 +893,8 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], vmcp);
 
 			await expect.element(addToolsDialog()).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: /As-is/ })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: /Managed/ })).toBeVisible();
 		});
 
 		it('leaves an existing vMCP alone when nothing was queued', async () => {
@@ -996,7 +999,9 @@ describe('VMcpDesigner.svelte', () => {
 			queueToolSetupForCreatedVMcp(vmcp.id);
 
 			await renderDesigner([entry], vmcp);
-			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
+			await page
+				.getByRole('combobox', { name: 'API token policy' })
+				.selectOptions('Provided at connection');
 			await page.getByRole('button', { name: 'Next' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalled());

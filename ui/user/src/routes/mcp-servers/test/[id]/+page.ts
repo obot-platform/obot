@@ -1,6 +1,5 @@
 import { handleRouteError, HttpError } from '$lib/errors';
 import { UserService, type MCPCatalogServer, type VMCP, type VMCPInstance } from '$lib/services';
-import { profile } from '$lib/stores';
 import type { PageLoad } from './$types';
 
 const VMCP_PREFIX = 'vmcp1';
@@ -43,6 +42,7 @@ function vmcpTesterServer(
 
 async function loadVMCPTesterTarget(
 	id: string,
+	profileId: string,
 	fetcher: typeof fetch
 ): Promise<{ server: MCPCatalogServer; backTarget: string }> {
 	let instance: VMCPInstance | undefined;
@@ -60,9 +60,7 @@ async function loadVMCPTesterTarget(
 	if (!instance) {
 		const instances = await UserService.listVMCPInstances({ fetch: fetcher });
 		instance = instances
-			.filter(
-				(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
-			)
+			.filter((candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profileId)
 			.sort((a, b) => a.created.localeCompare(b.created))[0];
 	}
 
@@ -72,11 +70,12 @@ async function loadVMCPTesterTarget(
 	};
 }
 
-export const load: PageLoad = async ({ params, fetch }) => {
+export const load: PageLoad = async ({ params, fetch, parent }) => {
+	const { profile } = await parent();
 	const path = `/mcp-servers/test/${params.id}`;
 	try {
 		if (params.id.startsWith(VMCP_PREFIX) || params.id.startsWith(VMCP_INSTANCE_PREFIX)) {
-			return await loadVMCPTesterTarget(params.id, fetch);
+			return await loadVMCPTesterTarget(params.id, profile.id, fetch);
 		}
 		const server = await UserService.getMCPTesterServer(params.id, { fetch });
 		return {
@@ -84,6 +83,6 @@ export const load: PageLoad = async ({ params, fetch }) => {
 			backTarget: safeBackTarget(server)
 		};
 	} catch (error) {
-		handleRouteError(error, path, profile.current);
+		handleRouteError(error, path, profile);
 	}
 };

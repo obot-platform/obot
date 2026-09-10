@@ -1,6 +1,18 @@
 import type { MCPCatalogServer, VMCP, VMCPInstance } from '$lib/services';
+import { createMockProfile } from '../../../../tests/helpers/pageData';
 import { load } from './+page';
 import { describe, expect, it, vi } from 'vitest';
+
+const PROFILE_ID = 'user-1';
+
+function loadTester(id: string, fetcher: typeof fetch, profileId = PROFILE_ID) {
+	const profile = { ...createMockProfile(), id: profileId };
+	return load({
+		params: { id },
+		fetch: fetcher,
+		parent: vi.fn(async () => ({ profile }))
+	} as unknown as Parameters<typeof load>[0]);
+}
 
 function server(): MCPCatalogServer {
 	return {
@@ -81,10 +93,7 @@ function vmcpRouteFetcher(target: VMCP, instances: VMCPInstance[] = []) {
 describe('MCP tester route load', () => {
 	it('derives a server-owned management route for Back navigation', async () => {
 		const deployment = server();
-		const result = await load({
-			params: { id: deployment.id },
-			fetch: routeFetcher([deployment])
-		} as unknown as Parameters<typeof load>[0]);
+		const result = await loadTester(deployment.id, routeFetcher([deployment]));
 
 		expect(result).toMatchObject({
 			server: { id: deployment.id, canConnect: true },
@@ -93,20 +102,14 @@ describe('MCP tester route load', () => {
 	});
 
 	it('uses the existing 404 route convention for invalid or access-filtered IDs', async () => {
-		await expect(
-			load({
-				params: { id: 'management-only-server' },
-				fetch: routeFetcher([])
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 404 });
+		await expect(loadTester('management-only-server', routeFetcher([]))).rejects.toMatchObject({
+			status: 404
+		});
 	});
 
 	it('loads a canonical vMCP and keeps its ID as the connection target', async () => {
 		const target = vmcp();
-		const result = await load({
-			params: { id: target.id },
-			fetch: vmcpRouteFetcher(target)
-		} as unknown as Parameters<typeof load>[0]);
+		const result = await loadTester(target.id, vmcpRouteFetcher(target));
 
 		expect(result).toMatchObject({
 			server: {
@@ -123,6 +126,39 @@ describe('MCP tester route load', () => {
 		});
 	});
 
+	it('attaches the current profile vMCP instance when loading a canonical vMCP', async () => {
+		const target = vmcp();
+		const otherUserInstance = {
+			...vmcpInstance(),
+			id: 'vmcpi1-other',
+			userID: 'other-user',
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: false, missingRequiredConfiguration: ['other.SECRET'] }
+		};
+		const currentUserInstance = {
+			...vmcpInstance(),
+			status: {
+				configured: false,
+				missingRequiredConfiguration: ['component-1.API_KEY']
+			}
+		};
+		const result = await loadTester(
+			target.id,
+			vmcpRouteFetcher(target, [otherUserInstance, currentUserInstance])
+		);
+
+		expect(result).toMatchObject({
+			server: {
+				id: target.id,
+				userID: currentUserInstance.userID,
+				configured: false,
+				missingRequiredEnvVars: ['component-1.API_KEY'],
+				manifest: { name: target.displayName, runtime: 'vmcp' }
+			},
+			backTarget: `/vmcps/${target.id}`
+		});
+	});
+
 	it('loads a vMCP instance and reflects its configuration status', async () => {
 		const target = vmcp();
 		const instance = {
@@ -132,10 +168,7 @@ describe('MCP tester route load', () => {
 				missingRequiredConfiguration: ['component-1.API_KEY']
 			}
 		};
-		const result = await load({
-			params: { id: instance.id },
-			fetch: vmcpRouteFetcher(target, [instance])
-		} as unknown as Parameters<typeof load>[0]);
+		const result = await loadTester(instance.id, vmcpRouteFetcher(target, [instance]));
 
 		expect(result).toMatchObject({
 			server: {
@@ -152,11 +185,8 @@ describe('MCP tester route load', () => {
 	it('rejects a vMCP without components as non-connectable', async () => {
 		const target = { ...vmcp(), components: [] };
 
-		await expect(
-			load({
-				params: { id: target.id },
-				fetch: vmcpRouteFetcher(target)
-			} as unknown as Parameters<typeof load>[0])
-		).rejects.toMatchObject({ status: 404 });
+		await expect(loadTester(target.id, vmcpRouteFetcher(target))).rejects.toMatchObject({
+			status: 404
+		});
 	});
 });

@@ -8,7 +8,8 @@
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
-	import { RefreshCcw, Server, Trash2 } from '@lucide/svelte';
+	import { ArrowRightLeft, RefreshCcw, Server, Settings2, Trash2 } from '@lucide/svelte';
+	import { tick } from 'svelte';
 
 	interface Props {
 		flow: VMcpToolFlow;
@@ -16,6 +17,7 @@
 
 	let { flow }: Props = $props();
 	let addedCreateDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let asIsButton = $state<HTMLButtonElement>();
 	let setupDialog = $state<ReturnType<typeof VMcpToolsSetup>>();
 	let editDialog = $state<ReturnType<typeof CompositeEditTools>>();
 	let componentActionsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -28,7 +30,10 @@
 	);
 
 	function openDialog(dialog: VMcpToolDialog | undefined) {
-		if (dialog === 'added-create') addedCreateDialog?.open();
+		if (dialog === 'added-create') {
+			addedCreateDialog?.open();
+			void tick().then(() => asIsButton?.focus({ focusVisible: true }));
+		}
 		if (dialog === 'setup') setupDialog?.open();
 		if (dialog === 'edit') editDialog?.open();
 		if (dialog === 'actions') componentActionsDialog?.open();
@@ -87,27 +92,54 @@
 
 <ResponsiveDialog
 	animate="slide"
-	class="w-sm"
+	class="md:w-lg"
 	bind:this={addedCreateDialog}
 	title="Add Tools"
 	onClose={() => handleDialogClose('added-create')}
 >
-	<div class="flex flex-col gap-4 items-center">
+	<div class="flex flex-col gap-4">
 		{#if flow.dialog === 'added-create'}
-			{@render serverHeading()}
-			<p class="text-sm font-light text-center">
-				<b>{flow.addedServer?.component.manifest.name ?? 'this server'}</b> has been added to
-				<b>{flow.addedServer?.vmcp.displayName ?? 'this vMCP'}</b>.
-			</p>
-			<p class="text-sm font-light text-center">
-				It is recommended to select which tools to enable to properly secure the vMCP. Otherwise,
-				you can skip this step and allow all tools to be enabled.
-			</p>
-			<div class="flex flex-col gap-2 w-full">
-				<button class="btn btn-primary" onclick={flow.selectToolsForAdded}> Modify Tools </button>
-				<button class="btn btn-ghost rounded-full text-xs" onclick={flow.close}
-					>I understand, skip & allow all tools</button
+			<div class="flex flex-col items-center gap-4">
+				{@render serverHeading()}
+				<p class="text-center text-sm font-light">
+					How would you like to set up the MCP server tools?
+				</p>
+			</div>
+			<div class="flex w-full flex-col gap-4">
+				<button
+					bind:this={asIsButton}
+					class="dark:bg-base-300 hover:bg-base-200 focus:bg-base-200 dark:hover:bg-base-400 dark:focus:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
+					onclick={flow.close}
 				>
+					<ArrowRightLeft
+						class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit group-focus:text-inherit"
+					/>
+					<div>
+						<p class="mb-1 text-sm font-semibold">As-is</p>
+						<span class="text-muted-content block text-xs leading-4">
+							Use the MCP server as-is. Tools and their definitions are passed through
+							automatically, including future changes from the source. No authentication is required
+							during setup.
+						</span>
+					</div>
+				</button>
+				<button
+					class="dark:bg-base-300 hover:bg-base-200 focus:bg-base-200 dark:hover:bg-base-400 dark:focus:bg-base-400 dark:border-base-400 border-base-300 group bg-base-100 flex cursor-pointer items-center gap-4 rounded-md border px-2 py-4 text-left transition-colors duration-300"
+					onclick={flow.selectToolsForAdded}
+				>
+					<Settings2
+						class="text-muted-content size-12 shrink-0 pl-1 transition-colors group-hover:text-inherit group-focus:text-inherit"
+					/>
+					<div>
+						<p class="mb-1 text-sm font-semibold">
+							Managed <span class="text-muted-content font-normal">[Recommended]</span>
+						</p>
+						<span class="text-muted-content block text-xs leading-4">
+							Authenticate to discover and select specific tools. Tool names and descriptions are
+							captured and can be customized, protecting the vMCP from unexpected upstream changes.
+						</span>
+					</div>
+				</button>
 			</div>
 		{/if}
 	</div>

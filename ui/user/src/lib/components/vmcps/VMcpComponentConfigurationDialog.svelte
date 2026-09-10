@@ -33,9 +33,9 @@
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
-		{ id: 'fixed', label: 'Fixed' },
-		{ id: 'userAllowed', label: 'User-Supplied' },
-		{ id: 'prohibited', label: 'Prohibited' }
+		{ id: 'fixed', label: 'Preconfigured' },
+		{ id: 'userAllowed', label: 'Provided at connection' },
+		{ id: 'prohibited', label: 'Ignore' }
 	];
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -48,13 +48,8 @@
 	let failureMessage = $state('Failed to add MCP server to vMCP.');
 
 	let displayName = $derived(entry?.manifest.name || entry?.id || 'MCP server');
-	let envDrafts = $derived(
-		drafts.filter((draft) => draft.field.usage !== 'header' && !isFileField(draft.field))
-	);
-	let headerDrafts = $derived(drafts.filter((draft) => draft.field.usage === 'header'));
-	let fileDrafts = $derived(
-		drafts.filter((draft) => draft.field.usage !== 'header' && isFileField(draft.field))
-	);
+	let requiredDrafts = $derived(drafts.filter((draft) => draft.field.required));
+	let optionalDrafts = $derived(drafts.filter((draft) => !draft.field.required));
 
 	export function open(
 		target: MCPCatalogEntry,
@@ -66,14 +61,16 @@
 	) {
 		entry = target;
 		const existing = new Map((options?.configuration ?? []).map((policy) => [policy.key, policy]));
-		drafts = catalogConfigurationFields(target).map((field) => {
-			const policy = existing.get(field.key);
-			return {
-				field,
-				policy: policy?.policy ?? 'fixed',
-				value: policy?.value ?? field.value ?? ''
-			};
-		});
+		drafts = catalogConfigurationFields(target)
+			.toSorted((a, b) => Number(Boolean(b.required)) - Number(Boolean(a.required)))
+			.map((field) => {
+				const policy = existing.get(field.key);
+				return {
+					field,
+					policy: policy?.policy ?? (field.required ? 'fixed' : 'prohibited'),
+					value: policy?.value ?? field.value ?? ''
+				};
+			});
 		submitLabel = options?.submitLabel ?? 'Next';
 		failureMessage = options?.errorMessage ?? 'Failed to add MCP server to vMCP.';
 		highlighted = [];
@@ -160,16 +157,13 @@
 			<span class="flex min-w-0 items-center gap-2">
 				<span id={`${draft.field.key}-label`} class={highlightRequired ? 'text-error' : ''}>
 					{fieldLabel(draft.field)}
-					{#if !draft.field.required}
-						<span class="text-muted-content">(optional)</span>
-					{/if}
 				</span>
 				{#if draft.field.description}
 					<InfoTooltip text={draft.field.description} />
 				{/if}
 			</span>
 			<select
-				class="select select-sm w-36 shrink-0 bg-base-200 border-base-300"
+				class="select select-sm w-48 shrink-0 bg-base-200 border-base-300"
 				aria-label={`${fieldLabel(draft.field)} policy`}
 				value={draft.policy}
 				disabled={saving}
@@ -232,22 +226,10 @@
 			{/if}
 		{:else if draft.policy === 'userAllowed'}
 			<p class="text-muted-content italic text-sm font-light break-all">
-				This will be requested on user connection to the vMCP.
-			</p>
-		{:else}
-			<p class="text-muted-content italic text-sm font-light break-all">
-				This field is prohibited from being modified.
+				This field will be requested on user connection to the vMCP.
 			</p>
 		{/if}
 	</div>
-{/snippet}
-
-{#snippet fieldGroup(items: PolicyDraft[])}
-	{#if items.length > 0}
-		{#each items as draft (draft.field.key)}
-			{@render policyField(draft, drafts.indexOf(draft))}
-		{/each}
-	{/if}
 {/snippet}
 
 <ResponsiveDialog
@@ -264,35 +246,43 @@
 		{/if}
 		Configure {displayName}
 	{/snippet}
-	<p class="text-sm font-light mb-2">
-		Choose how each configuration value for <b class="font-semibold text-base-content"
-			>{displayName}</b
-		>
-		is provided.
-	</p>
-	<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
-		<li>
-			<b class="font-semibold">Fixed</b> stores a value on the vMCP so every connection uses it. Use this
-			when all users should share the same setting.
-		</li>
-		<li>
-			<b class="font-semibold">User-Supplied</b> asks connecting users to provide their own value. Use
-			this when each user or instance needs their own credentials or settings.
-		</li>
-		<li>
-			<b class="font-semibold">Prohibited</b> leaves the field unset so the MCP server can supply it.
-			Use this when the value should not be adjusted by the vMCP or connecting users.
-		</li>
-	</ul>
-	{#if error}
-		<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
-	{/if}
-	<div class="flex flex-col gap-3">
-		{@render fieldGroup(envDrafts)}
-		{@render fieldGroup(headerDrafts)}
-		{@render fieldGroup(fileDrafts)}
+	<div class="p-4 pb-0 md:p-0">
+		<p class="text-sm font-light mb-2">
+			Choose how each configuration value for <b class="font-semibold text-base-content"
+				>{displayName}</b
+			>
+			is provided.
+		</p>
+		<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
+			<li>
+				<b class="font-semibold">Preconfigured</b> - Set the value now. This value will be used automatically
+				for every connection.
+			</li>
+			<li>
+				<b class="font-semibold">Provided at connection</b> - Leave the value unset. Each user will be
+				prompted to provide their own value when they connect.
+			</li>
+			<li>
+				<b class="font-semibold">Ignore</b> - Ignore this field.
+			</li>
+		</ul>
+		{#if error}
+			<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
+		{/if}
+		<div class="flex flex-col gap-3">
+			{#each requiredDrafts as draft, index (draft.field.key)}
+				{@render policyField(draft, index)}
+			{/each}
+			{#if requiredDrafts.length > 0 && optionalDrafts.length > 0}
+				<div class="divider my-1 text-xs text-muted-content">Optional</div>
+			{/if}
+			{#each optionalDrafts as draft, index (draft.field.key)}
+				{@render policyField(draft, requiredDrafts.length + index)}
+			{/each}
+		</div>
 	</div>
-	<div class="mt-4 flex justify-end gap-2">
+	<div class="flex grow"></div>
+	<div class="mt-4 flex justify-end gap-2 p-4 md:p-0 pt-0">
 		<button class="btn btn-ghost btn-sm text-xs" onclick={() => dialog?.close()} disabled={saving}>
 			Cancel
 		</button>

@@ -71,9 +71,11 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		const result = await render(VMcpComponentConfigurationDialog, { onNext });
 		result.component.open(configurableEntry());
 
-		await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
-		await page.getByRole('combobox', { name: 'Region policy' }).selectOptions('Fixed');
-		await page.getByRole('combobox', { name: 'Org header policy' }).selectOptions('Prohibited');
+		await page
+			.getByRole('combobox', { name: 'API token policy' })
+			.selectOptions('Provided at connection');
+		await page.getByRole('combobox', { name: 'Region policy' }).selectOptions('Preconfigured');
+		await page.getByRole('combobox', { name: 'Org header policy' }).selectOptions('Ignore');
 
 		await page.getByCSS('#fixed-REGION').fill('us-east-1');
 		await page.getByRole('button', { name: 'Next' }).click();
