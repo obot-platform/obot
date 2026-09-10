@@ -30,7 +30,6 @@
 	let configureForm = $state<CompositeLaunchFormData>();
 	let saving = $state(false);
 	let error = $state<string>();
-	let configureOpen = $state(false);
 	let showIntroDialog = $state(false);
 	let launchError = $state<string>();
 	let launchProgress = $state<number>(0);
@@ -46,6 +45,17 @@
 		vmcp?.components?.some((component) =>
 			component.configuration?.find((field) => field.policy === 'userAllowed')
 		)
+	);
+	let isReauthenticatable = $derived(
+		Boolean(instance) &&
+			!hasUserConfiguration &&
+			Boolean(
+				vmcp?.components?.some(
+					(component) =>
+						component.catalogEntry?.manifest?.runtime === 'remote' ||
+						Boolean(component.oauthCredentialID)
+				)
+			)
 	);
 
 	function generateIdFromName(name: string) {
@@ -83,7 +93,6 @@
 
 	async function launchWithoutConfiguration() {
 		configureForm = undefined;
-		configureOpen = true;
 		initUpdatingOrLaunchProgress();
 		await configureDialog?.open();
 		if (launchState !== 'launching') return;
@@ -97,7 +106,6 @@
 
 	async function initConfigureForm() {
 		if (!vmcp) return;
-		configureOpen = true;
 		connectDialog?.close();
 		const componentConfigs: CompositeLaunchFormData['componentConfigs'] = {};
 		for (const component of vmcp.components ?? []) {
@@ -142,7 +150,6 @@
 		}
 		configureForm = { componentConfigs };
 		error = undefined;
-		configureOpen = true;
 		await configureDialog?.open();
 	}
 
@@ -179,7 +186,6 @@
 
 	function finishLaunch() {
 		configureDialog?.close();
-		configureOpen = false;
 		connectDialog?.open();
 	}
 
@@ -214,7 +220,6 @@
 		launchProgress = 0;
 		if (oauthURL) {
 			configureDialog?.close();
-			configureOpen = false;
 			oauthDialog?.showModal();
 		} else {
 			finishLaunch();
@@ -225,6 +230,24 @@
 		oauthDialog?.close();
 		oauthURL = '';
 		finishLaunch();
+	}
+
+	export async function authenticate() {
+		if (!vmcp) return;
+		ensureOauthVisibilityListener();
+		oauthVerifying = false;
+		oauthURL = await getOauthURL();
+		if (oauthURL) {
+			oauthDialog?.showModal();
+		} else {
+			finishLaunch();
+		}
+	}
+
+	async function reauthenticate() {
+		if (!vmcp) return;
+		await UserService.clearMcpServerOAuth(vmcp.id);
+		await authenticate();
 	}
 
 	async function saveConfiguration() {
@@ -284,8 +307,8 @@
 	animate="slide"
 	id="connect-to-vmcp-dialog"
 	onClose={() => {
-		if (saving || configureOpen || showIntroDialog || launchState === 'launching') return;
-		vmcp = undefined;
+		howToConnect?.resetCopied();
+		connectionUrlField?.clear();
 	}}
 >
 	{#snippet titleContent()}
@@ -309,7 +332,13 @@
 			id={generateIdFromName(displayName)}
 			{displayName}
 			onLaunch={!instance ? initLaunch : undefined}
-			onEdit={instance ? initConfigureForm : undefined}
+			onEdit={instance && hasUserConfiguration ? initConfigureForm : undefined}
+			onReauthenticate={isReauthenticatable
+				? () => {
+						connectDialog?.close();
+						void reauthenticate();
+					}
+				: undefined}
 		/>
 	{:else}
 		<p class="text-sm text-muted-content font-light md:p-0 p-4">
@@ -376,7 +405,6 @@
 								launchError = undefined;
 								launchProgress = 0;
 								configureDialog?.close();
-								configureOpen = false;
 								if (vmcp) connectDialog?.open();
 							}}
 						>

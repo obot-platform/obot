@@ -66,7 +66,6 @@ export const initVMcp = (): VMcpFormData => ({
 	description: ''
 });
 
-/** The normal client connection endpoint for a virtual MCP. */
 export function vmcpConnectURL(vmcp: VMCP) {
 	const link = vmcp.links?.connectURL || vmcp.links?.['mcp-connect'];
 	if (link) return link;
@@ -129,8 +128,8 @@ export function vmcpComponentId(component: VMCPComponent) {
 export function isWorkspaceOwned(entry: MCPCatalogEntry | VMCP) {
 	return Boolean(
 		('powerUserWorkspaceID' in entry && entry.powerUserWorkspaceID) ||
-			('powerUserID' in entry && entry.powerUserID) ||
-			('userID' in entry && entry.userID)
+		('powerUserID' in entry && entry.powerUserID) ||
+		('userID' in entry && entry.userID)
 	);
 }
 
@@ -323,14 +322,14 @@ export function matchesQuery(item: MCPCatalogEntry | MCPCatalogServer | VMCP, qu
 	if ('displayName' in item) {
 		return Boolean(
 			item.displayName?.toLowerCase().includes(needle) ||
-				item.description?.toLowerCase().includes(needle)
+			item.description?.toLowerCase().includes(needle)
 		);
 	}
 	const { name, description, shortDescription } = item.manifest;
 	return Boolean(
 		name?.toLowerCase().includes(needle) ||
-			description?.toLowerCase().includes(needle) ||
-			shortDescription?.toLowerCase().includes(needle)
+		description?.toLowerCase().includes(needle) ||
+		shortDescription?.toLowerCase().includes(needle)
 	);
 }
 

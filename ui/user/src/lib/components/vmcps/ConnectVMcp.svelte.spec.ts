@@ -1,6 +1,6 @@
 import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
 import { vmcpInstances } from '$lib/stores';
-import { createVMCP } from '../../../tests/helpers/mcp';
+import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
@@ -226,5 +226,39 @@ describe('ConnectVMcp.svelte', () => {
 			expect(oauthChecks()).toBe(2);
 		});
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
+	});
+
+	it('clears OAuth and prompts to authenticate from Reauthenticate', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1reauth', displayName: 'Remote vMCP' }, [
+			createMCPCatalogEntry({ id: 'entry-remote', name: 'Remote', runtime: 'remote' })
+		]);
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: { configured: true }
+		};
+		const cleared = vi.fn();
+		worker.use(
+			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+			http.delete(`/api/vmcps/${vmcp.id}/oauth`, () => {
+				cleared();
+				return HttpResponse.json({});
+			}),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+				HttpResponse.json({ oauthURL: 'https://auth.example.com/authorize' })
+			)
+		);
+
+		await renderDialog(vmcp, existing);
+		await expect.element(page.getByRole('button', { name: 'Reauthenticate' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Edit configuration' }))
+			.not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Reauthenticate' }).click();
+
+		await vi.waitFor(() => expect(cleared).toHaveBeenCalledOnce());
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
 	});
 });
