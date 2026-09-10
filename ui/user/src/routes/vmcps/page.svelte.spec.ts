@@ -44,8 +44,6 @@ async function renderPageWithEntries(
 	};
 	const data = await preparePageData<PageData>({
 		vmcps,
-		vmcpRepositories: [],
-		gitCredentials: [],
 		profile: createMockProfile(groups)
 	});
 	return render(VMcpsPage, { data });
@@ -53,31 +51,21 @@ async function renderPageWithEntries(
 
 afterEach(() => {
 	appPage.url.searchParams.delete('new');
-	appPage.url.searchParams.delete('view');
 });
 
 describe('vMCPs Page', () => {
 	describe('table view', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 
-		it('shows vMCPs and Sources tabs', async () => {
+		it('shows the vMCP list and create action', async () => {
 			await renderPageWithEntries([componentEntry]);
 
-			await expect.element(page.getByRole('button', { name: 'vMCPs', exact: true })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Sources', exact: true }))
+				.element(page.getByRole('button', { name: 'Click to edit Issue Tracker vMCP' }))
 				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Create vMCP' })).toBeVisible();
-		});
-
-		it('shows the sources empty state', async () => {
-			appPage.url.searchParams.set('view', 'sources');
-			await renderPageWithEntries([componentEntry]);
-
-			await expect.element(page.getByText('No current Git Source URLs.')).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Add Source URL' })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Create vMCP' }))
+				.element(page.getByRole('button', { name: 'Sources', exact: true }))
 				.not.toBeInTheDocument();
 		});
 

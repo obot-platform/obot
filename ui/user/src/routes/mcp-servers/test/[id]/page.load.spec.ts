@@ -149,25 +149,6 @@ describe('MCP tester route load', () => {
 		});
 	});
 
-	it('uses the oldest existing instance status for a canonical vMCP connection', async () => {
-		const target = vmcp();
-		const newer = vmcpInstance();
-		const oldest = {
-			...vmcpInstance(),
-			id: 'vmcpi1-oldest',
-			created: '2026-01-01T00:00:00Z',
-			status: { configured: false }
-		};
-		const result = await load({
-			params: { id: target.id },
-			fetch: vmcpRouteFetcher(target, [newer, oldest])
-		} as unknown as Parameters<typeof load>[0]);
-
-		expect(result).toMatchObject({
-			server: { id: target.id, configured: false }
-		});
-	});
-
 	it('rejects a vMCP without components as non-connectable', async () => {
 		const target = { ...vmcp(), components: [] };
 

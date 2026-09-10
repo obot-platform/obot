@@ -70,6 +70,5 @@ export const handlers = [
 	),
 	http.get('/api/workspaces/all-servers', () =>
 		HttpResponse.json({ items: data.listAllUserWorkspaceMCPServersResponse })
-	),
-	http.get('/api/vmcp-repositories', () => HttpResponse.json({ items: [] }))
+	)
 ];

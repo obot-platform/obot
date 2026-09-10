@@ -76,8 +76,6 @@ import type {
 	SkillRepositoryManifest,
 	SkillAccessPolicy,
 	SkillAccessPolicyManifest,
-	VMcpRepository,
-	VMcpRepositoryManifest,
 	AgentCatalog,
 	AgentCatalogManifest,
 	Harness,
@@ -1797,50 +1795,6 @@ export async function refreshSkillRepository(
 	opts?: { fetch?: Fetcher }
 ): Promise<void> {
 	await doPost(`/skill-repositories/${id}/refresh`, {}, opts);
-}
-
-export async function listVMcpRepositories(opts?: {
-	fetch?: Fetcher;
-	dontLogErrors?: boolean;
-}): Promise<VMcpRepository[]> {
-	const response = (await doGet('/vmcp-repositories', opts)) as ItemsResponse<VMcpRepository>;
-	return response.items ?? [];
-}
-
-export async function getVMcpRepository(
-	id: string,
-	opts?: { fetch?: Fetcher }
-): Promise<VMcpRepository> {
-	const response = (await doGet(`/vmcp-repositories/${id}`, opts)) as VMcpRepository;
-	return response;
-}
-
-export async function createVMcpRepository(
-	request: VMcpRepositoryManifest,
-	opts?: { fetch?: Fetcher }
-): Promise<VMcpRepository> {
-	const response = (await doPost('/vmcp-repositories', request, opts)) as VMcpRepository;
-	return response;
-}
-
-export async function updateVMcpRepository(
-	id: string,
-	request: VMcpRepositoryManifest,
-	opts?: { fetch?: Fetcher }
-): Promise<VMcpRepository> {
-	const response = (await doPut(`/vmcp-repositories/${id}`, request, opts)) as VMcpRepository;
-	return response;
-}
-
-export async function deleteVMcpRepository(
-	id: string,
-	opts?: { signal?: AbortSignal }
-): Promise<void> {
-	await doDelete(`/vmcp-repositories/${id}`, opts);
-}
-
-export async function refreshVMcpRepository(id: string, opts?: { fetch?: Fetcher }): Promise<void> {
-	await doPost(`/vmcp-repositories/${id}/refresh`, {}, opts);
 }
 
 // Skill access policies
