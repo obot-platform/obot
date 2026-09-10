@@ -119,7 +119,7 @@ describe('MCP tester route load', () => {
 					runtime: 'vmcp'
 				}
 			},
-			backTarget: '/vmcps'
+			backTarget: `/vmcps/${target.id}`
 		});
 	});
 
@@ -145,7 +145,7 @@ describe('MCP tester route load', () => {
 				missingRequiredEnvVars: ['component-1.API_KEY'],
 				manifest: { name: target.displayName, runtime: 'vmcp' }
 			},
-			backTarget: '/vmcps'
+			backTarget: `/vmcps/${target.id}`
 		});
 	});
 

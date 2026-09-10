@@ -7,7 +7,11 @@
 		VMCP_COMPONENT_HEIGHT,
 		VMCP_COMPONENT_WINDOW_THRESHOLD
 	} from '$lib/services/vmcps/constants';
-	import type { RowContext, VMcpComponentView } from '$lib/services/vmcps/types';
+	import type {
+		RowContext,
+		VMcpComponentView,
+		VMcpConnectOptions
+	} from '$lib/services/vmcps/types';
 	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -29,7 +33,7 @@
 		drag: EntryDrag;
 		onToggleExpand: () => void;
 		onEdit: () => void;
-		onConnect: () => void;
+		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		onModifyComponent: (component: VMcpComponentView) => void;
 	}

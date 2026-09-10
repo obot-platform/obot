@@ -66,7 +66,7 @@ async function loadVMCPTesterTarget(
 
 	return {
 		server: vmcpTesterServer(vmcp, id, instance),
-		backTarget: '/vmcps'
+		backTarget: `/vmcps/${vmcp.id}`
 	};
 }
 

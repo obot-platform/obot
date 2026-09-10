@@ -1,15 +1,16 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { MCP_CONNECTION_INVALID_LICENSE_MESSAGE } from '$lib/services/user/constants';
-	import { version } from '$lib/stores';
+	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { profile, version, vmcpInstances } from '$lib/stores';
+	import { goto } from '$lib/url';
 	import { TestTubeDiagonal } from '@lucide/svelte';
 
 	interface Props {
 		connectURL?: string;
 		connectButtonId?: string;
-		onConnect?: () => void;
+		onConnect?: (options?: VMcpConnectOptions) => void;
 		id: string;
 	}
 
@@ -18,6 +19,23 @@
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
 	);
+	let hasInstance = $derived(
+		vmcpInstances.current.items.some(
+			(candidate) => candidate.vmcpID === id && candidate.userID === profile.current.id
+		)
+	);
+
+	function goToTester() {
+		goto(`/mcp-servers/test/${id}`);
+	}
+
+	function handleTest() {
+		if (hasInstance) {
+			goToTester();
+			return;
+		}
+		onConnect?.({ onConnected: goToTester });
+	}
 </script>
 
 <div class="flex items-center gap-2">
@@ -48,11 +66,13 @@
 			/>
 		</div>
 	</div>
-	<a
-		href={resolve(`/mcp-servers/test/${id}`)}
+	<button
+		type="button"
+		aria-label="Test vMCP"
 		use:tooltip={{ text: 'Test vMCP' }}
 		class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
+		onclick={handleTest}
 	>
 		<TestTubeDiagonal class="size-4" />
-	</a>
+	</button>
 </div>

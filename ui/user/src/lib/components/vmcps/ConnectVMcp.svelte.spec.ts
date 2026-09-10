@@ -27,11 +27,15 @@ function configurableVMcp(): VMCP {
 	return vmcp;
 }
 
-async function renderDialog(vmcp: VMCP, instance?: VMCPInstance) {
+async function renderDialog(
+	vmcp: VMCP,
+	instance?: VMCPInstance,
+	options?: { onConnected?: () => void }
+) {
 	await preparePageData();
 	await vmcpInstances.refresh();
 	const result = await render(ConnectVMcp);
-	result.component.open(vmcp, instance);
+	result.component.open(vmcp, instance, options);
 	return result;
 }
 

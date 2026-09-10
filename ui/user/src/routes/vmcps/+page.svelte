@@ -15,7 +15,7 @@
 	import { AdminService, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import type { GitCredential, VMcpRepository } from '$lib/services/admin/types';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import type { VMcpSortBy } from '$lib/services/vmcps/types';
+	import type { VMcpConnectOptions, VMcpSortBy } from '$lib/services/vmcps/types';
 	import {
 		buildVMcpComponentFilterOptions,
 		filterVMcps,
@@ -163,11 +163,11 @@
 		return resolveVMcpComponents(vmcp);
 	}
 
-	function handleConnectVMcp(vmcp: VMCP) {
+	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
 		const vmcpInstance = vmcpInstances.current.items.find(
 			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
 		);
-		connectVMcpDialog?.open(vmcp, vmcpInstance);
+		connectVMcpDialog?.open(vmcp, vmcpInstance, options);
 	}
 
 	function openConnectAllDialog(option: (typeof COMMON_AI_CLIENTS)[number]) {

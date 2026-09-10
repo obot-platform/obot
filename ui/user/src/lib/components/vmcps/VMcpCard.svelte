@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { isInteractiveChildEvent } from '$lib/utils';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
@@ -16,7 +17,7 @@
 		connectButtonId?: string;
 		connected?: boolean;
 		onSelect?: () => void;
-		onConnect?: () => void;
+		onConnect?: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		icon: Snippet;
 		children?: Snippet;

@@ -30,6 +30,7 @@
 	} from '$lib/services';
 	import { vmcpRowHeight } from '$lib/services/vmcps/camera';
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
+	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
 		appendComponentLabel,
 		applyComponentConfiguration,
@@ -243,11 +244,11 @@
 		return resolveVMcpComponents(target);
 	}
 
-	function handleConnectVMcp(vmcp: VMCP) {
+	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
 		const vmcpInstance = vmcpInstances.current.items.find(
 			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
 		);
-		connectVMcpDialog?.open(vmcp, vmcpInstance);
+		connectVMcpDialog?.open(vmcp, vmcpInstance, options);
 	}
 
 	const updateSearchQuery = (value: string) => {
@@ -299,7 +300,7 @@
 						drag={entryDrag}
 						onToggleExpand={() => (expanded = !expanded)}
 						onEdit={() => createEditVMcp?.openEdit(item)}
-						onConnect={() => handleConnectVMcp(item)}
+						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={() => createEditVMcp?.openDelete(item)}
 						onModifyComponent={(component) => toolFlow.openComponent(component, item)}
 					/>

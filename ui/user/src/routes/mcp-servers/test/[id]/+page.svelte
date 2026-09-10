@@ -19,11 +19,11 @@
 	import { version } from '$lib/stores';
 	import {
 		TriangleAlert,
-		ArrowLeft,
 		KeyRound,
 		MessageSquarePlus,
 		RotateCw,
-		Server
+		Server,
+		ArrowLeft
 	} from '@lucide/svelte';
 	import { onMount, type Component } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -120,6 +120,8 @@
 		}
 	}}
 	title="MCP Tester"
+	showBackButton
+	onBackButtonClick={() => goto(resolve(data.backTarget as `/${string}`))}
 >
 	<div class="flex h-full min-h-0 flex-col gap-3">
 		<header class="flex shrink-0 flex-wrap items-center justify-between gap-3">

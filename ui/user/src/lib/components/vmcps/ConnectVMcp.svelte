@@ -9,6 +9,7 @@
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
 		resolveVMcpComponents,
 		vmcpComponentId,
@@ -37,6 +38,7 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -65,9 +67,10 @@
 			.replace(/[^a-z0-9-_]/g, '');
 	}
 
-	export function open(target: VMCP, targetInstance?: VMCPInstance) {
+	export function open(target: VMCP, targetInstance?: VMCPInstance, options?: VMcpConnectOptions) {
 		vmcp = target;
 		instance = targetInstance;
+		onConnected = options?.onConnected;
 		configureForm = undefined;
 		error = undefined;
 		launchError = undefined;
@@ -78,7 +81,12 @@
 		showIntroDialog = false;
 		connectionUrlField?.clear?.();
 		howToConnect?.resetCopied?.();
-		connectDialog?.open();
+
+		if (options?.onConnected) {
+			initLaunch();
+		} else {
+			connectDialog?.open();
+		}
 	}
 
 	function handleConfigure() {
@@ -186,6 +194,12 @@
 
 	function finishLaunch() {
 		configureDialog?.close();
+		const connected = onConnected;
+		onConnected = undefined;
+		if (connected) {
+			connected();
+			return;
+		}
 		connectDialog?.open();
 	}
 
