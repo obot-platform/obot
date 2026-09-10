@@ -30,9 +30,11 @@ func (*VMCPHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list VMCPs: %w", err)
 	}
 
+	all := req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
+
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {
-		if authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
+		if all || authz.UserCanReadVMCP(req.User, &list.Items[itemIndex]) {
 			items = append(items, convertVMCP(list.Items[itemIndex]))
 		}
 	}
