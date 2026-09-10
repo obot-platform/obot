@@ -67,12 +67,18 @@
 
 	export function open() {
 		onOpen?.();
-		dialog?.showModal();
+		if (dialog && !dialog.open) {
+			dialog.showModal();
+		}
 	}
 
 	export function close() {
-		// Just close the dialog - onClose will be called via the native onclose event
-		dialog?.close();
+		// Just close the dialog - onClose will be called via the native onclose event.
+		// Skip if already closed so a delayed animation finish cannot start a second close
+		// that blocks the next open().
+		if (dialog?.open) {
+			dialog.close();
+		}
 	}
 </script>
 

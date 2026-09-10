@@ -65,9 +65,9 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		const result = await render(VMcpComponentConfigurationDialog, { onNext });
 		result.component.open(configurableEntry());
 
-		await page.getByRole('radio', { name: 'User-supplied' }).first().click();
-		await page.getByRole('radio', { name: 'Fixed' }).nth(1).click();
-		await page.getByRole('radio', { name: 'Prohibited' }).last().click();
+		await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
+		await page.getByRole('combobox', { name: 'Region policy' }).selectOptions('Fixed');
+		await page.getByRole('combobox', { name: 'Org header policy' }).selectOptions('Prohibited');
 
 		await page.getByCSS('#fixed-REGION').fill('us-east-1');
 		await page.getByRole('button', { name: 'Next' }).click();
@@ -78,5 +78,29 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			{ key: 'REGION', policy: 'fixed', value: 'us-east-1' },
 			{ key: 'X-Org', policy: 'prohibited' }
 		]);
+	});
+
+	it('prefills existing policies when editing configuration', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry(), {
+			configuration: [
+				{ key: 'API_TOKEN', policy: 'userAllowed' },
+				{ key: 'REGION', policy: 'fixed', value: 'us-west-2' },
+				{ key: 'X-Org', policy: 'prohibited' }
+			],
+			submitLabel: 'Save'
+		});
+
+		await expect.element(page.getByRole('combobox', { name: 'API token policy' })).toHaveValue(
+			'userAllowed'
+		);
+		await expect.element(page.getByRole('combobox', { name: 'Region policy' })).toHaveValue('fixed');
+		await expect.element(page.getByCSS('#fixed-REGION')).toHaveValue('us-west-2');
+		await expect.element(page.getByRole('combobox', { name: 'Org header policy' })).toHaveValue(
+			'prohibited'
+		);
+		await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible();
 	});
 });

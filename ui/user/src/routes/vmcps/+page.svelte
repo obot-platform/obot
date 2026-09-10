@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
@@ -26,7 +25,7 @@
 	import { errors, profile, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import SourcesView from './SourcesView.svelte';
-	import { Info, Layers, Plus, Settings, TriangleAlert } from '@lucide/svelte';
+	import { Info, Layers, Plus, TriangleAlert } from '@lucide/svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { slide } from 'svelte/transition';
@@ -214,12 +213,6 @@
 {#snippet navActions(view: string)}
 	{#if view === 'sources'}
 		{#if !isAdminReadonly}
-			<a
-				class="btn btn-secondary flex items-center gap-1 text-sm"
-				href={resolve('/admin/platform?view=git-credentials')}
-			>
-				<Settings class="size-4" /> Manage Credentials
-			</a>
 			<button
 				class="btn btn-primary flex items-center gap-1 text-sm"
 				onclick={() => createEditVMcpSource?.openAdd()}

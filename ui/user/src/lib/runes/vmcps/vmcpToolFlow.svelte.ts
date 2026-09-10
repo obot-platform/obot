@@ -4,14 +4,15 @@ import {
 	type MCPCatalogEntry,
 	type ToolOverride,
 	type VMCP,
-	type VMCPComponent
+	type VMCPComponent,
+	type VMCPConfigurationPolicy
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
-import { vmcpComponentId, vmcpManifest } from '$lib/services/vmcps/utils';
+import { catalogConfigurationFields, vmcpComponentId, vmcpManifest } from '$lib/services/vmcps/utils';
 import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
-export type VMcpToolDialog = 'added-create' | 'setup' | 'edit' | 'actions';
+export type VMcpToolDialog = 'added-create' | 'setup' | 'edit' | 'actions' | 'configure';
 
 interface PendingAddedServer {
 	component: MCPCatalogEntry;
@@ -192,14 +193,7 @@ export function createVMcpToolFlow() {
 	function openComponent(component: { id?: string }, vmcp: VMCP) {
 		const raw = findComponent(vmcp, component.id);
 		if (!raw) return;
-
-		if (raw.toolOverrides?.length) {
-			openEdit(vmcp, raw);
-			return;
-		}
-		if (configure(vmcp, raw, true)) {
-			dialog = 'actions';
-		}
+		if (configure(vmcp, raw, true)) dialog = 'actions';
 	}
 
 	/** Skip the actions chooser: setup when there are no stored overrides, otherwise edit them. */
@@ -257,10 +251,71 @@ export function createVMcpToolFlow() {
 		openSetup(pending.vmcp, component);
 	}
 
+	function editConfiguration() {
+		if (!configuringEntry || catalogConfigurationFields(configuringEntry).length === 0) return;
+		dialog = 'configure';
+	}
+
+	function returnToActions() {
+		if (configuringComponent && modifyingVMcp) {
+			dialog = 'actions';
+			return;
+		}
+		close();
+	}
+
+	async function saveConfiguration(configuration: VMCPConfigurationPolicy[]) {
+		const component = configuringComponent;
+		if (!component) {
+			close();
+			return;
+		}
+		const vmcpId = modifyingVMcp?.id;
+		if (!vmcpId) {
+			close();
+			return;
+		}
+
+		try {
+			const latest = await UserService.getVMCP(vmcpId);
+			const id = vmcpComponentId(component);
+			const components = latest.components ?? [];
+			const index = components.findIndex((candidate) => vmcpComponentId(candidate) === id);
+			if (index < 0) {
+				close();
+				return;
+			}
+			const nextComponents = components.map((candidate, componentIndex) =>
+				componentIndex === index
+					? { ...candidate, ...component, configuration, id: candidate.id ?? component.id }
+					: candidate
+			);
+			const updated = await UserService.updateVMCP(latest.id, {
+				...vmcpManifest(latest),
+				components: nextComponents
+			});
+			modifyingVMcp = updated;
+			success.add(
+				`Configuration updated for ${component.catalogEntry?.manifest?.name ?? component.name ?? 'this server'} on ${updated.displayName}.`
+			);
+			onVMcpChanged?.(updated);
+			close();
+		} catch {
+			errors.append('Failed to update configuration for this vMCP.');
+			throw new Error('Failed to update configuration for this vMCP.');
+		}
+	}
+
 	function modifyToolsFromActions() {
 		const vmcp = modifyingVMcp;
 		const component = configuringComponent;
-		if (vmcp && component) openSetup(vmcp, component, true);
+		if (!vmcp || !component) return;
+		if (component.configuration?.some((field) => field.policy === 'userAllowed')) return;
+		if (component.toolOverrides?.length) {
+			openEdit(vmcp, component);
+			return;
+		}
+		openSetup(vmcp, component, true);
 	}
 
 	function refreshTools() {
@@ -428,6 +483,11 @@ export function createVMcpToolFlow() {
 		get excludedComponentIds() {
 			return excludedComponentIds;
 		},
+		get hasConfigurableFields() {
+			return Boolean(
+				configuringEntry && catalogConfigurationFields(configuringEntry).length > 0
+			);
+		},
 		setOnVMcpChanged(handler: ((vmcp: VMCP) => void) | undefined) {
 			onVMcpChanged = handler;
 		},
@@ -441,6 +501,9 @@ export function createVMcpToolFlow() {
 		offerToolSelection,
 		handleVMcpCreated,
 		selectToolsForAdded,
+		editConfiguration,
+		returnToActions,
+		saveConfiguration,
 		modifyToolsFromActions,
 		refreshTools,
 		saveEditedTools,

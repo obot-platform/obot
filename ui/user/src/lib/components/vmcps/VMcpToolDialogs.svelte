@@ -1,9 +1,11 @@
 <script lang="ts">
+	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
 	import { RefreshCcw, Server, Trash2 } from '@lucide/svelte';
 
@@ -16,14 +18,26 @@
 	let setupDialog = $state<ReturnType<typeof VMcpToolsSetup>>();
 	let editDialog = $state<ReturnType<typeof CompositeEditTools>>();
 	let componentActionsDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
+	const toolsLockedByUserSupplied = $derived(
+		flow.configuringComponent?.configuration?.some((field) => field.policy === 'userAllowed') ??
+			false
+	);
 
 	function openDialog(dialog: VMcpToolDialog | undefined) {
 		if (dialog === 'added-create') addedCreateDialog?.open();
 		if (dialog === 'setup') setupDialog?.open();
 		if (dialog === 'edit') editDialog?.open();
 		if (dialog === 'actions') componentActionsDialog?.open();
+		if (dialog === 'configure' && flow.configuringEntry) {
+			configurationDialog?.open(flow.configuringEntry, {
+				configuration: flow.configuringComponent?.configuration,
+				submitLabel: 'Save',
+				errorMessage: 'Failed to update configuration.'
+			});
+		}
 	}
 
 	function closeDialog(dialog: VMcpToolDialog | undefined) {
@@ -31,10 +45,16 @@
 		if (dialog === 'setup') setupDialog?.close();
 		if (dialog === 'edit') editDialog?.close();
 		if (dialog === 'actions') componentActionsDialog?.close();
+		if (dialog === 'configure') configurationDialog?.close();
 	}
 
 	function handleDialogClose(dialog: VMcpToolDialog) {
-		if (!synchronizing && flow.dialog === dialog) flow.close();
+		if (synchronizing || flow.dialog !== dialog) return;
+		if (dialog === 'configure') {
+			flow.returnToActions();
+			return;
+		}
+		flow.close();
 	}
 
 	$effect(() => {
@@ -136,16 +156,40 @@
 			{flow.configuringEntry?.manifest.name}
 		</div>
 	{/snippet}
-	<p class="mb-4 text-sm font-light">
-		All tools are enabled on
-		<b class="font-semibold">{flow.modifyingVMcp?.displayName ?? 'this vMCP'}</b> by default. What would
-		you like to do?
-	</p>
 	<div class="flex flex-col gap-2">
-		<button class="btn btn-primary" onclick={flow.modifyToolsFromActions}>Modify Tools</button>
-		<button class="btn btn-error" onclick={flow.promptRemove}>Delete MCP Server</button>
+		<div
+			class="w-full"
+			use:tooltip={toolsLockedByUserSupplied
+				? {
+						text: "Tools can't be modified because this server has user-supplied configuration.",
+						disablePortal: true
+					}
+				: undefined}
+		>
+			<button
+				class="btn btn-primary w-full"
+				disabled={toolsLockedByUserSupplied}
+				onclick={flow.modifyToolsFromActions}
+			>
+				Modify Tools
+			</button>
+		</div>
+		{#if flow.hasConfigurableFields}
+			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
+				Modify Configuration
+			</button>
+		{/if}
+		<button class="btn btn-error" onclick={flow.promptRemove}
+			>Remove {flow.configuringEntry?.manifest.name ?? 'this server'}</button
+		>
 	</div>
 </ResponsiveDialog>
+
+<VMcpComponentConfigurationDialog
+	bind:this={configurationDialog}
+	onNext={flow.saveConfiguration}
+	onClose={() => handleDialogClose('configure')}
+/>
 
 <CompositeEditTools
 	bind:this={editDialog}

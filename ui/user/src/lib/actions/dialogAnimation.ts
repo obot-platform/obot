@@ -92,9 +92,9 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 		const interruptedClose = node.hasAttribute('closing');
 		node.removeAttribute('closing');
 
-		// Keep the guide panel interactive: modal dialogs inert the document and their
-		// ::backdrop covers the full viewport in the top layer.
-		if (!interruptedClose) {
+		// Mid-close the element is still open; skip showModal() so it does not throw.
+		// A close() on an already-closed dialog can also leave `closing` set — still show.
+		if (!interruptedClose || !node.open) {
 			if (shouldOpenDialogNonModal(node)) {
 				originalShow.call(node);
 			} else {
@@ -122,7 +122,7 @@ export const dialogAnimation: Action<HTMLDialogElement, DialogAnimationParams> =
 
 	// Override the dialog.close method
 	node.close = function () {
-		if (node.hasAttribute('closing')) return;
+		if (!node.open || node.hasAttribute('closing')) return;
 		node.setAttribute('closing', '');
 
 		const content = getContentElement();

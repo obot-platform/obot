@@ -16,13 +16,15 @@
 		VMCPConfigurationPolicyType
 	} from '$lib/services';
 	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
+	import McpServerIcon from './McpServerIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		onNext?: (configuration: VMCPConfigurationPolicy[]) => void | Promise<void>;
+		onClose?: () => void;
 	}
 
-	let { onNext }: Props = $props();
+	let { onNext, onClose }: Props = $props();
 
 	interface PolicyDraft {
 		field: MCPConfig;
@@ -31,9 +33,9 @@
 	}
 
 	const POLICY_OPTIONS: { id: VMCPConfigurationPolicyType; label: string }[] = [
-		{ id: 'userAllowed', label: 'User-supplied' },
-		{ id: 'prohibited', label: 'Prohibited' },
-		{ id: 'fixed', label: 'Fixed' }
+		{ id: 'fixed', label: 'Fixed' },
+		{ id: 'userAllowed', label: 'User-Supplied' },
+		{ id: 'prohibited', label: 'Prohibited' }
 	];
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -42,6 +44,8 @@
 	let highlighted = $state<string[]>([]);
 	let error = $state<string>();
 	let saving = $state(false);
+	let submitLabel = $state('Next');
+	let failureMessage = $state('Failed to add MCP server to vMCP.');
 
 	let displayName = $derived(entry?.manifest.name || entry?.id || 'MCP server');
 	let envDrafts = $derived(
@@ -52,13 +56,26 @@
 		drafts.filter((draft) => draft.field.usage !== 'header' && isFileField(draft.field))
 	);
 
-	export function open(target: MCPCatalogEntry) {
+	export function open(
+		target: MCPCatalogEntry,
+		options?: {
+			configuration?: VMCPConfigurationPolicy[];
+			submitLabel?: string;
+			errorMessage?: string;
+		}
+	) {
 		entry = target;
-		drafts = catalogConfigurationFields(target).map((field) => ({
-			field,
-			policy: undefined,
-			value: field.value ?? ''
-		}));
+		const existing = new Map((options?.configuration ?? []).map((policy) => [policy.key, policy]));
+		drafts = catalogConfigurationFields(target).map((field) => {
+			const policy = existing.get(field.key);
+			return {
+				field,
+				policy: policy?.policy ?? 'fixed',
+				value: policy?.value ?? field.value ?? ''
+			};
+		});
+		submitLabel = options?.submitLabel ?? 'Next';
+		failureMessage = options?.errorMessage ?? 'Failed to add MCP server to vMCP.';
 		highlighted = [];
 		error = undefined;
 		saving = false;
@@ -120,7 +137,7 @@
 			await onNext?.(configurationPayload());
 			dialog?.close();
 		} catch {
-			error = 'Failed to add MCP server to vMCP.';
+			error = failureMessage;
 		} finally {
 			saving = false;
 		}
@@ -132,42 +149,37 @@
 		drafts = [];
 		error = undefined;
 		highlighted = [];
+		onClose?.();
 	}
 </script>
 
 {#snippet policyField(draft: PolicyDraft, index: number)}
 	{@const highlightRequired = highlighted.includes(draft.field.key)}
 	<div class="flex flex-col gap-2 rounded-lg border border-base-300 p-3 dark:border-base-400">
-		<span class="flex items-center gap-2">
-			<span id={`${draft.field.key}-label`} class={highlightRequired ? 'text-error' : ''}>
-				{fieldLabel(draft.field)}
-				{#if !draft.field.required}
-					<span class="text-muted-content">(optional)</span>
+		<div class="flex items-center justify-between gap-3">
+			<span class="flex min-w-0 items-center gap-2">
+				<span id={`${draft.field.key}-label`} class={highlightRequired ? 'text-error' : ''}>
+					{fieldLabel(draft.field)}
+					{#if !draft.field.required}
+						<span class="text-muted-content">(optional)</span>
+					{/if}
+				</span>
+				{#if draft.field.description}
+					<InfoTooltip text={draft.field.description} />
 				{/if}
 			</span>
-			{#if draft.field.description}
-				<InfoTooltip text={draft.field.description} />
-			{/if}
-		</span>
-		<div
-			class="flex flex-wrap gap-3"
-			role="radiogroup"
-			aria-label={`${fieldLabel(draft.field)} policy`}
-		>
-			{#each POLICY_OPTIONS as option (option.id)}
-				<label class="flex items-center gap-2 text-sm font-light">
-					<input
-						type="radio"
-						class="radio radio-primary radio-sm"
-						name={`vmcp-config-policy-${draft.field.key}`}
-						value={option.id}
-						checked={draft.policy === option.id}
-						onchange={() => setPolicy(index, option.id)}
-						disabled={saving}
-					/>
-					{option.label}
-				</label>
-			{/each}
+			<select
+				class="select select-sm w-36 shrink-0 bg-base-200 border-base-300"
+				aria-label={`${fieldLabel(draft.field)} policy`}
+				value={draft.policy}
+				disabled={saving}
+				onchange={(event) =>
+					setPolicy(index, event.currentTarget.value as VMCPConfigurationPolicyType)}
+			>
+				{#each POLICY_OPTIONS as option (option.id)}
+					<option value={option.id}>{option.label}</option>
+				{/each}
+			</select>
 		</div>
 		{#if draft.policy === 'fixed'}
 			{#if draft.field.options?.length}
@@ -218,18 +230,23 @@
 					{selectedConfigurationOption({ ...draft.field, value: draft.value })?.description}
 				</p>
 			{/if}
+		{:else if draft.policy === 'userAllowed'}
+			<p class="text-muted-content italic text-sm font-light break-all">
+				This will be requested on user connection to the vMCP.
+			</p>
+		{:else}
+			<p class="text-muted-content italic text-sm font-light break-all">
+				This field is prohibited from being modified.
+			</p>
 		{/if}
 	</div>
 {/snippet}
 
-{#snippet fieldGroup(title: string, items: PolicyDraft[])}
+{#snippet fieldGroup(items: PolicyDraft[])}
 	{#if items.length > 0}
-		<div class="flex flex-col gap-3">
-			<h4 class="text-sm font-medium">{title}</h4>
-			{#each items as draft (draft.field.key)}
-				{@render policyField(draft, drafts.indexOf(draft))}
-			{/each}
-		</div>
+		{#each items as draft (draft.field.key)}
+			{@render policyField(draft, drafts.indexOf(draft))}
+		{/each}
 	{/if}
 {/snippet}
 
@@ -237,9 +254,16 @@
 	bind:this={dialog}
 	animate="slide"
 	class="max-w-lg"
-	title="Set configuration policy"
+	title="Supply Configuration"
 	onClose={handleClose}
+	hideClose
 >
+	{#snippet titleContent()}
+		{#if entry?.manifest.icon}
+			<McpServerIcon icon={entry?.manifest.icon} />
+		{/if}
+		Configure {displayName}
+	{/snippet}
 	<p class="text-sm font-light text-muted-content mb-4">
 		Choose how each configuration value for <b class="font-semibold text-base-content"
 			>{displayName}</b
@@ -251,9 +275,9 @@
 		<p class="notification-error mb-4 text-sm" role="alert">{error}</p>
 	{/if}
 	<div class="flex max-h-[60dvh] flex-col gap-6 overflow-y-auto pr-1">
-		{@render fieldGroup('Environment', envDrafts)}
-		{@render fieldGroup('Headers', headerDrafts)}
-		{@render fieldGroup('Files', fileDrafts)}
+		{@render fieldGroup(envDrafts)}
+		{@render fieldGroup(headerDrafts)}
+		{@render fieldGroup(fileDrafts)}
 	</div>
 	<div class="mt-4 flex justify-end gap-2">
 		<button class="btn btn-ghost btn-sm text-xs" onclick={() => dialog?.close()} disabled={saving}>
@@ -263,7 +287,7 @@
 			{#if saving}
 				<Loading class="text-primary-content size-4" />
 			{:else}
-				Next
+				{submitLabel}
 			{/if}
 		</button>
 	</div>

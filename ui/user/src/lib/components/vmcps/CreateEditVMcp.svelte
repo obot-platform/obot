@@ -16,47 +16,76 @@
 
 	let { onCreated, onDeleted, onUpdated }: Props = $props();
 
-	let creatingVMcp = $state<VMcpFormData>(initVMcp());
+	let form = $state<VMcpFormData>(initVMcp());
 	let creatingComponents = $state<VMCPComponent[]>([]);
 	let showRequired = $state<Record<string, boolean>>({});
 	let saving = $state(false);
+	let dialogOpen = $state(false);
 
-	let createVMcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let editVMcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let vmcpDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedVMcp = $state<VMCP>();
-	let editingVMcp = $state<VMcpFormData>();
 
 	let confirmDeleteVMcp = $state<VMCP>();
 	let deletingVMcp = $state(false);
 
-	async function handleCreateVMcp() {
+	const editing = $derived(Boolean(selectedVMcp));
+
+	function resetForm() {
+		form = initVMcp();
+		creatingComponents = [];
+		selectedVMcp = undefined;
 		showRequired = {};
-		if (creatingVMcp.displayName.trim() === '') {
-			showRequired.displayName = true;
-		}
-
-		if (!creatingVMcp.description || creatingVMcp.description.trim() === '') {
-			showRequired.description = true;
-		}
-
-		if (Object.keys(showRequired).length > 0) {
-			return;
-		}
-
-		await saveVMcp();
 	}
 
-	async function saveVMcp() {
+	function openDialog() {
+		if (dialogOpen) return;
+		dialogOpen = true;
+		vmcpDialog?.open();
+	}
+
+	function closeDialog() {
+		resetForm();
+		if (!dialogOpen) return;
+		dialogOpen = false;
+		vmcpDialog?.close();
+	}
+
+	function handleDialogClose() {
+		dialogOpen = false;
+		resetForm();
+	}
+
+	function validateForm() {
+		showRequired = {};
+		if (form.displayName.trim() === '') {
+			showRequired.displayName = true;
+		}
+		if (!form.description?.trim()) {
+			showRequired.description = true;
+		}
+		return Object.keys(showRequired).length === 0;
+	}
+
+	async function handleSubmit() {
+		if (!validateForm()) return;
+		if (selectedVMcp) {
+			await updateVMcp(selectedVMcp);
+		} else {
+			await createVMcp();
+		}
+	}
+
+	async function createVMcp() {
 		saving = true;
 		try {
 			const created = await UserService.createVMCP({
-				displayName: creatingVMcp.displayName.trim(),
-				description: creatingVMcp.description.trim(),
+				displayName: form.displayName.trim(),
+				description: form.description.trim(),
 				components: creatingComponents
 			});
 
 			success.add(`${created.displayName} vMCP added.`);
-			closeCreate();
+			closeDialog();
 			await onCreated?.(created);
 		} catch {
 			errors.append('Failed to create vMCP.');
@@ -65,49 +94,53 @@
 		}
 	}
 
+	async function updateVMcp(vmcp: VMCP) {
+		saving = true;
+		try {
+			const updatedVMcp = await UserService.updateVMCP(vmcp.id, {
+				...vmcpManifest(vmcp),
+				displayName: form.displayName.trim(),
+				description: form.description.trim()
+			});
+			success.add(`${updatedVMcp.displayName} vMCP updated.`);
+			closeDialog();
+			await onUpdated?.(updatedVMcp);
+		} catch {
+			errors.append('Failed to update vMCP.');
+		} finally {
+			saving = false;
+		}
+	}
+
 	export function openCreate(components: VMCPComponent[] = []) {
 		if (saving) return;
-		closeEdit();
+		selectedVMcp = undefined;
 		creatingComponents = components;
-		creatingVMcp = initVMcp();
+		form = initVMcp();
 
 		if (components.length === 1) {
-			creatingVMcp.displayName = components[0].name ?? '';
-			creatingVMcp.description = components[0].catalogEntry?.manifest?.shortDescription ?? '';
+			form.displayName = components[0].name ?? '';
+			form.description = components[0].catalogEntry?.manifest?.shortDescription ?? '';
 		}
 
 		showRequired = {};
-		createVMcpDialog?.open();
+		openDialog();
 	}
 
 	export function openDelete(vmcp: VMCP) {
-		selectedVMcp = vmcp;
 		confirmDeleteVMcp = vmcp;
 	}
 
-	function closeCreate() {
-		creatingVMcp = initVMcp();
-		creatingComponents = [];
-		showRequired = {};
-		createVMcpDialog?.close();
-	}
-
 	export function openEdit(vmcp: VMCP) {
-		closeCreate();
+		if (saving) return;
+		creatingComponents = [];
 		selectedVMcp = vmcp;
-		editingVMcp = {
+		form = {
 			displayName: vmcp.displayName ?? '',
 			description: vmcp.description ?? ''
 		};
 		showRequired = {};
-		editVMcpDialog?.open();
-	}
-
-	function closeEdit() {
-		selectedVMcp = undefined;
-		editingVMcp = undefined;
-		showRequired = {};
-		editVMcpDialog?.close();
+		openDialog();
 	}
 
 	async function handleDeleteVMcp() {
@@ -118,7 +151,7 @@
 		try {
 			await UserService.deleteVMCP(deleted.id);
 			if (selectedVMcp?.id === deleted.id) {
-				closeEdit();
+				closeDialog();
 			}
 			success.add(`${deleted.displayName} vMCP deleted.`);
 			await onDeleted?.(deleted);
@@ -127,35 +160,6 @@
 		} finally {
 			deletingVMcp = false;
 			confirmDeleteVMcp = undefined;
-		}
-	}
-
-	async function handleUpdateVMcp() {
-		if (!selectedVMcp || !editingVMcp) return;
-
-		showRequired = {};
-		if (editingVMcp.displayName.trim() === '') {
-			showRequired.displayName = true;
-		}
-		if (!editingVMcp.description?.trim()) {
-			showRequired.description = true;
-		}
-		if (Object.keys(showRequired).length > 0) return;
-
-		saving = true;
-		try {
-			const updatedVMcp = await UserService.updateVMCP(selectedVMcp.id, {
-				...vmcpManifest(selectedVMcp),
-				displayName: editingVMcp.displayName.trim(),
-				description: editingVMcp.description.trim()
-			});
-			success.add(`${updatedVMcp.displayName} vMCP updated.`);
-			closeEdit();
-			await onUpdated?.(updatedVMcp);
-		} catch {
-			errors.append('Failed to update vMCP.');
-		} finally {
-			saving = false;
 		}
 	}
 
@@ -181,21 +185,21 @@
 <ResponsiveDialog
 	animate="slide"
 	class="w-md"
-	bind:this={createVMcpDialog}
-	title="Create vMCP"
-	onClose={closeCreate}
+	bind:this={vmcpDialog}
+	title={editing ? 'Edit vMCP' : 'Create vMCP'}
+	onClose={handleDialogClose}
 >
 	<div class="mb-4 flex flex-col gap-1">
 		<label
-			for="create-vmcp-name"
+			for="vmcp-name"
 			class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
 		>
 			Name <span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
 		</label>
 		<input
-			id="create-vmcp-name"
+			id="vmcp-name"
 			class={twMerge('text-input-filled', showRequired.displayName && 'error')}
-			bind:value={creatingVMcp.displayName}
+			bind:value={form.displayName}
 			aria-required="true"
 			oninput={() => updateRequired('displayName')}
 		/>
@@ -206,17 +210,17 @@
 
 	<div class="flex flex-col gap-1">
 		<label
-			for="create-vmcp-description"
+			for="vmcp-description"
 			class={twMerge('text-sm font-light', showRequired.description && 'error')}
 		>
 			Description
 			<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
 		</label>
 		<textarea
-			id="create-vmcp-description"
+			id="vmcp-description"
 			rows="3"
 			class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
-			bind:value={creatingVMcp.description}
+			bind:value={form.description}
 			aria-required="true"
 			oninput={() => updateRequired('description')}
 		></textarea>
@@ -226,72 +230,15 @@
 	</div>
 
 	<div class="flex justify-end gap-2 mt-4">
-		<button class="btn btn-ghost btn-sm text-xs" onclick={closeCreate} disabled={saving}>
+		<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
 			Cancel
 		</button>
-		<button class="btn btn-primary btn-sm text-xs" onclick={handleCreateVMcp} disabled={saving}>
+		<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
 			{#if saving}
 				<Loading class="text-primary-content size-4" />
 			{:else}
-				Create
+				{editing ? 'Save' : 'Create'}
 			{/if}
 		</button>
 	</div>
-</ResponsiveDialog>
-
-<ResponsiveDialog class="w-md" bind:this={editVMcpDialog} title="Edit vMCP" onClose={closeEdit}>
-	{#if editingVMcp}
-		<div class="mb-4 flex flex-col gap-1">
-			<label
-				for="edit-vmcp-name"
-				class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
-			>
-				Name <span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
-			</label>
-			<input
-				id="edit-vmcp-name"
-				class={twMerge('text-input-filled', showRequired.displayName && 'error')}
-				bind:value={editingVMcp.displayName}
-				aria-required="true"
-				oninput={() => updateRequired('displayName')}
-			/>
-			{#if showRequired.displayName}
-				<p class="text-error text-xs" role="alert">Name is required</p>
-			{/if}
-		</div>
-
-		<div class="flex flex-col gap-1">
-			<label
-				for="edit-vmcp-description"
-				class={twMerge('text-sm font-light', showRequired.description && 'error')}
-			>
-				Description
-				<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
-			</label>
-			<textarea
-				id="edit-vmcp-description"
-				rows="3"
-				class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
-				bind:value={editingVMcp.description}
-				aria-required="true"
-				oninput={() => updateRequired('description')}
-			></textarea>
-			{#if showRequired.description}
-				<p class="text-error text-xs" role="alert">Description is required</p>
-			{/if}
-		</div>
-
-		<div class="flex justify-end gap-2 mt-4">
-			<button class="btn btn-ghost btn-sm text-xs" onclick={closeEdit} disabled={saving}>
-				Cancel
-			</button>
-			<button class="btn btn-primary btn-sm text-xs" onclick={handleUpdateVMcp} disabled={saving}>
-				{#if saving}
-					<Loading class="text-primary-content size-4" />
-				{:else}
-					Save
-				{/if}
-			</button>
-		</div>
-	{/if}
 </ResponsiveDialog>
