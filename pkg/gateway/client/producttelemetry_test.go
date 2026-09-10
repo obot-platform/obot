@@ -71,11 +71,31 @@ func TestProductTelemetryDailyCounts(t *testing.T) {
 		count func() (int64, error)
 		want  int64
 	}{
-		{name: "active users", count: func() (int64, error) { return c.ActiveUserCountByDate(t.Context(), start, end) }, want: 1},
-		{name: "MCP tool calls", count: func() (int64, error) { return c.MCPToolCallCount(t.Context(), start, end) }, want: 1},
-		{name: "LLM audit logs", count: func() (int64, error) { return c.LLMAuditLogCount(t.Context(), start, end) }, want: 1},
-		{name: "device scans", count: func() (int64, error) { return c.DeviceScanCount(t.Context(), start, end) }, want: 1},
-		{name: "enforcement decisions", count: func() (int64, error) { return c.EnforcementDecisionCount(t.Context(), start, end) }, want: 1},
+		{
+			name:  "active users",
+			count: func() (int64, error) { return c.ActiveUserCountByDate(t.Context(), start, end) },
+			want:  1,
+		},
+		{
+			name:  "MCP tool calls",
+			count: func() (int64, error) { return c.MCPToolCallCount(t.Context(), start, end) },
+			want:  1,
+		},
+		{
+			name:  "LLM audit logs",
+			count: func() (int64, error) { return c.LLMAuditLogCount(t.Context(), start, end) },
+			want:  1,
+		},
+		{
+			name:  "device scans",
+			count: func() (int64, error) { return c.DeviceScanCount(t.Context(), start, end) },
+			want:  1,
+		},
+		{
+			name:  "enforcement decisions",
+			count: func() (int64, error) { return c.EnforcementDecisionCount(t.Context(), start, end) },
+			want:  1,
+		},
 	}
 
 	for _, testCase := range tests {

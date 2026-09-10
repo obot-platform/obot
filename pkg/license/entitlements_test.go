@@ -44,10 +44,25 @@ func TestGetDistributionFromEntitlements(t *testing.T) {
 		entitlements []string
 		want         types.ProductTelemetryDistribution
 	}{
-		{name: "unregistered", want: types.ProductTelemetryDistributionUnregistered},
-		{name: "registered", entitlements: []string{CommunityEntitlement}, want: types.ProductTelemetryDistributionRegistered},
-		{name: "enterprise", entitlements: []string{CommunityEntitlement, EnterpriseEntitlement}, want: types.ProductTelemetryDistributionEnterprise},
-		{name: "cloud", entitlements: []string{CommunityEntitlement, EnterpriseEntitlement, CloudEntitlement}, want: types.ProductTelemetryDistributionCloud},
+		{
+			name: "unregistered",
+			want: types.ProductTelemetryDistributionUnregistered,
+		},
+		{
+			name:         "registered",
+			entitlements: []string{CommunityEntitlement},
+			want:         types.ProductTelemetryDistributionRegistered,
+		},
+		{
+			name:         "enterprise",
+			entitlements: []string{CommunityEntitlement, EnterpriseEntitlement},
+			want:         types.ProductTelemetryDistributionEnterprise,
+		},
+		{
+			name:         "cloud",
+			entitlements: []string{CommunityEntitlement, EnterpriseEntitlement, CloudEntitlement},
+			want:         types.ProductTelemetryDistributionCloud,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			if got := GetDistributionFromEntitlements(test.entitlements); got != test.want {
