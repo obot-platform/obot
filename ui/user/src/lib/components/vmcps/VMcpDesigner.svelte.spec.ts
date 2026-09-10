@@ -62,7 +62,7 @@ function createIssueTrackerVMcp(overrides?: ToolOverride[]) {
 async function renderDesigner(
 	entries: MCPCatalogEntry[],
 	vmcp?: VMCP,
-	options?: { groups?: string[] }
+	options?: { groups?: string[]; onBack?: () => void }
 ) {
 	mcpServersAndEntries.current = {
 		entries,
@@ -76,7 +76,10 @@ async function renderDesigner(
 	await preparePageData({
 		profile: createMockProfile(options?.groups ?? [Group.ADMIN])
 	});
-	return render(VMcpDesigner, vmcp ? { vmcp } : {});
+	return render(VMcpDesigner, {
+		...(vmcp ? { vmcp } : {}),
+		...(options?.onBack ? { onBack: options.onBack } : {})
+	});
 }
 
 function componentBlock() {
@@ -774,6 +777,68 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+		});
+	});
+
+	describe('back navigation', () => {
+		function layoutBackButton() {
+			return page.getByRole('button', { name: 'Back', exact: true });
+		}
+
+		it('leaves the designer from the graph', async () => {
+			const onBack = vi.fn();
+			await renderDesigner([componentEntry], createIssueTrackerVMcp(), { onBack });
+
+			await layoutBackButton().click();
+			expect(onBack).toHaveBeenCalledOnce();
+		});
+
+		it('leaves the designer from the profiles list', async () => {
+			const onBack = vi.fn();
+			appPage.url.searchParams.set('view', 'profiles');
+			await renderDesigner([componentEntry], createIssueTrackerVMcp(), { onBack });
+
+			await expect.element(page.getByRole('button', { name: 'Create profile' })).toBeVisible();
+			await layoutBackButton().click();
+			expect(onBack).toHaveBeenCalledOnce();
+		});
+
+		it('returns to the profiles list when creating a profile', async () => {
+			const onBack = vi.fn();
+			appPage.url.searchParams.set('view', 'profiles');
+			await renderDesigner([componentEntry], createIssueTrackerVMcp(), { onBack });
+
+			await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+			await expect.element(page.getByRole('heading', { name: 'Create profile' })).toBeVisible();
+
+			await layoutBackButton().click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Create profile' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Create profile' })).toBeVisible();
+			expect(onBack).not.toHaveBeenCalled();
+
+			await layoutBackButton().click();
+			expect(onBack).toHaveBeenCalledOnce();
+		});
+
+		it('returns to the profiles list when a profile is selected', async () => {
+			const onBack = vi.fn();
+			appPage.url.searchParams.set('view', 'profiles');
+			await renderDesigner([componentEntry], createIssueTrackerVMcp(), { onBack });
+
+			await page.getByRole('button', { name: 'Edit default' }).click();
+			await expect.element(page.getByRole('heading', { name: 'Edit profile' })).toBeVisible();
+
+			await layoutBackButton().click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Edit profile' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Edit default' })).toBeVisible();
+			expect(onBack).not.toHaveBeenCalled();
+
+			await layoutBackButton().click();
+			expect(onBack).toHaveBeenCalledOnce();
 		});
 	});
 

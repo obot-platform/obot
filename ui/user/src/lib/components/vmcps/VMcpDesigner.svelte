@@ -58,6 +58,7 @@
 	);
 	let showRightPanel = $state(true);
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
+	let profilesPanel = $state<ReturnType<typeof VMcpProfiles>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
@@ -269,9 +270,14 @@
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
 
-	function handleBack() {
+	function leaveDesigner() {
 		onBack?.();
 		if (!onBack) goto('/vmcps');
+	}
+
+	function handleBack() {
+		if (profilesPanel?.leaveEditor()) return;
+		leaveDesigner();
 	}
 </script>
 
@@ -293,6 +299,7 @@
 		{/if}
 		{#if viewType === 'profiles'}
 			<VMcpProfiles
+				bind:this={profilesPanel}
 				vmcp={selectedVMcp}
 				{toolFlow}
 				onUpdated={(updated) => {
@@ -415,7 +422,7 @@
 <CreateEditVMcp
 	bind:this={createEditVMcp}
 	onCreated={handleVMcpCreated}
-	onDeleted={handleBack}
+	onDeleted={leaveDesigner}
 	onUpdated={(updated) => {
 		selectedVMcp = updated;
 	}}

@@ -30,7 +30,7 @@ func (*VMCPHandler) List(req api.Context) error {
 		return fmt.Errorf("failed to list VMCPs: %w", err)
 	}
 
-	all := req.UserIsAdmin() && req.URL.Query().Get("all") == "true"
+	all := (req.UserIsAdmin() || req.UserIsAuditor()) && req.URL.Query().Get("all") == "true"
 
 	items := make([]types.VMCP, 0, len(list.Items))
 	for itemIndex := range list.Items {

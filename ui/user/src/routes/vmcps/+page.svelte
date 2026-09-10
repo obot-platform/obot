@@ -47,12 +47,19 @@
 	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
 	let isLoading = $state(false);
 	let showMyVMcpsOnly = $state(false);
+	let showSharedVMcpsOnly = $state(false);
 	let sortBy = $state<VMcpSortBy>('name');
 	let query = $state('');
 	let componentFilterBy = $state('');
-	let vmcps = $derived(
-		showMyVMcpsOnly ? listedVMcps.filter((vmcp) => vmcp.userID === profile.current.id) : listedVMcps
-	);
+	let vmcps = $derived.by(() => {
+		if (showMyVMcpsOnly) {
+			return listedVMcps.filter((vmcp) => vmcp.userID === profile.current.id);
+		}
+		if (hasAdminAccess && showSharedVMcpsOnly) {
+			return listedVMcps.filter((vmcp) => !vmcp.userID);
+		}
+		return listedVMcps;
+	});
 	function componentFilterLabel(id: string) {
 		for (const vmcp of listedVMcps) {
 			const component = vmcp.components?.find(
@@ -253,6 +260,7 @@
 	{:else}
 		<VMcpListSettings
 			bind:showMyVMcpsOnly
+			bind:showSharedVMcpsOnly
 			bind:sortBy
 			bind:query
 			bind:componentFilterBy

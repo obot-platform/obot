@@ -19,7 +19,7 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import CompositeToolOverrideList from '$lib/components/mcp/composite/CompositeToolOverrideList.svelte';
+	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
@@ -27,11 +27,11 @@
 	import { success } from '$lib/stores/success';
 	import { getUserRoleLabel } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
+	import McpServerIcon from './McpServerIcon.svelte';
 	import {
 		ArrowLeft,
 		ChevronDown,
 		ChevronUp,
-		Pencil,
 		Plus,
 		Server,
 		Split,
@@ -193,9 +193,9 @@
 		for (const resource of profile.resources) {
 			allowedTools[resource.id] = grantedToolNames(resource);
 		}
-		const allowAllTools = Object.values(allowedTools).every(
-			(names) => names.length === 1 && names[0] === '*'
-		);
+		const allowAllTools =
+			profile.resources.length > 0 &&
+			Object.values(allowedTools).every((names) => names.length === 1 && names[0] === '*');
 		return {
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
@@ -283,6 +283,12 @@
 		editingId = undefined;
 		error = '';
 		expanded = {};
+	}
+
+	export function leaveEditor() {
+		if (!draft) return false;
+		cancelEditing();
+		return true;
 	}
 
 	async function saveProfile() {
@@ -486,6 +492,58 @@
 		}
 	}
 
+	function getDisplayListText(names: string[]) {
+		if (names.length <= 1) return names[0] ?? '';
+		const rest = names.slice(0, names.length > 5 ? 4 : -1);
+		const last = names.length > 5 ? `${names.length - 4} others` : names.at(-1);
+		return `${rest.join(', ')} and ${last}`;
+	}
+
+	function profileUsersDisplayText(profile: Profile) {
+		return getDisplayListText(profile.users.map((subject) => subjectDisplay(subject).name));
+	}
+
+	function enabledToolNames(tools: ToolOverride[]) {
+		return new Set(tools.filter((tool) => tool.enabled !== false).map((tool) => tool.name));
+	}
+
+	function profileResourcePreviews(profile: Profile) {
+		const summaries = profile.resources
+			.map((resource) => {
+				const component = componentServers.find(
+					(candidate) => componentId(candidate) === resource.id
+				);
+				const enabled = enabledToolCount(resource);
+				const total = modifiableTools(resource).length;
+				const componentEnabled = enabledToolNames(
+					component
+						? modifiableTools({
+								id: resource.id,
+								toolOverrides: clampToComponent(initialTools(component), resource.id)
+							})
+						: []
+				);
+				const profileEnabled = enabledToolNames(modifiableTools(resource));
+				const changed =
+					[...profileEnabled].some((name) => !componentEnabled.has(name)) ||
+					[...componentEnabled].some((name) => !profileEnabled.has(name));
+				return {
+					id: resource.id,
+					name: component ? componentName(component) : resource.id,
+					icon: component?.catalogEntry?.manifest?.icon,
+					enabled,
+					total,
+					changed
+				};
+			})
+			.sort((a, b) => Number(b.changed) - Number(a.changed));
+
+		return {
+			items: summaries.slice(0, 4),
+			more: Math.max(summaries.length - 4, 0)
+		};
+	}
+
 	function refineTools(event: MouseEvent, component: VMCPComponent) {
 		event.preventDefault();
 		event.stopPropagation();
@@ -513,7 +571,7 @@
 	}
 </script>
 
-<div class="p-3 pt-0">
+<div class="p-3 pt-0 @container">
 	{#if draft}
 		<div class="mx-auto w-full max-w-4xl">
 			{@render editCreate()}
@@ -693,7 +751,7 @@
 										in:slide={{ axis: 'y', duration: 150 }}
 										class="border-base-300 bg-base-200/35 dark:bg-base-200 flex flex-col border-t p-2"
 									>
-										<CompositeToolOverrideList
+										<VMcpProfileToolsOverride
 											bind:tools={resource.toolOverrides}
 											toolPrefix={component.toolPrefix}
 											componentId={id}
@@ -823,10 +881,11 @@
 			</button>
 		</div>
 	{:else}
-		<div class="flex flex-col gap-2">
+		<div class="grid grid-cols-1 @2xl:grid-cols-2 @4xl:grid-cols-3 gap-4">
 			{#each profiles as profile (profile.id)}
+				{@const resources = profileResourcePreviews(profile)}
 				<article
-					class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 dark:hover:border-primary hover:border-primary group relative rounded-xl border p-4 shadow-sm transition"
+					class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 dark:hover:border-primary/80 hover:border-primary/80 group relative rounded-xl border p-4 shadow-sm transition"
 				>
 					<button
 						type="button"
@@ -838,16 +897,48 @@
 						<div class="flex items-start justify-between gap-3">
 							<div class="min-w-0">
 								<h3 class="truncate font-semibold">{profile.name}</h3>
-								<p class="text-muted-content mt-1 text-xs">
-									{profile.users.length}
-									{profile.users.length === 1 ? 'member' : 'members'}
-								</p>
+								{#if profile.users.length > 0}
+									<p class="text-muted-content mt-1 flex items-center gap-1.5 text-xs">
+										<UsersRound class="size-3 shrink-0" />
+										<span class="truncate">{profileUsersDisplayText(profile)}</span>
+									</p>
+								{/if}
+								{#if resources.items.length > 0}
+									<ul class="mt-4 flex flex-wrap gap-1">
+										{#each resources.items as resource (resource.id)}
+											<li
+												title={resource.name}
+												class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 group-hover:border-primary/40 flex shrink-0 items-center gap-2 rounded-md border pr-2 transition-colors"
+											>
+												<McpServerIcon
+													icon={resource.icon}
+													width={12}
+													height={12}
+													class="size-3"
+													classes={{ root: 'rounded-r-none' }}
+												/>
+												<span
+													class={twMerge(
+														'text-xs whitespace-nowrap text-muted-content',
+														resource.changed && 'text-base-content'
+													)}
+												>
+													{resource.changed
+														? `${resource.enabled} of ${resource.total}`
+														: 'Default'}
+												</span>
+											</li>
+										{/each}
+										{#if resources.more > 0}
+											<li
+												class="text-muted-content self-center text-xs font-light badge bg-transparent border-base-300 dark:border-base-400"
+											>
+												+{resources.more} more
+											</li>
+										{/if}
+									</ul>
+								{/if}
 							</div>
-							<Pencil
-								class="text-muted-content size-4 opacity-0 transition-opacity group-hover:opacity-100 -translate-x-2.5"
-							/>
-						</div>
-						<div class="border-base-300 dark:border-base-400 mt-4 flex justify-end border-t pt-2">
 							<IconButton
 								variant="danger"
 								class="pointer-events-auto"

@@ -444,10 +444,21 @@ export function createVMcpToolFlow() {
 	async function removeComponent() {
 		if (!pendingRemoval) return;
 		const { component, vmcp } = pendingRemoval;
+		const lastComponentWarning =
+			'Cannot remove the last remaining component. Connecting to a vMCP requires at least one component.';
+		if ((vmcp.components ?? []).length <= 1) {
+			errors.append(lastComponentWarning);
+			pendingRemoval = undefined;
+			return;
+		}
 
 		removing = true;
 		try {
 			const latest = await UserService.getVMCP(vmcp.id);
+			if ((latest.components ?? []).length <= 1) {
+				errors.append(lastComponentWarning);
+				return;
+			}
 			const updated = await UserService.updateVMCP(latest.id, {
 				...vmcpManifest(latest),
 				components: (latest.components ?? []).filter(

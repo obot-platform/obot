@@ -14,6 +14,7 @@
 		type SkillRepository
 	} from '$lib/services';
 	import type { Skill } from '$lib/services/nanobot/types';
+	import { parseErrorContent } from '$lib/errors';
 	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import {
@@ -100,7 +101,7 @@
 			if (generation !== loadGeneration) {
 				return;
 			}
-			loadError = error instanceof Error ? error.message : 'Failed to load access policies.';
+			loadError = parseErrorContent(error).message || 'Failed to load access policies.';
 		} finally {
 			if (generation === loadGeneration) {
 				loading = false;
@@ -347,7 +348,7 @@
 				<Loading class="size-6" />
 			</div>
 		{:else if loadError}
-			<div class="notification-error p-3 text-sm font-light">{loadError}</div>
+			<div class="notification-error p-3 text-sm font-light" role="alert">{loadError}</div>
 		{:else if !hasAnyCurrentAccess(sections)}
 			<div
 				class="text-muted-content flex grow items-center justify-center py-12 text-center text-sm"

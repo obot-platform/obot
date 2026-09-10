@@ -402,6 +402,30 @@ describe('VMcpProfiles.svelte', () => {
 		await expect.element(page.getByText('2 of 2 tools')).toBeVisible();
 	});
 
+	it('shows Default or the enabled tool count on each server chip', async () => {
+		const vmcp = createVMcp('vmcp-profile-server-chips');
+		vmcp.profiles = [
+			{
+				name: 'default',
+				subjects: [{ type: 'selector', id: '*' }],
+				allowAllTools: true
+			},
+			{
+				name: 'Limited tools',
+				subjects: [{ type: 'selector', id: '*' }],
+				allowAllTools: false,
+				allowedTools: { github: ['list_issues'] }
+			}
+		];
+		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+		await expect.element(page.getByRole('button', { name: 'Edit default' })).toBeVisible();
+		await expect.element(page.getByText('Default', { exact: true })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Edit Limited tools' })).toBeVisible();
+		await expect.element(page.getByText('1 of 2')).toBeVisible();
+		await expect.element(page.getByText('GitHub')).not.toBeInTheDocument();
+	});
+
 	it('assigns people from the search dropdown', async () => {
 		render(VMcpProfiles, {
 			vmcp: createVMcp('vmcp-people-dropdown'),

@@ -1,8 +1,9 @@
 import { page as appPage } from '$app/state';
-import type { MCPCatalogEntry } from '$lib/services';
+import { Group, type MCPCatalogEntry } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
-import { preparePageData } from '../../tests/helpers/pageData';
+import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import VMcpsPage from './+page.svelte';
@@ -24,7 +25,8 @@ function createIssueTrackerVMcp() {
 async function renderPageWithEntries(
 	entries: MCPCatalogEntry[],
 	creating = false,
-	vmcps = [createIssueTrackerVMcp()]
+	vmcps = [createIssueTrackerVMcp()],
+	groups: string[] = [Group.ADMIN]
 ) {
 	if (creating) {
 		appPage.url.searchParams.set('new', 'true');
@@ -43,7 +45,8 @@ async function renderPageWithEntries(
 	const data = await preparePageData<PageData>({
 		vmcps,
 		vmcpRepositories: [],
-		gitCredentials: []
+		gitCredentials: [],
+		profile: createMockProfile(groups)
 	});
 	return render(VMcpsPage, { data });
 }
@@ -86,6 +89,47 @@ describe('vMCPs Page', () => {
 
 			await expect
 				.element(page.getByRole('button', { name: new RegExp('View Slack details') }))
+				.not.toBeInTheDocument();
+		});
+
+		it('lets admins hide personal vMCPs with the shared filter', async () => {
+			const personal = createVMCP({
+				id: 'vmcp-personal',
+				displayName: 'Personal Notes vMCP',
+				userID: getProfileResponse.id
+			});
+			const shared = createVMCP({
+				id: 'vmcp-shared',
+				displayName: 'Org Docs vMCP',
+				userID: ''
+			});
+			await renderPageWithEntries([componentEntry], false, [personal, shared]);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Click to edit Personal Notes vMCP' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Click to edit Org Docs vMCP' }))
+				.toBeVisible();
+
+			await page.getByRole('button', { name: 'Filters' }).click();
+			await page.getByRole('checkbox', { name: 'Show only shared vMCPs' }).click();
+			await tick();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Click to edit Org Docs vMCP' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Click to edit Personal Notes vMCP' }))
+				.not.toBeInTheDocument();
+		});
+
+		it('does not offer the shared filter to users without admin access', async () => {
+			await renderPageWithEntries([componentEntry], false, [createIssueTrackerVMcp()], [Group.USER]);
+
+			await page.getByRole('button', { name: 'Filters' }).click();
+			await expect
+				.element(page.getByRole('checkbox', { name: 'Show only shared vMCPs' }))
 				.not.toBeInTheDocument();
 		});
 	});

@@ -6,7 +6,8 @@ import type {
 	OrgUser,
 	VMCP,
 	VMCPComponent,
-	VMCPManifest
+	VMCPManifest,
+	VMCPProfile
 } from '$lib/services';
 import { AiClient } from '../user/constants';
 import { getManifestConfiguration } from '../user/mcp';
@@ -491,4 +492,15 @@ export function getToolCounts(componentServers: VMcpComponentView[]) {
 		total += previewCount;
 	}
 	return { enabled, total, approximate };
+}
+
+export function getProfilesDisplayText(profiles?: VMCPProfile[]) {
+	if (!profiles) return '';
+
+	const names = profiles.map((profile) => profile.name);
+	if (names.length <= 1) return names[0] ?? '';
+
+	const rest = names.slice(0, names.length > 5 ? 4 : -1);
+	const last = names.length > 5 ? `${names.length - 4} others` : names.at(-1);
+	return `${rest.join(', ')} and ${last}`;
 }

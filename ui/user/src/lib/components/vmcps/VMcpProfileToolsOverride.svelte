@@ -1,14 +1,8 @@
 <script lang="ts">
 	import Toggle from '$lib/components/Toggle.svelte';
 	import type { ToolOverride } from '$lib/services';
-	import {
-		conflictIssue,
-		effectiveToolName,
-		isToolCustomized,
-		toolNameIssue
-	} from '$lib/services/user/mcp';
-	import ToolNameIssueIcon from '../ToolNameIssueIcon.svelte';
-	import { TriangleAlert } from '@lucide/svelte';
+	import { conflictIssue, effectiveToolName, toolNameIssue } from '$lib/services/user/mcp';
+	import ToolNameIssueIcon from '../mcp/ToolNameIssueIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -24,14 +18,11 @@
 	let {
 		tools = $bindable(),
 		toolPrefix,
-		componentId,
 		readonly,
 		lockedTools,
 		lockedReason,
 		effectiveNameDuplicates = new Set()
 	}: Props = $props();
-
-	let expandedTools = $state<Record<string, boolean>>({});
 
 	const orderedTools = $derived.by(() => {
 		if (!lockedTools?.size) return tools;
@@ -48,11 +39,9 @@
 	{#each orderedTools as tool (tool.name)}
 		{@const currentName = (tool.overrideName || '').trim() || tool.name}
 		{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}
-		{@const isCustomized = isToolCustomized(tool)}
 		{@const name = effectiveToolName(tool.name, tool.overrideName, toolPrefix)}
 		{@const conflict =
 			tool.enabled !== false ? conflictIssue(name, effectiveNameDuplicates) : undefined}
-		{@const toolKey = `${componentId}-${tool.name}`}
 		{@const locked = lockedTools?.has(tool.name) ?? false}
 
 		<div
@@ -92,67 +81,8 @@
 							label={tool.enabled ? 'Disable tool' : 'Enable tool'}
 							disablePortal
 						/>
-						<button
-							type="button"
-							class="btn btn-secondary btn-sm text-xs"
-							disabled={readonly || locked}
-							onclick={() => {
-								expandedTools[toolKey] = !expandedTools[toolKey];
-							}}
-						>
-							{expandedTools[toolKey] ? 'Hide details' : 'Customize'}
-						</button>
 					</div>
 				</div>
-
-				{#if isCustomized}
-					<div class="mt-1 flex items-center gap-1 text-[11px] text-amber-600">
-						<TriangleAlert class="size-3 shrink-0" />
-						<p>
-							Modified: This tool has been customized. The description or name has been changed.
-						</p>
-					</div>
-				{/if}
-
-				{#if expandedTools[toolKey]}
-					<div class="mt-2 flex flex-col gap-2">
-						<label class="flex flex-col gap-1">
-							<span class="text-xs text-muted-content">Tool name</span>
-							<input
-								class="text-input-filled flex-1 text-sm"
-								disabled={readonly}
-								bind:value={() => tool.overrideName ?? tool.name, (v) => (tool.overrideName = v)}
-							/>
-						</label>
-
-						<label class="flex flex-col gap-1">
-							<span class="text-xs text-muted-content">Description</span>
-							<textarea
-								class="text-input-filled h-24 resize-none text-xs"
-								disabled={readonly}
-								bind:value={
-									() => tool.overrideDescription ?? tool.description ?? '',
-									(v) => (tool.overrideDescription = v)
-								}
-								placeholder="Enter tool description..."
-							></textarea>
-						</label>
-
-						<div class="mt-2 flex justify-end">
-							<button
-								type="button"
-								class="btn btn-sm btn-secondary text-xs"
-								disabled={readonly}
-								onclick={() => {
-									tool.overrideName = undefined;
-									tool.overrideDescription = undefined;
-								}}
-							>
-								Reset to default
-							</button>
-						</div>
-					</div>
-				{/if}
 			</div>
 		</div>
 	{/each}

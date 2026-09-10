@@ -118,10 +118,6 @@ export function mcpAccessPolicyHref(rule: AccessControlRule): `/${string}` {
 	return `/mcp-servers/access-policies/${rule.id}`;
 }
 
-function settledItems<T>(result: PromiseSettledResult<T[]>): T[] {
-	return result.status === 'fulfilled' ? result.value : [];
-}
-
 function matchPolicies<
 	T extends { id: string; displayName: string; subjects?: AccessControlRuleSubject[] }
 >(
@@ -237,7 +233,7 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 export async function loadCurrentAccess(
 	target: CurrentAccessTarget
 ): Promise<CurrentAccessSections> {
-	const [mcpCatalog, mcpWorkspaces, models, skills, hostedAgents] = await Promise.allSettled([
+	const [mcpCatalog, mcpWorkspaces, models, skills, hostedAgents] = await Promise.all([
 		AdminService.listAccessControlRules(),
 		AdminService.listAllUserWorkspaceAccessControlRules(),
 		AdminService.listModelAccessPolicies(),
@@ -247,14 +243,14 @@ export async function loadCurrentAccess(
 
 	return {
 		mcp: matchPolicies(
-			dedupeById([...settledItems(mcpCatalog), ...settledItems(mcpWorkspaces)]),
+			dedupeById([...mcpCatalog, ...mcpWorkspaces]),
 			target,
 			mcpAccessPolicyHref,
 			(policy) => policy.resources ?? [],
 			(policy) => ({ powerUserID: policy.powerUserID })
 		),
 		models: matchPolicies(
-			settledItems(models),
+			models,
 			target,
 			(policy) => `/models/access-policies/${policy.id}`,
 			(policy) =>
@@ -264,13 +260,13 @@ export async function loadCurrentAccess(
 				}))
 		),
 		skills: matchPolicies(
-			settledItems(skills),
+			skills,
 			target,
 			(policy) => `/skills/access-policies/${policy.id}`,
 			(policy) => policy.resources ?? []
 		),
 		hostedAgents: matchPolicies(
-			settledItems(hostedAgents),
+			hostedAgents,
 			target,
 			(policy) => `/hosted-agents/access-policies/${policy.id}`,
 			(policy) => policy.resources ?? []

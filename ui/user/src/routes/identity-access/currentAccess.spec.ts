@@ -248,4 +248,16 @@ describe('loadCurrentAccess', () => {
 			{ type: 'selector', id: '*' }
 		]);
 	});
+
+	it('rejects when any access policy list fails', async () => {
+		vi.spyOn(AdminService, 'listAccessControlRules').mockResolvedValue([]);
+		vi.spyOn(AdminService, 'listAllUserWorkspaceAccessControlRules').mockResolvedValue([]);
+		vi.spyOn(AdminService, 'listModelAccessPolicies').mockRejectedValue(
+			new Error('models unavailable')
+		);
+		vi.spyOn(AdminService, 'listSkillAccessPolicies').mockResolvedValue([]);
+		vi.spyOn(AdminService, 'listHostedAgentAccessPolicies').mockResolvedValue([]);
+
+		await expect(loadCurrentAccess(userTarget)).rejects.toThrow('models unavailable');
+	});
 });

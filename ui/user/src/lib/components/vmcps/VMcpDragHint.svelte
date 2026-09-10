@@ -84,12 +84,6 @@
 			<span class="bg-base-content/15 block h-1 w-20 rounded-full"></span>
 		</div>
 
-		<svg class="text-primary/50 absolute inset-0 size-full" viewBox="0 0 216 144" fill="none">
-			<circle class="vmcp-hint-anchor" cx="112" cy="122" r="2.5" />
-			<path class="vmcp-hint-arrow" d="M112 122C84 124 76 96 104 76" />
-			<path class="vmcp-hint-arrowhead" d="M95.2 77.6L104 76L99.6 83.8" />
-		</svg>
-
 		<div class="vmcp-hint-travel absolute right-2 bottom-2 w-24">
 			<div
 				class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 flex items-center gap-1 rounded-lg border py-1.5 pr-1.5 pl-0.5 shadow-md"
@@ -132,23 +126,6 @@
 		--hint-dx: -72px;
 		--hint-dy: -50px;
 		animation: vmcp-hint-travel 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
-	}
-
-	.vmcp-hint-anchor {
-		fill: currentColor;
-	}
-
-	.vmcp-hint-arrow,
-	.vmcp-hint-arrowhead {
-		stroke: currentColor;
-		stroke-width: 1.5;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.vmcp-hint-arrow {
-		stroke-dasharray: 4 5;
-		animation: vmcp-hint-flow 0.6s linear infinite;
 	}
 
 	@keyframes vmcp-hint-travel {
@@ -198,8 +175,7 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		.vmcp-hint-drop,
-		.vmcp-hint-travel,
-		.vmcp-hint-arrow {
+		.vmcp-hint-travel {
 			animation: none;
 		}
 	}

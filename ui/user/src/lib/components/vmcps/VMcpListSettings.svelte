@@ -5,6 +5,7 @@
 	import { VMCP_SORT_OPTIONS } from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption, VMcpSortBy } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import { Funnel, X } from '@lucide/svelte';
 
 	const BUTTON_ID = 'vmcp-settings-button';
@@ -14,6 +15,7 @@
 
 	interface Props {
 		showMyVMcpsOnly?: boolean;
+		showSharedVMcpsOnly?: boolean;
 		sortBy?: VMcpSortBy;
 		query?: string;
 		componentFilterBy?: string;
@@ -22,6 +24,7 @@
 
 	let {
 		showMyVMcpsOnly = $bindable(false),
+		showSharedVMcpsOnly = $bindable(false),
 		sortBy = $bindable('name'),
 		componentFilterBy = $bindable(''),
 		query = $bindable(''),
@@ -54,7 +57,7 @@
 	}
 </script>
 
-<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1 flex flex-col gap-2">
+<div class="bg-base-200 dark:bg-base-100 sticky top-16 left-0 z-20 w-full py-1">
 	<div class="flex items-center gap-2">
 		<Search
 			value={query}
@@ -66,21 +69,36 @@
 			<Funnel class="size-4" /> Filters
 		</button>
 	</div>
+</div>
 
-	<div>
-		<label class="flex items-center gap-1.5 pt-2 w-fit text-sm">
+<ResponsiveDialog bind:this={dialog} title="vMCPs Settings" class="md:w-md">
+	<div class="flex flex-col gap-2">
+		{#if profile.current.hasAdminAccess?.()}
+			<label class="flex items-center gap-1.5 w-fit text-sm">
+				<input
+					type="checkbox"
+					class="checkbox checkbox-xs rounded-sm"
+					bind:checked={showSharedVMcpsOnly}
+					onchange={() => {
+						if (showSharedVMcpsOnly) showMyVMcpsOnly = false;
+					}}
+				/>
+				Show shared vMCPs only
+			</label>
+		{/if}
+
+		<label class="flex items-center gap-1.5 w-fit text-sm">
 			<input
 				type="checkbox"
 				class="checkbox checkbox-xs rounded-sm"
 				bind:checked={showMyVMcpsOnly}
+				onchange={() => {
+					if (showMyVMcpsOnly) showSharedVMcpsOnly = false;
+				}}
 			/>
-			Show only my vMCPs
+			Show my vMCPs only
 		</label>
-	</div>
-</div>
 
-<ResponsiveDialog bind:this={dialog} title="vMCPs Settings" class="md:w-md">
-	<div class="flex flex-col">
 		<label id={SORT_LABEL_ID} for="vmcp-sort-by" class="divider my-2 text-xs uppercase">
 			Sort By
 		</label>

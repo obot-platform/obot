@@ -17,9 +17,8 @@
 	let selectedClient = $state<(typeof COMMON_AI_CLIENTS)[number]>();
 	let selectedConnectAllSnippetId = $state<string>();
 	let isAdmin = $derived(!!profile.current.isAdmin?.());
-	let connectAllVmcps = $derived(vmcps.filter((vmcp) => Boolean(vmcp.links?.connectURL)));
 	let connectAllSnippets = $derived(
-		selectedClient ? buildConnectAllSnippets(selectedClient.id, connectAllVmcps, isAdmin) : []
+		selectedClient ? buildConnectAllSnippets(selectedClient.id, vmcps, isAdmin) : []
 	);
 	let selectedConnectAllSnippet = $derived(
 		connectAllSnippets.find((snippet) => snippet.id === selectedConnectAllSnippetId) ??
@@ -53,7 +52,7 @@
 		{/if}
 	{/snippet}
 	<div class="flex flex-col gap-3 md:p-0 p-4">
-		{#if connectAllVmcps.length === 0}
+		{#if vmcps.length === 0}
 			<p class="text-sm text-muted-content font-light">
 				No vMCPs currently have a connection URL to copy.
 			</p>

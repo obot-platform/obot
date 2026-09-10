@@ -102,6 +102,7 @@
 							e.stopPropagation();
 							onEdit(d);
 						}}
+						tooltip={{ text: 'Edit Source URL' }}
 					>
 						<Pencil class="size-4" />
 					</IconButton>
@@ -111,6 +112,7 @@
 							e.stopPropagation();
 							onDelete([d]);
 						}}
+						tooltip={{ text: 'Delete Source URL' }}
 					>
 						<Trash2 class="size-4" />
 					</IconButton>
@@ -125,6 +127,7 @@
 								target="_blank"
 								rel="noopener noreferrer external"
 								class="text-link"
+								onclick={(e) => e.stopPropagation()}
 							>
 								{d.repoURL}
 							</a>

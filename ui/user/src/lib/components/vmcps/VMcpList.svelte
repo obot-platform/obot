@@ -3,7 +3,7 @@
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { vmcpConnectURL, getProfilesDisplayText } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
@@ -29,6 +29,7 @@
 
 	let cards = $derived(items.map(toCard));
 	let overflowHiddenById = $state<Record<string, number>>({});
+	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 
 	type VMcpListCard = ReturnType<typeof toCard>;
 
@@ -39,7 +40,6 @@
 			name: item.displayName || 'Untitled vMCP',
 			connected: false,
 			componentServers,
-			tools: getToolCounts(componentServers),
 			descriptionHTML: toInlineHTMLFromMarkdown(item.description ?? ''),
 			data: item
 		};
@@ -173,7 +173,7 @@
 		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
 		{isOwner}
 		owner={card.data.userID ? getUserDisplayName(usersMap, card.data.userID) : undefined}
-		tools={card.tools}
+		profiles={hasAdminAccess ? getProfilesDisplayText(card.data.profiles) : undefined}
 	>
 		{#snippet icon()}
 			<VMcpIcon components={card.componentServers} />

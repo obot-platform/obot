@@ -242,7 +242,7 @@
 					label: 'vMCPs',
 					href: '/vmcps'
 				},
-				...(isAtLeastPoweruser
+				...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
 					? [
 							{
 								id: 'mcp-servers',

@@ -30,6 +30,7 @@
 		isOwner?: boolean;
 		owner?: string;
 		tools?: ReturnType<typeof getToolCounts>;
+		profiles?: string;
 	}
 
 	let {
@@ -49,11 +50,14 @@
 		enterDelay,
 		isOwner,
 		owner,
-		tools
+		tools,
+		profiles
 	}: Props = $props();
 
 	const roughEstimationText =
 		'This is a rough approximation of the number of tools available. The exact number may vary.';
+
+	let hasFooterContent = $derived(profiles || (owner && !isOwner) || tools);
 </script>
 
 <div
@@ -149,11 +153,13 @@
 
 	<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
 
-	{#if tools || owner}
+	{#if hasFooterContent}
 		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
-			<p class="text-muted-content text-xs font-light">
+			<p class="text-muted-content text-xs font-light min-h-4">
 				{#if owner && !isOwner}
-					{owner}
+					Created by {owner}
+				{:else if profiles}
+					Shared with {profiles}
 				{/if}
 			</p>
 			{#if tools}

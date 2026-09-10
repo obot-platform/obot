@@ -5,7 +5,7 @@
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { profile, version, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { TestTubeDiagonal } from '@lucide/svelte';
+	import { MessageCircle } from '@lucide/svelte';
 
 	interface Props {
 		connectURL?: string;
@@ -52,6 +52,7 @@
 			<button
 				class="btn flex grow rounded-r-none border-transparent bg-primary/10 font-mono text-xs uppercase hover:bg-primary hover:text-primary-content"
 				onclick={() => onConnect?.()}
+				disabled={hasLicenseEntitlementViolations}
 			>
 				Connect
 			</button>
@@ -72,7 +73,8 @@
 		use:tooltip={{ text: 'Test vMCP' }}
 		class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
 		onclick={handleTest}
+		disabled={hasLicenseEntitlementViolations}
 	>
-		<TestTubeDiagonal class="size-4" />
+		<MessageCircle class="size-4" />
 	</button>
 </div>

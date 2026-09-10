@@ -230,7 +230,7 @@
 			{tools}
 		>
 			{#snippet icon()}
-				{#if vmcp.components.length > 0}
+				{#if (vmcp.components ?? []).length > 0}
 					<VMcpIcon
 						components={vmcp.components.map((component) => ({
 							name: component.name,
