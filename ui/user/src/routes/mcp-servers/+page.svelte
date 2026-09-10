@@ -249,13 +249,13 @@
 {/if}
 
 {#snippet navActions(view: string)}
-	{#if view === 'entries' && canCreateEntry && !isAdminReadonly}
+	{#if view === 'servers' && canCreateEntry && !isAdminReadonly}
 		<button
 			class="btn btn-primary btn-block w-full text-sm md:w-52"
 			id="add-catalog-entry-button"
 			onclick={() => selectServerTypeDialog?.open()}
 		>
-			<Plus class="size-4" /> Add Catalog Entry
+			<Plus class="size-4" /> Add MCP Server
 		</button>
 	{:else if view === 'sources' && hasAdminAccess && !isAdminReadonly}
 		<button class="btn btn-secondary flex items-center gap-1 text-sm" onclick={sync}>

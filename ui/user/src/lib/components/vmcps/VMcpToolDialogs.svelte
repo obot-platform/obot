@@ -35,7 +35,7 @@
 		if (dialog === 'configure' && flow.configuringEntry) {
 			configurationDialog?.open(flow.configuringEntry, {
 				configuration: flow.configuringComponent?.configuration,
-				submitLabel: 'Save',
+				submitLabel: flow.postCreateConfiguration ? 'Next' : 'Save',
 				errorMessage: 'Failed to update configuration.'
 			});
 		}

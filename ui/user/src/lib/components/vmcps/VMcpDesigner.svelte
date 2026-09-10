@@ -32,6 +32,7 @@
 	import { SHORT_DESCRIPTION_MAX_LENGTH } from '$lib/services/vmcps/constants';
 	import {
 		appendComponentLabel,
+		applyComponentConfiguration,
 		catalogConfigurationFields,
 		catalogEntryToVMCPComponent,
 		resolveVMcpComponents,
@@ -221,10 +222,11 @@
 		const pending = pendingComponentDrop;
 		if (!pending) return;
 		try {
-			await addComponentToVMcp(pending.target, pending.entry, {
-				...pending.component,
-				configuration
-			});
+			await addComponentToVMcp(
+				pending.target,
+				pending.entry,
+				applyComponentConfiguration(pending.component, configuration)
+			);
 			pendingComponentDrop = undefined;
 		} catch {
 			errors.append('Failed to add MCP server to vMCP.');

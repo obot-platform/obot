@@ -158,7 +158,9 @@ describe('VMcpDesigner.svelte', () => {
 			await componentBlock().click();
 			await chooseModifyTools();
 
-			await expect.element(page.getByRole('heading', { name: 'Configure GitHub Tools' })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Configure GitHub Tools' }))
+				.toBeVisible();
 			await expect.element(page.getByText('create_issue').first()).toBeVisible();
 			await expect.element(page.getByText('list_issues').first()).toBeVisible();
 			await expect
@@ -218,7 +220,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('button', { name: 'Remove GitHub' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeEnabled();
 			await expect
-				.element(page.getByRole('button', { name: 'Modify Configuration' }))
+				.element(page.getByRole('button', { name: 'Edit Configuration' }))
 				.not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Get Started', exact: true }))
@@ -240,7 +242,9 @@ describe('VMcpDesigner.svelte', () => {
 			trigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
 			await expect
 				.element(page.getByRole('tooltip'))
-				.toHaveTextContent("Tools can't be modified because this server has user-supplied configuration.");
+				.toHaveTextContent(
+					"Tools can't be modified because this server has user-supplied configuration."
+				);
 		});
 
 		it('edits existing configuration policies from the actions dialog', async () => {
@@ -285,15 +289,15 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([entry], vmcp);
 
 			await componentBlock().click();
-			await page.getByRole('button', { name: 'Modify Configuration' }).click();
-			await expect.element(page.getByRole('combobox', { name: 'API token policy' })).toHaveValue(
-				'userAllowed'
-			);
+			await page.getByRole('button', { name: 'Edit Configuration' }).click();
+			await expect
+				.element(page.getByRole('combobox', { name: 'API token policy' }))
+				.toHaveValue('userAllowed');
 
 			await page.getByRole('button', { name: 'Cancel' }).click();
 			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
 
-			await page.getByRole('button', { name: 'Modify Configuration' }).click();
+			await page.getByRole('button', { name: 'Edit Configuration' }).click();
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('Fixed');
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
 			await page.getByRole('button', { name: 'Save' }).click();
@@ -413,7 +417,9 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 18, to);
 
-			await expect.element(page.getByRole('heading', { name: /Configure Token Slack/ })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+				.toBeVisible();
 			expect(update).not.toHaveBeenCalled();
 
 			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
@@ -425,7 +431,9 @@ describe('VMcpDesigner.svelte', () => {
 				name: tokenSlack.manifest.name,
 				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
 			});
-			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('heading', { name: 'Add Tools' }))
+				.not.toBeInTheDocument();
 		});
 
 		it('offers tool selection after configuration when no policy is user-supplied', async () => {
@@ -458,7 +466,9 @@ describe('VMcpDesigner.svelte', () => {
 			await tick();
 			pointer(el, 'pointerup', 19, to);
 
-			await expect.element(page.getByRole('heading', { name: /Configure Token Slack/ })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+				.toBeVisible();
 			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
 			await page.getByRole('button', { name: 'Next' }).click();
 
@@ -503,6 +513,39 @@ describe('VMcpDesigner.svelte', () => {
 			pointer(el, 'pointerup', 17, to);
 
 			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+		});
+
+		it('opens create when a configurable server is dropped on the empty canvas', async () => {
+			const tokenSlack = createMCPCatalogEntry({
+				id: 'entry-slack-create',
+				name: 'Token Slack',
+				manifest: {
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
+			mockEntryDetails(tokenSlack);
+			await renderDesigner([componentEntry, tokenSlack]);
+
+			const { el } = await pressCard(panelCard('Token Slack'), 20);
+			const to = centerOf(await page.getByRole('button', { name: /Create New vMCP/ }).element());
+			pointer(el, 'pointermove', 20, to);
+			await tick();
+			pointer(el, 'pointerup', 20, to);
+
+			await expect.element(page.getByRole('dialog').getByText('Create vMCP').first()).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: /Configure Token Slack/ }))
+				.not.toBeInTheDocument();
 		});
 
 		it('leaves the vMCP alone when Escape cancels the drag before release', async () => {
@@ -642,7 +685,28 @@ describe('VMcpDesigner.svelte', () => {
 
 	describe('tool setup handed over from vMCP creation', () => {
 		function addToolsDialog() {
-			return page.getByRole('button', { name: 'Select Which Tools To Enable' });
+			return page.getByRole('heading', { name: 'Add Tools' });
+		}
+
+		function configurableGithub() {
+			return createMCPCatalogEntry({
+				id: 'entry-github',
+				name: 'GitHub',
+				manifest: {
+					toolPreview: componentEntry.manifest.toolPreview,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Token',
+							required: true,
+							sensitive: false,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
 		}
 
 		it('opens the tool dialog on the page the new vMCP navigated to', async () => {
@@ -652,7 +716,7 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], vmcp);
 
 			await expect.element(addToolsDialog()).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Add All Tools' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Modify Tools' })).toBeVisible();
 		});
 
 		it('leaves an existing vMCP alone when nothing was queued', async () => {
@@ -670,6 +734,103 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(addToolsDialog()).toBeVisible();
 
 			expect(claimToolSetupForVMcp(vmcp.id)).toBe(false);
+		});
+
+		it('opens required configuration on the page the new vMCP navigated to', async () => {
+			const entry = configurableGithub();
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						{
+							id: `component-${entry.id}`,
+							name: entry.manifest.name ?? entry.id,
+							mcpCatalogID: 'default',
+							mcpServerCatalogEntryID: entry.id,
+							catalogEntry: { manifest: entry.manifest }
+						}
+					]
+				},
+				[entry]
+			);
+			queueToolSetupForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([entry], vmcp);
+
+			await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Next' })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Add Tools' }))
+				.not.toBeInTheDocument();
+		});
+
+		it('offers tool selection after post-create configuration when no policy is user-supplied', async () => {
+			const entry = configurableGithub();
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						{
+							id: `component-${entry.id}`,
+							name: entry.manifest.name ?? entry.id,
+							mcpCatalogID: 'default',
+							mcpServerCatalogEntryID: entry.id,
+							catalogEntry: { manifest: entry.manifest }
+						}
+					]
+				},
+				[entry]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			queueToolSetupForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([entry], vmcp);
+			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
+				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
+			});
+			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
+		});
+
+		it('skips tool selection after post-create configuration when a policy is user-supplied', async () => {
+			const entry = configurableGithub();
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						{
+							id: `component-${entry.id}`,
+							name: entry.manifest.name ?? entry.id,
+							mcpCatalogID: 'default',
+							mcpServerCatalogEntryID: entry.id,
+							catalogEntry: { manifest: entry.manifest }
+						}
+					]
+				},
+				[entry]
+			);
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			queueToolSetupForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([entry], vmcp);
+			await page.getByRole('combobox', { name: 'API token policy' }).selectOptions('User-Supplied');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
+				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+			});
+			await expect
+				.element(page.getByRole('heading', { name: 'Add Tools' }))
+				.not.toBeInTheDocument();
 		});
 	});
 });

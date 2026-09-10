@@ -6,6 +6,7 @@ import type {
 	OrgUser,
 	VMCP,
 	VMCPComponent,
+	VMCPConfigurationPolicy,
 	VMCPManifest
 } from '$lib/services';
 import { AiClient } from '../user/constants';
@@ -93,6 +94,39 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 			manifest: entry.manifest,
 			unsupportedTools: entry.unsupportedTools
 		}
+	};
+}
+
+export function applyComponentConfiguration(
+	component: VMCPComponent,
+	configuration: VMCPConfigurationPolicy[]
+): VMCPComponent {
+	const policies = configuration.map(({ secretBinding: _secretBinding, ...policy }) => policy);
+	const bindings = new Map(
+		configuration.flatMap((policy) =>
+			policy.policy === 'fixed' && policy.secretBinding
+				? [[policy.key, policy.secretBinding] as const]
+				: []
+		)
+	);
+	const config = (component.catalogEntry?.manifest.config ?? []).map((field) => {
+		const binding = bindings.get(field.key);
+		if (!binding) return field;
+		return { ...field, value: '', secretBinding: binding };
+	});
+
+	return {
+		...component,
+		configuration: policies,
+		catalogEntry: component.catalogEntry
+			? {
+					...component.catalogEntry,
+					manifest: {
+						...component.catalogEntry.manifest,
+						...(component.catalogEntry.manifest.config?.length ? { config } : {})
+					}
+				}
+			: component.catalogEntry
 	};
 }
 

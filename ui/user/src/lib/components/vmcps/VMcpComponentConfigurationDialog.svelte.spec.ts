@@ -1,60 +1,80 @@
-import type { MCPCatalogEntry } from '$lib/services';
+import type { MCPCatalogEntry, MCPConfig } from '$lib/services';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
+import { getVersionResponse } from '../../../tests/mocks/data';
+import { worker } from '../../../tests/mocks/worker';
 import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
+import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-function configurableEntry(): MCPCatalogEntry {
+const secretTargets = [{ name: 'api-credentials', keys: ['api-key', 'token'] }];
+
+function field(overrides: Partial<MCPConfig> & Pick<MCPConfig, 'key' | 'name'>): MCPConfig {
+	return {
+		description: overrides.description ?? overrides.name,
+		required: overrides.required ?? false,
+		sensitive: overrides.sensitive ?? false,
+		value: overrides.value ?? '',
+		usage: overrides.usage ?? 'env',
+		...overrides
+	};
+}
+
+function configurableEntry(
+	overrides: { runtime?: MCPCatalogEntry['manifest']['runtime']; config?: MCPConfig[] } = {}
+): MCPCatalogEntry {
 	return createMCPCatalogEntry({
 		id: 'entry-configurable',
 		name: 'Configurable server',
+		runtime: overrides.runtime,
 		manifest: {
-			config: [
-				{
+			config: overrides.config ?? [
+				field({
 					key: 'API_TOKEN',
 					name: 'API token',
 					description: 'Secret token',
 					required: true,
-					sensitive: true,
-					value: '',
-					usage: 'env'
-				},
-				{
+					sensitive: true
+				}),
+				field({
 					key: 'REGION',
 					name: 'Region',
 					description: 'Deployment region',
-					required: true,
-					sensitive: false,
-					value: '',
-					usage: 'env'
-				},
-				{
+					required: true
+				}),
+				field({
 					key: 'X-Org',
 					name: 'Org header',
 					description: 'Organization header',
-					required: false,
-					sensitive: false,
-					value: '',
 					usage: 'header'
-				}
+				})
 			]
 		}
 	});
 }
 
+async function prepareKubernetesPage() {
+	await preparePageData({
+		version: { ...getVersionResponse, engine: 'kubernetes' }
+	});
+	worker.use(
+		http.get('/api/mcp-server-binding-secrets', () => HttpResponse.json({ items: secretTargets }))
+	);
+}
+
 describe('VMcpComponentConfigurationDialog.svelte', () => {
-	it('requires a policy for every field before Next', async () => {
+	it('requires values for fixed fields before Next', async () => {
 		await preparePageData();
 		const onNext = vi.fn();
 		const result = await render(VMcpComponentConfigurationDialog, { onNext });
 		result.component.open(configurableEntry());
 
-		await expect.element(page.getByText('Set configuration policy')).toBeVisible();
+		await expect.element(page.getByText('Configure Configurable server')).toBeVisible();
 		await page.getByRole('button', { name: 'Next' }).click();
 		await expect
-			.element(page.getByText('Select a policy for each configuration field.'))
+			.element(page.getByText('Please complete all fixed configuration fields with valid values.'))
 			.toBeVisible();
 		expect(onNext).not.toHaveBeenCalled();
 	});
@@ -93,14 +113,100 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 			submitLabel: 'Save'
 		});
 
-		await expect.element(page.getByRole('combobox', { name: 'API token policy' })).toHaveValue(
-			'userAllowed'
-		);
-		await expect.element(page.getByRole('combobox', { name: 'Region policy' })).toHaveValue('fixed');
+		await expect
+			.element(page.getByRole('combobox', { name: 'API token policy' }))
+			.toHaveValue('userAllowed');
+		await expect
+			.element(page.getByRole('combobox', { name: 'Region policy' }))
+			.toHaveValue('fixed');
 		await expect.element(page.getByCSS('#fixed-REGION')).toHaveValue('us-west-2');
-		await expect.element(page.getByRole('combobox', { name: 'Org header policy' })).toHaveValue(
-			'prohibited'
-		);
+		await expect
+			.element(page.getByRole('combobox', { name: 'Org header policy' }))
+			.toHaveValue('prohibited');
 		await expect.element(page.getByRole('button', { name: 'Save' })).toBeVisible();
+	});
+
+	it('shows a pinned catalog secret and submits without a typed value', async () => {
+		await preparePageData();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(
+			configurableEntry({
+				config: [
+					field({
+						key: 'API_TOKEN',
+						name: 'API token',
+						required: true,
+						sensitive: true,
+						secretBinding: { name: 'catalog-secret', key: 'token' }
+					})
+				]
+			})
+		);
+
+		await expect.element(page.getByText('Kubernetes Secret')).toBeVisible();
+		await expect.element(page.getByText('catalog-secret / token')).toBeVisible();
+		await expect.element(page.getByText('Value Source')).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
+		expect(onNext).toHaveBeenCalledWith([
+			{ key: 'API_TOKEN', policy: 'fixed', secretBinding: { name: 'catalog-secret', key: 'token' } }
+		]);
+	});
+
+	it('offers secret bindings for env and header fields on hosted runtimes', async () => {
+		await prepareKubernetesPage();
+		const onNext = vi.fn();
+		const result = await render(VMcpComponentConfigurationDialog, { onNext });
+		result.component.open(configurableEntry({ runtime: 'npx' }));
+
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).toBeVisible();
+		await expect.element(page.getByCSS('#secret-binding-source-X-Org')).toBeVisible();
+
+		await page.getByCSS('#secret-binding-source-API_TOKEN').click();
+		await page.getByRole('button', { name: 'Kubernetes Secret', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Region policy' }).selectOptions('User-Supplied');
+		await page.getByRole('combobox', { name: 'Org header policy' }).selectOptions('Prohibited');
+		await page.getByRole('button', { name: 'Next' }).click();
+
+		await vi.waitFor(() => expect(onNext).toHaveBeenCalledOnce());
+		expect(onNext).toHaveBeenCalledWith([
+			{
+				key: 'API_TOKEN',
+				policy: 'fixed',
+				secretBinding: { name: 'api-credentials', key: 'api-key' }
+			},
+			{ key: 'REGION', policy: 'userAllowed' },
+			{ key: 'X-Org', policy: 'prohibited' }
+		]);
+	});
+
+	it('disables env secret bindings for remote catalog entries', async () => {
+		await prepareKubernetesPage();
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(
+			configurableEntry({
+				runtime: 'remote',
+				config: [
+					field({
+						key: 'API_TOKEN',
+						name: 'API token',
+						required: true,
+						sensitive: true
+					}),
+					field({
+						key: 'Authorization',
+						name: 'Authorization',
+						required: true,
+						sensitive: true,
+						usage: 'header'
+					})
+				]
+			})
+		);
+
+		await expect.element(page.getByCSS('#secret-binding-source-API_TOKEN')).not.toBeInTheDocument();
+		await expect.element(page.getByCSS('#secret-binding-source-Authorization')).toBeVisible();
 	});
 });

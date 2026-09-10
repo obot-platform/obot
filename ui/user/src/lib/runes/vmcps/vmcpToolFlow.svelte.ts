@@ -8,7 +8,12 @@ import {
 	type VMCPConfigurationPolicy
 } from '$lib/services';
 import { compositeEffectiveToolNames, toolOverridesFromRows } from '$lib/services/user/mcp';
-import { catalogConfigurationFields, vmcpComponentId, vmcpManifest } from '$lib/services/vmcps/utils';
+import {
+	applyComponentConfiguration,
+	catalogConfigurationFields,
+	vmcpComponentId,
+	vmcpManifest
+} from '$lib/services/vmcps/utils';
 import { errors } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
@@ -102,6 +107,7 @@ export function createVMcpToolFlow() {
 	let collecting = $state(false);
 	let collectTools: ((config: VMCPComponent) => void) | undefined;
 	let onVMcpChanged: ((vmcp: VMCP) => void) | undefined;
+	let postCreateConfiguration = $state(false);
 
 	const otherEffectiveNames = $derived(
 		compositeEffectiveToolNames(
@@ -137,6 +143,7 @@ export function createVMcpToolFlow() {
 		refreshToolsRequested = false;
 		collecting = false;
 		collectTools = undefined;
+		postCreateConfiguration = false;
 	}
 
 	function close() {
@@ -222,15 +229,33 @@ export function createVMcpToolFlow() {
 		dialog = 'added-create';
 	}
 
+	function needsComponentConfiguration(component: VMCPComponent, entry?: MCPCatalogEntry) {
+		if (component.configuration?.length) return false;
+		return Boolean(entry && catalogConfigurationFields(entry).length > 0);
+	}
+
+	function offerToolsAfterCreate(vmcp: VMCP, component: VMCPComponent, entry?: MCPCatalogEntry) {
+		if (component.configuration?.some((field) => field.policy === 'userAllowed')) return;
+		if (entry) {
+			offerToolSelection(entry, vmcp);
+			return;
+		}
+		openSetup(vmcp, component);
+	}
+
 	function handleVMcpCreated(vmcp: VMCP) {
 		const firstComponent = vmcp.components?.[0];
 		if (!firstComponent) return;
 		const entry = catalogEntryForComponent(firstComponent);
-		if (entry) {
-			offerToolSelection(entry, vmcp);
-		} else {
-			openSetup(vmcp, firstComponent);
+		if (
+			needsComponentConfiguration(firstComponent, entry) &&
+			configure(vmcp, firstComponent, false)
+		) {
+			postCreateConfiguration = true;
+			dialog = 'configure';
+			return;
 		}
+		offerToolsAfterCreate(vmcp, firstComponent, entry);
 	}
 
 	function selectToolsForAdded() {
@@ -257,6 +282,10 @@ export function createVMcpToolFlow() {
 	}
 
 	function returnToActions() {
+		if (postCreateConfiguration) {
+			close();
+			return;
+		}
 		if (configuringComponent && modifyingVMcp) {
 			dialog = 'actions';
 			return;
@@ -287,7 +316,12 @@ export function createVMcpToolFlow() {
 			}
 			const nextComponents = components.map((candidate, componentIndex) =>
 				componentIndex === index
-					? { ...candidate, ...component, configuration, id: candidate.id ?? component.id }
+					? {
+							...applyComponentConfiguration(
+								{ ...candidate, ...component, id: candidate.id ?? component.id },
+								configuration
+							)
+						}
 					: candidate
 			);
 			const updated = await UserService.updateVMCP(latest.id, {
@@ -299,6 +333,17 @@ export function createVMcpToolFlow() {
 				`Configuration updated for ${component.catalogEntry?.manifest?.name ?? component.name ?? 'this server'} on ${updated.displayName}.`
 			);
 			onVMcpChanged?.(updated);
+			if (postCreateConfiguration) {
+				const entry = configuringEntry;
+				const saved = findComponent(updated, vmcpComponentId(component));
+				postCreateConfiguration = false;
+				if (saved && !saved.configuration?.some((field) => field.policy === 'userAllowed')) {
+					offerToolsAfterCreate(updated, saved, entry);
+					return;
+				}
+				close();
+				return;
+			}
 			close();
 		} catch {
 			errors.append('Failed to update configuration for this vMCP.');
@@ -484,9 +529,10 @@ export function createVMcpToolFlow() {
 			return excludedComponentIds;
 		},
 		get hasConfigurableFields() {
-			return Boolean(
-				configuringEntry && catalogConfigurationFields(configuringEntry).length > 0
-			);
+			return Boolean(configuringEntry && catalogConfigurationFields(configuringEntry).length > 0);
+		},
+		get postCreateConfiguration() {
+			return postCreateConfiguration;
 		},
 		setOnVMcpChanged(handler: ((vmcp: VMCP) => void) | undefined) {
 			onVMcpChanged = handler;
