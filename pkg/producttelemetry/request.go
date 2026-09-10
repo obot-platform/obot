@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sort"
 	"strings"
 	"time"
 	"uuid"
@@ -199,9 +198,6 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 		})
 	}
 
-	sort.Slice(builtIns, func(i, j int) bool {
-		return builtIns[i].ID < builtIns[j].ID
-	})
 	return builtIns, customCount, nil
 }
 
