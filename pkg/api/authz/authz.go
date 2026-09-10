@@ -182,6 +182,8 @@ var (
 		types.GroupAdmin: adminAndOwnerRules,
 		types.GroupOwner: append(slices.Clone(adminAndOwnerRules), ownerRules...),
 		types.GroupAuditor: {
+			"GET /api/model-proxy",
+			"GET /api/model-proxy/usage",
 			"GET /api/admin-api-keys",
 			"GET /api/admin-api-keys/{id}",
 			"GET /api/mcp-audit-logs",
