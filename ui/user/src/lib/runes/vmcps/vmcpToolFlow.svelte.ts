@@ -43,9 +43,7 @@ let vmcpAwaitingProfilesHint: string | undefined;
 
 export const VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 
-export function hasSeenVMcpProfilesHint(
-	storageKey = VMCP_PROFILES_HINT_STORAGE_KEY
-): boolean {
+export function hasSeenVMcpProfilesHint(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY): boolean {
 	try {
 		return Boolean(localStorage.getItem(storageKey));
 	} catch {
@@ -55,6 +53,7 @@ export function hasSeenVMcpProfilesHint(
 
 export function markVMcpProfilesHintSeen(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY) {
 	try {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		localStorage.setItem(storageKey, new Date().toISOString());
 	} catch {
 		// Ignore storage failures in restricted contexts.

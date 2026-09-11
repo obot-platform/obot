@@ -17,6 +17,7 @@
 		type TesterSection
 	} from '$lib/services/mcp/tester.svelte';
 	import { version } from '$lib/stores';
+	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import {
 		TriangleAlert,
 		KeyRound,
@@ -65,14 +66,8 @@
 	const CARD_CLASS =
 		'dark:bg-base-200 dark:border-base-400 bg-base-100 flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-transparent p-4 shadow-sm';
 
-	function sectionURL(section: TesterSection): string {
-		const url = new URL(page.url);
-		url.searchParams.set('tab', section);
-		return `/mcp-servers/test/${encodeURIComponent(data.server.id)}${url.search}`;
-	}
-
 	function showStagedChat(): void {
-		void goto(resolve(sectionURL('chat') as `/${string}`));
+		setUrlParamAndUpdateUrl(page.url, 'tab', 'chat');
 	}
 
 	function requestNewChat(): void {
@@ -119,7 +114,7 @@
 			disabled: true
 		}
 	}}
-	title="MCP Tester"
+	title={serverName}
 	showBackButton
 	onBackButtonClick={() => goto(resolve(data.backTarget as `/${string}`))}
 >
@@ -159,19 +154,20 @@
 			aria-label="MCP tester sections"
 		>
 			{#each sections as section (section.id)}
-				<a
+				<button
 					class={twMerge(
 						'page-tab min-w-fit py-2 text-center font-medium',
 						activeSection === section.id && 'page-tab-active'
 					)}
-					href={resolve(sectionURL(section.id) as `/${string}`)}
-					aria-current={activeSection === section.id ? 'page' : undefined}
+					onclick={() => {
+						setUrlParamAndUpdateUrl(page.url, 'tab', section.id);
+					}}
 				>
 					{section.label}
 					{#if section.id === 'chat' && chat?.approvalNeeded}
 						<span class="badge badge-warning badge-sm ml-2">Approval needed</span>
 					{/if}
-				</a>
+				</button>
 			{/each}
 		</nav>
 
@@ -266,5 +262,5 @@
 />
 
 <svelte:head>
-	<title>Obot | MCP Tester | {serverName}</title>
+	<title>Obot | {data.server.id.startsWith('vmcp1') ? 'vMCP' : 'MCP'} Tester | {serverName}</title>
 </svelte:head>

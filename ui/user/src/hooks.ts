@@ -9,6 +9,7 @@ const ADMIN_DEVICES_PREFIX = '/admin/devices';
 const ADMIN_MCP_AUDIT_LOGS_PREFIX = '/admin/audit-logs/exports';
 const ADMIN_LLM_AUDIT_LOGS_PREFIX = '/admin/llm-audit-logs/exports';
 const ADMIN_HOSTED_AGENTS_PREFIX = '/admin/hosted-agents';
+const VMCP_TESTER_PREFIX = '/vmcps/test/';
 
 export const reroute: Reroute = ({ url }) => {
 	const { pathname } = url;
@@ -57,5 +58,9 @@ export const reroute: Reroute = ({ url }) => {
 
 	if (pathname === ADMIN_HOSTED_AGENTS_PREFIX || pathname.startsWith(ADMIN_HOSTED_AGENTS_PREFIX)) {
 		return pathname.replace(ADMIN_HOSTED_AGENTS_PREFIX, '/hosted-agents');
+	}
+
+	if (pathname.startsWith(VMCP_TESTER_PREFIX)) {
+		return pathname.replace(VMCP_TESTER_PREFIX, '/mcp-servers/test/');
 	}
 };

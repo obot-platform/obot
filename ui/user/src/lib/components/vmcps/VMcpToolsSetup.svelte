@@ -49,6 +49,7 @@
 	let loading = $state(false);
 	let error = $state<string>();
 	let oauthURL = $state<string>();
+	let oauthAuthenticating = $state(false);
 	let listeningOauthVisibility = $state(false);
 	let requestGeneration = 0;
 	let requestController: AbortController | undefined;
@@ -70,11 +71,14 @@
 		return value?.id || value?.mcpServerCatalogEntryID || '';
 	}
 
-	function cancelToolPreviewRequest() {
+	function cancelToolPreviewRequest(preserveOauthAuthenticating = false) {
 		requestGeneration += 1;
 		requestController?.abort();
 		requestController = undefined;
 		listeningOauthVisibility = false;
+		if (!preserveOauthAuthenticating) {
+			oauthAuthenticating = false;
+		}
 		loading = false;
 	}
 
@@ -104,6 +108,7 @@
 
 	function handleVisibilityChange() {
 		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
+			oauthAuthenticating = true;
 			void fetchLiveTools();
 		}
 	}
@@ -124,7 +129,7 @@
 			return;
 		}
 
-		cancelToolPreviewRequest();
+		cancelToolPreviewRequest(oauthAuthenticating);
 		const controller = new AbortController();
 		requestController = controller;
 		const generation = requestGeneration;
@@ -167,11 +172,14 @@
 					error = oauthError instanceof Error ? oauthError.message : message;
 					oauthURL = undefined;
 					listeningOauthVisibility = false;
+				} finally {
+					oauthAuthenticating = false;
 				}
 			} else {
 				error = message || 'Failed to fetch tools for this vMCP component.';
 				oauthURL = undefined;
 				listeningOauthVisibility = false;
+				oauthAuthenticating = false;
 			}
 		} finally {
 			if (isCurrentRequest(generation, controller)) {
@@ -247,6 +255,10 @@
 		editDialog?.close();
 	}
 
+	function startOauthAuthentication() {
+		oauthAuthenticating = true;
+	}
+
 	onDestroy(() => cancelToolPreviewRequest());
 </script>
 
@@ -278,15 +290,22 @@
 		{/if}
 		<div class="flex w-full flex-col gap-2">
 			{#if oauthURL}
-				<a
-					in:fade
-					href={oauthURL}
-					rel="external noopener noreferrer"
-					target="_blank"
-					class="btn btn-primary"
-				>
-					Authenticate
-				</a>
+				{#if oauthAuthenticating || loading}
+					<button in:fade class="btn btn-primary" disabled type="button">
+						<Loading class="text-primary-content size-4" />
+					</button>
+				{:else}
+					<a
+						in:fade
+						href={oauthURL}
+						rel="external noopener noreferrer"
+						target="_blank"
+						class="btn btn-primary"
+						onclick={startOauthAuthentication}
+					>
+						Authenticate
+					</a>
+				{/if}
 			{:else}
 				<button class="btn btn-primary" disabled={loading} onclick={configureTools}>
 					{#if loading}
@@ -296,7 +315,6 @@
 					{/if}
 				</button>
 			{/if}
-			<button class="btn btn-ghost rounded-full" onclick={cancelSetup}>Skip, I'll Do Later</button>
 		</div>
 	{/if}
 </ResponsiveDialog>

@@ -29,7 +29,7 @@
 	);
 
 	function goToTester() {
-		goto(`/mcp-servers/test/${id}`);
+		goto(`/vmcps/test/${id}`);
 	}
 
 	function handleTest() {
