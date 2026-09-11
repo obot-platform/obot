@@ -50,11 +50,16 @@ describe('McpContent', () => {
 		await expect.element(preview).toBeVisible();
 		await expect.element(preview).toHaveTextContent('Preview starts here.');
 		await expect.element(preview).not.toHaveTextContent('Full content ends here.');
-		await expect.element(fullText).not.toBeVisible();
+		await expect.element(fullText).not.toBeInTheDocument();
 
 		await page.getByText('Show full text', { exact: true }).click();
 		await expect.element(fullText).toBeVisible();
 		await expect.element(fullText).toHaveTextContent('Full content ends here.');
+		await expect.element(preview).not.toBeInTheDocument();
+
+		await page.getByRole('button', { name: 'Show less' }).click();
+		await expect.element(preview).toBeVisible();
+		await expect.element(fullText).not.toBeInTheDocument();
 	});
 
 	it('leaves long text expanded outside tool results', async () => {
