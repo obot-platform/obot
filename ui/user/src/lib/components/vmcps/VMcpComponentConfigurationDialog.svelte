@@ -248,9 +248,8 @@
 	{/snippet}
 	<div class="p-4 pb-0 md:p-0">
 		<p class="text-sm font-light mb-2">
-			Choose how each configuration value for <b class="font-semibold text-base-content"
-				>{displayName}</b
-			>
+			This MCP Server requires the following configurations to be set before it can be used. Choose
+			how each configuration value for <b class="font-semibold text-base-content">{displayName}</b>
 			is provided.
 		</p>
 		<ul class="text-xs font-light mb-4 list-disc space-y-4 pl-5">
@@ -276,6 +275,10 @@
 			{#if requiredDrafts.length > 0 && optionalDrafts.length > 0}
 				<div class="divider my-1 text-xs text-muted-content">Optional</div>
 			{/if}
+			<p class="text-xs font-light text-muted-content">
+				These are additional optional fields for the MCP Server. Generally these can be ignored as
+				they are often used for advanced use cases.
+			</p>
 			{#each optionalDrafts as draft, index (draft.field.key)}
 				{@render policyField(draft, requiredDrafts.length + index)}
 			{/each}
