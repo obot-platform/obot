@@ -178,6 +178,63 @@ describe('JsonSchemaForm', () => {
 		}
 	);
 
+	it('uses Raw JSON for overlapping nullable object constraints and requires both sets of fields', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['settings'],
+				properties: {
+					settings: {
+						anyOf: [
+							{ type: 'object', properties: { first: { type: 'string' } }, required: ['first'] },
+							{ type: 'null' }
+						],
+						properties: { second: { type: 'string' } },
+						required: ['second'],
+						default: null
+					}
+				}
+			},
+			onvalidchange
+		});
+		await expect
+			.element(page.getByRole('button', { name: 'Generated form' }))
+			.not.toBeInTheDocument();
+		const raw = page.getByLabelText('Arguments JSON');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ settings: null }));
+		await raw.fill('{"settings":{"second":"two"}}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await raw.fill('{"settings":{"first":"one"}}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await expect.element(page.getByText('settings.second is required')).toBeVisible();
+		await raw.fill('{"settings":{"first":"one","second":"two"}}');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ settings: { first: 'one', second: 'two' } })
+		);
+	});
+
+	it.each([{ enum: ['allowed'] }, { const: 'allowed' }])(
+		'uses Raw JSON when union constraints prohibit null: %j',
+		async (constraint) => {
+			const onvalidchange = vi.fn();
+			render(JsonSchemaForm, {
+				schema: {
+					type: 'object',
+					required: ['name'],
+					properties: { name: { anyOf: [{ type: 'string' }, { type: 'null' }], ...constraint } }
+				},
+				onvalidchange
+			});
+			await expect
+				.element(page.getByRole('button', { name: 'Generated form' }))
+				.not.toBeInTheDocument();
+			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'allowed' }));
+			await page.getByLabelText('Arguments JSON').fill('{"name":null}');
+			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		}
+	);
+
 	it('renders nested generated controls and reports only valid arguments', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, { schema, onvalidchange });

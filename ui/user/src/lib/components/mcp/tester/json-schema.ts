@@ -35,6 +35,19 @@ export function nonNullableJSONSchema(schema: JSONSchema): JSONSchema | undefine
 		}
 		const base = { ...schema };
 		delete base.anyOf;
+		// A shallow merge is only safe when shared constraints agree. In particular,
+		// replacing properties, required, or items can leave required inputs unrendered.
+		// Metadata may still be overridden by the union.
+		if (
+			(Object.keys(base) as (keyof JSONSchema)[]).some(
+				(key) =>
+					!['title', 'description', 'default'].includes(key) &&
+					base[key] !== undefined &&
+					members[0][key] !== undefined &&
+					!jsonValuesEqual(base[key], members[0][key])
+			)
+		)
+			return undefined;
 		// The union's null default applies initially, but the non-null control
 		// should still use its own branch default when the user enables it.
 		if (base.default === null) delete base.default;
@@ -46,6 +59,9 @@ export function nonNullableJSONSchema(schema: JSONSchema): JSONSchema | undefine
 	} else {
 		return undefined;
 	}
+	// The null toggle must represent a permitted value, including any enum/const
+	// constraints on the union or its null branch.
+	if (validateJSONSchema(schema, null).length) return undefined;
 	if (result.default === null) delete result.default;
 	if (result.enum) result.enum = result.enum.filter((value) => value !== null);
 	// There is no usable non-null control when constraints allow only null.

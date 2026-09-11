@@ -231,6 +231,72 @@ describe('MCP tester JSON Schema support', () => {
 		}
 	);
 
+	it.each([
+		{
+			branch: { type: 'object', properties: { first: { type: 'string' } } },
+			sibling: { properties: { second: { type: 'string' } } }
+		},
+		{ branch: { type: 'object', required: ['first'] }, sibling: { required: ['second'] } },
+		{
+			branch: { type: 'array', items: { type: 'string', minLength: 3 } },
+			sibling: { items: { type: 'string', maxLength: 5 } }
+		},
+		{ branch: { type: 'number', minimum: 5 }, sibling: { minimum: 2 } },
+		{ branch: { type: 'string', enum: ['first'] }, sibling: { enum: ['second', null] } }
+	])(
+		'declines nullable forms that would overwrite branch constraints: %j',
+		({ branch, sibling }) => {
+			const nullable: JSONSchema = { anyOf: [branch, { type: 'null' }], ...sibling };
+			expect(nonNullableJSONSchema(nullable)).toBeUndefined();
+			expect(supportsGeneratedForm(nullable)).toBe(false);
+		}
+	);
+
+	it('retains identical constraints and allows union metadata to override branch metadata', () => {
+		const nullable: JSONSchema = {
+			anyOf: [
+				{ type: 'string', title: 'Branch', description: 'Branch hint', minLength: 3 },
+				{ type: 'null' }
+			],
+			title: 'Union',
+			description: 'Union hint',
+			minLength: 3
+		};
+		expect(supportsGeneratedForm(nullable)).toBe(true);
+		expect(nonNullableJSONSchema(nullable)).toEqual({
+			type: 'string',
+			title: 'Union',
+			description: 'Union hint',
+			minLength: 3
+		});
+	});
+
+	it.each([{ enum: ['allowed'] }, { const: 'allowed' }])(
+		'declines nullable forms when constraints forbid null: %j',
+		(constraint) => {
+			for (const union of [
+				{ anyOf: [{ type: 'string' }, { type: 'null' }] },
+				{ type: ['string', 'null'] }
+			]) {
+				const nullable: JSONSchema = { ...union, ...constraint };
+				expect(nonNullableJSONSchema(nullable)).toBeUndefined();
+				expect(supportsGeneratedForm(nullable)).toBe(false);
+				expect(validateJSONSchema(nullable, 'allowed')).toEqual([]);
+				expect(validateJSONSchema(nullable, null)).not.toEqual([]);
+			}
+		}
+	);
+
+	it('checks null branch constraints without applying non-null branch constraints to null', () => {
+		expect(supportsGeneratedForm({ anyOf: [{ type: 'string' }, { type: 'null', enum: [] }] })).toBe(
+			false
+		);
+		expect(
+			supportsGeneratedForm({ anyOf: [{ type: 'string', enum: ['allowed'] }, { type: 'null' }] })
+		).toBe(true);
+		expect(supportsGeneratedForm({ type: ['string', 'null'], enum: ['allowed', null] })).toBe(true);
+	});
+
 	it('compares const and enum JSON values structurally', () => {
 		const objectConst: JSONSchema = {
 			type: 'object',
