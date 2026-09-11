@@ -14,7 +14,7 @@ Obot does not include prompts, messages, credentials, URLs, custom MCP server co
 
 For self-hosted installations, Owners and Admins can choose whether to share product usage data in the **Welcome to Obot** dialog
 and change their choice at any time from **Platform > Product Analytics**. No product analytics data
-is sent unless they opt in.
+is collected without explicit consent.
 
 Operators can override this choice with `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED=true`, which
 enables analytics and prevents users from opting out through Obot.
