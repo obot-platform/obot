@@ -45,6 +45,8 @@ export function nonNullableJSONSchema(schema: JSONSchema): JSONSchema | undefine
 	}
 	if (result.default === null) delete result.default;
 	if (result.enum) result.enum = result.enum.filter((value) => value !== null);
+	// There is no usable non-null control when constraints allow only null.
+	if (result.const === null || result.enum?.length === 0) return undefined;
 	return result;
 }
 
@@ -170,7 +172,11 @@ export function validateJSONSchema(schema: JSONSchema, value: unknown, path = ''
 			: [`${label} must be one of these types: ${members.join(', ')}`];
 	}
 	const errors: string[] = [];
-	const type = schema.type;
+	// Type-specific keywords also apply without an explicit type, including beside
+	// anyOf. Use the value's type in that case so sibling and branch constraints
+	// can be checked independently without merging away overlapping constraints.
+	const type =
+		schema.type ?? (value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value);
 
 	if (schema.const !== undefined && !jsonValuesEqual(value, schema.const)) {
 		errors.push(`${label} must equal ${JSON.stringify(schema.const)}`);

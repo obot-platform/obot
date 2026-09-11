@@ -114,6 +114,53 @@ describe('JsonSchemaForm', () => {
 		await expect.element(page.getByLabelText('Arguments JSON')).toBeVisible();
 	});
 
+	it('enforces anyOf sibling constraints in generated and raw input modes', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['name'],
+				properties: {
+					name: { anyOf: [{ type: 'string' }, { type: 'null' }], minLength: 3 }
+				}
+			},
+			onvalidchange
+		});
+		await page.getByLabelText('name *').fill('x');
+		await expect.element(page.getByText('name must contain at least 3 characters')).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await page.getByLabelText('name *').fill('abc');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: 'abc' }));
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		await page.getByLabelText('Arguments JSON').fill('{"name":"x"}');
+		await expect.element(page.getByText('name must contain at least 3 characters')).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await page.getByLabelText('Arguments JSON').fill('{"name":null}');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: null }));
+	});
+
+	it.each([{ enum: [null] }, { const: null }])(
+		'uses Raw JSON when only null is allowed: %j',
+		async (constraint) => {
+			const onvalidchange = vi.fn();
+			render(JsonSchemaForm, {
+				schema: {
+					type: 'object',
+					required: ['name'],
+					properties: {
+						name: { anyOf: [{ type: 'string' }, { type: 'null' }], ...constraint }
+					}
+				},
+				onvalidchange
+			});
+			await expect
+				.element(page.getByRole('button', { name: 'Generated form' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByLabelText('Arguments JSON')).toBeVisible();
+			await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ name: null }));
+		}
+	);
+
 	it('renders nested generated controls and reports only valid arguments', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, { schema, onvalidchange });

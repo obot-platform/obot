@@ -161,6 +161,64 @@ describe('MCP tester JSON Schema support', () => {
 		).toEqual(['Value must be one of the allowed values']);
 	});
 
+	it.each([
+		{ type: 'string', constraints: { minLength: 3 }, invalid: 'x', valid: 'abc' },
+		{ type: 'number', constraints: { minimum: 3 }, invalid: 2, valid: 3 },
+		{ type: 'array', constraints: { minItems: 1 }, invalid: [], valid: ['x'] },
+		{ type: 'object', constraints: { required: ['name'] }, invalid: {}, valid: { name: 'x' } },
+		{
+			type: 'object',
+			constraints: { properties: { name: { minLength: 3 } } },
+			invalid: { name: 'x' },
+			valid: { name: 'abc' }
+		}
+	])(
+		'enforces type-specific anyOf sibling constraints: %j',
+		({ type, constraints, invalid, valid }) => {
+			const nullable: JSONSchema = {
+				anyOf: [{ type }, { type: 'null' }],
+				...constraints
+			};
+			expect(validateJSONSchema(nullable, invalid)).not.toEqual([]);
+			expect(validateJSONSchema(nullable, valid)).toEqual([]);
+			expect(validateJSONSchema(nullable, null)).toEqual([]);
+			// These keywords constrain matching values; they do not require that type.
+			expect(validateJSONSchema(constraints, false)).toEqual([]);
+		}
+	);
+
+	it.each([
+		{ siblingMinimum: 2, branchMinimum: 5 },
+		{ siblingMinimum: 5, branchMinimum: 2 }
+	])(
+		'retains overlapping sibling and branch constraints: %j',
+		({ siblingMinimum, branchMinimum }) => {
+			const nullable: JSONSchema = {
+				anyOf: [{ type: 'number', minimum: branchMinimum }, { type: 'null' }],
+				minimum: siblingMinimum
+			};
+			expect(validateJSONSchema(nullable, 3)).not.toEqual([]);
+			expect(validateJSONSchema(nullable, 5)).toEqual([]);
+			expect(validateJSONSchema(nullable, null)).toEqual([]);
+		}
+	);
+
+	it.each([{ enum: [null] }, { const: null }])(
+		'keeps null-only nullable schemas in Raw JSON: %j',
+		(constraint) => {
+			for (const union of [
+				{ anyOf: [{ type: 'string' }, { type: 'null' }] },
+				{ type: ['string', 'null'] }
+			]) {
+				const nullable: JSONSchema = { ...union, ...constraint };
+				expect(supportsGeneratedForm(nullable)).toBe(false);
+				expect(defaultJSONSchemaValue(nullable)).toBeNull();
+				expect(validateJSONSchema(nullable, null)).toEqual([]);
+				expect(validateJSONSchema(nullable, 'x')).not.toEqual([]);
+			}
+		}
+	);
+
 	it('compares const and enum JSON values structurally', () => {
 		const objectConst: JSONSchema = {
 			type: 'object',
