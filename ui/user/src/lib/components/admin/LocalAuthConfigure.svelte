@@ -877,8 +877,8 @@
 		</div>
 		<div>
 			<p class="text-xs font-light">
-				Once you're ready for production, we support other authentication providers such as Google,
-				GitHub, and Okta, or get access to additional authentication providers such as Entra, Okta,
+				Once you're ready for production, we support other authentication providers such as Google
+				and GitHub, or get access to additional authentication providers such as Entra, Okta,
 				JumpCloud, and Auth0, with a one-time registration.
 			</p>
 		</div>
