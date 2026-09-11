@@ -50,6 +50,7 @@
 	let error = $state<string>();
 	let oauthURL = $state<string>();
 	let oauthAuthenticating = $state(false);
+	let oauthValidating = $state(false);
 	let listeningOauthVisibility = $state(false);
 	let requestGeneration = 0;
 	let requestController: AbortController | undefined;
@@ -71,13 +72,14 @@
 		return value?.id || value?.mcpServerCatalogEntryID || '';
 	}
 
-	function cancelToolPreviewRequest(preserveOauthAuthenticating = false) {
+	function cancelToolPreviewRequest(preserveOauthState = false) {
 		requestGeneration += 1;
 		requestController?.abort();
 		requestController = undefined;
 		listeningOauthVisibility = false;
-		if (!preserveOauthAuthenticating) {
+		if (!preserveOauthState) {
 			oauthAuthenticating = false;
+			oauthValidating = false;
 		}
 		loading = false;
 	}
@@ -108,6 +110,7 @@
 
 	function handleVisibilityChange() {
 		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
+			oauthValidating = true;
 			oauthAuthenticating = true;
 			void fetchLiveTools();
 		}
@@ -129,7 +132,7 @@
 			return;
 		}
 
-		cancelToolPreviewRequest(oauthAuthenticating);
+		cancelToolPreviewRequest(oauthAuthenticating || oauthValidating);
 		const controller = new AbortController();
 		requestController = controller;
 		const generation = requestGeneration;
@@ -147,6 +150,7 @@
 			error = undefined;
 			oauthURL = undefined;
 			listeningOauthVisibility = false;
+			oauthValidating = false;
 			openEditor();
 		} catch (err: unknown) {
 			if (!isCurrentRequest(generation, controller)) return;
@@ -174,12 +178,14 @@
 					listeningOauthVisibility = false;
 				} finally {
 					oauthAuthenticating = false;
+					oauthValidating = false;
 				}
 			} else {
 				error = message || 'Failed to fetch tools for this vMCP component.';
 				oauthURL = undefined;
 				listeningOauthVisibility = false;
 				oauthAuthenticating = false;
+				oauthValidating = false;
 			}
 		} finally {
 			if (isCurrentRequest(generation, controller)) {
@@ -290,9 +296,19 @@
 		{/if}
 		<div class="flex w-full flex-col gap-2">
 			{#if oauthURL}
-				{#if oauthAuthenticating || loading}
+				{#if oauthValidating}
+					<button
+						in:fade
+						class="btn btn-primary flex items-center justify-center gap-2"
+						disabled
+						type="button"
+					>
+						<Loading class="text-primary size-4" />
+						Validating authentication...
+					</button>
+				{:else if oauthAuthenticating}
 					<button in:fade class="btn btn-primary" disabled type="button">
-						<Loading class="text-primary-content size-4" />
+						<Loading class="text-primary size-4" />
 					</button>
 				{:else}
 					<a
