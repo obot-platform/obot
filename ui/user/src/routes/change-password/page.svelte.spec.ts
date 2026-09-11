@@ -50,14 +50,4 @@ describe('forced password change page', () => {
 		expect(changePassword).toHaveBeenCalledTimes(1);
 		await expect.element(page.getByText(/password setup has already been completed/)).toBeVisible();
 	});
-
-	it('offers a way to leave without completing setup', async () => {
-		render(ChangePasswordPage);
-
-		// "Finish later" signs out rather than consuming the setup link, so an interrupted setup can
-		// be resumed from the original email.
-		const finishLater = page.getByRole('link', { name: 'Finish later' });
-		await expect.element(finishLater).toBeVisible();
-		await expect.element(finishLater).toHaveAttribute('href', '/oauth2/sign_out?rd=/');
-	});
 });

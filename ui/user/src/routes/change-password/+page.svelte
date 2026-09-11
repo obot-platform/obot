@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import Logo from '$lib/components/Logo.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
@@ -107,9 +106,5 @@
 		<button class="btn btn-primary w-full" type="submit" disabled={saving}>
 			{#if saving}<Loading class="size-4" />{:else}Set password and continue{/if}
 		</button>
-
-		<a class="text-link text-center text-xs font-light" href={resolve('/oauth2/sign_out?rd=/')}>
-			Finish later
-		</a>
 	</form>
 </div>
