@@ -1,7 +1,9 @@
 package mcpcatalog
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -75,27 +77,38 @@ func TestReadCatalogManifestsStrict(t *testing.T) {
 }
 
 func TestReadMCPCatalogRetainsPartialResultsAndReportsIncompleteSource(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "valid.yaml"), []byte(`name: Valid
-entryKey: valid
-shortDescription: Test
-description: Test
-icon: icon
-runtime: npx
-npxConfig:
-  package: test
-`), 0o600))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "legacy.yaml"), []byte("name: Legacy\nenv: []\n"), 0o600))
+	for _, explicit := range []bool{false, true} {
+		t.Run(fmt.Sprintf("explicit selection=%t", explicit), func(t *testing.T) {
+			dir := t.TempDir()
+			if explicit {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, ".obotcatalogs"), []byte("*.yaml\n"), 0o600))
+			}
 
-	// The error must survive every reader layer. SyncErrors then prevents
-	// reconciliation from deleting or detaching the skipped entry.
-	entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), http.DefaultClient, dir, "")
-	require.ErrorContains(t, err, "legacy.yaml")
-	require.Len(t, entries, 1)
-	require.Equal(t, "Valid", entries[0].Name)
+			writeParseTestManifest(t, dir, "Valid", "original")
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "legacy.yaml"), []byte("name: Legacy\nenv: []\n"), 0o600))
+			corruptParseTestManifest(t, writeParseTestManifest(t, dir, "Broken", "original"))
 
-	h := &Handler{}
-	objects, err := h.readMCPCatalog(t.Context(), "default", dir, "")
-	require.ErrorContains(t, err, "legacy.yaml")
-	require.Len(t, objects, 1)
+			var logs bytes.Buffer
+			previous := slog.Default()
+			slog.SetDefault(slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelWarn})))
+			t.Cleanup(func() { slog.SetDefault(previous) })
+
+			// Both schema and syntax errors must survive every reader layer
+			// alongside valid entries, so sync can identify an incomplete source.
+			entries, err := readCatalogManifests[types.MCPServerCatalogEntryManifest](t.Context(), http.DefaultClient, dir, "")
+			require.ErrorContains(t, err, "legacy.yaml")
+			require.ErrorContains(t, err, "Broken.yaml")
+			require.Len(t, entries, 1)
+			require.Equal(t, "Valid", entries[0].Name)
+
+			require.Contains(t, logs.String(), "level=WARN")
+			require.Contains(t, logs.String(), "legacy.yaml")
+			require.Contains(t, logs.String(), "Broken.yaml")
+
+			objects, err := (&Handler{}).readMCPCatalog(t.Context(), "default", dir, "")
+			require.ErrorContains(t, err, "legacy.yaml")
+			require.ErrorContains(t, err, "Broken.yaml")
+			require.Len(t, objects, 1)
+		})
+	}
 }
