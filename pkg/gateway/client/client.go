@@ -51,6 +51,7 @@ type Client struct {
 	llmAuditEntries           chan llmAuditEntry
 	llmAuditBatchSize         int
 	llmAuditEnabled           bool
+	llmAuditMaxBodyBytes      *int
 	storageClient             kclient.Client
 	apiKeyCacheLock           sync.RWMutex
 	apiKeyCache               map[[32]byte]apiKeyValidationCacheEntry

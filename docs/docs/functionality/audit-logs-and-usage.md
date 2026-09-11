@@ -107,6 +107,14 @@ Filter LLM logs by:
 - Client session
 - Search query
 
+### LLM Body Storage Controls
+
+Set `OBOT_SERVER_LLMAUDIT_LOG_MAX_BODY_BYTES=65536` (or `--llmaudit-log-max-body-bytes=65536`) to retain at most 64 KiB of original payload independently for each request, policy-modified request, and response body. Unset means unlimited, `0` omits bodies, and negative values are invalid. Oversized bodies use the same valid JSON preview format as [MCP audit bodies](#body-storage-controls), including a truncation marker and original byte count. JSON escaping, wrapper metadata, and encryption add overhead beyond the retained payload limit.
+
+For streamed responses, the limit applies to the assembled response JSON in the background writer, before encryption and persistence. It does not limit the existing stream-capture buffer. Token counts, response IDs, outcomes, policy-trigger indicators, and headers remain available. Omitting bodies does not disable audit collection; `OBOT_SERVER_DISABLE_LLMAUDIT_LOG=true` remains the separate control for disabling new LLM audit entries.
+
+The setting affects new entries only and is independent of the MCP body limit. Detail views and exports contain the stored preview or omitted bodies; they cannot recover the original content. This limit does not cap total database size or change retention.
+
 ### Exporting LLM Audit Logs
 
 LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
