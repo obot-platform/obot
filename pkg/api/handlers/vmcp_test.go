@@ -268,7 +268,7 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	}
 }
 
-func TestVMCPHandlerUpdateReplacesStaticConfiguration(t *testing.T) {
+func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	gatewayClient := newHandlerTestGateway(t)
 	handler := NewVMCPHandler(nil)
@@ -284,6 +284,10 @@ func TestVMCPHandlerUpdateReplacesStaticConfiguration(t *testing.T) {
 			Key:    "REGION",
 			Policy: types.VMCPConfigurationPolicyFixed,
 			Value:  "old-region",
+		},
+		{
+			Key:    "USER",
+			Policy: types.VMCPConfigurationPolicyFixed,
 		},
 	}
 	created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, admin)
@@ -317,9 +321,9 @@ func TestVMCPHandlerUpdateReplacesStaticConfiguration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := map[string]string{}
-		if token != "" {
-			want[vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "TOKEN")] = token
+		want := map[string]string{
+			vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "TOKEN"):  "new-token",
+			vmcpconfig.ConfigurationKey(manifest.Components[0].ID, "REGION"): "old-region",
 		}
 		if !reflect.DeepEqual(credential.Secrets, want) {
 			t.Fatalf("static configuration = %v, want %v", credential.Secrets, want)
@@ -328,7 +332,7 @@ func TestVMCPHandlerUpdateReplacesStaticConfiguration(t *testing.T) {
 			t.Fatal(err)
 		}
 		if stored.Spec.StaticConfigurationHash != utils.Digest(want) {
-			t.Fatal("static configuration hash does not reflect replacement values")
+			t.Fatal("static configuration hash does not reflect preserved values")
 		}
 	}
 }

@@ -110,14 +110,20 @@ func ReconcileComponentIDs(existing types.VMCPManifest, desired *types.VMCPManif
 // ExtractStaticConfiguration removes fixed values from a manifest and returns
 // them in the flat representation used by the credential store. Empty values
 // are omitted because they represent missing configuration.
-func ExtractStaticConfiguration(manifest *types.VMCPManifest) map[string]string {
+func ExtractStaticConfiguration(manifest *types.VMCPManifest, existingConfig map[string]string) map[string]string {
 	configuration := map[string]string{}
 	for componentIndex := range manifest.Components {
 		component := &manifest.Components[componentIndex]
 		for policyIndex := range component.Configuration {
 			policy := &component.Configuration[policyIndex]
-			if policy.Policy == types.VMCPConfigurationPolicyFixed && policy.Value != "" {
-				configuration[ConfigurationKey(component.ID, policy.Key)] = policy.Value
+			if policy.Policy == types.VMCPConfigurationPolicyFixed {
+				val := existingConfig[ConfigurationKey(component.ID, policy.Key)]
+				if policy.Value != "" {
+					val = policy.Value
+				}
+				if val != "" {
+					configuration[ConfigurationKey(component.ID, policy.Key)] = val
+				}
 			}
 			policy.Value = ""
 		}

@@ -1,10 +1,40 @@
 package vmcp
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
 )
+
+func TestExtractStaticConfigurationPreservesExistingValues(t *testing.T) {
+	manifest := types.VMCPManifest{Components: []types.VMCPComponent{{
+		ID: "component-id",
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "TOKEN", Policy: types.VMCPConfigurationPolicyFixed, Value: "new-token"},
+			{Key: "REGION", Policy: types.VMCPConfigurationPolicyFixed},
+			{Key: "USER", Policy: types.VMCPConfigurationPolicyUserAllowed, Value: "ignored"},
+		},
+	}}}
+
+	got := ExtractStaticConfiguration(&manifest, map[string]string{
+		ConfigurationKey("component-id", "TOKEN"):   "old-token",
+		ConfigurationKey("component-id", "REGION"):  "old-region",
+		ConfigurationKey("component-id", "REMOVED"): "old-removed",
+	})
+	want := map[string]string{
+		ConfigurationKey("component-id", "TOKEN"):  "new-token",
+		ConfigurationKey("component-id", "REGION"): "old-region",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ExtractStaticConfiguration() = %v, want %v", got, want)
+	}
+	for _, policy := range manifest.Components[0].Configuration {
+		if policy.Value != "" {
+			t.Fatalf("configuration %q value was not cleared", policy.Key)
+		}
+	}
+}
 
 func TestConfigurationKeyRoundTrip(t *testing.T) {
 	key := ConfigurationKey("component-id", "HEADER.with.periods")

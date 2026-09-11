@@ -8,6 +8,7 @@ import (
 	"github.com/obot-platform/obot/pkg/accesscontrolrule"
 	"github.com/obot-platform/obot/pkg/api"
 	"github.com/obot-platform/obot/pkg/api/authz"
+	gclient "github.com/obot-platform/obot/pkg/gateway/client"
 	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
@@ -69,7 +70,7 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
-	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest)
+	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
 
 	vmcp := v1.VMCP{
 		Finalizers:   []string{v1.VMCPFinalizer},
@@ -122,9 +123,17 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
-	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest)
+
 	credentialContext := vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)
 	credentialName := vmcpconfig.ConfigurationCredentialName()
+
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credentialContext}, credentialName)
+	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
+		return fmt.Errorf("failed to reveal VMCP static configuration: %w", err)
+	}
+
+	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, cred.Secrets)
+
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: credentialContext,
 		Name:    credentialName,
