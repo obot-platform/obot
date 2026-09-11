@@ -77,7 +77,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 		}},
 	}
 
-	manifest.Default(false)
+	manifest.Default(false, "user-1")
 
 	if got := manifest.Components[0].Configuration[0].Policy; got != VMCPConfigurationPolicyProhibited {
 		t.Fatalf("default configuration policy = %q, want %q", got, VMCPConfigurationPolicyProhibited)
@@ -86,10 +86,13 @@ func TestVMCPManifestDefault(t *testing.T) {
 		t.Fatalf("default profile count = %d, want 1", len(manifest.Profiles))
 	}
 	profile := manifest.Profiles[0]
+	if profile.Name != "me" {
+		t.Fatalf("default profile name = %q, want me", profile.Name)
+	}
 	if !profile.AllowAllTools {
 		t.Fatal("default profile must allow all tools")
 	}
-	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeSelector || profile.Subjects[0].ID != "*" {
+	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeUser || profile.Subjects[0].ID != "user-1" {
 		t.Fatalf("unexpected default profile subjects: %#v", profile.Subjects)
 	}
 }
@@ -97,7 +100,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 func TestVMCPManifestDefaultPreservesExplicitEmptyProfiles(t *testing.T) {
 	manifest := VMCPManifest{Profiles: []VMCPProfile{}}
 
-	manifest.Default(false)
+	manifest.Default(false, "user-1")
 
 	if manifest.Profiles == nil || len(manifest.Profiles) != 0 {
 		t.Fatalf("explicit empty profiles changed to %#v", manifest.Profiles)
@@ -113,7 +116,7 @@ func TestVMCPManifestDefaultPersonalServer(t *testing.T) {
 			}},
 		}
 
-		manifest.Default(true)
+		manifest.Default(true, "user-1")
 
 		if manifest.Profiles != nil {
 			t.Fatalf("personal server profiles = %#v, want nil", manifest.Profiles)

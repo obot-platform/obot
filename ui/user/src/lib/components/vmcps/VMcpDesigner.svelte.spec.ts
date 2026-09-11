@@ -1,7 +1,10 @@
 import { page as appPage } from '$app/state';
 import {
+	claimProfilesHintForVMcp,
 	claimToolSetupForVMcp,
-	queueToolSetupForCreatedVMcp
+	queueProfilesHintForCreatedVMcp,
+	queueToolSetupForCreatedVMcp,
+	VMCP_PROFILES_HINT_STORAGE_KEY
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 import {
 	Group,
@@ -1055,6 +1058,57 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: 'Add Tools' }))
 				.not.toBeInTheDocument();
+		});
+	});
+
+	describe('profiles hint handed over from vMCP creation', () => {
+		const HINT_TEXT = 'Click here to begin tailoring access and tools this VMCP.';
+
+		it('shows the profiles tip on the page the new vMCP navigated to', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			queueProfilesHintForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).toBeVisible();
+		});
+
+		it('leaves an existing vMCP alone when nothing was queued', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
+		});
+
+		it('hands the queued hint over only once, so later visits stay quiet', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			queueProfilesHintForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([componentEntry], vmcp);
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).toBeVisible();
+
+			expect(claimProfilesHintForVMcp(vmcp.id)).toBe(false);
+		});
+
+		it('does not show the hint for viewers without profile tabs', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.userID = getProfileResponse.id;
+			queueProfilesHintForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
+		});
+
+		it('does not show the hint again after it has been seen', async () => {
+			localStorage.setItem(VMCP_PROFILES_HINT_STORAGE_KEY, new Date().toISOString());
+			const vmcp = createIssueTrackerVMcp();
+			queueProfilesHintForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([componentEntry], vmcp);
+
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
+			expect(claimProfilesHintForVMcp(vmcp.id)).toBe(false);
 		});
 	});
 });

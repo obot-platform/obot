@@ -222,8 +222,11 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if shared.UserID != "" {
 		t.Fatalf("administrator-created VMCP userID = %q, want shared VMCP", shared.UserID)
 	}
-	if len(shared.Profiles) != 1 || !shared.Profiles[0].AllowAllTools {
+	if len(shared.Profiles) != 1 || shared.Profiles[0].Name != "me" || !shared.Profiles[0].AllowAllTools {
 		t.Fatalf("unexpected shared default profiles: %#v", shared.Profiles)
+	}
+	if len(shared.Profiles[0].Subjects) != 1 || shared.Profiles[0].Subjects[0] != (types.Subject{Type: types.SubjectTypeUser, ID: "admin"}) {
+		t.Fatalf("unexpected shared default profile subjects: %#v", shared.Profiles[0].Subjects)
 	}
 
 	personal := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), &user.DefaultInfo{

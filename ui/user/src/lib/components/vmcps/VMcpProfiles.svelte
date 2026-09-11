@@ -576,21 +576,28 @@
 		<div class="mx-auto w-full max-w-4xl">
 			{@render editCreate()}
 		</div>
-	{:else if vmcp}
-		{@render actions()}
-		{@render list()}
 	{:else}
-		<div class="flex flex-col items-center justify-center text-center">
-			<div
-				class="bg-primary/10 text-primary mb-4 flex size-9 items-center justify-center rounded-md"
-			>
-				<UsersRound class="size-4" />
+		<p class="text-muted-content text-sm font-light mt-2 mb-4">
+			Profiles let you control which tools are available to different users, groups, and agents.
+			Define a set of tools and assign identities to the profile to provide tailored access through
+			the same VMCP endpoint.
+		</p>
+		{#if vmcp}
+			{@render actions()}
+			{@render list()}
+		{:else}
+			<div class="flex flex-col items-center justify-center text-center">
+				<div
+					class="bg-primary/10 text-primary mb-4 flex size-9 items-center justify-center rounded-md"
+				>
+					<UsersRound class="size-4" />
+				</div>
+				<h2 class="font-semibold">No profiles yet</h2>
+				<p class="text-muted-content mt-1 max-w-sm text-xs">
+					In order to create profiles, you must first create a vMCP.
+				</p>
 			</div>
-			<h2 class="font-semibold">No profiles yet</h2>
-			<p class="text-muted-content mt-1 max-w-sm text-xs">
-				In order to create profiles, you must first create a vMCP.
-			</p>
-		</div>
+		{/if}
 	{/if}
 </div>
 

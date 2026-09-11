@@ -8,6 +8,7 @@
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpComponentConfigurationDialog from '$lib/components/vmcps/VMcpComponentConfigurationDialog.svelte';
 	import VMcpDragHint from '$lib/components/vmcps/VMcpDragHint.svelte';
+	import VMcpProfilesHint from '$lib/components/vmcps/VMcpProfilesHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
 	import VMcpGraph from '$lib/components/vmcps/VMcpGraph.svelte';
 	import VMcpGraphRow from '$lib/components/vmcps/VMcpGraphRow.svelte';
@@ -16,8 +17,11 @@
 	import ViewModifyCatalogEntry from '$lib/components/vmcps/ViewModifyCatalogEntry.svelte';
 	import { CREATE_VMCP_DROP_ID, createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import {
+		claimProfilesHintForVMcp,
 		claimToolSetupForVMcp,
 		createVMcpToolFlow,
+		markVMcpProfilesHintSeen,
+		queueProfilesHintForCreatedVMcp,
 		queueToolSetupForCreatedVMcp
 	} from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import {
@@ -63,6 +67,8 @@
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
+	let profilesTabEl = $state<HTMLButtonElement>();
+	let profilesHintQueued = $state(false);
 	let rightPanelWidth = $state(0);
 	let pendingEntryDrop = $state<{ vmcp?: VMCP }>();
 	let pendingComponentDrop = $state<{
@@ -101,6 +107,21 @@
 			toolFlow.handleVMcpCreated(created);
 		});
 	});
+
+	$effect(() => {
+		const created = selectedVMcp;
+		if (!created || !canShare) return;
+
+		untrack(() => {
+			if (claimProfilesHintForVMcp(created.id)) {
+				profilesHintQueued = true;
+			}
+		});
+	});
+
+	let showProfilesHint = $derived(
+		profilesHintQueued && !toolFlow.dialog && viewType === 'graph' && canShare
+	);
 
 	function componentManifestField(component: VMCPComponent, field: 'name' | 'shortDescription') {
 		if (field === 'name') return component.name || component.catalogEntry?.manifest?.name;
@@ -246,7 +267,13 @@
 
 	function handleVMcpCreated(created: VMCP) {
 		queueToolSetupForCreatedVMcp(created.id);
+		queueProfilesHintForCreatedVMcp(created.id);
 		goto(`/vmcps/${created.id}`);
+	}
+
+	function dismissProfilesHint() {
+		profilesHintQueued = false;
+		markVMcpProfilesHintSeen();
 	}
 
 	function vmcpComponents(target: VMCP) {
@@ -290,6 +317,11 @@
 	>
 		{#if canShare}
 			{@render toggleSubview()}
+			<VMcpProfilesHint
+				show={showProfilesHint}
+				anchorEl={profilesTabEl}
+				onDismiss={dismissProfilesHint}
+			/>
 		{/if}
 		{#if viewType === 'profiles'}
 			<VMcpProfiles
@@ -386,11 +418,13 @@
 				}}>Designer</button
 			>
 			<button
+				bind:this={profilesTabEl}
 				class={twMerge(
 					'tab text-xs min-w-24',
 					viewType === 'profiles' && 'tab-active bg-base-300 dark:bg-base-100'
 				)}
 				onclick={() => {
+					dismissProfilesHint();
 					setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');
 				}}>Profiles</button
 			>

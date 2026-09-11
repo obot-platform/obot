@@ -39,6 +39,27 @@ interface PendingRemoval {
  * here for the next flow to claim once it is mounted.
  */
 let vmcpAwaitingToolSetup: string | undefined;
+let vmcpAwaitingProfilesHint: string | undefined;
+
+export const VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
+
+export function hasSeenVMcpProfilesHint(
+	storageKey = VMCP_PROFILES_HINT_STORAGE_KEY
+): boolean {
+	try {
+		return Boolean(localStorage.getItem(storageKey));
+	} catch {
+		return false;
+	}
+}
+
+export function markVMcpProfilesHintSeen(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY) {
+	try {
+		localStorage.setItem(storageKey, new Date().toISOString());
+	} catch {
+		// Ignore storage failures in restricted contexts.
+	}
+}
 
 export function queueToolSetupForCreatedVMcp(id: string) {
 	vmcpAwaitingToolSetup = id;
@@ -48,6 +69,18 @@ export function queueToolSetupForCreatedVMcp(id: string) {
 export function claimToolSetupForVMcp(id: string) {
 	if (!id || vmcpAwaitingToolSetup !== id) return false;
 	vmcpAwaitingToolSetup = undefined;
+	return true;
+}
+
+export function queueProfilesHintForCreatedVMcp(id: string) {
+	if (hasSeenVMcpProfilesHint()) return;
+	vmcpAwaitingProfilesHint = id;
+}
+
+export function claimProfilesHintForVMcp(id: string) {
+	if (hasSeenVMcpProfilesHint()) return false;
+	if (!id || vmcpAwaitingProfilesHint !== id) return false;
+	vmcpAwaitingProfilesHint = undefined;
 	return true;
 }
 

@@ -25,7 +25,7 @@ func TestEmptyVMCPIsReadableButNotConnectable(t *testing.T) {
 			Manifest: types.VMCPManifest{DisplayName: "Empty draft"},
 		},
 	}
-	vmcp.Spec.Manifest.Default(true)
+	vmcp.Spec.Manifest.Default(true, u.UID)
 	if err := vmcp.Spec.Manifest.Validate(); err != nil {
 		t.Fatalf("empty draft should be valid: %v", err)
 	}
