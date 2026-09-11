@@ -244,8 +244,13 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 
 function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedAccessPolicy[] {
 	return vmcps
-		.flatMap((vmcp) =>
-			(vmcp.profiles ?? []).flatMap((profile) => {
+		.flatMap((vmcp) => {
+			// Personal vMCPs are owned by a single user and are not shared via profiles.
+			if (vmcp.userID && (target.kind !== 'user' || vmcp.userID !== target.id)) {
+				return [];
+			}
+
+			return (vmcp.profiles ?? []).flatMap((profile) => {
 				const reasons = subjectsApplyTo(profile.subjects, target);
 				if (reasons.length === 0) {
 					return [];
@@ -259,8 +264,8 @@ function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedA
 						resources: [{ type: 'vmcp' as const, id: vmcp.id, name: vmcp.displayName }]
 					}
 				];
-			})
-		)
+			});
+		})
 		.sort((a, b) => a.displayName.localeCompare(b.displayName));
 }
 
