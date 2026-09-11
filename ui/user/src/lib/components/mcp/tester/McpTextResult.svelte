@@ -17,6 +17,9 @@
 	let previousBodyOverflow = '';
 
 	const formattedJSON = $derived.by(() => {
+		// Keep initial rendering bounded. Large responses remain available as
+		// original text through expansion, fullscreen, and copy.
+		if (text.length > 100_000) return undefined;
 		try {
 			JSON.parse(text);
 		} catch {
@@ -27,8 +30,10 @@
 		const tokens = text.match(/"(?:\\.|[^"\\])*"|[^\s{}[\],:]+|[{}[\],:]/g) ?? [];
 		let depth = 0;
 		const output: string[] = [];
+		let outputLength = 0;
 		const newline = () => `\n${'  '.repeat(depth)}`;
 		for (const [index, token] of tokens.entries()) {
+			const start = output.length;
 			if (token === '{' || token === '[') {
 				depth++;
 				output.push(token);
@@ -42,6 +47,9 @@
 			} else {
 				output.push(token === ':' ? ': ' : token);
 			}
+			for (let i = start; i < output.length; i++) outputLength += output[i].length;
+			// Deep nesting can produce far more indentation than input text.
+			if (outputLength > 1_000_000) return undefined;
 		}
 		return output.join('');
 	});
@@ -49,7 +57,7 @@
 	// Keep the disclosure available when formatting changes, so the user's expansion
 	// choice and the location of the controls remain predictable.
 	const isLong = $derived(text.length > 2000 || (formattedJSON ?? text).split(/\r?\n/).length > 20);
-	const preview = $derived(displayedText.split(/\r?\n/).slice(0, 8).join('\n').slice(0, 600));
+	const preview = $derived(displayedText.slice(0, 600).split(/\r?\n/, 8).join('\n'));
 	const showingPreview = $derived(isLong && !expanded && !fullscreen);
 	const size = $derived(new TextEncoder().encode(text).length);
 

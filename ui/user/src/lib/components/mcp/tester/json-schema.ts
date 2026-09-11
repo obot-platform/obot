@@ -35,6 +35,9 @@ export function nonNullableJSONSchema(schema: JSONSchema): JSONSchema | undefine
 		}
 		const base = { ...schema };
 		delete base.anyOf;
+		// The union's null default applies initially, but the non-null control
+		// should still use its own branch default when the user enables it.
+		if (base.default === null) delete base.default;
 		result = { ...members[0], ...base };
 	} else if (Array.isArray(schema.type)) {
 		const members = schema.type.filter((type) => type !== 'null');

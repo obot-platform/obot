@@ -101,6 +101,23 @@ describe('JsonSchemaForm', () => {
 		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: null }));
 	});
 
+	it('restores the non-null branch default when toggling off a null union default', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					count: { anyOf: [{ type: 'integer', default: 5 }, { type: 'null' }], default: null }
+				}
+			},
+			onvalidchange
+		});
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: null }));
+		await page.getByRole('checkbox', { name: 'Use null for count' }).click();
+		await expect.element(page.getByLabelText('count', { exact: true })).toHaveValue(5);
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: 5 }));
+	});
+
 	it('offers only Raw JSON for unions with multiple non-null types', async () => {
 		render(JsonSchemaForm, {
 			schema: {

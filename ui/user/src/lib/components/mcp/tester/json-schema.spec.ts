@@ -1,6 +1,7 @@
 import {
 	defaultJSONSchemaValue,
 	jsonValuesEqual,
+	nonNullableJSONSchema,
 	pruneClearedProperties,
 	supportsGeneratedForm,
 	validateJSONSchema,
@@ -131,6 +132,17 @@ describe('MCP tester JSON Schema support', () => {
 		expect(
 			defaultJSONSchemaValue({ anyOf: [{ type: 'integer', default: 5 }, { type: 'null' }] })
 		).toBe(5);
+	});
+
+	it('preserves the branch default when the nullable union defaults to null', () => {
+		const nullable: JSONSchema = {
+			anyOf: [{ type: 'integer', default: 5 }, { type: 'null' }],
+			default: null
+		};
+		expect(defaultJSONSchemaValue(nullable)).toBeNull();
+		expect(defaultJSONSchemaValue(nonNullableJSONSchema(nullable)!)).toBe(5);
+		expect(defaultJSONSchemaValue(nonNullableJSONSchema({ ...nullable, default: 0 })!)).toBe(0);
+		expect(nullable.default).toBeNull();
 	});
 
 	it('still applies enum and const constraints to null values', () => {

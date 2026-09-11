@@ -58,6 +58,40 @@ describe('McpTextResult', () => {
 		expect(full.element().textContent).toBe(text);
 	});
 
+	it('previews large JSON without formatting it and keeps the complete original accessible', async () => {
+		const text = JSON.stringify({ value: 'x'.repeat(200_000) });
+		const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+		try {
+			render(McpTextResult, { text });
+			await expect
+				.element(page.getByLabelText('Text preview'))
+				.toHaveTextContent(`${text.slice(0, 600)}…`);
+			await expect
+				.element(page.getByRole('button', { name: 'Format JSON' }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Copy full text', exact: true }).click();
+			expect(copy).toHaveBeenLastCalledWith(text);
+			await page.getByRole('button', { name: 'Show full text', exact: true }).click();
+			await expect
+				.element(page.getByLabelText('Full text', { exact: true }))
+				.toHaveTextContent(text);
+			await page.getByRole('button', { name: 'Fullscreen', exact: true }).click();
+			await expect
+				.element(page.getByLabelText('Full text', { exact: true }))
+				.toHaveTextContent(text);
+			await page.getByRole('button', { name: 'Close fullscreen' }).click();
+		} finally {
+			copy.mockRestore();
+		}
+	});
+
+	it('leaves deeply nested JSON unformatted when indentation would exceed the output limit', async () => {
+		const text = `${'['.repeat(800)}0${']'.repeat(800)}`;
+		render(McpTextResult, { text });
+		await expect.element(page.getByLabelText('Full text', { exact: true })).toHaveTextContent(text);
+		await expect.element(page.getByRole('button', { name: 'Format JSON' })).not.toBeInTheDocument();
+	});
+
 	it('keeps invalid JSON and server markup as literal text', async () => {
 		const text = '{invalid JSON}\n<script>window.compromised = true</script>';
 		render(McpTextResult, { text });
