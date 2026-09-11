@@ -25,7 +25,7 @@ func TestLLMAuditBodyLimitPersistence(t *testing.T) {
 		for _, encrypted := range []bool{false, true} {
 			t.Run(fmt.Sprintf("limit=%s/encrypted=%v", limitName, encrypted), func(t *testing.T) {
 				c := newTestClient(t)
-				WithLLMAuditLogBodyLimit(limit)(c)
+				c.llmAuditMaxBodyBytes = limit
 				// Configuring LLM limits must not configure MCP limits.
 				require.Nil(t, c.mcpAuditMaxBodyBytes)
 				if encrypted {

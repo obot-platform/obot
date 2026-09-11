@@ -55,19 +55,6 @@ type LLMAuditLogOptions struct {
 	SortOrder              string
 }
 
-// WithLLMAuditLogBodyLimit configures the per-body payload budget.
-// A nil limit preserves bodies; zero omits them. Callers must reject negative limits.
-func WithLLMAuditLogBodyLimit(maxBodyBytes *int) Option {
-	return func(c *Client) {
-		c.llmAuditMaxBodyBytes = nil
-
-		if maxBodyBytes != nil {
-			limit := *maxBodyBytes
-			c.llmAuditMaxBodyBytes = &limit
-		}
-	}
-}
-
 func (c *Client) LLMAuditLogEnabled() bool {
 	return c != nil && c.llmAuditEnabled
 }

@@ -673,8 +673,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.LLMAuditLogRetentionDays,
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
-		client.WithMCPAuditLogPolicy(config.DisableMCPAuditLog, config.MCPAuditLogMaxBodyBytes),
-		client.WithLLMAuditLogBodyLimit(config.LLMAuditLogMaxBodyBytes),
+		config.DisableMCPAuditLog,
+		config.MCPAuditLogMaxBodyBytes,
+		config.LLMAuditLogMaxBodyBytes,
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {

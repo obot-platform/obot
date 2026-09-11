@@ -82,7 +82,7 @@ func TestMCPAuditBodyPolicyPersistence(t *testing.T) {
 		for _, encrypted := range []bool{false, true} {
 			t.Run(fmt.Sprintf("limit=%s/encrypted=%v", limitName, encrypted), func(t *testing.T) {
 				c := newTestClient(t)
-				WithMCPAuditLogPolicy(false, limit)(c)
+				c.mcpAuditMaxBodyBytes = limit
 				if encrypted {
 					c.encryptionConfig = testEncryptionConfig()
 				}
@@ -174,7 +174,8 @@ func TestMCPAuditBodyPolicyPersistence(t *testing.T) {
 func TestDisabledMCPAuditPolicy(t *testing.T) {
 	c := newTestClient(t)
 	insertAuditLog(t, c, time.Now())
-	WithMCPAuditLogPolicy(true, new(0))(c)
+	c.mcpAuditDisabled = true
+	c.mcpAuditMaxBodyBytes = new(0)
 	require.False(t, c.MCPAuditLogEnabled())
 
 	c.LogMCPAuditEntry(types.MCPAuditLog{})

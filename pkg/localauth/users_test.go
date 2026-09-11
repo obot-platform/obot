@@ -35,7 +35,7 @@ func newUsersTestProvider(t *testing.T) (*Provider, *client.Client) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	storageClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
-	gatewayClient := client.New(ctx, gatewayDB, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true)
+	gatewayClient := client.New(ctx, gatewayDB, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true, false, nil, nil)
 	t.Cleanup(func() {
 		cancel()
 		_ = gatewayClient.Close()

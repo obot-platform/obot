@@ -835,7 +835,7 @@ func newEnforcementTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatalf("migrate gateway db: %v", err)
 	}
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, false, nil, nil)
 	t.Cleanup(func() { _ = c.Close() })
 	return c
 }
