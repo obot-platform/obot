@@ -55,6 +55,54 @@ To pull from a private repository, enter a **Personal access token** in the opti
 
 If no per-URL token is configured, Obot falls back to the `GITHUB_AUTH_TOKEN` environment variable.
 
+## Selecting Catalog Files
+
+Obot recursively scans for `*.json`, `*.yaml`, and `*.yml` files. Hidden child directories such as `.git` and `.github` are always skipped, so GitHub Actions workflows can live alongside catalog entries. Keep catalog entries outside hidden directories.
+
+To customize discovery, add these files at the catalog repository root. Both accept one pattern per line, ignoring blank lines and `#` comments.
+
+### `.obotcatalogs`: include files
+
+A nonempty pattern list replaces the defaults. Patterns without `/` match filenames at any depth; patterns with `/` match paths relative to the catalog root:
+
+```text
+# Matching filenames anywhere in the repository
+*.mcp.yaml
+
+# YAML files directly inside servers/
+servers/*.yaml
+```
+
+### `.ignoreobotcatalogs`: exclude files or directories
+
+Patterns match root-relative paths and override includes. Matching a directory excludes its entire subtree:
+
+```text
+scripts
+renovate.json
+.pre-commit-config.yaml
+```
+
+Wildcards do not cross `/`, and `**` is not recursive. To exclude a whole directory tree, list the directory itself. Include patterns must match files; a bare directory does not include its contents.
+
+## Validating Catalog Entries
+
+With the `obot` CLI installed, run this from your catalog repository root before pushing changes:
+
+```sh
+obot mcp validate-catalog-yaml .
+```
+
+Directory validation uses the same file-selection rules as catalog sync, including both pattern files and hidden-directory skipping. It checks the selected catalog entries and exits with an error if validation fails, making it suitable for CI.
+
+You can also validate individual files:
+
+```sh
+obot mcp validate-catalog-yaml servers/github.yaml
+```
+
+Explicit file arguments are validated directly, without applying directory filters.
+
 ## Configuration Format
 
 MCP server configurations consist of individual YAML files, each defining a single MCP server. These files contain comprehensive metadata including:

@@ -99,3 +99,25 @@ npxConfig:
 	require.ErrorContains(t, err, "legacy.yaml")
 	require.Len(t, objects, 1)
 }
+
+func TestReadMCPCatalogSkipsGitHubWorkflows(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "valid.yaml"), []byte(`name: Valid
+entryKey: valid
+shortDescription: Test
+description: Test
+icon: icon
+runtime: npx
+npxConfig:
+  package: test
+`), 0o600))
+
+	workflowDir := filepath.Join(dir, ".github", "workflows")
+	require.NoError(t, os.MkdirAll(workflowDir, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(workflowDir, "ci.yml"), []byte("name: Validate catalog\non: push\njobs: {}\n"), 0o600))
+
+	h := &Handler{}
+	objects, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+	require.NoError(t, err)
+	require.Len(t, objects, 1)
+}
