@@ -208,8 +208,20 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 		}
 	}
 	published := false
+	updateAttempts := 0
 	storage.onUpdate = func(obj kclient.Object) {
 		vmcp := obj.(*v1.VMCP)
+		updateAttempts++
+		if updateAttempts == 1 {
+			var latest v1.VMCP
+			if err := storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &latest); err != nil {
+				t.Fatal(err)
+			}
+			latest.Annotations = map[string]string{"concurrent-update": "preserved"}
+			if err := storage.WithWatch.Update(t.Context(), &latest); err != nil {
+				t.Fatal(err)
+			}
+		}
 		if vmcp.Spec.StaticConfigurationHash == "" {
 			t.Fatal("static configuration hash was not published")
 		}
@@ -242,6 +254,9 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	if !published {
 		t.Fatal("static configuration hash was not published")
 	}
+	if updateAttempts != 2 {
+		t.Fatalf("update attempts = %d, want 2", updateAttempts)
+	}
 	for _, policy := range created.Components[0].Configuration {
 		if policy.Value != "" {
 			t.Fatalf("configuration %q value was returned from the VMCP", policy.Key)
@@ -272,6 +287,9 @@ func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
 	}
 	if stored.Spec.Manifest.Components[0].Configuration[0].Value != "" {
 		t.Fatal("static configuration was persisted in the VMCP manifest")
+	}
+	if stored.Annotations["concurrent-update"] != "preserved" {
+		t.Fatal("concurrent update was overwritten")
 	}
 }
 

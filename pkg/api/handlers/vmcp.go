@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 )
 
 type VMCPHandler struct {
@@ -99,8 +100,13 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to store VMCP static configuration: %w", err), cleanupErr)
 	}
-	vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
-	if err := req.Update(&vmcp); err != nil {
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(&vmcp, vmcp.Name); err != nil {
+			return err
+		}
+		vmcpconfig.SetStaticConfigurationHashes(&vmcp, staticConfiguration)
+		return req.Update(&vmcp)
+	}); err != nil {
 		cleanupErr := req.Delete(&vmcp)
 		return errors.Join(fmt.Errorf("failed to publish VMCP static configuration: %w", err), cleanupErr)
 	}
