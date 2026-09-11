@@ -88,6 +88,26 @@ describe('VMcpComponentConfigurationDialog.svelte', () => {
 		]);
 	});
 
+	it('omits Ignore from required field policies', async () => {
+		await preparePageData();
+		const result = await render(VMcpComponentConfigurationDialog);
+		result.component.open(configurableEntry());
+
+		const requiredPolicy = page.getByRole('combobox', { name: 'API token policy' });
+		const optionalPolicy = page.getByRole('combobox', { name: 'Org header policy' });
+		await expect.element(requiredPolicy).toBeVisible();
+		expect(
+			Array.from((requiredPolicy.element() as HTMLSelectElement).options).map(
+				(option) => option.value
+			)
+		).toEqual(['fixed', 'userAllowed']);
+		expect(
+			Array.from((optionalPolicy.element() as HTMLSelectElement).options).map(
+				(option) => option.value
+			)
+		).toEqual(['fixed', 'userAllowed', 'prohibited']);
+	});
+
 	it('prefills existing policies when editing configuration', async () => {
 		await preparePageData();
 		const onNext = vi.fn();

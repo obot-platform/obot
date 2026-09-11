@@ -126,6 +126,21 @@ describe('MCP tester route load', () => {
 		});
 	});
 
+	it('treats a canonical vMCP without an instance as setup-required when components need user configuration', async () => {
+		const target = vmcp();
+		target.components[0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+		const result = await loadTester(target.id, vmcpRouteFetcher(target));
+
+		expect(result).toMatchObject({
+			server: {
+				id: target.id,
+				configured: false,
+				missingRequiredEnvVars: ['component-1.API_TOKEN']
+			},
+			backTarget: `/vmcps/${target.id}`
+		});
+	});
+
 	it('attaches the current profile vMCP instance when loading a canonical vMCP', async () => {
 		const target = vmcp();
 		const otherUserInstance = {

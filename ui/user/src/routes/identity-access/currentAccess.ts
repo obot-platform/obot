@@ -245,8 +245,7 @@ function dedupeById<T extends { id: string }>(items: T[]): T[] {
 function matchVmcpProfiles(vmcps: VMCP[], target: CurrentAccessTarget): MatchedAccessPolicy[] {
 	return vmcps
 		.flatMap((vmcp) => {
-			// Personal vMCPs are owned by a single user and are not shared via profiles.
-			if (vmcp.userID && (target.kind !== 'user' || vmcp.userID !== target.id)) {
+			if (vmcp.userID) {
 				return [];
 			}
 

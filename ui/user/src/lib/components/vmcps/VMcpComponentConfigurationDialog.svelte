@@ -38,6 +38,20 @@
 		{ id: 'prohibited', label: 'Ignore' }
 	];
 
+	function policyOptions(required?: boolean) {
+		return required
+			? POLICY_OPTIONS.filter((option) => option.id !== 'prohibited')
+			: POLICY_OPTIONS;
+	}
+
+	function initialPolicy(
+		field: MCPConfig,
+		existing?: VMCPConfigurationPolicy
+	): VMCPConfigurationPolicyType {
+		const policy = existing?.policy ?? (field.required ? 'fixed' : 'prohibited');
+		return field.required && policy === 'prohibited' ? 'fixed' : policy;
+	}
+
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let entry = $state<MCPCatalogEntry>();
 	let drafts = $state<PolicyDraft[]>([]);
@@ -67,7 +81,7 @@
 				const policy = existing.get(field.key);
 				return {
 					field,
-					policy: policy?.policy ?? (field.required ? 'fixed' : 'prohibited'),
+					policy: initialPolicy(field, policy),
 					value: policy?.value ?? field.value ?? ''
 				};
 			});
@@ -170,7 +184,7 @@
 				onchange={(event) =>
 					setPolicy(index, event.currentTarget.value as VMCPConfigurationPolicyType)}
 			>
-				{#each POLICY_OPTIONS as option (option.id)}
+				{#each policyOptions(draft.field.required) as option (option.id)}
 					<option value={option.id}>{option.label}</option>
 				{/each}
 			</select>

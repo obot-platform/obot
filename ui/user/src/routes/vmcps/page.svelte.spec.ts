@@ -61,7 +61,7 @@ describe('vMCPs Page', () => {
 			await renderPageWithEntries([componentEntry]);
 
 			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Issue Tracker vMCP' }))
+				.element(page.getByRole('button', { name: 'Open Issue Tracker vMCP' }))
 				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Create vMCP' })).toBeVisible();
 			await expect
@@ -72,7 +72,7 @@ describe('vMCPs Page', () => {
 		it('takes no drops, so it offers no servers to drag', async () => {
 			await renderPageWithEntries([componentEntry, slack]);
 			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Issue Tracker vMCP' }))
+				.element(page.getByRole('button', { name: 'Open Issue Tracker vMCP' }))
 				.toBeVisible();
 
 			await expect
@@ -94,21 +94,17 @@ describe('vMCPs Page', () => {
 			await renderPageWithEntries([componentEntry], false, [personal, shared]);
 
 			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Personal Notes vMCP' }))
+				.element(page.getByRole('button', { name: 'Open Personal Notes vMCP' }))
 				.toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Org Docs vMCP' }))
-				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Open Org Docs vMCP' })).toBeVisible();
 
 			await page.getByRole('button', { name: 'Filters' }).click();
 			await page.getByRole('checkbox', { name: 'Show shared vMCPs only' }).click();
 			await tick();
 
+			await expect.element(page.getByRole('button', { name: 'Open Org Docs vMCP' })).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Org Docs vMCP' }))
-				.toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Personal Notes vMCP' }))
+				.element(page.getByRole('button', { name: 'Open Personal Notes vMCP' }))
 				.not.toBeInTheDocument();
 		});
 
@@ -140,7 +136,7 @@ describe('vMCPs Page', () => {
 			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
 			await expect.element(page.getByCSS('[data-vmcp-world]')).not.toBeInTheDocument();
 			await expect
-				.element(page.getByRole('button', { name: 'Click to edit Issue Tracker vMCP' }))
+				.element(page.getByRole('button', { name: 'Open Issue Tracker vMCP' }))
 				.not.toBeInTheDocument();
 		});
 

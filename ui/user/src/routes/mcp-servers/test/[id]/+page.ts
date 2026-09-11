@@ -12,18 +12,28 @@ function safeBackTarget(server: MCPCatalogServer): string {
 	return `/mcp-servers/s/${encodeURIComponent(server.id)}`;
 }
 
+function userAllowedConfigurationKeys(vmcp: VMCP): string[] {
+	return (vmcp.components ?? []).flatMap((component) => {
+		const componentID = component.id || component.mcpServerCatalogEntryID || '';
+		return (component.configuration ?? [])
+			.filter((field) => field.policy === 'userAllowed')
+			.map((field) => (componentID ? `${componentID}.${field.key}` : field.key));
+	});
+}
+
 function vmcpTesterServer(
 	vmcp: VMCP,
 	connectID: string,
 	instance?: VMCPInstance
 ): MCPCatalogServer {
 	const created = instance?.created ?? vmcp.created;
+	const pendingUserConfig = instance ? [] : userAllowedConfigurationKeys(vmcp);
 	return {
 		id: connectID,
 		userID: instance?.userID ?? vmcp.userID ?? '',
-		configured: instance?.status?.configured ?? true,
+		configured: instance?.status?.configured ?? pendingUserConfig.length === 0,
 		catalogEntryID: '',
-		missingRequiredEnvVars: instance?.status?.missingRequiredConfiguration ?? [],
+		missingRequiredEnvVars: instance?.status?.missingRequiredConfiguration ?? pendingUserConfig,
 		mcpCatalogID: '',
 		created,
 		updated: created,

@@ -138,7 +138,7 @@
 	}
 
 	function getNote(vmcp: VMCP) {
-		if (vmcp.userID) {
+		if (vmcp.userID && vmcp.userID !== profile.current.id) {
 			return `Created by ${getUserDisplayName(usersMap, vmcp.userID)}`;
 		}
 		if (hasAdminAccess) {
@@ -175,7 +175,7 @@
 		connectURL={vmcpConnectURL(card.data)}
 		connectButtonId={`btn-connect-to-server-${card.id}`}
 		connected={card.connected}
-		selectAriaLabel={`Click to edit ${card.name}`}
+		selectAriaLabel={`Open ${card.name}`}
 		enterDelay={cardDelay(index)}
 		onSelect={() => onSelect?.(card.data)}
 		onConnect={(options) => onConnect?.(card.data, options)}

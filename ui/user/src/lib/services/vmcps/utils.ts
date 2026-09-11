@@ -408,6 +408,7 @@ function httpMcpServers(vmcps: VMCP[]) {
 	const servers: Record<string, { type: 'http'; url: string }> = {};
 	for (const vmcp of vmcps) {
 		const url = vmcpConnectURL(vmcp);
+		if ((vmcp.components ?? []).length === 0) continue;
 		if (!url) continue;
 		servers[mcpConfigKey(vmcp.displayName || vmcp.id, vmcp.id, used)] = {
 			type: 'http',
