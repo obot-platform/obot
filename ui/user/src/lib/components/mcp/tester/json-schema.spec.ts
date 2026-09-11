@@ -67,7 +67,7 @@ describe('MCP tester JSON Schema support', () => {
 		expect(performance.now() - started).toBeLessThan(100);
 	});
 
-	it('accepts every member of a union type and leaves unions to Raw JSON', () => {
+	it('accepts every member of a union type and leaves multiple non-null types to Raw JSON', () => {
 		const nullable: JSONSchema = {
 			type: 'object',
 			required: ['label'],
@@ -89,6 +89,76 @@ describe('MCP tester JSON Schema support', () => {
 			'amount must be one of these types: integer, string'
 		]);
 		expect(supportsGeneratedForm(nullable)).toBe(false);
+	});
+
+	it.each([
+		{ anyOf: [{ type: 'string', minLength: 2 }, { type: 'null' }] },
+		{ anyOf: [{ type: 'null' }, { type: 'string', minLength: 2 }] },
+		{ type: ['string', 'null'], minLength: 2 }
+	])('supports nullable fields and validates both members: %j', (property) => {
+		const nullable: JSONSchema = {
+			type: 'object',
+			required: ['label'],
+			properties: { label: { ...property, default: null } }
+		};
+		expect(supportsGeneratedForm(nullable)).toBe(true);
+		expect(defaultJSONSchemaValue(nullable)).toEqual({ label: null });
+		expect(validateJSONSchema(nullable, { label: null })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'ok' })).toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 'a' })).not.toEqual([]);
+		expect(validateJSONSchema(nullable, { label: 42 })).not.toEqual([]);
+		expect(validateJSONSchema(nullable, {})).toEqual(['label is required']);
+	});
+
+	it('uses nullable branch defaults and prunes nested optional fields', () => {
+		const nullable: JSONSchema = {
+			anyOf: [
+				{
+					type: 'object',
+					required: ['count'],
+					properties: {
+						count: { type: 'integer', default: 3 },
+						label: { type: 'string' }
+					}
+				},
+				{ type: 'null' }
+			]
+		};
+		expect(supportsGeneratedForm(nullable)).toBe(true);
+		expect(defaultJSONSchemaValue(nullable)).toEqual({ count: 3 });
+		expect(pruneClearedProperties(nullable, { count: 3, label: '' })).toEqual({ count: 3 });
+		expect(pruneClearedProperties(nullable, null)).toBeNull();
+		expect(
+			defaultJSONSchemaValue({ anyOf: [{ type: 'integer', default: 5 }, { type: 'null' }] })
+		).toBe(5);
+	});
+
+	it('still applies enum and const constraints to null values', () => {
+		expect(validateJSONSchema({ type: ['string', 'null'], enum: ['allowed'] }, null)).toEqual([
+			'Value must be one of the allowed values'
+		]);
+		expect(validateJSONSchema({ type: ['string', 'null'], const: 'allowed' }, null)).toEqual([
+			'Value must equal "allowed"'
+		]);
+	});
+
+	it('keeps other anyOf unions in Raw JSON and validates sibling constraints', () => {
+		expect(supportsGeneratedForm({ anyOf: [{ type: 'string' }, { type: 'integer' }] })).toBe(false);
+		expect(
+			supportsGeneratedForm({
+				anyOf: [{ type: 'string' }, { type: 'integer' }, { type: 'null' }]
+			})
+		).toBe(false);
+		expect(
+			validateJSONSchema(
+				{
+					anyOf: [{ type: 'string' }, { type: 'null' }],
+					minLength: 3,
+					enum: ['allowed', null]
+				},
+				'other'
+			)
+		).toEqual(['Value must be one of the allowed values']);
 	});
 
 	it('compares const and enum JSON values structurally', () => {

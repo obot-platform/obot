@@ -20,6 +20,100 @@ const schema: JSONSchema = {
 };
 
 describe('JsonSchemaForm', () => {
+	it('generates the fetch_content form and preserves or edits its nullable backend', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: {
+					backend: {
+						anyOf: [{ type: 'string' }, { type: 'null' }],
+						default: null,
+						title: 'Backend'
+					},
+					max_length: { default: 8000, title: 'Max Length', type: 'integer' },
+					start_index: { default: 0, title: 'Start Index', type: 'integer' },
+					url: { title: 'Url', type: 'string' }
+				},
+				required: ['url'],
+				title: 'fetch_contentArguments'
+			},
+			onvalidchange
+		});
+
+		await expect.element(page.getByRole('button', { name: 'Generated form' })).toBeVisible();
+		await expect.element(page.getByLabelText('Max Length')).toHaveValue(8000);
+		await expect.element(page.getByLabelText('Start Index')).toHaveValue(0);
+		const backend = page.getByLabelText('Backend', { exact: true });
+		const useNull = page.getByRole('checkbox', { name: 'Use null for Backend' });
+		await expect.element(useNull).toBeChecked();
+		await expect.element(backend).toBeDisabled();
+		await page.getByLabelText('Url *').fill('https://example.com');
+		const defaults = { url: 'https://example.com', max_length: 8000, start_index: 0 };
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ ...defaults, backend: null })
+		);
+
+		await useNull.click();
+		await backend.fill('requests');
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ ...defaults, backend: 'requests' })
+		);
+		await backend.fill('');
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(defaults));
+		await useNull.click();
+		await vi.waitFor(() =>
+			expect(onvalidchange).toHaveBeenLastCalledWith({ ...defaults, backend: null })
+		);
+
+		await page.getByRole('button', { name: 'Raw JSON' }).click();
+		const raw = page.getByLabelText('Arguments JSON');
+		expect(JSON.parse((raw.element() as HTMLTextAreaElement).value)).toEqual({
+			...defaults,
+			backend: null
+		});
+		await raw.fill(JSON.stringify({ ...defaults, backend: 42 }));
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await raw.fill(JSON.stringify({ ...defaults, backend: 'requests' }));
+		await page.getByRole('button', { name: 'Generated form' }).click();
+		await expect.element(useNull).not.toBeChecked();
+		await expect.element(backend).toHaveValue('requests');
+	});
+
+	it('allows required nullable type arrays to switch between null and a constrained value', async () => {
+		const onvalidchange = vi.fn();
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				required: ['count'],
+				properties: { count: { type: ['integer', 'null'], minimum: 2, default: null } }
+			},
+			onvalidchange
+		});
+		const useNull = page.getByRole('checkbox', { name: 'Use null for count' });
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: null }));
+		await useNull.click();
+		await expect.element(page.getByLabelText('count *')).toHaveValue(2);
+		await page.getByLabelText('count *').fill('1');
+		await expect.element(page.getByText('count must be at least 2')).toBeVisible();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith(undefined));
+		await useNull.click();
+		await vi.waitFor(() => expect(onvalidchange).toHaveBeenLastCalledWith({ count: null }));
+	});
+
+	it('offers only Raw JSON for unions with multiple non-null types', async () => {
+		render(JsonSchemaForm, {
+			schema: {
+				type: 'object',
+				properties: { value: { anyOf: [{ type: 'string' }, { type: 'integer' }] } }
+			}
+		});
+		await expect
+			.element(page.getByRole('button', { name: 'Generated form' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByLabelText('Arguments JSON')).toBeVisible();
+	});
+
 	it('renders nested generated controls and reports only valid arguments', async () => {
 		const onvalidchange = vi.fn();
 		render(JsonSchemaForm, { schema, onvalidchange });

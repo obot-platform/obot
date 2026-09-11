@@ -1,6 +1,6 @@
 <script lang="ts">
 	import JsonSchemaField from './JsonSchemaField.svelte';
-	import { defaultJSONSchemaValue, type JSONSchema } from './json-schema';
+	import { defaultJSONSchemaValue, nonNullableJSONSchema, type JSONSchema } from './json-schema';
 	import { Plus, Trash2 } from '@lucide/svelte';
 
 	interface Props {
@@ -26,6 +26,7 @@
 	// separator, so sibling `a-b` and nested `a`/`b` would otherwise share a DOM id.
 	const uid = $props.id();
 	const id = `mcp-tester-field-${uid}`;
+	let nonNullable = $derived(nonNullableJSONSchema(schema));
 	let enumIndex = $derived(schema.enum?.findIndex((entry) => Object.is(entry, value)) ?? -1);
 	let type = $derived(
 		Array.isArray(schema.type) ? schema.type.find((item) => item !== 'null') : schema.type
@@ -64,7 +65,30 @@
 	}
 </script>
 
-{#if type === 'object'}
+{#if nonNullable}
+	<div class="space-y-2">
+		<label class="flex items-center gap-2 text-sm">
+			<input
+				type="checkbox"
+				class="checkbox checkbox-sm"
+				checked={value === null}
+				{disabled}
+				onchange={(event) =>
+					onchange(event.currentTarget.checked ? null : defaultJSONSchemaValue(nonNullable))}
+			/>
+			Use null for {label}
+		</label>
+		<JsonSchemaField
+			schema={nonNullable}
+			{value}
+			{label}
+			{path}
+			{required}
+			disabled={disabled || value === null}
+			{onchange}
+		/>
+	</div>
+{:else if type === 'object'}
 	<fieldset class="border-base-300 dark:border-base-400 space-y-4 rounded-lg border p-4">
 		<legend class="px-1 text-sm font-medium">{label}{required ? ' *' : ''}</legend>
 		{#if schema.description}
