@@ -57,19 +57,24 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := authz.CheckVMCPForceSingleUser(req.User, false, manifest.ForceSingleUser); err != nil {
 		return err
 	}
+
 	var userID string
-	if !req.UserIsAdmin() {
+	if !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal" {
 		userID = req.User.GetUID()
 	}
+
 	if err := h.loadComponentSnapshots(req, &manifest, userID, nil); err != nil {
 		return err
 	}
+
 	if err := manifest.Validate(); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+
 	if err := vmcpconfig.InitializeComponentIDs(&manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}
+
 	staticConfiguration := vmcpconfig.ExtractStaticConfiguration(&manifest, nil)
 
 	vmcp := v1.VMCP{

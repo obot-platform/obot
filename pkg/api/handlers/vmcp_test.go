@@ -190,6 +190,13 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if shared.UserID != "" {
 		t.Fatalf("administrator-created VMCP userID = %q, want shared VMCP", shared.UserID)
 	}
+
+	personal := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), &user.DefaultInfo{
+		Name: "admin", UID: "user-1", Groups: []string{types.GroupAdmin},
+	}, "?scope=personal")
+	if personal.UserID != "user-1" {
+		t.Fatalf("administrator-created personal VMCP userID = %q, want user-1", personal.UserID)
+	}
 }
 
 func TestVMCPHandlerCreateStoresStaticConfigurationInCredential(t *testing.T) {
@@ -722,7 +729,7 @@ func newVMCPTestStorage(objects ...kclient.Object) *vmcpTestStorage {
 		Build()}
 }
 
-func callVMCPCreate(t *testing.T, storage *vmcpTestStorage, gatewayClient *gateway.Client, handler *VMCPHandler, manifest types.VMCPManifest, u user.Info) types.VMCP {
+func callVMCPCreate(t *testing.T, storage *vmcpTestStorage, gatewayClient *gateway.Client, handler *VMCPHandler, manifest types.VMCPManifest, u user.Info, query ...string) types.VMCP {
 	t.Helper()
 	body, err := json.Marshal(manifest)
 	if err != nil {
@@ -731,7 +738,7 @@ func callVMCPCreate(t *testing.T, storage *vmcpTestStorage, gatewayClient *gatew
 	recorder := httptest.NewRecorder()
 	err = handler.Create(api.Context{
 		ResponseWriter: recorder,
-		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body)),
+		Request:        httptest.NewRequest(http.MethodPost, "/api/vmcps"+strings.Join(query, ""), bytes.NewReader(body)),
 		Storage:        storage,
 		GatewayClient:  gatewayClient,
 		User:           u,
