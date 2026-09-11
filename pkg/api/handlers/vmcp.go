@@ -88,8 +88,9 @@ func (h *VMCPHandler) Create(req api.Context) error {
 		GenerateName: system.VMCPPrefix,
 		Namespace:    req.Namespace(),
 		Spec: v1.VMCPSpec{
-			Manifest: manifest,
-			UserID:   userID,
+			Manifest:      manifest,
+			UserID:        userID,
+			CreatorUserID: req.User.GetUID(),
 		},
 	}
 	if err := req.Create(&vmcp); err != nil {

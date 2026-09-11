@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +34,62 @@ type vmcpTestStorage struct {
 	onCreate  func(kclient.Object)
 	onUpdate  func(kclient.Object)
 	updateErr error
+}
+
+func TestVMCPHandlerRejectsProhibitedRequiredConfiguration(t *testing.T) {
+	for _, operation := range []string{"create", "update", "trigger update"} {
+		t.Run(operation, func(t *testing.T) {
+			entry := vmcpCatalogEntryForTest("entry")
+			entry.Spec.Manifest.Config = []types.MCPConfig{{
+				Key:      "TOKEN",
+				Required: true,
+			}}
+			manifest := testVMCPManifest()
+			manifest.Components[0].Configuration = []types.VMCPConfigurationPolicy{{
+				Key:    "TOKEN",
+				Policy: types.VMCPConfigurationPolicyProhibited,
+			}}
+			storage := newVMCPTestStorage(entry)
+			if operation != "create" {
+				manifest.Components[0].ID = "component-id"
+				manifest.Components[0].CatalogEntry.Manifest = entry.Spec.Manifest
+				if err := storage.Create(t.Context(), &v1.VMCP{
+					Name:      "vmcp1test",
+					Namespace: system.DefaultNamespace,
+					Spec:      v1.VMCPSpec{Manifest: manifest},
+				}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			storage.onCreate = func(kclient.Object) { t.Fatal("rejected request created a resource") }
+			storage.onUpdate = func(kclient.Object) { t.Fatal("rejected request updated a resource") }
+			body, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body))
+			request.SetPathValue("vmcp_id", "vmcp1test")
+			ctx := api.Context{
+				Request:       request,
+				Storage:       storage,
+				GatewayClient: newHandlerTestGateway(t),
+				User:          &user.DefaultInfo{UID: "admin", Groups: []string{types.GroupAdmin}},
+			}
+			handler := NewVMCPHandler(nil)
+			switch operation {
+			case "create":
+				err = handler.Create(ctx)
+			case "update":
+				err = handler.Update(ctx)
+			case "trigger update":
+				err = handler.TriggerUpdate(ctx)
+			}
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest || !strings.Contains(httpErr.Message, `required configuration "TOKEN" cannot be prohibited`) {
+				t.Fatalf("expected 400 for prohibited required configuration, got %v", err)
+			}
+		})
+	}
 }
 
 func (s *vmcpTestStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
@@ -200,8 +257,35 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if personal.UserID != "user-1" {
 		t.Fatalf("administrator-created personal VMCP userID = %q, want user-1", personal.UserID)
 	}
+
 	if len(personal.Profiles) != 0 {
 		t.Fatalf("administrator-created personal VMCP profiles = %#v, want none", personal.Profiles)
+	}
+
+	for _, tc := range []struct {
+		vmcpID  string
+		creator string
+	}{
+		{
+			vmcpID:  created.ID,
+			creator: "user-1",
+		},
+		{
+			vmcpID:  shared.ID,
+			creator: "admin",
+		},
+		{
+			vmcpID:  personal.ID,
+			creator: "user-1",
+		},
+	} {
+		var persisted v1.VMCP
+		if err := storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: tc.vmcpID}, &persisted); err != nil {
+			t.Fatal(err)
+		}
+		if persisted.Spec.CreatorUserID != tc.creator {
+			t.Fatalf("VMCP %q creator = %q, want %q", tc.vmcpID, persisted.Spec.CreatorUserID, tc.creator)
+		}
 	}
 }
 

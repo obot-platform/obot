@@ -295,8 +295,9 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 				DisplayName: "Test VMCP",
 				Components: []types.VMCPComponent{
 					{
-						ID:   "component-one",
-						Name: "one",
+						ID:                      "component-one",
+						Name:                    "one",
+						MCPServerCatalogEntryID: "entry-one",
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
 								Name:      "cached-npx",
@@ -313,8 +314,9 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 						},
 					},
 					{
-						ID:   "component-two",
-						Name: "two",
+						ID:                      "component-two",
+						Name:                    "two",
+						MCPServerCatalogEntryID: "entry-two",
 						CatalogEntry: types.MCPServerCatalogEntrySnapshot{
 							Manifest: types.MCPServerCatalogEntryManifest{
 								Name:    "cached-container",
@@ -378,6 +380,13 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 		if server.Spec.UserID != instance.Spec.UserID {
 			t.Errorf("server %q user = %q, want %q", server.Name, server.Spec.UserID, instance.Spec.UserID)
 		}
+		wantEntry := "entry-one"
+		if server.Spec.VMCPComponentID == "component-two" {
+			wantEntry = "entry-two"
+		}
+		if server.Spec.MCPServerCatalogEntryName != wantEntry {
+			t.Errorf("server %q catalog entry = %q, want %q", server.Name, server.Spec.MCPServerCatalogEntryName, wantEntry)
+		}
 	}
 
 	npxServer := serversByComponent["component-one"]
@@ -389,6 +398,19 @@ func TestEnsureMCPServersCreatesServersFromCachedComponents(t *testing.T) {
 	}
 	if len(npxServer.Spec.UnsupportedTools) != 1 || npxServer.Spec.UnsupportedTools[0] != "broken-tool" {
 		t.Fatalf("NPX server did not retain cached unsupported tools: %#v", npxServer.Spec.UnsupportedTools)
+	}
+	npxServer.Spec.MCPServerCatalogEntryName = "stale-entry"
+	if err := client.Update(t.Context(), &npxServer); err != nil {
+		t.Fatal(err)
+	}
+	if err := handler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(&npxServer), &npxServer); err != nil {
+		t.Fatal(err)
+	}
+	if npxServer.Spec.MCPServerCatalogEntryName != "entry-one" {
+		t.Fatalf("NPX server catalog entry = %q, want entry-one", npxServer.Spec.MCPServerCatalogEntryName)
 	}
 
 	containerServer := serversByComponent["component-two"]

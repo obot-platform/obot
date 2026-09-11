@@ -225,6 +225,7 @@ func TestTriggerUpdateScope(t *testing.T) {
 		workspaceID     string
 		wantShutdown    bool
 		wantErrContains string
+		wantStatus      int
 	}
 
 	baseEntry := func(workspaceID string) *v1.MCPServerCatalogEntry {
@@ -310,6 +311,11 @@ func TestTriggerUpdateScope(t *testing.T) {
 				if tt.wantErrContains != "" {
 					require.Error(t, err)
 					assert.Contains(t, err.Error(), tt.wantErrContains)
+					if tt.wantStatus != 0 {
+						var httpErr *types.ErrHTTP
+						require.ErrorAs(t, err, &httpErr)
+						assert.Equal(t, tt.wantStatus, httpErr.Code)
+					}
 					return
 				}
 				require.NoError(t, err)
@@ -379,6 +385,28 @@ func TestTriggerUpdateScope(t *testing.T) {
 				}(),
 				entry:           baseEntry(""),
 				wantErrContains: "cannot trigger update on a component server",
+			},
+			{
+				name: "vMCP component server is rejected",
+				user: testUserWithRole("admin", types.GroupAdmin),
+				server: func() v1.MCPServer {
+					server := baseServer("creator")
+					server.Spec.VMCPID = "vmcp"
+					return server
+				}(),
+				wantErrContains: "update the vMCP instead",
+				wantStatus:      http.StatusBadRequest,
+			},
+			{
+				name: "vMCP instance component server is rejected",
+				user: testUser("owner"),
+				server: func() v1.MCPServer {
+					server := baseServer("owner")
+					server.Spec.VMCPInstanceID = "vmcp-instance"
+					return server
+				}(),
+				wantErrContains: "update the vMCP instead",
+				wantStatus:      http.StatusBadRequest,
 			},
 			{
 				name: "server without catalog entry is a no-op",

@@ -293,18 +293,8 @@ func (m *MCPHandler) ListServer(req api.Context) error {
 	}
 
 	credCtxs := make([]string, 0, len(servers.Items))
-	if catalogID != "" {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", catalogID, server.Name))
-		}
-	} else if workspaceID != "" {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", workspaceID, server.Name))
-		}
-	} else {
-		for _, server := range servers.Items {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name))
-		}
+	for _, server := range servers.Items {
+		credCtxs = append(credCtxs, server.CredentialContext(req.User.GetUID()))
 	}
 
 	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
@@ -406,16 +396,7 @@ func (m *MCPHandler) GetServer(req api.Context) error {
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&server)
 
-	var credCtxs []string
-	if catalogID != "" {
-		credCtxs = []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}
-	} else if workspaceID != "" {
-		credCtxs = []string{fmt.Sprintf("%s-%s", workspaceID, server.Name)}
-	} else {
-		credCtxs = []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(req.User.GetUID())}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -465,6 +446,17 @@ func (m *MCPHandler) DeleteServer(req api.Context) error {
 		return types.NewErrForbidden(
 			"cannot delete component of composite %q; delete the composite server instead",
 			server.Spec.CompositeName,
+		)
+	}
+	// Same for vMCPs
+	if server.Spec.VMCPComponentID != "" {
+		name := server.Spec.VMCPID
+		if name == "" {
+			name = server.Spec.VMCPInstanceID
+		}
+		return types.NewErrForbidden(
+			"cannot delete component of vMCP %q; delete the vMCP server instead",
+			name,
 		)
 	}
 
@@ -906,6 +898,9 @@ func mcpServerOrInstanceFromConnectURL(req api.Context, id, secretBindingAllowed
 		}); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
+		servers.Items = slices.DeleteFunc(servers.Items, func(server v1.MCPServer) bool {
+			return server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != ""
+		})
 		if len(servers.Items) == 0 {
 			// If the user has not configured an MCP server for the catalog entry, create a server for the user.
 			missingAdminConfig, err := entryMissingAdminConfig(req.Context(), req.LocalK8sClient, req.ObotNamespace, entry, secretBindingAllowedLabel)
@@ -1410,17 +1405,7 @@ func (m *MCPHandler) CreateServer(req api.Context) error {
 		return err
 	}
 
-	var (
-		cred gatewaytypes.Credential
-		err  error
-	)
-	if catalogID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, server.Name)}, server.Name)
-	} else if workspaceID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", workspaceID, server.Name)}, server.Name)
-	} else {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), server.Name)}, server.Name)
-	}
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(req.User.GetUID())}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -1461,6 +1446,10 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
+	if existing.Spec.VMCPComponentID != "" {
+		return types.NewErrBadRequest("cannot update a server that is bound to a vMCP component")
+	}
+
 	if err = req.Read(&updated); err != nil {
 		return err
 	}
@@ -1469,14 +1458,7 @@ func (m *MCPHandler) UpdateServer(req api.Context) error {
 	}
 
 	// Shutdown any server that is using the default credentials.
-	var cred gatewaytypes.Credential
-	if catalogID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", catalogID, existing.Name)}, existing.Name)
-	} else if workspaceID != "" {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", workspaceID, existing.Name)}, existing.Name)
-	} else {
-		cred, err = req.GatewayClient.RevealCredential(req.Context(), []string{fmt.Sprintf("%s-%s", req.User.GetUID(), existing.Name)}, existing.Name)
-	}
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{existing.CredentialContext(req.User.GetUID())}, existing.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -1623,6 +1605,10 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		return types.NewErrBadRequest("composite servers are no longer supported; use the migrated vMCP instance")
 	}
 
+	if mcpServer.Spec.VMCPComponentID != "" {
+		return types.NewErrBadRequest("cannot configure a server associated to a vMCP component")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
@@ -1690,14 +1676,7 @@ func (m *MCPHandler) ConfigureServer(req api.Context) error {
 		}
 	}
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServer.CredentialContext(req.User.GetUID())
 
 	// Allow for updating credentials. The only way to update a credential is to delete the existing one and recreate it.
 	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credCtx}); err != nil {
@@ -1848,17 +1827,14 @@ func (m *MCPHandler) DeconfigureServer(req api.Context) error {
 		return types.NewErrBadRequest("composite servers are no longer supported; use the migrated vMCP instance")
 	}
 
+	if mcpServer.Spec.VMCPComponentID != "" {
+		return types.NewErrBadRequest("cannot deconfigure server associated to vMCP component")
+	}
+
 	// Add extracted env vars to the server definition
 	addExtractedEnvVars(&mcpServer)
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServer.CredentialContext(req.User.GetUID())
 
 	if err := m.removeMCPServerAndCred(req.Context(), req.GatewayClient, mcpServer, []string{credCtx}); err != nil {
 		return err
@@ -1888,14 +1864,7 @@ func (m *MCPHandler) Reveal(req api.Context) error {
 		return types.NewErrNotFound("MCP server not found")
 	}
 
-	var credCtx string
-	if catalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", catalogID, mcpServer.Name)
-	} else if workspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", workspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", req.User.GetUID(), mcpServer.Name)
-	}
+	credCtx := mcpServer.CredentialContext(req.User.GetUID())
 
 	// Return flat configuration
 	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, mcpServer.Name)
@@ -2209,19 +2178,9 @@ func ConfigurationTargetForConnectID(req api.Context, id, serverURL, secretBindi
 }
 
 func credentialEnvForMCPServer(req api.Context, server v1.MCPServer, secretBindingAllowedLabel string) (map[string]string, error) {
-	var credCtxs []string
-	switch {
-	case server.Spec.MCPCatalogID != "":
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-	case server.Spec.PowerUserWorkspaceID != "":
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-	default:
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-	}
-
 	addExtractedEnvVars(&server)
 
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return nil, fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -2256,6 +2215,9 @@ func convertOAuthMetadata(metadata *v1.OAuthMetadata) *types.OAuthMetadata {
 }
 
 func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPServer, userID, catalogID, workspaceID string) (string, error) {
+	if server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" {
+		return server.Name, nil
+	}
 	var shouldHaveUnique bool
 	if workspaceID == "" && catalogID == "" && server.Spec.MCPServerCatalogEntryName != "" {
 		var serversWithEntryName v1.MCPServerList
@@ -2269,6 +2231,9 @@ func SlugForMCPServer(ctx context.Context, client kclient.Client, server v1.MCPS
 		}); err != nil {
 			return "", fmt.Errorf("failed to find MCP server catalog entry for server: %w", err)
 		}
+		serversWithEntryName.Items = slices.DeleteFunc(serversWithEntryName.Items, func(server v1.MCPServer) bool {
+			return server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != ""
+		})
 
 		slices.SortFunc(serversWithEntryName.Items, func(a, b v1.MCPServer) int {
 			return a.CreationTimestamp.Compare(b.CreationTimestamp.Time)
@@ -2323,11 +2288,7 @@ func (m *MCPHandler) ListServersFromAllSources(req api.Context) error {
 
 	var credCtxs []string
 	for _, server := range allowedServers {
-		if server.Spec.IsCatalogServer() {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-		}
+		credCtxs = append(credCtxs, server.CredentialContext(server.Spec.UserID))
 	}
 
 	creds, err := req.GatewayClient.ListCredentials(req.Context(), gateway.ListCredentialsOptions{
@@ -2403,14 +2364,7 @@ func (m *MCPHandler) GetServerFromAllSources(req api.Context) error {
 	}
 
 	// Get credential context based on server scoping
-	var credCtxs []string
-	if server.Spec.IsCatalogServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.IsPowerUserWorkspaceServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -2776,16 +2730,7 @@ func (m *MCPHandler) RedeployWithK8sSettings(req api.Context) error {
 	}
 
 	// Get credential for server
-	var credCtxs []string
-	if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
-	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
-	}
-
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), credCtxs, server.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -3008,6 +2953,10 @@ func (m *MCPHandler) UpdateURL(req api.Context) error {
 		return types.NewErrBadRequest("cannot update the URL for a multi-user MCP server; use the UpdateServer endpoint instead")
 	}
 
+	if mcpServer.Spec.VMCPComponentID != "" {
+		return types.NewErrBadRequest("cannot update the URL for a VMCP component")
+	}
+
 	if mcpServer.Spec.MCPServerCatalogEntryName == "" {
 		return types.NewErrBadRequest("this server does not have a catalog entry")
 	}
@@ -3112,6 +3061,9 @@ func (m *MCPHandler) TriggerUpdate(req api.Context) error {
 
 	if err := req.Get(&server, req.PathValue("mcp_server_id")); err != nil {
 		return err
+	}
+	if server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" {
+		return types.NewErrBadRequest("cannot trigger update for a vMCP component server; update the vMCP instead")
 	}
 
 	if !server.Spec.IsSingleUser() {

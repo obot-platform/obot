@@ -15,7 +15,7 @@ import (
 )
 
 // SyncVMCPConfiguration copies the configuration for a VMCP component into
-// the backward-compatible credential consumed by its MCPServer.
+// the configuration credential consumed by its MCPServer.
 func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) error {
 	server := req.Object.(*v1.MCPServer)
 	if server.Spec.VMCPInstanceID == "" && server.Spec.VMCPID == "" {
@@ -80,7 +80,7 @@ func (h *Handler) SyncVMCPConfiguration(req router.Request, _ router.Response) e
 	}
 
 	if err := h.gatewayClient.UpsertCredential(req.Ctx, gatewaytypes.Credential{
-		Context: fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name),
+		Context: server.CredentialContext(server.Spec.UserID),
 		Name:    server.Name,
 		Secrets: mcpServerConfiguration(*component, staticConfiguration, userConfiguration),
 	}); err != nil {

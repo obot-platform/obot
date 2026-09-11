@@ -109,7 +109,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServers(req api.Context) error {
 	// Build credential contexts for all filtered servers
 	credCtxs := make([]string, 0, len(filteredServers))
 	for _, server := range filteredServers {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
+		credCtxs = append(credCtxs, server.CredentialContext(server.Spec.UserID))
 	}
 
 	var credMap map[string]map[string]string
@@ -214,7 +214,7 @@ func (p *PowerUserWorkspaceHandler) ListAllServersForAllEntries(req api.Context)
 	// Build credential contexts for all filtered servers
 	credCtxs := make([]string, 0, len(filteredServers))
 	for _, server := range filteredServers {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
+		credCtxs = append(credCtxs, server.CredentialContext(server.Spec.UserID))
 	}
 
 	var credMap map[string]map[string]string

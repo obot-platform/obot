@@ -3,6 +3,7 @@ package mcp
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -10,6 +11,7 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -81,6 +83,120 @@ func TestServerOrInstanceFromConnectURLCreatesRemoteServerThatNeedsUserURL(t *te
 	require.NotNil(t, server.Spec.Manifest.RemoteConfig)
 	require.Equal(t, "api.example.com", server.Spec.Manifest.RemoteConfig.Hostname)
 	require.Empty(t, server.Spec.Manifest.RemoteConfig.URL)
+}
+
+func TestServerOrInstanceFromConnectURLIgnoresVMCPComponentServers(t *testing.T) {
+	const (
+		entryID = "catalog-entry"
+		userID  = "user-1"
+	)
+
+	entry := &v1.MCPServerCatalogEntry{
+		Name:      entryID,
+		Namespace: system.DefaultNamespace,
+		Spec: v1.MCPServerCatalogEntrySpec{Manifest: types.MCPServerCatalogEntryManifest{
+			Runtime: types.RuntimeRemote,
+			RemoteConfig: &types.RemoteCatalogConfig{
+				Hostname: "api.example.com",
+			},
+		}},
+	}
+
+	for _, component := range []*v1.MCPServer{
+		{
+			Name:      "ms1-vmcp-component",
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{
+				MCPServerCatalogEntryName: entryID,
+				UserID:                    userID,
+				VMCPID:                    "vmcp1-test",
+			},
+		},
+		{
+			Name:      "ms1-vmcp-instance-component",
+			Namespace: system.DefaultNamespace,
+			Spec: v1.MCPServerSpec{
+				MCPServerCatalogEntryName: entryID,
+				UserID:                    userID,
+				VMCPInstanceID:            "vmcpi1-test",
+			},
+		},
+	} {
+		t.Run(component.Name, func(t *testing.T) {
+			storageClient := fake.NewClientBuilder().
+				WithScheme(storagescheme.Scheme).
+				WithObjects(entry.DeepCopy(), component).
+				WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
+				}).
+				WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.UserID}
+				}).
+				WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
+					return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
+				}).
+				WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+				}).
+				Build()
+
+			server, instance, err := (&SessionManager{storageClient: storageClient}).serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
+			require.NoError(t, err)
+			require.Empty(t, instance.Name)
+			require.NotEqual(t, component.Name, server.Name)
+			require.Empty(t, server.Spec.VMCPID)
+			require.Empty(t, server.Spec.VMCPInstanceID)
+		})
+	}
+}
+
+func TestServerOrInstanceFromConnectURLPrefersStandaloneServerOverVMCPComponent(t *testing.T) {
+	const (
+		entryID = "catalog-entry"
+		userID  = "user-1"
+	)
+
+	entry := &v1.MCPServerCatalogEntry{Name: entryID, Namespace: system.DefaultNamespace}
+	component := &v1.MCPServer{
+		Name:              "ms1-vmcp-component",
+		Namespace:         system.DefaultNamespace,
+		CreationTimestamp: metav1.NewTime(time.Unix(1, 0)),
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: entryID,
+			UserID:                    userID,
+			VMCPID:                    "vmcp1-test",
+		},
+	}
+	standalone := &v1.MCPServer{
+		Name:              "ms1-standalone",
+		Namespace:         system.DefaultNamespace,
+		CreationTimestamp: metav1.NewTime(time.Unix(2, 0)),
+		Spec: v1.MCPServerSpec{
+			MCPServerCatalogEntryName: entryID,
+			UserID:                    userID,
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(storagescheme.Scheme).
+		WithObjects(entry, component, standalone).
+		WithIndex(&v1.MCPServer{}, "spec.mcpServerCatalogEntryName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.MCPServerCatalogEntryName}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.UserID}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.template", func(obj kclient.Object) []string {
+			return []string{strconv.FormatBool(obj.(*v1.MCPServer).Spec.Template)}
+		}).
+		WithIndex(&v1.MCPServer{}, "spec.compositeName", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.MCPServer).Spec.CompositeName}
+		}).
+		Build()
+
+	server, instance, err := (&SessionManager{storageClient: storageClient}).serverOrInstanceFromConnectURL(t.Context(), entryID, userID)
+	require.NoError(t, err)
+	require.Empty(t, instance.Name)
+	require.Equal(t, standalone.Name, server.Name)
 }
 
 func TestServerOrInstanceFromConnectURLRejectsResourcesAbovePersistedMaximum(t *testing.T) {

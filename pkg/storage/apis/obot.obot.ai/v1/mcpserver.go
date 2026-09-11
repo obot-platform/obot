@@ -145,6 +145,26 @@ type MCPServerList struct {
 	Items []MCPServer `json:"items"`
 }
 
+// CredentialContext scopes configuration to the owning vMCP, vMCP instance,
+// catalog, or workspace. Personal servers use the supplied user ID.
+func (in *MCPServer) CredentialContext(userID string) string {
+	var owner string
+	switch {
+	case in.Spec.VMCPID != "":
+		owner = in.Spec.VMCPID
+	case in.Spec.VMCPInstanceID != "":
+		owner = in.Spec.VMCPInstanceID
+	case in.Spec.IsCatalogServer():
+		owner = in.Spec.MCPCatalogID
+	case in.Spec.IsPowerUserWorkspaceServer():
+		owner = in.Spec.PowerUserWorkspaceID
+	default:
+		owner = userID
+	}
+
+	return owner + "-" + in.Name
+}
+
 func (in *MCPServer) Has(field string) (exists bool) {
 	return slices.Contains(in.FieldNames(), field)
 }
@@ -199,8 +219,8 @@ func (in *MCPServer) DeleteRefs() []Ref {
 		{ObjType: &VMCPInstance{}, Name: in.Spec.VMCPInstanceID},
 		{ObjType: &VMCP{}, Name: in.Spec.VMCPID},
 	}
-	if in.Spec.CompositeName == "" {
-		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite MCP server.
+	if in.Spec.CompositeName == "" && in.Spec.VMCPComponentID == "" {
+		// Only garbage collect an MCP server when the catalog entry is deleted if it's not a component of a composite or vMCP server.
 		// Component MCP servers get their manifest from the composite catalog entry instead.
 		refs = append(refs, Ref{ObjType: &MCPServerCatalogEntry{}, Name: in.Spec.MCPServerCatalogEntryName})
 	}
@@ -209,7 +229,7 @@ func (in *MCPServer) DeleteRefs() []Ref {
 
 func (in *MCPServer) ValidConnectURLs(base string) []string {
 	var urls []string
-	if in.Spec.IsSingleUser() {
+	if in.Spec.IsSingleUser() && in.Spec.VMCPID == "" && in.Spec.VMCPInstanceID == "" {
 		urls = append(urls, system.MCPConnectURL(base, in.Spec.MCPServerCatalogEntryName))
 	}
 	return append(urls, system.MCPConnectURL(base, in.Name))
@@ -228,7 +248,7 @@ func (s MCPServerSpec) IsOwnedBy(userID string) bool {
 
 // IsCatalogServer returns true if this server is owned by a catalog (admin-deployed multi-user server).
 func (s MCPServerSpec) IsCatalogServer() bool {
-	return s.MCPCatalogID != ""
+	return s.VMCPComponentID == "" && s.MCPCatalogID != ""
 }
 
 // IsPowerUserWorkspaceServer returns true if this server is owned by a PowerUserWorkspace.

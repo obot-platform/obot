@@ -539,15 +539,7 @@ func (h *MCPCatalogHandler) AdminListServersForEntryInCatalog(req api.Context) e
 			continue
 		}
 
-		var credCtx string
-		if server.Spec.IsCatalogServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-		} else {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
-		}
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 		if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
@@ -665,15 +657,7 @@ func (h *MCPCatalogHandler) AdminListServersForAllEntriesInCatalog(req api.Conte
 
 	var items []types.MCPServer
 	for _, server := range filteredServers {
-		var credCtx string
-		if server.Spec.IsCatalogServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-		} else {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
-		}
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 		if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
@@ -736,15 +720,7 @@ func (h *MCPCatalogHandler) ListServersForEntry(req api.Context) error {
 			continue
 		}
 
-		var credCtx string
-		if server.Spec.IsCatalogServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-		} else if server.Spec.IsPowerUserWorkspaceServer() {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-		} else {
-			credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
-		}
-		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+		cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 		if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 			return fmt.Errorf("failed to find credential: %w", err)
 		}
@@ -798,15 +774,7 @@ func (h *MCPCatalogHandler) GetServerFromEntry(req api.Context) error {
 		return fmt.Errorf("failed to list servers: %w", err)
 	}
 
-	var credCtx string
-	if server.Spec.IsCatalogServer() {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-	} else if server.Spec.IsPowerUserWorkspaceServer() {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)
-	}
-	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{credCtx}, server.Name)
+	cred, err := req.GatewayClient.RevealCredential(req.Context(), []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gclient.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to find credential: %w", err)
 	}

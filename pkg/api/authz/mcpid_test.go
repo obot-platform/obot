@@ -621,6 +621,66 @@ func TestMCPIDIsAuthorized(t *testing.T) {
 			want:       false,
 		},
 		{
+			name: "catalog entry ignores vMCP component server scope",
+			objects: []kclient.Object{
+				&v1.MCPServerCatalogEntry{
+					Name:      "entry-test",
+					Namespace: system.DefaultNamespace,
+				},
+				&v1.MCPServer{
+					Name:      "ms1-vmcp-component",
+					Namespace: system.DefaultNamespace,
+					Spec: v1.MCPServerSpec{
+						MCPServerCatalogEntryName: "entry-test",
+						UserID:                    "user-uid",
+						VMCPID:                    "vmcp1-test",
+					},
+				},
+			},
+			authorized: []string{"ms1-vmcp-component"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       false,
+		},
+		{
+			name: "vMCP component server does not inherit catalog entry scope",
+			objects: []kclient.Object{&v1.MCPServer{
+				Name:      "ms1-vmcp-component",
+				Namespace: system.DefaultNamespace,
+				Spec: v1.MCPServerSpec{
+					MCPServerCatalogEntryName: "entry-test",
+					UserID:                    "user-uid",
+					VMCPID:                    "vmcp1-test",
+				},
+			}},
+			authorized: []string{"entry-test"},
+			userID:     "user-uid",
+			mcpID:      "ms1-vmcp-component",
+			want:       false,
+		},
+		{
+			name: "catalog entry ignores vMCP instance component server scope",
+			objects: []kclient.Object{
+				&v1.MCPServerCatalogEntry{
+					Name:      "entry-test",
+					Namespace: system.DefaultNamespace,
+				},
+				&v1.MCPServer{
+					Name:      "ms1-vmcp-instance-component",
+					Namespace: system.DefaultNamespace,
+					Spec: v1.MCPServerSpec{
+						MCPServerCatalogEntryName: "entry-test",
+						UserID:                    "user-uid",
+						VMCPInstanceID:            "vmcpi1-test",
+					},
+				},
+			},
+			authorized: []string{"ms1-vmcp-instance-component"},
+			userID:     "user-uid",
+			mcpID:      "entry-test",
+			want:       false,
+		},
+		{
 			name:       "missing catalog entry denies without error",
 			authorized: []string{"ms1fromentry"},
 			userID:     "user-uid",

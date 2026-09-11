@@ -190,9 +190,13 @@ func (*Handler) EnsureMCPServers(req router.Request, _ router.Response) error {
 			if existing.Spec.VMCPInstanceID != instance.Name || existing.Spec.VMCPComponentID != server.Spec.VMCPComponentID {
 				return fmt.Errorf("MCPServer %q already exists with different VMCP ownership", server.Name)
 			}
-			if existing.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] {
+			if existing.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] ||
+				existing.Spec.UserID != server.Spec.UserID ||
+				existing.Spec.MCPServerCatalogEntryName != server.Spec.MCPServerCatalogEntryName {
 				existing.Spec.Manifest = server.Spec.Manifest
 				existing.Spec.UnsupportedTools = server.Spec.UnsupportedTools
+				existing.Spec.UserID = server.Spec.UserID
+				existing.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 				if existing.Annotations == nil {
 					existing.Annotations = map[string]string{}
 				}
@@ -232,11 +236,12 @@ func mcpServerForComponent(instance *v1.VMCPInstance, component types.VMCPCompon
 		Namespace:   instance.Namespace,
 		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: utils.Digest(component.CatalogEntry)},
 		Spec: v1.MCPServerSpec{
-			Manifest:         manifest,
-			UnsupportedTools: slices.Clone(component.CatalogEntry.UnsupportedTools),
-			UserID:           instance.Spec.UserID,
-			VMCPInstanceID:   instance.Name,
-			VMCPComponentID:  component.ID,
+			MCPServerCatalogEntryName: component.MCPServerCatalogEntryID,
+			Manifest:                  manifest,
+			UnsupportedTools:          slices.Clone(component.CatalogEntry.UnsupportedTools),
+			UserID:                    instance.Spec.UserID,
+			VMCPInstanceID:            instance.Name,
+			VMCPComponentID:           component.ID,
 		},
 	}, nil
 }

@@ -274,7 +274,7 @@ func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 		return slices.Contains(authorizedMCPServers, mcpServer.Name) ||
 			mcpServer.Spec.VMCPID != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.VMCPID) ||
 			mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) ||
-			mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
+			mcpServer.Spec.VMCPID == "" && mcpServer.Spec.MCPServerCatalogEntryName != "" && userID == mcpServer.Spec.UserID && slices.Contains(authorizedMCPServers, mcpServer.Spec.MCPServerCatalogEntryName), nil
 	case system.IsVMCPID(mcpID):
 		// Only an explicit vMCP scope (or wildcard above) grants its endpoint.
 		return false, nil
@@ -292,6 +292,9 @@ func mcpIDIsAuthorized(ctx context.Context, client kclient.Client, authorizedMCP
 		}
 
 		for _, mcpServer := range mcpServers.Items {
+			if mcpServer.Spec.VMCPID != "" || mcpServer.Spec.VMCPInstanceID != "" {
+				continue
+			}
 			if slices.Contains(authorizedMCPServers, mcpServer.Name) || mcpServer.Spec.CompositeName != "" && slices.Contains(authorizedMCPServers, mcpServer.Spec.CompositeName) {
 				return true, nil
 			}

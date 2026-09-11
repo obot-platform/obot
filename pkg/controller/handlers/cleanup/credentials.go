@@ -33,17 +33,8 @@ func (c *Credentials) RemoveMCPCredentials(req router.Request, _ router.Response
 		return err
 	}
 
-	var credCtx string
-	if mcpServer.Spec.IsCatalogServer() {
-		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.MCPCatalogID, mcpServer.Name)
-	} else if mcpServer.Spec.IsPowerUserWorkspaceServer() {
-		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.PowerUserWorkspaceID, mcpServer.Name)
-	} else {
-		credCtx = fmt.Sprintf("%s-%s", mcpServer.Spec.UserID, mcpServer.Name)
-	}
-
 	creds, err := c.gatewayClient.ListCredentials(req.Ctx, gateway.ListCredentialsOptions{
-		CredentialContexts: []string{credCtx},
+		CredentialContexts: []string{mcpServer.CredentialContext(mcpServer.Spec.UserID)},
 	})
 	if err != nil {
 		return err

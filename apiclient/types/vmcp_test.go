@@ -164,3 +164,72 @@ func validVMCPManifest() VMCPManifest {
 		}},
 	}
 }
+
+func TestVMCPManifestRequiredConfigurationPolicy(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		policy        VMCPConfigurationPolicyType
+		omitPolicy    bool
+		optional      bool
+		value         string
+		secretBinding *MCPSecretBinding
+		wantError     bool
+	}{
+		{
+			name:      "prohibited",
+			policy:    VMCPConfigurationPolicyProhibited,
+			wantError: true,
+		},
+		{
+			name:      "empty policy",
+			wantError: true,
+		},
+		{
+			name:       "omitted policy",
+			omitPolicy: true,
+			wantError:  true,
+		},
+		{
+			name:   "fixed",
+			policy: VMCPConfigurationPolicyFixed,
+		},
+		{
+			name:   "user allowed",
+			policy: VMCPConfigurationPolicyUserAllowed,
+		},
+		{
+			name:     "optional prohibited",
+			policy:   VMCPConfigurationPolicyProhibited,
+			optional: true,
+		},
+		{
+			name:   "catalog value",
+			policy: VMCPConfigurationPolicyProhibited,
+			value:  "supplied",
+		},
+		{
+			name:          "secret binding",
+			policy:        VMCPConfigurationPolicyProhibited,
+			secretBinding: &MCPSecretBinding{},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validVMCPManifest()
+			manifest.Components[0].CatalogEntry.Manifest.Config = []MCPConfig{{
+				Key:           "TOKEN",
+				Required:      !tc.optional,
+				Value:         tc.value,
+				SecretBinding: tc.secretBinding,
+			}}
+			if !tc.omitPolicy {
+				manifest.Components[0].Configuration = []VMCPConfigurationPolicy{{
+					Key:    "TOKEN",
+					Policy: tc.policy,
+				}}
+			}
+			if err := manifest.Validate(); (err != nil) != tc.wantError {
+				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
+			}
+		})
+	}
+}

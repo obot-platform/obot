@@ -169,6 +169,15 @@ func (h *ServerInstancesHandler) CreateServerInstance(req api.Context) error {
 }
 
 func (h *ServerInstancesHandler) DeleteServerInstance(req api.Context) error {
+	var mcpServerInstance v1.MCPServerInstance
+	if err := kclient.IgnoreNotFound(req.Get(&mcpServerInstance, req.PathValue("mcp_server_instance_id"))); err != nil {
+		return fmt.Errorf("failed to get MCP server instance: %v", err)
+	}
+
+	if mcpServerInstance.Spec.CompositeName != "" {
+		return types.NewErrBadRequest("cannot delete MCP server instance with associated to composite %q; delete the composite instead", mcpServerInstance.Spec.CompositeName)
+	}
+
 	return req.Delete(&v1.MCPServerInstance{
 		Name:      req.PathValue("mcp_server_instance_id"),
 		Namespace: req.Namespace(),

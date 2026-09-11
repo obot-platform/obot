@@ -41,16 +41,19 @@ func EnsureMCPServers(req router.Request, _ router.Response) error {
 		if err != nil {
 			return err
 		}
+
 		servers = append(servers, v1.MCPServer{
 			Name:        name.SafeConcatName(system.MCPServerPrefix+vmcp.Name, component.ID),
 			Namespace:   vmcp.Namespace,
 			Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: utils.Digest(component.CatalogEntry)},
 			Spec: v1.MCPServerSpec{
-				Manifest:         manifest,
-				UnsupportedTools: slices.Clone(component.CatalogEntry.UnsupportedTools),
-				UserID:           vmcp.Spec.UserID,
-				VMCPID:           vmcp.Name,
-				VMCPComponentID:  component.ID,
+				MCPCatalogID:              component.MCPCatalogID,
+				MCPServerCatalogEntryName: component.MCPServerCatalogEntryID,
+				Manifest:                  manifest,
+				UnsupportedTools:          slices.Clone(component.CatalogEntry.UnsupportedTools),
+				UserID:                    vmcp.Spec.CreatorUserID,
+				VMCPID:                    vmcp.Name,
+				VMCPComponentID:           component.ID,
 			},
 		})
 	}
@@ -73,9 +76,15 @@ func EnsureMCPServers(req router.Request, _ router.Response) error {
 			if current.Spec.VMCPID != vmcp.Name || current.Spec.VMCPInstanceID != "" || current.Spec.VMCPComponentID != server.Spec.VMCPComponentID {
 				return fmt.Errorf("MCPServer %q already exists with different VMCP ownership", server.Name)
 			}
-			if current.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] {
+			if current.Annotations[v1.VMCPSnapshotDigestAnnotation] != server.Annotations[v1.VMCPSnapshotDigestAnnotation] ||
+				current.Spec.UserID != server.Spec.UserID ||
+				current.Spec.MCPCatalogID != server.Spec.MCPCatalogID ||
+				current.Spec.MCPServerCatalogEntryName != server.Spec.MCPServerCatalogEntryName {
 				current.Spec.Manifest = server.Spec.Manifest
 				current.Spec.UnsupportedTools = server.Spec.UnsupportedTools
+				current.Spec.UserID = server.Spec.UserID
+				current.Spec.MCPCatalogID = server.Spec.MCPCatalogID
+				current.Spec.MCPServerCatalogEntryName = server.Spec.MCPServerCatalogEntryName
 				if current.Annotations == nil {
 					current.Annotations = make(map[string]string, 1)
 				}

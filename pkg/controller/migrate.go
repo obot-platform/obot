@@ -167,14 +167,10 @@ func deleteToolReferenceOwnedModels(ctx context.Context, client kclient.Client) 
 }
 
 func mcpServerCredentialContext(server v1.MCPServer) string {
-	switch {
-	case server.Spec.MCPCatalogID != "":
-		return fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
-	case server.Spec.PowerUserWorkspaceID != "":
-		return fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
-	default:
-		return ""
+	if server.Spec.IsCatalogServer() || server.Spec.IsPowerUserWorkspaceServer() {
+		return server.CredentialContext(server.Spec.UserID)
 	}
+	return ""
 }
 
 func extractAndClearMCPServerConfigValues(manifest *types.MCPServerManifest) (map[string]string, bool) {

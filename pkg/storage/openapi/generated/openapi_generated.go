@@ -29564,6 +29564,13 @@ func schema_storage_apis_obotobotai_v1_VMCPSpec(ref common.ReferenceCallback) co
 							Format:      "",
 						},
 					},
+					"creatorUserID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CreatorUserID is the user ID of the user who created the VMCP. It is used to determine which admin created a server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"staticConfigurationHash": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

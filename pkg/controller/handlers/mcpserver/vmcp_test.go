@@ -48,14 +48,14 @@ func TestMigratedConfigurationAndFixedValueRotation(t *testing.T) {
 	handler := &Handler{gatewayClient: gw}
 	req := router.Request{Ctx: t.Context(), Client: storage, Object: server}
 	require.NoError(t, handler.SyncVMCPConfiguration(req, nil))
-	credential, err := gw.RevealCredential(t.Context(), []string{"user-" + server.Name}, server.Name)
+	credential, err := gw.RevealCredential(t.Context(), []string{instance.Name + "-" + server.Name}, server.Name)
 	require.NoError(t, err)
 	require.Equal(t, "legacy-override", credential.Secrets["TOKEN"])
 	vmcp.Spec.StaticConfigurationHash = "rotated"
 	vmcp.Spec.ComponentStaticConfigurationHashes[component.ID] = "rotated"
 	require.NoError(t, storage.Update(t.Context(), vmcp))
 	require.NoError(t, handler.SyncVMCPConfiguration(req, nil))
-	credential, err = gw.RevealCredential(t.Context(), []string{"user-" + server.Name}, server.Name)
+	credential, err = gw.RevealCredential(t.Context(), []string{instance.Name + "-" + server.Name}, server.Name)
 	require.NoError(t, err)
 	require.Equal(t, "admin", credential.Secrets["TOKEN"], "fixed configuration must retire the legacy override")
 }
@@ -222,7 +222,7 @@ func TestSyncVMCPConfigurationCopiesComponentConfiguration(t *testing.T) {
 	}
 
 	credential, err := gatewayClient.RevealCredential(t.Context(),
-		[]string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)},
+		[]string{instance.Name + "-" + server.Name},
 		server.Name,
 	)
 	if err != nil {
@@ -298,7 +298,7 @@ func TestSyncVMCPConfigurationSkipsMatchingHashes(t *testing.T) {
 	}
 
 	_, err := gatewayClient.RevealCredential(t.Context(),
-		[]string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)},
+		[]string{instance.Name + "-" + server.Name},
 		server.Name,
 	)
 	if !errors.As(err, &client.CredentialNotFoundError{}) {
@@ -346,7 +346,7 @@ func TestSyncVMCPSharedConfiguration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	credential, err := gatewayClient.RevealCredential(t.Context(), []string{server.Spec.UserID + "-" + server.Name}, server.Name)
+	credential, err := gatewayClient.RevealCredential(t.Context(), []string{vmcp.Name + "-" + server.Name}, server.Name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -356,7 +356,7 @@ func TestSyncVMCPSharedConfiguration(t *testing.T) {
 	if server.Status.VMCPStaticConfigurationHash != "new-hash" || server.Status.VMCPUserConfigurationHash != "" {
 		t.Fatal("wrong shared configuration hashes")
 	}
-	if _, err := gatewayClient.RevealCredential(t.Context(), []string{"1-" + stale.Name}, stale.Name); !errors.As(err, &client.CredentialNotFoundError{}) {
+	if _, err := gatewayClient.RevealCredential(t.Context(), []string{instance.Name + "-" + stale.Name}, stale.Name); !errors.As(err, &client.CredentialNotFoundError{}) {
 		t.Fatalf("obsolete instance credential was written: %v", err)
 	}
 }

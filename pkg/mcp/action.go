@@ -195,6 +195,9 @@ func (sm *SessionManager) serverOrInstanceFromConnectURL(ctx context.Context, id
 		); err != nil {
 			return v1.MCPServer{}, v1.MCPServerInstance{}, err
 		}
+		servers.Items = slices.DeleteFunc(servers.Items, func(server v1.MCPServer) bool {
+			return server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != ""
+		})
 		if len(servers.Items) == 0 {
 			missingAdminConfig, err := sm.entryMissingAdminConfig(ctx, entry)
 			if err != nil {
@@ -269,19 +272,16 @@ func (sm *SessionManager) serverFromMCPServerInstance(ctx context.Context, insta
 
 	addExtractedEnvVars(&server)
 
-	var credCtx, scope string
+	var scope string
 	if server.Spec.MCPCatalogID != "" {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)
 		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtx = fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)
 		scope = server.Spec.PowerUserWorkspaceID
 	} else {
-		credCtx = fmt.Sprintf("%s-%s", instance.Spec.UserID, server.Name)
 		scope = instance.Spec.UserID
 	}
 
-	cred, err := sm.gatewayClient.RevealCredential(ctx, []string{credCtx}, server.Name)
+	cred, err := sm.gatewayClient.RevealCredential(ctx, []string{server.CredentialContext(instance.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return server, ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}
@@ -333,27 +333,20 @@ func (sm *SessionManager) serverConfigForAction(ctx context.Context, server v1.M
 		return ServerConfig{}, nil, types.NewErrBadRequest("mcp server %s needs to update its URL", server.Name)
 	}
 
-	var (
-		credCtxs []string
-		scope    string
-	)
+	var scope string
 	if server.Spec.VMCPID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
 		scope = server.Spec.VMCPID
 	} else if server.Spec.MCPCatalogID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name))
 		scope = server.Spec.MCPCatalogID
 	} else if server.Spec.PowerUserWorkspaceID != "" {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name))
 		scope = server.Spec.PowerUserWorkspaceID
 	} else {
-		credCtxs = append(credCtxs, fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name))
 		scope = server.Spec.UserID
 	}
 
 	addExtractedEnvVars(&server)
 
-	cred, err := sm.gatewayClient.RevealCredential(ctx, credCtxs, server.Name)
+	cred, err := sm.gatewayClient.RevealCredential(ctx, []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return ServerConfig{}, nil, fmt.Errorf("failed to find credential: %w", err)
 	}

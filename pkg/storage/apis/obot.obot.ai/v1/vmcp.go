@@ -33,7 +33,9 @@ type VMCPSpec struct {
 	LegacySlug string             `json:"legacySlug,omitempty"`
 	Manifest   types.VMCPManifest `json:"manifest"`
 	// UserID is set for a personal VMCP and empty for an administrator-created shared VMCP.
-	UserID                  string `json:"userID,omitempty"`
+	UserID string `json:"userID,omitempty"`
+	// CreatorUserID is the user ID of the user who created the VMCP. It is used to determine which admin created a server.
+	CreatorUserID           string `json:"creatorUserID,omitempty"`
 	StaticConfigurationHash string `json:"staticConfigurationHash,omitempty"`
 	// ComponentStaticConfigurationHashes retire migrated overrides only for the changed component.
 	ComponentStaticConfigurationHashes map[string]string `json:"componentStaticConfigurationHashes,omitempty"`

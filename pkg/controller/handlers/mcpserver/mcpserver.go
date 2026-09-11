@@ -269,14 +269,7 @@ func ConfigurationHasDrifted(ctx context.Context, gatewayClient *gateway.Client,
 
 	serverManifest := server.Spec.Manifest
 	if len(staticKeys) > 0 {
-		credentialContext := server.Spec.UserID
-		if server.Spec.MCPCatalogID != "" {
-			credentialContext = server.Spec.MCPCatalogID
-		} else if server.Spec.PowerUserWorkspaceID != "" {
-			credentialContext = server.Spec.PowerUserWorkspaceID
-		}
-
-		credential, err := gatewayClient.RevealCredential(ctx, []string{fmt.Sprintf("%s-%s", credentialContext, server.Name)}, server.Name)
+		credential, err := gatewayClient.RevealCredential(ctx, []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 		if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return false, err
 		}
@@ -649,15 +642,7 @@ func (h *Handler) SyncOAuthMetadata(req router.Request, _ router.Response) error
 		return nil
 	}
 
-	var credCtxs []string
-	if server.Spec.IsCatalogServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.MCPCatalogID, server.Name)}
-	} else if server.Spec.IsPowerUserWorkspaceServer() {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.PowerUserWorkspaceID, server.Name)}
-	} else {
-		credCtxs = []string{fmt.Sprintf("%s-%s", server.Spec.UserID, server.Name)}
-	}
-	cred, err := h.gatewayClient.RevealCredential(req.Ctx, credCtxs, server.Name)
+	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{server.CredentialContext(server.Spec.UserID)}, server.Name)
 	if err != nil && !errors.As(err, &gateway.CredentialNotFoundError{}) {
 		return fmt.Errorf("failed to reveal credential: %w", err)
 	}

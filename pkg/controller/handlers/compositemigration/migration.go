@@ -228,7 +228,7 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 			}
 			id = old.MCPServerID
 			catalogID = shared.Spec.MCPCatalogID
-			values, err = h.read(req.Ctx, serverCredentialContext(*shared), shared.Name)
+			values, err = h.read(req.Ctx, shared.CredentialContext(shared.Spec.UserID), shared.Name)
 			if err != nil {
 				return target, nil, nil, err
 			}
@@ -298,16 +298,6 @@ func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry,
 func flattenServer(server types.MCPServerManifest) (types.MCPServerCatalogEntryManifest, error) {
 	// Startup has already flattened stored server manifests.
 	return server.ConvertToCatalogEntry(), nil
-}
-
-func serverCredentialContext(server v1.MCPServer) string {
-	owner := server.Spec.UserID
-	if server.Spec.MCPCatalogID != "" {
-		owner = server.Spec.MCPCatalogID
-	} else if server.Spec.PowerUserWorkspaceID != "" {
-		owner = server.Spec.PowerUserWorkspaceID
-	}
-	return owner + "-" + server.Name
 }
 
 func (h *Handler) read(ctx context.Context, scope, name string) (map[string]string, error) {
@@ -397,7 +387,7 @@ func (h *Handler) migrateInstance(req router.Request, target v1.VMCP, parent *v1
 			if child.Spec.MCPServerCatalogEntryName != id {
 				continue
 			}
-			secret, err := h.read(req.Ctx, serverCredentialContext(child), child.Name)
+			secret, err := h.read(req.Ctx, child.CredentialContext(child.Spec.UserID), child.Name)
 			if err != nil {
 				return err
 			}

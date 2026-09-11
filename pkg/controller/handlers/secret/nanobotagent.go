@@ -7,6 +7,7 @@ import (
 
 	"github.com/obot-platform/nah/pkg/router"
 	gateway "github.com/obot-platform/obot/pkg/gateway/client"
+	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -34,7 +35,8 @@ func (h *Handler) UpdateNanobotAgentCreds(req router.Request, _ router.Response)
 		return nil
 	}
 
-	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{fmt.Sprintf("%s-%s", userID, mcpServerID)}, mcpServerID)
+	mcpServer := v1.MCPServer{Name: mcpServerID}
+	cred, err := h.gatewayClient.RevealCredential(req.Ctx, []string{mcpServer.CredentialContext(userID)}, mcpServerID)
 	if err != nil {
 		if errors.As(err, &gateway.CredentialNotFoundError{}) {
 			return nil

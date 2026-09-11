@@ -14,11 +14,20 @@ import (
 )
 
 func TestSharingTransitions(t *testing.T) {
-	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
-		Components: []types.VMCPComponent{{ID: "one", CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
-			Name: "cached", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
-		}}}},
-	}}}
+	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{
+		UserID:        "vmcp-owner",
+		CreatorUserID: "vmcp-creator",
+		Manifest: types.VMCPManifest{
+			Components: []types.VMCPComponent{{
+				ID:                      "one",
+				MCPCatalogID:            "catalog-one",
+				MCPServerCatalogEntryID: "entry-one",
+				CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+					Name: "cached", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+				}},
+			}},
+		},
+	}}
 	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).
 		WithIndex(&v1.MCPServer{}, "spec.vmcpInstanceID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPInstanceID} }).Build()
@@ -112,6 +121,9 @@ func TestSharingTransitions(t *testing.T) {
 			if server.Spec.Manifest.RemoteConfig.URL != "https://example.com/mcp" {
 				t.Fatal("snapshot not copied")
 			}
+			if server.Spec.VMCPID == vmcp.Name && (server.Spec.UserID != vmcp.Spec.CreatorUserID || server.Spec.MCPCatalogID != "catalog-one" || server.Spec.MCPServerCatalogEntryName != "entry-one") {
+				t.Fatalf("server linkage = %#v", server.Spec)
+			}
 		}
 		vmcp.Spec.Manifest.Components[0].CatalogEntry.Manifest.Name += "-updated"
 		if err := client.Update(t.Context(), vmcp); err != nil {
@@ -134,6 +146,52 @@ func TestSharingTransitions(t *testing.T) {
 				t.Fatal("existing component server did not adopt updated snapshot")
 			}
 		}
+	}
+}
+
+func TestEnsureMCPServersBackfillsComponentLinkage(t *testing.T) {
+	component := types.VMCPComponent{
+		ID:                      "one",
+		MCPCatalogID:            "catalog-one",
+		MCPServerCatalogEntryID: "entry-one",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Name: "cached", Runtime: types.RuntimeRemote, RemoteConfig: &types.RemoteCatalogConfig{FixedURL: "https://example.com/mcp"},
+		}},
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{
+		UserID:        "vmcp-owner",
+		CreatorUserID: "vmcp-creator",
+		Manifest:      types.VMCPManifest{Components: []types.VMCPComponent{component}},
+	}}
+	client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(vmcp).
+		WithIndex(&v1.MCPServer{}, "spec.vmcpID", func(o kclient.Object) []string { return []string{o.(*v1.MCPServer).Spec.VMCPID} }).Build()
+	req := router.Request{Ctx: t.Context(), Client: client, Object: vmcp}
+	if err := vmcphandler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var servers v1.MCPServerList
+	if err := client.List(t.Context(), &servers); err != nil {
+		t.Fatal(err)
+	}
+	if len(servers.Items) != 1 {
+		t.Fatalf("servers = %#v", servers.Items)
+	}
+	server := servers.Items[0]
+	server.Spec.UserID = "stale-owner"
+	server.Spec.MCPCatalogID = "stale-catalog"
+	server.Spec.MCPServerCatalogEntryName = "stale-entry"
+	if err := client.Update(t.Context(), &server); err != nil {
+		t.Fatal(err)
+	}
+	if err := vmcphandler.EnsureMCPServers(req, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(&server), &server); err != nil {
+		t.Fatal(err)
+	}
+	if server.Spec.UserID != vmcp.Spec.CreatorUserID || server.Spec.MCPCatalogID != component.MCPCatalogID || server.Spec.MCPServerCatalogEntryName != component.MCPServerCatalogEntryID {
+		t.Fatalf("server linkage = %#v", server.Spec)
 	}
 }
 
