@@ -920,6 +920,12 @@ func seedMCPAuditLogs(t *testing.T, gatewayClient *gatewayclient.Client, logs ..
 func newLocalAgentAuditLogTestGatewayClient(t *testing.T) *gatewayclient.Client {
 	t.Helper()
 
+	return newAuditLogTestGatewayClient(t, false)
+}
+
+func newAuditLogTestGatewayClient(t *testing.T, mcpAuditDisabled bool) *gatewayclient.Client {
+	t.Helper()
+
 	storageServices, err := sservices.New(sservices.Config{
 		DSN: "sqlite://:memory:",
 	})
@@ -935,7 +941,7 @@ func newLocalAgentAuditLogTestGatewayClient(t *testing.T) *gatewayclient.Client 
 		t.Fatalf("failed to migrate gateway db: %v", err)
 	}
 
-	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+	c := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, mcpAuditDisabled, nil, nil)
 	t.Cleanup(func() {
 		_ = c.Close()
 	})
