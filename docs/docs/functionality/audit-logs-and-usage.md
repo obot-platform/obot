@@ -49,6 +49,22 @@ Filter logs by:
 - Operation type
 - Status
 
+### Body storage controls
+
+By default, MCP audit bodies are stored in full. Set `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES=65536` (or `--mcpaudit-log-max-body-bytes=65536`) to retain at most 64 KiB of original payload per body. This applies independently to request, response, mutated-request, and original-response bodies. Bodies within the limit remain unchanged; larger bodies become valid JSON containing a text preview:
+
+```json
+{"_obotAuditTruncated":true,"originalBytes":123456,"preview":"prefix of the original JSON text"}
+```
+
+The preview ends on a UTF-8 character boundary. JSON escaping, wrapper metadata, and encryption add storage overhead beyond the configured payload limit. The detail view and exports contain the stored preview, not the full original body.
+
+Set the limit to `0` to omit all four bodies while preserving audit metadata, outcomes, mutation indicators, and usage statistics. Leave the setting unset for unlimited bodies. Negative values are invalid.
+
+Set `OBOT_SERVER_DISABLE_MCPAUDIT_LOG=true` (or `--disable-mcpaudit-log`) to stop collecting and persisting new MCP audit entries. This also stops new audit-derived MCP usage data. Historical logs remain readable and exportable, and retention cleanup continues. Local-agent and LLM logging are configured independently.
+
+These controls affect new entries only; they do not shrink existing records. The body limit does not cap headers, row counts, or total database size. Plan storage using daily call volume, average stored row size (including indexes and encoding overhead), and retention days. The 90-day default can retain millions of rows on busy installations; choose a shorter retention period where appropriate.
+
 ### Retention
 
 Audit logs are automatically deleted after **90 days** by default. To preserve logs beyond this period, use the export functionality before they are deleted. See [Server Configuration](../configuration/server-configuration.md) for retention settings.
