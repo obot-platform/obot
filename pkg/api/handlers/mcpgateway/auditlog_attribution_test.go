@@ -79,9 +79,7 @@ func TestAttributeMCPAuditLogAPIKeyReturnsTransientLookupError(t *testing.T) {
 }
 
 func TestDisabledMCPAuditSkipsAttribution(t *testing.T) {
-	// A disabled collector must not access the database, even for API key attribution.
-	gatewayClient := &gatewayclient.Client{}
-	gatewayclient.WithMCPAuditLogPolicy(true, nil)(gatewayClient)
+	gatewayClient := newAuditLogTestGatewayClient(t, true)
 	if gatewayClient.MCPAuditLogEnabled() {
 		t.Fatal("MCP auditing should be disabled")
 	}

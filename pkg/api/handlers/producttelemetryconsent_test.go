@@ -193,7 +193,7 @@ func newProductTelemetryConsentTestGatewayClient(t *testing.T) *gatewayclient.Cl
 	if err := db.AutoMigrate(); err != nil {
 		t.Fatalf("migrate gateway db: %v", err)
 	}
-	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+	client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, false, nil, nil)
 	t.Cleanup(func() { _ = client.Close() })
 	return client
 }
