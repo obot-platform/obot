@@ -85,8 +85,8 @@
 			});
 
 			success.add(`${created.displayName} vMCP added.`);
-			closeDialog();
 			await onCreated?.(created);
+			closeDialog();
 		} catch {
 			errors.append('Failed to create vMCP.');
 		} finally {

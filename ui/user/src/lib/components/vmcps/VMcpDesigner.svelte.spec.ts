@@ -2,6 +2,7 @@ import { page as appPage } from '$app/state';
 import {
 	claimProfilesHintForVMcp,
 	claimToolSetupForVMcp,
+	finishVMcpCreateHandoff,
 	queueProfilesHintForCreatedVMcp,
 	queueToolSetupForCreatedVMcp,
 	VMCP_PROFILES_HINT_STORAGE_KEY
@@ -159,6 +160,7 @@ async function pressCard(locator: ReturnType<typeof page.getByRole>, pointerId: 
 describe('VMcpDesigner.svelte', () => {
 	afterEach(() => {
 		appPage.url.searchParams.delete('view');
+		finishVMcpCreateHandoff();
 	});
 
 	describe('component with stored tool overrides', () => {

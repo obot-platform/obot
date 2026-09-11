@@ -276,7 +276,8 @@
 		class={twMerge(
 			'group w-full bg-base-100 dark:bg-base-200 border-dashed flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
 			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
-			drag.isDraggingNewEntry && 'cursor-grabbing opacity-30'
+			drag.isDraggingNewEntry && 'cursor-grabbing opacity-30',
+			drag.disabled && 'cursor-default'
 		)}
 		aria-label="Create a new entry, or drag it onto a vMCP or Create vMCP"
 		onpointerdown={(event) => drag.pointerDown(event)}
@@ -358,7 +359,8 @@
 		class={twMerge(
 			'w-full bg-base-100 dark:bg-base-200 flex touch-none cursor-grab items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
 			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400',
-			dragging && 'cursor-grabbing opacity-30'
+			dragging && 'cursor-grabbing opacity-30',
+			drag.disabled && 'cursor-default'
 		)}
 		aria-label={`View ${entry.manifest.name ?? 'server'} details, or drag it onto a vMCP or Create vMCP`}
 		use:tooltip={dragging

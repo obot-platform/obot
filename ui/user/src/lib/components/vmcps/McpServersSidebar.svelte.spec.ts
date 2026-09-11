@@ -23,6 +23,7 @@ function createDragStub(overrides: Partial<EntryDrag> = {}) {
 		isComponentLinked: () => false,
 		isDragging: () => false,
 		isDraggingNewEntry: false,
+		disabled: false,
 		activate: vi.fn(),
 		cancel: vi.fn(),
 		pointerDown: vi.fn(),

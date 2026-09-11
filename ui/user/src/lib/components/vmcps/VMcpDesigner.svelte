@@ -20,7 +20,10 @@
 		claimProfilesHintForVMcp,
 		claimToolSetupForVMcp,
 		createVMcpToolFlow,
+		finishVMcpCreateHandoff,
+		isVMcpCreateHandoffPending,
 		markVMcpProfilesHintSeen,
+		peekQueuedToolSetupVMcp,
 		queueProfilesHintForCreatedVMcp,
 		queueToolSetupForCreatedVMcp
 	} from '$lib/runes/vmcps/vmcpToolFlow.svelte';
@@ -42,6 +45,7 @@
 		resolveVMcpComponents,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { errors, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
@@ -89,6 +93,10 @@
 	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
 	let canShare = $derived(profile.current.isAdmin?.());
 	let viewType = $derived(canEdit ? requestedView : 'graph');
+	let componentDropPending = $state(false);
+	let showDesignerLoading = $derived(
+		(isVMcpCreateHandoffPending() || componentDropPending) && !toolFlow.dialog
+	);
 
 	$effect(() => {
 		selectedVMcp = vmcp;
@@ -103,9 +111,23 @@
 		if (!created || mcpServersAndEntries.current.loading) return;
 
 		untrack(() => {
-			if (!claimToolSetupForVMcp(created.id)) return;
+			if (!claimToolSetupForVMcp(created.id)) {
+				const queued = peekQueuedToolSetupVMcp();
+				if (!queued || queued === created.id) {
+					finishVMcpCreateHandoff();
+				}
+				return;
+			}
 			toolFlow.handleVMcpCreated(created);
+			if (!toolFlow.dialog) finishVMcpCreateHandoff();
 		});
+	});
+
+	$effect(() => {
+		if (toolFlow.dialog) {
+			finishVMcpCreateHandoff();
+			componentDropPending = false;
+		}
 	});
 
 	$effect(() => {
@@ -136,7 +158,8 @@
 		openEntry: (entry) => openCatalogEntry(entry),
 		createEntry: (target) => startCatalogEntryCreation(target),
 		dropOnCreate: (entry) => handleDroppedOnCreate(entry),
-		dropOnVMcp: (entry, target) => void handleDropped(entry, target)
+		dropOnVMcp: (entry, target) => void handleDropped(entry, target),
+		disabled: () => showDesignerLoading
 	});
 
 	$effect(() => {
@@ -222,6 +245,7 @@
 	async function handleDropped(entry: MCPCatalogEntry, target: VMCP) {
 		if (!canEdit) return;
 		const component = catalogEntryToVMCPComponent(entry);
+		componentDropPending = true;
 
 		try {
 			const latest = await UserService.getVMCP(target.id);
@@ -231,17 +255,21 @@
 					(existing) => existing.mcpServerCatalogEntryID === component.mcpServerCatalogEntryID
 				)
 			) {
+				componentDropPending = false;
 				return;
 			}
 
 			if (catalogConfigurationFields(entry).length === 0) {
 				await addComponentToVMcp(latest, entry, component);
+				if (!toolFlow.dialog) componentDropPending = false;
 				return;
 			}
 
 			pendingComponentDrop = { target: latest, entry, component };
+			componentDropPending = false;
 			configurationDialog?.open(entry);
 		} catch {
+			componentDropPending = false;
 			errors.append('Failed to add MCP server to vMCP.');
 		}
 	}
@@ -252,6 +280,7 @@
 	) {
 		const pending = pendingComponentDrop;
 		if (!pending) return;
+		componentDropPending = true;
 		try {
 			await addComponentToVMcp(pending.target, pending.entry, {
 				...pending.component,
@@ -259,7 +288,9 @@
 				forceSingleUser
 			});
 			pendingComponentDrop = undefined;
+			if (!toolFlow.dialog) componentDropPending = false;
 		} catch {
+			componentDropPending = false;
 			errors.append('Failed to add MCP server to vMCP.');
 			throw new Error('Failed to add MCP server to vMCP.');
 		}
@@ -314,7 +345,17 @@
 >
 	<div
 		class="@container dark:from-base-300 to-base-200 relative h-full min-h-0 w-full overflow-y-auto default-scrollbar-thin bg-radial-[at_50%_50%] from-gray-50 dark:to-black"
+		aria-busy={showDesignerLoading}
 	>
+		{#if showDesignerLoading}
+			<div
+				class="bg-base-200/70 dark:bg-black/60 absolute inset-0 z-60 flex items-center justify-center"
+				role="status"
+				aria-label="Setting up tools"
+			>
+				<Loading class="size-8" />
+			</div>
+		{/if}
 		{#if canShare}
 			{@render toggleSubview()}
 			<VMcpProfilesHint

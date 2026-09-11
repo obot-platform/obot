@@ -40,6 +40,7 @@ interface PendingRemoval {
  */
 let vmcpAwaitingToolSetup: string | undefined;
 let vmcpAwaitingProfilesHint: string | undefined;
+let vmcpCreateHandoffPending = $state(false);
 
 export const VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 
@@ -62,6 +63,7 @@ export function markVMcpProfilesHintSeen(storageKey = VMCP_PROFILES_HINT_STORAGE
 
 export function queueToolSetupForCreatedVMcp(id: string) {
 	vmcpAwaitingToolSetup = id;
+	vmcpCreateHandoffPending = true;
 }
 
 /** Claims the queued setup, if it is for this vMCP. Only ever succeeds once per creation. */
@@ -69,6 +71,18 @@ export function claimToolSetupForVMcp(id: string) {
 	if (!id || vmcpAwaitingToolSetup !== id) return false;
 	vmcpAwaitingToolSetup = undefined;
 	return true;
+}
+
+export function peekQueuedToolSetupVMcp() {
+	return vmcpAwaitingToolSetup;
+}
+
+export function isVMcpCreateHandoffPending() {
+	return vmcpCreateHandoffPending;
+}
+
+export function finishVMcpCreateHandoff() {
+	vmcpCreateHandoffPending = false;
 }
 
 export function queueProfilesHintForCreatedVMcp(id: string) {

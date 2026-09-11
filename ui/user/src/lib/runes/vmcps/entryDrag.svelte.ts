@@ -29,6 +29,7 @@ export interface EntryDragOptions {
 	createEntry: (target?: { vmcp?: VMCP }) => void;
 	dropOnCreate: (entry: MCPCatalogEntry) => void;
 	dropOnVMcp: (entry: MCPCatalogEntry, vmcp: VMCP) => void;
+	disabled?: () => boolean;
 }
 
 /**
@@ -78,6 +79,14 @@ export function createEntryDrag(options: EntryDragOptions) {
 			frame = requestAnimationFrame(tick);
 		});
 		return () => cancelAnimationFrame(frame);
+	});
+
+	function isDisabled() {
+		return options.disabled?.() === true;
+	}
+
+	$effect(() => {
+		if (isDisabled() && drag?.active) cancel();
 	});
 
 	function isOutsidePanel(x: number, y: number) {
@@ -183,6 +192,11 @@ export function createEntryDrag(options: EntryDragOptions) {
 	function pointerMove(event: PointerEvent) {
 		if (!drag || event.pointerId !== drag.pointerId) return;
 
+		if (isDisabled()) {
+			if (drag.active) cancel();
+			return;
+		}
+
 		drag.x = event.clientX;
 		drag.y = event.clientY;
 		if (!drag.active) {
@@ -207,6 +221,8 @@ export function createEntryDrag(options: EntryDragOptions) {
 			activate(dropped.entry);
 			return;
 		}
+
+		if (isDisabled()) return;
 
 		if (!dropped.entry) {
 			if (!dropOnCreate && !vmcp) return;
@@ -300,6 +316,9 @@ export function createEntryDrag(options: EntryDragOptions) {
 		},
 		get isDraggingNewEntry() {
 			return drag?.active === true && !drag.entry;
+		},
+		get disabled() {
+			return isDisabled();
 		},
 		activate,
 		cancel,
