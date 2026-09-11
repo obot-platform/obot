@@ -36,7 +36,7 @@ Kj8fH2lP9mQ4nR6tV8xZ0bC3dE5gF7hI9jK1lM3nO5p=
 
 #### Helm
 
-Set the provider under `config` and the key under `secret` in your values file:
+Set the provider under `config` and the key you generated in step 1 under `secret` in your values file:
 
 ```yaml
 config:
@@ -45,7 +45,7 @@ secret:
   OBOT_SERVER_ENCRYPTION_KEY: "<your-base64-key>"
 ```
 
-The Helm chart generates an AES-GCM encryption configuration covering the [supported resources](./overview.md#encrypted-resources-and-fields), mounts it into Obot, and sets the configuration-file path.
+The Helm chart uses this key to enable encryption for the [supported resources](./overview.md#encrypted-resources-and-fields).
 
 #### Standalone Server or Docker
 

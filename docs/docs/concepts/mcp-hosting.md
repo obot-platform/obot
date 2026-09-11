@@ -17,7 +17,12 @@ Obot deploys and manages hosted MCP server workloads on the underlying Kubernete
 - **[Single-user](../functionality/mcp-servers.md#single-user-server)**: Each user gets their own isolated instance with separate credentials
 - **[Multi-user](../functionality/mcp-servers.md#multi-user-server)**: A shared instance serves multiple users with shared or per-user credentials
 - **[Remote](../functionality/mcp-servers.md#remote-server)**: External MCP servers accessed via HTTP, not hosted by Obot
-- **Composite**: Combines multiple servers into a single virtual server with curated tools
+
+## Virtual MCPs (vMCPs)
+
+Clients connect to new MCP endpoints through a virtual MCP (vMCP), which exposes tools from one or more catalog components through a single endpoint. A vMCP controls which tools users can access, while its backing servers use shared or per-user runtimes according to the component configuration.
+
+vMCPs replace the legacy composite server model. New catalog entries cannot use the `composite` runtime; existing standalone and composite endpoints remain available for migration compatibility.
 
 ## Deployment Environments
 
