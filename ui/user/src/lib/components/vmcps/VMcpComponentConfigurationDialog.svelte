@@ -306,8 +306,6 @@
 			{/each}
 			{#if requiredDrafts.length > 0 && optionalDrafts.length > 0}
 				<div class="divider my-1 text-xs text-muted-content">Optional</div>
-			{/if}
-			{#if optionalDrafts.length > 0}
 				<p class="text-xs font-light text-muted-content">
 					These are additional optional fields for the MCP Server. Generally these can be ignored as
 					they are often used for advanced use cases.
