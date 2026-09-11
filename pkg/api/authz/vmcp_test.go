@@ -406,6 +406,7 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
 		method     string
+		suffix     string
 		instanceID string
 		userID     string
 		allowed    bool
@@ -420,6 +421,23 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 		{
 			name:       "owner configures with current profile access",
 			method:     http.MethodPost,
+			suffix:     "/configure",
+			instanceID: allowedInstance.Name,
+			userID:     "allowed",
+			allowed:    true,
+		},
+		{
+			name:       "owner reveals with current profile access",
+			method:     http.MethodPost,
+			suffix:     "/reveal",
+			instanceID: allowedInstance.Name,
+			userID:     "allowed",
+			allowed:    true,
+		},
+		{
+			name:       "owner deconfigures with current profile access",
+			method:     http.MethodPost,
+			suffix:     "/deconfigure",
 			instanceID: allowedInstance.Name,
 			userID:     "allowed",
 			allowed:    true,
@@ -440,10 +458,7 @@ func TestVMCPInstanceAuthorizationRequiresCurrentVMCPAccess(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			path := "/api/vmcp-instances/" + tt.instanceID
-			if tt.method == http.MethodPost {
-				path += "/configure"
-			}
+			path := "/api/vmcp-instances/" + tt.instanceID + tt.suffix
 			req := httptest.NewRequest(tt.method, path, nil)
 			got := authorizer.Authorize(req, &user.DefaultInfo{Name: tt.userID, UID: tt.userID, Groups: []string{types.GroupAPI}})
 			if got != tt.allowed {
@@ -534,6 +549,20 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 			allowed: true,
 		},
 		{
+			name:    "personal VMCP owner can reveal configuration",
+			method:  http.MethodPost,
+			path:    "/api/vmcps/" + personal.Name + "/reveal",
+			userID:  "owner",
+			allowed: true,
+		},
+		{
+			name:    "personal VMCP owner can deconfigure",
+			method:  http.MethodPost,
+			path:    "/api/vmcps/" + personal.Name + "/deconfigure",
+			userID:  "owner",
+			allowed: true,
+		},
+		{
 			name:   "personal VMCP non-owner is denied through VMCP route",
 			method: http.MethodGet,
 			path:   "/api/vmcps/" + personal.Name,
@@ -552,6 +581,17 @@ func TestVMCPActionRouteAuthorization(t *testing.T) {
 				t.Fatalf("Authorize() = %v, want %v", got, tt.allowed)
 			}
 		})
+	}
+
+	for _, suffix := range []string{"/reveal", "/deconfigure"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+shared.Name+suffix, nil)
+		if !authorizer.Authorize(req, &user.DefaultInfo{
+			Name:   "admin",
+			UID:    "admin",
+			Groups: []string{types.GroupAPI, types.GroupAdmin},
+		}) {
+			t.Fatalf("administrator cannot access %s", suffix)
+		}
 	}
 }
 

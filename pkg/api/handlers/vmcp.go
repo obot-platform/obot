@@ -175,6 +175,44 @@ func (h *VMCPHandler) TriggerUpdate(req api.Context) error {
 	return req.Update(&vmcp)
 }
 
+func (*VMCPHandler) Reveal(req api.Context) error {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	credential, err := req.GatewayClient.RevealCredential(req.Context(),
+		[]string{vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name)},
+		vmcpconfig.ConfigurationCredentialName(),
+	)
+	if err != nil {
+		if _, ok := errors.AsType[gclient.CredentialNotFoundError](err); !ok {
+			return fmt.Errorf("failed to reveal VMCP configuration: %w", err)
+		}
+	}
+
+	return req.Write(vmcpConfiguration(vmcp.Spec.Manifest.Components, credential.Secrets, types.VMCPConfigurationPolicyFixed))
+}
+
+func (*VMCPHandler) Deconfigure(req api.Context) error {
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP: %w", err)
+	}
+
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
+		vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		vmcpconfig.ConfigurationCredentialName(),
+	); err != nil {
+		return fmt.Errorf("failed to delete VMCP configuration: %w", err)
+	}
+	vmcpconfig.SetStaticConfigurationHashes(&vmcp, map[string]string{})
+	if err := req.Update(&vmcp); err != nil {
+		return fmt.Errorf("failed to update VMCP configuration hashes: %w", err)
+	}
+	return req.Write(convertVMCP(vmcp))
+}
+
 func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VMCPManifest, ownerID string, existing []types.VMCPComponent) error {
 	for i := range manifest.Components {
 		component := &manifest.Components[i]
@@ -231,6 +269,26 @@ func (*VMCPHandler) Delete(req api.Context) error {
 		Name:      vmcpID,
 		Namespace: req.Namespace(),
 	})
+}
+
+func vmcpConfiguration(components []types.VMCPComponent, secrets map[string]string, policyType types.VMCPConfigurationPolicyType) types.VMCPConfiguration {
+	configuration := types.VMCPConfiguration{Components: map[string]map[string]string{}}
+	for _, component := range components {
+		for _, policy := range component.Configuration {
+			if policy.Policy != policyType {
+				continue
+			}
+			value, ok := secrets[vmcpconfig.ConfigurationKey(component.ID, policy.Key)]
+			if !ok {
+				continue
+			}
+			if configuration.Components[component.ID] == nil {
+				configuration.Components[component.ID] = make(map[string]string, 1)
+			}
+			configuration.Components[component.ID][policy.Key] = value
+		}
+	}
+	return configuration
 }
 
 func convertVMCP(vmcp v1.VMCP) types.VMCP {

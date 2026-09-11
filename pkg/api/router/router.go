@@ -233,6 +233,8 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("GET /api/vmcps/{vmcp_id}/prompts/{prompt_name}", mcp.GetPrompt)
 	mux.HandleFunc("PUT /api/vmcps/{vmcp_id}", vmcps.Update)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/trigger-update", vmcps.TriggerUpdate)
+	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/reveal", vmcps.Reveal)
+	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/deconfigure", vmcps.Deconfigure)
 	mux.HandleFunc("DELETE /api/vmcps/{vmcp_id}", vmcps.Delete)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews", mcpCatalogs.GenerateVMCPComponentToolPreviews)
 	mux.HandleFunc("POST /api/vmcps/{vmcp_id}/components/{component_id}/generate-tool-previews/oauth-url", mcpCatalogs.GenerateVMCPComponentToolPreviewsOAuthURL)
@@ -245,6 +247,7 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	mux.HandleFunc("DELETE /api/vmcp-instances/{vmcp_instance_id}", vmcpInstances.Delete)
 	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/configure", vmcpInstances.Configure)
 	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/reveal", vmcpInstances.Reveal)
+	mux.HandleFunc("POST /api/vmcp-instances/{vmcp_instance_id}/deconfigure", vmcpInstances.Deconfigure)
 
 	// MCP Catalogs (admin only)
 	mux.HandleFunc("GET /api/mcp-catalogs", mcpCatalogs.List)

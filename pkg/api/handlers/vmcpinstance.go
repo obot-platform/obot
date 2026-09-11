@@ -187,7 +187,7 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 		return fmt.Errorf("failed to store VMCP instance configuration: %w", err)
 	}
 	if instance.Annotations == nil {
-		instance.Annotations = map[string]string{}
+		instance.Annotations = make(map[string]string, 1)
 	}
 	instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation] = utils.Digest(secrets)
 	if err := req.Update(&instance); err != nil {
@@ -217,23 +217,29 @@ func (*VMCPInstanceHandler) Reveal(req api.Context) error {
 		}
 	}
 
-	configuration := types.VMCPConfiguration{Components: map[string]map[string]string{}}
-	for _, component := range vmcpconfig.ComponentsForInstance(vmcp, instance) {
-		for _, policy := range component.Configuration {
-			if policy.Policy != types.VMCPConfigurationPolicyUserAllowed {
-				continue
-			}
-			value, ok := credential.Secrets[vmcpconfig.ConfigurationKey(component.ID, policy.Key)]
-			if !ok {
-				continue
-			}
-			if configuration.Components[component.ID] == nil {
-				configuration.Components[component.ID] = map[string]string{}
-			}
-			configuration.Components[component.ID][policy.Key] = value
-		}
+	return req.Write(vmcpConfiguration(vmcpconfig.ComponentsForInstance(vmcp, instance), credential.Secrets, types.VMCPConfigurationPolicyUserAllowed))
+}
+
+func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
+	var instance v1.VMCPInstance
+	if err := req.Get(&instance, req.PathValue("vmcp_instance_id")); err != nil {
+		return fmt.Errorf("failed to get VMCP instance: %w", err)
 	}
-	return req.Write(configuration)
+
+	if _, err := req.GatewayClient.DeleteCredential(req.Context(),
+		vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		vmcpconfig.ConfigurationCredentialName(),
+	); err != nil {
+		return fmt.Errorf("failed to delete VMCP instance configuration: %w", err)
+	}
+	if instance.Annotations == nil {
+		instance.Annotations = map[string]string{}
+	}
+	instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation] = utils.Digest(map[string]string{})
+	if err := req.Update(&instance); err != nil {
+		return fmt.Errorf("failed to trigger VMCP instance configuration reconciliation: %w", err)
+	}
+	return req.Write(convertVMCPInstance(instance))
 }
 
 func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {
