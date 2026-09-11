@@ -115,7 +115,7 @@
 			/>
 
 			<section
-				class="default-scrollbar-thin min-w-0 md:min-h-0 md:overflow-y-auto md:pr-1"
+				class="default-scrollbar-thin min-w-0 p-1 md:min-h-0 md:overflow-y-auto"
 				aria-label="Prompt details"
 			>
 				{#if selected}
