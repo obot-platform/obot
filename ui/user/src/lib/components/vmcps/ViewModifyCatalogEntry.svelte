@@ -175,6 +175,9 @@
 		if (entryWorkspaceId && !isAdmin) {
 			return UserService.getWorkspaceMCPCatalogEntry(entryWorkspaceId, id, opts);
 		}
+		if (!profile.current.hasAdminAccess?.()) {
+			return UserService.getMCP(id, opts);
+		}
 		return AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, id, opts);
 	}
 

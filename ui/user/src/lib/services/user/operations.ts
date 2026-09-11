@@ -218,7 +218,10 @@ export async function listMCPs(opts?: {
 	);
 }
 
-export async function getMCP(id: string, opts?: { fetch?: Fetcher }): Promise<MCPCatalogEntry> {
+export async function getMCP(
+	id: string,
+	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+): Promise<MCPCatalogEntry> {
 	const response = (await doGet(`/all-mcps/entries/${id}`, opts)) as MCPCatalogEntry;
 	return {
 		...response,
