@@ -235,7 +235,7 @@ func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, c
 	}
 	envMap["OBOT_SERVER_PUBLIC_URL"] = d.serverURL
 	envMap["OBOT_SERVER_URL"] = d.sessionManager.TransformObotHostname(d.internalServerURL)
-	cmd.Env = envAsSlice(envMap)
+	cmd.Env = append(inheritedEnv(os.LookupEnv, envMap), envAsSlice(envMap)...)
 
 	r, w, err := os.Pipe()
 	if err != nil {
@@ -256,6 +256,47 @@ func (d *Dispatcher) newCommand(ctx context.Context, envMap map[string]string, c
 	}
 
 	return cmd, stop, nil
+}
+
+// inheritedEnvVars are the only variables copied from Obot's own environment into
+// provider processes. A provider is given an explicit environment rather than
+// inheriting Obot's, which holds secrets such as the database DSN and the
+// encryption configuration, so anything a provider legitimately needs has to be
+// listed here. Both spellings of the proxy variables are listed because the HTTP
+// clients providers are written against disagree about which one they read.
+var inheritedEnvVars = []string{
+	"HTTP_PROXY", "http_proxy",
+	"HTTPS_PROXY", "https_proxy",
+	"ALL_PROXY", "all_proxy",
+	"NO_PROXY", "no_proxy",
+	// A proxy that terminates TLS presents its own certificate, so the CA bundle
+	// that makes it trusted has to travel with the proxy settings.
+	"SSL_CERT_FILE", "SSL_CERT_DIR",
+	"REQUESTS_CA_BUNDLE", "NODE_EXTRA_CA_CERTS",
+}
+
+// inheritedEnv returns the allowlisted variables from Obot's environment, keeping
+// the spelling of each name so that providers reading only the lowercase form
+// still see it. A variable the provider sets itself is skipped, because envAsSlice
+// uppercases its keys and would otherwise leave the lowercase copy behind to
+// compete with it.
+func inheritedEnv(lookupEnv func(string) (string, bool), providerEnv map[string]string) []string {
+	overridden := make(map[string]struct{}, len(providerEnv))
+	for key := range providerEnv {
+		overridden[toEnvLike(key)] = struct{}{}
+	}
+
+	env := make([]string, 0, len(inheritedEnvVars))
+	for _, name := range inheritedEnvVars {
+		if _, ok := overridden[strings.ToUpper(name)]; ok {
+			continue
+		}
+		if value, ok := lookupEnv(name); ok {
+			env = append(env, name+"="+value)
+		}
+	}
+
+	return env
 }
 
 func envAsSlice(env map[string]string) []string {
