@@ -8,20 +8,6 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
 
-// WithMCPAuditLogPolicy configures collection and the per-body payload budget.
-// A nil limit preserves bodies; zero omits them. Callers must reject negative limits.
-func WithMCPAuditLogPolicy(disabled bool, maxBodyBytes *int) Option {
-	return func(c *Client) {
-		c.mcpAuditDisabled = disabled
-		c.mcpAuditMaxBodyBytes = nil
-
-		if maxBodyBytes != nil {
-			limit := *maxBodyBytes
-			c.mcpAuditMaxBodyBytes = &limit
-		}
-	}
-}
-
 // MCPAuditLogEnabled reports whether new MCP audit entries are collected.
 func (c *Client) MCPAuditLogEnabled() bool {
 	return !c.mcpAuditDisabled
@@ -32,6 +18,8 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 		return
 	}
 
+	// The entry is passed by value, but its nested fields are shared with the
+	// caller. Copy them before replacing bodies and updating audit metadata.
 	if entry.MCPFields != nil {
 		fields := *entry.MCPFields
 		entry.MCPFields = &fields
