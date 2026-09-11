@@ -28,6 +28,8 @@
 		flow.configuringComponent?.configuration?.some((field) => field.policy === 'userAllowed') ??
 			false
 	);
+	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
+	const lastComponentTooltip = 'VMCP requires at least one component.';
 
 	function openDialog(dialog: VMcpToolDialog | undefined) {
 		if (dialog === 'added-create') {
@@ -213,9 +215,20 @@
 				Change Configuration
 			</button>
 		{/if}
-		<button class="btn btn-secondary hover:btn-error" onclick={flow.promptRemove}
-			>Remove {flow.configuringEntry?.manifest.name ?? 'this server'}</button
+		<div
+			class="w-full"
+			use:tooltip={isLastComponent
+				? { text: lastComponentTooltip, disablePortal: true, placement: 'bottom' }
+				: undefined}
 		>
+			<button
+				class="btn btn-secondary hover:btn-error w-full"
+				disabled={isLastComponent}
+				onclick={flow.promptRemove}
+			>
+				Remove {flow.configuringEntry?.manifest.name ?? 'this server'}
+			</button>
+		</div>
 	</div>
 </ResponsiveDialog>
 
@@ -263,11 +276,22 @@
 {/snippet}
 
 {#snippet removeComponentButton()}
-	<IconButton
-		tooltip={{ text: 'Delete MCP Server', disablePortal: true, placement: 'right' }}
-		onclick={flow.promptRemove}
-		variant="danger2"
+	<div
+		use:tooltip={isLastComponent
+			? { text: lastComponentTooltip, disablePortal: true, placement: 'right' }
+			: undefined}
 	>
-		<Trash2 class="size-4" />
-	</IconButton>
+		<IconButton
+			tooltip={{
+				text: isLastComponent ? lastComponentTooltip : 'Delete MCP Server',
+				disablePortal: true,
+				placement: 'right'
+			}}
+			onclick={flow.promptRemove}
+			variant="danger2"
+			disabled={isLastComponent}
+		>
+			<Trash2 class="size-4" />
+		</IconButton>
+	</div>
 {/snippet}

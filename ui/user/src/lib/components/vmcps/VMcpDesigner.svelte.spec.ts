@@ -249,9 +249,22 @@ describe('VMcpDesigner.svelte', () => {
 		});
 
 		it('disables Modify Tools when the server has user-supplied configuration', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
-			await renderDesigner([componentEntry], vmcp);
+			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
+			const vmcp = createVMCP(
+				{
+					id: 'vmcp-1',
+					displayName: 'Issue Tracker vMCP',
+					components: [
+						createVMCPComponent(componentEntry, {
+							toolPrefix: 'github_',
+							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
+						}),
+						createVMCPComponent(slack)
+					]
+				},
+				[componentEntry, slack]
+			);
+			await renderDesigner([componentEntry, slack], vmcp);
 
 			await componentBlock().click();
 
@@ -370,19 +383,24 @@ describe('VMcpDesigner.svelte', () => {
 			]);
 		});
 
-		it('does not remove the last remaining server from the vMCP', async () => {
+		it('disables Remove when the vMCP has only one server', async () => {
 			const vmcp = createIssueTrackerVMcp();
 			const update = vi.fn();
 			mockUpdateVMcp(vmcp, update);
 
 			await renderDesigner([componentEntry], vmcp);
 			await componentBlock().click();
-			await page.getByRole('button', { name: 'Remove GitHub' }).click();
 
-			await expect.element(page.getByText('Confirm Remove')).toBeVisible();
-			await page.getByRole('button', { name: "Yes, I'm sure" }).click();
-
+			const remove = page.getByRole('button', { name: 'Remove GitHub' });
+			await expect.element(remove).toBeDisabled();
 			await expect.element(page.getByText('Confirm Remove')).not.toBeVisible();
+
+			const trigger = (await remove.element()).parentElement;
+			trigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+			await expect
+				.element(page.getByRole('tooltip'))
+				.toHaveTextContent('VMCP requires at least one component.');
+
 			expect(update).not.toHaveBeenCalled();
 			await expect.element(componentBlock()).toBeVisible();
 		});

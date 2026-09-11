@@ -218,7 +218,7 @@ export function createVMcpToolFlow() {
 		component: { id?: string; name?: string; description?: string; icon?: string },
 		vmcp: VMCP
 	) {
-		if (!component.id) return;
+		if (!component.id || (vmcp.components ?? []).length <= 1) return;
 		pendingRemoval = { component, vmcp };
 		dialog = undefined;
 	}
@@ -423,6 +423,7 @@ export function createVMcpToolFlow() {
 
 	function promptRemove() {
 		if (!modifyingVMcp || !configuringComponent || !configuringEntry) return;
+		if ((modifyingVMcp.components ?? []).length <= 1) return;
 		pendingRemoval = {
 			component: {
 				id: configuringComponentId,
