@@ -55,13 +55,16 @@ func (h *VMCPHandler) Create(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
-	manifest.Default()
+
+	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
+
+	manifest.Default(personalServer)
 	if err := authz.CheckVMCPForceSingleUser(req.User, false, manifest.ForceSingleUser); err != nil {
 		return err
 	}
 
 	var userID string
-	if !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal" {
+	if personalServer {
 		userID = req.User.GetUID()
 	}
 
@@ -112,7 +115,10 @@ func (h *VMCPHandler) Update(req api.Context) error {
 	if err := req.Read(&manifest); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
-	manifest.DefaultConfigurationPolicies()
+
+	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
+	manifest.Default(personalServer)
+
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)

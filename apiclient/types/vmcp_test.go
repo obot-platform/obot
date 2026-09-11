@@ -77,7 +77,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 		}},
 	}
 
-	manifest.Default()
+	manifest.Default(false)
 
 	if got := manifest.Components[0].Configuration[0].Policy; got != VMCPConfigurationPolicyProhibited {
 		t.Fatalf("default configuration policy = %q, want %q", got, VMCPConfigurationPolicyProhibited)
@@ -97,10 +97,30 @@ func TestVMCPManifestDefault(t *testing.T) {
 func TestVMCPManifestDefaultPreservesExplicitEmptyProfiles(t *testing.T) {
 	manifest := VMCPManifest{Profiles: []VMCPProfile{}}
 
-	manifest.Default()
+	manifest.Default(false)
 
 	if manifest.Profiles == nil || len(manifest.Profiles) != 0 {
 		t.Fatalf("explicit empty profiles changed to %#v", manifest.Profiles)
+	}
+}
+
+func TestVMCPManifestDefaultPersonalServer(t *testing.T) {
+	for _, profiles := range [][]VMCPProfile{nil, {}, {{Name: "existing", AllowAllTools: true}}} {
+		manifest := VMCPManifest{
+			Profiles: profiles,
+			Components: []VMCPComponent{{
+				Configuration: []VMCPConfigurationPolicy{{Key: "TOKEN"}},
+			}},
+		}
+
+		manifest.Default(true)
+
+		if manifest.Profiles != nil {
+			t.Fatalf("personal server profiles = %#v, want nil", manifest.Profiles)
+		}
+		if got := manifest.Components[0].Configuration[0].Policy; got != VMCPConfigurationPolicyProhibited {
+			t.Fatalf("default configuration policy = %q, want %q", got, VMCPConfigurationPolicyProhibited)
+		}
 	}
 }
 

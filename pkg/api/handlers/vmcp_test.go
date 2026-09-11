@@ -177,18 +177,21 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if created.UserID != "user-1" {
 		t.Fatalf("personal VMCP userID = %q, want user-1", created.UserID)
 	}
-	if len(created.Profiles) != 1 || !created.Profiles[0].AllowAllTools {
-		t.Fatalf("unexpected default profiles: %#v", created.Profiles)
+	if len(created.Profiles) != 0 {
+		t.Fatalf("personal VMCP profiles = %#v, want none", created.Profiles)
 	}
 	if got := created.Components[0].Configuration[0].Policy; got != types.VMCPConfigurationPolicyProhibited {
 		t.Fatalf("default configuration policy = %q, want prohibited", got)
 	}
 
-	shared := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), &user.DefaultInfo{
+	shared := callVMCPCreate(t, storage, gatewayClient, handler, manifest, &user.DefaultInfo{
 		Name: "admin", UID: "admin", Groups: []string{types.GroupAdmin},
 	})
 	if shared.UserID != "" {
 		t.Fatalf("administrator-created VMCP userID = %q, want shared VMCP", shared.UserID)
+	}
+	if len(shared.Profiles) != 1 || !shared.Profiles[0].AllowAllTools {
+		t.Fatalf("unexpected shared default profiles: %#v", shared.Profiles)
 	}
 
 	personal := callVMCPCreate(t, storage, gatewayClient, handler, testVMCPManifest(), &user.DefaultInfo{
@@ -196,6 +199,9 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	}, "?scope=personal")
 	if personal.UserID != "user-1" {
 		t.Fatalf("administrator-created personal VMCP userID = %q, want user-1", personal.UserID)
+	}
+	if len(personal.Profiles) != 0 {
+		t.Fatalf("administrator-created personal VMCP profiles = %#v, want none", personal.Profiles)
 	}
 }
 
@@ -911,7 +917,7 @@ func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	handler := vmcpHandlerForTest(t, storage)
 	gatewayClient := newHandlerTestGateway(t)
-	u := &user.DefaultInfo{UID: "user-1"}
+	u := &user.DefaultInfo{UID: "user-1", Groups: []string{types.GroupAdmin}}
 	manifest := testVMCPManifest()
 	second := manifest.Components[0]
 	second.Name = "second"
