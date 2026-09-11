@@ -132,6 +132,7 @@ type Config struct {
 	EnableRegistryAuth                   bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EnableMessagePolicies                bool   `usage:"Enable message policies for LLM proxy content enforcement" default:"false"`
 	LLMAuditLogRetentionDays             int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
+	LLMAuditLogMaxBodyBytes              *int   `usage:"Maximum original bytes retained per LLM audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
 	DisableLLMAuditLog                   bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	DeviceScanRetentionDays              int    `usage:"Number of days to retain submitted device scans (0 to disable cleanup)." default:"90"`
 	EnableAgents                         *bool  `usage:"Enable Obot Agent features. When unset, agents are disabled for new deployments but grandfathered in for deployments that already have agents. Explicitly set to true to force-enable, or false to force-disable, regardless of grandfathering." env:"OBOT_ENABLE_AGENTS"`
@@ -503,6 +504,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, errors.New("mcpaudit-log-max-body-bytes must be non-negative")
 	}
 
+	if config.LLMAuditLogMaxBodyBytes != nil && *config.LLMAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("llmaudit-log-max-body-bytes must be non-negative")
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -669,6 +674,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
 		client.WithMCPAuditLogPolicy(config.DisableMCPAuditLog, config.MCPAuditLogMaxBodyBytes),
+		client.WithLLMAuditLogBodyLimit(config.LLMAuditLogMaxBodyBytes),
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {

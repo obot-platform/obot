@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLimitMCPAuditBody(t *testing.T) {
+func TestLimitAuditBody(t *testing.T) {
 	body := json.RawMessage(`{"text":"é\"hello"}`)
 
 	for _, tt := range []struct {
@@ -47,8 +47,8 @@ func TestLimitMCPAuditBody(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got := limitMCPAuditBody(body, tt.limit)
-			require.Nil(t, limitMCPAuditBody(nil, tt.limit))
+			got := limitAuditBody(body, tt.limit)
+			require.Nil(t, limitAuditBody(nil, tt.limit))
 
 			if tt.limit == nil || *tt.limit >= len(body) {
 				require.Equal(t, body, got)
@@ -143,7 +143,7 @@ func TestMCPAuditBodyPolicyPersistence(t *testing.T) {
 				require.Equal(t, "tool-1", mcp.CallIdentifier)
 
 				for _, got := range []json.RawMessage{mcp.RequestBody, mcp.ResponseBody, mcp.MutatedRequestBody, mcp.OriginalResponseBody} {
-					require.Equal(t, limitMCPAuditBody(body, limit), got)
+					require.Equal(t, limitAuditBody(body, limit), got)
 				}
 
 				_, err = json.Marshal(row)

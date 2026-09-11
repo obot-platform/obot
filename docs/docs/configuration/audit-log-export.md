@@ -212,7 +212,7 @@ Scheduled exports run automatically at specified intervals.
 
 All audit logs are exported in JSON Lines format, where each line contains a complete JSON object representing one audit log entry.
 
-MCP exports contain bodies as stored: full bodies, marked previews, or omitted bodies according to the [MCP body storage controls](../functionality/audit-logs-and-usage.md#body-storage-controls) in effect when each entry was collected. Exports cannot recover omitted or truncated content.
+MCP and LLM exports contain bodies as stored: full bodies, marked previews, or omitted bodies according to the [MCP body storage controls](../functionality/audit-logs-and-usage.md#body-storage-controls) or [LLM body storage controls](../functionality/audit-logs-and-usage.md#llm-body-storage-controls) in effect when each entry was recorded. Exports cannot recover omitted or truncated content.
 
 MCP exports include MCP gateway activity such as server, operation, and response status metadata. LLM exports include LLM gateway activity such as provider, model, request path, token usage, client, and outcome metadata.
 

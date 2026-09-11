@@ -55,6 +55,19 @@ type LLMAuditLogOptions struct {
 	SortOrder              string
 }
 
+// WithLLMAuditLogBodyLimit configures the per-body payload budget.
+// A nil limit preserves bodies; zero omits them. Callers must reject negative limits.
+func WithLLMAuditLogBodyLimit(maxBodyBytes *int) Option {
+	return func(c *Client) {
+		c.llmAuditMaxBodyBytes = nil
+
+		if maxBodyBytes != nil {
+			limit := *maxBodyBytes
+			c.llmAuditMaxBodyBytes = &limit
+		}
+	}
+}
+
 func (c *Client) LLMAuditLogEnabled() bool {
 	return c != nil && c.llmAuditEnabled
 }
@@ -385,6 +398,15 @@ func (c *Client) insertLLMAuditLogs(ctx context.Context, logs []types.LLMAuditLo
 	if len(logs) == 0 {
 		return nil
 	}
+
+	// Apply the policy after stream aggregation so response IDs and complete
+	// response JSON are available, and before encryption expands the payloads.
+	for i := range logs {
+		logs[i].RequestBody = limitAuditBody(logs[i].RequestBody, c.llmAuditMaxBodyBytes)
+		logs[i].PolicyModifiedRequestBody = limitAuditBody(logs[i].PolicyModifiedRequestBody, c.llmAuditMaxBodyBytes)
+		logs[i].ResponseBody = limitAuditBody(logs[i].ResponseBody, c.llmAuditMaxBodyBytes)
+	}
+
 	if c.encryptionConfig != nil && c.encryptionConfig.Transformers[llmAuditLogGroupResource] != nil {
 		for i := range logs {
 			if err := c.encryptLLMAuditLog(ctx, &logs[i]); err != nil {
