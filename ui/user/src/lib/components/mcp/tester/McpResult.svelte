@@ -85,7 +85,18 @@
 	{/if}
 
 	{#if result.value !== undefined}
-		<details>
+		<details
+			ontoggle={(event) => {
+				if (event.currentTarget.open) {
+					event.currentTarget.scrollIntoView({
+						block: 'nearest',
+						behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+							? 'instant'
+							: 'smooth'
+					});
+				}
+			}}
+		>
 			<summary class="cursor-pointer text-sm font-medium">Raw response</summary>
 			<div class="mt-2">
 				<!-- Offset so the copy icon sits beside the preview's maximize button. -->
