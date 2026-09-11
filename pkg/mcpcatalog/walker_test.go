@@ -108,6 +108,18 @@ func TestWalkCatalogFilesPatternSemantics(t *testing.T) {
 			ignores:  "nested/entry.mcp.yaml\nscripts\n",
 		},
 		{
+			name:     "root-relative directory exclusion",
+			includes: "*.mcp.yaml\n",
+			ignores:  "scripts/deep\n",
+			want:     []string{"entry.mcp.yaml", "nested/entry.mcp.yaml"},
+		},
+		{
+			name:     "root-relative file glob exclusion",
+			includes: "*.mcp.yaml\n",
+			ignores:  "nested/*.yaml\nscripts/deep/more/*.yaml\n",
+			want:     []string{"entry.mcp.yaml"},
+		},
+		{
 			name:     "include wildcards do not cross separators",
 			includes: "scripts/*.yaml\nscripts/**/entry.mcp.yaml\n",
 		},

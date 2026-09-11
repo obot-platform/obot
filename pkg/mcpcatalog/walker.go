@@ -7,6 +7,7 @@ import (
 	"iter"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -133,9 +134,11 @@ func readCatalogPatterns(path string, defaults []string) ([]string, bool) {
 	return patterns, true
 }
 
-func matchesCatalogPattern(patterns []string, path string) bool {
+func matchesCatalogPattern(patterns []string, candidate string) bool {
+	// Catalog patterns use forward slashes on every platform.
+	candidate = filepath.ToSlash(candidate)
 	for _, pattern := range patterns {
-		if matched, _ := filepath.Match(pattern, path); matched {
+		if matched, _ := path.Match(pattern, candidate); matched {
 			return true
 		}
 	}
