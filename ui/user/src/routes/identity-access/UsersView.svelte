@@ -263,8 +263,7 @@
 								currentAccessDialog?.open({
 									kind: 'user',
 									id: d.id,
-									name: d.name,
-									groupIds: d.groups
+									name: d.name
 								});
 							}}
 						>
