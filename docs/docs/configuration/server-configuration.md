@@ -42,6 +42,8 @@ The Obot server is configured via environment variables. The following configura
 | `OBOT_SERVER_LOCAL_AUTH_INITIAL_OWNER_SETUP_TOKEN_EXPIRATION_HOURS` | Number of hours the initial owner setup link remains valid. | `168` |
 | `OBOT_SERVER_AUTH_OWNER_EMAILS` | A comma separated list of email addresses that will have the Owner role in Obot. Email matching is case-insensitive. | - |
 | `OBOT_SERVER_AUTH_ADMIN_EMAILS` | A comma separated list of email addresses that will have the Admin role in Obot. Email matching is case-insensitive. | - |
+| `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES` | Maximum original bytes retained per MCP audit body. Unset means unlimited; `0` omits bodies; positive values retain a marked text preview of oversized bodies. JSON encoding adds overhead. Negative values are invalid. | Unset (unlimited) |
+| `OBOT_SERVER_DISABLE_MCPAUDIT_LOG` | Disables collection and persistence of new MCP audit logs and new audit-derived MCP usage data. Existing logs and retention cleanup remain available. | `false` |
 | `OBOT_SERVER_MCPAUDIT_LOG_RETENTION_DAYS` | The number of days to retain MCP audit logs before they are automatically deleted. Set to `0` to disable automatic cleanup. Use the [audit log export](./audit-log-export.md) functionality to preserve logs beyond this period. | `90` |
 | `OBOT_SERVER_MCPAUDIT_LOG_PERSIST_INTERVAL_SECONDS` | The interval in seconds at which buffered MCP audit logs are flushed to the database. | `5` |
 | `OBOT_SERVER_MCPAUDIT_LOGS_PERSIST_BATCH_SIZE` | The number of MCP audit log entries written to the database in a single batch. | `1000` |

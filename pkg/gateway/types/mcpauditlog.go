@@ -40,6 +40,9 @@ type MCPAuditLog struct {
 }
 
 type MCPAuditLogFields struct {
+	// RequestBodyPresent preserves entry classification when the body is omitted before buffering.
+	RequestBodyPresent bool `json:"-" gorm:"-"`
+
 	APIKey                    string                                `json:"apiKey,omitempty"`
 	MCPID                     string                                `json:"mcpID" gorm:"index"`
 	PowerUserWorkspaceID      string                                `json:"powerUserWorkspaceID,omitempty" gorm:"index"`
