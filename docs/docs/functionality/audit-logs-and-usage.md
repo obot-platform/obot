@@ -49,22 +49,6 @@ Filter logs by:
 - Operation type
 - Status
 
-### Body storage controls
-
-By default, MCP audit bodies are stored in full. Set `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES=65536` (or `--mcpaudit-log-max-body-bytes=65536`) to retain at most 64 KiB of original payload per body. This applies independently to request, response, mutated-request, and original-response bodies. Bodies within the limit remain unchanged; larger bodies become valid JSON containing a text preview:
-
-```json
-{"_obotAuditTruncated":true,"originalBytes":123456,"preview":"prefix of the original JSON text"}
-```
-
-The preview ends on a UTF-8 character boundary. JSON escaping, wrapper metadata, and encryption add storage overhead beyond the configured payload limit. The detail view and exports contain the stored preview, not the full original body.
-
-Set the limit to `0` to omit all four bodies while preserving audit metadata, outcomes, mutation indicators, and usage statistics. Leave the setting unset for unlimited bodies. Negative values are invalid.
-
-Set `OBOT_SERVER_DISABLE_MCPAUDIT_LOG=true` (or `--disable-mcpaudit-log`) to stop collecting and persisting new MCP audit entries. This also stops new audit-derived MCP usage data. Historical logs remain readable and exportable, and retention cleanup continues. Local-agent and LLM logging are configured independently.
-
-These controls affect new entries only; they do not shrink existing records. The body limit does not cap headers, row counts, or total database size. Plan storage using daily call volume, average stored row size (including indexes and encoding overhead), and retention days. The 90-day default can retain millions of rows on busy installations; choose a shorter retention period where appropriate.
-
 ### Retention
 
 Audit logs are automatically deleted after **90 days** by default. To preserve logs beyond this period, use the export functionality before they are deleted. See [Server Configuration](../configuration/server-configuration.md) for retention settings.
@@ -107,17 +91,45 @@ Filter LLM logs by:
 - Client session
 - Search query
 
-### LLM Body Storage Controls
-
-Set `OBOT_SERVER_LLMAUDIT_LOG_MAX_BODY_BYTES=65536` (or `--llmaudit-log-max-body-bytes=65536`) to retain at most 64 KiB of original payload independently for each request, policy-modified request, and response body. Unset means unlimited, `0` omits bodies, and negative values are invalid. Oversized bodies use the same valid JSON preview format as [MCP audit bodies](#body-storage-controls), including a truncation marker and original byte count. JSON escaping, wrapper metadata, and encryption add overhead beyond the retained payload limit.
-
-For streamed responses, the limit applies to the assembled response JSON in the background writer, before encryption and persistence. It does not limit the existing stream-capture buffer. Token counts, response IDs, outcomes, policy-trigger indicators, and headers remain available. Omitting bodies does not disable audit collection; `OBOT_SERVER_DISABLE_LLMAUDIT_LOG=true` remains the separate control for disabling new LLM audit entries.
-
-The setting affects new entries only and is independent of the MCP body limit. Detail views and exports contain the stored preview or omitted bodies; they cannot recover the original content. This limit does not cap total database size or change retention.
-
 ### Exporting LLM Audit Logs
 
 LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
+
+## Body storage controls
+
+MCP and LLM audit bodies are stored in full by default. Configure their limits independently:
+
+| Audit logs | Environment variable | CLI flag | Bodies covered |
+| --- | --- | --- | --- |
+| MCP | `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES` | `--mcpaudit-log-max-body-bytes` | Request, response, mutated-request, and original-response |
+| LLM | `OBOT_SERVER_LLMAUDIT_LOG_MAX_BODY_BYTES` | `--llmaudit-log-max-body-bytes` | Request, policy-modified request, and response |
+
+Leave a setting unset for unlimited bodies, set it to `0` to omit bodies, or use a positive byte count to limit the original payload retained per body. For example, `65536` retains at most 64 KiB per body. Negative values are invalid.
+
+The limit applies independently to each covered body. Bodies within the limit remain unchanged; larger bodies become valid JSON containing a text preview:
+
+```json
+{"_obotAuditTruncated":true,"originalBytes":123456,"preview":"prefix of the original JSON text"}
+```
+
+The preview ends on a UTF-8 character boundary. JSON escaping, wrapper metadata, and encryption add storage overhead beyond the configured payload limit. Detail views and exports contain the stored preview or omitted bodies; they cannot recover the original content.
+
+For streamed LLM responses, the limit applies to the assembled response JSON in the background writer, before encryption and persistence. It does not limit the existing stream-capture buffer.
+
+Omitting bodies preserves audit metadata, outcomes, mutation and policy-trigger indicators, token counts, response IDs, headers, and audit-derived usage statistics.
+
+Body limits affect new entries only; they do not shrink existing records or change retention. Body limits do not cap headers, row counts, or total database size. Plan storage using daily call volume, average stored row size (including indexes and encoding overhead), and retention days. The 90-day default can retain millions of rows on busy installations; choose a shorter retention period where appropriate.
+
+## Disabling audit logs
+
+To stop collecting and persisting new entries entirely, use the corresponding disable setting:
+
+| Audit logs | Environment variable | CLI flag |
+| --- | --- | --- |
+| MCP | `OBOT_SERVER_DISABLE_MCPAUDIT_LOG=true` | `--disable-mcpaudit-log` |
+| LLM | `OBOT_SERVER_DISABLE_LLMAUDIT_LOG=true` | `--disable-llmaudit-log` |
+
+Disabling collection also stops new audit-derived usage data for that log type. Historical logs remain readable and exportable, and retention cleanup continues. MCP, LLM, and local-agent logging are configured independently.
 
 ## Usage
 
