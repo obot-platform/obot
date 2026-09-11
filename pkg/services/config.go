@@ -135,6 +135,7 @@ type Config struct {
 	EnableRegistryAuth          bool   `usage:"Enable authentication for the MCP registry API" default:"false" env:"OBOT_SERVER_ENABLE_REGISTRY_AUTH"`
 	EgressAuditLogRetentionDays int    `usage:"Days to retain egress audit logs (0 disables cleanup)." default:"90"`
 	LLMAuditLogRetentionDays    int    `usage:"Number of days to retain LLM audit logs (0 to disable cleanup)." default:"90"`
+	LLMAuditLogMaxBodyBytes              *int   `usage:"Maximum original bytes retained per LLM audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
 	DisableLLMAuditLog          bool   `usage:"Disable LLM gateway audit logging" default:"false"`
 	LLMGatewayDataDir           string `usage:"Directory for the embedded LLM gateway's configuration and, without a Postgres DSN, its SQLite stores (default: $XDG_DATA_HOME/obot/llm-gateway)" name:"llm-gateway-data-dir" env:"OBOT_SERVER_LLM_GATEWAY_DATA_DIR"`
 	LLMGatewayPostgresDSN       string `usage:"Postgres DSN for the embedded LLM gateway's configuration store. Must be a different database from Obot's. When Obot uses Postgres and this is unset, a <database>_llm_gateway database is created on the same server" name:"llm-gateway-postgres-dsn" env:"OBOT_SERVER_LLM_GATEWAY_POSTGRES_DSN"`
@@ -442,6 +443,10 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		return nil, errors.New("mcpaudit-log-max-body-bytes must be non-negative")
 	}
 
+	if config.LLMAuditLogMaxBodyBytes != nil && *config.LLMAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("llmaudit-log-max-body-bytes must be non-negative")
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -608,6 +613,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
 		client.WithMCPAuditLogPolicy(config.DisableMCPAuditLog, config.MCPAuditLogMaxBodyBytes),
+		client.WithLLMAuditLogBodyLimit(config.LLMAuditLogMaxBodyBytes),
 	)
 	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
 

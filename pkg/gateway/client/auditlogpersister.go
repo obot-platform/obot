@@ -2,10 +2,8 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"time"
-	"unicode/utf8"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 )
@@ -27,39 +25,6 @@ func WithMCPAuditLogPolicy(disabled bool, maxBodyBytes *int) Option {
 // MCPAuditLogEnabled reports whether new MCP audit entries are collected.
 func (c *Client) MCPAuditLogEnabled() bool {
 	return !c.mcpAuditDisabled
-}
-
-func limitMCPAuditBody(body json.RawMessage, limit *int) json.RawMessage {
-	if limit == nil || len(body) == 0 {
-		return body
-	}
-
-	if *limit <= 0 {
-		return nil
-	}
-
-	if len(body) <= *limit {
-		return body
-	}
-
-	end := *limit
-	for end > 0 && !utf8.RuneStart(body[end]) {
-		end--
-	}
-
-	// Marshaling these primitive fields cannot fail. The preview is text, since
-	// a prefix of a JSON document is generally not itself valid JSON.
-	preview, _ := json.Marshal(struct {
-		Truncated     bool   `json:"_obotAuditTruncated"`
-		OriginalBytes int    `json:"originalBytes"`
-		Preview       string `json:"preview"`
-	}{
-		Truncated:     true,
-		OriginalBytes: len(body),
-		Preview:       string(body[:end]),
-	})
-
-	return preview
 }
 
 func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
@@ -87,10 +52,10 @@ func (c *Client) LogMCPAuditEntry(entry types.MCPAuditLog) {
 	mcp.RequestMutated = mcp.RequestMutated || len(mcp.MutatedRequestBody) > 0
 	mcp.ResponseMutated = mcp.ResponseMutated || len(mcp.OriginalResponseBody) > 0
 
-	mcp.RequestBody = limitMCPAuditBody(mcp.RequestBody, c.mcpAuditMaxBodyBytes)
-	mcp.ResponseBody = limitMCPAuditBody(mcp.ResponseBody, c.mcpAuditMaxBodyBytes)
-	mcp.MutatedRequestBody = limitMCPAuditBody(mcp.MutatedRequestBody, c.mcpAuditMaxBodyBytes)
-	mcp.OriginalResponseBody = limitMCPAuditBody(mcp.OriginalResponseBody, c.mcpAuditMaxBodyBytes)
+	mcp.RequestBody = limitAuditBody(mcp.RequestBody, c.mcpAuditMaxBodyBytes)
+	mcp.ResponseBody = limitAuditBody(mcp.ResponseBody, c.mcpAuditMaxBodyBytes)
+	mcp.MutatedRequestBody = limitAuditBody(mcp.MutatedRequestBody, c.mcpAuditMaxBodyBytes)
+	mcp.OriginalResponseBody = limitAuditBody(mcp.OriginalResponseBody, c.mcpAuditMaxBodyBytes)
 
 	if err := c.encryptMCPAuditLog(ctx, &entry); err != nil {
 		slog.Error("Failed to encrypt MCP audit log", "error", err)
