@@ -3,7 +3,7 @@
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { vmcpConnectURL, getProfilesDisplayText } from '$lib/services/vmcps/utils';
+	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
@@ -29,7 +29,6 @@
 
 	let cards = $derived(items.map(toCard));
 	let overflowHiddenById = $state<Record<string, number>>({});
-	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 
 	type VMcpListCard = ReturnType<typeof toCard>;
 
@@ -138,13 +137,10 @@
 	}
 
 	function getNote(vmcp: VMCP) {
-		if (vmcp.userID && vmcp.userID !== profile.current.id) {
-			return `Created by ${getUserDisplayName(usersMap, vmcp.userID)}`;
+		if (vmcp.userID) {
+			return `Created by ${vmcp.userID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.userID)}`;
 		}
-		if (hasAdminAccess) {
-			return `Shared with ${getProfilesDisplayText(vmcp.profiles)}`;
-		}
-		return undefined;
+		return 'Created by admin';
 	}
 </script>
 
@@ -180,7 +176,7 @@
 		onSelect={() => onSelect?.(card.data)}
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
-		class="text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
+		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
 		{isOwner}
 		note={getNote(card.data)}
 	>

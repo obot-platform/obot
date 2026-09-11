@@ -8,13 +8,14 @@
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpComponentConfigurationDialog from '$lib/components/vmcps/VMcpComponentConfigurationDialog.svelte';
 	import VMcpDragHint from '$lib/components/vmcps/VMcpDragHint.svelte';
-	import VMcpProfilesHint from '$lib/components/vmcps/VMcpProfilesHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
 	import VMcpGraph from '$lib/components/vmcps/VMcpGraph.svelte';
 	import VMcpGraphRow from '$lib/components/vmcps/VMcpGraphRow.svelte';
 	import VMcpProfiles from '$lib/components/vmcps/VMcpProfiles.svelte';
+	import VMcpProfilesHint from '$lib/components/vmcps/VMcpProfilesHint.svelte';
 	import VMcpToolDialogs from '$lib/components/vmcps/VMcpToolDialogs.svelte';
 	import ViewModifyCatalogEntry from '$lib/components/vmcps/ViewModifyCatalogEntry.svelte';
+	import Loading from '$lib/icons/Loading.svelte';
 	import { CREATE_VMCP_DROP_ID, createEntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
 	import {
 		claimProfilesHintForVMcp,
@@ -31,6 +32,7 @@
 		Group,
 		UserService,
 		type MCPCatalogEntry,
+		type OrgUser,
 		type VMCP,
 		type VMCPComponent,
 		type VMCPConfigurationPolicy
@@ -45,7 +47,6 @@
 		resolveVMcpComponents,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
-	import Loading from '$lib/icons/Loading.svelte';
 	import { errors, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
@@ -56,9 +57,10 @@
 	interface Props {
 		vmcp?: VMCP;
 		onBack?: () => void;
+		usersMap: Map<string, OrgUser>;
 	}
 
-	let { vmcp, onBack }: Props = $props();
+	let { vmcp, onBack, usersMap }: Props = $props();
 
 	let requestedView = $derived(
 		(page.url.searchParams.get('view') as 'graph' | 'profiles' | undefined) ?? 'graph'
@@ -394,6 +396,7 @@
 						onModifyComponent={canEdit
 							? (component) => toolFlow.openComponent(component, item)
 							: undefined}
+						{usersMap}
 					/>
 				{/snippet}
 				{#snippet empty()}

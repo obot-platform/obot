@@ -24,7 +24,6 @@
 	import { onMount, untrack } from 'svelte';
 
 	let { data } = $props();
-	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let views = $derived.by((): TabView[] => [
 		{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }
 	]);
@@ -34,16 +33,12 @@
 	let listedVMcps = $state<VMCP[]>(untrack(() => data?.vmcps ?? []));
 	let isLoading = $state(false);
 	let showMyVMcpsOnly = $state(false);
-	let showSharedVMcpsOnly = $state(false);
 	let sortBy = $state<VMcpSortBy>('name');
 	let query = $state('');
 	let componentFilterBy = $state('');
 	let vmcps = $derived.by(() => {
 		if (showMyVMcpsOnly) {
 			return listedVMcps.filter((vmcp) => vmcp.userID === profile.current.id);
-		}
-		if (hasAdminAccess && showSharedVMcpsOnly) {
-			return listedVMcps.filter((vmcp) => !vmcp.userID);
 		}
 		return listedVMcps;
 	});
@@ -122,7 +117,7 @@
 </script>
 
 {#if creating}
-	<VMcpDesigner onBack={hideCreate} />
+	<VMcpDesigner onBack={hideCreate} {usersMap} />
 {:else}
 	<TabLayout
 		title="vMCPs"
@@ -165,7 +160,6 @@
 	{:else}
 		<VMcpListSettings
 			bind:showMyVMcpsOnly
-			bind:showSharedVMcpsOnly
 			bind:sortBy
 			bind:query
 			bind:componentFilterBy

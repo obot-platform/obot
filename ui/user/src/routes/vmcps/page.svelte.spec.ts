@@ -3,7 +3,6 @@ import { Group, type MCPCatalogEntry } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
-import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import VMcpsPage from './+page.svelte';
@@ -77,48 +76,6 @@ describe('vMCPs Page', () => {
 
 			await expect
 				.element(page.getByRole('button', { name: new RegExp('View Slack details') }))
-				.not.toBeInTheDocument();
-		});
-
-		it('lets admins hide personal vMCPs with the shared filter', async () => {
-			const personal = createVMCP({
-				id: 'vmcp-personal',
-				displayName: 'Personal Notes vMCP',
-				userID: getProfileResponse.id
-			});
-			const shared = createVMCP({
-				id: 'vmcp-shared',
-				displayName: 'Org Docs vMCP',
-				userID: ''
-			});
-			await renderPageWithEntries([componentEntry], false, [personal, shared]);
-
-			await expect
-				.element(page.getByRole('button', { name: 'Open Personal Notes vMCP' }))
-				.toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Open Org Docs vMCP' })).toBeVisible();
-
-			await page.getByRole('button', { name: 'Filters' }).click();
-			await page.getByRole('checkbox', { name: 'Show shared vMCPs only' }).click();
-			await tick();
-
-			await expect.element(page.getByRole('button', { name: 'Open Org Docs vMCP' })).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'Open Personal Notes vMCP' }))
-				.not.toBeInTheDocument();
-		});
-
-		it('does not offer the shared filter to users without admin access', async () => {
-			await renderPageWithEntries(
-				[componentEntry],
-				false,
-				[createIssueTrackerVMcp()],
-				[Group.USER]
-			);
-
-			await page.getByRole('button', { name: 'Filters' }).click();
-			await expect
-				.element(page.getByRole('checkbox', { name: 'Show shared vMCPs only' }))
 				.not.toBeInTheDocument();
 		});
 	});

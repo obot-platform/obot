@@ -16,6 +16,7 @@
 		VMCPConfigurationPolicyType
 	} from '$lib/services';
 	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -51,8 +52,12 @@
 		field: MCPConfig,
 		existing?: VMCPConfigurationPolicy
 	): VMCPConfigurationPolicyType {
-		const policy = existing?.policy ?? (field.required ? 'fixed' : 'prohibited');
-		return field.required && policy === 'prohibited' ? 'fixed' : policy;
+		if (profile.current.hasAdminAccess?.()) {
+			const policy = existing?.policy ?? (field.required ? 'fixed' : 'prohibited');
+			return field.required && policy === 'prohibited' ? 'fixed' : policy;
+		}
+
+		return 'fixed';
 	}
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
@@ -190,18 +195,20 @@
 					<InfoTooltip text={draft.field.description} />
 				{/if}
 			</span>
-			<select
-				class="select select-sm w-48 shrink-0 bg-base-200 border-base-300"
-				aria-label={`${fieldLabel(draft.field)} policy`}
-				value={draft.policy}
-				disabled={saving}
-				onchange={(event) =>
-					setPolicy(index, event.currentTarget.value as VMCPConfigurationPolicyType)}
-			>
-				{#each policyOptions(draft.field.required) as option (option.id)}
-					<option value={option.id}>{option.label}</option>
-				{/each}
-			</select>
+			{#if profile.current.hasAdminAccess?.()}
+				<select
+					class="select select-sm w-48 shrink-0 bg-base-100 dark:bg-base-300 dark:border-base-400 border-base-300"
+					aria-label={`${fieldLabel(draft.field)} policy`}
+					value={draft.policy}
+					disabled={saving}
+					onchange={(event) =>
+						setPolicy(index, event.currentTarget.value as VMCPConfigurationPolicyType)}
+				>
+					{#each policyOptions(draft.field.required) as option (option.id)}
+						<option value={option.id}>{option.label}</option>
+					{/each}
+				</select>
+			{/if}
 		</div>
 		{#if draft.policy === 'fixed'}
 			{#if draft.field.options?.length}

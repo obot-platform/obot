@@ -83,7 +83,8 @@ async function renderDesigner(
 	});
 	return render(VMcpDesigner, {
 		...(vmcp ? { vmcp } : {}),
-		...(options?.onBack ? { onBack: options.onBack } : {})
+		...(options?.onBack ? { onBack: options.onBack } : {}),
+		usersMap: new Map()
 	});
 }
 

@@ -5,7 +5,6 @@
 	import { VMCP_SORT_OPTIONS } from '$lib/services/vmcps/constants';
 	import type { VMcpFilterOption, VMcpSortBy } from '$lib/services/vmcps/types';
 	import { parseSelectedFilterIds } from '$lib/services/vmcps/utils';
-	import { profile } from '$lib/stores';
 	import { Funnel, X } from '@lucide/svelte';
 
 	const BUTTON_ID = 'vmcp-settings-button';
@@ -15,7 +14,6 @@
 
 	interface Props {
 		showMyVMcpsOnly?: boolean;
-		showSharedVMcpsOnly?: boolean;
 		sortBy?: VMcpSortBy;
 		query?: string;
 		componentFilterBy?: string;
@@ -24,7 +22,6 @@
 
 	let {
 		showMyVMcpsOnly = $bindable(false),
-		showSharedVMcpsOnly = $bindable(false),
 		sortBy = $bindable('name'),
 		componentFilterBy = $bindable(''),
 		query = $bindable(''),
@@ -73,28 +70,11 @@
 
 <ResponsiveDialog bind:this={dialog} title="vMCPs Settings" class="md:w-md">
 	<div class="flex flex-col gap-2">
-		{#if profile.current.hasAdminAccess?.()}
-			<label class="flex items-center gap-1.5 w-fit text-sm">
-				<input
-					type="checkbox"
-					class="checkbox checkbox-xs rounded-sm"
-					bind:checked={showSharedVMcpsOnly}
-					onchange={() => {
-						if (showSharedVMcpsOnly) showMyVMcpsOnly = false;
-					}}
-				/>
-				Show shared vMCPs only
-			</label>
-		{/if}
-
 		<label class="flex items-center gap-1.5 w-fit text-sm">
 			<input
 				type="checkbox"
 				class="checkbox checkbox-xs rounded-sm"
 				bind:checked={showMyVMcpsOnly}
-				onchange={() => {
-					if (showMyVMcpsOnly) showSharedVMcpsOnly = false;
-				}}
 			/>
 			Show my vMCPs only
 		</label>

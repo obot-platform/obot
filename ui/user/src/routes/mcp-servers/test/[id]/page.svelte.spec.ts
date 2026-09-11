@@ -115,18 +115,25 @@ function chatStream(...events: unknown[]) {
 	});
 }
 
+function testerSection(name: string | RegExp) {
+	return page
+		.getByRole('navigation', { name: 'MCP tester sections' })
+		.getByRole('button', { name });
+}
+
 describe('MCP Tester page', () => {
 	it('initializes the shell and defaults an invalid tab to Chat', async () => {
 		await renderTester('not-a-tab');
 
-		await expect.element(page.getByRole('heading', { name: 'MCP Tester' })).toBeVisible();
-		await expect
-			.element(page.getByRole('heading', { name: fixtures.serverSingle.manifest.name }))
-			.toBeVisible();
+		const serverName = fixtures.serverSingle.manifest.name;
+		const serverNameHeadings = page.getByRole('heading', { name: serverName, level: 1 });
+		await expect.element(serverNameHeadings.first()).toBeVisible();
+		await expect.element(serverNameHeadings.nth(1)).toBeVisible();
+		expect(document.title).toBe(`Obot | MCP Tester | ${serverName}`);
 		await expect.element(page.getByRole('heading', { name: 'Chat', exact: true })).toBeVisible();
 		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 		await expect
-			.element(page.getByRole('link', { name: `Back to ${fixtures.serverSingle.manifest.name}` }))
+			.element(page.getByRole('link', { name: `Back to ${serverName}` }))
 			.toHaveAttribute(
 				'href',
 				`/mcp-servers/c/${fixtures.entrySingle.id}/instance/${fixtures.serverSingle.id}`
@@ -154,9 +161,7 @@ describe('MCP Tester page', () => {
 	it('uses a valid tab query value', async () => {
 		await renderTester('tools');
 		await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
-		await expect
-			.element(page.getByRole('link', { name: 'Tools', exact: true }))
-			.toHaveAttribute('aria-current', 'page');
+		await expect.element(testerSection('Tools')).toHaveClass(/page-tab-active/);
 	});
 
 	it('connects a vMCP instance through its requested connect ID', async () => {
@@ -175,11 +180,35 @@ describe('MCP Tester page', () => {
 			backTarget: '/vmcps'
 		});
 
-		await expect.element(page.getByRole('heading', { name: 'Virtual test server' })).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'Virtual test server', level: 1 }).first())
+			.toBeVisible();
+		expect(document.title).toBe('Obot | MCP Tester | Virtual test server');
 		await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Back to Virtual test server' }))
 			.toHaveAttribute('href', '/vmcps');
+	});
+
+	it('uses vMCP Tester in the document title for canonical vMCP IDs', async () => {
+		await renderTester('tools', {}, undefined, {
+			server: {
+				...fixtures.serverSingle,
+				id: 'vmcp1-test',
+				catalogEntryID: '',
+				mcpCatalogID: '',
+				manifest: {
+					name: 'Virtual test server',
+					runtime: 'vmcp'
+				}
+			},
+			backTarget: '/vmcps/vmcp1-test'
+		});
+
+		expect(document.title).toBe('Obot | vMCP Tester | Virtual test server');
+		await expect
+			.element(page.getByRole('heading', { name: 'Virtual test server', level: 1 }).first())
+			.toBeVisible();
 	});
 
 	it('keeps the Chat composer visible while messages scroll inside the chat', async () => {
@@ -353,7 +382,7 @@ describe('MCP Tester page', () => {
 		await page.getByRole('button', { name: 'Send', exact: true }).click();
 
 		await expect.element(page.getByText('Approval needed', { exact: true }).last()).toBeVisible();
-		await expect.element(page.getByRole('link', { name: /Chat Approval needed/ })).toBeVisible();
+		await expect.element(testerSection(/Chat Approval needed/)).toBeVisible();
 		await expect
 			.element(page.getByLabelText('lookup arguments'))
 			.toHaveTextContent('"query": "safe"');
@@ -704,15 +733,13 @@ describe('MCP Tester page', () => {
 	});
 	it('exposes an MCP Log tab in the section nav', async () => {
 		await renderTester();
-		await expect.element(page.getByRole('link', { name: 'MCP Log', exact: true })).toBeVisible();
+		await expect.element(testerSection('MCP Log')).toBeVisible();
 	});
 
 	it('marks MCP Log as the current tab and renders the traffic log', async () => {
 		await renderTester('logs');
 
-		await expect
-			.element(page.getByRole('link', { name: 'MCP Log', exact: true }))
-			.toHaveAttribute('aria-current', 'page');
+		await expect.element(testerSection('MCP Log')).toHaveClass(/page-tab-active/);
 		await expect.element(page.getByRole('list', { name: 'MCP traffic log' })).toBeVisible();
 	});
 

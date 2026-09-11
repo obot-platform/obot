@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { VMCP } from '$lib/services';
+	import type { OrgUser, VMCP } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
 	import {
 		VMCP_COMPONENT_HEIGHT,
@@ -13,6 +13,9 @@
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
 	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { profile } from '$lib/stores';
+	import { getUserDisplayName } from '$lib/utils';
+	import InfoTooltip from '../InfoTooltip.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -36,6 +39,7 @@
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
 		onModifyComponent?: (component: VMcpComponentView) => void;
+		usersMap: Map<string, OrgUser>;
 	}
 
 	let {
@@ -48,10 +52,13 @@
 		onEdit,
 		onConnect,
 		onDelete,
-		onModifyComponent
+		onModifyComponent,
+		usersMap
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
+	const roughEstimationText =
+		'This is a rough approximation of the number of tools available. The exact number may vary.';
 
 	let componentRange = $derived.by(() => {
 		if (components.length <= VMCP_COMPONENT_WINDOW_THRESHOLD) {
@@ -64,6 +71,13 @@
 			count: components.length,
 			itemHeight: VMCP_COMPONENT_HEIGHT
 		});
+	});
+
+	let owner = $derived.by(() => {
+		if (vmcp.userID) {
+			return `Created by ${vmcp.userID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.userID)}`;
+		}
+		return 'Created by admin';
 	});
 
 	function chainDelay(index: number) {
@@ -171,50 +185,71 @@
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
 	{@const name = vmcp.displayName || 'vMCP'}
-	<div
-		use:drag.vmcpTarget={vmcp.id}
-		class={twMerge(
-			'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
-			linked
-				? 'vmcp-drop-target border-primary text-primary'
-				: canEdit
-					? 'p-0.5 aura text-primary hover:-translate-y-0.5'
-					: 'p-0.5'
-		)}
-		in:fade={{ duration: 150 }}
-	>
-		<VMcpCard
-			id={vmcp.id}
-			{name}
-			descriptionHTML={vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined}
-			connectURL={vmcpConnectURL(vmcp)}
-			selectAriaLabel={canEdit ? `Edit ${name}` : name}
-			onSelect={canEdit ? onEdit : undefined}
-			{onConnect}
-			onDelete={canEdit ? onDelete : undefined}
-			{isOwner}
+	<div class="translate-y-1">
+		<div
+			use:drag.vmcpTarget={vmcp.id}
 			class={twMerge(
-				'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
-				canEdit && 'cursor-pointer'
+				'max-w-full md:w-xs shrink-0 rounded-lg translate-y-0 transition-transform',
+				linked
+					? 'vmcp-drop-target border-primary text-primary'
+					: canEdit
+						? 'p-0.5 aura text-primary hover:-translate-y-0.5'
+						: 'p-0.5'
 			)}
-			note={vmcp.components.length > 0 ? `${vmcp.components.length} Servers` : undefined}
-			{tools}
+			in:fade={{ duration: 150 }}
 		>
-			{#snippet icon()}
-				{#if (vmcp.components ?? []).length > 0}
-					<VMcpIcon
-						components={vmcp.components.map((component) => ({
-							name: component.name,
-							icon: component.catalogEntry.manifest.icon
-						}))}
-					/>
-				{:else}
-					<div class="bg-primary/10 text-primary shrink-0 rounded-md p-2">
-						<Layers class="size-5" />
-					</div>
-				{/if}
-			{/snippet}
-		</VMcpCard>
+			<VMcpCard
+				id={vmcp.id}
+				{name}
+				descriptionHTML={vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined}
+				connectURL={vmcpConnectURL(vmcp)}
+				selectAriaLabel={canEdit ? `Edit ${name}` : name}
+				onSelect={canEdit ? onEdit : undefined}
+				{onConnect}
+				onDelete={canEdit ? onDelete : undefined}
+				{isOwner}
+				class={twMerge(
+					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
+					canEdit && 'cursor-pointer'
+				)}
+				note={owner}
+			>
+				{#snippet icon()}
+					{#if (vmcp.components ?? []).length > 0}
+						<VMcpIcon
+							components={vmcp.components.map((component) => ({
+								name: component.name,
+								icon: component.catalogEntry.manifest.icon
+							}))}
+						/>
+					{:else}
+						<div class="bg-primary/10 text-primary shrink-0 rounded-md p-2">
+							<Layers class="size-5" />
+						</div>
+					{/if}
+				{/snippet}
+			</VMcpCard>
+		</div>
+		<div class="flex justify-between gap-4 pt-1 px-0.5">
+			<p class="text-muted-content text-xs font-light">{vmcp.components.length} Servers</p>
+
+			{#if tools}
+				<p class="text-muted-content text-xs font-light items-center flex gap-1">
+					{#if tools.total === 0}
+						All tools enabled
+					{:else}
+						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
+						{#if tools.approximate}
+							<InfoTooltip
+								class="pointer-events-auto relative z-10"
+								text={roughEstimationText}
+								placement="bottom-end"
+							/>
+						{/if}
+					{/if}
+				</p>
+			{/if}
+		</div>
 	</div>
 {/snippet}
 

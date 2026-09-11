@@ -1,10 +1,8 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import type { getToolCounts } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import DotDotDot from '../DotDotDot.svelte';
-	import InfoTooltip from '../InfoTooltip.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
 	import { ExternalLink, Trash2 } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -27,7 +25,6 @@
 		selectAriaLabel: string;
 		enterDelay?: number;
 		isOwner?: boolean;
-		tools?: ReturnType<typeof getToolCounts>;
 		note?: string;
 	}
 
@@ -47,14 +44,8 @@
 		selectAriaLabel,
 		enterDelay,
 		isOwner,
-		tools,
 		note
 	}: Props = $props();
-
-	const roughEstimationText =
-		'This is a rough approximation of the number of tools available. The exact number may vary.';
-
-	let hasFooterContent = $derived(note || tools);
 </script>
 
 <div
@@ -142,27 +133,11 @@
 		<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
 	</div>
 
-	{#if hasFooterContent}
+	{#if note}
 		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
 			<p class="text-muted-content text-xs font-light min-h-4">
 				{note}
 			</p>
-			{#if tools}
-				<p class="text-muted-content text-xs font-light items-center flex gap-1">
-					{#if tools.total === 0}
-						All tools enabled
-					{:else}
-						{tools.approximate ? '~' : ''}{tools.enabled} tools enabled
-						{#if tools.approximate}
-							<InfoTooltip
-								class="pointer-events-auto relative z-10"
-								text={roughEstimationText}
-								placement="bottom-end"
-							/>
-						{/if}
-					{/if}
-				</p>
-			{/if}
 		</div>
 	{/if}
 </div>
