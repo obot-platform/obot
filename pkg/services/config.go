@@ -499,6 +499,10 @@ func parsePodSchedulingJSONFields(affinityJSON, tolerationsJSON, resourcesJSON, 
 }
 
 func New(ctx context.Context, config Config) (*Services, error) {
+	if config.MCPAuditLogMaxBodyBytes != nil && *config.MCPAuditLogMaxBodyBytes < 0 {
+		return nil, errors.New("mcpaudit-log-max-body-bytes must be non-negative")
+	}
+
 	initialOwnerConfigured := config.LocalAuthInitialOwnerEmail != "" || config.LocalAuthInitialOwnerSetupToken != ""
 	if initialOwnerConfigured {
 		if !config.EnableAuthentication {
@@ -664,6 +668,7 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.LLMAuditLogRetentionDays,
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
+		client.WithMCPAuditLogPolicy(config.DisableMCPAuditLog, config.MCPAuditLogMaxBodyBytes),
 	)
 
 	if err := migrateGPTScriptCredentials(ctx, gatewayClient, gatewayDB, config.DSN); err != nil {
