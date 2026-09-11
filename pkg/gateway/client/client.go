@@ -33,9 +33,6 @@ const (
 	DefaultDeviceLimit = 100
 )
 
-// Option configures the gateway client before its background workers start.
-type Option func(*Client)
-
 type Client struct {
 	egressAuditLock           sync.Mutex
 	egressAuditPersistLock    sync.Mutex
@@ -81,7 +78,7 @@ type Client struct {
 	kickLifecycleDelivery     chan struct{}
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool, options ...Option) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled, mcpAuditDisabled bool, mcpAuditMaxBodyBytes, llmAuditMaxBodyBytes *int) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -99,6 +96,7 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		db:                        db,
 		encryptionConfig:          encryptionConfig,
 		emailsWithExplicitRoles:   explicitRoleEmailsSet,
+		mcpAuditDisabled:          mcpAuditDisabled,
 		auditBuffer:               make([]types.MCPAuditLog, 0, 2*auditLogBatchSize),
 		kickAuditPersist:          make(chan struct{}),
 		enforcementBuffer:         make([]types.EnforcementDecisionLog, 0, 2*auditLogBatchSize),
@@ -119,8 +117,11 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		kickLifecycleDelivery:     make(chan struct{}, 1),
 	}
 
-	for _, option := range options {
-		option(c)
+	if mcpAuditMaxBodyBytes != nil {
+		c.mcpAuditMaxBodyBytes = new(*mcpAuditMaxBodyBytes)
+	}
+	if llmAuditMaxBodyBytes != nil {
+		c.llmAuditMaxBodyBytes = new(*llmAuditMaxBodyBytes)
 	}
 
 	if !c.mcpAuditDisabled {

@@ -54,7 +54,7 @@ func newHandlerTestGatewayWithDB(t *testing.T) (*gclient.Client, *gorm.DB) {
 	database, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, database.AutoMigrate())
-	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	return gateway, services.DB.DB
 }

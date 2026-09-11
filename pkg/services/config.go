@@ -612,8 +612,9 @@ func New(ctx context.Context, config Config) (*Services, error) {
 		config.LLMAuditLogRetentionDays,
 		config.DeviceScanRetentionDays,
 		!config.DisableLLMAuditLog,
-		client.WithMCPAuditLogPolicy(config.DisableMCPAuditLog, config.MCPAuditLogMaxBodyBytes),
-		client.WithLLMAuditLogBodyLimit(config.LLMAuditLogMaxBodyBytes),
+		config.DisableMCPAuditLog,
+		config.MCPAuditLogMaxBodyBytes,
+		config.LLMAuditLogMaxBodyBytes,
 	)
 	go scimsetup.RunGroupSubjectCleanups(ctx, gatewayClient, storageClient)
 
