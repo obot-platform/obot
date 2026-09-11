@@ -8,28 +8,18 @@ When enabled, Obot reports aggregate product usage once per day. These reports h
 understand which capabilities are used and prioritize product improvements. Product analytics
 applies to the installation as a whole, not to an individual user.
 
-Obot does not include prompts, messages, credentials, URLs, custom MCP server configuration details,
-authentication-provider settings beyond its type, or audit-log content in product-analytics reports.
+Obot does not include prompts, messages, credentials, URLs, custom MCP server configuration details, or audit-log content in product-analytics reports.
 
 ## Consent
 
-When an installation has no recorded decision, the **Welcome to Obot** dialog shows Owners and
-Admins a checked checkbox for sharing product usage data. Continuing with the checkbox checked opts
-the installation in; clearing it before continuing opts the installation out.
+For self-hosted installations, Owners and Admins can choose whether to share product usage data in the **Welcome to Obot** dialog
+and change their choice at any time from **Platform > Product Analytics**. No product analytics data
+is sent unless they opt in.
 
-If Obot cannot save the choice, onboarding continues and consent remains undecided. The checkbox is
-not shown again during that login session, but it appears during a later login so an administrator
-can retry.
+Operators can override this choice with `OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED=true`, which
+enables analytics and prevents users from opting out through Obot.
 
-Until an Owner or Admin explicitly opts in, Obot does not send a product-telemetry request. An
-installation that opts out also sends no product-telemetry request.
-
-Owners and Admins can change the installation's decision at any time from **Platform > Product
-Analytics**.
-
-An operator can force-enable product analytics by setting
-`OBOT_SERVER_PRODUCT_ANALYTICS_FORCE_ENABLED=true`. In that mode analytics is enabled and the consent
-prompt, navigation item, and editable setting are unavailable. Users cannot opt out through Obot.
+Obot Cloud deployments are always opted in to product analytics.
 
 ## Data included
 
