@@ -33,6 +33,9 @@ const (
 	DefaultDeviceLimit = 100
 )
 
+// Option configures the gateway client before its background workers start.
+type Option func(*Client)
+
 type Client struct {
 	egressAuditLock           sync.Mutex
 	egressAuditPersistLock    sync.Mutex
@@ -48,6 +51,8 @@ type Client struct {
 	db                        *db.DB
 	encryptionConfig          *encryptionconfig.EncryptionConfiguration
 	emailsWithExplicitRoles   map[string]types2.Role
+	mcpAuditDisabled          bool
+	mcpAuditMaxBodyBytes      *int
 	auditLock                 sync.Mutex
 	auditBuffer               []types.MCPAuditLog
 	kickAuditPersist          chan struct{}
@@ -75,7 +80,7 @@ type Client struct {
 	kickLifecycleDelivery     chan struct{}
 }
 
-func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool) *Client {
+func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptionConfig *encryptionconfig.EncryptionConfiguration, mcpOAuthTokenTrigger func(context.Context, string) error, ownerEmails, adminEmails []string, auditLogPersistenceInterval time.Duration, auditLogBatchSize, auditLogRetentionDays, llmAuditLogRetentionDays, deviceScanRetentionDays int, llmAuditEnabled bool, options ...Option) *Client {
 	explicitRoleEmailsSet := make(map[string]types2.Role, len(ownerEmails)+len(adminEmails))
 	for _, email := range adminEmails {
 		explicitRoleEmailsSet[strings.ToLower(email)] = types2.RoleAdmin
@@ -113,8 +118,15 @@ func New(ctx context.Context, db *db.DB, storageClient kclient.Client, encryptio
 		kickLifecycleDelivery:     make(chan struct{}, 1),
 	}
 
+	for _, option := range options {
+		option(c)
+	}
+
+	if !c.mcpAuditDisabled {
+		go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
+	}
+
 	go c.runEgressAuditPersistenceLoop(egressCtx, auditLogPersistenceInterval)
-	go c.runMCPAuditLogPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runEnforcementDecisionPersistenceLoop(ctx, auditLogPersistenceInterval)
 	go c.runLLMAuditPersistenceLoop(ctx, c.llmAuditBatchSize, auditLogPersistenceInterval)
 	go c.runPendingStateCleanup(ctx)
