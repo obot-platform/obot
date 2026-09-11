@@ -21,8 +21,7 @@
 		MonitorCheck,
 		PencilRuler,
 		ScanLine,
-		Server,
-		Users
+		Server
 	} from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 
@@ -147,12 +146,6 @@
 			seeMore: '/inventory?view=devices'
 		},
 		{
-			key: 'users',
-			label: 'Unique Users',
-			value: stats?.userCount ?? 0,
-			icon: Users
-		},
-		{
 			key: 'clients',
 			label: 'Unique Clients',
 			value: totalClientGroups,
@@ -194,9 +187,7 @@
 		</p>
 	</div>
 {:else}
-	<div
-		class="paper dark:divide-base-400 divide-base-300 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5"
-	>
+	<div class="paper dark:divide-base-400 divide-base-300 grid grid-cols-2 divide-x lg:grid-cols-4">
 		{#each tiles as tile (tile.key)}
 			{@render statCell(tile)}
 		{/each}

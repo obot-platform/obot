@@ -265,13 +265,6 @@
 			seeMore: '/inventory?view=devices'
 		},
 		{
-			id: 'device-users',
-			label: 'Unique Users',
-			loading: loadingDeviceScanStats,
-			value: deviceScanStats?.userCount ?? 0,
-			icon: Users
-		},
-		{
 			id: 'device-clients',
 			label: 'Unique Clients',
 			loading: loadingDeviceScanStats,
@@ -330,7 +323,7 @@
 							<h4 class="flex items-center font-light text-xs uppercase">Device Scans</h4>
 						</div>
 						<div class="@container min-w-0 w-full max-w-full">
-							<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-5">
+							<div class="grid w-full grid-cols-2 gap-0 @md:grid-cols-12 @3xl:grid-cols-4">
 								{#each deviceScanTiles as deviceScanStat (deviceScanStat.id)}
 									{@render deviceScanStatCell(deviceScanStat)}
 								{/each}
@@ -641,7 +634,7 @@
 {#snippet deviceScanStatCell(deviceScanStat: (typeof deviceScanTiles)[number])}
 	{@const defaultClasses = 'p-2 flex gap-2 items-center justify-between w-full'}
 	<div
-		class="col-span-2 @sm:col-span-1 min-w-0 flex @sm:border-r @sm:not-odd:border-r-0 px-2 my-2 @md:col-span-6 @min-[545px]:col-span-4 @md:last:border-r-0 @md:not-last:border-base-300 @3xl:col-span-1 @3xl:not-odd:border-r"
+		class="col-span-2 @sm:col-span-1 min-w-0 flex @sm:border-r @sm:not-odd:border-r-0 px-2 my-2 @md:col-span-6 @md:last:border-r-0 @md:not-last:border-base-300 @3xl:col-span-1 @3xl:not-odd:not-last:border-r"
 	>
 		{#if deviceScanStat.seeMore}
 			<a
