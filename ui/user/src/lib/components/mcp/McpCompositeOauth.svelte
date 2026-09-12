@@ -7,15 +7,23 @@
 	import { Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		compositeMcpId: string;
 		vmcpId?: string;
 		oauthAuthRequestId?: string;
 		onComplete?: () => void;
+		class?: string;
 	}
 
-	let { compositeMcpId, vmcpId, oauthAuthRequestId, onComplete }: Props = $props();
+	let {
+		compositeMcpId,
+		vmcpId,
+		oauthAuthRequestId,
+		onComplete,
+		class: className
+	}: Props = $props();
 
 	type OAuthParent = VMCP;
 	const metadataId = $derived(vmcpId || compositeMcpId);
@@ -159,7 +167,9 @@
 	});
 </script>
 
-<div class="colors-background flex min-h-screen items-center justify-center p-4">
+<div
+	class={twMerge('colors-background flex min-h-screen items-center justify-center p-4', className)}
+>
 	<div class="popover w-full max-w-lg p-6">
 		<div class="mb-6 flex items-center gap-3">
 			<div class="bg-base-200 shrink-0 rounded-md p-2">

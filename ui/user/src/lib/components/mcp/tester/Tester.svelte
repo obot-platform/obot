@@ -90,6 +90,10 @@
 		chat?.newChat();
 	}
 
+	export function reconnect(): void {
+		void session?.initialize(true);
+	}
+
 	$effect(() => {
 		const target = server;
 		if (!active || loading || !target) {

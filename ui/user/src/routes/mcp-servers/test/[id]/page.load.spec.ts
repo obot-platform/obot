@@ -112,6 +112,7 @@ describe('MCP tester route load', () => {
 		const result = await loadTester(target.id, vmcpRouteFetcher(target));
 
 		expect(result).toMatchObject({
+			vmcpID: target.id,
 			server: {
 				id: target.id,
 				configured: true,
@@ -186,6 +187,7 @@ describe('MCP tester route load', () => {
 		const result = await loadTester(instance.id, vmcpRouteFetcher(target, [instance]));
 
 		expect(result).toMatchObject({
+			vmcpID: target.id,
 			server: {
 				id: instance.id,
 				userID: instance.userID,

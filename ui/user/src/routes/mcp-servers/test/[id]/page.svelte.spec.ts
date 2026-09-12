@@ -1,4 +1,5 @@
 import { page as appPage } from '$app/state';
+import { MCPTesterSession } from '$lib/services/mcp/tester.svelte';
 import { preparePageData } from '../../../../tests/helpers/pageData';
 import { createMcpServerDetailsFixtures } from '../../../../tests/mocks/data';
 import { worker } from '../../../../tests/mocks/worker';
@@ -122,6 +123,194 @@ function testerSection(name: string | RegExp) {
 }
 
 describe('MCP Tester page', () => {
+	it.each(['vmcp1-auth-test', 'vmcpi1-auth-test'])(
+		'authenticates a newly added service and resumes chatting for %s',
+		async (connectID) => {
+			const vmcpID = 'vmcp1-auth-test';
+			const componentCheck = vi
+				.fn()
+				.mockReturnValueOnce({ authURL: 'https://example.com/calendar/retry' })
+				.mockReturnValue({});
+			mockMCPInitialization({}, undefined, connectID);
+			worker.use(
+				http.post(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 401 }), {
+					once: true
+				}),
+				http.get(`/api/vmcps/${vmcpID}`, () =>
+					HttpResponse.json({ id: vmcpID, displayName: 'Mail and Calendar', components: [] })
+				),
+				http.get(`/api/oauth/vmcp/${connectID}`, () =>
+					HttpResponse.json([
+						{
+							mcpServerID: 'calendar',
+							name: 'Calendar',
+							authURL: 'https://example.com/calendar/oauth'
+						}
+					])
+				),
+				http.get(`/api/oauth/vmcp/${connectID}/components/calendar`, () => {
+					return HttpResponse.json(componentCheck());
+				}),
+				http.post(`/api/mcp-servers/${connectID}/tester/chat`, () =>
+					chatStream(
+						{ type: 'assistant_message_start' },
+						{ type: 'text_delta', delta: 'Your calendar is connected.' },
+						{ type: 'completion', reason: 'stop' }
+					)
+				)
+			);
+			appPage.url.searchParams.delete('tab');
+			const data = await preparePageData<PageData>({
+				...chatModelData,
+				server: {
+					...fixtures.serverSingle,
+					id: connectID,
+					configured: true,
+					deploymentStatus: 'Available',
+					manifest: { name: 'Mail and Calendar', runtime: 'vmcp' }
+				},
+				vmcpID,
+				backTarget: `/vmcps/${vmcpID}`
+			});
+			render(TesterPage, { data });
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			await expect.element(page.getByText('Calendar', { exact: true })).toBeVisible();
+			await page.getByRole('button', { name: 'Back to tester' }).click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			const authenticate = page.getByRole('link', { name: 'Authenticate', exact: true });
+			await expect
+				.element(authenticate)
+				.toHaveAttribute('href', 'https://example.com/calendar/oauth');
+			await expect
+				.element(page.getByRole('textbox', { name: 'Message', exact: true }))
+				.not.toBeInTheDocument();
+			await authenticate.click();
+			document.dispatchEvent(new Event('visibilitychange'));
+			await expect
+				.element(authenticate)
+				.toHaveAttribute('href', 'https://example.com/calendar/retry');
+			await expect
+				.element(page.getByRole('textbox', { name: 'Message', exact: true }))
+				.not.toBeInTheDocument();
+			await authenticate.click();
+			document.dispatchEvent(new Event('visibilitychange'));
+
+			await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Check my calendar');
+			await page.getByRole('button', { name: 'Send', exact: true }).click();
+			await expect.element(page.getByText('Your calendar is connected.')).toBeVisible();
+			expect(componentCheck).toHaveBeenCalledTimes(2);
+			await expect.element(authenticate).not.toBeInTheDocument();
+		}
+	);
+
+	it('keeps server management available for non-vMCP authentication', async () => {
+		mockMCPInitializationFailure(401);
+		appPage.url.searchParams.delete('tab');
+		const backTarget = `/mcp-servers/s/${fixtures.serverSingle.id}`;
+		const data = await preparePageData<PageData>({
+			server: { ...fixtures.serverSingle, configured: true, deploymentStatus: 'Available' },
+			backTarget
+		});
+		render(TesterPage, { data });
+
+		await expect
+			.element(page.getByRole('link', { name: 'Manage authentication' }))
+			.toHaveAttribute('href', backTarget);
+	});
+
+	it('preserves an existing conversation through vMCP reauthentication', async () => {
+		const connectID = 'vmcpi1-existing-chat';
+		const vmcpID = 'vmcp1-existing-chat';
+		const requests = vi.fn();
+		worker.use(
+			http.get(`/api/vmcps/${vmcpID}`, () =>
+				HttpResponse.json({ id: vmcpID, displayName: 'Calendar', components: [] })
+			),
+			http.get(`/api/oauth/vmcp/${connectID}`, () =>
+				HttpResponse.json([
+					{
+						mcpServerID: 'calendar',
+						name: 'Calendar',
+						authURL: 'https://example.com/calendar/oauth'
+					}
+				])
+			),
+			http.get(`/api/oauth/vmcp/${connectID}/components/calendar`, () => HttpResponse.json({})),
+			http.delete(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 204 })),
+			http.post(`/api/mcp-servers/${connectID}/tester/chat`, async ({ request }) => {
+				requests(await request.json());
+				return chatStream(
+					{ type: 'assistant_message_start' },
+					{
+						type: 'text_delta',
+						delta:
+							requests.mock.calls.length === 1 ? 'Your existing answer.' : 'Your follow-up answer.'
+					},
+					{ type: 'completion', reason: 'stop' }
+				);
+			})
+		);
+		const initialize = vi.spyOn(MCPTesterSession.prototype, 'initialize');
+		try {
+			await renderTester('chat', {}, undefined, {
+				...chatModelData,
+				server: {
+					...fixtures.serverSingle,
+					id: connectID,
+					configured: true,
+					deploymentStatus: 'Available',
+					manifest: { name: 'Calendar', runtime: 'vmcp' }
+				},
+				vmcpID,
+				backTarget: `/vmcps/${vmcpID}`
+			});
+			const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+			await composer.fill('Check my calendar');
+			await page.getByRole('button', { name: 'Send', exact: true }).click();
+			await expect.element(page.getByText('Your existing answer.', { exact: true })).toBeVisible();
+
+			// Force a real reconnect to encounter expired credentials after a conversation exists.
+			worker.use(
+				http.post(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 401 }), {
+					once: true
+				})
+			);
+			await (initialize.mock.contexts[0] as MCPTesterSession).initialize(true);
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			await expect
+				.element(page.getByRole('navigation', { name: 'MCP tester sections', includeHidden: true }))
+				.not.toBeVisible();
+			await page.getByRole('button', { name: 'Back to tester' }).click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			await page.getByRole('link', { name: 'Authenticate', exact: true }).click();
+			document.dispatchEvent(new Event('visibilitychange'));
+
+			await expect.element(page.getByText('Your existing answer.', { exact: true })).toBeVisible();
+			await composer.fill('What about tomorrow?');
+			await page.getByRole('button', { name: 'Send', exact: true }).click();
+			await expect.element(page.getByText('Your follow-up answer.', { exact: true })).toBeVisible();
+			expect(requests.mock.calls[1][0]).toMatchObject({
+				messages: [
+					{ role: 'user', content: [{ type: 'text', text: 'Check my calendar' }] },
+					{ role: 'assistant', content: [{ type: 'text', text: 'Your existing answer.' }] },
+					{ role: 'user', content: [{ type: 'text', text: 'What about tomorrow?' }] }
+				]
+			});
+		} finally {
+			initialize.mockRestore();
+		}
+	});
+
 	it('initializes the shell and defaults an invalid tab to Chat', async () => {
 		await renderTester('not-a-tab');
 
