@@ -47,11 +47,23 @@
 				)
 			: undefined
 	);
-	let chatAvailable = $derived(Boolean(configuredDefault?.model && defaultModel));
+
+	let chatAvailable = $derived(
+		version.current.hasModelProvider !== null &&
+			(version.current.hasModelProvider === false
+				? version.current.mcpTesterFallbackAvailable === true
+				: Boolean(configuredDefault?.model && defaultModel))
+	);
 	let chatUnavailableMessage = $derived(
-		!configuredDefault?.model
-			? 'No default llm model is configured. Configure one to use Chat.'
-			: 'The configured default llm model is inactive or unavailable to your account.'
+		version.current.hasModelProvider === null
+			? 'Model configuration is unavailable or changing. Try again later.'
+			: version.current.hasModelProvider === false
+				? version.current.hasValidLicense !== true
+					? 'Register a valid Obot license to use Chat without a model provider.'
+					: 'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+				: !configuredDefault?.model
+					? 'No default llm model is configured. Configure one to use Chat.'
+					: 'The configured default llm model is inactive or unavailable to your account.'
 	);
 
 	const sections: Array<{ id: TesterSection; label: string }> = [

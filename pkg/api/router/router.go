@@ -50,6 +50,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 		HostedAgentsEnabled:     services.HostedAgentsEnabled,
 		HideK8sDetails:          services.HideK8sDetails,
 		UpgradeStatusReader:     services.VersionChecker,
+		ProviderConfiguration:   services.ProviderDispatcher,
+		ModelProxyURL:           services.ModelProxyURL,
+		ModelProxySettings:      services.GatewayClient,
 	})
 
 	mcpGateway, err := mcpgateway.NewHandler(
@@ -114,7 +117,16 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 	defaultModelAliases := handlers.NewDefaultModelAliasHandler()
 	images := handlers.NewImageHandler()
 	mcp := handlers.NewMCPHandler(services.MCPSessionManager, services.AccessControlRuleHelper, oauthChecker, services.Router.Backend(), services.MCPImagePullSecrets, services.ServerURL, services.MCPSecretBindingAllowedLabel, services.ForceDynamicClient)
-	mcpTester := handlers.NewMCPTesterHandler(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.ServerURL, nil)
+
+	mcpTester := handlers.NewMCPTesterHandler(services.StorageClient, services.MCPSessionManager, services.AccessControlRuleHelper, services.ModelAccessPolicyHelper, services.ServerURL, nil, handlers.MCPTesterFallbackOptions{
+		URL:           services.ModelProxyURL,
+		Providers:     services.ProviderDispatcher,
+		License:       services.LicenseProvider,
+		GatewayClient: services.GatewayClient,
+		Settings:      services.GatewayClient,
+	})
+	modelProxy := handlers.NewModelProxyHandler(services.GatewayClient, services.ModelProxyConfiguredURL, services.ModelProxyURL, services.LicenseProvider)
+
 	mcpSecretBindings := handlers.NewMCPSecretBindingHandler(services.MCPRuntimeBackend, services.LocalK8sClient, services.ObotNamespace, services.MCPSecretBindingAllowedLabel)
 	mcpAuditLogs := mcpgateway.NewAuditLogHandler(services.GatewayClient)
 	localAgentAuditLogs := mcpgateway.NewLocalAgentAuditLogHandler()
@@ -630,6 +642,9 @@ func NewRouter(ctx context.Context, services *services.Services) (*Router, error
 
 	// Model providers
 	mux.HandleFunc("GET /api/model-providers", modelProviders.List)
+	mux.HandleFunc("GET /api/model-proxy", modelProxy.Get)
+	mux.HandleFunc("PUT /api/model-proxy", modelProxy.Update)
+	mux.HandleFunc("GET /api/model-proxy/usage", modelProxy.Usage)
 	mux.HandleFunc("GET /api/model-providers/{model_provider_id}", modelProviders.ByID)
 	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/configure", modelProviders.Configure)
 	mux.HandleFunc("POST /api/model-providers/{model_provider_id}/deconfigure", modelProviders.Deconfigure)

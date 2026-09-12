@@ -152,6 +152,11 @@ func (p *Provider) LicenseKey(ctx context.Context) (string, error) {
 	return snapshot.key, nil
 }
 
+// MachineFingerprint returns the existing persisted installation identity.
+func (p *Provider) MachineFingerprint() string {
+	return p.machineFingerprint
+}
+
 func (p *Provider) LicenseKeyViaConfiguration() bool {
 	return p.configuredLicenseKey != ""
 }

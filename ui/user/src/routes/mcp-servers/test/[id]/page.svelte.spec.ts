@@ -151,6 +151,153 @@ describe('MCP Tester page', () => {
 		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 	});
 
+	it('allows licensed installations without a provider to chat through the Tester backend', async () => {
+		const requests = vi.fn();
+		worker.use(
+			http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, async ({ request }) => {
+				requests(await request.json());
+
+				return chatStream(
+					{ type: 'assistant_message_start' },
+					{ type: 'text_delta', delta: 'Testing without a configured provider' },
+					{ type: 'completion', reason: 'stop' }
+				);
+			})
+		);
+
+		await renderTester('chat', {}, undefined, {
+			models: [],
+			defaultModelAliases: [],
+			version: { hasModelProvider: false, hasValidLicense: true, mcpTesterFallbackAvailable: true }
+		});
+
+		await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test this server');
+		await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+		await expect.element(page.getByText('Testing without a configured provider')).toBeVisible();
+		expect(requests).toHaveBeenCalledOnce();
+		expect(requests.mock.calls[0][0]).not.toHaveProperty('model');
+		expect(requests.mock.calls[0][0]).not.toHaveProperty('license');
+	});
+
+	it('requires a valid license when no provider is configured', async () => {
+		await renderTester('chat', {}, undefined, {
+			models: [],
+			defaultModelAliases: [],
+			version: { hasModelProvider: false, hasValidLicense: false }
+		});
+
+		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect
+			.element(
+				page.getByText('Register a valid Obot license to use Chat without a model provider.')
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('region', { name: 'Chat composer' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('disables fallback Chat when the server reports it unavailable', async () => {
+		await renderTester('chat', {}, undefined, {
+			models: [],
+			defaultModelAliases: [],
+			version: {
+				hasModelProvider: false,
+				hasValidLicense: true,
+				mcpTesterFallbackAvailable: false
+			}
+		});
+
+		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect
+			.element(
+				page.getByText(
+					'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+				)
+			)
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('region', { name: 'Chat composer' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('disables Chat during provider reconciliation even with a cached default model', async () => {
+		await renderTester('chat', {}, undefined, {
+			...chatModelData,
+			version: { hasModelProvider: null, hasValidLicense: true, mcpTesterFallbackAvailable: false }
+		});
+
+		await expect
+			.element(page.getByText('Model configuration is unavailable or changing. Try again later.'))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('region', { name: 'Chat composer' }))
+			.not.toBeInTheDocument();
+	});
+
+	it('does not enable fallback for a configured provider with no default model', async () => {
+		await renderTester('chat', {}, undefined, {
+			models: [],
+			defaultModelAliases: [],
+			version: { hasModelProvider: true, hasValidLicense: true }
+		});
+
+		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByText('No default llm model is configured. Configure one to use Chat.'))
+			.toBeVisible();
+	});
+
+	it('keeps configured-provider Chat available without a license', async () => {
+		await renderTester('chat', {}, undefined, {
+			...chatModelData,
+			version: { hasModelProvider: true, hasValidLicense: false }
+		});
+
+		await expect.element(page.getByRole('region', { name: 'Chat composer' })).toBeVisible();
+	});
+
+	it.each([
+		{
+			code: 'quota_exceeded',
+			status: 429,
+			message: 'The daily budget is exhausted. It resets at 2026-09-10T00:00:00Z.'
+		},
+		{
+			code: 'license_required',
+			status: 503,
+			message: 'The registered Obot license is invalid. Update the installation license.'
+		}
+	])(
+		'displays $code from the backend without offering immediate retry',
+		async ({ code, status, message }) => {
+			worker.use(
+				http.post(`/api/mcp-servers/${fixtures.serverSingle.id}/tester/chat`, () =>
+					HttpResponse.json({ error: { code, message, retryable: false } }, { status })
+				)
+			);
+
+			await renderTester('chat', {}, undefined, {
+				models: [],
+				defaultModelAliases: [],
+				version: {
+					hasModelProvider: false,
+					hasValidLicense: true,
+					mcpTesterFallbackAvailable: true
+				}
+			});
+
+			await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test this server');
+			await page.getByRole('button', { name: 'Send', exact: true }).click();
+
+			await expect.element(page.getByText(message, { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Retry response' }))
+				.not.toBeInTheDocument();
+		}
+	);
+
 	it('uses a valid tab query value', async () => {
 		await renderTester('tools');
 		await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();

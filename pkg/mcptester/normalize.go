@@ -414,5 +414,10 @@ func (n *streamNormalizer) checkContext(ctx context.Context) error {
 	if ctx.Err() == nil {
 		return nil
 	}
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return n.fail(types.MCPTesterErrorProvider, "The model service timed out. Try again later.", true)
+	}
+
 	return n.fail(types.MCPTesterErrorCancelled, "request cancelled", false)
 }

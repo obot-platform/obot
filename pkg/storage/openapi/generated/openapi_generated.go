@@ -272,6 +272,10 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderList":                         schema_obot_platform_obot_apiclient_types_ModelProviderList(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderManifest":                     schema_obot_platform_obot_apiclient_types_ModelProviderManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelProviderStatus":                       schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProxySettings":                        schema_obot_platform_obot_apiclient_types_ModelProxySettings(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProxySettingsUpdate":                  schema_obot_platform_obot_apiclient_types_ModelProxySettingsUpdate(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProxyTokenUsage":                      schema_obot_platform_obot_apiclient_types_ModelProxyTokenUsage(ref),
+		"github.com/obot-platform/obot/apiclient/types.ModelProxyUsage":                           schema_obot_platform_obot_apiclient_types_ModelProxyUsage(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelResource":                             schema_obot_platform_obot_apiclient_types_ModelResource(ref),
 		"github.com/obot-platform/obot/apiclient/types.ModelStatus":                               schema_obot_platform_obot_apiclient_types_ModelStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.MultiUserConfig":                           schema_obot_platform_obot_apiclient_types_MultiUserConfig(ref),
@@ -14331,6 +14335,111 @@ func schema_obot_platform_obot_apiclient_types_ModelProviderStatus(ref common.Re
 		},
 		Dependencies: []string{
 			"github.com/obot-platform/obot/apiclient/types.CommonProviderStatus"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ModelProxySettings(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
+					"url": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"enabled", "url"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ModelProxySettingsUpdate(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"enabled": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+				},
+				Required: []string{"enabled"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ModelProxyTokenUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"used": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+					"max": {
+						SchemaProps: spec.SchemaProps{
+							Default: 0,
+							Type:    []string{"integer"},
+							Format:  "int64",
+						},
+					},
+				},
+				Required: []string{"used", "max"},
+			},
+		},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_ModelProxyUsage(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"input": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProxyTokenUsage"),
+						},
+					},
+					"output": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.ModelProxyTokenUsage"),
+						},
+					},
+					"resetAt": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("github.com/obot-platform/obot/apiclient/types.Time"),
+						},
+					},
+				},
+				Required: []string{"input", "output", "resetAt"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.ModelProxyTokenUsage", "github.com/obot-platform/obot/apiclient/types.Time"},
 	}
 }
 

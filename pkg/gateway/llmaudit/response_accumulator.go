@@ -65,7 +65,7 @@ func responseFormatForRequestPath(requestPath string) responseFormat {
 
 func responseFormatForProvider(modelProvider string) responseFormat {
 	switch modelProvider {
-	case system.OpenAIModelProvider:
+	case system.OpenAIModelProvider, "model-proxy":
 		return responseFormatOpenAIResponses
 	case system.AnthropicModelProvider:
 		return responseFormatAnthropicMessages
