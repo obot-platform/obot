@@ -15,7 +15,7 @@ import {
 	type VMCPManifest
 } from '$lib/services';
 import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
-import { mcpServersAndEntries } from '$lib/stores';
+import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
@@ -81,6 +81,7 @@ async function renderDesigner(
 	await preparePageData({
 		profile: createMockProfile(options?.groups ?? [Group.ADMIN])
 	});
+	vmcpInstances.current = { items: [], loading: false };
 	return render(VMcpDesigner, {
 		...(vmcp ? { vmcp } : {}),
 		...(options?.onBack ? { onBack: options.onBack } : {}),
@@ -161,6 +162,8 @@ async function pressCard(locator: ReturnType<typeof page.getByRole>, pointerId: 
 describe('VMcpDesigner.svelte', () => {
 	afterEach(() => {
 		appPage.url.searchParams.delete('view');
+		appPage.url.searchParams.delete('tab');
+		vmcpInstances.current = { items: [], loading: false };
 		finishVMcpCreateHandoff();
 	});
 
@@ -719,7 +722,8 @@ describe('VMcpDesigner.svelte', () => {
 			vmcp.userID = getProfileResponse.id;
 			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
 
-			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
 			await expect.element(page.getByRole('button', { name: 'Delete vMCP' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Hide MCP Servers' })).toBeVisible();
@@ -768,13 +772,14 @@ describe('VMcpDesigner.svelte', () => {
 			return vmcp;
 		}
 
-		it('hides delete, profile tabs, and the MCP Servers sidebar', async () => {
+		it('hides delete, the Profiles tab, and the MCP Servers sidebar', async () => {
 			await renderDesigner([componentEntry, slack], sharedVMcp(), { groups: [Group.USER] });
 
 			await expect
 				.element(page.getByRole('button', { name: 'Delete vMCP' }))
 				.not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
@@ -817,7 +822,70 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
 				.not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'Designer' })).not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+		});
+	});
+
+	describe('tester view', () => {
+		it('shows Designer, Profiles, and Tester tabs for an admin', async () => {
+			await renderDesigner([componentEntry], createIssueTrackerVMcp());
+
+			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
+		});
+
+		it('shows the launch notice when the vMCP has no instance', async () => {
+			appPage.url.searchParams.set('view', 'tester');
+			await renderDesigner([componentEntry], createIssueTrackerVMcp());
+
+			await expect
+				.element(
+					page.getByText(
+						'In order to test this VMCP, you will need to launch it. Click below to begin launching'
+					)
+				)
+				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Launch VMCP' })).toBeVisible();
+			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
+		});
+
+		it('opens tester for a non-admin owner without offering profiles', async () => {
+			appPage.url.searchParams.set('view', 'tester');
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.userID = getProfileResponse.id;
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+
+			await expect.element(page.getByRole('button', { name: 'Launch VMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
+		});
+
+		it('opens tester for a viewer without offering profiles', async () => {
+			appPage.url.searchParams.set('view', 'tester');
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.userID = 'someone-else';
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+
+			await expect.element(page.getByRole('button', { name: 'Launch VMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
+		});
+
+		it('starts ConnectVMcp initLaunch from the tester Launch button', async () => {
+			appPage.url.searchParams.set('view', 'tester');
+			await renderDesigner([componentEntry], createIssueTrackerVMcp());
+
+			await page.getByRole('button', { name: 'Launch VMCP' }).click();
+
+			await expect
+				.element(page.getByText('This will begin the initial setup process for this server.'))
+				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
 		});
 	});
 

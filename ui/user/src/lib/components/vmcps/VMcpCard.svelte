@@ -18,6 +18,7 @@
 		connected?: boolean;
 		onSelect?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
+		hideTest?: boolean;
 		onDelete?: () => void;
 		icon: Snippet;
 		children?: Snippet;
@@ -37,6 +38,7 @@
 		connected,
 		onSelect,
 		onConnect,
+		hideTest,
 		onDelete,
 		icon,
 		children,
@@ -130,7 +132,7 @@
 	{/if}
 
 	<div class="pointer-events-auto relative z-10">
-		<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} />
+		<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} {hideTest} />
 	</div>
 
 	{#if note}

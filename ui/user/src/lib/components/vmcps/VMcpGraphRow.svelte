@@ -206,6 +206,7 @@
 				selectAriaLabel={canEdit ? `Edit ${name}` : name}
 				onSelect={canEdit ? onEdit : undefined}
 				{onConnect}
+				hideTest
 				onDelete={canEdit ? onDelete : undefined}
 				{isOwner}
 				class={twMerge(

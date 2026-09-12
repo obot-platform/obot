@@ -13,6 +13,7 @@
 	import VMcpGraphRow from '$lib/components/vmcps/VMcpGraphRow.svelte';
 	import VMcpProfiles from '$lib/components/vmcps/VMcpProfiles.svelte';
 	import VMcpProfilesHint from '$lib/components/vmcps/VMcpProfilesHint.svelte';
+	import VMcpTester from '$lib/components/vmcps/VMcpTester.svelte';
 	import VMcpToolDialogs from '$lib/components/vmcps/VMcpToolDialogs.svelte';
 	import ViewModifyCatalogEntry from '$lib/components/vmcps/ViewModifyCatalogEntry.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -62,8 +63,8 @@
 
 	let { vmcp, onBack, usersMap }: Props = $props();
 
-	let requestedView = $derived(
-		(page.url.searchParams.get('view') as 'graph' | 'profiles' | undefined) ?? 'graph'
+	let view = $derived(
+		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'tester' | undefined) ?? 'graph'
 	);
 	let showRightPanel = $state(true);
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
@@ -94,7 +95,7 @@
 	let isOwner = $derived(profile.current.id === selectedVMcp?.userID);
 	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
 	let canShare = $derived(profile.current.isAdmin?.());
-	let viewType = $derived(canEdit ? requestedView : 'graph');
+	let viewType = $derived(view === 'profiles' && !canShare ? 'graph' : view);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
 		(isVMcpCreateHandoffPending() || componentDropPending) && !toolFlow.dialog
@@ -358,8 +359,9 @@
 				<Loading class="size-8" />
 			</div>
 		{/if}
+
+		{@render toggleSubview()}
 		{#if canShare}
-			{@render toggleSubview()}
 			<VMcpProfilesHint
 				show={showProfilesHint}
 				anchorEl={profilesTabEl}
@@ -375,6 +377,18 @@
 					selectedVMcp = updated;
 				}}
 			/>
+		{:else if viewType === 'tester'}
+			{#if selectedVMcp}
+				<div class="flex h-full min-h-0 flex-col p-3 pt-14">
+					<VMcpTester
+						vmcp={selectedVMcp}
+						onLaunch={() => {
+							if (!selectedVMcp) return;
+							handleConnectVMcp(selectedVMcp, { onConnected: () => {} });
+						}}
+					/>
+				</div>
+			{/if}
 		{:else}
 			<VMcpGraph
 				bind:viewportEl={graphCanvasEl}
@@ -450,7 +464,7 @@
 </Layout>
 
 {#snippet toggleSubview()}
-	<div class={twMerge('p-2 w-fit', viewType === 'graph' && 'absolute z-50 top-0 left-0')}>
+	<div class={twMerge('p-2 w-fit', viewType !== 'profiles' && 'absolute z-50 top-0 left-0')}>
 		<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
 			<button
 				class={twMerge(
@@ -461,16 +475,27 @@
 					setUrlParamAndUpdateUrl(page.url, 'view', 'graph');
 				}}>Designer</button
 			>
+			{#if canShare}
+				<button
+					bind:this={profilesTabEl}
+					class={twMerge(
+						'tab text-xs min-w-24',
+						viewType === 'profiles' && 'tab-active bg-base-300 dark:bg-base-100'
+					)}
+					onclick={() => {
+						dismissProfilesHint();
+						setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');
+					}}>Profiles</button
+				>
+			{/if}
 			<button
-				bind:this={profilesTabEl}
 				class={twMerge(
 					'tab text-xs min-w-24',
-					viewType === 'profiles' && 'tab-active bg-base-300 dark:bg-base-100'
+					viewType === 'tester' && 'tab-active bg-base-300 dark:bg-base-100'
 				)}
 				onclick={() => {
-					dismissProfilesHint();
-					setUrlParamAndUpdateUrl(page.url, 'view', 'profiles');
-				}}>Profiles</button
+					setUrlParamAndUpdateUrl(page.url, 'view', 'tester');
+				}}>Tester</button
 			>
 		</div>
 	</div>

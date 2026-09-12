@@ -12,9 +12,10 @@
 		connectButtonId?: string;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		id: string;
+		hideTest?: boolean;
 	}
 
-	let { connectURL, connectButtonId, onConnect, id }: Props = $props();
+	let { connectURL, connectButtonId, onConnect, id, hideTest = false }: Props = $props();
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -29,7 +30,7 @@
 	);
 
 	function goToTester() {
-		goto(`/vmcps/test/${id}`);
+		goto(`/vmcps/${id}?view=tester`);
 	}
 
 	function handleTest() {
@@ -70,14 +71,16 @@
 			/>
 		</div>
 	</div>
-	<button
-		type="button"
-		aria-label="Test vMCP"
-		use:tooltip={{ text: 'Test vMCP' }}
-		class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
-		onclick={handleTest}
-		disabled={hasLicenseEntitlementViolations}
-	>
-		<MessageCircle class="size-4" />
-	</button>
+	{#if !hideTest}
+		<button
+			type="button"
+			aria-label="Test vMCP"
+			use:tooltip={{ text: 'Test vMCP' }}
+			class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
+			onclick={handleTest}
+			disabled={hasLicenseEntitlementViolations}
+		>
+			<MessageCircle class="size-4" />
+		</button>
+	{/if}
 </div>
