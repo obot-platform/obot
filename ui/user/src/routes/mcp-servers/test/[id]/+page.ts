@@ -54,7 +54,7 @@ async function loadVMCPTesterTarget(
 	id: string,
 	profileId: string,
 	fetcher: typeof fetch
-): Promise<{ server: MCPCatalogServer; backTarget: string }> {
+): Promise<{ server: MCPCatalogServer; backTarget: string; vmcpID: string }> {
 	let instance: VMCPInstance | undefined;
 	let vmcpID = id;
 
@@ -76,7 +76,8 @@ async function loadVMCPTesterTarget(
 
 	return {
 		server: vmcpTesterServer(vmcp, id, instance),
-		backTarget: `/vmcps/${vmcp.id}`
+		backTarget: `/vmcps/${vmcp.id}`,
+		vmcpID: vmcp.id
 	};
 }
 

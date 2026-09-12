@@ -4,6 +4,7 @@
 	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Layout from '$lib/components/Layout.svelte';
+	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Chat from '$lib/components/mcp/tester/Chat.svelte';
 	import LogsInspector from '$lib/components/mcp/tester/LogsInspector.svelte';
 	import PromptsInspector from '$lib/components/mcp/tester/PromptsInspector.svelte';
@@ -32,6 +33,7 @@
 	let session = $state<MCPTesterSession>();
 	let chat = $state<MCPTesterChat>();
 	let confirmNewChat = $state(false);
+	let managingAuthentication = $state(false);
 	let activeSection = $derived(normalizeTesterSection(page.url.searchParams.get('tab')));
 	let serverName = $derived(data.server.alias || data.server.manifest.name || data.server.id);
 	let configuredDefault = $derived(
@@ -86,6 +88,11 @@
 	function startNewChat(): void {
 		confirmNewChat = false;
 		chat?.newChat();
+	}
+
+	function authenticationComplete(): void {
+		managingAuthentication = false;
+		void session?.initialize(true);
 	}
 
 	onMount(() => {
@@ -175,7 +182,23 @@
 			{/each}
 		</nav>
 
-		{#if activeSection === 'logs'}
+		{#if managingAuthentication && data.vmcpID}
+			<section class="min-h-0 flex-1 overflow-y-auto">
+				<button
+					type="button"
+					class="btn btn-secondary btn-sm mb-3"
+					onclick={() => (managingAuthentication = false)}
+				>
+					<ArrowLeft class="size-4" aria-hidden="true" /> Back to tester
+				</button>
+				<McpCompositeOauth
+					class="min-h-0"
+					compositeMcpId={data.server.id}
+					vmcpId={data.vmcpID}
+					onComplete={authenticationComplete}
+				/>
+			</section>
+		{:else if activeSection === 'logs'}
 			<section class={CARD_CLASS}>
 				<LogsInspector {session} {serverName} onretry={() => session?.initialize(true)} />
 			</section>
@@ -203,9 +226,19 @@
 				<KeyRound class="mb-2 size-5 text-warning" aria-hidden="true" />
 				<h2 class="font-semibold">Reauthentication required</h2>
 				<p class="mt-1 text-sm">Reconnect this server before using the tester.</p>
-				<a class="btn btn-primary btn-sm mt-4" href={resolve(data.backTarget as `/${string}`)}
-					>Manage authentication</a
-				>
+				{#if data.vmcpID}
+					<button
+						type="button"
+						class="btn btn-primary btn-sm mt-4"
+						onclick={() => (managingAuthentication = true)}
+					>
+						Manage authentication
+					</button>
+				{:else}
+					<a class="btn btn-primary btn-sm mt-4" href={resolve(data.backTarget as `/${string}`)}
+						>Manage authentication</a
+					>
+				{/if}
 			</section>
 		{:else if session.status === 'setup-required'}
 			<section class="notification-alert p-6" role="status">
