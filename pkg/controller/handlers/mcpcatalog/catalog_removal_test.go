@@ -318,12 +318,15 @@ func managedCatalogEntry(t *testing.T, catalog *v1.MCPCatalog, name string) *v1.
 	}
 }
 
-func newCatalogFakeClient(objects ...kclient.Object) kclient.Client {
+func newCatalogFakeClient(objects ...kclient.Object) kclient.WithWatch {
 	restMapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{v1.SchemeGroupVersion})
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPCatalog"), meta.RESTScopeNamespace)
 	restMapper.Add(v1.SchemeGroupVersion.WithKind("MCPServerCatalogEntry"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPCatalog"), meta.RESTScopeNamespace)
+	restMapper.Add(v1.SchemeGroupVersion.WithKind("SystemMCPServerCatalogEntry"), meta.RESTScopeNamespace)
 	return fake.NewClientBuilder().
 		WithScheme(scheme.Scheme).
+		WithStatusSubresource(&v1.MCPCatalog{}, &v1.SystemMCPCatalog{}).
 		WithRESTMapper(restMapper).
 		WithIndex(&v1.MCPServerCatalogEntry{}, "spec.mcpCatalogName", func(obj kclient.Object) []string {
 			entry := obj.(*v1.MCPServerCatalogEntry)
