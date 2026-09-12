@@ -41,7 +41,7 @@
 	});
 </script>
 
-<section class="flex flex-col gap-3 md:min-h-0" aria-label={`${label} list`}>
+<section class="flex flex-col gap-3 p-1 md:min-h-0" aria-label={`${label} list`}>
 	<div class="flex shrink-0 flex-wrap gap-2">
 		<label class="relative min-w-48 flex-1">
 			<Search

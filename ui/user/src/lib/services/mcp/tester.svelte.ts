@@ -8,6 +8,8 @@ import {
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
 	ErrorCode,
+	ListPromptsResultSchema,
+	ListResourcesResultSchema,
 	McpError,
 	type CallToolResult,
 	type GetPromptResult,
@@ -106,6 +108,17 @@ export interface MCPPageCollection<T, TPage = unknown> {
 type ToolsPage = Awaited<ReturnType<Client['listTools']>>;
 type PromptsPage = Awaited<ReturnType<Client['listPrompts']>>;
 type ResourcesPage = Awaited<ReturnType<Client['listResources']>>;
+
+// Some servers advertise these capabilities but omit empty lists or serialize them as null.
+// Keep validating list entries and pagination while accepting those empty representations.
+const testerPromptsResultSchema = ListPromptsResultSchema.extend({
+	prompts: ListPromptsResultSchema.shape.prompts.nullish().transform((prompts) => prompts ?? [])
+});
+const testerResourcesResultSchema = ListResourcesResultSchema.extend({
+	resources: ListResourcesResultSchema.shape.resources
+		.nullish()
+		.transform((resources) => resources ?? [])
+});
 
 export interface TesterCapabilityCaches {
 	tools: CapabilityCache<Tool>;
@@ -380,7 +393,12 @@ export class MCPTesterSession {
 		signal?: AbortSignal
 	): Promise<MCPPageCollection<PromptsPage['prompts'][number], PromptsPage>> {
 		return collectPages(
-			(cursor) => this.client.listPrompts(cursor ? { cursor } : {}, { signal }),
+			(cursor) =>
+				this.client.request(
+					{ method: 'prompts/list', params: cursor ? { cursor } : {} },
+					testerPromptsResultSchema,
+					{ signal }
+				),
 			(page) => page.prompts
 		);
 	}
@@ -389,7 +407,12 @@ export class MCPTesterSession {
 		signal?: AbortSignal
 	): Promise<MCPPageCollection<ResourcesPage['resources'][number], ResourcesPage>> {
 		return collectPages(
-			(cursor) => this.client.listResources(cursor ? { cursor } : {}, { signal }),
+			(cursor) =>
+				this.client.request(
+					{ method: 'resources/list', params: cursor ? { cursor } : {} },
+					testerResourcesResultSchema,
+					{ signal }
+				),
 			(page) => page.resources
 		);
 	}
@@ -442,6 +465,18 @@ export class MCPTesterSession {
 			cache.pages = result.pages;
 			cache.loaded = true;
 		} catch (error) {
+			if (
+				section !== 'tools' &&
+				!workflow.abort.signal.aborted &&
+				error instanceof McpError &&
+				error.code === ErrorCode.MethodNotFound
+			) {
+				cache.loaded = true;
+				cache.unsupported = true;
+				cache.items = [];
+				cache.pages = [];
+				return;
+			}
 			const classified = classifyOperationError(error, workflow.abort.signal);
 			cache.error = classified.message;
 			cache.errorStatus = classified.status;

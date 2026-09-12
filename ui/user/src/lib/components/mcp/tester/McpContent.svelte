@@ -2,6 +2,7 @@
 	import JsonPreview from '$lib/components/JsonPreview.svelte';
 	import { isSafeImageMimeType } from '$lib/services/nanobot/utils';
 	import CornerCopyButton from './CornerCopyButton.svelte';
+	import McpTextResult from './McpTextResult.svelte';
 
 	interface Props {
 		content: unknown;
@@ -9,11 +10,6 @@
 	}
 
 	let { content, collapseLongText = false }: Props = $props();
-
-	const longTextCharacterLimit = 2000;
-	const longTextLineLimit = 20;
-	const textPreviewCharacterLimit = 600;
-	const textPreviewLineLimit = 8;
 
 	function record(value: unknown): Record<string, unknown> | undefined {
 		return typeof value === 'object' && value !== null
@@ -31,18 +27,6 @@
 		}
 	}
 
-	function isLongText(value: string): boolean {
-		return value.length > longTextCharacterLimit || value.split(/\r?\n/).length > longTextLineLimit;
-	}
-
-	function textPreview(value: string): string {
-		return value
-			.split(/\r?\n/)
-			.slice(0, textPreviewLineLimit)
-			.join('\n')
-			.slice(0, textPreviewCharacterLimit);
-	}
-
 	let item = $derived(record(content));
 	let type = $derived(typeof item?.type === 'string' ? item.type : undefined);
 	let mimeType = $derived(typeof item?.mimeType === 'string' ? item.mimeType : undefined);
@@ -51,12 +35,6 @@
 		typeof resource?.mimeType === 'string' ? resource.mimeType : undefined
 	);
 	let externalURL = $derived(safeExternalURL(item?.uri));
-	let collapsedText = $derived(
-		type === 'text' && typeof item?.text === 'string' && collapseLongText && isLongText(item.text)
-			? item.text
-			: undefined
-	);
-	let collapsedTextPreview = $derived(collapsedText ? textPreview(collapsedText) : undefined);
 	// The bordered content box. Shared so CornerCopyButton can *be* the box where a copy
 	// control is offered, anchoring it to the box corner rather than to short content.
 	const BOX = 'border-base-300 dark:border-base-400 rounded-lg border p-3';
@@ -70,23 +48,17 @@
 </script>
 
 {#if type === 'text' && typeof item?.text === 'string'}
-	<CornerCopyButton text={item.text} label="Copy text" class={BOX}>
-		{#if collapsedText && collapsedTextPreview}
-			<pre
-				class="max-h-48 overflow-hidden pr-10 text-sm whitespace-pre-wrap wrap-break-word"
-				aria-label="Text preview">{collapsedTextPreview}<span aria-hidden="true">…</span></pre>
-			<details class="mt-3">
-				<summary class="cursor-pointer text-sm font-medium">Show full text</summary>
-				<pre
-					class="mt-2 max-h-96 overflow-auto text-sm whitespace-pre-wrap wrap-break-word"
-					aria-label="Full text">{collapsedText}</pre>
-			</details>
-		{:else}
+	{#if collapseLongText}
+		{#key item.text}
+			<McpTextResult text={item.text} />
+		{/key}
+	{:else}
+		<CornerCopyButton text={item.text} label="Copy text" class={BOX}>
 			<pre
 				class="overflow-auto pr-10 text-sm whitespace-pre-wrap wrap-break-word"
 				aria-label="Text content">{item.text}</pre>
-		{/if}
-	</CornerCopyButton>
+		</CornerCopyButton>
+	{/if}
 {:else if type === 'image' && typeof item?.data === 'string' && mimeType}
 	<div class={BOX}>
 		{#if isSafeImageMimeType(mimeType)}

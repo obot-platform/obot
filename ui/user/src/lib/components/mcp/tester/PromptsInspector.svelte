@@ -83,7 +83,7 @@
 	{#if cache.unsupported}
 		<div class="bg-base-200 dark:bg-base-300 shrink-0 rounded-lg p-5" role="status">
 			<h3 class="font-medium">Not supported</h3>
-			<p class="mt-1 text-sm text-muted-content">This server does not advertise prompt support.</p>
+			<p class="mt-1 text-sm text-muted-content">This server does not provide prompts.</p>
 		</div>
 	{:else if cache.error && !cache.loading}
 		<div class="notification-error mb-4 shrink-0 p-4" role="alert">
@@ -115,7 +115,7 @@
 			/>
 
 			<section
-				class="default-scrollbar-thin min-w-0 md:min-h-0 md:overflow-y-auto md:pr-1"
+				class="default-scrollbar-thin min-w-0 p-1 md:min-h-0 md:overflow-y-auto"
 				aria-label="Prompt details"
 			>
 				{#if selected}
@@ -204,7 +204,11 @@
 					<div
 						class="bg-base-200 dark:bg-base-300 rounded-lg p-6 text-center text-sm text-muted-content"
 					>
-						Select a prompt to provide arguments and preview it.
+						{#if cache.loaded && !cache.loading && !cache.error && cache.items.length === 0}
+							This server does not provide prompts.
+						{:else}
+							Select a prompt to provide arguments and preview it.
+						{/if}
 					</div>
 				{/if}
 			</section>
