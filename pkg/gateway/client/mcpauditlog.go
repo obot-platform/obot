@@ -197,7 +197,7 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 		if !mcp.ResponseReceived {
 			// Request-only logs
 			toInsert = append(toInsert, log)
-		} else if len(mcp.RequestBody) > 0 {
+		} else if mcp.RequestBodyPresent || len(mcp.RequestBody) > 0 {
 			// Complete logs (has both request and response data)
 			toInsert = append(toInsert, log)
 		} else {
@@ -243,6 +243,14 @@ func (c *Client) insertMCPAuditLogs(ctx context.Context, logs []types.MCPAuditLo
 				// Found matching request - update with response data
 				updates := map[string]any{
 					"response_received": true,
+				}
+
+				// Mutation indicators remain meaningful even when bodies are omitted.
+				if responseMCP.RequestMutated {
+					updates["request_mutated"] = true
+				}
+				if responseMCP.ResponseMutated {
+					updates["response_mutated"] = true
 				}
 
 				// Update response-specific fields if they have values

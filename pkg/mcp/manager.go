@@ -78,9 +78,11 @@ type Options struct {
 	ServiceAccountName string `usage:"The Kubernetes service account name for the obot server"`
 
 	// Audit log configuration
-	MCPAuditLogPersistIntervalSeconds int `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
-	MCPAuditLogsPersistBatchSize      int `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
-	MCPAuditLogRetentionDays          int `usage:"The number of days to retain MCP audit logs (0 to disable cleanup)" default:"90"`
+	MCPAuditLogMaxBodyBytes           *int `usage:"Maximum original bytes retained per MCP audit body (unset for unlimited, 0 to omit; JSON preview encoding adds overhead)"`
+	DisableMCPAuditLog                bool `usage:"Disable collection and persistence of new MCP audit logs" default:"false"`
+	MCPAuditLogPersistIntervalSeconds int  `usage:"The interval in seconds to persist MCP audit logs to the database" default:"5"`
+	MCPAuditLogsPersistBatchSize      int  `usage:"The number of MCP audit logs to persist in a single batch" default:"1000"`
+	MCPAuditLogRetentionDays          int  `usage:"The number of days to retain MCP audit logs (0 to disable cleanup)" default:"90"`
 
 	// Pod Security Admission configuration for MCP namespace
 	MCPPodSecurityEnabled        bool   `usage:"Enable Pod Security Admission labels on the MCP namespace" default:"true"`

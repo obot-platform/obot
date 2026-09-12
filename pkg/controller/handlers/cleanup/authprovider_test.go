@@ -529,7 +529,7 @@ func newAuthProviderCleanupGatewayClient(t *testing.T) (*gatewayclient.Client, *
 	if err := database.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	client := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	client := gatewayclient.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil)
 	t.Cleanup(func() {
 		if err := client.Close(); err != nil {
 			t.Errorf("close gateway client: %v", err)

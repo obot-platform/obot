@@ -291,7 +291,7 @@ func newVMCPActionSessionManager(t *testing.T, objects ...kclient.Object) (*mcp.
 	gatewayDatabase, err := gatewaydb.New(services.DB.DB, services.DB.SQLDB, true)
 	require.NoError(t, err)
 	require.NoError(t, gatewayDatabase.AutoMigrate())
-	gatewayClient := gatewayclient.New(t.Context(), gatewayDatabase, storageClient, nil, nil, nil, nil, time.Hour, 100, 90, 90, 90, false)
+	gatewayClient := gatewayclient.New(t.Context(), gatewayDatabase, storageClient, nil, nil, nil, nil, time.Hour, 100, 90, 90, 90, false, false, nil, nil)
 	t.Cleanup(func() { require.NoError(t, gatewayClient.Close()) })
 
 	manager, err := mcp.NewSessionManager(

@@ -68,7 +68,7 @@ func TestLoginableAuthProviderRequiresTheVerificationCookie(t *testing.T) {
 		}).
 		Build()
 
-	gatewayClient := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true)
+	gatewayClient := client.New(ctx, db, storageClient, nil, nil, nil, nil, time.Hour, 1, 90, 90, 90, true, false, nil, nil)
 	t.Cleanup(func() { _ = gatewayClient.Close() })
 
 	// The active provider is configured; the replacement only exists in the staged context.
