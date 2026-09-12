@@ -70,6 +70,10 @@ type MCPServerStatus struct {
 	VMCPStaticConfigurationHash string `json:"vmcpStaticConfigurationHash,omitempty"`
 	// VMCPUserConfigurationHash is the VMCP instance user configuration hash last copied to this server's credential.
 	VMCPUserConfigurationHash string `json:"vmcpUserConfigurationHash,omitempty"`
+	// VMCPSnapshotHash is the component catalog entry snapshot digest this server's credential and
+	// resolved remote URL were last synced for. The owning VMCP controllers rebuild Spec.Manifest
+	// from the snapshot without touching the configuration hashes, so this records that rebuild.
+	VMCPSnapshotHash string `json:"vmcpSnapshotHash,omitempty"`
 	// MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.
 	MCPCatalogID string `json:"mcpCatalogID,omitempty"`
 	// NeedsUpdate indicates whether the configuration in this server's catalog entry has drift from this server's configuration.

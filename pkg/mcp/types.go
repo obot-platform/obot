@@ -170,6 +170,73 @@ func expandEnvVars(text string, credEnv map[string]string, fileEnvVars map[strin
 	})
 }
 
+// expandURLTemplate resolves the ${VAR} references in a remote URL template. Rather than
+// returning a partially expanded URL, it returns the names of every reference that has no
+// configured value so the caller can report them as missing configuration.
+func expandURLTemplate(urlTemplate string, credEnv map[string]string) (string, []string) {
+	var missing []string
+	for _, reference := range URLTemplateReferences(urlTemplate) {
+		if credEnv[reference] == "" {
+			missing = append(missing, reference)
+		}
+	}
+	if len(missing) > 0 {
+		return "", missing
+	}
+
+	return expandEnvVars(urlTemplate, credEnv, nil), nil
+}
+
+// URLTemplateReferences returns the names referenced by ${VAR} patterns in a remote URL
+// template, in order, without duplicates.
+func URLTemplateReferences(urlTemplate string) []string {
+	var references []string
+	for _, match := range envVarRegex.FindAllStringSubmatch(urlTemplate, -1) {
+		if !slices.Contains(references, match[1]) {
+			references = append(references, match[1])
+		}
+	}
+	return references
+}
+
+// ResolveRemoteURLTemplate expands a remote manifest's URL template using the supplied
+// configuration alongside the manifest's own static values, the same way the runtime does
+// when it builds a ServerConfig. It returns the names of every unresolved reference rather
+// than a partially expanded URL.
+func ResolveRemoteURLTemplate(manifest types.MCPServerManifest, configuration map[string]string) (string, []string) {
+	if manifest.Runtime != types.RuntimeRemote || manifest.RemoteConfig == nil || manifest.RemoteConfig.URLTemplate == "" {
+		return "", nil
+	}
+
+	values := make(map[string]string, len(configuration)+len(manifest.Config))
+	maps.Copy(values, configuration)
+	for _, config := range manifest.Config {
+		if config.Value != "" {
+			values[config.Key] = config.Value
+		}
+	}
+
+	return expandURLTemplate(manifest.RemoteConfig.URLTemplate, values)
+}
+
+// dedupe removes duplicate names, preserving the order of their first occurrence.
+func dedupe(names []string) []string {
+	if len(names) < 2 {
+		return names
+	}
+
+	seen := make(map[string]struct{}, len(names))
+	deduped := names[:0]
+	for _, name := range names {
+		if _, ok := seen[name]; ok {
+			continue
+		}
+		seen[name] = struct{}{}
+		deduped = append(deduped, name)
+	}
+	return deduped
+}
+
 // applyPrefix adds a prefix to a value if the value doesn't already start with it.
 // Returns the original value if prefix is empty or if value already starts with the prefix.
 func applyPrefix(value, prefix string) string {
@@ -244,7 +311,8 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 	serverConfig.Headers = make([]string, 0, len(config))
 
 	var missingRequiredNames []string
-	if remoteConfig.Hostname != "" {
+	switch {
+	case remoteConfig.Hostname != "":
 		if userURL := credEnv["__url"]; userURL != "" {
 			serverConfig.URL = userURL
 		}
@@ -252,6 +320,17 @@ func configureRemoteRuntime(serverConfig *ServerConfig, remoteConfig *types.Remo
 			missingRequiredNames = append(missingRequiredNames, "__url")
 		} else if err := types.ValidateURLHostname(serverConfig.URL, remoteConfig.Hostname); err != nil {
 			return nil, err
+		}
+	case serverConfig.URL == "" && remoteConfig.URLTemplate != "":
+		// Servers configured through the API expand the template once and persist the result
+		// on the manifest. vMCP component servers never take that path: their configuration
+		// lives in a credential synced from the vMCP, so the template is resolved here with
+		// the configuration for this connection.
+		expanded, missing := expandURLTemplate(remoteConfig.URLTemplate, credEnv)
+		if len(missing) > 0 {
+			missingRequiredNames = append(missingRequiredNames, missing...)
+		} else {
+			serverConfig.URL = expanded
 		}
 	}
 	for _, header := range config {
@@ -438,7 +517,7 @@ func ServerToServerConfig(mcpServer v1.MCPServer, audiences []string, userID, sc
 		})
 	}
 
-	return serverConfig, missingRequiredNames, nil
+	return serverConfig, dedupe(missingRequiredNames), nil
 }
 
 // SystemServerToServerConfig converts a v1.SystemMCPServer to a ServerConfig for deployment
@@ -575,7 +654,7 @@ func SystemServerToServerConfig(systemServer v1.SystemMCPServer, audiences []str
 		})
 	}
 
-	return serverConfig, missingRequiredNames, nil
+	return serverConfig, dedupe(missingRequiredNames), nil
 }
 
 func copyHeaders(headers http.Header, keys, values []string) {

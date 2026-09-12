@@ -680,6 +680,13 @@ func (h *Handler) SyncThirdPartyAuthStatus(req router.Request, _ router.Response
 		return nil
 	}
 
+	if server.Spec.VMCPComponentID != "" && server.Spec.VMCPInstanceID == "" {
+		// A shared component server backs every user of a multi-user VMCP, each of whom
+		// authenticates separately, so a single flag cannot describe it. Spec.UserID is only
+		// the VMCP's creator.
+		return nil
+	}
+
 	token, err := h.gatewayClient.GetMCPOAuthToken(req.Ctx, server.Spec.UserID, server.Name, server.Spec.Manifest.RemoteConfig.URL)
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err

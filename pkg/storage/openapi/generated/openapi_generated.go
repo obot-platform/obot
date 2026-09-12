@@ -23952,6 +23952,13 @@ func schema_storage_apis_obotobotai_v1_MCPServerStatus(ref common.ReferenceCallb
 							Format:      "",
 						},
 					},
+					"vmcpSnapshotHash": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPSnapshotHash is the component catalog entry snapshot digest this server's credential and resolved remote URL were last synced for. The owning VMCP controllers rebuild Spec.Manifest from the snapshot without touching the configuration hashes, so this records that rebuild.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"mcpCatalogID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "MCPCatalogID is the catalog ID of the catalog entry that this MCP server is based on.",

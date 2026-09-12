@@ -273,8 +273,9 @@ func TestSyncVMCPConfigurationSkipsMatchingHashes(t *testing.T) {
 		},
 	}
 	server := &v1.MCPServer{
-		Name:      "ms1test",
-		Namespace: "default",
+		Name:        "ms1test",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-1"},
 		Spec: v1.MCPServerSpec{
 			UserID:          "user-1",
 			VMCPInstanceID:  instance.Name,
@@ -283,6 +284,7 @@ func TestSyncVMCPConfigurationSkipsMatchingHashes(t *testing.T) {
 		Status: v1.MCPServerStatus{
 			VMCPStaticConfigurationHash: vmcp.Spec.StaticConfigurationHash,
 			VMCPUserConfigurationHash:   instance.Status.UserConfigurationHash,
+			VMCPSnapshotHash:            "snapshot-1",
 		},
 	}
 	storageClient := fake.NewClientBuilder().
@@ -364,5 +366,271 @@ func TestSyncVMCPSharedConfiguration(t *testing.T) {
 	}
 	if _, err := gatewayClient.RevealCredential(t.Context(), []string{instance.Name + "-" + stale.Name}, stale.Name); !errors.As(err, &client.CredentialNotFoundError{}) {
 		t.Fatalf("obsolete instance credential was written: %v", err)
+	}
+}
+
+// remoteTemplateComponent builds a component whose remote URL is driven by a user-supplied
+// value, the shape that broke vMCP connections to servers like Mixpanel.
+func remoteTemplateComponent(usage types.Usage) types.VMCPComponent {
+	return types.VMCPComponent{
+		ID:   "component-one",
+		Name: "one",
+		CatalogEntry: types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{
+			Config: []types.MCPConfig{{Key: "MIXPANEL_HOST", Usage: usage, Required: true}},
+		}},
+		Configuration: []types.VMCPConfigurationPolicy{
+			{Key: "MIXPANEL_HOST", Policy: types.VMCPConfigurationPolicyUserAllowed},
+		},
+	}
+}
+
+func remoteTemplateManifest() types.MCPServerManifest {
+	return types.MCPServerManifest{
+		Runtime: types.RuntimeRemote,
+		Config:  []types.MCPConfig{{Key: "MIXPANEL_HOST", Usage: types.Env, Required: true}},
+		RemoteConfig: &types.RemoteRuntimeConfig{
+			IsTemplate:  true,
+			URLTemplate: "https://${MIXPANEL_HOST}/mcp",
+		},
+	}
+}
+
+func TestSyncVMCPConfigurationResolvesRemoteURLTemplate(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// A non-header user input keeps the VMCP single-user, so each instance owns its server.
+	component := remoteTemplateComponent(types.Env)
+	vmcp := &v1.VMCP{Name: "vmcp1url", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash",
+	}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1url", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+		UserID:   "user-1",
+	}, Status: v1.VMCPInstanceStatus{UserConfigurationHash: "user-hash"}}
+	server := &v1.MCPServer{
+		Name:        "ms1url",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-1"},
+		Spec: v1.MCPServerSpec{
+			UserID:          instance.Spec.UserID,
+			VMCPInstanceID:  instance.Name,
+			VMCPComponentID: component.ID,
+			Manifest:        remoteTemplateManifest(),
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(vmcp, instance, server).
+		Build()
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server); err != nil {
+		t.Fatal(err)
+	}
+
+	gatewayClient := newTestGatewayClient(t)
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "MIXPANEL_HOST"): "mcp.mixpanel.com"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Handler{gatewayClient: gatewayClient}).SyncVMCPConfiguration(router.Request{
+		Ctx:    t.Context(),
+		Client: storageClient,
+		Object: server,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.MCPServer
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.Spec.Manifest.RemoteConfig.URL; got != "https://mcp.mixpanel.com/mcp" {
+		t.Fatalf("resolved URL = %q, want %q", got, "https://mcp.mixpanel.com/mcp")
+	}
+	if stored.Status.VMCPSnapshotHash != "snapshot-1" {
+		t.Fatalf("snapshot hash = %q, want %q", stored.Status.VMCPSnapshotHash, "snapshot-1")
+	}
+}
+
+func TestSyncVMCPConfigurationLeavesPerUserSharedURLTemplateUnresolved(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// A header-typed user input keeps the VMCP multi-user, so one server serves every user
+	// and no single expansion of the template is correct.
+	component := remoteTemplateComponent(types.Header)
+	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash",
+	}}
+	server := &v1.MCPServer{
+		Name:        "ms1sharedurl",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-1"},
+		Spec: v1.MCPServerSpec{
+			VMCPID:          vmcp.Name,
+			VMCPComponentID: component.ID,
+			Manifest:        remoteTemplateManifest(),
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(vmcp, server).
+		Build()
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Handler{gatewayClient: newTestGatewayClient(t)}).SyncVMCPConfiguration(router.Request{
+		Ctx:    t.Context(),
+		Client: storageClient,
+		Object: server,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.MCPServer
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.Spec.Manifest.RemoteConfig.URL; got != "" {
+		t.Fatalf("URL = %q, want it left for the runtime to resolve per request", got)
+	}
+}
+
+func TestSyncVMCPConfigurationResolvesURLAfterSnapshotRebuild(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	component := remoteTemplateComponent(types.Env)
+	vmcp := &v1.VMCP{Name: "vmcp1rebuild", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash",
+	}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1rebuild", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+		UserID:   "user-1",
+	}, Status: v1.VMCPInstanceStatus{UserConfigurationHash: "user-hash"}}
+	// The owning controller just rewrote Spec.Manifest from a new catalog entry snapshot,
+	// dropping the resolved URL without touching either configuration hash.
+	server := &v1.MCPServer{
+		Name:        "ms1rebuild",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-2"},
+		Spec: v1.MCPServerSpec{
+			UserID:          instance.Spec.UserID,
+			VMCPInstanceID:  instance.Name,
+			VMCPComponentID: component.ID,
+			Manifest:        remoteTemplateManifest(),
+		},
+		Status: v1.MCPServerStatus{
+			VMCPStaticConfigurationHash: vmcp.Spec.StaticConfigurationHash,
+			VMCPUserConfigurationHash:   instance.Status.UserConfigurationHash,
+			VMCPSnapshotHash:            "snapshot-1",
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(vmcp, instance, server).
+		Build()
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server); err != nil {
+		t.Fatal(err)
+	}
+
+	gatewayClient := newTestGatewayClient(t)
+	if err := gatewayClient.UpsertCredential(t.Context(), gatewaytypes.Credential{
+		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "MIXPANEL_HOST"): "mcp.eu.mixpanel.com"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Handler{gatewayClient: gatewayClient}).SyncVMCPConfiguration(router.Request{
+		Ctx:    t.Context(),
+		Client: storageClient,
+		Object: server,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.MCPServer
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.Spec.Manifest.RemoteConfig.URL; got != "https://mcp.eu.mixpanel.com/mcp" {
+		t.Fatalf("resolved URL = %q, want %q", got, "https://mcp.eu.mixpanel.com/mcp")
+	}
+	if stored.Status.VMCPSnapshotHash != "snapshot-2" {
+		t.Fatalf("snapshot hash = %q, want %q", stored.Status.VMCPSnapshotHash, "snapshot-2")
+	}
+}
+
+func TestSyncVMCPConfigurationClearsURLWhenSharedTemplateBecomesPerUser(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+
+	// The policy just moved from fixed to user-allowed, so the URL resolved while it was fixed
+	// no longer describes every user of this shared server.
+	component := remoteTemplateComponent(types.Header)
+	vmcp := &v1.VMCP{Name: "vmcp1flip", Namespace: "default", Spec: v1.VMCPSpec{
+		Manifest:                types.VMCPManifest{Components: []types.VMCPComponent{component}},
+		StaticConfigurationHash: "static-hash-2",
+	}}
+	manifest := remoteTemplateManifest()
+	manifest.RemoteConfig.URL = "https://mcp.mixpanel.com/mcp"
+	server := &v1.MCPServer{
+		Name:        "ms1flip",
+		Namespace:   "default",
+		Annotations: map[string]string{v1.VMCPSnapshotDigestAnnotation: "snapshot-1"},
+		Spec: v1.MCPServerSpec{
+			VMCPID:          vmcp.Name,
+			VMCPComponentID: component.ID,
+			Manifest:        manifest,
+		},
+		Status: v1.MCPServerStatus{
+			VMCPStaticConfigurationHash: "static-hash-1",
+			VMCPSnapshotHash:            "snapshot-1",
+		},
+	}
+	storageClient := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithStatusSubresource(&v1.MCPServer{}).
+		WithObjects(vmcp, server).
+		Build()
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), server); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := (&Handler{gatewayClient: newTestGatewayClient(t)}).SyncVMCPConfiguration(router.Request{
+		Ctx:    t.Context(),
+		Client: storageClient,
+		Object: server,
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.MCPServer
+	if err := storageClient.Get(t.Context(), kclient.ObjectKeyFromObject(server), &stored); err != nil {
+		t.Fatal(err)
+	}
+	if got := stored.Spec.Manifest.RemoteConfig.URL; got != "" {
+		t.Fatalf("URL = %q, want it cleared so the runtime expands the template per request", got)
 	}
 }
