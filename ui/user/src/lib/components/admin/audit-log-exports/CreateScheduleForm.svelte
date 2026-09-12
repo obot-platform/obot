@@ -14,6 +14,7 @@
 		sourceTypesFromEventTypeParam
 	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
 		type LLMAuditLogURLFilters,
 		type AuditLogFilterOption,
@@ -153,7 +154,7 @@
 					api_key_id: filters.apiKeyIDs?.join(',') ?? '',
 					actor: filters.actors?.join(',') ?? '',
 					operation: filters.operations?.join(',') ?? '',
-					mcp_server: filters.mcpServers?.join(',') ?? '',
+					mcp_server: serializeMultiValue(filters.mcpServers ?? []),
 					tool: filters.tools?.join(',') ?? '',
 					outcome: filters.outcomes?.join(',') ?? '',
 					client: filters.clients?.join(',') ?? '',
@@ -684,7 +685,7 @@
 					sourceTypes: normalizeSourceTypes(form.sourceTypes),
 					actors: split(form.filters.actor),
 					operations: split(form.filters.operation),
-					mcpServers: split(form.filters.mcp_server),
+					mcpServers: parseMultiValue(form.filters.mcp_server),
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
@@ -1137,6 +1138,7 @@
 								}
 								disabled={isViewMode}
 								multiple
+								valueFormat={row.filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
 							/>
 							<p class="text-muted-content text-xs">{row.description}</p>
 						</div>
