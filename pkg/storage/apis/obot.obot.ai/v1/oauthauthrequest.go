@@ -31,6 +31,7 @@ type OAuthAuthRequestSpec struct {
 	HashedAuthCode            string `json:"hashedAuthCode"`
 	UserID                    uint   `json:"userID"`
 	MCPID                     string `json:"mcpID"`
+	Audience                  string `json:"audience"`
 	AuthProviderUserID        string `json:"authProviderUserID"`
 	AuthProviderNamespace     string `json:"authProviderNamespace"`
 	AuthProviderName          string `json:"authProviderName"`

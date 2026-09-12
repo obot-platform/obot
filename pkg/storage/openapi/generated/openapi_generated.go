@@ -25915,6 +25915,13 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 							Format:  "",
 						},
 					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -25993,7 +26000,7 @@ func schema_storage_apis_obotobotai_v1_OAuthAuthRequestSpec(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPConfigRequired", "consentApproved", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL"},
+				Required: []string{"redirectURI", "state", "clientID", "codeChallenge", "scope", "codeChallengeMethod", "grantType", "resource", "hashedAuthCode", "userID", "mcpID", "audience", "authProviderUserID", "authProviderNamespace", "authProviderName", "consentPrepared", "consentMCPConfigRequired", "consentApproved", "consentMCPAuthRequired", "consentMCPAuthURL", "userHasSecondLevelOAuthed", "consentMCPServerName", "consentMCPServerURL"},
 			},
 		},
 	}
@@ -26402,6 +26409,13 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 							Format:  "",
 						},
 					},
+					"audience": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"authProviderUserID": {
 						SchemaProps: spec.SchemaProps{
 							Default: "",
@@ -26424,7 +26438,7 @@ func schema_storage_apis_obotobotai_v1_OAuthTokenSpec(ref common.ReferenceCallba
 						},
 					},
 				},
-				Required: []string{"scope", "resource", "clientID", "userID", "mcpID", "authProviderUserID", "authProviderName", "authProviderNamespace"},
+				Required: []string{"scope", "resource", "clientID", "userID", "mcpID", "audience", "authProviderUserID", "authProviderName", "authProviderNamespace"},
 			},
 		},
 	}

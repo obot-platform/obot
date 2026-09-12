@@ -273,11 +273,11 @@ func (h *handler) callback(req api.Context) error {
 		}
 
 		mcpID = serverOrInstanceID
-		audience = "/" + audience
-		if !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, audience) || oauthAppAuthRequest.Spec.MCPID != mcpID {
+		if !strings.HasSuffix(oauthAppAuthRequest.Spec.Resource, "/"+audience) || oauthAppAuthRequest.Spec.MCPID != mcpID {
 			// Ensure the audience is what the server expects.
-			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect%s", h.baseURL, audience)
+			oauthAppAuthRequest.Spec.Resource = fmt.Sprintf("%s/mcp-connect/%s", h.baseURL, audience)
 			oauthAppAuthRequest.Spec.MCPID = mcpID
+			oauthAppAuthRequest.Spec.Audience = audience
 			if err = req.Update(&oauthAppAuthRequest); err != nil {
 				redirectWithAuthorizeError(req, oauthAppAuthRequest.Spec.RedirectURI, newOAuthError(ErrServerError, fmt.Sprintf("failed to update OAuth app auth request: %v", err), oauthAppAuthRequest.Spec.State))
 				return nil
