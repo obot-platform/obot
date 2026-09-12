@@ -10,6 +10,7 @@ import {
 	type VMCP,
 	type VMCPManifest
 } from '$lib/services';
+import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
@@ -961,6 +962,29 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('heading', { name: 'Add Tools' }))
 				.not.toBeInTheDocument();
+		});
+
+		it('opens configuration after creation even when required policies are already fixed', async () => {
+			const entry = configurableGithub();
+			const vmcp = createVMCP({
+				components: [catalogEntryToVMCPComponent(entry)]
+			});
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			queueToolSetupForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([entry], vmcp);
+
+			await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
+			await expect.element(addToolsDialog()).not.toBeInTheDocument();
+			await page.getByCSS('#fixed-API_TOKEN').fill('secret');
+			await page.getByRole('button', { name: 'Next' }).click();
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
+			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
+				configuration: [{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' }]
+			});
+			await expect.element(addToolsDialog()).toBeVisible();
 		});
 
 		it('offers tool selection after post-create configuration when no policy is user-supplied', async () => {

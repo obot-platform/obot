@@ -89,6 +89,9 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 		name: entry.manifest.name ?? entry.id,
 		mcpCatalogID: DEFAULT_MCP_CATALOG_ID,
 		mcpServerCatalogEntryID: entry.id,
+		configuration: catalogConfigurationFields(entry)
+			.filter((field) => field.required)
+			.map((field) => ({ key: field.key, policy: 'fixed', value: field.value })),
 		catalogEntry: {
 			manifest: entry.manifest,
 			unsupportedTools: entry.unsupportedTools

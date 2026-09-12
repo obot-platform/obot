@@ -228,11 +228,6 @@ export function createVMcpToolFlow() {
 		dialog = 'added-create';
 	}
 
-	function needsComponentConfiguration(component: VMCPComponent, entry?: MCPCatalogEntry) {
-		if (component.configuration?.length) return false;
-		return Boolean(entry && catalogConfigurationFields(entry).length > 0);
-	}
-
 	function offerToolsAfterCreate(vmcp: VMCP, component: VMCPComponent, entry?: MCPCatalogEntry) {
 		if (component.configuration?.some((field) => field.policy === 'userAllowed')) return;
 		if (entry) {
@@ -247,7 +242,8 @@ export function createVMcpToolFlow() {
 		if (!firstComponent) return;
 		const entry = catalogEntryForComponent(firstComponent);
 		if (
-			needsComponentConfiguration(firstComponent, entry) &&
+			entry &&
+			catalogConfigurationFields(entry).length > 0 &&
 			configure(vmcp, firstComponent, false)
 		) {
 			postCreateConfiguration = true;
