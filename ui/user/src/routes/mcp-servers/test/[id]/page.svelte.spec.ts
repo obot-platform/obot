@@ -116,6 +116,108 @@ function chatStream(...events: unknown[]) {
 }
 
 describe('MCP Tester page', () => {
+	it.each(['vmcp1-auth-test', 'vmcpi1-auth-test'])(
+		'authenticates a newly added service and resumes chatting for %s',
+		async (connectID) => {
+			const vmcpID = 'vmcp1-auth-test';
+			const componentCheck = vi
+				.fn()
+				.mockReturnValueOnce({ authURL: 'https://example.com/calendar/retry' })
+				.mockReturnValue({});
+			mockMCPInitialization({}, undefined, connectID);
+			worker.use(
+				http.post(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 401 }), {
+					once: true
+				}),
+				http.get(`/api/vmcps/${vmcpID}`, () =>
+					HttpResponse.json({ id: vmcpID, displayName: 'Mail and Calendar', components: [] })
+				),
+				http.get(`/api/oauth/vmcp/${connectID}`, () =>
+					HttpResponse.json([
+						{
+							mcpServerID: 'calendar',
+							name: 'Calendar',
+							authURL: 'https://example.com/calendar/oauth'
+						}
+					])
+				),
+				http.get(`/api/oauth/vmcp/${connectID}/components/calendar`, () => {
+					return HttpResponse.json(componentCheck());
+				}),
+				http.post(`/api/mcp-servers/${connectID}/tester/chat`, () =>
+					chatStream(
+						{ type: 'assistant_message_start' },
+						{ type: 'text_delta', delta: 'Your calendar is connected.' },
+						{ type: 'completion', reason: 'stop' }
+					)
+				)
+			);
+			appPage.url.searchParams.delete('tab');
+			const data = await preparePageData<PageData>({
+				...chatModelData,
+				server: {
+					...fixtures.serverSingle,
+					id: connectID,
+					configured: true,
+					deploymentStatus: 'Available',
+					manifest: { name: 'Mail and Calendar', runtime: 'vmcp' }
+				},
+				vmcpID,
+				backTarget: `/vmcps/${vmcpID}`
+			});
+			render(TesterPage, { data });
+
+			await expect
+				.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			await expect.element(page.getByText('Calendar', { exact: true })).toBeVisible();
+			await page.getByRole('button', { name: 'Back to tester' }).click();
+			await expect
+				.element(page.getByRole('heading', { name: 'Reauthentication required' }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Manage authentication' }).click();
+			const authenticate = page.getByRole('link', { name: 'Authenticate', exact: true });
+			await expect
+				.element(authenticate)
+				.toHaveAttribute('href', 'https://example.com/calendar/oauth');
+			await expect
+				.element(page.getByRole('textbox', { name: 'Message', exact: true }))
+				.not.toBeInTheDocument();
+			await authenticate.click();
+			document.dispatchEvent(new Event('visibilitychange'));
+			await expect
+				.element(authenticate)
+				.toHaveAttribute('href', 'https://example.com/calendar/retry');
+			await expect
+				.element(page.getByRole('textbox', { name: 'Message', exact: true }))
+				.not.toBeInTheDocument();
+			await authenticate.click();
+			document.dispatchEvent(new Event('visibilitychange'));
+
+			await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Check my calendar');
+			await page.getByRole('button', { name: 'Send', exact: true }).click();
+			await expect.element(page.getByText('Your calendar is connected.')).toBeVisible();
+			expect(componentCheck).toHaveBeenCalledTimes(2);
+			await expect.element(authenticate).not.toBeInTheDocument();
+		}
+	);
+
+	it('keeps server management available for non-vMCP authentication', async () => {
+		mockMCPInitializationFailure(401);
+		appPage.url.searchParams.delete('tab');
+		const backTarget = `/mcp-servers/s/${fixtures.serverSingle.id}`;
+		const data = await preparePageData<PageData>({
+			server: { ...fixtures.serverSingle, configured: true, deploymentStatus: 'Available' },
+			backTarget
+		});
+		render(TesterPage, { data });
+
+		await expect
+			.element(page.getByRole('link', { name: 'Manage authentication' }))
+			.toHaveAttribute('href', backTarget);
+	});
+
 	it('initializes the shell and defaults an invalid tab to Chat', async () => {
 		await renderTester('not-a-tab');
 
