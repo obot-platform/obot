@@ -884,3 +884,108 @@ func TestServerToServerConfig_StaticHeaders_EdgeCases(t *testing.T) {
 		})
 	}
 }
+
+func TestServerToServerConfig_RemoteURLTemplate(t *testing.T) {
+	tests := []struct {
+		name         string
+		remoteConfig *types.RemoteRuntimeConfig
+		config       []types.MCPConfig
+		credEnv      map[string]string
+		expectedURL  string
+		expectedMiss []string
+	}{
+		{
+			name: "template expanded from configuration",
+			remoteConfig: &types.RemoteRuntimeConfig{
+				IsTemplate:  true,
+				URLTemplate: "https://${MIXPANEL_HOST}/mcp",
+			},
+			config: []types.MCPConfig{
+				{
+					Key:      "MIXPANEL_HOST",
+					Name:     "Data Region",
+					Usage:    types.Env,
+					Required: true,
+				},
+			},
+			credEnv:     map[string]string{"MIXPANEL_HOST": "mcp.mixpanel.com"},
+			expectedURL: "https://mcp.mixpanel.com/mcp",
+		},
+		{
+			name: "template expanded from a static catalog value",
+			remoteConfig: &types.RemoteRuntimeConfig{
+				IsTemplate:  true,
+				URLTemplate: "https://${MIXPANEL_HOST}/mcp",
+			},
+			config: []types.MCPConfig{
+				{
+					Key:   "MIXPANEL_HOST",
+					Name:  "Data Region",
+					Usage: types.Env,
+					Value: "mcp.eu.mixpanel.com",
+				},
+			},
+			expectedURL: "https://mcp.eu.mixpanel.com/mcp",
+		},
+		{
+			name: "unconfigured references are reported once as missing",
+			remoteConfig: &types.RemoteRuntimeConfig{
+				IsTemplate:  true,
+				URLTemplate: "https://${MIXPANEL_HOST}/mcp/${MIXPANEL_HOST}",
+			},
+			config: []types.MCPConfig{
+				{
+					Key:      "MIXPANEL_HOST",
+					Name:     "Data Region",
+					Usage:    types.Env,
+					Required: true,
+				},
+			},
+			expectedMiss: []string{"MIXPANEL_HOST"},
+		},
+		{
+			name: "persisted URL wins over the template",
+			remoteConfig: &types.RemoteRuntimeConfig{
+				IsTemplate:  true,
+				URL:         "https://mcp.mixpanel.com/mcp",
+				URLTemplate: "https://${MIXPANEL_HOST}/mcp",
+			},
+			config: []types.MCPConfig{
+				{
+					Key:   "MIXPANEL_HOST",
+					Name:  "Data Region",
+					Usage: types.Env,
+				},
+			},
+			credEnv:     map[string]string{"MIXPANEL_HOST": "mcp.eu.mixpanel.com"},
+			expectedURL: "https://mcp.mixpanel.com/mcp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mcpServer := v1.MCPServer{
+				Name: "test-server",
+				Spec: v1.MCPServerSpec{
+					VMCPComponentID: "component-1",
+					Manifest: types.MCPServerManifest{
+						Runtime:      types.RuntimeRemote,
+						Config:       tt.config,
+						RemoteConfig: tt.remoteConfig,
+					},
+				},
+			}
+
+			config, missing, err := ServerToServerConfig(mcpServer, nil, "test-user-id", "test-scope", "test-catalog", tt.credEnv)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if !slices.Equal(missing, tt.expectedMiss) {
+				t.Fatalf("missing = %v, want %v", missing, tt.expectedMiss)
+			}
+			if config.URL != tt.expectedURL {
+				t.Fatalf("URL = %q, want %q", config.URL, tt.expectedURL)
+			}
+		})
+	}
+}
