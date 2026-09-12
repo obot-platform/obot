@@ -7,6 +7,7 @@
 		query?: string;
 		selected?: string | number;
 		multiple?: boolean;
+		valueFormat?: 'comma-separated' | 'json';
 		onSelect?: (option: T, value?: string | number) => void;
 		class?: string;
 		classes?: {
@@ -34,6 +35,7 @@
 </script>
 
 <script lang="ts" generics="T extends { id: string | number; label: string; disabled?: boolean }">
+	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import { ChevronDown, X, Check, SearchIcon } from '@lucide/svelte';
 	import { tick, type Snippet } from 'svelte';
 	import { flip } from 'svelte/animate';
@@ -49,6 +51,7 @@
 		selected = $bindable(),
 		query = $bindable(),
 		multiple = false,
+		valueFormat = 'comma-separated',
 		class: klass,
 		classes,
 		position = 'bottom',
@@ -71,6 +74,7 @@
 	const selectedValues = $derived.by(() => {
 		if (multiple) {
 			if (typeof selected === 'string') {
+				if (valueFormat === 'json') return parseMultiValue(selected);
 				const values =
 					selected
 						.split(',')
@@ -127,6 +131,10 @@
 		query = (e.target as HTMLInputElement).value;
 	}
 
+	function serializeValues(values: (string | number)[]) {
+		return valueFormat === 'json' ? serializeMultiValue(values) : values.join(',');
+	}
+
 	function handleSelect(option: T) {
 		if (option.disabled) return;
 
@@ -135,9 +143,9 @@
 
 		if (multiple) {
 			if (isSelected) {
-				selected = selectedValues.filter((d) => d !== key).join(',');
+				selected = serializeValues(selectedValues.filter((d) => d !== key));
 			} else {
-				selected = [key, ...selectedValues].join(',');
+				selected = serializeValues([key, ...selectedValues]);
 			}
 		} else if (!isSelected) {
 			selected = key;
@@ -242,7 +250,7 @@
 
 											const filteredValues = selectedValues.filter((d) => d !== selectedOption.id);
 
-											selected = filteredValues.join(',');
+											selected = serializeValues(filteredValues);
 
 											onClear?.(selectedOption, selected);
 										}}
@@ -409,7 +417,7 @@
 				selectedValues.length > 0 &&
 				(query ?? '')?.length === 0
 			) {
-				selected = selectedValues.slice(0, -1).join(',');
+				selected = serializeValues(selectedValues.slice(0, -1));
 			}
 
 			if (e.key === 'Enter') {

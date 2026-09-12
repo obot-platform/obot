@@ -19,6 +19,7 @@
 <script lang="ts">
 	import InfoTooltip from '$lib/components/InfoTooltip.svelte';
 	import Select, { type SelectProps } from '$lib/components/Select.svelte';
+	import { parseMultiValue } from '$lib/multiValue';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -69,7 +70,7 @@
 			shouldShowClearButton
 				? {
 						id: 'clear',
-						label: ['Clear', value?.toString()?.includes?.(',') ? 'All' : '']
+						label: ['Clear', parseMultiValue(value).length > 1 ? 'All' : '']
 							.filter(Boolean)
 							.join(' '),
 						onclick: () => onClearAll?.(),
@@ -131,6 +132,7 @@
 			}
 		}
 		multiple={filter.multiple ?? true}
+		valueFormat={filter.property === 'mcp_server' ? 'json' : 'comma-separated'}
 		{onSelect}
 	/>
 </div>

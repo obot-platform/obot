@@ -123,7 +123,7 @@ func getOwnServerMCPIDs(req api.Context) ([]string, error) {
 }
 
 // parseMultiValueParam parses query parameters that can have multiple values
-// Supports both comma-separated values in single parameter and repeated parameters
+// Supports JSON string arrays, comma-separated values, and repeated parameters.
 func parseMultiValueParam(queryValues map[string][]string, key string) []string {
 	values := queryValues[key]
 	if len(values) == 0 {
@@ -133,6 +133,15 @@ func parseMultiValueParam(queryValues map[string][]string, key string) []string 
 	var result []string
 	for _, value := range values {
 		if value == "" {
+			continue
+		}
+		var items []string
+		if strings.HasPrefix(strings.TrimSpace(value), "[") && json.Unmarshal([]byte(value), &items) == nil {
+			for _, item := range items {
+				if item != "" {
+					result = append(result, item)
+				}
+			}
 			continue
 		}
 		// Split by comma to support comma-separated values

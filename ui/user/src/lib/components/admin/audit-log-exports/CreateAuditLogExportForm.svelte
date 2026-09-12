@@ -16,6 +16,7 @@
 	} from '$lib/components/admin/audit-log-exports/filterFields';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { parseMultiValue, serializeMultiValue } from '$lib/multiValue';
 	import {
 		AdminService,
 		Group,
@@ -396,7 +397,7 @@
 					api_key_id: join(filters.apiKeyIDs),
 					actor: join(filters.actors),
 					operation: join(filters.operations),
-					mcp_server: join(filters.mcpServers),
+					mcp_server: serializeMultiValue(filters.mcpServers ?? []),
 					tool: join(filters.tools),
 					outcome: join(filters.outcomes),
 					client: join(filters.clients),
@@ -621,7 +622,7 @@
 					sourceTypes: normalizeSourceTypes(form.sourceTypes),
 					actors: split(form.filters.actor),
 					operations: split(form.filters.operation),
-					mcpServers: split(form.filters.mcp_server),
+					mcpServers: parseMultiValue(form.filters.mcp_server),
 					tools: split(form.filters.tool),
 					outcomes: split(form.filters.outcome),
 					clients: split(form.filters.client),
@@ -875,6 +876,7 @@
 								disabled={isViewMode}
 								readonly={isViewMode}
 								multiple
+								valueFormat={filterKey === 'mcp_server' ? 'json' : 'comma-separated'}
 							/>
 							{#if (isViewMode && form.filters[filterKey]) || !isViewMode}
 								<p class="text-muted-content text-xs">{description}</p>

@@ -1,5 +1,6 @@
 <script lang="ts" generics="T">
 	import { page } from '$app/state';
+	import { parseMultiValue } from '$lib/multiValue';
 	import { goto } from '$lib/url';
 	import { X } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
@@ -31,7 +32,7 @@
 	>
 		{#each entries as [filterKey, filterValues] (filterKey)}
 			{@const displayLabel = getFilterDisplayLabel(filterKey)}
-			{@const values = filterValues?.toString().split(',').filter(Boolean) ?? []}
+			{@const values = parseMultiValue(filterValues)}
 			{@const isClearable = isFilterClearable?.(filterKey) ?? true}
 
 			<div class="filter-primary" animate:flip={{ duration: 100 }}>

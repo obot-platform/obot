@@ -47,10 +47,25 @@ async function filterOptionsParams(requests: { filterOptions: string[] }) {
 afterEach(() => {
 	appPage.url.searchParams.delete('mcp_id');
 	appPage.url.searchParams.delete('mcp_server_display_name');
+	appPage.url.searchParams.delete('mcp_server');
 	vi.restoreAllMocks();
 });
 
 describe('AuditLogsPageContent server scoping', () => {
+	it('preserves comma-containing server names in requests and filter pills', async () => {
+		const name = 'Outlook, Calendar';
+		const value = JSON.stringify([name]);
+		appPage.url.searchParams.set('mcp_server', value);
+
+		const requests = await renderAuditLogs();
+		expect((await auditLogParams(requests)).get('mcp_server')).toBe(value);
+		await expect.element(page.getByText(name, { exact: true })).toBeVisible();
+		const serverPill = page
+			.getByCSS('.filter-primary')
+			.filter({ hasText: 'Identifier – MCP Server' });
+		await expect.element(serverPill.getByText('OR', { exact: true })).not.toBeInTheDocument();
+	});
+
 	it('applies mcp_id from the URL and pins the source to MCP', async () => {
 		appPage.url.searchParams.set('mcp_id', 'server-1');
 

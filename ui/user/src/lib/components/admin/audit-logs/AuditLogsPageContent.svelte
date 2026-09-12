@@ -14,6 +14,7 @@
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { parseMultiValue } from '$lib/multiValue';
 	import { localState } from '$lib/runes/localState.svelte';
 	import {
 		type OrgUser,
@@ -475,10 +476,7 @@
 	// getFilterDisplayValue renders a full (possibly comma-joined) filter value; used by the export
 	// confirmation dialog. Pills call getFilterValue per single value instead.
 	function getFilterDisplayValue(key: string, value: string | number) {
-		return String(value)
-			.split(',')
-			.map((part) => part.trim())
-			.filter(Boolean)
+		return parseMultiValue(value)
 			.map((part) => formatSingleFilterValue(key, part))
 			.join(', ');
 	}
