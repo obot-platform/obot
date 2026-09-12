@@ -94,5 +94,5 @@
 </Layout>
 
 <svelte:head>
-	<title>Obot | {data.server.id.startsWith('vmcp1') ? 'vMCP' : 'MCP'} Tester | {serverName}</title>
+	<title>Obot | {data.server.id.startsWith('vmcp') ? 'vMCP' : 'MCP'} Tester | {serverName}</title>
 </svelte:head>

@@ -183,7 +183,7 @@ describe('MCP Tester page', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'Virtual test server', level: 1 }).first())
 			.toBeVisible();
-		expect(document.title).toBe('Obot | MCP Tester | Virtual test server');
+		expect(document.title).toBe('Obot | vMCP Tester | Virtual test server');
 		await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Back to Virtual test server' }))

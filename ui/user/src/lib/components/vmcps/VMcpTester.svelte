@@ -78,7 +78,7 @@
 				<div class="relative z-10 flex flex-col items-center gap-4">
 					<Layers class="text-muted-content size-12 opacity-25" />
 					<p class="text-muted-content max-w-md text-sm font-light">
-						In order to test this VMCP, you will need to launch it. Click below to begin launching
+						In order to test this vMCP, you will need to launch it. Click below to begin launching
 					</p>
 					<button
 						type="button"
@@ -89,7 +89,7 @@
 						{#if vmcpInstances.current.loading}
 							<Loading class="text-primary" />
 						{:else}
-							Launch VMCP
+							Launch vMCP
 						{/if}
 					</button>
 				</div>

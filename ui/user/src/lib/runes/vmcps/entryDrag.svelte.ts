@@ -217,12 +217,12 @@ export function createEntryDrag(options: EntryDragOptions) {
 		const dropOnCreate = linkedVMcpId === CREATE_VMCP_DROP_ID;
 		cancel();
 
+		if (isDisabled()) return;
+
 		if (!dropped.active) {
 			activate(dropped.entry);
 			return;
 		}
-
-		if (isDisabled()) return;
 
 		if (!dropped.entry) {
 			if (!dropOnCreate && !vmcp) return;

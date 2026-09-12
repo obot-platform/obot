@@ -656,6 +656,26 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('dialog').first()).toBeVisible();
 			await vi.waitFor(() => expect(listSlackServers).toHaveBeenCalled());
 		});
+
+		it('does not open create when a new-entry drag attempt is released while loading', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			queueToolSetupForCreatedVMcp('other-vmcp');
+			await renderDesigner([componentEntry, slack], vmcp);
+
+			await expect.element(page.getByRole('status', { name: 'Setting up tools' })).toBeVisible();
+
+			const { el, from } = await pressCard(
+				page.getByRole('button', { name: /Create a new entry/ }),
+				22
+			);
+			const to = { x: from.x + 40, y: from.y + 40 };
+			pointer(el, 'pointermove', 22, to);
+			await tick();
+			pointer(el, 'pointerup', 22, to);
+			await tick();
+
+			await expect.element(page.getByRole('dialog')).not.toBeInTheDocument();
+		});
 	});
 
 	describe('graph canvas', () => {

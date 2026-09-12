@@ -166,6 +166,7 @@
 					onclick={() => {
 						setUrlParamAndUpdateUrl(page.url, 'tab', section.id);
 					}}
+					aria-current={activeSection === section.id ? 'page' : undefined}
 				>
 					{section.label}
 					{#if section.id === 'chat' && chat?.approvalNeeded}

@@ -488,15 +488,17 @@
 					}}>Profiles</button
 				>
 			{/if}
-			<button
-				class={twMerge(
-					'tab text-xs min-w-24',
-					viewType === 'tester' && 'tab-active bg-base-300 dark:bg-base-100'
-				)}
-				onclick={() => {
-					setUrlParamAndUpdateUrl(page.url, 'view', 'tester');
-				}}>Tester</button
-			>
+			{#if selectedVMcp?.id}
+				<button
+					class={twMerge(
+						'tab text-xs min-w-24',
+						viewType === 'tester' && 'tab-active bg-base-300 dark:bg-base-100'
+					)}
+					onclick={() => {
+						setUrlParamAndUpdateUrl(page.url, 'view', 'tester');
+					}}>Tester</button
+				>
+			{/if}
 		</div>
 	</div>
 {/snippet}

@@ -49,7 +49,6 @@
 	let loading = $state(false);
 	let error = $state<string>();
 	let oauthURL = $state<string>();
-	let oauthAuthenticating = $state(false);
 	let oauthValidating = $state(false);
 	let listeningOauthVisibility = $state(false);
 	let requestGeneration = 0;
@@ -78,7 +77,6 @@
 		requestController = undefined;
 		listeningOauthVisibility = false;
 		if (!preserveOauthState) {
-			oauthAuthenticating = false;
 			oauthValidating = false;
 		}
 		loading = false;
@@ -111,7 +109,6 @@
 	function handleVisibilityChange() {
 		if (dialogPhase === 'setup' && document.visibilityState === 'visible' && oauthURL && !loading) {
 			oauthValidating = true;
-			oauthAuthenticating = true;
 			void fetchLiveTools();
 		}
 	}
@@ -132,7 +129,7 @@
 			return;
 		}
 
-		cancelToolPreviewRequest(oauthAuthenticating || oauthValidating);
+		cancelToolPreviewRequest(oauthValidating);
 		const controller = new AbortController();
 		requestController = controller;
 		const generation = requestGeneration;
@@ -177,14 +174,12 @@
 					oauthURL = undefined;
 					listeningOauthVisibility = false;
 				} finally {
-					oauthAuthenticating = false;
 					oauthValidating = false;
 				}
 			} else {
 				error = message || 'Failed to fetch tools for this vMCP component.';
 				oauthURL = undefined;
 				listeningOauthVisibility = false;
-				oauthAuthenticating = false;
 				oauthValidating = false;
 			}
 		} finally {
@@ -261,10 +256,6 @@
 		editDialog?.close();
 	}
 
-	function startOauthAuthentication() {
-		oauthAuthenticating = true;
-	}
-
 	onDestroy(() => cancelToolPreviewRequest());
 </script>
 
@@ -306,10 +297,6 @@
 						<Loading class="text-primary size-4" />
 						Validating authentication...
 					</button>
-				{:else if oauthAuthenticating}
-					<button in:fade class="btn btn-primary" disabled type="button">
-						<Loading class="text-primary size-4" />
-					</button>
 				{:else}
 					<a
 						in:fade
@@ -317,7 +304,6 @@
 						rel="external noopener noreferrer"
 						target="_blank"
 						class="btn btn-primary"
-						onclick={startOauthAuthentication}
 					>
 						Authenticate
 					</a>
