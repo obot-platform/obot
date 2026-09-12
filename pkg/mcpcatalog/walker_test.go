@@ -2,6 +2,7 @@ package mcpcatalog
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,136 @@ func TestWalkCatalogFilesSkipsSymlinksAndIgnoredFiles(t *testing.T) {
 		paths = append(paths, path)
 	}
 	require.Equal(t, []string{validPath}, paths)
+}
+
+func TestWalkCatalogFilesSkipsHiddenDirectories(t *testing.T) {
+	for _, customPatterns := range []bool{false, true} {
+		t.Run(fmt.Sprintf("customPatterns=%t", customPatterns), func(t *testing.T) {
+			dir := filepath.Join(t.TempDir(), ".catalog")
+			for _, name := range []string{
+				"valid.yaml", "nested/valid.yml", "nested/deeper/valid.json",
+				".github/workflows/ci.yml", ".git/config.yaml", ".config/entry.json",
+				"nested/.hidden/entry.yaml", ".pre-commit-config.yaml",
+			} {
+				path := filepath.Join(dir, name)
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+				require.NoError(t, os.WriteFile(path, []byte("name: Test\n"), 0o600))
+			}
+
+			if customPatterns {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, ".obotcatalogs"), []byte("*.yaml\n*.yml\n*.json\n"), 0o600))
+			}
+
+			t.Chdir(dir)
+			for _, root := range []string{dir, "."} {
+				files, usingPatterns, err := WalkCatalogFiles(root)
+				require.NoError(t, err)
+				require.Equal(t, customPatterns, usingPatterns)
+
+				var paths []string
+				for path, err := range files {
+					require.NoError(t, err)
+
+					rel, err := filepath.Rel(root, path)
+					require.NoError(t, err)
+					paths = append(paths, filepath.ToSlash(rel))
+				}
+
+				require.ElementsMatch(t, []string{"valid.yaml", "nested/valid.yml", "nested/deeper/valid.json", ".pre-commit-config.yaml"}, paths)
+			}
+		})
+	}
+}
+
+func TestWalkCatalogFilesPatternSemantics(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		includes string
+		ignores  string
+		want     []string
+	}{
+		{
+			name:    "default patterns and directory exclusions",
+			ignores: "# Repository metadata\n\n scripts \nrenovate.json\n.pre-commit-config.yaml\n",
+			want:    []string{"entry.mcp.yaml", "nested/entry.mcp.yaml", "other.yml"},
+		},
+		{
+			name:     "includes replace defaults and match basenames",
+			includes: "# Catalog manifests\n\n *.mcp.yaml \n",
+			ignores:  "scripts\nnested/entry.mcp.yaml\n",
+			want:     []string{"entry.mcp.yaml"},
+		},
+		{
+			name:     "root-relative directory glob",
+			includes: "nested/*.yaml\n",
+			want:     []string{"nested/entry.mcp.yaml"},
+		},
+		{
+			name:     "exact nested file",
+			includes: "scripts/deep/more/entry.mcp.yaml\n",
+			want:     []string{"scripts/deep/more/entry.mcp.yaml"},
+		},
+		{
+			name:     "mixed basename and path patterns",
+			includes: "*.yml\nnested/*.yaml\n",
+			want:     []string{"other.yml", "nested/entry.mcp.yaml"},
+		},
+		{
+			name:     "exclusions override path includes",
+			includes: "nested/*.yaml\nscripts/deep/more/*.yaml\n",
+			ignores:  "nested/entry.mcp.yaml\nscripts\n",
+		},
+		{
+			name:     "root-relative directory exclusion",
+			includes: "*.mcp.yaml\n",
+			ignores:  "scripts/deep\n",
+			want:     []string{"entry.mcp.yaml", "nested/entry.mcp.yaml"},
+		},
+		{
+			name:     "root-relative file glob exclusion",
+			includes: "*.mcp.yaml\n",
+			ignores:  "nested/*.yaml\nscripts/deep/more/*.yaml\n",
+			want:     []string{"entry.mcp.yaml"},
+		},
+		{
+			name:     "include wildcards do not cross separators",
+			includes: "scripts/*.yaml\nscripts/**/entry.mcp.yaml\n",
+		},
+		{
+			name:     "double star does not cross separators",
+			includes: "*.mcp.yaml\n",
+			ignores:  "scripts/**/entry.mcp.yaml\n",
+			want:     []string{"entry.mcp.yaml", "nested/entry.mcp.yaml", "scripts/deep/more/entry.mcp.yaml"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for _, name := range []string{"entry.mcp.yaml", "nested/entry.mcp.yaml", "scripts/deep/more/entry.mcp.yaml", "other.yml", "renovate.json", ".pre-commit-config.yaml"} {
+				path := filepath.Join(dir, name)
+				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
+				require.NoError(t, os.WriteFile(path, nil, 0o600))
+			}
+
+			if tt.includes != "" {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, ".obotcatalogs"), []byte(tt.includes), 0o600))
+			}
+			require.NoError(t, os.WriteFile(filepath.Join(dir, ".ignoreobotcatalogs"), []byte(tt.ignores), 0o600))
+
+			files, _, err := WalkCatalogFiles(dir)
+			require.NoError(t, err)
+
+			var paths []string
+			for path, err := range files {
+				require.NoError(t, err)
+
+				rel, err := filepath.Rel(dir, path)
+				require.NoError(t, err)
+				paths = append(paths, filepath.ToSlash(rel))
+			}
+
+			require.ElementsMatch(t, tt.want, paths)
+		})
+	}
 }
 
 func TestWalkCatalogFilesFallsBackWhenPatternFilesCannotBeRead(t *testing.T) {

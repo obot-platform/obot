@@ -159,7 +159,7 @@ remoteConfig:
 func TestMCPConvertCatalogDirectory(t *testing.T) {
 	dir := t.TempDir()
 	legacy := []byte("name: Example\nruntime: npx\nserverUserType: singleUser\nenv:\n  - key: TOKEN\n")
-	for _, name := range []string{"entry.yaml", "nested/entry.yml", "ignored/entry.yaml", "skip.yaml", ".git/entry.yaml", "other.yaml", "entry.json"} {
+	for _, name := range []string{"entry.yaml", "nested/entry.yml", "ignored/entry.yaml", "skip.yaml", ".git/entry.yaml", ".github/workflows/entry.yaml", "other.yaml", "entry.json"} {
 		path := filepath.Join(dir, name)
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o700))
 		require.NoError(t, os.WriteFile(path, legacy, 0o600))
@@ -175,7 +175,7 @@ func TestMCPConvertCatalogDirectory(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, string(data), "usage: env")
 	}
-	for _, name := range []string{"ignored/entry.yaml", "skip.yaml", ".git/entry.yaml", "other.yaml", "entry.json", "nested/entry.yaml"} {
+	for _, name := range []string{"ignored/entry.yaml", "skip.yaml", ".git/entry.yaml", ".github/workflows/entry.yaml", "other.yaml", "entry.json", "nested/entry.yaml"} {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		require.NoError(t, err)
 		require.Equal(t, legacy, data, name)

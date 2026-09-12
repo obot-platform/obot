@@ -207,6 +207,14 @@ remoteConfig:
 		t.Fatal(err)
 	}
 
+	workflowDir := filepath.Join(dir, ".github", "workflows")
+	if err := os.MkdirAll(workflowDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(workflowDir, "ci.yml"), []byte("name: Validate catalog\non: push\njobs: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
 	stdout, err := executeMCPTestCommand(t, mcpTestRoot("http://unused.example"), "validate-catalog-yaml", dir, path)
 	if err != nil {
 		t.Fatal(err)
