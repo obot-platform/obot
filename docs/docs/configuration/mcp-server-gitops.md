@@ -6,6 +6,12 @@ title: MCP Server GitOps
 
 Obot supports managing MCP servers through Git repositories, enabling GitOps workflows. Instead of manually adding MCP servers one at a time, administrators can source server configurations from Git repositories. This supports collaborative workflows with proper code review, versioning, and automated validation processes.
 
+:::note vMCP GitOps
+
+In this release, GitOps synchronizes MCP catalog entries that can be used as [vMCP components](../functionality/virtual-mcps.md). It does not synchronize vMCP definitions, profiles, configuration policies, or tool selections. Direct vMCP GitOps synchronization is planned for the next release.
+
+:::
+
 ### Key Benefits
 
 - **Version Control**: Change tracking, rollback capabilities, and branch-based development

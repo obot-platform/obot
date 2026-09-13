@@ -33,6 +33,12 @@ See [Filters](../functionality/filters.md) for selectors and contracts.
 
 ## Connecting to the Gateway
 
+:::warning Transitional release
+
+Use [virtual MCP (vMCP)](../functionality/virtual-mcps.md) endpoints for new connections. Legacy MCP server endpoints remain available in this release. In the next release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only connection path through the gateway.
+
+:::
+
 ### With Obot Agent
 
 Obot Agent connects through the gateway automatically. Users select which MCP servers to enable for their agents, conversations, or workflows.
@@ -42,7 +48,7 @@ Obot Agent connects through the gateway automatically. Users select which MCP se
 External MCP clients can connect using the gateway endpoint:
 
 ```
-https://your-obot-instance/mcp-connect/{server-id}
+https://your-obot-instance/mcp-connect/{vmcp-id}
 ```
 
 All servers are exposed via `streamable-http` transport, regardless of their underlying runtime.
