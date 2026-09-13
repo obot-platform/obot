@@ -92,7 +92,10 @@
 	let canCreateCatalogEntry = $derived(
 		profile.current.isAdmin?.() || profile.current.groups.includes(Group.POWERUSER)
 	);
-	let isOwner = $derived(profile.current.id === selectedVMcp?.userID);
+	let isOwner = $derived(
+		profile.current.id === selectedVMcp?.userID ||
+			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
+	);
 	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
 	let canShare = $derived(profile.current.isAdmin?.());
 	let viewType = $derived(view === 'profiles' && !canShare ? 'graph' : view);

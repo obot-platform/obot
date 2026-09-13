@@ -163,7 +163,9 @@
 </div>
 
 {#snippet vmcpCard(card: VMcpListCard, index: number)}
-	{@const isOwner = card.data.userID === profile.current.id}
+	{@const isOwner =
+		card.data.userID === profile.current.id ||
+		(!card.data.userID && profile.current.hasAdminAccess?.())}
 	<VMcpCard
 		id={card.id}
 		name={card.name}

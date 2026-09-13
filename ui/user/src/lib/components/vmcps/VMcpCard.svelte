@@ -45,8 +45,8 @@
 		class: clazz,
 		selectAriaLabel,
 		enterDelay,
-		isOwner,
-		note
+		note,
+		isOwner = false
 	}: Props = $props();
 </script>
 
@@ -131,9 +131,13 @@
 		{@render children()}
 	{/if}
 
-	<div class="pointer-events-auto relative z-10">
-		<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} {hideTest} />
-	</div>
+	{#if isOwner}
+		<div class="pointer-events-auto relative z-10">
+			<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} {hideTest} />
+		</div>
+	{:else}
+		<div class="h-10.5"></div>
+	{/if}
 
 	{#if note}
 		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
