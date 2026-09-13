@@ -266,59 +266,61 @@
 	class="md:w-md"
 	onClose={cancelSetup}
 >
-	{#if configuringEntry}
-		{#if oauthURL}
-			<p class="mb-4 text-sm">
-				MCP server requires OAuth authentication before its tools can be fetched.
-			</p>
-		{:else if !refresh && tools.length > 0}
-			<p class="text-muted-content mb-6 text-sm font-light">
-				Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog entry
-				is not queried while editing an existing component.
-			</p>
-		{:else}
-			<p class="text-muted-content mb-6 text-sm font-light">
-				Fetch tools using this component's stored configuration before editing.
-			</p>
-		{/if}
-
-		{#if error}
-			<p class="text-error mb-4 text-sm" role="alert">{error}</p>
-		{/if}
-		<div class="flex w-full flex-col gap-2">
+	<div class="flex grow flex-col p-4 md:p-0">
+		{#if configuringEntry}
 			{#if oauthURL}
-				{#if oauthValidating}
-					<button
-						in:fade
-						class="btn btn-primary flex items-center justify-center gap-2"
-						disabled
-						type="button"
-					>
-						<Loading class="text-primary size-4" />
-						Validating authentication...
-					</button>
-				{:else}
-					<a
-						in:fade
-						href={oauthURL}
-						rel="external noopener noreferrer"
-						target="_blank"
-						class="btn btn-primary"
-					>
-						Authenticate
-					</a>
-				{/if}
+				<p class="mb-4 text-sm">
+					MCP server requires OAuth authentication before its tools can be fetched.
+				</p>
+			{:else if !refresh && tools.length > 0}
+				<p class="text-muted-content mb-6 text-sm font-light">
+					Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog
+					entry is not queried while editing an existing component.
+				</p>
 			{:else}
-				<button class="btn btn-primary" disabled={loading} onclick={configureTools}>
-					{#if loading}
-						<Loading class="text-primary-content size-4" />
-					{:else}
-						Configure Tools
-					{/if}
-				</button>
+				<p class="text-muted-content mb-6 text-sm font-light">
+					Fetch tools using this component's stored configuration before editing.
+				</p>
 			{/if}
-		</div>
-	{/if}
+
+			{#if error}
+				<p class="text-error mb-4 text-sm" role="alert">{error}</p>
+			{/if}
+			<div class="flex w-full flex-col gap-2">
+				{#if oauthURL}
+					{#if oauthValidating}
+						<button
+							in:fade
+							class="btn btn-primary flex items-center justify-center gap-2"
+							disabled
+							type="button"
+						>
+							<Loading class="text-primary size-4" />
+							Validating authentication...
+						</button>
+					{:else}
+						<a
+							in:fade
+							href={oauthURL}
+							rel="external noopener noreferrer"
+							target="_blank"
+							class="btn btn-primary"
+						>
+							Authenticate
+						</a>
+					{/if}
+				{:else}
+					<button class="btn btn-primary" disabled={loading} onclick={configureTools}>
+						{#if loading}
+							<Loading class="text-primary-content size-4" />
+						{:else}
+							Configure Tools
+						{/if}
+					</button>
+				{/if}
+			</div>
+		{/if}
+	</div>
 </ResponsiveDialog>
 
 <CompositeEditTools

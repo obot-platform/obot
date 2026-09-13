@@ -82,6 +82,7 @@
 		configuredServers?: MCPCatalogServer[];
 		allowMultiUserServerConfigurationEdit?: boolean;
 		connectOnly?: boolean;
+		hideTitleBarAction?: boolean;
 	}
 
 	let {
@@ -99,7 +100,8 @@
 		excludeViews,
 		configuredServers,
 		allowMultiUserServerConfigurationEdit,
-		connectOnly
+		connectOnly,
+		hideTitleBarAction = false
 	}: Props = $props();
 
 	let entry = $state(untrack(() => initialEntry));
@@ -632,7 +634,7 @@
 		selected === 'configuration' &&
 		readonly}
 >
-	{#if entry}
+	{#if entry && !hideTitleBarAction}
 		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
 				<div class="icon">

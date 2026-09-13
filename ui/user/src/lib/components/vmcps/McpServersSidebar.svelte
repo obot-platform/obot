@@ -23,7 +23,7 @@
 	import { mcpServersAndEntries, responsive } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import McpServersSettings from './McpServersSettings.svelte';
-	import { ChevronsRight, GripVertical, Plus, TriangleAlert } from '@lucide/svelte';
+	import { ChevronLeft, ChevronsRight, GripVertical, Plus, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -178,28 +178,30 @@
 		open ? (responsive.isMobile ? 'w-dvw' : 'w-4xl') : 'w-11'
 	)}
 >
-	<button
-		class="group h-full w-8 flex flex-col items-center justify-center gap-16 hover:bg-base-200 dark:hover:bg-base-400/50 transition-colors"
-		onclick={() => (open = !open)}
-		aria-label={open ? 'Hide MCP Servers' : 'Show MCP Servers'}
-	>
-		<ChevronsRight
-			class={twMerge(
-				'size-3 rotate-0 transition-all opacity-0 group-hover:opacity-100',
-				!open && 'rotate-180'
-			)}
-		/>
-		<p class="rotate-90 text-xs font-mono shrink-0 text-nowrap">
-			<span class="group-hover:hidden">MCP Servers</span>
-			<span class="hidden group-hover:inline">{open ? 'Hide' : 'Show'} MCP Servers</span>
-		</p>
-		<ChevronsRight
-			class={twMerge(
-				'size-3 rotate-0 transition-all opacity-0 group-hover:opacity-100',
-				!open && 'rotate-180'
-			)}
-		/>
-	</button>
+	{#if !responsive.isMobile}
+		<button
+			class="group h-full w-8 flex flex-col items-center justify-center gap-16 hover:bg-base-200 dark:hover:bg-base-400/50 transition-colors"
+			onclick={() => (open = !open)}
+			aria-label={open ? 'Hide MCP Servers' : 'Show MCP Servers'}
+		>
+			<ChevronsRight
+				class={twMerge(
+					'size-3 rotate-0 transition-all opacity-0 group-hover:opacity-100',
+					!open && 'rotate-180'
+				)}
+			/>
+			<p class="rotate-90 text-xs font-mono shrink-0 text-nowrap">
+				<span class="group-hover:hidden">MCP Servers</span>
+				<span class="hidden group-hover:inline">{open ? 'Hide' : 'Show'} MCP Servers</span>
+			</p>
+			<ChevronsRight
+				class={twMerge(
+					'size-3 rotate-0 transition-all opacity-0 group-hover:opacity-100',
+					!open && 'rotate-180'
+				)}
+			/>
+		</button>
+	{/if}
 	<div class="h-full flex flex-col grow" in:fly={{ x: 100, duration: 150 }}>
 		{#if open}
 			{@render selectionScreen()}
@@ -212,13 +214,22 @@
 		id="mcp-server-selection-screen"
 		class="flex w-full min-w-0 flex-col overflow-y-auto pl-2 pr-2 pb-4"
 	>
-		<div class="sticky z-10 top-0 left-0 w-full bg-base-100 dark:bg-base-200 px-0 py-4">
-			<Search
-				value={query}
-				class="text-sm dark:bg-base-100 shadow-inner"
-				placeholder="Search MCP servers..."
-				onChange={onSearch}
-			/>
+		<div class="md:sticky z-10 top-0 left-0 w-full bg-base-100 dark:bg-base-200 px-0 py-4">
+			{#if responsive.isMobile}
+				<div class="fixed p-2 bottom-0 left-0 w-full mb-2 justify-center flex">
+					<button class="btn btn-primary" onclick={() => (open = false)}>
+						<ChevronLeft class="size-4" /> Return to Designer
+					</button>
+				</div>
+			{/if}
+			<div class="flex items-center gap-4">
+				<Search
+					value={query}
+					class="text-sm dark:bg-base-100 shadow-inner"
+					placeholder="Search MCP servers..."
+					onChange={onSearch}
+				/>
+			</div>
 			<div class="flex items-center gap-2 mt-2">
 				<label
 					id="mcp-server-sort-by-label"
@@ -258,7 +269,11 @@
 				>
 					{#each visibleEntries as entry (entry.id)}
 						<div class="pb-1 w-full" {@attach measureRow(entry.id)}>
-							{@render serverCard(entry)}
+							{#if responsive.isMobile}
+								{@render mobileServerCard(entry)}
+							{:else}
+								{@render serverCard(entry)}
+							{/if}
 						</div>
 					{/each}
 				</div>
@@ -302,6 +317,46 @@
 			>
 				Create New Entry
 			</p>
+		</div>
+	</button>
+{/snippet}
+
+{#snippet mobileServerCard(entry: MCPCatalogEntry)}
+	<button
+		id={`mcp-server-card-${entry.id}`}
+		type="button"
+		class={twMerge(
+			'w-full bg-base-100 dark:bg-base-200 flex cursor-pointer items-center rounded-lg border border-base-300 dark:border-base-400 transition-[transform,box-shadow,opacity] duration-150 select-none',
+			'hover:bg-base-300 dark:hover:bg-base-100 border-base-300 dark:border-base-400'
+		)}
+		aria-label={`Click to view ${entry.manifest.name ?? 'server'}`}
+		onclick={() => drag.activate(entry)}
+	>
+		<div class="flex gap-2 grow h-full px-3 py-2 items-center relative">
+			{#if isDeprecatedMCPServer(entry)}
+				<div
+					class="badge badge-xs absolute top-1 right-1 badge-warning badge-soft bg-warning/10 border-transparent rounded-sm p-1"
+					aria-label="This MCP server is deprecated"
+				>
+					<TriangleAlert class="size-3" />
+				</div>
+			{/if}
+			<McpServerIcon icon={entry.manifest.icon} />
+			<div class="flex flex-col gap-0.5 text-left">
+				<p class="line-clamp-1 text-xs font-medium">
+					{entry.manifest.name}
+					{#each entry.manifest.metadata?.categories?.split(',') as category (category)}
+						<span
+							class="badge badge-xs badge-outline border-base-300 bg-base-300/30 dark:bg-base-400/30 dark:border-base-400 rounded-sm p-1 font-light mx-0.5"
+						>
+							{category}
+						</span>
+					{/each}
+				</p>
+				<p class="text-muted-content text-xs font-light line-clamp-2 tracking-tight">
+					{entry.manifest.shortDescription || entry.manifest.description || 'No description'}
+				</p>
+			</div>
 		</div>
 	</button>
 {/snippet}

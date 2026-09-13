@@ -48,10 +48,10 @@
 		resolveVMcpComponents,
 		vmcpManifest
 	} from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, responsive, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
-	import { Trash2 } from '@lucide/svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -66,7 +66,7 @@
 	let view = $derived(
 		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'tester' | undefined) ?? 'graph'
 	);
-	let showRightPanel = $state(true);
+	let showRightPanel = $state(responsive.isMobile ? false : true);
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
 	let profilesPanel = $state<ReturnType<typeof VMcpProfiles>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
@@ -178,6 +178,23 @@
 
 	function openCatalogEntry(entry: MCPCatalogEntry) {
 		void catalogEntryDialog?.open(entry);
+	}
+
+	function handleAddFromDetails(entry: MCPCatalogEntry) {
+		if (responsive.isMobile) {
+			showRightPanel = false;
+		}
+		if (selectedVMcp) {
+			void handleDropped(entry, selectedVMcp);
+			return;
+		}
+		handleDroppedOnCreate(entry);
+	}
+
+	function isAddedToSelectedVMcp(entry: MCPCatalogEntry) {
+		return Boolean(
+			selectedVMcp?.components?.some((component) => component.mcpServerCatalogEntryID === entry.id)
+		);
 	}
 
 	function startCatalogEntryCreation(target?: { vmcp?: VMCP }) {
@@ -334,6 +351,12 @@
 		if (profilesPanel?.leaveEditor()) return;
 		leaveDesigner();
 	}
+
+	$effect(() => {
+		if (responsive.isMobile) {
+			showRightPanel = true;
+		}
+	});
 </script>
 
 <Layout
@@ -361,7 +384,7 @@
 		{/if}
 
 		{@render toggleSubview()}
-		{#if canShare}
+		{#if canShare && !responsive.isMobile}
 			<VMcpProfilesHint
 				show={showProfilesHint}
 				anchorEl={profilesTabEl}
@@ -384,7 +407,11 @@
 						vmcp={selectedVMcp}
 						onLaunch={() => {
 							if (!selectedVMcp) return;
-							handleConnectVMcp(selectedVMcp, { onConnected: () => {} });
+							handleConnectVMcp(selectedVMcp, {
+								onConnected: () => {
+									vmcpInstances.refresh();
+								}
+							});
 						}}
 					/>
 				</div>
@@ -441,7 +468,7 @@
 					{/if}
 				{/snippet}
 			</VMcpGraph>
-			{#if showRightPanel && canEdit}
+			{#if showRightPanel && canEdit && !responsive.isMobile}
 				<VMcpDragHint
 					dragActive={entryDrag.active}
 					class="absolute top-1/2 right-4 z-20 hidden -translate-y-1/2 @2xl:block"
@@ -449,8 +476,20 @@
 			{/if}
 		{/if}
 	</div>
+	{#if responsive.isMobile && !showRightPanel && viewType === 'graph'}
+		<div class="fixed bottom-0 left-0 z-50 flex justify-center w-full py-4">
+			<button
+				class="btn btn-primary"
+				onclick={() => {
+					showRightPanel = true;
+				}}
+			>
+				<Plus class="size-4" /> Add MCP Servers
+			</button>
+		</div>
+	{/if}
 	{#snippet rightSidebar()}
-		{#if canEdit && viewType === 'graph'}
+		{#if canEdit && viewType === 'graph' && (!responsive.isMobile || (responsive.isMobile && showRightPanel))}
 			<McpServersSidebar
 				bind:panelEl={rightPanelEl}
 				bind:open={showRightPanel}
@@ -464,7 +503,7 @@
 </Layout>
 
 {#snippet toggleSubview()}
-	<div class={twMerge('p-2 w-fit', viewType !== 'profiles' && 'absolute z-50 top-0 left-0')}>
+	<div class={twMerge('p-2 w-fit', viewType !== 'profiles' && 'absolute z-40 top-0 left-0')}>
 		<div class="tabs tabs-box bg-base-100 shadow-sm dark:bg-base-300">
 			<button
 				class={twMerge(
@@ -527,6 +566,9 @@
 	bind:this={catalogEntryDialog}
 	rightOffsetWidth={rightPanelWidth}
 	onCreated={handleCatalogEntryCreated}
+	onAddToVMcp={canEdit ? handleAddFromDetails : undefined}
+	addToVMcpLabel={selectedVMcp ? 'Add to vMCP' : 'Create vMCP'}
+	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
 <svelte:head>

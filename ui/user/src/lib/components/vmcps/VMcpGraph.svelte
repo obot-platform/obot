@@ -212,7 +212,9 @@
 	onpointerup={onPointerUp}
 	onpointercancel={onPointerUp}
 >
-	<div class="absolute right-3 top-3 z-20 flex items-center gap-2">
+	<div
+		class="absolute left-3 md:left-auto right-auto md:right-3 md:top-3 top-16 z-20 flex items-center gap-2"
+	>
 		<div
 			class="bg-base-100/80 dark:bg-base-300/80 flex gap-1 rounded-md border border-transparent p-1 shadow-sm"
 			data-vmcp-ui

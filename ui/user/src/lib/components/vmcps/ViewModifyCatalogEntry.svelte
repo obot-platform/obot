@@ -21,15 +21,26 @@
 	} from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { success } from '$lib/stores/success';
+	import { Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
 		workspaceId?: string;
 		rightOffsetWidth?: number;
 		onCreated?: (created: MCPCatalogEntry) => void | Promise<void>;
+		onAddToVMcp?: (entry: MCPCatalogEntry) => void | Promise<void>;
+		addToVMcpLabel?: string;
+		isAddedToVMcp?: (entry: MCPCatalogEntry) => boolean;
 	}
 
-	let { workspaceId, rightOffsetWidth, onCreated }: Props = $props();
+	let {
+		workspaceId,
+		rightOffsetWidth,
+		onCreated,
+		onAddToVMcp,
+		addToVMcpLabel = 'Add to vMCP',
+		isAddedToVMcp
+	}: Props = $props();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let selectedServerType = $state<LaunchServerType>();
@@ -115,6 +126,18 @@
 	function close() {
 		dialog?.close();
 		reset();
+	}
+
+	let alreadyAdded = $derived(Boolean(catalogEntry && isAddedToVMcp?.(catalogEntry)));
+	let showAddToVMcp = $derived(
+		Boolean(onAddToVMcp && catalogEntry && !creating && responsive.isMobile)
+	);
+
+	function handleAddToVMcp() {
+		if (!catalogEntry || alreadyAdded) return;
+		const entry = catalogEntry;
+		close();
+		void onAddToVMcp?.(entry);
 	}
 
 	function resetView() {
@@ -253,15 +276,15 @@
 	animate="fade"
 	bind:this={dialog}
 	class={twMerge(
-		'bg-base-200 dark:bg-base-100 max-h-[calc(100dvh-2rem)] h-[calc(100dvh-2rem)]',
-		'max-w-[calc(100%-2rem)] w-[calc(100%-2rem)]'
+		'bg-base-200 dark:bg-base-100 md:max-h-[calc(100dvh-2rem)] md:h-[calc(100dvh-2rem)]',
+		'md:max-w-[calc(100%-2rem)] md:w-[calc(100%-2rem)]'
 	)}
 	rightPanelWidth={responsive.isMobile ? undefined : rightOffsetWidth}
 	{title}
 	onClose={reset}
 >
 	{#key formKey}
-		<div class="flex h-full flex-col gap-6">
+		<div class="flex h-full flex-col gap-6 p-4 md:p-0">
 			{#if !creating}
 				<McpDeprecatedNotice {deprecated} variant="notification" />
 			{/if}
@@ -275,6 +298,7 @@
 			{/if}
 			{#if creating}
 				<McpServerEntryForm
+					hideTitleBarAction
 					entity={createEntity}
 					type={selectedServerType}
 					id={createScopeId}
@@ -284,6 +308,7 @@
 				/>
 			{:else if mcpServer}
 				<McpServerEntryForm
+					hideTitleBarAction
 					entry={mcpServer}
 					type="multi"
 					id={serverScopeID}
@@ -294,6 +319,7 @@
 				/>
 			{:else if catalogEntry}
 				<McpServerEntryForm
+					hideTitleBarAction
 					entry={catalogEntry}
 					type={catalogEntryFormType}
 					readonly={isAdminReadonly || isSourcedEntry}
@@ -301,6 +327,19 @@
 					entity={serverScopeEntity}
 					limitViews={['overview', 'tools']}
 				/>
+			{/if}
+			{#if showAddToVMcp}
+				<div class="p-2 fixed bottom-0 left-0 w-full">
+					<button
+						type="button"
+						class="btn btn-primary w-full"
+						disabled={alreadyAdded}
+						onclick={handleAddToVMcp}
+					>
+						<Plus class="size-4" />
+						{alreadyAdded ? 'Already added to vMCP' : addToVMcpLabel}
+					</button>
+				</div>
 			{/if}
 		</div>
 	{/key}

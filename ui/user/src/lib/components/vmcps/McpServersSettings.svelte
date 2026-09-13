@@ -66,7 +66,7 @@
 	onOpen={() => (open = true)}
 	onClose={() => (open = false)}
 >
-	<div class="flex flex-col">
+	<div class="flex flex-col p-4 md:p-0">
 		<label class="flex items-center gap-2 text-sm">
 			<input
 				type="checkbox"

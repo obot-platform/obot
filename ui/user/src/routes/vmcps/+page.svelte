@@ -18,7 +18,7 @@
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { profile, vmcpInstances } from '$lib/stores';
+	import { profile, responsive, vmcpInstances } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Layers, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
@@ -132,23 +132,25 @@
 {/if}
 
 {#snippet navActions(_view: string)}
-	<div class="flex items-center gap-2 md:mr-4">
-		<p class="text-xs font-light">Connect all vMCPs:</p>
-		{#each options as option (option.id)}
-			<IconButton
-				class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
-				tooltip={{ text: option.alt, placement: 'bottom' }}
-				onclick={() => openConnectAllDialog(option)}
-			>
-				<img src={option.icon} alt={option.alt} class="size-4 block dark:hidden" />
-				<img
-					src={option.iconDark ?? option.icon}
-					alt={option.alt}
-					class="size-4 hidden dark:block"
-				/>
-			</IconButton>
-		{/each}
-	</div>
+	{#if !responsive.isMobile}
+		<div class="flex items-center gap-2 md:mr-4">
+			<p class="text-xs font-light">Connect all vMCPs:</p>
+			{#each options as option (option.id)}
+				<IconButton
+					class="btn-sm bg-base-200 hover:bg-base-400 dark:hover:bg-base-300"
+					tooltip={{ text: option.alt, placement: 'bottom' }}
+					onclick={() => openConnectAllDialog(option)}
+				>
+					<img src={option.icon} alt={option.alt} class="size-4 block dark:hidden" />
+					<img
+						src={option.iconDark ?? option.icon}
+						alt={option.alt}
+						class="size-4 hidden dark:block"
+					/>
+				</IconButton>
+			{/each}
+		</div>
+	{/if}
 	<button class="btn btn-primary" onclick={openCreate}>
 		<Plus class="size-4" /> Create vMCP
 	</button>

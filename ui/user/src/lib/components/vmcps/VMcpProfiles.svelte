@@ -620,7 +620,7 @@
 
 {#snippet actions()}
 	{#if !draft && profiles.length > 0}
-		<div class="absolute top-3 right-3 z-50">
+		<div class="md:absolute md:top-3 md:right-3 z-50 pb-4 md:pb-0">
 			<button
 				class="btn btn-primary"
 				onclick={() => {

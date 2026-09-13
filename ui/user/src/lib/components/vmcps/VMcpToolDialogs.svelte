@@ -100,7 +100,7 @@
 	title="Add Tools"
 	onClose={() => handleDialogClose('added-create')}
 >
-	<div class="flex flex-col gap-4">
+	<div class="flex flex-col gap-4 p-4 md:p-0">
 		{#if flow.dialog === 'added-create'}
 			<div class="flex flex-col items-center gap-4">
 				{@render serverHeading()}

@@ -184,61 +184,65 @@
 
 <ResponsiveDialog
 	animate="slide"
-	class="w-md"
+	class="md:w-md"
 	bind:this={vmcpDialog}
 	title={editing ? 'Edit vMCP' : 'Create vMCP'}
 	onClose={handleDialogClose}
 >
-	<div class="mb-4 flex flex-col gap-1">
-		<label
-			for="vmcp-name"
-			class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
-		>
-			Name <span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
-		</label>
-		<input
-			id="vmcp-name"
-			class={twMerge('text-input-filled', showRequired.displayName && 'error')}
-			bind:value={form.displayName}
-			aria-required="true"
-			oninput={() => updateRequired('displayName')}
-		/>
-		{#if showRequired.displayName}
-			<p class="text-error text-xs" role="alert">Name is required</p>
-		{/if}
-	</div>
-
-	<div class="flex flex-col gap-1">
-		<label
-			for="vmcp-description"
-			class={twMerge('text-sm font-light', showRequired.description && 'error')}
-		>
-			Description
-			<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
-		</label>
-		<textarea
-			id="vmcp-description"
-			rows="3"
-			class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
-			bind:value={form.description}
-			aria-required="true"
-			oninput={() => updateRequired('description')}
-		></textarea>
-		{#if showRequired.description}
-			<p class="text-error text-xs" role="alert">Description is required</p>
-		{/if}
-	</div>
-
-	<div class="flex justify-end gap-2 mt-4">
-		<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
-			Cancel
-		</button>
-		<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
-			{#if saving}
-				<Loading class="text-primary-content size-4" />
-			{:else}
-				{editing ? 'Save' : 'Create'}
+	<div class="flex grow flex-col p-4 md:p-0">
+		<div class="mb-4 flex flex-col gap-1">
+			<label
+				for="vmcp-name"
+				class={twMerge('text-sm font-light', showRequired.displayName && 'error')}
+			>
+				Name <span class={showRequired.displayName ? 'text-error' : ''} aria-hidden="true">*</span>
+			</label>
+			<input
+				id="vmcp-name"
+				class={twMerge('text-input-filled', showRequired.displayName && 'error')}
+				bind:value={form.displayName}
+				aria-required="true"
+				oninput={() => updateRequired('displayName')}
+			/>
+			{#if showRequired.displayName}
+				<p class="text-error text-xs" role="alert">Name is required</p>
 			{/if}
-		</button>
+		</div>
+
+		<div class="flex flex-col gap-1">
+			<label
+				for="vmcp-description"
+				class={twMerge('text-sm font-light', showRequired.description && 'error')}
+			>
+				Description
+				<span class={showRequired.description ? 'text-error' : ''} aria-hidden="true">*</span>
+			</label>
+			<textarea
+				id="vmcp-description"
+				rows="3"
+				class={twMerge('text-input-filled resize-none', showRequired.description && 'error')}
+				bind:value={form.description}
+				aria-required="true"
+				oninput={() => updateRequired('description')}
+			></textarea>
+			{#if showRequired.description}
+				<p class="text-error text-xs" role="alert">Description is required</p>
+			{/if}
+		</div>
+
+		<div class="flex grow"></div>
+
+		<div class="flex md:flex-row flex-col justify-end gap-2 mt-4">
+			<button class="btn btn-ghost rounded-full" onclick={closeDialog} disabled={saving}>
+				Cancel
+			</button>
+			<button class="btn btn-primary" onclick={handleSubmit} disabled={saving}>
+				{#if saving}
+					<Loading class="text-primary-content size-4" />
+				{:else}
+					{editing ? 'Save' : 'Create'}
+				{/if}
+			</button>
+		</div>
 	</div>
 </ResponsiveDialog>

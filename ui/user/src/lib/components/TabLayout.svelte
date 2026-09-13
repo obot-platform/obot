@@ -90,11 +90,11 @@
 	rightSidebar={rightSidebar ? layoutRightSidebar : undefined}
 	classes={{
 		...classes,
-		container: twMerge('justify-start pt-0', classes?.container),
+		container: twMerge('justify-start md:pt-0', classes?.container),
 		childrenContainer: twMerge('pt-0', classes?.childrenContainer)
 	}}
 >
-	<div class={twMerge('flex h-full w-full gap-4 flex-col', views.length === 1 ? 'pt-4' : '')}>
+	<div class={twMerge('flex h-full w-full gap-4 flex-col', views.length === 1 ? 'md:pt-4' : '')}>
 		{#if views.length > 1}
 			<div class="w-full mt-4">
 				<OverflowContainer
