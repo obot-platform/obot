@@ -109,6 +109,7 @@
 			await UserService.deleteVMCPInstance(row.id);
 			vmcpInstances.remove(row.id);
 			success.add(`${row.displayName} deployment deleted.`);
+			allVMCPInstances = allVMCPInstances.filter((instance) => instance.id !== row.id);
 		} catch {
 			errors.append('Failed to delete vMCP deployment.');
 		} finally {

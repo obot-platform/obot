@@ -839,7 +839,7 @@
 									</button>
 								{/if}
 
-								{#if isVmcpComponent}
+								{#if isVmcpComponent && d.vmcpID}
 									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
 										<Layers class="size-4" />
 										View vMCP Deployments
