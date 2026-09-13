@@ -686,6 +686,7 @@
 				{/snippet}
 
 				{#snippet actions(d)}
+					{@const isVmcpChild = d.id.startsWith('ms1vmcp1')}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
@@ -823,19 +824,21 @@
 									</button>
 								{/if}
 
-								<button
-									onclick={(e) => {
-										e.stopPropagation();
-										const isCtrlClick = e.ctrlKey || e.metaKey;
-										openUrl(auditLogsUrl, isCtrlClick);
-									}}
-									class="menu-button text-left"
-								>
-									<Captions class="size-4" />
-									View Audit Logs
-								</button>
+								{#if auditLogsUrl && !isVmcpChild}
+									<button
+										onclick={(e) => {
+											e.stopPropagation();
+											const isCtrlClick = e.ctrlKey || e.metaKey;
+											openUrl(auditLogsUrl, isCtrlClick);
+										}}
+										class="menu-button text-left"
+									>
+										<Captions class="size-4" />
+										View Audit Logs
+									</button>
+								{/if}
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if !isVmcpChild && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {

@@ -24,9 +24,14 @@
 	import { onMount, untrack } from 'svelte';
 
 	let { data } = $props();
-	let views = $derived.by((): TabView[] => [
-		{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }
-	]);
+	let views = $derived.by((): TabView[] =>
+		profile.current.hasAdminAccess?.()
+			? [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
+			: [
+					{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
+					{ label: 'Deployments', value: 'deployments', content: deploymentsView }
+				]
+	);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
 
@@ -197,6 +202,10 @@
 			{/snippet}
 		</VMcpList>
 	{/if}
+{/snippet}
+
+{#snippet deploymentsView()}
+	<!-- todo: similar to MCP Servers Deployments View, using vMCPInstances with vMCPs to build table-->
 {/snippet}
 
 <ConnectVMcp bind:this={connectVMcpDialog} />

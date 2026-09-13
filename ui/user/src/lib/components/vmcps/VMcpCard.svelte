@@ -25,7 +25,7 @@
 		class?: string;
 		selectAriaLabel: string;
 		enterDelay?: number;
-		isOwner?: boolean;
+		userID?: string;
 		note?: string;
 	}
 
@@ -46,8 +46,12 @@
 		selectAriaLabel,
 		enterDelay,
 		note,
-		isOwner = false
+		userID
 	}: Props = $props();
+
+	let isCreator = $derived(Boolean(userID && profile.current.id === userID));
+	let canDelete = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
+	let canConnect = $derived(!userID || isCreator);
 </script>
 
 <div
@@ -110,7 +114,7 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
-				{#if profile.current.isAdmin?.() || isOwner}
+				{#if canDelete}
 					<button
 						class="menu-button-destructive"
 						onclick={(e) => {
@@ -131,7 +135,7 @@
 		{@render children()}
 	{/if}
 
-	{#if isOwner}
+	{#if canConnect}
 		<div class="pointer-events-auto relative z-10">
 			<VMcpCardActions {id} {connectURL} {connectButtonId} {onConnect} {hideTest} />
 		</div>

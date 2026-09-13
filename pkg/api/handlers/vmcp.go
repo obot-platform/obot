@@ -118,13 +118,12 @@ func (h *VMCPHandler) Update(req api.Context) error {
 		return types.NewErrBadRequest("failed to read VMCP manifest: %v", err)
 	}
 
-	personalServer := !req.UserIsAdmin() || req.URL.Query().Get("scope") == "personal"
-	manifest.Default(personalServer, req.User.GetUID())
-
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
 		return fmt.Errorf("failed to get VMCP: %w", err)
 	}
+	manifest.Default(vmcp.Spec.UserID != "", req.User.GetUID())
+
 	if err := vmcpconfig.ReconcileComponentIDs(vmcp.Spec.Manifest, &manifest); err != nil {
 		return types.NewErrBadRequest("invalid VMCP manifest: %v", err)
 	}

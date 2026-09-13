@@ -129,6 +129,31 @@ function panelCard(name: string) {
 	return page.getByRole('button', { name: new RegExp(`View ${name} details`) });
 }
 
+type ViewTab = 'Designer' | 'Profiles' | 'Tester';
+
+async function expectViewTabs(visible: ViewTab[]) {
+	for (const name of ['Designer', 'Profiles', 'Tester'] as const) {
+		const tab = page.getByRole('button', { name, exact: true });
+		if (visible.includes(name)) {
+			await expect.element(tab).toBeVisible();
+		} else {
+			await expect.element(tab).not.toBeInTheDocument();
+		}
+	}
+}
+
+function personalVMcp(ownerId = getProfileResponse.id) {
+	const vmcp = createIssueTrackerVMcp();
+	vmcp.userID = ownerId;
+	return vmcp;
+}
+
+function orgVMcp() {
+	const vmcp = createIssueTrackerVMcp();
+	vmcp.userID = '';
+	return vmcp;
+}
+
 function centerOf(el: Element) {
 	const rect = el.getBoundingClientRect();
 	return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
@@ -737,15 +762,27 @@ describe('VMcpDesigner.svelte', () => {
 			expect(after).toContain('scale(');
 		});
 
-		it('keeps edit controls for a non-admin owner', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			vmcp.userID = getProfileResponse.id;
-			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+		it('lets a non-admin connect to an admin-created vMCP without deleting it', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.USER] });
 
-			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expectViewTabs([]);
+			await expect
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
+		it('keeps edit controls for a non-admin owner', async () => {
+			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
+
+			await expectViewTabs(['Designer', 'Tester']);
 			await expect.element(page.getByRole('button', { name: 'Delete vMCP' })).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Hide MCP Servers' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
@@ -783,6 +820,46 @@ describe('VMcpDesigner.svelte', () => {
 		});
 	});
 
+	describe('view tabs', () => {
+		it('shows Designer and Tester for the owner of a personal vMCP', async () => {
+			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
+
+			await expectViewTabs(['Designer', 'Tester']);
+		});
+
+		it('also shows Profiles when the personal owner is an admin', async () => {
+			await renderDesigner([componentEntry], personalVMcp());
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
+		});
+
+		it('shows Designer, Profiles, and Tester for an admin on a non-personal vMCP', async () => {
+			await renderDesigner([componentEntry], orgVMcp());
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
+		});
+
+		it('hides all tabs for a non-admin on a non-personal vMCP', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.USER] });
+
+			await expectViewTabs([]);
+		});
+
+		it("hides all tabs for a viewer of someone else's personal vMCP", async () => {
+			await renderDesigner([componentEntry], personalVMcp('someone-else'), {
+				groups: [Group.USER]
+			});
+
+			await expectViewTabs([]);
+		});
+
+		it("hides all tabs for an admin viewing someone else's personal vMCP", async () => {
+			await renderDesigner([componentEntry], personalVMcp('someone-else'));
+
+			await expectViewTabs([]);
+		});
+	});
+
 	describe('when the viewer is not an admin or owner', () => {
 		const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 
@@ -792,22 +869,20 @@ describe('VMcpDesigner.svelte', () => {
 			return vmcp;
 		}
 
-		it('hides delete, the Profiles tab, and the MCP Servers sidebar', async () => {
+		it('hides delete, connect, view tabs, and the MCP Servers sidebar', async () => {
 			await renderDesigner([componentEntry, slack], sharedVMcp(), { groups: [Group.USER] });
 
 			await expect
 				.element(page.getByRole('button', { name: 'Delete vMCP' }))
 				.not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expectViewTabs([]);
 			await expect
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByPlaceholder('Search MCP servers...')).not.toBeInTheDocument();
 			await expect
 				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.toBeVisible();
+				.not.toBeInTheDocument();
 		});
 
 		it('does not open edit or component actions, and omits delete from the card menu', async () => {
@@ -842,19 +917,15 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
 				.not.toBeInTheDocument();
-			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expectViewTabs([]);
 		});
 	});
 
 	describe('tester view', () => {
-		it('shows Designer, Profiles, and Tester tabs for an admin', async () => {
-			await renderDesigner([componentEntry], createIssueTrackerVMcp());
+		it('shows Designer, Profiles, and Tester tabs for an admin on a non-personal vMCP', async () => {
+			await renderDesigner([componentEntry], orgVMcp());
 
-			await expect.element(page.getByRole('button', { name: 'Designer' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
 		});
 
 		it('shows the launch notice when the vMCP has no instance', async () => {
@@ -874,26 +945,25 @@ describe('VMcpDesigner.svelte', () => {
 
 		it('opens tester for a non-admin owner without offering profiles', async () => {
 			appPage.url.searchParams.set('view', 'tester');
-			const vmcp = createIssueTrackerVMcp();
-			vmcp.userID = getProfileResponse.id;
-			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
 
 			await expect.element(page.getByRole('button', { name: 'Launch VMCP' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
+			await expectViewTabs(['Designer', 'Tester']);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
 
-		it('opens tester for a viewer without offering profiles', async () => {
+		it('stays on the graph when a viewer asks for tester', async () => {
 			appPage.url.searchParams.set('view', 'tester');
-			const vmcp = createIssueTrackerVMcp();
-			vmcp.userID = 'someone-else';
-			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
+			await renderDesigner([componentEntry], personalVMcp('someone-else'), {
+				groups: [Group.USER]
+			});
 
-			await expect.element(page.getByRole('button', { name: 'Launch VMCP' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Tester' })).toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Profiles' })).not.toBeInTheDocument();
-			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
+			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Launch VMCP' }))
+				.not.toBeInTheDocument();
+			await expectViewTabs([]);
+			await expect.element(page.getByCSS('[data-vmcp-canvas]')).toBeInTheDocument();
 		});
 
 		it('starts ConnectVMcp initLaunch from the tester Launch button', async () => {
@@ -1181,13 +1251,13 @@ describe('VMcpDesigner.svelte', () => {
 			expect(claimProfilesHintForVMcp(vmcp.id)).toBe(false);
 		});
 
-		it('does not show the hint for viewers without profile tabs', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			vmcp.userID = getProfileResponse.id;
+		it('does not show the hint for a non-admin owner without a Profiles tab', async () => {
+			const vmcp = personalVMcp();
 			queueProfilesHintForCreatedVMcp(vmcp.id);
 
 			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
 
+			await expectViewTabs(['Designer', 'Tester']);
 			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
 		});
 

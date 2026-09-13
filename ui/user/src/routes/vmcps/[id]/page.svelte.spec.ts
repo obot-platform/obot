@@ -25,7 +25,7 @@ describe('vMCP detail page', () => {
 			lastFetched: null,
 			isInitialized: true
 		};
-		const data = await preparePageData<PageData>({ vmcp });
+		const data = await preparePageData<PageData>({ vmcp, users: [] });
 		render(VMcpDetailPage, { data });
 
 		await expect

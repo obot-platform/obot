@@ -32,7 +32,6 @@
 		vmcp: VMCP;
 		components: VMcpComponentView[];
 		canEdit?: boolean;
-		isOwner?: boolean;
 		context: RowContext;
 		drag: EntryDrag;
 		onEdit?: () => void;
@@ -46,7 +45,6 @@
 		vmcp,
 		components,
 		canEdit = true,
-		isOwner = false,
 		context,
 		drag,
 		onEdit,
@@ -207,8 +205,8 @@
 				onSelect={canEdit ? onEdit : undefined}
 				{onConnect}
 				hideTest
-				onDelete={canEdit ? onDelete : undefined}
-				{isOwner}
+				{onDelete}
+				userID={vmcp.userID}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					canEdit && 'cursor-pointer'

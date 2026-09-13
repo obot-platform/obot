@@ -163,9 +163,6 @@
 </div>
 
 {#snippet vmcpCard(card: VMcpListCard, index: number)}
-	{@const isOwner =
-		card.data.userID === profile.current.id ||
-		(!card.data.userID && profile.current.hasAdminAccess?.())}
 	<VMcpCard
 		id={card.id}
 		name={card.name}
@@ -179,7 +176,7 @@
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
 		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
-		{isOwner}
+		userID={card.data.userID}
 		note={getNote(card.data)}
 	>
 		{#snippet icon()}

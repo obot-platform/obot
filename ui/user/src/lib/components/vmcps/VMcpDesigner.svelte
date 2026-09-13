@@ -97,8 +97,7 @@
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
 	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
-	let canShare = $derived(profile.current.isAdmin?.());
-	let viewType = $derived(view === 'profiles' && !canShare ? 'graph' : view);
+	let viewType = $derived(view !== 'graph' && !isOwner ? 'graph' : view);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
 		(isVMcpCreateHandoffPending() || componentDropPending) && !toolFlow.dialog
@@ -138,7 +137,7 @@
 
 	$effect(() => {
 		const created = selectedVMcp;
-		if (!created || !canShare) return;
+		if (!created || !isOwner) return;
 
 		untrack(() => {
 			if (claimProfilesHintForVMcp(created.id)) {
@@ -148,7 +147,7 @@
 	});
 
 	let showProfilesHint = $derived(
-		profilesHintQueued && !toolFlow.dialog && viewType === 'graph' && canShare
+		profilesHintQueued && !toolFlow.dialog && viewType === 'graph' && isOwner
 	);
 
 	function componentManifestField(component: VMCPComponent, field: 'name' | 'shortDescription') {
@@ -386,8 +385,8 @@
 			</div>
 		{/if}
 
-		{@render toggleSubview()}
-		{#if canShare && !responsive.isMobile}
+		{#if isOwner && !responsive.isMobile}
+			{@render toggleSubview()}
 			<VMcpProfilesHint
 				show={showProfilesHint}
 				anchorEl={profilesTabEl}
@@ -431,12 +430,11 @@
 						vmcp={item}
 						components={vmcpComponents(item)}
 						{canEdit}
-						{isOwner}
 						context={ctx}
 						drag={entryDrag}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
-						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
+						onDelete={() => createEditVMcp?.openDelete(item)}
 						onModifyComponent={canEdit
 							? (component) => toolFlow.openComponent(component, item)
 							: undefined}
@@ -517,7 +515,7 @@
 					setUrlParamAndUpdateUrl(page.url, 'view', 'graph');
 				}}>Designer</button
 			>
-			{#if canShare}
+			{#if isOwner && profile.current.hasAdminAccess?.()}
 				<button
 					bind:this={profilesTabEl}
 					class={twMerge(
@@ -530,7 +528,7 @@
 					}}>Profiles</button
 				>
 			{/if}
-			{#if selectedVMcp?.id}
+			{#if selectedVMcp?.id && isOwner}
 				<button
 					class={twMerge(
 						'tab text-xs min-w-24',

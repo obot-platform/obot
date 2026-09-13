@@ -430,6 +430,56 @@ func TestVMCPHandlerUpdatePreservesStaticConfiguration(t *testing.T) {
 	}
 }
 
+func TestVMCPHandlerUpdateDefaultsFromStoredPersonalScope(t *testing.T) {
+	vmcp := &v1.VMCP{
+		Name:      "vmcp-personal",
+		Namespace: system.DefaultNamespace,
+		Spec: v1.VMCPSpec{
+			UserID: "user-1",
+			Manifest: types.VMCPManifest{
+				DisplayName: "Personal vMCP",
+			},
+		},
+	}
+	storage := newVMCPTestStorage(vmcp)
+	gatewayClient := newHandlerTestGateway(t)
+	handler := NewVMCPHandler(nil)
+
+	body, err := json.Marshal(vmcp.Spec.Manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/api/vmcps/"+vmcp.Name, bytes.NewReader(body))
+	request.SetPathValue("vmcp_id", vmcp.Name)
+	if err := handler.Update(api.Context{
+		ResponseWriter: httptest.NewRecorder(),
+		Request:        request,
+		Storage:        storage,
+		GatewayClient:  gatewayClient,
+		User: &user.DefaultInfo{
+			Name:   "admin",
+			UID:    "admin",
+			Groups: []string{types.GroupAdmin},
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	var stored v1.VMCP
+	if err := storage.Get(t.Context(), kclient.ObjectKey{
+		Name:      vmcp.Name,
+		Namespace: system.DefaultNamespace,
+	}, &stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Spec.UserID != "user-1" {
+		t.Fatalf("personal VMCP userID = %q, want user-1", stored.Spec.UserID)
+	}
+	if stored.Spec.Manifest.Profiles != nil {
+		t.Fatalf("personal VMCP profiles = %#v, want none", stored.Spec.Manifest.Profiles)
+	}
+}
+
 func TestVMCPHandlerCreateDefersCleanupWhenPublishingStaticConfigurationFails(t *testing.T) {
 	storage := newVMCPTestStorage(vmcpCatalogEntryForTest("entry"))
 	storage.updateErr = fmt.Errorf("update failed")
