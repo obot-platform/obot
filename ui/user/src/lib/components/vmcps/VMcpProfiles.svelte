@@ -46,9 +46,10 @@
 		vmcp?: VMCP;
 		toolFlow: VMcpToolFlow;
 		onUpdated?: (vmcp: VMCP) => void;
+		readonly?: boolean;
 	}
 
-	let { vmcp, toolFlow, onUpdated }: Props = $props();
+	let { vmcp, toolFlow, onUpdated, readonly = false }: Props = $props();
 	let profiles = $state<Profile[]>([]);
 	let draft = $state<ProfileManifest>();
 	let editingId = $state<string>();
@@ -253,6 +254,7 @@
 	});
 
 	function createProfile() {
+		if (readonly) return;
 		editingId = undefined;
 		error = '';
 		expanded = {};
@@ -292,7 +294,7 @@
 	}
 
 	async function saveProfile() {
-		if (!draft || !vmcp || saving) return;
+		if (readonly || !draft || !vmcp || saving) return;
 		const name = draft.name.trim();
 		if (!name) {
 			error = 'Enter a profile name.';
@@ -323,11 +325,12 @@
 	}
 
 	function promptDelete(id: string, name: string) {
+		if (readonly) return;
 		confirmDeleteProfile = { id, name };
 	}
 
 	async function deleteProfile(id: string) {
-		if (!vmcp || saving) return false;
+		if (readonly || !vmcp || saving) return false;
 		const removed = profiles.find((profile) => profile.id === id);
 		if (!removed) return false;
 
@@ -339,7 +342,7 @@
 	}
 
 	async function persistProfiles(next: Profile[], message: string) {
-		if (!vmcp) return false;
+		if (readonly || !vmcp) return false;
 		saving = true;
 		try {
 			const latest = await UserService.getVMCP(vmcp.id);
@@ -404,6 +407,7 @@
 	}
 
 	function addSubject(subject: AccessControlRuleSubject) {
+		if (readonly) return;
 		subjectSelection = undefined;
 		if (!draft) return;
 		if (draft.users.some((candidate) => candidate.id === subject.id)) return;
@@ -412,7 +416,8 @@
 	}
 
 	function removeSubject(id: string) {
-		if (draft) draft.users = draft.users.filter((subject) => subject.id !== id);
+		if (readonly || !draft) return;
+		draft.users = draft.users.filter((subject) => subject.id !== id);
 	}
 
 	async function loadUsers() {
@@ -474,7 +479,7 @@
 	}
 
 	async function persistComponentTools(id: string, toolOverrides: ToolOverride[]) {
-		if (!vmcp) return;
+		if (readonly || !vmcp) return;
 		saving = true;
 		try {
 			const latest = await UserService.getVMCP(vmcp.id);
@@ -547,7 +552,7 @@
 	function refineTools(event: MouseEvent, component: VMCPComponent) {
 		event.preventDefault();
 		event.stopPropagation();
-		if (!vmcp) return;
+		if (readonly || !vmcp) return;
 		toolFlow.collectComponentTools(component, vmcp, (config) => {
 			if (!draft) return;
 			const id = componentId(component);
@@ -619,7 +624,7 @@
 </Confirm>
 
 {#snippet actions()}
-	{#if !draft && profiles.length > 0}
+	{#if !draft && profiles.length > 0 && !readonly}
 		<div class="md:absolute md:top-3 md:right-3 z-50 pb-4 md:pb-0">
 			<button
 				class="btn btn-primary"
@@ -639,6 +644,7 @@
 			class="flex flex-col gap-3 border-base-300 bg-base-100 dark:bg-base-300 rounded-xl border p-5 shadow-sm"
 			onsubmit={(event) => {
 				event.preventDefault();
+				if (readonly) return;
 				void saveProfile();
 			}}
 		>
@@ -647,13 +653,15 @@
 					<ArrowLeft class="size-4" />
 				</IconButton>
 				<div class="min-w-0 grow">
-					<h2 class="text-md font-semibold">{editingId ? 'Edit profile' : 'Create profile'}</h2>
+					<h2 class="text-md font-semibold">
+						{editingId ? (readonly ? 'View profile' : 'Edit profile') : 'Create profile'}
+					</h2>
 					<p class="text-muted-content text-sm">
 						A profile defines a set of tools for this vMCP that a user, agent, or group has access
 						to.
 					</p>
 				</div>
-				{#if editingId}
+				{#if editingId && !readonly}
 					<IconButton
 						variant="danger"
 						disabled={saving}
@@ -684,6 +692,7 @@
 						aria-invalid={nameError || undefined}
 						bind:value={draft.name}
 						oninput={() => (error = '')}
+						disabled={readonly}
 					/>
 				</label>
 			</section>
@@ -747,6 +756,7 @@
 												type="button"
 												tooltip={{ text: 'Refine tools' }}
 												onclick={(event) => refineTools(event, component)}
+												disabled={readonly}
 											>
 												<Split class="size-4" />
 											</IconButton>
@@ -765,6 +775,7 @@
 											lockedTools={lockedToolNames(resource)}
 											lockedReason="Disabled on this vMCP."
 											{effectiveNameDuplicates}
+											{readonly}
 										/>
 									</div>
 								{/if}
@@ -793,6 +804,7 @@
 					classes={{ root: 'w-full' }}
 					invalid={subjectsError}
 					onSelect={(option) => addSubject(option.subject)}
+					disabled={readonly}
 				/>
 				{#if draft.users.length === 0}
 					<div class="text-muted-content text-center pb-4 pt-3 text-xs italic font-light">
@@ -839,14 +851,16 @@
 									</div>
 								</div>
 
-								<IconButton
-									class="size-8"
-									tooltip={{ text: `Remove ${display.name}` }}
-									onclick={() => removeSubject(subject.id)}
-									variant="danger"
-								>
-									<X class="size-4" />
-								</IconButton>
+								{#if !readonly}
+									<IconButton
+										class="size-8"
+										tooltip={{ text: `Remove ${display.name}` }}
+										onclick={() => removeSubject(subject.id)}
+										variant="danger"
+									>
+										<X class="size-4" />
+									</IconButton>
+								{/if}
 							</div>
 							{#if index < draft.users.length - 1}
 								<div class="divider my-0 after:h-px before:h-px px-2"></div>
@@ -861,11 +875,13 @@
 				{/if}
 			</p>
 
-			<footer class="w-full">
-				<button type="submit" class="btn btn-sm btn-primary text-xs w-full" disabled={saving}>
-					{editingId ? 'Save changes' : 'Create profile'}
-				</button>
-			</footer>
+			{#if !readonly}
+				<footer class="w-full">
+					<button type="submit" class="btn btn-sm btn-primary text-xs w-full" disabled={saving}>
+						{editingId ? 'Save changes' : 'Create profile'}
+					</button>
+				</footer>
+			{/if}
 		</form>
 	{/if}
 {/snippet}
@@ -880,12 +896,16 @@
 			</div>
 			<h2 class="font-semibold">No profiles yet</h2>
 			<p class="text-muted-content mt-1 max-w-sm text-xs">
-				Create a profile to group identities and define the MCP tools available to them.
+				{readonly
+					? 'No profiles have been created for this vMCP yet.'
+					: 'Create a profile to group identities and define the MCP tools available to them.'}
 			</p>
-			<button class="btn btn-primary btn-sm mt-5" onclick={createProfile}>
-				<Plus class="size-4" />
-				Create profile
-			</button>
+			{#if !readonly}
+				<button class="btn btn-primary btn-sm mt-5" onclick={createProfile}>
+					<Plus class="size-4" />
+					Create profile
+				</button>
+			{/if}
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 @2xl:grid-cols-2 @4xl:grid-cols-3 gap-4">
@@ -897,7 +917,7 @@
 					<button
 						type="button"
 						class="absolute inset-0 rounded-xl"
-						aria-label={`Edit ${profile.name}`}
+						aria-label={`${readonly ? 'View' : 'Edit'} ${profile.name}`}
 						onclick={() => editProfile(profile)}
 					></button>
 					<div class="pointer-events-none relative">
@@ -946,15 +966,17 @@
 									</ul>
 								{/if}
 							</div>
-							<IconButton
-								variant="danger"
-								class="pointer-events-auto"
-								disabled={saving}
-								tooltip={{ text: `Delete ${profile.name}`, placement: 'bottom' }}
-								onclick={() => promptDelete(profile.id, profile.name)}
-							>
-								<Trash2 class="size-4" />
-							</IconButton>
+							{#if !readonly}
+								<IconButton
+									variant="danger"
+									class="pointer-events-auto"
+									disabled={saving}
+									tooltip={{ text: `Delete ${profile.name}`, placement: 'bottom' }}
+									onclick={() => promptDelete(profile.id, profile.name)}
+								>
+									<Trash2 class="size-4" />
+								</IconButton>
+							{/if}
 						</div>
 					</div>
 				</article>

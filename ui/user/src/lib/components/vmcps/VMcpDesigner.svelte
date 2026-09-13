@@ -96,7 +96,9 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
-	let canEdit = $derived(!selectedVMcp || profile.current.isAdmin?.() || isOwner);
+	let canEdit = $derived(
+		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
+	);
 	let viewType = $derived(view !== 'graph' && !isOwner ? 'graph' : view);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
@@ -137,7 +139,7 @@
 
 	$effect(() => {
 		const created = selectedVMcp;
-		if (!created || !isOwner) return;
+		if (!created || !isOwner || !canEdit) return;
 
 		untrack(() => {
 			if (claimProfilesHintForVMcp(created.id)) {
@@ -147,7 +149,7 @@
 	});
 
 	let showProfilesHint = $derived(
-		profilesHintQueued && !toolFlow.dialog && viewType === 'graph' && isOwner
+		profilesHintQueued && !toolFlow.dialog && viewType === 'graph' && isOwner && canEdit
 	);
 
 	function componentManifestField(component: VMCPComponent, field: 'name' | 'shortDescription') {
@@ -401,6 +403,7 @@
 				onUpdated={(updated) => {
 					selectedVMcp = updated;
 				}}
+				readonly={!canEdit}
 			/>
 		{:else if viewType === 'tester'}
 			{#if selectedVMcp}
@@ -434,7 +437,7 @@
 						drag={entryDrag}
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
-						onDelete={() => createEditVMcp?.openDelete(item)}
+						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
 						onModifyComponent={canEdit
 							? (component) => toolFlow.openComponent(component, item)
 							: undefined}

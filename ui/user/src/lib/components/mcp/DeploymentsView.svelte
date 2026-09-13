@@ -686,8 +686,8 @@
 				{/snippet}
 
 				{#snippet actions(d)}
-					{@const isVmcpChild = d.id.startsWith('ms1vmcp1')}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
+					{@const isVmcpChild = !!d.vmcpComponentID}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />

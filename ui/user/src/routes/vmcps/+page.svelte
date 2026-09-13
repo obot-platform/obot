@@ -5,6 +5,7 @@
 	import ConnectAllVMcps from '$lib/components/vmcps/ConnectAllVMcps.svelte';
 	import ConnectVMcp from '$lib/components/vmcps/ConnectVMcp.svelte';
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
+	import VMcpDeploymentsView from '$lib/components/vmcps/VMcpDeploymentsView.svelte';
 	import VMcpDesigner from '$lib/components/vmcps/VMcpDesigner.svelte';
 	import VMcpList from '$lib/components/vmcps/VMcpList.svelte';
 	import VMcpListSettings from '$lib/components/vmcps/VMcpListSettings.svelte';
@@ -24,14 +25,10 @@
 	import { onMount, untrack } from 'svelte';
 
 	let { data } = $props();
-	let views = $derived.by((): TabView[] =>
-		profile.current.hasAdminAccess?.()
-			? [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
-			: [
-					{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
-					{ label: 'Deployments', value: 'deployments', content: deploymentsView }
-				]
-	);
+	let views = $derived.by((): TabView[] => [
+		{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
+		{ label: 'Deployments', value: 'deployments', content: deploymentsView }
+	]);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
 
@@ -205,7 +202,7 @@
 {/snippet}
 
 {#snippet deploymentsView()}
-	<!-- todo: similar to MCP Servers Deployments View, using vMCPInstances with vMCPs to build table-->
+	<VMcpDeploymentsView vmcps={listedVMcps} {usersMap} />
 {/snippet}
 
 <ConnectVMcp bind:this={connectVMcpDialog} />

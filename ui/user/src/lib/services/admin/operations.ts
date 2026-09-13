@@ -31,7 +31,8 @@ import type {
 	K8sServerDetail,
 	MCPAllowedSecretBindingTarget,
 	MCPSubField,
-	VMCP
+	VMCP,
+	VMCPInstance
 } from '../user/types';
 import type {
 	MCPCatalog,
@@ -2716,5 +2717,13 @@ export async function downloadMDMConfig(
 
 export async function listAllVMCPs(opts?: { fetch?: Fetcher }): Promise<VMCP[]> {
 	const response = (await doGet('/vmcps?all=true', opts)) as ItemsResponse<VMCP>;
+	return response.items ?? [];
+}
+
+export async function listAllVMCPInstances(opts?: {
+	fetch?: Fetcher;
+	dontLogErrors?: boolean;
+}): Promise<VMCPInstance[]> {
+	const response = (await doGet('/vmcp-instances?all=true', opts)) as ItemsResponse<VMCPInstance>;
 	return response.items ?? [];
 }

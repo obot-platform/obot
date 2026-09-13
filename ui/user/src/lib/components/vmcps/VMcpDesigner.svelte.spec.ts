@@ -775,6 +775,35 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
+		it('lets a readonly admin inspect an admin-created vMCP without deleting or editing it', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
+			await expect
+				.element(page.getByRole('button', { name: 'Delete vMCP' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Connect', exact: true }))
+				.toBeVisible();
+
+			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+			await expect
+				.element(page.getByRole('button', { name: 'Delete', exact: true }))
+				.not.toBeInTheDocument();
+
+			await expect.element(componentBlock()).not.toBeInTheDocument();
+			await expect.element(page.getByText('GitHub').first()).toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Modify Tools' }))
+				.not.toBeInTheDocument();
+		});
+
 		it('keeps edit controls for a non-admin owner', async () => {
 			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
 
@@ -857,6 +886,31 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], personalVMcp('someone-else'));
 
 			await expectViewTabs([]);
+		});
+
+		it('shows Designer, Profiles, and Tester for a readonly admin on a non-personal vMCP', async () => {
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
+		});
+
+		it('opens profiles as readonly for a readonly admin', async () => {
+			appPage.url.searchParams.set('view', 'profiles');
+			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.AUDITOR] });
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
+			await expect
+				.element(page.getByRole('button', { name: 'Create profile', exact: true }))
+				.not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'View default' }).click();
+			await expect.element(page.getByRole('heading', { name: 'View profile' })).toBeVisible();
+			await expect
+				.element(page.getByPlaceholder('ex. Marketing, Engineering, etc.'))
+				.toBeDisabled();
+			await expect
+				.element(page.getByRole('button', { name: 'Save changes' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: /^Delete / })).not.toBeInTheDocument();
 		});
 	});
 
@@ -1258,6 +1312,16 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
 
 			await expectViewTabs(['Designer', 'Tester']);
+			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
+		});
+
+		it('does not show the hint for a readonly admin', async () => {
+			const vmcp = orgVMcp();
+			queueProfilesHintForCreatedVMcp(vmcp.id);
+
+			await renderDesigner([componentEntry], vmcp, { groups: [Group.AUDITOR] });
+
+			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
 			await expect.element(page.getByText(HINT_TEXT, { exact: false })).not.toBeInTheDocument();
 		});
 

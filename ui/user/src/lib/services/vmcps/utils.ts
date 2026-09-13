@@ -127,6 +127,26 @@ export function vmcpComponentId(component: VMCPComponent) {
 	return component.id || component.mcpServerCatalogEntryID || '';
 }
 
+export function vmcpInstancePath(vmcpID: string, instanceID: string) {
+	return `/vmcps/${vmcpID}/instance/${instanceID}`;
+}
+
+export function vmcpInstanceAuditLogsPath(vmcpID: string, userID: string) {
+	return `/audit-logs?mcp_id=${encodeURIComponent(vmcpID)}&actor=${encodeURIComponent(userID)}`;
+}
+
+export function vmcpComponentCatalogEntryPath(
+	component: Pick<VMCPComponent, 'mcpServerCatalogEntryID'>,
+	entry?: MCPCatalogEntry
+) {
+	const id = entry?.id || component.mcpServerCatalogEntryID;
+	if (!id) return undefined;
+	if (entry?.powerUserWorkspaceID) {
+		return `/mcp-servers/c/${id}?wid=${encodeURIComponent(entry.powerUserWorkspaceID)}`;
+	}
+	return `/mcp-servers/c/${id}`;
+}
+
 /** Personal servers belong to a power user's workspace rather than the shared catalog. */
 export function isWorkspaceOwned(entry: MCPCatalogEntry | VMCP) {
 	return Boolean(

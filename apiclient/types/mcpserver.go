@@ -462,6 +462,9 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+
+	// VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.
+	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
 }
 
 type OAuthMetadata struct {
