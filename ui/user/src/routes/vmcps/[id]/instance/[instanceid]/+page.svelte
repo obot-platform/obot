@@ -2,7 +2,6 @@
 	import Layout from '$lib/components/Layout.svelte';
 	import VMcpInstanceInfo from '$lib/components/vmcps/VMcpInstanceInfo.svelte';
 	import { PAGE_TRANSITION_DURATION } from '$lib/constants';
-	import { goto } from '$lib/url';
 	import { fly } from 'svelte/transition';
 
 	let { data } = $props();
@@ -11,7 +10,7 @@
 	let title = $derived(`${data.vmcp.displayName} | ${data.instance.id}`);
 </script>
 
-<Layout {title} showBackButton onBackButtonClick={() => goto('/vmcps?view=deployments')}>
+<Layout {title} showBackButton>
 	<div class="flex flex-col gap-6 pb-8" in:fly={{ x: 100, delay: duration, duration }}>
 		<VMcpInstanceInfo vmcp={data.vmcp} instance={data.instance} {usersMap} hideTitle />
 	</div>

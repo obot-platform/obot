@@ -2134,6 +2134,7 @@ func ConvertMCPServer(server v1.MCPServer, credEnv map[string]string, serverURL,
 		Template:                    server.Spec.Template,
 		CompositeName:               server.Spec.CompositeName,
 		VMCPID:                      server.Spec.VMCPID,
+		VMCPInstanceID:              server.Spec.VMCPInstanceID,
 		VMCPComponentID:             server.Spec.VMCPComponentID,
 		NanobotAgentID:              server.Spec.NanobotAgentID,
 	}

@@ -47,7 +47,8 @@ function mockDeploymentsApis() {
 		http.get('/api/workspaces/all-entries', () => HttpResponse.json({ items: [] })),
 		http.get('/api/workspaces/all-servers', () => HttpResponse.json({ items: [] })),
 		http.get('/api/all-mcps/entries', () => HttpResponse.json({ items: fixtures.entries })),
-		http.get('/api/all-mcps/servers', () => HttpResponse.json({ items: fixtures.servers }))
+		http.get('/api/all-mcps/servers', () => HttpResponse.json({ items: fixtures.servers })),
+		http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] }))
 	);
 }
 

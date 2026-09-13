@@ -15,7 +15,8 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser
+		type OrgUser,
+		type VMCPInstance
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -135,6 +136,7 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
+	let deployedVmcpInstances = $state<VMCPInstance[]>([]);
 	let serversData = $derived.by(() => {
 		if (initialServers) return initialServers;
 		if (entity === 'workspace') {
@@ -152,6 +154,9 @@
 		});
 	});
 
+	let deployedVmcpInstancesMap = $derived(
+		new Map(deployedVmcpInstances.map((instance) => [instance.id, instance]))
+	);
 	let instancesMap = $derived(
 		new Map(
 			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
@@ -272,6 +277,7 @@
 					await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 				deployedWorkspaceCatalogEntryServers =
 					await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
+				deployedVmcpInstances = await AdminService.listAllVMCPInstances();
 				// Refresh multi-user servers too
 				await mcpServersAndEntries.refreshAll();
 				// Refresh capacity banner when server list changes
@@ -839,11 +845,22 @@
 									</button>
 								{/if}
 
-								{#if isVmcpComponent && d.vmcpID}
+								{#if d.vmcpID}
 									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
 										<Layers class="size-4" />
 										View vMCP Deployments
 									</a>
+								{:else if d.vmcpInstanceID}
+									{@const instance = deployedVmcpInstancesMap.get(d.vmcpInstanceID)}
+									{#if instance}
+										<a
+											href={resolve(`/vmcps/${instance.vmcpID}/instance/${instance.id}`)}
+											class="menu-button"
+										>
+											<Layers class="size-4" />
+											View vMCP Deployment
+										</a>
+									{/if}
 								{/if}
 
 								{#if !isVmcpComponent && (d.isMyServer || (hasAdminAccess && !readonly))}

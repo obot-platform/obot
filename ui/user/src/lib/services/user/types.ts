@@ -536,6 +536,7 @@ export interface MCPCatalogServer {
 	compositeName?: string;
 	vmcpID?: string;
 	vmcpComponentID?: string;
+	vmcpInstanceID?: string;
 	template?: boolean;
 	canConnect?: boolean;
 }
