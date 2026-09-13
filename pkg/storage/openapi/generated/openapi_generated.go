@@ -10476,6 +10476,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"vmcpInstanceID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPInstanceID owns a single-user component server, mutually exclusive with VMCPID.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"vmcpComponentID": {
 						SchemaProps: spec.SchemaProps{
 							Description: "VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.",
