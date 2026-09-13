@@ -281,7 +281,7 @@ export const getUserRoleLabel = (role: number) => {
 	if (role & Role.ADMIN) return 'Admin' + withAuditor + withUserImpersonation;
 	if (role & Role.POWERUSER) return 'Power User' + withAuditor + withUserImpersonation;
 	if (role & Role.POWERUSER_PLUS) return 'Power User Plus' + withAuditor + withUserImpersonation;
-	if (role & Role.BASIC) return 'Basic User' + withAuditor + withUserImpersonation;
+	if (role & Role.BASIC) return 'Standard User' + withAuditor + withUserImpersonation;
 	return 'Unknown' + withAuditor + withUserImpersonation;
 };
 

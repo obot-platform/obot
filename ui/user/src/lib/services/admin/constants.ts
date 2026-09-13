@@ -3,14 +3,14 @@ import { Role } from './types';
 export const userRoleOptions = [
 	{
 		id: Role.BASIC,
-		label: 'Basic User',
+		label: 'Standard User',
 		description: 'Connect to MCP servers made available through access policies and use Chat.'
 	},
 	{
 		id: Role.POWERUSER,
 		label: 'Power User',
 		description:
-			'In addition to basic user features, users can publish custom MCP servers for their own personal use.'
+			'In addition to standard user features, users can publish custom MCP servers for their own personal use.'
 	},
 	{
 		id: Role.POWERUSER_PLUS,

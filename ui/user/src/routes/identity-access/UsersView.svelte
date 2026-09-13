@@ -75,7 +75,7 @@
 		{ label: 'Admin', id: Role.ADMIN },
 		{ label: 'Power User+', id: Role.POWERUSER_PLUS },
 		{ label: 'Power User', id: Role.POWERUSER },
-		{ label: 'Basic User', id: Role.BASIC }
+		{ label: 'Standard User', id: Role.BASIC }
 	]);
 	let isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
@@ -574,8 +574,8 @@
 		<div class="flex flex-col gap-4">
 			<p class="text-left">
 				{#if confirmAuditorAdditionToUser && auditorReadonlyAdminRoles.includes(confirmAuditorAdditionToUser.roleId)}
-					Basic user auditors will have read-only access to the admin system and can see additional
-					details such as response, request, and header information in the audit logs.
+					Standard user auditors will have read-only access to the admin system and can see
+					additional details such as response, request, and header information in the audit logs.
 				{:else}
 					Auditors will gain access to additional details such as response, request, and header
 					information in the audit logs.
