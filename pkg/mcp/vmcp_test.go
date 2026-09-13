@@ -359,6 +359,114 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	}
 }
 
+// A personal vMCP answers to its owner alone. The owner keeps every tool their
+// instance references even when no profile grants it, and no one else reaches a
+// tool even when a profile grants everything to everyone.
+func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
+	const (
+		vmcpID     = "vmcp1personalowner"
+		instanceID = "vmcpi1personalowner"
+		ownerID    = "7"
+		otherID    = "9"
+	)
+	for _, tt := range []struct {
+		name         string
+		userID       string
+		profiles     []types.VMCPProfile
+		wantTools    []types.ToolOverride
+		wantDisabled bool
+	}{
+		{
+			name:   "owner keeps referenced tools that no profile grants",
+			userID: ownerID,
+			profiles: []types.VMCPProfile{
+				{
+					Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: otherID}},
+					AllowedTools: types.VMCPToolSet{"search-component": []string{"find"}},
+				},
+			},
+			wantTools: []types.ToolOverride{{Name: "find", Enabled: true}},
+		},
+		{
+			name:   "non-owner is denied by a profile granting everyone every tool",
+			userID: otherID,
+			profiles: []types.VMCPProfile{
+				{
+					Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					AllowAllTools: true,
+				},
+			},
+			wantDisabled: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			vmcp := &v1.VMCP{
+				Name:      vmcpID,
+				Namespace: system.DefaultNamespace,
+				Spec: v1.VMCPSpec{
+					UserID: ownerID,
+					Manifest: types.VMCPManifest{
+						DisplayName: "Personal VMCP",
+						Profiles:    tt.profiles,
+						Components: []types.VMCPComponent{
+							{
+								ID:              "search-component",
+								Name:            "search",
+								ForceSingleUser: true,
+								CatalogEntry: types.MCPServerCatalogEntrySnapshot{
+									Manifest: types.MCPServerCatalogEntryManifest{
+										Name:    "Cached Search",
+										Runtime: types.RuntimeRemote,
+									},
+								},
+								ToolOverrides: []types.ToolOverride{{Name: "find", Enabled: true}},
+							},
+						},
+					},
+				},
+			}
+			instance := &v1.VMCPInstance{
+				Name:      instanceID,
+				Namespace: system.DefaultNamespace,
+				Spec: v1.VMCPInstanceSpec{
+					UserID: tt.userID,
+					Manifest: types.VMCPInstanceManifest{
+						VMCPID:       vmcpID,
+						EnabledTools: types.VMCPToolSet{"search-component": []string{"find"}},
+					},
+				},
+			}
+			searchServer := vmcpComponentServer(
+				"search-server",
+				instanceID,
+				tt.userID,
+				"search-component",
+				"Search service",
+				"https://search.example.test/mcp",
+			)
+			manager := &SessionManager{
+				storageClient:  newVMCPTestStorage(vmcp, instance, searchServer),
+				httpListenPort: vmcpTestListenPort,
+			}
+
+			serverConfig, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, tt.userID)
+			if err != nil {
+				t.Fatalf("ServerConfigForVMCP() error = %v", err)
+			}
+			if len(serverConfig.Components) != 1 {
+				t.Fatalf("component count = %d, want 1", len(serverConfig.Components))
+			}
+			component := serverConfig.Components[0]
+			if component.DisableTools != tt.wantDisabled {
+				t.Fatalf("component tools disabled = %v, want %v", component.DisableTools, tt.wantDisabled)
+			}
+			if !reflect.DeepEqual(component.Tools, tt.wantTools) {
+				t.Fatalf("component tool overrides = %#v, want %#v", component.Tools, tt.wantTools)
+			}
+		})
+	}
+}
+
 func TestServerConfigForVMCPRejectsEmptyBeforeCreatingInstance(t *testing.T) {
 	vmcp := &v1.VMCP{
 		Name:      "vmcp1empty",

@@ -69,6 +69,33 @@ func TestReconcileToolSelection(t *testing.T) {
 	}
 }
 
+func TestReconcileToolSelectionKeepsOwnerSelection(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := v1.AddToScheme(scheme); err != nil {
+		t.Fatal(err)
+	}
+	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{
+		UserID: "1",
+		Manifest: types.VMCPManifest{
+			Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
+		},
+	}}
+	selection := types.VMCPToolSet{"everything": {"echo"}}
+	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
+		UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: selection},
+	}}
+	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) {
+		return &kuser.DefaultInfo{UID: "1"}, nil
+	}}
+	if err := handler.ReconcileToolSelection(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, selection) {
+		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, selection)
+	}
+}
+
 func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {

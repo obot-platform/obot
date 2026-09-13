@@ -90,6 +90,19 @@ func TestValidateComponentWildcardSelection(t *testing.T) {
 	}
 }
 
+func TestValidateVMCPToolSelectionAllowsOwner(t *testing.T) {
+	u := &user.DefaultInfo{UID: "1"}
+	vmcp := &v1.VMCP{Spec: v1.VMCPSpec{
+		UserID: u.UID,
+		Manifest: types.VMCPManifest{
+			Components: []types.VMCPComponent{{ID: "everything"}},
+		},
+	}}
+	if err := ValidateVMCPToolSelection(u, vmcp, types.VMCPToolSet{"everything": {"echo"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestVMCPAuthorization(t *testing.T) {
 	shared := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp-shared"),

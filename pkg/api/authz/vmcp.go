@@ -52,9 +52,12 @@ func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection types.VMCP
 	if err := vmcp.Spec.Manifest.ValidateToolSet(selection); err != nil {
 		return types.NewErrBadRequest("invalid tool selection: %v", err)
 	}
+	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID() {
+		return nil
+	}
 	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
 	for _, tool := range selection.References() {
-		if (vmcp.Spec.UserID != "" && vmcp.Spec.UserID != u.GetUID()) || !vmcpaccess.ToolGranted(grant, tool) {
+		if vmcp.Spec.UserID != "" || !vmcpaccess.ToolGranted(grant, tool) {
 			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
 		}
 	}

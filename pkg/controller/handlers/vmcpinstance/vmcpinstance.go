@@ -40,35 +40,48 @@ func New(gatewayClient *gateway.Client) *Handler {
 // ReconcileToolSelection permanently removes revoked tools from explicit selections.
 func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
-	if len(instance.Spec.Manifest.EnabledTools) == 0 || !instance.DeletionTimestamp.IsZero() {
+	if len(instance.Spec.Manifest.EnabledTools) == 0 {
 		return nil
 	}
+
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, instance.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
 		return kclient.IgnoreNotFound(err)
 	}
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{Namespace: instance.Namespace}); err != nil {
-		return err
+
+	allowed := []types.VMCPToolReference{}
+	switch vmcp.Spec.UserID {
+	case "":
+		// Register a trigger on group list changes so we recalculate when things change.
+		if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{Namespace: instance.Namespace}); err != nil {
+			return err
+		}
+
+		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+		if err != nil {
+			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
+		}
+
+		u, err := h.userInfo(req.Ctx, uint(id))
+		if err != nil {
+			return err
+		}
+
+		allowed = vmcpconfig.AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+	case instance.Spec.UserID:
+		allowed = instance.Spec.Manifest.EnabledTools.References()
 	}
-	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("invalid VMCP instance user ID: %w", err)
-	}
-	u, err := h.userInfo(req.Ctx, uint(id))
-	if err != nil {
-		return err
-	}
-	allowed := vmcpconfig.AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+
 	allowed = slices.DeleteFunc(allowed, func(ref types.VMCPToolReference) bool {
 		return vmcp.Spec.Manifest.ValidateToolReference(ref) != nil
 	})
-	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID != instance.Spec.UserID {
-		allowed = []types.VMCPToolReference{}
-	}
+
 	selection := types.ToolSetFromReferences(allowed)
+
 	if reflect.DeepEqual(selection, instance.Spec.Manifest.EnabledTools) {
 		return nil
 	}
+
 	instance.Spec.Manifest.EnabledTools = selection
 	return req.Client.Update(req.Ctx, instance)
 }

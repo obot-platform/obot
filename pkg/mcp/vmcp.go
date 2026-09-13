@@ -133,34 +133,45 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		})
 	}
 
-	// Resolve current group membership for group profiles, including action paths
-	// that have only the resource owner's ID rather than an authenticated request.
-	var user kuser.Info = &kuser.DefaultInfo{UID: userID}
-	needsGroups := false
-	for _, profile := range vmcp.Spec.Manifest.Profiles {
-		for _, subject := range profile.Subjects {
-			needsGroups = needsGroups || subject.Type == types.SubjectTypeGroup
+	// This needs to be non-nil because nil means that all supported tools are allowed.
+	allowedTools := []types.VMCPToolReference{}
+	switch vmcp.Spec.UserID {
+	case "":
+		// Resolve current group membership for group profiles, including action paths
+		// that have only the resource owner's ID rather than an authenticated request.
+		var (
+			needsGroups bool
+			user        kuser.Info = &kuser.DefaultInfo{UID: userID}
+		)
+
+		for _, profile := range vmcp.Spec.Manifest.Profiles {
+			for _, subject := range profile.Subjects {
+				needsGroups = needsGroups || subject.Type == types.SubjectTypeGroup
+			}
 		}
-	}
-	if needsGroups {
-		id, err := strconv.ParseUint(userID, 10, 64)
-		if err != nil {
-			return ServerConfig{}, fmt.Errorf("invalid VMCP user ID: %w", err)
+
+		if needsGroups {
+			id, err := strconv.ParseUint(userID, 10, 64)
+			if err != nil {
+				return ServerConfig{}, fmt.Errorf("invalid VMCP user ID: %w", err)
+			}
+			user, err = sm.gatewayClient.UserInfoByID(ctx, uint(id))
+			if err != nil {
+				return ServerConfig{}, fmt.Errorf("resolve VMCP user groups: %w", err)
+			}
 		}
-		user, err = sm.gatewayClient.UserInfoByID(ctx, uint(id))
-		if err != nil {
-			return ServerConfig{}, fmt.Errorf("resolve VMCP user groups: %w", err)
-		}
+
+		allowedTools = vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+	case userID:
+		allowedTools = instance.Spec.Manifest.EnabledTools.References()
 	}
-	allowedTools := vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
-	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID != userID {
-		allowedTools = []types.VMCPToolReference{}
-	}
+
 	for i := range components {
 		if err := restrictComponentTools(&components[i], allowedTools, configuredComponents[i].ID); err != nil {
 			return ServerConfig{}, err
 		}
 	}
+
 	// Always retain the selected connection through the aggregate loopback.
 	connectID := instance.Name
 	return ServerConfig{
