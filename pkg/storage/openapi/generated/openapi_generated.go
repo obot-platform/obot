@@ -10469,6 +10469,13 @@ func schema_obot_platform_obot_apiclient_types_MCPServer(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"vmcpComponentID": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"Metadata", "manifest", "userID", "configured", "catalogEntryID", "powerUserWorkspaceID"},
 			},
