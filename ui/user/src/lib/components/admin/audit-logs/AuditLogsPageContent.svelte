@@ -9,6 +9,7 @@
 		isAuditLogAPIKeyFilterOption
 	} from '$lib/auditlogs';
 	import { type DateRange } from '$lib/components/Calendar.svelte';
+	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogEventDetails from '$lib/components/admin/audit-logs/AuditLogEventDetails.svelte';
 	import StackedTimeline from '$lib/components/graph/StackedTimeline.svelte';
@@ -31,7 +32,6 @@
 	import { getUserDisplayName, isBasicUser } from '$lib/utils';
 	import FiltersDrawer from '../filters-drawer/FiltersDrawer.svelte';
 	import AuditLogCalendar from './AuditLogCalendar.svelte';
-	import AuditLogFilterPills from './AuditLogFilterPills.svelte';
 	import AuditLogTableSkeleton from './AuditLogTableSkeleton.svelte';
 	import AuditLogsTable from './AuditLogsTable.svelte';
 	import {
@@ -818,7 +818,7 @@
 </div>
 
 {#snippet filters()}
-	<AuditLogFilterPills
+	<FilterPills
 		{pillsSearchParamFilters}
 		{getFilterDisplayLabel}
 		{getFilterValue}

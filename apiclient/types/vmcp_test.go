@@ -86,8 +86,8 @@ func TestVMCPManifestDefault(t *testing.T) {
 		t.Fatalf("default profile count = %d, want 1", len(manifest.Profiles))
 	}
 	profile := manifest.Profiles[0]
-	if profile.Name != "me" {
-		t.Fatalf("default profile name = %q, want me", profile.Name)
+	if profile.Name != "default" {
+		t.Fatalf("default profile name = %q, want default", profile.Name)
 	}
 	if !profile.AllowAllTools {
 		t.Fatal("default profile must allow all tools")

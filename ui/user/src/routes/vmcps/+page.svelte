@@ -25,10 +25,14 @@
 	import { onMount, untrack } from 'svelte';
 
 	let { data } = $props();
-	let views = $derived.by((): TabView[] => [
-		{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
-		{ label: 'Deployments', value: 'deployments', content: deploymentsView }
-	]);
+	let views = $derived.by((): TabView[] =>
+		profile.current.hasAdminAccess?.()
+			? [
+					{ label: 'vMCPs', value: 'vmcps', content: vmcpsView },
+					{ label: 'Deployments', value: 'deployments', content: deploymentsView }
+				]
+			: [{ label: 'vMCPs', value: 'vmcps', content: vmcpsView }]
+	);
 
 	const options = COMMON_AI_CLIENTS.slice(0, 4);
 

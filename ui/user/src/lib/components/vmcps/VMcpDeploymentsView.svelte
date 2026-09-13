@@ -1,17 +1,34 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
+	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type OrgUser, type VMCP, type VMCPInstance } from '$lib/services';
+	import {
+		AdminService,
+		UserService,
+		type OrgUser,
+		type VMCP,
+		type VMCPInstance
+	} from '$lib/services';
 	import { vmcpInstanceAuditLogsPath, vmcpInstancePath } from '$lib/services/vmcps/utils';
 	import { errors, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { formatTimeAgo } from '$lib/time';
+	import {
+		clearUrlParams,
+		getTableUrlParamsFilters,
+		getTableUrlParamsSort,
+		setFilterUrlParams,
+		setSortUrlParams,
+		setUrlParamAndUpdateUrl
+	} from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { Captions, Ellipsis, Layers, Trash2 } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		vmcps: VMCP[];
@@ -20,7 +37,27 @@
 
 	let { vmcps, usersMap }: Props = $props();
 
-	let query = $state('');
+	type VMcpDeploymentURLFilters = {
+		id: string;
+	};
+
+	const query = $derived(page.url.searchParams.get('query') || '');
+	const vmcpIdFilter = $derived(page.url.searchParams.get('id'));
+	const pillsSearchParamFilters = $derived.by(() => {
+		if (!vmcpIdFilter) return {} as Record<keyof VMcpDeploymentURLFilters, string>;
+		return { id: vmcpIdFilter };
+	});
+	const hasFilterPills = $derived(Boolean(vmcpIdFilter));
+	const initSort = $derived(getTableUrlParamsSort({ property: 'created', order: 'desc' }));
+	const urlFilters = $derived.by(() => {
+		const { id, ...filters } = getTableUrlParamsFilters();
+		const vmcpIDs = id?.filter(Boolean) ?? [];
+		if (vmcpIDs.length) {
+			return { ...filters, vmcpID: vmcpIDs };
+		}
+		return filters;
+	});
+
 	let deleting = $state(false);
 	let showDeleteConfirm = $state<DeploymentRow>();
 
@@ -34,8 +71,10 @@
 		vmcp?: VMCP;
 	};
 
+	let loading = $state(false);
+	let allVMCPInstances = $state<VMCPInstance[]>([]);
 	let tableData = $derived.by((): DeploymentRow[] => {
-		const rows = vmcpInstances.current.items
+		const rows = allVMCPInstances
 			.filter((instance) => !instance.deleted)
 			.map((instance) => {
 				const vmcp = vmcpsMap.get(instance.vmcpID);
@@ -77,6 +116,33 @@
 			showDeleteConfirm = undefined;
 		}
 	}
+
+	onMount(() => {
+		loading = true;
+		AdminService.listAllVMCPInstances()
+			.then((instances) => {
+				allVMCPInstances = instances;
+			})
+			.finally(() => {
+				loading = false;
+			});
+	});
+
+	function handleFilter(property: string, values: string[]) {
+		setFilterUrlParams(property === 'vmcpID' ? 'id' : property, values);
+	}
+
+	function handleClearAllFilters() {
+		clearUrlParams(Array.from(page.url.searchParams.keys()).filter((key) => key !== 'view'));
+	}
+
+	function getFilterDisplayLabel(filterKey: keyof VMcpDeploymentURLFilters) {
+		return filterKey === 'id' ? 'vMCP' : filterKey;
+	}
+
+	function getFilterValue(_filterKey: keyof VMcpDeploymentURLFilters, value: string | number) {
+		return vmcpsMap.get(value.toString())?.displayName ?? value.toString();
+	}
 </script>
 
 <div class="flex min-h-full flex-col">
@@ -84,12 +150,17 @@
 		<Search
 			class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
 			value={query}
-			onChange={(value) => (query = value)}
+			onChange={(value) => setUrlParamAndUpdateUrl(page.url, 'query', value)}
 			placeholder="Search deployments..."
 		/>
 	</div>
+	{#if hasFilterPills}
+		<div class="mb-2">
+			<FilterPills {pillsSearchParamFilters} {getFilterDisplayLabel} {getFilterValue} />
+		</div>
+	{/if}
 	<div class="dark:bg-base-300 bg-base-100 rounded-t-md shadow-sm">
-		{#if vmcpInstances.current.loading && tableData.length === 0}
+		{#if loading}
 			<div class="my-2 flex h-72 items-center justify-center">
 				<Loading class="size-6" />
 			</div>
@@ -103,7 +174,11 @@
 				]}
 				filterable={['displayName', 'userName']}
 				sortable={['displayName', 'userName', 'created']}
-				initSort={{ property: 'created', order: 'desc' }}
+				filters={urlFilters}
+				onFilter={handleFilter}
+				onClearAllFilters={handleClearAllFilters}
+				onSort={setSortUrlParams}
+				{initSort}
 				noDataMessage="No deployments found."
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none'

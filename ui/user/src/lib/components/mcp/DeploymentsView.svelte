@@ -45,6 +45,7 @@
 		Ellipsis,
 		ExternalLink,
 		GitCompare,
+		Layers,
 		Power,
 		Server,
 		ServerCog,
@@ -687,7 +688,7 @@
 
 				{#snippet actions(d)}
 					{@const auditLogsUrl = getAuditLogsUrl(d)}
-					{@const isVmcpChild = !!d.vmcpComponentID}
+					{@const isVmcpComponent = !!d.vmcpComponentID}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
 							<Ellipsis class="size-4" />
@@ -824,7 +825,7 @@
 									</button>
 								{/if}
 
-								{#if auditLogsUrl && !isVmcpChild}
+								{#if auditLogsUrl && !isVmcpComponent}
 									<button
 										onclick={(e) => {
 											e.stopPropagation();
@@ -838,7 +839,14 @@
 									</button>
 								{/if}
 
-								{#if !isVmcpChild && (d.isMyServer || (hasAdminAccess && !readonly))}
+								{#if isVmcpComponent}
+									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
+										<Layers class="size-4" />
+										View vMCP Deployments
+									</a>
+								{/if}
+
+								{#if !isVmcpComponent && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {

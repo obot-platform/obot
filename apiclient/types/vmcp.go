@@ -214,7 +214,7 @@ func (m *VMCPManifest) Default(personalServer bool, userID string) {
 		m.Profiles = nil
 	} else if m.Profiles == nil {
 		m.Profiles = []VMCPProfile{{
-			Name:          "me",
+			Name:          "default",
 			Subjects:      []Subject{{Type: SubjectTypeUser, ID: userID}},
 			AllowAllTools: true,
 		}}

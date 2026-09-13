@@ -1,7 +1,7 @@
 <script lang="ts" generics="T">
 	import { page } from '$app/state';
 	import { parseMultiValue } from '$lib/multiValue';
-	import { goto } from '$lib/url';
+	import { goto, setUrlParam } from '$lib/url';
 	import { X } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
@@ -57,8 +57,8 @@
 				{#if isClearable}
 					<button
 						onclick={() => {
-							const url = page.url;
-							url.searchParams.set(filterKey.toString(), '');
+							const url = new URL(page.url);
+							setUrlParam(url, filterKey.toString(), null);
 
 							goto(url, { noScroll: true });
 						}}

@@ -12,10 +12,11 @@
 		connectButtonId?: string;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		id: string;
+		disabled?: boolean;
 		hideTest?: boolean;
 	}
 
-	let { connectURL, connectButtonId, onConnect, id, hideTest = false }: Props = $props();
+	let { connectURL, connectButtonId, onConnect, id, disabled, hideTest = false }: Props = $props();
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -45,7 +46,11 @@
 <div class="flex items-center gap-2">
 	<div
 		use:tooltip={{
-			text: hasLicenseEntitlementViolations ? MCP_CONNECTION_INVALID_LICENSE_MESSAGE : undefined
+			text: hasLicenseEntitlementViolations
+				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
+				: disabled
+					? 'Permissions required to connect to this vMCP'
+					: undefined
 		}}
 		class="flex grow"
 		id={connectButtonId}
@@ -78,7 +83,7 @@
 			use:tooltip={{ text: 'Test vMCP' }}
 			class="relative z-10 btn btn-square border-base-300 bg-transparent hover:bg-primary hover:text-primary-content dark:border-base-400"
 			onclick={handleTest}
-			disabled={hasLicenseEntitlementViolations}
+			disabled={hasLicenseEntitlementViolations || disabled}
 		>
 			<MessageCircle class="size-4" />
 		</button>

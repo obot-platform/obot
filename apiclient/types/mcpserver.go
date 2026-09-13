@@ -463,6 +463,8 @@ type MCPServer struct {
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
 
+	// VMCPID owns a shared component server, mutually exclusive with VMCPInstanceID.
+	VMCPID string `json:"vmcpID,omitempty"`
 	// VMCPComponentID identifies the VMCP component whose cached catalog entry was used to create this server.
 	VMCPComponentID string `json:"vmcpComponentID,omitempty"`
 }

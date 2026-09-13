@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import Table from '$lib/components/table/Table.svelte';
 	import type { MCPCatalogEntry, OrgUser, VMCP, VMCPInstance } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
@@ -85,7 +84,7 @@
 						onclick={(e) => {
 							openComponent(component, e.metaKey || e.ctrlKey);
 						}}
-						class="dark:bg-base-200 dark:border-base-400 dark:hover:bg-base-200 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
+						class="group dark:bg-base-200 dark:border-base-400 dark:hover:bg-base-200 bg-base-100 flex items-center justify-between gap-2 rounded-lg border border-transparent p-2 pl-4 shadow-sm hover:bg-gray-50"
 					>
 						<div class="flex items-center gap-2">
 							<div class="icon">
@@ -101,9 +100,11 @@
 								<span class="text-muted-content text-sm">({catalogEntryID})</span>
 							{/if}
 						</div>
-						<IconButton>
+						<div
+							class="size-10 shrink-0 flex items-center justify-center text-muted-content group-hover:text-base-content"
+						>
 							<ChevronRight class="size-6" />
-						</IconButton>
+						</div>
 					</button>
 				{:else}
 					<div

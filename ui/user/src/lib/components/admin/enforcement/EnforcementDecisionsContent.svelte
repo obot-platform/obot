@@ -3,9 +3,9 @@
 	import { page } from '$app/state';
 	import { columnResize } from '$lib/actions/resize';
 	import { buildPillSearchParamFilters, buildSearchParamFiltersArray } from '$lib/auditlogs';
+	import FilterPills from '$lib/components/FilterPills.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import AuditLogCalendar from '$lib/components/admin/audit-logs/AuditLogCalendar.svelte';
-	import AuditLogFilterPills from '$lib/components/admin/audit-logs/AuditLogFilterPills.svelte';
 	import AuditLogTableSkeleton from '$lib/components/admin/audit-logs/AuditLogTableSkeleton.svelte';
 	import FiltersDrawer from '$lib/components/admin/filters-drawer/FiltersDrawer.svelte';
 	import { setVirtualPageData } from '$lib/components/ui/virtual-page/context';
@@ -401,7 +401,7 @@
 	{/if}
 
 	{#if hasFilterPills}
-		<AuditLogFilterPills
+		<FilterPills
 			{pillsSearchParamFilters}
 			{getFilterDisplayLabel}
 			getFilterValue={(key, value) => getFilterOptionLabel(key.toString(), value.toString())}
