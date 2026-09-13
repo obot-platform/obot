@@ -305,6 +305,7 @@
 					onCancel={close}
 					onSubmit={handleCreated}
 					excludeViews={['overview']}
+					isDialogView
 				/>
 			{:else if mcpServer}
 				<McpServerEntryForm
@@ -316,6 +317,7 @@
 					readonly={isAdminReadonly}
 					allowMultiUserServerConfigurationEdit
 					limitViews={['overview', 'tools']}
+					isDialogView
 				/>
 			{:else if catalogEntry}
 				<McpServerEntryForm
@@ -326,6 +328,7 @@
 					id={serverScopeID}
 					entity={serverScopeEntity}
 					limitViews={['overview', 'tools']}
+					isDialogView
 				/>
 			{/if}
 			{#if showAddToVMcp}
