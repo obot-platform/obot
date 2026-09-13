@@ -441,22 +441,26 @@ func (sm *SessionManager) catalogNameForServer(ctx context.Context, server v1.MC
 	if catalogName == "" {
 		catalogName = server.Spec.PowerUserWorkspaceID
 	}
-	if server.Spec.MCPServerCatalogEntryName != "" {
-		var entry v1.MCPServerCatalogEntry
-		if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: server.Spec.MCPServerCatalogEntryName}, &entry); err == nil {
-			if catalogName == "" {
-				catalogName = entry.Spec.MCPCatalogName
-			}
-			if catalogName == "" {
-				catalogName = entry.Spec.PowerUserWorkspaceID
-			}
-		} else if !failOnEntryMissing && apierrors.IsNotFound(err) && server.Spec.CompositeName != "" {
-			if catalogName == "" {
-				catalogName = system.DefaultCatalog
-			}
-		} else {
-			return "", fmt.Errorf("failed to get MCP server catalog entry: %w", err)
+	// The entry is only read to fill in a catalog name the server doesn't already carry,
+	// so a server that knows its catalog never depends on the entry still existing.
+	if catalogName != "" || server.Spec.MCPServerCatalogEntryName == "" {
+		return catalogName, nil
+	}
+
+	var entry v1.MCPServerCatalogEntry
+	if err := sm.storageClient.Get(ctx, kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: server.Spec.MCPServerCatalogEntryName}, &entry); err != nil {
+		// Composite and vMCP component servers are deployed from the snapshot their parent
+		// holds, so they keep working after an administrator deletes the source entry.
+		runsFromSnapshot := server.Spec.VMCPID != "" || server.Spec.VMCPInstanceID != "" ||
+			(!failOnEntryMissing && server.Spec.CompositeName != "")
+		if apierrors.IsNotFound(err) && runsFromSnapshot {
+			return system.DefaultCatalog, nil
 		}
+		return "", fmt.Errorf("failed to get MCP server catalog entry: %w", err)
+	}
+
+	if catalogName = entry.Spec.MCPCatalogName; catalogName == "" {
+		catalogName = entry.Spec.PowerUserWorkspaceID
 	}
 	return catalogName, nil
 }
