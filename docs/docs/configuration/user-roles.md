@@ -22,9 +22,9 @@ All Power User permissions plus the ability to create MCP Registries and share M
 
 ### Power User
 
-All Basic User permissions plus publishing custom MCP servers (personal use only) and viewing Audit Logs and Usage statistics for their activity.
+All Standard User permissions plus publishing custom MCP servers (personal use only) and viewing Audit Logs and Usage statistics for their activity.
 
-### Basic User
+### Standard User
 
 Connect to MCP servers, use Obot Agent, and create conversations and workflows.
 
@@ -34,7 +34,7 @@ Add-on permission that grants read-only access to sensitive data across the plat
 
 ## Role Comparison
 
-| Capability | Basic | Power | Power+ | Admin | Owner |
+| Capability | Standard | Power | Power+ | Admin | Owner |
 |------------|-------|-------|--------|-------|-------|
 | Connect to MCP servers | Yes | Yes | Yes | Yes | Yes   |
 | Use Obot Agent | Yes | Yes | Yes | Yes | Yes   |

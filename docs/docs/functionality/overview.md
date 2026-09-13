@@ -12,13 +12,13 @@ For detailed permissions and role definitions, see [User Roles](../configuration
 
 The MCP Platform adapts its navigation and available features based on your assigned role.
 
-### Basic User
+### Standard User
 
-Basic Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via Obot Agent or external MCP clients but cannot publish or manage servers.
+Standard Users can deploy and use MCP servers that have been made available to them through an MCP Registry. They can interact with MCP servers via Obot Agent or external MCP clients but cannot publish or manage servers.
 
 ### Power User
 
-Power Users include all Basic User capabilities and can additionally deploy MCP servers for personal use that are not sourced from an MCP Registry. These servers are only visible to the deploying user. They also have access to audit logs metadata and usage stats for the servers they deploy.
+Power Users include all Standard User capabilities and can additionally deploy MCP servers for personal use that are not sourced from an MCP Registry. These servers are only visible to the deploying user. They also have access to audit logs metadata and usage stats for the servers they deploy.
 
 ### Power User+
 
