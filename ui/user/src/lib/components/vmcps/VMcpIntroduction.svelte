@@ -38,7 +38,7 @@
 
 <ResponsiveDialog
 	bind:this={dialog}
-	class="md:max-w-3xl"
+	class="md:max-w-4xl"
 	classes={{
 		content: 'p-6'
 	}}
@@ -46,22 +46,44 @@
 	disableClickOutside
 	onClose={dismiss}
 >
+	<h2 class="text-2xl font-semibold mb-4">Welcome to Obot</h2>
 	<div class="grid md:grid-cols-2 md:items-center">
 		<div class="flex flex-col gap-4">
-			<h2 id="vmcp-introduction-title" class="text-2xl font-semibold">What is a vMCP?</h2>
-			<p id="vmcp-introduction-description" class="text-muted-content text-sm leading-relaxed">
-				A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint. Each
-				component keeps its own deployment and configuration behavior, while the vMCP provides one
-				place to manage the connection, tools, and access.
+			<p class="leading-relaxed">
+				Get started by creating a <b>Virtual MCP</b> — a secure MCP endpoint that connects AI agents,
+				applications, and other MCP clients to the tools and services they need, with centralized control
+				over access.
 			</p>
-			<button type="button" class="btn btn-primary w-full" onclick={dismiss}>Get started</button>
+			<ul class="space-y-2">
+				<li class="flex items-start gap-2">
+					{@render point()}
+					<div class="flex flex-col">
+						<b>Control what AI can access</b>
+						Select and expose only the tools you want from one or more MCP servers.
+					</div>
+				</li>
+				<li class="flex items-start gap-2">
+					{@render point()}
+					<div class="flex flex-col">
+						<b>Secure by design</b>
+						Protect clients from unexpected upstream changes by controlling the tools and definitions
+						they receive.
+					</div>
+				</li>
+				<li class="flex items-start gap-2">
+					{@render point()}
+					<div class="flex flex-col">
+						<b>The right access for every identity</b>
+						Give users, groups, and agents the right set of tools through the same Virtual MCP.
+					</div>
+				</li>
+			</ul>
 		</div>
 
 		<div
 			aria-labelledby="vmcp-introduction-animation-label"
-			class="border-l-2 border-primary pl-8 ml-8"
+			class="border-l-2 border-primary pl-8 ml-8 h-full flex flex-col justify-center"
 		>
-			<h3 class="text-lg font-semibold mb-1">Create your first vMCP!</h3>
 			<p
 				id="vmcp-introduction-animation-label"
 				class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
@@ -69,12 +91,19 @@
 				Drag &amp; Drop
 			</p>
 			{@render stage()}
-			<p class="text-muted-content mt-2 text-xs font-light">
-				Drag a server from the panel anywhere onto the canvas to begin building a vMCP.
+			<p class="text-muted-content mt-2 font-light">
+				Drag MCP servers anywhere onto your Virtual MCP canvas to get started.
 			</p>
 		</div>
 	</div>
+	<button type="button" class="btn btn-primary w-full mt-8" onclick={dismiss}>Get started</button>
 </ResponsiveDialog>
+
+{#snippet point()}
+	<div class="p-1 rounded-full bg-primary/10 shrink-0">
+		<Layers class="text-primary size-4" />
+	</div>
+{/snippet}
 
 {#snippet stage()}
 	<div
