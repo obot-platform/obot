@@ -623,6 +623,80 @@ func TestSetLicenseKeyRefusesToOverwriteIndeterminateLegacyLicense(t *testing.T)
 	}
 }
 
+func TestSetLicenseKeyDoesNotRestoreLegacyCommunityLicenseDeletedByAnotherReplica(t *testing.T) {
+	communityLookupStarted := make(chan struct{}, 1)
+	releaseCommunityLookup := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			if r.Header.Get("Authorization") == "License community-license" {
+				select {
+				case communityLookupStarted <- struct{}{}:
+				default:
+				}
+				<-releaseCommunityLookup
+			}
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			if r.Header.Get("Authorization") == "License community-license" {
+				_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+				return
+			}
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement, EnterpriseEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	setter, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create setter provider: %v", err)
+	}
+	remover, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create remover provider: %v", err)
+	}
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "community-license"); err != nil {
+		t.Fatalf("seed legacy Community license: %v", err)
+	}
+
+	setDone := make(chan error, 1)
+	go func() {
+		setDone <- setter.SetLicenseKey(ctx, "enterprise-license")
+	}()
+	select {
+	case <-communityLookupStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for legacy Community classification")
+	}
+
+	if err := remover.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("remove legacy Community license: %v", err)
+	}
+	close(releaseCommunityLookup)
+	if err := <-setDone; err != nil {
+		t.Fatalf("SetLicenseKey(): %v", err)
+	}
+
+	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get primary property: %v", err)
+	}
+	if primary.Value != "enterprise-license" {
+		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
+	}
+	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("Community fallback error = %v, want record not found", err)
+	}
+}
+
 func TestCachedSnapshotMatchesEquivalentTimestamps(t *testing.T) {
 	updatedAt := time.Now()
 	provider := &Provider{
