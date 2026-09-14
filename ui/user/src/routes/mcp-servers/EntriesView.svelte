@@ -4,9 +4,7 @@
 	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
-	import ConnectToServer from '$lib/components/mcp/ConnectToServer.svelte';
 	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
-	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
@@ -19,14 +17,9 @@
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
 		type OrgUser,
-		type MCPServerInstance,
 		type MCPServerOAuthCredentialStatus
 	} from '$lib/services';
-	import {
-		MCP_MULTI_TENANT_LAUNCH_TEXT,
-		MCP_SINGLE_TENANT_LAUNCH_TEXT,
-		OBOT_PLATFORM_REPO
-	} from '$lib/services/admin/constants';
+	import { OBOT_PLATFORM_REPO } from '$lib/services/admin/constants';
 	import {
 		convertEntriesToTableData,
 		deleteMcpServerDeployment,
@@ -49,8 +42,6 @@
 		Ellipsis,
 		GitBranch,
 		Info,
-		Link2Icon,
-		RocketIcon,
 		Server,
 		Settings,
 		Trash2,
@@ -100,14 +91,10 @@
 	let confirmBulkDelete = $state(false);
 	let loadingBulkDelete = $state(false);
 
-	let connectToServerDialog = $state<ReturnType<typeof ConnectToServer>>();
-	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
-
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
 	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
-	let setupType = $state<'launch' | 'connect'>('launch');
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 
 	let tableData = $derived(
@@ -168,40 +155,6 @@
 
 	async function deleteServerDeployment(server: MCPCatalogServer) {
 		await deleteMcpServerDeployment(server, catalog?.id);
-	}
-
-	function handleConnectToServer({
-		entry,
-		server,
-		instance
-	}: {
-		entry?: MCPCatalogEntry;
-		server?: MCPCatalogServer;
-		instance?: MCPServerInstance;
-	}) {
-		if (instance || server) {
-			mcpServersAndEntries.refreshAll();
-		}
-
-		if (server?.connectURL) {
-			connectUrlDialog?.open(entry, server.connectURL, server);
-		}
-	}
-
-	function getMultiUserCatalogEntryServers(entry: MCPCatalogEntry) {
-		return mcpServersAndEntries.current.servers.filter((s) => s.catalogEntryID === entry.id);
-	}
-
-	function renderIntroText({ entry }: { entry?: MCPCatalogEntry }) {
-		if (isMultiUserCatalogEntry(entry)) {
-			return getMultiUserCatalogEntryServers(entry!).length > 0 || setupType === 'launch'
-				? MCP_MULTI_TENANT_LAUNCH_TEXT
-				: 'In order to receive a connect URL, a new server must be launched.';
-		}
-
-		return setupType === 'launch'
-			? MCP_SINGLE_TENANT_LAUNCH_TEXT
-			: 'In order to receive a connect URL, the initial setup process for this server must be completed.';
 	}
 
 	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
@@ -463,31 +416,6 @@
 										<Captions class="size-4" /> View Audit Logs
 									</button>
 								{/if}
-								{#if catalogEntry}
-									<button
-										class="menu-button"
-										onclick={(e) => {
-											e.stopPropagation();
-											setupType = 'connect';
-											connectUrlDialog?.open(catalogEntry);
-											toggle(false);
-										}}
-									>
-										<Link2Icon class="size-4" /> Get Connect URL
-									</button>
-									<button
-										class="menu-button"
-										onclick={(e) => {
-											e.stopPropagation();
-											setupType = 'launch';
-											connectToServerDialog?.setupNewInstance(catalogEntry);
-											toggle(false);
-										}}
-									>
-										<RocketIcon class="size-4" />
-										Launch Server
-									</button>
-								{/if}
 								{#if canDelete}
 									<button
 										class="menu-button-destructive"
@@ -535,13 +463,6 @@
 	entityPlural="entries"
 />
 
-<McpConnectUrlDialog
-	bind:this={connectUrlDialog}
-	onLaunchCatalogEntry={(entry) => {
-		connectToServerDialog?.setupNewInstance(entry);
-	}}
-/>
-
 <McpConfirmDelete
 	names={[getMCPDisplayName(deletingServer)]}
 	show={Boolean(deletingServer)}
@@ -587,15 +508,6 @@
 	loading={loadingBulkDelete}
 	entity="entry"
 	entityPlural="entries"
-/>
-
-<ConnectToServer
-	bind:this={connectToServerDialog}
-	catalogID={catalog?.id}
-	workspaceID={entity === 'workspace' ? id : undefined}
-	onConnect={handleConnectToServer}
-	skipConnectDialog
-	{renderIntroText}
 />
 
 <StaticOAuthConfigureModal

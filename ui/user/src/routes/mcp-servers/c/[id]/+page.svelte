@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import McpServerEntryForm from '$lib/components/admin/McpServerEntryForm.svelte';
-	import McpConnectUrlDialog from '$lib/components/mcp/McpConnectUrlDialog.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
@@ -13,7 +12,6 @@
 	import { profile } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { isConnectorsNavigation } from '../../utils';
-	import { Link2Icon } from '@lucide/svelte';
 	import { untrack, type Component } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -32,10 +30,6 @@
 	let serverScopeEntity = $derived(workspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(workspaceId || DEFAULT_MCP_CATALOG_ID);
 	let preview = $derived(isConnectorsNavigation(page.url));
-
-	let connectUrlDialog = $state<ReturnType<typeof McpConnectUrlDialog>>();
-	let mcpServerActions = $state<ReturnType<typeof McpServerActions>>();
-	let showUrlOnConnect = $state(false);
 
 	async function acceptOwnership() {
 		if (!catalogEntry) return;
@@ -60,7 +54,6 @@
 >
 	{#snippet rightNavActions()}
 		<McpServerActions
-			bind:this={mcpServerActions}
 			entry={catalogEntry}
 			catalogID={workspaceId ? undefined : serverScopeID}
 			workspaceID={workspaceId}
@@ -76,16 +69,9 @@
 				if (isMultiUserCatalogEntry(entry) && server) {
 					success.add(`${server.alias || server.manifest.name} has been created.`);
 				}
-				if (showUrlOnConnect) {
-					showUrlOnConnect = false;
-					connectUrlDialog?.open(entry, server?.connectURL, server);
-				}
 			}}
 			hideActions
 		/>
-		<button class="btn btn-primary" onclick={() => connectUrlDialog?.open(catalogEntry)}>
-			<Link2Icon class="size-4" /> Connect URL
-		</button>
 	{/snippet}
 	<div class="flex h-full flex-col gap-6" in:fly={{ x: 100, delay: duration, duration }}>
 		<McpDeprecatedNotice {deprecated} variant="notification" />
@@ -108,14 +94,6 @@
 		/>
 	</div>
 </Layout>
-
-<McpConnectUrlDialog
-	bind:this={connectUrlDialog}
-	onLaunchCatalogEntry={() => {
-		showUrlOnConnect = true;
-		mcpServerActions?.connect();
-	}}
-/>
 
 <svelte:head>
 	<title>Obot | {catalogEntry?.manifest?.name ?? 'MCP Server'}</title>

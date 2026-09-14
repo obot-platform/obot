@@ -6,7 +6,7 @@
 	import { vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
-	import { VMCPInstance } from '../../services';
+	import type { VMCPInstance } from '$lib/services';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -32,6 +32,7 @@
 	let cards = $derived(items.map(toCard));
 	let overflowHiddenById = $state<Record<string, number>>({});
 	let myInstances = $derived.by(() => {
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const map = new Map<string, VMCPInstance[]>();
 		for (const instance of vmcpInstances.current.items) {
 			if (instance.userID === profile.current.id) {
