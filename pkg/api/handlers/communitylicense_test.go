@@ -20,19 +20,22 @@ import (
 )
 
 type fakeCommunityLicenseProvider struct {
-	lock              sync.Mutex
-	key               string
-	configured        bool
-	valid             bool
-	entitlements      []string
-	licenseKeyError   error
-	validErrors       []error
-	entitlementsError error
-	setError          error
-	setCalls          int
-	hasValidCalls     int
-	lastInstalledKey  string
-	validateError     error
+	lock               sync.Mutex
+	key                string
+	configured         bool
+	valid              bool
+	entitlements       []string
+	licenseKeyError    error
+	validErrors        []error
+	entitlementsError  error
+	setError           error
+	setCalls           int
+	hasValidCalls      int
+	lastInstalledKey   string
+	validateError      error
+	removeKey          string
+	removeEntitlements []string
+	removeError        error
 }
 
 type fakeCommunityIssuer struct {
@@ -71,6 +74,14 @@ func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key stri
 }
 
 func (p *fakeCommunityLicenseProvider) RemoveLicenseKey(context.Context) error {
+	p.lock.Lock()
+	defer p.lock.Unlock()
+	if p.removeError != nil {
+		return p.removeError
+	}
+	p.key = p.removeKey
+	p.entitlements = slices.Clone(p.removeEntitlements)
+	p.valid = p.key != ""
 	return nil
 }
 

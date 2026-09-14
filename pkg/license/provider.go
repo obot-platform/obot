@@ -23,6 +23,10 @@ const (
 	// LicenseKeyPropertyKey is the database property key used to persist the Keygen license key.
 	LicenseKeyPropertyKey = "obot-license-key"
 
+	// CommunityLicenseKeyPropertyKey is the database property key used to preserve a Community license
+	// while a separately managed license is active.
+	CommunityLicenseKeyPropertyKey = "obot-community-license-key"
+
 	// LicenseMachineIDPropertyKey is the database property key used to persist the Keygen machine fingerprint.
 	LicenseMachineIDPropertyKey = "obot-license-machine-id"
 
@@ -79,6 +83,7 @@ type Provider struct {
 type licenseKeySnapshot struct {
 	key              string
 	updatedAt        time.Time
+	propertyKey      string
 	viaConfiguration bool
 }
 
@@ -91,8 +96,11 @@ type keygenValidationResponse struct {
 	Result  keygen.ValidationResult
 }
 
+// equal includes the backing property because moving the same key between the
+// primary and Community properties must invalidate the cached license state.
 func (s licenseKeySnapshot) equal(other licenseKeySnapshot) bool {
 	return s.key == other.key &&
+		s.propertyKey == other.propertyKey &&
 		s.viaConfiguration == other.viaConfiguration &&
 		s.updatedAt.Equal(other.updatedAt)
 }
@@ -161,6 +169,10 @@ func (p *Provider) LicenseKeyViaConfiguration() bool {
 	return p.configuredLicenseKey != ""
 }
 
+// loadLicenseKey returns the effective license key. A configured key has the
+// highest priority, followed by the primary database key. The Community key is
+// kept in a separate property so it can remain dormant while a primary license
+// is active and become effective again when that primary key is removed.
 func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, error) {
 	if p.configuredLicenseKey != "" {
 		return licenseKeySnapshot{
@@ -172,20 +184,28 @@ func (p *Provider) loadLicenseKey(ctx context.Context) (licenseKeySnapshot, erro
 		return licenseKeySnapshot{}, nil
 	}
 
-	property, err := p.gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return licenseKeySnapshot{}, nil
-	}
-	if err != nil {
-		return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property: %w", err)
+	for _, propertyKey := range []string{LicenseKeyPropertyKey, CommunityLicenseKeyPropertyKey} {
+		property, err := p.gatewayClient.GetProperty(ctx, propertyKey)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			continue
+		}
+		if err != nil {
+			return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property %q: %w", propertyKey, err)
+		}
+
+		return licenseKeySnapshot{
+			key:         strings.TrimSpace(property.Value),
+			updatedAt:   property.UpdatedAt,
+			propertyKey: propertyKey,
+		}, nil
 	}
 
-	return licenseKeySnapshot{
-		key:       strings.TrimSpace(property.Value),
-		updatedAt: property.UpdatedAt,
-	}, nil
+	return licenseKeySnapshot{}, nil
 }
 
+// SetLicenseKey validates and stores the primary database license. If it
+// replaces a legacy Community key in the primary property, that key is copied
+// to the Community property first so removing the new license can restore it.
 func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -210,13 +230,33 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
+	// Community licenses historically lived in the primary property. Preserve
+	// one there as a fallback before overwriting it so existing installations
+	// gain the new fallback behavior without a separate data migration.
+	currentSnapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
+	}
+	if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
+		community, err := p.isCommunityLicense(ctx, currentSnapshot)
+		if err != nil {
+			return err
+		}
+		if community {
+			if _, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, currentSnapshot.key); err != nil {
+				return fmt.Errorf("failed to preserve Community license key: %w", err)
+			}
+		}
+	}
+
 	property, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey)
 	if err != nil {
 		return err
 	}
 	p.setCachedState(licenseKeySnapshot{
-		key:       licenseKey,
-		updatedAt: property.UpdatedAt,
+		key:         licenseKey,
+		updatedAt:   property.UpdatedAt,
+		propertyKey: LicenseKeyPropertyKey,
 	}, entitlements)
 	return nil
 }
@@ -225,6 +265,9 @@ func (p *Provider) Validate(ctx context.Context) error {
 	return p.refresh(ctx, true)
 }
 
+// RemoveLicenseKey removes the currently effective database license. Removing
+// a primary key exposes the preserved Community property; calling this again
+// while that fallback is effective removes the Community license itself.
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -236,13 +279,64 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	defer p.refreshLock.Unlock()
 
 	if p.gatewayClient != nil {
-		if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
+		snapshot, err := p.loadLicenseKey(ctx)
+		if err != nil {
 			return err
 		}
+		propertyKey := snapshot.propertyKey
+		if propertyKey == "" {
+			propertyKey = LicenseKeyPropertyKey
+		}
+		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
+			return err
+		}
+
+		nextSnapshot, err := p.loadLicenseKey(ctx)
+		if err != nil {
+			return err
+		}
+		var entitlements map[keygen.EntitlementCode]struct{}
+		if nextSnapshot.key != "" {
+			entitlements, err = p.validate(ctx, nextSnapshot.key)
+			if err != nil {
+				return err
+			}
+		}
+		p.setCachedState(nextSnapshot, entitlements)
+		return nil
 	}
 
 	p.setCachedState(licenseKeySnapshot{}, nil)
 	return nil
+}
+
+// isCommunityLicense determines whether a primary key should be retained in
+// the Community fallback property. It uses cached entitlements only when they
+// belong to the same property snapshot, which matters when another replica has
+// changed the effective database key.
+func (p *Provider) isCommunityLicense(ctx context.Context, snapshot licenseKeySnapshot) (bool, error) {
+	p.lock.RLock()
+	if p.licenseKeySnapshot.equal(snapshot) {
+		community := isCommunityEntitlements(p.entitlements)
+		p.lock.RUnlock()
+		return community, nil
+	}
+	p.lock.RUnlock()
+
+	entitlements, err := p.validate(ctx, snapshot.key)
+	if err != nil {
+		return false, err
+	}
+	return isCommunityEntitlements(entitlements), nil
+}
+
+// isCommunityEntitlements excludes Enterprise and Cloud licenses because they
+// may also carry the Community entitlement but must never replace the fallback.
+func isCommunityEntitlements(entitlements map[keygen.EntitlementCode]struct{}) bool {
+	_, community := entitlements[CommunityEntitlement]
+	_, enterprise := entitlements[EnterpriseEntitlement]
+	_, cloud := entitlements[CloudEntitlement]
+	return community && !enterprise && !cloud
 }
 
 func (p *Provider) keygenClient(licenseKey string) *keygen.Client {

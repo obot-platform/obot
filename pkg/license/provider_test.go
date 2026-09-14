@@ -380,22 +380,105 @@ func TestProviderRefreshesDatabaseLicenseAcrossReplicas(t *testing.T) {
 	}
 }
 
+func TestRemoveEnterpriseLicenseFallsBackToCommunityLicense(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			switch r.Header.Get("Authorization") {
+			case "License community-license":
+				_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+			case "License enterprise-license", "License replacement-enterprise-license":
+				_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement, EnterpriseEntitlement))
+			default:
+				http.Error(w, "unexpected license key", http.StatusUnauthorized)
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected provider to be created: %v", err)
+	}
+	secondReplica, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("expected second provider to be created: %v", err)
+	}
+
+	if err := provider.SetLicenseKey(ctx, "community-license"); err != nil {
+		t.Fatalf("expected community license key to be stored: %v", err)
+	}
+	if err := secondReplica.SetLicenseKey(ctx, "enterprise-license"); err != nil {
+		t.Fatalf("expected enterprise license key to be stored: %v", err)
+	}
+	if err := provider.SetLicenseKey(ctx, "replacement-enterprise-license"); err != nil {
+		t.Fatalf("expected replacement enterprise license key to be stored: %v", err)
+	}
+
+	if err := secondReplica.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("expected enterprise license key to be removed: %v", err)
+	}
+
+	licenseKey, err := provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("expected fallback license key lookup to succeed: %v", err)
+	}
+	if licenseKey != "community-license" {
+		t.Fatalf("license key = %q, want community fallback", licenseKey)
+	}
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("expected fallback entitlements lookup to succeed: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != CommunityEntitlement {
+		t.Fatalf("entitlements = %v, want [%s]", entitlements, CommunityEntitlement)
+	}
+
+	if err := provider.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("expected community fallback to remain removable: %v", err)
+	}
+	licenseKey, err = provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("expected empty license key lookup to succeed: %v", err)
+	}
+	if licenseKey != "" {
+		t.Fatalf("license key = %q after deleting fallback, want empty", licenseKey)
+	}
+}
+
 func TestCachedSnapshotMatchesEquivalentTimestamps(t *testing.T) {
 	updatedAt := time.Now()
 	provider := &Provider{
 		licenseKeySnapshot: licenseKeySnapshot{
-			key:       "license-key",
-			updatedAt: updatedAt,
+			key:         "license-key",
+			updatedAt:   updatedAt,
+			propertyKey: LicenseKeyPropertyKey,
 		},
 	}
 
 	// Database round trips strip time.Time's monotonic clock reading.
 	databaseSnapshot := licenseKeySnapshot{
-		key:       "license-key",
-		updatedAt: updatedAt.Round(0),
+		key:         "license-key",
+		updatedAt:   updatedAt.Round(0),
+		propertyKey: LicenseKeyPropertyKey,
 	}
 	if !provider.cachedSnapshotMatches(databaseSnapshot) {
 		t.Fatal("expected snapshots representing the same timestamp to match")
+	}
+	databaseSnapshot.propertyKey = CommunityLicenseKeyPropertyKey
+	if provider.cachedSnapshotMatches(databaseSnapshot) {
+		t.Fatal("expected snapshots from different properties not to match")
 	}
 }
 
