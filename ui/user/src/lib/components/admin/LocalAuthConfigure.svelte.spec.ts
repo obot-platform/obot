@@ -5,6 +5,7 @@ import { worker } from '../../../tests/mocks/worker';
 import LocalAuthConfigure from './LocalAuthConfigure.svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
+import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
 const localProvider: AuthProvider = {
@@ -285,5 +286,92 @@ describe('LocalAuthConfigure.svelte', () => {
 
 		await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
 		expect(createUser).not.toHaveBeenCalled();
+	});
+
+	describe('required onboarding', () => {
+		async function renderRequiredDialog() {
+			const onConfigure = vi.fn(async () => undefined);
+			const onClose = vi.fn();
+			const { createUser } = mockLocalUsers();
+			const dialog = await renderOpenDialog(LocalAuthConfigure, {
+				provider: { ...localProvider, configured: false },
+				required: true,
+				onConfigure,
+				onClose
+			});
+
+			await expect.element(dialog.getByText('Set Up Local', { exact: true })).toBeVisible();
+			return { dialog, onConfigure, onClose, createUser };
+		}
+
+		it('auto-configures without collecting domains and asks for a single initial user', async () => {
+			const { dialog, onConfigure } = await renderRequiredDialog();
+
+			await vi.waitFor(() => {
+				expect(onConfigure).toHaveBeenCalledWith({
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				});
+			});
+
+			await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
+			await expect
+				.element(dialog.getByText('Create the first local user.', { exact: false }))
+				.toBeVisible();
+			await expect
+				.element(dialog.getByText('Set up initially with local authentication!', { exact: true }))
+				.toBeVisible();
+			await expect
+				.element(dialog.getByLabelText('Allowed Email Domains', { exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(dialog.getByText('Users', { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(dialog.getByRole('checkbox', { name: /Require the user to change this password/ }))
+				.not.toBeInTheDocument();
+		});
+
+		it('keeps in-progress input when open is called again after auto-configure', async () => {
+			mockLocalUsers();
+			const onConfigure = vi.fn(async () => undefined);
+			const result = render(LocalAuthConfigure, {
+				provider: { ...localProvider, configured: false },
+				required: true,
+				onConfigure,
+				onClose: vi.fn()
+			});
+
+			result.component.open();
+			const dialog = page.getByRole('dialog');
+			await expect.element(dialog).toBeVisible();
+
+			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await vi.waitFor(() => {
+				expect(onConfigure).toHaveBeenCalled();
+			});
+
+			// Parent reopens after provider state refreshes; input must survive.
+			result.component.open();
+
+			await expect.element(dialog.getByLabelText('Email', { exact: true })).toHaveValue('ada@example.com');
+		});
+
+		it('creates the initial user on save and continues the original close flow', async () => {
+			const { dialog, createUser, onClose } = await renderRequiredDialog();
+
+			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await page.getByCSS('#initial-user-password').fill(validPassword);
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+			await vi.waitFor(() => {
+				expect(createUser).toHaveBeenCalledWith({
+					email: 'ada@example.com',
+					password: validPassword,
+					requirePasswordChange: false
+				});
+			});
+
+			await vi.waitFor(() => {
+				expect(onClose).toHaveBeenCalledWith(1);
+			});
+		});
 	});
 });
