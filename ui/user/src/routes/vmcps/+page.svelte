@@ -114,7 +114,11 @@
 </script>
 
 {#if creating}
-	<VMcpDesigner onBack={hideCreate} {usersMap} />
+	<VMcpDesigner
+		onBack={hideCreate}
+		{usersMap}
+		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.userID === profile.current.id)}
+	/>
 {:else}
 	<TabLayout
 		title="vMCPs"

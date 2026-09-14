@@ -39,20 +39,23 @@ interface PendingRemoval {
  * here for the next flow to claim once it is mounted.
  */
 let vmcpAwaitingToolSetup: string | undefined;
-let vmcpAwaitingProfilesHint: string | undefined;
+let vmcpAwaitingCreationHint: string | undefined;
 let vmcpCreateHandoffPending = $state(false);
 
-export const VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
+export const VMCP_CREATION_HINT_STORAGE_KEY = '@obot/seen-vmcp-creation-hint';
+const LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 
-export function hasSeenVMcpProfilesHint(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY): boolean {
+export function hasSeenVMcpCreationHint(storageKey = VMCP_CREATION_HINT_STORAGE_KEY): boolean {
 	try {
-		return Boolean(localStorage.getItem(storageKey));
+		return Boolean(
+			localStorage.getItem(storageKey) || localStorage.getItem(LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY)
+		);
 	} catch {
 		return false;
 	}
 }
 
-export function markVMcpProfilesHintSeen(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY) {
+export function markVMcpCreationHintSeen(storageKey = VMCP_CREATION_HINT_STORAGE_KEY) {
 	try {
 		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		localStorage.setItem(storageKey, new Date().toISOString());
@@ -85,15 +88,15 @@ export function finishVMcpCreateHandoff() {
 	vmcpCreateHandoffPending = false;
 }
 
-export function queueProfilesHintForCreatedVMcp(id: string) {
-	if (hasSeenVMcpProfilesHint()) return;
-	vmcpAwaitingProfilesHint = id;
+export function queueCreationHintForCreatedVMcp(id: string) {
+	if (hasSeenVMcpCreationHint()) return;
+	vmcpAwaitingCreationHint = id;
 }
 
-export function claimProfilesHintForVMcp(id: string) {
-	if (hasSeenVMcpProfilesHint()) return false;
-	if (!id || vmcpAwaitingProfilesHint !== id) return false;
-	vmcpAwaitingProfilesHint = undefined;
+export function claimCreationHintForVMcp(id: string) {
+	if (hasSeenVMcpCreationHint()) return false;
+	if (!id || vmcpAwaitingCreationHint !== id) return false;
+	vmcpAwaitingCreationHint = undefined;
 	return true;
 }
 

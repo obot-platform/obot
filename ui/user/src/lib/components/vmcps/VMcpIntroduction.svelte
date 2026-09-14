@@ -1,79 +1,103 @@
 <script lang="ts">
-	import { GripVertical, Layers, MousePointer2, Plus, Server, X } from '@lucide/svelte';
+	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { GripVertical, Layers, MousePointer2, Plus, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { twMerge } from 'tailwind-merge';
+
+	const LEGACY_STORAGE_KEY = '@obot/seen-vmcp-drag-hint';
 
 	interface Props {
 		dragActive?: boolean;
+		show?: boolean;
 		storageKey?: string;
-		class?: string;
 	}
 
 	let {
 		dragActive = false,
-		storageKey = '@obot/seen-vmcp-drag-hint',
-		class: klass
+		show = true,
+		storageKey = '@obot/seen-vmcp-introduction'
 	}: Props = $props();
 
+	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let dismissed = $state(true);
 
+	function hasSeenIntroduction(key: string) {
+		return Boolean(localStorage.getItem(key) || localStorage.getItem(LEGACY_STORAGE_KEY));
+	}
+
 	onMount(() => {
-		dismissed = Boolean(localStorage.getItem(storageKey));
+		dismissed = hasSeenIntroduction(storageKey);
 	});
 
 	function dismiss() {
+		if (dismissed) return;
 		dismissed = true;
 		localStorage.setItem(storageKey, new Date().toISOString());
+		dialog?.close();
 	}
+
+	$effect(() => {
+		if (show && !dismissed) {
+			dialog?.open();
+			return;
+		}
+
+		dialog?.close();
+	});
 
 	$effect(() => {
 		if (dragActive) dismiss();
 	});
 </script>
 
-{#if !dismissed}
-	<div class={twMerge('w-60', klass)} in:fly={{ x: 12, duration: 220 }}>
+<ResponsiveDialog
+	bind:this={dialog}
+	class="md:max-w-3xl"
+	classes={{
+		content: 'p-6'
+	}}
+	hideClose
+	disableClickOutside
+	onClose={dismiss}
+>
+	<div class="grid md:grid-cols-2 md:items-center">
+		<div class="flex flex-col gap-4">
+			<h2 id="vmcp-introduction-title" class="text-2xl font-semibold">What is a vMCP?</h2>
+			<p id="vmcp-introduction-description" class="text-muted-content text-sm leading-relaxed">
+				A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint. Each
+				component keeps its own deployment and configuration behavior, while the vMCP provides one
+				place to manage the connection, tools, and access.
+			</p>
+			<button type="button" class="btn btn-primary w-full" onclick={dismiss}>Get started</button>
+		</div>
+
 		<div
-			class="bg-base-100/90 dark:bg-base-300/90 border-base-300 dark:border-base-400 relative rounded-lg border p-3 shadow-lg backdrop-blur-sm"
+			aria-labelledby="vmcp-introduction-animation-label"
+			class="border-l-2 border-primary pl-8 ml-8"
 		>
-			<div
-				class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 absolute top-1/2 -right-1 size-2 -translate-y-1/2 rotate-45 border-t border-r"
-				aria-hidden="true"
-			></div>
-
-			<div class="flex items-start justify-between gap-2">
-				<p class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase">
-					Drag &amp; Drop
-				</p>
-				<button
-					type="button"
-					class="text-muted-content hover:text-base-content -mt-1 -mr-1 rounded-sm p-1 transition-colors"
-					aria-label="Dismiss drag and drop tip"
-					onclick={dismiss}
-				>
-					<X class="size-3" />
-				</button>
-			</div>
-
+			<h3 class="text-lg font-semibold mb-1">Create your first vMCP!</h3>
+			<p
+				id="vmcp-introduction-animation-label"
+				class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
+			>
+				Drag &amp; Drop
+			</p>
 			{@render stage()}
-
 			<p class="text-muted-content mt-2 text-xs font-light">
-				Drag a server from the panel anywhere onto the canvas to build a vMCP.
+				Drag a server from the panel anywhere onto the canvas to begin building a vMCP.
 			</p>
 		</div>
 	</div>
-{/if}
+</ResponsiveDialog>
 
 {#snippet stage()}
 	<div
-		class="border-base-300 dark:border-base-400 bg-base-200/40 dark:bg-base-200/20 relative mt-2 h-36 overflow-hidden rounded-md border border-dashed"
+		class="border-base-300 dark:border-base-400 bg-base-200/40 dark:bg-base-200/20 relative mt-2 h-44 overflow-hidden rounded-md border border-dashed"
 		aria-hidden="true"
 	>
-		<div class="vmcp-hint-grid text-base-content absolute inset-0 opacity-15"></div>
+		<div class="vmcp-intro-grid text-base-content absolute inset-0 opacity-15"></div>
 
 		<div
-			class="vmcp-hint-drop absolute top-2 left-2 flex w-40 flex-col items-center gap-1.5 rounded-lg border px-2 pt-2 pb-2.5"
+			class="vmcp-intro-drop absolute top-3 left-3 flex w-44 flex-col items-center gap-1.5 rounded-lg border px-2 pt-2 pb-2.5"
 		>
 			<Layers class="text-primary/70 size-3.5" />
 			<p
@@ -84,7 +108,7 @@
 			<span class="bg-base-content/15 block h-1 w-20 rounded-full"></span>
 		</div>
 
-		<div class="vmcp-hint-travel absolute right-2 bottom-2 w-24">
+		<div class="vmcp-intro-travel absolute right-3 bottom-3 w-28">
 			<div
 				class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 flex items-center gap-1 rounded-lg border py-1.5 pr-1.5 pl-0.5 shadow-md"
 			>
@@ -105,30 +129,30 @@
 {/snippet}
 
 <style>
-	.vmcp-hint-grid {
+	.vmcp-intro-grid {
 		background-image: radial-gradient(currentColor 0.5px, transparent 0.5px);
 		background-size: 12px 12px;
 	}
 
-	.vmcp-hint-drop {
+	.vmcp-intro-drop {
 		--hint-quiet: var(--color-base-300);
 		border-color: var(--hint-quiet);
 		background-color: color-mix(in oklab, var(--color-base-100) 70%, transparent);
-		animation: vmcp-hint-receive 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+		animation: vmcp-intro-receive 4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
 	}
 
-	:global(.dark) .vmcp-hint-drop {
+	:global(.dark) .vmcp-intro-drop {
 		--hint-quiet: var(--color-base-400);
 		background-color: color-mix(in oklab, var(--color-base-300) 70%, transparent);
 	}
 
-	.vmcp-hint-travel {
-		--hint-dx: -72px;
-		--hint-dy: -50px;
-		animation: vmcp-hint-travel 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+	.vmcp-intro-travel {
+		--hint-dx: -88px;
+		--hint-dy: -64px;
+		animation: vmcp-intro-travel 4s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 	}
 
-	@keyframes vmcp-hint-travel {
+	@keyframes vmcp-intro-travel {
 		0% {
 			opacity: 0;
 			transform: translate(0, 0) scale(1);
@@ -149,7 +173,7 @@
 		}
 	}
 
-	@keyframes vmcp-hint-receive {
+	@keyframes vmcp-intro-receive {
 		0%,
 		42% {
 			border-color: var(--hint-quiet);
@@ -167,15 +191,9 @@
 		}
 	}
 
-	@keyframes vmcp-hint-flow {
-		to {
-			stroke-dashoffset: -9px;
-		}
-	}
-
 	@media (prefers-reduced-motion: reduce) {
-		.vmcp-hint-drop,
-		.vmcp-hint-travel {
+		.vmcp-intro-drop,
+		.vmcp-intro-travel {
 			animation: none;
 		}
 	}
