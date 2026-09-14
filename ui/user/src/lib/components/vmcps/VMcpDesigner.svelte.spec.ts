@@ -766,9 +766,9 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.USER] });
 
 			await expectViewTabs([]);
-			await expect
-				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.toBeVisible();
+			const connect = page.getByRole('button', { name: 'Connect', exact: true });
+			await expect.element(connect).toBeVisible();
+			await expect.element(connect).toBeEnabled();
 			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 			await expect
 				.element(page.getByRole('button', { name: 'Delete', exact: true }))
@@ -788,9 +788,9 @@ describe('VMcpDesigner.svelte', () => {
 			await expect
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
 				.not.toBeInTheDocument();
-			await expect
-				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.toBeVisible();
+			const connect = page.getByRole('button', { name: 'Connect', exact: true });
+			await expect.element(connect).toBeVisible();
+			await expect.element(connect).toBeEnabled();
 
 			await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 			await expect
@@ -809,9 +809,9 @@ describe('VMcpDesigner.svelte', () => {
 
 			await expectViewTabs(['Designer', 'Tester']);
 			await expect.element(page.getByRole('button', { name: 'Delete vMCP' })).toBeVisible();
-			await expect
-				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.toBeVisible();
+			const connect = page.getByRole('button', { name: 'Connect', exact: true });
+			await expect.element(connect).toBeVisible();
+			await expect.element(connect).toBeEnabled();
 			await expect.element(page.getByRole('button', { name: 'Hide MCP Servers' })).toBeVisible();
 			await expect
 				.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
@@ -923,7 +923,7 @@ describe('VMcpDesigner.svelte', () => {
 			return vmcp;
 		}
 
-		it('hides delete, connect, view tabs, and the MCP Servers sidebar', async () => {
+		it('hides delete, view tabs, and the MCP Servers sidebar while disabling connect', async () => {
 			await renderDesigner([componentEntry, slack], sharedVMcp(), { groups: [Group.USER] });
 
 			await expect
@@ -934,9 +934,9 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByRole('button', { name: 'Hide MCP Servers' }))
 				.not.toBeInTheDocument();
 			await expect.element(page.getByPlaceholder('Search MCP servers...')).not.toBeInTheDocument();
-			await expect
-				.element(page.getByRole('button', { name: 'Connect', exact: true }))
-				.not.toBeInTheDocument();
+			const connect = page.getByRole('button', { name: 'Connect', exact: true });
+			await expect.element(connect).toBeVisible();
+			await expect.element(connect).toBeDisabled();
 		});
 
 		it('does not open edit or component actions, and omits delete from the card menu', async () => {

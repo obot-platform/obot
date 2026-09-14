@@ -49,7 +49,7 @@
 			text: hasLicenseEntitlementViolations
 				? MCP_CONNECTION_INVALID_LICENSE_MESSAGE
 				: disabled
-					? 'Permissions required to connect to this vMCP'
+					? 'Cannot connect or test a personal vMCP'
 					: undefined
 		}}
 		class="flex grow"
@@ -59,9 +59,10 @@
 			class="relative z-10 flex grow items-center rounded-lg border border-base-300 dark:border-base-400"
 		>
 			<button
-				class="btn flex grow rounded-r-none border-transparent bg-primary/10 font-mono text-xs uppercase hover:bg-primary hover:text-primary-content"
+				class="btn flex grow rounded-r-none border-transparent bg-primary/10 font-mono text-xs uppercase not-disabled:hover:bg-primary not-disabled:hover:text-primary-content"
 				onclick={() => onConnect?.()}
-				disabled={hasLicenseEntitlementViolations}
+				disabled={hasLicenseEntitlementViolations || disabled}
+				aria-disabled={hasLicenseEntitlementViolations || disabled}
 			>
 				Connect
 			</button>
@@ -71,8 +72,9 @@
 				noButtonText
 				classes={{
 					button:
-						'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 hover:bg-primary hover:text-primary-content dark:border-l-base-400'
+						'size-10 justify-center rounded-r-md border-l border-l-base-300 p-2 not-disabled:hover:bg-primary not-disabled:hover:text-primary-content dark:border-l-base-400 disabled:text-muted-content disabled:opacity-50'
 				}}
+				disabled={hasLicenseEntitlementViolations || disabled}
 			/>
 		</div>
 	</div>

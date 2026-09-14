@@ -26,10 +26,11 @@ func NewVMCPInstanceHandler() *VMCPInstanceHandler {
 
 func (*VMCPInstanceHandler) List(req api.Context) error {
 	var (
-		list   v1.VMCPInstanceList
-		fields = kclient.MatchingFields{}
+		list       v1.VMCPInstanceList
+		fields     = kclient.MatchingFields{}
+		privileged = req.UserIsAdmin() || req.UserIsAuditor()
 	)
-	if !req.UserIsAdmin() {
+	if !privileged {
 		fields["spec.userID"] = req.User.GetUID()
 	}
 	if err := req.List(&list, fields); err != nil {
@@ -38,7 +39,7 @@ func (*VMCPInstanceHandler) List(req api.Context) error {
 
 	items := make([]types.VMCPInstance, 0, len(list.Items))
 	for _, item := range list.Items {
-		if !req.UserIsAdmin() {
+		if !privileged {
 			var vmcp v1.VMCP
 			if err := req.Get(&vmcp, item.Spec.Manifest.VMCPID); err != nil {
 				if apierrors.IsNotFound(err) {

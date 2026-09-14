@@ -140,7 +140,7 @@
 		if (vmcp.userID) {
 			return `Created by ${vmcp.userID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.userID)}`;
 		}
-		return 'Created by admin';
+		return ' ';
 	}
 </script>
 

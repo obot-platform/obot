@@ -34,12 +34,13 @@ async function expectDeleteVisible(visible: boolean) {
 	}
 }
 
-async function expectConnectVisible(visible: boolean) {
+async function expectConnectEnabled(enabled: boolean) {
 	const connect = page.getByRole('button', { name: 'Connect', exact: true });
-	if (visible) {
-		await expect.element(connect).toBeVisible();
+	await expect.element(connect).toBeVisible();
+	if (enabled) {
+		await expect.element(connect).toBeEnabled();
 	} else {
-		await expect.element(connect).not.toBeInTheDocument();
+		await expect.element(connect).toBeDisabled();
 	}
 }
 
@@ -50,60 +51,60 @@ describe('VMcpCard.svelte', () => {
 			groups: [Group.USER],
 			userID: getProfileResponse.id,
 			deleteVisible: true,
-			connectVisible: true
+			connectEnabled: true
 		},
 		{
-			name: "lets an admin delete someone else's vMCP without connecting",
+			name: "lets an admin delete someone else's vMCP while disabling connect",
 			groups: [Group.ADMIN],
 			userID: 'someone-else',
 			deleteVisible: true,
-			connectVisible: false
+			connectEnabled: false
 		},
 		{
-			name: "hides delete and connect from a non-admin viewing someone else's vMCP",
+			name: "hides delete and disables connect for a non-admin viewing someone else's vMCP",
 			groups: [Group.USER],
 			userID: 'someone-else',
 			deleteVisible: false,
-			connectVisible: false
+			connectEnabled: false
 		},
 		{
-			name: "hides delete and connect from a readonly admin viewing someone else's vMCP",
+			name: "hides delete and disables connect for a readonly admin viewing someone else's vMCP",
 			groups: [Group.AUDITOR],
 			userID: 'someone-else',
 			deleteVisible: false,
-			connectVisible: false
+			connectEnabled: false
 		},
 		{
 			name: 'lets a non-admin connect to an unowned vMCP without deleting',
 			groups: [Group.USER],
 			userID: undefined,
 			deleteVisible: false,
-			connectVisible: true
+			connectEnabled: true
 		},
 		{
 			name: 'lets an admin delete and connect to an unowned vMCP',
 			groups: [Group.ADMIN],
 			userID: undefined,
 			deleteVisible: true,
-			connectVisible: true
+			connectEnabled: true
 		},
 		{
 			name: 'lets a readonly admin connect to an unowned vMCP without deleting',
 			groups: [Group.AUDITOR],
 			userID: undefined,
 			deleteVisible: false,
-			connectVisible: true
+			connectEnabled: true
 		},
 		{
 			name: 'treats an empty userID as unowned',
 			groups: [Group.USER],
 			userID: '',
 			deleteVisible: false,
-			connectVisible: true
+			connectEnabled: true
 		}
-	] as const)('$name', async ({ groups, userID, deleteVisible, connectVisible }) => {
+	] as const)('$name', async ({ groups, userID, deleteVisible, connectEnabled }) => {
 		await renderCard({ groups: [...groups], userID });
-		await expectConnectVisible(connectVisible);
+		await expectConnectEnabled(connectEnabled);
 		await expectDeleteVisible(deleteVisible);
 	});
 });
