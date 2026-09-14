@@ -49,6 +49,11 @@ const (
       "gpt-4o": {"cost": {"input": 2.5, "output": 10, "cache_read": 1.25}}
     }
   },
+  "databricks": {
+    "models": {
+      "databricks-claude-sonnet-4-5": {"cost": {"input": 3, "output": 15, "cache_read": 0.3}}
+    }
+  },
   "cohere": {
     "models": {
       "command-r": {"cost": {"input": 0.5, "output": 1.5}}
@@ -67,7 +72,7 @@ func mustDecodeDoc(t *testing.T, raw string) modelsDevDocument {
 func TestParseModelInfos(t *testing.T) {
 	infos, err := parseModelInfos(system.DefaultNamespace, "default", mustDecodeDoc(t, sampleAPIJSON))
 	require.NoError(t, err)
-	require.Len(t, infos, 7, "anthropic + 2 openai + 2 bedrock + Azure API key + Azure Entra, cohere dropped")
+	require.Len(t, infos, 8, "known providers are expanded and cohere is dropped")
 
 	byProviderAndModel := map[string]v1.ModelInfoSpec{}
 	for _, info := range infos {
@@ -114,6 +119,12 @@ func TestParseModelInfos(t *testing.T) {
 		assert.Equal(t, 10.0, azure.Cost.Output)
 		assert.Equal(t, 1.25, azure.Cost.CacheRead)
 	}
+
+	databricks := byProviderAndModel[system.DatabricksModelProvider+"/databricks-claude-sonnet-4-5"]
+	assert.Equal(t, system.DatabricksModelProvider, databricks.Provider)
+	assert.Equal(t, 3.0, databricks.Cost.Input)
+	assert.Equal(t, 15.0, databricks.Cost.Output)
+	assert.Equal(t, 0.3, databricks.Cost.CacheRead)
 }
 
 func TestParseModelInfos_NoKnownProviders(t *testing.T) {
