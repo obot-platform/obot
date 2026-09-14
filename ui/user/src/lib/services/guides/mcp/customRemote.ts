@@ -12,7 +12,7 @@ function getSubmitAction(): GuideAction {
 			selector: { id: CATALOG_SERVER_FIELD_IDS.submitBtn },
 			side: 'left',
 			title: 'Save the entry',
-			description: 'Once you have finished configuring the remote catalog entry, you can save here.'
+			description: 'Once you have finished configuring the remote MCP server, you can save here.'
 		},
 		listener: {
 			id: CATALOG_SERVER_FIELD_IDS.submitBtn,
@@ -79,8 +79,8 @@ function getAdvancedFieldsAction(): GuideAction[] {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'**What is a remote catalog entry?**',
-			'A remote catalog entry is great for allowing users to connect to MCP servers that are already elsewhere. When they deploy from Obot, the MCP server will go through the gateway.'
+			'**What is a remote MCP server?**',
+			'A remote MCP server is great for allowing users to connect to MCP servers that are already elsewhere. When they deploy from Obot, the MCP server will go through the gateway.'
 		]
 	},
 	getNavigateToMCPCatalogStep(),

@@ -103,7 +103,7 @@
 		if (!creating) return 'MCP Servers';
 		switch (selectedView) {
 			case 'entries':
-				return 'Add Catalog Entry';
+				return 'Add MCP Server';
 			case 'filters':
 				return 'Create Filter';
 			case 'tunnels':

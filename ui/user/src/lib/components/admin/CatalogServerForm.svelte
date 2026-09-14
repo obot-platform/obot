@@ -736,7 +736,7 @@
 				<MarkdownInput
 					bind:value={formData.description}
 					disabled={readonly}
-					placeholder="Provide details about the MCP catalog entry."
+					placeholder="Provide details about the MCP server."
 					labelledBy={CATALOG_SERVER_FIELD_IDS.description}
 					describedBy={CATALOG_SERVER_FIELD_IDS.descriptionHint}
 				/>

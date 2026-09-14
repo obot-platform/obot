@@ -101,15 +101,13 @@ export function getNavigateToMcpServersTabStep(
 	};
 }
 
-export function getHighlightAddCatalogEntryStep(
-	type: 'hosted' | 'remote' | 'composite'
-): GuideStep {
+export function getHighlightAddCatalogEntryStep(type: 'hosted' | 'remote'): GuideStep {
 	const SECTION_ID = `add-${type}-server-button`;
 	const toCapitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
 
 	return {
 		content: [
-			`Create and manage your MCP servers here. We'll take you through creating a new ${type} catalog entry.`
+			`Create and manage your MCP servers here. We'll take you through creating a new ${type} MCP server.`
 		],
 		action: {
 			highlight: {
@@ -145,7 +143,7 @@ export function getHighlightAddCatalogEntryStep(
 
 export function getNavigateBasicCatalogEntryFieldsStep(): GuideStep {
 	return {
-		content: ['These are the standard fields for a catalog entry.'],
+		content: ['These are the standard fields for an MCP server.'],
 		action: {
 			highlight: {
 				selector: {
@@ -155,7 +153,7 @@ export function getNavigateBasicCatalogEntryFieldsStep(): GuideStep {
 				align: 'center',
 				title: 'Describe Your MCP',
 				description:
-					'This is where you provide user friendly details about your MCP server; the information here is displayed to users when previewing the catalog entry.'
+					'This is where you provide user friendly details about your MCP server; the information here is displayed to users when previewing the MCP server.'
 			},
 			listener: {
 				id: `${CATALOG_SERVER_FIELD_IDS.serverFormDetails}`,

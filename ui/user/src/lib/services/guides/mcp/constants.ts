@@ -15,7 +15,7 @@ export const highlightMcpServersLink: GuideHighlight = {
 		id: SIDEBAR_MCP_SERVERS_LINK
 	},
 	title: 'MCP Servers',
-	description: 'This is where you can manage MCP servers and catalog entries.'
+	description: 'This is where you can manage MCP servers.'
 };
 
 export const listenMcpServersLink: GuideListener = {
@@ -66,18 +66,14 @@ export const listenMcpFiltersTab = getMcpServersTabListener(MCP_SERVERS_TAB_FILT
 
 export const addCatalogEntryDescriptions = {
 	hosted:
-		'A hosted MCP catalog entry allows you to add a custom MCP server that is managed and hosted by Obot. By having Obot host your MCP server, you can take advantage of lifecycle management, configuration management, and access policy enforcement. Once deployed in Obot, the server is available as a remote MCP URL that your MCP clients can consume.',
+		'A hosted MCP server allows you to add a custom MCP server that is managed and hosted by Obot. By having Obot host your MCP server, you can take advantage of lifecycle management, configuration management, and access policy enforcement. Once deployed in Obot, the server is available as a remote MCP URL that your MCP clients can consume.',
 	remote:
-		"A remote catalog entry allows you to proxy any remote MCP server through Obot, enabling you to take advantage of Obot's access policies, audit logging, and static OAuth integration.",
-	composite:
-		'A composite catalog entry serves two purposes. First, it allows you to combine multiple MCP servers and publish them as a single remote MCP server. Second, it enables you to expose only the tools you want users to access, giving you fine-grained control over which capabilities are published.'
+		"A remote MCP server allows you to proxy any remote MCP server through Obot, enabling you to take advantage of Obot's access policies, audit logging, and static OAuth integration."
 };
 
 export const obotCatalogEntryDescriptions = {
 	hosted:
-		"A hosted catalog entry provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Let's continue through here.",
+		"A hosted MCP server provides a simple way to deploy and host an MCP server on the Obot platform, where Obot manages its operation and lifecycle. Let's continue through here.",
 	remote:
-		"A remote catalog entry lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Let's continue through here.",
-	composite:
-		"A composite catalog entry lets you combine multiple MCP servers into a single remote MCP server and expose only the tools you want users to access. Let's continue through here."
+		"A remote MCP server lets you proxy all traffic to a remote MCP server through Obot, enabling you to take advantage of Obot's access policies and audit logging. Let's continue through here."
 };

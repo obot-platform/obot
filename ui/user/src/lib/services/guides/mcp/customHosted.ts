@@ -110,12 +110,12 @@ export const steps: GuideStep[] = [
 	{
 		content: [
 			"Once you've properly filled out the form, you'll get access to additional tabs such as:",
-			'**Server Details**: This is where you see the deployments related to the catalog entry.',
-			'**Tools**: This is where you can preview/set up the list of previewable tools for a catalog entry that a user can see before deploying the server.',
-			'**Audit Logs**: This is where you can see logs pertaining to the usage of the catalog entry.',
-			'**Usage**: This is where you can see usage metrics for the catalog entry.',
-			'**Access Policies**: This is where you can access policies pertaining to the catalog entry.',
-			'**Filters**: This is where you can see filters tied to the catalog entry.'
+			'**Server Details**: This is where you see the deployments related to the MCP server.',
+			'**Tools**: This is where you can preview/set up the list of previewable tools for an MCP server that a user can see before deploying the server.',
+			'**Audit Logs**: This is where you can see logs pertaining to the usage of the MCP server.',
+			'**Usage**: This is where you can see usage metrics for the MCP server.',
+			'**Access Policies**: This is where you can access policies pertaining to the MCP server.',
+			'**Filters**: This is where you can see filters tied to the MCP server.'
 		],
 		action: [
 			{
