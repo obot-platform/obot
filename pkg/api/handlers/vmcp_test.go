@@ -92,6 +92,76 @@ func TestVMCPHandlerRejectsProhibitedRequiredConfiguration(t *testing.T) {
 	}
 }
 
+func TestVMCPHandlerRejectsMissingComponentCatalogEntry(t *testing.T) {
+	for _, operation := range []string{"create", "update existing", "add"} {
+		t.Run(operation, func(t *testing.T) {
+			entry := vmcpCatalogEntryForTest("entry")
+			storage := newVMCPTestStorage(entry)
+			handler := vmcpHandlerForTest(t, storage)
+			gatewayClient := newHandlerTestGateway(t)
+			u := &user.DefaultInfo{UID: "user-1"}
+			manifest := testVMCPManifest()
+			var existingName string
+
+			if operation != "create" {
+				created := callVMCPCreate(t, storage, gatewayClient, handler, manifest, u)
+				existingName = created.ID
+				manifest = created.VMCPManifest
+			}
+			if operation == "add" {
+				manifest.Components = append(manifest.Components, types.VMCPComponent{
+					Name:                    "missing",
+					MCPServerCatalogEntryID: "missing",
+				})
+			} else {
+				manifest.Components[0].MCPServerCatalogEntryID = "missing"
+			}
+
+			body, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := httptest.NewRequest(http.MethodPost, "/api/vmcps", bytes.NewReader(body))
+			if operation != "create" {
+				request = httptest.NewRequest(http.MethodPut, "/api/vmcps/"+existingName, bytes.NewReader(body))
+				request.SetPathValue("vmcp_id", existingName)
+			}
+			ctx := api.Context{
+				ResponseWriter: httptest.NewRecorder(),
+				Request:        request,
+				Storage:        storage,
+				GatewayClient:  gatewayClient,
+				User:           u,
+			}
+			if operation == "create" {
+				err = handler.Create(ctx)
+			} else {
+				err = handler.Update(ctx)
+			}
+
+			var httpErr *types.ErrHTTP
+			if !errors.As(err, &httpErr) || httpErr.Code != http.StatusBadRequest ||
+				!strings.Contains(httpErr.Message, `component catalog entry "missing" not found`) {
+				t.Fatalf("expected 400 for missing component catalog entry, got %v", err)
+			}
+
+			var vmcps v1.VMCPList
+			if err := storage.List(t.Context(), &vmcps); err != nil {
+				t.Fatal(err)
+			}
+			if operation == "create" {
+				if len(vmcps.Items) != 0 {
+					t.Fatalf("rejected create persisted %d VMCPs", len(vmcps.Items))
+				}
+			} else {
+				if len(vmcps.Items) != 1 || vmcps.Items[0].Spec.Manifest.Components[0].MCPServerCatalogEntryID != entry.Name {
+					t.Fatalf("rejected update changed stored VMCP: %#v", vmcps.Items)
+				}
+			}
+		})
+	}
+}
+
 func (s *vmcpTestStorage) Create(ctx context.Context, obj kclient.Object, opts ...kclient.CreateOption) error {
 	if obj.GetName() == "" {
 		s.next++

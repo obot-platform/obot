@@ -235,8 +235,14 @@ func (h *VMCPHandler) loadComponentSnapshots(req api.Context, manifest *types.VM
 		}
 		var entry v1.MCPServerCatalogEntry
 		err := req.Get(&entry, component.MCPServerCatalogEntryID)
-		if err != nil && (previous == nil || !apierrors.IsNotFound(err)) {
-			return fmt.Errorf("get component catalog entry %q: %w", component.MCPServerCatalogEntryID, err)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				if previous == nil {
+					return types.NewErrBadRequest("component catalog entry %q not found", component.MCPServerCatalogEntryID)
+				}
+			} else {
+				return fmt.Errorf("get component catalog entry %q: %w", component.MCPServerCatalogEntryID, err)
+			}
 		}
 		if err == nil {
 			if err := authz.CheckVMCPComponentAccess(req.Context(), req.User, ownerID, &entry, h.acrHelper, req.GatewayClient.UserInfoByID); err != nil {
