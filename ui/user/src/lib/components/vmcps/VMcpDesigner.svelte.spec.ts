@@ -283,37 +283,76 @@ describe('VMcpDesigner.svelte', () => {
 				.not.toBeInTheDocument();
 		});
 
-		it('disables Modify Tools when the server has user-supplied configuration', async () => {
+		it('discovers and saves tools with temporary user-supplied credentials', async () => {
+			const entry = createMCPCatalogEntry({
+				...componentEntry,
+				name: 'GitHub',
+				manifest: {
+					...componentEntry.manifest,
+					config: [
+						{
+							key: 'API_TOKEN',
+							name: 'API token',
+							description: 'Discovery credential',
+							required: true,
+							sensitive: true,
+							value: '',
+							usage: 'env'
+						}
+					]
+				}
+			});
 			const slack = createMCPCatalogEntry({ id: 'entry-slack', name: 'Slack' });
 			const vmcp = createVMCP(
 				{
 					id: 'vmcp-1',
 					displayName: 'Issue Tracker vMCP',
 					components: [
-						createVMCPComponent(componentEntry, {
+						createVMCPComponent(entry, {
 							toolPrefix: 'github_',
 							configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
 						}),
 						createVMCPComponent(slack)
 					]
 				},
-				[componentEntry, slack]
+				[entry, slack]
 			);
-			await renderDesigner([componentEntry, slack], vmcp);
+			const update = vi.fn();
+			const preview = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			worker.use(
+				http.post(
+					`/api/vmcps/${vmcp.id}/components/${vmcp.components[0].id}/generate-tool-previews`,
+					async ({ request }) => {
+						preview(await request.json());
+						return HttpResponse.json(componentEntry);
+					}
+				)
+			);
+			await renderDesigner([entry, slack], vmcp);
 
 			await componentBlock().click();
 
 			const modify = page.getByRole('button', { name: 'Modify Tools' });
-			await expect.element(modify).toBeDisabled();
+			await expect.element(modify).toBeEnabled();
 			await expect.element(page.getByRole('button', { name: 'Remove GitHub' })).toBeEnabled();
-
-			const trigger = (await modify.element()).parentElement;
-			trigger?.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-			await expect
-				.element(page.getByRole('tooltip'))
-				.toHaveTextContent(
-					"Tools can't be modified because this server has user-supplied configuration."
-				);
+			await modify.click();
+			await expect.element(page.getByRole('button', { name: 'Configure Tools' })).toBeDisabled();
+			await page.getByLabelText('API token', { exact: false }).fill('preview-secret');
+			await page.getByRole('button', { name: 'Configure Tools' }).click();
+			await expect.element(page.getByText('create_issue', { exact: true }).first()).toBeVisible();
+			expect(preview).toHaveBeenCalledWith({ API_TOKEN: 'preview-secret' });
+			await page.getByRole('checkbox', { name: 'Enabled' }).nth(1).click();
+			await page.getByRole('button', { name: 'Confirm' }).click();
+			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
+			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
+				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }],
+				toolOverrides: [
+					{ name: 'create_issue', enabled: true },
+					{ name: 'list_issues', enabled: false }
+				]
+			});
+			expect(JSON.stringify(update.mock.calls)).not.toContain('preview-secret');
 		});
 
 		it('edits existing configuration policies from the actions dialog', async () => {
@@ -539,9 +578,7 @@ describe('VMcpDesigner.svelte', () => {
 				name: tokenSlack.manifest.name,
 				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
 			});
-			await expect
-				.element(page.getByRole('heading', { name: 'Add Tools' }))
-				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
 		});
 
 		it('offers tool selection after configuration when no policy is user-supplied', async () => {
@@ -1238,7 +1275,7 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
 		});
 
-		it('skips tool selection after post-create configuration when a policy is user-supplied', async () => {
+		it('offers tool selection after post-create configuration when a policy is user-supplied', async () => {
 			const entry = configurableGithub();
 			const vmcp = createVMCP(
 				{
@@ -1270,9 +1307,9 @@ describe('VMcpDesigner.svelte', () => {
 			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
 				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }]
 			});
-			await expect
-				.element(page.getByRole('heading', { name: 'Add Tools' }))
-				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
+			await page.getByRole('button', { name: /Managed/ }).click();
+			await expect.element(page.getByLabelText('API token', { exact: false })).toBeVisible();
 		});
 	});
 

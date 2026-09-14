@@ -24,10 +24,6 @@
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let renderedDialog: VMcpToolDialog | undefined;
 	let synchronizing = false;
-	const toolsLockedByUserSupplied = $derived(
-		flow.configuringComponent?.configuration?.some((field) => field.policy === 'userAllowed') ??
-			false
-	);
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
 	const lastComponentTooltip = 'VMCP requires at least one component.';
 
@@ -194,23 +190,9 @@
 	{/snippet}
 	<div class="flex flex-col gap-2 md:px-0 px-4">
 		<p class="text-sm text-center mb-3 md:mt-0 mt-4">What would you like to do?</p>
-		<div
-			class="w-full"
-			use:tooltip={toolsLockedByUserSupplied
-				? {
-						text: "Tools can't be modified because this server has user-supplied configuration.",
-						disablePortal: true
-					}
-				: undefined}
-		>
-			<button
-				class="btn btn-secondary w-full"
-				disabled={toolsLockedByUserSupplied}
-				onclick={flow.modifyToolsFromActions}
-			>
-				Modify Tools
-			</button>
-		</div>
+		<button class="btn btn-secondary w-full" onclick={flow.modifyToolsFromActions}>
+			Modify Tools
+		</button>
 		{#if flow.canConfigureComponent}
 			<button class="btn btn-secondary w-full" onclick={flow.editConfiguration}>
 				Change Configuration

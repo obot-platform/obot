@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/obot-platform/obot/apiclient/types"
@@ -97,6 +98,137 @@ func TestVMCPComponentToolPreviewConfigUsesCachedSnapshotAndFixedConfiguration(t
 	var source v1.MCPServerCatalogEntry
 	err = storage.Get(t.Context(), kclient.ObjectKey{Namespace: system.DefaultNamespace, Name: component.MCPServerCatalogEntryID}, &source)
 	assert.True(t, apierrors.IsNotFound(err), "preview resolution must not look up the source catalog entry")
+}
+
+func TestVMCPComponentToolPreviewUserConfiguration(t *testing.T) {
+	vmcp := vmcpToolPreviewTestObject("vmcp1user-preview")
+	component := &vmcp.Spec.Manifest.Components[0]
+	component.CatalogEntry.Manifest.Config[1].Required = true
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp).Build()
+	gateway := newHandlerTestGateway(t)
+	credential := gatewaytypes.Credential{
+		Context: vmcpconfig.StaticConfigurationCredentialContext(vmcp.Name),
+		Name:    vmcpconfig.ConfigurationCredentialName(),
+		Secrets: map[string]string{vmcpconfig.ConfigurationKey(component.ID, "TOKEN"): "fixed-token"},
+	}
+	require.NoError(t, gateway.UpsertCredential(t.Context(), credential))
+	checker := newRecordingMCPAuthChecker("https://oauth.example/authorize")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, gateway, nil, "")
+	request := func(body string) api.Context {
+		req := httptest.NewRequest(http.MethodPost, "/api/vmcps/"+vmcp.Name+"/components/"+component.ID+"/generate-tool-previews", strings.NewReader(body))
+		req.SetPathValue("vmcp_id", vmcp.Name)
+		req.SetPathValue("component_id", component.ID)
+		return api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  gateway,
+			User:           testUser("preview-user"),
+		}
+	}
+
+	_, _, server, config, err := handler.vmcpComponentToolPreviewConfig(request(`{"USER":"preview-token"}`))
+	require.NoError(t, err)
+	assert.ElementsMatch(t, []string{"TOKEN=fixed-token", "USER=preview-token"}, config.Env)
+	require.NoError(t, handler.GenerateVMCPComponentToolPreviewsOAuthURL(request(`{"USER":"preview-token"}`)))
+	assert.Equal(t, server.Name, checker.server.Name, "OAuth and discovery must use the same preview identity")
+	assert.ElementsMatch(t, config.Env, checker.config.Env)
+	_, _, other, _, err := handler.vmcpComponentToolPreviewConfig(request(`{"USER":"different-token"}`))
+	require.NoError(t, err)
+	assert.NotEqual(t, server.Name, other.Name)
+
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "missing required value",
+			body: `{}`,
+		},
+		{
+			name: "fixed override",
+			body: `{"USER":"preview-token","TOKEN":"override"}`,
+		},
+		{
+			name: "prohibited value",
+			body: `{"USER":"preview-token","DENIED":"override"}`,
+		},
+		{
+			name: "unknown key",
+			body: `{"USER":"preview-token","UNKNOWN":"override"}`,
+		},
+		{
+			name: "malformed body",
+			body: `{"USER":`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, _, _, err := handler.vmcpComponentToolPreviewConfig(request(test.body))
+			require.Error(t, err)
+		})
+	}
+	var stored v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &stored))
+	assert.Equal(t, vmcp.Spec.Manifest, stored.Spec.Manifest)
+	storedCredential, err := gateway.RevealCredential(t.Context(), []string{credential.Context}, credential.Name)
+	require.NoError(t, err)
+	assert.Equal(t, credential.Secrets, storedCredential.Secrets)
+}
+
+func TestVMCPComponentToolPreviewHostnameURL(t *testing.T) {
+	vmcp := vmcpToolPreviewTestObject("vmcp1hostname-preview")
+	component := &vmcp.Spec.Manifest.Components[0]
+	component.CatalogEntry.Manifest.RemoteConfig = &types.RemoteCatalogConfig{Hostname: "*.example.com"}
+	component.CatalogEntry.Manifest.Config = nil
+	component.Configuration = nil
+	storage := clientfake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(vmcp).Build()
+	checker := newRecordingMCPAuthChecker("https://oauth.example/authorize")
+	handler := NewMCPCatalogHandler("", "https://obot.example.com", "", nil, checker, newHandlerTestGateway(t), nil, "")
+	request := func(body string) api.Context {
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
+		req.SetPathValue("vmcp_id", vmcp.Name)
+		req.SetPathValue("component_id", component.ID)
+		return api.Context{
+			ResponseWriter: httptest.NewRecorder(),
+			Request:        req,
+			Storage:        storage,
+			GatewayClient:  handler.gatewayClient,
+			User:           testUser("preview-user"),
+		}
+	}
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{
+			name: "missing URL",
+			body: `{}`,
+		},
+		{
+			name: "wrong hostname",
+			body: `{"__url":"https://other.test/mcp"}`,
+		},
+		{
+			name: "invalid scheme",
+			body: `{"__url":"file://tenant.example.com/mcp"}`,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, _, _, _, err := handler.vmcpComponentToolPreviewConfig(request(test.body))
+			require.Error(t, err)
+		})
+	}
+	const body = `{"__url":"https://tenant.example.com/mcp"}`
+	_, _, server, config, err := handler.vmcpComponentToolPreviewConfig(request(body))
+	require.NoError(t, err)
+	assert.Equal(t, "https://tenant.example.com/mcp", config.URL)
+	assert.Equal(t, "https://tenant.example.com/mcp", server.Spec.Manifest.RemoteConfig.URL)
+	require.NoError(t, handler.GenerateVMCPComponentToolPreviewsOAuthURL(request(body)))
+	assert.Equal(t, server.Name, checker.server.Name)
+	assert.Equal(t, config.URL, checker.config.URL)
+	var stored v1.VMCP
+	require.NoError(t, storage.Get(t.Context(), kclient.ObjectKeyFromObject(vmcp), &stored))
+	assert.Equal(t, vmcp.Spec.Manifest, stored.Spec.Manifest)
 }
 
 func TestGenerateVMCPComponentToolPreviewsOAuthURLUsesCachedSnapshot(t *testing.T) {

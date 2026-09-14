@@ -275,7 +275,6 @@ export function createVMcpToolFlow() {
 	}
 
 	function offerToolsAfterCreate(vmcp: VMCP, component: VMCPComponent, entry?: MCPCatalogEntry) {
-		if (component.configuration?.some((field) => field.policy === 'userAllowed')) return;
 		if (entry) {
 			offerToolSelection(entry, vmcp);
 			return;
@@ -382,7 +381,7 @@ export function createVMcpToolFlow() {
 				const entry = configuringEntry;
 				const saved = findComponent(updated, vmcpComponentId(component));
 				postCreateConfiguration = false;
-				if (saved && !saved.configuration?.some((field) => field.policy === 'userAllowed')) {
+				if (saved) {
 					offerToolsAfterCreate(updated, saved, entry);
 					return;
 				}
@@ -400,7 +399,6 @@ export function createVMcpToolFlow() {
 		const vmcp = modifyingVMcp;
 		const component = configuringComponent;
 		if (!vmcp || !component) return;
-		if (component.configuration?.some((field) => field.policy === 'userAllowed')) return;
 		if (component.toolOverrides?.length) {
 			openEdit(vmcp, component);
 			return;

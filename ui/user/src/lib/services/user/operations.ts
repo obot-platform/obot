@@ -127,11 +127,11 @@ export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promis
 export async function generateVMCPComponentToolPreviews(
 	vmcpID: string,
 	componentID: string,
-	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; config?: Record<string, string> }
 ): Promise<MCPCatalogEntry> {
 	const response = await doPost(
 		`/vmcps/${vmcpID}/components/${componentID}/generate-tool-previews`,
-		{},
+		opts?.config ?? {},
 		{
 			...opts,
 			dontLogErrors: true
@@ -143,11 +143,11 @@ export async function generateVMCPComponentToolPreviews(
 export async function getVMCPComponentToolPreviewsOauth(
 	vmcpID: string,
 	componentID: string,
-	opts?: { fetch?: Fetcher; signal?: AbortSignal }
+	opts?: { fetch?: Fetcher; signal?: AbortSignal; config?: Record<string, string> }
 ): Promise<string> {
 	const response = (await doPost(
 		`/vmcps/${vmcpID}/components/${componentID}/generate-tool-previews/oauth-url`,
-		{},
+		opts?.config ?? {},
 		{
 			...opts,
 			dontLogErrors: true

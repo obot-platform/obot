@@ -260,9 +260,7 @@
 
 		selectedVMcp = updated;
 		success.add(`${entry.manifest.name} added to ${updated.displayName}.`);
-		if (!component.configuration?.some((field) => field.policy === 'userAllowed')) {
-			toolFlow.offerToolSelection(entry, updated);
-		}
+		toolFlow.offerToolSelection(entry, updated);
 		return updated;
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"regexp"
 	"slices"
@@ -1040,9 +1041,8 @@ func (h *MCPCatalogHandler) GenerateVMCPComponentToolPreviewsOAuthURL(req api.Co
 }
 
 // vmcpComponentToolPreviewConfig builds the temporary server used by both
-// vMCP component preview endpoints. Only fixed configuration from the vMCP's
-// VMCP-scoped credential is used; callers cannot override vMCP policy by
-// posting arbitrary configuration to this endpoint.
+// vMCP component preview endpoints. Fixed configuration comes from the vMCP's
+// credential; user-allowed values can be supplied for this preview only.
 func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.VMCP, types.VMCPComponent, v1.MCPServer, mcp.ServerConfig, error) {
 	var vmcp v1.VMCP
 	if err := req.Get(&vmcp, req.PathValue("vmcp_id")); err != nil {
@@ -1051,8 +1051,9 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 
 	componentID := req.PathValue("component_id")
 	var component *types.VMCPComponent
-	for index := range vmcp.Spec.Manifest.Components {
-		candidate := &vmcp.Spec.Manifest.Components[index]
+	components := vmcpconfig.ComponentsForInstance(vmcp, v1.VMCPInstance{})
+	for index := range components {
+		candidate := &components[index]
 		if candidate.ID == componentID || (candidate.ID == "" && candidate.MCPServerCatalogEntryID == componentID) {
 			component = candidate
 			break
@@ -1071,6 +1072,18 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 	if err != nil {
 		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
 	}
+	var configRequest map[string]string
+	if err := req.Read(&configRequest); err != nil && !errors.Is(err, io.EOF) {
+		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("failed to read configuration: %v", err)
+	}
+	for key, value := range configRequest {
+		if !slices.ContainsFunc(component.Configuration, func(policy types.VMCPConfigurationPolicy) bool {
+			return policy.Key == key && policy.Policy == types.VMCPConfigurationPolicyUserAllowed
+		}) {
+			return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, types.NewErrBadRequest("configuration field %q does not allow user-supplied values", key)
+		}
+		staticConfiguration[key] = value
+	}
 	validationOptions, err := ValidationOptionsWithResourceMaximums(req, h.sessionManager)
 	if err != nil {
 		return vmcp, *component, v1.MCPServer{}, mcp.ServerConfig{}, err
@@ -1086,7 +1099,7 @@ func (h *MCPCatalogHandler) vmcpComponentToolPreviewConfig(req api.Context) (v1.
 		catalogName,
 		*manifest,
 		staticConfiguration,
-		"",
+		staticConfiguration["__url"],
 		h.serverURL,
 		validationOptions,
 	)

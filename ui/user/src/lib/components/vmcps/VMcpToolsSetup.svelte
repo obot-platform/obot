@@ -1,6 +1,8 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
+	import { isMissingRequiredConfigurationField } from '$lib/components/mcp/configurationOptions';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService } from '$lib/services';
 	import type {
@@ -10,6 +12,7 @@
 		VMCPComponent
 	} from '$lib/services';
 	import { toolOverridesFromRows } from '$lib/services/user/mcp';
+	import { catalogConfigurationFields } from '$lib/services/vmcps/utils';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
@@ -53,6 +56,7 @@
 	let listeningOauthVisibility = $state(false);
 	let requestGeneration = 0;
 	let requestController: AbortController | undefined;
+	let previewConfig = $state<Record<string, string>>({});
 
 	let configuringEntry = $derived<MCPCatalogEntry | undefined>(
 		component
@@ -65,6 +69,33 @@
 					unsupportedTools: component.catalogEntry.unsupportedTools
 				}
 			: undefined
+	);
+	const userFields = $derived.by(() => {
+		if (!configuringEntry) return [];
+		const fields = [...catalogConfigurationFields(configuringEntry)];
+		const remote = configuringEntry.manifest.remoteConfig;
+		const requiresURL = remote?.hostname && !remote.fixedURL;
+		if (requiresURL && !fields.some((field) => field.key === '__url')) {
+			fields.push({
+				key: '__url',
+				name: 'Server URL',
+				description: `URL must have hostname ${remote.hostname}`,
+				usage: 'interpolated',
+				required: true,
+				sensitive: false,
+				value: ''
+			});
+		}
+		return fields.filter((field) => {
+			const policy = component?.configuration?.find((policy) => policy.key === field.key);
+			return policy ? policy.policy === 'userAllowed' : requiresURL && field.key === '__url';
+		});
+	});
+	const needsLiveTools = $derived(refresh || tools.length === 0 || userFields.length > 0);
+	const missingConfiguration = $derived(
+		userFields.some((field) =>
+			isMissingRequiredConfigurationField({ ...field, value: previewConfig[field.key] ?? '' })
+		)
 	);
 
 	function componentID(value?: VMCPComponent) {
@@ -138,6 +169,7 @@
 
 		try {
 			const entry = await UserService.generateVMCPComponentToolPreviews(vmcpID, id, {
+				config: previewConfig,
 				signal: controller.signal
 			});
 			if (!isCurrentRequest(generation, controller)) return;
@@ -156,6 +188,7 @@
 			if (message.includes('MCP server requires OAuth authentication')) {
 				try {
 					const nextOauthURL = await UserService.getVMCPComponentToolPreviewsOauth(vmcpID, id, {
+						config: previewConfig,
 						signal: controller.signal
 					});
 					if (!isCurrentRequest(generation, controller)) return;
@@ -191,7 +224,8 @@
 	}
 
 	function configureTools() {
-		if ((refresh || tools.length === 0) && vmcpID && componentID(component)) {
+		if (missingConfiguration) return;
+		if (needsLiveTools && vmcpID && componentID(component)) {
 			void fetchLiveTools();
 			return;
 		}
@@ -200,19 +234,21 @@
 
 	export function open() {
 		cancelToolPreviewRequest();
+		previewConfig = {};
 		error = undefined;
 		oauthURL = undefined;
 		tools = existingTools;
 		toolPrefix = existingToolPrefix ?? component?.toolPrefix ?? '';
 		dialogPhase = 'setup';
 		setupDialog?.open();
-		if (refresh && vmcpID && componentID(component)) {
+		if (refresh && userFields.length === 0 && vmcpID && componentID(component)) {
 			void fetchLiveTools();
 		}
 	}
 
 	export function close() {
 		cancelToolPreviewRequest();
+		previewConfig = {};
 		dialogPhase = 'closed';
 		setupDialog?.close();
 		editDialog?.close();
@@ -237,6 +273,7 @@
 	}
 
 	function openEditor() {
+		previewConfig = {};
 		dialogPhase = 'editor';
 		setupDialog?.close();
 		editDialog?.open();
@@ -266,13 +303,24 @@
 	class="md:w-md"
 	onClose={cancelSetup}
 >
-	<div class="flex grow flex-col p-4 md:p-0">
+	<form
+		class="flex grow flex-col p-4 md:p-0"
+		onsubmit={(event) => {
+			event.preventDefault();
+			configureTools();
+		}}
+	>
 		{#if configuringEntry}
 			{#if oauthURL}
 				<p class="mb-4 text-sm">
 					MCP server requires OAuth authentication before its tools can be fetched.
 				</p>
-			{:else if !refresh && tools.length > 0}
+			{:else if userFields.length > 0}
+				<p class="text-muted-content mb-6 text-sm font-light">
+					Enter credentials to discover tools. These values are used only for this tool preview;
+					users will still provide their own values when connecting.
+				</p>
+			{:else if !needsLiveTools}
 				<p class="text-muted-content mb-6 text-sm font-light">
 					Tools are read from the catalog-entry snapshot stored on this vMCP. The source catalog
 					entry is not queried while editing an existing component.
@@ -281,6 +329,62 @@
 				<p class="text-muted-content mb-6 text-sm font-light">
 					Fetch tools using this component's stored configuration before editing.
 				</p>
+			{/if}
+
+			{#if !oauthURL}
+				{#each userFields as field (field.key)}
+					<div class="mb-4 flex flex-col gap-2">
+						<label for={`preview-${field.key}`} class="text-sm font-medium">
+							{field.name || field.key}{field.required ? ' *' : ''}
+						</label>
+						{#if field.options?.length}
+							<select
+								id={`preview-${field.key}`}
+								class="select w-full"
+								bind:value={previewConfig[field.key]}
+								required={field.required}
+								disabled={loading}
+							>
+								<option value="">Select an option</option>
+								{#each field.options as option (option.value)}
+									<option value={option.value}>{option.name}</option>
+								{/each}
+							</select>
+						{:else if field.sensitive}
+							<SensitiveInput
+								name={`preview-${field.key}`}
+								textarea={field.usage === 'file' || field.usage === 'dynamicFile'}
+								growable
+								bind:value={
+									() => previewConfig[field.key] ?? '',
+									(value) => (previewConfig[field.key] = value)
+								}
+								required={field.required}
+								disabled={loading}
+							/>
+						{:else if field.usage === 'file' || field.usage === 'dynamicFile'}
+							<textarea
+								id={`preview-${field.key}`}
+								class="input-text-filled w-full min-h-32 resize-y"
+								bind:value={previewConfig[field.key]}
+								required={field.required}
+								disabled={loading}
+							></textarea>
+						{:else}
+							<input
+								id={`preview-${field.key}`}
+								type={field.key === '__url' ? 'url' : 'text'}
+								class="input-text-filled w-full"
+								bind:value={previewConfig[field.key]}
+								required={field.required}
+								disabled={loading}
+							/>
+						{/if}
+						{#if field.description}
+							<p class="text-muted-content text-xs">{field.description}</p>
+						{/if}
+					</div>
+				{/each}
 			{/if}
 
 			{#if error}
@@ -310,7 +414,7 @@
 						</a>
 					{/if}
 				{:else}
-					<button class="btn btn-primary" disabled={loading} onclick={configureTools}>
+					<button class="btn btn-primary" disabled={loading || missingConfiguration} type="submit">
 						{#if loading}
 							<Loading class="text-primary-content size-4" />
 						{:else}
@@ -320,7 +424,7 @@
 				{/if}
 			</div>
 		{/if}
-	</div>
+	</form>
 </ResponsiveDialog>
 
 <CompositeEditTools
