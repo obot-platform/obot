@@ -102,6 +102,7 @@ func TestServerHookConfigBuildsScopedHooks(t *testing.T) {
 	hooks, servers := ServerHookConfig(ServerConfig{UserID: "user-1", Audiences: []string{"https://obot.example"}, Webhooks: []Webhook{
 		{
 			Name: "policy/resource", DisplayName: "Shared Display Name", URL: "https://policy.example/mcp", ToolName: "validate",
+			Audience: "https://obot.example/mcp-connect/sms1policy-resource",
 			Definitions: types.MCPSelectors{
 				{Method: "tools/list"},
 				{Method: "tools/call", Identifiers: []string{"echo"}},
@@ -118,8 +119,8 @@ func TestServerHookConfigBuildsScopedHooks(t *testing.T) {
 	if server.MCPServerName != system.SystemMCPServerPrefix+"policy/resource" || server.URL != "https://policy.example/mcp" || server.UserID != "user-1" || !server.SystemMCPServer {
 		t.Fatalf("unexpected native hook server config: %#v", server)
 	}
-	if len(server.Audiences) != 1 || server.Audiences[0] != "https://obot.example" {
-		t.Fatalf("hook server did not retain audiences: %#v", server.Audiences)
+	if len(server.Audiences) != 1 || server.Audiences[0] != "https://obot.example/mcp-connect/sms1policy-resource" {
+		t.Fatalf("hook server did not use the webhook audience: %#v", server.Audiences)
 	}
 	if len(hooks) != 3 {
 		t.Fatalf("got %d hook mappings, want 3: %#v", len(hooks), hooks)

@@ -415,7 +415,7 @@ func (sm *SessionManager) webhooksForServerConfig(serverConfig ServerConfig) ([]
 		return nil, nil
 	}
 
-	webhooks, err := sm.webhookHelper.GetWebhooksForMCPServer(serverConfig)
+	webhooks, err := sm.webhookHelper.GetWebhooksForMCPServer(serverConfig, sm.TransformObotHostname)
 	if err != nil {
 		return nil, err
 	}

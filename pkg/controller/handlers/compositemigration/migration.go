@@ -1,6 +1,7 @@
 package compositemigration
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha1"
 	"encoding/json"
@@ -144,6 +145,11 @@ func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 			return err
 		}
 	}
+
+	if err := migrateFilters(req, entry, parents.Items, target); err != nil {
+		return fmt.Errorf("migrate composite filters: %w", err)
+	}
+
 	for i := range parents.Items {
 		parent := &parents.Items[i]
 		if !parent.DeletionTimestamp.IsZero() {
@@ -157,6 +163,56 @@ func (h *Handler) Migrate(req router.Request, _ router.Response) error {
 		}
 	}
 	return kclient.IgnoreNotFound(req.Client.Delete(req.Ctx, entry))
+}
+
+func migrateFilters(req router.Request, entry *v1.MCPServerCatalogEntry, parents []v1.MCPServer, target v1.VMCP) error {
+	resources := map[types.Resource]struct{}{
+		{Type: types.ResourceTypeMCPServerCatalogEntry, ID: entry.Name}: {},
+		{Type: types.ResourceTypeSelector, ID: "*"}:                     {},
+	}
+
+	if catalog := cmp.Or(entry.Spec.MCPCatalogName, entry.Spec.PowerUserWorkspaceID); catalog != "" {
+		resources[types.Resource{Type: types.ResourceTypeMcpCatalog, ID: catalog}] = struct{}{}
+	}
+
+	for _, parent := range parents {
+		resources[types.Resource{Type: types.ResourceTypeMCPServer, ID: parent.Name}] = struct{}{}
+
+		if catalog := cmp.Or(
+			parent.Spec.MCPCatalogID,
+			parent.Status.MCPCatalogID,
+			parent.Spec.PowerUserWorkspaceID,
+			entry.Spec.MCPCatalogName,
+			entry.Spec.PowerUserWorkspaceID,
+		); catalog != "" {
+			resources[types.Resource{Type: types.ResourceTypeMcpCatalog, ID: catalog}] = struct{}{}
+		}
+	}
+
+	var filters v1.MCPWebhookValidationList
+	if err := req.List(&filters, &kclient.ListOptions{Namespace: entry.Namespace}); err != nil {
+		return err
+	}
+
+	targetResource := types.Resource{Type: types.ResourceTypeMCPServer, ID: target.Name}
+	for i := range filters.Items {
+		filter := &filters.Items[i]
+
+		if slices.Contains(filter.Spec.Manifest.Resources, targetResource) ||
+			!slices.ContainsFunc(filter.Spec.Manifest.Resources, func(resource types.Resource) bool {
+				_, ok := resources[resource]
+				return ok
+			}) {
+			continue
+		}
+
+		filter.Spec.Manifest.Resources = append(filter.Spec.Manifest.Resources, targetResource)
+		if err := req.Client.Update(req.Ctx, filter); err != nil {
+			return fmt.Errorf("update filter %q: %w", filter.Name, err)
+		}
+	}
+
+	return nil
 }
 
 func (h *Handler) buildVMCP(req router.Request, entry *v1.MCPServerCatalogEntry, legacy legacyManifest) (v1.VMCP, map[string]string, []string, error) {

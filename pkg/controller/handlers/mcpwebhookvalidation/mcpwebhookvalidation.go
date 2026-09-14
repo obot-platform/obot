@@ -43,7 +43,12 @@ func (h *Handler) CleanupResources(req router.Request, _ router.Response) error 
 		case types.ResourceTypeSelector:
 			newResources = append(newResources, resource)
 		case types.ResourceTypeMCPServer:
-			if err = req.Get(&mcpServer, req.Namespace, resource.ID); err == nil {
+			if system.IsVMCPID(resource.ID) {
+				err = req.Get(&v1.VMCP{}, req.Namespace, resource.ID)
+			} else {
+				err = req.Get(&mcpServer, req.Namespace, resource.ID)
+			}
+			if err == nil {
 				newResources = append(newResources, resource)
 			} else if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("failed to get mcp server %s: %w", resource.ID, err)

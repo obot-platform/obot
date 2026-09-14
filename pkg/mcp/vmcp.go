@@ -163,6 +163,14 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}
 	// Always retain the selected connection through the aggregate loopback.
 	connectID := instance.Name
+	// Match filters against the parent vMCP so every instance inherits them.
+	webhooks, err := sm.webhooksForServerConfig(ServerConfig{
+		MCPServerName:      vmcp.Name,
+		MCPServerNamespace: vmcp.Namespace,
+	})
+	if err != nil {
+		return ServerConfig{}, err
+	}
 	return ServerConfig{
 		Runtime:              types.RuntimeVMCP,
 		MCPServerName:        connectID,
@@ -171,6 +179,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		OwnerUserID:          vmcp.Spec.UserID,
 		MCPServerNamespace:   vmcp.Namespace,
 		Components:           components,
+		Webhooks:             webhooks,
 		AuditLogMetadata: map[string]string{
 			"mcpID":                connectID,
 			"mcpServerDisplayName": vmcp.Spec.Manifest.DisplayName,

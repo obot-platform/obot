@@ -18,6 +18,7 @@ type WebhookHelper struct {
 type Webhook struct {
 	Name, DisplayName string
 	URL               string
+	Audience          string
 	ToolName          string
 	Definitions       types.MCPSelectors
 	MutateAllowed     bool
@@ -30,7 +31,7 @@ func NewWebhookHelper(indexer cache.Indexer, baseURL string) *WebhookHelper {
 	}
 }
 
-func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig) ([]Webhook, error) {
+func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig, transformHostname func(string) string) ([]Webhook, error) {
 	var result []Webhook
 	webhookSeen := make(map[string]struct{})
 
@@ -39,33 +40,33 @@ func (wh *WebhookHelper) GetWebhooksForMCPServer(serverConfig ServerConfig) ([]W
 		return nil, fmt.Errorf("failed to get webhooks from MCP server index: %w", err)
 	}
 
-	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result, transformHostname)
 
 	objs, err = wh.indexer.ByIndex("catalog-entry-names", serverConfig.MCPCatalogEntryName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog entry index: %w", err)
 	}
 
-	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result, transformHostname)
 
 	objs, err = wh.indexer.ByIndex("selectors", "*")
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from selector index: %w", err)
 	}
 
-	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result, transformHostname)
 
 	objs, err = wh.indexer.ByIndex("catalog-names", serverConfig.MCPCatalogName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get webhooks from catalog index: %w", err)
 	}
 
-	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result)
+	result = wh.appendWebhooks(serverConfig.MCPServerNamespace, objs, webhookSeen, result, transformHostname)
 
 	return result, nil
 }
 
-func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[string]struct{}, result []Webhook) []Webhook {
+func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[string]struct{}, result []Webhook, transformHostname func(string) string) []Webhook {
 	result = slices.Grow(result, len(objs))
 
 	for _, mwv := range objs {
@@ -91,7 +92,8 @@ func (wh *WebhookHelper) appendWebhooks(namespace string, objs []any, seen map[s
 			result = append(result, Webhook{
 				Name:          res.Name,
 				DisplayName:   displayName,
-				URL:           url,
+				URL:           transformHostname(url),
+				Audience:      url,
 				ToolName:      toolName,
 				Definitions:   res.Spec.Manifest.Selectors,
 				MutateAllowed: res.Spec.Manifest.AllowedToMutate,

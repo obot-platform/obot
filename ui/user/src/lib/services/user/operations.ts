@@ -85,8 +85,11 @@ function mcpActionPath(id: string, legacyCollection = 'mcp-servers'): string {
 
 // Virtual MCPs
 
-export async function listVMCPs(opts?: { fetch?: Fetcher }): Promise<VMCP[]> {
-	const response = (await doGet('/vmcps', opts)) as ItemsResponse<VMCP>;
+export async function listVMCPs(opts?: { fetch?: Fetcher; all?: boolean }): Promise<VMCP[]> {
+	const response = (await doGet(
+		opts?.all ? '/vmcps?all=true' : '/vmcps',
+		opts
+	)) as ItemsResponse<VMCP>;
 	return response.items ?? [];
 }
 

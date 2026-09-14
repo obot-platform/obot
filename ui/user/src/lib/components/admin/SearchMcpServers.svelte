@@ -6,7 +6,8 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser
+		type OrgUser,
+		type VMCP
 	} from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { getUserDisplayName } from '$lib/utils';
@@ -20,6 +21,7 @@
 	interface Props {
 		onAdd: (mcpCatalogEntryIds: string[], mcpServerIds: string[], otherSelectors: string[]) => void;
 		exclude?: string[];
+		vmcps?: VMCP[];
 		mcpEntriesContextFn?: () => {
 			entries: MCPCatalogEntry[];
 			servers: MCPCatalogServer[];
@@ -47,6 +49,7 @@
 	let {
 		onAdd,
 		exclude,
+		vmcps = [],
 		mcpEntriesContextFn,
 		type,
 		workspaceId,
@@ -82,6 +85,14 @@
 				type: 'all' as const,
 				registry: ''
 			},
+			...(type === 'filter' ? vmcps : []).map((vmcp) => ({
+				icon: vmcp.icon,
+				name: vmcp.displayName,
+				description: vmcp.description,
+				id: vmcp.id,
+				type: 'mcpserver' as const,
+				registry: 'vMCP'
+			})),
 			...mcpServerAndEntries.entries
 				.filter((entry) => {
 					if (type === 'filter') {

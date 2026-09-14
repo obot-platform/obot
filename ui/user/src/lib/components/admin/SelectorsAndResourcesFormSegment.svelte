@@ -1,11 +1,17 @@
 <script lang="ts">
 	import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
-	import type { MCPFilterResource, MCPFilterWebhookSelector } from '$lib/services';
-	import { mcpServersAndEntries } from '$lib/stores';
+	import {
+		UserService,
+		type MCPFilterResource,
+		type MCPFilterWebhookSelector,
+		type VMCP
+	} from '$lib/services';
+	import { errors, mcpServersAndEntries } from '$lib/stores';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import { Plus, Trash2, X } from '@lucide/svelte';
+	import { onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -21,6 +27,16 @@
 	let { form = $bindable(), readonly, inDialog }: Props = $props();
 
 	let addMcpServerDialog = $state<ReturnType<typeof SearchMcpServers>>();
+	let vmcps = $state<VMCP[]>([]);
+	let vmcpsMap = $derived(new Map(vmcps.map((vmcp) => [vmcp.id, vmcp])));
+
+	onMount(async () => {
+		try {
+			vmcps = await UserService.listVMCPs({ all: true });
+		} catch {
+			errors.append('Failed to load vMCPs for filter selection.');
+		}
+	});
 	let mcpServersMap = $derived(new Map(mcpServersAndEntries.current.servers.map((i) => [i.id, i])));
 	let mcpEntriesMap = $derived(new Map(mcpServersAndEntries.current.entries.map((i) => [i.id, i])));
 
@@ -35,6 +51,11 @@
 		return resources.map((resource) => {
 			const entryMatch = mcpEntriesMap.get(resource.id);
 			const serverMatch = mcpServersMap.get(resource.id);
+			const vmcpMatch = vmcpsMap.get(resource.id);
+
+			if (vmcpMatch) {
+				return { id: resource.id, name: vmcpMatch.displayName || '-', type: 'mcpserver' };
+			}
 
 			if (entryMatch) {
 				return {
@@ -156,6 +177,7 @@
 
 <SearchMcpServers
 	bind:this={addMcpServerDialog}
+	{vmcps}
 	exclude={form.resources.map((r) => r.id)}
 	type="filter"
 	onAdd={async (mcpCatalogEntryIds, mcpServerIds, otherSelectors) => {

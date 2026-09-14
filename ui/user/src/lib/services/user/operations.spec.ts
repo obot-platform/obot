@@ -92,6 +92,13 @@ function response(body: unknown) {
 }
 
 describe('vMCP operations', () => {
+	it('requests all vMCPs when explicitly enabled', async () => {
+		const fetcher = vi.fn().mockImplementation(() => response({ items: [vmcp] }));
+
+		expect(await listVMCPs({ fetch: fetcher, all: true })).toEqual([vmcp]);
+		expect(String(fetcher.mock.calls[0][0])).toContain('/api/vmcps?all=true');
+	});
+
 	it('uses the first-class vMCP collection and resource endpoints', async () => {
 		const fetcher = vi.fn().mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
 			const url = String(input);

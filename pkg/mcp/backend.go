@@ -260,7 +260,7 @@ func ServerHookConfig(server ServerConfig) (Hooks, HookServerConfigs) {
 			MCPServerName:        system.SystemMCPServerPrefix + webhook.Name,
 			MCPServerDisplayName: webhook.DisplayName,
 			SystemMCPServer:      true,
-			Audiences:            slices.Clone(server.Audiences),
+			Audiences:            []string{webhook.Audience},
 		}
 	}
 	return hooks, servers
