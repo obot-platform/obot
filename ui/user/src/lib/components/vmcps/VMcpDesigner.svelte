@@ -97,10 +97,20 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
+	let canAccessTester = $derived(
+		Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID))
+	);
+	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let canEdit = $derived(
 		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
 	);
-	let viewType = $derived(view !== 'graph' && !isOwner ? 'graph' : view);
+	let viewType = $derived(
+		view === 'profiles' && !canAccessProfiles
+			? 'graph'
+			: view === 'tester' && !canAccessTester
+				? 'graph'
+				: view
+	);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
 		(isVMcpCreateHandoffPending() || componentDropPending) && !toolFlow.dialog
@@ -400,7 +410,7 @@
 			</div>
 		{/if}
 
-		{#if isOwner && !responsive.isMobile}
+		{#if (isOwner || canAccessTester) && !responsive.isMobile}
 			{@render toggleSubview()}
 			<VMcpProfilesHint
 				show={showProfilesHint}
@@ -536,7 +546,7 @@
 					setUrlParamAndUpdateUrl(page.url, 'view', 'graph');
 				}}>Designer</button
 			>
-			{#if isOwner && profile.current.hasAdminAccess?.()}
+			{#if canAccessProfiles}
 				<button
 					bind:this={profilesTabEl}
 					class={twMerge(
@@ -549,7 +559,7 @@
 					}}>Profiles</button
 				>
 			{/if}
-			{#if selectedVMcp?.id && isOwner}
+			{#if canAccessTester}
 				<button
 					class={twMerge(
 						'tab text-xs min-w-24',
