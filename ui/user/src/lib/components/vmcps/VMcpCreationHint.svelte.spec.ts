@@ -9,7 +9,6 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 const STORAGE_KEY = VMCP_CREATION_HINT_STORAGE_KEY;
-const LEGACY_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 
 function profilesCaption() {
 	return page.getByText(PROFILES_HINT_TEXT, { exact: false });
@@ -92,13 +91,6 @@ describe('VMcpCreationHint.svelte', () => {
 
 	it('stays hidden once it has been seen', async () => {
 		localStorage.setItem(STORAGE_KEY, new Date().toISOString());
-		renderSeries();
-
-		await expect.element(profilesCaption()).not.toBeInTheDocument();
-	});
-
-	it('stays hidden when the legacy profiles hint was already dismissed', async () => {
-		localStorage.setItem(LEGACY_STORAGE_KEY, new Date().toISOString());
 		renderSeries();
 
 		await expect.element(profilesCaption()).not.toBeInTheDocument();

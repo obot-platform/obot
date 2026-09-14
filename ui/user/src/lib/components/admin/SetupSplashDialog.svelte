@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import Loading from '$lib/icons/Loading.svelte';
+	import { getSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 	import { AdminService, Group } from '$lib/services';
 	import { productTelemetryConsent, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
@@ -22,6 +23,7 @@
 
 	const authProviderPath = '/identity-access';
 	const modelProviderPath = '/models?view=model-providers';
+	const seenSplashDialogKey = 'seenSplashDialog';
 
 	const storeData = $derived($adminConfigStore);
 	const isAuthProviderConfigured = $derived(
@@ -52,16 +54,10 @@
 
 	$effect(() => {
 		if (profile.current.loaded && !profile.current.unauthorized && storeData.lastFetched) {
-			const created = profile.current.created ? new Date(profile.current.created) : null;
-			let firstTimeViewed = localStorage.getItem('seenSplashDialog')
-				? new Date(localStorage.getItem('seenSplashDialog')!)
-				: null;
-
-			// the user is newer than the seenSplashDialog set, likely case of fresh install & revisiting with browser
-			if (created && firstTimeViewed && created > firstTimeViewed) {
-				localStorage.removeItem('seenSplashDialog');
-				firstTimeViewed = null;
-			}
+			const { seenAt: firstTimeViewed } = getSeenTimestamp(
+				seenSplashDialogKey,
+				profile.current.created
+			);
 
 			const isOwner = profile.current.groups.includes(Group.OWNER);
 			const needsSetup =
@@ -118,7 +114,7 @@
 		try {
 			await handleProductAnalyticsConsent();
 			await handleAcceptEula();
-			localStorage.setItem('seenSplashDialog', new Date().toISOString());
+			markSeenTimestamp(seenSplashDialogKey);
 			dialog?.close();
 			await finishOnboarding();
 		} finally {

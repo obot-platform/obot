@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
+	import { profile } from '$lib/stores';
 	import { GripVertical, Layers, MousePointer2, Plus, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
-
-	const LEGACY_STORAGE_KEY = '@obot/seen-vmcp-drag-hint';
 
 	interface Props {
 		show?: boolean;
@@ -15,18 +15,14 @@
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let dismissed = $state(true);
 
-	function hasSeenIntroduction(key: string) {
-		return Boolean(localStorage.getItem(key) || localStorage.getItem(LEGACY_STORAGE_KEY));
-	}
-
 	onMount(() => {
-		dismissed = hasSeenIntroduction(storageKey);
+		dismissed = hasSeenTimestamp(storageKey, profile.current?.created);
 	});
 
 	function dismiss() {
 		if (dismissed) return;
 		dismissed = true;
-		localStorage.setItem(storageKey, new Date().toISOString());
+		markSeenTimestamp(storageKey);
 		dialog?.close();
 	}
 
