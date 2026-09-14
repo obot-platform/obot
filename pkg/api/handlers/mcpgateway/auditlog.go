@@ -681,6 +681,11 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	})
 }
 
+// MCPAuditLogEnabled reports whether the proxy should capture audit entries.
+func (h *AuditLogHandler) MCPAuditLogEnabled() bool {
+	return h.gatewayClient.MCPAuditLogEnabled()
+}
+
 // CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
 func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	h.collectMCPAuditEntry(context.Background(), entry)
