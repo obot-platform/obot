@@ -29,35 +29,45 @@ func (c *Client) GetProperty(ctx context.Context, key string) (types.Property, e
 }
 
 func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Property, error) {
-	now := time.Now()
-	var p types.Property
-	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("key = ?", key).First(&p).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				p = types.Property{
-					Key:       key,
-					Value:     value,
-					CreatedAt: now,
-					UpdatedAt: now,
-				}
-				toStore := p
-				if err := c.encryptProperty(ctx, &toStore); err != nil {
-					return err
-				}
-				return tx.Create(&toStore).Error
-			}
-			return err
-		}
-		p.Value = value
-		p.Encrypted = false
-		p.UpdatedAt = time.Now()
-		toStore := p
-		if err := c.encryptProperty(ctx, &toStore); err != nil {
-			return err
-		}
-		return tx.Save(&toStore).Error
+	var property types.Property
+	err := c.Transaction(ctx, func(tx *gorm.DB) error {
+		var err error
+		property, err = c.SetPropertyTx(ctx, tx, key, value)
+		return err
 	})
-	return p, err
+	return property, err
+}
+
+// SetPropertyTx sets a property using an existing transaction. This lets
+// callers update multiple related properties without exposing partial state.
+func (c *Client) SetPropertyTx(ctx context.Context, tx *gorm.DB, key, value string) (types.Property, error) {
+	var property types.Property
+	if err := tx.Where("key = ?", key).First(&property).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return property, err
+		}
+		now := time.Now()
+		property = types.Property{
+			Key:       key,
+			Value:     value,
+			CreatedAt: now,
+			UpdatedAt: now,
+		}
+		toStore := property
+		if err := c.encryptProperty(ctx, &toStore); err != nil {
+			return property, err
+		}
+		return property, tx.Create(&toStore).Error
+	}
+
+	property.Value = value
+	property.Encrypted = false
+	property.UpdatedAt = time.Now()
+	toStore := property
+	if err := c.encryptProperty(ctx, &toStore); err != nil {
+		return property, err
+	}
+	return property, tx.Save(&toStore).Error
 }
 
 func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (types.Property, error) {
@@ -86,7 +96,13 @@ func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (ty
 }
 
 func (c *Client) DeleteProperty(ctx context.Context, key string) error {
-	return c.db.WithContext(ctx).Where("key = ?", key).Delete(&types.Property{}).Error
+	return c.DeletePropertyTx(c.db.WithContext(ctx), key)
+}
+
+// DeletePropertyTx deletes a property using an existing transaction. This lets
+// callers combine the deletion with changes to other related properties.
+func (c *Client) DeletePropertyTx(tx *gorm.DB, key string) error {
+	return tx.Where("key = ?", key).Delete(&types.Property{}).Error
 }
 
 func (c *Client) encryptProperty(ctx context.Context, property *types.Property) error {

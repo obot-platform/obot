@@ -60,6 +60,14 @@ func (p *fakeCommunityLicenseProvider) LicenseKeyViaConfiguration() bool {
 }
 
 func (p *fakeCommunityLicenseProvider) SetLicenseKey(_ context.Context, key string) error {
+	return p.setLicenseKey(key)
+}
+
+func (p *fakeCommunityLicenseProvider) SetCommunityLicenseKey(_ context.Context, key string) error {
+	return p.setLicenseKey(key)
+}
+
+func (p *fakeCommunityLicenseProvider) setLicenseKey(key string) error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 	p.setCalls++
