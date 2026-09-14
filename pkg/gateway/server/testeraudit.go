@@ -10,6 +10,7 @@ import (
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcptester"
+	"github.com/obot-platform/obot/pkg/system"
 	"github.com/tidwall/gjson"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -35,7 +36,7 @@ func NewTesterAudit(c *client.Client, inbound *http.Request, user user.Info, bod
 	}
 
 	recorder := newLLMAuditRecorder(inbound, user, defaultLLMAuditLogResponseCaptureLimit)
-	recorder.setModel("model-proxy", "", mcptester.FallbackModel)
+	recorder.setModel(system.ModelProxyModelProvider, "", mcptester.ModelProxyModel)
 	recorder.log.ReasoningEffort = "high"
 	recorder.setRequestBody(body)
 

@@ -35,7 +35,7 @@
 	let chatAvailable = $derived(
 		version.current.hasModelProvider !== null &&
 			(version.current.hasModelProvider === false
-				? version.current.mcpTesterFallbackAvailable === true
+				? version.current.mcpTesterModelProxyAvailable === true
 				: Boolean(configuredDefault?.model && defaultModel))
 	);
 	let chatUnavailableMessage = $derived(

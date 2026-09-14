@@ -84,7 +84,7 @@ func resolveDefaultLLMAlias(ctx context.Context, client kclient.Client) (*v1.Def
 }
 
 // ResolveDefaultModel resolves only the configured llm alias. It intentionally
-// has no fallback: a missing, unbound, inactive, non-LLM, inaccessible, or
+// has no modelProxy: a missing, unbound, inactive, non-LLM, inaccessible, or
 // unsupported model makes tester Chat unavailable while leaving MCP inspection
 // unaffected.
 func ResolveDefaultModel(ctx context.Context, client kclient.Client, helper ModelAccessResolver, user kuser.Info) (ResolvedModel, error) {

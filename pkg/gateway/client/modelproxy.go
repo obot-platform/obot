@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"time"
 
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"gorm.io/gorm"
@@ -22,30 +21,23 @@ func (c *Client) ModelProxyEnabled(ctx context.Context) (bool, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return true, nil
 	}
-
 	if err != nil {
 		return false, errors.New("model proxy settings unavailable")
 	}
 
-	switch p.Value {
-	case "true":
-		return true, nil
-	case "false":
-		return false, nil
-	default:
+	enabled, err := strconv.ParseBool(p.Value)
+	if err != nil {
 		return false, errors.New("invalid model proxy settings")
 	}
+	return enabled, nil
 }
 
 // SetModelProxyEnabled uses an atomic upsert so concurrent first writes cannot
 // race to create the singleton. Preserve the existing property encryption path.
 func (c *Client) SetModelProxyEnabled(ctx context.Context, enabled bool) error {
-	now := time.Now()
 	p := types.Property{
-		Key:       modelProxyEnabledKey,
-		Value:     strconv.FormatBool(enabled),
-		CreatedAt: now,
-		UpdatedAt: now,
+		Key:   modelProxyEnabledKey,
+		Value: strconv.FormatBool(enabled),
 	}
 
 	if err := c.encryptProperty(ctx, &p); err != nil {

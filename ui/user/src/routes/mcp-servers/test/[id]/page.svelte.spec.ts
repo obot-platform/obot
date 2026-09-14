@@ -364,7 +364,11 @@ describe('MCP Tester page', () => {
 		await renderTester('chat', {}, undefined, {
 			models: [],
 			defaultModelAliases: [],
-			version: { hasModelProvider: false, hasValidLicense: true, mcpTesterFallbackAvailable: true }
+			version: {
+				hasModelProvider: false,
+				hasValidLicense: true,
+				mcpTesterModelProxyAvailable: true
+			}
 		});
 
 		await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Test this server');
@@ -394,14 +398,14 @@ describe('MCP Tester page', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('disables fallback Chat when the server reports it unavailable', async () => {
+	it('disables model proxy Chat when the server reports it unavailable', async () => {
 		await renderTester('chat', {}, undefined, {
 			models: [],
 			defaultModelAliases: [],
 			version: {
 				hasModelProvider: false,
 				hasValidLicense: true,
-				mcpTesterFallbackAvailable: false
+				mcpTesterModelProxyAvailable: false
 			}
 		});
 
@@ -421,7 +425,11 @@ describe('MCP Tester page', () => {
 	it('disables Chat during provider reconciliation even with a cached default model', async () => {
 		await renderTester('chat', {}, undefined, {
 			...chatModelData,
-			version: { hasModelProvider: null, hasValidLicense: true, mcpTesterFallbackAvailable: false }
+			version: {
+				hasModelProvider: null,
+				hasValidLicense: true,
+				mcpTesterModelProxyAvailable: false
+			}
 		});
 
 		await expect
@@ -432,7 +440,7 @@ describe('MCP Tester page', () => {
 			.not.toBeInTheDocument();
 	});
 
-	it('does not enable fallback for a configured provider with no default model', async () => {
+	it('does not enable the model proxy for a configured provider with no default model', async () => {
 		await renderTester('chat', {}, undefined, {
 			models: [],
 			defaultModelAliases: [],
@@ -480,7 +488,7 @@ describe('MCP Tester page', () => {
 				version: {
 					hasModelProvider: false,
 					hasValidLicense: true,
-					mcpTesterFallbackAvailable: true
+					mcpTesterModelProxyAvailable: true
 				}
 			});
 

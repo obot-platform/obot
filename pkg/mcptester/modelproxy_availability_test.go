@@ -25,7 +25,7 @@ func (s availabilitySettings) ModelProxyEnabled(context.Context) (bool, error) {
 	return s.enabled, s.err
 }
 
-func TestResolveFallbackAvailability(t *testing.T) {
+func TestResolveModelProxyAvailability(t *testing.T) {
 	endpoint := &url.URL{Scheme: "https", Host: "model.example"}
 	lookupErr := errors.New("configuration changing")
 
@@ -47,13 +47,13 @@ func TestResolveFallbackAvailability(t *testing.T) {
 			wantEnabled:  true,
 		},
 		{
-			name:         "empty URL disables fallback",
+			name:         "empty URL disables model proxy",
 			providers:    availabilityProviders{},
 			settings:     availabilitySettings{enabled: true},
 			wantProvider: false,
 		},
 		{
-			name:         "admin switch disables fallback",
+			name:         "admin switch disables model proxy",
 			endpoint:     endpoint,
 			providers:    availabilityProviders{},
 			settings:     availabilitySettings{},
@@ -80,7 +80,7 @@ func TestResolveFallbackAvailability(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:      "settings failure does not permit fallback",
+			name:      "settings failure does not permit model proxy use",
 			endpoint:  endpoint,
 			providers: availabilityProviders{},
 			settings: availabilitySettings{
@@ -91,7 +91,7 @@ func TestResolveFallbackAvailability(t *testing.T) {
 			wantErr:      true,
 		},
 		{
-			name:         "missing settings do not permit fallback",
+			name:         "missing settings do not permit model proxy use",
 			endpoint:     endpoint,
 			providers:    availabilityProviders{},
 			wantProvider: false,
@@ -99,7 +99,7 @@ func TestResolveFallbackAvailability(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ResolveFallbackAvailability(t.Context(), tt.endpoint, tt.providers, tt.settings)
+			got, err := ResolveModelProxyAvailability(t.Context(), tt.endpoint, tt.providers, tt.settings)
 
 			var provider any
 			if got.HasModelProvider != nil {

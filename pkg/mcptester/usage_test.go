@@ -144,13 +144,13 @@ func TestReadModelProxyUsage(t *testing.T) {
 			name:       "invalid license",
 			status:     http.StatusForbidden,
 			body:       "private upstream error",
-			wantStatus: http.StatusServiceUnavailable,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "missing license",
 			status:     http.StatusUnauthorized,
 			body:       "private upstream error",
-			wantStatus: http.StatusServiceUnavailable,
+			wantStatus: http.StatusForbidden,
 		},
 		{
 			name:       "rate limited",

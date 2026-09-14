@@ -9,6 +9,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/storage/scheme"
 	"github.com/obot-platform/obot/pkg/system"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
@@ -16,6 +17,8 @@ import (
 func TestHasModelProvider(t *testing.T) {
 	tests := []struct {
 		name             string
+		deletingOnly     bool
+		deletingName     string
 		absent           bool
 		credentialFree   bool
 		env              map[string]string
@@ -28,6 +31,28 @@ func TestHasModelProvider(t *testing.T) {
 		want             bool
 		wantErr          bool
 	}{
+		{
+			name:         "last provider pending deletion",
+			deletingOnly: true,
+			wantErr:      true,
+		},
+		{
+			name:         "deleting provider before configured provider",
+			deletingName: "a-deleting",
+			env:          map[string]string{"KEY": "secret", "URL": "https://example.com"},
+			want:         true,
+		},
+		{
+			name:         "deleting provider after configured provider",
+			deletingName: "z-deleting",
+			env:          map[string]string{"KEY": "secret", "URL": "https://example.com"},
+			want:         true,
+		},
+		{
+			name:         "deleting provider with unconfigured provider",
+			deletingName: "a-deleting",
+			wantErr:      true,
+		},
 		{
 			name:   "no providers",
 			absent: true,
@@ -106,7 +131,19 @@ func TestHasModelProvider(t *testing.T) {
 				provider.Generation++
 			}
 
+			if tt.deletingOnly {
+				provider.DeletionTimestamp = new(metav1.Now())
+				provider.Finalizers = []string{"test-cleanup"}
+			}
+
 			var objects []kclient.Object
+			if tt.deletingName != "" {
+				deleting := provider.DeepCopy()
+				deleting.Name = tt.deletingName
+				deleting.DeletionTimestamp = new(metav1.Now())
+				deleting.Finalizers = []string{"test-cleanup"}
+				objects = append(objects, deleting)
+			}
 			if !tt.absent {
 				objects = append(objects, provider)
 			}

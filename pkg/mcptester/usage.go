@@ -30,7 +30,7 @@ func (e *ModelProxyUsageError) Error() string {
 }
 
 func NewModelProxyUsageHTTPClient() *http.Client {
-	client := NewFallbackHTTPClient()
+	client := NewModelProxyHTTPClient()
 	client.Timeout = ModelProxyUsageTimeout
 
 	return client
@@ -84,7 +84,7 @@ func ReadModelProxyUsage(response *http.Response) (types.ModelProxyUsage, error)
 	if response.StatusCode != http.StatusOK {
 		switch response.StatusCode {
 		case http.StatusUnauthorized, http.StatusForbidden:
-			failure.Status = http.StatusServiceUnavailable
+			failure.Status = http.StatusForbidden
 			failure.Message = "A valid installation license is required to read model proxy usage."
 		case http.StatusTooManyRequests:
 			failure.Status = http.StatusTooManyRequests

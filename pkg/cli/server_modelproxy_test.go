@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/obot-platform/cmd"
-	"github.com/obot-platform/obot/pkg/mcptester"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +17,7 @@ func TestModelProxyURLConfiguration(t *testing.T) {
 	}{
 		{
 			name: "unset default",
-			want: mcptester.DefaultModelProxyURL,
+			want: "https://model-service.obot.ai",
 		},
 		{
 			name: "empty disables",
@@ -56,13 +55,15 @@ func TestModelProxyURLConfiguration(t *testing.T) {
 			}
 
 			server := &Server{}
-			command := cmd.Command(server)
+			command := cmd.Command(&Obot{}, server)
+			command.PersistentPreRunE = nil
+			serverCommand := command.Commands()[0]
 
 			// Exercise the real flag/environment bindings and Server.Pre without
 			// starting the application or contacting an external service.
-			command.RunE = nil
-			command.Run = func(_ *cobra.Command, _ []string) {}
-			command.SetArgs(tt.args)
+			serverCommand.RunE = nil
+			serverCommand.Run = func(_ *cobra.Command, _ []string) {}
+			command.SetArgs(append([]string{"server"}, tt.args...))
 			if err := command.Execute(); err != nil {
 				t.Fatal(err)
 			}

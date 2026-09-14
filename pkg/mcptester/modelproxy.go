@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,10 +14,9 @@ import (
 )
 
 const (
-	DefaultModelProxyURL = "https://model-service.obot.ai"
-	FallbackModel        = "gpt-5.6-luna"
-	FallbackMaxBodyBytes = 2 << 20
-	FallbackTimeout      = 10 * time.Minute
+	ModelProxyModel        = "gpt-5.6-luna"
+	ModelProxyMaxBodyBytes = 2 << 20
+	ModelProxyTimeout      = 10 * time.Minute
 )
 
 type ProviderConfigurationResolver interface {
@@ -35,15 +32,15 @@ type ModelProxySettingsReader interface {
 	ModelProxyEnabled(context.Context) (bool, error)
 }
 
-// FallbackAvailability distinguishes confirmed provider absence from an unknown
+// ModelProxyAvailability distinguishes confirmed provider absence from an unknown
 // configuration. Only confirmed absence can permit the external model service.
-type FallbackAvailability struct {
+type ModelProxyAvailability struct {
 	HasModelProvider *bool
 	Enabled          bool
 }
 
-func ResolveFallbackAvailability(ctx context.Context, endpoint *url.URL, providers ProviderConfigurationResolver, settings ModelProxySettingsReader) (FallbackAvailability, error) {
-	var result FallbackAvailability
+func ResolveModelProxyAvailability(ctx context.Context, endpoint *url.URL, providers ProviderConfigurationResolver, settings ModelProxySettingsReader) (ModelProxyAvailability, error) {
+	var result ModelProxyAvailability
 	if providers == nil {
 		return result, errors.New("model provider configuration is unavailable")
 	}
@@ -69,14 +66,14 @@ func ResolveFallbackAvailability(ctx context.Context, endpoint *url.URL, provide
 }
 
 // ParseModelProxyURL validates local configuration without contacting the proxy.
-// An empty value disables fallback; callers supply the default only when unset.
+// An empty value disables model proxy; callers supply the default only when unset.
 func ParseModelProxyURL(value string, development bool) (*url.URL, error) {
 	if value == "" {
 		return nil, nil
 	}
 
 	parsed, err := url.Parse(value)
-	if err != nil || !validServiceHost(parsed) || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.Contains(value, "#") ||
+	if err != nil || parsed.Opaque != "" || parsed.Hostname() == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.ForceQuery || parsed.Fragment != "" || strings.Contains(value, "#") ||
 		(parsed.Scheme != "https" && (!development || parsed.Scheme != "http")) {
 		return nil, errors.New("OBOT_SERVER_MODEL_PROXY_URL must be an absolute HTTPS service URL without credentials, query, or fragment")
 	}
@@ -93,43 +90,12 @@ func ParseModelProxyURL(value string, development bool) (*url.URL, error) {
 	return parsed, nil
 }
 
-func validServiceHost(parsed *url.URL) bool {
-	if parsed == nil || parsed.Opaque != "" || parsed.Hostname() == "" {
-		return false
-	}
-
-	host := parsed.Hostname()
-	if net.ParseIP(host) == nil {
-		if strings.ContainsAny(parsed.Host, "[]:") && parsed.Port() == "" {
-			return false
-		}
-
-		if strings.HasPrefix(parsed.Host, "[") {
-			return false
-		}
-
-		for _, char := range host {
-			valid := char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char >= '0' && char <= '9' || char == '.' || char == '-'
-			if !valid {
-				return false
-			}
-		}
-	}
-
-	if port := parsed.Port(); port != "" {
-		number, err := strconv.Atoi(port)
-		return err == nil && number > 0 && number <= 65535
-	}
-
-	return !strings.HasSuffix(parsed.Host, ":")
-}
-
-func BuildFallbackRequest(request types.MCPTesterChatRequest, instruction string) ([]byte, error) {
+func BuildModelProxyRequest(request types.MCPTesterChatRequest, instruction string) ([]byte, error) {
 	if err := ValidateChatRequest(request); err != nil {
 		return nil, err
 	}
 
-	payload := buildResponsesRequest(request, FallbackModel, instruction)
+	payload := buildResponsesRequest(request, ModelProxyModel, instruction)
 	payload["reasoning"] = map[string]string{"effort": "high"}
 	payload["store"] = false
 	payload["max_output_tokens"] = 16384
@@ -139,17 +105,17 @@ func BuildFallbackRequest(request types.MCPTesterChatRequest, instruction string
 		return nil, err
 	}
 
-	if len(body) > FallbackMaxBodyBytes {
+	if len(body) > ModelProxyMaxBodyBytes {
 		return nil, errors.New("model request exceeds 2 MiB")
 	}
 
 	return body, nil
 }
 
-// NewFallbackRequest forwards only the inbound IP headers. The installation
+// NewModelProxyRequest forwards only the inbound IP headers. The installation
 // license and machine fingerprint authenticate the request.
-func NewFallbackRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string, inbound http.Header) (*http.Request, error) {
-	if endpoint == nil || len(body) > FallbackMaxBodyBytes {
+func NewModelProxyRequest(ctx context.Context, endpoint *url.URL, body []byte, licenseKey, fingerprint string, inbound http.Header) (*http.Request, error) {
+	if endpoint == nil || len(body) > ModelProxyMaxBodyBytes {
 		return nil, errors.New("invalid model proxy request")
 	}
 
@@ -190,13 +156,13 @@ func safeCredential(value string) bool {
 	return true
 }
 
-func NewFallbackHTTPClient() *http.Client {
+func NewModelProxyHTTPClient() *http.Client {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.ResponseHeaderTimeout = time.Minute
 
 	return &http.Client{
 		Transport:     transport,
-		Timeout:       FallbackTimeout,
+		Timeout:       ModelProxyTimeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 }

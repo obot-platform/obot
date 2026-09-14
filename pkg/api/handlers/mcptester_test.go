@@ -179,7 +179,7 @@ func TestMCPTesterChatRechecksConnectionAuthorizationOnEveryRequest(t *testing.T
 	}
 }
 
-func TestMCPTesterChatDefaultModelFailuresAreDistinctAndDoNotFallback(t *testing.T) {
+func TestMCPTesterChatDefaultModelFailuresAreDistinctAndDoNotUseModelProxy(t *testing.T) {
 	server := mcpTesterServer("user-1")
 	missingStorage := fake.NewClientBuilder().WithScheme(storagescheme.Scheme).WithObjects(server).Build()
 	missingResolver := &fakeMCPTesterServerResolver{server: *server}

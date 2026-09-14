@@ -12,6 +12,7 @@ data:
     {{- fail (printf "config.%s must be set under .Values.secret (not .Values.config)" $key) -}}
     {{- end }}
   {{- $value := index $cfg $key }}
+  {{/* Preserve an explicit empty proxy URL: omitting it enables the application default. */}}
   {{- if or (toString $value) (eq $key "OBOT_SERVER_MODEL_PROXY_URL") }}
   {{ $key }}: {{ toString $value | quote }}
   {{- end }}

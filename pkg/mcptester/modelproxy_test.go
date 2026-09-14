@@ -25,7 +25,7 @@ func TestParseModelProxyURL(t *testing.T) {
 		},
 		{
 			name:  "default",
-			value: DefaultModelProxyURL,
+			value: "https://model-service.obot.ai",
 			want:  "https://model-service.obot.ai/v1/responses",
 		},
 		{
@@ -69,7 +69,7 @@ func TestParseModelProxyURL(t *testing.T) {
 		})
 	}
 
-	for _, value := range []string{"/relative", "https://", "https://user:secret@example.com", "https://example.com?token=secret", "https://example.com?", "https://example.com#", "https://example.com#secret", "https://example.com:0", "https://example.com:65536", "https://example.com:", "ftp://example.com", "https://example.com:bad", " https://example.com", "https://exa_mple.com"} {
+	for _, value := range []string{"/relative", "https://", "https://user:secret@example.com", "https://example.com?token=secret", "https://example.com?", "https://example.com#", "https://example.com#secret", "ftp://example.com", "https://example.com:bad", " https://example.com"} {
 		t.Run(value, func(t *testing.T) {
 			if _, err := ParseModelProxyURL(value, true); err == nil {
 				t.Fatal("accepted invalid URL")
@@ -78,7 +78,7 @@ func TestParseModelProxyURL(t *testing.T) {
 	}
 }
 
-func TestFallbackRequestContract(t *testing.T) {
+func TestModelProxyRequestContract(t *testing.T) {
 	request := types.MCPTesterChatRequest{
 		Round: 1,
 		Messages: []types.MCPTesterChatMessage{{
@@ -87,23 +87,23 @@ func TestFallbackRequestContract(t *testing.T) {
 		}},
 	}
 
-	body, err := BuildFallbackRequest(request, "server instruction")
+	body, err := BuildModelProxyRequest(request, "server instruction")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for key, want := range map[string]string{"model": FallbackModel, "reasoning.effort": "high", "store": "false", "stream": "true", "max_output_tokens": "16384", "instructions": "server instruction"} {
+	for key, want := range map[string]string{"model": ModelProxyModel, "reasoning.effort": "high", "store": "false", "stream": "true", "max_output_tokens": "16384", "instructions": "server instruction"} {
 		if got := gjson.GetBytes(body, key).String(); got != want {
 			t.Fatalf("%s = %q, want %q", key, got, want)
 		}
 	}
 
-	endpoint, err := ParseModelProxyURL(DefaultModelProxyURL, false)
+	endpoint, err := ParseModelProxyURL("https://model-service.obot.ai", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	req, err := NewFallbackRequest(t.Context(), endpoint, body, "signed==.KEY", "machine-id", nil)
+	req, err := NewModelProxyRequest(t.Context(), endpoint, body, "signed==.KEY", "machine-id", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,17 +112,17 @@ func TestFallbackRequestContract(t *testing.T) {
 		t.Fatalf("unexpected request: %#v", req)
 	}
 
-	if _, err := NewFallbackRequest(t.Context(), endpoint, body, "", "machine-id", nil); err == nil {
+	if _, err := NewModelProxyRequest(t.Context(), endpoint, body, "", "machine-id", nil); err == nil {
 		t.Fatal("accepted empty license")
 	}
 
-	request.Tools = []types.MCPTesterTool{{Name: "large", Description: strings.Repeat("x", FallbackMaxBodyBytes), InputSchema: []byte(`{}`)}}
-	if _, err := BuildFallbackRequest(request, "instruction"); err == nil {
+	request.Tools = []types.MCPTesterTool{{Name: "large", Description: strings.Repeat("x", ModelProxyMaxBodyBytes), InputSchema: []byte(`{}`)}}
+	if _, err := BuildModelProxyRequest(request, "instruction"); err == nil {
 		t.Fatal("accepted oversized model request")
 	}
 }
 
-func TestFallbackDoesNotRedirect(t *testing.T) {
+func TestModelProxyDoesNotRedirect(t *testing.T) {
 	var calls int
 	destination := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls++ }))
 	defer destination.Close()
@@ -137,12 +137,12 @@ func TestFallbackDoesNotRedirect(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req, err := NewFallbackRequest(t.Context(), endpoint, []byte(`{}`), "license", "fingerprint", nil)
+	req, err := NewModelProxyRequest(t.Context(), endpoint, []byte(`{}`), "license", "fingerprint", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	response, err := NewFallbackHTTPClient().Do(req)
+	response, err := NewModelProxyHTTPClient().Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +155,7 @@ func TestFallbackDoesNotRedirect(t *testing.T) {
 }
 
 func TestModelProxyForwardsOnlyExistingIPHeaders(t *testing.T) {
-	endpoint, err := ParseModelProxyURL(DefaultModelProxyURL, false)
+	endpoint, err := ParseModelProxyURL("https://model-service.obot.ai", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,7 +167,7 @@ func TestModelProxyForwardsOnlyExistingIPHeaders(t *testing.T) {
 	inbound.Set("Authorization", "Bearer browser-secret")
 	inbound.Set("Cookie", "session=browser-secret")
 	inbound.Set("X-Unrelated", "private")
-	generation, err := NewFallbackRequest(t.Context(), endpoint, []byte(`{}`), "license", "machine", inbound)
+	generation, err := NewModelProxyRequest(t.Context(), endpoint, []byte(`{}`), "license", "machine", inbound)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package system
 
 const (
+	ModelProxyModelProvider          = "model-proxy"
 	OpenAIModelProvider              = "openai-model-provider"
 	AnthropicModelProvider           = "anthropic-model-provider"
 	GenericResponsesModelProvider    = "generic-responses-model-provider"

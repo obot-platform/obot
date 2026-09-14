@@ -23,7 +23,7 @@ func (r testerDeadlineReader) Read([]byte) (int, error) {
 	return 0, r.ctx.Err()
 }
 
-func TestTesterFallbackTimeout(t *testing.T) {
+func TestTesterModelProxyTimeout(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
 		streaming bool
@@ -43,8 +43,8 @@ func TestTesterFallbackTimeout(t *testing.T) {
 			upstream := httptest.NewServer(http.NotFoundHandler())
 			defer upstream.Close()
 
-			handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
-			handler.fallbackClient = &http.Client{Transport: mcpTesterRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+			handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+			handler.modelProxyClient = &http.Client{Transport: mcpTesterRoundTripFunc(func(r *http.Request) (*http.Response, error) {
 				if !tt.streaming {
 					<-r.Context().Done()
 
@@ -60,7 +60,7 @@ func TestTesterFallbackTimeout(t *testing.T) {
 
 			// Advance the actual server-owned deadline without waiting ten minutes.
 			synctest.Test(t, func(t *testing.T) {
-				response := runMCPTesterChat(t, handler, "user-1", fallbackChatBody)
+				response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody)
 				if response.Code != tt.status {
 					t.Fatalf("status=%d body=%s", response.Code, response.Body)
 				}

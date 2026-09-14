@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	fallbackChatBody = `{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`
+	modelProxyChatBody = `{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}],"round":1}`
 )
 
 type fakeTesterProviders struct {
@@ -53,7 +53,7 @@ func (*fakeTesterLicense) MachineFingerprint() string {
 	return "persisted-machine"
 }
 
-func newFallbackTestHandler(t *testing.T, providers *fakeTesterProviders, licenseSource *fakeTesterLicense, upstream *httptest.Server) *MCPTesterHandler {
+func newModelProxyTestHandler(t *testing.T, providers *fakeTesterProviders, licenseSource *fakeTesterLicense, upstream *httptest.Server) *MCPTesterHandler {
 	t.Helper()
 
 	server := mcpTesterServer("user-1")
@@ -65,7 +65,7 @@ func newFallbackTestHandler(t *testing.T, providers *fakeTesterProviders, licens
 		t.Fatal(err)
 	}
 
-	handler := NewMCPTesterHandler(mcpTesterStorage(t, server, true), &fakeMCPTesterServerResolver{server: *server}, nil, fakeMCPTesterModelAccess{allowed: true}, "https://obot.invalid", nil, MCPTesterFallbackOptions{
+	handler := NewMCPTesterHandlerWithModelProxy(mcpTesterStorage(t, server, true), &fakeMCPTesterServerResolver{server: *server}, nil, fakeMCPTesterModelAccess{allowed: true}, "https://obot.invalid", nil, MCPTesterModelProxyOptions{
 		URL:       endpoint,
 		Providers: providers,
 		License:   licenseSource,
@@ -79,7 +79,7 @@ func newFallbackTestHandler(t *testing.T, providers *fakeTesterProviders, licens
 	return handler
 }
 
-func TestTesterFallbackRechecksProvidersAndLicense(t *testing.T) {
+func TestTesterModelProxyRechecksProvidersAndLicense(t *testing.T) {
 	var auth []string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auth = append(auth, r.Header.Get("Authorization"))
@@ -88,7 +88,7 @@ func TestTesterFallbackRechecksProvidersAndLicense(t *testing.T) {
 		}
 
 		body, _ := io.ReadAll(r.Body)
-		if gjson.GetBytes(body, "model").String() != mcptester.FallbackModel || gjson.GetBytes(body, "reasoning.effort").String() != "high" {
+		if gjson.GetBytes(body, "model").String() != mcptester.ModelProxyModel || gjson.GetBytes(body, "reasoning.effort").String() != "high" {
 			t.Errorf("unexpected body: %s", body)
 		}
 
@@ -98,10 +98,10 @@ func TestTesterFallbackRechecksProvidersAndLicense(t *testing.T) {
 
 	providers := &fakeTesterProviders{}
 	licenseSource := &fakeTesterLicense{key: "license-one"}
-	handler := newFallbackTestHandler(t, providers, licenseSource, upstream)
+	handler := newModelProxyTestHandler(t, providers, licenseSource, upstream)
 	for _, key := range []string{"license-one", "license-two"} {
 		licenseSource.key = key
-		response := runMCPTesterChat(t, handler, "user-1", fallbackChatBody)
+		response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody)
 		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"type":"completion"`) {
 			t.Fatalf("response: %d %s", response.Code, response.Body)
 		}
@@ -118,52 +118,52 @@ func TestTesterFallbackRechecksProvidersAndLicense(t *testing.T) {
 	})}
 
 	providers.configured = true
-	if response := runMCPTesterChat(t, handler, "user-1", fallbackChatBody); response.Code != http.StatusOK {
+	if response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody); response.Code != http.StatusOK {
 		t.Fatal(response.Body.String())
 	}
 
-	// Configured-provider model access failures do not permit fallback.
+	// Configured-provider model access failures do not permit model proxy use.
 	handler.modelResolver = fakeMCPTesterModelAccess{allowed: false}
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", fallbackChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
 
 	providers.configured = false
-	if response := runMCPTesterChat(t, handler, "user-1", fallbackChatBody); response.Code != http.StatusOK {
+	if response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody); response.Code != http.StatusOK {
 		t.Fatal(response.Body.String())
 	}
 
 	providers.err = errors.New("pending configuration")
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", fallbackChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorModelUnavailable)
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorModelUnavailable)
 
 	providers.err = nil
 	licenseSource.key = ""
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", fallbackChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorLicenseRequired)
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorLicenseRequired)
 
 	licenseSource.err = errors.New("database read failed")
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", fallbackChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorProvider)
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusServiceUnavailable, types.MCPTesterErrorProvider)
 	if strings.Join(auth, ",") != "Bearer license-one,Bearer license-two,Bearer license-two" || gatewayCalls != 1 || providers.calls != 8 {
 		t.Fatalf("auth=%v gateway calls=%d resolver calls=%d", auth, gatewayCalls, providers.calls)
 	}
 
-	// Disabled fallback leaves the existing model error, regardless of absence.
-	handler.fallback.URL = nil
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", fallbackChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
+	// Disabled model proxy leaves the existing model error, regardless of absence.
+	handler.modelProxy.URL = nil
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "user-1", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
 }
 
-func TestTesterFallbackPreservesMCPAuthorization(t *testing.T) {
+func TestTesterModelProxyPreservesMCPAuthorization(t *testing.T) {
 	calls := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls++ }))
 	defer upstream.Close()
 
 	providers := &fakeTesterProviders{}
-	handler := newFallbackTestHandler(t, providers, &fakeTesterLicense{key: "license"}, upstream)
+	handler := newModelProxyTestHandler(t, providers, &fakeTesterLicense{key: "license"}, upstream)
 
-	assertMCPTesterError(t, runMCPTesterChat(t, handler, "another-user", fallbackChatBody), http.StatusForbidden, types.MCPTesterErrorAccessDenied)
+	assertMCPTesterError(t, runMCPTesterChat(t, handler, "another-user", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorAccessDenied)
 	if calls != 0 || providers.calls != 0 {
-		t.Fatal("unauthorized request reached fallback resolution")
+		t.Fatal("unauthorized request reached model proxy resolution")
 	}
 }
 
-func TestTesterFallbackSafeErrors(t *testing.T) {
+func TestTesterModelProxySafeErrors(t *testing.T) {
 	tests := []struct {
 		name       string
 		status     int
@@ -176,14 +176,14 @@ func TestTesterFallbackSafeErrors(t *testing.T) {
 			name:       "missing license",
 			status:     http.StatusUnauthorized,
 			body:       `{"error":{"message":"private detail"}}`,
-			wantStatus: http.StatusServiceUnavailable,
+			wantStatus: http.StatusForbidden,
 			wantCode:   types.MCPTesterErrorLicenseRequired,
 		},
 		{
 			name:       "invalid license",
 			status:     http.StatusForbidden,
 			body:       `{"error":{"message":"private detail"}}`,
-			wantStatus: http.StatusServiceUnavailable,
+			wantStatus: http.StatusForbidden,
 			wantCode:   types.MCPTesterErrorLicenseRequired,
 		},
 		{
@@ -219,8 +219,8 @@ func TestTesterFallbackSafeErrors(t *testing.T) {
 			}))
 			defer upstream.Close()
 
-			handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
-			response := runMCPTesterChat(t, handler, "user-1", fallbackChatBody)
+			handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+			response := runMCPTesterChat(t, handler, "user-1", modelProxyChatBody)
 			assertMCPTesterError(t, response, tt.wantStatus, tt.wantCode)
 
 			var payload types.MCPTesterErrorResponse
@@ -262,7 +262,7 @@ func newTesterAuditClient(t *testing.T) (*gatewayclient.Client, *gatewaydb.DB) {
 	return client, db
 }
 
-func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
+func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 	client, db := newTesterAuditClient(t)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, key := range []string{"Cookie", "X-Request-Id", "X-User-Id", "X-Obot-MCP-URL"} {
@@ -280,10 +280,10 @@ func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "installation-secret"}, upstream)
-	handler.fallback.GatewayClient = client
+	handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "installation-secret"}, upstream)
+	handler.modelProxy.GatewayClient = client
 
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(fallbackChatBody))
+	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody))
 	request.SetPathValue("mcp_server_id", "ms1tester")
 	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
 		request.Header.Set(key, value)
@@ -318,7 +318,7 @@ func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
 	}
 
 	log := logs[0]
-	if log.UserID != "user-1" || log.ModelProvider != "model-proxy" || log.TargetModel != mcptester.FallbackModel || log.ReasoningEffort != "high" || log.InputTokens != 42 || log.OutputTokens != 7 || log.Outcome != gatewaytypes.LLMAuditOutcomeSuccess || log.ResponseID != "resp-test" || log.MessagePolicyTriggered {
+	if log.UserID != "user-1" || log.ModelProvider != "model-proxy" || log.TargetModel != mcptester.ModelProxyModel || log.ReasoningEffort != "high" || log.InputTokens != 42 || log.OutputTokens != 7 || log.Outcome != gatewaytypes.LLMAuditOutcomeSuccess || log.ResponseID != "resp-test" || log.MessagePolicyTriggered {
 		t.Fatalf("unexpected audit: %#v", log)
 	}
 
@@ -339,7 +339,7 @@ func TestTesterFallbackPersistsAuditWithoutMetering(t *testing.T) {
 	}
 
 	if count != 0 {
-		t.Fatal("fallback updated gateway usage")
+		t.Fatal("model proxy updated gateway usage")
 	}
 }
 
@@ -351,7 +351,7 @@ func TestVersionExposesProviderAndLicenseBooleans(t *testing.T) {
 	}
 
 	providers := &fakeTesterProviders{}
-	endpoint, err := mcptester.ParseModelProxyURL(mcptester.DefaultModelProxyURL, false)
+	endpoint, err := mcptester.ParseModelProxyURL("https://model-service.obot.ai", false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,50 +365,50 @@ func TestVersionExposesProviderAndLicenseBooleans(t *testing.T) {
 		ModelProxySettings:    client,
 	})
 
-	t.Setenv("OBOT_SERVER_VERSIONS", "hasModelProvider=bad,hasValidLicense=bad,mcpTesterFallbackAvailable=bad")
+	t.Setenv("OBOT_SERVER_VERSIONS", "hasModelProvider=bad,hasValidLicense=bad,mcpTesterModelProxyAvailable=bad")
 
-	for _, configured := range []bool{false, true} {
-		providers.configured = configured
+	readVersion := func() map[string]any {
+		t.Helper()
+
 		response := httptest.NewRecorder()
 		if err := handler.GetVersion(api.Context{Request: httptest.NewRequest(http.MethodGet, "/api/version", nil), ResponseWriter: response}); err != nil {
 			t.Fatal(err)
 		}
-
 		var result map[string]any
 		if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
 			t.Fatal(err)
 		}
+		return result
+	}
 
-		if result["hasModelProvider"] != configured || result["hasValidLicense"] != false || result["mcpTesterFallbackAvailable"] != false {
+	for _, configured := range []bool{false, true} {
+		providers.configured = configured
+		result := readVersion()
+
+		if result["hasModelProvider"] != configured || result["hasValidLicense"] != false || result["mcpTesterModelProxyAvailable"] != false {
 			t.Fatalf("incorrect version: %v", result)
 		}
 	}
 
 	providers.err = errors.New("unreadable configuration")
-	result, err := handler.getVersionResponse(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
+	result := readVersion()
 
-	if result["hasModelProvider"] != nil || result["mcpTesterFallbackAvailable"] != false || result["obot"] == nil || result["hasValidLicense"] != false {
-		t.Fatalf("lost version fields or advertised fallback during provider lookup failure: %v", result)
+	if result["hasModelProvider"] != nil || result["mcpTesterModelProxyAvailable"] != false || result["obot"] == nil || result["hasValidLicense"] != false {
+		t.Fatalf("lost version fields or advertised model proxy during provider lookup failure: %v", result)
 	}
 
 	providers.err = nil
 	providers.configured = false
 	handler.ModelProxySettings = failingModelProxySettings{}
 
-	result, err = handler.getVersionResponse(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
+	result = readVersion()
 
-	if result["hasModelProvider"] != false || result["mcpTesterFallbackAvailable"] != false || result["obot"] == nil {
-		t.Fatalf("lost version fields or advertised fallback during settings lookup failure: %v", result)
+	if result["hasModelProvider"] != false || result["mcpTesterModelProxyAvailable"] != false || result["obot"] == nil {
+		t.Fatalf("lost version fields or advertised model proxy during settings lookup failure: %v", result)
 	}
 }
 
-func TestTesterFallbackToolContinuation(t *testing.T) {
+func TestTesterModelProxyToolContinuation(t *testing.T) {
 	var bodies [][]byte
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
@@ -421,7 +421,7 @@ func TestTesterFallbackToolContinuation(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+	handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
 	first := runMCPTesterChat(t, handler, "user-1", `{"messages":[{"role":"user","content":[{"type":"text","text":"echo"}]}],"tools":[{"name":"echo","inputSchema":{}}],"round":1}`)
 	if first.Code != http.StatusOK || !strings.Contains(first.Body.String(), `"type":"tool_calls"`) || !strings.Contains(first.Body.String(), `"id":"call-1"`) {
 		t.Fatal(first.Body.String())
@@ -437,7 +437,7 @@ func TestTesterFallbackToolContinuation(t *testing.T) {
 	}
 }
 
-func TestTesterFallbackAuditsStreamOutcomes(t *testing.T) {
+func TestTesterModelProxyAuditsStreamOutcomes(t *testing.T) {
 	tests := []struct {
 		name   string
 		stream string
@@ -469,9 +469,9 @@ func TestTesterFallbackAuditsStreamOutcomes(t *testing.T) {
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, tt.stream) }))
 			defer upstream.Close()
 
-			handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
-			handler.fallback.GatewayClient = client
-			runMCPTesterChat(t, handler, "user-1", fallbackChatBody)
+			handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+			handler.modelProxy.GatewayClient = client
+			runMCPTesterChat(t, handler, "user-1", modelProxyChatBody)
 
 			log := waitForTesterAudit(t, client)
 			if log.Outcome != tt.want || log.InputTokens != tt.tokens {
@@ -501,7 +501,7 @@ func waitForTesterAudit(t *testing.T, client *gatewayclient.Client) gatewaytypes
 	return gatewaytypes.LLMAuditLog{}
 }
 
-func TestTesterFallbackAuditsCancellation(t *testing.T) {
+func TestTesterModelProxyAuditsCancellation(t *testing.T) {
 	client, _ := newTesterAuditClient(t)
 	started := make(chan struct{})
 	canceled := make(chan struct{})
@@ -515,13 +515,13 @@ func TestTesterFallbackAuditsCancellation(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	handler := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
-	handler.fallback.GatewayClient = client
+	handler := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "license"}, upstream)
+	handler.modelProxy.GatewayClient = client
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(fallbackChatBody)).WithContext(ctx)
+	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody)).WithContext(ctx)
 	request.SetPathValue("mcp_server_id", "ms1tester")
 
 	done := make(chan error, 1)

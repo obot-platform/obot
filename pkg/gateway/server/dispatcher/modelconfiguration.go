@@ -14,7 +14,7 @@ import (
 
 // HasModelProvider reads installation-wide configuration without starting a
 // provider daemon or considering model access, licenses, or upstream health.
-// Only a confirmed absence permits the Tester's external fallback.
+// Only a confirmed absence permits the Tester's external model proxy.
 func (d *Dispatcher) HasModelProvider(ctx context.Context) (bool, error) {
 	return hasModelProvider(ctx, d.client, func(ctx context.Context, provider v1.ModelProvider) (map[string]string, error) {
 		env, err := CredentialEnvForModelProvider(ctx, d.gatewayClient, provider)
@@ -51,10 +51,11 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 		return false, fmt.Errorf("read model providers: %w", err)
 	}
 
-	var configured bool
+	var configured, deletionPending bool
 	for _, provider := range providers.Items {
 		if !provider.DeletionTimestamp.IsZero() {
-			return false, fmt.Errorf("model provider deletion is pending")
+			deletionPending = true
+			continue
 		}
 
 		// A provider with no required parameters is configured even without a
@@ -97,6 +98,12 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 	// A change may have begun while credentials were being read.
 	if err := checkPending(); err != nil {
 		return false, err
+	}
+
+	// A deleting provider must not block another configured provider, but its
+	// deletion alone is not yet confirmed absence for the external model proxy.
+	if !configured && deletionPending {
+		return false, fmt.Errorf("model provider deletion is pending")
 	}
 
 	return configured, nil

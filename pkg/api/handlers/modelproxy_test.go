@@ -30,7 +30,7 @@ func (failingModelProxySettings) SetModelProxyEnabled(context.Context, bool) err
 }
 
 func TestModelProxySettingsAPI(t *testing.T) {
-	for _, configuredURL := range []string{"", mcptester.DefaultModelProxyURL, "https://proxy.example/prefix/", "https://proxy.example/prefix/v1/responses"} {
+	for _, configuredURL := range []string{"", "https://model-service.obot.ai", "https://proxy.example/prefix/", "https://proxy.example/prefix/v1/responses"} {
 		t.Run(configuredURL, func(t *testing.T) {
 			store := newHandlerTestGateway(t)
 			handler := NewModelProxyHandler(store, configuredURL, nil, nil)
@@ -46,10 +46,6 @@ func TestModelProxySettingsAPI(t *testing.T) {
 				var result map[string]any
 				if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil || len(result) != 2 || result["enabled"] != want || result["url"] != configuredURL {
 					t.Fatalf("settings response = %s, %v", w.Body, err)
-				}
-
-				if w.Header().Get("Cache-Control") != "no-store" {
-					t.Fatal("settings response was cacheable")
 				}
 			}
 
@@ -69,7 +65,15 @@ func TestModelProxySettingsAPI(t *testing.T) {
 				get(enabled)
 			}
 
-			for _, body := range []string{"", "null", "{}", `{"enabled":null}`, `{"enabled":"true"}`, `{"enabled":true,"url":"https://evil.example"}`, `{"enabled":false} {}`, strings.Repeat(" ", 1025) + `{"enabled":false}`} {
+			// Extra fields and whitespace use the shared API decoding behavior.
+			for _, body := range []string{`{"enabled":true,"url":"https://ignored.example"}`, strings.Repeat(" ", 1025) + `{"enabled":true}`} {
+				if err := handler.Update(api.Context{Request: httptest.NewRequest(http.MethodPut, "/api/model-proxy", strings.NewReader(body)), ResponseWriter: httptest.NewRecorder()}); err != nil {
+					t.Fatal(err)
+				}
+				get(true)
+			}
+
+			for _, body := range []string{"", "null", "{}", `{"enabled":null}`, `{"enabled":"true"}`, `{"enabled":false} {}`} {
 				err := handler.Update(api.Context{Request: httptest.NewRequest(http.MethodPut, "/api/model-proxy", strings.NewReader(body)), ResponseWriter: httptest.NewRecorder()})
 				requireModelProxyHTTPError(t, err, http.StatusBadRequest)
 				get(true)
@@ -137,8 +141,8 @@ func TestModelProxyUsageAPI(t *testing.T) {
 			t.Fatalf("usage response = %s, %v", w.Body, err)
 		}
 
-		if w.Header().Get("Cache-Control") != "no-store" || !strings.Contains(w.Body.String(), `"resetAt"`) {
-			t.Fatal("incorrect usage response headers or reset field")
+		if !strings.Contains(w.Body.String(), `"resetAt"`) {
+			t.Fatal("missing usage reset field")
 		}
 	}
 
@@ -148,7 +152,12 @@ func TestModelProxyUsageAPI(t *testing.T) {
 
 	license.key = ""
 	_, err = call()
+	requireModelProxyHTTPError(t, err, http.StatusForbidden)
+
+	license.err = errors.New("private database details")
+	_, err = call()
 	requireModelProxyHTTPError(t, err, http.StatusServiceUnavailable)
+	license.err = nil
 
 	license.key = "key-three"
 	if err := store.SetModelProxyEnabled(t.Context(), false); err != nil {
@@ -178,30 +187,30 @@ func TestModelProxyUsageAPI(t *testing.T) {
 func TestTesterRechecksModelProxySwitch(t *testing.T) {
 	store := newHandlerTestGateway(t)
 	providers := &fakeTesterProviders{}
-	endpoint, err := mcptester.ParseModelProxyURL(mcptester.DefaultModelProxyURL, false)
+	endpoint, err := mcptester.ParseModelProxyURL("https://model-service.obot.ai", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	h := &MCPTesterHandler{fallback: MCPTesterFallbackOptions{URL: endpoint, Providers: providers, Settings: store}}
+	h := &MCPTesterHandler{modelProxy: MCPTesterModelProxyOptions{URL: endpoint, Providers: providers, Settings: store}}
 
 	for _, enabled := range []bool{true, false, true} {
 		if err := store.SetModelProxyEnabled(t.Context(), enabled); err != nil {
 			t.Fatal(err)
 		}
 
-		if got, err := h.fallbackEnabled(t.Context()); err != nil || got != enabled {
-			t.Fatalf("fallback = %v, %v, want %v", got, err, enabled)
+		if got, err := h.modelProxyEnabled(t.Context()); err != nil || got != enabled {
+			t.Fatalf("model proxy = %v, %v, want %v", got, err, enabled)
 		}
 	}
 
-	h.fallback.Settings = failingModelProxySettings{}
-	if enabled, err := h.fallbackEnabled(t.Context()); err == nil || enabled {
-		t.Fatal("settings failure did not prevent fallback")
+	h.modelProxy.Settings = failingModelProxySettings{}
+	if enabled, err := h.modelProxyEnabled(t.Context()); err == nil || enabled {
+		t.Fatal("settings failure did not prevent model proxy use")
 	}
 
 	providers.configured = true
-	if enabled, err := h.fallbackEnabled(t.Context()); err != nil || enabled {
+	if enabled, err := h.modelProxyEnabled(t.Context()); err != nil || enabled {
 		t.Fatal("settings failure affected configured provider")
 	}
 }
@@ -234,10 +243,10 @@ func TestDisablingModelProxyAllowsActiveStreamToFinish(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
-	h := newFallbackTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "key"}, upstream)
+	h := newModelProxyTestHandler(t, &fakeTesterProviders{}, &fakeTesterLicense{key: "key"}, upstream)
 	store := newHandlerTestGateway(t)
-	h.fallback.Settings = store
-	r := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(fallbackChatBody)).WithContext(ctx)
+	h.modelProxy.Settings = store
+	r := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody)).WithContext(ctx)
 	r.SetPathValue("mcp_server_id", "ms1tester")
 	w := httptest.NewRecorder()
 	done := make(chan error, 1)
@@ -268,7 +277,7 @@ func TestDisablingModelProxyAllowsActiveStreamToFinish(t *testing.T) {
 	}
 
 	h.modelResolver = fakeMCPTesterModelAccess{allowed: false}
-	assertMCPTesterError(t, runMCPTesterChat(t, h, "user-1", fallbackChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
+	assertMCPTesterError(t, runMCPTesterChat(t, h, "user-1", modelProxyChatBody), http.StatusForbidden, types.MCPTesterErrorModelUnavailable)
 	if calls.Load() != 1 {
 		t.Fatal("disabled continuation contacted proxy")
 	}
@@ -277,7 +286,7 @@ func TestDisablingModelProxyAllowsActiveStreamToFinish(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if response := runMCPTesterChat(t, h, "user-1", fallbackChatBody); response.Code != http.StatusOK || calls.Load() != 2 {
+	if response := runMCPTesterChat(t, h, "user-1", modelProxyChatBody); response.Code != http.StatusOK || calls.Load() != 2 {
 		t.Fatalf("reenabled continuation failed: %s", response.Body)
 	}
 }

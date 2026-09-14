@@ -97,7 +97,7 @@ type (
 )
 
 type Config struct {
-	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables fallback" default:"https://model-service.obot.ai" env:"OBOT_SERVER_MODEL_PROXY_URL"`
+	ModelProxyURL                                  string   `usage:"MCP Tester model proxy base URL; empty disables the model proxy" default:"https://model-service.obot.ai"`
 	HTTPListenPort                                 int      `usage:"HTTP port to listen on" default:"8080" name:"http-listen-port"`
 	AllowedOrigin                                  string   `usage:"Allowed origin for CORS"`
 	ProviderRegistries                             []string `usage:"Local filesystem paths to provider registries (directories) to load providers from"`
