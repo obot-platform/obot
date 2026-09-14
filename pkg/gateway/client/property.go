@@ -31,6 +31,26 @@ func (c *Client) GetProperty(ctx context.Context, key string) (types.Property, e
 
 // SetProperty creates or overwrites the property with a single upsert, so writers racing to create it don't conflict.
 // The returned property's CreatedAt is the time of this write, even when the property already existed.
+
+// PropertyVersionMatchesTx locks a property's database row and reports whether
+// its version still matches an earlier read. A nil version expects the row to
+// be absent. It intentionally avoids adding decryption and its potential KMS
+// I/O while callers coordinate changes across multiple properties.
+func (c *Client) PropertyVersionMatchesTx(tx *gorm.DB, key string, expectedVersion *time.Time) (bool, error) {
+	var property types.Property
+	err := tx.Select("key", "updated_at").
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("key = ?", key).
+		First(&property).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return expectedVersion == nil, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return expectedVersion != nil && property.UpdatedAt.Equal(*expectedVersion), nil
+}
+
 func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Property, error) {
 	now := time.Now()
 	p := types.Property{
