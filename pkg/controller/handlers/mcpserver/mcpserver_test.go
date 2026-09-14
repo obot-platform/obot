@@ -1981,3 +1981,71 @@ func TestEnsureMCPNetworkPolicyDeletesPolicyForUnsupportedRuntime(t *testing.T) 
 	}))
 	require.Empty(t, policies.Items)
 }
+
+func TestEnsureMCPCatalogIDRecordsScopeForSnapshotBackedServers(t *testing.T) {
+	const entryName = "default-everything-c001b50cc6rtk"
+
+	tests := []struct {
+		name              string
+		entrySpec         v1.MCPServerCatalogEntrySpec
+		existingStatusID  string
+		expectedCatalogID string
+	}{
+		{
+			name:              "catalog-scoped entry records its catalog",
+			entrySpec:         v1.MCPServerCatalogEntrySpec{MCPCatalogName: "default"},
+			existingStatusID:  "",
+			expectedCatalogID: "default",
+		},
+		{
+			name:              "workspace-scoped entry records its workspace",
+			entrySpec:         v1.MCPServerCatalogEntrySpec{PowerUserWorkspaceID: "puw1-test"},
+			existingStatusID:  "",
+			expectedCatalogID: "puw1-test",
+		},
+		{
+			name:              "unscoped entry leaves the status untouched",
+			entrySpec:         v1.MCPServerCatalogEntrySpec{},
+			existingStatusID:  "",
+			expectedCatalogID: "",
+		},
+		{
+			name:              "legacy entry-name status is replaced by the workspace",
+			entrySpec:         v1.MCPServerCatalogEntrySpec{PowerUserWorkspaceID: "puw1-test"},
+			existingStatusID:  entryName,
+			expectedCatalogID: "puw1-test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			entry := &v1.MCPServerCatalogEntry{
+				Name:      entryName,
+				Namespace: "default",
+				Spec:      tt.entrySpec,
+			}
+			server := &v1.MCPServer{
+				Name:      "ms1-vmcp-component",
+				Namespace: "default",
+				Spec: v1.MCPServerSpec{
+					MCPServerCatalogEntryName: entryName,
+					VMCPInstanceID:            "vmcpi1-test",
+				},
+				Status: v1.MCPServerStatus{MCPCatalogID: tt.existingStatusID},
+			}
+
+			client := newFakeClient(t, entry, server)
+			require.NoError(t, (&Handler{}).EnsureMCPCatalogID(router.Request{
+				Client:    client,
+				Ctx:       t.Context(),
+				Object:    server,
+				Namespace: server.Namespace,
+				Name:      server.Name,
+			}, &router.ResponseWrapper{}))
+
+			var updated v1.MCPServer
+			require.NoError(t, client.Get(t.Context(), router.Key(server.Namespace, server.Name), &updated))
+			assert.Equal(t, tt.expectedCatalogID, updated.Status.MCPCatalogID)
+		})
+	}
+}

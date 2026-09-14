@@ -553,7 +553,18 @@ func (h *Handler) EnsureMCPCatalogID(req router.Request, _ router.Response) erro
 			return kclient.IgnoreNotFound(err)
 		}
 
-		server.Status.MCPCatalogID = mcpCatalogEntry.Spec.MCPCatalogName
+		// Workspace-scoped entries carry no catalog name, so fall back to the workspace
+		// they belong to. Recording the scope while the entry still exists is what keeps
+		// it available to snapshot-backed servers after the entry is deleted.
+		catalogID := mcpCatalogEntry.Spec.MCPCatalogName
+		if catalogID == "" {
+			catalogID = mcpCatalogEntry.Spec.PowerUserWorkspaceID
+		}
+		if catalogID == "" || catalogID == server.Status.MCPCatalogID {
+			return nil
+		}
+
+		server.Status.MCPCatalogID = catalogID
 		slog.Info("Resolved MCP catalog ID for server", "server", server.Name, "catalogEntry", server.Spec.MCPServerCatalogEntryName, "catalogID", server.Status.MCPCatalogID)
 		return req.Client.Status().Update(req.Ctx, server)
 	}

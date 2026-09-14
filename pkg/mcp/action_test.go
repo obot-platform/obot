@@ -320,6 +320,20 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 			expectError:         false,
 		},
 		{
+			name: "dedicated vMCP component keeps the workspace scope it recorded",
+			server: v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					MCPServerCatalogEntryName: entryID,
+					VMCPInstanceID:            "vmcpi1-test",
+				},
+				Status: v1.MCPServerStatus{MCPCatalogID: "puw1-test"},
+			},
+			entryExists:         false,
+			failOnEntryMissing:  false,
+			expectedCatalogName: "puw1-test",
+			expectError:         false,
+		},
+		{
 			name: "standalone server still fails when the entry is gone",
 			server: v1.MCPServer{
 				Spec: v1.MCPServerSpec{
