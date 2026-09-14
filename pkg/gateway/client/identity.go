@@ -381,7 +381,6 @@ func countUsersTowardLimit(tx *gorm.DB) (int64, error) {
 	var userCount int64
 	err := tx.Model(new(types.User)).
 		Where("deleted_at IS NULL").
-		Where("NOT internal").
 		Where("hashed_username != ?", hash.String(system.BootstrapName)).
 		Count(&userCount).Error
 	return userCount, err

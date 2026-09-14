@@ -40,7 +40,7 @@ type MockDataSummary struct {
 	EnforcementDecisions int       `json:"enforcementDecisions"`
 }
 
-// GenerateMockData appends one coherent, license-neutral demo dataset.
+// GenerateMockData appends one coherent demo dataset.
 func (c *Client) GenerateMockData(ctx context.Context) (*MockDataSummary, error) {
 	runID, err := newMockDataRunID()
 	if err != nil {
@@ -153,7 +153,6 @@ func (c *Client) createMockDataUsers(ctx context.Context, tx *gorm.DB, now time.
 			HashedEmail:    hash.String(email),
 			Role:           apitypes.RoleBasic,
 			Timezone:       "America/Los_Angeles",
-			Internal:       true,
 		}
 		stored := user
 		if err := c.encryptUser(ctx, &stored); err != nil {

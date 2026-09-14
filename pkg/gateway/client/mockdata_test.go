@@ -37,7 +37,7 @@ func TestGenerateMockData(t *testing.T) {
 		t.Fatalf("got %d users, want %d", len(users), mockDataUserCount)
 	}
 	for _, user := range users {
-		if !user.Internal || !strings.HasPrefix(user.Username, "demo-test-run-user-") || !strings.HasPrefix(user.DisplayName, "Demo ") {
+		if !strings.HasPrefix(user.Username, "demo-test-run-user-") || !strings.HasPrefix(user.DisplayName, "Demo ") {
 			t.Fatalf("unexpected mock user: %+v", user)
 		}
 	}
@@ -45,8 +45,8 @@ func TestGenerateMockData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if licensedUsers != 0 {
-		t.Fatalf("mock users consumed %d licensed seats", licensedUsers)
+	if licensedUsers != mockDataUserCount {
+		t.Fatalf("got %d users counted toward the license limit, want %d", licensedUsers, mockDataUserCount)
 	}
 	enrolledDevices, err := c.DeviceCount(t.Context())
 	if err != nil {
