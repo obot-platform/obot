@@ -27,15 +27,6 @@ function getCustomConfigurationAction(): GuideAction[] {
 
 	return [
 		{
-			elementExists: 'tab-sources',
-			highlight: {
-				...configurationHighlight,
-				description:
-					"If the MCP server requires any custom configuration such as API keys or secrets, you'll want to add them here. For multi-tenancy, you can supply configuration that'll be used by all users or set up it so each user can supply their own. In single-tenancy, the user will have to provide their custom configuration when deploying the server."
-			},
-			listener: configurationListener
-		},
-		{
 			highlight: {
 				...configurationHighlight,
 				description:

@@ -180,19 +180,21 @@
 			{/snippet}
 			{#snippet actions(d)}
 				<div class="flex items-center gap-1">
-					<div id={`install-skill-btn-container-${d.id}`}>
-						<button
-							class="btn btn-primary btn-sm"
-							id={`install-skill-btn-${d.id}`}
-							onclick={(e) => {
-								e.stopPropagation();
-								selectedSkillToInstall = d;
-								installSkillDialog?.open();
-							}}
-						>
-							Install
-						</button>
-					</div>
+					{#if d.valid}
+						<div id={`install-skill-btn-container-${d.id}`}>
+							<button
+								class="btn btn-primary btn-sm"
+								id={`install-skill-btn-${d.id}`}
+								onclick={(e) => {
+									e.stopPropagation();
+									selectedSkillToInstall = d;
+									installSkillDialog?.open();
+								}}
+							>
+								Install
+							</button>
+						</div>
+					{/if}
 					<a
 						class="btn btn-square btn-ghost hover:text-blue-500 btn-sm tooltip tooltip-left"
 						href={`${d.repoURL}/tree/${d.repoRef || d.commitSHA || 'main'}/${d.relativePath}`}
@@ -258,6 +260,7 @@
 					role="tab"
 					class={twMerge('tab', selectedTab === 'macos/linux' && 'tab-active')}
 					onclick={() => (selectedTab = 'macos/linux')}
+					aria-selected={selectedTab === 'macos/linux'}
 				>
 					macOS/Linux
 				</button>
@@ -265,6 +268,7 @@
 					role="tab"
 					class={twMerge('tab', selectedTab === 'windows' && 'tab-active')}
 					onclick={() => (selectedTab = 'windows')}
+					aria-selected={selectedTab === 'windows'}
 				>
 					Windows
 				</button>
