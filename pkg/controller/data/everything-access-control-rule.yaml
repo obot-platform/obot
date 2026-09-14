@@ -11,5 +11,5 @@ spec:
       - id: '*'
         type: selector
     subjects:
-      - id: '*'
-        type: selector
+      - id: admin
+        type: group

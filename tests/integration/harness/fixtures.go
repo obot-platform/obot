@@ -26,6 +26,38 @@ func (h *Harness) CreateMCPCatalogEntry(t *testing.T, catalogID string, manifest
 	return created
 }
 
+// CreateAccessControlRule creates a catalog-scoped access rule and registers
+// cleanup before the catalog entries referenced by the rule are removed.
+func (h *Harness) CreateAccessControlRule(t *testing.T, catalogID string, manifest types.AccessControlRuleManifest) types.AccessControlRule {
+	t.Helper()
+	var created types.AccessControlRule
+	h.Post(t, "/api/mcp-catalogs/"+catalogID+"/access-control-rules", manifest, &created)
+	h.AddCleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_, _ = h.status(ctx, http.MethodDelete, "/api/mcp-catalogs/"+catalogID+"/access-control-rules/"+created.ID)
+	})
+	return created
+}
+
+// WaitForMCPCatalogEntryAccess waits for the access-control informer to
+// observe a newly-created rule and expose the entry to the test principal.
+func (h *Harness) WaitForMCPCatalogEntryAccess(t *testing.T, catalogID, entryID string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		var entries types.MCPServerCatalogEntryList
+		h.Get(t, "/api/mcp-catalogs/"+catalogID+"/entries", &entries)
+		for _, entry := range entries.Items {
+			if entry.ID == entryID {
+				return
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("MCP catalog entry %s did not become accessible within %s", entryID, timeout)
+}
+
 // CreateMCPServerFromCatalogEntry creates a single-user server from entryID.
 func (h *Harness) CreateMCPServerFromCatalogEntry(t *testing.T, entryID string) types.MCPServer {
 	t.Helper()

@@ -61,6 +61,18 @@ func TestMCPServerLifecycle_NPXEverything(t *testing.T) {
 		if entry.ID == "" {
 			t.Fatalf("catalog entry create returned empty ID: %+v", entry)
 		}
+		h.CreateAccessControlRule(t, system.DefaultCatalog, types.AccessControlRuleManifest{
+			DisplayName: "MCP lifecycle integration test access",
+			Subjects: []types.Subject{{
+				Type: types.SubjectTypeSelector,
+				ID:   "*",
+			}},
+			Resources: []types.Resource{{
+				Type: types.ResourceTypeMCPServerCatalogEntry,
+				ID:   entry.ID,
+			}},
+		})
+		h.WaitForMCPCatalogEntryAccess(t, system.DefaultCatalog, entry.ID, 10*time.Second)
 
 		created = h.CreateMCPServerFromCatalogEntry(t, entry.ID)
 		if created.ID == "" {
