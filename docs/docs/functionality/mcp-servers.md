@@ -9,10 +9,12 @@ Managing MCP servers in Obot starts with adding them to the platform. Administra
 
 The choice of server type depends on how the MCP server was developed. All servers that are not remote servers are deployed and managed by the MCP Gateway.
 
-:::warning Transitional release
 
-This page describes the legacy MCP server model, which remains available for compatibility in this release. Create new connection endpoints as [virtual MCPs (vMCPs)](./virtual-mcps.md). In the next release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only way to connect through the Obot Gateway.
+:::warning Migrate to virtual MCPs
 
+Virtual MCPs (vMCPs) replace the existing MCP server model and are now the recommended way to connect through the Obot Gateway. Create all new connection endpoints as [vMCPs](./virtual-mcps.md).
+
+Existing MCP servers remain operational in this release. Obot will automatically migrate any remaining servers to vMCPs in a future update.
 :::
 
 ## Server types

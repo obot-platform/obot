@@ -8,7 +8,7 @@ Obot supports managing MCP servers through Git repositories, enabling GitOps wor
 
 :::note vMCP GitOps
 
-In this release, GitOps synchronizes MCP catalog entries that can be used as [vMCP components](../functionality/virtual-mcps.md). It does not synchronize vMCP definitions, profiles, configuration policies, or tool selections. Direct vMCP GitOps synchronization is planned for the next release.
+In this release, GitOps synchronizes MCP catalog entries that can be used as [vMCP components](../functionality/virtual-mcps.md). It does not synchronize vMCP definitions, profiles, configuration policies, or tool selections. Direct vMCP GitOps synchronization is planned for a future release.
 
 :::
 

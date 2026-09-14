@@ -5,15 +5,15 @@ description: Combine MCP servers behind one governed connection endpoint
 
 # Virtual MCPs (vMCPs)
 
-A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint. The source servers become **components** of the vMCP. Each component keeps its own runtime and configuration behavior, while the vMCP provides one place to manage the connection, tools, and access.
+A virtual MCP (vMCP) exposes one or more MCP servers through one Obot Gateway endpoint. The source servers become **components** of the vMCP. Each component keeps its own deployment and configuration behavior, while the vMCP provides one place to manage the connection, tools, and access.
 
 :::warning Transitional release
 
 vMCPs are in a transitional state. Legacy MCP server connections continue to work in this release, but new connection workflows should use vMCPs.
 
-In the next release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only way to connect to MCP servers through the Obot Gateway.
+In a future release, Obot will migrate all MCP servers to vMCPs, and vMCPs will be the only way to connect to MCP servers through the Obot Gateway.
 
-GitOps synchronization currently manages MCP catalog entries, not vMCPs. Direct GitOps synchronization of vMCP definitions is planned for the next release.
+GitOps synchronization currently manages MCP catalog entries, not vMCPs. Direct GitOps synchronization of vMCP definitions is planned for a future release.
 
 :::
 
@@ -24,8 +24,8 @@ flowchart LR
     C[Catalog entries] -->|snapshot| V[vMCP]
     P[Profiles] -->|users, groups, and tools| V
     V --> I[Per-user vMCP instance]
-    I --> R1[Shared component runtime]
-    I --> R2[Per-user component runtime]
+    I --> R1[Shared component deployment]
+    I --> R2[Per-user component deployment]
 ```
 
 The main resources are:
@@ -44,7 +44,7 @@ The creator's role determines the scope of a new vMCP.
 
 | | Administrator-created shared vMCP | User-created personal vMCP |
 |---|---|---|
-| Who can use it | Users and groups granted access by profiles | Its owner only |
+| Who can use it | Users and groups granted access by profiles | Its author only |
 | Source catalog access for consumers | Not required | The owner must have access to every selected catalog entry |
 | Access management | Administrators manage profiles and tool grants | Cannot be shared; profiles do not change its owner-only scope |
 | Component access changes | Consumer catalog access does not remove components | Losing access to a catalog entry removes that component |
@@ -62,9 +62,9 @@ Only administrators can create a vMCP that other users can consume. Any user who
 6. Open **Profiles** and replace or refine the default access grant. Assign users, groups, or **All Obot Users**, then choose the tools that profile grants.
 7. Connect to or test the vMCP after its components are ready.
 
-:::caution
+:::note
 
-A new shared vMCP starts with a default profile that grants **All Obot Users** access to all tools exposed by the vMCP. Edit or remove that profile before adding sensitive components or credentials when broad access is not intended.
+A new administrator-created shared vMCP includes a default profile that grants all administrators access to every component. Administrators can replace or refine this profile to grant access to other users or groups. A personal vMCP remains accessible only to its owner.
 
 :::
 
@@ -94,14 +94,14 @@ When a catalog entry declares configuration, the vMCP creator assigns one policy
 
 Required fields must be either **Preconfigured** or **Provided at connection**. Optional fields default to **Ignore** in the UI.
 
-Configuration also determines whether a component can share a runtime:
+Configuration also determines whether a component can share a deployment:
 
-- A component with only fixed or ignored configuration is normally eligible to use a shared runtime.
-- User-provided headers remain isolated per connection but do not require separate runtimes.
-- Any other user-provided value causes Obot to run a separate component runtime for each user.
-- **Force single-user** always gives each user a separate runtime when that option is available.
+- A component with only fixed or ignored configuration is normally eligible to use a shared deployment.
+- User-provided headers remain isolated per connection but do not require separate deployments.
+- Any other user-provided value causes Obot to run a separate component deployment for each user.
+- **Force single-user** always gives each user a separate deployment when that option is available.
 
-Obot makes this decision independently for every component. One vMCP can therefore use shared and per-user component runtimes at the same time.
+Obot makes this decision independently for every component. One vMCP can therefore use shared and per-user component deployments at the same time.
 
 ## Tools and profiles
 
