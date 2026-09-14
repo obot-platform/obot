@@ -1,8 +1,15 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import CommunitySignUpForm from '$lib/components/admin/license/CommunitySignUpForm.svelte';
+	import CommunitySignupPanel from '$lib/components/admin/license/CommunitySignupPanel.svelte';
+	import {
+		COMMUNITY_ENTITLEMENT,
+		ENTERPRISE_ENTITLEMENT,
+		SETUP_COMMUNITY_SIGNUP_BANNER_COPY
+	} from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { AdminService, Group } from '$lib/services';
-	import { productTelemetryConsent, profile, version } from '$lib/stores';
+	import { AdminService, Group, type License } from '$lib/services';
+	import { license, productTelemetryConsent, profile, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import {
 		deferProductAnalyticsConsent,
@@ -11,12 +18,15 @@
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
+	import BetaLogo from '../navbar/BetaLogo.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
 	import { onMount, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let signupDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
+	let signupContinuing = $state(false);
 	let shareProductUsage = $state(true);
 	let productAnalyticsDeferred = $state(true);
 
@@ -45,6 +55,20 @@
 			productTelemetryConsent.consent === undefined &&
 			!isOnProductAnalyticsSettings &&
 			!productAnalyticsDeferred
+	);
+	const isAdminReadonly = $derived(profile.current.isAdminReadonly?.());
+	const hasCommunityOrEnterpriseLicense = $derived.by(() => {
+		if (version.current.enterprise || license.current.enterprise) return true;
+		const entitlements = [
+			...(license.current.entitlements ?? []),
+			...(version.current.licenseEntitlements ?? [])
+		];
+		return (
+			entitlements.includes(COMMUNITY_ENTITLEMENT) || entitlements.includes(ENTERPRISE_ENTITLEMENT)
+		);
+	});
+	const shouldShowCommunitySignup = $derived(
+		(profile.current.hasAdminAccess?.() || isBootstrapUser) && !hasCommunityOrEnterpriseLicense
 	);
 
 	onMount(() => {
@@ -97,30 +121,51 @@
 		}
 	}
 
+	async function finishOnboarding() {
+		if (isBootstrapUser) {
+			if (isOnAuthProvidersPage) {
+				setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
+				return;
+			}
+
+			if (!isAuthProviderConfigured) {
+				goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
+			} else if (requiresModelProviderConfiguration) {
+				goto(modelProviderPath);
+			}
+		} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
+			goto(modelProviderPath);
+		}
+	}
+
+	async function handleSignupContinue() {
+		signupContinuing = true;
+		try {
+			signupDialog?.close();
+			await finishOnboarding();
+		} finally {
+			signupContinuing = false;
+		}
+	}
+
+	async function handleCommunitySignupComplete(response: unknown) {
+		license.initialize(response as License);
+		await handleSignupContinue();
+	}
+
 	async function handleContinue() {
 		loading = true;
 		try {
 			await handleProductAnalyticsConsent();
 			await handleAcceptEula();
 			localStorage.setItem('seenSplashDialog', new Date().toISOString());
-
-			if (isBootstrapUser) {
-				if (isOnAuthProvidersPage) {
-					dialog?.close();
-					setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
-					return;
-				}
-
-				if (!isAuthProviderConfigured) {
-					goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
-				} else if (requiresModelProviderConfiguration) {
-					goto(modelProviderPath);
-				}
-			} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
-				goto(modelProviderPath);
-			}
-
 			dialog?.close();
+
+			if (shouldShowCommunitySignup) {
+				signupDialog?.open();
+			} else {
+				await finishOnboarding();
+			}
 		} finally {
 			loading = false;
 		}
@@ -211,6 +256,51 @@
 			{/if}
 		</button>
 	{/if}
+</ResponsiveDialog>
+
+<ResponsiveDialog
+	bind:this={signupDialog}
+	hideClose
+	disableClickOutside
+	class="w-md p-0"
+	classes={{
+		content: 'p-0'
+	}}
+>
+	<CommunitySignupPanel labelledBy="setup-community-signup-heading">
+		<div class="flex flex-col gap-4 p-4 sm:p-6">
+			<div class="mx-auto flex flex-col items-center justify-center gap-1">
+				<BetaLogo />
+				<h4 class="text-center text-lg font-semibold">Get Access Now!</h4>
+			</div>
+			<p id="setup-community-signup-heading" class="max-w-md text-center text-sm font-light">
+				{SETUP_COMMUNITY_SIGNUP_BANNER_COPY}
+			</p>
+			<div
+				class="rounded-xl border border-base-300/80 bg-base-100/80 p-4 shadow-sm backdrop-blur-sm"
+			>
+				<CommunitySignUpForm
+					endpoint={AdminService.createCommunityLicense}
+					onSubmit={handleCommunitySignupComplete}
+					showHeader={false}
+					idPrefix="setup-community"
+					disabled={isAdminReadonly}
+				/>
+			</div>
+			<button
+				class="btn btn-ghost"
+				type="button"
+				disabled={signupContinuing || isAdminReadonly}
+				onclick={handleSignupContinue}
+			>
+				{#if signupContinuing}
+					<Loading class="size-4" />
+				{:else}
+					Skip for now
+				{/if}
+			</button>
+		</div>
+	</CommunitySignupPanel>
 </ResponsiveDialog>
 
 {#snippet authDisabledNote()}

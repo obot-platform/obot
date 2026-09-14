@@ -460,3 +460,6 @@ export const MODEL_PROVIDERS_ENTITLEMENT = 'OBOT_ENTERPRISE_MODEL_PROVIDERS';
 
 export const COMMUNITY_SIGNUP_BANNER_COPY =
 	'Register your email to unlock all remaining IDPs and to receive the Obot Community Newsletter!';
+
+export const SETUP_COMMUNITY_SIGNUP_BANNER_COPY =
+	'Register your email to unlock chat capabilities with vMCP testing, get access to enterprise IDPs and to receive the Obot Community Newsletter!';

@@ -1,6 +1,7 @@
 import { page as appPage } from '$app/state';
+import { COMMUNITY_ENTITLEMENT } from '$lib/constants';
 import { AdminService, Group } from '$lib/services';
-import { productTelemetryConsent, profile, version } from '$lib/stores';
+import { license, productTelemetryConsent, profile, version } from '$lib/stores';
 import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 import { isProductAnalyticsConsentDeferred } from '$lib/stores/productTelemetryConsent.svelte';
 import { createMockProfile } from '../../../tests/helpers/pageData';
@@ -37,10 +38,15 @@ async function renderWelcome(
 ) {
 	profile.initialize(createMockProfile(groups));
 	version.initialize(getVersionResponse);
+	license.initialize();
 	productTelemetryConsent.initialize({ consent }, available);
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 	await configureCompletedWelcome();
 	return render(SetupSplashDialog);
+}
+
+async function continuePastCommunitySignup() {
+	await page.getByRole('button', { name: 'Skip for now', exact: true }).click();
 }
 
 describe('SetupSplashDialog product analytics consent', () => {
@@ -104,6 +110,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 		const checkbox = page.getByRole('checkbox', { name: /Share product usage data/ });
 		if (!selected) await checkbox.click();
 		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+		await continuePastCommunitySignup();
 
 		await vi.waitFor(() => {
 			expect(update).toHaveBeenCalledWith({ consent: expected });
@@ -121,6 +128,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 
 		await renderWelcome();
 		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+		await continuePastCommunitySignup();
 
 		await vi.waitFor(() => expect(isProductAnalyticsConsentDeferred()).toBe(true));
 		expect(productTelemetryConsent.consent).toBeUndefined();
@@ -139,6 +147,43 @@ describe('SetupSplashDialog product analytics consent', () => {
 	it('does not open solely for consent on the Product Analytics settings tab', async () => {
 		setUrl('/admin/platform?view=product-analytics');
 		await renderWelcome();
+		await expect.element(page.getByCSS('dialog')).not.toBeVisible();
+	});
+
+	it('opens the community signup dialog after continuing from welcome', async () => {
+		await renderWelcome();
+
+		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+		await expect
+			.element(
+				page.getByText(
+					'Register your email to unlock chat capabilities w/ vMCP testing, get access to enterprise IDPs and to receive the Obot Community Newsletter!',
+					{ exact: true }
+				)
+			)
+			.toBeVisible();
+		await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Skip for now', exact: true }))
+			.toBeVisible();
+	});
+
+	it('skips the community signup dialog when a community license is already registered', async () => {
+		license.initialize({
+			licenseKey: 'community-key',
+			source: 'community',
+			locked: false,
+			enterprise: false,
+			entitlements: [COMMUNITY_ENTITLEMENT]
+		});
+		await renderWelcome();
+
+		await page.getByRole('button', { name: 'Continue', exact: true }).click();
+
+		await expect
+			.element(page.getByRole('button', { name: 'Skip for now', exact: true }))
+			.not.toBeInTheDocument();
 		await expect.element(page.getByCSS('dialog')).not.toBeVisible();
 	});
 

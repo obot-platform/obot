@@ -1,6 +1,7 @@
 import { page as appPage } from '$app/state';
+import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
 import { preparePageData } from '../../../../tests/helpers/pageData';
-import { createMcpServerDetailsFixtures } from '../../../../tests/mocks/data';
+import { createMcpServerDetailsFixtures, getLicenseResponse } from '../../../../tests/mocks/data';
 import { worker } from '../../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import TesterPage from './+page.svelte';
@@ -109,6 +110,15 @@ const chatModelAliasData: Partial<PageData> = {
 	models: [{ ...chatModelData.models![0], alias: 'stable-llm' }]
 };
 
+const communityLicenseData: Partial<PageData> = {
+	license: {
+		...getLicenseResponse,
+		licenseKey: 'community-license-key',
+		enterprise: true,
+		entitlements: [COMMUNITY_ENTITLEMENT]
+	}
+};
+
 function chatStream(...events: unknown[]) {
 	return new HttpResponse(events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(''), {
 		headers: { 'Content-Type': 'text/event-stream' }
@@ -131,7 +141,8 @@ describe('MCP Tester page', () => {
 		await expect.element(serverNameHeadings.nth(1)).toBeVisible();
 		expect(document.title).toBe(`Obot | MCP Tester | ${serverName}`);
 		await expect.element(page.getByRole('heading', { name: 'Chat', exact: true })).toBeVisible();
-		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
+		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: `Back to ${serverName}` }))
 			.toHaveAttribute(
@@ -152,6 +163,7 @@ describe('MCP Tester page', () => {
 	it('keeps Chat unavailable when an alias match has no assigned alias record', async () => {
 		await renderTester('chat', {}, undefined, {
 			...chatModelAliasData,
+			...communityLicenseData,
 			models: [{ ...chatModelAliasData.models![0], aliasAssigned: false }]
 		});
 

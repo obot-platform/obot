@@ -4,6 +4,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import SensitiveInput from '$lib/components/SensitiveInput.svelte';
 	import CommunitySignUpForm from '$lib/components/admin/license/CommunitySignUpForm.svelte';
+	import CommunitySignupPanel from '$lib/components/admin/license/CommunitySignupPanel.svelte';
 	import UserLimitNotice from '$lib/components/admin/license/UserLimitNotice.svelte';
 	import BetaLogo from '$lib/components/navbar/BetaLogo.svelte';
 	import {
@@ -390,23 +391,12 @@
 				</div>
 			</section>
 		{:else if !isCommunityEdition}
-			<aside
-				class="relative overflow-hidden rounded-box border border-primary/20 bg-base-100 dark:bg-base-200 shadow-sm md:max-w-md mx-auto"
-				aria-labelledby="community-cta-heading"
+			<CommunitySignupPanel
+				as="aside"
+				class="mx-auto md:max-w-md"
+				labelledBy="community-cta-heading"
 			>
-				<div class="pointer-events-none absolute inset-0" aria-hidden="true">
-					<div
-						class="absolute inset-0 bg-linear-to-br from-primary/10 via-transparent to-primary/5"
-					></div>
-					<div class="absolute -top-12 -left-8 size-40 rounded-full border border-primary/15"></div>
-					<div class="absolute -top-6 -left-2 size-24 rounded-full border border-primary/10"></div>
-					<div class="absolute -right-16 -bottom-20 size-52 rounded-full bg-primary/5"></div>
-					<div
-						class="absolute inset-y-0 left-0 w-1/4 bg-linear-to-r from-primary/10 to-transparent"
-					></div>
-				</div>
-
-				<div class="relative flex flex-col gap-4 p-4 sm:p-6">
+				<div class="flex flex-col gap-4 p-4 sm:p-6">
 					<BetaLogo class="mx-auto" />
 					<p class="max-w-md text-sm font-light">
 						{COMMUNITY_SIGNUP_BANNER_COPY}
@@ -423,7 +413,7 @@
 						/>
 					</div>
 				</div>
-			</aside>
+			</CommunitySignupPanel>
 		{/if}
 	</div>
 </div>
