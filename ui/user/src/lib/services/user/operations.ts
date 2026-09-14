@@ -112,6 +112,13 @@ export async function createVMCP(
 	return (await doPost('/vmcps', manifest, opts)) as VMCP;
 }
 
+export async function revealVMCP(
+	id: string,
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+): Promise<VMCPConfiguration> {
+	return (await doPost(`/vmcps/${id}/reveal`, {}, opts)) as VMCPConfiguration;
+}
+
 export async function updateVMCP(
 	id: string,
 	manifest: VMCPManifest,

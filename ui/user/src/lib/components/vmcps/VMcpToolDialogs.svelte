@@ -4,7 +4,9 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { UserService, type VMCPConfigurationPolicy } from '$lib/services';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import { vmcpComponentId } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
@@ -27,6 +29,46 @@
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
 	const lastComponentTooltip = 'VMCP requires at least one component.';
 
+	function configurationWithRevealedValues(
+		configuration: VMCPConfigurationPolicy[] | undefined,
+		revealed: Record<string, string> | undefined
+	): VMCPConfigurationPolicy[] | undefined {
+		if (!configuration || !revealed) return configuration;
+		return configuration.map((policy) => {
+			if (policy.policy !== 'fixed') return policy;
+			const value = revealed[policy.key];
+			return value ? { ...policy, value } : policy;
+		});
+	}
+
+	async function openConfigureDialog() {
+		if (!flow.configuringEntry) return;
+
+		let configuration = flow.configuringComponent?.configuration;
+		const vmcpId = flow.modifyingVMcp?.id;
+		const componentId = flow.configuringComponent
+			? vmcpComponentId(flow.configuringComponent)
+			: undefined;
+		if (vmcpId && componentId) {
+			try {
+				const revealed = await UserService.revealVMCP(vmcpId, { dontLogErrors: true });
+				configuration = configurationWithRevealedValues(
+					configuration,
+					revealed.components[componentId]
+				);
+			} catch {
+				// Continue without revealed values when configuration is unavailable.
+			}
+		}
+
+		configurationDialog?.open(flow.configuringEntry, {
+			configuration,
+			forceSingleUser: flow.configuringComponent?.forceSingleUser,
+			submitLabel: flow.postCreateConfiguration ? 'Next' : 'Save',
+			errorMessage: 'Failed to update configuration.'
+		});
+	}
+
 	function openDialog(dialog: VMcpToolDialog | undefined) {
 		if (dialog === 'added-create') {
 			addedCreateDialog?.open();
@@ -36,12 +78,7 @@
 		if (dialog === 'edit') editDialog?.open();
 		if (dialog === 'actions') componentActionsDialog?.open();
 		if (dialog === 'configure' && flow.configuringEntry) {
-			configurationDialog?.open(flow.configuringEntry, {
-				configuration: flow.configuringComponent?.configuration,
-				forceSingleUser: flow.configuringComponent?.forceSingleUser,
-				submitLabel: flow.postCreateConfiguration ? 'Next' : 'Save',
-				errorMessage: 'Failed to update configuration.'
-			});
+			void openConfigureDialog();
 		}
 	}
 
