@@ -6,6 +6,7 @@
 	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
+	import { VMCPInstance } from '../../services';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -29,6 +30,18 @@
 
 	let cards = $derived(items.map(toCard));
 	let overflowHiddenById = $state<Record<string, number>>({});
+	let myInstances = $derived.by(() => {
+		const map = new Map<string, VMCPInstance[]>();
+		for (const instance of vmcpInstances.current.items) {
+			if (instance.userID === profile.current.id) {
+				if (!map.has(instance.vmcpID)) {
+					map.set(instance.vmcpID, []);
+				}
+				map.get(instance.vmcpID)?.push(instance);
+			}
+		}
+		return map;
+	})
 
 	type VMcpListCard = ReturnType<typeof toCard>;
 
@@ -37,7 +50,7 @@
 		return {
 			id: item.id,
 			name: item.displayName || 'Untitled vMCP',
-			connected: false,
+			connected: (myInstances.get(item.id) ?? []).length > 0,
 			componentServers,
 			descriptionHTML: toInlineHTMLFromMarkdown(item.description ?? ''),
 			data: item
