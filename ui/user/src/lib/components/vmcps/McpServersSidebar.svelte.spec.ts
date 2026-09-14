@@ -44,9 +44,10 @@ async function renderSidebar(
 		canCreateEntry: boolean;
 		query: string;
 		onSearch: (value: string) => void;
+		groups: string[];
 	}> = {}
 ) {
-	const { entries = [github, slack], drag = createDragStub(), ...rest } = props;
+	const { entries = [github, slack], drag = createDragStub(), groups, ...rest } = props;
 	mcpServersAndEntries.current = {
 		entries,
 		servers: [],
@@ -56,7 +57,7 @@ async function renderSidebar(
 		lastFetched: null,
 		isInitialized: true
 	};
-	await preparePageData();
+	await preparePageData(groups ? { profile: createMockProfile(groups) } : undefined);
 	const result = render(McpServersSidebar, {
 		drag,
 		onSearch: rest.onSearch ?? vi.fn(),
@@ -80,6 +81,10 @@ function card(name: string) {
 	return page.getByRole('button', { name: new RegExp(`View ${name} details`) });
 }
 
+function createEntryButton() {
+	return page.getByCSS('#mcp-create-catalog-entry-button');
+}
+
 describe('McpServersSidebar.svelte', () => {
 	it('filters the list by the query it is given', async () => {
 		await renderSidebar({ query: 'slack' });
@@ -97,25 +102,24 @@ describe('McpServersSidebar.svelte', () => {
 		await vi.waitFor(() => expect(onSearch).toHaveBeenCalledWith('git'));
 	});
 
-	it('prompts admins to add MCP servers when the catalog is empty', async () => {
-		await renderSidebar({ entries: [] });
+	it.each([
+		['power users', [Group.POWERUSER]],
+		['admins', [Group.ADMIN]]
+	])('shows create entry button for %s when the catalog is empty', async (_label, groups) => {
+		await renderSidebar({ entries: [], groups, canCreateEntry: true });
 
-		await expect
-			.element(page.getByRole('heading', { name: 'No MCP servers available.', exact: true }))
-			.toBeVisible();
-		await expect
-			.element(page.getByRole('link', { name: 'Go to MCP Servers', exact: true }))
-			.toHaveAttribute('href', '/mcp-servers');
+		await expect.element(createEntryButton()).toBeVisible();
+		await expect.element(page.getByRole('status')).not.toBeInTheDocument();
 	});
 
-	it('says so when nothing is left to show for non-admins', async () => {
-		await preparePageData({ profile: createMockProfile([Group.POWERUSER]) });
-		await renderSidebar({ entries: [] });
+	it.each([
+		['regular users', [Group.USER]],
+		['readonly admins', [Group.AUDITOR]]
+	])('says so when nothing is left to show for %s', async (_label, groups) => {
+		await renderSidebar({ entries: [], groups, canCreateEntry: false });
 
-		await expect.element(page.getByRole('status', { name: 'No MCP servers available.' })).toBeVisible();
-		await expect
-			.element(page.getByRole('link', { name: 'Go to MCP Servers', exact: true }))
-			.not.toBeInTheDocument();
+		await expect.element(page.getByRole('status')).toBeVisible();
+		await expect.element(createEntryButton()).not.toBeInTheDocument();
 	});
 
 	it('reorders the list by name and created date', async () => {
@@ -156,16 +160,12 @@ describe('McpServersSidebar.svelte', () => {
 	});
 
 	describe('create entry button', () => {
-		function createButton() {
-			return page.getByCSS('#mcp-create-catalog-entry-button');
-		}
-
 		it('appears only for users allowed to create entries', async () => {
 			await renderSidebar({ canCreateEntry: false });
-			await expect.element(createButton()).not.toBeInTheDocument();
+			await expect.element(createEntryButton()).not.toBeInTheDocument();
 
 			await renderSidebar({ canCreateEntry: true });
-			await expect.element(createButton()).toBeVisible();
+			await expect.element(createEntryButton()).toBeVisible();
 		});
 	});
 
@@ -195,7 +195,7 @@ describe('McpServersSidebar.svelte', () => {
 		it('activates without an entry from the create card, which has none yet', async () => {
 			const { drag } = await renderSidebar({ canCreateEntry: true });
 
-			const el = await page.getByCSS('#mcp-create-catalog-entry-button').element();
+			const el = await createEntryButton().element();
 			el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
 			expect(drag.activate).toHaveBeenCalledWith();
