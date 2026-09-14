@@ -15,6 +15,7 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/util/retry"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -174,12 +175,14 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 	if err := req.Read(&configuration); err != nil {
 		return types.NewErrBadRequest("failed to read VMCP instance configuration: %v", err)
 	}
+
 	effective := vmcp.Spec.Manifest
 	effective.Components = vmcpconfig.ComponentsForInstance(vmcp, instance)
 	secrets, err := vmcpconfig.ValidateAndEncodeUserConfiguration(effective, configuration)
 	if err != nil {
 		return types.NewErrBadRequest("invalid VMCP instance configuration: %v", err)
 	}
+
 	if err := req.GatewayClient.UpsertCredential(req.Context(), gatewaytypes.Credential{
 		Context: vmcpconfig.InstanceConfigurationCredentialContext(instance.Name),
 		Name:    vmcpconfig.ConfigurationCredentialName(),
@@ -187,14 +190,69 @@ func (*VMCPInstanceHandler) Configure(req api.Context) error {
 	}); err != nil {
 		return fmt.Errorf("failed to store VMCP instance configuration: %w", err)
 	}
-	if instance.Annotations == nil {
-		instance.Annotations = make(map[string]string, 1)
-	}
-	instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation] = utils.Digest(secrets)
-	if err := req.Update(&instance); err != nil {
-		return fmt.Errorf("failed to trigger VMCP instance configuration reconciliation: %w", err)
+
+	if err := syncInstanceConfigurationHash(req, &instance, secrets); err != nil {
+		return err
 	}
 	return req.Write(convertVMCPInstance(instance))
+}
+
+// syncInstanceConfigurationHash annotates the instance with the digest of written,
+// the configuration credential this request left behind (empty after Deconfigure
+// deleted it), so controllers reconcile and the OAuth consent flow can wait for the
+// resulting status.
+func syncInstanceConfigurationHash(req api.Context, instance *v1.VMCPInstance, written map[string]string) error {
+	existingAnnotationHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]
+	toWriteHash := utils.Digest(written)
+
+	if err := retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		if err := req.Get(instance, instance.Name); err != nil {
+			return err
+		}
+
+		currentAnnotationHash := instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation]
+		if existingAnnotationHash != currentAnnotationHash {
+			// If the currentHash is the same as what we want to write, then we're done.
+			if currentAnnotationHash == toWriteHash {
+				return nil
+			}
+
+			// Another request stored a different credential in the meantime.
+			// Record what it stored rather than what this request wrote.
+			credential, err := req.GatewayClient.RevealCredential(req.Context(),
+				[]string{vmcpconfig.InstanceConfigurationCredentialContext(instance.Name)},
+				vmcpconfig.ConfigurationCredentialName(),
+			)
+			if err != nil {
+				if _, ok := errors.AsType[gateway.CredentialNotFoundError](err); !ok {
+					return fmt.Errorf("failed to reveal VMCP instance configuration: %w", err)
+				}
+				// A concurrent deconfigure removed the credential.
+				credential.Secrets = map[string]string{}
+			}
+			if credential.Secrets == nil {
+				credential.Secrets = map[string]string{}
+			}
+
+			toWriteHash = utils.Digest(credential.Secrets)
+			if currentAnnotationHash == toWriteHash {
+				// The annotation already describes the stored credential.
+				return nil
+			}
+
+			existingAnnotationHash = currentAnnotationHash
+		}
+
+		if instance.Annotations == nil {
+			instance.Annotations = make(map[string]string, 1)
+		}
+		instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation] = toWriteHash
+
+		return req.Update(instance)
+	}); err != nil {
+		return fmt.Errorf("failed to trigger VMCP instance configuration reconciliation: %w", err)
+	}
+	return nil
 }
 
 func (*VMCPInstanceHandler) Reveal(req api.Context) error {
@@ -233,12 +291,8 @@ func (*VMCPInstanceHandler) Deconfigure(req api.Context) error {
 	); err != nil {
 		return fmt.Errorf("failed to delete VMCP instance configuration: %w", err)
 	}
-	if instance.Annotations == nil {
-		instance.Annotations = map[string]string{}
-	}
-	instance.Annotations[v1.VMCPInstanceConfigurationSyncAnnotation] = utils.Digest(map[string]string{})
-	if err := req.Update(&instance); err != nil {
-		return fmt.Errorf("failed to trigger VMCP instance configuration reconciliation: %w", err)
+	if err := syncInstanceConfigurationHash(req, &instance, map[string]string{}); err != nil {
+		return err
 	}
 	return req.Write(convertVMCPInstance(instance))
 }
