@@ -681,22 +681,7 @@
 	bootstrap={isBootstrapUser}
 	onClose={handleLocalAuthClose}
 	switching={atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL}
->
-	{#snippet additionalActions()}
-		{#if showInitialAuthProvider}
-			<button
-				type="button"
-				class="btn btn-secondary text-xs"
-				onclick={async () => {
-					localAuthConfigure?.close();
-					await handleLocalAuthClose(0);
-				}}
-			>
-				Choose different provider
-			</button>
-		{/if}
-	{/snippet}
-</LocalAuthConfigure>
+/>
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
