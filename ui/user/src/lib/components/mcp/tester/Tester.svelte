@@ -12,12 +12,13 @@
 	import {
 		MCPTesterSession,
 		normalizeTesterSection,
+		testerConnectionKey,
 		type TesterSection
 	} from '$lib/services/mcp/tester.svelte';
 	import { version } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { KeyRound, MessageSquarePlus, RotateCw, TriangleAlert } from '@lucide/svelte';
-	import type { Snippet } from 'svelte';
+	import { onDestroy, untrack, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -94,9 +95,28 @@
 		void session?.initialize(true);
 	}
 
+	let mountedConnectionKey: string | undefined;
+
 	$effect(() => {
-		const target = server;
-		if (!active || loading || !target) {
+		const nextKey = active && !loading ? testerConnectionKey(server) : undefined;
+		if (nextKey === mountedConnectionKey) {
+			return;
+		}
+
+		const previousChat = untrack(() => chat);
+		const previousSession = untrack(() => session);
+		previousChat?.close();
+		previousSession?.close();
+		mountedConnectionKey = nextKey;
+
+		if (!nextKey) {
+			session = undefined;
+			chat = undefined;
+			return;
+		}
+
+		const target = untrack(() => server);
+		if (!target) {
 			session = undefined;
 			chat = undefined;
 			return;
@@ -106,17 +126,18 @@
 			target,
 			{
 				name: 'obot-mcp-tester',
-				version: version.current.obot || 'unknown'
+				version: untrack(() => version.current.obot || 'unknown')
 			},
 			fetch
 		);
 		session = mountedSession;
 		chat = new MCPTesterChat(mountedSession, target.id, fetch);
 		void mountedSession.initialize();
-		return () => {
-			chat?.close();
-			mountedSession.close();
-		};
+	});
+
+	onDestroy(() => {
+		chat?.close();
+		session?.close();
 	});
 </script>
 

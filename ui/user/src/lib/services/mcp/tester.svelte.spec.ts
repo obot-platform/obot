@@ -1,5 +1,5 @@
 import type { MCPCatalogServer } from '$lib/services';
-import { MCPTesterSession, normalizeTesterSection } from './tester.svelte';
+import { MCPTesterSession, normalizeTesterSection, testerConnectionKey } from './tester.svelte';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { GetPromptResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -53,6 +53,35 @@ function readyFetch(
 		return new Response('unexpected MCP request', { status: 500 });
 	});
 }
+
+describe('testerConnectionKey', () => {
+	it('keeps the same connection key when only unrelated server fields change', () => {
+		expect(testerConnectionKey(undefined)).toBeUndefined();
+		expect(
+			testerConnectionKey({
+				...server,
+				created: '2026-09-14T00:00:00Z',
+				updated: '2026-09-14T00:00:00Z',
+				manifest: { ...server.manifest, name: 'Renamed Tester Server' }
+			} as MCPCatalogServer)
+		).toBe(testerConnectionKey(server));
+	});
+
+	it('changes the connection key when session identity fields change', () => {
+		expect(testerConnectionKey({ ...server, id: 'ms2tester' } as MCPCatalogServer)).not.toBe(
+			testerConnectionKey(server)
+		);
+		expect(testerConnectionKey({ ...server, configured: false } as MCPCatalogServer)).not.toBe(
+			testerConnectionKey(server)
+		);
+		expect(
+			testerConnectionKey({ ...server, missingOAuthCredentials: true } as MCPCatalogServer)
+		).not.toBe(testerConnectionKey(server));
+		expect(
+			testerConnectionKey({ ...server, deploymentStatus: 'Unavailable' } as MCPCatalogServer)
+		).not.toBe(testerConnectionKey(server));
+	});
+});
 
 describe('MCPTesterSession', () => {
 	it('defaults missing and invalid tab values to chat', () => {

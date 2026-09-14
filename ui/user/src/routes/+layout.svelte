@@ -122,9 +122,10 @@
 			pathname.startsWith('/mcp-servers/c/') || pathname.startsWith('/mcp-servers/s/');
 		const isValidMcpServersView =
 			pathname === '/mcp-servers' &&
-			(!view || ['servers', 'entries', 'deployments', 'tunnels'].includes(view));
-		const usesMcpTunnelStatus =
-			isSingleMcpServerView || isValidMcpServersView || pathname.startsWith('/vmcps');
+			(!view || ['servers', 'deployments', 'tunnels'].includes(view));
+		const isValidVmcpsView =
+			pathname === '/vmcps' && (!view || ['deployments', 'vmcps'].includes(view));
+		const usesMcpTunnelStatus = isSingleMcpServerView || isValidMcpServersView || isValidVmcpsView;
 
 		if (profile.current.loaded && usesMcpTunnelStatus) {
 			return mcpTunnelConnections.startPolling();
@@ -132,8 +133,10 @@
 	});
 
 	$effect(() => {
+		const view = page.url.searchParams.get('view');
 		const onVmcps = page.url.pathname === '/vmcps' || page.url.pathname.startsWith('/vmcps/');
-		if (profile.current.loaded && onVmcps) {
+		const isValidVmcpsView = !view || ['deployments', 'vmcps', 'graph'].includes(view);
+		if (profile.current.loaded && onVmcps && isValidVmcpsView) {
 			return vmcpInstances.startWatching();
 		}
 	});

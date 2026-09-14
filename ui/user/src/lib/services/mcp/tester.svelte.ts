@@ -83,6 +83,19 @@ export function normalizeTesterSection(value: string | null | undefined): Tester
 	}
 }
 
+export function testerConnectionKey(server?: MCPCatalogServer): string | undefined {
+	if (!server) {
+		return undefined;
+	}
+
+	return JSON.stringify([
+		server.id,
+		Boolean(server.configured),
+		Boolean(server.missingOAuthCredentials),
+		server.deploymentStatus ?? ''
+	]);
+}
+
 export interface TesterWorkflow {
 	id: symbol;
 	kind: TesterWorkflowKind;
