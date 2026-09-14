@@ -17,6 +17,7 @@
 </script>
 
 <script lang="ts">
+	import { resolveSubjects } from '$lib/components/admin/subjectResolver';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
@@ -39,6 +40,7 @@
 		UsersRound,
 		X
 	} from '@lucide/svelte';
+	import { untrack } from 'svelte';
 	import { fly, slide } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -57,6 +59,7 @@
 	let error = $state('');
 	let directoryUsers = $state<OrgUser[]>([]);
 	let directoryGroups = $state<OrgGroup[]>([]);
+	let resolvedGroups = $state<OrgGroup[]>([]);
 	let subjectQuery = $state('');
 	let subjectSelection = $state<string | number>();
 	let expanded = $state<Record<string, boolean>>({});
@@ -72,6 +75,9 @@
 	const subjectsError = $derived(error === 'Assign at least one person or group.');
 	const componentServers = $derived(vmcp?.components ?? []);
 	const assignedSubjectIds = $derived(new Set(draft?.users.map((subject) => subject.id) ?? []));
+	const groupsById = $derived(
+		new Map([...resolvedGroups, ...directoryGroups].map((group) => [group.id, group]))
+	);
 	const subjectOptions = $derived.by(() => {
 		const query = subjectQuery.trim().toLowerCase();
 		const everyoneMatches = !query || EVERYONE_GROUP.name.toLowerCase().includes(query);
@@ -120,13 +126,33 @@
 		editingId = undefined;
 		error = '';
 		expanded = {};
+		resolvedGroups = [];
 	});
 
 	$effect(() => {
-		if (!profiles.some((profile) => profile.users.some((subject) => subject.type !== 'selector')))
-			return;
-		void loadUsers();
-		void loadGroups('');
+		const subjects = [...profiles.flatMap((profile) => profile.users), ...(draft?.users ?? [])];
+		if (!subjects.some((subject) => subject.type !== 'selector')) return;
+
+		const controller = new AbortController();
+		resolveSubjects(
+			subjects,
+			untrack(() => ({
+				users: directoryUsers.length > 0 ? directoryUsers : undefined,
+				groups: resolvedGroups
+			})),
+			{ signal: controller.signal }
+		)
+			.then((resolved) => {
+				if (controller.signal.aborted) return;
+				directoryUsers = resolved.users;
+				rememberResolvedGroups(resolved.groups);
+			})
+			.catch((err) => {
+				if (controller.signal.aborted) return;
+				console.error('Failed to resolve identities:', err);
+			});
+
+		return () => controller.abort();
 	});
 
 	function componentId(component: VMCPComponent) {
@@ -376,14 +402,26 @@
 		return { type: entry.id === EVERYONE_GROUP.id ? 'selector' : 'group', id: entry.id };
 	}
 
+	function rememberResolvedGroups(groups: OrgGroup[]) {
+		if (groups.length === 0) return;
+		const next = new Map(resolvedGroups.map((group) => [group.id, group]));
+		let changed = false;
+		for (const group of groups) {
+			if (next.get(group.id)?.name === group.name) continue;
+			next.set(group.id, group);
+			changed = true;
+		}
+		if (changed) resolvedGroups = [...next.values()];
+	}
+
 	function subjectDisplay(subject: AccessControlRuleSubject) {
 		if (subject.type === 'selector') {
 			const name = subject.id === EVERYONE_GROUP.id ? EVERYONE_GROUP.name : subject.id;
 			return { name, group: true, iconURL: undefined, role: undefined };
 		}
 		if (subject.type === 'group') {
-			const group = directoryGroups.find((candidate) => candidate.id === subject.id);
-			return { name: group?.name ?? subject.id, group: true, iconURL: undefined, role: undefined };
+			const group = groupsById.get(subject.id);
+			return { name: group?.name || subject.id, group: true, iconURL: undefined, role: undefined };
 		}
 		const user = directoryUsers.find((candidate) => candidate.id === subject.id);
 		return {
@@ -441,6 +479,7 @@
 			});
 			if (controller.signal.aborted) return;
 			directoryGroups = [...page.items].sort((a, b) => a.name.localeCompare(b.name));
+			rememberResolvedGroups(directoryGroups);
 		} catch (err) {
 			if (controller.signal.aborted) return;
 			console.error('Failed to load groups:', err);

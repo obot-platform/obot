@@ -131,6 +131,10 @@ export async function deleteVMCP(id: string, opts?: { fetch?: Fetcher }): Promis
 	await doDelete(`/vmcps/${id}`, opts);
 }
 
+export async function triggerVMCPUpdate(id: string, opts?: { fetch?: Fetcher }): Promise<VMCP> {
+	return (await doPost(`/vmcps/${id}/trigger-update`, {}, opts)) as VMCP;
+}
+
 export async function generateVMCPComponentToolPreviews(
 	vmcpID: string,
 	componentID: string,

@@ -2,10 +2,10 @@ import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
 import type {
 	MCPCatalogEntry,
 	MCPCatalogServer,
+	VMCPComponent,
 	MCPConfig,
 	OrgUser,
 	VMCP,
-	VMCPComponent,
 	VMCPManifest,
 	VMCPProfile
 } from '$lib/services';
@@ -66,6 +66,37 @@ export const initVMcp = (): VMcpFormData => ({
 	displayName: '',
 	description: ''
 });
+
+export function vmcpNeedsUpdate(vmcp: VMCP) {
+	return vmcp.status?.components?.some((component) => component.needsUpdate) ?? false;
+}
+
+export function vmcpOutdatedComponents(vmcp: VMCP): VMCPComponent[] {
+	const statuses = vmcp.status?.components ?? [];
+	return (vmcp.components ?? []).filter((component) =>
+		statuses.some((status) => status.name === component.name && status.needsUpdate)
+	);
+}
+
+export function vmcpComponentDiffServers(
+	component: VMCPComponent,
+	updatedEntry?: MCPCatalogEntry
+): {
+	fromServer?: MCPCatalogServer;
+	toServer?: MCPCatalogEntry;
+} {
+	if (!updatedEntry) {
+		return {};
+	}
+
+	return {
+		fromServer: {
+			id: component.mcpServerCatalogEntryID,
+			manifest: component.catalogEntry.manifest
+		} as MCPCatalogServer,
+		toServer: updatedEntry
+	};
+}
 
 export function vmcpConnectURL(vmcp: VMCP) {
 	const link = vmcp.links?.connectURL || vmcp.links?.['mcp-connect'];

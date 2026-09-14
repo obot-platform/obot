@@ -453,6 +453,9 @@
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
+						onUpdate={(updated) => {
+							selectedVMcp = updated;
+						}}
 						onModifyComponent={canEdit
 							? (component) => toolFlow.openComponent(component, item)
 							: undefined}

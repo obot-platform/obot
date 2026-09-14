@@ -3,7 +3,7 @@
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
 	import { profile, vmcpInstances } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import { VMCPInstance } from '../../services';
@@ -21,11 +21,12 @@
 		onSelect?: (vmcp: VMCP) => void;
 		onConnect?: (vmcp: VMCP, options?: VMcpConnectOptions) => void;
 		onDelete?: (vmcp: VMCP) => void;
+		onUpdate?: (vmcp: VMCP) => void;
 		noDataContent?: Snippet;
 		usersMap: Map<string, OrgUser>;
 	}
 
-	let { items, components, onSelect, onConnect, onDelete, noDataContent, usersMap }: Props =
+	let { items, components, onSelect, onConnect, onDelete, onUpdate, noDataContent, usersMap }: Props =
 		$props();
 
 	let cards = $derived(items.map(toCard));
@@ -188,6 +189,9 @@
 		onSelect={() => onSelect?.(card.data)}
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
+		onUpdate={onUpdate}
+		vmcp={card.data}
+		needsUpdate={vmcpNeedsUpdate(card.data)}
 		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
 		userID={card.data.userID}
 		note={getNote(card.data)}

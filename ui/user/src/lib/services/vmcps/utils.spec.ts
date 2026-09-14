@@ -15,7 +15,10 @@ import {
 	joinComponentLabels,
 	matchesQuery,
 	sortMcpServers,
-	sortVMcps
+	sortVMcps,
+	vmcpComponentDiffServers,
+	vmcpNeedsUpdate,
+	vmcpOutdatedComponents
 } from './utils';
 import { describe, expect, it } from 'vitest';
 
@@ -331,6 +334,41 @@ describe('appendComponentLabel', () => {
 
 	it('leaves a custom title unchanged', () => {
 		expect(appendComponentLabel('Ops Gateway', ['Slack'], 'GitHub')).toBe('Ops Gateway');
+	});
+
+	it('detects when any vMCP component needs an update', () => {
+		const vmcp = createVMCP('vmcp-1');
+		expect(vmcpNeedsUpdate(vmcp)).toBe(false);
+		vmcp.status = {
+			components: [{ name: 'slack', needsUpdate: false }, { name: 'github', needsUpdate: true }]
+		};
+		expect(vmcpNeedsUpdate(vmcp)).toBe(true);
+	});
+
+	it('returns outdated components and diff targets from catalog entries', () => {
+		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+		const vmcp = createVMCP(
+			{
+				status: {
+					components: [{ name: 'GitHub', needsUpdate: true }]
+				}
+			},
+			[entry]
+		);
+		const updatedEntry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			shortDescription: 'Updated description'
+		});
+
+		expect(vmcpOutdatedComponents(vmcp)).toHaveLength(1);
+		expect(vmcpComponentDiffServers(vmcp.components![0], updatedEntry)).toMatchObject({
+			fromServer: {
+				id: 'entry-1',
+				manifest: vmcp.components![0].catalogEntry.manifest
+			},
+			toServer: updatedEntry
+		});
 	});
 
 	it('truncates descriptions at 160 characters', () => {

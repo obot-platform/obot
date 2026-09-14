@@ -454,4 +454,57 @@ describe('VMcpProfiles.svelte', () => {
 		await page.getByRole('button', { name: 'Remove All Obot Users' }).click();
 		await expect.element(page.getByText('No people or groups assigned.')).toBeVisible();
 	});
+
+	it('shows a group name on the profile card instead of its directory id', async () => {
+		const group = { id: 'entra/engineering-oid', name: 'Platform Engineering' };
+		worker.use(
+			http.get('/api/groups', ({ request }) => {
+				const ids = new URL(request.url).searchParams.get('ids') ?? '';
+				return HttpResponse.json({
+					items: ids.split(',').includes(group.id) ? [group] : []
+				});
+			})
+		);
+		const vmcp = createVMcp('vmcp-group-card-name');
+		vmcp.profiles = [
+			{
+				name: 'Limited tools',
+				subjects: [{ type: 'group', id: group.id }],
+				allowAllTools: true
+			}
+		];
+		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+
+		await expect.element(page.getByText('Platform Engineering')).toBeVisible();
+		await expect.element(page.getByText(group.id)).not.toBeInTheDocument();
+	});
+
+	it('keeps a selected group name after the search listing no longer includes it', async () => {
+		const group = { id: 'entra/engineering-oid', name: 'Platform Engineering' };
+		worker.use(
+			http.get('/api/groups', ({ request }) => {
+				const url = new URL(request.url);
+				if (url.searchParams.get('ids')) {
+					return HttpResponse.json({ items: [group] });
+				}
+				if (url.searchParams.get('name')) {
+					return HttpResponse.json({ items: [group] });
+				}
+				return HttpResponse.json({ items: [{ id: 'entra/other', name: 'Other Team' }] });
+			})
+		);
+		render(VMcpProfiles, {
+			vmcp: createVMcp('vmcp-group-picker-name'),
+			toolFlow: toolFlowStub()
+		});
+
+		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
+		await page.getByRole('combobox', { name: 'Add identities...' }).click();
+		await page.getByPlaceholder('Search users or groups...').fill('Platform');
+		await expect.element(page.getByRole('button', { name: 'Platform Engineering' })).toBeVisible();
+		await page.getByRole('button', { name: 'Platform Engineering' }).click();
+
+		await expect.element(page.getByText('Platform Engineering', { exact: true })).toBeVisible();
+		await expect.element(page.getByText(group.id)).not.toBeInTheDocument();
+	});
 });

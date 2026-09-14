@@ -179,6 +179,9 @@
 			onSelect={openVMcp}
 			onConnect={handleConnectVMcp}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
+			onUpdate={(updated) => {
+				listedVMcps = listedVMcps.map((vmcp) => (vmcp.id === updated.id ? updated : vmcp));
+			}}
 			{usersMap}
 		>
 			{#snippet noDataContent()}

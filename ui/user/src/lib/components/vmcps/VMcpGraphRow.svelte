@@ -12,7 +12,7 @@
 		VMcpComponentView,
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
-	import { getToolCounts, vmcpConnectURL } from '$lib/services/vmcps/utils';
+	import { getToolCounts, vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import InfoTooltip from '../InfoTooltip.svelte';
@@ -37,6 +37,7 @@
 		onEdit?: () => void;
 		onConnect: (options?: VMcpConnectOptions) => void;
 		onDelete?: () => void;
+		onUpdate?: (vmcp: VMCP) => void;
 		onModifyComponent?: (component: VMcpComponentView) => void;
 		usersMap: Map<string, OrgUser>;
 	}
@@ -50,6 +51,7 @@
 		onEdit,
 		onConnect,
 		onDelete,
+		onUpdate,
 		onModifyComponent,
 		usersMap
 	}: Props = $props();
@@ -206,6 +208,9 @@
 				{onConnect}
 				hideTest
 				{onDelete}
+				onUpdate={onUpdate}
+				{vmcp}
+				needsUpdate={vmcpNeedsUpdate(vmcp)}
 				userID={vmcp.userID}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',

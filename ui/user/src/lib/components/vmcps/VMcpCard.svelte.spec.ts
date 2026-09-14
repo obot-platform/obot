@@ -1,6 +1,7 @@
 import { Group, type VMCPInstance } from '$lib/services';
-import { vmcpInstances } from '$lib/stores';
+import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
+import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpCard from './VMcpCard.svelte';
@@ -26,6 +27,9 @@ async function renderCard(options: {
 	userID?: string;
 	connected?: boolean;
 	instances?: VMCPInstance[];
+	needsUpdate?: boolean;
+	vmcp?: ReturnType<typeof createVMCP>;
+	onUpdate?: (vmcp: unknown) => void;
 }) {
 	await preparePageData({
 		profile: createMockProfile(options.groups)
@@ -42,8 +46,25 @@ async function renderCard(options: {
 		connected: options.connected,
 		onDelete: () => {},
 		onConnect: () => {},
+		needsUpdate: options.needsUpdate,
+		vmcp: options.vmcp,
+		onUpdate: options.onUpdate,
 		icon
 	});
+}
+
+function createNeedsUpdateVmcp() {
+	const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+	return createVMCP(
+		{
+			id: 'vmcp-1',
+			displayName: 'Issue Tracker vMCP',
+			status: {
+				components: [{ name: 'GitHub', needsUpdate: true }]
+			}
+		},
+		[entry]
+	);
 }
 
 async function expectDeleteVisible(visible: boolean) {
@@ -150,6 +171,68 @@ describe('VMcpCard.svelte', () => {
 		await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
 		await vi.waitFor(() => expect(deleted).toHaveBeenCalledOnce());
 		expect(vmcpInstances.current.items).toEqual([]);
+	});
+
+	it('shows update action for owners when an update is available', async () => {
+		const updated = vi.fn();
+		const vmcp = createNeedsUpdateVmcp();
+		worker.use(
+			http.post('/api/vmcps/vmcp-1/trigger-update', () => {
+				updated();
+				return HttpResponse.json({ id: 'vmcp-1' });
+			})
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			needsUpdate: true,
+			vmcp,
+			onUpdate: updated
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Update VMCP', exact: true }).click();
+		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
+		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
+	});
+
+	it('shows view diff when an update is available', async () => {
+		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+		const vmcp = createNeedsUpdateVmcp();
+		mcpServersAndEntries.current = {
+			entries: [entry],
+			servers: [],
+			userConfiguredServers: [],
+			userInstances: [],
+			loading: false,
+			isInitialized: true
+		};
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: 'someone-else',
+			needsUpdate: true,
+			vmcp
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'View Diff', exact: true }).click();
+		await expect.element(page.getByText('Issue Tracker vMCP | vmcp-1')).toBeVisible();
+	});
+
+	it('hides update action for non-owners without admin access', async () => {
+		await renderCard({
+			groups: [Group.USER],
+			userID: 'someone-else',
+			needsUpdate: true,
+			vmcp: createNeedsUpdateVmcp()
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Update VMCP', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('opens instance selection when disconnecting with multiple connections', async () => {
