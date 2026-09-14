@@ -4,7 +4,7 @@
 	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import { vmcpConnectURL } from '$lib/services/vmcps/utils';
-	import { profile } from '$lib/stores';
+	import { profile, vmcpInstances } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import { VMCPInstance } from '../../services';
 	import McpServerIcon from './McpServerIcon.svelte';

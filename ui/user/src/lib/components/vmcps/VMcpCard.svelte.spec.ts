@@ -1,23 +1,45 @@
-import { Group } from '$lib/services';
+import { Group, type VMCPInstance } from '$lib/services';
+import { vmcpInstances } from '$lib/stores';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
+import { worker } from '../../../tests/mocks/worker';
 import VMcpCard from './VMcpCard.svelte';
+import { http, HttpResponse } from 'msw';
 import { createRawSnippet } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 const icon = createRawSnippet(() => ({ render: () => '<span>icon</span>' }));
 
-async function renderCard(options: { groups: string[]; userID?: string }) {
+function createInstance(id: string): VMCPInstance {
+	return {
+		id,
+		vmcpID: 'vmcp-1',
+		userID: getProfileResponse.id,
+		created: '2026-01-01T00:00:00Z'
+	};
+}
+
+async function renderCard(options: {
+	groups: string[];
+	userID?: string;
+	connected?: boolean;
+	instances?: VMCPInstance[];
+}) {
 	await preparePageData({
 		profile: createMockProfile(options.groups)
 	});
+	vmcpInstances.current = {
+		items: options.instances ?? [],
+		loading: false
+	};
 	return render(VMcpCard, {
 		id: 'vmcp-1',
 		name: 'Issue Tracker vMCP',
 		selectAriaLabel: 'Open Issue Tracker vMCP',
 		userID: options.userID,
+		connected: options.connected,
 		onDelete: () => {},
 		onConnect: () => {},
 		icon
@@ -106,5 +128,44 @@ describe('VMcpCard.svelte', () => {
 		await renderCard({ groups: [...groups], userID });
 		await expectConnectEnabled(connectEnabled);
 		await expectDeleteVisible(deleteVisible);
+	});
+
+	it('shows disconnect when connected and deletes a single instance', async () => {
+		const instance = createInstance('vmcpi-1');
+		const deleted = vi.fn();
+		worker.use(
+			http.delete('/api/vmcp-instances/vmcpi-1', () => {
+				deleted();
+				return HttpResponse.json({});
+			})
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			connected: true,
+			instances: [instance]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+		await vi.waitFor(() => expect(deleted).toHaveBeenCalledOnce());
+		expect(vmcpInstances.current.items).toEqual([]);
+	});
+
+	it('opens instance selection when disconnecting with multiple connections', async () => {
+		const instances = [createInstance('vmcpi-1'), createInstance('vmcpi-2')];
+		await renderCard({
+			groups: [Group.USER],
+			connected: true,
+			instances
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+		await expect
+			.element(page.getByRole('heading', { name: 'Select Connection to Disconnect' }))
+			.toBeVisible();
+		await expect.element(page.getByText('vmcpi-1')).toBeVisible();
+		await expect.element(page.getByText('vmcpi-2')).toBeVisible();
 	});
 });

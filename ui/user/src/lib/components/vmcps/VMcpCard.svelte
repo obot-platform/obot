@@ -1,10 +1,14 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import Loading from '$lib/icons/Loading.svelte';
+	import { UserService } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { profile } from '$lib/stores';
+	import { errors, profile, vmcpInstances } from '$lib/stores';
+	import { success } from '$lib/stores/success';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
-	import { ExternalLink, Trash2 } from '@lucide/svelte';
+	import VMcpSelectInstance from './VMcpSelectInstance.svelte';
+	import { ExternalLink, Trash2, Unplug } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -52,6 +56,39 @@
 	let isCreator = $derived(Boolean(userID && profile.current.id === userID));
 	let canDelete = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
 	let canConnect = $derived(!userID || isCreator);
+	let myInstances = $derived(
+		vmcpInstances.current.items.filter(
+			(instance) =>
+				instance.vmcpID === id &&
+				instance.userID === profile.current.id &&
+				!instance.deleted
+		)
+	);
+	let disconnecting = $state(false);
+	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
+
+	async function disconnectInstance(instanceID: string) {
+		disconnecting = true;
+		try {
+			await UserService.deleteVMCPInstance(instanceID);
+			vmcpInstances.remove(instanceID);
+			success.add(`Disconnected from ${name}.`);
+		} catch {
+			errors.append('Failed to disconnect from vMCP.');
+		} finally {
+			disconnecting = false;
+		}
+	}
+
+	async function handleDisconnect(toggle: (open?: boolean) => void) {
+		if (myInstances.length === 1) {
+			await disconnectInstance(myInstances[0].id);
+			toggle(false);
+			return;
+		}
+		selectInstanceDialog?.open(myInstances);
+		toggle(false);
+	}
 </script>
 
 <div
@@ -114,6 +151,23 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
+				{#if connected && myInstances.length > 0}
+					<button
+						class="menu-button"
+						disabled={disconnecting}
+						onclick={async (e) => {
+							e.stopPropagation();
+							await handleDisconnect(toggle);
+						}}
+					>
+						{#if disconnecting}
+							<Loading class="size-4" />
+						{:else}
+							<Unplug class="size-4" />
+						{/if}
+						Disconnect
+					</button>
+				{/if}
 				{#if canDelete}
 					<button
 						class="menu-button-destructive"
@@ -154,3 +208,9 @@
 		</div>
 	{/if}
 </div>
+
+<VMcpSelectInstance
+	bind:this={selectInstanceDialog}
+	title="Select Connection to Disconnect"
+	onSelectInstance={(instance) => disconnectInstance(instance.id)}
+/>
