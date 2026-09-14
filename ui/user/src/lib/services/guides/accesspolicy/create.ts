@@ -1,10 +1,6 @@
 import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
-import { getExpandAdvancedPaneAction } from '../actions';
-import {
-	highlightMcpAccessPoliciesLink,
-	listenMcpAccessPoliciesLink,
-	SIDEBAR_MCP_ACCESS_POLICIES_LINK
-} from '../mcp/constants';
+import { MCP_SERVERS_TAB_ACCESS_POLICIES } from '../mcp/constants';
+import { getNavigateToMcpServersTabStep } from '../mcp/steps';
 import type { GuideStep } from '../types';
 
 export const steps: GuideStep[] = [
@@ -12,27 +8,20 @@ export const steps: GuideStep[] = [
 		content: [
 			'**What is an MCP access policy?**',
 			'An MCP access policy allows you to grant one or more users or user groups access to one or more MCP servers.'
-		],
-		action: [
-			{
-				elementExists: SIDEBAR_MCP_ACCESS_POLICIES_LINK,
-				highlight: highlightMcpAccessPoliciesLink,
-				listener: listenMcpAccessPoliciesLink
-			},
-			getExpandAdvancedPaneAction({
-				elementMissing: SIDEBAR_MCP_ACCESS_POLICIES_LINK,
-				highlight: highlightMcpAccessPoliciesLink,
-				listener: listenMcpAccessPoliciesLink,
-				parentID: 'sidebar-collapse-mcp-server-management'
-			})
 		]
 	},
+	getNavigateToMcpServersTabStep(
+		MCP_SERVERS_TAB_ACCESS_POLICIES,
+		'Access Policies',
+		'Click here to manage MCP access policies.',
+		"Let's head to the Access Policies tab on the MCP Servers page."
+	),
 	{
 		content: [
 			"Create and manage your MCP access policies here. We'll take you through creating a new MCP access policy."
 		],
 		action: {
-			routeContains: 'mcp-access-policies',
+			routeContains: '/mcp-servers',
 			highlight: {
 				selector: { id: MCP_ACCESS_POLICY_FIELD_IDS.addPolicyBtn },
 				side: 'left',

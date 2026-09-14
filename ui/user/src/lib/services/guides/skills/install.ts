@@ -1,6 +1,6 @@
+import { getExpandAdvancedPaneAction } from '../actions';
+import { SIDEBAR_AI_RESOURCES_COLLAPSE, SIDEBAR_SKILLS_LINK } from '../mcp/constants';
 import type { GuideHighlight, GuideListener, GuideStep } from '../types';
-
-const SIDEBAR_SKILLS_LINK = 'sidebar-link-mcp-skills';
 
 const highlightSkillsLink: GuideHighlight = {
 	selector: {
@@ -20,30 +20,22 @@ const listenSkillsLink: GuideListener = {
 export const steps: GuideStep[] = [
 	{
 		content: [
-			'To get started, view the skills you have access to. Go to the Skills page located in the left sidebar.'
+			'To get started, view the skills you have access to. Go to the Skills page under AI Resources in the left sidebar.'
 		],
 		action: [
 			{
-				elementExists: 'back-to-app-btn',
-				highlight: {
-					selector: {
-						id: 'back-to-app-btn'
-					},
-					title: 'Return to User Consumption View',
-					description: 'Click here to return to the user consumption view.'
-				},
-				listener: {
-					id: 'back-to-app-btn',
-					action: {
-						highlight: highlightSkillsLink,
-						listener: listenSkillsLink
-					}
-				}
-			},
-			{
+				elementExists: SIDEBAR_SKILLS_LINK,
 				highlight: highlightSkillsLink,
 				listener: listenSkillsLink
-			}
+			},
+			getExpandAdvancedPaneAction({
+				elementMissing: SIDEBAR_SKILLS_LINK,
+				highlight: highlightSkillsLink,
+				listener: listenSkillsLink,
+				parentID: SIDEBAR_AI_RESOURCES_COLLAPSE,
+				title: 'Expand AI Resources',
+				description: 'Expand AI Resources to access Skills.'
+			})
 		]
 	},
 	{

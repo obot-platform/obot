@@ -1,23 +1,7 @@
 import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
-import { getExpandAdvancedPaneAction } from '../actions';
+import { MCP_SERVERS_TAB_FILTERS } from './constants';
+import { getNavigateToMcpServersTabStep } from './steps';
 import type { GuideStep } from '../types';
-import { SIDEBAR_MCP_FILTERS_LINK } from './constants';
-
-const highlightMcpFiltersLink = {
-	selector: {
-		id: SIDEBAR_MCP_FILTERS_LINK
-	},
-	side: 'right' as const,
-	title: 'MCP Filters',
-	description: 'Click here to view MCP filters.'
-};
-
-const listenMcpFiltersLink = {
-	id: SIDEBAR_MCP_FILTERS_LINK,
-	action: {
-		success: true
-	}
-};
 
 export const steps: GuideStep[] = [
 	{
@@ -26,22 +10,12 @@ export const steps: GuideStep[] = [
 			'An MCP filter is a way to add additional security policies to your MCP. They can be used for inspecting and controlling tool calls and their results in the MCP Gateway. They provide administrators with the ability to implement custom validation, logging, security checks, or other business logic by intercepting tool requests and responses before they are processed.'
 		]
 	},
-	{
-		content: ["Let's head to the MCP Filters page."],
-		action: [
-			{
-				elementExists: SIDEBAR_MCP_FILTERS_LINK,
-				highlight: highlightMcpFiltersLink,
-				listener: listenMcpFiltersLink
-			},
-			getExpandAdvancedPaneAction({
-				elementMissing: SIDEBAR_MCP_FILTERS_LINK,
-				highlight: highlightMcpFiltersLink,
-				listener: listenMcpFiltersLink,
-				parentID: 'sidebar-collapse-mcp-server-management'
-			})
-		]
-	},
+	getNavigateToMcpServersTabStep(
+		MCP_SERVERS_TAB_FILTERS,
+		'Filters',
+		'Click here to view MCP filters.',
+		"Let's head to the Filters tab on the MCP Servers page."
+	),
 	{
 		content: [
 			"Create and manage your MCP filters here. We'll take you through creating a new MCP filter."

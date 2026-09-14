@@ -27,7 +27,7 @@ function getCustomConfigurationAction(): GuideAction[] {
 
 	return [
 		{
-			routeContains: 'admin',
+			elementExists: 'tab-sources',
 			highlight: {
 				...configurationHighlight,
 				description:
@@ -48,55 +48,37 @@ function getCustomConfigurationAction(): GuideAction[] {
 
 function getHostedFieldsListener(): GuideListener {
 	return {
-		id: CATALOG_SERVER_FIELD_IDS.tenancy,
+		id: CATALOG_SERVER_FIELD_IDS.runtime,
 		action: {
 			highlight: {
 				selector: {
-					id: CATALOG_SERVER_FIELD_IDS.runtime
+					id: CATALOG_SERVER_FIELD_IDS.runtimeConfiguration
 				},
 				side: 'top',
 				align: 'center',
-				title: 'Runtime',
-				description: 'This is where you choose the runtime configuration for your MCP server.',
+				title: 'Runtime Configuration',
+				description:
+					'Depending on which runtime you choose, you will see the appropriate form for that runtime here to fill out.',
 				noDescendantInteraction: true
 			},
 			listener: {
-				id: CATALOG_SERVER_FIELD_IDS.runtime,
-				action: {
-					highlight: {
-						selector: {
-							id: CATALOG_SERVER_FIELD_IDS.runtimeConfiguration
-						},
-						side: 'top',
-						align: 'center',
-						title: 'Runtime Configuration',
-						description:
-							'Depending on which runtime you choose, you will see the appropriate form for that runtime here to fill out.',
-						noDescendantInteraction: true
-					},
-					listener: {
-						id: CATALOG_SERVER_FIELD_IDS.runtimeConfiguration,
-						action: getCustomConfigurationAction()
-					}
-				}
+				id: CATALOG_SERVER_FIELD_IDS.runtimeConfiguration,
+				action: getCustomConfigurationAction()
 			}
 		}
 	};
 }
 
-function getHostedFieldsActions(admin: boolean): GuideAction {
+function getHostedFieldsAction(): GuideAction {
 	return {
-		...(admin ? { routeContains: 'admin' } : {}),
 		highlight: {
 			selector: {
-				id: CATALOG_SERVER_FIELD_IDS.tenancy
+				id: CATALOG_SERVER_FIELD_IDS.runtime
 			},
 			side: 'top',
 			align: 'center',
-			title: 'Server Tenancy',
-			description: admin
-				? 'This is where you choose the tenancy type for your MCP server. The default is multi-tenant, which allows multiple users to access the same MCP server. If your MCP server is intended for a single user or isolated deployment, select single-tenant instead.'
-				: 'For any catalog entry you create, a user will deploy their own instance of the MCP server.',
+			title: 'Runtime',
+			description: 'This is where you choose the runtime configuration for your MCP server.',
 			noDescendantInteraction: true
 		},
 		listener: getHostedFieldsListener()
@@ -132,7 +114,7 @@ export const steps: GuideStep[] = [
 	getNavigateBasicCatalogEntryFieldsStep(),
 	{
 		content: ["Now let's go over the hosted specific fields."],
-		action: [getHostedFieldsActions(true), getHostedFieldsActions(false)]
+		action: getHostedFieldsAction()
 	},
 	{
 		content: [

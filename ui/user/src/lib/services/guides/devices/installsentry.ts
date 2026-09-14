@@ -1,16 +1,17 @@
 import { MDM_DEVICES_CONFIGURATION_FIELD_IDS } from '$lib/constants';
 import { getExpandAdvancedPaneAction } from '../actions';
+import { SIDEBAR_OPERATIONS_COLLAPSE } from '../mcp/constants';
 import type { GuideStep } from '../types';
 
-const highlightDevicesLink = {
+const highlightInventoryLink = {
 	selector: {
 		id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesLink
 	},
-	title: 'Devices',
+	title: 'Inventory',
 	description: 'This is where you can manage devices and install Obot Sentry.'
 };
 
-const listenDevicesLink = {
+const listenInventoryLink = {
 	id: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesLink,
 	action: {
 		success: true
@@ -22,21 +23,21 @@ export const steps: GuideStep[] = [
 		content: [
 			'In order to discover shadow AI and enforce policies for unmanaged MCP servers, you will need to install Obot Sentry on your devices.',
 			'**What is Obot Sentry?** Obot Sentry is a lightweight program designed to be used by MDMs for device scanning and agent hook configuration. You can learn more about it [here](https://github.com/obot-platform/obot-sentry).',
-			"To get set up, let's head to the Devices page."
+			"To get set up, let's head to the Inventory page under Operations."
 		],
 		action: [
 			{
 				elementExists: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesLink,
-				highlight: highlightDevicesLink,
-				listener: listenDevicesLink
+				highlight: highlightInventoryLink,
+				listener: listenInventoryLink
 			},
 			getExpandAdvancedPaneAction({
 				elementMissing: MDM_DEVICES_CONFIGURATION_FIELD_IDS.devicesLink,
-				highlight: highlightDevicesLink,
-				listener: listenDevicesLink,
-				parentID: 'sidebar-collapse-device-management',
-				title: 'Expand Device Management',
-				description: 'This is the "Device Management" section. Let\'s expand it.'
+				highlight: highlightInventoryLink,
+				listener: listenInventoryLink,
+				parentID: SIDEBAR_OPERATIONS_COLLAPSE,
+				title: 'Expand Operations',
+				description: 'Expand Operations to access Inventory.'
 			})
 		]
 	},

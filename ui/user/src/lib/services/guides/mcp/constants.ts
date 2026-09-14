@@ -1,38 +1,68 @@
 import type { GuideHighlight, GuideListener } from '../types';
 
-export const SIDEBAR_MCP_CATALOG_LINK = 'sidebar-link-mcp-catalog';
-export const SIDEBAR_MCP_ACCESS_POLICIES_LINK = 'sidebar-link-mcp-access-policies';
-export const SIDEBAR_MCP_FILTERS_LINK = 'sidebar-link-filters';
+export const SIDEBAR_AI_RESOURCES_COLLAPSE = 'sidebar-collapse-ai-resources';
+export const SIDEBAR_OPERATIONS_COLLAPSE = 'sidebar-collapse-operations';
 
-export const highlightMcpCatalogLink: GuideHighlight = {
+export const SIDEBAR_MCP_SERVERS_LINK = 'sidebar-link-mcp-servers';
+export const SIDEBAR_SKILLS_LINK = 'sidebar-link-skills';
+export const SIDEBAR_INVENTORY_LINK = 'sidebar-link-inventory';
+
+export const MCP_SERVERS_TAB_ACCESS_POLICIES = 'tab-access-policies';
+export const MCP_SERVERS_TAB_FILTERS = 'tab-filters';
+
+export const highlightMcpServersLink: GuideHighlight = {
 	selector: {
-		id: SIDEBAR_MCP_CATALOG_LINK
+		id: SIDEBAR_MCP_SERVERS_LINK
 	},
-	title: 'MCP Catalog',
-	description: 'This is where you can find MCP servers to use in your workflows.'
+	title: 'MCP Servers',
+	description: 'This is where you can manage MCP servers and catalog entries.'
 };
 
-export const listenMcpCatalogLink: GuideListener = {
-	id: SIDEBAR_MCP_CATALOG_LINK,
+export const listenMcpServersLink: GuideListener = {
+	id: SIDEBAR_MCP_SERVERS_LINK,
 	action: {
 		success: true
 	}
 };
 
-export const highlightMcpAccessPoliciesLink: GuideHighlight = {
-	selector: {
-		id: SIDEBAR_MCP_ACCESS_POLICIES_LINK
-	},
-	title: 'MCP Access Policies',
-	description: 'This is where you can manage MCP access policies.'
-};
+export function getMcpServersTabHighlight(
+	tabId: string,
+	title: string,
+	description: string
+): GuideHighlight {
+	return {
+		selector: { id: tabId },
+		side: 'bottom',
+		title,
+		description
+	};
+}
 
-export const listenMcpAccessPoliciesLink: GuideListener = {
-	id: SIDEBAR_MCP_ACCESS_POLICIES_LINK,
-	action: {
-		success: true
-	}
-};
+export function getMcpServersTabListener(
+	tabId: string,
+	next?: GuideListener['action']
+): GuideListener {
+	return {
+		id: tabId,
+		action: next ?? { success: true }
+	};
+}
+
+export const highlightMcpAccessPoliciesTab = getMcpServersTabHighlight(
+	MCP_SERVERS_TAB_ACCESS_POLICIES,
+	'Access Policies',
+	'Click here to manage MCP access policies.'
+);
+
+export const listenMcpAccessPoliciesTab = getMcpServersTabListener(MCP_SERVERS_TAB_ACCESS_POLICIES);
+
+export const highlightMcpFiltersTab = getMcpServersTabHighlight(
+	MCP_SERVERS_TAB_FILTERS,
+	'Filters',
+	'Click here to view MCP filters.'
+);
+
+export const listenMcpFiltersTab = getMcpServersTabListener(MCP_SERVERS_TAB_FILTERS);
 
 export const addCatalogEntryDescriptions = {
 	hosted:

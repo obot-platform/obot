@@ -420,7 +420,7 @@ export const MCP_ACCESS_POLICY_FIELD_IDS = {
 } as const;
 
 export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
-	devicesLink: 'sidebar-link-devices',
+	devicesLink: 'sidebar-link-inventory',
 	enforcementDecisionsLink: 'sidebar-link-enforcement-decisions',
 	configurationTab: 'devices-tab-configuration',
 	configurationDetails: 'devices-configuration-details',
