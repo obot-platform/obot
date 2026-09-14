@@ -69,7 +69,7 @@ func TestAzureProviderBackend(t *testing.T) {
 			}
 			req := httptest.NewRequest(tt.method, "http://gateway.local", nil)
 			req.SetPathValue("path", tt.path)
-			base, dialect, err := backend.upstreamURL(req, tt.creds)
+			base, dialect, err := backend.upstreamURL(req, tt.creds, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -90,7 +90,7 @@ func TestAzureProviderBackendRejectsUnsupportedPathAsBadRequest(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "http://gateway.local", nil)
 	req.SetPathValue("path", "v1/chat/completions")
 
-	_, _, err := (&azureProviderBackend{}).upstreamURL(req, nil)
+	_, _, err := (&azureProviderBackend{}).upstreamURL(req, nil, nil)
 	var httpErr *types2.ErrHTTP
 	if !errors.As(err, &httpErr) {
 		t.Fatalf("error = %T %v, want *types.ErrHTTP", err, err)

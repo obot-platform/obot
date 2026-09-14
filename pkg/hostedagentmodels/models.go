@@ -219,6 +219,8 @@ func APIsFor(provider, dialect string) []string {
 	switch provider {
 	case system.AnthropicModelProvider:
 		return []string{APIAnthropic}
+	case system.DatabricksModelProvider:
+		return []string{APIOpenAIResponses}
 	case system.OpenAIModelProvider,
 		system.GenericResponsesModelProvider,
 		system.AmazonBedrockModelProvider,
@@ -248,6 +250,8 @@ func ProxyPath(provider string) (string, bool) {
 		return "azure", true
 	case system.AzureEntraModelProvider:
 		return "azure-entra", true
+	case system.DatabricksModelProvider:
+		return "databricks", true
 	default:
 		return "", false
 	}

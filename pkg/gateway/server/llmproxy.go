@@ -81,12 +81,13 @@ type responseModifier struct {
 type preparedLLMProxyRequest struct {
 	body              []byte
 	model             string
+	resolvedModel     *v1.Model
 	tokenUsageTracker *threadSafeTokenUsageTracker
 }
 
 type llmProviderProxyBackend interface {
 	modelProviderName() string
-	upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error)
+	upstreamURL(req *http.Request, credEnv map[string]string, model *v1.Model) (url.URL, llmtypes.Dialect, error)
 	transport(provider v1.ModelProvider, credEnv map[string]string) (http.RoundTripper, error)
 }
 
@@ -975,17 +976,11 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 	}
 	audit.setModel(l.backend.modelProviderName(), "", "")
 
-	u, routeDialect, err := l.backend.upstreamURL(req.Request, credEnv)
-	if err != nil {
-		return err
-	}
-
 	body, err := copyBody(&req.Request.Body)
 	if err != nil {
 		return fmt.Errorf("failed to copy body: %w", err)
 	}
 	audit.setRequestBody(body)
-	audit.setClientSessionID(routeDialect, req.Request.Header, body)
 	audit.setReasoningEffort(l.backend.modelProviderName(), body)
 
 	prepared := &preparedLLMProxyRequest{body: body}
@@ -1000,6 +995,7 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		if model.Spec.Manifest.ModelProvider != modelProvider.Name {
 			return types2.NewErrBadRequest("requested model does not match configured provider %q", targetModel)
 		}
+		prepared.resolvedModel = model
 		prepared.model = model.Spec.Manifest.TargetModel
 		audit.setModel(modelProvider.Name, model.Name, prepared.model)
 
@@ -1029,6 +1025,12 @@ func (l *llmProviderProxy) proxy(req api.Context) (retErr error) {
 		}
 		audit.setRequestBody(prepared.body)
 	}
+
+	u, routeDialect, err := l.backend.upstreamURL(req.Request, credEnv, prepared.resolvedModel)
+	if err != nil {
+		return err
+	}
+	audit.setClientSessionID(routeDialect, req.Request.Header, body)
 
 	var (
 		messagePolicyHelper    = l.messagePolicyHelper

@@ -31,7 +31,7 @@ func (b *azureProviderBackend) modelProviderName() string {
 	return b.providerName
 }
 
-func (b *azureProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error) {
+func (b *azureProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string, _ *v1.Model) (url.URL, llmtypes.Dialect, error) {
 	dialect, err := resolveAzureRouteDialect(req)
 	if err != nil {
 		return url.URL{}, "", types2.NewErrBadRequest("failed to determine Azure dialect: %v", err)

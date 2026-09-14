@@ -22,6 +22,7 @@ var (
 		system.AmazonBedrockAPIKeyModelProvider: "amazon-bedrock",
 		system.AzureModelProvider:               "azure",
 		system.AzureEntraModelProvider:          "azure",
+		system.DatabricksModelProvider:          "databricks",
 	}
 )
 

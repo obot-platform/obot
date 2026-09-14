@@ -121,6 +121,8 @@ func TestNanobotParseModelProviderNamedRoutes(t *testing.T) {
 		{system.OpenAIModelProvider, llmtypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{system.OpenAIModelProvider, llmtypes.DialectOpenAIChatCompletions, "https://obot.example.com/api/llm-proxy/openai/v1"},
 		{system.GenericResponsesModelProvider, llmtypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/generic-responses/v1"},
+		{system.DatabricksModelProvider, llmtypes.DialectOpenResponses, "https://obot.example.com/api/llm-proxy/databricks/v1"},
+		{system.DatabricksModelProvider, llmtypes.DialectOpenAIResponses, "https://obot.example.com/api/llm-proxy/databricks/v1"},
 	} {
 		model := resolvedLLMModel{
 			Name:            "some-model",
