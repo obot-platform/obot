@@ -45,6 +45,7 @@
 		openDiff?: (vmcp: VMCP) => void;
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
+		connectEl?: HTMLElement;
 	}
 
 	let {
@@ -62,7 +63,8 @@
 		openSelectInstance,
 		openDiff,
 		openUpdateConfirm,
-		openEditInstanceConfiguration
+		openEditInstanceConfiguration,
+		connectEl = $bindable()
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -206,6 +208,7 @@
 				{vmcp}
 				selectAriaLabel={canEdit ? `Edit ${name}` : name}
 				onSelect={canEdit ? onEdit : undefined}
+				bind:connectEl
 				{onConnect}
 				hideTest
 				{onDelete}

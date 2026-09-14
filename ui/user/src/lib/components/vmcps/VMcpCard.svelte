@@ -29,6 +29,7 @@
 	interface Props {
 		vmcp: VMCP;
 		owner?: string;
+		connectEl?: HTMLElement;
 		onSelect?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		hideTest?: boolean;
@@ -51,6 +52,7 @@
 	let {
 		vmcp,
 		owner,
+		connectEl = $bindable(),
 		onSelect,
 		onConnect,
 		hideTest,
@@ -310,6 +312,7 @@
 			{id}
 			{connectURL}
 			{connectButtonId}
+			bind:connectEl
 			{onConnect}
 			{hideTest}
 			disabled={!canConnect}
