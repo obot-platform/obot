@@ -34,6 +34,8 @@
 		// Called after the modal closes, with the number of local users that currently exist.
 		onClose?: (userCount: number) => void;
 		animate?: ResponsiveDialogAnimate;
+		// First-time onboarding: skip domain collection, auto-configure, and collect a single
+		// initial user instead of the full users-management flow.
 		required?: boolean;
 		additionalActions?: Snippet;
 		// True when this dialog is the first step of a provider switch. The account created here is
@@ -58,6 +60,7 @@
 	const DOMAINS_KEY = 'OBOT_AUTH_PROVIDER_EMAIL_DOMAINS';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
+	let createInitialUserDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	// The modal is a two-step flow: configure the provider, then manage its users. Users can only
 	// be created once the provider is configured (the server needs the allowed-domains credential),
 	// so an unconfigured provider opens on 'config' and a configured one opens straight on 'users'.
@@ -93,8 +96,17 @@
 	let deleteUsers = new SvelteSet<LocalAuthUser['id']>();
 
 	let shakeTimeout: ReturnType<typeof setTimeout> | undefined;
+	let configurePromise: Promise<boolean> | undefined;
+	let initialUserDialogOpen = $state(false);
+
+	let initialEmail = $state('');
+	let initialPassword = $state('');
+	let initialUserError = $state<string>();
 
 	const DRAFT_EMAIL_ID = 'local-user-email-draft';
+	const INITIAL_EMAIL_ID = 'initial-user-email';
+	const INITIAL_PASSWORD_ID = 'initial-user-password';
+	const INITIAL_USER_ERROR_ID = 'local-auth-initial-user-error';
 	const DRAFT_PASSWORD_ID = 'local-user-password-draft';
 	const DRAFT_CONFIRM_ID = 'local-user-confirm-draft';
 	const NEW_USER_ERROR_ID = 'local-auth-new-user-error';
@@ -108,12 +120,15 @@
 		!bootstrap || users.length - deleteUsers.size + newUsers.length === 0
 	);
 
-	export function open() {
+	function resetDialogState() {
 		domains = values?.[DOMAINS_KEY] ?? '*';
 		configError = undefined;
 		userError = undefined;
 		newUserError = undefined;
 		draftError = undefined;
+		initialUserError = undefined;
+		initialEmail = '';
+		initialPassword = '';
 		newUsers = [];
 		draftingNewUser = false;
 		draftEmail = '';
@@ -126,6 +141,22 @@
 		resetPassword.clear();
 		deleteUsers.clear();
 		users = [];
+	}
+
+	export function open() {
+		if (required) {
+			// The parent may call open() again when auth provider state refreshes after
+			// auto-configure. Do not wipe in-progress form input on those reopens.
+			if (!initialUserDialogOpen) {
+				resetDialogState();
+				configurePromise = autoConfigure();
+			}
+			initialUserDialogOpen = true;
+			createInitialUserDialog?.open();
+			return;
+		}
+
+		resetDialogState();
 		step = provider?.configured ? 'users' : 'config';
 		dialog?.open();
 		if (step === 'users') showUsers();
@@ -133,6 +164,70 @@
 
 	export function close() {
 		dialog?.close();
+		initialUserDialogOpen = false;
+		createInitialUserDialog?.close();
+	}
+
+	// Onboarding skips domain collection. `*` allows any email so the first user can be created;
+	// an empty value would be stripped by the configure API and then reject every address.
+	async function autoConfigure(): Promise<boolean> {
+		configuring = true;
+		configError = undefined;
+		try {
+			const err = await onConfigure({ [DOMAINS_KEY]: '*' });
+			if (err) {
+				configError = err;
+				return false;
+			}
+			return true;
+		} finally {
+			configuring = false;
+		}
+	}
+
+	async function ensureConfigured(): Promise<boolean> {
+		if (configurePromise) {
+			const ok = await configurePromise;
+			if (ok) return true;
+		}
+		configurePromise = autoConfigure();
+		return configurePromise;
+	}
+
+	async function handleCreateInitialUser(e: SubmitEvent) {
+		e.preventDefault();
+		if (readonly || saving) {
+			if (readonly) close();
+			return;
+		}
+
+		const email = initialEmail.trim();
+		if (!email || !initialPassword) {
+			initialUserError = 'Fill out the required email and password fields.';
+			return;
+		}
+		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
+			initialUserError = `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
+			return;
+		}
+
+		saving = true;
+		initialUserError = undefined;
+		try {
+			if (!(await ensureConfigured())) {
+				return;
+			}
+
+			// This account is signed in with immediately to become the owner, so a forced password
+			// change would put that sign-in behind the restricted-session wall.
+			await AdminService.createLocalAuthUser(email, initialPassword, false);
+			await refreshUsers();
+			close();
+		} catch (err) {
+			initialUserError = errorMessage(err, 'Failed to create the initial user.');
+		} finally {
+			saving = false;
+		}
 	}
 
 	async function handleContinue(e?: SubmitEvent) {
@@ -518,22 +613,8 @@
 	hideClose={required}
 >
 	{#snippet titleContent()}
-		<div class="flex items-center gap-2">
-			{#if darkMode.isDark}
-				{@const url = provider?.iconDark ?? provider?.icon}
-				<img
-					src={url}
-					alt={provider?.name}
-					class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-base-300')}
-				/>
-			{:else}
-				<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
-			{/if}
-			Set Up {provider?.name}
-		</div>
+		{@render setupTitle()}
 	{/snippet}
-
-	{@render infoContent()}
 
 	{#if step === 'config'}
 		<form class="flex flex-col gap-4" onsubmit={handleContinue}>
@@ -887,6 +968,110 @@
 		</div>
 	{/if}
 </ResponsiveDialog>
+
+<ResponsiveDialog
+	bind:this={createInitialUserDialog}
+	class="w-xl"
+	onClose={() => {
+		initialUserDialogOpen = false;
+		onClose?.(users.length);
+	}}
+	{animate}
+	disableClickOutside
+	hideClose
+>
+	{#snippet titleContent()}
+		{@render setupTitle()}
+	{/snippet}
+
+	{@render infoContent()}
+
+	<form class="flex flex-col gap-4" onsubmit={handleCreateInitialUser}>
+		{#if configError}
+			<div class="notification-error flex items-center gap-2" role="alert">
+				<CircleAlert class="text-error size-5 shrink-0" />
+				<p class="text-sm font-light">{configError}</p>
+			</div>
+		{/if}
+
+		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_EMAIL_ID}>
+			Email
+			<input
+				id={INITIAL_EMAIL_ID}
+				class="text-input-filled"
+				type="email"
+				bind:value={
+					() => initialEmail,
+					(v) => {
+						initialEmail = v;
+						initialUserError = undefined;
+					}
+				}
+				autocomplete="email"
+				required
+				disabled={saving}
+				aria-invalid={initialUserError ? 'true' : undefined}
+				aria-describedby={initialUserError ? INITIAL_USER_ERROR_ID : undefined}
+				class:error={!!initialUserError}
+			/>
+		</label>
+
+		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_ID}>
+			Password
+			<SensitiveInput
+				name={INITIAL_PASSWORD_ID}
+				bind:value={initialPassword}
+				autocomplete="new-password"
+				minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
+				oninput={() => (initialUserError = undefined)}
+				required
+				disabled={saving}
+				error={!!initialUserError}
+				data1pIgnore={false}
+			/>
+			<span class="text-muted-content pt-0.5 text-xs">
+				At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.
+			</span>
+		</label>
+
+		{#if initialUserError}
+			<p id={INITIAL_USER_ERROR_ID} class="text-error text-xs font-light" role="alert">
+				{initialUserError}
+			</p>
+		{/if}
+
+		<div class="flex justify-between">
+			<div>
+				{#if additionalActions}
+					{@render additionalActions?.()}
+				{/if}
+			</div>
+			<button class="btn btn-primary" type="submit" disabled={saving}>
+				{#if saving}
+					<Loading class="size-4" />
+				{:else}
+					Save
+				{/if}
+			</button>
+		</div>
+	</form>
+</ResponsiveDialog>
+
+{#snippet setupTitle()}
+	<div class="flex items-center gap-2">
+		{#if darkMode.isDark}
+			{@const url = provider?.iconDark ?? provider?.icon}
+			<img
+				src={url}
+				alt={provider?.name}
+				class={twMerge('size-9 rounded-md p-1', !provider?.iconDark && 'bg-base-300')}
+			/>
+		{:else}
+			<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
+		{/if}
+		Set Up {provider?.name}
+	</div>
+{/snippet}
 
 {#snippet infoContent()}
 	<div class="notification-info flex flex-col items-start gap-1 mb-4">

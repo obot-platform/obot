@@ -180,15 +180,17 @@
 		};
 	});
 
+	let autoOpenedInitialAuthProvider = $state(false);
 	$effect(() => {
-		if (showInitialAuthProvider) {
-			const authProvider = sortedAuthProviders.find(
-				(provider) => provider.id === showInitialAuthProvider
-			);
-			if (authProvider) {
-				handleClickConfigure(authProvider);
-			}
-		}
+		if (autoOpenedInitialAuthProvider || !showInitialAuthProvider) return;
+
+		const authProvider = sortedAuthProviders.find(
+			(provider) => provider.id === showInitialAuthProvider
+		);
+		if (!authProvider) return;
+
+		autoOpenedInitialAuthProvider = true;
+		handleClickConfigure(authProvider);
 	});
 
 	// Reopens the switch dialog for a staged provider without waiting for a click, so an owner who
@@ -461,6 +463,7 @@
 
 	async function handleLocalAuthClose(userCount: number) {
 		localAuthConfigureOpen = false;
+		autoOpenedInitialAuthProvider = false;
 		clearUrlParams(['provider']);
 		showInitialAuthProvider = null;
 		if (isBootstrapUser && userCount > 0) {
