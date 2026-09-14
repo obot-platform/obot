@@ -722,42 +722,45 @@
 										{/if}
 									</span>
 								</a>
-								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && hasEditableDeploymentConfiguration(d)}
-									<button
-										class="menu-button"
-										onclick={(e) => {
-											e.stopPropagation();
-											editExistingDialog?.edit({
-												server: d,
-												entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
-											});
-											toggle(false);
-										}}
-									>
-										<ServerCog class="size-4" /> Edit Configuration
-									</button>
-								{/if}
-								{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
-									<button
-										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly}
-										onclick={(e) => {
-											e.stopPropagation();
-											if (!d) return;
-											showUpgradeConfirm = {
-												type: 'single',
-												server: d
-											};
-											toggle(false);
-										}}
-									>
-										{#if updating[d.id]?.inProgress}
-											<Loading class="size-4" />
-										{:else}
-											<CircleFadingArrowUp class="size-4" />
-										{/if}
-										Update Server
-									</button>
+								
+								{#if !isVmcpComponent}
+									{#if (d.isMyServer || (hasAdminAccess && !readonly)) && hasEditableDeploymentConfiguration(d)}
+										<button
+											class="menu-button"
+											onclick={(e) => {
+												e.stopPropagation();
+												editExistingDialog?.edit({
+													server: d,
+													entry: d.catalogEntryID ? entriesMap[d.catalogEntryID] : undefined
+												});
+												toggle(false);
+											}}
+										>
+											<ServerCog class="size-4" /> Edit Configuration
+										</button>
+									{/if}
+									{#if d.needsUpdate && canTriggerUpdate(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
+										<button
+											class="menu-button-primary"
+											disabled={updating[d.id]?.inProgress || readonly}
+											onclick={(e) => {
+												e.stopPropagation();
+												if (!d) return;
+												showUpgradeConfirm = {
+													type: 'single',
+													server: d
+												};
+												toggle(false);
+											}}
+										>
+											{#if updating[d.id]?.inProgress}
+												<Loading class="size-4" />
+											{:else}
+												<CircleFadingArrowUp class="size-4" />
+											{/if}
+											Update Server
+										</button>
+									{/if}
 								{/if}
 
 								{#if d.catalogEntryID && d.needsUpdate}
