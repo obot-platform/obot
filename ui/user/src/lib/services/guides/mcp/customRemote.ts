@@ -1,10 +1,80 @@
 import { CATALOG_SERVER_FIELD_IDS } from '$lib/constants';
-import type { GuideStep } from '../types';
+import type { GuideAction, GuideStep } from '../types';
 import {
 	getHighlightAddCatalogEntryStep,
 	getNavigateBasicCatalogEntryFieldsStep,
 	getNavigateToMCPCatalogStep
 } from './steps';
+
+function getSubmitAction(): GuideAction {
+	return {
+		highlight: {
+			selector: { id: CATALOG_SERVER_FIELD_IDS.submitBtn },
+			side: 'left',
+			title: 'Save the entry',
+			description: 'Once you have finished configuring the remote catalog entry, you can save here.'
+		},
+		listener: {
+			id: CATALOG_SERVER_FIELD_IDS.submitBtn,
+			skipClickTargetOnNext: true,
+			action: { success: true }
+		}
+	};
+}
+
+function getStaticOAuthAction(): GuideAction {
+	return {
+		highlight: {
+			selector: { id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth },
+			side: 'top',
+			align: 'center',
+			title: 'Static OAuth',
+			description:
+				'Enable this only when the remote MCP server requires a pre-registered OAuth app. The entry will need to be saved first, then the shared client ID and secret can be configured; each user will still need to complete their own OAuth login.',
+			noDescendantInteraction: true
+		},
+		listener: {
+			id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth,
+			skipClickTargetOnNext: true,
+			action: getSubmitAction()
+		}
+	};
+}
+
+function getAdvancedFieldsAction(): GuideAction[] {
+	return [
+		{
+			elementExists: CATALOG_SERVER_FIELD_IDS.remoteConnection,
+			highlight: {
+				selector: { id: CATALOG_SERVER_FIELD_IDS.remoteConnection },
+				side: 'top',
+				align: 'center',
+				title: 'Connection Restriction',
+				description:
+					'Choose an exact URL, allow a user-configured URL on one hostname, or build a URL from a template. You can also route requests through an MCP tunnel when tunnels are available.',
+				noDescendantInteraction: true
+			},
+			listener: {
+				id: CATALOG_SERVER_FIELD_IDS.remoteConnection,
+				skipClickTargetOnNext: true,
+				action: [
+					{
+						elementExists: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth,
+						...getStaticOAuthAction()
+					},
+					{
+						elementMissing: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth,
+						...getSubmitAction()
+					}
+				]
+			}
+		},
+		{
+			elementMissing: CATALOG_SERVER_FIELD_IDS.remoteConnection,
+			...getSubmitAction()
+		}
+	];
+}
 
 export const steps: GuideStep[] = [
 	{
@@ -24,7 +94,8 @@ export const steps: GuideStep[] = [
 				side: 'top',
 				align: 'center',
 				title: 'Remote Server URL',
-				description: 'This is where you enter the full URL of the remote MCP Server.'
+				description:
+					'Enter the full URL of the remote MCP server. Use Advanced Configuration below if you need hostname restrictions, URL templates, tunnels, or static OAuth.'
 			},
 			listener: {
 				id: CATALOG_SERVER_FIELD_IDS.remoteURL,
@@ -34,68 +105,12 @@ export const steps: GuideStep[] = [
 						side: 'top',
 						title: 'Advanced Configuration',
 						description:
-							"Open this section if your remote MCP Server requires a hostname or URL template, custom headers, or only supports static OAuth. Let's go ahead and open it."
+							'Open this to restrict connections by hostname or URL template, route through an MCP tunnel, or enable static OAuth. Skip this and save if a fixed URL is all you need.'
 					},
 					listener: {
 						id: CATALOG_SERVER_FIELD_IDS.remoteAdvancedBtn,
-						action: {
-							elementExists: CATALOG_SERVER_FIELD_IDS.remoteConnection,
-							highlight: {
-								selector: { id: CATALOG_SERVER_FIELD_IDS.remoteConnection },
-								side: 'top',
-								align: 'center',
-								title: 'Connection Restriction',
-								description:
-									'Choose an exact URL, allow a user-configured URL on one hostname, or build a URL from a template. Template variables come from user-supplied header values.',
-								noDescendantInteraction: true
-							},
-							listener: {
-								id: CATALOG_SERVER_FIELD_IDS.remoteConnection,
-								action: {
-									highlight: {
-										selector: { id: CATALOG_SERVER_FIELD_IDS.remoteHeaders },
-										side: 'top',
-										align: 'center',
-										title: 'Request Headers',
-										description:
-											'Add HTTP headers required by the upstream server. Values can be fixed for everyone or requested from each user during setup; keep secrets in headers instead of URLs.',
-										noDescendantInteraction: true
-									},
-									listener: {
-										id: CATALOG_SERVER_FIELD_IDS.remoteHeaders,
-										skipClickTargetOnNext: true,
-										action: {
-											highlight: {
-												selector: { id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth },
-												side: 'top',
-												align: 'center',
-												title: 'Static OAuth',
-												description:
-													'Enable this only when the remote MCP server requires a pre-registered OAuth app. The entry will need to be saved first, then the shared client ID and secret can be configured; each user will still need to complete their own OAuth login.'
-											},
-											listener: {
-												id: CATALOG_SERVER_FIELD_IDS.remoteStaticOAuth,
-												skipClickTargetOnNext: true,
-												action: {
-													highlight: {
-														selector: { id: CATALOG_SERVER_FIELD_IDS.submitBtn },
-														side: 'left',
-														title: 'Save the entry',
-														description:
-															'Once you have finished configuring the remote catalog entry, you can save here.'
-													},
-													listener: {
-														id: CATALOG_SERVER_FIELD_IDS.submitBtn,
-														skipClickTargetOnNext: true,
-														action: { success: true }
-													}
-												}
-											}
-										}
-									}
-								}
-							}
-						}
+						skipClickTargetOnNext: true,
+						action: getAdvancedFieldsAction()
 					}
 				}
 			}

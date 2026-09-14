@@ -421,8 +421,9 @@ export const MCP_ACCESS_POLICY_FIELD_IDS = {
 
 export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
 	devicesLink: 'sidebar-link-inventory',
-	enforcementDecisionsLink: 'sidebar-link-enforcement-decisions',
-	configurationTab: 'devices-tab-configuration',
+	enforcementEventsLink: 'sidebar-link-enforcement-events',
+	configurationTab: 'tab-configuration',
+	inventoryTabDeviceMcpServers: 'tab-device-mcp-servers',
 	configurationDetails: 'devices-configuration-details',
 	getStartedButton: 'devices-configuration-get-started',
 	newEnrollmentKeyButton: 'enrollment-new-key-btn',
@@ -436,8 +437,8 @@ export const MDM_DEVICES_CONFIGURATION_FIELD_IDS = {
 	installInstructionsStep: 'devices-install-instructions',
 	agentSettingsButton: 'devices-agent-settings',
 	checkForUpdatesButton: 'devices-check-for-updates-button',
-	devicesTabOverview: 'devices-tab-overview',
-	devicesTabDevices: 'devices-tab-devices',
+	devicesTabOverview: 'tab-overview',
+	devicesTabDevices: 'tab-devices',
 	toolCallEnforcementSection: 'tool-call-enforcement-section'
 };
 
