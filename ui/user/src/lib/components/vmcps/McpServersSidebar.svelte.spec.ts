@@ -1,7 +1,8 @@
 import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
+import { Group } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry } from '../../../tests/helpers/mcp';
-import { preparePageData } from '../../../tests/helpers/pageData';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import McpServersSidebar from './McpServersSidebar.svelte';
 import { tick } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
@@ -96,10 +97,25 @@ describe('McpServersSidebar.svelte', () => {
 		await vi.waitFor(() => expect(onSearch).toHaveBeenCalledWith('git'));
 	});
 
-	it('says so when nothing is left to show', async () => {
+	it('prompts admins to add MCP servers when the catalog is empty', async () => {
 		await renderSidebar({ entries: [] });
 
-		await expect.element(page.getByText('No MCP servers available.')).toBeVisible();
+		await expect
+			.element(page.getByRole('heading', { name: 'No MCP servers available.', exact: true }))
+			.toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Go to MCP Servers', exact: true }))
+			.toHaveAttribute('href', '/mcp-servers');
+	});
+
+	it('says so when nothing is left to show for non-admins', async () => {
+		await preparePageData({ profile: createMockProfile([Group.POWERUSER]) });
+		await renderSidebar({ entries: [] });
+
+		await expect.element(page.getByRole('status', { name: 'No MCP servers available.' })).toBeVisible();
+		await expect
+			.element(page.getByRole('link', { name: 'Go to MCP Servers', exact: true }))
+			.not.toBeInTheDocument();
 	});
 
 	it('reorders the list by name and created date', async () => {
