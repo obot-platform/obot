@@ -600,7 +600,7 @@
 	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
-<VMcpIntroduction dragActive={entryDrag.active} show={canEdit && viewType === 'graph'} />
+<VMcpIntroduction show={canEdit && viewType === 'graph'} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

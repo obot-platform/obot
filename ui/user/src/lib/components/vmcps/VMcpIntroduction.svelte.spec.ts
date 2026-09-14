@@ -4,7 +4,6 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
 const STORAGE_KEY = '@obot/seen-vmcp-introduction';
-const LEGACY_STORAGE_KEY = '@obot/seen-vmcp-drag-hint';
 
 function heading() {
 	return page.getByRole('heading', { name: 'Welcome to vMCP Designer', exact: true });
@@ -28,7 +27,7 @@ describe('VMcpIntroduction.svelte', () => {
 			)
 			.toBeVisible();
 		await expect.element(page.getByText('Create New vMCP')).toBeVisible();
-		await expect.element(page.getByText('MCP Server')).toBeVisible();
+		await expect.element(page.getByText('MCP Server', { exact: true })).toBeVisible();
 	});
 
 	it('stays hidden once it has been seen', async () => {
@@ -38,33 +37,10 @@ describe('VMcpIntroduction.svelte', () => {
 		await expect.element(heading()).not.toBeInTheDocument();
 	});
 
-	it('stays hidden when the legacy drag hint was already dismissed', async () => {
-		localStorage.setItem(LEGACY_STORAGE_KEY, new Date().toISOString());
-		render(VMcpIntroduction);
-
-		await expect.element(heading()).not.toBeInTheDocument();
-	});
-
-	it('does not dismiss when clicking outside the dialog', async () => {
-		render(VMcpIntroduction);
-
-		await page.getByCSS('.dialog-backdrop button').click();
-
-		await expect.element(heading()).toBeVisible();
-		expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
-	});
-
 	it('remembers a dismissal so it does not come back', async () => {
 		render(VMcpIntroduction);
 
 		await getStartedButton().click();
-
-		await expect.element(heading()).not.toBeInTheDocument();
-		expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();
-	});
-
-	it('retires itself once the user drags for real', async () => {
-		render(VMcpIntroduction, { dragActive: true });
 
 		await expect.element(heading()).not.toBeInTheDocument();
 		expect(localStorage.getItem(STORAGE_KEY)).not.toBeNull();

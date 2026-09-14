@@ -107,10 +107,7 @@
 
 	function hintStyle(rect: DOMRect, placement: HintStep['placement']) {
 		if (placement === 'bottom') {
-			const left = Math.min(
-				Math.max(8, rect.left + rect.width / 2 - 144),
-				window.innerWidth - 304
-			);
+			const left = Math.min(Math.max(8, rect.left + rect.width / 2 - 144), window.innerWidth - 304);
 			return `top: ${rect.bottom + 10}px; left: ${left}px;`;
 		}
 		return `top: ${rect.top}px; left: ${rect.right + 10}px;`;

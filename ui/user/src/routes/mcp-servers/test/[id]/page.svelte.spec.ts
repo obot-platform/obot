@@ -329,7 +329,10 @@ describe('MCP Tester page', () => {
 		await expect.element(serverNameHeadings.first()).toBeVisible();
 		await expect.element(serverNameHeadings.nth(1)).toBeVisible();
 		expect(document.title).toBe(`Obot | MCP Tester | ${serverName}`);
-		await expect.element(page.getByRole('heading', { name: 'Chat', exact: true })).toBeVisible();
+		await expect.element(testerSection('Chat')).toHaveClass(/page-tab-active/);
+		await expect
+			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
+			.toBeVisible();
 		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 		await expect
