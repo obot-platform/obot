@@ -46,7 +46,7 @@
 
 		try {
 			await UserService.activateInitialLocalAuthOwner(setupToken);
-			await goto(resolve(`/change-password?rd=${encodeURIComponent('/admin/auth-providers')}`), {
+			await goto(resolve(`/change-password?rd=${encodeURIComponent('/vmcps')}`), {
 				invalidateAll: true
 			});
 		} catch (err) {
