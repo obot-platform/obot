@@ -46,7 +46,6 @@
 			!isOnProductAnalyticsSettings &&
 			!productAnalyticsDeferred
 	);
-
 	onMount(() => {
 		productAnalyticsDeferred = isProductAnalyticsConsentDeferred();
 	});
@@ -97,30 +96,31 @@
 		}
 	}
 
+	async function finishOnboarding() {
+		if (isBootstrapUser) {
+			if (isOnAuthProvidersPage) {
+				setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
+				return;
+			}
+
+			if (!isAuthProviderConfigured) {
+				goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
+			} else if (requiresModelProviderConfiguration) {
+				goto(modelProviderPath);
+			}
+		} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
+			goto(modelProviderPath);
+		}
+	}
+
 	async function handleContinue() {
 		loading = true;
 		try {
 			await handleProductAnalyticsConsent();
 			await handleAcceptEula();
 			localStorage.setItem('seenSplashDialog', new Date().toISOString());
-
-			if (isBootstrapUser) {
-				if (isOnAuthProvidersPage) {
-					dialog?.close();
-					setUrlParamAndUpdateUrl(page.url, 'provider', 'local-auth-provider');
-					return;
-				}
-
-				if (!isAuthProviderConfigured) {
-					goto(`${authProviderPath}?view=auth-providers&provider=local-auth-provider`);
-				} else if (requiresModelProviderConfiguration) {
-					goto(modelProviderPath);
-				}
-			} else if (requiresModelProviderConfiguration && page.url.pathname !== modelProviderPath) {
-				goto(modelProviderPath);
-			}
-
 			dialog?.close();
+			await finishOnboarding();
 		} finally {
 			loading = false;
 		}
