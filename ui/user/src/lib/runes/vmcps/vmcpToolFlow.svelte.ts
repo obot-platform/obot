@@ -1,3 +1,4 @@
+import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 import {
 	UserService,
 	type CompositeServerToolRow,
@@ -13,7 +14,7 @@ import {
 	vmcpComponentId,
 	vmcpManifest
 } from '$lib/services/vmcps/utils';
-import { errors } from '$lib/stores';
+import { errors, profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
 export type VMcpToolDialog = 'added-create' | 'setup' | 'edit' | 'actions' | 'configure';
@@ -43,26 +44,13 @@ let vmcpAwaitingCreationHint: string | undefined;
 let vmcpCreateHandoffPending = $state(false);
 
 export const VMCP_CREATION_HINT_STORAGE_KEY = '@obot/seen-vmcp-creation-hint';
-const LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 
 export function hasSeenVMcpCreationHint(storageKey = VMCP_CREATION_HINT_STORAGE_KEY): boolean {
-	try {
-		return Boolean(
-			localStorage.getItem(storageKey) ||
-			localStorage.getItem(LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY)
-		);
-	} catch {
-		return false;
-	}
+	return hasSeenTimestamp(storageKey, profile.current?.created);
 }
 
 export function markVMcpCreationHintSeen(storageKey = VMCP_CREATION_HINT_STORAGE_KEY) {
-	try {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		localStorage.setItem(storageKey, new Date().toISOString());
-	} catch {
-		// Ignore storage failures in restricted contexts.
-	}
+	markSeenTimestamp(storageKey);
 }
 
 export function queueToolSetupForCreatedVMcp(id: string) {
