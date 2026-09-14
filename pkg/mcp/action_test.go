@@ -272,6 +272,7 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 					MCPCatalogID:              system.DefaultCatalog,
 					MCPServerCatalogEntryName: entryID,
 					VMCPID:                    "vmcp1-test",
+					VMCPComponentID:           "component-1",
 				},
 			},
 			entryExists:         false,
@@ -286,6 +287,7 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 					MCPCatalogID:              system.DefaultCatalog,
 					MCPServerCatalogEntryName: entryID,
 					VMCPID:                    "vmcp1-test",
+					VMCPComponentID:           "component-1",
 				},
 			},
 			entryExists:         false,
@@ -299,6 +301,7 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 				Spec: v1.MCPServerSpec{
 					MCPServerCatalogEntryName: entryID,
 					VMCPInstanceID:            "vmcpi1-test",
+					VMCPComponentID:           "component-1",
 				},
 			},
 			entryExists:         false,
@@ -312,6 +315,7 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 				Spec: v1.MCPServerSpec{
 					MCPServerCatalogEntryName: entryID,
 					VMCPInstanceID:            "vmcpi1-test",
+					VMCPComponentID:           "component-1",
 				},
 			},
 			entryExists:         false,
@@ -325,6 +329,7 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 				Spec: v1.MCPServerSpec{
 					MCPServerCatalogEntryName: entryID,
 					VMCPInstanceID:            "vmcpi1-test",
+					VMCPComponentID:           "component-1",
 				},
 				Status: v1.MCPServerStatus{MCPCatalogID: "puw1-test"},
 			},
@@ -346,11 +351,39 @@ func TestCatalogNameForServerWhenSourceEntryIsDeleted(t *testing.T) {
 			expectError:        true,
 		},
 		{
+			// A reconciled standalone server has its catalog recorded on status, but it is
+			// garbage collected along with its entry, so it must not resolve without one.
+			name: "standalone server with a recorded catalog still fails",
+			server: v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					MCPServerCatalogEntryName: entryID,
+					UserID:                    "user-1",
+				},
+				Status: v1.MCPServerStatus{MCPCatalogID: system.DefaultCatalog},
+			},
+			entryExists:        false,
+			failOnEntryMissing: false,
+			expectError:        true,
+		},
+		{
+			name: "admin catalog server with a known catalog still fails",
+			server: v1.MCPServer{
+				Spec: v1.MCPServerSpec{
+					MCPCatalogID:              system.DefaultCatalog,
+					MCPServerCatalogEntryName: entryID,
+				},
+			},
+			entryExists:        false,
+			failOnEntryMissing: false,
+			expectError:        true,
+		},
+		{
 			name: "existing entry supplies the catalog name",
 			server: v1.MCPServer{
 				Spec: v1.MCPServerSpec{
 					MCPServerCatalogEntryName: entryID,
 					VMCPInstanceID:            "vmcpi1-test",
+					VMCPComponentID:           "component-1",
 				},
 			},
 			entryExists:         true,
