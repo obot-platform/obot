@@ -350,8 +350,6 @@ export const PII_FILTER_OPTION_VALUES = [
 ];
 
 export const OBOT_GUIDE_KEYS = {
-	COMPLETED: '@obot/completed-guide',
-	GUIDE: '@obot/seen-guide',
 	SHOW_ALL_GUIDES: '@obot/show-all-guides'
 } as const;
 

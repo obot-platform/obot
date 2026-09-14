@@ -1,19 +1,12 @@
 <script lang="ts">
-	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
-	import {
-		generateLessonItems,
-		getGuideSeen,
-		resetGuide,
-		setGuideSeen
-	} from '$lib/services/guides/utils';
+	import { generateLessonItems } from '$lib/services/guides/utils';
 	import { guide, profile, userDeviceSettings, version } from '$lib/stores';
 	import { adminConfigStore } from '$lib/stores/adminConfig.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Obot from './Obot.svelte';
 	import { createGuideHighlighter, type GuideHighlighter } from './highlight';
 	import { ChevronRight, Info, X } from '@lucide/svelte';
-	import { isAfter } from 'date-fns';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -23,7 +16,6 @@
 	let rafId: number | undefined;
 
 	let showLessons = $state(false);
-	let hasSeenGuides = $state(false);
 	let viewportHeight = $state(typeof window !== 'undefined' ? window.innerHeight : 900);
 
 	const lessonItems = $derived(generateLessonItems());
@@ -62,31 +54,13 @@
 		return true;
 	});
 
-	function initGuide() {
-		const seenGuideDate = getGuideSeen();
-		if (
-			seenGuideDate &&
-			profile.current?.created &&
-			isAfter(new Date(profile.current.created), seenGuideDate)
-		) {
-			resetGuide();
-		} else {
-			hasSeenGuides = Boolean(seenGuideDate);
-		}
-	}
-
 	onMount(() => {
-		initGuide();
 		const onResize = () => {
 			viewportHeight = window.innerHeight;
 		};
 		onResize();
 		window.addEventListener('resize', onResize);
 		return () => window.removeEventListener('resize', onResize);
-	});
-
-	afterNavigate(() => {
-		initGuide();
 	});
 
 	function cleanup() {
@@ -101,55 +75,6 @@
 			listenerHandler = undefined;
 		}
 	}
-
-	$effect(() => {
-		if (!canShowGuide || hasSeenGuides) return;
-
-		listenerHandler = (e: MouseEvent) => {
-			let el: Element | null = e.target instanceof Element ? e.target : null;
-			while (el) {
-				if (el.id === 'btn-get-started-guide') {
-					handleClose();
-					return;
-				}
-				el = el.parentElement;
-			}
-		};
-
-		function handleClose() {
-			setGuideSeen();
-			hasSeenGuides = true;
-			highlighter?.destroy();
-			if (listenerHandler) {
-				window.removeEventListener('click', listenerHandler, true);
-			}
-		}
-
-		highlighter = createGuideHighlighter({
-			allowClose: true,
-			onCloseClick: handleClose,
-			overlayClickBehavior: handleClose,
-			onObotVisibilityChange: (visible) => {
-				guide.showObotInGuide = visible;
-			}
-		});
-
-		rafId = requestAnimationFrame(() => {
-			highlighter?.highlight({
-				selector: { id: 'btn-get-started-guide' },
-				title: 'First Time Here?',
-				description: 'Check out our quick start guides to get you up and running quickly.',
-				side: 'left',
-				align: 'start'
-			});
-
-			if (listenerHandler) {
-				window.addEventListener('click', listenerHandler, true);
-			}
-		});
-
-		return () => cleanup();
-	});
 
 	function handleCloseGuides() {
 		userDeviceSettings.setShowAllGuides(false);
