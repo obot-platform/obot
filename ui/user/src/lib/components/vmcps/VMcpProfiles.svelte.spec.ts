@@ -61,6 +61,17 @@ async function confirmProfileDelete() {
 	await page.getByRole('button', { name: "Yes, I'm sure" }).click();
 }
 
+async function cancelProfileDelete() {
+	await page.getByRole('button', { name: 'Cancel' }).click();
+	await expect.element(page.getByText(/Are you sure you want to delete/)).not.toBeVisible();
+}
+
+async function clickDeleteProfile(name: string) {
+	const deleteButton = page.getByRole('button', { name: `Delete ${name}` });
+	await expect.element(deleteButton).toBeEnabled();
+	await deleteButton.click();
+}
+
 async function expandServerTools() {
 	await page.getByRole('button', { name: 'Expand' }).click();
 }
@@ -125,6 +136,10 @@ describe('VMcpProfiles.svelte', () => {
 		await assignEveryone();
 		await page.getByRole('button', { name: 'Create profile', exact: true }).click();
 
+		await expect.element(page.getByRole('button', { name: 'Edit Developers' })).toBeVisible();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+		saved.mockClear();
+
 		await page.getByRole('button', { name: 'Edit Developers' }).click();
 		await page.getByLabelText('Name').fill('Platform developers');
 		await page.getByRole('button', { name: 'Save changes' }).click();
@@ -132,25 +147,27 @@ describe('VMcpProfiles.svelte', () => {
 		await expect
 			.element(page.getByRole('button', { name: 'Edit Platform developers' }))
 			.toBeVisible();
-		await page.getByRole('button', { name: 'Delete Platform developers' }).click();
-		await page.getByRole('button', { name: 'Cancel' }).click();
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+
+		await clickDeleteProfile('Platform developers');
+		await cancelProfileDelete();
 		await expect
 			.element(page.getByRole('button', { name: 'Edit Platform developers' }))
 			.toBeVisible();
 
-		await page.getByRole('button', { name: 'Delete Platform developers' }).click();
+		await clickDeleteProfile('Platform developers');
 		await confirmProfileDelete();
 
 		await expect
 			.element(page.getByRole('button', { name: 'Edit Platform developers' }))
 			.not.toBeInTheDocument();
 		await expect.element(page.getByRole('button', { name: 'Edit default' })).toBeVisible();
-		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(3));
-		expect(savedProfiles(saved, 1).map((profile) => profile.name)).toEqual([
+		await vi.waitFor(() => expect(saved).toHaveBeenCalledTimes(2));
+		expect(savedProfiles(saved, 0).map((profile) => profile.name)).toEqual([
 			'default',
 			'Platform developers'
 		]);
-		expect(savedProfiles(saved, 2).map((profile) => profile.name)).toEqual(['default']);
+		expect(savedProfiles(saved, 1).map((profile) => profile.name)).toEqual(['default']);
 	});
 
 	it('deletes an existing profile from the editor', async () => {
