@@ -153,6 +153,10 @@ icon: https://example.com/icon.png
 repoURL: https://github.com/owner/repo
 ```
 
+`unsupportedTools` is a comma-separated list of tools that are known not to work well in Obot. Obot marks these tools as unsupported and leaves them unselected by default, but this field is not an access-control restriction: a client connected directly to the MCP server can still discover them through `tools/list` and call them.
+
+To restrict which tools clients can discover and call, create a [virtual MCP (vMCP)](../concepts/mcp-hosting.md#virtual-mcps-vmcps) and configure its exposed tools and access profiles.
+
 ### Environment Variables
 
 ```yaml
