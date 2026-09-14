@@ -19,6 +19,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	"github.com/obot-platform/obot/pkg/system"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apiserver/pkg/storage/value"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -181,7 +182,15 @@ func (c *Client) ensureIdentity(ctx context.Context, tx *gorm.DB, id *types.Iden
 			if err = c.encryptIdentity(ctx, id); err != nil {
 				return nil, false, fmt.Errorf("failed to encrypt identity: %w", err)
 			}
-			if err = tx.Create(id).Error; err != nil {
+			// A concurrent request may win this insert on a first sign-in.
+			if err = tx.Clauses(clause.OnConflict{DoNothing: true}).Create(id).Error; err != nil {
+				return nil, false, err
+			}
+			// Read back whichever row won, so both racers continue with the same user ID.
+			if err = tx.Where(
+				"auth_provider_name = ? AND auth_provider_namespace = ? AND hashed_provider_user_id = ?",
+				id.AuthProviderName, id.AuthProviderNamespace, id.HashedProviderUserID,
+			).First(id).Error; err != nil {
 				return nil, false, err
 			}
 		} else if err != nil {
