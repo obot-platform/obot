@@ -293,6 +293,14 @@
 				<div class="border-base-300 flex gap-2 border-b">
 					<button
 						class="tab-button"
+						class:tab-active={activeTab === 'clients'}
+						onclick={() => (activeTab = 'clients')}
+					>
+						<MonitorCheck class="size-4" /> Clients
+						<span class="text-muted-content">({clients.length})</span>
+					</button>
+					<button
+						class="tab-button"
 						class:tab-active={activeTab === 'mcp'}
 						onclick={() => (activeTab = 'mcp')}
 					>
@@ -314,14 +322,6 @@
 					>
 						<Boxes class="size-4" /> Plugins
 						<span class="text-muted-content">({plugins.length})</span>
-					</button>
-					<button
-						class="tab-button"
-						class:tab-active={activeTab === 'clients'}
-						onclick={() => (activeTab = 'clients')}
-					>
-						<MonitorCheck class="size-4" /> Clients
-						<span class="text-muted-content">({clients.length})</span>
 					</button>
 				</div>
 
