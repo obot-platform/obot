@@ -50,6 +50,27 @@ func (c *Client) SetProperty(ctx context.Context, key, value string) (types.Prop
 	return p, err
 }
 
+// SetPropertyTx sets a property using an existing transaction. This lets
+// callers update multiple related properties without exposing partial state.
+func (c *Client) SetPropertyTx(ctx context.Context, tx *gorm.DB, key, value string) (types.Property, error) {
+	now := time.Now()
+	property := types.Property{
+		Key:       key,
+		Value:     value,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	toStore := property
+	if err := c.encryptProperty(ctx, &toStore); err != nil {
+		return property, err
+	}
+	err := tx.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"value", "encrypted", "updated_at"}),
+	}).Create(&toStore).Error
+	return property, err
+}
+
 func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (types.Property, error) {
 	now := time.Now()
 	var p types.Property
@@ -76,7 +97,13 @@ func (c *Client) GetOrCreateProperty(ctx context.Context, key, value string) (ty
 }
 
 func (c *Client) DeleteProperty(ctx context.Context, key string) error {
-	return c.db.WithContext(ctx).Where("key = ?", key).Delete(&types.Property{}).Error
+	return c.DeletePropertyTx(c.db.WithContext(ctx), key)
+}
+
+// DeletePropertyTx deletes a property using an existing transaction. This lets
+// callers combine the deletion with changes to other related properties.
+func (c *Client) DeletePropertyTx(tx *gorm.DB, key string) error {
+	return tx.Where("key = ?", key).Delete(&types.Property{}).Error
 }
 
 func (c *Client) encryptProperty(ctx context.Context, property *types.Property) error {
