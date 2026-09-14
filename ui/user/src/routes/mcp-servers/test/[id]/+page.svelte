@@ -5,6 +5,7 @@
 	import McpCompositeOauth from '$lib/components/mcp/McpCompositeOauth.svelte';
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import { VirtualPageViewport } from '$lib/components/ui/virtual-page';
+	import { version } from '$lib/stores';
 	import { Server, ArrowLeft } from '@lucide/svelte';
 	import type { Component } from 'svelte';
 
