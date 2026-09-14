@@ -19,7 +19,6 @@
 		Unplug
 	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
@@ -37,7 +36,6 @@
 		children?: Snippet;
 		class?: string;
 		selectAriaLabel: string;
-		enterDelay?: number;
 		userID?: string;
 		note?: string;
 		needsUpdate?: boolean;
@@ -60,7 +58,6 @@
 		children,
 		class: clazz,
 		selectAriaLabel,
-		enterDelay,
 		note,
 		userID,
 		needsUpdate,
@@ -123,10 +120,7 @@
 	}
 </script>
 
-<div
-	class={twMerge('relative flex flex-col', onSelect && 'pointer-events-none', clazz)}
-	in:fade={{ delay: enterDelay ?? 0, duration: enterDelay === undefined ? 0 : 150 }}
->
+<div class={twMerge('relative flex flex-col', onSelect && 'pointer-events-none', clazz)}>
 	{#if onSelect}
 		<button
 			type="button"

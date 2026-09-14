@@ -12,9 +12,6 @@
 	import VMcpIcon from './VMcpIcon.svelte';
 	import type { Snippet } from 'svelte';
 
-	const CARD_STAGGER_MS = 30;
-	const CARD_STAGGER_MAX_STEPS = 8;
-
 	interface Props {
 		items: VMCP[];
 		components: (vmcp: VMCP) => VMcpComponentView[];
@@ -57,10 +54,6 @@
 			descriptionHTML: toInlineHTMLFromMarkdown(item.description ?? ''),
 			data: item
 		};
-	}
-
-	function cardDelay(index: number) {
-		return Math.min(index, CARD_STAGGER_MAX_STEPS) * CARD_STAGGER_MS;
 	}
 
 	function setOverflowHidden(cardId: string, hidden: number) {
@@ -170,14 +163,14 @@
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 items-start gap-4 @2xl:grid-cols-2 @5xl:grid-cols-3">
-			{#each cards as card, index (card.id)}
-				{@render vmcpCard(card, index)}
+			{#each cards as card (card.id)}
+				{@render vmcpCard(card)}
 			{/each}
 		</div>
 	{/if}
 </div>
 
-{#snippet vmcpCard(card: VMcpListCard, index: number)}
+{#snippet vmcpCard(card: VMcpListCard)}
 	<VMcpCard
 		id={card.id}
 		name={card.name}
@@ -186,7 +179,6 @@
 		connectButtonId={`btn-connect-to-server-${card.id}`}
 		connected={card.connected}
 		selectAriaLabel={`Open ${card.name}`}
-		enterDelay={cardDelay(index)}
 		onSelect={() => onSelect?.(card.data)}
 		onConnect={(options) => onConnect?.(card.data, options)}
 		onDelete={() => onDelete?.(card.data)}
