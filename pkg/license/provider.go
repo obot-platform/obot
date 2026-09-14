@@ -237,26 +237,84 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 	if err != nil {
 		return err
 	}
+	preserveCommunity := false
 	if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
 		community, err := p.isCommunityLicense(ctx, currentSnapshot)
 		if err != nil {
 			return err
 		}
 		if community {
-			if _, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, currentSnapshot.key); err != nil {
-				return fmt.Errorf("failed to preserve Community license key: %w", err)
-			}
+			preserveCommunity = true
 		}
 	}
 
-	property, err := p.gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, licenseKey)
+	var updatedAt time.Time
+	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
+		if preserveCommunity {
+			if _, err := p.gatewayClient.SetPropertyTx(ctx, tx, CommunityLicenseKeyPropertyKey, currentSnapshot.key); err != nil {
+				return fmt.Errorf("failed to preserve Community license key: %w", err)
+			}
+		}
+		property, err := p.gatewayClient.SetPropertyTx(ctx, tx, LicenseKeyPropertyKey, licenseKey)
+		if err != nil {
+			return err
+		}
+		updatedAt = property.UpdatedAt
+		return nil
+	})
 	if err != nil {
 		return err
 	}
 	p.setCachedState(licenseKeySnapshot{
 		key:         licenseKey,
-		updatedAt:   property.UpdatedAt,
+		updatedAt:   updatedAt,
 		propertyKey: LicenseKeyPropertyKey,
+	}, entitlements)
+	return nil
+}
+
+// SetCommunityLicenseKey validates and stores an issued Community key in its
+// dedicated fallback property. It also removes the previous database-managed
+// key in the same transaction because both properties determine the effective key.
+func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string) error {
+	if p.LicenseKeyViaConfiguration() {
+		return ErrLicenseKeyViaConfiguration
+	}
+	licenseKey = strings.TrimSpace(licenseKey)
+
+	entitlements, err := p.validate(ctx, licenseKey)
+	if err != nil {
+		return err
+	}
+	if !isCommunityEntitlements(entitlements) {
+		return ErrInvalidLicense
+	}
+	if p.gatewayClient == nil {
+		return fmt.Errorf("failed to persist license key: gateway client is not configured")
+	}
+
+	p.refreshLock.Lock()
+	defer p.refreshLock.Unlock()
+
+	var updatedAt time.Time
+	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := p.gatewayClient.DeletePropertyTx(tx, LicenseKeyPropertyKey); err != nil {
+			return err
+		}
+		property, err := p.gatewayClient.SetPropertyTx(ctx, tx, CommunityLicenseKeyPropertyKey, licenseKey)
+		if err != nil {
+			return err
+		}
+		updatedAt = property.UpdatedAt
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	p.setCachedState(licenseKeySnapshot{
+		key:         licenseKey,
+		updatedAt:   updatedAt,
+		propertyKey: CommunityLicenseKeyPropertyKey,
 	}, entitlements)
 	return nil
 }
@@ -285,22 +343,30 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 		}
 		propertyKey := snapshot.propertyKey
 		if propertyKey == "" {
-			propertyKey = LicenseKeyPropertyKey
-		}
-		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
-			return err
+			p.setCachedState(licenseKeySnapshot{}, nil)
+			return nil
 		}
 
-		nextSnapshot, err := p.loadLicenseKey(ctx)
-		if err != nil {
-			return err
-		}
+		var nextSnapshot licenseKeySnapshot
 		var entitlements map[keygen.EntitlementCode]struct{}
+		if propertyKey == LicenseKeyPropertyKey {
+			nextSnapshot, err = p.loadStoredLicenseKey(ctx, CommunityLicenseKeyPropertyKey)
+			if err != nil {
+				return err
+			}
+		}
 		if nextSnapshot.key != "" {
 			entitlements, err = p.validate(ctx, nextSnapshot.key)
 			if err != nil {
 				return err
 			}
+			if entitlements == nil {
+				return fmt.Errorf("validate Community fallback before removing primary license: %w", ErrInvalidLicense)
+			}
+		}
+
+		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
+			return err
 		}
 		p.setCachedState(nextSnapshot, entitlements)
 		return nil
@@ -310,13 +376,28 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	return nil
 }
 
+func (p *Provider) loadStoredLicenseKey(ctx context.Context, propertyKey string) (licenseKeySnapshot, error) {
+	property, err := p.gatewayClient.GetProperty(ctx, propertyKey)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return licenseKeySnapshot{}, nil
+	}
+	if err != nil {
+		return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property %q: %w", propertyKey, err)
+	}
+	return licenseKeySnapshot{
+		key:         strings.TrimSpace(property.Value),
+		updatedAt:   property.UpdatedAt,
+		propertyKey: propertyKey,
+	}, nil
+}
+
 // isCommunityLicense determines whether a primary key should be retained in
 // the Community fallback property. It uses cached entitlements only when they
 // belong to the same property snapshot, which matters when another replica has
 // changed the effective database key.
 func (p *Provider) isCommunityLicense(ctx context.Context, snapshot licenseKeySnapshot) (bool, error) {
 	p.lock.RLock()
-	if p.licenseKeySnapshot.equal(snapshot) {
+	if p.licenseKeySnapshot.equal(snapshot) && p.entitlements != nil {
 		community := isCommunityEntitlements(p.entitlements)
 		p.lock.RUnlock()
 		return community, nil
@@ -387,7 +468,10 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 	lic := &keygen.License{}
 	if _, err := keygenClient.Get(ctx, "me", nil, lic); err != nil {
 		slog.Warn("license lookup failed", "error", err)
-		return nil, nil
+		if isDefinitiveLicenseRejection(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("license lookup failed: %w", err)
 	}
 
 	validation, err := p.validateLicense(ctx, keygenClient, lic)
@@ -408,7 +492,10 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 			if _, activationErr := keygenClient.Post(ctx, "machines", machine, &keygen.Machine{}); activationErr != nil &&
 				!errors.Is(activationErr, keygen.ErrMachineAlreadyActivated) {
 				slog.Warn("license activation failed", "error", activationErr)
-				return nil, nil
+				if isDefinitiveLicenseRejection(activationErr) {
+					return nil, nil
+				}
+				return nil, fmt.Errorf("license activation failed: %w", activationErr)
 			}
 
 			validation, err = p.validateLicense(ctx, keygenClient, lic)
@@ -433,6 +520,26 @@ func (p *Provider) validate(ctx context.Context, licenseKey string) (map[keygen.
 	}
 
 	return entitlementSet, nil
+}
+
+func isDefinitiveLicenseRejection(err error) bool {
+	if errors.Is(err, keygen.ErrTokenNotAllowed) ||
+		errors.Is(err, keygen.ErrTokenFormatInvalid) ||
+		errors.Is(err, keygen.ErrTokenInvalid) ||
+		errors.Is(err, keygen.ErrTokenExpired) ||
+		errors.Is(err, keygen.ErrLicenseNotAllowed) ||
+		errors.Is(err, keygen.ErrLicenseExpired) ||
+		errors.Is(err, keygen.ErrLicenseSuspended) ||
+		errors.Is(err, keygen.ErrMachineLimitExceeded) {
+		return true
+	}
+
+	var apiErr *keygen.Error
+	if !errors.As(err, &apiErr) || apiErr.Response == nil {
+		return false
+	}
+	status := apiErr.Response.Status
+	return status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests
 }
 
 func (p *Provider) validateLicense(ctx context.Context, keygenClient *keygen.Client, lic *keygen.License) (*keygenValidationResponse, error) {

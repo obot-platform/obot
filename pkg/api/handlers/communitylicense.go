@@ -65,7 +65,7 @@ func (h *LicenseHandler) CreateCommunityLicense(req api.Context) error {
 		return apitypes.NewErrHTTP(http.StatusBadGateway, "failed to obtain an Obot Community license")
 	}
 
-	if err := h.licenseProvider.SetLicenseKey(req.Context(), issuedKey); err != nil {
+	if err := h.licenseProvider.SetCommunityLicenseKey(req.Context(), issuedKey); err != nil {
 		if errors.Is(err, license.ErrLicenseKeyViaConfiguration) {
 			return apitypes.NewErrAlreadyExists("license key is configured at startup and cannot be updated via the API")
 		}
