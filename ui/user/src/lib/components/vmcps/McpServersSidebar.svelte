@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Select from '$lib/components/Select.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { MCPCatalogEntry } from '$lib/services';
+	import { type MCPCatalogEntry } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import {
 		ESTIMATED_ROW_HEIGHT,
@@ -21,17 +20,10 @@
 		type McpServerSortBy
 	} from '$lib/services/vmcps/utils';
 	import { averageRowHeight, buildRowOffsets, visibleRange } from '$lib/services/vmcps/virtualList';
-	import { mcpServersAndEntries, profile, responsive } from '$lib/stores';
+	import { mcpServersAndEntries, responsive } from '$lib/stores';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import McpServersSettings from './McpServersSettings.svelte';
-	import {
-		ChevronLeft,
-		ChevronsRight,
-		GripVertical,
-		Plus,
-		Server,
-		TriangleAlert
-	} from '@lucide/svelte';
+	import { ChevronLeft, ChevronsRight, GripVertical, Plus, TriangleAlert } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import type { Attachment } from 'svelte/attachments';
 	import { SvelteMap } from 'svelte/reactivity';
@@ -182,7 +174,7 @@
 		'bg-base-100 dark:bg-base-200 border-base-300 overflow-y-auto border-l flex',
 		responsive.isMobile
 			? 'fixed z-40 h-[calc(100dvh-4rem)] w-dvw top-16 right-0'
-			: 'static h-dvh max-h-dvh',
+			: 'static max-h-dvh',
 		open ? (responsive.isMobile ? 'w-dvw' : 'w-4xl') : 'w-11'
 	)}
 >
@@ -220,7 +212,7 @@
 {#snippet selectionScreen()}
 	<div
 		id="mcp-server-selection-screen"
-		class="flex h-full min-h-0 w-full min-w-0 flex-col overflow-y-auto pl-2 pr-2 pb-4"
+		class="flex w-full min-w-0 flex-col overflow-y-auto pl-2 pr-2 pb-4"
 	>
 		<div class="md:sticky z-10 top-0 left-0 w-full bg-base-100 dark:bg-base-200 px-0 py-4">
 			{#if responsive.isMobile}
@@ -286,23 +278,10 @@
 					{/each}
 				</div>
 			</div>
-		{:else if eligibleEntries.length === 0 && profile.current.isAdmin?.() && !profile.current.isAdminReadonly?.()}
-			<section
-				class="flex w-full flex-1 flex-col items-center justify-center gap-4 px-4 text-center"
-				role="status"
-				aria-labelledby="mcp-servers-empty-title"
-			>
-				<div class="flex flex-col items-center justify-center gap-1">
-					<Server class="size-8 text-muted-content/50" aria-hidden="true" />
-					<h3 id="mcp-servers-empty-title" class="text-muted-content text-base font-semibold">
-						No MCP servers available.
-					</h3>
-				</div>
-				<p class="text-muted-content text-sm font-light">
-					Create your first MCP server or add a source to begin adding MCP servers to your vMCP.
-				</p>
-				<a href={resolve('/mcp-servers')} class="btn btn-secondary w-full"> Go to MCP Servers </a>
-			</section>
+		{:else if eligibleEntries.length === 0 && canCreateEntry}
+			<div class="flex flex-col">
+				{@render createEntryButton()}
+			</div>
 		{:else}
 			<p class="text-muted-content text-xs italic" role="status">No MCP servers available.</p>
 		{/if}
