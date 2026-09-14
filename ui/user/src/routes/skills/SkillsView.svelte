@@ -11,7 +11,7 @@
 	import type { SkillRepository } from '$lib/services/admin/types';
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { AiClient, COMMON_AI_CLIENTS_MAP } from '$lib/services/user/constants';
-	import { formatTimeAgo } from '$lib/time';
+	import { profile } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils.js';
 	import { Bot, Download, GitBranch, PencilRuler, TriangleAlert } from '@lucide/svelte';
@@ -129,14 +129,17 @@
 	{#if skills.length > 0}
 		<Table
 			data={skillsTableData}
-			fields={['displayName', 'description', 'created', 'repository']}
+			fields={profile.current.hasAdminAccess?.()
+				? ['displayName', 'description', 'repository']
+				: ['displayName', 'description']}
 			noDataMessage="No skills found."
 			classes={{
 				root: 'rounded-md shadow-sm'
 			}}
-			columnMaxWidths={{ created: 240 }}
-			sortable={['displayName', 'created', 'repository']}
-			filterable={['repository']}
+			sortable={profile.current.hasAdminAccess?.()
+				? ['displayName', 'repository']
+				: ['displayName']}
+			filterable={profile.current.hasAdminAccess?.() ? ['repository'] : []}
 			headers={[
 				{
 					title: 'Name',
@@ -168,8 +171,6 @@
 							</div>
 						{/if}
 					</span>
-				{:else if property === 'created'}
-					{formatTimeAgo(d.created).relativeTime}
 				{:else if property === 'repository'}
 					<span class="block min-w-0 truncate">{d.repository}</span>
 				{:else if property === 'description'}
