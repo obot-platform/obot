@@ -342,15 +342,16 @@ describe('Identity & Access Page', () => {
 					.getByRole('button', { name: 'Configure', exact: true })
 					.click();
 
+				const signup = page.getByRole('dialog').filter({ hasText: 'Get Access Now!' });
 				await expect
-					.element(page.getByRole('heading', { name: 'Microsoft Entra', exact: true }).first())
+					.element(signup.getByRole('heading', { name: 'Microsoft Entra', exact: true }))
 					.toBeVisible();
 				await expect
-					.element(page.getByRole('heading', { name: 'Get Access Now!', exact: true }))
+					.element(signup.getByRole('heading', { name: 'Get Access Now!', exact: true }))
 					.toBeVisible();
 				await expect
 					.element(
-						page.getByText(
+						signup.getByText(
 							/Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter/,
 							{
 								exact: false
@@ -358,11 +359,11 @@ describe('Identity & Access Page', () => {
 						)
 					)
 					.toBeVisible();
-				await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
-				await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
-				await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
+				await expect.element(signup.getByLabelText('Name', { exact: true })).toBeVisible();
+				await expect.element(signup.getByLabelText('Email', { exact: true })).toBeVisible();
+				await expect.element(signup.getByLabelText('Company', { exact: false })).toBeVisible();
 				await expect
-					.element(page.getByRole('button', { name: 'Register', exact: true }))
+					.element(signup.getByRole('button', { name: 'Register', exact: true }))
 					.toBeVisible();
 				await expect
 					.element(page.getByText('Set Up Microsoft Entra', { exact: true }))

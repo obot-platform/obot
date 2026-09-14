@@ -116,15 +116,13 @@ describe('owner activation page', () => {
 		expect(goto).not.toHaveBeenCalled();
 	});
 
-	it('continues to the auth providers view once the password is set', async () => {
+	it('continues to vMCPs once the password is set', async () => {
 		mockActivate(() => HttpResponse.json({ activated: true }));
 		setFragment(`#token=${setupToken}`);
 
 		render(ActivatePage);
 
-		await vi.waitFor(() =>
-			expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fadmin%2Fauth-providers')
-		);
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fvmcps'));
 	});
 
 	it('explains that activation is required when opened without a link', async () => {

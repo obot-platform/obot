@@ -6,16 +6,11 @@
 	const LEGACY_STORAGE_KEY = '@obot/seen-vmcp-drag-hint';
 
 	interface Props {
-		dragActive?: boolean;
 		show?: boolean;
 		storageKey?: string;
 	}
 
-	let {
-		dragActive = false,
-		show = true,
-		storageKey = '@obot/seen-vmcp-introduction'
-	}: Props = $props();
+	let { show = true, storageKey = '@obot/seen-vmcp-introduction' }: Props = $props();
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let dismissed = $state(true);
@@ -42,10 +37,6 @@
 		}
 
 		dialog?.close();
-	});
-
-	$effect(() => {
-		if (dragActive) dismiss();
 	});
 </script>
 

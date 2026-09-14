@@ -7,7 +7,6 @@ import {
 	queueToolSetupForCreatedVMcp,
 	VMCP_CREATION_HINT_STORAGE_KEY
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-import { PROFILES_HINT_TEXT, TESTER_HINT_TEXT } from './VMcpCreationHint.svelte';
 import {
 	Group,
 	type MCPCatalogEntry,
@@ -22,6 +21,7 @@ import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../..
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
+import { PROFILES_HINT_TEXT, TESTER_HINT_TEXT } from './VMcpCreationHint.svelte';
 import VMcpDesigner from './VMcpDesigner.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
@@ -71,6 +71,7 @@ async function renderDesigner(
 	vmcp?: VMCP,
 	options?: { groups?: string[]; instances?: VMCPInstance[]; onBack?: () => void }
 ) {
+	localStorage.setItem('@obot/seen-vmcp-introduction', new Date().toISOString());
 	mcpServersAndEntries.current = {
 		entries,
 		servers: [],

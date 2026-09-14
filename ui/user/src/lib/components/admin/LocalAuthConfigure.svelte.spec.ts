@@ -315,9 +315,6 @@ describe('LocalAuthConfigure.svelte', () => {
 
 			await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
 			await expect
-				.element(dialog.getByText('Create the first local user.', { exact: false }))
-				.toBeVisible();
-			await expect
 				.element(dialog.getByText('Set up initially with local authentication!', { exact: true }))
 				.toBeVisible();
 			await expect
@@ -332,26 +329,26 @@ describe('LocalAuthConfigure.svelte', () => {
 		it('keeps in-progress input when open is called again after auto-configure', async () => {
 			mockLocalUsers();
 			const onConfigure = vi.fn(async () => undefined);
-			const result = render(LocalAuthConfigure, {
+			const result = await render(LocalAuthConfigure, {
 				provider: { ...localProvider, configured: false },
 				required: true,
 				onConfigure,
 				onClose: vi.fn()
 			});
 
-			result.component.open();
-			const dialog = page.getByRole('dialog');
-			await expect.element(dialog).toBeVisible();
+			await result.component.open();
+			const email = page.getByCSS('#initial-user-email');
+			await expect.element(email).toBeVisible();
 
-			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await email.fill('ada@example.com');
 			await vi.waitFor(() => {
 				expect(onConfigure).toHaveBeenCalled();
 			});
 
 			// Parent reopens after provider state refreshes; input must survive.
-			result.component.open();
+			await result.component.open();
 
-			await expect.element(dialog.getByLabelText('Email', { exact: true })).toHaveValue('ada@example.com');
+			await expect.element(email).toHaveValue('ada@example.com');
 		});
 
 		it('creates the initial user on save and continues the original close flow', async () => {

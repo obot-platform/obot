@@ -48,7 +48,8 @@ const LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
 export function hasSeenVMcpCreationHint(storageKey = VMCP_CREATION_HINT_STORAGE_KEY): boolean {
 	try {
 		return Boolean(
-			localStorage.getItem(storageKey) || localStorage.getItem(LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY)
+			localStorage.getItem(storageKey) ||
+			localStorage.getItem(LEGACY_VMCP_PROFILES_HINT_STORAGE_KEY)
 		);
 	} catch {
 		return false;
