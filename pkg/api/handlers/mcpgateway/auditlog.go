@@ -101,15 +101,16 @@ func NewAuditLogHandler(gatewayClient *gateway.Client) *AuditLogHandler {
 	}
 }
 
-// getOwnServerMCPIDs returns the MCP server IDs for servers that the user owns directly
-// (not through a workspace or catalog). These are single-user servers where:
-// - Spec.UserID == user's ID
-// - Spec.IsSingleUser() == true
+// getOwnServerMCPIDs returns the MCP IDs for the servers and vMCPs that the user owns directly
+// (not through a workspace or catalog). These are the single-user MCPServers and the personal
+// VMCPs where Spec.UserID is the user's ID; an audit log records either kind in its MCPID.
 func getOwnServerMCPIDs(req api.Context) ([]string, error) {
-	var mcpServers v1.MCPServerList
-	if err := req.List(&mcpServers, &kclient.ListOptions{
+	ownedByUser := &kclient.ListOptions{
 		FieldSelector: fields.OneTermEqualSelector("spec.userID", req.User.GetUID()),
-	}); err != nil {
+	}
+
+	var mcpServers v1.MCPServerList
+	if err := req.List(&mcpServers, ownedByUser); err != nil {
 		return nil, err
 	}
 
@@ -119,6 +120,16 @@ func getOwnServerMCPIDs(req api.Context) ([]string, error) {
 			mcpIDs = append(mcpIDs, server.Name)
 		}
 	}
+
+	var vmcps v1.VMCPList
+	if err := req.List(&vmcps, ownedByUser); err != nil {
+		return nil, err
+	}
+
+	for _, vmcp := range vmcps.Items {
+		mcpIDs = append(mcpIDs, vmcp.Name)
+	}
+
 	return mcpIDs, nil
 }
 

@@ -71,7 +71,8 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 			if config.MCPServerName != test.instance || len(config.Components) != 1 || config.Components[0].Name != test.component || len(config.Components[0].Tools) != 1 || config.Components[0].Tools[0].Name != test.tool {
 				t.Fatalf("wrong migrated connection: %#v", config)
 			}
-			if config.AuditLogMetadata["mcpID"] != test.instance || config.AuditLogMetadata["userID"] != "7" {
+			// Whichever legacy ID resolved the connection, the audit row records the vMCP.
+			if config.AuditLogMetadata["mcpID"] != vmcp.Name || config.AuditLogMetadata["userID"] != "7" {
 				t.Fatalf("wrong migrated connection audit attribution: %#v", config.AuditLogMetadata)
 			}
 			// This is the ID the aggregate gateway uses on its internal loopback.

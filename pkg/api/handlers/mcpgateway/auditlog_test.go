@@ -634,14 +634,14 @@ func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
 		wantCalls []string
 	}{
 		{
-			name:      "basic user sees only owned server",
+			name:      "basic user sees owned server and owned vMCP",
 			groups:    types.RoleBasic.Groups(),
-			wantCalls: []string{"owned-call"},
+			wantCalls: []string{"vmcp-call", "owned-call"},
 		},
 		{
-			name:      "power user plus sees owned and workspace servers",
+			name:      "power user plus sees owned server, workspace, and owned vMCP",
 			groups:    types.RolePowerUserPlus.Groups(),
-			wantCalls: []string{"workspace-call", "owned-call"},
+			wantCalls: []string{"vmcp-call", "workspace-call", "owned-call"},
 		},
 	}
 
@@ -676,6 +676,34 @@ func TestListAuditLogsScopesBasicAndPowerUserPlus(t *testing.T) {
 	}
 }
 
+// The "View Audit Logs" link on a vMCP deep-links to mcp_id=<vMCP ID>, which an audit row records
+// directly, so a basic user following it sees their own vMCP's calls.
+func TestListAuditLogsVMCPDeepLinkReturnsOwnedVMCPCalls(t *testing.T) {
+	gatewayClient := newLocalAgentAuditLogTestGatewayClient(t)
+	storageClient, logs := newAuditLogScopeTestFixture(t, "42")
+	seedMCPAuditLogs(t, gatewayClient, logs...)
+
+	recorder := httptest.NewRecorder()
+	ctx := newScopedAuditLogTestContext(t, gatewayClient, storageClient, recorder, "", "mcp_id=vmcp-owned", &user.DefaultInfo{
+		UID:    "42",
+		Groups: types.RoleBasic.Groups(),
+	})
+	if err := NewAuditLogHandler(gatewayClient).ListAuditLogs(ctx); err != nil {
+		t.Fatalf("list audit logs: %v", err)
+	}
+
+	var response types.AuditLogEventResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if response.Total != 1 || len(response.Items) != 1 {
+		t.Fatalf("got total=%d items=%d, want 1; response=%s", response.Total, len(response.Items), recorder.Body.String())
+	}
+	if got := response.Items[0].Action.Name; got != "vmcp-call" {
+		t.Fatalf("action name = %q, want the owned vMCP's call", got)
+	}
+}
+
 func TestAuditLogFilterOptionsScopeBasicAndPowerUserPlus(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -683,14 +711,14 @@ func TestAuditLogFilterOptionsScopeBasicAndPowerUserPlus(t *testing.T) {
 		wantOptions []string
 	}{
 		{
-			name:        "basic user gets options only from owned server",
+			name:        "basic user gets options from owned server and owned vMCP",
 			groups:      types.RoleBasic.Groups(),
-			wantOptions: []string{"Owned Server"},
+			wantOptions: []string{"Owned Server", "Owned vMCP"},
 		},
 		{
-			name:        "power user plus gets options from owned and workspace servers",
+			name:        "power user plus gets options from owned server, workspace, and owned vMCP",
 			groups:      types.RolePowerUserPlus.Groups(),
-			wantOptions: []string{"Owned Server", "Workspace Server"},
+			wantOptions: []string{"Owned Server", "Owned vMCP", "Workspace Server"},
 		},
 	}
 
@@ -858,6 +886,15 @@ func newAuditLogScopeTestFixture(t *testing.T, userID string) (storage.Client, [
 			Name: "mcp-unrelated", Namespace: system.DefaultNamespace,
 			Spec: v1.MCPServerSpec{UserID: "another-user"},
 		},
+		// vMCPs are scoped like MCP servers: a personal vMCP belongs to the user named in its spec.
+		&v1.VMCP{
+			Name: "vmcp-owned", Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPSpec{UserID: userID},
+		},
+		&v1.VMCP{
+			Name: "vmcp-unrelated", Namespace: system.DefaultNamespace,
+			Spec: v1.VMCPSpec{UserID: "another-user"},
+		},
 	}
 	storageClient := storage.Client(fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
@@ -868,6 +905,13 @@ func newAuditLogScopeTestFixture(t *testing.T, userID string) (storage.Client, [
 			}
 			return []string{server.Spec.UserID}
 		}).
+		WithIndex(&v1.VMCP{}, "spec.userID", func(object kclient.Object) []string {
+			vmcp := object.(*v1.VMCP)
+			if vmcp.Spec.UserID == "" {
+				return nil
+			}
+			return []string{vmcp.Spec.UserID}
+		}).
 		WithObjects(objects...).
 		Build())
 
@@ -876,6 +920,8 @@ func newAuditLogScopeTestFixture(t *testing.T, userID string) (storage.Client, [
 		newAuditLogScopeTestRow(base, "mcp-owned", "Owned Server", "", "owned-call"),
 		newAuditLogScopeTestRow(base.Add(time.Second), "mcp-workspace", "Workspace Server", workspaceID, "workspace-call"),
 		newAuditLogScopeTestRow(base.Add(2*time.Second), "mcp-unrelated", "Unrelated Server", "", "unrelated-call"),
+		newAuditLogScopeTestRow(base.Add(3*time.Second), "vmcp-owned", "Owned vMCP", "", "vmcp-call"),
+		newAuditLogScopeTestRow(base.Add(4*time.Second), "vmcp-unrelated", "Unrelated vMCP", "", "vmcp-unrelated-call"),
 	}
 	return storageClient, logs
 }

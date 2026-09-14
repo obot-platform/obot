@@ -255,7 +255,8 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 	if serverConfig.MCPServerDisplayName != vmcp.Spec.Manifest.DisplayName {
 		t.Fatalf("vMCP display name = %q, want %q", serverConfig.MCPServerDisplayName, vmcp.Spec.Manifest.DisplayName)
 	}
-	if serverConfig.AuditLogMetadata["mcpID"] != instanceID || serverConfig.AuditLogMetadata["mcpServerDisplayName"] != vmcp.Spec.Manifest.DisplayName || serverConfig.AuditLogMetadata["userID"] != userID {
+	// Audit rows record the vMCP, not the per-user instance that serves the connection.
+	if serverConfig.AuditLogMetadata["mcpID"] != vmcpID || serverConfig.AuditLogMetadata["mcpServerDisplayName"] != vmcp.Spec.Manifest.DisplayName || serverConfig.AuditLogMetadata["userID"] != userID {
 		t.Fatalf("missing vMCP audit attribution: %#v", serverConfig.AuditLogMetadata)
 	}
 	if len(serverConfig.Components) != 2 {
@@ -780,7 +781,8 @@ func TestServerConfigForMultiUserVMCPUsesSharedServers(t *testing.T) {
 		if cfg.MCPServerName != instanceID {
 			t.Fatalf("wrong aggregate identity: %s", cfg.MCPServerName)
 		}
-		if cfg.AuditLogMetadata["mcpID"] != instanceID || cfg.AuditLogMetadata["userID"] != userID {
+		// Every user's connection audits under the vMCP itself, so one ID covers the whole vMCP.
+		if cfg.AuditLogMetadata["mcpID"] != vmcp.Name || cfg.AuditLogMetadata["userID"] != userID {
 			t.Fatalf("wrong shared vMCP audit attribution: %#v", cfg.AuditLogMetadata)
 		}
 	}

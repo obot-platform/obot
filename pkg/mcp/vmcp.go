@@ -192,7 +192,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 		Components:           components,
 		Webhooks:             webhooks,
 		AuditLogMetadata: map[string]string{
-			"mcpID":                connectID,
+			"mcpID":                vmcp.Name,
 			"mcpServerDisplayName": vmcp.Spec.Manifest.DisplayName,
 			"userID":               userID,
 		},
