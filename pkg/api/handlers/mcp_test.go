@@ -1730,3 +1730,40 @@ func TestUpdateServerFromCatalogEntryPreservesValidHostnameURL(t *testing.T) {
 	assert.False(t, server.Spec.NeedsURL)
 	assert.Empty(t, server.Spec.PreviousURL)
 }
+
+func TestConvertMCPServerVMCPName(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     v1.MCPServerSpec
+		expected string
+	}{
+		{
+			name:     "standalone server",
+			spec:     v1.MCPServerSpec{},
+			expected: "",
+		},
+		{
+			name: "component of a shared vMCP",
+			spec: v1.MCPServerSpec{
+				VMCPID:          "vmcp1b7zz6",
+				VMCPComponentID: "component",
+			},
+			expected: "vmcp1b7zz6",
+		},
+		{
+			name: "component of a vMCP instance",
+			spec: v1.MCPServerSpec{
+				VMCPInstanceID:  "vmcpi1b7zz6",
+				VMCPComponentID: "component",
+			},
+			expected: "vmcpi1b7zz6",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converted := ConvertMCPServer(v1.MCPServer{Spec: tt.spec}, nil, "", "")
+			assert.Equal(t, tt.expected, converted.VMCPName)
+		})
+	}
+}

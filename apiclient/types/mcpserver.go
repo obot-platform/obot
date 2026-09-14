@@ -462,6 +462,11 @@ type MCPServer struct {
 
 	// CompositeName is the name of the composite server that this MCP server is a component of, if there is one.
 	CompositeName string `json:"compositeName,omitempty"`
+
+	// VMCPName is the name of the vMCP server, or vMCP instance, that this MCP server is a
+	// component of, if there is one. Component servers are managed through their vMCP and
+	// cannot be deleted on their own.
+	VMCPName string `json:"vmcpName,omitempty"`
 }
 
 type OAuthMetadata struct {

@@ -18,6 +18,7 @@
 		type OrgUser
 	} from '$lib/services';
 	import {
+		canDeleteServer,
 		getMCPDisplayName,
 		getMcpServerDeploymentStatus,
 		getServerTypeLabel,
@@ -482,8 +483,8 @@
 	}
 
 	async function handleBulkDelete() {
-		for (const id of Object.keys(selected)) {
-			await handleSingleDelete(selected[id]);
+		for (const server of Object.values(selected).filter(canDeleteServer)) {
+			await handleSingleDelete(server);
 		}
 		selected = {};
 	}
@@ -835,7 +836,7 @@
 									View Audit Logs
 								</button>
 
-								{#if d.isMyServer || (hasAdminAccess && !readonly)}
+								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && canDeleteServer(d)}
 									<button
 										class="menu-button-destructive"
 										onclick={async (e) => {
@@ -866,7 +867,9 @@
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate
 					).length}
-					{@const deletableCount = Object.values(currentSelected).length}
+					{@const deletableCount = Object.values(currentSelected).filter((s) =>
+						canDeleteServer(s)
+					).length}
 
 					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 						<button
@@ -1071,7 +1074,9 @@
 	loading={deleting}
 	names={showDeleteConfirm?.type === 'single'
 		? [showDeleteConfirm.server.manifest.name ?? '']
-		: Object.values(selected).map((s) => s.manifest.name ?? '')}
+		: Object.values(selected)
+				.filter(canDeleteServer)
+				.map((s) => s.manifest.name ?? '')}
 />
 
 <EditExistingDeployment

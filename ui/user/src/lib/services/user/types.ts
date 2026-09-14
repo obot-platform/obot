@@ -534,6 +534,9 @@ export interface MCPCatalogServer {
 	deploymentStatus?: string;
 	// Retained while legacy composite child deployments can still be migrated.
 	compositeName?: string;
+	// Set when this deployment is a component of a vMCP; such deployments are
+	// managed through their vMCP and cannot be deleted on their own.
+	vmcpName?: string;
 	template?: boolean;
 	canConnect?: boolean;
 }

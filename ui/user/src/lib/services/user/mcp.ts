@@ -468,6 +468,14 @@ export function isMultiUserServer(server?: MCPCatalogServer) {
 	return server?.serverUserType === 'multiUser';
 }
 
+/**
+ * Component deployments of a composite server or a vMCP are owned by their parent. The API
+ * rejects deleting them on their own, so the UI must not offer deletion for them.
+ */
+export function canDeleteServer(server: { compositeName?: string; vmcpName?: string }) {
+	return !server.compositeName && !server.vmcpName;
+}
+
 export function getServerTypeLabelByType(type?: string) {
 	if (!type) return '';
 	return type === 'hosted'
