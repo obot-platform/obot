@@ -1,7 +1,7 @@
 import { MCP_FILTERS_FIELD_IDS } from '$lib/constants';
+import type { GuideStep } from '../types';
 import { MCP_SERVERS_TAB_FILTERS } from './constants';
 import { getNavigateToMcpServersTabStep } from './steps';
-import type { GuideStep } from '../types';
 
 export const steps: GuideStep[] = [
 	{
