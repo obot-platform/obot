@@ -1,7 +1,6 @@
 import { replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { CommonAuthProviderIds } from '$lib/constants';
-import { navigateTo } from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
@@ -20,7 +19,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-vi.mock('$lib/navigation', { spy: true });
 vi.mock('$app/navigation', { spy: true });
 
 const googleProvider = listAuthProvidersResponse.find(
@@ -121,7 +119,6 @@ async function configureGoogleProvider() {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
-	vi.mocked(navigateTo).mockReset();
 	vi.mocked(replaceState).mockReset();
 });
 
@@ -143,7 +140,7 @@ describe('Identity & Access Page', () => {
 				requirePasswordChange: false
 			}));
 			const initiate = vi.fn(() => HttpResponse.json(initiateTempLoginResponse));
-			vi.mocked(navigateTo).mockImplementation(() => {});
+			const setPassword = vi.fn(() => new HttpResponse(null, { status: 204 }));
 			vi.mocked(replaceState).mockImplementation(() => {});
 
 			worker.use(
@@ -163,6 +160,7 @@ describe('Identity & Access Page', () => {
 					users = [...users, user];
 					return HttpResponse.json(user);
 				}),
+				http.post('/api/local-auth/users/:id/password', setPassword),
 				http.post('/api/setup/initiate-temp-login', initiate),
 				http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
 				http.get('/api/setup/explicit-role-emails', () =>
@@ -170,21 +168,24 @@ describe('Identity & Access Page', () => {
 				)
 			);
 
-			return initiate;
+			return { initiate, setPassword };
 		}
 
-		it('continues an unfinished single-account setup directly to login', async () => {
+		function ownerLoginPrompt() {
+			return page.getByText('Next Step: Owner Login Setup');
+		}
+
+		it('offers the owner login as a button rather than redirecting to it', async () => {
 			mockLocalSetup(['owner@example.com']);
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
-			await vi.waitFor(() => {
-				expect(navigateTo).toHaveBeenCalledExactlyOnceWith(initiateTempLoginResponse.redirectUrl);
-			});
-			await expect.element(page.getByText('Next Step: Owner Login Setup')).not.toBeVisible();
+			await expect.element(ownerLoginPrompt()).toBeVisible();
+			const signIn = page.getByRole('link', { name: 'Sign in as owner@example.com' });
+			await expect.element(signIn).toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 		});
 
-		it('goes straight to login after saving the initial account', async () => {
-			const initiate = mockLocalSetup([]);
+		it('prompts for the owner login after saving the initial account', async () => {
+			const { initiate } = mockLocalSetup([]);
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
 			await providerCard('Local').getByRole('button', { name: 'Modify', exact: true }).click();
@@ -194,18 +195,35 @@ describe('Identity & Access Page', () => {
 			expect(initiate).not.toHaveBeenCalled();
 			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
 
-			await vi.waitFor(() => {
-				expect(navigateTo).toHaveBeenCalledExactlyOnceWith(initiateTempLoginResponse.redirectUrl);
-			});
-			await expect.element(page.getByText('Next Step: Owner Login Setup')).not.toBeVisible();
+			await expect.element(ownerLoginPrompt()).toBeVisible();
+			await expect
+				.element(page.getByRole('link', { name: 'Sign in as owner@example.com' }))
+				.toBeVisible();
+		});
+
+		it('lets the bootstrap user reset a forgotten password from the owner login prompt', async () => {
+			const { setPassword } = mockLocalSetup(['owner@example.com']);
+			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
+
+			await expect.element(ownerLoginPrompt()).toBeVisible();
+			await page.getByRole('button', { name: 'Manage local accounts' }).click();
+
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Local' });
+			await expect.element(dialog.getByText('owner@example.com')).toBeVisible();
+			await dialog.getByRole('button', { name: 'Reset password' }).click();
+			await page.getByCSS('#reset-password-1').fill('a-password-i-will-remember');
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+			await vi.waitFor(() => expect(setPassword).toHaveBeenCalledOnce());
+			await expect.element(ownerLoginPrompt()).toBeVisible();
 		});
 
 		it('keeps explicit handoff for a legacy setup with multiple local accounts', async () => {
 			mockLocalSetup(['owner@example.com', 'legacy@example.com']);
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
-			await expect.element(page.getByText('Next Step: Owner Login Setup')).toBeVisible();
-			expect(navigateTo).not.toHaveBeenCalled();
+			await expect.element(ownerLoginPrompt()).toBeVisible();
+			await expect.element(page.getByRole('link', { name: 'Continue with Local' })).toBeVisible();
 		});
 	});
 
