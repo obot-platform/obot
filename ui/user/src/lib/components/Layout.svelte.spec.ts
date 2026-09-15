@@ -217,6 +217,25 @@ describe('Layout.svelte', () => {
 			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
 		});
 
+		it('does not show license actions for auditors with violations', async () => {
+			await renderLayout([Group.USER, Group.AUDITOR], {
+				licenseEntitlementViolations: [
+					{
+						type: 'userLimit',
+						namespace: 'default',
+						name: 'users',
+						requiredEntitlements: [ENTERPRISE_ENTITLEMENT],
+						missingEntitlements: [ENTERPRISE_ENTITLEMENT]
+					}
+				]
+			});
+
+			await expect
+				.element(page.getByRole('button', { name: 'Resolve', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByText(/Upgrade to Obot Enterprise/)).not.toBeInTheDocument();
+		});
+
 		it('does not show when a community license is present', async () => {
 			await renderLayout(
 				[Group.ADMIN],

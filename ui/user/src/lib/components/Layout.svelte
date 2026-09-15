@@ -569,7 +569,7 @@
 			<div class="sticky top-0 left-0 z-50 w-full">
 				{#if banner}
 					{@render banner()}
-				{:else if hasLicenseEntitlementViolations || isNearUserLimit}
+				{:else if (hasLicenseEntitlementViolations || isNearUserLimit) && !profile.current.isAdminReadonly?.()}
 					<LicenseViolationBanner warnUserLimit={isNearUserLimit}>
 						{#snippet fallback()}
 							{#if showAppNotificationBanner}
