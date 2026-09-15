@@ -135,4 +135,30 @@ describe('CustomConfigurationFieldset.svelte', () => {
 			.not.toHaveAttribute('aria-required');
 		await expect.element(page.getByLabelText('Static Value')).not.toHaveAttribute('aria-required');
 	});
+
+	it('shows an existing secret binding when the fieldset is readonly without binding targets', async () => {
+		await renderFieldset({
+			data: field({
+				key: 'EXA_API_KEY',
+				secretBinding: { name: 'my-secret', key: 'api_key' }
+			}),
+			readonly: true
+		});
+
+		const valueSource = page.getByCSS('#secret-binding-source-EXA_API_KEY');
+		const secret = page.getByCSS('#secret-binding-secret-EXA_API_KEY');
+		const secretKey = page.getByCSS('#secret-binding-key-EXA_API_KEY');
+
+		await expect.element(valueSource).toHaveTextContent('Kubernetes Secret');
+		await expect.element(secret).toHaveTextContent('my-secret');
+		await expect.element(secretKey).toHaveTextContent('api_key');
+		await expect.element(secret).not.toHaveTextContent('not available');
+		await expect.element(secretKey).not.toHaveTextContent('not available');
+		await expect.element(valueSource).toHaveAttribute('tabindex', '-1');
+		await expect.element(secret).toHaveAttribute('tabindex', '-1');
+		await expect.element(secretKey).toHaveAttribute('tabindex', '-1');
+		await expect.element(valueSource).toHaveClass(/opacity-50/);
+		await expect.element(secret).toHaveClass(/opacity-50/);
+		await expect.element(secretKey).toHaveClass(/opacity-50/);
+	});
 });

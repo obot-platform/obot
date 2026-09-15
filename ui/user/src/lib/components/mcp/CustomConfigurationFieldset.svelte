@@ -65,6 +65,12 @@
 	let missingValue = $derived(
 		showRequired && !data.value?.trim() && (data.options ?? []).length === 0
 	);
+	let displayedSecretBindingTargets = $derived.by(() => {
+		if (secretBindingTargets) return secretBindingTargets;
+		if (!readonly || !data.secretBinding) return undefined;
+
+		return [{ name: data.secretBinding.name, keys: [data.secretBinding.key] }];
+	});
 
 	$effect(() => {
 		if (urlTemplateVariable) {
@@ -181,10 +187,10 @@
 		{@render nameAndDescriptionInputs()}
 	{/if}
 	{#if selectedType === 'static'}
-		{#if secretBindingTargets && !version.current.hideK8sDetails}
+		{#if displayedSecretBindingTargets && !version.current.hideK8sDetails}
 			<SecretBindingPicker
 				bind:field={data}
-				targets={secretBindingTargets}
+				targets={displayedSecretBindingTargets}
 				{readonly}
 				{showRequired}
 			/>
