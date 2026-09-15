@@ -787,20 +787,25 @@
 											{/if}
 										</span>
 									</button>
+								{:else if resource}
+									<button
+										type="button"
+										class="hover:bg-base-200 dark:hover:bg-base-200/60 flex w-full items-center gap-3 py-1 pl-3 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
+										aria-label="Refine tools"
+										onclick={(event) => refineTools(event, component)}
+										disabled={readonly}
+									>
+										{@render componentIdentity()}
+										<span
+											class="text-muted-content flex size-8 shrink-0 items-center justify-center"
+											aria-hidden="true"
+										>
+											<Split class="size-4" />
+										</span>
+									</button>
 								{:else}
 									<div class="flex items-center gap-3 py-1 pl-3 pr-1">
 										{@render componentIdentity()}
-										{#if resource}
-											<IconButton
-												class="size-8"
-												type="button"
-												tooltip={{ text: 'Refine tools' }}
-												onclick={(event) => refineTools(event, component)}
-												disabled={readonly}
-											>
-												<Split class="size-4" />
-											</IconButton>
-										{/if}
 									</div>
 								{/if}
 								{#if resource && resource.toolOverrides.length > 0 && expanded[id]}
