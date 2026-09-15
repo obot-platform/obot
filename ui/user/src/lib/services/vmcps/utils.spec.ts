@@ -10,6 +10,7 @@ import {
 	catalogConfigurationFields,
 	distanceToRect,
 	filterMcpServersByCategories,
+	filterVMcps,
 	isJoinedComponentLabel,
 	isWorkspaceOwned,
 	joinComponentLabels,
@@ -135,6 +136,67 @@ describe('sortVMcps', () => {
 			'vmcp-a',
 			'vmcp-z'
 		]);
+	});
+});
+
+describe('filterVMcps', () => {
+	const shared = createVMCP({ id: 'vmcp-shared', displayName: 'Shared Catalog', userID: undefined });
+	const personal = createVMCP({
+		id: 'vmcp-personal',
+		displayName: 'Personal Workspace',
+		userID: 'user-1'
+	});
+	const owners = new Map([
+		[
+			'user-1',
+			{
+				id: 'user-1',
+				username: 'alice',
+				email: 'alice@example.com',
+				created: '2026-01-01T00:00:00.000Z',
+				explicitRole: false,
+				role: 0,
+				effectiveRole: 0,
+				groups: [],
+				iconURL: ''
+			}
+		]
+	]);
+
+	it('finds shared vMCPs without a userID by display name', () => {
+		expect(
+			filterVMcps([shared, personal], { query: 'shared' }, owners).map((vmcp) => vmcp.id)
+		).toEqual(['vmcp-shared']);
+	});
+
+	it('safely handles owners without username or email', () => {
+		const incompleteOwners = new Map([
+			[
+				'user-1',
+				{
+					id: 'user-1',
+					username: undefined as unknown as string,
+					email: undefined as unknown as string,
+					created: '2026-01-01T00:00:00.000Z',
+					explicitRole: false,
+					role: 0,
+					effectiveRole: 0,
+					groups: [],
+					iconURL: ''
+				}
+			]
+		]);
+
+		expect(() =>
+			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map(
+				(vmcp) => vmcp.id
+			)
+		).not.toThrow();
+		expect(
+			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map(
+				(vmcp) => vmcp.id
+			)
+		).toEqual(['vmcp-shared']);
 	});
 });
 

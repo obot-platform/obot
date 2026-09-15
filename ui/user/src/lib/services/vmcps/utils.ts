@@ -209,11 +209,12 @@ function sortFilterOptions(options: VMcpFilterOption[]) {
 }
 
 function matchesOwnerQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
-	const owner = vmcp.userID && owners.get(vmcp.userID);
+	if (!vmcp.userID) return false;
+	const owner = owners.get(vmcp.userID);
 	if (!owner) return false;
 	return (
-		owner.username.toLowerCase().includes(query) ||
-		owner.email.toLowerCase().includes(query) ||
+		owner.username?.toLowerCase().includes(query) ||
+		owner.email?.toLowerCase().includes(query) ||
 		Boolean(owner.displayName?.toLowerCase().includes(query))
 	);
 }
