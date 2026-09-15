@@ -76,6 +76,23 @@ remoteConfig:
 	assert.Empty(t, objs)
 }
 
+func TestReadMCPCatalogRejectsLegacyCompositeWithInvalidCatalogEntryID(t *testing.T) {
+	dir := t.TempDir()
+	assert.NoError(t, os.WriteFile(filepath.Join(dir, "entry.yaml"), []byte(`name: Composite
+runtime: composite
+compositeConfig:
+  componentServers:
+    - catalogEntryID: testing
+`), 0o600))
+
+	h := &Handler{}
+	objs, err := h.readMCPCatalog(t.Context(), "default", dir, "")
+
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), `unknown field "compositeConfig"`)
+	assert.Empty(t, objs)
+}
+
 func TestParseSourceRef(t *testing.T) {
 	const currentSourceID = "current-source"
 
