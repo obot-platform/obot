@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ADMIN_SESSION_STORAGE } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
@@ -45,8 +44,6 @@
 	import CatalogServerForm from './CatalogServerForm.svelte';
 	import McpServerEntryTroubleshooting from './McpServerEntryTroubleshooting.svelte';
 	import McpServerInstances from './McpServerInstances.svelte';
-	import AuditLogsPageContent from './audit-logs/AuditLogsPageContent.svelte';
-	import UsageGraphs from './usage/UsageGraphs.svelte';
 	import {
 		CircleAlert,
 		ChevronLeft,
@@ -58,7 +55,6 @@
 		Server,
 		Settings,
 		Trash2,
-		Users,
 		Wrench,
 		ExternalLink,
 		X
@@ -221,21 +217,15 @@
 			entry && !server
 				? [
 						{ label: 'Overview', view: 'overview' },
+						// Basic users who just connected don't see Configuration.
+						// Catalog entry-deployed multi-user servers also hide it: the configuration is
+						// owned by the upstream catalog entry, not the deployment.
 						...(trueOwner &&
 						(!isCatalogEntryDeployedMultiUserServer(entry) || allowMultiUserServerConfigurationEdit)
 							? [{ label: 'Configuration', view: 'configuration' }]
 							: []),
 						...(belongsToUser ? [{ label: 'Server Details', view: 'server-instances' }] : []),
 						{ label: 'Tools', view: 'tools' },
-						// Basic users who just connected don't see Configuration.
-						// Catalog entry-deployed multi-user servers also hide it: the configuration is
-						// owned by the upstream catalog entry, not the deployment.
-						...(belongsToUser
-							? [
-									{ label: 'Audit Logs', view: 'audit-logs' },
-									{ label: 'Usage', view: 'usage' }
-								]
-							: []),
 						...(isAtLeastPowerUserPlus && trueOwner
 							? [{ label: 'Access Policies', view: 'access-control' }]
 							: []),
@@ -804,10 +794,6 @@
 			{@render toolsView()}
 		{:else if selected === 'access-control'}
 			{@render accessControlView()}
-		{:else if selected === 'usage'}
-			{@render usageView()}
-		{:else if selected === 'audit-logs'}
-			{@render auditLogsView()}
 		{:else if selected === 'server-instances'}
 			{#if entry && 'isCatalogEntry' in entry && server}
 				<McpServerDetails catalogEntry={entry} {server} />
@@ -934,75 +920,6 @@
 			</div>
 		{/if}
 	{/await}
-{/snippet}
-
-{#snippet usageView()}
-	{#if entry}
-		{@const isMultiUserServer = !!page.url.pathname.match(/\/mcp-servers\/s.*$/)?.[0]}
-		{@const isSingleUserServer =
-			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
-		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
-
-		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
-		{@const entryId = entry.id ?? null}
-
-		<div class="mt-4 flex min-h-full flex-col gap-8 pb-8">
-			<UsageGraphs
-				mcpId={isMultiUserServer ? entryId : null}
-				mcpServerCatalogEntryName={isSingleUserServer || isRemoteServer ? entryId : null}
-				{mcpServerDisplayName}
-			/>
-		</div>
-	{/if}
-{/snippet}
-
-{#snippet auditLogsView()}
-	{#if entry}
-		{@const isMultiUserServer = 'serverUserType' in entry && entry.serverUserType === 'multiUser'}
-		{@const isSingleUserServer =
-			!isMultiUserServer && ['npx', 'uvx', 'containerized'].includes(entry.manifest.runtime)}
-		{@const isRemoteServer = !isMultiUserServer && entry.manifest.runtime === 'remote'}
-
-		{@const mcpServerDisplayName = entry.manifest?.name ?? null}
-		{@const entryId = entry.id ?? null}
-		{@const mcpCatalogEntryId = 'catalogEntryID' in entry ? entry?.catalogEntryID : null}
-		{@const mcpServerCatalogEntryName =
-			isMultiUserServer && mcpCatalogEntryId
-				? mcpCatalogEntryId
-				: isSingleUserServer || isRemoteServer
-					? entryId
-					: null}
-		<div class="mt-4 flex flex-1 flex-col gap-8 pb-8">
-			<!-- temporary filter mcp server by name and catalog entry id-->
-			<AuditLogsPageContent
-				mcpId={isMultiUserServer ? entryId : server ? server.id : null}
-				{mcpServerCatalogEntryName}
-				{mcpServerDisplayName}
-				{entity}
-			>
-				{#snippet emptyContent()}
-					<div class="mt-12 flex w-md flex-col items-center gap-4 self-center text-center">
-						<Users class="text-muted-content size-24 opacity-50" />
-						<h4 class="text-muted-content text-lg font-semibold">No recent audit logs</h4>
-						<p class="text-muted-content text-sm font-light">
-							This server has not had any active usage in the last 7 days.
-						</p>
-						{#if entryId || mcpCatalogEntryId}
-							{@const param = entryId ? 'mcpId=' + entryId : 'entryId=' + mcpCatalogEntryId}
-							<p class="text-muted-content text-sm font-light">
-								See more usage details in the server's <a
-									href={resolve(`/audit-logs?${param}`)}
-									class="text-link"
-								>
-									Audit Logs
-								</a>.
-							</p>
-						{/if}
-					</div>
-				{/snippet}
-			</AuditLogsPageContent>
-		</div>
-	{/if}
 {/snippet}
 
 {#snippet filtersView()}

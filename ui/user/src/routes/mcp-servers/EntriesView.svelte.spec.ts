@@ -19,7 +19,7 @@ const workspaceEntry = createMCPCatalogEntry({
 	powerUserWorkspaceID: 'ws-1'
 });
 
-async function renderEntriesView() {
+async function renderEntriesView(readonly = false) {
 	await preparePageData();
 	mcpServersAndEntries.current = {
 		entries: [catalogEntry, workspaceEntry],
@@ -30,7 +30,7 @@ async function renderEntriesView() {
 		lastFetched: null,
 		isInitialized: true
 	};
-	return render(EntriesView, { entity: 'catalog', id: 'default' });
+	return render(EntriesView, { entity: 'catalog', id: 'default', readonly });
 }
 
 async function clickRow(name: string) {
@@ -58,16 +58,11 @@ describe('MCP Servers EntriesView', () => {
 		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/c/workspace-entry?wid=ws-1', false);
 	});
 
-	it('keeps the workspace scope on the audit logs link', async () => {
-		await renderEntriesView();
+	it('omits unavailable row actions', async () => {
+		await renderEntriesView(true);
 
-		const row = page.getByRole('row').filter({ hasText: 'Workspace Entry' });
-		await row.getByRole('button', { name: 'Row actions' }).click();
-		await page.getByRole('button', { name: 'View Audit Logs' }).click();
-
-		expect(openUrl).toHaveBeenCalledWith(
-			'/mcp-servers/c/workspace-entry?view=audit-logs&wid=ws-1',
-			false
-		);
+		const row = page.getByRole('row').filter({ hasText: 'Catalog Entry' });
+		await expect.element(row.getByRole('button', { name: 'Row actions' })).not.toBeInTheDocument();
+		await expect.element(page.getByText('View Audit Logs')).not.toBeInTheDocument();
 	});
 });

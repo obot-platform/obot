@@ -105,7 +105,7 @@ async function expectMenuActions(
 		await expect.element(page.getByRole('button', { name: label, exact: true })).toBeVisible();
 	}
 
-	for (const label of expected.absent ?? []) {
+	for (const label of ['View Audit Logs', ...(expected.absent ?? [])]) {
 		await expect
 			.element(page.getByRole('button', { name: label, exact: true }))
 			.not.toBeInTheDocument();
@@ -145,7 +145,7 @@ describe('MCP Servers Page', () => {
 				await expect.element(upgradeDialog.getByCSS('script')).not.toBeInTheDocument();
 			});
 
-			it('single-user npx with needsUpdate shows update, diff, edit, restart, audit, delete', async () => {
+			it('single-user npx with needsUpdate shows update, diff, edit, restart, delete', async () => {
 				await expectMenuActions(fixtures.serverSingleNeedsUpdate.manifest.name!, {
 					links: ['View Catalog Entry'],
 					present: [
@@ -153,7 +153,6 @@ describe('MCP Servers Page', () => {
 						'Update Server',
 						'View Diff',
 						'Restart Server',
-						'View Audit Logs',
 						'Delete Server'
 					],
 					absent: ['Update Scheduling Config']
@@ -167,17 +166,16 @@ describe('MCP Servers Page', () => {
 						'Edit Configuration',
 						'Update Scheduling Config',
 						'Restart Server',
-						'View Audit Logs',
 						'Delete Server'
 					],
 					absent: ['Update Server', 'View Diff']
 				});
 			});
 
-			it('multi-user npx shows catalog, edit, restart, audit, delete', async () => {
+			it('multi-user npx shows catalog, edit, restart, delete', async () => {
 				await expectMenuActions(fixtures.serverMulti.manifest.name!, {
 					links: ['View Catalog Entry'],
-					present: ['Edit Configuration', 'Restart Server', 'View Audit Logs', 'Delete Server'],
+					present: ['Edit Configuration', 'Restart Server', 'Delete Server'],
 					absent: ['Update Server', 'View Diff', 'Update Scheduling Config']
 				});
 			});
@@ -185,7 +183,7 @@ describe('MCP Servers Page', () => {
 			it('remote server omits edit configuration and restart', async () => {
 				await expectMenuActions(fixtures.serverRemote.manifest.name!, {
 					links: ['View Catalog Entry'],
-					present: ['View Audit Logs', 'Delete Server'],
+					present: ['Delete Server'],
 					absent: [
 						'Edit Configuration',
 						'Restart Server',
@@ -199,7 +197,7 @@ describe('MCP Servers Page', () => {
 			it('server without catalogEntryID shows View Server instead of View Catalog Entry', async () => {
 				await expectMenuActions(fixtures.serverNoCatalogEntry.manifest.name!, {
 					links: ['View Server'],
-					present: ['Edit Configuration', 'Restart Server', 'View Audit Logs', 'Delete Server'],
+					present: ['Edit Configuration', 'Restart Server', 'Delete Server'],
 					absent: ['View Catalog Entry', 'Update Server', 'View Diff', 'Update Scheduling Config']
 				});
 			});

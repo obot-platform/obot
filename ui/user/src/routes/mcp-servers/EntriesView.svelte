@@ -37,7 +37,6 @@
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import {
-		Captions,
 		CircleFadingArrowUp,
 		Ellipsis,
 		GitBranch,
@@ -87,9 +86,6 @@
 
 	let deletingEntry = $state<MCPCatalogEntry>();
 	let deletingServer = $state<MCPCatalogServer>();
-	let selected = $state<Record<string, Item>>({});
-	let confirmBulkDelete = $state(false);
-	let loadingBulkDelete = $state(false);
 
 	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
 	let oauthConfigEntry = $state<MCPCatalogEntry>();
@@ -135,18 +131,15 @@
 		)
 	);
 
-	function getEntryUrl(d: Item, params: Record<string, string> = {}) {
+	function getEntryUrl(d: Item) {
+		const params: Record<string, string> = {};
 		if (profile.current.hasAdminAccess?.() && d.data.powerUserWorkspaceID) {
-			params = { ...params, wid: d.data.powerUserWorkspaceID };
+			params.wid = d.data.powerUserWorkspaceID;
 		}
 		const query = Object.entries(params)
 			.map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
 			.join('&');
 		return `/mcp-servers/c/${d.data.id}${query ? `?${query}` : ''}`;
-	}
-
-	function getAuditLogsUrl(d: Item) {
-		return getEntryUrl(d, { view: 'audit-logs' });
 	}
 
 	async function fetch() {
@@ -377,7 +370,6 @@
 				{#snippet actions(d)}
 					{@const isCatalogEntry = 'isCatalogEntry' in d.data}
 					{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
-					{@const auditLogUrl = getAuditLogsUrl(d)}
 					{@const belongsToUser =
 						entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
 					{@const canDelete =
@@ -385,53 +377,44 @@
 					{@const requiresOAuth =
 						catalogEntry?.manifest?.runtime === 'remote' &&
 						catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
-						{#snippet icon()}
-							<Ellipsis class="size-4" />
-						{/snippet}
+					{@const canConfigureOAuth = Boolean(requiresOAuth && catalogEntry && !readonly)}
+					{#if canConfigureOAuth || canDelete}
+						<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
+							{#snippet icon()}
+								<Ellipsis class="size-4" />
+							{/snippet}
 
-						{#snippet children({ toggle })}
-							<div class="flex flex-col gap-1 p-2">
-								{#if requiresOAuth && catalogEntry && !readonly}
-									<button
-										class="menu-button hover:bg-base-400"
-										onclick={async (e) => {
-											e.stopPropagation();
-											await handleConfigureOAuth(catalogEntry);
-											toggle(false);
-										}}
-									>
-										<Settings class="size-4" /> Configure OAuth
-									</button>
-								{/if}
-								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											const isCtrlClick = e.ctrlKey || e.metaKey;
-											openUrl(auditLogUrl, isCtrlClick);
-										}}
-										class="menu-button"
-									>
-										<Captions class="size-4" /> View Audit Logs
-									</button>
-								{/if}
-								{#if canDelete}
-									<button
-										class="menu-button-destructive"
-										onclick={(e) => {
-											e.stopPropagation();
-											deletingEntry = catalogEntry;
-											toggle(false);
-										}}
-									>
-										<Trash2 class="size-4" />
-										{catalogEntry ? 'Delete Entry' : 'Delete Server'}
-									</button>
-								{/if}
-							</div>
-						{/snippet}
-					</DotDotDot>
+							{#snippet children({ toggle })}
+								<div class="flex flex-col gap-1 p-2">
+									{#if requiresOAuth && catalogEntry && !readonly}
+										<button
+											class="menu-button hover:bg-base-400"
+											onclick={async (e) => {
+												e.stopPropagation();
+												await handleConfigureOAuth(catalogEntry);
+												toggle(false);
+											}}
+										>
+											<Settings class="size-4" /> Configure OAuth
+										</button>
+									{/if}
+									{#if canDelete}
+										<button
+											class="menu-button-destructive"
+											onclick={(e) => {
+												e.stopPropagation();
+												deletingEntry = catalogEntry;
+												toggle(false);
+											}}
+										>
+											<Trash2 class="size-4" />
+											{catalogEntry ? 'Delete Entry' : 'Delete Server'}
+										</button>
+									{/if}
+								</div>
+							{/snippet}
+						</DotDotDot>
+					{/if}
 				{/snippet}
 			</Table>
 		{/if}
@@ -479,35 +462,6 @@
 	oncancel={() => (deletingServer = undefined)}
 	entity="server"
 	entityPlural="servers"
-/>
-
-<McpConfirmDelete
-	names={Object.values(selected).map((s) => s.name)}
-	show={confirmBulkDelete}
-	onsuccess={async () => {
-		loadingBulkDelete = true;
-		try {
-			for (const item of Object.values(selected)) {
-				if (item.data.powerUserWorkspaceID) {
-					await UserService.deleteWorkspaceMCPCatalogEntry(
-						item.data.powerUserWorkspaceID,
-						item.data.id
-					);
-				} else if (catalog) {
-					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
-				}
-			}
-
-			await fetch();
-		} finally {
-			confirmBulkDelete = false;
-			loadingBulkDelete = false;
-		}
-	}}
-	oncancel={() => (confirmBulkDelete = false)}
-	loading={loadingBulkDelete}
-	entity="entry"
-	entityPlural="entries"
 />
 
 <StaticOAuthConfigureModal

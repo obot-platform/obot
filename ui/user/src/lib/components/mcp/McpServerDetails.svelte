@@ -1,14 +1,12 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import McpServerK8sInfo from '$lib/components/admin/McpServerK8sInfo.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
 	import OAuthMetadataDebug from '$lib/components/mcp/OAuthMetadataDebug.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import { Group, type MCPCatalogEntry, type MCPCatalogServer, type OrgUser } from '$lib/services';
+	import type { MCPCatalogEntry, MCPCatalogServer, OrgUser } from '$lib/services';
 	import { getMCPDisplayName, supportsMCPBackendDetails } from '$lib/services/user/mcp';
 	import { isMcpTunnelDisconnected } from '$lib/services/user/mcpTunnel';
 	import { mcpTunnelConnections, profile } from '$lib/stores';
-	import { isOwnSingleUserServer } from '$lib/utils';
 	import Table from '../table/Table.svelte';
 	import { Info } from '@lucide/svelte';
 
@@ -57,29 +55,6 @@
 	let tunnelDisconnected = $derived(
 		isMcpTunnelDisconnected(server ?? catalogEntry, mcpTunnelConnections.current.connections)
 	);
-
-	function getAuditLogUrl(d: OrgUser) {
-		const id = serverId ?? server?.id;
-
-		if (!id) return null;
-
-		if (entity === 'agent') return null;
-
-		const prefix = '/mcp-servers';
-		if (hasAdminAccess) {
-			const workspaceScope = entity === 'workspace' ? `&wid=${encodeURIComponent(entityId)}` : '';
-			return catalogEntry?.id
-				? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}${workspaceScope}`
-				: `${prefix}/s/${encodeURIComponent(id)}?view=audit-logs&user_id=${d.id}${workspaceScope}`;
-		}
-
-		// Basic users can access audit logs for their own single-user servers
-		let isOwnServer = server && isOwnSingleUserServer(server, profile.current?.id);
-		if (!isOwnServer && !profile.current?.groups.includes(Group.POWERUSER)) return null;
-		return catalogEntry?.id
-			? `${prefix}/c/${catalogEntry.id}?view=audit-logs&user_id=${d.id}`
-			: `${prefix}/s/${encodeURIComponent(id ?? '')}?view=audit-logs&user_id=${d.id}`;
-	}
 </script>
 
 {#if server || mcpServerId}
@@ -117,15 +92,6 @@
 							{d.mcpInstanceConfigured === false ? 'Not Configured' : 'Up to date'}
 						{:else}
 							{d[property as keyof typeof d]}
-						{/if}
-					{/snippet}
-
-					{#snippet actions(d)}
-						{@const auditLogsUrl = getAuditLogUrl(d)}
-						{#if auditLogsUrl}
-							<a href={resolve(auditLogsUrl as `/${string}`)} class="btn btn-link">
-								View Audit Logs
-							</a>
 						{/if}
 					{/snippet}
 				</Table>

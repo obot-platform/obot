@@ -40,7 +40,6 @@
 	import EditExistingDeployment from './EditExistingDeployment.svelte';
 	import McpDeprecatedNotice from './McpDeprecatedNotice.svelte';
 	import {
-		Captions,
 		CircleAlert,
 		CircleFadingArrowUp,
 		Ellipsis,
@@ -522,12 +521,6 @@
 		);
 	}
 
-	function getAuditLogsUrl(d: MCPCatalogServer) {
-		return !d.catalogEntryID
-			? `/audit-logs?mcp_server_display_name=${d.manifest.name}`
-			: `/audit-logs?mcp_id=${d.id}`;
-	}
-
 	function getMcpCatalogUrl(d: MCPCatalogServer) {
 		// The menu label is "View Catalog Entry" whenever the deployment has a
 		// catalogEntryID, so link to the catalog entry in that case. This includes
@@ -706,7 +699,6 @@
 				{/snippet}
 
 				{#snippet actions(d)}
-					{@const auditLogsUrl = getAuditLogsUrl(d)}
 					{@const isVmcpComponent = !!d.vmcpComponentID}
 					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0 gap-0' }}>
 						{#snippet icon()}
@@ -868,21 +860,6 @@
 										{/if}
 									</button>
 								{/if}
-
-								{#if auditLogsUrl && !isVmcpComponent}
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											const isCtrlClick = e.ctrlKey || e.metaKey;
-											openUrl(auditLogsUrl, isCtrlClick);
-										}}
-										class="menu-button text-left"
-									>
-										<Captions class="size-4" />
-										View Audit Logs
-									</button>
-								{/if}
-
 								{#if !isVmcpComponent && (d.isMyServer || (hasAdminAccess && !readonly))}
 									<button
 										class="menu-button-destructive"
