@@ -143,23 +143,24 @@
 		users = [];
 	}
 
+	function openBootstrapSetup() {
+		if (!initialUserDialogOpen) {
+			resetDialogState();
+			configurePromise = autoConfigure();
+		}
+		initialUserDialogOpen = true;
+		createInitialUserDialog?.open();
+	}
+
 	export function open() {
 		if (required) {
-			// The parent may call open() again when auth provider state refreshes after
-			// auto-configure. Do not wipe in-progress form input on those reopens.
-			if (!initialUserDialogOpen) {
-				resetDialogState();
-				configurePromise = autoConfigure();
-			}
-			initialUserDialogOpen = true;
-			createInitialUserDialog?.open();
-			return;
+			openBootstrapSetup();
+		} else {
+			resetDialogState();
+			step = provider?.configured ? 'users' : 'config';
+			dialog?.open();
+			if (step === 'users') showUsers();
 		}
-
-		resetDialogState();
-		step = provider?.configured ? 'users' : 'config';
-		dialog?.open();
-		if (step === 'users') showUsers();
 	}
 
 	export function close() {
@@ -168,8 +169,6 @@
 		createInitialUserDialog?.close();
 	}
 
-	// Onboarding skips domain collection. `*` allows any email so the first user can be created;
-	// an empty value would be stripped by the configure API and then reject every address.
 	async function autoConfigure(): Promise<boolean> {
 		configuring = true;
 		configError = undefined;
@@ -218,8 +217,6 @@
 				return;
 			}
 
-			// This account is signed in with immediately to become the owner, so a forced password
-			// change would put that sign-in behind the restricted-session wall.
 			await AdminService.createLocalAuthUser(email, initialPassword, false);
 			await refreshUsers();
 			close();

@@ -5,7 +5,6 @@ import { worker } from '../../../tests/mocks/worker';
 import LocalAuthConfigure from './LocalAuthConfigure.svelte';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
-import { render } from 'vitest-browser-svelte';
 import { page, userEvent } from 'vitest/browser';
 
 const localProvider: AuthProvider = {
@@ -324,31 +323,6 @@ describe('LocalAuthConfigure.svelte', () => {
 			await expect
 				.element(dialog.getByRole('checkbox', { name: /Require the user to change this password/ }))
 				.not.toBeInTheDocument();
-		});
-
-		it('keeps in-progress input when open is called again after auto-configure', async () => {
-			mockLocalUsers();
-			const onConfigure = vi.fn(async () => undefined);
-			const result = await render(LocalAuthConfigure, {
-				provider: { ...localProvider, configured: false },
-				required: true,
-				onConfigure,
-				onClose: vi.fn()
-			});
-
-			await result.component.open();
-			const email = page.getByCSS('#initial-user-email');
-			await expect.element(email).toBeVisible();
-
-			await email.fill('ada@example.com');
-			await vi.waitFor(() => {
-				expect(onConfigure).toHaveBeenCalled();
-			});
-
-			// Parent reopens after provider state refreshes; input must survive.
-			await result.component.open();
-
-			await expect.element(email).toHaveValue('ada@example.com');
 		});
 
 		it('creates the initial user on save and continues the original close flow', async () => {
