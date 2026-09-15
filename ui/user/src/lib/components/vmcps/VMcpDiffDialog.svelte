@@ -65,10 +65,7 @@
 			{#each outdatedComponents as component, index (component.id ?? component.mcpServerCatalogEntryID)}
 				<button
 					type="button"
-					class={twMerge(
-						'btn btn-sm',
-						selectedIndex === index ? 'btn-primary' : 'btn-ghost'
-					)}
+					class={twMerge('btn btn-sm', selectedIndex === index ? 'btn-primary' : 'btn-ghost')}
 					onclick={() => (selectedIndex = index)}
 				>
 					{component.name || component.catalogEntry.manifest.name}
@@ -86,7 +83,9 @@
 		{#if newServerManifest && diffManifest}
 			{@const diff = generateJsonDiff(diffManifest, newServerManifest)}
 			{#if selectedComponent}
-				<div class="flex items-center gap-2 border-b border-base-200 px-4 py-2 dark:border-base-400">
+				<div
+					class="flex items-center gap-2 border-b border-base-200 px-4 py-2 dark:border-base-400"
+				>
 					<div class="bg-base-200 rounded-sm p-1 dark:bg-base-300">
 						{#if selectedComponent.catalogEntry.manifest.icon}
 							<img

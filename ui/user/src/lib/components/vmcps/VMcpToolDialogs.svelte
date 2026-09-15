@@ -4,8 +4,8 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import { UserService, type VMCPConfigurationPolicy } from '$lib/services';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
+	import { UserService, type VMCPConfigurationPolicy } from '$lib/services';
 	import { vmcpComponentId } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';

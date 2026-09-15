@@ -17,9 +17,9 @@
 </script>
 
 <script lang="ts">
-	import { resolveSubjects } from '$lib/components/admin/subjectResolver';
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
+	import { resolveSubjects } from '$lib/components/admin/subjectResolver';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
@@ -404,6 +404,7 @@
 
 	function rememberResolvedGroups(groups: OrgGroup[]) {
 		if (groups.length === 0) return;
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
 		const next = new Map(resolvedGroups.map((group) => [group.id, group]));
 		let changed = false;
 		for (const group of groups) {

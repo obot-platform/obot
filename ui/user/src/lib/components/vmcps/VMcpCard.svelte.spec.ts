@@ -1,10 +1,10 @@
 import { Group, type VMCPInstance } from '$lib/services';
 import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
-import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
+import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
-import VMcpCard from './VMcpCard.svelte';
+import VMcpCardHost from './VMcpCard.svelte.spec.host.svelte';
 import { http, HttpResponse } from 'msw';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
@@ -25,12 +25,22 @@ function createInstance(id: string): VMCPInstance {
 async function renderCard(options: {
 	groups: string[];
 	userID?: string;
-	connected?: boolean;
 	instances?: VMCPInstance[];
-	needsUpdate?: boolean;
 	vmcp?: ReturnType<typeof createVMCP>;
 	onUpdate?: (vmcp: unknown) => void;
+	provideSelectInstance?: boolean;
+	provideDiff?: boolean;
+	provideUpdateConfirm?: boolean;
 }) {
+	const vmcp = options.vmcp
+		? options.userID !== undefined
+			? { ...options.vmcp, userID: options.userID }
+			: options.vmcp
+		: createVMCP({
+				id: 'vmcp-1',
+				displayName: 'Issue Tracker vMCP',
+				userID: options.userID
+			});
 	await preparePageData({
 		profile: createMockProfile(options.groups)
 	});
@@ -38,18 +48,16 @@ async function renderCard(options: {
 		items: options.instances ?? [],
 		loading: false
 	};
-	return render(VMcpCard, {
-		id: 'vmcp-1',
-		name: 'Issue Tracker vMCP',
+	return render(VMcpCardHost, {
+		vmcp,
 		selectAriaLabel: 'Open Issue Tracker vMCP',
-		userID: options.userID,
-		connected: options.connected,
 		onDelete: () => {},
 		onConnect: () => {},
-		needsUpdate: options.needsUpdate,
-		vmcp: options.vmcp,
 		onUpdate: options.onUpdate,
-		icon
+		icon,
+		provideSelectInstance: options.provideSelectInstance,
+		provideDiff: options.provideDiff,
+		provideUpdateConfirm: options.provideUpdateConfirm
 	});
 }
 
@@ -163,14 +171,15 @@ describe('VMcpCard.svelte', () => {
 
 		await renderCard({
 			groups: [Group.USER],
-			connected: true,
 			instances: [instance]
 		});
 
 		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 		await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
-		await vi.waitFor(() => expect(deleted).toHaveBeenCalledOnce());
-		expect(vmcpInstances.current.items).toEqual([]);
+		await vi.waitFor(() => {
+			expect(deleted).toHaveBeenCalledOnce();
+			expect(vmcpInstances.current.items).toEqual([]);
+		});
 	});
 
 	it('shows update action for owners when an update is available', async () => {
@@ -186,7 +195,6 @@ describe('VMcpCard.svelte', () => {
 		await renderCard({
 			groups: [Group.USER],
 			userID: getProfileResponse.id,
-			needsUpdate: true,
 			vmcp,
 			onUpdate: updated
 		});
@@ -206,13 +214,13 @@ describe('VMcpCard.svelte', () => {
 			userConfiguredServers: [],
 			userInstances: [],
 			loading: false,
+			lastFetched: null,
 			isInitialized: true
 		};
 
 		await renderCard({
 			groups: [Group.USER],
 			userID: 'someone-else',
-			needsUpdate: true,
 			vmcp
 		});
 
@@ -225,7 +233,6 @@ describe('VMcpCard.svelte', () => {
 		await renderCard({
 			groups: [Group.USER],
 			userID: 'someone-else',
-			needsUpdate: true,
 			vmcp: createNeedsUpdateVmcp()
 		});
 
@@ -239,7 +246,6 @@ describe('VMcpCard.svelte', () => {
 		const instances = [createInstance('vmcpi-1'), createInstance('vmcpi-2')];
 		await renderCard({
 			groups: [Group.USER],
-			connected: true,
 			instances
 		});
 

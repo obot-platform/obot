@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { OrgUser, VMCP } from '$lib/services';
+	import type { OrgUser, VMCP, VMCPInstance } from '$lib/services';
 	import { windowRange } from '$lib/services/vmcps/camera';
 	import {
 		VMCP_COMPONENT_HEIGHT,
@@ -12,7 +11,7 @@
 		VMcpComponentView,
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
-	import { getToolCounts, vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
+	import { getToolCounts } from '$lib/services/vmcps/utils';
 	import { profile } from '$lib/stores';
 	import { getUserDisplayName } from '$lib/utils';
 	import InfoTooltip from '../InfoTooltip.svelte';
@@ -40,6 +39,12 @@
 		onUpdate?: (vmcp: VMCP) => void;
 		onModifyComponent?: (component: VMcpComponentView) => void;
 		usersMap: Map<string, OrgUser>;
+		openSelectInstance?: (
+			instances: VMCPInstance[],
+			onSelect: (instance: VMCPInstance) => void
+		) => void;
+		openDiff?: (vmcp: VMCP) => void;
+		openUpdateConfirm?: (name: string, onConfirm: () => Promise<void>) => void;
 	}
 
 	let {
@@ -53,7 +58,10 @@
 		onDelete,
 		onUpdate,
 		onModifyComponent,
-		usersMap
+		usersMap,
+		openSelectInstance,
+		openDiff,
+		openUpdateConfirm
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -184,7 +192,7 @@
 
 {#snippet vmcpCard()}
 	{@const linked = drag.isLinked(vmcp.id)}
-	{@const name = vmcp.displayName || 'vMCP'}
+	{@const name = vmcp.displayName || 'Untitled vMCP'}
 	<div class="translate-y-1">
 		<div
 			use:drag.vmcpTarget={vmcp.id}
@@ -199,19 +207,16 @@
 			in:fade={{ duration: 150 }}
 		>
 			<VMcpCard
-				id={vmcp.id}
-				{name}
-				descriptionHTML={vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined}
-				connectURL={vmcpConnectURL(vmcp)}
+				{vmcp}
 				selectAriaLabel={canEdit ? `Edit ${name}` : name}
 				onSelect={canEdit ? onEdit : undefined}
 				{onConnect}
 				hideTest
 				{onDelete}
-				onUpdate={onUpdate}
-				{vmcp}
-				needsUpdate={vmcpNeedsUpdate(vmcp)}
-				userID={vmcp.userID}
+				{onUpdate}
+				{openSelectInstance}
+				{openDiff}
+				{openUpdateConfirm}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					canEdit && 'cursor-pointer'

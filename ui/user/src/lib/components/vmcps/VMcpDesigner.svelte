@@ -6,6 +6,7 @@
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
+	import VMcpActions from '$lib/components/vmcps/VMcpActions.svelte';
 	import VMcpComponentConfigurationDialog from '$lib/components/vmcps/VMcpComponentConfigurationDialog.svelte';
 	import VMcpDragHint from '$lib/components/vmcps/VMcpDragHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
@@ -72,6 +73,7 @@
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let refreshingTester = $state(false);
+	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
@@ -97,19 +99,15 @@
 		profile.current.id === selectedVMcp?.userID ||
 			(!selectedVMcp?.userID && profile.current.hasAdminAccess?.())
 	);
-	let canAccessTester = $derived(
-		Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID))
-	);
+	let canAccessTester = $derived(Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID)));
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let canEdit = $derived(
 		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
 	);
 	let viewType = $derived(
-		view === 'profiles' && !canAccessProfiles
+		(view === 'profiles' && !canAccessProfiles) || (view === 'tester' && !canAccessTester)
 			? 'graph'
-			: view === 'tester' && !canAccessTester
-				? 'graph'
-				: view
+			: view
 	);
 	let componentDropPending = $state(false);
 	let showDesignerLoading = $derived(
@@ -463,6 +461,9 @@
 						onEdit={canEdit ? () => createEditVMcp?.openEdit(item) : undefined}
 						onConnect={(options) => handleConnectVMcp(item, options)}
 						onDelete={canEdit ? () => createEditVMcp?.openDelete(item) : undefined}
+						openSelectInstance={vmcpActions?.openSelectInstance}
+						openDiff={vmcpActions?.openDiff}
+						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
 						onUpdate={(updated) => {
 							selectedVMcp = updated;
 						}}
@@ -579,6 +580,8 @@
 <VMcpToolDialogs flow={toolFlow} />
 
 <ConnectVMcp bind:this={connectVMcpDialog} />
+
+<VMcpActions bind:this={vmcpActions} />
 
 <VMcpComponentConfigurationDialog
 	bind:this={configurationDialog}

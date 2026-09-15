@@ -1,33 +1,20 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type VMCP } from '$lib/services';
+	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
+	import { UserService, type VMCP, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
+	import { vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
 	import { errors, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
-	import Confirm from '../Confirm.svelte';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
-	import VMcpDiffDialog from './VMcpDiffDialog.svelte';
-	import VMcpSelectInstance from './VMcpSelectInstance.svelte';
-	import {
-		CircleAlert,
-		CircleFadingArrowUp,
-		ExternalLink,
-		GitCompare,
-		Trash2,
-		Unplug
-	} from '@lucide/svelte';
+	import { CircleFadingArrowUp, ExternalLink, GitCompare, Trash2, Unplug } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	interface Props {
-		id: string;
-		name: string;
-		descriptionHTML?: string;
-		connectURL?: string;
-		connectButtonId?: string;
-		connected?: boolean;
+		vmcp: VMCP;
 		onSelect?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		hideTest?: boolean;
@@ -36,20 +23,18 @@
 		children?: Snippet;
 		class?: string;
 		selectAriaLabel: string;
-		userID?: string;
 		note?: string;
-		needsUpdate?: boolean;
-		vmcp?: VMCP;
 		onUpdate?: (vmcp: VMCP) => void;
+		openSelectInstance?: (
+			instances: VMCPInstance[],
+			onSelect: (instance: VMCPInstance) => void
+		) => void;
+		openDiff?: (vmcp: VMCP) => void;
+		openUpdateConfirm?: (name: string, onConfirm: () => Promise<void>) => void;
 	}
 
 	let {
-		id,
-		name,
-		descriptionHTML,
-		connectURL,
-		connectButtonId,
-		connected,
+		vmcp,
 		onSelect,
 		onConnect,
 		hideTest,
@@ -59,29 +44,33 @@
 		class: clazz,
 		selectAriaLabel,
 		note,
-		userID,
-		needsUpdate,
-		vmcp,
-		onUpdate
+		onUpdate,
+		openSelectInstance,
+		openDiff,
+		openUpdateConfirm
 	}: Props = $props();
 
-	let isCreator = $derived(Boolean(userID && profile.current.id === userID));
+	let id = $derived(vmcp.id);
+	let name = $derived(vmcp.displayName || 'Untitled vMCP');
+	let descriptionHTML = $derived(
+		vmcp.description ? toInlineHTMLFromMarkdown(vmcp.description) : undefined
+	);
+	let connectURL = $derived(vmcpConnectURL(vmcp));
+	let connectButtonId = $derived(`btn-connect-to-server-${vmcp.id}`);
+	let needsUpdate = $derived(vmcpNeedsUpdate(vmcp));
+	let isCreator = $derived(Boolean(vmcp.userID && profile.current.id === vmcp.userID));
 	let canDelete = $derived(Boolean(profile.current.isAdmin?.() || isCreator));
 	let canUpdate = $derived(canDelete);
-	let canConnect = $derived(!userID || isCreator);
+	let canConnect = $derived(!vmcp.userID || isCreator);
 	let myInstances = $derived(
 		vmcpInstances.current.items.filter(
 			(instance) =>
-				instance.vmcpID === id &&
-				instance.userID === profile.current.id &&
-				!instance.deleted
+				instance.vmcpID === vmcp.id && instance.userID === profile.current.id && !instance.deleted
 		)
 	);
+	let connected = $derived(myInstances.length > 0);
 	let disconnecting = $state(false);
 	let updating = $state(false);
-	let showUpdateConfirm = $state(false);
-	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
-	let diffDialog = $state<ReturnType<typeof VMcpDiffDialog>>();
 
 	async function disconnectInstance(instanceID: string) {
 		disconnecting = true;
@@ -115,7 +104,7 @@
 			toggle(false);
 			return;
 		}
-		selectInstanceDialog?.open(myInstances);
+		openSelectInstance?.(myInstances, (instance) => disconnectInstance(instance.id));
 		toggle(false);
 	}
 </script>
@@ -177,7 +166,7 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
-				{#if connected && myInstances.length > 0}
+				{#if openSelectInstance && connected && myInstances.length > 0}
 					<button
 						class="menu-button"
 						disabled={disconnecting}
@@ -194,13 +183,13 @@
 						Disconnect
 					</button>
 				{/if}
-				{#if needsUpdate && canUpdate}
+				{#if openUpdateConfirm && needsUpdate && canUpdate}
 					<button
 						class="menu-button-primary"
 						disabled={updating}
 						onclick={(e) => {
 							e.stopPropagation();
-							showUpdateConfirm = true;
+							openUpdateConfirm(name, handleUpdate);
 							toggle(false);
 						}}
 					>
@@ -212,13 +201,13 @@
 						Update VMCP
 					</button>
 				{/if}
-				{#if needsUpdate && vmcp}
+				{#if openDiff && needsUpdate}
 					<button
 						class="menu-button-primary"
 						disabled={updating}
 						onclick={(e) => {
 							e.stopPropagation();
-							diffDialog?.open(vmcp);
+							openDiff(vmcp);
 							toggle(false);
 						}}
 					>
@@ -265,35 +254,3 @@
 		</div>
 	{/if}
 </div>
-
-<VMcpSelectInstance
-	bind:this={selectInstanceDialog}
-	title="Select Connection to Disconnect"
-	onSelectInstance={(instance) => disconnectInstance(instance.id)}
-/>
-
-<VMcpDiffDialog bind:this={diffDialog} />
-
-<Confirm
-	show={showUpdateConfirm}
-	onsuccess={async () => {
-		await handleUpdate();
-		showUpdateConfirm = false;
-	}}
-	oncancel={() => (showUpdateConfirm = false)}
-	loading={updating}
-	type="info"
-	title="Confirm Update"
->
-	{#snippet msgContent()}
-		<h4 class="flex items-center justify-center gap-2 text-lg font-semibold">
-			<CircleAlert class="size-5" />
-			{`Update ${name}?`}
-		</h4>
-	{/snippet}
-	{#snippet note()}
-		<p class="text-sm font-light">
-			The vMCP will be updated to its latest catalog configuration.
-		</p>
-	{/snippet}
-</Confirm>

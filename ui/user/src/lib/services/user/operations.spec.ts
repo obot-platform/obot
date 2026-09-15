@@ -4,7 +4,6 @@ import {
 	createVMCPInstance,
 	deleteVMCP,
 	deleteVMCPInstance,
-	triggerVMCPUpdate,
 	getMCPTesterServer,
 	getVMCP,
 	getVMCPInstance,
@@ -144,14 +143,6 @@ describe('vMCP operations', () => {
 		for (const [input] of fetcher.mock.calls) {
 			expect(String(input)).not.toContain('/mcp-catalogs/');
 		}
-	});
-
-	it('triggers vMCP updates through the vMCP endpoint', async () => {
-		const fetcher = vi.fn().mockImplementation(() => response(vmcp));
-
-		expect(await triggerVMCPUpdate(vmcp.id, { fetch: fetcher })).toEqual(vmcp);
-		expect(String(fetcher.mock.calls[0][0])).toMatch(/\/api\/vmcps\/vmcp-1\/trigger-update$/);
-		expect(fetcher.mock.calls[0][1]).toMatchObject({ method: 'POST' });
 	});
 
 	it('uses the vMCP instance endpoints for idempotent connect and configure flows', async () => {

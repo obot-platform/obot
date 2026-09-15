@@ -30,8 +30,12 @@
 	const unlockedTools = $derived(tools.filter((tool) => !lockedTools?.has(tool.name)));
 
 	const allUnlockedToolsEnabled = $derived(
-		unlockedTools.length > 0 && unlockedTools.every((tool) => tool.enabled === true)
+		unlockedTools.length > 0 && unlockedTools.every((tool) => tool.enabled !== false)
 	);
+
+	function setUnlockedToolsEnabled(enabled: boolean) {
+		tools = tools.map((tool) => (lockedTools?.has(tool.name) ? tool : { ...tool, enabled }));
+	}
 
 	const orderedTools = $derived.by(() => {
 		const query = search.trim().toLowerCase();
@@ -59,15 +63,10 @@
 		<Toggle
 			checked={allUnlockedToolsEnabled}
 			disabled={readonly || unlockedTools.length === 0}
-			onChange={(checked) => {
-				tools.forEach((tool) => {
-					if (!lockedTools?.has(tool.name)) {
-						tool.enabled = checked;
-					}
-				});
-			}}
+			onChange={setUnlockedToolsEnabled}
 			label="Enable All Tools"
 			labelInline
+			disablePortal
 			classes={{
 				label: 'text-sm gap-2'
 			}}

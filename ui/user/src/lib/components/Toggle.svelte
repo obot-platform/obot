@@ -48,6 +48,7 @@
 		type="checkbox"
 		{checked}
 		{disabled}
+		role="switch"
 		class={twMerge('toggle toggle-sm', classes?.input)}
 		onchange={(e) => {
 			e.preventDefault();

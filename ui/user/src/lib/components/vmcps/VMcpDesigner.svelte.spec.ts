@@ -237,7 +237,7 @@ describe('VMcpDesigner.svelte', () => {
 			await componentBlock().click();
 			await chooseModifyTools();
 
-			await page.getByRole('checkbox', { name: 'Enabled' }).nth(1).click();
+			await page.getByRole('switch', { name: 'Enabled' }).nth(1).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
 
 			await vi.waitFor(() => expect(update).toHaveBeenCalled());

@@ -722,7 +722,7 @@
 										{/if}
 									</span>
 								</a>
-								
+
 								{#if !isVmcpComponent}
 									{#if (d.isMyServer || (hasAdminAccess && !readonly)) && hasEditableDeploymentConfiguration(d)}
 										<button

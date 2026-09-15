@@ -336,15 +336,30 @@ describe('appendComponentLabel', () => {
 		expect(appendComponentLabel('Ops Gateway', ['Slack'], 'GitHub')).toBe('Ops Gateway');
 	});
 
+	it('truncates descriptions at 160 characters', () => {
+		const existing = 'a'.repeat(100);
+		const added = 'b'.repeat(100);
+		const next = appendComponentLabel(existing, [existing], added, SHORT_DESCRIPTION_MAX_LENGTH);
+		expect(next).toHaveLength(SHORT_DESCRIPTION_MAX_LENGTH);
+		expect(next?.startsWith(existing)).toBe(true);
+	});
+});
+
+describe('vmcpNeedsUpdate', () => {
 	it('detects when any vMCP component needs an update', () => {
-		const vmcp = createVMCP('vmcp-1');
+		const vmcp = createVMCP({ id: 'vmcp-1' });
 		expect(vmcpNeedsUpdate(vmcp)).toBe(false);
 		vmcp.status = {
-			components: [{ name: 'slack', needsUpdate: false }, { name: 'github', needsUpdate: true }]
+			components: [
+				{ name: 'slack', needsUpdate: false },
+				{ name: 'github', needsUpdate: true }
+			]
 		};
 		expect(vmcpNeedsUpdate(vmcp)).toBe(true);
 	});
+});
 
+describe('vmcpOutdatedComponents', () => {
 	it('returns outdated components and diff targets from catalog entries', () => {
 		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
 		const vmcp = createVMCP(
@@ -358,7 +373,7 @@ describe('appendComponentLabel', () => {
 		const updatedEntry = createMCPCatalogEntry({
 			id: 'entry-1',
 			name: 'GitHub',
-			shortDescription: 'Updated description'
+			manifest: { shortDescription: 'Updated description' }
 		});
 
 		expect(vmcpOutdatedComponents(vmcp)).toHaveLength(1);
@@ -369,13 +384,5 @@ describe('appendComponentLabel', () => {
 			},
 			toServer: updatedEntry
 		});
-	});
-
-	it('truncates descriptions at 160 characters', () => {
-		const existing = 'a'.repeat(100);
-		const added = 'b'.repeat(100);
-		const next = appendComponentLabel(existing, [existing], added, SHORT_DESCRIPTION_MAX_LENGTH);
-		expect(next).toHaveLength(SHORT_DESCRIPTION_MAX_LENGTH);
-		expect(next?.startsWith(existing)).toBe(true);
 	});
 });

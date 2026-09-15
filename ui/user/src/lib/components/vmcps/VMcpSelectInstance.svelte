@@ -26,11 +26,7 @@
 	}
 </script>
 
-<ResponsiveDialog
-	class="bg-base-200 dark:bg-base-100"
-	bind:this={selectInstanceDialog}
-	{title}
->
+<ResponsiveDialog class="bg-base-200 dark:bg-base-100" bind:this={selectInstanceDialog} {title}>
 	<Table
 		data={instances}
 		fields={['id', 'created']}
