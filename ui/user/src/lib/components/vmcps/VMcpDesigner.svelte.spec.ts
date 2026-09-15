@@ -1,11 +1,7 @@
 import { page as appPage } from '$app/state';
 import {
-	claimCreationHintForVMcp,
-	claimToolSetupForVMcp,
 	finishVMcpCreateHandoff,
-	queueCreationHintForCreatedVMcp,
-	queueToolSetupForCreatedVMcp,
-	VMCP_CREATION_HINT_STORAGE_KEY
+	queueToolSetupForCreatedVMcp
 } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 import {
 	Group,
@@ -21,7 +17,6 @@ import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../..
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
-import { PROFILES_HINT_TEXT, TESTER_HINT_TEXT } from './VMcpCreationHint.svelte';
 import VMcpDesigner from './VMcpDesigner.svelte';
 import { http, HttpResponse } from 'msw';
 import { tick } from 'svelte';
@@ -1336,16 +1331,6 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(addToolsDialog()).not.toBeInTheDocument();
 		});
 
-		it('hands the queued setup over only once, so later visits stay quiet', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			queueToolSetupForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp);
-			await expect.element(addToolsDialog()).toBeVisible();
-
-			expect(claimToolSetupForVMcp(vmcp.id)).toBe(false);
-		});
-
 		it('opens required configuration on the page the new vMCP navigated to', async () => {
 			const entry = configurableGithub();
 			const vmcp = createVMCP(
@@ -1466,74 +1451,6 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByRole('heading', { name: 'Add Tools' })).toBeVisible();
 			await page.getByRole('button', { name: /Managed/ }).click();
 			await expect.element(page.getByLabelText('API token', { exact: false })).toBeVisible();
-		});
-	});
-
-	describe('creation hints handed over from vMCP creation', () => {
-		it('shows the profiles tip on the page the new vMCP navigated to', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			queueCreationHintForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp);
-
-			await expect.element(page.getByText(PROFILES_HINT_TEXT, { exact: false })).toBeVisible();
-		});
-
-		it('leaves an existing vMCP alone when nothing was queued', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			await renderDesigner([componentEntry], vmcp);
-
-			await expect
-				.element(page.getByText(PROFILES_HINT_TEXT, { exact: false }))
-				.not.toBeInTheDocument();
-		});
-
-		it('hands the queued hint over only once, so later visits stay quiet', async () => {
-			const vmcp = createIssueTrackerVMcp();
-			queueCreationHintForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp);
-			await expect.element(page.getByText(PROFILES_HINT_TEXT, { exact: false })).toBeVisible();
-
-			expect(claimCreationHintForVMcp(vmcp.id)).toBe(false);
-		});
-
-		it('starts on the tester tip for a non-admin owner without a Profiles tab', async () => {
-			const vmcp = personalVMcp();
-			queueCreationHintForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp, { groups: [Group.USER] });
-
-			await expectViewTabs(['Designer', 'Tester']);
-			await expect
-				.element(page.getByText(PROFILES_HINT_TEXT, { exact: false }))
-				.not.toBeInTheDocument();
-			await expect.element(page.getByText(TESTER_HINT_TEXT, { exact: false })).toBeVisible();
-		});
-
-		it('does not show the hint for a readonly admin', async () => {
-			const vmcp = orgVMcp();
-			queueCreationHintForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp, { groups: [Group.AUDITOR] });
-
-			await expectViewTabs(['Designer', 'Profiles', 'Tester']);
-			await expect
-				.element(page.getByText(PROFILES_HINT_TEXT, { exact: false }))
-				.not.toBeInTheDocument();
-		});
-
-		it('does not show the hint again after it has been seen', async () => {
-			localStorage.setItem(VMCP_CREATION_HINT_STORAGE_KEY, new Date().toISOString());
-			const vmcp = createIssueTrackerVMcp();
-			queueCreationHintForCreatedVMcp(vmcp.id);
-
-			await renderDesigner([componentEntry], vmcp);
-
-			await expect
-				.element(page.getByText(PROFILES_HINT_TEXT, { exact: false }))
-				.not.toBeInTheDocument();
-			expect(claimCreationHintForVMcp(vmcp.id)).toBe(false);
 		});
 	});
 });

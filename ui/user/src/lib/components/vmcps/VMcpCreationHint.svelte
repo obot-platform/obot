@@ -1,5 +1,5 @@
 <script module>
-	export const PROFILES_HINT_TEXT = 'Click here to begin tailoring access and tools this VMCP.';
+	export const PROFILES_HINT_TEXT = 'Click here to begin tailoring access and tools for this VMCP.';
 	export const TESTER_HINT_TEXT =
 		"Open Tester to try this vMCP's tools in Obot before you connect a client.";
 	export const CONNECT_HINT_TEXT = 'Connect this vMCP to get an endpoint for your AI client.';
@@ -11,7 +11,7 @@
 		markVMcpCreationHintSeen,
 		VMCP_CREATION_HINT_STORAGE_KEY
 	} from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-	import { FlaskConical, Layers, MousePointer2, Unplug, X } from '@lucide/svelte';
+	import { Layers, MousePointer2, Unplug, X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
@@ -290,7 +290,7 @@
 			<span
 				class="vmcp-tester-hint-tab bg-base-300 dark:bg-base-100 flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[0.5rem] uppercase"
 			>
-				<FlaskConical class="text-primary size-2.5" /> Tester
+				Tester
 			</span>
 		</div>
 		<MousePointer2
