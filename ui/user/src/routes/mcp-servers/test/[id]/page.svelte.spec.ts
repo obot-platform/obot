@@ -402,12 +402,11 @@ describe('MCP Tester page', () => {
 			version: { hasModelProvider: false, hasValidLicense: false }
 		});
 
-		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 		await expect
-			.element(
-				page.getByText('Register a valid Obot license to use Chat without a model provider.')
-			)
+			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
 			.toBeVisible();
+		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 		await expect
 			.element(page.getByRole('region', { name: 'Chat composer' }))
 			.not.toBeInTheDocument();
@@ -415,6 +414,7 @@ describe('MCP Tester page', () => {
 
 	it('disables model proxy Chat when the server reports it unavailable', async () => {
 		await renderTester('chat', {}, undefined, {
+			...communityLicenseData,
 			models: [],
 			defaultModelAliases: [],
 			version: {
@@ -440,6 +440,7 @@ describe('MCP Tester page', () => {
 	it('disables Chat during provider reconciliation even with a cached default model', async () => {
 		await renderTester('chat', {}, undefined, {
 			...chatModelData,
+			...communityLicenseData,
 			version: {
 				hasModelProvider: null,
 				hasValidLicense: true,
@@ -457,6 +458,7 @@ describe('MCP Tester page', () => {
 
 	it('does not enable the model proxy for a configured provider with no default model', async () => {
 		await renderTester('chat', {}, undefined, {
+			...communityLicenseData,
 			models: [],
 			defaultModelAliases: [],
 			version: { hasModelProvider: true, hasValidLicense: true }

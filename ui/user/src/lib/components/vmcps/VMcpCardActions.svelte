@@ -40,7 +40,7 @@
 	);
 
 	function goToTester() {
-		goto(`/vmcps/${id}?view=tester`);
+		goto(`/vmcps/${id}?view=inspector`);
 	}
 
 	function handleTest() {

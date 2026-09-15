@@ -28,9 +28,7 @@ describe('vMCP detail page', () => {
 		const data = await preparePageData<PageData>({ vmcp, users: [] });
 		render(VMcpDetailPage, { data });
 
-		await expect
-			.element(page.getByRole('button', { name: 'Edit Issue Tracker vMCP' }))
-			.toBeVisible();
+		await expect.element(page.getByRole('heading', { name: 'Issue Tracker vMCP' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'GitHub', exact: true })).toBeVisible();
 	});
 });

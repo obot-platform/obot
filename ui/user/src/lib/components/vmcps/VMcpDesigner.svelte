@@ -65,7 +65,7 @@
 	let { vmcp, onBack, usersMap, isFirstVMcp = false, showBackButton = true }: Props = $props();
 
 	let view = $derived(
-		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'tester' | undefined) ?? 'graph'
+		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'inspector' | undefined) ?? 'graph'
 	);
 	let showRightPanel = $state(responsive.isMobile ? false : true);
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
@@ -104,11 +104,10 @@
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
 	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
-		(!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID) &&
-			hasEntries
+		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
 	);
 	let viewType = $derived(
-		(view === 'profiles' && !canAccessProfiles) || (view === 'tester' && !canAccessTester)
+		(view === 'profiles' && !canAccessProfiles) || (view === 'inspector' && !canAccessTester)
 			? 'graph'
 			: view
 	);
@@ -161,12 +160,7 @@
 	});
 
 	let showCreationHint = $derived(
-		creationHintQueued &&
-			!toolFlow.dialog &&
-			viewType === 'graph' &&
-			isOwner &&
-			canEdit &&
-			!hasEntries
+		creationHintQueued && !toolFlow.dialog && viewType === 'graph' && isOwner && canEdit
 	);
 
 	function componentManifestField(component: VMCPComponent, field: 'name' | 'shortDescription') {
@@ -436,7 +430,7 @@
 				}}
 				readonly={!canEdit}
 			/>
-		{:else if viewType === 'tester'}
+		{:else if viewType === 'inspector'}
 			{#if selectedVMcp}
 				<div class="flex h-full min-h-0 flex-col p-3 pt-14">
 					<VMcpTester
@@ -531,7 +525,7 @@
 		</div>
 	{/if}
 	{#snippet rightSidebar()}
-		{#if canEdit && viewType === 'graph' && (!responsive.isMobile || (responsive.isMobile && showRightPanel))}
+		{#if canEdit && viewType === 'graph' && (!responsive.isMobile || (responsive.isMobile && showRightPanel && (canCreateCatalogEntry || hasEntries)))}
 			<McpServersSidebar
 				bind:panelEl={rightPanelEl}
 				bind:open={showRightPanel}
@@ -573,11 +567,11 @@
 					bind:this={testerTabEl}
 					class={twMerge(
 						'tab text-xs min-w-24',
-						viewType === 'tester' && 'tab-active bg-base-300 dark:bg-base-100'
+						viewType === 'inspector' && 'tab-active bg-base-300 dark:bg-base-100'
 					)}
 					onclick={() => {
-						setUrlParamAndUpdateUrl(page.url, 'view', 'tester');
-					}}>Tester</button
+						setUrlParamAndUpdateUrl(page.url, 'view', 'inspector');
+					}}>Inspector</button
 				>
 			{/if}
 		</div>
@@ -608,7 +602,7 @@
 	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
-<VMcpIntroduction show={canEdit && viewType === 'graph' && !hasEntries} />
+<VMcpIntroduction show={!selectedVMcp && canEdit && viewType === 'graph'} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

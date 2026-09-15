@@ -19,9 +19,10 @@
 		CircleFadingArrowUp,
 		ExternalLink,
 		GitCompare,
+		Pencil,
+		Power,
 		ServerCog,
-		Trash2,
-		Unplug
+		Trash2
 	} from '@lucide/svelte';
 	import { onDestroy, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
@@ -31,6 +32,7 @@
 		owner?: string;
 		connectEl?: HTMLElement;
 		onSelect?: () => void;
+		onEditDetails?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		hideTest?: boolean;
 		onDelete?: () => void;
@@ -54,6 +56,7 @@
 		owner,
 		connectEl = $bindable(),
 		onSelect,
+		onEditDetails,
 		onConnect,
 		hideTest,
 		onDelete,
@@ -92,11 +95,7 @@
 	);
 	let instanceNeedingConfiguration = $derived(instancesNeedingConfiguration[0]);
 	let canEditInstanceConfiguration = $derived(
-		Boolean(
-			openEditInstanceConfiguration &&
-			instancesNeedingConfiguration.length > 0 &&
-			vmcpHasUserAllowedConfiguration(vmcp)
-		)
+		Boolean(openEditInstanceConfiguration && vmcpHasUserAllowedConfiguration(vmcp))
 	);
 	let disconnecting = $state(false);
 	let updating = $state(false);
@@ -111,7 +110,6 @@
 		try {
 			await UserService.deleteVMCPInstance(instanceID);
 			vmcpInstances.remove(instanceID);
-			success.add(`Disconnected from ${name}.`);
 		} catch {
 			errors.append('Failed to disconnect from vMCP.');
 		} finally {
@@ -160,11 +158,11 @@
 		toggle(false);
 	}
 
-	function handleEditInstanceConfiguration(toggle: (open?: boolean) => void) {
+	function handleEditInstanceConfiguration(toggle?: (open?: boolean) => void) {
 		if (instancesNeedingConfiguration.length === 0) return;
 		if (instancesNeedingConfiguration.length === 1 || !openSelectInstance) {
 			openEditInstanceConfiguration?.(vmcp, instancesNeedingConfiguration[0]);
-			toggle(false);
+			toggle?.(false);
 			return;
 		}
 		openSelectInstance(
@@ -172,7 +170,7 @@
 			(instance) => openEditInstanceConfiguration?.(vmcp, instance),
 			'Select Connection to Configure'
 		);
-		toggle(false);
+		toggle?.(false);
 	}
 </script>
 
@@ -203,6 +201,78 @@
 			ariaLabel={`Actions for ${name}`}
 		>
 			{#snippet children({ toggle })}
+				{#if onEditDetails}
+					<button class="menu-button" onclick={onEditDetails}>
+						<Pencil class="size-4" /> Edit Details
+					</button>
+				{/if}
+				<button
+					class="menu-button"
+					disabled={disconnecting}
+					onclick={async (e) => {
+						e.stopPropagation();
+						if (openSelectInstance && connected && myInstances.length > 0) {
+							await handleDisconnect(toggle);
+						} else {
+							disconnecting = true;
+							await new Promise((resolve) => setTimeout(resolve, 1000));
+							disconnecting = false;
+						}
+					}}
+				>
+					{#if disconnecting}
+						<Loading class="size-4" />
+					{:else}
+						<Power class="size-4" />
+					{/if}
+					Reset
+				</button>
+				{#if openUpdateConfirm && needsUpdate && canUpdate}
+					<button
+						class="menu-button-primary"
+						disabled={updating}
+						onclick={(e) => {
+							e.stopPropagation();
+							openUpdateConfirm(vmcp, handleUpdate);
+							toggle(false);
+						}}
+					>
+						{#if updating}
+							<Loading class="size-4" />
+						{:else}
+							<CircleFadingArrowUp class="size-4" />
+						{/if}
+						Update VMCP
+					</button>
+				{/if}
+				{#if canEditInstanceConfiguration}
+					<button
+						class={twMerge(
+							'menu-button',
+							instancesNeedingConfiguration.length > 0 &&
+								'bg-warning/10 text-warning hover:bg-warning/30'
+						)}
+						onclick={(e) => {
+							e.stopPropagation();
+							handleEditInstanceConfiguration(toggle);
+						}}
+					>
+						<ServerCog class="size-4" /> Edit Configuration
+					</button>
+				{/if}
+				{#if openDiff && needsUpdate}
+					<button
+						class="menu-button-primary"
+						disabled={updating}
+						onclick={(e) => {
+							e.stopPropagation();
+							openDiff(vmcp);
+							toggle(false);
+						}}
+					>
+						<GitCompare class="size-4" /> View Diff
+					</button>
+				{/if}
 				<a
 					class="menu-button justify-between"
 					href={resolve(`/audit-logs?mcp_id=${encodeURIComponent(id)}`)}
@@ -227,65 +297,6 @@
 				>
 					View Usage <ExternalLink class="size-4" />
 				</a>
-				{#if openSelectInstance && connected && myInstances.length > 0}
-					<button
-						class="menu-button"
-						disabled={disconnecting}
-						onclick={async (e) => {
-							e.stopPropagation();
-							await handleDisconnect(toggle);
-						}}
-					>
-						{#if disconnecting}
-							<Loading class="size-4" />
-						{:else}
-							<Unplug class="size-4" />
-						{/if}
-						Disconnect
-					</button>
-				{/if}
-				{#if openUpdateConfirm && needsUpdate && canUpdate}
-					<button
-						class="menu-button-primary"
-						disabled={updating}
-						onclick={(e) => {
-							e.stopPropagation();
-							openUpdateConfirm(vmcp, handleUpdate);
-							toggle(false);
-						}}
-					>
-						{#if updating}
-							<Loading class="size-4" />
-						{:else}
-							<CircleFadingArrowUp class="size-4" />
-						{/if}
-						Update vMCP
-					</button>
-				{/if}
-				{#if canEditInstanceConfiguration}
-					<button
-						class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
-						onclick={(e) => {
-							e.stopPropagation();
-							handleEditInstanceConfiguration(toggle);
-						}}
-					>
-						<ServerCog class="size-4" /> Edit Configuration
-					</button>
-				{/if}
-				{#if openDiff && needsUpdate}
-					<button
-						class="menu-button-primary"
-						disabled={updating}
-						onclick={(e) => {
-							e.stopPropagation();
-							openDiff(vmcp);
-							toggle(false);
-						}}
-					>
-						<GitCompare class="size-4" /> View Diff
-					</button>
-				{/if}
 				{#if canDelete}
 					<button
 						class="menu-button-destructive"
@@ -326,34 +337,26 @@
 			{owner}
 		</p>
 
-		{#if needsUpdate && canUpdate}
-			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary">
+		{#if needsUpdate && canUpdate && openUpdateConfirm}
+			<button
+				class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary"
+				onclick={() => openUpdateConfirm(vmcp, handleUpdate)}
+			>
 				<span class="status status-primary"></span>
 				Update Available
-			</div>
-		{:else if instanceNeedingConfiguration}
-			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning">
+			</button>
+		{:else if instanceNeedingConfiguration && canEditInstanceConfiguration}
+			<button
+				class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning"
+				onclick={() => handleEditInstanceConfiguration()}
+			>
 				<span class="status status-warning"></span>
 				Not Configured
-			</div>
-		{:else}
-			<div
-				class={twMerge(
-					'badge badge-xs shrink-0 gap-1',
-					!connected
-						? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
-						: 'badge-soft badge-primary'
-				)}
-				role="status"
-				aria-live="polite"
-				aria-atomic="true"
-				aria-label={connected ? 'Connected' : 'Not connected'}
-			>
-				<span
-					class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}
-					aria-hidden="true"
-				></span>
-				<span aria-hidden="true">Connected</span>
+			</button>
+		{:else if connected}
+			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary" role="status">
+				<span class="status status-primary" aria-hidden="true"></span>
+				<span>Connected</span>
 			</div>
 		{/if}
 	</div>

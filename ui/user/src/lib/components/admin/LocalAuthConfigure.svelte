@@ -101,11 +101,13 @@
 
 	let initialEmail = $state('');
 	let initialPassword = $state('');
+	let initialPasswordConfirm = $state('');
 	let initialUserError = $state<string>();
 
 	const DRAFT_EMAIL_ID = 'local-user-email-draft';
 	const INITIAL_EMAIL_ID = 'initial-user-email';
 	const INITIAL_PASSWORD_ID = 'initial-user-password';
+	const INITIAL_PASSWORD_CONFIRM_ID = 'initial-user-password-confirm';
 	const INITIAL_USER_ERROR_ID = 'local-auth-initial-user-error';
 	const DRAFT_PASSWORD_ID = 'local-user-password-draft';
 	const DRAFT_CONFIRM_ID = 'local-user-confirm-draft';
@@ -129,6 +131,7 @@
 		initialUserError = undefined;
 		initialEmail = '';
 		initialPassword = '';
+		initialPasswordConfirm = '';
 		newUsers = [];
 		draftingNewUser = false;
 		draftEmail = '';
@@ -201,12 +204,16 @@
 		}
 
 		const email = initialEmail.trim();
-		if (!email || !initialPassword) {
+		if (!email || !initialPassword || !initialPasswordConfirm) {
 			initialUserError = 'Fill out the required email and password fields.';
 			return;
 		}
 		if (initialPassword.length < LOCAL_AUTH_MIN_PASSWORD_LENGTH) {
 			initialUserError = `Passwords must be at least ${LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.`;
+			return;
+		}
+		if (initialPassword !== initialPasswordConfirm) {
+			initialUserError = 'The passwords do not match.';
 			return;
 		}
 
@@ -981,7 +988,17 @@
 		{@render setupTitle()}
 	{/snippet}
 
-	{@render infoContent()}
+	<div class="notification-info flex flex-col items-start gap-1 mb-4">
+		<div class="flex items-center gap-1">
+			<p class="text-sm font-semibold">Set up your initial owner account to get started!</p>
+		</div>
+		<div>
+			<p class="text-xs font-light">
+				You will have an opportunity later to configure Obot with other authentication providers
+				such as Gmail, GitHub, Okta, Entra, etc.
+			</p>
+		</div>
+	</div>
 
 	<form class="flex flex-col gap-4" onsubmit={handleCreateInitialUser}>
 		{#if configError}
@@ -1026,16 +1043,34 @@
 				error={!!initialUserError}
 				data1pIgnore={false}
 			/>
-			<span class="text-muted-content pt-0.5 text-xs">
-				At least {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters.
+			<span class="text-muted-content pt-0.5 text-xs min-h-4">
+				Minimum of {LOCAL_AUTH_MIN_PASSWORD_LENGTH} characters is required.
 			</span>
 		</label>
 
-		{#if initialUserError}
-			<p id={INITIAL_USER_ERROR_ID} class="text-error text-xs font-light" role="alert">
-				{initialUserError}
-			</p>
-		{/if}
+		<label class="flex flex-col gap-1 text-sm font-light" for={INITIAL_PASSWORD_CONFIRM_ID}>
+			Confirm password
+			<SensitiveInput
+				name={INITIAL_PASSWORD_CONFIRM_ID}
+				bind:value={initialPasswordConfirm}
+				autocomplete="new-password"
+				minlength={LOCAL_AUTH_MIN_PASSWORD_LENGTH}
+				oninput={() => (initialUserError = undefined)}
+				required
+				disabled={saving}
+				error={!!initialUserError}
+				data1pIgnore={false}
+			/>
+		</label>
+
+		<p
+			id={INITIAL_USER_ERROR_ID}
+			class="text-error text-xs font-light min-h-4"
+			role={initialUserError ? 'alert' : undefined}
+			aria-hidden={initialUserError ? undefined : true}
+		>
+			{initialUserError ?? ''}
+		</p>
 
 		<div class="flex justify-between">
 			<div>
@@ -1047,7 +1082,7 @@
 				{#if saving}
 					<Loading class="size-4" />
 				{:else}
-					Save
+					Continue
 				{/if}
 			</button>
 		</div>
@@ -1066,22 +1101,7 @@
 		{:else}
 			<img src={provider?.icon} alt={provider?.name} class="bg-base-200 size-9 rounded-md p-1" />
 		{/if}
-		Set Up {provider?.name}
-	</div>
-{/snippet}
-
-{#snippet infoContent()}
-	<div class="notification-info flex flex-col items-start gap-1 mb-4">
-		<div class="flex items-center gap-1">
-			<p class="text-sm font-semibold">Set up initially with local authentication!</p>
-		</div>
-		<div>
-			<p class="text-xs font-light">
-				Once you're ready for production, we support other authentication providers such as Google
-				and GitHub, or get access to additional authentication providers such as Entra, Okta,
-				JumpCloud, and Auth0, with a one-time registration.
-			</p>
-		</div>
+		{required ? 'Set Up Owner Account' : `Set Up ${provider?.name}`}
 	</div>
 {/snippet}
 
