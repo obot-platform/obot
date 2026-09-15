@@ -174,7 +174,7 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 	builtIns := make([]clienttypes.ProductTelemetryBuiltInMCPServer, 0)
 	var customCount int64
 	for _, entry := range entries.Items {
-		if strings.TrimSuffix(mcp.SourceIDForURL(entry.Spec.SourceURL), ".git") != builtInMCPCatalogSourceURL {
+		if !isBuiltInMCPCatalogSource(entry.Spec.SourceURL) {
 			customCount++
 			continue
 		}
@@ -199,6 +199,12 @@ func collectMCPEntryMetrics(ctx context.Context, storageClient kclient.Reader, d
 	}
 
 	return builtIns, customCount, nil
+}
+
+func isBuiltInMCPCatalogSource(sourceURL string) bool {
+	sourceID := strings.TrimSuffix(mcp.SourceIDForURL(sourceURL), "/v2-schema")
+
+	return strings.TrimSuffix(sourceID, ".git") == builtInMCPCatalogSourceURL
 }
 
 // logMetricError records an unavailable metric without interrupting telemetry collection.

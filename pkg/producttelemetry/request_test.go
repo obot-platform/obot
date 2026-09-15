@@ -374,3 +374,80 @@ func assertInt64(t *testing.T, name string, got *int64, want int64) {
 		t.Fatalf("%s = %v, want %d", name, got, want)
 	}
 }
+
+func TestIsBuiltInMCPCatalogSource(t *testing.T) {
+	tests := []struct {
+		name      string
+		sourceURL string
+		want      bool
+	}{
+		{
+			name:      "repository root",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog",
+			want:      true,
+		},
+		{
+			name:      "shipped default branch",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog/v2-schema",
+			want:      true,
+		},
+		{
+			name:      "git suffix",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog.git",
+			want:      true,
+		},
+		{
+			name:      "git suffix with branch",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog.git/v2-schema",
+			want:      true,
+		},
+		{
+			name:      "unrecognized branch",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog/v3-schema",
+			want:      false,
+		},
+		{
+			name:      "branch containing a slash",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog/release/v2",
+			want:      false,
+		},
+		{
+			name:      "no scheme",
+			sourceURL: "github.com/obot-platform/mcp-catalog/v2-schema",
+			want:      true,
+		},
+		{
+			name:      "different repository with shared prefix",
+			sourceURL: "https://github.com/obot-platform/mcp-catalog-untrusted",
+			want:      false,
+		},
+		{
+			name:      "different organization",
+			sourceURL: "https://github.com/someone-else/mcp-catalog",
+			want:      false,
+		},
+		{
+			name:      "different host",
+			sourceURL: "https://gitlab.com/obot-platform/mcp-catalog",
+			want:      false,
+		},
+		{
+			name:      "organization only",
+			sourceURL: "https://github.com/obot-platform",
+			want:      false,
+		},
+		{
+			name:      "empty",
+			sourceURL: "",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isBuiltInMCPCatalogSource(tt.sourceURL); got != tt.want {
+				t.Errorf("isBuiltInMCPCatalogSource(%q) = %v, want %v", tt.sourceURL, got, tt.want)
+			}
+		})
+	}
+}
