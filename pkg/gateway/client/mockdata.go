@@ -442,10 +442,10 @@ func buildMockLLMAuditLogs(start, end time.Time, runID string, userIDs []string)
 			ModelID:                models[i%len(models)],
 			TargetModel:            models[i%len(models)],
 			ReasoningEffort:        []string{"low", "medium", "high"}[i%3],
-			RequestPath:            "/v1/chat/completions",
+			RequestPath:            "/v1/responses",
 			RequestMethod:          "POST",
 			RequestHeaders:         json.RawMessage(`{"content-type":"application/json"}`),
-			RequestBody:            json.RawMessage(fmt.Sprintf(`{"messages":[{"role":"user","content":"Demo request %d"}]}`, i+1)),
+			RequestBody:            json.RawMessage(fmt.Sprintf(`{"input":[{"role":"user","content":"Demo request %d"}]}`, i+1)),
 			MessagePolicyTriggered: i%20 == 17,
 			ResponseHeaders:        json.RawMessage(`{"content-type":"application/json"}`),
 			ResponseBody:           mockLLMResponseBody(status, i),
@@ -574,7 +574,7 @@ func mockMCPResponseBody(status apitypes.AuditLogOutcomeStatus, index int) json.
 
 func mockLLMResponseBody(status apitypes.AuditLogOutcomeStatus, index int) json.RawMessage {
 	if status == apitypes.AuditLogOutcomeStatusSuccess {
-		return json.RawMessage(fmt.Sprintf(`{"id":"chatcmpl-demo-%d","choices":[{"message":{"role":"assistant","content":"Demo response"}}]}`, index+1))
+		return json.RawMessage(fmt.Sprintf(`{"id":"resp_demo_%d","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Demo response"}]}]}`, index+1))
 	}
 	return json.RawMessage(`{"error":{"message":"Demo request failed"}}`)
 }
