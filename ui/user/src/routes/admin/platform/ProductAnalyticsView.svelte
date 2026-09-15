@@ -83,6 +83,14 @@
 				</span>
 			</label>
 		</fieldset>
+		<div class="flex justify-end">
+			<button
+				type="button"
+				class="btn btn-primary text-sm"
+				disabled={!canSave || saving}
+				onclick={handleSave}>Save</button
+			>
+		</div>
 
 		<p class="text-xs font-light text-muted-content">
 			Software update checks are separate and may send the installation ID and current version even
@@ -94,17 +102,5 @@
 				rel="external noopener noreferrer">Learn more about update checks</a
 			>.
 		</p>
-	</div>
-
-	<div class="flex grow"></div>
-	<div
-		class="bg-base-200 text-muted-content dark:bg-base-100 sticky bottom-0 left-0 z-50 flex w-full justify-end py-4"
-	>
-		<button
-			type="button"
-			class="btn btn-primary text-sm"
-			disabled={!canSave || saving}
-			onclick={handleSave}>Save</button
-		>
 	</div>
 </div>
