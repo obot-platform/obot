@@ -1020,6 +1020,101 @@ describe('VMcpDesigner.svelte', () => {
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).toBeInTheDocument();
 		});
 
+		it('refreshes stale vMCP readiness after OAuth so the tester connects without Retry', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			vmcp.id = 'vmcp1-oauth-tester';
+			vmcp.status = { ready: false };
+			const instance = {
+				id: 'vmcpi-oauth-tester',
+				vmcpID: vmcp.id,
+				userID: getProfileResponse.id,
+				created: vmcp.created,
+				status: { configured: true }
+			};
+			let authenticated = false;
+			let created = false;
+			let finishRefresh!: () => void;
+			const refreshPending = new Promise<void>((resolve) => {
+				finishRefresh = resolve;
+			});
+			const refresh = vi.fn();
+			const initialize = vi.fn();
+
+			worker.use(
+				http.post('/api/vmcp-instances', () => {
+					created = true;
+					return HttpResponse.json(instance);
+				}),
+				http.get('/api/vmcp-instances', () =>
+					HttpResponse.json({ items: created ? [instance] : [] })
+				),
+				http.post(`/api/vmcps/${vmcp.id}/launch`, () => HttpResponse.json({})),
+				http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () =>
+					HttpResponse.json({
+						oauthURL: authenticated ? '' : 'https://auth.example.com/authorize'
+					})
+				),
+				http.get(`/api/vmcps/${vmcp.id}`, async () => {
+					refresh();
+					await refreshPending;
+					return HttpResponse.json({ ...vmcp, status: { ready: authenticated } });
+				}),
+				http.post(`/mcp-connect/${vmcp.id}`, async ({ request }) => {
+					const body = (await request.json()) as {
+						id?: number;
+						method: string;
+						params?: { protocolVersion?: string };
+					};
+					if (body.method === 'initialize') {
+						initialize();
+						return HttpResponse.json({
+							jsonrpc: '2.0',
+							id: body.id,
+							result: {
+								protocolVersion: body.params?.protocolVersion,
+								capabilities: {},
+								serverInfo: { name: 'oauth-server', version: '1.0.0' }
+							}
+						});
+					}
+					return new HttpResponse(null, { status: 202 });
+				}),
+				http.get(`/mcp-connect/${vmcp.id}`, () => new HttpResponse(null, { status: 405 }))
+			);
+
+			appPage.url.searchParams.set('view', 'tester');
+			appPage.url.searchParams.set('tab', 'tools');
+			await renderDesigner([componentEntry], vmcp);
+
+			await page.getByRole('button', { name: 'Launch vMCP' }).click();
+			await page.getByRole('button', { name: 'Continue' }).click();
+			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+			expect(initialize).not.toHaveBeenCalled();
+
+			authenticated = true;
+			document.dispatchEvent(new Event('visibilitychange'));
+
+			try {
+				await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
+				await expect
+					.element(page.getByRole('link', { name: 'Authenticate' }))
+					.not.toBeInTheDocument();
+				await expect
+					.element(page.getByRole('heading', { name: 'Server unavailable' }))
+					.not.toBeInTheDocument();
+				expect(initialize).not.toHaveBeenCalled();
+			} finally {
+				finishRefresh();
+			}
+
+			await expect.element(page.getByText('Status: Available')).toBeVisible();
+			await expect.element(page.getByRole('heading', { name: 'Tools', exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Server unavailable' }))
+				.not.toBeInTheDocument();
+			expect(initialize).toHaveBeenCalledOnce();
+		}, 5000);
+
 		it('starts ConnectVMcp initLaunch from the tester Launch button', async () => {
 			appPage.url.searchParams.set('view', 'tester');
 			await renderDesigner([componentEntry], createIssueTrackerVMcp());

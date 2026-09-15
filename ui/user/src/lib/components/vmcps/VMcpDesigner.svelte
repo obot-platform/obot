@@ -71,6 +71,7 @@
 	let profilesPanel = $state<ReturnType<typeof VMcpProfiles>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
+	let refreshingTester = $state(false);
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
@@ -342,6 +343,20 @@
 		connectVMcpDialog?.open(vmcp, vmcpInstance, options);
 	}
 
+	async function refreshTester(vmcpID: string) {
+		refreshingTester = true;
+		try {
+			// Readiness belongs to the vMCP, not its user instance. Refresh both after
+			// launch/OAuth before the tester checks whether it can connect.
+			const [updated] = await Promise.all([UserService.getVMCP(vmcpID), vmcpInstances.refresh()]);
+			if (selectedVMcp?.id === vmcpID) selectedVMcp = updated;
+		} catch {
+			errors.append('Failed to refresh vMCP status.');
+		} finally {
+			refreshingTester = false;
+		}
+	}
+
 	const updateSearchQuery = (value: string) => {
 		setUrlParamAndUpdateUrl(page.url, 'query', value);
 	};
@@ -410,11 +425,13 @@
 				<div class="flex h-full min-h-0 flex-col p-3 pt-14">
 					<VMcpTester
 						vmcp={selectedVMcp}
+						loading={refreshingTester}
 						onLaunch={() => {
 							if (!selectedVMcp) return;
+							const vmcpID = selectedVMcp.id;
 							handleConnectVMcp(selectedVMcp, {
 								onConnected: () => {
-									vmcpInstances.refresh();
+									void refreshTester(vmcpID);
 								}
 							});
 						}}

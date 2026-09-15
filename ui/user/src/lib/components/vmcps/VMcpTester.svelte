@@ -11,9 +11,10 @@
 	interface Props {
 		vmcp: VMCP;
 		onLaunch: () => void;
+		loading?: boolean;
 	}
 
-	let { vmcp, onLaunch }: Props = $props();
+	let { vmcp, onLaunch, loading = false }: Props = $props();
 
 	let componentViews = $derived(resolveVMcpComponents(vmcp));
 	let instance = $derived(
@@ -53,7 +54,7 @@
 			{chatAvailable}
 			{chatUnavailableMessage}
 			active={launched}
-			loading={vmcpInstances.current.loading && !launched}
+			loading={loading || (vmcpInstances.current.loading && !launched)}
 		>
 			{#snippet icon()}
 				<VMcpIcon components={componentViews} />
