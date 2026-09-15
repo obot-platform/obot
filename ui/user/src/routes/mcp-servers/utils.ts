@@ -20,8 +20,8 @@ export function getCreatedEntryUrl(id: string, type?: LaunchServerType, message?
 		return `/mcp-servers/s/${id}`;
 	}
 
-	const prompt = message === 'requires-oauth-config' ? 'configure-oauth' : 'launch';
-	return `/mcp-servers/c/${id}?${prompt}=true`;
+	const configureOauth = message === 'requires-oauth-config';
+	return `/mcp-servers/c/${id}${configureOauth ? `?configure-oauth=true` : ''}`;
 }
 
 function useAdminEndpoints(url: URL, profile: Profile) {
