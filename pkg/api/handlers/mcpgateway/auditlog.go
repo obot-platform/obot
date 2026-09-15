@@ -692,6 +692,11 @@ func (h *AuditLogHandler) GetUsageStats(req api.Context) error {
 	})
 }
 
+// MCPAuditLogEnabled reports whether the proxy should capture audit entries.
+func (h *AuditLogHandler) MCPAuditLogEnabled() bool {
+	return h.gatewayClient.MCPAuditLogEnabled()
+}
+
 // CollectMCPAuditEntry converts a nanobot audit log entry to an API audit log entry and queues it for processing.
 func (h *AuditLogHandler) CollectMCPAuditEntry(entry auditlogs.MCPAuditLog) {
 	h.collectMCPAuditEntry(context.Background(), entry)
@@ -709,7 +714,7 @@ func (h *AuditLogHandler) CollectMCPProxyAuditEntry(entry auditlogs.MCPAuditLog,
 }
 
 func (h *AuditLogHandler) collectMCPProxyAuditEntry(ctx context.Context, entry auditlogs.MCPAuditLog, responseReceived bool, proxyExchangeID string) {
-	if entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
+	if !h.gatewayClient.MCPAuditLogEnabled() || entry.Metadata[mcp.AuditLogIgnore] == "true" || entry.CallType == "" {
 		// If the call type is empty, then this is a response to a request.
 		// The audit log will be handled elsewhere.
 		// Additionally, if the ignore flag is set, we should not process this log entry.

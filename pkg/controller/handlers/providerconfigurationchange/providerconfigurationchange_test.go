@@ -349,7 +349,7 @@ func newProviderChangeTestGateway(t *testing.T) *gatewayclient.Client {
 	require.NoError(t, database.AutoMigrate())
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
-	gateway := gatewayclient.New(ctx, database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	gateway := gatewayclient.New(ctx, database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil)
 	t.Cleanup(func() { _ = gateway.Close() })
 	return gateway
 }

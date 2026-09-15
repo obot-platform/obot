@@ -95,6 +95,42 @@ Filter LLM logs by:
 
 LLM audit logs can be exported as one-time or scheduled JSONL exports using the same storage configuration as MCP audit log exports. See [Audit Log Export](../configuration/audit-log-export.md) for configuration options.
 
+## Body storage controls
+
+MCP and LLM audit bodies are stored in full by default. Configure their limits independently:
+
+| Audit logs | Environment variable | CLI flag | Bodies covered |
+| --- | --- | --- | --- |
+| MCP | `OBOT_SERVER_MCPAUDIT_LOG_MAX_BODY_BYTES` | `--mcpaudit-log-max-body-bytes` | Request, response, mutated-request, and original-response |
+| LLM | `OBOT_SERVER_LLMAUDIT_LOG_MAX_BODY_BYTES` | `--llmaudit-log-max-body-bytes` | Request, policy-modified request, and response |
+
+Leave a setting unset for unlimited bodies, set it to `0` to omit bodies, or use a positive byte count to limit the original payload retained per body. For example, `65536` retains at most 64 KiB per body. Negative values are invalid.
+
+The limit applies independently to each covered body. Bodies within the limit remain unchanged; larger bodies become valid JSON containing a text preview:
+
+```json
+{"_obotAuditTruncated":true,"originalBytes":123456,"preview":"prefix of the original JSON text"}
+```
+
+The preview ends on a UTF-8 character boundary. JSON escaping, wrapper metadata, and encryption add storage overhead beyond the configured payload limit. Detail views and exports contain the stored preview or omitted bodies; they cannot recover the original content.
+
+For streamed LLM responses, the limit applies to the assembled response JSON in the background writer, before encryption and persistence. It does not limit the existing stream-capture buffer.
+
+Omitting bodies preserves audit metadata, outcomes, mutation and policy-trigger indicators, token counts, response IDs, headers, and audit-derived usage statistics.
+
+Body limits affect new entries only; they do not shrink existing records or change retention. Body limits do not cap headers, row counts, or total database size. Plan storage using daily call volume, average stored row size (including indexes and encoding overhead), and retention days. The 90-day default can retain millions of rows on busy installations; choose a shorter retention period where appropriate.
+
+## Disabling audit logs
+
+To stop collecting and persisting new entries entirely, use the corresponding disable setting:
+
+| Audit logs | Environment variable | CLI flag |
+| --- | --- | --- |
+| MCP | `OBOT_SERVER_DISABLE_MCPAUDIT_LOG=true` | `--disable-mcpaudit-log` |
+| LLM | `OBOT_SERVER_DISABLE_LLMAUDIT_LOG=true` | `--disable-llmaudit-log` |
+
+Disabling collection also stops new audit-derived usage data for that log type. Historical logs remain readable and exportable, and retention cleanup continues. MCP, LLM, and local-agent logging are configured independently.
+
 ## Usage
 
 Usage tracking provides aggregate statistics about MCP server activity.

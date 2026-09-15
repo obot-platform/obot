@@ -80,7 +80,7 @@ func newConsentTestGatewayClients(t *testing.T, count int) []*gatewayclient.Clie
 	}
 	clients := make([]*gatewayclient.Client, 0, count)
 	for range count {
-		client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true)
+		client := gatewayclient.New(t.Context(), db, nil, nil, nil, nil, nil, 10*time.Millisecond, 10, 90, 90, 90, true, false, nil, nil)
 		t.Cleanup(func() { _ = client.Close() })
 		clients = append(clients, client)
 	}
