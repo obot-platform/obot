@@ -4,12 +4,24 @@
 	import { toInlineHTMLFromMarkdown } from '$lib/markdown';
 	import { UserService, type VMCP, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { vmcpConnectURL, vmcpNeedsUpdate } from '$lib/services/vmcps/utils';
+	import {
+		vmcpConnectURL,
+		vmcpHasUserAllowedConfiguration,
+		vmcpInstanceNeedsUserConfiguration,
+		vmcpNeedsUpdate
+	} from '$lib/services/vmcps/utils';
 	import { errors, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import DotDotDot from '../DotDotDot.svelte';
 	import VMcpCardActions from './VMcpCardActions.svelte';
-	import { CircleFadingArrowUp, ExternalLink, GitCompare, Trash2, Unplug } from '@lucide/svelte';
+	import {
+		CircleFadingArrowUp,
+		ExternalLink,
+		GitCompare,
+		ServerCog,
+		Trash2,
+		Unplug
+	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -31,6 +43,7 @@
 		) => void;
 		openDiff?: (vmcp: VMCP) => void;
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
+		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 	}
 
 	let {
@@ -47,7 +60,8 @@
 		onUpdate,
 		openSelectInstance,
 		openDiff,
-		openUpdateConfirm
+		openUpdateConfirm,
+		openEditInstanceConfiguration
 	}: Props = $props();
 
 	let id = $derived(vmcp.id);
@@ -69,6 +83,16 @@
 		)
 	);
 	let connected = $derived(myInstances.length > 0);
+	let instanceNeedingConfiguration = $derived(
+		myInstances.find((instance) => vmcpInstanceNeedsUserConfiguration(instance))
+	);
+	let canEditInstanceConfiguration = $derived(
+		Boolean(
+			openEditInstanceConfiguration &&
+			instanceNeedingConfiguration &&
+			vmcpHasUserAllowedConfiguration(vmcp)
+		)
+	);
 	let disconnecting = $state(false);
 	let updating = $state(false);
 
@@ -196,6 +220,18 @@
 						Update VMCP
 					</button>
 				{/if}
+				{#if canEditInstanceConfiguration && instanceNeedingConfiguration}
+					<button
+						class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
+						onclick={(e) => {
+							e.stopPropagation();
+							openEditInstanceConfiguration?.(vmcp, instanceNeedingConfiguration);
+							toggle(false);
+						}}
+					>
+						<ServerCog class="size-4" /> Edit Configuration
+					</button>
+				{/if}
 				{#if openDiff && needsUpdate}
 					<button
 						class="menu-button-primary"
@@ -249,25 +285,30 @@
 				{note}
 			</p>
 
-			{#if needsUpdate}
+			{#if needsUpdate && isCreator}
 				<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary">
 					<span class="status status-primary"></span>
 					Update Available
 				</div>
+			{:else if instanceNeedingConfiguration}
+				<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning">
+					<span class="status status-warning"></span>
+					Not Configured
+				</div>
 			{:else}
-			<div
-				class={twMerge(
-					'badge badge-xs shrink-0 gap-1',
-					!connected
-						? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
-						: 'badge-soft badge-primary'
-				)}
-				role="status"
-				aria-label={connected ? 'Connected' : 'Not Connected'}
-			>
-				<span class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}></span>
-				{connected ? 'Connected' : 'Connected'}
-			</div>
+				<div
+					class={twMerge(
+						'badge badge-xs shrink-0 gap-1',
+						!connected
+							? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
+							: 'badge-soft badge-primary'
+					)}
+					role="status"
+					aria-label={connected ? 'Connected' : 'Not Connected'}
+				>
+					<span class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}></span>
+					{connected ? 'Connected' : 'Connected'}
+				</div>
 			{/if}
 		</div>
 	{/if}

@@ -106,7 +106,8 @@
 		const view = page.url.searchParams.get('view');
 		const usesAdminMcpData =
 			(pathname === '/mcp-servers' && (view === 'servers' || view === 'access-policies')) ||
-			(pathname === '/vmcps' && (!view || view === 'vmcps')) || pathname.startsWith('/vmcps/') ||
+			(pathname === '/vmcps' && (!view || view === 'vmcps')) ||
+			pathname.startsWith('/vmcps/') ||
 			pathname.startsWith('/mcp-servers/access-policies/');
 		const scope = usesAdminMcpData ? 'admin' : 'user';
 		// A restricted session is walled off from every one of these endpoints, so prefetching the

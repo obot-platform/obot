@@ -1,4 +1,5 @@
 import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
+import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -208,6 +209,88 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(page.getByText('This server has already been configured.')).toBeVisible();
 		await page.getByRole('button', { name: 'Edit configuration' }).click();
 		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+	});
+
+	it('opens instance configuration from the latest component fields', async () => {
+		const vmcp = configurableVMcp();
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: {
+				configured: false,
+				missingRequiredConfiguration: ['component-entry-default.API_TOKEN']
+			}
+		};
+		const revealed = vi.fn();
+		worker.use(
+			http.post('/api/vmcp-instances/vmcpi-existing/reveal', () => {
+				revealed();
+				return HttpResponse.json({
+					components: { 'component-entry-default': { API_TOKEN: 'saved-token' } }
+				});
+			})
+		);
+
+		await preparePageData();
+		await vmcpInstances.refresh();
+		const result = await render(ConnectVMcp);
+		await result.component.openEditConfiguration(vmcp, existing);
+
+		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
+		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+		await vi.waitFor(() => expect(revealed).toHaveBeenCalledOnce());
+		await expect.element(page.getByRole('button', { name: 'Update', exact: true })).toBeVisible();
+	});
+
+	it('refreshes instance status after editing configuration when configure returns stale missing fields', async () => {
+		const vmcp = configurableVMcp();
+		const existing: VMCPInstance = {
+			id: 'vmcpi-existing',
+			vmcpID: vmcp.id,
+			userID: getProfileResponse.id,
+			created: '2026-01-01T00:00:00Z',
+			status: {
+				configured: false,
+				missingRequiredConfiguration: ['component-entry-default.API_TOKEN']
+			}
+		};
+		const getInstance = vi.fn();
+		worker.use(
+			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [existing] })),
+			http.post('/api/vmcp-instances/vmcpi-existing/reveal', () =>
+				HttpResponse.json({
+					components: { 'component-entry-default': { API_TOKEN: 'saved-token' } }
+				})
+			),
+			http.post('/api/vmcp-instances/vmcpi-existing/configure', () => HttpResponse.json(existing)),
+			http.get('/api/vmcp-instances/vmcpi-existing', () => {
+				getInstance();
+				return HttpResponse.json({
+					...existing,
+					status: { configured: true }
+				});
+			}),
+			http.post(`/api/vmcps/${vmcp.id}/launch`, () => HttpResponse.json({})),
+			http.get(`/api/vmcps/${vmcp.id}/oauth-url`, () => HttpResponse.json({ oauthURL: '' }))
+		);
+
+		await preparePageData();
+		vmcpInstances.current = { items: [existing], loading: false };
+		const result = await render(ConnectVMcp);
+		await result.component.openEditConfiguration(vmcp, existing);
+
+		const tokenField = page.getByCSS('input[name="API token"]');
+		await expect.element(tokenField).toBeVisible();
+		await tokenField.click();
+		await tokenField.fill('secret-token');
+		await page.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(vmcpInstanceNeedsUserConfiguration(vmcpInstances.current.items[0])).toBe(false);
+		});
+		expect(getInstance).toHaveBeenCalled();
 	});
 
 	it('prompts for OAuth after launch and continues when authentication completes', async () => {

@@ -167,12 +167,16 @@
 		vmcp={card.vmcp}
 		selectAriaLabel={`Open ${card.vmcp.displayName || 'Untitled vMCP'}`}
 		onSelect={() => onSelect?.(card.vmcp)}
-		onConnect={(options) => onConnect?.(card.vmcp, options)}
+		onConnect={(options) =>
+			onConnect
+				? onConnect(card.vmcp, options)
+				: vmcpActions?.openConnect(card.vmcp, undefined, options)}
 		onDelete={() => onDelete?.(card.vmcp)}
 		{onUpdate}
 		openSelectInstance={vmcpActions?.openSelectInstance}
 		openDiff={vmcpActions?.openDiff}
 		openUpdateConfirm={vmcpActions?.openUpdateConfirm}
+		openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
 		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
 		note={getNote(card.vmcp)}
 	>

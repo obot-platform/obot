@@ -14,7 +14,9 @@
 		icon,
 		provideSelectInstance = true,
 		provideDiff = true,
-		provideUpdateConfirm = true
+		provideUpdateConfirm = true,
+		provideEditConfiguration = true,
+		note
 	}: {
 		vmcp: VMCP;
 		selectAriaLabel: string;
@@ -25,6 +27,8 @@
 		provideSelectInstance?: boolean;
 		provideDiff?: boolean;
 		provideUpdateConfirm?: boolean;
+		provideEditConfiguration?: boolean;
+		note?: string;
 	} = $props();
 
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
@@ -41,4 +45,8 @@
 	openSelectInstance={provideSelectInstance ? vmcpActions?.openSelectInstance : undefined}
 	openDiff={provideDiff ? vmcpActions?.openDiff : undefined}
 	openUpdateConfirm={provideUpdateConfirm ? vmcpActions?.openUpdateConfirm : undefined}
+	openEditInstanceConfiguration={provideEditConfiguration
+		? vmcpActions?.openEditInstanceConfiguration
+		: undefined}
+	{note}
 />

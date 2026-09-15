@@ -6,14 +6,17 @@
 		type VMCPConfigurationPolicy,
 		type VMCPInstance
 	} from '$lib/services';
+	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
+		configurationForSnapshotUpdate,
 		configurationWithRevealedValues,
 		vmcpComponentId,
 		vmcpManifest,
 		vmcpUpdateConfigurationTargets
 	} from '$lib/services/vmcps/utils';
-	import { errors, mcpServersAndEntries } from '$lib/stores';
+	import { errors, mcpServersAndEntries, profile, vmcpInstances } from '$lib/stores';
 	import Confirm from '../Confirm.svelte';
+	import ConnectVMcp from './ConnectVMcp.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpDiffDialog from './VMcpDiffDialog.svelte';
 	import VMcpSelectInstance from './VMcpSelectInstance.svelte';
@@ -31,6 +34,7 @@
 	let selectInstanceDialog = $state<ReturnType<typeof VMcpSelectInstance>>();
 	let diffDialog = $state<ReturnType<typeof VMcpDiffDialog>>();
 	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
+	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let showUpdateConfirm = $state(false);
 	let updateName = $state('');
 	let updating = $state(false);
@@ -61,6 +65,26 @@
 
 	export function openDiff(vmcp: VMCP) {
 		diffDialog?.open(vmcp);
+	}
+
+	export function openConnect(vmcp: VMCP, instance?: VMCPInstance, options?: VMcpConnectOptions) {
+		const targetInstance =
+			instance ??
+			vmcpInstances.current.items.find(
+				(candidate) =>
+					candidate.vmcpID === vmcp.id &&
+					candidate.userID === profile.current.id &&
+					!candidate.deleted
+			);
+		connectVMcpDialog?.open(vmcp, targetInstance, options);
+	}
+
+	export function openEditInstanceConfiguration(
+		vmcp: VMCP,
+		instance: VMCPInstance,
+		options?: VMcpConnectOptions
+	) {
+		void connectVMcpDialog?.openEditConfiguration(vmcp, instance, options);
 	}
 
 	export function openConfiguration(
@@ -119,7 +143,7 @@
 			if (!next) return component;
 			return {
 				...component,
-				configuration: next.configuration,
+				configuration: configurationForSnapshotUpdate(component, next.configuration),
 				forceSingleUser: next.forceSingleUser
 			};
 		});
@@ -193,6 +217,8 @@
 		await openCurrentUpdateConfiguration();
 	}
 </script>
+
+<ConnectVMcp bind:this={connectVMcpDialog} />
 
 <VMcpSelectInstance
 	bind:this={selectInstanceDialog}

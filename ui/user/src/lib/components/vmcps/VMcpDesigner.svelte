@@ -2,7 +2,6 @@
 	import { page } from '$app/state';
 	import Layout from '$lib/components/Layout.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
-	import ConnectVMcp from '$lib/components/vmcps/ConnectVMcp.svelte';
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
@@ -70,7 +69,6 @@
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
 	let profilesPanel = $state<ReturnType<typeof VMcpProfiles>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
-	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let refreshingTester = $state(false);
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 	let rightPanelEl = $state<HTMLElement>();
@@ -341,10 +339,7 @@
 	}
 
 	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
-		const vmcpInstance = vmcpInstances.current.items.find(
-			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
-		);
-		connectVMcpDialog?.open(vmcp, vmcpInstance, options);
+		vmcpActions?.openConnect(vmcp, undefined, options);
 	}
 
 	async function refreshTester(vmcpID: string) {
@@ -462,6 +457,7 @@
 						openSelectInstance={vmcpActions?.openSelectInstance}
 						openDiff={vmcpActions?.openDiff}
 						openUpdateConfirm={vmcpActions?.openUpdateConfirm}
+						openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
 						onUpdate={(updated) => {
 							selectedVMcp = updated;
 						}}
@@ -576,8 +572,6 @@
 <VMcpDragOverlay drag={entryDrag} />
 
 <VMcpToolDialogs flow={toolFlow} />
-
-<ConnectVMcp bind:this={connectVMcpDialog} />
 
 <VMcpActions bind:this={vmcpActions} onConfigurationNext={handleConfigurationNext} />
 

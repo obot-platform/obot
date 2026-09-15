@@ -1,4 +1,4 @@
-import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
+import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { SHORT_DESCRIPTION_MAX_LENGTH } from './constants';
 import type { RectLike } from './types';
 import {
@@ -8,6 +8,7 @@ import {
 	buildVMcpComponentFilterOptions,
 	buildWirePath,
 	catalogConfigurationFields,
+	configurationForSnapshotUpdate,
 	configurationWithRevealedValues,
 	distanceToRect,
 	filterMcpServersByCategories,
@@ -19,6 +20,8 @@ import {
 	sortMcpServers,
 	sortVMcps,
 	vmcpComponentDiffServers,
+	vmcpHasUserAllowedConfiguration,
+	vmcpInstanceNeedsUserConfiguration,
 	vmcpNeedsUpdate,
 	vmcpOutdatedComponents,
 	vmcpUpdateConfigurationTargets
@@ -423,6 +426,30 @@ describe('vmcpNeedsUpdate', () => {
 	});
 });
 
+describe('vmcpHasUserAllowedConfiguration', () => {
+	it('is true when a component has a user-allowed policy', () => {
+		const vmcp = createVMCP({ id: 'vmcp-1' });
+		expect(vmcpHasUserAllowedConfiguration(vmcp)).toBe(false);
+		vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+		expect(vmcpHasUserAllowedConfiguration(vmcp)).toBe(true);
+	});
+});
+
+describe('vmcpInstanceNeedsUserConfiguration', () => {
+	it('is true when the instance is missing required configuration', () => {
+		expect(vmcpInstanceNeedsUserConfiguration()).toBe(false);
+		expect(
+			vmcpInstanceNeedsUserConfiguration({
+				id: 'vmcpi-1',
+				vmcpID: 'vmcp-1',
+				userID: 'user-1',
+				created: '2026-01-01T00:00:00Z',
+				status: { missingRequiredConfiguration: ['component-1.API_TOKEN'] }
+			})
+		).toBe(true);
+	});
+});
+
 describe('vmcpOutdatedComponents', () => {
 	it('returns outdated components and diff targets from catalog entries', () => {
 		const entry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
@@ -485,6 +512,76 @@ describe('vmcpUpdateConfigurationTargets', () => {
 		]);
 		expect(vmcpUpdateConfigurationTargets(vmcp, [snapshot])).toEqual([]);
 		expect(vmcpUpdateConfigurationTargets(vmcp, [])).toEqual([]);
+	});
+});
+
+describe('configurationForSnapshotUpdate', () => {
+	function snapshotComponent(
+		config: Array<{
+			key: string;
+			required?: boolean;
+			value?: string;
+			secretBinding?: { name: string; key: string };
+		}>,
+		configuration: Array<{
+			key: string;
+			policy?: 'prohibited' | 'fixed' | 'userAllowed';
+			value?: string;
+		}>
+	) {
+		const entry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'Everything',
+			manifest: {
+				config: config.map((field) => ({
+					key: field.key,
+					name: field.key,
+					description: field.key,
+					required: field.required ?? false,
+					sensitive: false,
+					value: field.value ?? '',
+					usage: 'env' as const,
+					...(field.secretBinding ? { secretBinding: field.secretBinding } : {})
+				}))
+			}
+		});
+		return createVMCPComponent(entry, { configuration });
+	}
+
+	it('keeps required snapshot keys omitted from the latest catalog payload', () => {
+		const component = snapshotComponent(
+			[{ key: 'TEST_KEY_B', required: true }],
+			[{ key: 'TEST_KEY_B', policy: 'fixed', value: '******' }]
+		);
+
+		expect(
+			configurationForSnapshotUpdate(component, [{ key: 'API_TOKEN', policy: 'userAllowed' }])
+		).toEqual([
+			{ key: 'API_TOKEN', policy: 'userAllowed' },
+			{ key: 'TEST_KEY_B', policy: 'fixed' }
+		]);
+	});
+
+	it('does not keep keys already present, optional, or catalog-supplied', () => {
+		const component = snapshotComponent(
+			[
+				{ key: 'TOKEN', required: true },
+				{ key: 'OPTIONAL' },
+				{ key: 'STATIC', required: true, value: 'catalog' },
+				{ key: 'BOUND', required: true, secretBinding: { name: 'config', key: 'token' } }
+			],
+			[
+				{ key: 'TOKEN', policy: 'fixed', value: 'secret' },
+				{ key: 'OPTIONAL', policy: 'prohibited' },
+				{ key: 'STATIC', policy: 'prohibited' },
+				{ key: 'BOUND', policy: 'userAllowed' },
+				{ key: 'GONE', policy: 'fixed', value: 'stale' }
+			]
+		);
+
+		expect(
+			configurationForSnapshotUpdate(component, [{ key: 'TOKEN', policy: 'userAllowed' }])
+		).toEqual([{ key: 'TOKEN', policy: 'userAllowed' }]);
 	});
 });
 

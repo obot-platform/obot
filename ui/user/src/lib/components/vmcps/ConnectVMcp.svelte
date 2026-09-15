@@ -13,7 +13,8 @@
 	import {
 		resolveVMcpComponents,
 		vmcpComponentId,
-		vmcpConnectURL
+		vmcpConnectURL,
+		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
 	import { vmcpInstances } from '$lib/stores';
 	import VMcpIcon from './VMcpIcon.svelte';
@@ -39,6 +40,7 @@
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
+	let skipConnectDialog = false;
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -67,7 +69,11 @@
 			.replace(/[^a-z0-9-_]/g, '');
 	}
 
-	export function open(target: VMCP, targetInstance?: VMCPInstance, options?: VMcpConnectOptions) {
+	function resetDialogState(
+		target: VMCP,
+		targetInstance?: VMCPInstance,
+		options?: VMcpConnectOptions
+	) {
 		vmcp = target;
 		instance = targetInstance;
 		onConnected = options?.onConnected;
@@ -81,12 +87,28 @@
 		showIntroDialog = false;
 		connectionUrlField?.clear?.();
 		howToConnect?.resetCopied?.();
+	}
+
+	export function open(target: VMCP, targetInstance?: VMCPInstance, options?: VMcpConnectOptions) {
+		resetDialogState(target, targetInstance, options);
+		skipConnectDialog = false;
 
 		if (options?.onConnected) {
 			initLaunch();
 		} else {
 			connectDialog?.open();
 		}
+	}
+
+	export async function openEditConfiguration(
+		target: VMCP,
+		targetInstance: VMCPInstance,
+		options?: VMcpConnectOptions
+	) {
+		resetDialogState(target, targetInstance, options);
+		skipConnectDialog = true;
+		connectDialog?.close();
+		await initConfigureForm();
 	}
 
 	function handleConfigure() {
@@ -115,6 +137,7 @@
 	async function initConfigureForm() {
 		if (!vmcp) return;
 		connectDialog?.close();
+		const revealed = await revealedInstanceConfiguration();
 		const componentConfigs: CompositeLaunchFormData['componentConfigs'] = {};
 		for (const component of vmcp.components ?? []) {
 			const id = vmcpComponentId(component);
@@ -137,7 +160,7 @@
 					sensitive: field?.sensitive ?? false,
 					options: field?.options,
 					usage: field?.usage ?? 'env',
-					value: '',
+					value: revealed[id]?.[policy.key] ?? '',
 					isStatic: false,
 					file: field?.usage === 'file' || field?.usage === 'dynamicFile',
 					dynamicFile: field?.usage === 'dynamicFile',
@@ -161,6 +184,16 @@
 		await configureDialog?.open();
 	}
 
+	async function revealedInstanceConfiguration() {
+		if (!instance) return {};
+		try {
+			const revealed = await UserService.revealVMCPInstance(instance.id, { dontLogErrors: true });
+			return revealed.components ?? {};
+		} catch {
+			return {};
+		}
+	}
+
 	function configurationPayload(form: CompositeLaunchFormData): VMCPConfiguration {
 		const components: VMCPConfiguration['components'] = {};
 		for (const [componentID, component] of Object.entries(form.componentConfigs)) {
@@ -170,6 +203,43 @@
 			}
 		}
 		return { components };
+	}
+
+	function configuredInstance(submitted: VMCPInstance): VMCPInstance {
+		return {
+			...submitted,
+			status: {
+				...submitted.status,
+				configured: true,
+				...(vmcpInstanceNeedsUserConfiguration(submitted)
+					? { missingRequiredConfiguration: [] }
+					: {})
+			}
+		};
+	}
+
+	async function refreshConfiguredInstance(submitted: VMCPInstance): Promise<VMCPInstance> {
+		const optimistic = configuredInstance(submitted);
+		vmcpInstances.upsert(optimistic);
+		if (!vmcpInstanceNeedsUserConfiguration(submitted)) {
+			return optimistic;
+		}
+
+		for (let attempt = 0; attempt < 8; attempt++) {
+			if (attempt > 0) {
+				await new Promise((resolve) => setTimeout(resolve, 250));
+			}
+			try {
+				const latest = await UserService.getVMCPInstance(submitted.id, { dontLogErrors: true });
+				if (!vmcpInstanceNeedsUserConfiguration(latest)) {
+					vmcpInstances.upsert(latest);
+					return latest;
+				}
+			} catch {
+				// Status is reconciled asynchronously after configure.
+			}
+		}
+		return optimistic;
 	}
 
 	function initUpdatingOrLaunchProgress() {
@@ -200,6 +270,7 @@
 			connected();
 			return;
 		}
+		if (skipConnectDialog) return;
 		connectDialog?.open();
 	}
 
@@ -273,18 +344,16 @@
 		try {
 			const targetInstance = instance ?? (await UserService.createVMCPInstance(target.id));
 			if (configureForm) {
-				const configured = await UserService.configureVMCPInstance(
-					targetInstance.id,
-					configurationPayload(configureForm)
+				instance = await refreshConfiguredInstance(
+					await UserService.configureVMCPInstance(
+						targetInstance.id,
+						configurationPayload(configureForm)
+					)
 				);
-				instance = {
-					...configured,
-					status: { ...configured.status, configured: true }
-				};
 			} else {
 				instance = targetInstance;
+				vmcpInstances.upsert(instance);
 			}
-			vmcpInstances.upsert(instance);
 
 			const launchResponse = await UserService.validateSingleOrRemoteMcpServerLaunched(target.id);
 			if (!launchResponse.success) {

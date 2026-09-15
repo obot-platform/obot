@@ -31,6 +31,7 @@ async function renderCard(options: {
 	provideSelectInstance?: boolean;
 	provideDiff?: boolean;
 	provideUpdateConfirm?: boolean;
+	note?: string;
 }) {
 	const vmcp = options.vmcp
 		? options.userID !== undefined
@@ -57,7 +58,8 @@ async function renderCard(options: {
 		icon,
 		provideSelectInstance: options.provideSelectInstance,
 		provideDiff: options.provideDiff,
-		provideUpdateConfirm: options.provideUpdateConfirm
+		provideUpdateConfirm: options.provideUpdateConfirm,
+		note: options.note
 	});
 }
 
@@ -369,5 +371,134 @@ describe('VMcpCard.svelte', () => {
 			.toBeVisible();
 		await expect.element(page.getByText('vmcpi-1')).toBeVisible();
 		await expect.element(page.getByText('vmcpi-2')).toBeVisible();
+	});
+
+	it('opens Edit Configuration when the current instance is missing required fields', async () => {
+		const vmcp = createVMCP({
+			id: 'vmcp-1',
+			displayName: 'Issue Tracker vMCP',
+			userID: getProfileResponse.id
+		});
+		vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+		vmcp.components![0].catalogEntry.manifest.config = [
+			{
+				key: 'API_TOKEN',
+				name: 'API token',
+				description: 'Token',
+				required: true,
+				sensitive: true,
+				value: '',
+				usage: 'env'
+			}
+		];
+		worker.use(
+			http.post('/api/vmcp-instances/vmcpi-1/reveal', () =>
+				HttpResponse.json({ components: { [vmcp.components![0].id!]: { API_TOKEN: '' } } })
+			)
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp,
+			instances: [
+				{
+					...createInstance('vmcpi-1'),
+					status: { missingRequiredConfiguration: ['component-entry-default.API_TOKEN'] }
+				}
+			]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Edit Configuration', exact: true }).click();
+		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+	});
+
+	it('clears Not Configured after Edit Configuration succeeds', async () => {
+		const vmcp = createVMCP({
+			id: 'vmcp-1',
+			displayName: 'Issue Tracker vMCP',
+			userID: getProfileResponse.id
+		});
+		vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+		vmcp.components![0].catalogEntry.manifest.config = [
+			{
+				key: 'API_TOKEN',
+				name: 'API token',
+				description: 'Token',
+				required: true,
+				sensitive: true,
+				value: '',
+				usage: 'env'
+			}
+		];
+		const stale = {
+			...createInstance('vmcpi-1'),
+			status: {
+				configured: false,
+				missingRequiredConfiguration: ['component-entry-default.API_TOKEN']
+			}
+		};
+		worker.use(
+			http.post('/api/vmcp-instances/vmcpi-1/reveal', () =>
+				HttpResponse.json({
+					components: { [vmcp.components![0].id!]: { API_TOKEN: 'saved-token' } }
+				})
+			),
+			http.post('/api/vmcp-instances/vmcpi-1/configure', () => HttpResponse.json(stale)),
+			http.get('/api/vmcp-instances/vmcpi-1', () =>
+				HttpResponse.json({
+					...stale,
+					status: { configured: true }
+				})
+			),
+			http.post('/api/vmcps/vmcp-1/launch', () => HttpResponse.json({})),
+			http.get('/api/vmcps/vmcp-1/oauth-url', () => HttpResponse.json({ oauthURL: '' }))
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp,
+			instances: [stale],
+			note: 'Owner'
+		});
+
+		await expect.element(page.getByText('Not Configured')).toBeVisible();
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Edit Configuration', exact: true }).click();
+		const tokenField = page.getByCSS('input[name="API token"]');
+		await expect.element(tokenField).toBeVisible();
+		await tokenField.click();
+		await tokenField.fill('secret-token');
+		await page.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(vmcpInstances.current.items[0]?.status?.missingRequiredConfiguration ?? []).toEqual(
+				[]
+			);
+		});
+		await expect.element(page.getByText('Not Configured')).not.toBeInTheDocument();
+	});
+
+	it('hides Edit Configuration when the instance is fully configured', async () => {
+		const vmcp = createVMCP({
+			id: 'vmcp-1',
+			displayName: 'Issue Tracker vMCP',
+			userID: getProfileResponse.id
+		});
+		vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp,
+			instances: [createInstance('vmcpi-1')]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await expect
+			.element(page.getByRole('button', { name: 'Edit Configuration', exact: true }))
+			.not.toBeInTheDocument();
 	});
 });

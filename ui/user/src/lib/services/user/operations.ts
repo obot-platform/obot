@@ -177,7 +177,7 @@ export async function listVMCPInstances(opts?: {
 
 export async function getVMCPInstance(
 	id: string,
-	opts?: { fetch?: Fetcher }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
 ): Promise<VMCPInstance> {
 	return (await doGet(`/vmcp-instances/${id}`, opts)) as VMCPInstance;
 }

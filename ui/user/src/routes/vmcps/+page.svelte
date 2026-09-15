@@ -3,7 +3,6 @@
 	import TabLayout, { type TabView } from '$lib/components/TabLayout.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import ConnectAllVMcps from '$lib/components/vmcps/ConnectAllVMcps.svelte';
-	import ConnectVMcp from '$lib/components/vmcps/ConnectVMcp.svelte';
 	import CreateEditVMcp from '$lib/components/vmcps/CreateEditVMcp.svelte';
 	import VMcpDeploymentsView from '$lib/components/vmcps/VMcpDeploymentsView.svelte';
 	import VMcpDesigner from '$lib/components/vmcps/VMcpDesigner.svelte';
@@ -12,14 +11,14 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
-	import type { VMcpConnectOptions, VMcpSortBy } from '$lib/services/vmcps/types';
+	import type { VMcpSortBy } from '$lib/services/vmcps/types';
 	import {
 		buildVMcpComponentFilterOptions,
 		filterVMcps,
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { profile, responsive, vmcpInstances } from '$lib/stores';
+	import { profile, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Layers, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
@@ -62,7 +61,6 @@
 	);
 
 	let createEditVMcp = $state<ReturnType<typeof CreateEditVMcp>>();
-	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let connectAllVMcpsDialog = $state<ReturnType<typeof ConnectAllVMcps>>();
 
 	let users = $state<OrgUser[]>([]);
@@ -94,13 +92,6 @@
 
 	function vmcpComponents(vmcp: VMCP) {
 		return resolveVMcpComponents(vmcp);
-	}
-
-	function handleConnectVMcp(vmcp: VMCP, options?: VMcpConnectOptions) {
-		const vmcpInstance = vmcpInstances.current.items.find(
-			(candidate) => candidate.vmcpID === vmcp.id && candidate.userID === profile.current.id
-		);
-		connectVMcpDialog?.open(vmcp, vmcpInstance, options);
 	}
 
 	function openConnectAllDialog(option: (typeof COMMON_AI_CLIENTS)[number]) {
@@ -177,7 +168,6 @@
 			items={sortedVMcps}
 			components={vmcpComponents}
 			onSelect={openVMcp}
-			onConnect={handleConnectVMcp}
 			onDelete={(item) => createEditVMcp?.openDelete(item)}
 			onUpdate={(updated) => {
 				listedVMcps = listedVMcps.map((vmcp) => (vmcp.id === updated.id ? updated : vmcp));
@@ -211,8 +201,6 @@
 {#snippet deploymentsView()}
 	<VMcpDeploymentsView vmcps={listedVMcps} {usersMap} />
 {/snippet}
-
-<ConnectVMcp bind:this={connectVMcpDialog} />
 
 <ConnectAllVMcps bind:this={connectAllVMcpsDialog} {vmcps} />
 

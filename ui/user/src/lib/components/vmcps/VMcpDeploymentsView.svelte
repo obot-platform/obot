@@ -13,7 +13,12 @@
 		type VMCP,
 		type VMCPInstance
 	} from '$lib/services';
-	import { vmcpInstanceAuditLogsPath, vmcpInstancePath } from '$lib/services/vmcps/utils';
+	import {
+		vmcpInstanceAuditLogsPath,
+		vmcpInstanceNeedsUserConfiguration,
+		vmcpInstancePath,
+		vmcpHasUserAllowedConfiguration
+	} from '$lib/services/vmcps/utils';
 	import { errors, profile, vmcpInstances } from '$lib/stores';
 	import { success } from '$lib/stores/success';
 	import { formatTimeAgo } from '$lib/time';
@@ -26,8 +31,9 @@
 		setUrlParamAndUpdateUrl
 	} from '$lib/url';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
+	import VMcpActions from './VMcpActions.svelte';
 	import VMcpIcon from './VMcpIcon.svelte';
-	import { Captions, Ellipsis, Layers, Trash2 } from '@lucide/svelte';
+	import { Captions, Ellipsis, Layers, ServerCog, Trash2 } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	interface Props {
@@ -60,6 +66,7 @@
 
 	let deleting = $state(false);
 	let showDeleteConfirm = $state<DeploymentRow>();
+	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 
 	let vmcpsMap = $derived(new Map(vmcps.map((vmcp) => [vmcp.id, vmcp])));
 	let readonly = $derived(profile.current.isAdminReadonly?.() ?? false);
@@ -82,7 +89,10 @@
 					...instance,
 					displayName: vmcp?.displayName || instance.vmcpID,
 					userName: getUserDisplayName(usersMap, instance.userID),
-					vmcp
+					vmcp,
+					updateStatus: vmcpInstanceNeedsUserConfiguration(instance)
+						? 'Not Configured'
+						: 'Configured'
 				};
 			});
 
@@ -118,15 +128,25 @@
 		}
 	}
 
+	function canEditInstanceConfiguration(row: DeploymentRow) {
+		return Boolean(
+			!readonly &&
+			row.userID === profile.current.id &&
+			row.vmcp &&
+			vmcpInstanceNeedsUserConfiguration(row) &&
+			vmcpHasUserAllowedConfiguration(row.vmcp)
+		);
+	}
+
+	async function reloadInstances() {
+		allVMCPInstances = await AdminService.listAllVMCPInstances();
+	}
+
 	onMount(() => {
 		loading = true;
-		AdminService.listAllVMCPInstances()
-			.then((instances) => {
-				allVMCPInstances = instances;
-			})
-			.finally(() => {
-				loading = false;
-			});
+		reloadInstances().finally(() => {
+			loading = false;
+		});
 	});
 
 	function handleFilter(property: string, values: string[]) {
@@ -168,10 +188,11 @@
 		{:else if tableData.length > 0}
 			<Table
 				data={tableData}
-				fields={['displayName', 'userName', 'created']}
+				fields={['displayName', 'userName', 'updateStatus', 'created']}
 				headers={[
 					{ title: 'Name', property: 'displayName' },
-					{ title: 'User', property: 'userName' }
+					{ title: 'User', property: 'userName' },
+					{ title: 'Update Status', property: 'updateStatus' }
 				]}
 				filterable={['displayName', 'userName']}
 				sortable={['displayName', 'userName', 'created']}
@@ -230,6 +251,22 @@
 									<Captions class="size-4" />
 									View Audit Logs
 								</button>
+								{#if canEditInstanceConfiguration(d) && d.vmcp}
+									<button
+										class="menu-button bg-warning/10 text-warning hover:bg-warning/30"
+										onclick={(e) => {
+											e.stopPropagation();
+											vmcpActions?.openEditInstanceConfiguration(d.vmcp!, d, {
+												onConnected: () => {
+													void reloadInstances();
+												}
+											});
+											toggle(false);
+										}}
+									>
+										<ServerCog class="size-4" /> Edit Configuration
+									</button>
+								{/if}
 								{#if canDelete(d)}
 									<button
 										class="menu-button-destructive"
@@ -259,6 +296,8 @@
 		{/if}
 	</div>
 </div>
+
+<VMcpActions bind:this={vmcpActions} />
 
 <Confirm
 	show={Boolean(showDeleteConfirm)}

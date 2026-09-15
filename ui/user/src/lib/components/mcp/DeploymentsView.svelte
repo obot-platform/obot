@@ -663,7 +663,9 @@
 							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: d.vmcpComponentID ? 'In order to update, update the vMCP.' : 'This deployment needs an update. View Diff to see the changes.',
+										text: d.vmcpComponentID
+											? 'In order to update, update the vMCP.'
+											: 'This deployment needs an update. View Diff to see the changes.',
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>
@@ -763,23 +765,23 @@
 										</button>
 									{/if}
 
-								{#if d.catalogEntryID && d.needsUpdate}
-									<button
-										class="menu-button-primary"
-										disabled={updating[d.id]?.inProgress || readonly}
-										onclick={(e) => {
-											e.stopPropagation();
-											if (!d.catalogEntryID) return;
+									{#if d.catalogEntryID && d.needsUpdate}
+										<button
+											class="menu-button-primary"
+											disabled={updating[d.id]?.inProgress || readonly}
+											onclick={(e) => {
+												e.stopPropagation();
+												if (!d.catalogEntryID) return;
 
-											existingServer = d;
-											updatedServer = entriesMap[d.catalogEntryID];
-											diffDialog?.open();
-											toggle(false);
-										}}
-									>
-										<GitCompare class="size-4" /> View Diff
-									</button>
-								{/if}
+												existingServer = d;
+												updatedServer = entriesMap[d.catalogEntryID];
+												diffDialog?.open();
+												toggle(false);
+											}}
+										>
+											<GitCompare class="size-4" /> View Diff
+										</button>
+									{/if}
 								{/if}
 
 								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}

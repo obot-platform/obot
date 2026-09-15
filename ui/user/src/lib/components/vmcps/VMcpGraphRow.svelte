@@ -45,6 +45,7 @@
 		) => void;
 		openDiff?: (vmcp: VMCP) => void;
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
+		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 	}
 
 	let {
@@ -61,7 +62,8 @@
 		usersMap,
 		openSelectInstance,
 		openDiff,
-		openUpdateConfirm
+		openUpdateConfirm,
+		openEditInstanceConfiguration
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -217,6 +219,7 @@
 				{openSelectInstance}
 				{openDiff}
 				{openUpdateConfirm}
+				{openEditInstanceConfiguration}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					canEdit && 'cursor-pointer'

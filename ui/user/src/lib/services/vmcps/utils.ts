@@ -6,6 +6,7 @@ import type {
 	MCPConfig,
 	OrgUser,
 	VMCP,
+	VMCPInstance,
 	VMCPManifest,
 	VMCPProfile
 } from '$lib/services';
@@ -71,6 +72,18 @@ export function vmcpNeedsUpdate(vmcp: VMCP) {
 	return vmcp.status?.components?.some((component) => component.needsUpdate) ?? false;
 }
 
+export function vmcpHasUserAllowedConfiguration(vmcp: VMCP) {
+	return Boolean(
+		vmcp.components?.some((component) =>
+			component.configuration?.some((field) => field.policy === 'userAllowed')
+		)
+	);
+}
+
+export function vmcpInstanceNeedsUserConfiguration(instance?: VMCPInstance) {
+	return Boolean(instance?.status?.missingRequiredConfiguration?.length);
+}
+
 export function vmcpOutdatedComponents(vmcp: VMCP): VMCPComponent[] {
 	const statuses = vmcp.status?.components ?? [];
 	return (vmcp.components ?? []).filter((component) =>
@@ -100,6 +113,26 @@ export function configurationWithRevealedValues(
 		const value = revealed[policy.key];
 		return value ? { ...policy, value } : policy;
 	});
+}
+
+/**
+ * Ordinary VMCP updates keep the stored catalog snapshot, so required keys that
+ * the latest catalog no longer lists must still be sent. Values are omitted so
+ * redacted secrets are not written back.
+ */
+export function configurationForSnapshotUpdate(
+	component: VMCPComponent,
+	next: NonNullable<VMCPComponent['configuration']>
+): NonNullable<VMCPComponent['configuration']> {
+	const nextKeys = new Set(next.map((policy) => policy.key));
+	const snapshotFields = catalogConfigurationFields(component.catalogEntry);
+	const retained = (component.configuration ?? []).flatMap((policy) => {
+		if (nextKeys.has(policy.key)) return [];
+		const field = snapshotFields.find((candidate) => candidate.key === policy.key);
+		if (!field?.required || field.value || field.secretBinding) return [];
+		return [{ key: policy.key, policy: policy.policy }];
+	});
+	return retained.length === 0 ? next : [...next, ...retained];
 }
 
 export function vmcpComponentDiffServers(
@@ -154,7 +187,9 @@ export function catalogEntryToVMCPComponent(entry: MCPCatalogEntry): VMCPCompone
 	};
 }
 
-export function catalogConfigurationFields(entry: MCPCatalogEntry): MCPConfig[] {
+export function catalogConfigurationFields(entry: {
+	manifest: MCPCatalogEntry['manifest'];
+}): MCPConfig[] {
 	if (entry.manifest.config?.length) {
 		return entry.manifest.config;
 	}
