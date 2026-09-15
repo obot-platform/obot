@@ -505,8 +505,11 @@ describe('MCP Tester page', () => {
 		);
 		await renderTester('chat', {}, undefined, chatModelData);
 
-		await page.getByRole('textbox', { name: 'Message', exact: true }).fill('Retry this');
-		await page.getByRole('button', { name: 'Send', exact: true }).click();
+		const composer = page.getByRole('textbox', { name: 'Message', exact: true });
+		await composer.fill('Retry this');
+		const send = page.getByRole('button', { name: 'Send', exact: true });
+		await expect.element(send).toBeEnabled();
+		await send.click();
 		await expect.element(page.getByText('Partial response', { exact: true })).toBeVisible();
 		await expect.element(page.getByText('Provider failed', { exact: true })).toBeVisible();
 
