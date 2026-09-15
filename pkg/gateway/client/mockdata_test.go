@@ -13,7 +13,7 @@ func TestGenerateMockData(t *testing.T) {
 	c := newTestClient(t)
 	now := time.Date(2026, time.September, 14, 12, 0, 0, 0, time.UTC)
 
-	summary, err := c.generateMockData(t.Context(), now, "demo-test-run")
+	summary, err := c.generateMockData(t.Context(), now, "demo-test-run", UserLimit{Unlimited: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,10 +76,10 @@ func TestGenerateMockDataAppendsAndRollsBackCollisions(t *testing.T) {
 	c := newTestClient(t)
 	now := time.Date(2026, time.September, 14, 12, 0, 0, 0, time.UTC)
 
-	if _, err := c.generateMockData(t.Context(), now, "demo-first"); err != nil {
+	if _, err := c.generateMockData(t.Context(), now, "demo-first", UserLimit{Unlimited: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.generateMockData(t.Context(), now, "demo-second"); err != nil {
+	if _, err := c.generateMockData(t.Context(), now, "demo-second", UserLimit{Unlimited: true}); err != nil {
 		t.Fatal(err)
 	}
 	assertMockDataRowCount(t, c, &types.User{}, "", nil, 2*mockDataUserCount)
@@ -88,7 +88,7 @@ func TestGenerateMockDataAppendsAndRollsBackCollisions(t *testing.T) {
 	assertMockDataRowCount(t, c, &types.LLMAuditLog{}, "", nil, 2*mockDataLLMAuditCount)
 	assertMockDataRowCount(t, c, &types.EnforcementDecisionLog{}, "", nil, 2*mockDataEnforcementCount)
 
-	if _, err := c.generateMockData(t.Context(), now, "demo-second"); err == nil {
+	if _, err := c.generateMockData(t.Context(), now, "demo-second", UserLimit{Unlimited: true}); err == nil {
 		t.Fatal("expected duplicate run identifiers to fail")
 	}
 	assertMockDataRowCount(t, c, &types.User{}, "", nil, 2*mockDataUserCount)
@@ -96,6 +96,52 @@ func TestGenerateMockDataAppendsAndRollsBackCollisions(t *testing.T) {
 	assertMockDataRowCount(t, c, &types.MCPAuditLog{}, "", nil, 2*(mockDataLocalAuditCount+mockDataMCPAuditCount))
 	assertMockDataRowCount(t, c, &types.LLMAuditLog{}, "", nil, 2*mockDataLLMAuditCount)
 	assertMockDataRowCount(t, c, &types.EnforcementDecisionLog{}, "", nil, 2*mockDataEnforcementCount)
+}
+
+func TestGenerateMockDataEnforcesUserLimit(t *testing.T) {
+	tests := []struct {
+		name      string
+		userLimit UserLimit
+		wantError bool
+		wantUsers int
+	}{
+		{
+			name: "insufficient capacity",
+			userLimit: UserLimit{
+				Maximum: mockDataUserCount - 1,
+			},
+			wantError: true,
+		},
+		{
+			name: "exact capacity",
+			userLimit: UserLimit{
+				Maximum: mockDataUserCount,
+			},
+			wantUsers: mockDataUserCount,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newTestClient(t)
+			now := time.Date(2026, time.September, 14, 12, 0, 0, 0, time.UTC)
+
+			_, err := c.generateMockData(t.Context(), now, "demo-limited", tt.userLimit)
+			if tt.wantError {
+				requireIdentityUserLimitForbiddenError(t, err)
+			} else if err != nil {
+				t.Fatal(err)
+			}
+
+			assertMockDataRowCount(t, c, &types.User{}, "", nil, tt.wantUsers)
+			if tt.wantError {
+				assertMockDataRowCount(t, c, &types.DeviceScan{}, "", nil, 0)
+				assertMockDataRowCount(t, c, &types.MCPAuditLog{}, "", nil, 0)
+				assertMockDataRowCount(t, c, &types.LLMAuditLog{}, "", nil, 0)
+				assertMockDataRowCount(t, c, &types.EnforcementDecisionLog{}, "", nil, 0)
+			}
+		})
+	}
 }
 
 func assertMockDataRowCount(t *testing.T, c *Client, model any, query string, value any, want int) {

@@ -41,15 +41,15 @@ type MockDataSummary struct {
 }
 
 // GenerateMockData appends one coherent demo dataset.
-func (c *Client) GenerateMockData(ctx context.Context) (*MockDataSummary, error) {
+func (c *Client) GenerateMockData(ctx context.Context, userLimit UserLimit) (*MockDataSummary, error) {
 	runID, err := newMockDataRunID()
 	if err != nil {
 		return nil, err
 	}
-	return c.generateMockData(ctx, time.Now().UTC(), runID)
+	return c.generateMockData(ctx, time.Now().UTC(), runID, userLimit)
 }
 
-func (c *Client) generateMockData(ctx context.Context, now time.Time, runID string) (*MockDataSummary, error) {
+func (c *Client) generateMockData(ctx context.Context, now time.Time, runID string, userLimit UserLimit) (*MockDataSummary, error) {
 	now = now.UTC()
 	windowStart := now.Add(-30 * 24 * time.Hour)
 	summary := &MockDataSummary{
@@ -66,6 +66,10 @@ func (c *Client) generateMockData(ctx context.Context, now time.Time, runID stri
 	}
 
 	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := ensureUserCapacity(tx, userLimit, mockDataUserCount); err != nil {
+			return err
+		}
+
 		users, userIDs, err := c.createMockDataUsers(ctx, tx, now, runID)
 		if err != nil {
 			return err
