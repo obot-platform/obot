@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/mcptester"
@@ -36,6 +37,7 @@ func NewTesterAudit(c *client.Client, inbound *http.Request, user user.Info, bod
 	}
 
 	recorder := newLLMAuditRecorder(inbound, user, defaultLLMAuditLogResponseCaptureLimit)
+	recorder.log.UserAgent = apitypes.MCPTesterClientName
 	recorder.setModel(system.ModelProxyModelProvider, "", mcptester.ModelProxyModel)
 	recorder.log.ReasoningEffort = "high"
 	recorder.setRequestBody(body)

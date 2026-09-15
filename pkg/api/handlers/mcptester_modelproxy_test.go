@@ -265,6 +265,10 @@ func newTesterAuditClient(t *testing.T) (*gatewayclient.Client, *gatewaydb.DB) {
 func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 	client, db := newTesterAuditClient(t)
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.UserAgent(); got != types.MCPTesterClientName {
+			t.Errorf("upstream user agent = %q, want %q", got, types.MCPTesterClientName)
+		}
+
 		for _, key := range []string{"Cookie", "X-Request-Id", "X-User-Id", "X-Obot-MCP-URL"} {
 			if r.Header.Get(key) != "" {
 				t.Errorf("forwarded browser header %s", key)
@@ -285,6 +289,7 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 
 	request := httptest.NewRequest(http.MethodPost, "/api/mcp-servers/ms1tester/tester/chat", strings.NewReader(modelProxyChatBody))
 	request.SetPathValue("mcp_server_id", "ms1tester")
+	request.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)")
 	for key, value := range map[string]string{"Authorization": "Bearer browser-secret", "Cookie": "session=browser-cookie", "X-Obot-Machine-Fingerprint": "browser-fingerprint", "X-Obot-MCP-URL": "https://browser-chosen.example", "X-User-Id": "browser-identity", "X-Forwarded-For": "192.0.2.10, 2001:db8::1", "X-Real-IP": "192.0.2.10"} {
 		request.Header.Set(key, value)
 	}
@@ -318,6 +323,9 @@ func TestTesterModelProxyPersistsAuditWithoutMetering(t *testing.T) {
 	}
 
 	log := logs[0]
+	if log.UserAgent != types.MCPTesterClientName {
+		t.Fatalf("audit user agent = %q, want %q", log.UserAgent, types.MCPTesterClientName)
+	}
 	if log.UserID != "user-1" || log.ModelProvider != "model-proxy" || log.TargetModel != mcptester.ModelProxyModel || log.ReasoningEffort != "high" || log.InputTokens != 42 || log.OutputTokens != 7 || log.Outcome != gatewaytypes.LLMAuditOutcomeSuccess || log.ResponseID != "resp-test" || log.MessagePolicyTriggered {
 		t.Fatalf("unexpected audit: %#v", log)
 	}
