@@ -60,6 +60,7 @@ export const handlers = [
 	http.get('/api/product-telemetry-consent', () => HttpResponse.json({})),
 	http.get('/api/users', () => HttpResponse.json({ items: data.listUsersResponse })),
 	http.get('/api/vmcps', () => HttpResponse.json({ items: [] })),
+	http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
 	http.get('/api/groups', () => HttpResponse.json({ items: [] })),
 	http.get('/api/version', () => HttpResponse.json(data.getVersionResponse)),
 	http.get('/api/workspaces/all-entries', () =>

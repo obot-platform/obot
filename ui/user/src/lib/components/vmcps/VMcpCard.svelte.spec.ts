@@ -22,6 +22,34 @@ function createInstance(id: string): VMCPInstance {
 	};
 }
 
+function createUnconfiguredVmcp() {
+	const vmcp = createVMCP({
+		id: 'vmcp-1',
+		displayName: 'Issue Tracker vMCP',
+		userID: getProfileResponse.id
+	});
+	vmcp.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+	vmcp.components![0].catalogEntry.manifest.config = [
+		{
+			key: 'API_TOKEN',
+			name: 'API token',
+			description: 'Token',
+			required: true,
+			sensitive: true,
+			value: '',
+			usage: 'env'
+		}
+	];
+	return vmcp;
+}
+
+function createUnconfiguredInstance(id: string): VMCPInstance {
+	return {
+		...createInstance(id),
+		status: { missingRequiredConfiguration: ['component-entry-default.API_TOKEN'] }
+	};
+}
+
 async function renderCard(options: {
 	groups: string[];
 	userID?: string;
@@ -108,6 +136,7 @@ describe('VMcpCard.svelte', () => {
 			lastFetched: null,
 			isInitialized: true
 		};
+		vmcpInstances.current = { items: [], loading: false };
 	});
 	it.each([
 		{
@@ -373,6 +402,29 @@ describe('VMcpCard.svelte', () => {
 		await expect.element(page.getByText('vmcpi-2')).toBeVisible();
 	});
 
+	it('disconnects the selected instance when multiple connections exist', async () => {
+		const deleted = vi.fn();
+		worker.use(
+			http.delete('/api/vmcp-instances/:id', ({ params }) => {
+				deleted(params.id);
+				return HttpResponse.json({});
+			})
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			instances: [createInstance('vmcpi-1'), createInstance('vmcpi-2')]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Disconnect', exact: true }).click();
+		await page.getByRole('button', { name: 'Select connection' }).nth(1).click();
+		await vi.waitFor(() => {
+			expect(deleted).toHaveBeenCalledWith('vmcpi-2');
+			expect(vmcpInstances.current.items.map((instance) => instance.id)).toEqual(['vmcpi-1']);
+		});
+	});
+
 	it('opens Edit Configuration when the current instance is missing required fields', async () => {
 		const vmcp = createVMCP({
 			id: 'vmcp-1',
@@ -479,6 +531,62 @@ describe('VMcpCard.svelte', () => {
 			);
 		});
 		await expect.element(page.getByText('Not Configured')).not.toBeInTheDocument();
+	});
+
+	it('opens Edit Configuration for the selected unconfigured instance', async () => {
+		const vmcp = createUnconfiguredVmcp();
+		const revealed = vi.fn();
+		worker.use(
+			http.post('/api/vmcp-instances/:id/reveal', ({ params }) => {
+				revealed(params.id);
+				return HttpResponse.json({
+					components: { [vmcp.components![0].id!]: { API_TOKEN: '' } }
+				});
+			})
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp,
+			instances: [createUnconfiguredInstance('vmcpi-1'), createUnconfiguredInstance('vmcpi-2')]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Edit Configuration', exact: true }).click();
+		await page.getByRole('button', { name: 'Select connection' }).nth(1).click();
+		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+		expect(revealed).toHaveBeenCalledWith('vmcpi-2');
+		expect(revealed).not.toHaveBeenCalledWith('vmcpi-1');
+	});
+
+	it('skips instance selection when only one connection needs configuration', async () => {
+		const vmcp = createUnconfiguredVmcp();
+		const revealed = vi.fn();
+		worker.use(
+			http.post('/api/vmcp-instances/:id/reveal', ({ params }) => {
+				revealed(params.id);
+				return HttpResponse.json({
+					components: { [vmcp.components![0].id!]: { API_TOKEN: '' } }
+				});
+			})
+		);
+
+		await renderCard({
+			groups: [Group.USER],
+			userID: getProfileResponse.id,
+			vmcp,
+			instances: [createInstance('vmcpi-1'), createUnconfiguredInstance('vmcpi-2')]
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Edit Configuration', exact: true }).click();
+		await expect
+			.element(page.getByRole('heading', { name: 'Select Connection to Configure' }))
+			.not.toBeInTheDocument();
+		await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+		expect(revealed).toHaveBeenCalledWith('vmcpi-2');
+		expect(revealed).not.toHaveBeenCalledWith('vmcpi-1');
 	});
 
 	it('hides Edit Configuration when the instance is fully configured', async () => {

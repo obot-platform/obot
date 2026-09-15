@@ -24,7 +24,7 @@
 	);
 	let launched = $derived(Boolean(instance));
 	let serverName = $derived(vmcp.displayName || vmcp.id);
-	let server = $derived(vmcpTesterServer(vmcp, vmcp.id, instance));
+	let server = $derived(vmcpTesterServer(vmcp, instance?.id ?? vmcp.id, instance));
 	let configuredDefault = $derived(
 		defaultModelAliases.current.find((alias) => alias.alias === 'llm')
 	);

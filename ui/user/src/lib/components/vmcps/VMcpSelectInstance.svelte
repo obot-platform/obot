@@ -15,9 +15,11 @@
 
 	let selectInstanceDialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let instances = $state<VMCPInstance[]>([]);
+	let dialogTitle = $state('Select Your Connection');
 
-	export function open(initInstances: VMCPInstance[] = []) {
+	export function open(initInstances: VMCPInstance[] = [], initTitle?: string) {
 		instances = initInstances;
+		dialogTitle = initTitle ?? title;
 		selectInstanceDialog?.open();
 	}
 
@@ -26,7 +28,11 @@
 	}
 </script>
 
-<ResponsiveDialog class="bg-base-200 dark:bg-base-100" bind:this={selectInstanceDialog} {title}>
+<ResponsiveDialog
+	class="bg-base-200 dark:bg-base-100"
+	bind:this={selectInstanceDialog}
+	title={dialogTitle}
+>
 	<Table
 		data={instances}
 		fields={['id', 'created']}
@@ -49,8 +55,15 @@
 				{formatTimeAgo(d.created).relativeTime}
 			{/if}
 		{/snippet}
-		{#snippet actions()}
-			<IconButton class="hover:dark:bg-base-100/50">
+		{#snippet actions(d)}
+			<IconButton
+				class="hover:dark:bg-base-100/50"
+				tooltip={{ text: 'Select connection' }}
+				onclick={() => {
+					selectInstanceDialog?.close();
+					onSelectInstance?.(d);
+				}}
+			>
 				<StepForward class="size-4" />
 			</IconButton>
 		{/snippet}

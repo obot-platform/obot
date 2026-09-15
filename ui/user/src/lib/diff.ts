@@ -388,7 +388,48 @@ export function formatDiffLine(line: string, type: 'added' | 'removed' | 'unchan
 				? 'bg-error/10 text-error'
 				: 'text-muted-content';
 
-	return `<div class="${baseClass} ${typeClass} px-2 py-0.5">${prefix}${line}</div>`;
+	return `<div class="${baseClass} ${typeClass} px-2 py-0.5">${prefix}${escapeHtml(line)}</div>`;
+}
+
+function highlightEscapedJsonLine(escapedLine: string): string {
+	let highlightedLine = escapedLine;
+
+	highlightedLine = highlightedLine.replace(
+		/: (\d+\.\d+)/g,
+		': <span class="text-primary">$1</span>'
+	);
+
+	highlightedLine = highlightedLine.replace(
+		/: (\d+)(?!\d*\.)/g,
+		': <span class="text-primary">$1</span>'
+	);
+
+	highlightedLine = highlightedLine.replace(
+		/&quot;(.*?)&quot;:/g,
+		'<span class="text-primary">&quot;$1&quot;</span>:'
+	);
+
+	highlightedLine = highlightedLine.replace(
+		/: &quot;(.*?)&quot;/g,
+		': <span class="text-gray-600 dark:text-gray-300 whitespace-normal wrap-break-word">&quot;$1&quot;</span>'
+	);
+
+	highlightedLine = highlightedLine.replace(
+		/: (null)/g,
+		': <span class="text-muted-content">$1</span>'
+	);
+
+	highlightedLine = highlightedLine.replace(
+		/(&quot;.*?&quot;)|([{}[\]])/g,
+		(_match, stringContent: string | undefined, bracket: string | undefined) => {
+			if (stringContent) {
+				return stringContent;
+			}
+			return `<span class="text-base-content">${bracket}</span>`;
+		}
+	);
+
+	return highlightedLine;
 }
 
 export function formatJsonWithDiffHighlighting(
@@ -409,78 +450,27 @@ export function formatJsonWithDiffHighlighting(
 	try {
 		let highlighted = '';
 
-		// Filter diff operations based on which version we're displaying
 		const relevantOps = diff.diffOps.filter((op) => {
 			if (isOldVersion) {
-				// For old version: show unchanged and removed lines
 				return op.type === 'unchanged' || op.type === 'removed';
-			} else {
-				// For new version: show unchanged and added lines
-				return op.type === 'unchanged' || op.type === 'added';
 			}
+			return op.type === 'unchanged' || op.type === 'added';
 		});
 
 		for (const op of relevantOps) {
-			const line = op.line;
-
-			// Determine line styling based on operation type
 			let lineClass = 'text-muted-content';
-
 			if (op.type === 'removed') {
 				lineClass = 'bg-error/10 text-error';
 			} else if (op.type === 'added') {
 				lineClass = 'bg-success/10 text-success';
 			}
 
-			// Apply JSON syntax highlighting
-			let highlightedLine = line;
-
-			// Replace decimal numbers
-			highlightedLine = highlightedLine.replace(
-				/: (\d+\.\d+)/g,
-				': <span class="text-primary">$1</span>'
-			);
-
-			// Replace integer numbers
-			highlightedLine = highlightedLine.replace(
-				/: (\d+)(?!\d*\.)/g,
-				': <span class="text-primary">$1</span>'
-			);
-
-			// Replace keys
-			highlightedLine = highlightedLine.replace(
-				/"([^"]+)":/g,
-				'<span class="text-primary">"$1"</span>:'
-			);
-
-			// Replace string values
-			highlightedLine = highlightedLine.replace(
-				/: "([^"]+)"/g,
-				': <span class="text-gray-600 dark:text-gray-300 whitespace-normal wrap-break-word">"$1"</span>'
-			);
-
-			// Replace null
-			highlightedLine = highlightedLine.replace(
-				/: (null)/g,
-				': <span class="text-muted-content">$1</span>'
-			);
-
-			// Replace brackets and braces
-			highlightedLine = highlightedLine.replace(
-				/(".*?")|([{}[\]])/g,
-				(match, stringContent, bracket) => {
-					if (stringContent) {
-						return stringContent;
-					}
-					return `<span class="text-base-content">${bracket}</span>`;
-				}
-			);
-
+			const highlightedLine = highlightEscapedJsonLine(escapeHtml(op.line));
 			highlighted += `<div class="font-mono text-sm ${lineClass} px-2 py-0.5">${highlightedLine}</div>`;
 		}
 
 		return highlighted;
 	} catch (_error) {
-		return String(json);
+		return escapeHtml(String(json));
 	}
 }

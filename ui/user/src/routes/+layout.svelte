@@ -135,10 +135,8 @@
 	});
 
 	$effect(() => {
-		const view = page.url.searchParams.get('view');
 		const onVmcps = page.url.pathname === '/vmcps' || page.url.pathname.startsWith('/vmcps/');
-		const isValidVmcpsView = !view || ['deployments', 'vmcps', 'graph'].includes(view);
-		if (profile.current.loaded && onVmcps && isValidVmcpsView) {
+		if (profile.current.loaded && onVmcps) {
 			return vmcpInstances.startWatching();
 		}
 	});

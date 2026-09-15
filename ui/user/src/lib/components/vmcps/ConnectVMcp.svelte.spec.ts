@@ -50,6 +50,11 @@ async function continueFromIntro() {
 describe('ConnectVMcp.svelte', () => {
 	beforeEach(() => {
 		vmcpInstances.current = { items: [], loading: false };
+		worker.use(
+			http.get('/api/vmcp-instances', () => HttpResponse.json({ items: [] })),
+			http.post('/api/vmcp-instances/:id/reveal', () => HttpResponse.json({ components: {} })),
+			http.get('/api/vmcps/:id/oauth-url', () => HttpResponse.json({ oauthURL: '' }))
+		);
 	});
 
 	it('opens the connect dialog and starts setup from Preconfigure when there is no instance', async () => {
@@ -289,8 +294,8 @@ describe('ConnectVMcp.svelte', () => {
 
 		await vi.waitFor(() => {
 			expect(vmcpInstanceNeedsUserConfiguration(vmcpInstances.current.items[0])).toBe(false);
+			expect(getInstance).toHaveBeenCalled();
 		});
-		expect(getInstance).toHaveBeenCalled();
 	});
 
 	it('prompts for OAuth after launch and continues when authentication completes', async () => {

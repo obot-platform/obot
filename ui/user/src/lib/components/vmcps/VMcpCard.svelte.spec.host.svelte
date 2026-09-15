@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { VMCP } from '$lib/services';
+	import type { VMCP, VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import VMcpActions from './VMcpActions.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -32,6 +32,26 @@
 	} = $props();
 
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
+
+	function openSelectInstance(
+		instances: VMCPInstance[],
+		onSelect: (instance: VMCPInstance) => void,
+		title?: string
+	) {
+		vmcpActions?.openSelectInstance(instances, onSelect, title);
+	}
+
+	function openDiff(target: VMCP) {
+		vmcpActions?.openDiff(target);
+	}
+
+	function openUpdateConfirm(target: VMCP, onConfirm: () => Promise<void>) {
+		vmcpActions?.openUpdateConfirm(target, onConfirm);
+	}
+
+	function openEditInstanceConfiguration(target: VMCP, instance: VMCPInstance) {
+		void vmcpActions?.openEditInstanceConfiguration(target, instance);
+	}
 </script>
 
 <VMcpActions bind:this={vmcpActions} />
@@ -42,11 +62,11 @@
 	{onConnect}
 	{onUpdate}
 	{icon}
-	openSelectInstance={provideSelectInstance ? vmcpActions?.openSelectInstance : undefined}
-	openDiff={provideDiff ? vmcpActions?.openDiff : undefined}
-	openUpdateConfirm={provideUpdateConfirm ? vmcpActions?.openUpdateConfirm : undefined}
+	openSelectInstance={provideSelectInstance ? openSelectInstance : undefined}
+	openDiff={provideDiff ? openDiff : undefined}
+	openUpdateConfirm={provideUpdateConfirm ? openUpdateConfirm : undefined}
 	openEditInstanceConfiguration={provideEditConfiguration
-		? vmcpActions?.openEditInstanceConfiguration
+		? openEditInstanceConfiguration
 		: undefined}
 	{note}
 />

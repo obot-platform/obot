@@ -41,7 +41,8 @@
 		usersMap: Map<string, OrgUser>;
 		openSelectInstance?: (
 			instances: VMCPInstance[],
-			onSelect: (instance: VMCPInstance) => void
+			onSelect: (instance: VMCPInstance) => void,
+			title?: string
 		) => void;
 		openDiff?: (vmcp: VMCP) => void;
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;

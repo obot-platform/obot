@@ -39,6 +39,7 @@
 	let updateName = $state('');
 	let updating = $state(false);
 	let onSelectInstance = $state<(instance: VMCPInstance) => void>();
+	let selectInstanceTitle = $state('Select Your Connection');
 	let pendingUpdate = $state<() => Promise<void>>();
 	let pendingUpdateVMcp = $state<VMCP>();
 	let continueUpdateAfterClose = false;
@@ -57,10 +58,12 @@
 
 	export function openSelectInstance(
 		instances: VMCPInstance[],
-		onSelect: (instance: VMCPInstance) => void
+		onSelect: (instance: VMCPInstance) => void,
+		title = 'Select Your Connection'
 	) {
 		onSelectInstance = onSelect;
-		selectInstanceDialog?.open(instances);
+		selectInstanceTitle = title;
+		selectInstanceDialog?.open(instances, title);
 	}
 
 	export function openDiff(vmcp: VMCP) {
@@ -222,7 +225,7 @@
 
 <VMcpSelectInstance
 	bind:this={selectInstanceDialog}
-	title="Select Connection to Disconnect"
+	title={selectInstanceTitle}
 	onSelectInstance={(instance) => onSelectInstance?.(instance)}
 />
 

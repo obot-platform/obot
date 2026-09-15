@@ -296,12 +296,18 @@
 	}
 
 	function canTriggerUpdate(server: MCPCatalogServer) {
+		if (server.vmcpComponentID) return false;
 		if (!isMultiUserServer(server)) return true;
 		return !!server.catalogEntryID && (!!server.powerUserWorkspaceID || !!id);
 	}
 
 	function canRestartServer(server: MCPCatalogServer) {
 		return server.configured && supportsMCPBackendDetails(server);
+	}
+
+	function canDeleteServer(server: MCPCatalogServer & { isMyServer?: boolean }) {
+		if (server.vmcpComponentID) return false;
+		return !!(server.isMyServer || (hasAdminAccess && !readonly));
 	}
 
 	async function handleBulkUpdate() {
@@ -491,7 +497,11 @@
 
 	async function handleBulkDelete() {
 		for (const id of Object.keys(selected)) {
-			await handleSingleDelete(selected[id]);
+			const server = selected[id];
+			if (!canDeleteServer(server)) {
+				continue;
+			}
+			await handleSingleDelete(server);
 		}
 		selected = {};
 	}
@@ -904,7 +914,9 @@
 					{@const k8sUpgradeableCount = Object.values(currentSelected).filter(
 						(s) => s.needsK8sUpdate
 					).length}
-					{@const deletableCount = Object.values(currentSelected).length}
+					{@const deletableCount = Object.values(currentSelected).filter((s) =>
+						canDeleteServer(s)
+					).length}
 
 					<div class="flex grow items-center justify-end gap-2 px-4 py-2">
 						<button
@@ -973,7 +985,9 @@
 						<button
 							class="btn btn-secondary flex items-center gap-1 text-sm font-normal"
 							onclick={() => {
-								selected = currentSelected;
+								selected = Object.fromEntries(
+									Object.entries(currentSelected).filter(([, s]) => canDeleteServer(s))
+								);
 								showDeleteConfirm = {
 									type: 'multi'
 								};
@@ -1109,7 +1123,9 @@
 	loading={deleting}
 	names={showDeleteConfirm?.type === 'single'
 		? [showDeleteConfirm.server.manifest.name ?? '']
-		: Object.values(selected).map((s) => s.manifest.name ?? '')}
+		: Object.values(selected)
+				.filter(canDeleteServer)
+				.map((s) => s.manifest.name ?? '')}
 />
 
 <EditExistingDeployment

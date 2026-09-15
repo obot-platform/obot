@@ -12,6 +12,7 @@ import {
 	type MCPCatalogEntry,
 	type ToolOverride,
 	type VMCP,
+	type VMCPInstance,
 	type VMCPManifest
 } from '$lib/services';
 import { catalogEntryToVMCPComponent } from '$lib/services/vmcps/utils';
@@ -67,7 +68,7 @@ function createIssueTrackerVMcp(overrides?: ToolOverride[]) {
 async function renderDesigner(
 	entries: MCPCatalogEntry[],
 	vmcp?: VMCP,
-	options?: { groups?: string[]; onBack?: () => void }
+	options?: { groups?: string[]; instances?: VMCPInstance[]; onBack?: () => void }
 ) {
 	mcpServersAndEntries.current = {
 		entries,
@@ -81,7 +82,7 @@ async function renderDesigner(
 	await preparePageData({
 		profile: createMockProfile(options?.groups ?? [Group.ADMIN])
 	});
-	vmcpInstances.current = { items: [], loading: false };
+	vmcpInstances.current = { items: options?.instances ?? [], loading: false };
 	return render(VMcpDesigner, {
 		...(vmcp ? { vmcp } : {}),
 		...(options?.onBack ? { onBack: options.onBack } : {}),
@@ -342,7 +343,7 @@ describe('VMcpDesigner.svelte', () => {
 			await page.getByRole('button', { name: 'Configure Tools' }).click();
 			await expect.element(page.getByText('create_issue', { exact: true }).first()).toBeVisible();
 			expect(preview).toHaveBeenCalledWith({ API_TOKEN: 'preview-secret' });
-			await page.getByRole('checkbox', { name: 'Enabled' }).nth(1).click();
+			await page.getByRole('switch', { name: 'Enabled' }).nth(1).click();
 			await page.getByRole('button', { name: 'Confirm' }).click();
 			await vi.waitFor(() => expect(update).toHaveBeenCalledOnce());
 			expect(componentsFrom(update.mock.calls[0][0])[0]).toMatchObject({
@@ -1013,6 +1014,30 @@ describe('VMcpDesigner.svelte', () => {
 	});
 
 	describe('tester view', () => {
+		it('connects through the exact vMCP instance', async () => {
+			const connect = vi.fn();
+			const instance: VMCPInstance = {
+				id: 'vmcpi1-tester-instance',
+				vmcpID: 'vmcp-1',
+				userID: createMockProfile().id,
+				created: '2026-09-15T00:00:00Z',
+				status: { configured: true }
+			};
+			worker.use(
+				http.post('/mcp-connect/:id', ({ params }) => {
+					connect(params.id);
+					return new HttpResponse(null, { status: 500 });
+				})
+			);
+			appPage.url.searchParams.set('view', 'tester');
+
+			await renderDesigner([componentEntry], createIssueTrackerVMcp(), {
+				instances: [instance]
+			});
+
+			await vi.waitFor(() => expect(connect).toHaveBeenCalledWith(instance.id));
+		});
+
 		it('shows Designer, Profiles, and Tester tabs for an admin on a non-personal vMCP', async () => {
 			await renderDesigner([componentEntry], orgVMcp());
 
@@ -1105,7 +1130,7 @@ describe('VMcpDesigner.svelte', () => {
 					await refreshPending;
 					return HttpResponse.json({ ...vmcp, status: { ready: authenticated } });
 				}),
-				http.post(`/mcp-connect/${vmcp.id}`, async ({ request }) => {
+				http.post(`/mcp-connect/${instance.id}`, async ({ request }) => {
 					const body = (await request.json()) as {
 						id?: number;
 						method: string;
@@ -1113,19 +1138,22 @@ describe('VMcpDesigner.svelte', () => {
 					};
 					if (body.method === 'initialize') {
 						initialize();
-						return HttpResponse.json({
-							jsonrpc: '2.0',
-							id: body.id,
-							result: {
-								protocolVersion: body.params?.protocolVersion,
-								capabilities: {},
-								serverInfo: { name: 'oauth-server', version: '1.0.0' }
-							}
-						});
+						return HttpResponse.json(
+							{
+								jsonrpc: '2.0',
+								id: body.id,
+								result: {
+									protocolVersion: body.params?.protocolVersion,
+									capabilities: {},
+									serverInfo: { name: 'oauth-server', version: '1.0.0' }
+								}
+							},
+							{ headers: { 'Mcp-Session-Id': 'oauth-tester-session' } }
+						);
 					}
 					return new HttpResponse(null, { status: 202 });
 				}),
-				http.get(`/mcp-connect/${vmcp.id}`, () => new HttpResponse(null, { status: 405 }))
+				http.get(`/mcp-connect/${instance.id}`, () => new HttpResponse(null, { status: 405 }))
 			);
 
 			appPage.url.searchParams.set('view', 'tester');

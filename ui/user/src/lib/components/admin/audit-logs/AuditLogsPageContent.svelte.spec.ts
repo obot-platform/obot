@@ -48,6 +48,7 @@ afterEach(() => {
 	appPage.url.searchParams.delete('mcp_id');
 	appPage.url.searchParams.delete('mcp_server_display_name');
 	appPage.url.searchParams.delete('mcp_server');
+	appPage.url.searchParams.delete('operation');
 	vi.restoreAllMocks();
 });
 
@@ -104,5 +105,29 @@ describe('AuditLogsPageContent server scoping', () => {
 		const requests = await renderAuditLogs({ mcpId: 'prop-server' });
 
 		expect((await auditLogParams(requests)).get('mcp_id')).toBe('prop-server');
+	});
+});
+
+describe('AuditLogsPageContent default filters', () => {
+	it('applies the default operation filter on first load', async () => {
+		const requests = await renderAuditLogs();
+
+		expect((await auditLogParams(requests)).get('operation')).toBe(
+			'tools/call,resources/read,prompts/get'
+		);
+		await expect
+			.element(page.getByCSS('.filter-primary').filter({ hasText: 'Operation' }))
+			.toBeVisible();
+	});
+
+	it('does not restore the default operation filter when the URL param is empty', async () => {
+		appPage.url.searchParams.set('operation', '');
+
+		const requests = await renderAuditLogs();
+
+		expect((await auditLogParams(requests)).get('operation')).toBeNull();
+		await expect
+			.element(page.getByCSS('.filter-primary').filter({ hasText: 'Operation' }))
+			.not.toBeInTheDocument();
 	});
 });

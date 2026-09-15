@@ -1,7 +1,7 @@
 <script lang="ts" generics="T">
 	import { page } from '$app/state';
 	import { parseMultiValue } from '$lib/multiValue';
-	import { goto, setUrlParam } from '$lib/url';
+	import { goto } from '$lib/url';
 	import { X } from '@lucide/svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
@@ -56,10 +56,10 @@
 
 				{#if isClearable}
 					<button
+						aria-label={`Remove ${displayLabel} filter`}
 						onclick={() => {
 							const url = new URL(page.url);
-							setUrlParam(url, filterKey.toString(), null);
-
+							url.searchParams.set(filterKey.toString(), '');
 							goto(url, { noScroll: true });
 						}}
 					>
