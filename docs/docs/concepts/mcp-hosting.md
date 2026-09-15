@@ -22,7 +22,7 @@ Obot deploys and manages hosted MCP server workloads on the underlying Kubernete
 
 Clients connect to new MCP endpoints through a virtual MCP (vMCP), which exposes tools from one or more catalog components through a single endpoint. A vMCP controls which tools users can access, while its backing servers use shared or per-user runtimes according to the component configuration.
 
-vMCPs replace the legacy composite server model. New catalog entries cannot use the `composite` runtime; existing standalone and composite endpoints remain available for migration compatibility.
+vMCPs replace the legacy standalone connection and composite server models. Existing endpoints remain available for migration compatibility in this release; Obot will migrate them in a future release. See [Virtual MCPs](../functionality/virtual-mcps.md) for creation, access, configuration, and migration guidance.
 
 ## Deployment Environments
 

@@ -20,6 +20,7 @@ const sidebars = {
 			label: "Features",
 			items: [
 				"functionality/overview",
+				"functionality/virtual-mcps",
 				"functionality/mcp-servers",
 				"functionality/mcp-tunnels",
 				"functionality/mcp-access-policies",

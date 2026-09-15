@@ -32,6 +32,7 @@ The only functional difference between Owners and Admins is that Owners can assi
 
 ## Learn More
 
+- [Virtual MCPs (vMCPs)](./virtual-mcps.md) - Combine one or more MCP servers behind a governed connection endpoint
 - [MCP Servers](./mcp-servers.md) - Deploy, configure, and manage MCP servers
 - [MCP Tunnels](./mcp-tunnels.md) - Connect the gateway to remote MCP servers on private networks
 - [MCP Access Policies](./mcp-access-policies.md) - Control which servers are available to which users and groups
