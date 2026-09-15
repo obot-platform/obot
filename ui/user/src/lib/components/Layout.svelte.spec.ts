@@ -211,6 +211,12 @@ describe('Layout.svelte', () => {
 			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
 		});
 
+		it('does not show for auditors', async () => {
+			await renderLayout([Group.USER, Group.AUDITOR]);
+
+			await expect.element(page.getByText(copy, { exact: true })).not.toBeInTheDocument();
+		});
+
 		it('does not show when a community license is present', async () => {
 			await renderLayout(
 				[Group.ADMIN],

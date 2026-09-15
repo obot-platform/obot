@@ -66,8 +66,8 @@
 			.filter((entitlement) => entitlement !== MODEL_PROVIDERS_ENTITLEMENT)
 			.sort((a, b) => Number(!editionEntitlements.has(a)) - Number(!editionEntitlements.has(b)))
 	);
-	let showEnterpriseCTA = $derived(!hasValidLicense || isCommunityEdition);
-	let showUserLimitNotice = $derived(validateVersionUserLimit(version.current));
+	let showEnterpriseCTA = $derived(!isAdminReadonly && (!hasValidLicense || isCommunityEdition));
+	let showUserLimitNotice = $derived(!isAdminReadonly && validateVersionUserLimit(version.current));
 
 	let manualCheckAvailableAt = $derived(
 		license?.manualCheckAvailableAt ? new Date(license.manualCheckAvailableAt).getTime() : 0
@@ -301,39 +301,41 @@
 					</div>
 				{/if}
 			</div>
-			<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
-				{#if license.licenseKey && !isCommunityEdition}
-					<button
-						class="btn btn-secondary w-full sm:w-fit"
-						onclick={handleRecheckLicense}
-						disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
+			{#if !isAdminReadonly}
+				<div class="flex w-full flex-col gap-2 @2xl:w-fit @2xl:flex-row">
+					{#if license.licenseKey && !isCommunityEdition}
+						<button
+							class="btn btn-secondary w-full sm:w-fit"
+							onclick={handleRecheckLicense}
+							disabled={rechecking || manualCheckCooldownMs > 0 || isAdminReadonly}
+						>
+							{#if rechecking}
+								<LoaderCircle class="size-4 animate-spin" />
+							{:else}
+								<RefreshCw class="size-4" />
+							{/if}
+							{manualCheckCooldownMs > 0
+								? `Recheck in ${manualCheckCooldownLabel}`
+								: 'Recheck License'}
+						</button>
+					{/if}
+					<div
+						use:tooltip={{
+							text: license.locked ? lockedLicenseMessage : undefined,
+							classes: ['text-xs']
+						}}
+						class="w-full sm:w-fit"
 					>
-						{#if rechecking}
-							<LoaderCircle class="size-4 animate-spin" />
-						{:else}
-							<RefreshCw class="size-4" />
-						{/if}
-						{manualCheckCooldownMs > 0
-							? `Recheck in ${manualCheckCooldownLabel}`
-							: 'Recheck License'}
-					</button>
-				{/if}
-				<div
-					use:tooltip={{
-						text: license.locked ? lockedLicenseMessage : undefined,
-						classes: ['text-xs']
-					}}
-					class="w-full sm:w-fit"
-				>
-					<button
-						class="btn btn-secondary w-full sm:w-fit"
-						onclick={handleOpenUpdateLicenseDialog}
-						disabled={license.locked || isAdminReadonly}
-					>
-						{updateLicenseTitle}
-					</button>
+						<button
+							class="btn btn-secondary w-full sm:w-fit"
+							onclick={handleOpenUpdateLicenseDialog}
+							disabled={license.locked || isAdminReadonly}
+						>
+							{updateLicenseTitle}
+						</button>
+					</div>
 				</div>
-			</div>
+			{/if}
 		</section>
 
 		{#if version.current.userLimit}
@@ -358,7 +360,7 @@
 			</section>
 		{/if}
 
-		{#if license && license.licenseKey && !isCommunityEdition}
+		{#if !isAdminReadonly && license && license.licenseKey && !isCommunityEdition}
 			<section class="paper gap-0">
 				<h4 class="font-semibold text-xl">Danger Zone</h4>
 				<p class="text-sm font-light">
@@ -389,7 +391,7 @@
 					</div>
 				</div>
 			</section>
-		{:else if !isCommunityEdition}
+		{:else if !isAdminReadonly && !isCommunityEdition}
 			<aside
 				class="relative overflow-hidden rounded-box border border-primary/20 bg-base-100 dark:bg-base-200 shadow-sm md:max-w-md mx-auto"
 				aria-labelledby="community-cta-heading"

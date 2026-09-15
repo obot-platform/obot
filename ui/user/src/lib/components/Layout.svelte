@@ -466,7 +466,7 @@
 	});
 
 	const canShowCommunitySignup = $derived.by(() => {
-		if (!(profile.current.hasAdminAccess?.() || profile.current.isBootstrapUser?.())) return false;
+		if (!(profile.current.isAdmin?.() || profile.current.isBootstrapUser?.())) return false;
 		if (hasCommunityOrEnterpriseLicense) return false;
 		if (!communitySignupBannerDismissed.isReady) return false;
 		return !isCommunitySignupDismissedForCurrentProfile();

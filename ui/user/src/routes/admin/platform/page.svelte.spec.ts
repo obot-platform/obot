@@ -112,6 +112,20 @@ describe('Platform Page', () => {
 	});
 
 	describe('license tab', () => {
+		it('shows auditors only license information', async () => {
+			await renderPlatformPage({ groups: [Group.AUDITOR] });
+
+			await expect.element(page.getByText('License Status', { exact: true })).toBeVisible();
+			await expect.element(page.getByText('Entitlements', { exact: true })).toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Upgrade to Obot Enterprise', exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByLabelText('Name', { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Add License Key', exact: true }))
+				.not.toBeInTheDocument();
+		});
+
 		it('renders enterprise CTA when no license is present', async () => {
 			await renderPlatformPage({ license: getLicenseResponse });
 
