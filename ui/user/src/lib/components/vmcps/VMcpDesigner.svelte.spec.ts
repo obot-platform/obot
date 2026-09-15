@@ -533,6 +533,28 @@ describe('VMcpDesigner.svelte', () => {
 			});
 		});
 
+		it('still drops when later pointer events fire on the canvas instead of the source card', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const update = vi.fn();
+			mockUpdateVMcp(vmcp, update);
+			await renderDesigner([componentEntry, slack], vmcp);
+
+			await pressCard(panelCard('Slack'), 21);
+			const canvas = await page.getByCSS('[data-vmcp-canvas]').element();
+			if (!(canvas instanceof HTMLElement)) throw new Error('Expected an HTMLElement');
+			const to = centerOf(await vmcpCard().element());
+			pointer(canvas, 'pointermove', 21, to);
+			await tick();
+			pointer(canvas, 'pointerup', 21, to);
+
+			await vi.waitFor(() => expect(update).toHaveBeenCalled());
+			expect(componentsFrom(update.mock.calls[0][0]).at(-1)).toMatchObject({
+				mcpServerCatalogEntryID: slack.id,
+				name: slack.manifest.name
+			});
+			await expect.element(page.getByCSS('[data-vmcp-drag-overlay]')).not.toBeInTheDocument();
+		});
+
 		it('collects configuration policies before adding a server with config', async () => {
 			const tokenSlack = createMCPCatalogEntry({
 				id: 'entry-slack-token',

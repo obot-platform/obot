@@ -1,5 +1,6 @@
 import type { MCPCatalogEntry, VMCP } from '$lib/services';
 import { borderAnchor, buildWirePath, distanceToRect } from '../../services/vmcps/utils';
+import { onDestroy } from 'svelte';
 import type { Action } from 'svelte/action';
 
 export const CREATE_VMCP_DROP_ID = '__create__';
@@ -56,6 +57,9 @@ export function createEntryDrag(options: EntryDragOptions) {
 	let createEl = $state<HTMLElement>();
 	const vmcpEls = $state<Record<string, HTMLElement>>({});
 	const componentEls = $state<Record<string, { target: ComponentTarget; el: HTMLElement }>>({});
+	let capturedEl: HTMLElement | undefined;
+	let listening = false;
+	const pointerListenerOpts = { capture: true } as const;
 
 	const linkedVMcp = $derived(options.vmcps().find((vmcp) => vmcp.id === linkedVMcpId));
 
@@ -167,9 +171,44 @@ export function createEntryDrag(options: EntryDragOptions) {
 		linkedComponentKey = undefined;
 	}
 
+	function attachPointerListeners() {
+		if (listening) return;
+		listening = true;
+		window.addEventListener('pointermove', pointerMove, pointerListenerOpts);
+		window.addEventListener('pointerup', pointerUp, pointerListenerOpts);
+		window.addEventListener('pointercancel', handlePointerCancel, pointerListenerOpts);
+	}
+
+	function detachPointerListeners() {
+		if (!listening) return;
+		listening = false;
+		window.removeEventListener('pointermove', pointerMove, pointerListenerOpts);
+		window.removeEventListener('pointerup', pointerUp, pointerListenerOpts);
+		window.removeEventListener('pointercancel', handlePointerCancel, pointerListenerOpts);
+	}
+
+	function releaseCapture() {
+		const el = capturedEl;
+		const pointerId = drag?.pointerId;
+		capturedEl = undefined;
+		if (!el || pointerId == null) return;
+		try {
+			if (el.hasPointerCapture(pointerId)) el.releasePointerCapture(pointerId);
+		} catch {
+			// The source node may already have been unmounted.
+		}
+	}
+
 	function cancel() {
+		releaseCapture();
+		detachPointerListeners();
 		drag = undefined;
 		clearLinkTarget();
+	}
+
+	function handlePointerCancel(event: PointerEvent) {
+		if (!drag || event.pointerId !== drag.pointerId) return;
+		cancel();
 	}
 
 	function activate(entry?: MCPCatalogEntry) {
@@ -182,11 +221,18 @@ export function createEntryDrag(options: EntryDragOptions) {
 
 	function pointerDown(event: PointerEvent, entry?: MCPCatalogEntry) {
 		if (event.button !== 0) return;
+		if (drag) cancel();
 
 		const card = event.currentTarget as HTMLButtonElement;
-		card.setPointerCapture(event.pointerId);
+		capturedEl = card;
+		try {
+			card.setPointerCapture(event.pointerId);
+		} catch {
+			// Capture can fail if the pointer is already gone; window listeners still track it.
+		}
 		dragOrigin = { x: event.clientX, y: event.clientY };
 		drag = { entry, pointerId: event.pointerId, x: event.clientX, y: event.clientY, active: false };
+		attachPointerListeners();
 	}
 
 	function pointerMove(event: PointerEvent) {
@@ -211,6 +257,9 @@ export function createEntryDrag(options: EntryDragOptions) {
 
 	function pointerUp(event: PointerEvent) {
 		if (!drag || event.pointerId !== drag.pointerId) return;
+
+		event.preventDefault();
+		event.stopPropagation();
 
 		const dropped = drag;
 		const vmcp = linkedVMcp;
@@ -281,6 +330,8 @@ export function createEntryDrag(options: EntryDragOptions) {
 			}
 		};
 	};
+
+	onDestroy(cancel);
 
 	return {
 		/** A drag that has travelled far enough to be more than a click. */

@@ -296,9 +296,6 @@
 		)}
 		aria-label="Create a new entry, or drag it onto a vMCP or Create vMCP"
 		onpointerdown={(event) => drag.pointerDown(event)}
-		onpointermove={drag.pointerMove}
-		onpointerup={drag.pointerUp}
-		onpointercancel={drag.cancel}
 		onkeydown={(event) => {
 			if (event.key !== 'Enter' && event.key !== ' ') return;
 			event.preventDefault();
@@ -428,9 +425,6 @@
 					}
 				: undefined}
 		onpointerdown={(event) => drag.pointerDown(event, entry)}
-		onpointermove={drag.pointerMove}
-		onpointerup={drag.pointerUp}
-		onpointercancel={drag.cancel}
 		onkeydown={(event) => {
 			if (event.key !== 'Enter' && event.key !== ' ') return;
 			event.preventDefault();
