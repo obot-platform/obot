@@ -2,6 +2,7 @@
 	import Toggle from '$lib/components/Toggle.svelte';
 	import type { ToolOverride } from '$lib/services';
 	import { conflictIssue, effectiveToolName, toolNameIssue } from '$lib/services/user/mcp';
+	import Search from '../Search.svelte';
 	import ToolNameIssueIcon from '../mcp/ToolNameIssueIcon.svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -24,18 +25,59 @@
 		effectiveNameDuplicates = new Set()
 	}: Props = $props();
 
+	let search = $state('');
+
+	const unlockedTools = $derived(tools.filter((tool) => !lockedTools?.has(tool.name)));
+
+	const allUnlockedToolsEnabled = $derived(
+		unlockedTools.length > 0 && unlockedTools.every((tool) => tool.enabled === true)
+	);
+
 	const orderedTools = $derived.by(() => {
-		if (!lockedTools?.size) return tools;
+		const query = search.trim().toLowerCase();
+		const filtered = query
+			? tools.filter(
+					(tool) =>
+						tool.name.toLowerCase().includes(query) ||
+						tool.overrideName?.toLowerCase().includes(query) ||
+						tool.description?.toLowerCase().includes(query) ||
+						tool.overrideDescription?.toLowerCase().includes(query)
+				)
+			: tools;
+		if (!lockedTools?.size) return filtered;
 		const unlocked: ToolOverride[] = [];
 		const locked: ToolOverride[] = [];
-		for (const tool of tools) {
+		for (const tool of filtered) {
 			(lockedTools.has(tool.name) ? locked : unlocked).push(tool);
 		}
-		return locked.length > 0 ? [...unlocked, ...locked] : tools;
+		return locked.length > 0 ? [...unlocked, ...locked] : filtered;
 	});
 </script>
 
 <div class="flex flex-col gap-2">
+	<div class="flex w-full justify-end">
+		<Toggle
+			checked={allUnlockedToolsEnabled}
+			disabled={readonly || unlockedTools.length === 0}
+			onChange={(checked) => {
+				tools.forEach((tool) => {
+					if (!lockedTools?.has(tool.name)) {
+						tool.enabled = checked;
+					}
+				});
+			}}
+			label="Enable All Tools"
+			labelInline
+			classes={{
+				label: 'text-sm gap-2'
+			}}
+		/>
+	</div>
+	<Search
+		class="dark:bg-base-200 dark:border-base-400 bg-base-100 border border-transparent shadow-sm"
+		onChange={(val) => (search = val)}
+		placeholder="Search tools..."
+	/>
 	{#each orderedTools as tool (tool.name)}
 		{@const currentName = (tool.overrideName || '').trim() || tool.name}
 		{@const currentDescription = (tool.overrideDescription || '').trim() || tool.description}
