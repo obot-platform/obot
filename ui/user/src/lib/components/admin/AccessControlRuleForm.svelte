@@ -14,7 +14,6 @@
 		type AccessControlRule,
 		type AccessControlRuleManifest,
 		type AccessControlRuleResource,
-		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
 		type MCPCatalogEntry
@@ -28,7 +27,7 @@
 	import Table from '../table/Table.svelte';
 	import SearchMcpServers from './SearchMcpServers.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { resolveSubjects } from './subjectResolver';
+	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { untrack, type Snippet } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -172,48 +171,6 @@
 			sessionStorage.removeItem(ADMIN_SESSION_STORAGE.ACCESS_CONTROL_RULE_CREATION);
 		}
 	});
-
-	function convertSubjectsToTableData(
-		subjects: AccessControlRuleSubject[],
-		users: OrgUser[],
-		groups: OrgGroup[]
-	) {
-		const userMap = new Map(users?.map((user) => [user.id, user]));
-		const groupMap = new Map(groups?.map((group) => [group.id, group]));
-
-		return (
-			subjects
-				.map((subject) => {
-					if (subject.type === 'user') {
-						return {
-							id: subject.id,
-							displayName: getUserDisplayName(userMap, subject.id),
-							type: 'User'
-						};
-					}
-
-					if (subject.type === 'group') {
-						const group = groupMap.get(subject.id);
-						if (!group) {
-							return undefined;
-						}
-
-						return {
-							id: subject.id,
-							displayName: group.name,
-							type: 'Group'
-						};
-					}
-
-					return {
-						id: subject.id,
-						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
-						type: 'Group'
-					};
-				})
-				.filter((subject) => subject !== undefined) ?? []
-		);
-	}
 
 	function convertMcpServersToTableData(resources: AccessControlRuleResource[]) {
 		const owner = initialAccessControlRule?.powerUserID

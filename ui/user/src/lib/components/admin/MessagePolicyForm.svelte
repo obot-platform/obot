@@ -6,20 +6,18 @@
 		AdminService,
 		type MessagePolicy,
 		type MessagePolicyManifest,
-		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
 		type PolicyDirection,
 		PolicyDirectionLabels
 	} from '$lib/services';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { resolveSubjects } from './subjectResolver';
+	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { CircleQuestionMark, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -106,48 +104,6 @@
 
 		return () => controller.abort();
 	});
-
-	function convertSubjectsToTableData(
-		subjects: AccessControlRuleSubject[],
-		users: OrgUser[],
-		groups: OrgGroup[]
-	) {
-		const userMap = new Map(users?.map((user) => [user.id, user]));
-		const groupMap = new Map(groups?.map((group) => [group.id, group]));
-
-		return (
-			subjects
-				.map((subject) => {
-					if (subject.type === 'user') {
-						return {
-							id: subject.id,
-							displayName: getUserDisplayName(userMap, subject.id),
-							type: 'User'
-						};
-					}
-
-					if (subject.type === 'group') {
-						const group = groupMap.get(subject.id);
-						if (!group) {
-							return undefined;
-						}
-
-						return {
-							id: subject.id,
-							displayName: group.name,
-							type: 'Group'
-						};
-					}
-
-					return {
-						id: subject.id,
-						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
-						type: 'Group'
-					};
-				})
-				.filter((subject) => subject !== undefined) ?? []
-		);
-	}
 
 	function validate(policy: typeof messagePolicy) {
 		if (!policy) return false;
