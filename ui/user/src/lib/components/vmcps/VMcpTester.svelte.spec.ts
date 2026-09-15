@@ -1,7 +1,9 @@
+import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
 import { type VMCPInstance } from '$lib/services';
 import { profile, vmcpInstances } from '$lib/stores';
 import { createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
+import { getLicenseResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpTester from './VMcpTester.svelte';
 import { http, HttpResponse } from 'msw';
@@ -84,18 +86,23 @@ describe('VMcpTester', () => {
 			version: { hasModelProvider: false, hasValidLicense: false }
 		});
 
-		await expect.element(page.getByText('Chat unavailable', { exact: true })).toBeVisible();
 		await expect
-			.element(
-				page.getByText('Register a valid Obot license to use Chat without a model provider.')
-			)
+			.element(page.getByRole('heading', { name: 'Unlock Chat & More!', exact: true }))
 			.toBeVisible();
+		await expect.element(page.getByText(SETUP_COMMUNITY_SIGNUP_BANNER_COPY)).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Register' })).toBeVisible();
 	});
 
 	it('keeps the default model alias message when a model provider is configured', async () => {
 		await renderVMcpTester({
 			models: [],
 			defaultModelAliases: [],
+			license: {
+				...getLicenseResponse,
+				licenseKey: 'community-license-key',
+				enterprise: true,
+				entitlements: [COMMUNITY_ENTITLEMENT]
+			},
 			version: { hasModelProvider: true, hasValidLicense: true }
 		});
 

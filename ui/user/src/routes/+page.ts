@@ -1,3 +1,4 @@
+import { CommonAuthProviderIds } from '$lib/constants';
 import { UserService, type AuthProvider, type BootstrapStatus } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -27,6 +28,10 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
 		// If no auth providers are available, redirect to the admin page for bootstrap login.
 		throw redirect(302, '/admin');
+	}
+
+	if (authProviders.length === 1 && authProviders[0].id === CommonAuthProviderIds.LOCAL) {
+		throw redirect(302, '/login/local?rd=' + encodeURIComponent(url.pathname));
 	}
 
 	return {

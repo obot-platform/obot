@@ -186,7 +186,7 @@
 	animate="slide"
 	class="md:w-md"
 	bind:this={vmcpDialog}
-	title={editing ? 'Edit vMCP' : 'Create vMCP'}
+	title={editing ? 'Edit Details' : 'Create vMCP'}
 	onClose={handleDialogClose}
 >
 	<div class="flex grow flex-col p-4 md:p-0">

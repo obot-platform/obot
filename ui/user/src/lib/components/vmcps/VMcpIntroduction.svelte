@@ -47,7 +47,7 @@
 	disableClickOutside
 	onClose={dismiss}
 >
-	<h2 class="text-2xl font-semibold mb-4">Welcome to Obot</h2>
+	<h2 class="text-2xl font-semibold mb-4">Getting Started</h2>
 	<div class="grid md:grid-cols-2 md:items-center">
 		<div class="flex flex-col gap-4">
 			<p class="leading-relaxed">
@@ -87,12 +87,12 @@
 		>
 			<p
 				id="vmcp-introduction-animation-label"
-				class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
+				class="font-mono text-[0.625rem] tracking-[0.14em] uppercase"
 			>
 				Drag &amp; Drop
 			</p>
 			{@render stage()}
-			<p class="text-muted-content mt-2 font-light">
+			<p class="mt-2 text-xs">
 				Drag MCP servers anywhere onto your Virtual MCP canvas to get started.
 			</p>
 		</div>
@@ -117,9 +117,7 @@
 			class="vmcp-intro-drop absolute top-3 left-3 flex w-44 flex-col items-center gap-1.5 rounded-lg border px-2 pt-2 pb-2.5"
 		>
 			<Layers class="text-primary/70 size-3.5" />
-			<p
-				class="text-muted-content flex items-center gap-0.5 font-mono text-[0.5rem] tracking-[0.08em] uppercase"
-			>
+			<p class="flex items-center gap-0.5 font-mono text-[0.5rem] tracking-[0.08em] uppercase">
 				<Plus class="size-2 shrink-0" /> Create New vMCP
 			</p>
 			<span class="bg-base-content/15 block h-1 w-20 rounded-full"></span>
