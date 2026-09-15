@@ -369,6 +369,7 @@
 			onOAuthConfigured={handleOAuthConfigured}
 			onConnect={handleConnect}
 			hideActions
+			skipConnectDialog
 		/>
 	{/if}
 {/key}

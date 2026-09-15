@@ -8,6 +8,7 @@ import {
 	buildVMcpComponentFilterOptions,
 	buildWirePath,
 	catalogConfigurationFields,
+	configurationWithRevealedValues,
 	distanceToRect,
 	filterMcpServersByCategories,
 	filterVMcps,
@@ -19,7 +20,8 @@ import {
 	sortVMcps,
 	vmcpComponentDiffServers,
 	vmcpNeedsUpdate,
-	vmcpOutdatedComponents
+	vmcpOutdatedComponents,
+	vmcpUpdateConfigurationTargets
 } from './utils';
 import { describe, expect, it } from 'vitest';
 
@@ -140,7 +142,11 @@ describe('sortVMcps', () => {
 });
 
 describe('filterVMcps', () => {
-	const shared = createVMCP({ id: 'vmcp-shared', displayName: 'Shared Catalog', userID: undefined });
+	const shared = createVMCP({
+		id: 'vmcp-shared',
+		displayName: 'Shared Catalog',
+		userID: undefined
+	});
 	const personal = createVMCP({
 		id: 'vmcp-personal',
 		displayName: 'Personal Workspace',
@@ -188,14 +194,10 @@ describe('filterVMcps', () => {
 		]);
 
 		expect(() =>
-			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map(
-				(vmcp) => vmcp.id
-			)
+			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map((vmcp) => vmcp.id)
 		).not.toThrow();
 		expect(
-			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map(
-				(vmcp) => vmcp.id
-			)
+			filterVMcps([shared, personal], { query: 'shared' }, incompleteOwners).map((vmcp) => vmcp.id)
 		).toEqual(['vmcp-shared']);
 	});
 });
@@ -446,5 +448,59 @@ describe('vmcpOutdatedComponents', () => {
 			},
 			toServer: updatedEntry
 		});
+	});
+});
+
+describe('vmcpUpdateConfigurationTargets', () => {
+	it('uses the latest catalog entry when an outdated component has configuration', () => {
+		const snapshot = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+		const latest = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			manifest: {
+				config: [
+					{
+						key: 'API_TOKEN',
+						name: 'API token',
+						description: 'Token',
+						required: true,
+						sensitive: true,
+						value: '',
+						usage: 'env'
+					}
+				]
+			}
+		});
+		const vmcp = createVMCP(
+			{
+				status: {
+					components: [{ name: 'GitHub', needsUpdate: true }]
+				}
+			},
+			[snapshot]
+		);
+
+		expect(vmcpUpdateConfigurationTargets(vmcp, [latest])).toEqual([
+			{ component: vmcp.components![0], entry: latest }
+		]);
+		expect(vmcpUpdateConfigurationTargets(vmcp, [snapshot])).toEqual([]);
+		expect(vmcpUpdateConfigurationTargets(vmcp, [])).toEqual([]);
+	});
+});
+
+describe('configurationWithRevealedValues', () => {
+	it('fills fixed policies from revealed secrets', () => {
+		expect(
+			configurationWithRevealedValues(
+				[
+					{ key: 'API_TOKEN', policy: 'fixed', value: '******' },
+					{ key: 'REGION', policy: 'userAllowed' }
+				],
+				{ API_TOKEN: 'secret' }
+			)
+		).toEqual([
+			{ key: 'API_TOKEN', policy: 'fixed', value: 'secret' },
+			{ key: 'REGION', policy: 'userAllowed' }
+		]);
 	});
 });

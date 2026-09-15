@@ -44,7 +44,7 @@
 			onSelect: (instance: VMCPInstance) => void
 		) => void;
 		openDiff?: (vmcp: VMCP) => void;
-		openUpdateConfirm?: (name: string, onConfirm: () => Promise<void>) => void;
+		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 	}
 
 	let {

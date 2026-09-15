@@ -5,8 +5,8 @@
 	import CompositeEditTools from '$lib/components/mcp/composite/CompositeEditTools.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
 	import type { VMcpToolDialog, VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-	import { UserService, type VMCPConfigurationPolicy } from '$lib/services';
-	import { vmcpComponentId } from '$lib/services/vmcps/utils';
+	import { UserService } from '$lib/services';
+	import { configurationWithRevealedValues, vmcpComponentId } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpComponentConfigurationDialog from './VMcpComponentConfigurationDialog.svelte';
 	import VMcpToolsSetup from './VMcpToolsSetup.svelte';
@@ -28,18 +28,6 @@
 	let synchronizing = false;
 	const isLastComponent = $derived((flow.modifyingVMcp?.components ?? []).length <= 1);
 	const lastComponentTooltip = 'VMCP requires at least one component.';
-
-	function configurationWithRevealedValues(
-		configuration: VMCPConfigurationPolicy[] | undefined,
-		revealed: Record<string, string> | undefined
-	): VMCPConfigurationPolicy[] | undefined {
-		if (!configuration || !revealed) return configuration;
-		return configuration.map((policy) => {
-			if (policy.policy !== 'fixed') return policy;
-			const value = revealed[policy.key];
-			return value ? { ...policy, value } : policy;
-		});
-	}
 
 	async function openConfigureDialog() {
 		if (!flow.configuringEntry) return;

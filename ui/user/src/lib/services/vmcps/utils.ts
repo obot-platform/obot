@@ -78,6 +78,30 @@ export function vmcpOutdatedComponents(vmcp: VMCP): VMCPComponent[] {
 	);
 }
 
+export function vmcpUpdateConfigurationTargets(
+	vmcp: VMCP,
+	entries: MCPCatalogEntry[]
+): { component: VMCPComponent; entry: MCPCatalogEntry }[] {
+	const byId = new Map(entries.map((entry) => [entry.id, entry]));
+	return vmcpOutdatedComponents(vmcp).flatMap((component) => {
+		const entry = byId.get(component.mcpServerCatalogEntryID);
+		if (!entry || catalogConfigurationFields(entry).length === 0) return [];
+		return [{ component, entry }];
+	});
+}
+
+export function configurationWithRevealedValues(
+	configuration: VMCPComponent['configuration'],
+	revealed: Record<string, string> | undefined
+): VMCPComponent['configuration'] {
+	if (!configuration || !revealed) return configuration;
+	return configuration.map((policy) => {
+		if (policy.policy !== 'fixed') return policy;
+		const value = revealed[policy.key];
+		return value ? { ...policy, value } : policy;
+	});
+}
+
 export function vmcpComponentDiffServers(
 	component: VMCPComponent,
 	updatedEntry?: MCPCatalogEntry

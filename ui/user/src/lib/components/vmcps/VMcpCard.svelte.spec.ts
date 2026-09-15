@@ -1,13 +1,13 @@
-import { Group, type VMCPInstance } from '$lib/services';
+import { Group, type VMCPInstance, type VMCPManifest } from '$lib/services';
 import { mcpServersAndEntries, vmcpInstances } from '$lib/stores';
-import { createMCPCatalogEntry, createVMCP } from '../../../tests/helpers/mcp';
+import { createMCPCatalogEntry, createVMCP, createVMCPComponent } from '../../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../../tests/helpers/pageData';
 import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpCardHost from './VMcpCard.svelte.spec.host.svelte';
 import { http, HttpResponse } from 'msw';
 import { createRawSnippet } from 'svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -96,6 +96,17 @@ async function expectConnectEnabled(enabled: boolean) {
 }
 
 describe('VMcpCard.svelte', () => {
+	beforeEach(() => {
+		mcpServersAndEntries.current = {
+			entries: [],
+			servers: [],
+			userConfiguredServers: [],
+			userInstances: [],
+			loading: false,
+			lastFetched: null,
+			isInitialized: true
+		};
+	});
 	it.each([
 		{
 			name: 'lets the creator delete and connect',
@@ -183,26 +194,128 @@ describe('VMcpCard.svelte', () => {
 	});
 
 	it('shows update action for owners when an update is available', async () => {
-		const updated = vi.fn();
+		const triggered = vi.fn();
+		const onUpdate = vi.fn();
 		const vmcp = createNeedsUpdateVmcp();
+		const refreshed = {
+			...vmcp,
+			status: { components: [{ name: 'GitHub', needsUpdate: false }] }
+		};
 		worker.use(
 			http.post('/api/vmcps/vmcp-1/trigger-update', () => {
-				updated();
-				return HttpResponse.json({ id: 'vmcp-1' });
-			})
+				triggered();
+				return HttpResponse.json({});
+			}),
+			http.get('/api/vmcps/vmcp-1', () => HttpResponse.json(refreshed))
 		);
 
 		await renderCard({
 			groups: [Group.USER],
 			userID: getProfileResponse.id,
 			vmcp,
-			onUpdate: updated
+			onUpdate
 		});
 
 		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 		await page.getByRole('button', { name: 'Update VMCP', exact: true }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
-		await vi.waitFor(() => expect(updated).toHaveBeenCalledOnce());
+		await vi.waitFor(() => {
+			expect(triggered).toHaveBeenCalledOnce();
+			expect(onUpdate).toHaveBeenCalledWith(refreshed);
+		});
+	});
+
+	it('collects latest catalog configuration before updating', async () => {
+		const snapshotEntry = createMCPCatalogEntry({ id: 'entry-1', name: 'GitHub' });
+		const latestEntry = createMCPCatalogEntry({
+			id: 'entry-1',
+			name: 'GitHub',
+			manifest: {
+				config: [
+					{
+						key: 'API_TOKEN',
+						name: 'API token',
+						description: 'Token',
+						required: true,
+						sensitive: true,
+						value: '',
+						usage: 'env'
+					}
+				]
+			}
+		});
+		const vmcp = createVMCP(
+			{
+				id: 'vmcp-1',
+				displayName: 'Issue Tracker vMCP',
+				status: {
+					components: [{ name: 'GitHub', needsUpdate: true }]
+				},
+				components: [
+					createVMCPComponent(snapshotEntry, {
+						configuration: [{ key: 'OLD_KEY', policy: 'fixed', value: 'stale' }]
+					})
+				]
+			},
+			[snapshotEntry]
+		);
+		mcpServersAndEntries.current = {
+			...mcpServersAndEntries.current,
+			entries: [latestEntry]
+		};
+
+		const put = vi.fn();
+		const triggered = vi.fn();
+		const onUpdate = vi.fn();
+		const refreshed = {
+			...vmcp,
+			status: { components: [{ name: 'GitHub', needsUpdate: false }] }
+		};
+		worker.use(
+			http.get('/api/vmcps/vmcp-1', () => HttpResponse.json(refreshed)),
+			http.post('/api/vmcps/vmcp-1/reveal', () => HttpResponse.json({ components: {} })),
+			http.put('/api/vmcps/vmcp-1', async ({ request }) => {
+				put(await request.json());
+				return HttpResponse.json(vmcp);
+			}),
+			http.post('/api/vmcps/vmcp-1/trigger-update', () => {
+				triggered();
+				return HttpResponse.json({});
+			})
+		);
+
+		await renderCard({
+			groups: [Group.ADMIN],
+			userID: getProfileResponse.id,
+			vmcp,
+			onUpdate
+		});
+
+		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
+		await page.getByRole('button', { name: 'Update VMCP', exact: true }).click();
+		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
+
+		await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
+		expect(triggered).not.toHaveBeenCalled();
+		expect(onUpdate).not.toHaveBeenCalled();
+		await expect.element(page.getByRole('combobox', { name: 'API token policy' })).toBeVisible();
+		await expect
+			.element(page.getByRole('combobox', { name: 'OLD_KEY policy' }))
+			.not.toBeInTheDocument();
+
+		await page
+			.getByRole('combobox', { name: 'API token policy' })
+			.selectOptions('Provided at connection');
+		await page.getByRole('button', { name: 'Update', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(put).toHaveBeenCalledOnce();
+			expect(triggered).toHaveBeenCalledOnce();
+			expect(onUpdate).toHaveBeenCalledWith(refreshed);
+		});
+		expect(((put.mock.calls[0][0] as VMCPManifest).components ?? [])[0]?.configuration).toEqual([
+			{ key: 'API_TOKEN', policy: 'userAllowed' }
+		]);
 	});
 
 	it('shows view diff when an update is available', async () => {

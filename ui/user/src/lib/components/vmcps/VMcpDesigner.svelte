@@ -7,7 +7,6 @@
 	import CreateVMcpButton from '$lib/components/vmcps/CreateVMcpButton.svelte';
 	import McpServersSidebar from '$lib/components/vmcps/McpServersSidebar.svelte';
 	import VMcpActions from '$lib/components/vmcps/VMcpActions.svelte';
-	import VMcpComponentConfigurationDialog from '$lib/components/vmcps/VMcpComponentConfigurationDialog.svelte';
 	import VMcpDragHint from '$lib/components/vmcps/VMcpDragHint.svelte';
 	import VMcpDragOverlay from '$lib/components/vmcps/VMcpDragOverlay.svelte';
 	import VMcpGraph from '$lib/components/vmcps/VMcpGraph.svelte';
@@ -74,7 +73,6 @@
 	let connectVMcpDialog = $state<ReturnType<typeof ConnectVMcp>>();
 	let refreshingTester = $state(false);
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
-	let configurationDialog = $state<ReturnType<typeof VMcpComponentConfigurationDialog>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
 	let profilesTabEl = $state<HTMLButtonElement>();
@@ -298,7 +296,7 @@
 
 			pendingComponentDrop = { target: latest, entry, component };
 			componentDropPending = false;
-			configurationDialog?.open(entry);
+			vmcpActions?.openConfiguration(entry);
 		} catch {
 			componentDropPending = false;
 			errors.append('Failed to add MCP server to vMCP.');
@@ -581,12 +579,7 @@
 
 <ConnectVMcp bind:this={connectVMcpDialog} />
 
-<VMcpActions bind:this={vmcpActions} />
-
-<VMcpComponentConfigurationDialog
-	bind:this={configurationDialog}
-	onNext={handleConfigurationNext}
-/>
+<VMcpActions bind:this={vmcpActions} onConfigurationNext={handleConfigurationNext} />
 
 <CreateEditVMcp
 	bind:this={createEditVMcp}

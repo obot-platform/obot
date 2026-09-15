@@ -30,7 +30,7 @@
 			onSelect: (instance: VMCPInstance) => void
 		) => void;
 		openDiff?: (vmcp: VMCP) => void;
-		openUpdateConfirm?: (name: string, onConfirm: () => Promise<void>) => void;
+		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 	}
 
 	let {
@@ -88,7 +88,8 @@
 	async function handleUpdate() {
 		updating = true;
 		try {
-			const updated = await UserService.triggerVMCPUpdate(id);
+			await UserService.triggerVMCPUpdate(id);
+			const updated = await UserService.getVMCP(id);
 			onUpdate?.(updated);
 			success.add(`Updated ${name}.`);
 		} catch {
@@ -123,12 +124,6 @@
 		<div class="min-w-0 grow">
 			<div class="flex min-w-0 items-center gap-2">
 				<p class="truncate text-sm font-semibold">{name}</p>
-				{#if connected}
-					<div class="badge badge-xs badge-secondary shrink-0 gap-1">
-						<span class="status status-primary"></span>
-						Connected
-					</div>
-				{/if}
 			</div>
 			<p class="text-muted-content mt-0.5 line-clamp-2 text-xs font-light min-h-8">
 				<!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by toInlineHTMLFromMarkdown -->
@@ -189,7 +184,7 @@
 						disabled={updating}
 						onclick={(e) => {
 							e.stopPropagation();
-							openUpdateConfirm(name, handleUpdate);
+							openUpdateConfirm(vmcp, handleUpdate);
 							toggle(false);
 						}}
 					>
@@ -247,10 +242,33 @@
 	</div>
 
 	{#if note}
-		<div class="pt-2 border-t border-base-200 dark:border-base-400 flex justify-between gap-4">
+		<div
+			class="pt-2 border-t border-base-200 dark:border-base-400 flex items-center justify-between gap-4"
+		>
 			<p class="text-muted-content text-xs font-light min-h-4">
 				{note}
 			</p>
+
+			{#if needsUpdate}
+				<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary">
+					<span class="status status-primary"></span>
+					Update Available
+				</div>
+			{:else}
+			<div
+				class={twMerge(
+					'badge badge-xs shrink-0 gap-1',
+					!connected
+						? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
+						: 'badge-soft badge-primary'
+				)}
+				role="status"
+				aria-label={connected ? 'Connected' : 'Not Connected'}
+			>
+				<span class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}></span>
+				{connected ? 'Connected' : 'Connected'}
+			</div>
+			{/if}
 		</div>
 	{/if}
 </div>

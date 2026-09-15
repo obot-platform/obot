@@ -47,6 +47,7 @@
 		ExternalLink,
 		GitCompare,
 		Layers,
+		Layers2,
 		Power,
 		Server,
 		ServerCog,
@@ -662,7 +663,7 @@
 							{:else if d.needsUpdate}
 								<div
 									use:tooltip={{
-										text: 'This deployment needs an update. View Diff to see the changes.',
+										text: d.vmcpComponentID ? 'In order to update, update the vMCP.' : 'This deployment needs an update. View Diff to see the changes.',
 										classes: ['wrap-break-word', 'w-58']
 									}}
 								>
@@ -761,7 +762,6 @@
 											Update Server
 										</button>
 									{/if}
-								{/if}
 
 								{#if d.catalogEntryID && d.needsUpdate}
 									<button
@@ -779,6 +779,7 @@
 									>
 										<GitCompare class="size-4" /> View Diff
 									</button>
+								{/if}
 								{/if}
 
 								{#if (d.isMyServer || (hasAdminAccess && !readonly)) && d.needsK8sUpdate}
@@ -802,6 +803,28 @@
 										{/if}
 										Update Scheduling Config
 									</button>
+								{/if}
+
+								{#if d.vmcpID}
+									<a href={resolve(`/vmcps/${d.vmcpID}`)} class="menu-button">
+										<Layers class="size-4" />
+										View vMCP
+									</a>
+									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
+										<Layers2 class="size-4" />
+										View vMCP Deployments
+									</a>
+								{:else if d.vmcpInstanceID}
+									{@const instance = deployedVmcpInstancesMap.get(d.vmcpInstanceID)}
+									{#if instance}
+										<a
+											href={resolve(`/vmcps/${instance.vmcpID}/instance/${instance.id}`)}
+											class="menu-button"
+										>
+											<Layers class="size-4" />
+											View vMCP Deployment
+										</a>
+									{/if}
 								{/if}
 
 								{#if isRestartableServer(d) && (d.isMyServer || (hasAdminAccess && !readonly))}
@@ -846,24 +869,6 @@
 										<Captions class="size-4" />
 										View Audit Logs
 									</button>
-								{/if}
-
-								{#if d.vmcpID}
-									<a href={resolve(`/vmcps?view=deployments&id=${d.vmcpID}`)} class="menu-button">
-										<Layers class="size-4" />
-										View vMCP Deployments
-									</a>
-								{:else if d.vmcpInstanceID}
-									{@const instance = deployedVmcpInstancesMap.get(d.vmcpInstanceID)}
-									{#if instance}
-										<a
-											href={resolve(`/vmcps/${instance.vmcpID}/instance/${instance.id}`)}
-											class="menu-button"
-										>
-											<Layers class="size-4" />
-											View vMCP Deployment
-										</a>
-									{/if}
 								{/if}
 
 								{#if !isVmcpComponent && (d.isMyServer || (hasAdminAccess && !readonly))}
