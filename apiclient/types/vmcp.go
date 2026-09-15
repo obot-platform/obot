@@ -19,6 +19,7 @@ type VMCP struct {
 	VMCPManifest            `json:",inline"`
 	LegacySlug              string     `json:"legacySlug,omitempty"`
 	UserID                  string     `json:"userID,omitempty"`
+	CreatorUserID           string     `json:"creatorUserID,omitempty"`
 	StaticConfigurationHash string     `json:"staticConfigurationHash,omitempty"`
 	Status                  VMCPStatus `json:"status,omitempty"`
 }

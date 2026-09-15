@@ -626,6 +626,7 @@ export interface VMCPComponentStatus {
 
 export interface VMCP extends VMCPManifest {
 	created: string;
+	creatorUserID?: string;
 	deleted?: string;
 	id: string;
 	links?: Record<string, string>;

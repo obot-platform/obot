@@ -2,8 +2,7 @@
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import type { OrgUser, VMCP } from '$lib/services';
 	import type { VMcpComponentView, VMcpConnectOptions } from '$lib/services/vmcps/types';
-	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getVMcpCreator } from '$lib/services/vmcps/utils';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpActions from './VMcpActions.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -133,13 +132,6 @@
 			}
 		};
 	}
-
-	function getNote(vmcp: VMCP) {
-		if (vmcp.userID) {
-			return `Created by ${vmcp.userID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.userID)}`;
-		}
-		return ' ';
-	}
 </script>
 
 <div class="@container">
@@ -178,7 +170,7 @@
 		openUpdateConfirm={vmcpActions?.openUpdateConfirm}
 		openEditInstanceConfiguration={vmcpActions?.openEditInstanceConfiguration}
 		class="h-full text-base-content border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 group @container cursor-pointer gap-3 rounded-lg border p-3 shadow-xs transition-[transform,box-shadow,border-color] duration-150 hover:border-primary hover:shadow-md"
-		note={getNote(card.vmcp)}
+		owner={getVMcpCreator(card.vmcp, usersMap)}
 	>
 		{#snippet icon()}
 			<VMcpIcon components={card.componentServers} />

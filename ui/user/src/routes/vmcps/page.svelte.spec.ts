@@ -3,6 +3,7 @@ import { Group, type MCPCatalogEntry } from '$lib/services';
 import { mcpServersAndEntries } from '$lib/stores';
 import { createMCPCatalogEntry, createVMCP } from '../../tests/helpers/mcp';
 import { createMockProfile, preparePageData } from '../../tests/helpers/pageData';
+import { getProfileResponse } from '../../tests/mocks/data';
 import { worker } from '../../tests/mocks/worker';
 import type { PageData } from './$types';
 import VMcpsPage from './+page.svelte';
@@ -76,6 +77,58 @@ describe('vMCPs Page', () => {
 
 			await expect
 				.element(page.getByRole('button', { name: new RegExp('View Slack details') }))
+				.not.toBeInTheDocument();
+		});
+
+		it('filters to creator-owned vMCPs when "Show my vMCPs only" is checked', async () => {
+			const myCreated = createVMCP(
+				{
+					id: 'vmcp-mine',
+					displayName: 'My Created vMCP',
+					creatorUserID: getProfileResponse.id,
+					userID: getProfileResponse.id
+				},
+				[componentEntry]
+			);
+			const ownedNotCreated = createVMCP(
+				{
+					id: 'vmcp-owned',
+					displayName: 'Owned Not Created vMCP',
+					creatorUserID: 'someone-else',
+					userID: getProfileResponse.id
+				},
+				[componentEntry]
+			);
+			const other = createVMCP(
+				{
+					id: 'vmcp-other',
+					displayName: 'Other vMCP',
+					creatorUserID: 'someone-else'
+				},
+				[componentEntry]
+			);
+
+			await renderPageWithEntries([componentEntry], false, [myCreated, ownedNotCreated, other]);
+
+			await expect
+				.element(page.getByRole('button', { name: 'Open My Created vMCP' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Open Owned Not Created vMCP' }))
+				.toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Open Other vMCP' })).toBeVisible();
+
+			await page.getByRole('button', { name: 'Filters' }).click();
+			await page.getByRole('checkbox', { name: 'Show my vMCPs only' }).click();
+
+			await expect
+				.element(page.getByRole('button', { name: 'Open My Created vMCP' }))
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('button', { name: 'Open Owned Not Created vMCP' }))
+				.not.toBeInTheDocument();
+			await expect
+				.element(page.getByRole('button', { name: 'Open Other vMCP' }))
 				.not.toBeInTheDocument();
 		});
 	});

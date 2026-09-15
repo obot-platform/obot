@@ -18740,6 +18740,12 @@ func schema_obot_platform_obot_apiclient_types_VMCP(ref common.ReferenceCallback
 							Format: "",
 						},
 					},
+					"creatorUserID": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 					"staticConfigurationHash": {
 						SchemaProps: spec.SchemaProps{
 							Type:   []string{"string"},

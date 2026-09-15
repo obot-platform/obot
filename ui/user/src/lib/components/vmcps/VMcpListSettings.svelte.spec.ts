@@ -18,7 +18,7 @@ async function openFilters() {
 }
 
 describe('VMcpListSettings.svelte', () => {
-	it('shows the my vMCPs ownership filter', async () => {
+	it('shows the my vMCPs creator filter', async () => {
 		await renderSettings([Group.USER]);
 		await openFilters();
 

@@ -10,6 +10,8 @@ import type {
 	VMCPManifest,
 	VMCPProfile
 } from '$lib/services';
+import { profile } from '$lib/stores';
+import { getUserDisplayName } from '$lib/utils';
 import { AiClient } from '../user/constants';
 import { getManifestConfiguration } from '../user/mcp';
 import {
@@ -268,8 +270,8 @@ function sortFilterOptions(options: VMcpFilterOption[]) {
 }
 
 function matchesOwnerQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
-	if (!vmcp.userID) return false;
-	const owner = owners.get(vmcp.userID);
+	if (!vmcp.creatorUserID) return false;
+	const owner = owners.get(vmcp.creatorUserID);
 	if (!owner) return false;
 	return (
 		owner.username?.toLowerCase().includes(query) ||
@@ -617,4 +619,11 @@ export function getProfilesDisplayText(profiles?: VMCPProfile[]) {
 	const rest = names.slice(0, names.length > 5 ? 4 : -1);
 	const last = names.length > 5 ? `${names.length - 4} others` : names.at(-1);
 	return `${rest.join(', ')} and ${last}`;
+}
+
+export function getVMcpCreator(vmcp: VMCP, usersMap: Map<string, OrgUser>) {
+	if (vmcp.creatorUserID) {
+		return `Created by ${vmcp.creatorUserID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.creatorUserID)}`;
+	}
+	return ' ';
 }

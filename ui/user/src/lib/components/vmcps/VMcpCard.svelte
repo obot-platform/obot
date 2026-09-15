@@ -28,6 +28,7 @@
 
 	interface Props {
 		vmcp: VMCP;
+		owner?: string;
 		onSelect?: () => void;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		hideTest?: boolean;
@@ -36,7 +37,6 @@
 		children?: Snippet;
 		class?: string;
 		selectAriaLabel: string;
-		note?: string;
 		onUpdate?: (vmcp: VMCP) => void;
 		openSelectInstance?: (
 			instances: VMCPInstance[],
@@ -50,6 +50,7 @@
 
 	let {
 		vmcp,
+		owner,
 		onSelect,
 		onConnect,
 		hideTest,
@@ -58,7 +59,6 @@
 		children,
 		class: clazz,
 		selectAriaLabel,
-		note,
 		onUpdate,
 		openSelectInstance,
 		openDiff,
@@ -316,44 +316,42 @@
 		/>
 	</div>
 
-	{#if note}
-		<div
-			class="pt-2 border-t border-base-200 dark:border-base-400 flex items-center justify-between gap-4"
-		>
-			<p class="text-muted-content text-xs font-light min-h-4">
-				{note}
-			</p>
+	<div
+		class="pt-2 border-t border-base-200 dark:border-base-400 flex items-center justify-between gap-4"
+	>
+		<p class="text-muted-content text-xs font-light min-h-4">
+			{owner}
+		</p>
 
-			{#if needsUpdate && canUpdate}
-				<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary">
-					<span class="status status-primary"></span>
-					Update Available
-				</div>
-			{:else if instanceNeedingConfiguration}
-				<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning">
-					<span class="status status-warning"></span>
-					Not Configured
-				</div>
-			{:else}
-				<div
-					class={twMerge(
-						'badge badge-xs shrink-0 gap-1',
-						!connected
-							? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
-							: 'badge-soft badge-primary'
-					)}
-					role="status"
-					aria-live="polite"
-					aria-atomic="true"
-					aria-label={connected ? 'Connected' : 'Not connected'}
-				>
-					<span
-						class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}
-						aria-hidden="true"
-					></span>
-					<span aria-hidden="true">Connected</span>
-				</div>
-			{/if}
-		</div>
-	{/if}
+		{#if needsUpdate && canUpdate}
+			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary">
+				<span class="status status-primary"></span>
+				Update Available
+			</div>
+		{:else if instanceNeedingConfiguration}
+			<div class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning">
+				<span class="status status-warning"></span>
+				Not Configured
+			</div>
+		{:else}
+			<div
+				class={twMerge(
+					'badge badge-xs shrink-0 gap-1',
+					!connected
+						? 'badge-soft badge-secondary dark:bg-base-200 dark:border-base-200'
+						: 'badge-soft badge-primary'
+				)}
+				role="status"
+				aria-live="polite"
+				aria-atomic="true"
+				aria-label={connected ? 'Connected' : 'Not connected'}
+			>
+				<span
+					class={twMerge('status', connected ? 'status-primary' : 'status-secondary')}
+					aria-hidden="true"
+				></span>
+				<span aria-hidden="true">Connected</span>
+			</div>
+		{/if}
+	</div>
 </div>

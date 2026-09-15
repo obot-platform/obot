@@ -43,7 +43,7 @@
 	let componentFilterBy = $state('');
 	let vmcps = $derived.by(() => {
 		if (showMyVMcpsOnly) {
-			return listedVMcps.filter((vmcp) => vmcp.userID === profile.current.id);
+			return listedVMcps.filter((vmcp) => vmcp.creatorUserID === profile.current.id);
 		}
 		return listedVMcps;
 	});

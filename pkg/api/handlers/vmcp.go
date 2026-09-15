@@ -343,6 +343,7 @@ func convertVMCP(vmcp v1.VMCP) types.VMCP {
 		Metadata:                MetadataFrom(&vmcp),
 		VMCPManifest:            manifest,
 		UserID:                  vmcp.Spec.UserID,
+		CreatorUserID:           vmcp.Spec.CreatorUserID,
 		StaticConfigurationHash: vmcp.Spec.StaticConfigurationHash,
 		Status: types.VMCPStatus{
 			Ready:      vmcp.Status.Ready,

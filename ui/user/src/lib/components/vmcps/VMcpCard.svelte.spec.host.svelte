@@ -16,7 +16,7 @@
 		provideDiff = true,
 		provideUpdateConfirm = true,
 		provideEditConfiguration = true,
-		note
+		owner
 	}: {
 		vmcp: VMCP;
 		selectAriaLabel: string;
@@ -28,7 +28,7 @@
 		provideDiff?: boolean;
 		provideUpdateConfirm?: boolean;
 		provideEditConfiguration?: boolean;
-		note?: string;
+		owner?: string;
 	} = $props();
 
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
@@ -68,5 +68,5 @@
 	openEditInstanceConfiguration={provideEditConfiguration
 		? openEditInstanceConfiguration
 		: undefined}
-	{note}
+	{owner}
 />

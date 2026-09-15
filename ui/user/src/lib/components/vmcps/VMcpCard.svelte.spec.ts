@@ -59,7 +59,7 @@ async function renderCard(options: {
 	provideSelectInstance?: boolean;
 	provideDiff?: boolean;
 	provideUpdateConfirm?: boolean;
-	note?: string;
+	owner?: string;
 }) {
 	const vmcp = options.vmcp
 		? options.userID !== undefined
@@ -87,7 +87,7 @@ async function renderCard(options: {
 		provideSelectInstance: options.provideSelectInstance,
 		provideDiff: options.provideDiff,
 		provideUpdateConfirm: options.provideUpdateConfirm,
-		note: options.note
+		owner: options.owner
 	});
 }
 
@@ -513,7 +513,7 @@ describe('VMcpCard.svelte', () => {
 			userID: getProfileResponse.id,
 			vmcp,
 			instances: [stale],
-			note: 'Owner'
+			owner: 'Owner'
 		});
 
 		await expect.element(page.getByText('Not Configured')).toBeVisible();

@@ -11,9 +11,7 @@
 		VMcpComponentView,
 		VMcpConnectOptions
 	} from '$lib/services/vmcps/types';
-	import { getToolCounts } from '$lib/services/vmcps/utils';
-	import { profile } from '$lib/stores';
-	import { getUserDisplayName } from '$lib/utils';
+	import { getToolCounts, getVMcpCreator } from '$lib/services/vmcps/utils';
 	import InfoTooltip from '../InfoTooltip.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';
 	import VMcpCard from './VMcpCard.svelte';
@@ -84,12 +82,7 @@
 		});
 	});
 
-	let owner = $derived.by(() => {
-		if (vmcp.userID) {
-			return `Created by ${vmcp.userID === profile.current.id ? 'me' : getUserDisplayName(usersMap, vmcp.userID)}`;
-		}
-		return ' ';
-	});
+	let owner = $derived(getVMcpCreator(vmcp, usersMap));
 
 	function chainDelay(index: number) {
 		return Math.min(index, CHAIN_STAGGER_MAX_STEPS) * CHAIN_STAGGER_MS;
@@ -225,7 +218,7 @@
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					canEdit && 'cursor-pointer'
 				)}
-				note={owner}
+				{owner}
 			>
 				{#snippet icon()}
 					{#if (vmcp.components ?? []).length > 0}

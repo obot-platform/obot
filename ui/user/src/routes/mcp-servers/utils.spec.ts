@@ -120,9 +120,9 @@ describe('mcp-servers route loaders', () => {
 	});
 
 	describe('navigating to a newly created entry', () => {
-		it('prompts the first deployment for catalog entries', () => {
+		it('sends catalog entries to the entry route', () => {
 			expect(getCreatedEntryUrl('entry-1', 'hosted', 'Catalog entry updated successfully!')).toBe(
-				'/mcp-servers/c/entry-1?launch=true'
+				'/mcp-servers/c/entry-1'
 			);
 		});
 

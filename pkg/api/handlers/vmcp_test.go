@@ -600,6 +600,7 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 		Name:      "vmcp-visible",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{
+			CreatorUserID: "admin",
 			Manifest: types.VMCPManifest{
 				Profiles: []types.VMCPProfile{{
 					Name: "administrator",
@@ -658,6 +659,9 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 	}
 	if response.Items[0].ID != visible.Name {
 		t.Fatalf("visible VMCP ID = %q, want %q", response.Items[0].ID, visible.Name)
+	}
+	if response.Items[0].CreatorUserID != visible.Spec.CreatorUserID {
+		t.Fatalf("visible VMCP creatorUserID = %q, want %q", response.Items[0].CreatorUserID, visible.Spec.CreatorUserID)
 	}
 }
 
