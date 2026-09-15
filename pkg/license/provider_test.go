@@ -560,6 +560,66 @@ func TestRemoveLicenseKeyKeepsPrimaryWhenFallbackValidationFails(t *testing.T) {
 	}
 }
 
+func TestRemoveLicenseKeyAllowsInvalidFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			if r.Header.Get("Authorization") == "License invalid-community-license" {
+				_, _ = fmt.Fprint(w, validationResponseWithCode("license-1", "EXPIRED", false))
+				return
+			}
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement, EnterpriseEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	if _, err := gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, "invalid-community-license"); err != nil {
+		t.Fatalf("seed invalid Community fallback: %v", err)
+	}
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "enterprise-license"); err != nil {
+		t.Fatalf("seed primary license: %v", err)
+	}
+	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	if err := provider.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("remove primary license: %v", err)
+	}
+	licenseKey, err := provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("get invalid fallback: %v", err)
+	}
+	if licenseKey != "invalid-community-license" {
+		t.Fatalf("fallback license key = %q, want invalid-community-license", licenseKey)
+	}
+	if requireValidLicense(ctx, t, provider) {
+		t.Fatal("invalid fallback reported as valid")
+	}
+
+	if err := provider.RemoveLicenseKey(ctx); err != nil {
+		t.Fatalf("remove invalid fallback: %v", err)
+	}
+	licenseKey, err = provider.LicenseKey(ctx)
+	if err != nil {
+		t.Fatalf("get license key after deleting fallback: %v", err)
+	}
+	if licenseKey != "" {
+		t.Fatalf("license key after deleting fallback = %q, want empty", licenseKey)
+	}
+}
+
 func TestSetLicenseKeyRefusesToOverwriteIndeterminateLegacyLicense(t *testing.T) {
 	communityLookupFails := true
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -620,6 +680,94 @@ func TestSetLicenseKeyRefusesToOverwriteIndeterminateLegacyLicense(t *testing.T)
 	}
 	if licenseKey != "community-license" {
 		t.Fatalf("preserved license key = %q, want community-license", licenseKey)
+	}
+}
+
+func TestSetLicenseKeyTreatsRequestTimeoutAsIndeterminate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			if r.Header.Get("Authorization") == "License community-license" {
+				w.WriteHeader(http.StatusRequestTimeout)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"Request Timeout","detail":"temporarily unavailable","code":"REQUEST_TIMEOUT"}]}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement, EnterpriseEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "community-license"); err != nil {
+		t.Fatalf("seed legacy Community license: %v", err)
+	}
+	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	if err := provider.SetLicenseKey(ctx, "enterprise-license"); err == nil {
+		t.Fatal("SetLicenseKey() error = nil, want request timeout")
+	}
+	property, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get primary property: %v", err)
+	}
+	if property.Value != "community-license" {
+		t.Fatalf("primary property after request timeout = %q, want community-license", property.Value)
+	}
+}
+
+func TestSetLicenseKeyReplacesDefinitivelyRejectedLegacyLicense(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			if r.Header.Get("Authorization") == "License invalid-license" {
+				w.WriteHeader(http.StatusNotFound)
+				_, _ = fmt.Fprint(w, `{"errors":[{"title":"License Invalid","detail":"license rejected","code":"LICENSE_INVALID"}]}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement, EnterpriseEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "invalid-license"); err != nil {
+		t.Fatalf("seed invalid legacy license: %v", err)
+	}
+	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	if err := provider.SetLicenseKey(ctx, "enterprise-license"); err != nil {
+		t.Fatalf("SetLicenseKey(): %v", err)
+	}
+	property, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get primary property: %v", err)
+	}
+	if property.Value != "enterprise-license" {
+		t.Fatalf("primary property = %q, want enterprise-license", property.Value)
 	}
 }
 

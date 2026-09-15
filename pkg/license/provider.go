@@ -376,9 +376,6 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if entitlements == nil {
-				return fmt.Errorf("validate Community fallback before removing primary license: %w", ErrInvalidLicense)
-			}
 		}
 
 		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
@@ -543,6 +540,9 @@ func isDefinitiveLicenseRejection(err error) bool {
 		errors.Is(err, keygen.ErrTokenFormatInvalid) ||
 		errors.Is(err, keygen.ErrTokenInvalid) ||
 		errors.Is(err, keygen.ErrTokenExpired) ||
+		errors.Is(err, keygen.ErrLicenseKeyMissing) ||
+		errors.Is(err, keygen.ErrLicenseKeyNotGenuine) ||
+		errors.Is(err, keygen.ErrLicenseInvalid) ||
 		errors.Is(err, keygen.ErrLicenseNotAllowed) ||
 		errors.Is(err, keygen.ErrLicenseExpired) ||
 		errors.Is(err, keygen.ErrLicenseSuspended) ||
@@ -550,12 +550,14 @@ func isDefinitiveLicenseRejection(err error) bool {
 		return true
 	}
 
-	var apiErr *keygen.Error
-	if !errors.As(err, &apiErr) || apiErr.Response == nil {
-		return false
-	}
-	status := apiErr.Response.Status
-	return status >= http.StatusBadRequest && status < http.StatusInternalServerError && status != http.StatusTooManyRequests
+	var licenseKeyErr *keygen.LicenseKeyError
+	var licenseTokenErr *keygen.LicenseTokenError
+	var notAuthorizedErr *keygen.NotAuthorizedError
+	var notFoundErr *keygen.NotFoundError
+	return errors.As(err, &licenseKeyErr) ||
+		errors.As(err, &licenseTokenErr) ||
+		errors.As(err, &notAuthorizedErr) ||
+		errors.As(err, &notFoundErr)
 }
 
 func (p *Provider) validateLicense(ctx context.Context, keygenClient *keygen.Client, lic *keygen.License) (*keygenValidationResponse, error) {
