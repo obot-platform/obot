@@ -329,7 +329,6 @@
 		entity={profile.current.hasAdminAccess?.() ? 'catalog' : 'workspace'}
 		id={profile.current.hasAdminAccess?.() ? defaultCatalogId : (workspaceId ?? '')}
 		bind:catalog={defaultCatalog}
-		readonly={isAdminReadonly}
 		{usersMap}
 		{query}
 		{urlFilters}

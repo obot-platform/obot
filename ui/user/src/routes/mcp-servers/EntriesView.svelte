@@ -1,30 +1,17 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
-	import DotDotDot from '$lib/components/DotDotDot.svelte';
 	import Search from '$lib/components/Search.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
-	import McpConfirmDelete from '$lib/components/mcp/McpConfirmDelete.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import McpDetachedNotice from '$lib/components/mcp/McpDetachedNotice.svelte';
 	import McpTunnelDisconnectedStatus from '$lib/components/mcp/McpTunnelDisconnectedStatus.svelte';
-	import StaticOAuthConfigureModal from '$lib/components/mcp/StaticOAuthConfigureModal.svelte';
 	import Table, { type InitSort, type InitSortFn } from '$lib/components/table/Table.svelte';
-	import {
-		AdminService,
-		UserService,
-		type MCPCatalog,
-		type MCPCatalogEntry,
-		type MCPCatalogServer,
-		type OrgUser,
-		type MCPServerOAuthCredentialStatus
-	} from '$lib/services';
+	import { type MCPCatalog, type OrgUser } from '$lib/services';
 	import { OBOT_PLATFORM_REPO } from '$lib/services/admin/constants';
 	import {
 		convertEntriesToTableData,
-		deleteMcpServerDeployment,
 		isMultiUserCatalogEntry,
-		getMCPDisplayName,
 		hasEditableConfiguration,
 		isDeprecatedMCPServer
 	} from '$lib/services/user/mcp';
@@ -37,14 +24,11 @@
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
 	import { openUrl } from '$lib/utils';
 	import {
-		Captions,
 		CircleFadingArrowUp,
-		Ellipsis,
 		GitBranch,
 		Info,
 		Server,
 		Settings,
-		Trash2,
 		TriangleAlert
 	} from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
@@ -56,7 +40,6 @@
 		entity?: 'workspace' | 'catalog';
 		id?: string;
 		catalog?: MCPCatalog;
-		readonly?: boolean;
 		noDataContent?: Snippet;
 		usersMap?: Map<string, OrgUser>;
 		query?: string;
@@ -74,7 +57,6 @@
 		entity,
 		id,
 		catalog = $bindable(),
-		readonly,
 		noDataContent,
 		urlFilters: filters,
 		onFilter,
@@ -84,16 +66,6 @@
 		classes,
 		usersMap
 	}: Props = $props();
-
-	let deletingEntry = $state<MCPCatalogEntry>();
-	let deletingServer = $state<MCPCatalogServer>();
-	let selected = $state<Record<string, Item>>({});
-	let confirmBulkDelete = $state(false);
-	let loadingBulkDelete = $state(false);
-
-	let oauthConfigModal = $state<ReturnType<typeof StaticOAuthConfigureModal>>();
-	let oauthConfigEntry = $state<MCPCatalogEntry>();
-	let oauthStatus = $state<MCPServerOAuthCredentialStatus>();
 
 	let query = $derived(page.url.searchParams.get('query') ?? '');
 
@@ -143,71 +115,6 @@
 			.map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
 			.join('&');
 		return `/mcp-servers/c/${d.data.id}${query ? `?${query}` : ''}`;
-	}
-
-	function getAuditLogsUrl(d: Item) {
-		return getEntryUrl(d, { view: 'audit-logs' });
-	}
-
-	async function fetch() {
-		await mcpServersAndEntries.refreshAll();
-	}
-
-	async function deleteServerDeployment(server: MCPCatalogServer) {
-		await deleteMcpServerDeployment(server, catalog?.id);
-	}
-
-	async function handleConfigureOAuth(entry: MCPCatalogEntry) {
-		oauthConfigEntry = entry;
-		try {
-			const catalogId = entry.powerUserWorkspaceID ? undefined : 'default';
-			oauthStatus = entry.powerUserWorkspaceID
-				? await UserService.getWorkspaceMCPCatalogEntryOAuthCredentials(
-						entry.powerUserWorkspaceID,
-						entry.id
-					)
-				: await AdminService.getMCPCatalogEntryOAuthCredentials(catalogId!, entry.id);
-		} catch {
-			oauthStatus = { configured: false };
-		}
-		oauthConfigModal?.open();
-	}
-
-	async function handleSaveOAuth(credentials: {
-		clientID: string;
-		clientSecret: string;
-		authorizationServerURL?: string;
-	}) {
-		if (!oauthConfigEntry) return;
-		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await UserService.setWorkspaceMCPCatalogEntryOAuthCredentials(
-				oauthConfigEntry.powerUserWorkspaceID,
-				oauthConfigEntry.id,
-				credentials
-			);
-		} else {
-			await AdminService.setMCPCatalogEntryOAuthCredentials(
-				'default',
-				oauthConfigEntry.id,
-				credentials
-			);
-		}
-		// Refresh the table to update status
-		mcpServersAndEntries.refreshAll();
-	}
-
-	async function handleDeleteOAuth() {
-		if (!oauthConfigEntry) return;
-		if (oauthConfigEntry.powerUserWorkspaceID) {
-			await UserService.deleteWorkspaceMCPCatalogEntryOAuthCredentials(
-				oauthConfigEntry.powerUserWorkspaceID,
-				oauthConfigEntry.id
-			);
-		} else {
-			await AdminService.deleteMCPCatalogEntryOAuthCredentials('default', oauthConfigEntry.id);
-		}
-		// Refresh the table to update status
-		mcpServersAndEntries.refreshAll();
 	}
 
 	const updateSearchQuery = (value: string) => {
@@ -267,7 +174,8 @@
 				noDataMessage="No catalog servers added."
 				classes={{
 					root: 'rounded-none rounded-b-md shadow-none',
-					thead: classes?.tableHeader
+					thead: classes?.tableHeader,
+					row: 'min-h-14 py-3'
 				}}
 				setRowClasses={(d) => {
 					const missingSecretBinding = 'missingKubernetesSecret' in d && d.missingKubernetesSecret;
@@ -374,146 +282,7 @@
 						{d[property as keyof typeof d]}
 					{/if}
 				{/snippet}
-				{#snippet actions(d)}
-					{@const isCatalogEntry = 'isCatalogEntry' in d.data}
-					{@const catalogEntry = isCatalogEntry ? (d.data as MCPCatalogEntry) : undefined}
-					{@const auditLogUrl = getAuditLogsUrl(d)}
-					{@const belongsToUser =
-						entity === 'workspace' && id && d.data.powerUserWorkspaceID === id}
-					{@const canDelete =
-						d.editable && !readonly && (belongsToUser || profile.current?.hasAdminAccess?.())}
-					{@const requiresOAuth =
-						catalogEntry?.manifest?.runtime === 'remote' &&
-						catalogEntry.manifest?.remoteConfig?.staticOAuthRequired}
-					<DotDotDot class="hover:dark:bg-base-100/50" classes={{ menu: 'p-0' }}>
-						{#snippet icon()}
-							<Ellipsis class="size-4" />
-						{/snippet}
-
-						{#snippet children({ toggle })}
-							<div class="flex flex-col gap-1 p-2">
-								{#if requiresOAuth && catalogEntry && !readonly}
-									<button
-										class="menu-button hover:bg-base-400"
-										onclick={async (e) => {
-											e.stopPropagation();
-											await handleConfigureOAuth(catalogEntry);
-											toggle(false);
-										}}
-									>
-										<Settings class="size-4" /> Configure OAuth
-									</button>
-								{/if}
-								{#if auditLogUrl && (belongsToUser || profile.current?.hasAdminAccess?.())}
-									<button
-										onclick={(e) => {
-											e.stopPropagation();
-											const isCtrlClick = e.ctrlKey || e.metaKey;
-											openUrl(auditLogUrl, isCtrlClick);
-										}}
-										class="menu-button"
-									>
-										<Captions class="size-4" /> View Audit Logs
-									</button>
-								{/if}
-								{#if canDelete}
-									<button
-										class="menu-button-destructive"
-										onclick={(e) => {
-											e.stopPropagation();
-											deletingEntry = catalogEntry;
-											toggle(false);
-										}}
-									>
-										<Trash2 class="size-4" />
-										{catalogEntry ? 'Delete Entry' : 'Delete Server'}
-									</button>
-								{/if}
-							</div>
-						{/snippet}
-					</DotDotDot>
-				{/snippet}
 			</Table>
 		{/if}
 	{/if}
 </div>
-
-<McpConfirmDelete
-	names={[deletingEntry?.manifest?.name ?? '']}
-	show={Boolean(deletingEntry)}
-	onsuccess={async () => {
-		if (!deletingEntry) {
-			return;
-		}
-
-		if (deletingEntry.powerUserWorkspaceID) {
-			await UserService.deleteWorkspaceMCPCatalogEntry(
-				deletingEntry.powerUserWorkspaceID,
-				deletingEntry.id
-			);
-		} else if (catalog) {
-			await AdminService.deleteMCPCatalogEntry(catalog.id, deletingEntry.id);
-		}
-
-		await fetch();
-		deletingEntry = undefined;
-	}}
-	oncancel={() => (deletingEntry = undefined)}
-	entity="entry"
-	entityPlural="entries"
-/>
-
-<McpConfirmDelete
-	names={[getMCPDisplayName(deletingServer)]}
-	show={Boolean(deletingServer)}
-	onsuccess={async () => {
-		if (!deletingServer) {
-			return;
-		}
-
-		await deleteServerDeployment(deletingServer);
-
-		await fetch();
-		deletingServer = undefined;
-	}}
-	oncancel={() => (deletingServer = undefined)}
-	entity="server"
-	entityPlural="servers"
-/>
-
-<McpConfirmDelete
-	names={Object.values(selected).map((s) => s.name)}
-	show={confirmBulkDelete}
-	onsuccess={async () => {
-		loadingBulkDelete = true;
-		try {
-			for (const item of Object.values(selected)) {
-				if (item.data.powerUserWorkspaceID) {
-					await UserService.deleteWorkspaceMCPCatalogEntry(
-						item.data.powerUserWorkspaceID,
-						item.data.id
-					);
-				} else if (catalog) {
-					await AdminService.deleteMCPCatalogEntry(catalog.id, item.data.id);
-				}
-			}
-
-			await fetch();
-		} finally {
-			confirmBulkDelete = false;
-			loadingBulkDelete = false;
-		}
-	}}
-	oncancel={() => (confirmBulkDelete = false)}
-	loading={loadingBulkDelete}
-	entity="entry"
-	entityPlural="entries"
-/>
-
-<StaticOAuthConfigureModal
-	bind:this={oauthConfigModal}
-	{oauthStatus}
-	deprecated={isDeprecatedMCPServer(oauthConfigEntry)}
-	onSave={handleSaveOAuth}
-	onDelete={handleDeleteOAuth}
-/>

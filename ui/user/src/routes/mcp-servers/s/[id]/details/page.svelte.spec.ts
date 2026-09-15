@@ -75,5 +75,8 @@ describe('MCP Catalog multi-user server details page (admin)', () => {
 		await expect
 			.element(page.getByRole('heading', { name: 'Associated User', exact: true }))
 			.not.toBeInTheDocument();
+		await expect
+			.element(page.getByRole('link', { name: 'View Audit Logs' }))
+			.not.toBeInTheDocument();
 	});
 });

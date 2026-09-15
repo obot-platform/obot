@@ -58,16 +58,11 @@ describe('MCP Servers EntriesView', () => {
 		expect(openUrl).toHaveBeenCalledWith('/mcp-servers/c/workspace-entry?wid=ws-1', false);
 	});
 
-	it('keeps the workspace scope on the audit logs link', async () => {
+	it('does not render a row actions menu', async () => {
 		await renderEntriesView();
 
 		const row = page.getByRole('row').filter({ hasText: 'Workspace Entry' });
-		await row.getByRole('button', { name: 'Row actions' }).click();
-		await page.getByRole('button', { name: 'View Audit Logs' }).click();
 
-		expect(openUrl).toHaveBeenCalledWith(
-			'/mcp-servers/c/workspace-entry?view=audit-logs&wid=ws-1',
-			false
-		);
+		await expect.element(row.getByRole('button', { name: 'Row actions' })).not.toBeInTheDocument();
 	});
 });
