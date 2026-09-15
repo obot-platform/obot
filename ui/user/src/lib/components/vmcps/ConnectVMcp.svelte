@@ -19,7 +19,7 @@
 	import { vmcpInstances } from '$lib/stores';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -39,8 +39,18 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthVerificationGeneration = 0;
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
+	let onConnectingChange = $state<VMcpConnectOptions['onConnectingChange']>();
 	let skipConnectDialog = false;
+
+	$effect(() => {
+		// The instance is published before OAuth completes. Keep the tester waiting
+		// until both launch and authentication have finished.
+		const connecting = saving || Boolean(oauthURL) || oauthVerifying;
+		const notify = onConnectingChange;
+		untrack(() => notify?.(connecting));
+	});
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -74,9 +84,11 @@
 		targetInstance?: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
+		oauthVerificationGeneration++;
 		vmcp = target;
 		instance = targetInstance;
 		onConnected = options?.onConnected;
+		onConnectingChange = options?.onConnectingChange;
 		configureForm = undefined;
 		error = undefined;
 		launchError = undefined;
@@ -263,6 +275,8 @@
 	}
 
 	function finishLaunch() {
+		// Completion and dismissal both invalidate any outstanding OAuth checks.
+		oauthVerificationGeneration++;
 		configureDialog?.close();
 		const connected = onConnected;
 		onConnected = undefined;
@@ -282,7 +296,10 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
+			const generation = ++oauthVerificationGeneration;
+			const url = await getOauthURL();
+			if (generation !== oauthVerificationGeneration) return;
+			oauthURL = url;
 			if (!oauthURL) {
 				oauthDialog?.close();
 				finishLaunch();
@@ -314,6 +331,7 @@
 	function handleOauthClose() {
 		oauthDialog?.close();
 		oauthURL = '';
+		oauthVerifying = false;
 		finishLaunch();
 	}
 
@@ -375,6 +393,7 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
+			oauthVerificationGeneration++;
 			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 		};
 	});
@@ -543,7 +562,14 @@
 	{/snippet}
 </Confirm>
 
-<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
+<dialog
+	bind:this={oauthDialog}
+	class="dialog"
+	use:dialogAnimation={{ type: 'slide' }}
+	onclose={() => {
+		if (oauthURL || oauthVerifying) handleOauthClose();
+	}}
+>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
 			{#if oauthURL}
