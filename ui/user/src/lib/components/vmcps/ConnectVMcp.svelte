@@ -39,6 +39,7 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
+	let oauthVerificationGeneration = 0;
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
 	let onConnectingChange = $state<VMcpConnectOptions['onConnectingChange']>();
 	let skipConnectDialog = false;
@@ -83,6 +84,7 @@
 		targetInstance?: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
+		oauthVerificationGeneration++;
 		vmcp = target;
 		instance = targetInstance;
 		onConnected = options?.onConnected;
@@ -273,6 +275,8 @@
 	}
 
 	function finishLaunch() {
+		// Completion and dismissal both invalidate any outstanding OAuth checks.
+		oauthVerificationGeneration++;
 		configureDialog?.close();
 		const connected = onConnected;
 		onConnected = undefined;
@@ -292,7 +296,10 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			oauthURL = await getOauthURL();
+			const generation = ++oauthVerificationGeneration;
+			const url = await getOauthURL();
+			if (generation !== oauthVerificationGeneration) return;
+			oauthURL = url;
 			if (!oauthURL) {
 				oauthDialog?.close();
 				finishLaunch();
@@ -386,6 +393,7 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
+			oauthVerificationGeneration++;
 			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 		};
 	});
