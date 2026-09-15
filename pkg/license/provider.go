@@ -399,9 +399,6 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			if entitlements == nil {
-				return fmt.Errorf("validate Community fallback before removing primary license: %w", ErrInvalidLicense)
-			}
 		}
 
 		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
@@ -632,7 +629,6 @@ func isLicenseRejection(err error) bool {
 		errors.Is(err, keygen.ErrMachineLimitExceeded) {
 		return true
 	}
-
 	// The rest come back as a *keygen.Error, and keygen-go has no constants for most of their codes.
 	keygenErr, ok := errors.AsType[*keygen.Error](err)
 	if !ok {
