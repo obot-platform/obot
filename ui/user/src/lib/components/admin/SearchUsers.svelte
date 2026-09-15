@@ -2,6 +2,7 @@
 	import { MCP_ACCESS_POLICY_FIELD_IDS } from '$lib/constants';
 	import Loading from '$lib/icons/Loading.svelte';
 	import { UserService, type OrgGroup, type OrgUser } from '$lib/services';
+	import { profile } from '$lib/stores';
 	import { getUserRoleLabel } from '$lib/utils';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import Search from '../Search.svelte';
@@ -49,10 +50,19 @@
 
 	let filteredData = $derived.by(() => {
 		const everyoneGroup: OrgGroup = { id: '*', name: 'All Obot Users' };
+		const adminGroup: OrgGroup = { id: 'admin', name: 'admin' };
+		const query = searchNames.toLowerCase();
 		const shouldIncludeEveryone =
-			!searchNames.length || everyoneGroup.name.toLowerCase().includes(searchNames.toLowerCase());
+			!searchNames.length || everyoneGroup.name.toLowerCase().includes(query);
+		const shouldIncludeAdmin =
+			profile.current.isAdmin?.() &&
+			(!searchNames.length || adminGroup.name.toLowerCase().includes(query));
 
-		const allGroups = shouldIncludeEveryone ? [everyoneGroup, ...filteredGroups] : filteredGroups;
+		const specialGroups = [
+			...(shouldIncludeEveryone ? [everyoneGroup] : []),
+			...(shouldIncludeAdmin ? [adminGroup] : [])
+		];
+		const allGroups = [...specialGroups, ...filteredGroups];
 		const combined: (OrgUser | OrgGroup)[] = [...allGroups, ...filteredUsers];
 		const filterIdSet = new Set(filterIds ?? []);
 

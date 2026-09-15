@@ -3,7 +3,6 @@
 	import Loading from '$lib/icons/Loading.svelte';
 	import {
 		AdminService,
-		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
 		type SkillAccessPolicy,
@@ -13,13 +12,12 @@
 	import type { Skill } from '$lib/services/nanobot/types';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchSkills from './SearchSkills.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { resolveSubjects } from './subjectResolver';
+	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -157,48 +155,6 @@
 					return undefined;
 				})
 				.filter((resource) => resource !== undefined) ?? []
-		);
-	}
-
-	function convertSubjectsToTableData(
-		subjects: AccessControlRuleSubject[],
-		users: OrgUser[],
-		groups: OrgGroup[]
-	) {
-		const userMap = new Map(users?.map((user) => [user.id, user]));
-		const groupMap = new Map(groups?.map((group) => [group.id, group]));
-
-		return (
-			subjects
-				.map((subject) => {
-					if (subject.type === 'user') {
-						return {
-							id: subject.id,
-							displayName: getUserDisplayName(userMap, subject.id),
-							type: 'User'
-						};
-					}
-
-					if (subject.type === 'group') {
-						const group = groupMap.get(subject.id);
-						if (!group) {
-							return undefined;
-						}
-
-						return {
-							id: subject.id,
-							displayName: group.name,
-							type: 'Group'
-						};
-					}
-
-					return {
-						id: subject.id,
-						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
-						type: 'Selector'
-					};
-				})
-				.filter((subject) => subject !== undefined) ?? []
 		);
 	}
 
