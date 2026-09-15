@@ -102,8 +102,10 @@
 	);
 	let canAccessTester = $derived(Boolean(selectedVMcp?.id && (isOwner || !selectedVMcp?.userID)));
 	let canAccessProfiles = $derived(isOwner && profile.current.hasAdminAccess?.());
+	let hasEntries = $derived(mcpServersAndEntries.current.entries.length > 0);
 	let canEdit = $derived(
-		!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID
+		(!selectedVMcp || profile.current.isAdmin?.() || profile.current.id === selectedVMcp?.userID) &&
+			hasEntries
 	);
 	let viewType = $derived(
 		(view === 'profiles' && !canAccessProfiles) || (view === 'tester' && !canAccessTester)
@@ -159,7 +161,12 @@
 	});
 
 	let showCreationHint = $derived(
-		creationHintQueued && !toolFlow.dialog && viewType === 'graph' && isOwner && canEdit
+		creationHintQueued &&
+			!toolFlow.dialog &&
+			viewType === 'graph' &&
+			isOwner &&
+			canEdit &&
+			!hasEntries
 	);
 
 	function componentManifestField(component: VMCPComponent, field: 'name' | 'shortDescription') {
@@ -601,7 +608,7 @@
 	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
-<VMcpIntroduction show={canEdit && viewType === 'graph'} />
+<VMcpIntroduction show={canEdit && viewType === 'graph' && !hasEntries} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

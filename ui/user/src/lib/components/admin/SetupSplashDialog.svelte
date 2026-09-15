@@ -9,17 +9,25 @@
 		deferProductAnalyticsConsent,
 		isProductAnalyticsConsentDeferred
 	} from '$lib/stores/productTelemetryConsent.svelte';
+	import setupSplash from '$lib/stores/setupSplash.svelte';
 	import { goto, setUrlParamAndUpdateUrl } from '$lib/url';
 	import Logo from '../Logo.svelte';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { CircleCheckBig } from '@lucide/svelte';
-	import { onMount, type Snippet } from 'svelte';
+	import { onDestroy, onMount, type Snippet } from 'svelte';
 	import { twMerge } from 'tailwind-merge';
 
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
 	let loading = $state(false);
 	let shareProductUsage = $state(true);
 	let productAnalyticsDeferred = $state(true);
+	let splashOpened = $state(false);
+
+	// Block other onboarding dialogs until this splash has either opened or decided not to.
+	setupSplash.blocking = true;
+	onDestroy(() => {
+		setupSplash.blocking = false;
+	});
 
 	const authProviderPath = '/identity-access';
 	const modelProviderPath = '/models?view=model-providers';
@@ -52,23 +60,46 @@
 		productAnalyticsDeferred = isProductAnalyticsConsentDeferred();
 	});
 
-	$effect(() => {
-		if (profile.current.loaded && !profile.current.unauthorized && storeData.lastFetched) {
-			const { seenAt: firstTimeViewed } = getSeenTimestamp(
-				seenSplashDialogKey,
-				profile.current.created
-			);
+	function releaseSplashBlock() {
+		splashOpened = false;
+		setupSplash.blocking = false;
+	}
 
-			const isOwner = profile.current.groups.includes(Group.OWNER);
-			const needsSetup =
-				!firstTimeViewed &&
-				(isBootstrapUser || isOwner) &&
-				(!isAuthProviderConfigured ||
-					requiresModelProviderConfiguration ||
-					!storeData.eulaAccepted);
-			if (needsSetup || needsProductAnalyticsConsent) {
-				dialog?.open();
+	$effect(() => {
+		if (!profile.current.loaded || profile.current.unauthorized) {
+			return;
+		}
+
+		if (!storeData.lastFetched) {
+			const mightSeeSplash =
+				profile.current.hasAdminAccess?.() ||
+				profile.current.isBootstrapUser?.() ||
+				profile.current.groups.includes(Group.OWNER);
+			if (!mightSeeSplash) {
+				setupSplash.blocking = false;
 			}
+			return;
+		}
+
+		const { seenAt: firstTimeViewed } = getSeenTimestamp(
+			seenSplashDialogKey,
+			profile.current.created
+		);
+
+		const isOwner = profile.current.groups.includes(Group.OWNER);
+		const needsSetup =
+			!firstTimeViewed &&
+			(isBootstrapUser || isOwner) &&
+			(!isAuthProviderConfigured || requiresModelProviderConfiguration || !storeData.eulaAccepted);
+		if (needsSetup || needsProductAnalyticsConsent) {
+			splashOpened = true;
+			setupSplash.blocking = true;
+			dialog?.open();
+			return;
+		}
+
+		if (!splashOpened) {
+			setupSplash.blocking = false;
 		}
 	});
 
@@ -116,6 +147,7 @@
 			await handleAcceptEula();
 			markSeenTimestamp(seenSplashDialogKey);
 			dialog?.close();
+			releaseSplashBlock();
 			await finishOnboarding();
 		} finally {
 			loading = false;
@@ -123,7 +155,13 @@
 	}
 </script>
 
-<ResponsiveDialog bind:this={dialog} hideClose disableClickOutside class="text-md w-sm">
+<ResponsiveDialog
+	bind:this={dialog}
+	hideClose
+	disableClickOutside
+	class="text-md w-sm"
+	onClose={releaseSplashBlock}
+>
 	<div class="flex w-full items-center justify-center">
 		<Logo class="size-18" />
 	</div>

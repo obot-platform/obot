@@ -2,6 +2,7 @@
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
 	import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 	import { profile } from '$lib/stores';
+	import setupSplash from '$lib/stores/setupSplash.svelte';
 	import { GripVertical, Layers, MousePointer2, Plus, Server } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -27,7 +28,7 @@
 	}
 
 	$effect(() => {
-		if (show && !dismissed) {
+		if (show && !dismissed && !setupSplash.blocking) {
 			dialog?.open();
 			return;
 		}
