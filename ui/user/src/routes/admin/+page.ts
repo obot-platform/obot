@@ -13,7 +13,7 @@ function getAdminRedirectPath(profile?: Profile): string {
 
 	const created = profile?.created ? new Date(profile.created) : null;
 	if (created && Date.now() - created.getTime() < NEW_USER_REDIRECT_WINDOW_MS) {
-		return '/vmcps';
+		return '/vmcps?new=true';
 	}
 
 	return '/dashboard';

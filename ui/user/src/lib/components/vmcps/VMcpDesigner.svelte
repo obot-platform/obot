@@ -59,9 +59,10 @@
 		onBack?: () => void;
 		usersMap: Map<string, OrgUser>;
 		isFirstVMcp?: boolean;
+		showBackButton?: boolean;
 	}
 
-	let { vmcp, onBack, usersMap, isFirstVMcp = false }: Props = $props();
+	let { vmcp, onBack, usersMap, isFirstVMcp = false, showBackButton = true }: Props = $props();
 
 	let view = $derived(
 		(page.url.searchParams.get('view') as 'graph' | 'profiles' | 'tester' | undefined) ?? 'graph'
@@ -388,7 +389,7 @@
 		collapsedSidebarHeaderContent: 'p-4 pb-0'
 	}}
 	{title}
-	showBackButton
+	{showBackButton}
 	onBackButtonClick={handleBack}
 >
 	<div

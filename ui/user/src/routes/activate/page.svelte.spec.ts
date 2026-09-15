@@ -122,7 +122,9 @@ describe('owner activation page', () => {
 
 		render(ActivatePage);
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fvmcps'));
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/change-password?rd=%2Fvmcps%3Fnew%3Dtrue')
+		);
 	});
 
 	it('explains that activation is required when opened without a link', async () => {
