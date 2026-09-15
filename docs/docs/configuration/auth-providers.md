@@ -348,8 +348,6 @@ This section describes the steps involved in switching authentication providers 
 The account you sign in with is granted the **Owner** role. Use the account that should own Obot after the switch.
 :::
 
-Complete Step 3 within 15 minutes of clicking **Sign in with Microsoft Entra**. After that you are logged out. Log back in with GitHub to return to the dialog, where your verification is kept, so you can finish the switch without signing in with Entra again.
-
 ### Step 3: Complete the Switch
 
 1. Click **Switch to Microsoft Entra**.
