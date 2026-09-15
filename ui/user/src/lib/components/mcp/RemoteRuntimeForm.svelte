@@ -4,6 +4,7 @@
 	import type { MCPAllowedSecretBindingTarget, MCPTunnel } from '$lib/services';
 	import type {
 		LegacyRemoteCatalogConfigAdmin,
+		MCPCatalogEntryFieldManifest,
 		RemoteCatalogConfigAdmin,
 		RemoteRuntimeConfigAdmin
 	} from '$lib/services/admin/types';
@@ -105,6 +106,37 @@
 	}) {
 		return Boolean(field.secretBinding) || field.secretBindingSource === 'secret';
 	}
+
+	type HeaderValueType = 'static' | 'user_supplied' | 'options';
+
+	// Headers the user fills in carry no value of their own, so they are identified by the
+	// schema they declare rather than by `required` -- optional headers are user-supplied too.
+	function deriveHeaderValueType(header: MCPCatalogEntryFieldManifest): HeaderValueType {
+		if (header.options && header.options.length > 0) return 'options';
+		if ((header.value?.length ?? 0) > 0 || usesSecretBindingSource(header)) return 'static';
+		if (
+			header.required ||
+			header.sensitive ||
+			header.name?.trim() ||
+			header.description?.trim() ||
+			header.prefix?.trim()
+		) {
+			return 'user_supplied';
+		}
+		return 'static';
+	}
+
+	// A header that is neither filled in nor described yet is ambiguous, so remember what was
+	// picked for it. Indexes track config.headers, which is keyed by position.
+	let headerValueTypes = $state<(HeaderValueType | undefined)[]>([]);
+
+	function headerValueType(index: number): HeaderValueType {
+		// Deployed servers have no user-supplied headers: the admin provides every value.
+		if (variant === 'server') return 'static';
+		const header = config.headers?.[index];
+		if (!header) return 'static';
+		return headerValueTypes[index] ?? deriveHeaderValueType(header);
+	}
 </script>
 
 {#snippet remoteHeaders(showUrlTemplateHelp: boolean)}
@@ -157,13 +189,11 @@
 												{ label: 'User-Supplied', id: 'user_supplied' },
 												{ label: 'Options', id: 'options' }
 											]}
-											selected={config.headers[i].options
-												? 'options'
-												: config.headers[i].required
-													? 'user_supplied'
-													: 'static'}
+											selected={headerValueType(i)}
+											{readonly}
 											onSelect={(option) => {
 												if (!config.headers?.[i]) return;
+												headerValueTypes[i] = option.id as HeaderValueType;
 												if (option.id === 'user_supplied') {
 													config.headers[i].required = true;
 												} else {
@@ -171,6 +201,9 @@
 													config.headers[i].name = '';
 													config.headers[i].description = '';
 													config.headers[i].sensitive = false;
+												}
+												if (option.id === 'static') {
+													config.headers[i].prefix = '';
 												}
 												config.headers[i].value = '';
 
@@ -195,7 +228,7 @@
 										showInvalid={showInvalid?.headers}
 									/>
 								{/if}
-								{#if config.headers[i].required}
+								{#if headerValueType(i) !== 'static'}
 									<div class="flex w-full flex-col gap-1">
 										<label for={`header-name-${i}`} class="text-sm font-light">Name</label>
 										<input
@@ -234,18 +267,33 @@
 											disabled={readonly}
 										/>
 									</div>
-									<Toggle
-										classes={{ label: 'text-sm text-inherit' }}
-										disabled={readonly}
-										label="Sensitive"
-										labelInline
-										checked={!!header.sensitive}
-										onChange={(checked) => {
-											if (config.headers?.[i]) {
-												config.headers[i].sensitive = checked;
-											}
-										}}
-									/>
+									<div class="flex w-full">
+										<Toggle
+											classes={{ label: 'text-sm text-inherit' }}
+											disabled={readonly}
+											label="Sensitive"
+											labelInline
+											checked={!!header.sensitive}
+											onChange={(checked) => {
+												if (config.headers?.[i]) {
+													config.headers[i].sensitive = checked;
+												}
+											}}
+										/>
+										<div class="divider divider-horizontal"></div>
+										<Toggle
+											classes={{ label: 'text-sm text-inherit' }}
+											disabled={readonly}
+											label="Required"
+											labelInline
+											checked={!!header.required}
+											onChange={(checked) => {
+												if (config.headers?.[i]) {
+													config.headers[i].required = checked;
+												}
+											}}
+										/>
+									</div>
 								{:else}
 									{#if secretBindingTargets && !version.current.hideK8sDetails}
 										<SecretBindingPicker
@@ -266,6 +314,7 @@
 												class="text-input-filled bg-base-100 w-full shadow-none"
 												bind:value={config.headers[i].value}
 												disabled={readonly}
+												type={config.headers[i].sensitive ? 'password' : 'text'}
 											/>
 										</div>
 									{/if}
@@ -277,6 +326,7 @@
 									variant="danger2"
 									onclick={() => {
 										config.headers?.splice(i, 1);
+										headerValueTypes.splice(i, 1);
 									}}
 									tooltip={{ text: 'Delete Header' }}
 								>
@@ -305,6 +355,7 @@
 								sensitive: false,
 								file: false
 							});
+							headerValueTypes.push('static');
 						}}
 					>
 						<Plus class="size-4" />

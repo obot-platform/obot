@@ -355,5 +355,70 @@ describe('CatalogServerForm.svelte', () => {
 				);
 			});
 		});
+
+		it('shows an optional header from a synced entry as user-supplied with its prefix', async () => {
+			const entry: MCPCatalogEntry = structuredClone(createMCPCatalogEntryResponse);
+			entry.sourceURL = 'https://github.com/example/catalog';
+			entry.manifest.runtime = 'remote';
+			entry.manifest.remoteConfig = { fixedURL: 'https://mcp.context7.com/mcp' };
+			entry.manifest.config = [
+				{
+					key: 'Authorization',
+					name: 'Context7 API Key',
+					description: 'Optional API key for higher limits and private sources',
+					required: false,
+					sensitive: true,
+					value: '',
+					prefix: 'Bearer ',
+					usage: 'header'
+				}
+			];
+
+			await render(CatalogServerForm, {
+				id: catalogID,
+				entity: 'catalog',
+				entry,
+				readonly: true
+			});
+
+			await expect
+				.element(page.getByCSS(`#env-value-type-${CATALOG_SERVER_FIELD_IDS.env}-0`))
+				.toHaveTextContent('User-Supplied');
+			await expect.element(page.getByCSS('#catalog-config-prefix-0')).toHaveValue('Bearer ');
+			await expect.element(page.getByRole('switch', { name: 'Required' })).not.toBeChecked();
+		});
+
+		it('submits an optional header authored on a new remote catalog entry', async () => {
+			let submitted: Record<string, unknown> | undefined;
+			worker.use(
+				http.post(`/api/mcp-catalogs/${catalogID}/entries`, async ({ request }) => {
+					submitted = (await request.json()) as Record<string, unknown>;
+					return HttpResponse.json(createMCPCatalogEntryResponse);
+				})
+			);
+			await renderRemoteForm();
+			await fillRequiredServerFields({ packageName: '' });
+			await page.getByCSS('#basic-url').fill('https://mcp.context7.com/mcp');
+
+			await addConfiguration();
+			await page.getByCSS('#catalog-config-usage-0').click();
+			await page.getByRole('button', { name: 'Header', exact: true }).click();
+			await page.getByCSS(`#env-key-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('Authorization');
+			await page.getByCSS(`#env-name-${CATALOG_SERVER_FIELD_IDS.env}-0`).fill('Context7 API Key');
+			await page.getByCSS('#catalog-config-prefix-0').fill('Bearer ');
+
+			await submitForm();
+
+			await vi.waitFor(() => expect(submitted).toBeDefined());
+			expect(submitted?.config).toEqual([
+				expect.objectContaining({
+					usage: 'header',
+					key: 'Authorization',
+					name: 'Context7 API Key',
+					required: false,
+					prefix: 'Bearer '
+				})
+			]);
+		});
 	});
 });
