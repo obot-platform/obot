@@ -8,6 +8,7 @@ Obot supports a variety of model providers, including:
 
 - OpenAI
 - Anthropic
+- [Databricks](#databricks)
 - [Generic Responses Compatible Provider](#generic-responses-compatible-provider)
 - [Azure OpenAI / Microsoft Foundry](#azure)
 - [Amazon Bedrock](#amazon-bedrock)
@@ -57,6 +58,17 @@ Setting a default model here does not automatically grant users access to it. Us
 :::
 
 ### Instructions for configuring specific providers
+
+#### Databricks
+
+Use the **Databricks** provider to access the pay-per-token foundation models available in a Databricks workspace. Configure:
+
+- **Workspace URL** — the workspace origin, such as `https://dbc-xxxxxxxx-xxxx.cloud.databricks.com`.
+- **Personal Access Token** — a token with permission to list and query serving endpoints.
+
+Obot discovers ready, built-in `databricks-*` chat endpoints from the Databricks Serving Endpoints API. Native GPT endpoints use Databricks' OpenAI Responses passthrough; Claude, Gemini, GPT OSS, and other Databricks-hosted open models use Databricks OpenResponses. The exact endpoint name is retained so it can be matched to Databricks pricing from models.dev.
+
+OpenResponses conversations are stateless: clients must send the full conversation on each request. Feature support for reasoning, structured output, tools, images, and documents varies by model. See the Databricks documentation for [OpenResponses models](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-open-responses-models) and [OpenAI Responses models](https://docs.databricks.com/aws/en/machine-learning/model-serving/query-openai-responses).
 
 #### Azure
 

@@ -42,7 +42,7 @@ func (b bedrockMantleProviderBackend) modelProviderName() string {
 	return b.providerName
 }
 
-func (b bedrockMantleProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string) (url.URL, llmtypes.Dialect, error) {
+func (b bedrockMantleProviderBackend) upstreamURL(req *http.Request, credEnv map[string]string, _ *v1.Model) (url.URL, llmtypes.Dialect, error) {
 	dialect, err := resolveBedrockRouteDialect(req)
 	if err != nil {
 		return url.URL{}, "", types2.NewErrBadRequest("failed to determine Bedrock dialect: %v", err)

@@ -4,6 +4,7 @@ export type ProviderShortKey =
 	| 'openai'
 	| 'anthropic'
 	| 'generic-responses'
+	| 'databricks'
 	| 'aws-bedrock-anthropic'
 	| 'aws-bedrock-openai'
 	| 'aws-bedrock-api-key-anthropic'
@@ -38,6 +39,12 @@ export const PROVIDER_CONNECTIONS: Record<ProviderShortKey, ProviderConnection> 
 		shortKey: 'generic-responses',
 		displayName: 'Generic Responses Compatible',
 		routePath: 'generic-responses'
+	},
+	databricks: {
+		id: CommonModelProviderIds.DATABRICKS,
+		shortKey: 'databricks',
+		displayName: 'Databricks',
+		routePath: 'databricks'
 	},
 	'aws-bedrock-anthropic': {
 		id: CommonModelProviderIds.AMAZON_BEDROCK,
@@ -93,6 +100,7 @@ export const SUPPORTED_PROVIDER_IDS = new Set<string>([
 	CommonModelProviderIds.OPENAI,
 	CommonModelProviderIds.ANTHROPIC,
 	CommonModelProviderIds.GENERIC_RESPONSES,
+	CommonModelProviderIds.DATABRICKS,
 	CommonModelProviderIds.AMAZON_BEDROCK,
 	CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 	CommonModelProviderIds.AZURE,

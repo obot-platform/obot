@@ -12,6 +12,7 @@ export const sortModelProviders = (modelProviders: ModelProvider[]) => {
 		CommonModelProviderIds.AZURE_OPENAI,
 		CommonModelProviderIds.AZURE,
 		CommonModelProviderIds.AZURE_ENTRA,
+		CommonModelProviderIds.DATABRICKS,
 		CommonModelProviderIds.AMAZON_BEDROCK,
 		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		CommonModelProviderIds.ANTHROPIC_BEDROCK,

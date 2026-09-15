@@ -27,6 +27,7 @@
 		CommonModelProviderIds.AMAZON_BEDROCK_API_KEY,
 		CommonModelProviderIds.AZURE,
 		CommonModelProviderIds.AZURE_ENTRA,
+		CommonModelProviderIds.DATABRICKS,
 		CommonModelProviderIds.GENERIC_RESPONSES
 	];
 
