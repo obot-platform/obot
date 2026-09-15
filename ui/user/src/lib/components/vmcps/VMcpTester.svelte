@@ -3,9 +3,16 @@
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { VMCP } from '$lib/services';
+	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
-	import { accessibleModels, defaultModelAliases, profile, vmcpInstances } from '$lib/stores';
+	import {
+		accessibleModels,
+		defaultModelAliases,
+		profile,
+		version,
+		vmcpInstances
+	} from '$lib/stores';
 	import { Layers } from '@lucide/svelte';
 
 	interface Props {
@@ -25,25 +32,11 @@
 	let launched = $derived(Boolean(instance));
 	let serverName = $derived(vmcp.displayName || vmcp.id);
 	let server = $derived(vmcpTesterServer(vmcp, instance?.id ?? vmcp.id, instance));
-	let configuredDefault = $derived(
-		defaultModelAliases.current.find((alias) => alias.alias === 'llm')
+	let chatAvailability = $derived(
+		testerChatAvailability(version.current, defaultModelAliases.current, accessibleModels.current)
 	);
-	let defaultModel = $derived(
-		configuredDefault?.model
-			? accessibleModels.current.find(
-					(model) =>
-						model.active &&
-						(model.id === configuredDefault?.model ||
-							(model.aliasAssigned && model.alias === configuredDefault?.model))
-				)
-			: undefined
-	);
-	let chatAvailable = $derived(Boolean(configuredDefault?.model && defaultModel));
-	let chatUnavailableMessage = $derived(
-		!configuredDefault?.model
-			? 'No default llm model is configured. Configure one to use Chat.'
-			: 'The configured default llm model is inactive or unavailable to your account.'
-	);
+	let chatAvailable = $derived(chatAvailability.available);
+	let chatUnavailableMessage = $derived(chatAvailability.unavailableMessage);
 </script>
 
 <div class="py-4 h-full w-full">

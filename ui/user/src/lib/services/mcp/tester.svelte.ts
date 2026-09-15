@@ -1,4 +1,4 @@
-import type { MCPCatalogServer } from '$lib/services/user/types';
+import type { DefaultModelAlias, MCPCatalogServer, Model, Version } from '$lib/services/user/types';
 import { LoggingTransport } from './logging-transport';
 import { MCPTesterLog } from './tester-log.svelte';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -94,6 +94,60 @@ export function testerConnectionKey(server?: MCPCatalogServer): string | undefin
 		Boolean(server.missingOAuthCredentials),
 		server.deploymentStatus ?? ''
 	]);
+}
+
+export interface TesterChatAvailability {
+	available: boolean;
+	unavailableMessage: string;
+}
+
+// Chat runs either on the installation's configured model provider or, when there is none, on the
+// MCP Tester model service. Both Tester hosts resolve it here so a new host cannot drift back to
+// checking only the default model alias.
+export function testerChatAvailability(
+	version: Version,
+	aliases: DefaultModelAlias[] | undefined,
+	models: Model[] | undefined
+): TesterChatAvailability {
+	// A null value means the server could not read model configuration, which is never permission
+	// to use the external model service.
+	if (version.hasModelProvider === null) {
+		return {
+			available: false,
+			unavailableMessage: 'Model configuration is unavailable or changing. Try again later.'
+		};
+	}
+
+	if (version.hasModelProvider === false) {
+		if (version.mcpTesterModelProxyAvailable === true) {
+			return { available: true, unavailableMessage: '' };
+		}
+
+		return {
+			available: false,
+			unavailableMessage:
+				version.hasValidLicense !== true
+					? 'Register a valid Obot license to use Chat without a model provider.'
+					: 'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+		};
+	}
+
+	const configuredDefault = aliases?.find((alias) => alias.alias === 'llm');
+	const defaultModel = configuredDefault?.model
+		? models?.find(
+				(model) =>
+					model.active &&
+					(model.id === configuredDefault.model ||
+						(model.aliasAssigned && model.alias === configuredDefault.model))
+			)
+		: undefined;
+
+	return {
+		available: Boolean(configuredDefault?.model && defaultModel),
+		unavailableMessage: !configuredDefault?.model
+			? 'No default llm model is configured. Configure one to use Chat.'
+			: 'The configured default llm model is inactive or unavailable to your account.'
+	};
 }
 
 export interface TesterWorkflow {

@@ -1,5 +1,10 @@
-import type { MCPCatalogServer } from '$lib/services';
-import { MCPTesterSession, normalizeTesterSection, testerConnectionKey } from './tester.svelte';
+import type { DefaultModelAlias, MCPCatalogServer, Model, Version } from '$lib/services';
+import {
+	MCPTesterSession,
+	normalizeTesterSection,
+	testerChatAvailability,
+	testerConnectionKey
+} from './tester.svelte';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { GetPromptResult, ReadResourceResult } from '@modelcontextprotocol/sdk/types.js';
 import { describe, expect, it, vi } from 'vitest';
@@ -80,6 +85,70 @@ describe('testerConnectionKey', () => {
 		expect(
 			testerConnectionKey({ ...server, deploymentStatus: 'Unavailable' } as MCPCatalogServer)
 		).not.toBe(testerConnectionKey(server));
+	});
+});
+
+describe('testerChatAvailability', () => {
+	const aliases = [{ alias: 'llm', model: 'm1default' }] as DefaultModelAlias[];
+	const models = [{ id: 'm1default', active: true }] as Model[];
+
+	it('uses the model service when no provider is configured', () => {
+		expect(
+			testerChatAvailability(
+				{ hasModelProvider: false, hasValidLicense: true, mcpTesterModelProxyAvailable: true },
+				[],
+				[]
+			)
+		).toEqual({ available: true, unavailableMessage: '' });
+	});
+
+	it.each([
+		{
+			name: 'an unlicensed installation',
+			version: { hasModelProvider: false, hasValidLicense: false },
+			message: 'Register a valid Obot license to use Chat without a model provider.'
+		},
+		{
+			name: 'a disabled model service',
+			version: {
+				hasModelProvider: false,
+				hasValidLicense: true,
+				mcpTesterModelProxyAvailable: false
+			},
+			message: 'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
+		},
+		{
+			name: 'unreadable model configuration',
+			version: { hasModelProvider: null, hasValidLicense: true },
+			message: 'Model configuration is unavailable or changing. Try again later.'
+		}
+	])('refuses Chat for $name even with a usable default model', ({ version, message }) => {
+		expect(testerChatAvailability(version as Version, aliases, models)).toEqual({
+			available: false,
+			unavailableMessage: message
+		});
+	});
+
+	it('falls back to the default model alias when a provider is configured', () => {
+		const version = { hasModelProvider: true, hasValidLicense: false } as Version;
+
+		expect(testerChatAvailability(version, aliases, models).available).toBe(true);
+		expect(testerChatAvailability(version, [], [])).toEqual({
+			available: false,
+			unavailableMessage: 'No default llm model is configured. Configure one to use Chat.'
+		});
+		expect(
+			testerChatAvailability(version, aliases, [{ id: 'm1default', active: false }] as Model[])
+		).toEqual({
+			available: false,
+			unavailableMessage:
+				'The configured default llm model is inactive or unavailable to your account.'
+		});
+	});
+
+	it('keeps the pre-model-service behavior when the version response is unavailable', () => {
+		expect(testerChatAvailability({}, aliases, models).available).toBe(true);
+		expect(testerChatAvailability({}, [], []).available).toBe(false);
 	});
 });
 
