@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -11,15 +12,21 @@ import (
 	"github.com/obot-platform/obot/pkg/system"
 )
 
-type Handler struct {
-	serverURL        string
-	bootstrapEnabler *bootstrap.Bootstrap
+type configuredAuthProviderGetter interface {
+	GetConfiguredAuthProvider(context.Context) (string, error)
 }
 
-func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap) *Handler {
+type Handler struct {
+	serverURL          string
+	bootstrapEnabler   *bootstrap.Bootstrap
+	authProviderGetter configuredAuthProviderGetter
+}
+
+func NewHandler(serverURL string, bootstrapEnabler *bootstrap.Bootstrap, authProviderGetter configuredAuthProviderGetter) *Handler {
 	return &Handler{
-		serverURL:        serverURL,
-		bootstrapEnabler: bootstrapEnabler,
+		serverURL:          serverURL,
+		bootstrapEnabler:   bootstrapEnabler,
+		authProviderGetter: authProviderGetter,
 	}
 }
 

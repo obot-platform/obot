@@ -81,8 +81,11 @@ func (h *LocalAuthHandler) Create(req api.Context) error {
 		return types.NewErrBadRequest("invalid request body: %v", err)
 	}
 
-	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange))
-	if errors.Is(err, gateway.ErrLocalAuthUserExists) {
+	bootstrap := req.User.GetName() == system.BootstrapName
+	user, err := h.provider.CreateUser(req.Context(), body.Email, body.Password, defaultTrue(body.RequirePasswordChange), bootstrap)
+	if errors.Is(err, gateway.ErrBootstrapLocalAuthUserLimit) {
+		return types.NewErrHTTP(http.StatusConflict, err.Error())
+	} else if errors.Is(err, gateway.ErrLocalAuthUserExists) {
 		return types.NewErrBadRequest("a local user with that email already exists")
 	} else if invalid, ok := errors.AsType[localauth.InvalidUserError](err); ok {
 		return types.NewErrBadRequest("%s", invalid.Error())

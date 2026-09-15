@@ -52,7 +52,9 @@ function mockLocalUsers({
 	return { createUser };
 }
 
-async function renderConfiguredDialog(props: { readonly?: boolean; switching?: boolean } = {}) {
+async function renderConfiguredDialog(
+	props: { readonly?: boolean; switching?: boolean; bootstrap?: boolean } = {}
+) {
 	const dialog = await renderOpenDialog(LocalAuthConfigure, {
 		provider: localProvider,
 		values: { OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*' },
@@ -65,6 +67,72 @@ async function renderConfiguredDialog(props: { readonly?: boolean; switching?: b
 }
 
 describe('LocalAuthConfigure.svelte', () => {
+	it('limits bootstrap to one pending account and defaults to a ready-to-use password', async () => {
+		const { createUser } = mockLocalUsers();
+		const dialog = await renderConfiguredDialog({ bootstrap: true });
+
+		await expect.element(dialog.getByText(/become Owner automatically/)).toBeVisible();
+		await expect
+			.element(dialog.getByRole('checkbox', { name: /Require the user to change/ }))
+			.not.toBeChecked();
+
+		await dialog.getByLabelText('Email', { exact: true }).fill('owner@example.com');
+		await page.getByCSS('#local-user-password-draft').fill(validPassword);
+		await userEvent.keyboard('{Enter}');
+
+		await expect.element(dialog.getByText('owner@example.com', { exact: true })).toBeVisible();
+		await expect
+			.element(dialog.getByRole('button', { name: 'Add New User', exact: true }))
+			.not.toBeInTheDocument();
+
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+		await vi.waitFor(() => {
+			expect(createUser).toHaveBeenCalledExactlyOnceWith({
+				email: 'owner@example.com',
+				password: validPassword,
+				requirePasswordChange: false
+			});
+		});
+	});
+
+	it('lets bootstrap require a password change for its initial account', async () => {
+		const { createUser } = mockLocalUsers();
+		const dialog = await renderConfiguredDialog({ bootstrap: true });
+
+		await dialog.getByLabelText('Email', { exact: true }).fill('owner@example.com');
+		await page.getByCSS('#local-user-password-draft').fill(validPassword);
+		await dialog.getByRole('checkbox', { name: /Require the user to change/ }).click();
+		await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+		await vi.waitFor(() => {
+			expect(createUser).toHaveBeenCalledWith({
+				email: 'owner@example.com',
+				password: validPassword,
+				requirePasswordChange: true
+			});
+		});
+	});
+
+	it('allows bootstrap to reset or replace its existing account but not add another', async () => {
+		mockLocalUsers({ existing: [createdUser('owner@example.com')] });
+		const dialog = await renderConfiguredDialog({ bootstrap: true });
+
+		await expect.element(dialog.getByText('owner@example.com', { exact: true })).toBeVisible();
+		await expect.element(dialog.getByRole('button', { name: 'Reset password' })).toBeVisible();
+		await expect
+			.element(dialog.getByRole('button', { name: 'Add New User', exact: true }))
+			.not.toBeInTheDocument();
+
+		await dialog.getByRole('button', { name: 'Delete user' }).click();
+		await dialog.getByRole('button', { name: 'Add New User', exact: true }).click();
+		await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
+
+		await dialog.getByRole('button', { name: 'Undo delete' }).click();
+		await expect
+			.element(dialog.getByText('Remove the new account before restoring the existing account.'))
+			.toBeVisible();
+	});
+
 	it('opens the new user draft on its own when no local users exist', async () => {
 		mockLocalUsers();
 		const dialog = await renderConfiguredDialog();

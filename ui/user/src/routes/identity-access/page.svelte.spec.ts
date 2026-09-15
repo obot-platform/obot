@@ -1,5 +1,7 @@
+import { replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
 import { CommonAuthProviderIds } from '$lib/constants';
+import { navigateTo } from '$lib/navigation';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
@@ -17,6 +19,9 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
+
+vi.mock('$lib/navigation', { spy: true });
+vi.mock('$app/navigation', { spy: true });
 
 const googleProvider = listAuthProvidersResponse.find(
 	(provider) => provider.id === CommonAuthProviderIds.GOOGLE
@@ -116,9 +121,94 @@ async function configureGoogleProvider() {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
+	vi.mocked(navigateTo).mockReset();
+	vi.mocked(replaceState).mockReset();
 });
 
 describe('Identity & Access Page', () => {
+	describe('local bootstrap setup', () => {
+		const localConfigured: AuthProvider = {
+			...googleProvider,
+			id: CommonAuthProviderIds.LOCAL,
+			name: 'Local',
+			configured: true,
+			missingConfigurationParameters: []
+		};
+
+		function mockLocalSetup(emails: string[]) {
+			let users = emails.map((email, i) => ({
+				id: String(i + 1),
+				email,
+				created: '2026-09-15T00:00:00Z',
+				requirePasswordChange: false
+			}));
+			const initiate = vi.fn(() => HttpResponse.json(initiateTempLoginResponse));
+			vi.mocked(navigateTo).mockImplementation(() => {});
+			vi.mocked(replaceState).mockImplementation(() => {});
+
+			worker.use(
+				http.get('/api/auth-providers', () => HttpResponse.json({ items: [localConfigured] })),
+				http.post(`/api/auth-providers/${CommonAuthProviderIds.LOCAL}/reveal`, () =>
+					HttpResponse.json({ OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*' })
+				),
+				http.get('/api/local-auth/users', () => HttpResponse.json({ items: users })),
+				http.post('/api/local-auth/users', async ({ request }) => {
+					const body = (await request.json()) as { email: string };
+					const user = {
+						id: '1',
+						email: body.email,
+						created: '2026-09-15T00:00:00Z',
+						requirePasswordChange: false
+					};
+					users = [...users, user];
+					return HttpResponse.json(user);
+				}),
+				http.post('/api/setup/initiate-temp-login', initiate),
+				http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
+				http.get('/api/setup/explicit-role-emails', () =>
+					HttpResponse.json(listExplicitRoleEmailsResponse)
+				)
+			);
+
+			return initiate;
+		}
+
+		it('continues an unfinished single-account setup directly to login', async () => {
+			mockLocalSetup(['owner@example.com']);
+			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
+
+			await vi.waitFor(() => {
+				expect(navigateTo).toHaveBeenCalledExactlyOnceWith(initiateTempLoginResponse.redirectUrl);
+			});
+			await expect.element(page.getByText('Next Step: Owner Login Setup')).not.toBeVisible();
+		});
+
+		it('goes straight to login after saving the initial account', async () => {
+			const initiate = mockLocalSetup([]);
+			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
+
+			await providerCard('Local').getByRole('button', { name: 'Modify', exact: true }).click();
+			const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Local' });
+			await dialog.getByLabelText('Email', { exact: true }).fill('owner@example.com');
+			await page.getByCSS('#local-user-password-draft').fill('initial-owner-password');
+			expect(initiate).not.toHaveBeenCalled();
+			await dialog.getByRole('button', { name: 'Save', exact: true }).click();
+
+			await vi.waitFor(() => {
+				expect(navigateTo).toHaveBeenCalledExactlyOnceWith(initiateTempLoginResponse.redirectUrl);
+			});
+			await expect.element(page.getByText('Next Step: Owner Login Setup')).not.toBeVisible();
+		});
+
+		it('keeps explicit handoff for a legacy setup with multiple local accounts', async () => {
+			mockLocalSetup(['owner@example.com', 'legacy@example.com']);
+			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
+
+			await expect.element(page.getByText('Next Step: Owner Login Setup')).toBeVisible();
+			expect(navigateTo).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('agents tab', () => {
 		const apiKey: APIKey = {
 			id: 42,

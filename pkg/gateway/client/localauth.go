@@ -15,9 +15,12 @@ import (
 	"k8s.io/apiserver/pkg/storage/value"
 )
 
-// ErrLocalAuthUserExists is returned when creating a local auth user whose email is already taken.
 var (
+	// ErrLocalAuthUserExists is returned when creating a local auth user whose email is already taken.
 	ErrLocalAuthUserExists = errors.New("local auth user already exists")
+
+	// ErrBootstrapLocalAuthUserLimit is returned when bootstrap tries to create another account.
+	ErrBootstrapLocalAuthUserLimit = errors.New("bootstrap can only create one local account; sign in with the existing account to continue setup")
 )
 
 // NormalizeEmail lowercases and trims an email address so that logins are case-insensitive.
@@ -68,16 +71,21 @@ func (c *Client) LocalAuthUserByID(ctx context.Context, id uint) (*types.LocalAu
 
 // CreateLocalAuthUser creates a new local auth user. The password must already be hashed.
 func (c *Client) CreateLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool) (*types.LocalAuthUser, error) {
-	return c.createLocalAuthUser(ctx, email, passwordHash, requirePasswordChange, "", nil)
+	return c.createLocalAuthUser(ctx, email, passwordHash, requirePasswordChange, "", nil, false)
+}
+
+// CreateBootstrapLocalAuthUser only creates an account when no local accounts exist.
+func (c *Client) CreateBootstrapLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool) (*types.LocalAuthUser, error) {
+	return c.createLocalAuthUser(ctx, email, passwordHash, requirePasswordChange, "", nil, true)
 }
 
 // CreateInitialLocalAuthUser creates a user that can only be claimed with a setup token. Only the
 // token's hash is persisted, and password completion revokes it.
 func (c *Client) CreateInitialLocalAuthUser(ctx context.Context, email, passwordHash, setupTokenHash string, setupTokenExpiresAt time.Time) (*types.LocalAuthUser, error) {
-	return c.createLocalAuthUser(ctx, email, passwordHash, true, setupTokenHash, &setupTokenExpiresAt)
+	return c.createLocalAuthUser(ctx, email, passwordHash, true, setupTokenHash, &setupTokenExpiresAt, false)
 }
 
-func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool, setupTokenHash string, setupTokenExpiresAt *time.Time) (*types.LocalAuthUser, error) {
+func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash string, requirePasswordChange bool, setupTokenHash string, setupTokenExpiresAt *time.Time, bootstrap bool) (*types.LocalAuthUser, error) {
 	email = NormalizeEmail(email)
 	user := types.LocalAuthUser{
 		Email:                 email,
@@ -92,7 +100,33 @@ func (c *Client) createLocalAuthUser(ctx context.Context, email, passwordHash st
 		return nil, fmt.Errorf("failed to encrypt local auth user: %w", err)
 	}
 
-	if err := c.db.WithContext(ctx).Create(&user).Error; err != nil {
+	err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Every local account creation participates in the lock, including ordinary owners
+		// and environment provisioning. SQLite needs its write lock before the count.
+		if tx.Name() == "sqlite" {
+			if err := tx.Exec("UPDATE local_auth_users SET id = id WHERE 1 = 0").Error; err != nil {
+				return err
+			}
+		}
+
+		if err := lockUserCreation(tx); err != nil {
+			return err
+		}
+
+		if bootstrap {
+			var count int64
+			if err := tx.Model(new(types.LocalAuthUser)).Count(&count).Error; err != nil {
+				return err
+			}
+
+			if count > 0 {
+				return ErrBootstrapLocalAuthUserLimit
+			}
+		}
+
+		return tx.Create(&user).Error
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(strings.ToLower(err.Error()), "unique") {
 			return nil, ErrLocalAuthUserExists
 		}

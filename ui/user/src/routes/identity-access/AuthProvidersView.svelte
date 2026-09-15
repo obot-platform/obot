@@ -13,7 +13,7 @@
 		RecommendedModelProviders
 	} from '$lib/constants';
 	import { HttpError, parseErrorContent } from '$lib/errors.js';
-	import { reloadPage } from '$lib/navigation';
+	import { navigateTo, reloadPage } from '$lib/navigation';
 	import { AdminService, UserService } from '$lib/services';
 	import type { AuthProvider } from '$lib/services/admin/types.js';
 	import { errors, license, profile, version } from '$lib/stores';
@@ -139,14 +139,17 @@
 		if (!bootstrapStatus.setupEnabled) return;
 
 		// Local auth has nobody to log in as until at least one user exists.
+		let automaticLocalOwner = false;
 		if (configuredAuthProvider.id === CommonAuthProviderIds.LOCAL) {
 			const localUsers = await AdminService.listLocalAuthUsers();
 			if (localUsers.length === 0) return;
+
+			automaticLocalOwner = localUsers.length === 1;
 		}
 
 		if (!setupLoading && !setupTempLoginUrl) {
 			configuringAuthProvider = configuredAuthProvider;
-			handleOwnerSetup();
+			await handleOwnerSetup(automaticLocalOwner);
 		}
 	};
 
@@ -213,7 +216,7 @@
 			: undefined;
 	}
 
-	async function handleOwnerSetup() {
+	async function handleOwnerSetup(automaticLocalOwner = false) {
 		if (!configuringAuthProvider || setupLoading) return;
 
 		setupLoading = true;
@@ -229,17 +232,26 @@
 		}
 
 		try {
-			explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+			if (!automaticLocalOwner) {
+				explicitOwners = (await AdminService.listExplicitRoleEmails())?.owners ?? [];
+			}
+
 			setupTempLoginUrl = (
 				await AdminService.initiateTempLogin(
 					configuringAuthProvider.id,
 					configuringAuthProvider.namespace
 				)
 			).redirectUrl;
+
+			if (automaticLocalOwner) {
+				navigateTo(setupTempLoginUrl);
+			} else {
+				setupSignInDialog?.open();
+			}
+		} catch (err) {
+			errors.append(err);
+		} finally {
 			setupLoading = false;
-			setupSignInDialog?.open();
-		} catch (_) {
-			// ignore
 		}
 	}
 
@@ -660,6 +672,7 @@
 	values={configuringAuthProviderValues}
 	readonly={profile.current.isAdminReadonly?.()}
 	onConfigure={handleLocalAuthConfigure}
+	bootstrap={isBootstrapUser}
 	onClose={handleLocalAuthClose}
 	switching={atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL}
 >

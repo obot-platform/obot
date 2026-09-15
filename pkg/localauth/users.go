@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	apitypes "github.com/obot-platform/obot/apiclient/types"
 	"github.com/obot-platform/obot/pkg/gateway/client"
 	"github.com/obot-platform/obot/pkg/gateway/types"
 	"github.com/obot-platform/obot/pkg/hash"
@@ -49,7 +50,7 @@ func normalizeUserEmail(email string) (string, error) {
 }
 
 // CreateUser creates a local user with the given email and plaintext password.
-func (p *Provider) CreateUser(ctx context.Context, email, password string, requirePasswordChange bool) (*types.LocalAuthUser, error) {
+func (p *Provider) CreateUser(ctx context.Context, email, password string, requirePasswordChange, bootstrap bool) (*types.LocalAuthUser, error) {
 	email, err := normalizeUserEmail(email)
 	if err != nil {
 		return nil, err
@@ -62,12 +63,22 @@ func (p *Provider) CreateUser(ctx context.Context, email, password string, requi
 		return nil, InvalidUserError{message: fmt.Sprintf("email %q is not in the provider's allowed email domains", email)}
 	}
 
+	explicitRole := p.gatewayClient.HasExplicitRole(email)
+	if bootstrap && explicitRole.HasRole(apitypes.RoleAdmin) && !explicitRole.HasRole(apitypes.RoleOwner) {
+		return nil, InvalidUserError{message: "the initial local account must become Owner; choose an email that is not configured as an Admin through the environment"}
+	}
+
 	passwordHash, err := hashUserPassword(password)
 	if err != nil {
 		return nil, err
 	}
 
-	user, err := p.gatewayClient.CreateLocalAuthUser(ctx, email, passwordHash, requirePasswordChange)
+	createUser := p.gatewayClient.CreateLocalAuthUser
+	if bootstrap {
+		createUser = p.gatewayClient.CreateBootstrapLocalAuthUser
+	}
+
+	user, err := createUser(ctx, email, passwordHash, requirePasswordChange)
 	if err != nil {
 		return nil, err
 	}

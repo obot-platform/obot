@@ -28,6 +28,7 @@
 		provider?: AuthProvider;
 		values?: Record<string, string>;
 		readonly?: boolean;
+		bootstrap?: boolean;
 		// Save the email-domains config. Returns an error message, or undefined on success.
 		onConfigure: (form: Record<string, string>) => Promise<string | undefined>;
 		// Called after the modal closes, with the number of local users that currently exist.
@@ -45,6 +46,7 @@
 		provider,
 		values,
 		readonly,
+		bootstrap = false,
 		onConfigure,
 		onClose,
 		animate,
@@ -102,6 +104,10 @@
 		newUsers.length > 0 || resetPassword.size > 0 || deleteUsers.size > 0
 	);
 
+	const canAddUser = $derived(
+		!bootstrap || users.length - deleteUsers.size + newUsers.length === 0
+	);
+
 	export function open() {
 		domains = values?.[DOMAINS_KEY] ?? '*';
 		configError = undefined;
@@ -112,7 +118,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching;
+		draftRequirePasswordChange = !switching && !bootstrap;
 		draftReset = undefined;
 		shakingDraft = false;
 		shakingReset = false;
@@ -267,6 +273,8 @@
 	}
 
 	function addNewUser() {
+		if (!canAddUser) return;
+
 		if (draftingNewUser) {
 			attentionDraftNewUser('Finish or remove the new user before adding another.');
 			return;
@@ -278,7 +286,7 @@
 		newUserError = undefined;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching;
+		draftRequirePasswordChange = !switching && !bootstrap;
 		draftingNewUser = true;
 	}
 
@@ -320,7 +328,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching;
+		draftRequirePasswordChange = !switching && !bootstrap;
 		newUserError = undefined;
 		return true;
 	}
@@ -329,7 +337,7 @@
 		draftingNewUser = false;
 		draftEmail = '';
 		draftPassword = '';
-		draftRequirePasswordChange = !switching;
+		draftRequirePasswordChange = !switching && !bootstrap;
 		newUserError = undefined;
 	}
 
@@ -409,6 +417,11 @@
 	}
 
 	function undoDelete(user: LocalAuthUser) {
+		if (bootstrap && (newUsers.length > 0 || draftingNewUser)) {
+			userError = ['Remove the new account before restoring the existing account.'];
+			return;
+		}
+
 		deleteUsers.delete(user.id);
 	}
 
@@ -577,8 +590,13 @@
 			{/if}
 
 			<p class="text-muted-content text-sm font-light">
-				These users sign in with an email address and password. Grant them roles from the Users page
-				after their first sign-in.
+				{#if bootstrap && users.length <= 1}
+					Create your first account, then sign in with it to become Owner automatically. You can add
+					more users after signing in.
+				{:else}
+					These users sign in with an email address and password. Grant them roles from the Users
+					page after their first sign-in.
+				{/if}
 			</p>
 
 			<p class="text-muted-content text-sm font-light">
@@ -590,7 +608,7 @@
 			<form class="flex flex-col gap-4 grow max-w-full overflow-hidden" onsubmit={handleSave}>
 				<div class="flex items-center justify-between gap-2">
 					<h4 class="text-sm font-semibold">Users</h4>
-					{#if !readonly}
+					{#if !readonly && canAddUser}
 						{@render addNewUserButton()}
 					{/if}
 				</div>
