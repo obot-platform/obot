@@ -257,7 +257,7 @@
 						{:else}
 							<CircleFadingArrowUp class="size-4" />
 						{/if}
-						Update VMCP
+						Update vMCP
 					</button>
 				{/if}
 				{#if canEditInstanceConfiguration}
