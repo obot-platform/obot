@@ -112,8 +112,7 @@ type groupCursor struct {
 	LastID   string `json:"i,omitempty"`
 }
 
-// groupRefreshCooldown records the identities whose last group refresh failed. The zero value is
-// ready to use.
+// groupRefreshCooldown records the identities whose last group refresh failed.
 type groupRefreshCooldown struct {
 	lock     sync.Mutex
 	failures map[string]time.Time
@@ -627,29 +626,22 @@ func (c *Client) GetUserGroupMemberships(ctx context.Context, userIDs []uint) (m
 // deadlock in-process auth providers that share the single SQLite connection. The HTTP fetch and
 // the database persistence are therefore separated into distinct phases below, with the
 // persistence happening in its own short-lived transaction.
-//
-// It also runs on every authenticated request, so concurrent refreshes for one identity share a
-// single call to the provider, and an identity whose refresh just failed is served from the
-// database until the cooldown passes.
 func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) error {
 	if identity.AuthProviderName == "" || identity.AuthProviderNamespace == "" ||
 		identity.GroupLookupID() == "" || identity.UserID == 0 {
-		// Nothing to ask the provider about, or no user to hang memberships on.
+		// No auth provider info, so we can't fetch groups from the provider
 		return nil
 	}
 
 	var (
-		providerURL = auth.ProviderURLFromContext(ctx)
-		now         = time.Now()
-
-		// Keyed on the ID sent to the provider, so the key and the outbound request are one to one.
-		key = identity.AuthProviderNamespace + "/" + identity.AuthProviderName + "/" + identity.GroupLookupID()
+		providerURL    = auth.ProviderURLFromContext(ctx)
+		now            = time.Now()
+		nextGroupCheck = identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod)
+		refreshKey     = identity.AuthProviderNamespace + "/" + identity.AuthProviderName + "/" + identity.GroupLookupID()
 	)
 
-	if providerURL == "" || identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod).After(now) || c.groupCooldown.active(key, now) {
-		// Serve what is stored; it is at most one check window old either way. This is only a fast
-		// path around the flight, off the caller's own copy of the identity; refreshGroups repeats
-		// the checks against what is stored before it calls anyone.
+	if nextGroupCheck.After(now) || c.groupCooldown.active(refreshKey, now) || providerURL == "" {
+		// Skip refresh and return cached groups
 		groups, err := c.listCachedGroups(ctx, *identity)
 		if err != nil {
 			return err
@@ -659,39 +651,34 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 		return nil
 	}
 
-	v, err, _ := c.groupRefresh.Do(key, func() (any, error) {
-		// Detached from the caller: the refresh is shared, so a leader whose client disconnects
-		// must not cancel it for everyone waiting behind it.
+	// Only allow one concurrent request for the given identity to fetch and update provider groups.
+	// Peers block until the leader finishes and adopt the groups it returns.
+	v, err, _ := c.groupRefresh.Do(refreshKey, func() (any, error) {
 		refreshCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), userGroupRefreshTimeout)
 		defer cancel()
 
-		return c.refreshGroups(refreshCtx, providerURL, key, *identity, now)
+		return c.refreshGroups(refreshCtx, providerURL, refreshKey, *identity, now)
 	})
 	if err != nil {
 		return err
 	}
 
-	// The check time is deliberately not copied back: only persistGroups writes that column.
 	identity.AuthProviderGroups = v.([]types.Group)
 	return nil
 }
 
-// refreshGroups fetches the identity's groups from the auth provider and persists them. The
-// identity is taken by value because this runs on behalf of every request waiting on the refresh.
+// refreshGroups fetches the identity's groups from the auth provider and persists them.
 func (c *Client) refreshGroups(ctx context.Context, providerURL, key string, identity types.Identity, now time.Time) ([]types.Group, error) {
-	// ensureGroups checked the caller's own copy of the identity before it reached the flight.
-	// singleflight does not retain completed results, so a caller descheduled in between leads a
-	// flight of its own, and only the stored check time keeps it from calling a provider that
-	// another flight has just refreshed or just seen fail.
+	// Check the database in case the refresh was started with stale data
 	lastChecked, err := c.groupsLastChecked(ctx, identity)
 	if err != nil {
 		return nil, err
 	}
-	if c.groupCooldown.active(key, now) || lastChecked.Add(groupCheckPeriod).After(now) {
+	if lastChecked.Add(groupCheckPeriod).After(now) || c.groupCooldown.active(key, now) {
 		return c.listCachedGroups(ctx, identity)
 	}
 
-	// Fetch phase: call the auth provider over HTTP with no open transaction.
+	// Fetch live auth groups and trigger a refresh backoff for the identity on error
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.GroupLookupID())
 	c.groupCooldown.record(key, err)
 	if err != nil {
@@ -701,22 +688,20 @@ func (c *Client) refreshGroups(ctx context.Context, providerURL, key string, ide
 	identity.AuthProviderGroups = providerGroups
 	identity.AuthProviderGroupsLastChecked = now
 
-	// Persist phase: upsert groups and reconcile memberships in a short-lived transaction.
 	claimed, err := c.persistGroups(ctx, &identity, lastChecked)
 	if err != nil {
 		return nil, err
 	}
 	if !claimed {
-		// Another replica refreshed first, so its groups are what the database holds. Report those
-		// rather than the ones this call just discarded.
+		// Groups were updated by another instance.
+		// Discard what we fetched and return the latest cached groups.
 		return c.listCachedGroups(ctx, identity)
 	}
 
 	return providerGroups, nil
 }
 
-// active reports whether a recent refresh for this key failed. Expired entries are dropped as they
-// are read, so the map does not grow once a provider recovers.
+// active reports whether a recent refresh for this key failed.
 func (g *groupRefreshCooldown) active(key string, now time.Time) bool {
 	g.lock.Lock()
 	defer g.lock.Unlock()
@@ -734,7 +719,7 @@ func (g *groupRefreshCooldown) active(key string, now time.Time) bool {
 	return true
 }
 
-// record starts a cooldown for a refresh that failed, and ends one for a refresh that succeeded.
+// record starts a cooldown for a failed refresh.
 func (g *groupRefreshCooldown) record(key string, err error) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
@@ -751,20 +736,13 @@ func (g *groupRefreshCooldown) record(key string, err error) {
 	g.failures[key] = time.Now()
 }
 
-// persistGroups persists the identity's freshly fetched AuthProviderGroups to the database and
-// reconciles the group memberships. It opens its own transaction and must be called outside of any
-// other open transaction. After the transaction commits, it emits any reconciliation events.
-//
-// It reports whether it advanced lastChecked: another replica may have refreshed this identity
-// while the fetch was in flight, and the loser of that race leaves the database alone.
+// persistGroups persists the identity's freshly fetched AuthProviderGroups to the database
+// reconciles group memberships, and returns false if the groups were updated out-of-band.
 func (c *Client) persistGroups(ctx context.Context, identity *types.Identity, lastChecked time.Time) (bool, error) {
 	var membershipsChanged, groupsLost, claimed bool
 	if err := c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Claim the identity before touching its memberships, so a stale membership set cannot
-		// land alongside a fresh check time.
 		claim := groupsLastCheckedColumn + " = ?"
 		if lastChecked.IsZero() {
-			// Identities that predate the column read back as the zero time.
 			claim = fmt.Sprintf("(%s OR %s IS NULL)", claim, groupsLastCheckedColumn)
 		}
 
@@ -927,8 +905,7 @@ func (c *Client) deleteGroupMembershipsForUser(ctx context.Context, tx *gorm.DB,
 	return nil
 }
 
-// groupsLastChecked reads the identity's persisted group check time. Identities that predate the
-// column carry NULL, which reads back as the zero time.
+// groupsLastChecked returns the identity's persisted group check time.
 func (c *Client) groupsLastChecked(ctx context.Context, identity types.Identity) (time.Time, error) {
 	var lastChecked sql.NullTime
 	if err := c.db.WithContext(ctx).
@@ -943,7 +920,7 @@ func (c *Client) groupsLastChecked(ctx context.Context, identity types.Identity)
 	return lastChecked.Time, nil
 }
 
-// listCachedGroups lists the groups the identity's user is already recorded as a member of.
+// listCachedGroups lists the groups that the user is a member of from the database.
 func (c *Client) listCachedGroups(ctx context.Context, identity types.Identity) ([]types.Group, error) {
 	if identity.UserID == 0 {
 		return nil, fmt.Errorf("identity has no user id")

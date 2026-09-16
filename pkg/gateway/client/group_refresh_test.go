@@ -108,8 +108,6 @@ func newGroupRefreshTestUser(t *testing.T, c *Client, username string) uint {
 		t.Fatalf("failed to create identity: %v", err)
 	}
 
-	// Identities that predate the check time column carry NULL rather than a zero timestamp, and
-	// the claim in persistGroups has to match that or they could never be claimed at all.
 	setGroupCheckTime(t, c, user.ID, nil)
 
 	return user.ID
@@ -129,7 +127,6 @@ func groupRefreshTestIdentity(userID uint) *types.Identity {
 func storedGroupCheckTime(t *testing.T, c *Client, userID uint) time.Time {
 	t.Helper()
 
-	// NullTime, not time.Time: identities that predate the column carry NULL.
 	var checked []sql.NullTime
 	if err := c.db.WithContext(t.Context()).
 		Model(new(types.Identity)).

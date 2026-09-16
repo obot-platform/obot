@@ -22,8 +22,6 @@ print_with_color() {
   local color_message=$2
   local uncolored_message=$3
 
-  # The messages are arguments, never part of the format: forwarded log lines contain % (URLs are
-  # percent-encoded), which printf would otherwise read as conversions and fail on.
   printf '\033[38;5;%sm%s\033[0m%s\n' "$color_code" "$color_message" "$uncolored_message"
 }
 
