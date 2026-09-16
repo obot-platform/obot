@@ -14,6 +14,7 @@
 		resolveVMcpComponents,
 		vmcpComponentId,
 		vmcpConnectURL,
+		vmcpHasUserAllowedConfiguration,
 		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
 	import { vmcpInstances } from '$lib/stores';
@@ -109,7 +110,15 @@
 		targetInstance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
-		resetDialogState(target, targetInstance, options);
+		let resolved = target;
+		if (!vmcpHasUserAllowedConfiguration(target)) {
+			try {
+				resolved = await UserService.getVMCP(target.id, { dontLogErrors: true });
+			} catch {
+				resolved = target;
+			}
+		}
+		resetDialogState(resolved, targetInstance, options);
 		skipConnectDialog = true;
 		connectDialog?.close();
 		await initConfigureForm();

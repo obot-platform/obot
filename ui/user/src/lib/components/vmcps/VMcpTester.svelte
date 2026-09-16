@@ -2,7 +2,7 @@
 	import Tester from '$lib/components/mcp/tester/Tester.svelte';
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import type { VMCP } from '$lib/services';
+	import type { VMCP, VMCPInstance } from '$lib/services';
 	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
 	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
@@ -13,15 +13,16 @@
 		version,
 		vmcpInstances
 	} from '$lib/stores';
-	import { Layers } from '@lucide/svelte';
+	import { Layers, Settings } from '@lucide/svelte';
 
 	interface Props {
 		vmcp: VMCP;
 		onLaunch: () => void;
 		loading?: boolean;
+		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
 	}
 
-	let { vmcp, onLaunch, loading = false }: Props = $props();
+	let { vmcp, onLaunch, loading = false, openEditInstanceConfiguration }: Props = $props();
 
 	let componentViews = $derived(resolveVMcpComponents(vmcp));
 	let instance = $derived(
@@ -70,22 +71,45 @@
 				role="status"
 			>
 				<div class="relative z-10 flex flex-col items-center gap-4">
-					<Layers class="text-muted-content size-12 opacity-25" />
+					{#if instance && !instance.status?.configured}
+						<div class="indicator p-2 rounded-full bg-warning/10">
+							<Settings class="text-warning size-12" />
+						</div>
+					{:else}
+						<Layers class="text-muted-content size-12" />
+					{/if}
 					<p class="text-muted-content max-w-md text-sm font-light">
-						Start your vMCP to use chat and inspect tools.
-					</p>
-					<button
-						type="button"
-						class="btn btn-primary"
-						onclick={onLaunch}
-						disabled={vmcpInstances.current.loading}
-					>
-						{#if vmcpInstances.current.loading}
-							<Loading class="text-primary" />
+						{#if instance && !instance.status?.configured}
+							Before you can continue inspecting this vMCP, an update is required.
 						{:else}
-							Start Session
+							Start your vMCP to use chat and inspect tools.
 						{/if}
-					</button>
+					</p>
+					{#if instance && !instance.status?.configured}
+						<button
+							type="button"
+							class="btn btn-primary"
+							onclick={() => {
+								if (!instance) return;
+								openEditInstanceConfiguration?.(vmcp, instance);
+							}}
+						>
+							Update Configuration
+						</button>
+					{:else}
+						<button
+							type="button"
+							class="btn btn-primary"
+							onclick={onLaunch}
+							disabled={vmcpInstances.current.loading}
+						>
+							{#if vmcpInstances.current.loading}
+								<Loading class="text-primary" />
+							{:else}
+								Start Session
+							{/if}
+						</button>
+					{/if}
 				</div>
 			</section>
 		</div>

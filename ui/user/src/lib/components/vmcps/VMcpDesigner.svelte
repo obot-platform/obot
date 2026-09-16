@@ -448,6 +448,15 @@
 								}
 							});
 						}}
+						openEditInstanceConfiguration={(target, instance) => {
+							if (!selectedVMcp) return;
+							const vmcpID = selectedVMcp.id;
+							vmcpActions?.openEditInstanceConfiguration(target, instance, {
+								onConnected: () => {
+									void refreshTester(vmcpID);
+								}
+							});
+						}}
 					/>
 				</div>
 			{/if}

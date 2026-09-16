@@ -32,10 +32,7 @@
 	);
 	let hasConfiguredInstance = $derived(
 		vmcpInstances.current.items.some(
-			(candidate) =>
-				candidate.vmcpID === id &&
-				candidate.userID === profile.current.id &&
-				candidate.status?.configured === true
+			(candidate) => candidate.vmcpID === id && candidate.userID === profile.current.id
 		)
 	);
 

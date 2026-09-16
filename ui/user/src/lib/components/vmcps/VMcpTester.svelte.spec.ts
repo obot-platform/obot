@@ -1,5 +1,5 @@
 import { COMMUNITY_ENTITLEMENT, SETUP_COMMUNITY_SIGNUP_BANNER_COPY } from '$lib/constants';
-import { type VMCPInstance } from '$lib/services';
+import { type VMCP, type VMCPInstance } from '$lib/services';
 import { profile, vmcpInstances } from '$lib/stores';
 import { createVMCP } from '../../../tests/helpers/mcp';
 import { preparePageData } from '../../../tests/helpers/pageData';
@@ -42,22 +42,39 @@ function mockMCPInitialization(connectID: string) {
 	);
 }
 
-async function renderVMcpTester(overrides: Record<string, unknown>) {
-	await preparePageData(overrides);
-
-	const instance = {
+function createInstance(status?: VMCPInstance['status']): VMCPInstance {
+	return {
 		id: 'vmcpi-1',
 		vmcpID: vmcp.id,
 		userID: profile.current.id,
 		created: '2026-01-01T00:00:00.000Z',
 		type: 'vmcpinstance',
-		status: { configured: true }
-	} as unknown as VMCPInstance;
+		status
+	} as VMCPInstance;
+}
 
-	vmcpInstances.current = { items: [instance], loading: false };
-	mockMCPInitialization(instance.id);
+async function renderVMcpTester(
+	overrides: Record<string, unknown>,
+	options?: {
+		instance?: VMCPInstance | null;
+		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
+	}
+) {
+	await preparePageData(overrides);
 
-	return render(VMcpTester, { vmcp, onLaunch: vi.fn() });
+	const instance =
+		options && 'instance' in options ? options.instance : createInstance({ configured: true });
+
+	vmcpInstances.current = { items: instance ? [instance] : [], loading: false };
+	if (instance) {
+		mockMCPInitialization(instance.id);
+	}
+
+	return render(VMcpTester, {
+		vmcp,
+		onLaunch: vi.fn(),
+		openEditInstanceConfiguration: options?.openEditInstanceConfiguration
+	});
 }
 
 afterEach(() => {
@@ -110,5 +127,39 @@ describe('VMcpTester', () => {
 		await expect
 			.element(page.getByText('No default llm model is configured. Configure one to use Chat.'))
 			.toBeVisible();
+	});
+
+	it('opens edit configuration for an unconfigured instance', async () => {
+		const instance = createInstance({
+			configured: false,
+			missingRequiredConfiguration: ['component-entry-default.API_TOKEN']
+		});
+		const openEditInstanceConfiguration = vi.fn();
+		await renderVMcpTester(
+			{},
+			{
+				instance,
+				openEditInstanceConfiguration
+			}
+		);
+
+		await expect
+			.element(page.getByText('An update is required before being able to test this vMCP.'))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Update Configuration' }).click();
+		expect(openEditInstanceConfiguration).toHaveBeenCalledWith(vmcp, instance);
+	});
+
+	it('starts a session when the vMCP has no instance', async () => {
+		const onLaunch = vi.fn();
+		await preparePageData({});
+		vmcpInstances.current = { items: [], loading: false };
+		await render(VMcpTester, { vmcp, onLaunch });
+
+		await expect
+			.element(page.getByText('Start your vMCP to use chat and inspect tools.'))
+			.toBeVisible();
+		await page.getByRole('button', { name: 'Start Session' }).click();
+		expect(onLaunch).toHaveBeenCalledOnce();
 	});
 });

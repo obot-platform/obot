@@ -1190,6 +1190,17 @@ describe('VMcpDesigner.svelte', () => {
 			document.dispatchEvent(new Event('visibilitychange'));
 
 			try {
+				await vi.waitFor(() => expect(verification).toHaveBeenCalledOnce());
+				await expect
+					.element(page.getByRole('heading', { name: 'Server unavailable', includeHidden: true }))
+					.not.toBeInTheDocument();
+				expect(refresh).not.toHaveBeenCalled();
+				expect(initialize).not.toHaveBeenCalled();
+			} finally {
+				finishVerification();
+			}
+
+			try {
 				await vi.waitFor(() => expect(refresh).toHaveBeenCalledOnce());
 				await expect
 					.element(page.getByRole('link', { name: 'Authenticate' }))
@@ -1221,6 +1232,55 @@ describe('VMcpDesigner.svelte', () => {
 				.element(page.getByText('This will begin the initial setup process for this server.'))
 				.toBeVisible();
 			await expect.element(page.getByRole('button', { name: 'Continue' })).toBeVisible();
+		});
+
+		it('opens edit configuration from the tester when the instance is not configured', async () => {
+			const vmcp = createIssueTrackerVMcp();
+			const latest = createIssueTrackerVMcp();
+			latest.components![0].configuration = [{ key: 'API_TOKEN', policy: 'userAllowed' }];
+			latest.components![0].catalogEntry.manifest.config = [
+				{
+					key: 'API_TOKEN',
+					name: 'API token',
+					description: 'Token',
+					required: true,
+					sensitive: true,
+					value: '',
+					usage: 'env'
+				}
+			];
+			const instance: VMCPInstance = {
+				id: 'vmcpi-unconfigured',
+				vmcpID: vmcp.id,
+				userID: getProfileResponse.id,
+				created: vmcp.created,
+				status: {
+					configured: false,
+					missingRequiredConfiguration: [`${latest.components![0].id}.API_TOKEN`]
+				}
+			};
+			const getVMcp = vi.fn();
+			worker.use(
+				http.get(`/api/vmcps/${vmcp.id}`, () => {
+					getVMcp();
+					return HttpResponse.json(latest);
+				}),
+				http.post(`/api/vmcp-instances/${instance.id}/reveal`, () =>
+					HttpResponse.json({
+						components: { [latest.components![0].id!]: { API_TOKEN: '' } }
+					})
+				)
+			);
+			appPage.url.searchParams.set('view', 'tester');
+
+			await renderDesigner([componentEntry], vmcp, { instances: [instance] });
+
+			await expect
+				.element(page.getByText('An update is required before being able to test this vMCP.'))
+				.toBeVisible();
+			await page.getByRole('button', { name: 'Update Configuration' }).click();
+			await expect.element(page.getByCSS('input[name="API token"]')).toBeVisible();
+			await vi.waitFor(() => expect(getVMcp).toHaveBeenCalledOnce());
 		});
 	});
 
