@@ -349,40 +349,35 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	if p.gatewayClient != nil {
-		snapshot, err := p.loadLicenseKey(ctx)
-		if err != nil {
-			return err
-		}
-		propertyKey := snapshot.propertyKey
-		if propertyKey == "" {
-			p.setCachedState(licenseKeySnapshot{}, nil)
-			return nil
-		}
-
-		var nextSnapshot licenseKeySnapshot
-		var entitlements map[keygen.EntitlementCode]struct{}
-		if propertyKey == LicenseKeyPropertyKey {
-			nextSnapshot, err = p.loadStoredLicenseKey(ctx, CommunityLicenseKeyPropertyKey)
-			if err != nil {
-				return err
-			}
-		}
-		if nextSnapshot.key != "" {
-			entitlements, err = p.validate(ctx, nextSnapshot.key)
-			if err != nil {
-				return err
-			}
-		}
-
-		if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
-			return err
-		}
-		p.setCachedState(nextSnapshot, entitlements)
+	snapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
+	}
+	propertyKey := snapshot.propertyKey
+	if propertyKey == "" {
+		p.setCachedState(licenseKeySnapshot{}, nil)
 		return nil
 	}
 
-	p.setCachedState(licenseKeySnapshot{}, nil)
+	var nextSnapshot licenseKeySnapshot
+	var entitlements map[keygen.EntitlementCode]struct{}
+	if propertyKey == LicenseKeyPropertyKey {
+		nextSnapshot, err = p.loadStoredLicenseKey(ctx, CommunityLicenseKeyPropertyKey)
+		if err != nil {
+			return err
+		}
+	}
+	if nextSnapshot.key != "" {
+		entitlements, err = p.validate(ctx, nextSnapshot.key)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
+		return err
+	}
+	p.setCachedState(nextSnapshot, entitlements)
 	return nil
 }
 
