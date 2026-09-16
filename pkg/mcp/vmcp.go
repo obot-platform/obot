@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/obot-platform/obot/apiclient/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
@@ -54,8 +55,13 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 				UserID:   userID,
 			},
 		}
-		if err := sm.storageClient.Create(ctx, instance); err != nil {
-			return ServerConfig{}, fmt.Errorf("create VMCP instance for VMCP %q and user %q: %w", vmcpID, userID, err)
+
+		var err error
+		instance, err = wait.For(ctx, sm.storageClient, instance, func(i *v1.VMCPInstance) (bool, error) {
+			return i.Status.ConfigurationCheckHash != "", nil
+		}, wait.Option{Timeout: 15 * time.Second, Create: true})
+		if err != nil {
+			return ServerConfig{}, fmt.Errorf("failed to create vMCP connection: %w", err)
 		}
 	}
 
@@ -184,6 +190,7 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 	}
 	return ServerConfig{
 		Runtime:              types.RuntimeVMCP,
+		ConfigHash:           instance.Status.ConfigurationCheckHash,
 		MCPServerName:        connectID,
 		MCPServerDisplayName: vmcp.Spec.Manifest.DisplayName,
 		UserID:               userID,

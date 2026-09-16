@@ -509,9 +509,18 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	watching := make(chan struct{})
 	creation := make(chan error, 1)
 	go func() {
-		<-watching
+		select {
+		case <-watching:
+		case <-t.Context().Done():
+			return
+		}
 		var instances v1.VMCPInstanceList
 		if err := storageClient.List(t.Context(), &instances); err != nil {
+			creation <- err
+			return
+		}
+		instances.Items[0].Status.ConfigurationCheckHash = "configuration-revision"
+		if err := storageClient.Update(t.Context(), &instances.Items[0]); err != nil {
 			creation <- err
 			return
 		}
@@ -526,11 +535,14 @@ func TestServerConfigForVMCPCreatesGeneratedInstance(t *testing.T) {
 	}
 
 	first, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
+	if err != nil {
+		t.Fatalf("first ServerConfigForVMCP() error = %v", err)
+	}
 	if createErr := <-creation; createErr != nil {
 		t.Fatal(createErr)
 	}
-	if err != nil {
-		t.Fatalf("first ServerConfigForVMCP() error = %v", err)
+	if first.ConfigHash != "configuration-revision" {
+		t.Fatalf("configuration hash = %q, want controller revision", first.ConfigHash)
 	}
 	second, err := manager.ServerConfigForVMCP(t.Context(), vmcpID, userID)
 	if err != nil {
@@ -678,6 +690,7 @@ func vmcpComponentServer(name, instanceID, userID, componentID, displayName, url
 func newVMCPTestStorage(objects ...kclient.Object) storage.Client {
 	return &vmcpInitialEventsStorage{Client: fake.NewClientBuilder().
 		WithScheme(storagescheme.Scheme).
+		WithIndex(&v1.VMCPInstance{}, "metadata.name", func(obj kclient.Object) []string { return []string{obj.GetName()} }).
 		WithIndex(&v1.MCPServerInstance{}, "spec.vmcpInstanceID", func(obj kclient.Object) []string { return []string{obj.(*v1.MCPServerInstance).Spec.VMCPInstanceID} }).
 		WithIndex(&v1.VMCP{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCP).Spec.LegacySlug} }).
 		WithIndex(&v1.VMCPInstance{}, "spec.legacySlug", func(obj kclient.Object) []string { return []string{obj.(*v1.VMCPInstance).Spec.LegacySlug} }).

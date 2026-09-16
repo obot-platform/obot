@@ -296,6 +296,7 @@ func MMMCPConfig(server ServerConfig, env map[string][]byte) *mmmcpconfig.Config
 			}
 
 			servers = append(servers, mmmcpconfig.Server{
+				DiscoveryRevision:  server.ConfigHash,
 				Name:               component.DisplayName,
 				Prefix:             component.ToolPrefix,
 				URL:                component.URL,
