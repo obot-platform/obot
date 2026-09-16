@@ -1005,17 +1005,21 @@ func (h *Handler) getUserInfoForAccessControl(ctx context.Context, userID string
 	if err != nil {
 		return nil, fmt.Errorf("failed to list user group IDs: %w", err)
 	}
+	effectiveRole, err := h.gatewayClient.ResolveUserEffectiveRole(ctx, gatewayUser, groupIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve effective user role: %w", err)
+	}
 
 	return &userInfo{
 		Info: &kuser.DefaultInfo{
 			Name:   gatewayUser.Username,
 			UID:    fmt.Sprintf("%d", gatewayUser.ID),
-			Groups: []string{},
+			Groups: effectiveRole.Groups(),
 			Extra: map[string][]string{
 				// Omit the auth provider namespace and name since groupIDs may include groups from multiple auth providers.
 				"auth_provider_groups": groupIDs,
 			},
 		},
-		role: gatewayUser.Role,
+		role: effectiveRole,
 	}, nil
 }
