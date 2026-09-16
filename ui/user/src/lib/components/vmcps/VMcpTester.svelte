@@ -3,7 +3,11 @@
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { VMCP, VMCPInstance } from '$lib/services';
-	import { testerChatAvailability, type TesterStatus } from '$lib/services/mcp/tester.svelte';
+	import {
+		isUnavailableTesterFailure,
+		testerChatAvailability,
+		type TesterStatus
+	} from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
 	import {
 		resolveVMcpComponents,
@@ -42,21 +46,21 @@
 	let chatAvailable = $derived(chatAvailability.available);
 	let chatUnavailableMessage = $derived(chatAvailability.unavailableMessage);
 	let hasUserProvidedConfiguration = $derived(vmcpHasUserAllowedConfiguration(vmcp));
-	let credentialUpdateRequired = $state(false);
+	let sessionStartFailed = $state(false);
 
 	$effect(() => {
 		void vmcp.id;
 		void instance?.id;
 		void loading;
-		credentialUpdateRequired = false;
+		sessionStartFailed = false;
 	});
 
-	function handleTesterStatus(status: TesterStatus, error?: string) {
-		if (!instance?.status?.configured || !hasUserProvidedConfiguration || error === undefined) {
+	function handleTesterStatus(status: TesterStatus) {
+		if (!instance?.status?.configured || !hasUserProvidedConfiguration) {
 			return;
 		}
-		if (status === 'error' || status === 'unhealthy') {
-			credentialUpdateRequired = true;
+		if (isUnavailableTesterFailure(status)) {
+			sessionStartFailed = true;
 		}
 	}
 
@@ -65,9 +69,10 @@
 		openEditInstanceConfiguration?.(vmcp, instance);
 	}
 
-	let showTester = $derived(Boolean(instance?.status?.configured) && !credentialUpdateRequired);
+	let launching = $derived(loading || (vmcpInstances.current.loading && !launched));
+	let showTester = $derived(Boolean(instance?.status?.configured) && !sessionStartFailed);
 	let needsConfigurationUpdate = $derived(
-		Boolean(instance && (!instance.status?.configured || credentialUpdateRequired))
+		Boolean(!launching && instance && (!instance.status?.configured || sessionStartFailed))
 	);
 </script>
 
@@ -79,7 +84,7 @@
 			{chatAvailable}
 			{chatUnavailableMessage}
 			active={launched}
-			loading={loading || (vmcpInstances.current.loading && !launched)}
+			loading={launching}
 			onStatus={handleTesterStatus}
 		>
 			{#snippet icon()}
@@ -103,39 +108,36 @@
 				role="status"
 			>
 				<div class="relative z-10 flex flex-col items-center gap-4">
-					{#if needsConfigurationUpdate}
-						<div class="indicator p-2 rounded-full bg-warning/10">
-							<Settings class="text-warning size-12" />
-						</div>
+					{#if launching}
+						<Loading class="size-12" />
+						<p class="text-muted-content max-w-md text-sm font-light">Starting session...</p>
 					{:else}
-						<Layers class="text-muted-content size-12" />
-					{/if}
-					<p class="text-muted-content max-w-md text-sm font-light">
-						{#if credentialUpdateRequired}
-							vMCP requires valid credential, verify information provided and try again.
-						{:else if instance && !instance.status?.configured}
-							Before you can continue inspecting this vMCP, an update is required.
+						{#if needsConfigurationUpdate}
+							<div class="indicator p-2 rounded-full bg-warning/10">
+								<Settings class="text-warning size-12" />
+							</div>
 						{:else}
-							Start your vMCP to use chat and inspect tools.
+							<Layers class="text-muted-content size-12" />
 						{/if}
-					</p>
-					{#if needsConfigurationUpdate}
-						<button type="button" class="btn btn-primary" onclick={openInstanceConfiguration}>
-							Update Configuration
-						</button>
-					{:else}
-						<button
-							type="button"
-							class="btn btn-primary"
-							onclick={onLaunch}
-							disabled={vmcpInstances.current.loading}
-						>
-							{#if vmcpInstances.current.loading}
-								<Loading class="text-primary" />
+						<p class="text-muted-content max-w-md text-sm font-light">
+							{#if sessionStartFailed}
+								There was an issue starting the session. Please verify configuration or contact
+								support if the issue persists.
+							{:else if instance && !instance.status?.configured}
+								Before you can continue inspecting this vMCP, an update is required.
 							{:else}
-								Start Session
+								Start your vMCP to use chat and inspect tools.
 							{/if}
-						</button>
+						</p>
+						{#if needsConfigurationUpdate}
+							<button type="button" class="btn btn-primary" onclick={openInstanceConfiguration}>
+								Update Configuration
+							</button>
+						{:else}
+							<button type="button" class="btn btn-primary" onclick={onLaunch}>
+								Start Session
+							</button>
+						{/if}
 					{/if}
 				</div>
 			</section>

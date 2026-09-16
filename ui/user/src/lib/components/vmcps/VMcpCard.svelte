@@ -102,7 +102,7 @@
 	let updating = $state(false);
 	let destroyed = false;
 	let hasActions = $derived(
-		isCreator || profile.current.hasAdminAccess?.() || myInstances.length > 0 || needsUpdate
+		isCreator || profile.current.hasAdminAccess?.() || myInstances.length > 0
 	);
 
 	onDestroy(() => {

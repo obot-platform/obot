@@ -98,7 +98,7 @@ async function renderVMcpTester(
 		instance?: VMCPInstance | null;
 		onLaunch?: () => void;
 		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
-		failConnect?: boolean;
+		connectFailureStatus?: number;
 	}
 ) {
 	await preparePageData(overrides);
@@ -109,8 +109,8 @@ async function renderVMcpTester(
 
 	vmcpInstances.current = { items: instance ? [instance] : [], loading: false };
 	if (instance) {
-		if (options?.failConnect) {
-			mockMCPInitializationFailure(instance.id);
+		if (options?.connectFailureStatus !== undefined) {
+			mockMCPInitializationFailure(instance.id, options.connectFailureStatus);
 		} else {
 			mockMCPInitialization(instance.id);
 		}
@@ -209,32 +209,32 @@ describe('VMcpTester', () => {
 		expect(onLaunch).toHaveBeenCalledOnce();
 	});
 
-	it('opens edit configuration when present credentials fail to connect', async () => {
+	it('keeps reauthentication on the tester when credentials expire', async () => {
 		const instance = createInstance({ configured: true });
-		const target = createConfigurableVMcp();
-		const openEditInstanceConfiguration = vi.fn();
+		const onLaunch = vi.fn();
 		await renderVMcpTester(
 			{},
 			{
-				vmcp: target,
+				vmcp: createConfigurableVMcp(),
 				instance,
-				openEditInstanceConfiguration,
-				failConnect: true
+				onLaunch,
+				openEditInstanceConfiguration: vi.fn(),
+				connectFailureStatus: 401
 			}
 		);
 
 		await expect
-			.element(
-				page.getByText('vMCP requires valid credential, verify information provided and try again.')
-			)
+			.element(page.getByRole('heading', { name: 'Reauthentication required' }))
 			.toBeVisible();
-		await expect.element(page.getByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
-		await page.getByRole('button', { name: 'Update Configuration' }).click();
-		expect(openEditInstanceConfiguration).toHaveBeenCalledWith(target, instance);
+		await page.getByRole('button', { name: 'Manage authentication' }).click();
+		expect(onLaunch).toHaveBeenCalledOnce();
+		await expect
+			.element(page.getByRole('button', { name: 'Update Configuration' }))
+			.not.toBeInTheDocument();
 	});
 
 	it('keeps Retry when a connection fails without user-provided configuration', async () => {
-		await renderVMcpTester({}, { failConnect: true });
+		await renderVMcpTester({}, { connectFailureStatus: 500 });
 
 		await expect.element(page.getByRole('heading', { name: 'Server unavailable' })).toBeVisible();
 		await expect.element(page.getByRole('button', { name: 'Retry' })).toBeVisible();
@@ -242,4 +242,36 @@ describe('VMcpTester', () => {
 			.element(page.getByRole('button', { name: 'Update Configuration' }))
 			.not.toBeInTheDocument();
 	});
+
+	it.each([500, 503])(
+		'opens edit configuration when a configured vMCP with user-provided fields cannot start (%s)',
+		async (connectFailureStatus) => {
+			const instance = createInstance({ configured: true });
+			const target = createConfigurableVMcp();
+			const openEditInstanceConfiguration = vi.fn();
+			await renderVMcpTester(
+				{},
+				{
+					vmcp: target,
+					instance,
+					openEditInstanceConfiguration,
+					connectFailureStatus
+				}
+			);
+
+			await expect
+				.element(
+					page.getByText(
+						'There was an issue starting the session. Please verify configuration or contact support if the issue persists.'
+					)
+				)
+				.toBeVisible();
+			await expect
+				.element(page.getByRole('heading', { name: 'Server unavailable' }))
+				.not.toBeInTheDocument();
+			await expect.element(page.getByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+			await page.getByRole('button', { name: 'Update Configuration' }).click();
+			expect(openEditInstanceConfiguration).toHaveBeenCalledWith(target, instance);
+		}
+	);
 });

@@ -34,6 +34,11 @@ export type TesterStatus =
 	| 'setup-required'
 	| 'error'
 	| 'closed';
+
+export function isUnavailableTesterFailure(status: TesterStatus): boolean {
+	return status === 'error' || status === 'unhealthy';
+}
+
 export type TesterWorkflowKind = 'chat' | 'direct';
 export type DirectOperationStatus =
 	| 'success'

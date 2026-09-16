@@ -14,7 +14,6 @@
 		resolveVMcpComponents,
 		vmcpComponentId,
 		vmcpConnectURL,
-		vmcpHasUserAllowedConfiguration,
 		vmcpInstanceNeedsUserConfiguration
 	} from '$lib/services/vmcps/utils';
 	import { vmcpInstances } from '$lib/stores';
