@@ -1,14 +1,11 @@
 package poweruserworkspace
 
 import (
-	"context"
 	"fmt"
-	"log/slog"
 
 	"github.com/obot-platform/nah/pkg/router"
-	gatewaytypes "github.com/obot-platform/obot/pkg/gateway/types"
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
-	kclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/obot-platform/obot/pkg/system"
 )
 
 // HandleGroupRoleChange processes GroupRoleChange events by reconciling workspaces
@@ -23,32 +20,19 @@ func (h *Handler) HandleGroupRoleChange(req router.Request, _ router.Response) e
 		return fmt.Errorf("failed to get users in group %s: %w", groupName, err)
 	}
 
-	// Process each user directly instead of creating separate events
+	// Create a UserRoleChange object for each user in the group.
 	for _, user := range users {
-		if err := h.reconcileUserWorkspace(req.Ctx, req.Client, req.Namespace, user); err != nil {
-			// Log error but continue processing other users
-			slog.Error("failed to reconcile workspace for user", "userID", user.ID, "error", err)
+		if err := req.Client.Create(req.Ctx, &v1.UserRoleChange{
+			Namespace:    req.Namespace,
+			GenerateName: system.UserRoleChangePrefix,
+			Spec: v1.UserRoleChangeSpec{
+				UserID: user.ID,
+			},
+		}); err != nil {
+			return fmt.Errorf("failed to create role change event for user %v: %w", user.ID, err)
 		}
 	}
 
 	// Delete the GroupRoleChange event now that we've processed it
 	return req.Delete(groupRoleChange)
-}
-
-// reconcileUserWorkspace reconciles the workspace for a single user based on their effective role.
-// This contains the same logic as HandleRoleChange but can be called directly without creating an event.
-func (h *Handler) reconcileUserWorkspace(ctx context.Context, client kclient.Client, namespace string, user gatewaytypes.User) error {
-	// Compute current effective role
-	groupIDs, err := h.gatewayClient.ListGroupIDsForUser(ctx, user.ID)
-	if err != nil {
-		return fmt.Errorf("failed to list groups for user %d: %w", user.ID, err)
-	}
-
-	effectiveRole, err := h.gatewayClient.ResolveUserEffectiveRole(ctx, &user, groupIDs)
-	if err != nil {
-		return fmt.Errorf("failed to resolve effective role for user %d: %w", user.ID, err)
-	}
-
-	// Reconcile workspace state to match effective role
-	return h.reconcileWorkspace(ctx, client, namespace, user, effectiveRole)
 }

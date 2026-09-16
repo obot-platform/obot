@@ -750,8 +750,8 @@ func (h *Handler) DeleteUnauthorizedMCPServersForCatalog(req router.Request, _ r
 		}
 		// Iterate through each MCPServer and make sure it is still allowed to exist.
 		for _, server := range mcpServers.Items {
-			if !server.DeletionTimestamp.IsZero() || !server.Spec.IsSingleUser() {
-				// For multi-user servers, we don't need to check them.
+			if !server.DeletionTimestamp.IsZero() || !server.Spec.IsSingleUser() || server.Spec.VMCPComponentID != "" {
+				// We don't need to check multi-user servers nor servers associated to vMCPs.
 				continue
 			}
 
@@ -815,7 +815,8 @@ func (h *Handler) DeleteUnauthorizedMCPServersForWorkspace(req router.Request, _
 
 		// Iterate through each MCPServer and make sure it is still allowed to exist.
 		for _, server := range mcpServers.Items {
-			if !server.DeletionTimestamp.IsZero() {
+			if !server.DeletionTimestamp.IsZero() || server.Spec.VMCPComponentID != "" {
+				// We don't need to check access for servers that are being deleted or have a VMCP component ID.
 				continue
 			}
 
@@ -892,7 +893,9 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForCatalog(req router.Requ
 
 		// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
 		for _, instance := range mcpServerInstances.Items {
-			if !instance.DeletionTimestamp.IsZero() {
+			if !instance.DeletionTimestamp.IsZero() || instance.Spec.VMCPComponentID != "" {
+				// We don't need to check instances that are being deleted nor ones
+				// associated to a vMCP.
 				continue
 			}
 
@@ -957,7 +960,9 @@ func (h *Handler) DeleteUnauthorizedMCPServerInstancesForWorkspace(req router.Re
 
 		// Iterate through each MCPServerInstance and make sure it is still allowed to exist.
 		for _, instance := range mcpServerInstances.Items {
-			if !instance.DeletionTimestamp.IsZero() {
+			if !instance.DeletionTimestamp.IsZero() || instance.Spec.VMCPComponentID != "" {
+				// We don't need to check instances that are being deleted
+				// nor instances associated to a vMCP.
 				continue
 			}
 

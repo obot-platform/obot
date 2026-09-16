@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"reflect"
 	"slices"
 	"strconv"
@@ -37,6 +38,54 @@ func New(gatewayClient *gateway.Client) *Handler {
 	return handler
 }
 
+// DeleteUnauthorized removes shared VMCP instances whose user no longer matches any profile.
+func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) error {
+	instance := req.Object.(*v1.VMCPInstance)
+
+	var vmcp v1.VMCP
+	if err := req.Get(&vmcp, instance.Namespace, instance.Spec.Manifest.VMCPID); err != nil {
+		return kclient.IgnoreNotFound(err)
+	}
+
+	if vmcp.Spec.UserID != "" {
+		// If the vMCP is a personal vMCP, then it will be deleted when it should no longer exist.
+		// Then this instance will be cleaned up on vMCP deletion by reference.
+		return nil
+	}
+
+	// Register a trigger so group membership changes also recheck profile access.
+	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
+		Namespace:     instance.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+	}); err != nil {
+		return err
+	}
+
+	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
+		Namespace:     instance.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+	}); err != nil {
+		return err
+	}
+
+	id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid VMCP instance user ID: %w", err)
+	}
+
+	u, err := h.userInfo(req.Ctx, uint(id))
+	if err != nil {
+		return err
+	}
+
+	if len(vmcpconfig.MatchingProfiles(u, vmcp.Spec.Manifest.Profiles)) > 0 {
+		return nil
+	}
+
+	slog.Info("Deleting VMCPInstance after profile access loss", "instance", instance.Name, "userID", instance.Spec.UserID)
+	return kclient.IgnoreNotFound(req.Delete(instance))
+}
+
 // ReconcileToolSelection permanently removes revoked tools from explicit selections.
 func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
@@ -53,7 +102,18 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 	switch vmcp.Spec.UserID {
 	case "":
 		// Register a trigger on group list changes so we recalculate when things change.
-		if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{Namespace: instance.Namespace}); err != nil {
+		if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
+			Namespace:     instance.Namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+		}); err != nil {
+			return err
+		}
+
+		// Same for user role changes.
+		if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
+			Namespace:     instance.Namespace,
+			FieldSelector: fields.OneTermEqualSelector("spec.userID", instance.Spec.UserID),
+		}); err != nil {
 			return err
 		}
 

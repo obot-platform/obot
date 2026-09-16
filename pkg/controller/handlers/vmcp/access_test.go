@@ -17,6 +17,7 @@ import (
 	gocache "k8s.io/client-go/tools/cache"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 func TestPruneUnauthorizedComponents(t *testing.T) {
@@ -98,7 +99,24 @@ func TestPruneUnauthorizedComponents(t *testing.T) {
 				}
 				objects = append(objects, entry)
 			}
-			client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).Build()
+			roleWatchRegistered := false
+			client := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).
+				WithIndex(&v1.UserGroupChange{}, "spec.userID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.UserGroupChange).Get("spec.userID")}
+				}).
+				WithIndex(&v1.UserRoleChange{}, "spec.userID", func(obj kclient.Object) []string {
+					return []string{obj.(*v1.UserRoleChange).Get("spec.userID")}
+				}).
+				WithInterceptorFuncs(interceptor.Funcs{List: func(ctx context.Context, client kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+					if _, ok := list.(*v1.UserRoleChangeList); ok {
+						options := (&kclient.ListOptions{}).ApplyOptions(opts)
+						if options.Namespace != system.DefaultNamespace || options.FieldSelector == nil || options.FieldSelector.String() != "spec.userID=1" {
+							t.Fatalf("role-change watch must target the owner in the VMCP namespace: %+v", options)
+						}
+						roleWatchRegistered = true
+					}
+					return client.List(ctx, list, opts...)
+				}}).Build()
 			indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
 				"selectors":           func(any) ([]string, error) { return []string{"*"}, nil },
 				"catalog-entry-names": func(any) ([]string, error) { return nil, nil },
@@ -133,7 +151,11 @@ func TestPruneUnauthorizedComponents(t *testing.T) {
 			}
 			// Repeated reconciliation must neither recreate nor further prune state.
 			for range 2 {
+				roleWatchRegistered = false
 				err := handler.PruneUnauthorizedComponents(router.Request{Ctx: t.Context(), Client: client, Object: vmcp}, &router.ResponseWrapper{})
+				if roleWatchRegistered == tc.shared {
+					t.Fatalf("role-change watch registered = %v, shared = %v", roleWatchRegistered, tc.shared)
+				}
 				if (err != nil) != tc.userError {
 					t.Fatalf("reconcile error = %v", err)
 				}

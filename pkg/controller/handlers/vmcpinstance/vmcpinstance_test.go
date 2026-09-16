@@ -16,11 +16,146 @@ import (
 	"github.com/obot-platform/obot/pkg/utils"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	"github.com/stretchr/testify/require"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
+
+func withUserChangeWatches(t *testing.T, builder *fake.ClientBuilder, userID string) *fake.ClientBuilder {
+	t.Helper()
+	return builder.
+		WithIndex(&v1.UserGroupChange{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.UserGroupChange).Get("spec.userID")}
+		}).
+		WithIndex(&v1.UserRoleChange{}, "spec.userID", func(obj kclient.Object) []string {
+			return []string{obj.(*v1.UserRoleChange).Get("spec.userID")}
+		}).
+		WithInterceptorFuncs(interceptor.Funcs{List: func(ctx context.Context, client kclient.WithWatch, list kclient.ObjectList, opts ...kclient.ListOption) error {
+			switch list.(type) {
+			case *v1.UserGroupChangeList, *v1.UserRoleChangeList:
+				options := (&kclient.ListOptions{}).ApplyOptions(opts)
+				require.Equal(t, "default", options.Namespace)
+				require.NotNil(t, options.FieldSelector)
+				require.Equal(t, "spec.userID="+userID, options.FieldSelector.String())
+			}
+			return client.List(ctx, list, opts...)
+		}})
+}
+
+func TestDeleteUnauthorized(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		subjects  []types.Subject
+		extra     map[string][]string
+		personal  bool
+		missing   bool
+		userError bool
+		invalidID bool
+		deleted   bool
+	}{
+		{
+			name:    "no profiles",
+			deleted: true,
+		},
+		{
+			name:     "user matches second profile",
+			subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+		},
+		{
+			name:     "wildcard matches",
+			subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+		},
+		{
+			name:     "obot group matches",
+			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
+			extra:    map[string][]string{"obot_groups": {"team"}},
+		},
+		{
+			name:     "provider group matches",
+			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
+			extra:    map[string][]string{"auth_provider_groups": {"team"}},
+		},
+		{
+			name:     "group membership lost",
+			subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}},
+			deleted:  true,
+		},
+		{
+			name:     "personal VMCP needs no profiles",
+			personal: true,
+		},
+		{
+			name:    "missing VMCP left to reference cleanup",
+			missing: true,
+		},
+		{
+			name:      "lookup error preserves instance",
+			userError: true,
+		},
+		{
+			name:      "invalid user ID preserves instance",
+			invalidID: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+			require.NoError(t, v1.AddToScheme(scheme))
+			vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default"}
+			if tc.personal {
+				vmcp.Spec.UserID = "1"
+			}
+			if tc.subjects != nil {
+				vmcp.Spec.Manifest.Profiles = []types.VMCPProfile{
+					{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "2"}}},
+					{Subjects: tc.subjects},
+				}
+			}
+			// Access must be checked even without an explicit tool selection.
+			instance := &v1.VMCPInstance{
+				Name:      "vmcpi1test",
+				Namespace: "default",
+				Spec: v1.VMCPInstanceSpec{
+					UserID:   "1",
+					Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name},
+				},
+			}
+			if tc.invalidID {
+				instance.Spec.UserID = "invalid"
+			}
+			builder := fake.NewClientBuilder().WithScheme(scheme).WithObjects(instance)
+			withUserChangeWatches(t, builder, instance.Spec.UserID)
+			if !tc.missing {
+				builder.WithObjects(vmcp)
+			}
+			client := builder.Build()
+			handler := &Handler{userInfo: func(_ context.Context, id uint) (kuser.Info, error) {
+				require.False(t, tc.personal || tc.missing || tc.invalidID)
+				require.Equal(t, uint(1), id)
+				if tc.userError {
+					return nil, errors.New("lookup failed")
+				}
+				return &kuser.DefaultInfo{UID: "1", Extra: tc.extra}, nil
+			}}
+			for range 2 {
+				err := handler.DeleteUnauthorized(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil)
+				if tc.userError || tc.invalidID {
+					require.Error(t, err)
+				} else {
+					require.NoError(t, err)
+				}
+				err = client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), &v1.VMCPInstance{})
+				if tc.deleted {
+					require.True(t, apierrors.IsNotFound(err), "expected deletion, got %v", err)
+				} else {
+					require.NoError(t, err)
+				}
+			}
+		})
+	}
+}
 
 func TestReconcileToolSelection(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -35,7 +170,7 @@ func TestReconcileToolSelection(t *testing.T) {
 		UserID:   "1",
 		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"everything": []string{"echo", "revoked"}}},
 	}}
-	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
 	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) { return u, nil }}
 	req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
@@ -84,7 +219,7 @@ func TestReconcileToolSelectionKeepsOwnerSelection(t *testing.T) {
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
 		UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: selection},
 	}}
-	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) {
 		return &kuser.DefaultInfo{UID: "1"}, nil
 	}}
@@ -119,7 +254,7 @@ func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing
 			"":           []string{"echo"}, // Legacy name is ambiguous and must remain denied.
 		}},
 	}}
-	client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance).Build()
+	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) {
 		return &kuser.DefaultInfo{UID: "1"}, nil
 	}}

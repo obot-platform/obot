@@ -202,6 +202,7 @@ func (c *Controller) setupRoutes() {
 
 	// VMCPInstance
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(cleanup.Cleanup)
+	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.DeleteUnauthorized)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.ReconcileToolSelection)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServers)
 	root.Type(&v1.VMCPInstance{}).HandlerFunc(vmcpinstance.EnsureMCPServerInstances)

@@ -15,6 +15,7 @@ import (
 	v1 "github.com/obot-platform/obot/pkg/storage/apis/obot.obot.ai/v1"
 	vmcpconfig "github.com/obot-platform/obot/pkg/vmcp"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	kuser "k8s.io/apiserver/pkg/authentication/user"
 	kclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,24 +37,42 @@ func (h *Handler) PruneUnauthorizedComponents(req router.Request, _ router.Respo
 	if vmcp.Spec.UserID == "" {
 		return nil
 	}
+
 	// Register watches, as in the legacy catalog-access cleanup handlers.
-	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{Namespace: vmcp.Namespace}); err != nil {
+	if err := req.List(&v1.AccessControlRuleList{}, &kclient.ListOptions{
+		Namespace: vmcp.Namespace,
+	}); err != nil {
 		return err
 	}
-	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{Namespace: vmcp.Namespace}); err != nil {
+
+	if err := req.List(&v1.UserGroupChangeList{}, &kclient.ListOptions{
+		Namespace:     vmcp.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", vmcp.Spec.UserID),
+	}); err != nil {
 		return err
 	}
+
+	if err := req.List(&v1.UserRoleChangeList{}, &kclient.ListOptions{
+		Namespace:     vmcp.Namespace,
+		FieldSelector: fields.OneTermEqualSelector("spec.userID", vmcp.Spec.UserID),
+	}); err != nil {
+		return err
+	}
+
 	if len(vmcp.Spec.Manifest.Components) == 0 {
 		return nil
 	}
+
 	userID, err := strconv.ParseUint(vmcp.Spec.UserID, 10, 64)
 	if err != nil {
 		return fmt.Errorf("invalid VMCP owner ID %q: %w", vmcp.Spec.UserID, err)
 	}
+
 	owner, err := h.userInfo(req.Ctx, uint(userID))
 	if err != nil {
 		return fmt.Errorf("get VMCP owner %q: %w", vmcp.Spec.UserID, err)
 	}
+
 	components := make([]types.VMCPComponent, 0, len(vmcp.Spec.Manifest.Components))
 	for _, component := range vmcp.Spec.Manifest.Components {
 		var entry v1.MCPServerCatalogEntry
@@ -63,22 +82,29 @@ func (h *Handler) PruneUnauthorizedComponents(req router.Request, _ router.Respo
 		} else if err != nil {
 			return err
 		}
+
 		allowed, err := authz.UserCanReadCatalogEntry(req.Ctx, owner, &entry, h.acrHelper)
 		if err != nil {
 			return fmt.Errorf("check VMCP owner access to entry %q: %w", entry.Name, err)
 		}
+
 		if allowed {
 			components = append(components, component)
 		}
 	}
+
 	if len(components) == len(vmcp.Spec.Manifest.Components) {
 		return nil
 	}
+
 	if len(components) == 0 {
 		slog.Info("Deleting personal VMCP after catalog access loss", "vmcp", vmcp.Name, "userID", vmcp.Spec.UserID)
 		return kclient.IgnoreNotFound(req.Delete(vmcp))
 	}
-	slog.Info("Pruning personal VMCP after catalog access loss", "vmcp", vmcp.Name, "userID", vmcp.Spec.UserID, "removedComponents", len(vmcp.Spec.Manifest.Components)-len(components))
+
+	slog.Info("Pruning personal VMCP after catalog access loss", "vmcp", vmcp.Name, "userID", vmcp.Spec.UserID, "removedComponents",
+		len(vmcp.Spec.Manifest.Components)-len(components))
+
 	previous := vmcp.Spec.Manifest.Components
 	vmcp.Spec.Manifest.Components = components
 	vmcpconfig.PruneRemovedComponentProfiles(previous, &vmcp.Spec.Manifest)

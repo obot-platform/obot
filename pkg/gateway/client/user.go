@@ -647,10 +647,15 @@ func (c *Client) UserInfoByID(ctx context.Context, userID uint) (kuser.Info, err
 		return nil, err
 	}
 
+	role, err := c.ResolveUserEffectiveRole(ctx, u, groupIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve effective role: %w", err)
+	}
+
 	return &kuser.DefaultInfo{
 		Name:   u.Username,
 		UID:    fmt.Sprintf("%d", u.ID),
-		Groups: u.Role.Groups(),
+		Groups: role.Groups(),
 		Extra: map[string][]string{
 			"auth_provider_groups": groupIDs,
 			"email":                {u.Email},
