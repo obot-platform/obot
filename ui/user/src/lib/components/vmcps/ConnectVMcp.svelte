@@ -8,6 +8,7 @@
 	} from '$lib/components/mcp/CatalogConfigureForm.svelte';
 	import HowToConnect from '$lib/components/mcp/HowToConnect.svelte';
 	import IconButton from '$lib/components/primitives/IconButton.svelte';
+	import { isAbortError } from '$lib/errors';
 	import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
 	import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 	import {
@@ -43,6 +44,7 @@
 	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
 	let ignoreNextConfigureClose = false;
 	let skipConnectDialog = false;
+	let editConfigurationController: AbortController | undefined;
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -109,16 +111,29 @@
 		targetInstance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
+		editConfigurationController?.abort();
+		const controller = new AbortController();
+		editConfigurationController = controller;
+
 		let resolved: VMCP;
 		try {
-			resolved = await UserService.getVMCP(target.id, { dontLogErrors: true });
-		} catch {
+			resolved = await UserService.getVMCP(target.id, {
+				dontLogErrors: true,
+				signal: controller.signal
+			});
+		} catch (err) {
+			if (controller.signal.aborted || isAbortError(err)) return;
 			resolved = target;
 		}
+
+		if (controller.signal.aborted || editConfigurationController !== controller) return;
+
 		resetDialogState(resolved, targetInstance, options);
 		skipConnectDialog = true;
 		connectDialog?.close();
 		await initConfigureForm();
+
+		if (editConfigurationController === controller) editConfigurationController = undefined;
 	}
 
 	function handleConfigure() {

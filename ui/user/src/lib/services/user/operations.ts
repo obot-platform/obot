@@ -95,7 +95,7 @@ export async function listVMCPs(opts?: { fetch?: Fetcher; all?: boolean }): Prom
 
 export async function getVMCP(
 	id: string,
-	opts?: { fetch?: Fetcher; dontLogErrors?: boolean }
+	opts?: { fetch?: Fetcher; dontLogErrors?: boolean; signal?: AbortSignal }
 ): Promise<VMCP> {
 	return (await doGet(`/vmcps/${id}`, opts)) as VMCP;
 }
