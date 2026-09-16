@@ -1,7 +1,13 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import { AdminService, UserService, getProfile, type AuthProvider } from '$lib/services';
+import {
+	AdminService,
+	UserService,
+	getProfile,
+	type AuthProvider,
+	type BootstrapStatus,
+	type Profile
+} from '$lib/services';
 import { Group } from '$lib/services/admin/types';
-import type { Profile } from '$lib/services/user/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -19,12 +25,16 @@ function getAdminRedirectPath(profile?: Profile, hasVMCPs?: boolean): string {
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	let authProviders: AuthProvider[] = [];
+	let bootstrapStatus: BootstrapStatus | undefined;
 	let profile;
 
 	try {
 		profile = await getProfile({ fetch });
 	} catch (_err) {
-		authProviders = await UserService.listAuthProviders({ fetch });
+		[bootstrapStatus, authProviders] = await Promise.all([
+			UserService.getBootstrapStatus(),
+			UserService.listAuthProviders({ fetch })
+		]);
 	}
 
 	const showSetupHandoff = url.searchParams.get('setup') === 'complete';
@@ -36,6 +46,7 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	}
 
 	if (
+		!bootstrapStatus?.enabled &&
 		!showSetupHandoff &&
 		authProviders.length === 1 &&
 		authProviders[0].id === CommonAuthProviderIds.LOCAL

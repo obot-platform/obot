@@ -183,7 +183,7 @@
 		<p>By continuing, you agree to the following:</p>
 
 		<div class="flex items-center gap-2 text-sm pt-4">
-			<div class="mx-1">●</div>
+			<div class="mx-2">&#8226;</div>
 			<span>
 				I agree to Obot's
 				<a

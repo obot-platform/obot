@@ -95,7 +95,8 @@
 	);
 	let instanceNeedingConfiguration = $derived(instancesNeedingConfiguration[0]);
 	let canEditInstanceConfiguration = $derived(
-		Boolean(openEditInstanceConfiguration && vmcpHasUserAllowedConfiguration(vmcp))
+		Boolean(openEditInstanceConfiguration && vmcpHasUserAllowedConfiguration(vmcp)) &&
+			myInstances.length > 0
 	);
 	let disconnecting = $state(false);
 	let updating = $state(false);
@@ -159,14 +160,14 @@
 	}
 
 	function handleEditInstanceConfiguration(toggle?: (open?: boolean) => void) {
-		if (instancesNeedingConfiguration.length === 0) return;
-		if (instancesNeedingConfiguration.length === 1 || !openSelectInstance) {
-			openEditInstanceConfiguration?.(vmcp, instancesNeedingConfiguration[0]);
+		if (myInstances.length === 0) return;
+		if (myInstances.length === 1 || !openSelectInstance) {
+			openEditInstanceConfiguration?.(vmcp, myInstances[0]);
 			toggle?.(false);
 			return;
 		}
 		openSelectInstance(
-			instancesNeedingConfiguration,
+			myInstances,
 			(instance) => openEditInstanceConfiguration?.(vmcp, instance),
 			'Select Connection to Configure'
 		);

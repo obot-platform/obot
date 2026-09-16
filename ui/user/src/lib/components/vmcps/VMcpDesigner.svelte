@@ -602,7 +602,7 @@
 	isAddedToVMcp={isAddedToSelectedVMcp}
 />
 
-<VMcpIntroduction show={!selectedVMcp && canEdit && viewType === 'graph'} />
+<VMcpIntroduction show={isFirstVMcp && !selectedVMcp && canEdit && viewType === 'graph'} />
 
 <svelte:head>
 	<title>Obot | {title}</title>

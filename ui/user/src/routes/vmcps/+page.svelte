@@ -119,7 +119,7 @@
 	<VMcpDesigner
 		onBack={hideCreate}
 		{usersMap}
-		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.userID === profile.current.id)}
+		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.creatorUserID === profile.current.id)}
 	/>
 {:else}
 	<TabLayout

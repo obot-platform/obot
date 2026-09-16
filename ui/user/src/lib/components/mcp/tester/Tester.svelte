@@ -295,7 +295,7 @@
 				{#if activeSection === 'chat'}
 					{#if chatAvailable && chat}
 						<Chat {chat} {session} />
-					{:else if !hasCommunityOrEnterprise}
+					{:else if !hasCommunityOrEnterprise && profile.current.isAdmin?.()}
 						<CommunitySignupPanel
 							class="mt-4 md:w-md w-full"
 							labelledBy="mcp-tester-community-signup-heading"
