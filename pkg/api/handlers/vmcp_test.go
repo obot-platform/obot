@@ -225,7 +225,7 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if len(shared.Profiles) != 1 || shared.Profiles[0].Name != "default" || !shared.Profiles[0].Permissions.AllowAllComponents {
 		t.Fatalf("unexpected shared default profiles: %#v", shared.Profiles)
 	}
-	if len(shared.Profiles[0].Subjects) != 1 || shared.Profiles[0].Subjects[0] != (types.Subject{Type: types.SubjectTypeUser, ID: "admin"}) {
+	if len(shared.Profiles[0].Subjects) != 1 || shared.Profiles[0].Subjects[0] != (types.Subject{Type: types.SubjectTypeGroup, ID: types.GroupAdmin}) {
 		t.Fatalf("unexpected shared default profile subjects: %#v", shared.Profiles[0].Subjects)
 	}
 
