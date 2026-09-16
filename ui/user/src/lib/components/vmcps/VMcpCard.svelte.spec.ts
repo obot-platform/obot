@@ -248,7 +248,7 @@ describe('VMcpCard.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
-		await page.getByRole('button', { name: 'Update VMCP', exact: true }).click();
+		await page.getByRole('button', { name: 'Update vMCP', exact: true }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
 		await vi.waitFor(() => {
 			expect(triggered).toHaveBeenCalledOnce();
@@ -323,7 +323,7 @@ describe('VMcpCard.svelte', () => {
 		});
 
 		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
-		await page.getByRole('button', { name: 'Update VMCP', exact: true }).click();
+		await page.getByRole('button', { name: 'Update vMCP', exact: true }).click();
 		await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
 
 		await expect.element(page.getByRole('heading', { name: /Configure GitHub/ })).toBeVisible();
@@ -382,7 +382,7 @@ describe('VMcpCard.svelte', () => {
 
 		await page.getByRole('button', { name: 'Actions for Issue Tracker vMCP' }).click();
 		await expect
-			.element(page.getByRole('button', { name: 'Update VMCP', exact: true }))
+			.element(page.getByRole('button', { name: 'Update vMCP', exact: true }))
 			.not.toBeInTheDocument();
 	});
 
