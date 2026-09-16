@@ -432,7 +432,7 @@ func (c *Client) UpdateProfileIfNeeded(ctx context.Context, user *types.User, au
 			return err
 		}
 
-		// Omit the group check column to prevent resetting the window
+		// Omit the group check column to prevent resetting the group refresh window
 		return tx.Omit(groupsLastCheckedColumn).Updates(&identity).Error
 	})
 }

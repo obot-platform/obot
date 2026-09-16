@@ -143,7 +143,8 @@ func (c *Client) EncryptIdentities(ctx context.Context, force bool) error {
 				return fmt.Errorf("failed to encrypt identity: %w", err)
 			}
 
-			if err := tx.Updates(identities[i]).Error; err != nil {
+			// Omit the group check column to prevent resetting the group refresh window
+			if err := tx.Omit(groupsLastCheckedColumn).Updates(identities[i]).Error; err != nil {
 				return err
 			}
 		}
@@ -485,7 +486,7 @@ func (c *Client) encryptAndUpdateIdentity(ctx context.Context, tx *gorm.DB, id t
 		return fmt.Errorf("failed to encrypt identity: %w", err)
 	}
 
-	// Omit the group check column to prevent resetting the window
+	// Omit the group check column to prevent resetting the group refresh window
 	if err := tx.Omit(groupsLastCheckedColumn).Updates(&id).Error; err != nil {
 		return fmt.Errorf("failed to update identity: %w", err)
 	}
