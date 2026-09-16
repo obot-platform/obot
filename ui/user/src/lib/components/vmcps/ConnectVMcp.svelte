@@ -19,7 +19,7 @@
 	import { vmcpInstances } from '$lib/stores';
 	import VMcpIcon from './VMcpIcon.svelte';
 	import { CircleAlert, X } from '@lucide/svelte';
-	import { onMount, untrack } from 'svelte';
+	import { onMount } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
@@ -39,18 +39,10 @@
 	let oauthDialog = $state<HTMLDialogElement>();
 	let oauthURL = $state<string>('');
 	let oauthVerifying = $state(false);
-	let oauthVerificationGeneration = 0;
 	let onConnected = $state<VMcpConnectOptions['onConnected']>();
-	let onConnectingChange = $state<VMcpConnectOptions['onConnectingChange']>();
+	let onDismissed = $state<VMcpConnectOptions['onDismissed']>();
+	let ignoreNextConfigureClose = false;
 	let skipConnectDialog = false;
-
-	$effect(() => {
-		// The instance is published before OAuth completes. Keep the tester waiting
-		// until both launch and authentication have finished.
-		const connecting = saving || Boolean(oauthURL) || oauthVerifying;
-		const notify = onConnectingChange;
-		untrack(() => notify?.(connecting));
-	});
 
 	let connectURL = $derived(vmcp ? vmcpConnectURL(vmcp) : undefined);
 	let displayName = $derived(vmcp?.displayName || 'vMCP');
@@ -84,11 +76,10 @@
 		targetInstance?: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
-		oauthVerificationGeneration++;
 		vmcp = target;
 		instance = targetInstance;
 		onConnected = options?.onConnected;
-		onConnectingChange = options?.onConnectingChange;
+		onDismissed = options?.onDismissed;
 		configureForm = undefined;
 		error = undefined;
 		launchError = undefined;
@@ -103,7 +94,7 @@
 
 	export function open(target: VMCP, targetInstance?: VMCPInstance, options?: VMcpConnectOptions) {
 		resetDialogState(target, targetInstance, options);
-		skipConnectDialog = false;
+		skipConnectDialog = Boolean(options?.onConnected);
 
 		if (options?.onConnected) {
 			initLaunch();
@@ -274,12 +265,27 @@
 		return { timeout1, timeout2, timeout3 };
 	}
 
-	function finishLaunch() {
-		// Completion and dismissal both invalidate any outstanding OAuth checks.
-		oauthVerificationGeneration++;
-		configureDialog?.close();
+	function takeConnectCallbacks() {
 		const connected = onConnected;
+		const dismissed = onDismissed;
 		onConnected = undefined;
+		onDismissed = undefined;
+		return { connected, dismissed };
+	}
+
+	function dismissConnect() {
+		takeConnectCallbacks().dismissed?.();
+	}
+
+	function closeConfigureWithoutDismissing() {
+		ignoreNextConfigureClose = true;
+		configureDialog?.close();
+		ignoreNextConfigureClose = false;
+	}
+
+	function finishLaunch() {
+		const { connected } = takeConnectCallbacks();
+		closeConfigureWithoutDismissing();
 		if (connected) {
 			connected();
 			return;
@@ -296,10 +302,7 @@
 	async function handleOauthVisibilityChange() {
 		if (!oauthURL && !oauthVerifying) return;
 		if (document.visibilityState === 'visible') {
-			const generation = ++oauthVerificationGeneration;
-			const url = await getOauthURL();
-			if (generation !== oauthVerificationGeneration) return;
-			oauthURL = url;
+			oauthURL = await getOauthURL();
 			if (!oauthURL) {
 				oauthDialog?.close();
 				finishLaunch();
@@ -321,7 +324,7 @@
 		launchState = undefined;
 		launchProgress = 0;
 		if (oauthURL) {
-			configureDialog?.close();
+			closeConfigureWithoutDismissing();
 			oauthDialog?.showModal();
 		} else {
 			finishLaunch();
@@ -331,7 +334,6 @@
 	function handleOauthClose() {
 		oauthDialog?.close();
 		oauthURL = '';
-		oauthVerifying = false;
 		finishLaunch();
 	}
 
@@ -393,7 +395,6 @@
 	onMount(() => {
 		ensureOauthVisibilityListener();
 		return () => {
-			oauthVerificationGeneration++;
 			document.removeEventListener('visibilitychange', handleOauthVisibilityChange);
 		};
 	});
@@ -454,6 +455,10 @@
 	bind:form={configureForm}
 	name={displayName}
 	onSave={saveConfiguration}
+	onClose={() => {
+		if (ignoreNextConfigureClose) return;
+		dismissConnect();
+	}}
 	submitText={instance ? 'Update' : 'Configure'}
 	loading={saving || launchState === 'launching'}
 	{error}
@@ -506,7 +511,12 @@
 								launchState = undefined;
 								launchError = undefined;
 								launchProgress = 0;
+								saving = false;
 								configureDialog?.close();
+								if (skipConnectDialog) {
+									dismissConnect();
+									return;
+								}
 								if (vmcp) connectDialog?.open();
 							}}
 						>
@@ -542,7 +552,10 @@
 	submitText="Continue"
 	type="info"
 	title="Connect To Server"
-	oncancel={() => (showIntroDialog = false)}
+	oncancel={() => {
+		showIntroDialog = false;
+		dismissConnect();
+	}}
 	hideCancelButton
 >
 	{#snippet msgContent()}
@@ -562,14 +575,7 @@
 	{/snippet}
 </Confirm>
 
-<dialog
-	bind:this={oauthDialog}
-	class="dialog"
-	use:dialogAnimation={{ type: 'slide' }}
-	onclose={() => {
-		if (oauthURL || oauthVerifying) handleOauthClose();
-	}}
->
+<dialog bind:this={oauthDialog} class="dialog" use:dialogAnimation={{ type: 'slide' }}>
 	<div class="dialog-container md:w-sm">
 		<div class="flex flex-col gap-4 p-4">
 			{#if oauthURL}

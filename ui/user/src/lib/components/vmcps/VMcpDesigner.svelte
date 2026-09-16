@@ -72,7 +72,6 @@
 	let profilesPanel = $state<ReturnType<typeof VMcpProfiles>>();
 	let catalogEntryDialog = $state<ReturnType<typeof ViewModifyCatalogEntry>>();
 	let refreshingTester = $state(false);
-	let connectingTesterID = $state<string>();
 	let vmcpActions = $state<ReturnType<typeof VMcpActions>>();
 	let rightPanelEl = $state<HTMLElement>();
 	let graphCanvasEl = $state<HTMLElement>();
@@ -435,16 +434,17 @@
 				<div class="flex h-full min-h-0 flex-col p-3 pt-14">
 					<VMcpTester
 						vmcp={selectedVMcp}
-						loading={refreshingTester || connectingTesterID === selectedVMcp.id}
+						loading={refreshingTester}
 						onLaunch={() => {
 							if (!selectedVMcp) return;
 							const vmcpID = selectedVMcp.id;
+							refreshingTester = true;
 							handleConnectVMcp(selectedVMcp, {
-								onConnectingChange: (connecting) => {
-									connectingTesterID = connecting ? vmcpID : undefined;
-								},
 								onConnected: () => {
 									void refreshTester(vmcpID);
+								},
+								onDismissed: () => {
+									refreshingTester = false;
 								}
 							});
 						}}

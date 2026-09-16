@@ -30,7 +30,7 @@ export type VMcpSortBy = 'name' | 'created' | 'componentServers';
 
 export type VMcpConnectOptions = {
 	onConnected?: () => void;
-	onConnectingChange?: (connecting: boolean) => void;
+	onDismissed?: () => void;
 };
 
 export type VMcpFilterOption = { id: string; label: string; disabled?: boolean };
