@@ -101,6 +101,9 @@
 	let disconnecting = $state(false);
 	let updating = $state(false);
 	let destroyed = false;
+	let hasActions = $derived(
+		isCreator || profile.current.hasAdminAccess?.() || myInstances.length > 0
+	);
 
 	onDestroy(() => {
 		destroyed = true;
@@ -195,124 +198,128 @@
 				{@html descriptionHTML}
 			</p>
 		</div>
-		<DotDotDot
-			placement="bottom-start"
-			class="pointer-events-auto relative z-10 size-9 shrink-0"
-			classes={{ menu: 'min-w-48' }}
-			ariaLabel={`Actions for ${name}`}
-		>
-			{#snippet children({ toggle })}
-				{#if onEditDetails}
-					<button class="menu-button" onclick={onEditDetails}>
-						<Pencil class="size-4" /> Edit Details
-					</button>
-				{/if}
-				<button
-					class="menu-button"
-					disabled={disconnecting}
-					onclick={async (e) => {
-						e.stopPropagation();
-						if (openSelectInstance && connected && myInstances.length > 0) {
-							await handleDisconnect(toggle);
-						} else {
-							disconnecting = true;
-							await new Promise((resolve) => setTimeout(resolve, 1000));
-							disconnecting = false;
-						}
-					}}
-				>
-					{#if disconnecting}
-						<Loading class="size-4" />
-					{:else}
-						<Power class="size-4" />
+		{#if hasActions}
+			<DotDotDot
+				placement="bottom-start"
+				class="pointer-events-auto relative z-10 size-9 shrink-0"
+				classes={{ menu: 'min-w-48' }}
+				ariaLabel={`Actions for ${name}`}
+			>
+				{#snippet children({ toggle })}
+					{#if onEditDetails}
+						<button class="menu-button" onclick={onEditDetails}>
+							<Pencil class="size-4" /> Edit Details
+						</button>
 					{/if}
-					Reset
-				</button>
-				{#if openUpdateConfirm && needsUpdate && canUpdate}
 					<button
-						class="menu-button-primary"
-						disabled={updating}
-						onclick={(e) => {
+						class="menu-button"
+						disabled={disconnecting}
+						onclick={async (e) => {
 							e.stopPropagation();
-							openUpdateConfirm(vmcp, handleUpdate);
-							toggle(false);
+							if (openSelectInstance && connected && myInstances.length > 0) {
+								await handleDisconnect(toggle);
+							} else {
+								disconnecting = true;
+								await new Promise((resolve) => setTimeout(resolve, 1000));
+								disconnecting = false;
+							}
 						}}
 					>
-						{#if updating}
+						{#if disconnecting}
 							<Loading class="size-4" />
 						{:else}
-							<CircleFadingArrowUp class="size-4" />
+							<Power class="size-4" />
 						{/if}
-						Update vMCP
+						Reset
 					</button>
-				{/if}
-				{#if canEditInstanceConfiguration}
-					<button
-						class={twMerge(
-							'menu-button',
-							instancesNeedingConfiguration.length > 0 &&
-								'bg-warning/10 text-warning hover:bg-warning/30'
-						)}
-						onclick={(e) => {
-							e.stopPropagation();
-							handleEditInstanceConfiguration(toggle);
-						}}
-					>
-						<ServerCog class="size-4" /> Edit Configuration
-					</button>
-				{/if}
-				{#if openDiff && needsUpdate}
-					<button
-						class="menu-button-primary"
-						disabled={updating}
-						onclick={(e) => {
-							e.stopPropagation();
-							openDiff(vmcp);
-							toggle(false);
-						}}
-					>
-						<GitCompare class="size-4" /> View Diff
-					</button>
-				{/if}
-				<a
-					class="menu-button justify-between"
-					href={resolve(`/audit-logs?mcp_id=${encodeURIComponent(id)}`)}
-					target="_blank"
-					rel="noopener"
-					onclick={(e) => {
-						e.stopPropagation();
-						toggle(false);
-					}}
-				>
-					View Audit Logs <ExternalLink class="size-4" />
-				</a>
-				<a
-					class="menu-button justify-between"
-					href={resolve(`/usage?mcp_id=${encodeURIComponent(id)}`)}
-					target="_blank"
-					rel="noopener"
-					onclick={(e) => {
-						e.stopPropagation();
-						toggle(false);
-					}}
-				>
-					View Usage <ExternalLink class="size-4" />
-				</a>
-				{#if canDelete}
-					<button
-						class="menu-button-destructive"
-						onclick={(e) => {
-							e.stopPropagation();
-							onDelete?.();
-							toggle(false);
-						}}
-					>
-						<Trash2 class="size-4" />
-						Delete
-					</button>
-				{/if}
-			{/snippet}
-		</DotDotDot>
+					{#if openUpdateConfirm && needsUpdate && canUpdate}
+						<button
+							class="menu-button-primary"
+							disabled={updating}
+							onclick={(e) => {
+								e.stopPropagation();
+								openUpdateConfirm(vmcp, handleUpdate);
+								toggle(false);
+							}}
+						>
+							{#if updating}
+								<Loading class="size-4" />
+							{:else}
+								<CircleFadingArrowUp class="size-4" />
+							{/if}
+							Update vMCP
+						</button>
+					{/if}
+					{#if canEditInstanceConfiguration}
+						<button
+							class={twMerge(
+								'menu-button',
+								instancesNeedingConfiguration.length > 0 &&
+									'bg-warning/10 text-warning hover:bg-warning/30'
+							)}
+							onclick={(e) => {
+								e.stopPropagation();
+								handleEditInstanceConfiguration(toggle);
+							}}
+						>
+							<ServerCog class="size-4" /> Edit Configuration
+						</button>
+					{/if}
+					{#if openDiff && needsUpdate}
+						<button
+							class="menu-button-primary"
+							disabled={updating}
+							onclick={(e) => {
+								e.stopPropagation();
+								openDiff(vmcp);
+								toggle(false);
+							}}
+						>
+							<GitCompare class="size-4" /> View Diff
+						</button>
+					{/if}
+					{#if isCreator || profile.current.hasAdminAccess?.()}
+						<a
+							class="menu-button justify-between"
+							href={resolve(`/audit-logs?mcp_id=${encodeURIComponent(id)}`)}
+							target="_blank"
+							rel="noopener"
+							onclick={(e) => {
+								e.stopPropagation();
+								toggle(false);
+							}}
+						>
+							View Audit Logs <ExternalLink class="size-4" />
+						</a>
+						<a
+							class="menu-button justify-between"
+							href={resolve(`/usage?mcp_id=${encodeURIComponent(id)}`)}
+							target="_blank"
+							rel="noopener"
+							onclick={(e) => {
+								e.stopPropagation();
+								toggle(false);
+							}}
+						>
+							View Usage <ExternalLink class="size-4" />
+						</a>
+					{/if}
+					{#if canDelete}
+						<button
+							class="menu-button-destructive"
+							onclick={(e) => {
+								e.stopPropagation();
+								onDelete?.();
+								toggle(false);
+							}}
+						>
+							<Trash2 class="size-4" />
+							Delete
+						</button>
+					{/if}
+				{/snippet}
+			</DotDotDot>
+		{/if}
 	</div>
 
 	{#if children}
