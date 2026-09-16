@@ -720,7 +720,7 @@
 				{/each}
 			</ul>
 			<p>
-				Log in into the system as one of the explicit owners -- you'll be redirected after
+				Log in to the system as one of the explicit owners -- you'll be redirected after
 				authenticating.
 			</p>
 			<p>

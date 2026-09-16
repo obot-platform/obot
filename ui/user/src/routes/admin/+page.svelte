@@ -97,7 +97,7 @@
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
 					>
-						Logout
+						Log out
 					</button>
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
