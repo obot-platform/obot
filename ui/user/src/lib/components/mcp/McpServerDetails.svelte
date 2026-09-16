@@ -42,11 +42,13 @@
 	let supportsDetails = $derived(supportsMCPBackendDetails(server));
 	let hasAdminAccess = $derived(profile.current.hasAdminAccess?.());
 	let entity = $derived(
-		overrideEntity ?? (server && server?.powerUserWorkspaceID ? 'workspace' : 'catalog')
+		overrideEntity ??
+			(server?.powerUserWorkspaceID || catalogEntry?.powerUserWorkspaceID ? 'workspace' : 'catalog')
 	);
 	let entityId = $derived(
 		overrideEntityId ??
 			server?.powerUserWorkspaceID ??
+			catalogEntry?.powerUserWorkspaceID ??
 			server?.mcpCatalogID ??
 			catalogEntry?.id ??
 			DEFAULT_MCP_CATALOG_ID

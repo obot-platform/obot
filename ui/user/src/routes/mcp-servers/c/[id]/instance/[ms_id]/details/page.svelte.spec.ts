@@ -10,7 +10,7 @@ import { worker } from '../../../../../../../tests/mocks/worker';
 import type { PageData } from './$types';
 import DetailsPage from './+page.svelte';
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
@@ -108,4 +108,29 @@ describe('MCP Catalog entry instance details page (admin)', () => {
 			.element(page.getByRole('heading', { name: 'Deployment Logs', exact: true }))
 			.not.toBeInTheDocument();
 	});
+});
+
+it('loads workspace K8s status for a dedicated vMCP component', async () => {
+	const entry = { ...fixtures.entrySingle, powerUserWorkspaceID: 'workspace-1' };
+	const server = {
+		...fixtures.serverSingle,
+		powerUserWorkspaceID: undefined,
+		vmcpInstanceID: 'vmcpi1-test'
+	};
+	const statusRequest = vi.fn(() => HttpResponse.json(getServerK8sSettingsResponse));
+	worker.use(
+		http.get(`/api/workspaces/workspace-1/entries/${entry.id}/servers/${server.id}/details`, () =>
+			HttpResponse.json(getK8sServerDetailResponse)
+		),
+		http.get(
+			`/api/workspaces/workspace-1/entries/${entry.id}/servers/${server.id}/k8s-settings-status`,
+			statusRequest
+		),
+		http.post(`/api/workspaces/workspace-1/servers/${server.id}/reveal`, () =>
+			HttpResponse.json({})
+		)
+	);
+	await renderInstanceDetailsPage(entry, server);
+	await vi.waitFor(() => expect(statusRequest).toHaveBeenCalledOnce());
+	await expect.element(page.getByText('Healthy', { exact: true })).toBeVisible();
 });

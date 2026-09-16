@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { tooltip } from '$lib/actions/tooltip.svelte';
 	import Confirm from '$lib/components/Confirm.svelte';
@@ -15,8 +16,7 @@
 		UserService,
 		type MCPCatalogEntry,
 		type MCPCatalogServer,
-		type OrgUser,
-		type VMCPInstance
+		type OrgUser
 	} from '$lib/services';
 	import {
 		getMCPDisplayName,
@@ -33,7 +33,14 @@
 		isMcpTunnelDisconnected,
 		shouldShowMcpTunnelDisconnectedBadge
 	} from '$lib/services/user/mcpTunnel';
-	import { profile, mcpServersAndEntries, mcpTunnelConnections, version } from '$lib/stores';
+	import { vmcpInstancePath } from '$lib/services/vmcps/utils';
+	import {
+		errors,
+		profile,
+		mcpServersAndEntries,
+		mcpTunnelConnections,
+		version
+	} from '$lib/stores';
 	import { formatTimeAgo } from '$lib/time';
 	import { getUserDisplayName, openUrl } from '$lib/utils';
 	import CapacityBanner from './CapacityBanner.svelte';
@@ -136,7 +143,6 @@
 
 	let deployedCatalogEntryServers = $state<MCPCatalogServer[]>([]);
 	let deployedWorkspaceCatalogEntryServers = $state<MCPCatalogServer[]>([]);
-	let deployedVmcpInstances = $state<VMCPInstance[]>([]);
 	let serversData = $derived.by(() => {
 		if (initialServers) return initialServers;
 		if (entity === 'workspace') {
@@ -154,9 +160,6 @@
 		});
 	});
 
-	let deployedVmcpInstancesMap = $derived(
-		new Map(deployedVmcpInstances.map((instance) => [instance.id, instance]))
-	);
 	let instancesMap = $derived(
 		new Map(
 			mcpServersAndEntries.current.userInstances.map((instance) => [instance.mcpServerID, instance])
@@ -277,7 +280,6 @@
 					await AdminService.listAllCatalogDeployedSingleRemoteServers(id);
 				deployedWorkspaceCatalogEntryServers =
 					await AdminService.listAllWorkspaceDeployedSingleRemoteServers();
-				deployedVmcpInstances = await AdminService.listAllVMCPInstances();
 				// Refresh multi-user servers too
 				await mcpServersAndEntries.refreshAll();
 				// Refresh capacity banner when server list changes
@@ -819,16 +821,44 @@
 										View vMCP Deployments
 									</a>
 								{:else if d.vmcpInstanceID}
-									{@const instance = deployedVmcpInstancesMap.get(d.vmcpInstanceID)}
-									{#if instance}
-										<a
-											href={resolve(`/vmcps/${instance.vmcpID}/instance/${instance.id}`)}
-											class="menu-button"
-										>
-											<Layers class="size-4" />
-											View vMCP Deployment
-										</a>
-									{/if}
+									<button
+										class="menu-button"
+										onclick={async (e) => {
+											e.stopPropagation();
+											toggle(false);
+											try {
+												const instance = await UserService.getVMCPInstance(d.vmcpInstanceID!, {
+													dontLogErrors: true
+												});
+												await goto(resolve(`/vmcps/${instance.vmcpID}`));
+											} catch {
+												errors.append('Failed to open vMCP.');
+											}
+										}}
+									>
+										<Layers class="size-4" />
+										View vMCP
+									</button>
+									<button
+										class="menu-button"
+										onclick={async (e) => {
+											e.stopPropagation();
+											toggle(false);
+											try {
+												const instance = await UserService.getVMCPInstance(d.vmcpInstanceID!, {
+													dontLogErrors: true
+												});
+												await goto(
+													resolve(vmcpInstancePath(instance.vmcpID, instance.id) as `/${string}`)
+												);
+											} catch {
+												errors.append('Failed to open vMCP deployment.');
+											}
+										}}
+									>
+										<Layers class="size-4" />
+										View vMCP Deployment
+									</button>
 								{/if}
 
 								{#if isRestartableServer(d) && (d.isMyServer || (hasAdminAccess && !readonly))}

@@ -50,9 +50,15 @@
 	function openComponent(component: VMCP['components'][number], isCtrlClick: boolean) {
 		const componentID = vmcpComponentId(component);
 		if (!componentID) return;
-		const deploymentOwnerID = componentUsesSharedDeployment(component) ? vmcp.id : instance.id;
+		const shared = componentUsesSharedDeployment(component);
+		const deploymentOwnerID = shared ? vmcp.id : instance.id;
 		const deploymentID = `ms1${deploymentOwnerID}-${componentID}`;
-		openUrl(`/mcp-servers/s/${encodeURIComponent(deploymentID)}/details`, isCtrlClick);
+		const path = shared
+			? `/mcp-servers/s/${encodeURIComponent(deploymentID)}/details`
+			: `/mcp-servers/c/${encodeURIComponent(component.mcpServerCatalogEntryID)}/instance/${encodeURIComponent(deploymentID)}/details`;
+		const workspaceID =
+			!shared && liveEntry(component.mcpServerCatalogEntryID)?.powerUserWorkspaceID;
+		openUrl(workspaceID ? `${path}?wid=${encodeURIComponent(workspaceID)}` : path, isCtrlClick);
 	}
 </script>
 
