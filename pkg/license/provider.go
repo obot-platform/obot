@@ -347,8 +347,6 @@ func (p *Provider) Validate(ctx context.Context) error {
 	return p.refresh(ctx, true)
 }
 
-// RemoveLicenseKey removes the primary database license. A preserved Community
-// property becomes effective afterward and is not affected by repeated calls.
 func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -359,9 +357,12 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
-		return err
+	if p.gatewayClient != nil {
+		if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
+			return err
+		}
 	}
+
 	p.setCachedState(licenseKeySnapshot{}, nil)
 	return nil
 }
