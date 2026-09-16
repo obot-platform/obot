@@ -110,13 +110,11 @@
 		targetInstance: VMCPInstance,
 		options?: VMcpConnectOptions
 	) {
-		let resolved = target;
-		if (!vmcpHasUserAllowedConfiguration(target)) {
-			try {
-				resolved = await UserService.getVMCP(target.id, { dontLogErrors: true });
-			} catch {
-				resolved = target;
-			}
+		let resolved: VMCP;
+		try {
+			resolved = await UserService.getVMCP(target.id, { dontLogErrors: true });
+		} catch {
+			resolved = target;
 		}
 		resetDialogState(resolved, targetInstance, options);
 		skipConnectDialog = true;

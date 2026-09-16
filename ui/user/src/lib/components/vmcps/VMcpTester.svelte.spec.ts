@@ -53,26 +53,71 @@ function createInstance(status?: VMCPInstance['status']): VMCPInstance {
 	} as VMCPInstance;
 }
 
+function mockMCPInitializationFailure(connectID: string, status = 500) {
+	worker.use(
+		http.post(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status })),
+		http.get(`/mcp-connect/${connectID}`, () => new HttpResponse(null, { status: 405 }))
+	);
+}
+
+function createConfigurableVMcp(): VMCP {
+	const target = createVMCP({ id: vmcp.id, displayName: vmcp.displayName });
+	const component = target.components![0];
+	return {
+		...target,
+		components: [
+			{
+				...component,
+				configuration: [{ key: 'API_TOKEN', policy: 'userAllowed' }],
+				catalogEntry: {
+					...component.catalogEntry,
+					manifest: {
+						...component.catalogEntry!.manifest,
+						config: [
+							{
+								key: 'API_TOKEN',
+								name: 'API token',
+								description: 'Token',
+								required: true,
+								sensitive: true,
+								value: '',
+								usage: 'env'
+							}
+						]
+					}
+				}
+			}
+		]
+	};
+}
+
 async function renderVMcpTester(
 	overrides: Record<string, unknown>,
 	options?: {
+		vmcp?: VMCP;
 		instance?: VMCPInstance | null;
 		onLaunch?: () => void;
 		openEditInstanceConfiguration?: (target: VMCP, instance: VMCPInstance) => void;
+		failConnect?: boolean;
 	}
 ) {
 	await preparePageData(overrides);
 
+	const target = options?.vmcp ?? vmcp;
 	const instance =
 		options && 'instance' in options ? options.instance : createInstance({ configured: true });
 
 	vmcpInstances.current = { items: instance ? [instance] : [], loading: false };
 	if (instance) {
-		mockMCPInitialization(instance.id);
+		if (options?.failConnect) {
+			mockMCPInitializationFailure(instance.id);
+		} else {
+			mockMCPInitialization(instance.id);
+		}
 	}
 
 	return render(VMcpTester, {
-		vmcp,
+		vmcp: target,
 		onLaunch: options?.onLaunch ?? vi.fn(),
 		openEditInstanceConfiguration: options?.openEditInstanceConfiguration
 	});
@@ -162,5 +207,39 @@ describe('VMcpTester', () => {
 			.toBeVisible();
 		await page.getByRole('button', { name: 'Start Session' }).click();
 		expect(onLaunch).toHaveBeenCalledOnce();
+	});
+
+	it('opens edit configuration when present credentials fail to connect', async () => {
+		const instance = createInstance({ configured: true });
+		const target = createConfigurableVMcp();
+		const openEditInstanceConfiguration = vi.fn();
+		await renderVMcpTester(
+			{},
+			{
+				vmcp: target,
+				instance,
+				openEditInstanceConfiguration,
+				failConnect: true
+			}
+		);
+
+		await expect
+			.element(
+				page.getByText('vMCP requires valid credential, verify information provided and try again.')
+			)
+			.toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Retry' })).not.toBeInTheDocument();
+		await page.getByRole('button', { name: 'Update Configuration' }).click();
+		expect(openEditInstanceConfiguration).toHaveBeenCalledWith(target, instance);
+	});
+
+	it('keeps Retry when a connection fails without user-provided configuration', async () => {
+		await renderVMcpTester({}, { failConnect: true });
+
+		await expect.element(page.getByRole('heading', { name: 'Server unavailable' })).toBeVisible();
+		await expect.element(page.getByRole('button', { name: 'Retry' })).toBeVisible();
+		await expect
+			.element(page.getByRole('button', { name: 'Update Configuration' }))
+			.not.toBeInTheDocument();
 	});
 });

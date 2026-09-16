@@ -156,7 +156,7 @@
 			{/each}
 		</div>
 	{/if}
-	{#if !isAtLeastPoweruser && mcpServersAndEntries.current.entries.length > 0}
+	{#if isAtLeastPoweruser || mcpServersAndEntries.current.entries.length > 0}
 		<button class="btn btn-primary" onclick={openCreate}>
 			<Plus class="size-4" /> Create vMCP
 		</button>
@@ -197,7 +197,7 @@
 								: "Looks like there aren't any vMCPs available yet."}
 						</p>
 					</div>
-					{#if profile.current.hasAdminAccess?.()}
+					{#if isAtLeastPoweruser || mcpServersAndEntries.current.entries.length > 0}
 						<button class="btn btn-primary" onclick={openCreate}>
 							<Plus class="size-4" /> Create vMCP Now
 						</button>

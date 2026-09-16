@@ -21,7 +21,8 @@
 		MCPTesterSession,
 		normalizeTesterSection,
 		testerConnectionKey,
-		type TesterSection
+		type TesterSection,
+		type TesterStatus
 	} from '$lib/services/mcp/tester.svelte';
 	import { license, profile, version } from '$lib/stores';
 	import { setUrlParamAndUpdateUrl } from '$lib/url';
@@ -44,6 +45,7 @@
 		reauthenticationAction?: Snippet;
 		setupRequiredAction?: Snippet;
 		unhealthySecondaryAction?: Snippet;
+		onStatus?: (status: TesterStatus, error?: string) => void;
 	}
 
 	let {
@@ -60,7 +62,8 @@
 		accessDeniedAction,
 		reauthenticationAction,
 		setupRequiredAction,
-		unhealthySecondaryAction
+		unhealthySecondaryAction,
+		onStatus
 	}: Props = $props();
 
 	let session = $state<MCPTesterSession>();
@@ -153,6 +156,12 @@
 		session = mountedSession;
 		chat = new MCPTesterChat(mountedSession, target.id, fetch);
 		void mountedSession.initialize();
+	});
+
+	$effect(() => {
+		const status = session?.status ?? 'idle';
+		const error = session?.error;
+		untrack(() => onStatus)?.(status, error);
 	});
 
 	onDestroy(() => {

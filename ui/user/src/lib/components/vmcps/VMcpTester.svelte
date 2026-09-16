@@ -3,9 +3,12 @@
 	import VMcpIcon from '$lib/components/vmcps/VMcpIcon.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
 	import type { VMCP, VMCPInstance } from '$lib/services';
-	import { testerChatAvailability } from '$lib/services/mcp/tester.svelte';
+	import { testerChatAvailability, type TesterStatus } from '$lib/services/mcp/tester.svelte';
 	import { vmcpTesterServer } from '$lib/services/vmcps/tester';
-	import { resolveVMcpComponents } from '$lib/services/vmcps/utils';
+	import {
+		resolveVMcpComponents,
+		vmcpHasUserAllowedConfiguration
+	} from '$lib/services/vmcps/utils';
 	import {
 		accessibleModels,
 		defaultModelAliases,
@@ -38,10 +41,38 @@
 	);
 	let chatAvailable = $derived(chatAvailability.available);
 	let chatUnavailableMessage = $derived(chatAvailability.unavailableMessage);
+	let hasUserProvidedConfiguration = $derived(vmcpHasUserAllowedConfiguration(vmcp));
+	let credentialUpdateRequired = $state(false);
+
+	$effect(() => {
+		void vmcp.id;
+		void instance?.id;
+		void loading;
+		credentialUpdateRequired = false;
+	});
+
+	function handleTesterStatus(status: TesterStatus, error?: string) {
+		if (!instance?.status?.configured || !hasUserProvidedConfiguration || error === undefined) {
+			return;
+		}
+		if (status === 'error' || status === 'unhealthy') {
+			credentialUpdateRequired = true;
+		}
+	}
+
+	function openInstanceConfiguration() {
+		if (!instance) return;
+		openEditInstanceConfiguration?.(vmcp, instance);
+	}
+
+	let showTester = $derived(Boolean(instance?.status?.configured) && !credentialUpdateRequired);
+	let needsConfigurationUpdate = $derived(
+		Boolean(instance && (!instance.status?.configured || credentialUpdateRequired))
+	);
 </script>
 
 <div class="py-4 h-full w-full">
-	{#if instance && instance.status?.configured}
+	{#if showTester}
 		<Tester
 			{server}
 			{serverName}
@@ -49,6 +80,7 @@
 			{chatUnavailableMessage}
 			active={launched}
 			loading={loading || (vmcpInstances.current.loading && !launched)}
+			onStatus={handleTesterStatus}
 		>
 			{#snippet icon()}
 				<VMcpIcon components={componentViews} />
@@ -71,7 +103,7 @@
 				role="status"
 			>
 				<div class="relative z-10 flex flex-col items-center gap-4">
-					{#if instance && !instance.status?.configured}
+					{#if needsConfigurationUpdate}
 						<div class="indicator p-2 rounded-full bg-warning/10">
 							<Settings class="text-warning size-12" />
 						</div>
@@ -79,21 +111,16 @@
 						<Layers class="text-muted-content size-12" />
 					{/if}
 					<p class="text-muted-content max-w-md text-sm font-light">
-						{#if instance && !instance.status?.configured}
+						{#if credentialUpdateRequired}
+							vMCP requires valid credential, verify information provided and try again.
+						{:else if instance && !instance.status?.configured}
 							Before you can continue inspecting this vMCP, an update is required.
 						{:else}
 							Start your vMCP to use chat and inspect tools.
 						{/if}
 					</p>
-					{#if instance && !instance.status?.configured}
-						<button
-							type="button"
-							class="btn btn-primary"
-							onclick={() => {
-								if (!instance) return;
-								openEditInstanceConfiguration?.(vmcp, instance);
-							}}
-						>
+					{#if needsConfigurationUpdate}
+						<button type="button" class="btn btn-primary" onclick={openInstanceConfiguration}>
 							Update Configuration
 						</button>
 					{:else}
