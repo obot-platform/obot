@@ -639,6 +639,9 @@ func (p *Provider) refresh(ctx context.Context, force bool) error {
 	}
 
 	entitlements, err := p.validate(ctx, snapshot.key)
+	if err != nil {
+		return err
+	}
 	p.setCachedState(snapshot, entitlements)
-	return err
+	return nil
 }

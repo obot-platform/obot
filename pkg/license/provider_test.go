@@ -148,16 +148,20 @@ func TestNewProviderContinuesWhenInitialRefreshFails(t *testing.T) {
 	if provider == nil {
 		t.Fatal("expected provider to be created")
 	}
-	if requireValidLicense(ctx, t, provider) {
-		t.Fatal("expected provider to start unlicensed")
+	if _, err := provider.HasValidLicense(ctx); err == nil {
+		t.Fatal("expected license state lookup to retry and return the refresh failure")
 	}
 	if provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected provider to start without entitlements")
 	}
 
 	refreshFails = false
-	if err := provider.Validate(ctx); err != nil {
-		t.Fatalf("expected subsequent refresh to succeed: %v", err)
+	valid, err := provider.HasValidLicense(ctx)
+	if err != nil {
+		t.Fatalf("expected ordinary license state lookup to retry successfully: %v", err)
+	}
+	if !valid {
+		t.Fatal("expected license to be valid after successful retry")
 	}
 	if !provider.hasEntitlement(EnterpriseAuthProvidersEntitlement) {
 		t.Fatal("expected entitlement after successful refresh")
@@ -619,12 +623,9 @@ func TestRemoveLicenseKeyDefersFallbackValidation(t *testing.T) {
 	}
 
 	failCommunityValidation = false
-	if err := provider.Validate(ctx); err != nil {
-		t.Fatalf("refresh fallback validation: %v", err)
-	}
 	entitlements, err := provider.Entitlements(ctx)
 	if err != nil {
-		t.Fatalf("get refreshed fallback entitlements: %v", err)
+		t.Fatalf("retry fallback validation: %v", err)
 	}
 	if len(entitlements) != 1 || entitlements[0] != CommunityEntitlement {
 		t.Fatalf("entitlements = %v, want [%s]", entitlements, CommunityEntitlement)
