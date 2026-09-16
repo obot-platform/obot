@@ -29,6 +29,7 @@ const (
 
 type LicenseProvider interface {
 	LicenseKey(context.Context) (string, error)
+	PrimaryLicenseKeyExists(context.Context) (bool, error)
 	LicenseKeyViaConfiguration() bool
 	SetLicenseKey(context.Context, string) error
 	SetCommunityLicenseKey(context.Context, string) error
