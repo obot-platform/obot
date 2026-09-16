@@ -499,7 +499,7 @@ func TestPrimaryLicenseKeyExists(t *testing.T) {
 	}
 }
 
-func TestSetCommunityLicenseKeyRejectsExistingPrimary(t *testing.T) {
+func TestSetCommunityLicenseKeyStoresFallbackWithExistingPrimary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 
@@ -526,8 +526,8 @@ func TestSetCommunityLicenseKeyRejectsExistingPrimary(t *testing.T) {
 		t.Fatalf("create provider: %v", err)
 	}
 
-	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); !errors.Is(err, ErrLicenseKeyExists) {
-		t.Fatalf("SetCommunityLicenseKey() error = %v, want %v", err, ErrLicenseKeyExists)
+	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); err != nil {
+		t.Fatalf("SetCommunityLicenseKey(): %v", err)
 	}
 	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
 	if err != nil {
@@ -536,12 +536,16 @@ func TestSetCommunityLicenseKeyRejectsExistingPrimary(t *testing.T) {
 	if primary.Value != "enterprise-license" {
 		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
 	}
-	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("Community property error = %v, want record not found", err)
+	community, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get Community property: %v", err)
+	}
+	if community.Value != "community-license" {
+		t.Fatalf("Community property = %q, want community-license", community.Value)
 	}
 }
 
-func TestSetCommunityLicenseKeyRejectsPrimaryInstalledDuringValidation(t *testing.T) {
+func TestSetCommunityLicenseKeyStoresFallbackWhenPrimaryInstalledDuringValidation(t *testing.T) {
 	validationStarted := make(chan struct{}, 1)
 	releaseValidation := make(chan struct{})
 	validationReleased := false
@@ -590,8 +594,8 @@ func TestSetCommunityLicenseKeyRejectsPrimaryInstalledDuringValidation(t *testin
 	close(releaseValidation)
 	validationReleased = true
 
-	if err := <-setDone; !errors.Is(err, ErrLicenseKeyExists) {
-		t.Fatalf("SetCommunityLicenseKey() error = %v, want %v", err, ErrLicenseKeyExists)
+	if err := <-setDone; err != nil {
+		t.Fatalf("SetCommunityLicenseKey(): %v", err)
 	}
 	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
 	if err != nil {
@@ -600,8 +604,12 @@ func TestSetCommunityLicenseKeyRejectsPrimaryInstalledDuringValidation(t *testin
 	if primary.Value != "enterprise-license" {
 		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
 	}
-	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("Community property error = %v, want record not found", err)
+	community, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get Community property: %v", err)
+	}
+	if community.Value != "community-license" {
+		t.Fatalf("Community property = %q, want community-license", community.Value)
 	}
 }
 

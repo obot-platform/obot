@@ -63,9 +63,6 @@ var (
 	// ErrInvalidLicense indicates the provided license key could not be validated.
 	ErrInvalidLicense = errors.New("license key is invalid")
 
-	// ErrLicenseKeyExists indicates a primary database license prevents Community enrollment.
-	ErrLicenseKeyExists = errors.New("a primary license key already exists")
-
 	errLicenseKeyChanged = errors.New("license key changed while it was being updated")
 )
 
@@ -315,7 +312,8 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 }
 
 // SetCommunityLicenseKey validates and stores an issued Community key in its
-// dedicated property unless a primary database license already exists.
+// dedicated property. A concurrently installed primary remains effective and
+// the Community key becomes its fallback.
 func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -335,14 +333,6 @@ func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string
 
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
-
-	currentSnapshot, err := p.loadLicenseKey(ctx)
-	if err != nil {
-		return err
-	}
-	if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
-		return ErrLicenseKeyExists
-	}
 
 	property, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, licenseKey)
 	if err != nil {
