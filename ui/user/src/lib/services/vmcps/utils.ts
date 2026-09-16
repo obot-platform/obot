@@ -269,20 +269,72 @@ function sortFilterOptions(options: VMcpFilterOption[]) {
 	return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
-function matchesOwnerQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
-	if (!vmcp.creatorUserID) return false;
-	const owner = owners.get(vmcp.creatorUserID);
-	if (!owner) return false;
-	return (
-		owner.username?.toLowerCase().includes(query) ||
-		owner.email?.toLowerCase().includes(query) ||
-		Boolean(owner.displayName?.toLowerCase().includes(query))
-	);
+const QUERY_MATCH_WEIGHT_NAME = 2;
+const QUERY_MATCH_WEIGHT_DESCRIPTION = 1;
+const QUERY_MATCH_WEIGHT_OWNER = 1;
+
+function textContains(text: string | undefined, needle: string) {
+	return Boolean(text?.toLowerCase().includes(needle));
+}
+
+export function queryMatchScore(
+	item: MCPCatalogEntry | MCPCatalogServer | VMCP,
+	query: string,
+	owners?: Map<string, OrgUser>
+) {
+	const needle = query.trim().toLowerCase();
+	if (!needle) return 0;
+
+	let score = 0;
+
+	if ('displayName' in item) {
+		if (textContains(item.displayName, needle)) {
+			score = Math.max(score, QUERY_MATCH_WEIGHT_NAME);
+		}
+		if (textContains(item.description, needle)) {
+			score = Math.max(score, QUERY_MATCH_WEIGHT_DESCRIPTION);
+		}
+		if (owners && item.creatorUserID) {
+			const owner = owners.get(item.creatorUserID);
+			if (
+				owner &&
+				(textContains(owner.username, needle) ||
+					textContains(owner.email, needle) ||
+					textContains(owner.displayName, needle))
+			) {
+				score = Math.max(score, QUERY_MATCH_WEIGHT_OWNER);
+			}
+		}
+	} else {
+		const { name, description, shortDescription } = item.manifest;
+		if (textContains(name, needle)) {
+			score = Math.max(score, QUERY_MATCH_WEIGHT_NAME);
+		}
+		if (textContains(description, needle) || textContains(shortDescription, needle)) {
+			score = Math.max(score, QUERY_MATCH_WEIGHT_DESCRIPTION);
+		}
+	}
+
+	return score;
+}
+
+function compareWithQueryMatch<T>(
+	a: T,
+	b: T,
+	scoreOf: (item: T) => number,
+	compare: (left: T, right: T) => number,
+	rankByQuery: boolean
+) {
+	if (rankByQuery) {
+		const byScore = scoreOf(b) - scoreOf(a);
+		if (byScore !== 0) return byScore;
+	}
+	return compare(a, b);
 }
 
 function matchesVMcpQuery(vmcp: VMCP, query: string, owners: Map<string, OrgUser>) {
 	if (!query) return true;
-	return matchesQuery(vmcp, query) || matchesOwnerQuery(vmcp, query.toLowerCase(), owners);
+	return queryMatchScore(vmcp, query, owners) > 0;
 }
 
 export function matchesVMcpFilters(vmcp: VMCP, filters: VMcpFilters, owners: Map<string, OrgUser>) {
@@ -327,8 +379,16 @@ function compareNames(a: VMCP, b: VMCP) {
 	});
 }
 
-export function sortVMcps(vmcps: VMCP[], sortBy: VMcpSortBy) {
-	return [...vmcps].sort((a, b) => {
+export function sortVMcps(
+	vmcps: VMCP[],
+	sortBy: VMcpSortBy,
+	query?: string,
+	owners?: Map<string, OrgUser>
+) {
+	const trimmedQuery = (query ?? '').trim();
+	const rankByQuery = Boolean(trimmedQuery);
+	const scoreOf = (vmcp: VMCP) => queryMatchScore(vmcp, trimmedQuery, owners);
+	const compare = (a: VMCP, b: VMCP) => {
 		if (sortBy === 'created') {
 			return (b.created ?? '').localeCompare(a.created ?? '') || compareNames(a, b);
 		}
@@ -336,7 +396,8 @@ export function sortVMcps(vmcps: VMCP[], sortBy: VMcpSortBy) {
 			return componentServerCount(b) - componentServerCount(a) || compareNames(a, b);
 		}
 		return compareNames(a, b);
-	});
+	};
+	return [...vmcps].sort((a, b) => compareWithQueryMatch(a, b, scoreOf, compare, rankByQuery));
 }
 
 export type McpServerSortBy = 'nameAsc' | 'nameDesc' | 'created' | 'popularity';
@@ -378,8 +439,15 @@ function compareCatalogNames(a: MCPCatalogEntry, b: MCPCatalogEntry) {
 	});
 }
 
-export function sortMcpServers(entries: MCPCatalogEntry[], sortBy: McpServerSortBy) {
-	return [...entries].sort((a, b) => {
+export function sortMcpServers(
+	entries: MCPCatalogEntry[],
+	sortBy: McpServerSortBy,
+	query?: string
+) {
+	const trimmedQuery = (query ?? '').trim();
+	const rankByQuery = Boolean(trimmedQuery);
+	const scoreOf = (entry: MCPCatalogEntry) => queryMatchScore(entry, trimmedQuery);
+	const compare = (a: MCPCatalogEntry, b: MCPCatalogEntry) => {
 		if (sortBy === 'created') {
 			return (b.created ?? '').localeCompare(a.created ?? '') || compareCatalogNames(a, b);
 		}
@@ -390,7 +458,8 @@ export function sortMcpServers(entries: MCPCatalogEntry[], sortBy: McpServerSort
 			return popularityRank(a) - popularityRank(b) || compareCatalogNames(a, b);
 		}
 		return compareCatalogNames(a, b);
-	});
+	};
+	return [...entries].sort((a, b) => compareWithQueryMatch(a, b, scoreOf, compare, rankByQuery));
 }
 
 export function entryCategories(entry: MCPCatalogEntry) {
@@ -428,20 +497,12 @@ export function buildMcpServerFilterOptions(entries: MCPCatalogEntry[]): VMcpFil
 	return options.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
 }
 
-export function matchesQuery(item: MCPCatalogEntry | MCPCatalogServer | VMCP, query: string) {
-	const needle = query.toLowerCase();
-	if ('displayName' in item) {
-		return Boolean(
-			item.displayName?.toLowerCase().includes(needle) ||
-			item.description?.toLowerCase().includes(needle)
-		);
-	}
-	const { name, description, shortDescription } = item.manifest;
-	return Boolean(
-		name?.toLowerCase().includes(needle) ||
-		description?.toLowerCase().includes(needle) ||
-		shortDescription?.toLowerCase().includes(needle)
-	);
+export function matchesQuery(
+	item: MCPCatalogEntry | MCPCatalogServer | VMCP,
+	query: string,
+	owners?: Map<string, OrgUser>
+) {
+	return queryMatchScore(item, query, owners) > 0;
 }
 
 export function distanceToRect(rect: RectLike, point: Point) {

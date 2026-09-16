@@ -17,6 +17,7 @@ import {
 	isWorkspaceOwned,
 	joinComponentLabels,
 	matchesQuery,
+	queryMatchScore,
 	sortMcpServers,
 	sortVMcps,
 	vmcpComponentDiffServers,
@@ -106,6 +107,52 @@ describe('matchesQuery', () => {
 
 	it('does not match unrelated text', () => {
 		expect(matchesQuery(entry, 'slack')).toBe(false);
+	});
+});
+
+describe('queryMatchScore', () => {
+	const entry = createMCPCatalogEntry({
+		id: 'entry-1',
+		name: 'GitHub',
+		manifest: { shortDescription: 'Issues and pull requests', description: 'Source forge' }
+	});
+	const vmcp = createVMCP({
+		id: 'vmcp-1',
+		displayName: 'Shared Catalog',
+		description: 'A shared gateway',
+		creatorUserID: 'user-1'
+	});
+	const owners = new Map([
+		[
+			'user-1',
+			{
+				id: 'user-1',
+				username: 'alice',
+				email: 'alice@example.com',
+				displayName: 'Alice Example',
+				created: '2026-01-01T00:00:00.000Z',
+				explicitRole: false,
+				role: 0,
+				effectiveRole: 0,
+				groups: [],
+				iconURL: ''
+			}
+		]
+	]);
+
+	it('scores name and displayName matches highest', () => {
+		expect(queryMatchScore(entry, 'github')).toBe(2);
+		expect(queryMatchScore(vmcp, 'shared')).toBe(2);
+	});
+
+	it('scores description and owner matches lower', () => {
+		expect(queryMatchScore(entry, 'forge')).toBe(1);
+		expect(queryMatchScore(vmcp, 'gateway', owners)).toBe(1);
+		expect(queryMatchScore(vmcp, 'alice', owners)).toBe(1);
+	});
+
+	it('returns zero for unrelated text', () => {
+		expect(queryMatchScore(entry, 'slack')).toBe(0);
 	});
 });
 

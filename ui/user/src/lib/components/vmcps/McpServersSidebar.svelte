@@ -67,7 +67,8 @@
 			filterMcpServersByCategories(eligibleEntries, settings.filterBy).filter((entry) =>
 				query ? matchesQuery(entry, query) : true
 			),
-			sortBy
+			sortBy,
+			query
 		)
 	);
 

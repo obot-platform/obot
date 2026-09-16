@@ -76,7 +76,9 @@
 				},
 				usersMap
 			),
-			sortBy
+			sortBy,
+			query,
+			usersMap
 		)
 	);
 
