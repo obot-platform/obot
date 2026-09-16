@@ -359,41 +359,11 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 		return nil
 	}
 
-	var nextSnapshot licenseKeySnapshot
-	var entitlements map[keygen.EntitlementCode]struct{}
-	if propertyKey == LicenseKeyPropertyKey {
-		nextSnapshot, err = p.loadStoredLicenseKey(ctx, CommunityLicenseKeyPropertyKey)
-		if err != nil {
-			return err
-		}
-	}
-	if nextSnapshot.key != "" {
-		entitlements, err = p.validate(ctx, nextSnapshot.key)
-		if err != nil {
-			return err
-		}
-	}
-
 	if err := p.gatewayClient.DeleteProperty(ctx, propertyKey); err != nil {
 		return err
 	}
-	p.setCachedState(nextSnapshot, entitlements)
+	p.setCachedState(licenseKeySnapshot{}, nil)
 	return nil
-}
-
-func (p *Provider) loadStoredLicenseKey(ctx context.Context, propertyKey string) (licenseKeySnapshot, error) {
-	property, err := p.gatewayClient.GetProperty(ctx, propertyKey)
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return licenseKeySnapshot{}, nil
-	}
-	if err != nil {
-		return licenseKeySnapshot{}, fmt.Errorf("failed to get license key property %q: %w", propertyKey, err)
-	}
-	return licenseKeySnapshot{
-		key:         strings.TrimSpace(property.Value),
-		updatedAt:   property.UpdatedAt,
-		propertyKey: propertyKey,
-	}, nil
 }
 
 // isCommunityLicense determines whether a primary key should be retained in
