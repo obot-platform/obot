@@ -31,7 +31,8 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	}
 
 	if (authProviders.length === 1 && authProviders[0].id === CommonAuthProviderIds.LOCAL) {
-		throw redirect(302, '/login/local?rd=' + encodeURIComponent(url.pathname));
+		const rd = url.searchParams.get('rd') || url.pathname;
+		throw redirect(302, '/login/local?rd=' + encodeURIComponent(rd));
 	}
 
 	return {

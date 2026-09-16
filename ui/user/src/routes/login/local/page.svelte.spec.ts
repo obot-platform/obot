@@ -14,6 +14,15 @@ function setQuery(query: string) {
 afterEach(() => setQuery(''));
 
 describe('local login page', () => {
+	it('preserves the redirect destination in the login form', async () => {
+		const rd = '/mcp-servers?view=all&search=a%20b#details';
+		setQuery('?rd=' + encodeURIComponent(rd));
+
+		render(LoginPage);
+
+		await expect.element(page.getByCSS('input[name="rd"]')).toHaveValue(rd);
+	});
+
 	it('restores the saved email after a failed login and clears it', async () => {
 		sessionStorage.setItem(emailKey, email);
 		setQuery('?error=Incorrect+email+or+password.');
