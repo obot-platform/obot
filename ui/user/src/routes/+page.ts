@@ -1,5 +1,5 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import { Group, UserService, type AuthProvider, type BootstrapStatus } from '$lib/services';
+import { Group, UserService, type AuthProvider } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -7,16 +7,18 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 	const { profile } = await parent();
 	const loggedIn = profile?.loaded ?? false;
 
-	let bootstrapStatus: BootstrapStatus | undefined;
 	let authProviders: AuthProvider[] = [];
 	if (!loggedIn) {
-		[bootstrapStatus, authProviders] = await Promise.all([
-			UserService.getBootstrapStatus(),
-			UserService.listAuthProviders({ fetch })
-		]);
+		authProviders = await UserService.listAuthProviders({ fetch });
 	}
 
+	const bootstrapStatus = await UserService.getBootstrapStatus();
+
 	if (loggedIn) {
+		if (profile?.isBootstrapUser?.() && bootstrapStatus?.setupEnabled) {
+			throw redirect(302, '/admin/setup');
+		}
+
 		const redirectRoute = url.searchParams.get('rd');
 		if (redirectRoute) {
 			throw redirect(302, redirectRoute);

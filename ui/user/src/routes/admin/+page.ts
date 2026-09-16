@@ -1,12 +1,5 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import {
-	AdminService,
-	UserService,
-	getProfile,
-	type AuthProvider,
-	type BootstrapStatus,
-	type Profile
-} from '$lib/services';
+import { AdminService, UserService, type AuthProvider, type Profile } from '$lib/services';
 import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
@@ -31,18 +24,15 @@ function getAdminRedirectPath(
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	let authProviders: AuthProvider[] = [];
-	let bootstrapStatus: BootstrapStatus | undefined;
 	let profile;
 
 	try {
-		profile = await getProfile({ fetch });
+		profile = await UserService.getProfile({ fetch });
 	} catch (_err) {
-		[bootstrapStatus, authProviders] = await Promise.all([
-			UserService.getBootstrapStatus(),
-			UserService.listAuthProviders({ fetch })
-		]);
+		authProviders = await UserService.listAuthProviders({ fetch });
 	}
 
+	const bootstrapStatus = await UserService.getBootstrapStatus();
 	const showSetupHandoff = url.searchParams.get('setup') === 'complete';
 	const hasAccess =
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);

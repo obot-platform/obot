@@ -37,7 +37,7 @@
 	let configurePromise: Promise<boolean> | undefined;
 
 	onMount(() => {
-		configurePromise = autoConfigure();
+		configurePromise = provider?.configured ? Promise.resolve(true) : autoConfigure();
 	});
 
 	async function autoConfigure(): Promise<boolean> {
