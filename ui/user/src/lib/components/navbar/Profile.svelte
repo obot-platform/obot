@@ -10,7 +10,7 @@
 		USER_AGENT_DISABLED_MESSAGE
 	} from '$lib/constants';
 	import { reloadPage } from '$lib/navigation';
-	import { AdminService, NanobotService, UserService } from '$lib/services';
+	import { AdminService, Group, NanobotService, UserService } from '$lib/services';
 	import {
 		AiClient,
 		COMMAND_SUPPORTED_AI_CLIENTS,
@@ -319,7 +319,15 @@
 				{/if}
 			{/if}
 			{#if showMcpManagement && !impersonating}
-				<a href={resolve('/dashboard')} rel="external" class="dropdown-link">
+				<a
+					href={resolve(
+						profile.current.groups.includes(Group.POWERUSER) || profile.current.hasAdminAccess?.()
+							? '/dashboard'
+							: '/vmcps'
+					)}
+					rel="external"
+					class="dropdown-link"
+				>
 					<LayoutDashboard class="size-4" /> App Platform
 				</a>
 			{/if}
