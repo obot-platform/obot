@@ -307,6 +307,7 @@ func convertVMCPInstance(instance v1.VMCPInstance) types.VMCPInstance {
 			Configured:                   instance.Status.Configured,
 			MissingRequiredConfiguration: instance.Status.MissingRequiredConfiguration,
 			UserConfigurationHash:        instance.Status.UserConfigurationHash,
+			ConfigurationCheckHash:       instance.Status.ConfigurationCheckHash,
 		},
 	}
 }

@@ -161,7 +161,8 @@ func (k *kubernetesBackend) ensureServerDeployment(ctx context.Context, server S
 		return server, k.deployServerObjects(ctx, server, nil)
 	}
 
-	serverConfigHash := utils.Digest(server)
+	// Also has the files so we update the dynamic files if we need to.
+	serverConfigHash := serverID(server) + utils.Digest(server.Files)
 	cachedDeployment := k.getDeploymentCache(server.MCPServerName)
 
 	shouldDeploy := cachedDeployment == nil || cachedDeployment.hash != serverConfigHash
@@ -494,7 +495,14 @@ func (k *kubernetesBackend) k8sObjects(ctx context.Context, server ServerConfig)
 	// caller (sm.ServerToServerConfig), so any rotation naturally bumps
 	// this revision via utils.Digest(secretEnvData) - no separate term
 	// needed.
-	annotations["obot-revision"] = utils.Digest(utils.Digest(secretEnvData) + utils.Digest(nonDynamicFileData) + utils.Digest(server.Webhooks) + utils.Digest(headerData))
+	hashInput := map[string]any{
+		"command":       server.Command,
+		"args":          server.Args,
+		"files":         nonDynamicFileData,
+		"secretEnvData": secretEnvData,
+		"headers":       headerData,
+	}
+	annotations["obot-revision"] = utils.Digest(hashInput)
 
 	// Fetch K8s settings
 	k8sSettings := k.getK8sSettings(ctx)
@@ -857,15 +865,15 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 	const watchTimeout = 5 * time.Second
 	start := time.Now()
 	for ; totalWatchDur < server.StartupTimeout; totalWatchDur, watchAttempt = time.Since(start), watchAttempt+1 {
-		_, err := wait.For(ctx, k.cachedClient, &appsv1.Deployment{Name: id, Namespace: k.mcpNamespace},
+		_, err := wait.For(ctx, k.client, &appsv1.Deployment{Name: id, Namespace: k.mcpNamespace},
 			func(dep *appsv1.Deployment) (bool, error) {
-				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
+				if dep.Generation == dep.Status.ObservedGeneration && dep.Status.Replicas == 1 && dep.Status.UpdatedReplicas == 1 && dep.Status.ReadyReplicas == 1 && dep.Status.AvailableReplicas == 1 {
 					return true, nil
 				}
 
 				// Deployment not ready yet - check pod status for early failure detection.
 				var pods corev1.PodList
-				if listErr := k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
+				if listErr := k.client.List(ctx, &pods, &kclient.ListOptions{
 					Namespace: k.mcpNamespace,
 					LabelSelector: labels.SelectorFromSet(map[string]string{
 						"app": id,
@@ -925,7 +933,7 @@ func (k *kubernetesBackend) updatedMCPPodName(ctx context.Context, url, id strin
 		pods    corev1.PodList
 		podName string
 	)
-	if err = k.cachedClient.List(ctx, &pods, &kclient.ListOptions{
+	if err = k.client.List(ctx, &pods, &kclient.ListOptions{
 		Namespace: k.mcpNamespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{
 			"app": id,

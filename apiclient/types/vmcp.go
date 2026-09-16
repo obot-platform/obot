@@ -220,6 +220,7 @@ type VMCPInstanceStatus struct {
 	Configured                   bool     `json:"configured,omitempty"`
 	MissingRequiredConfiguration []string `json:"missingRequiredConfiguration,omitempty"`
 	UserConfigurationHash        string   `json:"userConfigurationHash,omitempty"`
+	ConfigurationCheckHash       string   `json:"configurationCheckHash,omitempty"`
 }
 
 type VMCPInstanceList List[VMCPInstance]

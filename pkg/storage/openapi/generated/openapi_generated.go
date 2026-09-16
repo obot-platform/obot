@@ -19327,6 +19327,12 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstanceStatus(ref common.Ref
 							Format: "",
 						},
 					},
+					"configurationCheckHash": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"string"},
+							Format: "",
+						},
+					},
 				},
 			},
 		},
