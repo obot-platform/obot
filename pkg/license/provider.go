@@ -362,25 +362,7 @@ func (p *Provider) RemoveLicenseKey(ctx context.Context) error {
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	snapshot, err := p.loadPrimaryLicenseKey(ctx)
-	if err != nil {
-		return err
-	}
-	if snapshot.propertyKey == "" {
-		return nil
-	}
-
-	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
-		matches, err := p.gatewayClient.PropertyVersionMatchesTx(tx, LicenseKeyPropertyKey, &snapshot.updatedAt)
-		if err != nil {
-			return err
-		}
-		if !matches {
-			return errLicenseKeyChanged
-		}
-		return p.gatewayClient.DeletePropertyTx(tx, LicenseKeyPropertyKey)
-	})
-	if err != nil {
+	if err := p.gatewayClient.DeleteProperty(ctx, LicenseKeyPropertyKey); err != nil {
 		return err
 	}
 	p.setCachedState(licenseKeySnapshot{}, nil)
