@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -87,6 +88,7 @@ func (h *MCPTesterHandler) Chat(req api.Context) error {
 
 	useModelProxy, err := h.modelProxyEnabled(req.Context())
 	if err != nil {
+		slog.Warn("model provider availability unresolved", "error", err)
 		return writeMCPTesterError(req, http.StatusServiceUnavailable, types.MCPTesterErrorModelUnavailable, "model configuration is unavailable or changing", false)
 	}
 

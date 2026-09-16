@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log/slog"
 	"net/url"
 	"os"
 	"slices"
@@ -154,6 +155,9 @@ func (v *VersionHandler) getVersionResponse(ctx context.Context) (map[string]any
 	// Keep the version response available, but never interpret lookup failure as
 	// permission to use the external model service.
 	availability, availabilityErr := mcptester.ResolveModelProxyAvailability(ctx, v.ModelProxyURL, v.ProviderConfiguration, v.ModelProxySettings)
+	if availabilityErr != nil {
+		slog.Warn("model provider availability unresolved", "error", availabilityErr)
+	}
 
 	hasValidLicense, err := v.LicenseProvider.HasValidLicense(ctx)
 	if err != nil {
