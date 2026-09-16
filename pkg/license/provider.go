@@ -334,15 +334,12 @@ func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	property, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, licenseKey)
-	if err != nil {
+	// Do not cache this key here because a primary license installed by another
+	// replica may make the Community property dormant. The next normal refresh
+	// resolves and caches whichever property is actually effective.
+	if _, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, licenseKey); err != nil {
 		return err
 	}
-	p.setCachedState(licenseKeySnapshot{
-		key:         licenseKey,
-		updatedAt:   property.UpdatedAt,
-		propertyKey: CommunityLicenseKeyPropertyKey,
-	}, entitlements)
 	return nil
 }
 

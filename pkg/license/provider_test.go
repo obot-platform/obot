@@ -509,7 +509,11 @@ func TestSetCommunityLicenseKeyStoresFallbackWithExistingPrimary(t *testing.T) {
 		case "/v1/licenses/license-1/actions/validate":
 			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
-			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+			if r.Header.Get("Authorization") == "License community-license" {
+				_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+				return
+			}
+			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseEntitlement))
 		default:
 			http.NotFound(w, r)
 		}
@@ -543,6 +547,12 @@ func TestSetCommunityLicenseKeyStoresFallbackWithExistingPrimary(t *testing.T) {
 	if community.Value != "community-license" {
 		t.Fatalf("Community property = %q, want community-license", community.Value)
 	}
+	if !provider.hasEntitlement(EnterpriseEntitlement) {
+		t.Fatal("storing fallback replaced cached Enterprise entitlements")
+	}
+	if provider.hasEntitlement(CommunityEntitlement) {
+		t.Fatal("storing fallback cached dormant Community entitlements")
+	}
 }
 
 func TestSetCommunityLicenseKeyStoresFallbackWhenPrimaryInstalledDuringValidation(t *testing.T) {
@@ -559,13 +569,19 @@ func TestSetCommunityLicenseKeyStoresFallbackWhenPrimaryInstalledDuringValidatio
 
 		switch r.URL.Path {
 		case "/v1/me":
-			validationStarted <- struct{}{}
-			<-releaseValidation
+			if r.Header.Get("Authorization") == "License community-license" {
+				validationStarted <- struct{}{}
+				<-releaseValidation
+			}
 			_, _ = fmt.Fprint(w, licenseResponse())
 		case "/v1/licenses/license-1/actions/validate":
 			_, _ = fmt.Fprint(w, validationResponse())
 		case "/v1/licenses/license-1/entitlements":
-			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+			if r.Header.Get("Authorization") == "License community-license" {
+				_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+				return
+			}
+			_, _ = fmt.Fprint(w, entitlementsResponse(EnterpriseEntitlement))
 		default:
 			http.NotFound(w, r)
 		}
@@ -610,6 +626,48 @@ func TestSetCommunityLicenseKeyStoresFallbackWhenPrimaryInstalledDuringValidatio
 	}
 	if community.Value != "community-license" {
 		t.Fatalf("Community property = %q, want community-license", community.Value)
+	}
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("get effective entitlements: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != EnterpriseEntitlement {
+		t.Fatalf("entitlements = %v, want [%s]", entitlements, EnterpriseEntitlement)
+	}
+}
+
+func TestSetCommunityLicenseKeyRefreshesStoredCommunity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	provider, err := newProvider(ctx, newTestLicenseGatewayClient(t), Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); err != nil {
+		t.Fatalf("SetCommunityLicenseKey(): %v", err)
+	}
+
+	entitlements, err := provider.Entitlements(ctx)
+	if err != nil {
+		t.Fatalf("refresh Community entitlements: %v", err)
+	}
+	if len(entitlements) != 1 || entitlements[0] != CommunityEntitlement {
+		t.Fatalf("entitlements = %v, want [%s]", entitlements, CommunityEntitlement)
 	}
 }
 
