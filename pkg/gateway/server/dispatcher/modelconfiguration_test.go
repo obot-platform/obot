@@ -87,6 +87,11 @@ func TestHasModelProvider(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:        "unconfigured provider with error",
+			statusError: "upstream unavailable",
+			wantErr:     true,
+		},
+		{
 			name:             "stale configured status",
 			storedConfigured: true,
 			wantErr:          true,
@@ -169,5 +174,116 @@ func TestHasModelProvider(t *testing.T) {
 				t.Fatalf("got (%v, %v), want (%v, error=%v)", got, err, tt.want, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestHasModelProviderConfiguredProviderWins(t *testing.T) {
+	tests := []struct {
+		name             string
+		env              map[string]string
+		storedConfigured bool
+		statusError      string
+		stale            bool
+		readErr          bool
+		pending          bool
+	}{
+		{
+			name: "unconfigured provider",
+		},
+		{
+			name: "partial credentials",
+			env:  map[string]string{"KEY": "secret"},
+		},
+		{
+			name:             "stale configured status",
+			storedConfigured: true,
+		},
+		{
+			name:        "provider error",
+			statusError: "upstream unavailable",
+		},
+		{
+			name:  "unobserved manifest",
+			stale: true,
+		},
+		{
+			name:    "unreadable credentials",
+			readErr: true,
+		},
+		{
+			name:    "pending configuration",
+			pending: true,
+		},
+	}
+
+	for _, tt := range tests {
+		// The fake client lists providers by name, so exercise both orderings.
+		for _, configuredName := range []string{"a-configured", "z-configured"} {
+			for _, credentialFree := range []bool{false, true} {
+				name := tt.name + "/" + configuredName
+				if credentialFree {
+					name += "/credential-free"
+				}
+
+				t.Run(name, func(t *testing.T) {
+					provider := &v1.ModelProvider{
+						Name:       "test",
+						Namespace:  system.DefaultNamespace,
+						Generation: 1,
+						Spec: v1.ModelProviderSpec{
+							RequiredConfigurationParameters: []types.ProviderConfigurationParameter{
+								{Name: "KEY"},
+								{Name: "URL"},
+							},
+						},
+						Status: v1.ModelProviderStatus{
+							Configured:                     tt.storedConfigured,
+							ObservedGeneration:             1,
+							MissingConfigurationParameters: []string{"KEY", "URL"},
+							Error:                          tt.statusError,
+						},
+					}
+
+					if tt.stale {
+						provider.Generation++
+					}
+
+					configured := &v1.ModelProvider{
+						Name:      configuredName,
+						Namespace: system.DefaultNamespace,
+						Spec:      provider.Spec,
+					}
+					if credentialFree {
+						configured.Spec.RequiredConfigurationParameters = nil
+					}
+
+					objects := []kclient.Object{provider, configured}
+					if tt.pending {
+						objects = append(objects, &v1.ProviderConfigurationChange{
+							Name:      "change",
+							Namespace: system.DefaultNamespace,
+							Spec: v1.ProviderConfigurationChangeSpec{
+								ProviderType: v1.ProviderTypeModel,
+								DesiredState: v1.ProviderDesiredStateDeconfigured,
+							},
+						})
+					}
+
+					storage := fake.NewClientBuilder().WithScheme(scheme.Scheme).WithObjects(objects...).Build()
+					got, err := hasModelProvider(t.Context(), storage, func(_ context.Context, provider v1.ModelProvider) (map[string]string, error) {
+						if provider.Name == configuredName {
+							return map[string]string{"KEY": "secret", "URL": "https://example.com"}, nil
+						}
+						if tt.readErr {
+							return nil, errors.New("database down")
+						}
+						return tt.env, nil
+					})
+					if !got || err != nil {
+						t.Fatalf("got (%v, %v), want (true, nil)", got, err)
+					}
+				})
+			}
+		}
 	}
 }

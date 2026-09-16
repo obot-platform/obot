@@ -14,7 +14,6 @@ import (
 
 // HasModelProvider reads installation-wide configuration without starting a
 // provider daemon or considering model access, licenses, or upstream health.
-// Only a confirmed absence permits the Tester's external model proxy.
 func (d *Dispatcher) HasModelProvider(ctx context.Context) (bool, error) {
 	return hasModelProvider(ctx, d.client, func(ctx context.Context, provider v1.ModelProvider) (map[string]string, error) {
 		env, err := CredentialEnvForModelProvider(ctx, d.gatewayClient, provider)
@@ -42,16 +41,14 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 		return nil
 	}
 
-	if err := checkPending(); err != nil {
-		return false, err
-	}
+	configurationErr := checkPending()
 
 	var providers v1.ModelProviderList
 	if err := storage.List(ctx, &providers, kclient.InNamespace(system.DefaultNamespace)); err != nil {
 		return false, fmt.Errorf("read model providers: %w", err)
 	}
 
-	var configured, deletionPending bool
+	var deletionPending bool
 	for _, provider := range providers.Items {
 		if !provider.DeletionTimestamp.IsZero() {
 			deletionPending = true
@@ -61,13 +58,13 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 		// A provider with no required parameters is configured even without a
 		// credential record or a controller status update.
 		if len(provider.Spec.RequiredConfigurationParameters) == 0 {
-			configured = true
-			continue
+			return true, nil
 		}
 
 		env, err := credentials(ctx, provider)
 		if err != nil {
-			return false, fmt.Errorf("read model provider configuration: %w", err)
+			configurationErr = errors.Join(configurationErr, fmt.Errorf("read model provider configuration: %w", err))
+			continue
 		}
 
 		var missing []string
@@ -80,8 +77,7 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 		}
 
 		if len(missing) == 0 {
-			configured = true
-			continue
+			return true, nil
 		}
 
 		// Partial credentials, stale configured status, or unobserved manifests
@@ -91,8 +87,12 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 		slices.Sort(missing)
 		if len(env) != 0 || provider.Status.Configured || provider.Status.Error != "" ||
 			provider.Status.ObservedGeneration != provider.Generation || !slices.Equal(missing, expectedMissing) {
-			return false, fmt.Errorf("model provider configuration is incomplete or inconsistent")
+			configurationErr = errors.Join(configurationErr, fmt.Errorf("model provider configuration is incomplete or inconsistent"))
 		}
+	}
+
+	if configurationErr != nil {
+		return false, configurationErr
 	}
 
 	// A change may have begun while credentials were being read.
@@ -102,9 +102,9 @@ func hasModelProvider(ctx context.Context, storage kclient.Client, credentials f
 
 	// A deleting provider must not block another configured provider, but its
 	// deletion alone is not yet confirmed absence for the external model proxy.
-	if !configured && deletionPending {
+	if deletionPending {
 		return false, fmt.Errorf("model provider deletion is pending")
 	}
 
-	return configured, nil
+	return false, nil
 }
