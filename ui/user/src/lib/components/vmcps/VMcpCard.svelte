@@ -340,7 +340,7 @@
 
 		{#if needsUpdate && canUpdate && openUpdateConfirm}
 			<button
-				class="badge badge-xs shrink-0 gap-1 badge-soft badge-primary"
+				class="pointer-events-auto relative z-10 badge badge-xs shrink-0 gap-1 badge-soft badge-primary"
 				onclick={() => openUpdateConfirm(vmcp, handleUpdate)}
 			>
 				<span class="status status-primary"></span>
@@ -348,7 +348,7 @@
 			</button>
 		{:else if instanceNeedingConfiguration && canEditInstanceConfiguration}
 			<button
-				class="badge badge-xs shrink-0 gap-1 badge-soft badge-warning"
+				class="pointer-events-auto relative z-10 badge badge-xs shrink-0 gap-1 badge-soft badge-warning"
 				onclick={() => handleEditInstanceConfiguration()}
 			>
 				<span class="status status-warning"></span>

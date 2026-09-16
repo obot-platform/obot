@@ -12,12 +12,12 @@
 		PolicyDirectionLabels
 	} from '$lib/services';
 	import { goto } from '$lib/url';
+	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
 	import Select from '../Select.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { CircleQuestionMark, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

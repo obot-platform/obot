@@ -135,7 +135,7 @@
 	});
 
 	$effect(() => {
-		if (visible) {
+		if (visible && isLast) {
 			markVMcpCreationHintSeen(storageKey);
 		}
 	});

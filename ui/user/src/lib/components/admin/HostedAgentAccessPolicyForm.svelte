@@ -11,12 +11,12 @@
 	} from '$lib/services';
 	import { errors } from '$lib/stores';
 	import { goto } from '$lib/url';
+	import { convertSubjectsToTableData, resolveSubjects } from '../../subjectResolver';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchHostedAgents from './SearchHostedAgents.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2 } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';

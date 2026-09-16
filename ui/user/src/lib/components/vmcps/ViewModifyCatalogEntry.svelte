@@ -6,21 +6,9 @@
 	import McpServerActions from '$lib/components/mcp/McpServerActions.svelte';
 	import SelectServerType from '$lib/components/mcp/SelectServerType.svelte';
 	import { DEFAULT_MCP_CATALOG_ID } from '$lib/constants';
-	import {
-		AdminService,
-		UserService,
-		type LaunchServerType,
-		type MCPCatalogEntry,
-		type MCPCatalogServer
-	} from '$lib/services';
-	import {
-		getMCPDisplayName,
-		getServerTypeLabelByType,
-		isDeprecatedMCPServer,
-		isMultiUserCatalogEntry
-	} from '$lib/services/user/mcp';
+	import { AdminService, UserService, type LaunchType, type MCPCatalogEntry } from '$lib/services';
+	import { getServerTypeLabelByType, isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import { errors, mcpServersAndEntries, profile, responsive } from '$lib/stores';
-	import { success } from '$lib/stores/success';
 	import { Plus } from '@lucide/svelte';
 	import { twMerge } from 'tailwind-merge';
 
@@ -43,12 +31,10 @@
 	}: Props = $props();
 	let selectServerTypeDialog = $state<ReturnType<typeof SelectServerType>>();
 	let dialog = $state<ReturnType<typeof ResponsiveDialog>>();
-	let selectedServerType = $state<LaunchServerType>();
+	let selectedServerType = $state<LaunchType>();
 	let creating = $state(false);
 	let closeAfterCreate = $state(false);
 	let catalogEntry = $state<MCPCatalogEntry>();
-	let mcpServer = $state<MCPCatalogServer>();
-	let promptInitialLaunch = $state(false);
 	let promptOAuthConfig = $state(false);
 	let hydrateController: AbortController | undefined;
 
@@ -56,35 +42,27 @@
 	let isAdminReadonly = $derived(!!profile.current.isAdminReadonly?.());
 	let createEntity = $derived(isAdmin ? ('catalog' as const) : ('workspace' as const));
 	let createScopeId = $derived(isAdmin ? DEFAULT_MCP_CATALOG_ID : (workspaceId ?? ''));
-	let viewWorkspaceId = $derived(
-		catalogEntry?.powerUserWorkspaceID || mcpServer?.powerUserWorkspaceID
-	);
+	let viewWorkspaceId = $derived(catalogEntry?.powerUserWorkspaceID);
 	let serverScopeEntity = $derived(viewWorkspaceId ? ('workspace' as const) : ('catalog' as const));
 	let serverScopeID = $derived(viewWorkspaceId || DEFAULT_MCP_CATALOG_ID);
 	let isSourcedEntry = $derived(
 		catalogEntry && 'sourceURL' in catalogEntry && !!catalogEntry.sourceURL
 	);
-	let deprecated = $derived(
-		isDeprecatedMCPServer(catalogEntry) || isDeprecatedMCPServer(mcpServer)
-	);
-	let catalogEntryFormType = $derived<'remote' | 'hosted'>(
+	let deprecated = $derived(isDeprecatedMCPServer(catalogEntry));
+	let catalogEntryFormType = $derived<LaunchType>(
 		catalogEntry?.manifest.runtime === 'remote' ? 'remote' : 'hosted'
 	);
 	let title = $derived(
 		creating
 			? `Create ${getServerTypeLabelByType(selectedServerType)} Entry`
-			: catalogEntry
-				? (catalogEntry.manifest.name ?? 'MCP Server')
-				: (getMCPDisplayName(mcpServer) ?? 'MCP Server')
+			: (catalogEntry?.manifest.name ?? 'MCP Server')
 	);
 	let formKey = $derived(
 		creating
 			? `create-${selectedServerType ?? 'unknown'}`
 			: catalogEntry
 				? `entry-${catalogEntry.id}`
-				: mcpServer
-					? `server-${mcpServer.id}`
-					: 'empty'
+				: 'empty'
 	);
 
 	export function start(options?: { closeAfterCreate?: boolean }) {
@@ -95,7 +73,7 @@
 		selectServerTypeDialog?.open();
 	}
 
-	export async function open(entity: MCPCatalogEntry | MCPCatalogServer) {
+	export async function open(entity: MCPCatalogEntry) {
 		hydrateController?.abort();
 		const controller = new AbortController();
 		hydrateController = controller;
@@ -103,19 +81,13 @@
 		creating = false;
 		selectedServerType = undefined;
 		clearPrompts();
-		if (isCatalogEntryEntity(entity)) {
-			catalogEntry = entity;
-			mcpServer = undefined;
-		} else {
-			mcpServer = entity;
-			catalogEntry = undefined;
-		}
+		catalogEntry = entity;
 		dialog?.open();
 		await hydrate(entity, controller.signal);
 		if (hydrateController === controller) hydrateController = undefined;
 	}
 
-	function handleSelectServerType(serverType: LaunchServerType) {
+	function handleSelectServerType(serverType: LaunchType) {
 		selectServerTypeDialog?.close();
 		resetView();
 		selectedServerType = serverType;
@@ -144,12 +116,10 @@
 		hydrateController?.abort();
 		hydrateController = undefined;
 		catalogEntry = undefined;
-		mcpServer = undefined;
 		clearPrompts();
 	}
 
 	function clearPrompts() {
-		promptInitialLaunch = false;
 		promptOAuthConfig = false;
 	}
 
@@ -160,34 +130,11 @@
 		resetView();
 	}
 
-	function isCatalogEntryEntity(
-		entity: MCPCatalogEntry | MCPCatalogServer
-	): entity is MCPCatalogEntry {
-		return 'isCatalogEntry' in entity && entity.isCatalogEntry;
-	}
-
-	async function hydrate(entity: MCPCatalogEntry | MCPCatalogServer, signal: AbortSignal) {
+	async function hydrate(entity: MCPCatalogEntry, signal: AbortSignal) {
 		try {
-			if (isCatalogEntryEntity(entity)) {
-				const hydratedEntry = await loadCatalogEntry(
-					entity.id,
-					entity.powerUserWorkspaceID,
-					signal
-				);
-				if (signal.aborted) return;
-				catalogEntry = hydratedEntry;
-				mcpServer = undefined;
-			} else {
-				const hydratedServer = await loadCatalogServer(
-					entity.id,
-					entity.powerUserWorkspaceID,
-					entity.mcpCatalogID,
-					signal
-				);
-				if (signal.aborted) return;
-				mcpServer = hydratedServer;
-				catalogEntry = undefined;
-			}
+			const hydratedEntry = await loadCatalogEntry(entity.id, entity.powerUserWorkspaceID, signal);
+			if (signal.aborted) return;
+			catalogEntry = hydratedEntry;
 		} catch {
 			// Keep the entity already shown in the dialog.
 		}
@@ -204,42 +151,23 @@
 		return AdminService.getMCPCatalogEntry(DEFAULT_MCP_CATALOG_ID, id, opts);
 	}
 
-	async function loadCatalogServer(
-		id: string,
-		serverWorkspaceId?: string,
-		catalogId?: string,
-		signal?: AbortSignal
-	) {
-		const opts = signal ? { signal } : undefined;
-		if (serverWorkspaceId && !isAdmin) {
-			return UserService.getWorkspaceMCPCatalogServer(serverWorkspaceId, id, opts);
-		}
-		return AdminService.getMCPCatalogServer(catalogId || DEFAULT_MCP_CATALOG_ID, id, opts);
-	}
-
 	async function handleCreated(id: string, _isMultiUserEntry: boolean, message?: string) {
-		const asServer = selectedServerType === 'multi';
 		try {
-			if (asServer) {
-				mcpServer = await loadCatalogServer(id, workspaceId);
-				catalogEntry = undefined;
-			} else {
-				catalogEntry = await loadCatalogEntry(id, workspaceId);
-				mcpServer = undefined;
-			}
-			if (closeAfterCreate && catalogEntry) {
-				const created = catalogEntry;
+			const createdEntry = await loadCatalogEntry(id, workspaceId);
+
+			if (closeAfterCreate) {
 				close();
 				await mcpServersAndEntries.refreshAll();
-				await onCreated?.(created);
+				await onCreated?.(createdEntry);
 				return;
 			}
-			promptOAuthConfig = !asServer && message === 'requires-oauth-config';
-			promptInitialLaunch = !asServer && !promptOAuthConfig;
+
+			catalogEntry = createdEntry;
+			promptOAuthConfig = message === 'requires-oauth-config';
 			creating = false;
 			selectedServerType = undefined;
 			await mcpServersAndEntries.refreshAll();
-			if (catalogEntry) await onCreated?.(catalogEntry);
+			await onCreated?.(createdEntry);
 		} catch {
 			errors.append('The entry was created, but it could not be opened.');
 			close();
@@ -249,18 +177,6 @@
 	async function handleOAuthConfigured() {
 		if (!catalogEntry) return;
 		catalogEntry = await loadCatalogEntry(catalogEntry.id, catalogEntry.powerUserWorkspaceID);
-	}
-
-	function handleConnect({
-		entry,
-		server
-	}: {
-		entry?: MCPCatalogEntry;
-		server?: MCPCatalogServer;
-	}) {
-		if (isMultiUserCatalogEntry(entry) && server) {
-			success.add(`${server.alias || server.manifest.name} has been created.`);
-		}
 	}
 
 	async function acceptOwnership() {
@@ -307,18 +223,6 @@
 					excludeViews={['overview']}
 					isDialogView
 				/>
-			{:else if mcpServer}
-				<McpServerEntryForm
-					hideTitleBarAction
-					entry={mcpServer}
-					type="multi"
-					id={serverScopeID}
-					entity={serverScopeEntity}
-					readonly={isAdminReadonly}
-					allowMultiUserServerConfigurationEdit
-					limitViews={['overview', 'tools']}
-					isDialogView
-				/>
 			{:else if catalogEntry}
 				<McpServerEntryForm
 					hideTitleBarAction
@@ -356,18 +260,14 @@
 />
 
 {#key formKey}
-	{#if !creating && (catalogEntry || mcpServer)}
+	{#if !creating && catalogEntry}
 		<McpServerActions
 			entry={catalogEntry}
-			server={mcpServer}
 			catalogID={viewWorkspaceId ? undefined : serverScopeID}
 			workspaceID={viewWorkspaceId}
 			readonly={isAdminReadonly}
-			allowMultiUserServerConfigurationEdit={!!mcpServer}
-			{promptInitialLaunch}
 			{promptOAuthConfig}
 			onOAuthConfigured={handleOAuthConfigured}
-			onConnect={handleConnect}
 			hideActions
 			skipConnectDialog
 		/>

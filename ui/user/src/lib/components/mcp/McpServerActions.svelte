@@ -841,7 +841,9 @@
 		// Show the connect dialog if this was part of the initial creation flow
 		if (isInitialOAuthConfig) {
 			isInitialOAuthConfig = false;
-			launchDialog?.open();
+			if (!skipConnectDialog) {
+				launchDialog?.open();
+			}
 		}
 	}}
 />

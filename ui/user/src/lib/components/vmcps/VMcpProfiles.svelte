@@ -19,13 +19,13 @@
 <script lang="ts">
 	import Confirm from '$lib/components/Confirm.svelte';
 	import Select from '$lib/components/Select.svelte';
-	import { resolveSubjects } from '$lib/components/admin/subjectResolver';
 	import VMcpProfileToolsOverride from '$lib/components/vmcps/VMcpProfileToolsOverride.svelte';
 	import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
 	import { UserService, type OrgUser, type VMCP, type VMCPComponent } from '$lib/services';
 	import { compositeEffectiveToolNames, duplicateToolNames } from '$lib/services/user/mcp';
 	import { vmcpManifest } from '$lib/services/vmcps/utils';
 	import { success } from '$lib/stores/success';
+	import { resolveSubjects } from '$lib/subjectResolver';
 	import { getUserRoleLabel } from '$lib/utils';
 	import IconButton from '../primitives/IconButton.svelte';
 	import McpServerIcon from './McpServerIcon.svelte';

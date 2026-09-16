@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { LaunchServerType } from '$lib/services';
+	import type { LaunchType } from '$lib/services';
 	import ResponsiveDialog from '../ResponsiveDialog.svelte';
 	import { Container, Users } from '@lucide/svelte';
 
 	interface Props {
-		onSelectServerType: (type: LaunchServerType) => void;
+		onSelectServerType: (type: LaunchType) => void;
 		entity?: 'catalog' | 'workspace';
 		hideComposite?: boolean;
 	}

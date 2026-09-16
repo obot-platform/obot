@@ -1056,4 +1056,5 @@ export type Workspace = {
 	role: number;
 	type: string;
 };
-export type LaunchServerType = 'hosted' | 'multi' | 'remote';
+export type LaunchType = 'hosted' | 'remote';
+export type LaunchServerType = LaunchType | 'multi';

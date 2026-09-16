@@ -93,13 +93,10 @@ export function convertSubjectsToTableData(
 
 				if (subject.type === 'group') {
 					const group = groupMap.get(subject.id);
-					if (!group) {
-						return undefined;
-					}
 
 					return {
 						id: subject.id,
-						displayName: group.name,
+						displayName: group?.name ?? subject.id,
 						type: 'Group'
 					};
 				}
