@@ -224,13 +224,17 @@
 	const isNearUserLimit = $derived(validateVersionUserLimit(version.current));
 
 	let routes = $derived([
-		{
-			id: 'mcp-dashboard',
-			icon: LayoutDashboard,
-			label: 'Dashboard',
-			href: '/dashboard',
-			collapsible: false
-		},
+		...(isAtLeastPoweruser || profile.current.hasAdminAccess?.()
+			? [
+					{
+						id: 'mcp-dashboard',
+						icon: LayoutDashboard,
+						label: 'Dashboard',
+						href: '/dashboard',
+						collapsible: false
+					}
+				]
+			: []),
 		{
 			id: 'ai-resources',
 			icon: Bot,

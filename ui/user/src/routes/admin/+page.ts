@@ -11,8 +11,12 @@ import { Group } from '$lib/services/admin/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-function getAdminRedirectPath(profile?: Profile, hasVMCPs?: boolean): string {
-	if (profile?.isBootstrapUser?.()) {
+function getAdminRedirectPath(
+	profile?: Profile,
+	hasVMCPs?: boolean,
+	isSetupEnabled?: boolean
+): string {
+	if (profile?.isBootstrapUser?.() && isSetupEnabled) {
 		return '/admin/setup';
 	}
 
@@ -20,7 +24,9 @@ function getAdminRedirectPath(profile?: Profile, hasVMCPs?: boolean): string {
 		return '/vmcps?new=true';
 	}
 
-	return '/dashboard';
+	const isAtLeastPoweruser =
+		profile?.groups.includes(Group.POWERUSER) || profile?.hasAdminAccess?.();
+	return isAtLeastPoweruser ? '/dashboard' : '/vmcps';
 }
 
 export const load: PageLoad = async ({ fetch, url }) => {
@@ -42,7 +48,10 @@ export const load: PageLoad = async ({ fetch, url }) => {
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
 	if (hasAccess && !showSetupHandoff) {
 		const vmcps = await AdminService.listAllVMCPs({ fetch });
-		throw redirect(307, getAdminRedirectPath(profile, vmcps.length > 0));
+		throw redirect(
+			307,
+			getAdminRedirectPath(profile, vmcps.length > 0, bootstrapStatus?.setupEnabled)
+		);
 	}
 
 	if (

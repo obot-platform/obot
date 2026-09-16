@@ -1,7 +1,7 @@
 import { CommonAuthProviderIds, SEEN_SPLASH_DIALOG_KEY } from '$lib/constants';
 import { handleRouteError } from '$lib/errors';
 import { hasSeenTimestamp } from '$lib/localstate';
-import { AdminService, type AuthProvider, type LocalAuthUser } from '$lib/services';
+import { AdminService, UserService, type AuthProvider, type LocalAuthUser } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -9,8 +9,9 @@ export const ssr = false;
 
 export const load: PageLoad = async ({ fetch, parent, url }) => {
 	const { profile } = await parent();
+	const bootstrapStatus = await UserService.getBootstrapStatus();
 
-	if (!profile.isBootstrapUser?.()) {
+	if (!profile.isBootstrapUser?.() || !bootstrapStatus?.setupEnabled) {
 		throw redirect(307, '/dashboard');
 	}
 

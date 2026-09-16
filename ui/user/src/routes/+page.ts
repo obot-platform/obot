@@ -1,5 +1,5 @@
 import { CommonAuthProviderIds } from '$lib/constants';
-import { UserService, type AuthProvider, type BootstrapStatus } from '$lib/services';
+import { Group, UserService, type AuthProvider, type BootstrapStatus } from '$lib/services';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -22,7 +22,9 @@ export const load: PageLoad = async ({ fetch, url, parent }) => {
 			throw redirect(302, redirectRoute);
 		}
 
-		throw redirect(302, '/dashboard');
+		const isAtLeastPoweruser =
+			profile?.groups.includes(Group.POWERUSER) || profile?.hasAdminAccess?.();
+		throw redirect(302, isAtLeastPoweruser ? '/dashboard' : '/vmcps');
 	}
 
 	if (bootstrapStatus?.enabled && authProviders.length === 0) {
