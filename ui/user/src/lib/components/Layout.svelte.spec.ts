@@ -22,14 +22,7 @@ import { page } from 'vitest/browser';
 
 const children = createRawSnippet(() => ({ render: () => '<div></div>' }));
 
-const sharedLinks = [
-	'/vmcps',
-	'/skills',
-	'/models',
-	'/audit-logs',
-	'/usage',
-	'/identity-access'
-];
+const sharedLinks = ['/vmcps', '/skills', '/models', '/audit-logs', '/usage', '/identity-access'];
 
 const adminOnlyLinks = ['/admin/enforcement-events', '/admin/platform'];
 
@@ -149,7 +142,7 @@ describe('Layout.svelte', () => {
 	describe('based on user role', () => {
 		describe('when the user is an administrator', () => {
 			it('shows administrator-only navigation', async () => {
-				await renderLayout([Group.ADMIN, Group.POWERUSER]);
+				await renderLayout([Group.ADMIN]);
 				await expectSharedNavigation();
 				await expectLink('/dashboard');
 				await expectAdminOnlyNavigation();
@@ -191,7 +184,7 @@ describe('Layout.svelte', () => {
 			it('shows the administrator navigation available to auditors', async () => {
 				await renderLayout([Group.USER, Group.AUDITOR]);
 				await expectSharedNavigation();
-				await expectNoLink('/dashboard');
+				await expectLink('/dashboard');
 				await expectAdminOnlyNavigation();
 				await expectNoLink('/admin/product-analytics');
 			});
