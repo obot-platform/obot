@@ -459,7 +459,7 @@ func TestRemoveEnterpriseLicenseFallsBackToCommunityLicense(t *testing.T) {
 	}
 }
 
-func TestSetCommunityLicenseKeyReplacesPrimary(t *testing.T) {
+func TestSetCommunityLicenseKeyRejectsExistingPrimary(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 
@@ -478,7 +478,7 @@ func TestSetCommunityLicenseKeyReplacesPrimary(t *testing.T) {
 
 	ctx := t.Context()
 	gatewayClient := newTestLicenseGatewayClient(t)
-	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "invalid-primary"); err != nil {
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "enterprise-license"); err != nil {
 		t.Fatalf("seed primary license: %v", err)
 	}
 	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
@@ -486,18 +486,82 @@ func TestSetCommunityLicenseKeyReplacesPrimary(t *testing.T) {
 		t.Fatalf("create provider: %v", err)
 	}
 
-	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); err != nil {
-		t.Fatalf("SetCommunityLicenseKey(): %v", err)
+	if err := provider.SetCommunityLicenseKey(ctx, "community-license"); !errors.Is(err, ErrLicenseKeyExists) {
+		t.Fatalf("SetCommunityLicenseKey() error = %v, want %v", err, ErrLicenseKeyExists)
 	}
-	if _, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
-		t.Fatalf("primary property error = %v, want record not found", err)
-	}
-	community, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey)
+	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
 	if err != nil {
-		t.Fatalf("get Community property: %v", err)
+		t.Fatalf("get primary property: %v", err)
 	}
-	if community.Value != "community-license" {
-		t.Fatalf("Community property = %q, want community-license", community.Value)
+	if primary.Value != "enterprise-license" {
+		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
+	}
+	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("Community property error = %v, want record not found", err)
+	}
+}
+
+func TestSetCommunityLicenseKeyRejectsPrimaryInstalledDuringValidation(t *testing.T) {
+	validationStarted := make(chan struct{}, 1)
+	releaseValidation := make(chan struct{})
+	validationReleased := false
+	defer func() {
+		if !validationReleased {
+			close(releaseValidation)
+		}
+	}()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/vnd.api+json")
+
+		switch r.URL.Path {
+		case "/v1/me":
+			validationStarted <- struct{}{}
+			<-releaseValidation
+			_, _ = fmt.Fprint(w, licenseResponse())
+		case "/v1/licenses/license-1/actions/validate":
+			_, _ = fmt.Fprint(w, validationResponse())
+		case "/v1/licenses/license-1/entitlements":
+			_, _ = fmt.Fprint(w, entitlementsResponse(CommunityEntitlement))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	ctx := t.Context()
+	gatewayClient := newTestLicenseGatewayClient(t)
+	provider, err := newProvider(ctx, gatewayClient, Config{}, server.URL)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	setDone := make(chan error, 1)
+	go func() {
+		setDone <- provider.SetCommunityLicenseKey(ctx, "community-license")
+	}()
+	select {
+	case <-validationStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for Community validation")
+	}
+	if _, err := gatewayClient.SetProperty(ctx, LicenseKeyPropertyKey, "enterprise-license"); err != nil {
+		t.Fatalf("install primary license: %v", err)
+	}
+	close(releaseValidation)
+	validationReleased = true
+
+	if err := <-setDone; !errors.Is(err, ErrLicenseKeyExists) {
+		t.Fatalf("SetCommunityLicenseKey() error = %v, want %v", err, ErrLicenseKeyExists)
+	}
+	primary, err := gatewayClient.GetProperty(ctx, LicenseKeyPropertyKey)
+	if err != nil {
+		t.Fatalf("get primary property: %v", err)
+	}
+	if primary.Value != "enterprise-license" {
+		t.Fatalf("primary property = %q, want enterprise-license", primary.Value)
+	}
+	if _, err := gatewayClient.GetProperty(ctx, CommunityLicenseKeyPropertyKey); !errors.Is(err, gorm.ErrRecordNotFound) {
+		t.Fatalf("Community property error = %v, want record not found", err)
 	}
 }
 

@@ -63,6 +63,9 @@ var (
 	// ErrInvalidLicense indicates the provided license key could not be validated.
 	ErrInvalidLicense = errors.New("license key is invalid")
 
+	// ErrLicenseKeyExists indicates a primary database license prevents Community enrollment.
+	ErrLicenseKeyExists = errors.New("a primary license key already exists")
+
 	errLicenseKeyChanged = errors.New("license key changed while it was being updated")
 )
 
@@ -287,8 +290,7 @@ func (p *Provider) SetLicenseKey(ctx context.Context, licenseKey string) error {
 }
 
 // SetCommunityLicenseKey validates and stores an issued Community key in its
-// dedicated fallback property. It also removes the previous database-managed
-// key in the same transaction because both properties determine the effective key.
+// dedicated property unless a primary database license already exists.
 func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string) error {
 	if p.LicenseKeyViaConfiguration() {
 		return ErrLicenseKeyViaConfiguration
@@ -309,24 +311,21 @@ func (p *Provider) SetCommunityLicenseKey(ctx context.Context, licenseKey string
 	p.refreshLock.Lock()
 	defer p.refreshLock.Unlock()
 
-	var updatedAt time.Time
-	err = p.gatewayClient.Transaction(ctx, func(tx *gorm.DB) error {
-		if err := p.gatewayClient.DeletePropertyTx(tx, LicenseKeyPropertyKey); err != nil {
-			return err
-		}
-		property, err := p.gatewayClient.SetPropertyTx(ctx, tx, CommunityLicenseKeyPropertyKey, licenseKey)
-		if err != nil {
-			return err
-		}
-		updatedAt = property.UpdatedAt
-		return nil
-	})
+	currentSnapshot, err := p.loadLicenseKey(ctx)
+	if err != nil {
+		return err
+	}
+	if currentSnapshot.propertyKey == LicenseKeyPropertyKey {
+		return ErrLicenseKeyExists
+	}
+
+	property, err := p.gatewayClient.SetProperty(ctx, CommunityLicenseKeyPropertyKey, licenseKey)
 	if err != nil {
 		return err
 	}
 	p.setCachedState(licenseKeySnapshot{
 		key:         licenseKey,
-		updatedAt:   updatedAt,
+		updatedAt:   property.UpdatedAt,
 		propertyKey: CommunityLicenseKeyPropertyKey,
 	}, entitlements)
 	return nil

@@ -413,6 +413,11 @@ func TestCreateCommunityLicenseMapsIssuerAndInstallFailures(t *testing.T) {
 			wantCode:   http.StatusConflict,
 		},
 		{
+			name:       "paid license installed during issuance",
+			installErr: license.ErrLicenseKeyExists,
+			wantCode:   http.StatusConflict,
+		},
+		{
 			name:       "entitlement or persistence failure",
 			installErr: errors.New(secret),
 			wantCode:   http.StatusInternalServerError,
