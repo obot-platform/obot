@@ -383,9 +383,9 @@
 {#snippet displayNoData()}
 	<div class="my-12 flex w-md flex-col items-center gap-4 self-center text-center">
 		<Server class="text-muted-content size-24 opacity-25" />
-		<h4 class="text-muted-content text-lg font-semibold">No created entries</h4>
+		<h4 class="text-muted-content text-lg font-semibold">No created MCP Servers</h4>
 		<p class="text-muted-content text-sm font-light">
-			Looks like you don't have any entries created yet.
+			Looks like you don't have any MCP servers created yet.
 		</p>
 	</div>
 {/snippet}

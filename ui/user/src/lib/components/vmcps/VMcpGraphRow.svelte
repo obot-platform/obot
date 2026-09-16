@@ -45,6 +45,7 @@
 		openDiff?: (vmcp: VMCP) => void;
 		openUpdateConfirm?: (vmcp: VMCP, onConfirm: () => Promise<void>) => void;
 		openEditInstanceConfiguration?: (vmcp: VMCP, instance: VMCPInstance) => void;
+		connectEl?: HTMLElement;
 	}
 
 	let {
@@ -62,7 +63,8 @@
 		openSelectInstance,
 		openDiff,
 		openUpdateConfirm,
-		openEditInstanceConfiguration
+		openEditInstanceConfiguration,
+		connectEl = $bindable()
 	}: Props = $props();
 
 	let tools = $derived(getToolCounts(components));
@@ -197,7 +199,7 @@
 				linked
 					? 'vmcp-drop-target border-primary text-primary'
 					: canEdit
-						? 'p-0.5 aura text-primary hover:-translate-y-0.5'
+						? 'p-0.5 aura text-primary'
 						: 'p-0.5'
 			)}
 			in:fade={{ duration: 150 }}
@@ -205,7 +207,7 @@
 			<VMcpCard
 				{vmcp}
 				selectAriaLabel={canEdit ? `Edit ${name}` : name}
-				onSelect={canEdit ? onEdit : undefined}
+				bind:connectEl
 				{onConnect}
 				hideTest
 				{onDelete}
@@ -214,6 +216,7 @@
 				{openDiff}
 				{openUpdateConfirm}
 				{openEditInstanceConfiguration}
+				onEditDetails={canEdit ? onEdit : undefined}
 				class={twMerge(
 					'bg-base-100 dark:bg-base-300 dark:border-base-400 text-base-content relative gap-2 rounded-lg border border-transparent p-2 text-left shadow-sm transition-all duration-200',
 					canEdit && 'cursor-pointer'

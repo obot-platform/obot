@@ -180,15 +180,17 @@
 		};
 	});
 
+	let autoOpenedInitialAuthProvider = $state(false);
 	$effect(() => {
-		if (showInitialAuthProvider) {
-			const authProvider = sortedAuthProviders.find(
-				(provider) => provider.id === showInitialAuthProvider
-			);
-			if (authProvider) {
-				handleClickConfigure(authProvider);
-			}
-		}
+		if (autoOpenedInitialAuthProvider || !showInitialAuthProvider) return;
+
+		const authProvider = sortedAuthProviders.find(
+			(provider) => provider.id === showInitialAuthProvider
+		);
+		if (!authProvider) return;
+
+		autoOpenedInitialAuthProvider = true;
+		handleClickConfigure(authProvider);
 	});
 
 	// Reopens the switch dialog for a staged provider without waiting for a click, so an owner who
@@ -243,7 +245,6 @@
 					configuringAuthProvider.namespace
 				)
 			).redirectUrl;
-
 			setupSignInDialog?.open();
 		} catch (err) {
 			errors.append(err);
@@ -461,6 +462,7 @@
 
 	async function handleLocalAuthClose(userCount: number) {
 		localAuthConfigureOpen = false;
+		autoOpenedInitialAuthProvider = false;
 		clearUrlParams(['provider']);
 		showInitialAuthProvider = null;
 		if (isBootstrapUser && userCount > 0) {
@@ -681,22 +683,7 @@
 	bootstrap={isBootstrapUser}
 	onClose={handleLocalAuthClose}
 	switching={atLeastOneConfigured && activeProvider?.id !== CommonAuthProviderIds.LOCAL}
->
-	{#snippet additionalActions()}
-		{#if showInitialAuthProvider}
-			<button
-				type="button"
-				class="btn btn-secondary text-xs"
-				onclick={async () => {
-					localAuthConfigure?.close();
-					await handleLocalAuthClose(0);
-				}}
-			>
-				Choose different provider
-			</button>
-		{/if}
-	{/snippet}
-</LocalAuthConfigure>
+/>
 
 <ProviderDeconfigureConfirm
 	bind:this={deconfigureAuthProviderDialog}
@@ -711,10 +698,10 @@
 
 <ResponsiveDialog bind:this={setupSignInDialog} class="w-md">
 	{#snippet titleContent()}
-		<h3 class="text-lg font-semibold">Next Step: Owner Login Setup</h3>
+		<h3 class="text-lg font-semibold">Next Step: Owner Setup</h3>
 	{/snippet}
 
-	<div class="flex flex-col gap-4">
+	<div class="flex flex-col gap-2">
 		{#if isLocalSetup}
 			<p>
 				{#if setupLocalUserEmail}
@@ -733,12 +720,12 @@
 				{/each}
 			</ul>
 			<p>
-				Log in into the system as one of the explicit owners -- you'll be redirected back to the
-				admin panel after authenticating.
+				Log in into the system as one of the explicit owners -- you'll be redirected after
+				authenticating.
 			</p>
 			<p>
 				Or log into a different account with your configured auth provider. After authentication,
-				you'll be asked to confirm the owner addition before proceeding.
+				you'll be asked to confirm the owner before proceeding.
 			</p>
 		{:else}
 			<p>
@@ -766,9 +753,9 @@
 			</a>
 			{#if isLocalSetup}
 				<p class="text-muted-content text-center text-xs font-light">
-					Forgot the password?
+					Want to change your owner account?
 					<button type="button" class="text-link underline" onclick={handleManageLocalUsers}>
-						Manage local accounts
+						Click here
 					</button>
 				</p>
 			{/if}

@@ -18,7 +18,7 @@
 		sortVMcps,
 		resolveVMcpComponents
 	} from '$lib/services/vmcps/utils';
-	import { profile, responsive } from '$lib/stores';
+	import { mcpServersAndEntries, profile, responsive } from '$lib/stores';
 	import { goto } from '$lib/url';
 	import { Layers, Plus } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
@@ -114,7 +114,11 @@
 </script>
 
 {#if creating}
-	<VMcpDesigner onBack={hideCreate} {usersMap} />
+	<VMcpDesigner
+		onBack={hideCreate}
+		{usersMap}
+		isFirstVMcp={!listedVMcps.some((vmcp) => vmcp.userID === profile.current.id)}
+	/>
 {:else}
 	<TabLayout
 		title="vMCPs"
@@ -148,9 +152,11 @@
 			{/each}
 		</div>
 	{/if}
-	<button class="btn btn-primary" onclick={openCreate}>
-		<Plus class="size-4" /> Create vMCP
-	</button>
+	{#if mcpServersAndEntries.current.entries.length > 0}
+		<button class="btn btn-primary" onclick={openCreate}>
+			<Plus class="size-4" /> Create vMCP
+		</button>
+	{/if}
 {/snippet}
 
 {#snippet vmcpsView()}

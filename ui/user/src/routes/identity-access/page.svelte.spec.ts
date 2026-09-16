@@ -1,6 +1,6 @@
 import { replaceState } from '$app/navigation';
 import { page as appPage } from '$app/state';
-import { CommonAuthProviderIds } from '$lib/constants';
+import { CommonAuthProviderIds, LOCAL_AUTH_MIN_PASSWORD_LENGTH } from '$lib/constants';
 import { Group } from '$lib/services';
 import type { AuthProvider } from '$lib/services/admin/types';
 import type { APIKey } from '$lib/services/api-keys/types';
@@ -19,7 +19,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 
-vi.mock('$app/navigation', { spy: true });
+vi.mock('$app/navigation', async (importOriginal) => {
+	const actual = await importOriginal<typeof import('$app/navigation')>();
+	return {
+		...actual,
+		replaceState: vi.fn()
+	};
+});
 
 const googleProvider = listAuthProvidersResponse.find(
 	(provider) => provider.id === CommonAuthProviderIds.GOOGLE
@@ -43,6 +49,7 @@ async function renderIdentityAccessPage({
 	authEnabled = true,
 	bootstrap = false,
 	view = 'auth-providers',
+	provider,
 	groups,
 	apiKeys = [],
 	users = []
@@ -51,6 +58,7 @@ async function renderIdentityAccessPage({
 	authEnabled?: boolean;
 	bootstrap?: boolean;
 	view?: string;
+	provider?: string;
 	groups?: string[];
 	apiKeys?: APIKey[];
 	users?: PageData['users'];
@@ -62,6 +70,9 @@ async function renderIdentityAccessPage({
 	}
 
 	appPage.url.searchParams.set('view', view);
+	if (provider) {
+		appPage.url.searchParams.set('provider', provider);
+	}
 	// Layout's bootstrap splash would otherwise sit on top of the Auth Providers tab.
 	localStorage.setItem('seenSplashDialog', new Date().toISOString());
 
@@ -106,6 +117,74 @@ function mockConfigureFlow(configuredProviders: AuthProvider[]) {
 	return { configureAuthProvider };
 }
 
+const localProvider: AuthProvider = {
+	id: CommonAuthProviderIds.LOCAL,
+	created: googleProvider.created,
+	type: 'authprovider',
+	name: 'Local',
+	icon: '/admin/assets/local_icon_small.png',
+	image: '',
+	port: 0,
+	configured: false,
+	missingConfigurationParameters: [],
+	missingEntitlements: [],
+	namespace: 'default'
+};
+
+const localConfigured: AuthProvider = {
+	...localProvider,
+	configured: true
+};
+
+function mockLocalOnboarding({
+	owners = null as string[] | null,
+	redirectUrl = initiateTempLoginResponse.redirectUrl
+} = {}) {
+	const initiateTempLogin = vi.fn(() =>
+		HttpResponse.json({ ...initiateTempLoginResponse, redirectUrl })
+	);
+	let users: { id: string; email: string; created: string; requirePasswordChange: boolean }[] = [];
+
+	worker.use(
+		http.post(`/api/auth-providers/${localProvider.id}/reveal`, () =>
+			HttpResponse.json(null, { status: 404 })
+		),
+		http.post(
+			`/api/auth-providers/${localProvider.id}/configure`,
+			() => new HttpResponse(null, { status: 204 })
+		),
+		http.get('/api/auth-providers', () => HttpResponse.json({ items: [localConfigured] })),
+		http.get('/api/local-auth/users', () => HttpResponse.json({ items: users })),
+		http.post('/api/local-auth/users', async ({ request }) => {
+			const body = (await request.json()) as { email: string };
+			const user = {
+				id: 'user-1',
+				email: body.email,
+				created: '2026-01-01T00:00:00.000Z',
+				requirePasswordChange: false
+			};
+			users = [...users, user];
+			return HttpResponse.json(user);
+		}),
+		http.post('/api/setup/cancel-temp-login', () => new HttpResponse(null, { status: 404 })),
+		http.get('/api/setup/explicit-role-emails', () => HttpResponse.json({ owners, admins: null })),
+		http.post('/api/setup/initiate-temp-login', initiateTempLogin)
+	);
+
+	return { initiateTempLogin };
+}
+
+async function createInitialLocalUser() {
+	const dialog = page.getByRole('dialog');
+	await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
+	await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+	await page.getByCSS('#initial-user-password').fill('a'.repeat(LOCAL_AUTH_MIN_PASSWORD_LENGTH));
+	await page
+		.getByCSS('#initial-user-password-confirm')
+		.fill('a'.repeat(LOCAL_AUTH_MIN_PASSWORD_LENGTH));
+	await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+}
+
 async function configureGoogleProvider() {
 	await providerCard('Google').getByRole('button', { name: 'Configure', exact: true }).click();
 
@@ -119,7 +198,10 @@ async function configureGoogleProvider() {
 
 afterEach(() => {
 	appPage.url.searchParams.delete('view');
-	vi.mocked(replaceState).mockReset();
+	appPage.url.searchParams.delete('provider');
+	if (window.location.hash) {
+		window.history.replaceState(null, '', window.location.pathname + window.location.search);
+	}
 });
 
 describe('Identity & Access Page', () => {
@@ -172,7 +254,7 @@ describe('Identity & Access Page', () => {
 		}
 
 		function ownerLoginPrompt() {
-			return page.getByText('Next Step: Owner Login Setup');
+			return page.getByText('Next Step: Owner Setup');
 		}
 
 		it('offers the owner login as a button rather than redirecting to it', async () => {
@@ -206,7 +288,7 @@ describe('Identity & Access Page', () => {
 			await renderIdentityAccessPage({ authProviders: [localConfigured], bootstrap: true });
 
 			await expect.element(ownerLoginPrompt()).toBeVisible();
-			await page.getByRole('button', { name: 'Manage local accounts' }).click();
+			await page.getByRole('button', { name: 'Click here' }).click();
 
 			const dialog = page.getByRole('dialog').filter({ hasText: 'Set Up Local' });
 			await expect.element(dialog.getByText('owner@example.com')).toBeVisible();
@@ -293,9 +375,7 @@ describe('Identity & Access Page', () => {
 				});
 
 				await expect
-					.element(
-						page.getByRole('dialog').getByText('Next Step: Owner Login Setup', { exact: true })
-					)
+					.element(page.getByRole('dialog').getByText('Next Step: Owner Setup', { exact: true }))
 					.toBeVisible();
 				await expect
 					.element(page.getByRole('dialog').getByRole('link', { name: /Continue with Google/ }))
@@ -316,7 +396,7 @@ describe('Identity & Access Page', () => {
 				});
 
 				await expect
-					.element(page.getByRole('dialog').filter({ hasText: 'Next Step: Owner Login Setup' }))
+					.element(page.getByRole('dialog').filter({ hasText: 'Next Step: Owner Setup' }))
 					.not.toBeInTheDocument();
 
 				await expect
@@ -325,6 +405,55 @@ describe('Identity & Access Page', () => {
 				await expect
 					.element(providerCard('Google').getByRole('button', { name: 'Modify', exact: true }))
 					.toBeVisible();
+			});
+
+			it('bootstrap local setup with no explicit owners shows owner setup dialog', async () => {
+				const { initiateTempLogin } = mockLocalOnboarding();
+				await renderIdentityAccessPage({
+					authProviders: [localProvider],
+					bootstrap: true,
+					provider: CommonAuthProviderIds.LOCAL
+				});
+
+				await createInitialLocalUser();
+
+				await vi.waitFor(() => {
+					expect(initiateTempLogin).toHaveBeenCalledOnce();
+				});
+				await expect
+					.element(page.getByRole('dialog').getByText('Next Step: Owner Setup', { exact: true }))
+					.toBeVisible();
+				await expect
+					.element(
+						page.getByRole('dialog').getByRole('link', { name: /Sign in as ada@example.com/ })
+					)
+					.toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
+			});
+
+			it('bootstrap local setup still prompts when explicit owners are preconfigured', async () => {
+				const { initiateTempLogin } = mockLocalOnboarding({ owners: ['owner@example.com'] });
+				await renderIdentityAccessPage({
+					authProviders: [localProvider],
+					bootstrap: true,
+					provider: CommonAuthProviderIds.LOCAL
+				});
+
+				await createInitialLocalUser();
+
+				await vi.waitFor(() => {
+					expect(initiateTempLogin).toHaveBeenCalledOnce();
+				});
+				await expect
+					.element(page.getByRole('dialog').getByText('Next Step: Owner Setup', { exact: true }))
+					.toBeVisible();
+				await expect
+					.element(page.getByRole('dialog').getByText('ada@example.com', { exact: true }))
+					.toBeVisible();
+				await expect
+					.element(
+						page.getByRole('dialog').getByRole('link', { name: /Sign in as ada@example.com/ })
+					)
+					.toHaveAttribute('href', initiateTempLoginResponse.redirectUrl);
 			});
 		});
 
@@ -342,15 +471,16 @@ describe('Identity & Access Page', () => {
 					.getByRole('button', { name: 'Configure', exact: true })
 					.click();
 
+				const signup = page.getByRole('dialog').filter({ hasText: 'Get Access Now!' });
 				await expect
-					.element(page.getByRole('heading', { name: 'Microsoft Entra', exact: true }).first())
+					.element(signup.getByRole('heading', { name: 'Microsoft Entra', exact: true }))
 					.toBeVisible();
 				await expect
-					.element(page.getByRole('heading', { name: 'Get Access Now!', exact: true }))
+					.element(signup.getByRole('heading', { name: 'Get Access Now!', exact: true }))
 					.toBeVisible();
 				await expect
 					.element(
-						page.getByText(
+						signup.getByText(
 							/Register to unlock all remaining providers and to subscribe to the free Obot Community Newsletter/,
 							{
 								exact: false
@@ -358,11 +488,11 @@ describe('Identity & Access Page', () => {
 						)
 					)
 					.toBeVisible();
-				await expect.element(page.getByLabelText('Name', { exact: true })).toBeVisible();
-				await expect.element(page.getByLabelText('Email', { exact: true })).toBeVisible();
-				await expect.element(page.getByLabelText('Company', { exact: false })).toBeVisible();
+				await expect.element(signup.getByLabelText('Name', { exact: true })).toBeVisible();
+				await expect.element(signup.getByLabelText('Email', { exact: true })).toBeVisible();
+				await expect.element(signup.getByLabelText('Company', { exact: false })).toBeVisible();
 				await expect
-					.element(page.getByRole('button', { name: 'Register', exact: true }))
+					.element(signup.getByRole('button', { name: 'Register', exact: true }))
 					.toBeVisible();
 				await expect
 					.element(page.getByText('Set Up Microsoft Entra', { exact: true }))

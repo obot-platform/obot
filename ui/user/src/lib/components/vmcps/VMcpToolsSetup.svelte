@@ -327,7 +327,8 @@
 				</p>
 			{:else}
 				<p class="text-muted-content mb-6 text-sm font-light">
-					Fetch tools using this component's stored configuration before editing.
+					The MCP server's stored configuration will be used to fetch the tool list. In order to
+					discover the MCP server's tools, you may need to temporarily authenticate.
 				</p>
 			{/if}
 

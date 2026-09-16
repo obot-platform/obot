@@ -14,6 +14,7 @@ export const handlers = [
 		HttpResponse.json({ items: data.listAuthProvidersResponse })
 	),
 	http.get('/api/bootstrap', () => HttpResponse.json(data.getBootstrapStatusResponse)),
+	http.get('/api/local-auth/users', () => HttpResponse.json({ items: [] })),
 	http.get('/api/default-model-aliases', () =>
 		HttpResponse.json({ items: data.listDefaultModelAliasesResponse })
 	),

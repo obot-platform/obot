@@ -10,13 +10,22 @@
 	interface Props {
 		connectURL?: string;
 		connectButtonId?: string;
+		connectEl?: HTMLElement;
 		onConnect?: (options?: VMcpConnectOptions) => void;
 		id: string;
 		disabled?: boolean;
 		hideTest?: boolean;
 	}
 
-	let { connectURL, connectButtonId, onConnect, id, disabled, hideTest = false }: Props = $props();
+	let {
+		connectURL,
+		connectButtonId,
+		connectEl = $bindable(),
+		onConnect,
+		id,
+		disabled,
+		hideTest = false
+	}: Props = $props();
 
 	let hasLicenseEntitlementViolations = $derived(
 		(version.current.licenseEntitlementViolations || []).length > 0
@@ -31,7 +40,7 @@
 	);
 
 	function goToTester() {
-		goto(`/vmcps/${id}?view=tester`);
+		goto(`/vmcps/${id}?view=inspector`);
 	}
 
 	function handleTest() {
@@ -56,6 +65,7 @@
 		id={connectButtonId}
 	>
 		<div
+			bind:this={connectEl}
 			class="relative z-10 flex grow items-center rounded-lg border border-base-300 dark:border-base-400"
 		>
 			<button

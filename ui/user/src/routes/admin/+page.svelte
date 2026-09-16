@@ -81,14 +81,10 @@
 
 				{#if showSuccessOwnerConfirmation}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6">
-						<div class="flex items-center justify-center gap-2">
-							<Handshake class="size-6" />
-							<h3 class="text-xl font-semibold">Confirm Handoff</h3>
-						</div>
 						<p class="text-md px-4 text-left font-light">
 							You've established your first owner user, the bootstrap user currently being used will
-							be disabled. Upon completing this action, you'll be logged out and asked to log in
-							using your auth provider.
+							be disabled. Upon completing this action, you'll be logged out and asked to log into
+							Obot again.
 						</p>
 					</div>
 					<button
@@ -101,7 +97,7 @@
 							window.location.href = '/oauth2/sign_out?rd=/admin';
 						}}
 					>
-						Confirm & Log Out
+						Logout
 					</button>
 				{:else}
 					<div class="my-6 flex w-full flex-col items-center justify-center gap-6 px-8">
@@ -111,7 +107,7 @@
 								<h3 class="text-xl font-semibold">Explicit Admin Already Set</h3>
 							{:else}
 								<Handshake class="size-6" />
-								<h3 class="text-xl font-semibold">Confirm Owner Addition</h3>
+								<h3 class="text-xl font-semibold">Confirm New Owner</h3>
 							{/if}
 						</div>
 
@@ -260,9 +256,7 @@
 		{#if showBootstrapLogin && bootstrapStatus?.enabled && !loggedIn}
 			<div class="flex flex-col gap-4" in:slide class:mt-4={authProviders.length === 0}>
 				<h4 class="text-center text-lg font-semibold">Authenticate with Bootstrap Token</h4>
-				<p class="text-md font-light">
-					Enter the bootstrap token to continue setup or restore owner access.
-				</p>
+				<p class="text-md font-light">Enter the bootstrap token to continue setup.</p>
 
 				<div class="text-md flex flex-col gap-1">
 					<label for="bootstrap-token" class="font-semibold">Bootstrap Token</label>

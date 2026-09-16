@@ -5,12 +5,14 @@ import type { PageLoad } from './$types';
 export const load: PageLoad = async ({ fetch, parent }) => {
 	const { profile } = await parent();
 
+	let vmcps: VMCP[];
 	try {
-		const vmcps = profile.hasAdminAccess?.()
+		vmcps = profile.hasAdminAccess?.()
 			? await AdminService.listAllVMCPs({ fetch })
 			: await UserService.listVMCPs({ fetch });
-		return { vmcps };
 	} catch {
-		return { vmcps: [] as VMCP[] };
+		vmcps = [];
 	}
+
+	return { vmcps };
 };

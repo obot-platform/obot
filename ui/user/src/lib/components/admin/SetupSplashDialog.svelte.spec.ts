@@ -72,16 +72,20 @@ describe('SetupSplashDialog product analytics consent', () => {
 				.element(page.getByRole('heading', { name: 'Welcome to Obot!', exact: true }))
 				.toBeVisible();
 			await expect
-				.element(page.getByRole('checkbox', { name: /Share product usage data/ }))
+				.element(page.getByRole('checkbox', { name: /I agree to share my product usage data/ }))
 				.toBeChecked();
 		}
 	);
 
-	it('uses the concise copy and links to the Product Analytics documentation', async () => {
+	it('uses the product-usage consent copy and links to the Product Analytics documentation', async () => {
 		await renderWelcome();
 
 		await expect
-			.element(page.getByText('Share product usage data to help improve Obot.', { exact: true }))
+			.element(
+				page.getByText('I agree to share my product usage data to help improve Obot.', {
+					exact: true
+				})
+			)
 			.toBeVisible();
 		await expect
 			.element(page.getByRole('link', { name: 'Learn more', exact: true }))
@@ -101,7 +105,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 		);
 
 		await renderWelcome();
-		const checkbox = page.getByRole('checkbox', { name: /Share product usage data/ });
+		const checkbox = page.getByRole('checkbox', { name: /I agree to share my product usage data/ });
 		if (!selected) await checkbox.click();
 		await page.getByRole('button', { name: 'Continue', exact: true }).click();
 

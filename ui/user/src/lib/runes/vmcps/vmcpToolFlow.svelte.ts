@@ -1,3 +1,4 @@
+import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 import {
 	UserService,
 	type CompositeServerToolRow,
@@ -13,7 +14,7 @@ import {
 	vmcpComponentId,
 	vmcpManifest
 } from '$lib/services/vmcps/utils';
-import { errors } from '$lib/stores';
+import { errors, profile } from '$lib/stores';
 import { success } from '$lib/stores/success';
 
 export type VMcpToolDialog = 'added-create' | 'setup' | 'edit' | 'actions' | 'configure';
@@ -39,26 +40,17 @@ interface PendingRemoval {
  * here for the next flow to claim once it is mounted.
  */
 let vmcpAwaitingToolSetup: string | undefined;
-let vmcpAwaitingProfilesHint: string | undefined;
+let vmcpAwaitingCreationHint: string | undefined;
 let vmcpCreateHandoffPending = $state(false);
 
-export const VMCP_PROFILES_HINT_STORAGE_KEY = '@obot/seen-vmcp-profiles-hint';
+export const VMCP_CREATION_HINT_STORAGE_KEY = '@obot/seen-vmcp-creation-hint';
 
-export function hasSeenVMcpProfilesHint(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY): boolean {
-	try {
-		return Boolean(localStorage.getItem(storageKey));
-	} catch {
-		return false;
-	}
+export function hasSeenVMcpCreationHint(storageKey = VMCP_CREATION_HINT_STORAGE_KEY): boolean {
+	return hasSeenTimestamp(storageKey, profile.current?.created);
 }
 
-export function markVMcpProfilesHintSeen(storageKey = VMCP_PROFILES_HINT_STORAGE_KEY) {
-	try {
-		// eslint-disable-next-line svelte/prefer-svelte-reactivity
-		localStorage.setItem(storageKey, new Date().toISOString());
-	} catch {
-		// Ignore storage failures in restricted contexts.
-	}
+export function markVMcpCreationHintSeen(storageKey = VMCP_CREATION_HINT_STORAGE_KEY) {
+	markSeenTimestamp(storageKey);
 }
 
 export function queueToolSetupForCreatedVMcp(id: string) {
@@ -85,15 +77,15 @@ export function finishVMcpCreateHandoff() {
 	vmcpCreateHandoffPending = false;
 }
 
-export function queueProfilesHintForCreatedVMcp(id: string) {
-	if (hasSeenVMcpProfilesHint()) return;
-	vmcpAwaitingProfilesHint = id;
+export function queueCreationHintForCreatedVMcp(id: string) {
+	if (hasSeenVMcpCreationHint()) return;
+	vmcpAwaitingCreationHint = id;
 }
 
-export function claimProfilesHintForVMcp(id: string) {
-	if (hasSeenVMcpProfilesHint()) return false;
-	if (!id || vmcpAwaitingProfilesHint !== id) return false;
-	vmcpAwaitingProfilesHint = undefined;
+export function claimCreationHintForVMcp(id: string) {
+	if (hasSeenVMcpCreationHint()) return false;
+	if (!id || vmcpAwaitingCreationHint !== id) return false;
+	vmcpAwaitingCreationHint = undefined;
 	return true;
 }
 

@@ -4,7 +4,7 @@
 	import Select from '$lib/components/Select.svelte';
 	import McpDeprecatedNotice from '$lib/components/mcp/McpDeprecatedNotice.svelte';
 	import type { EntryDrag } from '$lib/runes/vmcps/entryDrag.svelte';
-	import type { MCPCatalogEntry } from '$lib/services';
+	import { type MCPCatalogEntry } from '$lib/services';
 	import { isDeprecatedMCPServer } from '$lib/services/user/mcp';
 	import {
 		ESTIMATED_ROW_HEIGHT,
@@ -278,8 +278,12 @@
 					{/each}
 				</div>
 			</div>
+		{:else if eligibleEntries.length === 0 && canCreateEntry}
+			<div class="flex flex-col">
+				{@render createEntryButton()}
+			</div>
 		{:else}
-			<p class="text-muted-content text-xs italic">No MCP servers available.</p>
+			<p class="text-muted-content text-xs italic" role="status">No MCP servers available.</p>
 		{/if}
 	</div>
 {/snippet}

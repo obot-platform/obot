@@ -1,7 +1,21 @@
-import { UserService, getProfile, type AuthProvider } from '$lib/services';
+import { CommonAuthProviderIds } from '$lib/constants';
+import { AdminService, UserService, getProfile, type AuthProvider } from '$lib/services';
 import { Group } from '$lib/services/admin/types';
+import type { Profile } from '$lib/services/user/types';
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
+
+function getAdminRedirectPath(profile?: Profile, hasVMCPs?: boolean): string {
+	if (profile?.isBootstrapUser?.()) {
+		return '/identity-access?view=auth-providers';
+	}
+
+	if (profile?.isOwner?.() && !hasVMCPs) {
+		return '/vmcps?new=true';
+	}
+
+	return '/dashboard';
+}
 
 export const load: PageLoad = async ({ fetch, url }) => {
 	let authProviders: AuthProvider[] = [];
@@ -17,10 +31,16 @@ export const load: PageLoad = async ({ fetch, url }) => {
 	const hasAccess =
 		profile?.groups.includes(Group.ADMIN) || profile?.groups.includes(Group.AUDITOR);
 	if (hasAccess && !showSetupHandoff) {
-		throw redirect(
-			307,
-			profile?.isBootstrapUser?.() ? '/identity-access?view=auth-providers' : '/dashboard' // TODO: change to /vmcps when supported
-		);
+		const vmcps = await AdminService.listAllVMCPs({ fetch });
+		throw redirect(307, getAdminRedirectPath(profile, vmcps.length > 0));
+	}
+
+	if (
+		!showSetupHandoff &&
+		authProviders.length === 1 &&
+		authProviders[0].id === CommonAuthProviderIds.LOCAL
+	) {
+		throw redirect(307, '/login/local?rd=' + encodeURIComponent(url.pathname));
 	}
 
 	return {

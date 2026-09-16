@@ -6,7 +6,6 @@
 		type ModelAccessPolicy,
 		type ModelAccessPolicyManifest,
 		type ModelResource,
-		type AccessControlRuleSubject,
 		type OrgUser,
 		type OrgGroup,
 		ModelUsage,
@@ -17,13 +16,12 @@
 	} from '$lib/services';
 	import { defaultModelAliases as defaultModelAliasesStore } from '$lib/stores';
 	import { goto } from '$lib/url';
-	import { getUserDisplayName } from '$lib/utils';
 	import Confirm from '../Confirm.svelte';
 	import IconButton from '../primitives/IconButton.svelte';
 	import Table from '../table/Table.svelte';
 	import SearchModels from './SearchModels.svelte';
 	import SearchUsers from './SearchUsers.svelte';
-	import { resolveSubjects } from './subjectResolver';
+	import { convertSubjectsToTableData, resolveSubjects } from './subjectResolver';
 	import { Plus, Trash2, TriangleAlert } from '@lucide/svelte';
 	import { onMount, untrack } from 'svelte';
 	import { fly } from 'svelte/transition';
@@ -214,48 +212,6 @@
 
 		return () => controller.abort();
 	});
-
-	function convertSubjectsToTableData(
-		subjects: AccessControlRuleSubject[],
-		users: OrgUser[],
-		groups: OrgGroup[]
-	) {
-		const userMap = new Map(users?.map((user) => [user.id, user]));
-		const groupMap = new Map(groups?.map((group) => [group.id, group]));
-
-		return (
-			subjects
-				.map((subject) => {
-					if (subject.type === 'user') {
-						return {
-							id: subject.id,
-							displayName: getUserDisplayName(userMap, subject.id),
-							type: 'User'
-						};
-					}
-
-					if (subject.type === 'group') {
-						const group = groupMap.get(subject.id);
-						if (!group) {
-							return undefined;
-						}
-
-						return {
-							id: subject.id,
-							displayName: group.name,
-							type: 'Group'
-						};
-					}
-
-					return {
-						id: subject.id,
-						displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
-						type: 'Group'
-					};
-				})
-				.filter((subject) => subject !== undefined) ?? []
-		);
-	}
 
 	function convertModelsToTableData(modelResources: ModelResource[]) {
 		return modelResources.map((model) => {

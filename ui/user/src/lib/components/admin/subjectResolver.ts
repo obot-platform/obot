@@ -4,6 +4,13 @@ import {
 	type OrgGroup,
 	type OrgUser
 } from '$lib/services';
+import { getUserDisplayName } from '$lib/utils';
+
+export interface SubjectTableRow {
+	id: string;
+	displayName: string;
+	type: 'User' | 'Group' | 'Selector';
+}
 
 export interface ResolvedSubjects {
 	users: OrgUser[];
@@ -63,4 +70,46 @@ export async function resolveSubjects(
 	}
 
 	return resolved;
+}
+
+export function convertSubjectsToTableData(
+	subjects: AccessControlRuleSubject[],
+	users: OrgUser[],
+	groups: OrgGroup[]
+): SubjectTableRow[] {
+	const userMap = new Map(users?.map((user) => [user.id, user]));
+	const groupMap = new Map(groups?.map((group) => [group.id, group]));
+
+	return (
+		subjects
+			.map((subject): SubjectTableRow | undefined => {
+				if (subject.type === 'user') {
+					return {
+						id: subject.id,
+						displayName: getUserDisplayName(userMap, subject.id),
+						type: 'User'
+					};
+				}
+
+				if (subject.type === 'group') {
+					const group = groupMap.get(subject.id);
+					if (!group) {
+						return undefined;
+					}
+
+					return {
+						id: subject.id,
+						displayName: group.name,
+						type: 'Group'
+					};
+				}
+
+				return {
+					id: subject.id,
+					displayName: subject.id === '*' ? 'All Obot Users' : subject.id,
+					type: 'Selector'
+				};
+			})
+			.filter((subject): subject is SubjectTableRow => subject !== undefined) ?? []
+	);
 }

@@ -286,4 +286,83 @@ describe('LocalAuthConfigure.svelte', () => {
 		await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
 		expect(createUser).not.toHaveBeenCalled();
 	});
+
+	describe('required onboarding', () => {
+		async function renderRequiredDialog() {
+			const onConfigure = vi.fn(async () => undefined);
+			const onClose = vi.fn();
+			const { createUser } = mockLocalUsers();
+			const dialog = await renderOpenDialog(LocalAuthConfigure, {
+				provider: { ...localProvider, configured: false },
+				required: true,
+				onConfigure,
+				onClose
+			});
+
+			await expect.element(dialog.getByText('Set Up Owner Account', { exact: true })).toBeVisible();
+			return { dialog, onConfigure, onClose, createUser };
+		}
+
+		it('auto-configures without collecting domains and asks for a single initial user', async () => {
+			const { dialog, onConfigure } = await renderRequiredDialog();
+
+			await vi.waitFor(() => {
+				expect(onConfigure).toHaveBeenCalledWith({
+					OBOT_AUTH_PROVIDER_EMAIL_DOMAINS: '*'
+				});
+			});
+
+			await expect.element(dialog.getByLabelText('Email', { exact: true })).toBeVisible();
+			await expect.element(page.getByCSS('#initial-user-password')).toBeVisible();
+			await expect.element(page.getByCSS('#initial-user-password-confirm')).toBeVisible();
+			await expect
+				.element(
+					dialog.getByText('Set up your initial owner account to get started!', { exact: true })
+				)
+				.toBeVisible();
+			await expect
+				.element(dialog.getByLabelText('Allowed Email Domains', { exact: true }))
+				.not.toBeInTheDocument();
+			await expect.element(dialog.getByText('Users', { exact: true })).not.toBeInTheDocument();
+			await expect
+				.element(dialog.getByRole('checkbox', { name: /Require the user to change this password/ }))
+				.not.toBeInTheDocument();
+		});
+
+		it('rejects a mismatched confirmation without creating the user', async () => {
+			const { dialog, createUser, onClose } = await renderRequiredDialog();
+
+			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await page.getByCSS('#initial-user-password').fill(validPassword);
+			await page.getByCSS('#initial-user-password-confirm').fill(`${validPassword}x`);
+			await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+			await expect
+				.element(dialog.getByText('The passwords do not match.', { exact: true }))
+				.toBeVisible();
+			expect(createUser).not.toHaveBeenCalled();
+			expect(onClose).not.toHaveBeenCalled();
+		});
+
+		it('creates the initial user on save and continues the original close flow', async () => {
+			const { dialog, createUser, onClose } = await renderRequiredDialog();
+
+			await dialog.getByLabelText('Email', { exact: true }).fill('ada@example.com');
+			await page.getByCSS('#initial-user-password').fill(validPassword);
+			await page.getByCSS('#initial-user-password-confirm').fill(validPassword);
+			await dialog.getByRole('button', { name: 'Continue', exact: true }).click();
+
+			await vi.waitFor(() => {
+				expect(createUser).toHaveBeenCalledWith({
+					email: 'ada@example.com',
+					password: validPassword,
+					requirePasswordChange: false
+				});
+			});
+
+			await vi.waitFor(() => {
+				expect(onClose).toHaveBeenCalledWith(1);
+			});
+		});
+	});
 });
