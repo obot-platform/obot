@@ -1074,13 +1074,9 @@ describe('VMcpDesigner.svelte', () => {
 			await renderDesigner([componentEntry], createIssueTrackerVMcp());
 
 			await expect
-				.element(
-					page.getByText(
-						'In order to test this vMCP, you will need to launch it. Click below to begin launching'
-					)
-				)
+				.element(page.getByText('Start your vMCP to use chat and inspect tools.'))
 				.toBeVisible();
-			await expect.element(page.getByRole('button', { name: 'Launch vMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Start Session' })).toBeVisible();
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
 
@@ -1088,7 +1084,7 @@ describe('VMcpDesigner.svelte', () => {
 			appPage.url.searchParams.set('view', 'inspector');
 			await renderDesigner([componentEntry], personalVMcp(), { groups: [Group.USER] });
 
-			await expect.element(page.getByRole('button', { name: 'Launch vMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Start Session' })).toBeVisible();
 			await expectViewTabs(['Designer', 'Inspector']);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
@@ -1097,7 +1093,7 @@ describe('VMcpDesigner.svelte', () => {
 			appPage.url.searchParams.set('view', 'inspector');
 			await renderDesigner([componentEntry], orgVMcp(), { groups: [Group.USER] });
 
-			await expect.element(page.getByRole('button', { name: 'Launch vMCP' })).toBeVisible();
+			await expect.element(page.getByRole('button', { name: 'Start Session' })).toBeVisible();
 			await expectViewTabs(['Designer', 'Inspector']);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).not.toBeInTheDocument();
 		});
@@ -1110,7 +1106,7 @@ describe('VMcpDesigner.svelte', () => {
 
 			await expect.element(page.getByText('GitHub').first()).toBeVisible();
 			await expect
-				.element(page.getByRole('button', { name: 'Launch vMCP' }))
+				.element(page.getByRole('button', { name: 'Start Session' }))
 				.not.toBeInTheDocument();
 			await expectViewTabs([]);
 			await expect.element(page.getByCSS('[data-vmcp-canvas]')).toBeInTheDocument();
@@ -1185,7 +1181,7 @@ describe('VMcpDesigner.svelte', () => {
 			appPage.url.searchParams.set('tab', 'tools');
 			await renderDesigner([componentEntry], vmcp);
 
-			await page.getByRole('button', { name: 'Launch vMCP' }).click();
+			await page.getByRole('button', { name: 'Start Session' }).click();
 			await page.getByRole('button', { name: 'Continue' }).click();
 			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
 			expect(initialize).not.toHaveBeenCalled();
@@ -1219,7 +1215,7 @@ describe('VMcpDesigner.svelte', () => {
 			appPage.url.searchParams.set('view', 'inspector');
 			await renderDesigner([componentEntry], createIssueTrackerVMcp());
 
-			await page.getByRole('button', { name: 'Launch vMCP' }).click();
+			await page.getByRole('button', { name: 'Start Session' }).click();
 
 			await expect
 				.element(page.getByText('This will begin the initial setup process for this server.'))

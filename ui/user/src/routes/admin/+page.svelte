@@ -268,7 +268,9 @@
 					'Bootstrap Token', or configure it directly through environment variables at startup.
 				</i>
 
-				<button class="btn btn-primary mt-4 text-sm" onclick={handleBootstrapLogin}> Login </button>
+				<button class="btn btn-primary mt-4 text-sm" onclick={handleBootstrapLogin}>
+					Login as Bootstrap Admin
+				</button>
 			</div>
 		{/if}
 	</form>

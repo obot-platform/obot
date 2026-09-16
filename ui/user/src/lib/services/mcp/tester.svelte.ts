@@ -127,7 +127,7 @@ export function testerChatAvailability(
 			available: false,
 			unavailableMessage:
 				version.hasValidLicense !== true
-					? 'Register a valid Obot license to use Chat without a model provider.'
+					? 'The chat feature is managed by your administrator. Contact your Obot admin to enable access.'
 					: 'The MCP Tester model service is disabled or unavailable. Contact an administrator.'
 		};
 	}

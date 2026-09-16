@@ -82,7 +82,7 @@ describe('SetupSplashDialog product analytics consent', () => {
 
 		await expect
 			.element(
-				page.getByText('I agree to share my product usage data to help improve Obot.', {
+				page.getByText('I agree to share my product usage data to help improve Obot (optional)', {
 					exact: true
 				})
 			)

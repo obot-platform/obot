@@ -203,10 +203,11 @@
 					bind:checked={shareProductUsage}
 					disabled={loading}
 				/>
-				<span>
+				<span class="italic">
 					<label for="share-product-usage">
-						I agree to share my product usage data to help improve Obot.
+						I agree to share my product usage data to help improve Obot (optional)
 					</label>
+					<br />
 					<a
 						href="https://docs.obot.ai/configuration/product-analytics"
 						rel="external noopener noreferrer"

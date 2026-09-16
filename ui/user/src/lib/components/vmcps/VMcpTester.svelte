@@ -66,13 +66,13 @@
 	{:else}
 		<div class="flex h-full w-full items-center justify-center">
 			<section
-				class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 m-4 w-sm rounded-lg border p-6 text-center"
+				class="border-base-300 dark:border-base-400 bg-base-100 dark:bg-base-300 m-4 w-xs rounded-lg border p-6 text-center"
 				role="status"
 			>
 				<div class="relative z-10 flex flex-col items-center gap-4">
 					<Layers class="text-muted-content size-12 opacity-25" />
 					<p class="text-muted-content max-w-md text-sm font-light">
-						In order to test this vMCP, you will need to launch it. Click below to begin launching
+						Start your vMCP to use chat and inspect tools.
 					</p>
 					<button
 						type="button"
@@ -83,7 +83,7 @@
 						{#if vmcpInstances.current.loading}
 							<Loading class="text-primary" />
 						{:else}
-							Launch vMCP
+							Start Session
 						{/if}
 					</button>
 				</div>

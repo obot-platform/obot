@@ -106,7 +106,8 @@ describe('testerChatAvailability', () => {
 		{
 			name: 'an unlicensed installation',
 			version: { hasModelProvider: false, hasValidLicense: false },
-			message: 'Register a valid Obot license to use Chat without a model provider.'
+			message:
+				'The chat feature is managed by your administrator. Contact your Obot admin to enable access.'
 		},
 		{
 			name: 'a disabled model service',

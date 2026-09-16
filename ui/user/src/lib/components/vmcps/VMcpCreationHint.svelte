@@ -204,12 +204,12 @@
 				<div class="flex items-start justify-between gap-2">
 					<p
 						id="vmcp-creation-hint-title"
-						class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em] uppercase"
+						class="font-mono text-[0.625rem] tracking-[0.14em] uppercase"
 					>
 						{current.title}
 					</p>
 					<div class="flex items-center gap-1">
-						<p class="text-muted-content font-mono text-[0.625rem] tracking-[0.14em]">
+						<p class="font-mono text-[0.625rem] tracking-[0.14em]">
 							{stepIndex + 1}/{steps.length}
 						</p>
 						<button
@@ -223,7 +223,7 @@
 					</div>
 				</div>
 
-				<p id="vmcp-creation-hint-description" class="text-muted-content mt-2 text-xs font-light">
+				<p id="vmcp-creation-hint-description" class="mt-2 text-xs font-light">
 					{current.description}
 				</p>
 			</div>

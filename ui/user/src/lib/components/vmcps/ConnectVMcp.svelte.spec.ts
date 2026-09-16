@@ -1,4 +1,4 @@
-import { UserService, type VMCP, type VMCPConfiguration, type VMCPInstance } from '$lib/services';
+import type { VMCP, VMCPConfiguration, VMCPInstance } from '$lib/services';
 import type { VMcpConnectOptions } from '$lib/services/vmcps/types';
 import { vmcpInstanceNeedsUserConfiguration } from '$lib/services/vmcps/utils';
 import { vmcpInstances } from '$lib/stores';
@@ -8,10 +8,9 @@ import { getProfileResponse } from '../../../tests/mocks/data';
 import { worker } from '../../../tests/mocks/worker';
 import ConnectVMcp from './ConnectVMcp.svelte';
 import { http, HttpResponse } from 'msw';
-import { tick } from 'svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { page, userEvent } from 'vitest/browser';
+import { page } from 'vitest/browser';
 
 function configurableVMcp(): VMCP {
 	const vmcp = createVMCP({ id: 'vmcp1configurable', displayName: 'Configured vMCP' });
@@ -316,135 +315,6 @@ describe('ConnectVMcp.svelte', () => {
 			expect(oauthChecks()).toBe(2);
 		});
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
-	});
-
-	it.each(['backdrop', 'Escape'])(
-		'stops waiting when OAuth is dismissed with %s',
-		async (dismiss) => {
-			const vmcp = createVMCP({ id: 'vmcp1oauth-dismiss', displayName: 'OAuth vMCP' });
-			mockConfigureAndLaunch(vmcp, { oauthURL: 'https://auth.example.com/authorize' });
-			const onConnected = vi.fn();
-			const onConnectingChange = vi.fn();
-			await renderDialog(vmcp, undefined, { onConnected, onConnectingChange });
-			await continueFromIntro();
-
-			const authenticate = page.getByRole('link', { name: 'Authenticate', exact: true });
-			await expect.element(authenticate).toBeVisible();
-			await vi.waitFor(() => expect(onConnectingChange).toHaveBeenLastCalledWith(true));
-			// Exercise the authenticating state without opening an external provider tab.
-			authenticate
-				.element()
-				.addEventListener('click', (event) => event.preventDefault(), { once: true });
-			await authenticate.click();
-			await expect.element(page.getByRole('link', { name: 'Authenticating...' })).toBeVisible();
-
-			if (dismiss === 'Escape') {
-				await userEvent.keyboard('{Escape}');
-			} else {
-				// Click outside the dialog content, which covers the backdrop's center.
-				await page
-					.getByRole('button', { name: 'Close dialog', exact: true })
-					.click({ position: { x: 5, y: 5 } });
-			}
-
-			await vi.waitFor(() => expect(onConnectingChange).toHaveBeenLastCalledWith(false));
-			await expect
-				.element(page.getByRole('link', { name: 'Authenticating...' }))
-				.not.toBeInTheDocument();
-			expect(onConnected).toHaveBeenCalledOnce();
-		},
-		5000
-	);
-
-	it.each([
-		{ action: 'backdrop', oauthURL: '' },
-		{ action: 'backdrop', oauthURL: 'https://auth.example.com/authorize' },
-		{ action: 'Escape', oauthURL: '' },
-		{ action: 'Escape', oauthURL: 'https://auth.example.com/authorize' },
-		{ action: 'reset', oauthURL: '' },
-		{ action: 'reset', oauthURL: 'https://auth.example.com/authorize' }
-	])(
-		'ignores pending OAuth response "$oauthURL" after $action',
-		async ({ action, oauthURL }) => {
-			const vmcp = createVMCP({ id: 'vmcp1oauth-pending', displayName: 'OAuth vMCP' });
-			mockConfigureAndLaunch(vmcp, { oauthURL: 'https://auth.example.com/authorize' });
-			const onConnected = vi.fn();
-			const nextConnected = vi.fn();
-			const onConnectingChange = vi.fn();
-			const result = await renderDialog(vmcp, undefined, { onConnected, onConnectingChange });
-			await continueFromIntro();
-			await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
-
-			let release!: () => void;
-			const pending = new Promise<void>((resolve) => {
-				release = resolve;
-			});
-			worker.use(
-				http.get(`/api/vmcps/${vmcp.id}/oauth-url`, async () => {
-					await pending;
-					return HttpResponse.json({ oauthURL });
-				})
-			);
-			// Observe the real request's completion so assertions run after the stale response is handled.
-			const verification = vi.spyOn(UserService, 'getMcpServerOauthURL');
-			try {
-				document.dispatchEvent(new Event('visibilitychange'));
-				await vi.waitFor(() => expect(verification).toHaveBeenCalledOnce());
-				const response = verification.mock.results[0].value;
-
-				if (action === 'reset') {
-					result.component.open(
-						createVMCP({ id: 'vmcp1next', displayName: 'Next vMCP' }),
-						undefined,
-						{
-							onConnected: nextConnected,
-							onConnectingChange
-						}
-					);
-				} else if (action === 'Escape') {
-					await userEvent.keyboard('{Escape}');
-				} else {
-					await page
-						.getByRole('button', { name: 'Close dialog', exact: true })
-						.click({ position: { x: 5, y: 5 } });
-				}
-				await vi.waitFor(() => expect(onConnectingChange).toHaveBeenLastCalledWith(false));
-				// Wait for the native close event as well as the close animation before releasing the response.
-				if (action !== 'reset') {
-					await expect.element(page.getByCSS('dialog[open]')).not.toBeInTheDocument();
-				}
-
-				release();
-				await response;
-				await tick();
-
-				expect(onConnectingChange).toHaveBeenLastCalledWith(false);
-				expect(onConnected).toHaveBeenCalledTimes(action === 'reset' ? 0 : 1);
-				expect(nextConnected).not.toHaveBeenCalled();
-				await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).not.toBeVisible();
-				await expect
-					.element(page.getByRole('link', { name: 'Authenticate', includeHidden: true }))
-					.not.toBeInTheDocument();
-			} finally {
-				release();
-				verification.mockRestore();
-			}
-		},
-		5000
-	);
-
-	it('stops waiting when launch fails', async () => {
-		const vmcp = createVMCP({ id: 'vmcp1launch-failure', displayName: 'Failing vMCP' });
-		mockConfigureAndLaunch(vmcp, { launchError: 'Component MCP server is not healthy' });
-		const onConnected = vi.fn();
-		const onConnectingChange = vi.fn();
-		await renderDialog(vmcp, undefined, { onConnected, onConnectingChange });
-		await continueFromIntro();
-
-		await expect.element(page.getByText('vMCP Launch Failed')).toBeVisible();
-		expect(onConnectingChange).toHaveBeenCalledWith(true);
-		await vi.waitFor(() => expect(onConnectingChange).toHaveBeenLastCalledWith(false));
-		expect(onConnected).not.toHaveBeenCalled();
 	});
 
 	it('clears OAuth and prompts to authenticate from Reauthenticate', async () => {

@@ -317,7 +317,7 @@
 			<p
 				class="inline items-center gap-0.5 text-center text-xs font-medium text-muted-content group-hover:text-base-content"
 			>
-				Create New Entry
+				Add New MCP Server
 			</p>
 		</div>
 	</button>
