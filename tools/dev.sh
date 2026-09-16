@@ -21,9 +21,10 @@ print_with_color() {
   local color_code=$1
   local color_message=$2
   local uncolored_message=$3
-  local formatted_message="\033[38;5;${color_code}m${color_message}\033[0m${uncolored_message}"
 
-  printf "$formatted_message\n"
+  # The messages are arguments, never part of the format: forwarded log lines contain % (URLs are
+  # percent-encoded), which printf would otherwise read as conversions and fail on.
+  printf '\033[38;5;%sm%s\033[0m%s\n' "$color_code" "$color_message" "$uncolored_message"
 }
 
 print_section_header() {
