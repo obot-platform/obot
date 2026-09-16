@@ -88,6 +88,7 @@
 		oauthURL = '';
 		oauthVerifying = false;
 		showIntroDialog = false;
+		ignoreNextConfigureClose = false;
 		connectionUrlField?.clear?.();
 		howToConnect?.resetCopied?.();
 	}
@@ -280,7 +281,6 @@
 	function closeConfigureWithoutDismissing() {
 		ignoreNextConfigureClose = true;
 		configureDialog?.close();
-		ignoreNextConfigureClose = false;
 	}
 
 	function finishLaunch() {
@@ -456,7 +456,10 @@
 	name={displayName}
 	onSave={saveConfiguration}
 	onClose={() => {
-		if (ignoreNextConfigureClose) return;
+		if (ignoreNextConfigureClose) {
+			ignoreNextConfigureClose = false;
+			return;
+		}
 		dismissConnect();
 	}}
 	submitText={instance ? 'Update' : 'Configure'}

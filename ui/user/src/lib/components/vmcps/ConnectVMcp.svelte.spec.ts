@@ -317,6 +317,32 @@ describe('ConnectVMcp.svelte', () => {
 		await expect.element(page.getByCSS('#connect-to-vmcp-dialog')).toBeVisible();
 	});
 
+	it('keeps onConnected until OAuth completes after the configure dialog close animation', async () => {
+		const vmcp = createVMCP({ id: 'vmcp1oauth-inspector', displayName: 'OAuth vMCP' });
+		const onConnected = vi.fn();
+		const onDismissed = vi.fn();
+		const { launch, oauthChecks } = mockConfigureAndLaunch(vmcp, {
+			oauthURL: (check) => (check === 1 ? 'https://auth.example.com/authorize' : '')
+		});
+
+		await renderDialog(vmcp, undefined, { onConnected, onDismissed });
+		await continueFromIntro();
+
+		await vi.waitFor(() => expect(launch).toHaveBeenCalledOnce());
+		await expect.element(page.getByRole('link', { name: 'Authenticate' })).toBeVisible();
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		expect(onDismissed).not.toHaveBeenCalled();
+		expect(onConnected).not.toHaveBeenCalled();
+
+		document.dispatchEvent(new Event('visibilitychange'));
+
+		await vi.waitFor(() => {
+			expect(oauthChecks()).toBe(2);
+			expect(onConnected).toHaveBeenCalledOnce();
+		});
+		expect(onDismissed).not.toHaveBeenCalled();
+	}, 4000);
+
 	it('clears OAuth and prompts to authenticate from Reauthenticate', async () => {
 		const vmcp = createVMCP({ id: 'vmcp1reauth', displayName: 'Remote vMCP' }, [
 			createMCPCatalogEntry({ id: 'entry-remote', name: 'Remote', runtime: 'remote' })

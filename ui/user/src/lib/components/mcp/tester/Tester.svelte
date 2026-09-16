@@ -302,8 +302,13 @@
 						>
 							<div class="flex flex-col gap-4 p-4 sm:p-6">
 								<div class="flex flex-col items-center justify-center gap-2">
-									<h2 class="shrink-0 text-lg font-semibold">Unlock Chat & More!</h2>
-									<p id="mcp-tester-community-signup-heading" class="max-w-md text-sm font-light">
+									<h2
+										id="mcp-tester-community-signup-heading"
+										class="shrink-0 text-lg font-semibold"
+									>
+										Unlock Chat & More!
+									</h2>
+									<p class="max-w-md text-sm font-light">
 										{SETUP_COMMUNITY_SIGNUP_BANNER_COPY}
 									</p>
 								</div>

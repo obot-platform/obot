@@ -9,7 +9,7 @@
 	import VMcpList from '$lib/components/vmcps/VMcpList.svelte';
 	import VMcpListSettings from '$lib/components/vmcps/VMcpListSettings.svelte';
 	import Loading from '$lib/icons/Loading.svelte';
-	import { UserService, type OrgUser, type VMCP } from '$lib/services';
+	import { Group, UserService, type OrgUser, type VMCP } from '$lib/services';
 	import { COMMON_AI_CLIENTS } from '$lib/services/user/constants';
 	import type { VMcpSortBy } from '$lib/services/vmcps/types';
 	import {
@@ -47,6 +47,8 @@
 		}
 		return listedVMcps;
 	});
+	let isAtLeastPoweruser = $derived(profile.current.groups.includes(Group.POWERUSER));
+
 	function componentFilterLabel(id: string) {
 		for (const vmcp of listedVMcps) {
 			const component = vmcp.components?.find(
@@ -154,7 +156,7 @@
 			{/each}
 		</div>
 	{/if}
-	{#if mcpServersAndEntries.current.entries.length > 0}
+	{#if !isAtLeastPoweruser && mcpServersAndEntries.current.entries.length > 0}
 		<button class="btn btn-primary" onclick={openCreate}>
 			<Plus class="size-4" /> Create vMCP
 		</button>
