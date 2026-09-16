@@ -69,7 +69,7 @@ const manifest: VMCPManifest = {
 		{
 			name: 'default',
 			subjects: [{ type: 'selector', id: '*' }],
-			allowAllTools: true
+			vmcpPermissions: { allowAllComponents: true }
 		}
 	]
 };

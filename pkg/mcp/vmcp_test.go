@@ -133,12 +133,12 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 				DisplayName: "Shared VMCP",
 				Profiles: []types.VMCPProfile{
 					{
-						Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
-						AllowedTools: types.VMCPToolSet{"search-component": []string{"find"}},
+						Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: userID}},
+						Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"search-component": {AllowedTools: []string{"find"}}}},
 					},
 					{
-						Subjects:     []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
-						AllowedTools: types.VMCPToolSet{"files-component": []string{"read"}},
+						Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+						Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"files-component": {AllowedTools: []string{"read"}}}},
 					},
 				},
 				Components: []types.VMCPComponent{
@@ -184,7 +184,7 @@ func TestServerConfigForVMCPBuildsAggregateConfig(t *testing.T) {
 		Spec: v1.VMCPInstanceSpec{
 			Manifest: types.VMCPInstanceManifest{
 				VMCPID:       vmcpID,
-				EnabledTools: types.VMCPToolSet{"search-component": []string{"find", "not_granted"}},
+				ComponentSet: map[string]types.VMCPComponentSet{"search-component": {AllowedTools: []string{"find", "not_granted"}}},
 			},
 			UserID: userID,
 		},
@@ -382,8 +382,8 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 			userID: ownerID,
 			profiles: []types.VMCPProfile{
 				{
-					Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: otherID}},
-					AllowedTools: types.VMCPToolSet{"search-component": []string{"find"}},
+					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: otherID}},
+					Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"search-component": {AllowedTools: []string{"find"}}}},
 				},
 			},
 			wantTools: []types.ToolOverride{{Name: "find", Enabled: true}},
@@ -393,8 +393,8 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 			userID: otherID,
 			profiles: []types.VMCPProfile{
 				{
-					Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
-					AllowAllTools: true,
+					Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				},
 			},
 			wantDisabled: true,
@@ -433,7 +433,7 @@ func TestServerConfigForVMCPPersonalOwnership(t *testing.T) {
 					UserID: tt.userID,
 					Manifest: types.VMCPInstanceManifest{
 						VMCPID:       vmcpID,
-						EnabledTools: types.VMCPToolSet{"search-component": []string{"find"}},
+						ComponentSet: map[string]types.VMCPComponentSet{"search-component": {AllowedTools: []string{"find"}}},
 					},
 				},
 			}

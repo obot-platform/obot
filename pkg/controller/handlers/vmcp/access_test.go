@@ -79,11 +79,11 @@ func TestPruneUnauthorizedComponents(t *testing.T) {
 					CatalogEntry:            types.MCPServerCatalogEntrySnapshot{Manifest: types.MCPServerCatalogEntryManifest{Name: "cached-" + id}},
 				})
 			}
-			grants := types.VMCPToolSet{}
+			grants := map[string]types.VMCPComponentSet{}
 			for _, id := range tc.components {
-				grants[id] = []string{"*"}
+				grants[id] = types.VMCPComponentSet{}
 			}
-			vmcp.Spec.Manifest.Profiles = []types.VMCPProfile{{Name: "tools", AllowedTools: grants}}
+			vmcp.Spec.Manifest.Profiles = []types.VMCPProfile{{Name: "tools", Permissions: types.VMCPProfilePermissions{AllowedComponents: grants}}}
 			objects := []kclient.Object{vmcp, &v1.PowerUserWorkspace{
 				Name: "workspace", Namespace: system.DefaultNamespace,
 				Spec: v1.PowerUserWorkspaceSpec{UserID: "1"},
@@ -180,15 +180,15 @@ func TestPruneUnauthorizedComponents(t *testing.T) {
 				if !reflect.DeepEqual(got, tc.want) {
 					t.Fatalf("remaining components = %v, want %v", got, tc.want)
 				}
-				wantGrants := types.VMCPToolSet{}
+				wantGrants := map[string]types.VMCPComponentSet{}
 				if len(tc.components) == 0 {
 					wantGrants = nil
 				}
 				for _, id := range tc.want {
-					wantGrants[id] = []string{"*"}
+					wantGrants[id] = types.VMCPComponentSet{}
 				}
-				if !reflect.DeepEqual(stored.Spec.Manifest.Profiles[0].AllowedTools, wantGrants) {
-					t.Fatalf("profile grants = %#v, want %#v", stored.Spec.Manifest.Profiles[0].AllowedTools, wantGrants)
+				if !reflect.DeepEqual(stored.Spec.Manifest.Profiles[0].Permissions.AllowedComponents, wantGrants) {
+					t.Fatalf("profile grants = %#v, want %#v", stored.Spec.Manifest.Profiles[0].Permissions.AllowedComponents, wantGrants)
 				}
 				vmcp = &stored
 			}

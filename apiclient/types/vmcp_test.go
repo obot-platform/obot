@@ -38,7 +38,7 @@ func TestVMCPSnapshotOmitsToolPreviews(t *testing.T) {
 	}
 }
 
-func TestVMCPToolSetValidation(t *testing.T) {
+func TestVMCPComponentValidation(t *testing.T) {
 	manifest := VMCPManifest{Components: []VMCPComponent{{
 		ID: "everything",
 		ToolOverrides: []ToolOverride{
@@ -59,14 +59,59 @@ func TestVMCPToolSetValidation(t *testing.T) {
 	if err := manifest.ValidateToolReference(VMCPToolReference{ComponentID: "everything", Name: "echo"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := manifest.ValidateToolSet(VMCPToolSet{"other": {}}); err == nil {
-		t.Fatal("ValidateToolSet() accepted an empty unknown component")
+	if err := manifest.ValidateComponents(map[string]VMCPComponentSet{"other": {AllowedTools: []string{}}}); err == nil {
+		t.Fatal("ValidateComponents() accepted an empty unknown component")
 	}
-	if err := manifest.ValidateToolSet(VMCPToolSet{"everything": {"*"}}); err != nil {
+	if err := manifest.ValidateComponents(map[string]VMCPComponentSet{"everything": {AllowedTools: []string{"*"}}}); err != nil {
 		t.Fatalf("component wildcard rejected: %v", err)
 	}
-	if err := manifest.ValidateToolSet(VMCPToolSet{"other": {"*"}}); err == nil {
+	if err := manifest.ValidateComponents(map[string]VMCPComponentSet{"other": {AllowedTools: []string{"*"}}}); err == nil {
 		t.Fatal("wildcard accepted for an unknown component")
+	}
+}
+
+func TestVMCPComponentToolReferences(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		refs []VMCPToolReference
+		want map[string]VMCPComponentSet
+	}{
+		{
+			name: "unrestricted",
+		},
+		{
+			name: "empty",
+			refs: []VMCPToolReference{},
+			want: map[string]VMCPComponentSet{},
+		},
+		{
+			name: "specific tools",
+			refs: []VMCPToolReference{{ComponentID: "one", Name: "echo"}},
+			want: map[string]VMCPComponentSet{"one": {AllowedTools: []string{"echo"}}},
+		},
+		{
+			name: "wildcard overrides earlier tools",
+			refs: []VMCPToolReference{{ComponentID: "one", Name: "echo"}, {ComponentID: "one", Name: "*"}},
+			want: map[string]VMCPComponentSet{"one": {}},
+		},
+		{
+			name: "wildcard overrides later tools",
+			refs: []VMCPToolReference{{ComponentID: "one", Name: "*"}, {ComponentID: "one", Name: "echo"}},
+			want: map[string]VMCPComponentSet{"one": {}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := ComponentsFromToolReferences(tc.refs)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("components = %#v, want %#v", got, tc.want)
+			}
+			if roundTrip := ComponentsFromToolReferences(ComponentToolReferences(got)); !reflect.DeepEqual(roundTrip, tc.want) {
+				t.Fatalf("round trip = %#v, want %#v", roundTrip, tc.want)
+			}
+		})
+	}
+	if refs := ComponentToolReferences(map[string]VMCPComponentSet{"one": {AllowedTools: []string{}}}); refs == nil || len(refs) != 0 {
+		t.Fatalf("empty component grants = %#v, want no tools", refs)
 	}
 }
 
@@ -89,7 +134,7 @@ func TestVMCPManifestDefault(t *testing.T) {
 	if profile.Name != "default" {
 		t.Fatalf("default profile name = %q, want default", profile.Name)
 	}
-	if !profile.AllowAllTools {
+	if !profile.Permissions.AllowAllComponents {
 		t.Fatal("default profile must allow all tools")
 	}
 	if len(profile.Subjects) != 1 || profile.Subjects[0].Type != SubjectTypeUser || profile.Subjects[0].ID != "user-1" {
@@ -108,7 +153,7 @@ func TestVMCPManifestDefaultPreservesExplicitEmptyProfiles(t *testing.T) {
 }
 
 func TestVMCPManifestDefaultPersonalServer(t *testing.T) {
-	for _, profiles := range [][]VMCPProfile{nil, {}, {{Name: "existing", AllowAllTools: true}}} {
+	for _, profiles := range [][]VMCPProfile{nil, {}, {{Name: "existing", Permissions: VMCPProfilePermissions{AllowAllComponents: true}}}} {
 		manifest := VMCPManifest{
 			Profiles: profiles,
 			Components: []VMCPComponent{{
@@ -127,7 +172,7 @@ func TestVMCPManifestDefaultPersonalServer(t *testing.T) {
 	}
 }
 
-func TestVMCPProfileWithoutAllowAllToolsMayGrantNoTools(t *testing.T) {
+func TestVMCPProfileWithoutAllowAllComponentsMayGrantNoTools(t *testing.T) {
 	manifest := validVMCPManifest()
 	manifest.Profiles = []VMCPProfile{{
 		Name:     "access-without-tools",
@@ -137,11 +182,73 @@ func TestVMCPProfileWithoutAllowAllToolsMayGrantNoTools(t *testing.T) {
 	if err := manifest.Validate(); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	if manifest.Profiles[0].AllowAllTools {
-		t.Fatal("AllowAllTools must remain false")
+	if manifest.Profiles[0].Permissions.AllowAllComponents {
+		t.Fatal("AllowAllComponents must remain false")
 	}
-	if len(manifest.Profiles[0].AllowedTools) != 0 {
-		t.Fatalf("AllowedTools = %#v, want empty", manifest.Profiles[0].AllowedTools)
+	if len(manifest.Profiles[0].Permissions.AllowedComponents) != 0 {
+		t.Fatalf("AllowedTools = %#v, want empty", manifest.Profiles[0].Permissions.AllowedComponents)
+	}
+}
+
+func TestVMCPProfileComponentPermissions(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		componentID string
+		tools       []string
+		wantError   bool
+	}{
+		{
+			name:        "all component tools",
+			componentID: "component",
+		},
+		{
+			name:        "no component tools",
+			componentID: "component",
+			tools:       []string{},
+		},
+		{
+			name:        "specific tool",
+			componentID: "component",
+			tools:       []string{"echo"},
+		},
+		{
+			name:        "unknown component",
+			componentID: "unknown",
+			wantError:   true,
+		},
+		{
+			name:        "disabled tool",
+			componentID: "component",
+			tools:       []string{"disabled"},
+			wantError:   true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			manifest := validVMCPManifest()
+			manifest.Components[0].ID = "component"
+			manifest.Components[0].ToolOverrides = []ToolOverride{{Name: "echo", Enabled: true}}
+			manifest.Profiles = []VMCPProfile{{
+				Name:     "profile",
+				Subjects: []Subject{{Type: SubjectTypeUser, ID: "user-1"}},
+				Permissions: VMCPProfilePermissions{
+					AllowedComponents: map[string]VMCPComponentSet{tc.componentID: {AllowedTools: tc.tools}},
+				},
+			}}
+			data, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded VMCPManifest
+			if err := json.Unmarshal(data, &decoded); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(decoded.Profiles, manifest.Profiles) {
+				t.Fatalf("JSON changed profile permissions: %s", data)
+			}
+			if err := decoded.Validate(); (err != nil) != tc.wantError {
+				t.Fatalf("Validate() = %v, want error %v", err, tc.wantError)
+			}
+		})
 	}
 }
 

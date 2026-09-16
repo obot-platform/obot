@@ -280,7 +280,7 @@ func TestMigrateCompositeConnections(t *testing.T) {
 	require.Contains(t, target.Finalizers, v1.VMCPFinalizer)
 	require.True(t, target.Spec.Manifest.Components[0].ForceSingleUser)
 	require.True(t, target.Spec.Manifest.Components[1].ForceSingleUser)
-	require.Equal(t, []types.VMCPProfile{{Name: "owners", Subjects: rule.Spec.Manifest.Subjects, AllowAllTools: true}}, target.Spec.Manifest.Profiles)
+	require.Equal(t, []types.VMCPProfile{{Name: "owners", Subjects: rule.Spec.Manifest.Subjects, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}, target.Spec.Manifest.Profiles)
 	require.Equal(t, "dynamicFile", string(target.Spec.Manifest.Components[0].CatalogEntry.Manifest.Config[1].Usage))
 	require.Equal(t, "Bearer ", target.Spec.Manifest.Components[1].CatalogEntry.Manifest.Config[0].Prefix)
 	var instances v1.VMCPInstanceList

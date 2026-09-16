@@ -222,7 +222,7 @@ func TestVMCPHandlerCreateAppliesScopeAndDefaults(t *testing.T) {
 	if shared.UserID != "" {
 		t.Fatalf("administrator-created VMCP userID = %q, want shared VMCP", shared.UserID)
 	}
-	if len(shared.Profiles) != 1 || shared.Profiles[0].Name != "default" || !shared.Profiles[0].AllowAllTools {
+	if len(shared.Profiles) != 1 || shared.Profiles[0].Name != "default" || !shared.Profiles[0].Permissions.AllowAllComponents {
 		t.Fatalf("unexpected shared default profiles: %#v", shared.Profiles)
 	}
 	if len(shared.Profiles[0].Subjects) != 1 || shared.Profiles[0].Subjects[0] != (types.Subject{Type: types.SubjectTypeUser, ID: "admin"}) {
@@ -667,11 +667,11 @@ func TestVMCPHandlerListFiltersByProfileForAdministrators(t *testing.T) {
 
 func TestVMCPInstanceSelectionValidation(t *testing.T) {
 	for _, method := range []string{http.MethodPost, http.MethodPut} {
-		for _, selection := range []types.VMCPToolSet{nil, {}, {"everything": []string{"echo"}}, {"everything": []string{"forbidden"}}} {
+		for _, selection := range []map[string]types.VMCPComponentSet{nil, {}, {"everything": {AllowedTools: []string{"echo"}}}, {"everything": {AllowedTools: []string{"forbidden"}}}} {
 			t.Run(fmt.Sprintf("%s/%v", method, selection), func(t *testing.T) {
 				vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 					Components: []types.VMCPComponent{{ID: "everything", Name: "everything", AllowedTools: []string{"echo"}}},
-					Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, AllowedTools: types.VMCPToolSet{"everything": []string{"echo"}}}},
+					Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
 				}}}
 				instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: system.DefaultNamespace, Spec: v1.VMCPInstanceSpec{
 					UserID:   "1",
@@ -683,7 +683,7 @@ func TestVMCPInstanceSelectionValidation(t *testing.T) {
 						t.Fatal(err)
 					}
 				}
-				body, err := json.Marshal(types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: selection})
+				body, err := json.Marshal(types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: selection})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -700,7 +700,7 @@ func TestVMCPInstanceSelectionValidation(t *testing.T) {
 				} else {
 					err = NewVMCPInstanceHandler().Update(ctx)
 				}
-				rejected := len(selection["everything"]) > 0 && selection["everything"][0] == "forbidden"
+				rejected := len(selection["everything"].AllowedTools) > 0 && selection["everything"].AllowedTools[0] == "forbidden"
 				if (err != nil) != rejected {
 					t.Fatalf("selection %v: error = %v", selection, err)
 				}
@@ -714,15 +714,15 @@ func TestVMCPInstanceCreateIsIdempotentPerUserAndVMCP(t *testing.T) {
 		Name:      "vmcp-shared",
 		Namespace: system.DefaultNamespace,
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
-			Name:          "default",
-			Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
-			AllowAllTools: true,
+			Name:        "default",
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		}}, Components: []types.VMCPComponent{{ID: "component", Name: "component"}}}},
 	}
 	storage := newVMCPTestStorage(vmcp)
 	handler := NewVMCPInstanceHandler()
 	u := &user.DefaultInfo{Name: "user-1", UID: "user-1", Groups: []string{types.GroupAPI}}
-	manifest := types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"component": []string{"tool-a"}}}
+	manifest := types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"tool-a"}}}}
 
 	first := callVMCPInstanceCreate(t, storage, handler, manifest, u)
 	second := callVMCPInstanceCreate(t, storage, handler, manifest, u)
@@ -797,7 +797,7 @@ func TestVMCPInstanceConfigureStoresOnlyUserAllowedConfiguration(t *testing.T) {
 				},
 			}},
 			Profiles: []types.VMCPProfile{{
-				Name: "default", Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, AllowAllTools: true,
+				Name: "default", Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 			}},
 		}},
 	}
@@ -1108,8 +1108,8 @@ func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 	removedID, keptID := manifest.Components[0].ID, manifest.Components[1].ID
 	manifest.Components = manifest.Components[1:]
 	manifest.Profiles = []types.VMCPProfile{
-		{Name: "explicit", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, AllowedTools: types.VMCPToolSet{removedID: {"echo"}, keptID: {"*"}}},
-		{Name: "all", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, AllowAllTools: true, AllowedTools: types.VMCPToolSet{removedID: {"*"}}},
+		{Name: "explicit", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{removedID: {AllowedTools: []string{"echo"}}, keptID: {AllowedTools: []string{"*"}}}}},
+		{Name: "all", Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "user-1"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true, AllowedComponents: map[string]types.VMCPComponentSet{removedID: {AllowedTools: []string{"*"}}}}},
 	}
 	body, err := json.Marshal(manifest)
 	if err != nil {
@@ -1125,9 +1125,9 @@ func TestVMCPRemovalPrunesProfileComponents(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := range manifest.Profiles {
-		delete(manifest.Profiles[i].AllowedTools, removedID)
-		if len(manifest.Profiles[i].AllowedTools) == 0 {
-			manifest.Profiles[i].AllowedTools = nil // Empty grants are omitted in storage JSON.
+		delete(manifest.Profiles[i].Permissions.AllowedComponents, removedID)
+		if len(manifest.Profiles[i].Permissions.AllowedComponents) == 0 {
+			manifest.Profiles[i].Permissions.AllowedComponents = nil // Empty grants are omitted in storage JSON.
 		}
 	}
 	if !reflect.DeepEqual(stored.Spec.Manifest.Profiles, manifest.Profiles) {

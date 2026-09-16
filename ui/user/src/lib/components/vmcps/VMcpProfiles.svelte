@@ -4,11 +4,17 @@
 		OrgGroup,
 		ToolOverride,
 		VMCPProfile,
-		VMCPToolSet
+		VMCPComponentSet
 	} from '$lib/services';
 
-	type ProfileResource = { id: string; toolOverrides: ToolOverride[] };
+	type ProfileResource = {
+		id: string;
+		toolOverrides: ToolOverride[];
+		grant?: VMCPComponentSet;
+		initialEnabledTools?: string[];
+	};
 	type ProfileManifest = {
+		allowAllComponents: boolean;
 		name: string;
 		users: AccessControlRuleSubject[];
 		resources: ProfileResource[];
@@ -191,8 +197,9 @@
 	}
 
 	function profileFromManifest(manifest: VMCPProfile): Profile {
-		const granted = manifest.allowAllTools ? undefined : (manifest.allowedTools ?? {});
+		const permissions = manifest.vmcpPermissions;
 		return {
+			allowAllComponents: permissions?.allowAllComponents ?? false,
 			id: crypto.randomUUID(),
 			name: manifest.name,
 			users: (manifest.subjects ?? []).map((subject) => ({ ...subject })),
@@ -200,15 +207,21 @@
 				.map((component) => {
 					const id = componentId(component);
 					const tools = initialTools(component);
-					const names = granted?.[id];
+					const grant = permissions?.allowAllComponents
+						? { allowedTools: null }
+						: permissions?.allowedComponents?.[id];
+					const names = grant?.allowedTools;
+					const toolOverrides = clampToComponent(
+						grant && (names == null || names.includes('*'))
+							? tools
+							: tools.map((tool) => ({ ...tool, enabled: (names ?? []).includes(tool.name) })),
+						id
+					);
 					return {
 						id,
-						toolOverrides: clampToComponent(
-							!granted || names?.includes('*')
-								? tools
-								: tools.map((tool) => ({ ...tool, enabled: (names ?? []).includes(tool.name) })),
-							id
-						)
+						grant,
+						initialEnabledTools: [...enabledToolNames(toolOverrides)],
+						toolOverrides
 					};
 				})
 				.filter((resource) => resource.id)
@@ -216,24 +229,36 @@
 	}
 
 	function profileToManifest(profile: Profile): VMCPProfile {
-		const allowedTools: VMCPToolSet = {};
+		const allowedComponents: Record<string, VMCPComponentSet> = {};
 		for (const resource of profile.resources) {
-			allowedTools[resource.id] = grantedToolNames(resource);
+			const grant = componentGrant(resource);
+			if (grant) allowedComponents[resource.id] = grant;
 		}
-		const allowAllTools =
-			profile.resources.length > 0 &&
-			Object.values(allowedTools).every((names) => names.length === 1 && names[0] === '*');
+		const allowAllComponents =
+			profile.allowAllComponents &&
+			profile.resources.every((resource) => {
+				const grant = allowedComponents[resource.id];
+				return grant && grant.allowedTools == null;
+			});
 		return {
 			name: profile.name,
 			subjects: profile.users.map((subject) => ({ ...subject })),
-			allowAllTools,
-			...(allowAllTools ? {} : { allowedTools })
+			vmcpPermissions: allowAllComponents ? { allowAllComponents } : { allowedComponents }
 		};
 	}
 
-	function grantedToolNames(resource: ProfileResource) {
-		if (!resource.toolOverrides.some((tool) => tool.enabled === false)) return ['*'];
-		return resource.toolOverrides.filter((tool) => tool.enabled !== false).map((tool) => tool.name);
+	function componentGrant(resource: ProfileResource): VMCPComponentSet | undefined {
+		const names = [...enabledToolNames(resource.toolOverrides)];
+		if (
+			resource.initialEnabledTools &&
+			names.length === resource.initialEnabledTools.length &&
+			names.every((name, index) => name === resource.initialEnabledTools?.[index])
+		) {
+			return resource.grant;
+		}
+		return {
+			allowedTools: resource.toolOverrides.some((tool) => tool.enabled === false) ? names : null
+		};
 	}
 
 	function grantableToolNames(id: string) {
@@ -285,6 +310,7 @@
 		error = '';
 		expanded = {};
 		draft = {
+			allowAllComponents: true,
 			name: '',
 			users: [],
 			resources: componentServers

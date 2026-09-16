@@ -16,7 +16,7 @@ func PruneRemovedComponentProfiles(previous []types.VMCPComponent, manifest *typ
 			continue
 		}
 		for i := range manifest.Profiles {
-			delete(manifest.Profiles[i].AllowedTools, component.ID)
+			delete(manifest.Profiles[i].Permissions.AllowedComponents, component.ID)
 		}
 	}
 }
@@ -43,21 +43,21 @@ func MatchingProfiles(u kuser.Info, profiles []types.VMCPProfile) []types.VMCPPr
 // AllowedTools returns component-scoped original names. Nil means unrestricted, while an
 // empty non-nil slice grants no tools. Instance selections can only narrow grants.
 // A name of "*" grants all tools enabled on that component.
-func AllowedTools(u kuser.Info, profiles []types.VMCPProfile, selection types.VMCPToolSet) []types.VMCPToolReference {
+func AllowedTools(u kuser.Info, profiles []types.VMCPProfile, selection map[string]types.VMCPComponentSet) []types.VMCPToolReference {
 	var (
 		tools []types.VMCPToolReference
 		all   bool
 	)
 	for _, profile := range MatchingProfiles(u, profiles) {
-		all = all || profile.AllowAllTools
-		tools = append(tools, profile.AllowedTools.References()...)
+		all = all || profile.Permissions.AllowAllComponents
+		tools = append(tools, types.ComponentToolReferences(profile.Permissions.AllowedComponents)...)
 	}
 	if !all && len(tools) == 0 {
 		return []types.VMCPToolReference{}
 	}
 	if selection != nil {
 		selected := []types.VMCPToolReference{}
-		for _, tool := range selection.References() {
+		for _, tool := range types.ComponentToolReferences(selection) {
 			if all || ToolGranted(tools, tool) {
 				selected = append(selected, tool)
 			} else if tool.Name == "*" {

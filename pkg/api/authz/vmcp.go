@@ -48,15 +48,15 @@ func IsVMCPAdministrator(u kuser.Info) bool {
 }
 
 // ValidateVMCPToolSelection rejects explicit selections outside the profile union.
-func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection types.VMCPToolSet) error {
-	if err := vmcp.Spec.Manifest.ValidateToolSet(selection); err != nil {
+func ValidateVMCPToolSelection(u kuser.Info, vmcp *v1.VMCP, selection map[string]types.VMCPComponentSet) error {
+	if err := vmcp.Spec.Manifest.ValidateComponents(selection); err != nil {
 		return types.NewErrBadRequest("invalid tool selection: %v", err)
 	}
 	if vmcp.Spec.UserID != "" && vmcp.Spec.UserID == u.GetUID() {
 		return nil
 	}
 	grant := vmcpaccess.AllowedTools(u, vmcp.Spec.Manifest.Profiles, nil)
-	for _, tool := range selection.References() {
+	for _, tool := range types.ComponentToolReferences(selection) {
 		if vmcp.Spec.UserID != "" || !vmcpaccess.ToolGranted(grant, tool) {
 			return types.NewErrBadRequest("tool %q on component %q is not granted by the VMCP profiles", tool.Name, tool.ComponentID)
 		}

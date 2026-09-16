@@ -71,7 +71,7 @@ export function createVMCP(
 			{
 				name: 'default',
 				subjects: [{ type: 'selector', id: '*' }],
-				allowAllTools: true
+				vmcpPermissions: { allowAllComponents: true }
 			}
 		],
 		userID: '',

@@ -27,8 +27,8 @@ func TestListToolsThroughSharedVMCPComponentConnection(t *testing.T) {
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 			Components: []types.VMCPComponent{{ID: "one"}},
 			Profiles: []types.VMCPProfile{{
-				Subjects:      []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
-				AllowAllTools: true,
+				Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}},
+				Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 			}},
 		}},
 	}

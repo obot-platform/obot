@@ -368,6 +368,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.UserList":                                  schema_obot_platform_obot_apiclient_types_UserList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCP":                                      schema_obot_platform_obot_apiclient_types_VMCP(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponent":                             schema_obot_platform_obot_apiclient_types_VMCPComponent(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet":                          schema_obot_platform_obot_apiclient_types_VMCPComponentSet(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPComponentStatus":                       schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfiguration":                         schema_obot_platform_obot_apiclient_types_VMCPConfiguration(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPConfigurationPolicy":                   schema_obot_platform_obot_apiclient_types_VMCPConfigurationPolicy(ref),
@@ -378,6 +379,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/obot-platform/obot/apiclient/types.VMCPList":                                  schema_obot_platform_obot_apiclient_types_VMCPList(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPManifest":                              schema_obot_platform_obot_apiclient_types_VMCPManifest(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPProfile":                               schema_obot_platform_obot_apiclient_types_VMCPProfile(ref),
+		"github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions":                    schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPStatus":                                schema_obot_platform_obot_apiclient_types_VMCPStatus(ref),
 		"github.com/obot-platform/obot/apiclient/types.VMCPToolReference":                         schema_obot_platform_obot_apiclient_types_VMCPToolReference(ref),
 		"github.com/obot-platform/obot/apiclient/types.WebhookStatus":                             schema_obot_platform_obot_apiclient_types_WebhookStatus(ref),
@@ -18987,6 +18989,32 @@ func schema_obot_platform_obot_apiclient_types_VMCPComponent(ref common.Referenc
 	}
 }
 
+func schema_obot_platform_obot_apiclient_types_VMCPComponentSet(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowedTools": {
+						SchemaProps: spec.SchemaProps{
+							Description: "AllowedTools specifies the tools available for a component; nil means all tools, while an empty slice grants no tools.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func schema_obot_platform_obot_apiclient_types_VMCPComponentStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -19169,7 +19197,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstance(ref common.Reference
 							Format:  "",
 						},
 					},
-					"enabledTools": {
+					"componentSet": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Nil follows the current grant; an empty map explicitly selects no tools.",
 							Type:        []string{"object"},
@@ -19177,15 +19205,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstance(ref common.Reference
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type: []string{"array"},
-										Items: &spec.SchemaOrArray{
-											Schema: &spec.Schema{
-												SchemaProps: spec.SchemaProps{
-													Type:   []string{"string"},
-													Format: "",
-												},
-											},
-										},
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"),
 									},
 								},
 							},
@@ -19205,11 +19225,11 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstance(ref common.Reference
 						},
 					},
 				},
-				Required: []string{"created", "vmcpID", "enabledTools", "userID"},
+				Required: []string{"created", "vmcpID", "componentSet", "userID"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus"},
+			"github.com/obot-platform/obot/apiclient/types.Time", "github.com/obot-platform/obot/apiclient/types.VMCPComponentSet", "github.com/obot-platform/obot/apiclient/types.VMCPInstanceStatus"},
 	}
 }
 
@@ -19253,7 +19273,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstanceManifest(ref common.R
 							Format:  "",
 						},
 					},
-					"enabledTools": {
+					"componentSet": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Nil follows the current grant; an empty map explicitly selects no tools.",
 							Type:        []string{"object"},
@@ -19261,24 +19281,18 @@ func schema_obot_platform_obot_apiclient_types_VMCPInstanceManifest(ref common.R
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Type: []string{"array"},
-										Items: &spec.SchemaOrArray{
-											Schema: &spec.Schema{
-												SchemaProps: spec.SchemaProps{
-													Type:   []string{"string"},
-													Format: "",
-												},
-											},
-										},
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"),
 									},
 								},
 							},
 						},
 					},
 				},
-				Required: []string{"vmcpID", "enabledTools"},
+				Required: []string{"vmcpID", "componentSet"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"},
 	}
 }
 
@@ -19409,7 +19423,7 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VMCPProfile grants access and tools to matching users and groups. Profiles are additive. AllowAllTools means all tools enabled on the VMCP are granted; otherwise only AllowedTools are granted, including an intentionally empty set.",
+				Description: "VMCPProfile grants access and tools to matching users and groups. Profiles are additive. AllowAllComponents grants all tools enabled on every component otherwise only the specified components and their allowed tools are granted.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"name": {
@@ -19431,31 +19445,10 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 							},
 						},
 					},
-					"allowAllTools": {
+					"vmcpPermissions": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"boolean"},
-							Format: "",
-						},
-					},
-					"allowedTools": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"object"},
-							AdditionalProperties: &spec.SchemaOrBool{
-								Allows: true,
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Type: []string{"array"},
-										Items: &spec.SchemaOrArray{
-											Schema: &spec.Schema{
-												SchemaProps: spec.SchemaProps{
-													Type:   []string{"string"},
-													Format: "",
-												},
-											},
-										},
-									},
-								},
-							},
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions"),
 						},
 					},
 				},
@@ -19463,7 +19456,40 @@ func schema_obot_platform_obot_apiclient_types_VMCPProfile(ref common.ReferenceC
 			},
 		},
 		Dependencies: []string{
-			"github.com/obot-platform/obot/apiclient/types.Subject"},
+			"github.com/obot-platform/obot/apiclient/types.Subject", "github.com/obot-platform/obot/apiclient/types.VMCPProfilePermissions"},
+	}
+}
+
+func schema_obot_platform_obot_apiclient_types_VMCPProfilePermissions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"allowAllComponents": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"boolean"},
+							Format: "",
+						},
+					},
+					"allowedComponents": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/obot-platform/obot/apiclient/types.VMCPComponentSet"},
 	}
 }
 

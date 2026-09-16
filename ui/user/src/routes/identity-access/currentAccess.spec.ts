@@ -247,7 +247,7 @@ describe('loadCurrentAccess', () => {
 					{
 						name: 'Engineering',
 						subjects: [{ type: 'group', id: 'engineering' }],
-						allowAllTools: true
+						vmcpPermissions: { allowAllComponents: true }
 					}
 				]
 			}),
@@ -258,7 +258,7 @@ describe('loadCurrentAccess', () => {
 					{
 						name: 'Sales',
 						subjects: [{ type: 'group', id: 'sales' }],
-						allowAllTools: true
+						vmcpPermissions: { allowAllComponents: true }
 					}
 				]
 			})

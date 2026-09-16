@@ -13,15 +13,15 @@ func TestMigratedVMCPConnectIDsPreserveInstanceAndAudience(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1migrated", Namespace: "default", Spec: v1.VMCPSpec{
 		LegacySlug: "mcp1legacy",
 		Manifest: types.VMCPManifest{
-			Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, AllowAllTools: true}},
+			Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
 			Components: []types.VMCPComponent{{ID: "component", Name: "Tools", ForceSingleUser: true}},
 		},
 	}}
 	first := &v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(1, 0)), Spec: v1.VMCPInstanceSpec{
-		UserID: "7", LegacySlug: "ms1first", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"component": []string{"first"}}},
+		UserID: "7", LegacySlug: "ms1first", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"first"}}}},
 	}}
 	second := &v1.VMCPInstance{Name: "vmcpi1second", Namespace: "default", CreationTimestamp: metav1.NewTime(time.Unix(2, 0)), Spec: v1.VMCPInstanceSpec{
-		UserID: "7", LegacySlug: "ms1second", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"component": []string{"second"}}},
+		UserID: "7", LegacySlug: "ms1second", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"second"}}}},
 	}}
 	sm := &SessionManager{storageClient: newVMCPTestStorage(vmcp, second, first,
 		vmcpComponentServer("ms1componentfirst", first.Name, "7", "component", "Tools", "https://example.com"),

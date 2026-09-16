@@ -164,25 +164,25 @@ func TestReconcileToolSelection(t *testing.T) {
 	}
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
-		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, AllowedTools: types.VMCPToolSet{"everything": []string{"echo"}}}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeGroup, ID: "team"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}}}},
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
 		UserID:   "1",
-		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{"everything": []string{"echo", "revoked"}}},
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo", "revoked"}}}},
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	u := &kuser.DefaultInfo{UID: "1", Extra: map[string][]string{"obot_groups": {"team"}}}
 	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) { return u, nil }}
 	req := router.Request{Ctx: t.Context(), Client: client, Object: instance}
-	for _, want := range []types.VMCPToolSet{{"everything": []string{"echo"}}, {}, {}} {
+	for _, want := range []map[string]types.VMCPComponentSet{{"everything": {AllowedTools: []string{"echo"}}}, {}, {}} {
 		if err := handler.ReconcileToolSelection(req, nil); err != nil {
 			t.Fatal(err)
 		}
 		if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance); err != nil {
 			t.Fatal(err)
 		}
-		if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, want) {
-			t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, want)
+		if !reflect.DeepEqual(instance.Spec.Manifest.ComponentSet, want) {
+			t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.ComponentSet, want)
 		}
 		// Losing the group removes the last tool. Regaining it must not restore selection.
 		if len(u.Extra["obot_groups"]) > 0 {
@@ -198,8 +198,8 @@ func TestReconcileToolSelection(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	instance.Spec.Manifest.EnabledTools = nil
-	if err := handler.ReconcileToolSelection(req, nil); err != nil || instance.Spec.Manifest.EnabledTools != nil {
+	instance.Spec.Manifest.ComponentSet = nil
+	if err := handler.ReconcileToolSelection(req, nil); err != nil || instance.Spec.Manifest.ComponentSet != nil {
 		t.Fatalf("implicit selection changed: %v", err)
 	}
 }
@@ -215,9 +215,9 @@ func TestReconcileToolSelectionKeepsOwnerSelection(t *testing.T) {
 			Components: []types.VMCPComponent{{ID: "everything", Name: "everything"}},
 		},
 	}}
-	selection := types.VMCPToolSet{"everything": {"echo"}}
+	selection := map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
-		UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: selection},
+		UserID: "1", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: selection},
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
 	handler := &Handler{userInfo: func(context.Context, uint) (kuser.Info, error) {
@@ -226,12 +226,12 @@ func TestReconcileToolSelectionKeepsOwnerSelection(t *testing.T) {
 	if err := handler.ReconcileToolSelection(router.Request{Ctx: t.Context(), Client: client, Object: instance}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, selection) {
-		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, selection)
+	if !reflect.DeepEqual(instance.Spec.Manifest.ComponentSet, selection) {
+		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.ComponentSet, selection)
 	}
 }
 
-func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing.T) {
+func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllComponents(t *testing.T) {
 	scheme := runtime.NewScheme()
 	if err := v1.AddToScheme(scheme); err != nil {
 		t.Fatal(err)
@@ -243,15 +243,15 @@ func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing
 			ID: "other", Name: "other", ToolOverrides: []types.ToolOverride{{Name: "echo", Enabled: true}},
 		}},
 		Profiles: []types.VMCPProfile{{
-			Subjects:      []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
-			AllowAllTools: true,
+			Subjects:    []types.Subject{{Type: types.SubjectTypeSelector, ID: "*"}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		}},
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{
 		UserID: "1",
-		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, EnabledTools: types.VMCPToolSet{
-			"everything": []string{"echo"},
-			"":           []string{"echo"}, // Legacy name is ambiguous and must remain denied.
+		Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name, ComponentSet: map[string]types.VMCPComponentSet{
+			"everything": {AllowedTools: []string{"echo"}},
+			"":           {AllowedTools: []string{"echo"}}, // Legacy name is ambiguous and must remain denied.
 		}},
 	}}
 	client := withUserChangeWatches(t, fake.NewClientBuilder().WithScheme(scheme).WithObjects(vmcp, instance), instance.Spec.UserID).Build()
@@ -264,9 +264,9 @@ func TestReconcileToolSelectionDropsInvalidSelectionWithAllowAllTools(t *testing
 	if err := client.Get(t.Context(), kclient.ObjectKeyFromObject(instance), instance); err != nil {
 		t.Fatal(err)
 	}
-	want := types.VMCPToolSet{"everything": []string{"echo"}}
-	if !reflect.DeepEqual(instance.Spec.Manifest.EnabledTools, want) {
-		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.EnabledTools, want)
+	want := map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}
+	if !reflect.DeepEqual(instance.Spec.Manifest.ComponentSet, want) {
+		t.Fatalf("selection = %#v, want %#v", instance.Spec.Manifest.ComponentSet, want)
 	}
 }
 

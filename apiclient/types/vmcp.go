@@ -78,36 +78,53 @@ type VMCPConfigurationPolicy struct {
 type VMCPConfigurationPolicyType string
 
 // VMCPProfile grants access and tools to matching users and groups. Profiles
-// are additive. AllowAllTools means all tools enabled on the VMCP are granted;
-// otherwise only AllowedTools are granted, including an intentionally empty set.
+// are additive. AllowAllComponents grants all tools enabled on every component
+// otherwise only the specified components and their allowed tools are granted.
 type VMCPProfile struct {
-	Name          string      `json:"name"`
-	Subjects      []Subject   `json:"subjects"`
-	AllowAllTools bool        `json:"allowAllTools,omitempty"`
-	AllowedTools  VMCPToolSet `json:"allowedTools,omitempty"`
+	Name        string                 `json:"name"`
+	Subjects    []Subject              `json:"subjects"`
+	Permissions VMCPProfilePermissions `json:"vmcpPermissions,omitempty"`
 }
 
-// VMCPToolSet maps component IDs to original upstream tool names.
-type VMCPToolSet map[string][]string
+type VMCPProfilePermissions struct {
+	AllowAllComponents bool                        `json:"allowAllComponents,omitempty"`
+	AllowedComponents  map[string]VMCPComponentSet `json:"allowedComponents,omitempty"`
+}
 
-func ToolSetFromReferences(refs []VMCPToolReference) VMCPToolSet {
+type VMCPComponentSet struct {
+	// AllowedTools specifies the tools available for a component; nil means all
+	// tools, while an empty slice grants no tools.
+	// +optional
+	AllowedTools []string `json:"allowedTools"`
+}
+
+func ComponentsFromToolReferences(refs []VMCPToolReference) map[string]VMCPComponentSet {
 	if refs == nil {
 		return nil
 	}
-	result := VMCPToolSet{}
+	result := map[string]VMCPComponentSet{}
 	for _, ref := range refs {
-		result[ref.ComponentID] = append(result[ref.ComponentID], ref.Name)
+		component, exists := result[ref.ComponentID]
+		if ref.Name == "*" {
+			component.AllowedTools = nil
+		} else if !exists || component.AllowedTools != nil {
+			component.AllowedTools = append(component.AllowedTools, ref.Name)
+		}
+		result[ref.ComponentID] = component
 	}
 	return result
 }
 
-func (s VMCPToolSet) References() []VMCPToolReference {
-	if s == nil {
+func ComponentToolReferences(components map[string]VMCPComponentSet) []VMCPToolReference {
+	if components == nil {
 		return nil
 	}
 	refs := []VMCPToolReference{}
-	for componentID, names := range s {
-		for _, name := range names {
+	for componentID, component := range components {
+		if component.AllowedTools == nil {
+			refs = append(refs, VMCPToolReference{ComponentID: componentID, Name: "*"})
+		}
+		for _, name := range component.AllowedTools {
 			refs = append(refs, VMCPToolReference{ComponentID: componentID, Name: name})
 		}
 	}
@@ -151,12 +168,12 @@ func (m VMCPManifest) ValidateToolReference(ref VMCPToolReference) error {
 	return fmt.Errorf("unknown tool component %q", ref.ComponentID)
 }
 
-func (m VMCPManifest) ValidateToolSet(tools VMCPToolSet) error {
-	for componentID, names := range tools {
+func (m VMCPManifest) ValidateComponents(components map[string]VMCPComponentSet) error {
+	for componentID, component := range components {
 		if componentID == "" || !slices.ContainsFunc(m.Components, func(component VMCPComponent) bool { return component.ID == componentID }) {
 			return fmt.Errorf("unknown tool component %q", componentID)
 		}
-		for _, name := range names {
+		for _, name := range component.AllowedTools {
 			if err := m.ValidateToolReference(VMCPToolReference{ComponentID: componentID, Name: name}); err != nil {
 				return err
 			}
@@ -196,7 +213,7 @@ type VMCPConfiguration struct {
 type VMCPInstanceManifest struct {
 	VMCPID string `json:"vmcpID"`
 	// Nil follows the current grant; an empty map explicitly selects no tools.
-	EnabledTools VMCPToolSet `json:"enabledTools"`
+	ComponentSet map[string]VMCPComponentSet `json:"componentSet"`
 }
 
 type VMCPInstanceStatus struct {
@@ -215,9 +232,9 @@ func (m *VMCPManifest) Default(personalServer bool, userID string) {
 		m.Profiles = nil
 	} else if m.Profiles == nil {
 		m.Profiles = []VMCPProfile{{
-			Name:          "default",
-			Subjects:      []Subject{{Type: SubjectTypeUser, ID: userID}},
-			AllowAllTools: true,
+			Name:        "default",
+			Subjects:    []Subject{{Type: SubjectTypeUser, ID: userID}},
+			Permissions: VMCPProfilePermissions{AllowAllComponents: true},
 		}}
 	}
 }
@@ -290,7 +307,7 @@ func (m VMCPManifest) Validate() error {
 
 	profileNames := make(map[string]struct{}, len(m.Profiles))
 	for _, profile := range m.Profiles {
-		if err := m.ValidateToolSet(profile.AllowedTools); err != nil {
+		if err := m.ValidateComponents(profile.Permissions.AllowedComponents); err != nil {
 			return fmt.Errorf("profile %q: %w", profile.Name, err)
 		}
 		if profile.Name == "" {
@@ -317,7 +334,12 @@ func (m VMCPInstanceManifest) Validate() error {
 	if m.VMCPID == "" {
 		return fmt.Errorf("vmcpID is required")
 	}
-	for _, tool := range m.EnabledTools.References() {
+	for componentID := range m.ComponentSet {
+		if componentID == "" {
+			return fmt.Errorf("component ID is required")
+		}
+	}
+	for _, tool := range ComponentToolReferences(m.ComponentSet) {
 		if err := tool.Validate(); err != nil {
 			return err
 		}

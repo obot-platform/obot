@@ -89,7 +89,7 @@ func (h *Handler) DeleteUnauthorized(req router.Request, _ router.Response) erro
 // ReconcileToolSelection permanently removes revoked tools from explicit selections.
 func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) error {
 	instance := req.Object.(*v1.VMCPInstance)
-	if len(instance.Spec.Manifest.EnabledTools) == 0 {
+	if len(instance.Spec.Manifest.ComponentSet) == 0 {
 		return nil
 	}
 
@@ -127,22 +127,22 @@ func (h *Handler) ReconcileToolSelection(req router.Request, _ router.Response) 
 			return err
 		}
 
-		allowed = vmcpconfig.AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+		allowed = vmcpconfig.AllowedTools(u, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
 	case instance.Spec.UserID:
-		allowed = instance.Spec.Manifest.EnabledTools.References()
+		allowed = types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
 	}
 
 	allowed = slices.DeleteFunc(allowed, func(ref types.VMCPToolReference) bool {
 		return vmcp.Spec.Manifest.ValidateToolReference(ref) != nil
 	})
 
-	selection := types.ToolSetFromReferences(allowed)
+	selection := types.ComponentsFromToolReferences(allowed)
 
-	if reflect.DeepEqual(selection, instance.Spec.Manifest.EnabledTools) {
+	if reflect.DeepEqual(selection, instance.Spec.Manifest.ComponentSet) {
 		return nil
 	}
 
-	instance.Spec.Manifest.EnabledTools = selection
+	instance.Spec.Manifest.ComponentSet = selection
 	return req.Client.Update(req.Ctx, instance)
 }
 

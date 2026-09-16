@@ -83,7 +83,7 @@ func (*VMCPInstanceHandler) Create(req api.Context) error {
 		return types.NewErrForbidden("access denied to VMCP %q", manifest.VMCPID)
 	}
 
-	if err := authz.ValidateVMCPToolSelection(req.User, &vmcp, manifest.EnabledTools); err != nil {
+	if err := authz.ValidateVMCPToolSelection(req.User, &vmcp, manifest.ComponentSet); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 		return err
 	}
 	selectionUser := req.User
-	if instance.Spec.UserID != req.User.GetUID() && len(manifest.EnabledTools) > 0 {
+	if instance.Spec.UserID != req.User.GetUID() && len(manifest.ComponentSet) > 0 {
 		id, err := strconv.ParseUint(instance.Spec.UserID, 10, 64)
 		if err != nil {
 			return fmt.Errorf("invalid VMCP instance user ID: %w", err)
@@ -142,7 +142,7 @@ func (*VMCPInstanceHandler) Update(req api.Context) error {
 		}
 		selectionUser = owner
 	}
-	if err := authz.ValidateVMCPToolSelection(selectionUser, &vmcp, manifest.EnabledTools); err != nil {
+	if err := authz.ValidateVMCPToolSelection(selectionUser, &vmcp, manifest.ComponentSet); err != nil {
 		return err
 	}
 	instance.Spec.Manifest = manifest

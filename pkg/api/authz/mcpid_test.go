@@ -19,7 +19,7 @@ import (
 func TestVMCPAPIKeyScopes(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1test", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "component"}},
-		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowAllTools: true}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1test", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
 	shared := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name}}
@@ -54,7 +54,7 @@ func TestVMCPAPIKeyScopes(t *testing.T) {
 func TestVMCPComponentsRequireInternalForwarding(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1restricted", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "component"}},
-		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowedTools: types.VMCPToolSet{"component": {"echo"}}}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"component": {AllowedTools: []string{"echo"}}}}}},
 	}}}
 	instance := &v1.VMCPInstance{Name: "vmcpi1restricted", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
 	shared := &v1.MCPServer{Name: "ms1shared", Namespace: "default", Spec: v1.MCPServerSpec{VMCPID: vmcp.Name, VMCPComponentID: "component"}}

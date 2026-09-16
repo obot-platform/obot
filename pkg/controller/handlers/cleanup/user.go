@@ -183,7 +183,7 @@ func (u *UserCleanup) Cleanup(req router.Request, _ router.Response) error {
 	var instancesDeleted int
 	for _, instance := range instances.Items {
 		// Don't delete instances associated to vMCP components because they will be
-		// deleted whent the vMCP instance is deleted.
+		// deleted when the vMCP instance is deleted.
 		if instance.Spec.VMCPComponentID != "" {
 			continue
 		}

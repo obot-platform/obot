@@ -167,9 +167,9 @@ func (sm *SessionManager) serverConfigForVMCP(ctx context.Context, vmcp *v1.VMCP
 			}
 		}
 
-		allowedTools = vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.EnabledTools)
+		allowedTools = vmcpaccess.AllowedTools(user, vmcp.Spec.Manifest.Profiles, instance.Spec.Manifest.ComponentSet)
 	case userID:
-		allowedTools = instance.Spec.Manifest.EnabledTools.References()
+		allowedTools = types.ComponentToolReferences(instance.Spec.Manifest.ComponentSet)
 	}
 
 	for i := range components {

@@ -11,7 +11,7 @@ import (
 func TestMigratedVMCPScopes(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1migrated", Namespace: "default", Spec: v1.VMCPSpec{
 		LegacySlug: "mcp1legacy",
-		Manifest:   types.VMCPManifest{Profiles: []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowAllTools: true}}},
+		Manifest:   types.VMCPManifest{Profiles: []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}}},
 	}}
 	vmcp.Spec.Manifest.Components = []types.VMCPComponent{{ID: "component"}}
 	first := &v1.VMCPInstance{Name: "vmcpi1first", Namespace: "default", Spec: v1.VMCPInstanceSpec{LegacySlug: "ms1first", UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}

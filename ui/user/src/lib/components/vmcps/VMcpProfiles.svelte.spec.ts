@@ -1,5 +1,5 @@
 import type { VMcpToolFlow } from '$lib/runes/vmcps/vmcpToolFlow.svelte';
-import type { VMCP, VMCPManifest } from '$lib/services';
+import type { VMCP, VMCPManifest, VMCPProfilePermissions } from '$lib/services';
 import { createVMCP, createVMCPComponent, createMCPCatalogEntry } from '../../../tests/helpers/mcp';
 import { worker } from '../../../tests/mocks/worker';
 import VMcpProfiles from './VMcpProfiles.svelte';
@@ -96,6 +96,73 @@ function createVMcpWithDisabledTool(id: string) {
 }
 
 describe('VMcpProfiles.svelte', () => {
+	it.each<{
+		name: string;
+		permissions: VMCPProfilePermissions;
+		expected?: VMCPProfilePermissions;
+		withPreview?: boolean;
+	}>([
+		{
+			name: 'all components override explicit empty tools',
+			permissions: {
+				allowAllComponents: true,
+				allowedComponents: { github: { allowedTools: [] } }
+			},
+			expected: { allowAllComponents: true }
+		},
+		{
+			name: 'null tools on one component',
+			permissions: { allowedComponents: { github: { allowedTools: null } } }
+		},
+		{
+			name: 'omitted tools on one component',
+			permissions: { allowedComponents: { github: {} } }
+		},
+		{
+			name: 'explicitly selected tools do not become an all-tools grant',
+			permissions: {
+				allowedComponents: { github: { allowedTools: ['list_issues', 'list_pulls'] } }
+			}
+		},
+		{
+			name: 'empty tool list',
+			permissions: { allowedComponents: { github: { allowedTools: [] } } }
+		},
+		{
+			name: 'unselected component without previews',
+			permissions: { allowedComponents: {} },
+			withPreview: false
+		},
+		{
+			name: 'explicit tools without previews',
+			permissions: { allowedComponents: { github: { allowedTools: ['list_issues'] } } },
+			withPreview: false
+		}
+	])(
+		'preserves $name when editing a profile name',
+		async ({ permissions, expected, withPreview }) => {
+			const vmcp = createVMcp('vmcp-profile-permissions', withPreview ?? true);
+			vmcp.profiles = [
+				{
+					name: 'Existing',
+					subjects: [{ type: 'selector', id: '*' }],
+					vmcpPermissions: permissions
+				}
+			];
+			const saved = mockVMcpSave(vmcp);
+			render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
+			await page.getByRole('button', { name: 'Edit Existing' }).click();
+			await page.getByLabelText('Name').fill('Renamed');
+			await page.getByRole('button', { name: 'Save changes' }).click();
+			await vi.waitFor(() => expect(saved).toHaveBeenCalledOnce());
+			expect(savedProfiles(saved)[0]).toEqual({
+				name: 'Renamed',
+				subjects: [{ type: 'selector', id: '*' }],
+				vmcpPermissions: expected ?? permissions
+			});
+		}
+	);
+
 	it('saves a profile with its per-server tool grants onto the vMCP', async () => {
 		const vmcp = createVMcp('vmcp-create-profile');
 		const saved = mockVMcpSave(vmcp);
@@ -120,12 +187,15 @@ describe('VMcpProfiles.svelte', () => {
 			.toBeVisible();
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 		expect(savedProfiles(saved)).toEqual([
-			{ name: 'default', subjects: [{ type: 'selector', id: '*' }], allowAllTools: true },
+			{
+				name: 'default',
+				subjects: [{ type: 'selector', id: '*' }],
+				vmcpPermissions: { allowAllComponents: true }
+			},
 			{
 				name: 'Support engineers',
 				subjects: [{ type: 'selector', id: '*' }],
-				allowAllTools: false,
-				allowedTools: { github: ['list_issues'] }
+				vmcpPermissions: { allowedComponents: { github: { allowedTools: ['list_issues'] } } }
 			}
 		]);
 	});
@@ -343,7 +413,7 @@ describe('VMcpProfiles.svelte', () => {
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 		expect(savedProfiles(saved)[1]).toMatchObject({
 			name: 'Support engineers',
-			allowedTools: { github: ['list_issues'] }
+			vmcpPermissions: { allowedComponents: { github: { allowedTools: ['list_issues'] } } }
 		});
 	});
 
@@ -368,7 +438,7 @@ describe('VMcpProfiles.svelte', () => {
 		await vi.waitFor(() => expect(saved).toHaveBeenCalled());
 		expect(savedProfiles(saved)[1]).toMatchObject({
 			name: 'Support engineers',
-			allowedTools: { github: ['list_issues'] }
+			vmcpPermissions: { allowedComponents: { github: { allowedTools: ['list_issues'] } } }
 		});
 	});
 
@@ -426,13 +496,12 @@ describe('VMcpProfiles.svelte', () => {
 			{
 				name: 'default',
 				subjects: [{ type: 'selector', id: '*' }],
-				allowAllTools: true
+				vmcpPermissions: { allowAllComponents: true }
 			},
 			{
 				name: 'Limited tools',
 				subjects: [{ type: 'selector', id: '*' }],
-				allowAllTools: false,
-				allowedTools: { github: ['list_issues'] }
+				vmcpPermissions: { allowedComponents: { github: { allowedTools: ['list_issues'] } } }
 			}
 		];
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });
@@ -474,7 +543,7 @@ describe('VMcpProfiles.svelte', () => {
 			{
 				name: 'Limited tools',
 				subjects: [{ type: 'group', id: group.id }],
-				allowAllTools: true
+				vmcpPermissions: { allowAllComponents: true }
 			}
 		];
 		render(VMcpProfiles, { vmcp, toolFlow: toolFlowStub() });

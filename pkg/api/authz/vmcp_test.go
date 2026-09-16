@@ -50,36 +50,36 @@ func TestValidateComponentWildcardSelection(t *testing.T) {
 			{ID: "everything"},
 		},
 		Profiles: []types.VMCPProfile{{
-			Subjects:     []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
-			AllowedTools: types.VMCPToolSet{"gmail": {"*"}, "everything": {"echo"}},
+			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "1"}},
+			Permissions: types.VMCPProfilePermissions{AllowedComponents: map[string]types.VMCPComponentSet{"gmail": {}, "everything": {AllowedTools: []string{"echo"}}}},
 		}},
 	}}}
 	for _, tt := range []struct {
 		name      string
-		selection types.VMCPToolSet
+		selection map[string]types.VMCPComponentSet
 		valid     bool
 	}{
 		{
 			name:      "concrete subset of wildcard",
-			selection: types.VMCPToolSet{"gmail": {"read"}},
+			selection: map[string]types.VMCPComponentSet{"gmail": {AllowedTools: []string{"read"}}},
 			valid:     true,
 		},
 		{
 			name:      "wildcard subset of wildcard",
-			selection: types.VMCPToolSet{"gmail": {"*"}},
+			selection: map[string]types.VMCPComponentSet{"gmail": {}},
 			valid:     true,
 		},
 		{
 			name:      "disabled tool rejected",
-			selection: types.VMCPToolSet{"gmail": {"delete"}},
+			selection: map[string]types.VMCPComponentSet{"gmail": {AllowedTools: []string{"delete"}}},
 		},
 		{
 			name:      "wildcard cannot widen explicit grant",
-			selection: types.VMCPToolSet{"everything": {"*"}},
+			selection: map[string]types.VMCPComponentSet{"everything": {}},
 		},
 		{
 			name:      "wildcard cannot cross components",
-			selection: types.VMCPToolSet{"everything": {"read"}},
+			selection: map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"read"}}},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -98,7 +98,7 @@ func TestValidateVMCPToolSelectionAllowsOwner(t *testing.T) {
 			Components: []types.VMCPComponent{{ID: "everything"}},
 		},
 	}}
-	if err := ValidateVMCPToolSelection(u, vmcp, types.VMCPToolSet{"everything": {"echo"}}); err != nil {
+	if err := ValidateVMCPToolSelection(u, vmcp, map[string]types.VMCPComponentSet{"everything": {AllowedTools: []string{"echo"}}}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -674,8 +674,8 @@ func TestVMCPActionsDoNotUseMCPServerRoutes(t *testing.T) {
 	vmcp := &v1.VMCP{
 		ObjectMeta: objectMetaForAuthzTest("vmcp1actions"),
 		Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{Profiles: []types.VMCPProfile{{
-			Subjects:      []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
-			AllowAllTools: true,
+			Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
+			Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 		}}}},
 	}
 	authorizer := newVMCPTestAuthorizer(vmcp)
@@ -744,8 +744,8 @@ func TestVMCPComponentOAuthAuthorizationChecksParentConnection(t *testing.T) {
 			Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 				Components: []types.VMCPComponent{{ID: "component", ForceSingleUser: singleUser}},
 				Profiles: []types.VMCPProfile{{
-					Subjects:      []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
-					AllowAllTools: true,
+					Subjects:    []types.Subject{{Type: types.SubjectTypeUser, ID: "consumer"}},
+					Permissions: types.VMCPProfilePermissions{AllowAllComponents: true},
 				}},
 			}},
 		}

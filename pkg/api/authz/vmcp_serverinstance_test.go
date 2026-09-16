@@ -14,7 +14,7 @@ import (
 func TestVMCPComponentConnectionAuthorization(t *testing.T) {
 	vmcp := &v1.VMCP{Name: "vmcp1shared", Namespace: "default", Spec: v1.VMCPSpec{Manifest: types.VMCPManifest{
 		Components: []types.VMCPComponent{{ID: "one"}},
-		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, AllowAllTools: true}},
+		Profiles:   []types.VMCPProfile{{Subjects: []types.Subject{{Type: types.SubjectTypeUser, ID: "7"}}, Permissions: types.VMCPProfilePermissions{AllowAllComponents: true}}},
 	}}}
 	parent := &v1.VMCPInstance{Name: "vmcpi1one", Namespace: "default", Spec: v1.VMCPInstanceSpec{UserID: "7", Manifest: types.VMCPInstanceManifest{VMCPID: vmcp.Name}}}
 	second := parent.DeepCopy()

@@ -595,13 +595,20 @@ export interface VMCPComponent {
 }
 
 export interface VMCPProfile {
-	allowAllTools: boolean;
-	allowedTools?: VMCPToolSet;
 	name: string;
 	subjects: AccessControlRuleSubject[];
+	vmcpPermissions?: VMCPProfilePermissions;
 }
 
-export type VMCPToolSet = Record<string, string[]>;
+export interface VMCPProfilePermissions {
+	allowAllComponents?: boolean;
+	allowedComponents?: Record<string, VMCPComponentSet>;
+}
+
+export interface VMCPComponentSet {
+	// Null or omitted means all tools; an empty array grants no tools.
+	allowedTools?: string[] | null;
+}
 
 export interface VMCPManifest {
 	components: VMCPComponent[];
@@ -646,7 +653,8 @@ export interface VMCPConfiguration {
 }
 
 export interface VMCPInstanceManifest {
-	enabledTools?: VMCPToolSet | null;
+	// Null or omitted follows the current grant; an empty map selects no tools.
+	componentSet?: Record<string, VMCPComponentSet> | null;
 	vmcpID: string;
 }
 
