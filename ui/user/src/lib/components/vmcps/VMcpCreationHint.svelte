@@ -1,10 +1,12 @@
 <script module>
+	export const INTRODUCTION_HINT_TEXT =
+		"You've created your Virtual MCP! Take a quick tour of three capabilities that help you control access, test your setup, and connect it to your AI clients and agents.";
 	export const PROFILES_HINT_TEXT =
-		'Control which tools different users, groups, or agents can access. Create profiles to give each identity the right set of tools—all through the same Virtual MCP.';
+		'Create and edit Profiles to control which tools different users, groups, and agents can access—all through the same Virtual MCP endpoint.';
 	export const TESTER_HINT_TEXT =
-		'Explore and test your Virtual MCP before connecting it. Inspect available tools and resources, chat with your Virtual MCP, and see how everything works.';
+		'Use Inspector to interact with your Virtual MCP before connecting it. Chat with your tools, explore available capabilities, and test how your Virtual MCP behaves.';
 	export const CONNECT_HINT_TEXT =
-		'Ready to use your Virtual MCP? Connect it to popular AI clients and agents like Claude, Cursor, and Codex using the setup option that works for you.';
+		'Ready to put it to work? Use Connect to quickly configure your Virtual MCP with popular AI clients and agents using setup links, configuration, or CLI commands.';
 </script>
 
 <script lang="ts">
@@ -18,13 +20,16 @@
 	import { fly } from 'svelte/transition';
 	import { twMerge } from 'tailwind-merge';
 
-	type HintStepId = 'profiles' | 'tester' | 'connect';
+	const HINT_WIDTH_PX = 384;
+	const HINT_VIEWPORT_PADDING_PX = 8;
+
+	type HintStepId = 'introduction' | 'profiles' | 'tester' | 'connect';
 
 	interface HintStep {
 		id: HintStepId;
 		title: string;
 		description: string;
-		placement: 'right' | 'bottom';
+		placement: 'center' | 'right' | 'bottom';
 	}
 
 	interface Props {
@@ -55,20 +60,26 @@
 
 	const allSteps: HintStep[] = [
 		{
+			id: 'introduction',
+			title: 'Your Virtual MCP is ready',
+			description: INTRODUCTION_HINT_TEXT,
+			placement: 'center'
+		},
+		{
 			id: 'profiles',
-			title: 'Profiles',
+			title: 'Control access with Profiles',
 			description: PROFILES_HINT_TEXT,
 			placement: 'right'
 		},
 		{
 			id: 'tester',
-			title: 'Inspector',
+			title: 'Explore with Inspector',
 			description: TESTER_HINT_TEXT,
 			placement: 'right'
 		},
 		{
 			id: 'connect',
-			title: 'Connect',
+			title: 'Connect your Virtual MCP',
 			description: CONNECT_HINT_TEXT,
 			placement: 'bottom'
 		}
@@ -80,6 +91,9 @@
 
 	let steps = $derived(
 		allSteps.filter((step) => {
+			if (step.id === 'introduction') {
+				return includeProfiles || includeTester || includeConnect;
+			}
 			if (step.id === 'profiles') return includeProfiles;
 			if (step.id === 'tester') return includeTester;
 			return includeConnect;
@@ -87,6 +101,7 @@
 	);
 	let current = $derived(steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))]);
 	let isLast = $derived(stepIndex >= steps.length - 1);
+	let tourStepCount = $derived(steps.filter((step) => step.id !== 'introduction').length);
 	let anchorEl = $derived(
 		current?.id === 'profiles'
 			? profilesAnchorEl
@@ -94,7 +109,9 @@
 				? testerAnchorEl
 				: connectAnchorEl
 	);
-	let visible = $derived(show && !dismissed && Boolean(current) && Boolean(anchorRect));
+	let visible = $derived(
+		show && !dismissed && Boolean(current) && (current.id === 'introduction' || Boolean(anchorRect))
+	);
 
 	function updateAnchorRect() {
 		anchorRect = anchorEl?.getBoundingClientRect();
@@ -104,12 +121,24 @@
 		return `top: ${rect.top - 2}px; left: ${rect.left - 2}px; width: ${rect.width + 4}px; height: ${rect.height + 4}px;`;
 	}
 
-	function hintStyle(rect: DOMRect, placement: HintStep['placement']) {
+	function hintStyle(rect: DOMRect | undefined, placement: HintStep['placement']) {
+		if (placement === 'center') {
+			return 'top: 50%; left: 50%; transform: translate(-50%, -50%);';
+		}
+		if (!rect) return '';
 		if (placement === 'bottom') {
-			const left = Math.min(Math.max(8, rect.left + rect.width / 2 - 144), window.innerWidth - 304);
+			const halfWidth = HINT_WIDTH_PX / 2;
+			const left = Math.min(
+				Math.max(HINT_VIEWPORT_PADDING_PX, rect.left + rect.width / 2 - halfWidth),
+				window.innerWidth - HINT_WIDTH_PX - HINT_VIEWPORT_PADDING_PX
+			);
 			return `top: ${rect.bottom + 10}px; left: ${left}px;`;
 		}
-		return `top: ${rect.top}px; left: ${rect.right + 10}px;`;
+		const left = Math.min(
+			Math.max(HINT_VIEWPORT_PADDING_PX, rect.right + 10),
+			window.innerWidth - HINT_WIDTH_PX - HINT_VIEWPORT_PADDING_PX
+		);
+		return `top: ${rect.top}px; left: ${left}px;`;
 	}
 
 	function finish() {
@@ -153,12 +182,19 @@
 	});
 </script>
 
-{#if visible && current && anchorRect}
-	<div
-		class="pointer-events-none fixed z-69 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.4)] dark:shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
-		style={highlightStyle(anchorRect)}
-		aria-hidden="true"
-	></div>
+{#if visible && current}
+	{#if current.id === 'introduction'}
+		<div
+			class="pointer-events-none fixed inset-0 z-69 bg-black/40 dark:bg-black/55"
+			aria-hidden="true"
+		></div>
+	{:else if anchorRect}
+		<div
+			class="pointer-events-none fixed z-69 rounded-md shadow-[0_0_0_9999px_rgba(0,0,0,0.4)] dark:shadow-[0_0_0_9999px_rgba(0,0,0,0.55)]"
+			style={highlightStyle(anchorRect)}
+			aria-hidden="true"
+		></div>
+	{/if}
 
 	<button
 		type="button"
@@ -167,19 +203,21 @@
 		onclick={advance}
 	></button>
 
-	<div
-		class="pointer-events-none fixed z-70 rounded-md ring-2 ring-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_18%,transparent)]"
-		style={highlightStyle(anchorRect)}
-		aria-hidden="true"
-	></div>
+	{#if current.id !== 'introduction' && anchorRect}
+		<div
+			class="pointer-events-none fixed z-70 rounded-md ring-2 ring-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_18%,transparent)]"
+			style={highlightStyle(anchorRect)}
+			aria-hidden="true"
+		></div>
+	{/if}
 
 	{#key current.id}
 		<div
-			class={twMerge('pointer-events-auto fixed z-71 w-72', klass)}
-			style={hintStyle(anchorRect, current.placement)}
+			class={twMerge('pointer-events-auto fixed z-71', klass)}
+			style={`width: ${HINT_WIDTH_PX}px; ${hintStyle(anchorRect, current.placement)}`}
 			in:fly={{
 				x: current.placement === 'right' ? -8 : 0,
-				y: current.placement === 'bottom' ? -8 : 0,
+				y: current.placement === 'bottom' || current.placement === 'center' ? -8 : 0,
 				duration: 220
 			}}
 			role="dialog"
@@ -194,7 +232,7 @@
 						class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 absolute top-4 -left-1 size-2 rotate-45 border-b border-l"
 						aria-hidden="true"
 					></div>
-				{:else}
+				{:else if current.placement === 'bottom'}
 					<div
 						class="bg-base-100 dark:bg-base-300 border-base-300 dark:border-base-400 absolute -top-1 left-1/2 size-2 -translate-x-1/2 rotate-45 border-t border-l"
 						aria-hidden="true"
@@ -209,23 +247,36 @@
 						{current.title}
 					</p>
 					<div class="flex items-center gap-1">
-						<p class="font-mono text-[0.625rem] tracking-[0.14em]">
-							{stepIndex + 1}/{steps.length}
-						</p>
+						{#if current.id !== 'introduction'}
+							<p class="font-mono uppercase font-semibold text-[0.625rem] tracking-[0.14em]">
+								tutorial {stepIndex}/{tourStepCount}
+							</p>
+						{/if}
 						<button
 							type="button"
 							class="text-muted-content hover:text-base-content -mt-1 -mr-1 rounded-sm p-1 transition-colors"
-							aria-label={isLast ? 'Dismiss creation tips' : 'Next creation tip'}
-							onclick={advance}
+							aria-label="Dismiss creation tips"
+							onclick={finish}
 						>
 							<X class="size-3" />
 						</button>
 					</div>
 				</div>
 
-				<p id="vmcp-creation-hint-description" class="mt-2 text-xs font-light">
+				<p id="vmcp-creation-hint-description" class="mt-2 text-xs font-light leading-relaxed">
 					{current.description}
 				</p>
+
+				<div class="mt-3 flex justify-end">
+					<button
+						type="button"
+						class="btn btn-primary btn-xs text-xs"
+						aria-label={isLast ? 'Finish creation tips' : 'Next creation tip'}
+						onclick={advance}
+					>
+						{isLast ? 'Done' : 'Next'}
+					</button>
+				</div>
 			</div>
 		</div>
 	{/key}

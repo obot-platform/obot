@@ -483,7 +483,7 @@
 					/>
 				{/snippet}
 				{#snippet empty()}
-					<CreateVMcpButton drag={entryDrag} onCreate={() => createEditVMcp?.openCreate()} />
+					<CreateVMcpButton drag={entryDrag} />
 				{/snippet}
 				{#snippet actions()}
 					{#if selectedVMcp && canEdit}

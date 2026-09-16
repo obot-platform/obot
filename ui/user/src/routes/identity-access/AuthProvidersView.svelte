@@ -710,7 +710,7 @@
 					Finish setting up Obot by signing in with one of your local accounts.
 				{/if}
 			</p>
-			<p>That account then becomes the <b>owner</b> of this Obot installation.</p>
+			<p>This account then becomes the <b>owner</b> of this Obot installation.</p>
 		{:else if explicitOwners.length > 0}
 			<p>You'll need to continue setup with an owner account.</p>
 			<p>The following user(s) have been explicitly assigned the Owner role:</p>
