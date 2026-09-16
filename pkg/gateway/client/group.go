@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -646,7 +647,9 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 	)
 
 	if providerURL == "" || identity.AuthProviderGroupsLastChecked.Add(groupCheckPeriod).After(now) || c.groupCooldown.active(key, now) {
-		// Serve what is stored; it is at most one check window old either way.
+		// Serve what is stored; it is at most one check window old either way. This is only a fast
+		// path around the flight, off the caller's own copy of the identity; refreshGroups repeats
+		// the checks against what is stored before it calls anyone.
 		groups, err := c.listCachedGroups(ctx, *identity)
 		if err != nil {
 			return err
@@ -676,7 +679,17 @@ func (c *Client) ensureGroups(ctx context.Context, identity *types.Identity) err
 // refreshGroups fetches the identity's groups from the auth provider and persists them. The
 // identity is taken by value because this runs on behalf of every request waiting on the refresh.
 func (c *Client) refreshGroups(ctx context.Context, providerURL, key string, identity types.Identity, now time.Time) ([]types.Group, error) {
-	lastChecked := identity.AuthProviderGroupsLastChecked
+	// ensureGroups checked the caller's own copy of the identity before it reached the flight.
+	// singleflight does not retain completed results, so a caller descheduled in between leads a
+	// flight of its own, and only the stored check time keeps it from calling a provider that
+	// another flight has just refreshed or just seen fail.
+	lastChecked, err := c.groupsLastChecked(ctx, identity)
+	if err != nil {
+		return nil, err
+	}
+	if c.groupCooldown.active(key, now) || lastChecked.Add(groupCheckPeriod).After(now) {
+		return c.listCachedGroups(ctx, identity)
+	}
 
 	// Fetch phase: call the auth provider over HTTP with no open transaction.
 	providerGroups, err := c.fetchGroups(ctx, providerURL, identity.AuthProviderNamespace, identity.AuthProviderName, identity.GroupLookupID())
@@ -912,6 +925,22 @@ func (c *Client) deleteGroupMembershipsForUser(ctx context.Context, tx *gorm.DB,
 		return fmt.Errorf("failed to delete group memberships for user: %w", err)
 	}
 	return nil
+}
+
+// groupsLastChecked reads the identity's persisted group check time. Identities that predate the
+// column carry NULL, which reads back as the zero time.
+func (c *Client) groupsLastChecked(ctx context.Context, identity types.Identity) (time.Time, error) {
+	var lastChecked sql.NullTime
+	if err := c.db.WithContext(ctx).
+		Model(new(types.Identity)).
+		Select(groupsLastCheckedColumn).
+		Where("auth_provider_name = ? AND auth_provider_namespace = ? AND hashed_provider_user_id = ?",
+			identity.AuthProviderName, identity.AuthProviderNamespace, identity.HashedProviderUserID).
+		Scan(&lastChecked).Error; err != nil {
+		return time.Time{}, fmt.Errorf("failed to read group check time: %w", err)
+	}
+
+	return lastChecked.Time, nil
 }
 
 // listCachedGroups lists the groups the identity's user is already recorded as a member of.

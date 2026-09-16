@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -314,38 +315,96 @@ func TestEnsureGroupsOutlivesCancelledLeader(t *testing.T) {
 	}
 }
 
-// TestRefreshGroupsDiscardsOvertakenRefresh covers the claim that keeps replicas apart.
-// Coalescing and the cooldown are per-process, so another replica can commit a refresh for the
-// same identity while this one's fetch is still in flight. The overtaken refresh must neither
-// restore the memberships the other removed nor authorize its own caller against them.
-func TestRefreshGroupsDiscardsOvertakenRefresh(t *testing.T) {
+// TestRefreshGroupsSkipsProviderWhenAnotherFlightJustRefreshed covers the gap between the checks in
+// ensureGroups and the flight itself. singleflight does not retain completed results, so a caller
+// descheduled in between leads a flight of its own, and only the stored check time keeps it from
+// calling a provider another flight has just refreshed.
+func TestRefreshGroupsSkipsProviderWhenAnotherFlightJustRefreshed(t *testing.T) {
 	stub := &userGroupProviderStub{groups: []auth.GroupInfo{{ID: "entra/0001", Name: "group-0001"}}}
+	srv := stub.server(t)
+
+	c := newGroupRefreshTestClient(t)
+	userID := newGroupRefreshTestUser(t, c, "late-caller")
+	seedGroups(t, c, 1)
+	if err := c.db.WithContext(t.Context()).Create(&types.GroupMemberships{UserID: userID, GroupID: "entra/0000"}).Error; err != nil {
+		t.Fatalf("failed to seed membership: %v", err)
+	}
+	setGroupCheckTime(t, c, userID, time.Now())
+
+	// This caller's copy of the identity predates that refresh, so only the stored time stops it.
+	identity := groupRefreshTestIdentity(userID)
+	groups, err := c.refreshGroups(testGroupContext(t), srv.URL, "late-caller", *identity, time.Now())
+	if err != nil {
+		t.Fatalf("refreshGroups() error = %v", err)
+	}
+
+	if got := stub.count(); got != 0 {
+		t.Errorf("auth provider requests = %d, want none: another flight had just refreshed", got)
+	}
+	if len(groups) != 1 || groups[0].ID != "entra/0000" {
+		t.Errorf("groups = %v, want what that refresh stored", groups)
+	}
+
+	// The same gap lets a late caller slip past a cooldown that another flight has since recorded,
+	// so the cooldown is re-checked here too. Reopen the check window to leave it as the only bar.
+	setGroupCheckTime(t, c, userID, nil)
+	c.groupCooldown.record("late-caller", errors.New("provider is rate limited"))
+
+	if _, err := c.refreshGroups(testGroupContext(t), srv.URL, "late-caller", *groupRefreshTestIdentity(userID), time.Now()); err != nil {
+		t.Fatalf("refreshGroups() during cooldown error = %v", err)
+	}
+	if got := stub.count(); got != 0 {
+		t.Errorf("auth provider requests = %d, want none: another flight had just failed", got)
+	}
+}
+
+// TestRefreshGroupsDiscardsOvertakenRefresh covers the claim that keeps replicas apart. Coalescing
+// and the cooldown are per-process, so another replica can commit a refresh for the same identity
+// while this one's fetch is still in flight. The overtaken refresh must neither restore the
+// memberships the other removed nor authorize its own caller against them.
+func TestRefreshGroupsDiscardsOvertakenRefresh(t *testing.T) {
+	stub := &userGroupProviderStub{
+		block:   make(chan struct{}),
+		arrived: make(chan struct{}, 1),
+		groups:  []auth.GroupInfo{{ID: "entra/0001", Name: "group-0001"}},
+	}
 	srv := stub.server(t)
 
 	c := newGroupRefreshTestClient(t)
 	userID := newGroupRefreshTestUser(t, c, "overtaken")
 	seedGroups(t, c, 2)
-
-	// What the other replica already committed: this membership, and a check time to match.
 	if err := c.db.WithContext(t.Context()).Create(&types.GroupMemberships{UserID: userID, GroupID: "entra/0000"}).Error; err != nil {
 		t.Fatalf("failed to seed membership: %v", err)
 	}
-	setGroupCheckTime(t, c, userID, time.Now())
-	overtakenBy := storedGroupCheckTime(t, c, userID)
 
-	// An identity that neither refresh touches, so a claim that is not scoped to one row is caught.
+	// An identity that no refresh touches, so a claim that is not scoped to one row is caught.
 	bystander := newGroupRefreshTestUser(t, c, "bystander")
 
-	// This refresh read the identity before that landed, so it still starts from no check time.
 	identity := groupRefreshTestIdentity(userID)
-	groups, err := c.refreshGroups(testGroupContext(t), srv.URL, "overtaken", *identity, time.Now())
-	if err != nil {
-		t.Fatalf("refreshGroups() error = %v", err)
+	type refreshResult struct {
+		groups []types.Group
+		err    error
+	}
+	done := make(chan refreshResult, 1)
+	go func() {
+		groups, err := c.refreshGroups(testGroupContext(t), srv.URL, "overtaken", *identity, time.Now())
+		done <- refreshResult{groups, err}
+	}()
+
+	// The other replica commits while this refresh is still waiting on the provider.
+	<-stub.arrived
+	setGroupCheckTime(t, c, userID, time.Now())
+	overtakenBy := storedGroupCheckTime(t, c, userID)
+	close(stub.block)
+
+	got := <-done
+	if got.err != nil {
+		t.Fatalf("refreshGroups() error = %v", got.err)
+	}
+	if len(got.groups) != 1 || got.groups[0].ID != "entra/0000" {
+		t.Errorf("groups = %v, want what the other replica committed, not this refresh's own result", got.groups)
 	}
 
-	if len(groups) != 1 || groups[0].ID != "entra/0000" {
-		t.Errorf("groups = %v, want what the other replica committed, not this refresh's own result", groups)
-	}
 	stored, err := c.listCachedGroups(t.Context(), *identity)
 	if err != nil {
 		t.Fatalf("listCachedGroups() error = %v", err)
@@ -358,5 +417,8 @@ func TestRefreshGroupsDiscardsOvertakenRefresh(t *testing.T) {
 	}
 	if checked := storedGroupCheckTime(t, c, bystander); !checked.IsZero() {
 		t.Errorf("bystander check time = %v, want none: the claim must be scoped to one identity", checked)
+	}
+	if got := stub.count(); got != 1 {
+		t.Errorf("auth provider requests = %d, want 1: the refresh ran, its result was discarded", got)
 	}
 }
