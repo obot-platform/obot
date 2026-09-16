@@ -48,6 +48,11 @@
 		return listedVMcps;
 	});
 	let isAtLeastPoweruser = $derived(profile.current.groups.includes(Group.POWERUSER));
+	let canCreate = $derived(
+		isAtLeastPoweruser ||
+			profile.current.isAdmin?.() ||
+			mcpServersAndEntries.current.entries.length > 0
+	);
 
 	function componentFilterLabel(id: string) {
 		for (const vmcp of listedVMcps) {
@@ -156,7 +161,7 @@
 			{/each}
 		</div>
 	{/if}
-	{#if !isAtLeastPoweruser && mcpServersAndEntries.current.entries.length > 0}
+	{#if canCreate}
 		<button class="btn btn-primary" onclick={openCreate}>
 			<Plus class="size-4" /> Create vMCP
 		</button>
@@ -197,7 +202,7 @@
 								: "Looks like there aren't any vMCPs available yet."}
 						</p>
 					</div>
-					{#if profile.current.hasAdminAccess?.()}
+					{#if canCreate}
 						<button class="btn btn-primary" onclick={openCreate}>
 							<Plus class="size-4" /> Create vMCP Now
 						</button>
