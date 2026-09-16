@@ -144,7 +144,7 @@ func registryTestHandlerAndContext(t *testing.T, storage *registryTestStorage) (
 	if err := database.AutoMigrate(); err != nil {
 		t.Fatal(err)
 	}
-	client := gateway.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false)
+	client := gateway.New(t.Context(), database, nil, nil, nil, nil, nil, time.Hour, 10, 0, 0, 0, false, false, nil, nil)
 	t.Cleanup(func() { _ = client.Close() })
 
 	indexer := gocache.NewIndexer(gocache.MetaNamespaceKeyFunc, gocache.Indexers{
