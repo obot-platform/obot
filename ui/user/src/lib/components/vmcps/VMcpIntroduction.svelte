@@ -1,9 +1,9 @@
 <script lang="ts">
 	import ResponsiveDialog from '$lib/components/ResponsiveDialog.svelte';
+	import VMcpDragDropStage from '$lib/components/vmcps/VMcpDragDropStage.svelte';
 	import { hasSeenTimestamp, markSeenTimestamp } from '$lib/localstate';
 	import { profile } from '$lib/stores';
 	import setupSplash from '$lib/stores/setupSplash.svelte';
-	import VMcpDragDropStage from '$lib/components/vmcps/VMcpDragDropStage.svelte';
 	import { Layers } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
@@ -106,4 +106,3 @@
 		<Layers class="text-primary size-4" />
 	</div>
 {/snippet}
-

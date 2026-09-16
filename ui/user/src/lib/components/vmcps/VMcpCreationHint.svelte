@@ -100,6 +100,7 @@
 		})
 	);
 	let current = $derived(steps[Math.min(stepIndex, Math.max(steps.length - 1, 0))]);
+	let isFirst = $derived(stepIndex === 0);
 	let isLast = $derived(stepIndex >= steps.length - 1);
 	let tourStepCount = $derived(steps.filter((step) => step.id !== 'introduction').length);
 	let anchorEl = $derived(
@@ -271,10 +272,14 @@
 					<button
 						type="button"
 						class="btn btn-primary btn-xs text-xs"
-						aria-label={isLast ? 'Finish creation tips' : 'Next creation tip'}
+						aria-label={isLast
+							? 'Finish tour'
+							: isFirst
+								? 'Start tour'
+								: 'Go to next tip'}
 						onclick={advance}
 					>
-						{isLast ? 'Done' : 'Next'}
+						{isLast ? 'Done' : isFirst ? 'Start Tour' : 'Next'}
 					</button>
 				</div>
 			</div>
